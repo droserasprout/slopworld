@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <MainButtonDef>
+    <defName>SlopWorld_Agents</defName>
+    <label>agents</label>
+    <description>Manage AI coding agent sessions.</description>
+    <workerClass>SlopWorld.MainButtonWorker_Agents</workerClass>
+    <order>75</order>
+    <validWithoutMap>true</validWithoutMap>
+  </MainButtonDef>
+</Defs>

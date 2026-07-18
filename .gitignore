@@ -1,0 +1,6 @@
+slopd/target/
+mod/Source/SlopWorld/obj/
+mod/Source/SlopWorld/bin/
+mod/Assemblies/SlopWorld.dll
+*.pdb
+*.mdb

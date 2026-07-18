@@ -1,0 +1,13 @@
+[Unit]
+Description=SlopWorld agent session daemon
+Documentation=https://github.com/droserasprout/slopworld
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/slopd
+Restart=on-failure
+RestartSec=2
+Environment=SLOPD_LOG=slopd=info
+
+[Install]
+WantedBy=default.target
