@@ -1,0 +1,38 @@
+using System.Collections.Generic;
+using System.Linq;
+using HarmonyLib;
+using RimWorld;
+using Verse;
+
+namespace SlopWorld
+{
+    // The map is a status board, not a colony you command. These patches take away
+    // the two remaining ways to "play" a pawn: selecting scenery and drafting.
+
+    /// <summary>
+    /// Only agent colonists are selectable. Every select funnels through
+    /// Selector.Select - single clicks, drag boxes, the colonist bar - so gating it
+    /// here makes items, plants, buildings and the rest of the map unclickable while
+    /// leaving colonists (and thus their Terminal gizmo) reachable.
+    /// </summary>
+    [HarmonyPatch(typeof(Selector), nameof(Selector.Select))]
+    public static class Patch_Selectable_ColonistsOnly
+    {
+        static bool Prefix(object obj) => obj is Pawn p && p.IsColonist;
+    }
+
+    /// <summary>
+    /// No Draft gizmo. Agents aren't soldiers you order around, and drafting would
+    /// hand player control over a pawn the daemon owns. Pawn.GetGizmos pulls the
+    /// draft command straight from here, so returning nothing drops it.
+    /// </summary>
+    [HarmonyPatch(typeof(Pawn_DraftController), "GetGizmos")]
+    public static class Patch_Hide_Draft
+    {
+        static bool Prefix(ref IEnumerable<Gizmo> __result)
+        {
+            __result = Enumerable.Empty<Gizmo>();
+            return false;
+        }
+    }
+}

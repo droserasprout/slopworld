@@ -31,6 +31,7 @@ prefixing it to return `false`.
 | Resource counts (bottom-left) | `RimWorld.ResourceReadout.ResourceReadoutOnGUI` |
 | Date / temp / season / **speed & time controls** (bottom-right) | `RimWorld.GlobalControls.GlobalControlsOnGUI` |
 | Mouseover terrain / thing readout (bottom-left) | `RimWorld.MouseoverReadout.MouseoverReadoutOnGUI` |
+| Learning-helper concept panel (top-right) | `RimWorld.LearningReadout.LearningReadoutOnGUI` |
 
 ### Bottom-bar buttons
 
@@ -47,6 +48,32 @@ Notes:
 - Game speed is no longer changeable from the UI, but the **spacebar** pause
   keybind still works. The sim is frozen anyway (below), so speed is moot.
 - `Inspect` is kept because it backs the inspect pane, not for a visible button.
+
+### Inspect-pane tabs
+
+`Patch_InspectTabs` (also in `StripUI.cs`, applied from the bootstrap) postfixes
+`Verse.InspectTabBase.IsVisible` and forces these pawn tabs hidden: **Bio**
+(`ITab_Pawn_Character`), **Needs**, **Health**, **Gear** and **Social**. The base
+getter is virtual and only Health inherits it - the rest override without chaining
+up - so each override getter is patched too, same trick as the main buttons.
+
+The inspect pane itself stays (summary line, selection glue); tabs we don't name
+(Records, Log, ...) and every non-pawn tab are untouched.
+
+## Interaction
+
+Two ways to "play" a pawn are taken away, in
+`mod/Source/SlopWorld/Patches/StripInteraction.cs`:
+
+- **Selection** (`Patch_Selectable_ColonistsOnly`) prefixes
+  `RimWorld.Selector.Select` so only colonist pawns select. Every path - single
+  click, drag box, colonist bar - funnels through `Select`, so items, plants,
+  buildings and terrain become unclickable while a colonist (and its Terminal
+  gizmo) stays reachable.
+- **Draft** (`Patch_Hide_Draft`) prefixes the internal
+  `RimWorld.Pawn_DraftController.GetGizmos` to return nothing. `Pawn.GetGizmos`
+  pulls the draft command straight from there, so the gizmo disappears and the
+  daemon keeps sole control of the pawn.
 
 ## Notifications
 
@@ -91,4 +118,5 @@ Left intact for now; revisit if they get in the way:
 
 - The new-game scenario **intro dialog** and character/landing config screens.
 - The **Esc menu** and main menu.
-- Inspect-pane **ITabs** (Needs, Health, Gear...) still show frozen sim data.
+- The inspect pane's remaining tabs (**Records**, **Log**) still show frozen
+  sim data; the play-the-colony tabs are dropped above.

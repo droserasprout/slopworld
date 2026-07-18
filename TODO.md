@@ -1,12 +1,16 @@
 # TODO
 
+## Cleanup
+
+- [x] Colonist menu: hide gear, social, bio, needs, health
+- [x] Hide learning panel top right
+- [x] Make only colonists clickable, not objects/items/trees
+- [x] Colonist menu: hide Draft
+
 ## Interface
 
 - [x] Add "+" button after the last colonist in top bar to add agent
-- [ ] Cleanup
-  - [ ] Colonist menu: hide gear, social, bio...
-  - [ ] Hide learning panel top right
 
 ## "Game"
 
-- [ ] All agent colonists do only one in-game work: cleaning
+- [ ] When agent is paused, pawn is sleeping

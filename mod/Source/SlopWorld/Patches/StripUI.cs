@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using RimWorld;
@@ -60,6 +61,13 @@ namespace SlopWorld
         static bool Prefix() => false;
     }
 
+    /// <summary>The tutorial "learning helper" concept panel, top-right.</summary>
+    [HarmonyPatch(typeof(LearningReadout), "LearningReadoutOnGUI")]
+    public static class Patch_Hide_Learning
+    {
+        static bool Prefix() => false;
+    }
+
     /// <summary>
     /// Hides every bottom-bar button except Menu, Inspect and our Agents tab.
     /// MainButtonWorker.Visible is virtual and overridden by several workers
@@ -93,6 +101,51 @@ namespace SlopWorld
             if (!__result) return;
             if (Keep.Contains(__instance.def?.defName)) return;
             __result = false;
+        }
+    }
+
+    /// <summary>
+    /// Hides the pawn inspect-pane tabs that only make sense when you play the
+    /// colony: Bio, Needs, Health, Gear and Social. The pane itself stays for the
+    /// summary line, and non-pawn tabs (and any we don't name) are untouched.
+    ///
+    /// InspectTabBase.IsVisible is virtual: Health inherits the base getter while
+    /// the others override it and don't chain up, so - like Patch_MainButtons - we
+    /// postfix the base getter plus each override and force it false by type.
+    /// Patched manually from the bootstrap.
+    /// </summary>
+    public static class Patch_InspectTabs
+    {
+        static readonly HashSet<Type> Drop = new HashSet<Type>
+        {
+            typeof(ITab_Pawn_Character), // "Bio"
+            typeof(ITab_Pawn_Needs),
+            typeof(ITab_Pawn_Health),
+            typeof(ITab_Pawn_Gear),
+            typeof(ITab_Pawn_Social),
+        };
+
+        public static void Apply(Harmony h)
+        {
+            var post = new HarmonyMethod(
+                AccessTools.Method(typeof(Patch_InspectTabs), nameof(Hide)));
+
+            // Base getter covers tabs that don't override IsVisible (e.g. Health).
+            h.Patch(AccessTools.PropertyGetter(typeof(InspectTabBase), "IsVisible"), postfix: post);
+
+            // The overriders compute their own visibility and may not call base,
+            // so each declared getter needs the postfix too.
+            foreach (var t in Drop)
+            {
+                var g = AccessTools.DeclaredPropertyGetter(t, "IsVisible");
+                if (g != null) h.Patch(g, postfix: post);
+            }
+        }
+
+        static void Hide(InspectTabBase __instance, ref bool __result)
+        {
+            if (!__result) return;
+            if (Drop.Contains(__instance.GetType())) __result = false;
         }
     }
 }
