@@ -69,6 +69,35 @@ namespace SlopWorld
     }
 
     /// <summary>
+    /// The inspect pane's top-right buttons - Info card, hostility response and
+    /// rename - none of which apply to an agent avatar. lineEndWidth is an
+    /// accumulator the label sizing reads back, so zero it: with no buttons drawn,
+    /// the name gets the pane's full width.
+    /// </summary>
+    [HarmonyPatch(typeof(MainTabWindow_Inspect), "DoInspectPaneButtons")]
+    public static class Patch_Hide_InspectButtons
+    {
+        static bool Prefix(ref float lineEndWidth)
+        {
+            lineEndWidth = 0f;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The pawn overview in the inspect pane: the Health / Food / Mood bars, the
+    /// timetable and area selectors, and the inspect line that leads with gender
+    /// and age. All colony-management detail, useless for a viewer, so the whole
+    /// fill is skipped for pawns. Non-pawn selections (zones, storage, buildings)
+    /// still draw normally.
+    /// </summary>
+    [HarmonyPatch(typeof(InspectPaneFiller), "DoPaneContentsFor")]
+    public static class Patch_Hide_InspectContents
+    {
+        static bool Prefix(ISelectable sel) => !(sel is Pawn);
+    }
+
+    /// <summary>
     /// Hides every bottom-bar button except Menu, Inspect and our Agents tab.
     /// MainButtonWorker.Visible is virtual and overridden by several workers
     /// (World, Quests, Mechs...), so we postfix the base getter plus every

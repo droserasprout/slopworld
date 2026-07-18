@@ -57,8 +57,20 @@ Notes:
 getter is virtual and only Health inherits it - the rest override without chaining
 up - so each override getter is patched too, same trick as the main buttons.
 
-The inspect pane itself stays (summary line, selection glue); tabs we don't name
+The inspect pane itself stays (name label, selection glue); tabs we don't name
 (Records, Log, ...) and every non-pawn tab are untouched.
+
+### Inspect-pane pawn overview
+
+Two more patches in `StripUI.cs` empty out the rest of a pawn's inspect pane, so
+only the name and the kept tabs remain:
+
+| Dropped | Method patched |
+| --- | --- |
+| Top-right buttons: Info card, hostility response, rename | `RimWorld.MainTabWindow_Inspect.DoInspectPaneButtons` (prefix; zeroes `lineEndWidth` so the name keeps full width) |
+| Health / Food / Mood bars, timetable & area selectors, and the gender/age inspect line | `RimWorld.InspectPaneFiller.DoPaneContentsFor` (prefix, skipped only when the selection is a `Pawn`) |
+
+Non-pawn selections (zones, storage, buildings) draw both normally.
 
 ## Interaction
 
