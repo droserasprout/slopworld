@@ -30,22 +30,37 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg) -> Vec<String> {
         }
     }
 
-    // systemd-resolved and NetworkManager make /etc/resolv.conf a symlink into
+    // systemd-resolved / NetworkManager make /etc/resolv.conf a symlink into
     // /run, which the sandbox never mounts. With only /etc bound the symlink
-    // dangles inside the namespace, so every DNS lookup fails with ENOENT and the
-    // agent reports it as an API connection error. Bind the symlink's real target
-    // at its own path so the /etc symlink resolves. Only relevant with net shared;
-    // a resolv.conf that is already a plain file under /etc needs nothing extra.
+    // dangles inside the namespace, so every lookup fails with ENOENT and the
+    // agent reports it as an API connection error. Materialise a working
+    // resolv.conf at whatever path the symlink points to.
+    //
+    // Prefer resolved's stub listener (127.0.0.53, reachable over the shared
+    // loopback): it does the split-DNS routing - a Tailscale uplink, say - that a
+    // resolver querying the raw server list gets wrong, where an upstream answers
+    // NOTIMP and the agent then sees an ENOTIMP error. Fall back to the symlink's
+    // own target elsewhere. Only relevant with the network shared; a resolv.conf
+    // that is already a plain file under /etc needs nothing extra.
     let resolv = if s.net {
         std::fs::canonicalize("/etc/resolv.conf")
             .ok()
             .map(|p| p.to_string_lossy().into_owned())
-            .filter(|p| p != "/etc/resolv.conf")
+            .filter(|target| target != "/etc/resolv.conf")
+            .map(|target| {
+                let stub = "/run/systemd/resolve/stub-resolv.conf";
+                let src = if std::path::Path::new(stub).exists() {
+                    stub.to_string()
+                } else {
+                    target.clone()
+                };
+                (src, target)
+            })
     } else {
         None
     };
-    if let Some(real) = &resolv {
-        push(&["--ro-bind", real.as_str(), real.as_str()]);
+    if let Some((src, target)) = &resolv {
+        push(&["--ro-bind", src.as_str(), target.as_str()]);
     }
 
     // Usr-merge symlinks, otherwise nothing resolves inside the namespace.

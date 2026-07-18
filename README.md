@@ -76,10 +76,12 @@ agent's state dir (`~/.claude`) read-write, `/usr` and `/etc` read-only, and
 nothing else. `net = false` also unshares the network namespace. Tune the binds
 under `[sandbox]`.
 
-When the network is shared, slopd also binds the real target of
-`/etc/resolv.conf` (a symlink into `/run` under systemd-resolved or
-NetworkManager, which the sandbox otherwise doesn't mount) so DNS resolves;
-without it lookups fail with ENOENT and agents see it as an API error.
+When the network is shared, slopd fixes up `/etc/resolv.conf`, which
+systemd-resolved / NetworkManager make a symlink into `/run` that the sandbox
+otherwise doesn't mount (leaving it dangling, so lookups fail with ENOENT and
+agents see an API error). It prefers resolved's stub listener `127.0.0.53`,
+reachable over the shared loopback, so split-DNS - e.g. a Tailscale uplink -
+routes correctly instead of an upstream answering NOTIMP.
 
 ## Terminal keys
 
