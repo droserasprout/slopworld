@@ -66,9 +66,26 @@ namespace SlopWorld
             foreach (var s in sessions)
             {
                 if (_pawns.ContainsKey(s.Name)) continue;
-                var pawn = Spawn(s.Name, map);
+                // Adopt a colonist already on the map with this name before spawning
+                // a new one. The session->pawn map is saved with reference values,
+                // which RimWorld resolves in a later load phase and silently drops
+                // when they don't round-trip; without this the reconcile would spawn
+                // a duplicate next to the loaded pawn. Matching by name (each agent
+                // is a NameSingle of its session) rebuilds the map instead.
+                var pawn = FindExisting(s.Name) ?? Spawn(s.Name, map);
                 if (pawn != null) _pawns[s.Name] = pawn;
             }
+        }
+
+        Pawn FindExisting(string name)
+        {
+            foreach (var p in PawnsFinder.AllMaps_FreeColonists)
+            {
+                if (p == null || p.Destroyed) continue;
+                if (IsAgentPawn(p)) continue; // already tracked under some session
+                if (p.Name is NameSingle ns && ns.Name == name) return p;
+            }
+            return null;
         }
 
         static void Retire(Pawn p)
