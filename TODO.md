@@ -11,6 +11,12 @@
 
 - [x] Add "+" button after the last colonist in top bar to add agent
 
+## Terminal
+
+- [ ] Mouse wheel scrolling
+- [ ] Text selection/copy/paste
+- [ ] Fix input lag
+
 ## "Game"
 
 - [ ] When agent is paused, pawn is sleeping

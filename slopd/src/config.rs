@@ -77,7 +77,14 @@ impl Default for Sandbox {
     fn default() -> Self {
         Self {
             enabled: true,
-            ro_paths: vec!["/usr".into(), "/etc".into(), "/opt".into()],
+            // ~/.local/bin so agent-run tools (MCP servers, wrappers) on PATH
+            // resolve inside the sandbox; without it their spawn fails with ENOENT.
+            ro_paths: vec![
+                "/usr".into(),
+                "/etc".into(),
+                "/opt".into(),
+                "~/.local/bin".into(),
+            ],
             rw_paths: vec!["~/.claude".into(), "~/.claude.json".into()],
             pass_env: vec![
                 "PATH".into(),
