@@ -1,10 +1,9 @@
-WINEPREFIX ?= $(HOME)/.rimworld
-RIMWORLD   ?= $(WINEPREFIX)/drive_c/GOG Games/RimWorld
-MANAGED    ?= $(RIMWORLD)/RimWorldWin64_Data/Managed
+RIMWORLD   ?= $(HOME)/RimWorld/game
+MANAGED    ?= $(RIMWORLD)/RimWorldLinux_Data/Managed
 MODS       ?= $(RIMWORLD)/Mods
 BIN        ?= $(HOME)/.local/bin
 UNITS      ?= $(HOME)/.config/systemd/user
-LOG        ?= $(WINEPREFIX)/drive_c/users/$(USER)/AppData/LocalLow/Ludeon Studios/RimWorld by Ludeon Studios/Player.log
+LOG        ?= $(HOME)/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log
 
 .PHONY: all daemon mod install install-daemon install-mod run logs test clean
 
@@ -35,7 +34,7 @@ install-mod: mod
 	@echo "installed to $(MODS)/SlopWorld"
 
 run:
-	WINEPREFIX=$(WINEPREFIX) wine "$(RIMWORLD)/RimWorldWin64.exe"
+	"$(RIMWORLD)/RimWorldLinux" -popupwindow -force-opengl
 
 # The game's own log; Harmony and mod errors land here, not in the terminal.
 logs:

@@ -31,6 +31,8 @@ namespace SlopWorld
         public Pawn PawnOf(string session) =>
             _pawns.TryGetValue(session, out var p) ? p : null;
 
+        public bool IsAgentPawn(Pawn p) => p != null && _pawns.ContainsValue(p);
+
         public IEnumerable<KeyValuePair<string, Pawn>> All => _pawns;
 
         public override void GameComponentTick()

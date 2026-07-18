@@ -111,7 +111,9 @@ namespace SlopWorld
     {
         static SlopWorldBootstrap()
         {
-            new Harmony("drsr.slopworld").PatchAll();
+            var h = new Harmony("drsr.slopworld");
+            h.PatchAll();
+            Patch_MainButtons.Apply(h);
             Log.Message("[SlopWorld] patched; daemon at " + SlopClient.BaseUrl);
         }
     }

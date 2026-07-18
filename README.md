@@ -1,11 +1,6 @@
 # SlopWorld
 
-RimWorld with the colony sim stripped out. Every colonist is a live AI coding
-agent: a tmux session running under bubblewrap on the host, managed by a systemd
-daemon. Select a colonist, hit Terminal, and you are typing at the agent.
-
-The map becomes an ambient status board. A colonist with `! INPUT` over their
-head is an agent blocked on a permission prompt.
+RimWorld, but colonists are clankers ¯\_(ツ)_/¯
 
 ## Shape
 
@@ -16,7 +11,9 @@ host processes, so the split is:
   `config.toml`. Serves HTTP + WebSocket on loopback, which passes straight
   through Wine.
 - **`SlopWorld`** (C# mod, Harmony) declines to tick the sim, maps sessions to
-  colonists, and renders the terminal.
+  colonists, and renders the terminal. With the mod loaded the vanilla game is a
+  viewer: most of RimWorld's UI, notifications and the starting colonists are
+  stripped. See [DROPS.md](DROPS.md) for the full list.
 
 The mod contains no terminal emulator. `tmux capture-pane -e` returns a screen
 that tmux has *already* rendered, carrying only SGR colour escapes, so the mod
