@@ -76,6 +76,11 @@ agent's state dir (`~/.claude`) read-write, `/usr` and `/etc` read-only, and
 nothing else. `net = false` also unshares the network namespace. Tune the binds
 under `[sandbox]`.
 
+When the network is shared, slopd also binds the real target of
+`/etc/resolv.conf` (a symlink into `/run` under systemd-resolved or
+NetworkManager, which the sandbox otherwise doesn't mount) so DNS resolves;
+without it lookups fail with ENOENT and agents see it as an API error.
+
 ## Terminal keys
 
 Everything is forwarded to the agent, including bare `Escape`. To leave the
