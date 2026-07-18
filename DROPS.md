@@ -69,6 +69,7 @@ only the name and the kept tabs remain:
 | --- | --- |
 | Top-right buttons: Info card, hostility response, rename | `RimWorld.MainTabWindow_Inspect.DoInspectPaneButtons` (prefix; zeroes `lineEndWidth` so the name keeps full width) |
 | Health / Food / Mood bars, timetable & area selectors, and the gender/age inspect line | `RimWorld.InspectPaneFiller.DoPaneContentsFor` (prefix, skipped only when the selection is a `Pawn`) |
+| "Select next thing in this cell" overlay button | `RimWorld.MainTabWindow_Inspect.ShouldShowSelectNextInCellButton` getter (postfix forced `false`; the button is drawn in `InspectPaneOnGUI`, separate from the pane buttons) |
 
 Non-pawn selections (zones, storage, buildings) draw both normally.
 

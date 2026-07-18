@@ -98,6 +98,18 @@ namespace SlopWorld
     }
 
     /// <summary>
+    /// The "select next thing in this cell" overlay button. It's drawn in
+    /// InspectPaneOnGUI, separate from the pane buttons above, and gated on this
+    /// getter. Only colonists are selectable now, so cycling a cell's things is
+    /// moot; force the gate false to drop the button.
+    /// </summary>
+    [HarmonyPatch(typeof(MainTabWindow_Inspect), "ShouldShowSelectNextInCellButton", MethodType.Getter)]
+    public static class Patch_Hide_SelectNextInCell
+    {
+        static void Postfix(ref bool __result) => __result = false;
+    }
+
+    /// <summary>
     /// Hides every bottom-bar button except Menu, Inspect and our Agents tab.
     /// MainButtonWorker.Visible is virtual and overridden by several workers
     /// (World, Quests, Mechs...), so we postfix the base getter plus every
