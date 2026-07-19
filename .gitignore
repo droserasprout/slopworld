@@ -4,3 +4,4 @@ mod/Source/SlopWorld/bin/
 mod/Assemblies/SlopWorld.dll
 *.pdb
 *.mdb
+.tokensave

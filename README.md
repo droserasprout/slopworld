@@ -15,9 +15,13 @@ host processes, so the split is:
   viewer: most of RimWorld's UI, notifications and the starting colonists are
   stripped. See [DROPS.md](DROPS.md) for the full list.
 
-The mod contains no terminal emulator. `tmux capture-pane -e` returns a screen
-that tmux has *already* rendered, carrying only SGR colour escapes, so the mod
-parses colour runs and nothing else. Input goes back as `tmux send-keys`.
+The terminal emulator lives in `slopd`. It attaches to each tmux session in
+control mode (`tmux -C`) and feeds the raw byte stream into a real VT engine
+(`alacritty_terminal`), so it owns the full grid: wide chars, cursor shape,
+scrollback, and the app's mouse / alt-screen / bracketed-paste modes. Every
+frame is serialized back to SGR colour runs (plus column markers for wide chars)
+that the mod draws and nothing more. Input goes back as `tmux send-keys`; mouse
+events and pastes are encoded to the app's own protocol first.
 
 ## Install
 
@@ -53,7 +57,7 @@ from a real terminal:
 
 ### Agent state
 
-The daemon scrapes the pane and classifies it. The rules are config, not code,
+The daemon classifies the rendered screen text. The rules are config, not code,
 so retarget them at whatever agent you run:
 
 ```toml
@@ -86,5 +90,10 @@ routes correctly instead of an upstream answering NOTIMP.
 ## Terminal keys
 
 Everything is forwarded to the agent, including bare `Escape`. To leave the
-terminal use **Shift+Escape** or the Close button. `Ctrl+V` pastes from the
-system clipboard.
+terminal use **Shift+Escape** or the Close button.
+
+The mouse works inside TUIs: when the app asks for the mouse (Claude Code,
+`less`, vim) the wheel, clicks and drags are forwarded to it; otherwise the wheel
+walks scrollback and drag selects text. **Shift** forces local selection even
+when the app wants the mouse. `Ctrl+V` pastes from the system clipboard, wrapped
+in bracketed-paste markers when the app supports them.

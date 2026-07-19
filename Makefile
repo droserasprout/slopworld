@@ -26,6 +26,7 @@ install-daemon: daemon
 	install -Dm644 slopd/slopd.service $(UNITS)/slopd.service
 	systemctl --user daemon-reload
 	systemctl --user enable --now slopd.service
+	systemctl --user restart slopd.service
 	@systemctl --user --no-pager status slopd.service | head -3
 
 install-mod: mod

@@ -13,9 +13,14 @@
 
 ## Terminal
 
-- [ ] Mouse wheel scrolling
-- [ ] Text selection/copy/paste
-- [ ] Fix input lag
+- [x] Mouse wheel scrolling
+- [x] Text selection/copy/paste
+- [x] Fix input lag
+- [x] Real emulator in slopd (alacritty_terminal + tmux control mode), event-driven
+- [x] Wide chars, cursor shape/blink parity
+- [x] Mouse forwarding to TUIs (wheel/click/drag), alt-screen wheel-as-arrows
+- [x] Bracketed paste
+- [ ] Cursor colour, OSC8/URL hyperlinks (optional)
 
 ## "Game"
 
