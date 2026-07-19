@@ -5,6 +5,7 @@ edition = "2021"
 description = "Session daemon for SlopWorld: tmux + bubblewrap agent sessions behind a localhost API"
 
 [dependencies]
+alacritty_terminal = "0.26"
 anyhow = "1"
 axum = { version = "0.7", features = ["ws"] }
 dirs = "5"

@@ -1,5 +1,6 @@
 mod api;
 mod config;
+mod emu;
 mod sandbox;
 mod session;
 mod tmux;
@@ -42,7 +43,7 @@ async fn main() -> Result<()> {
             tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
                 tick.tick().await;
-                m.poll_once().await;
+                m.retick().await;
             }
         })
     };

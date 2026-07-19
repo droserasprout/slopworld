@@ -216,6 +216,14 @@ enum ClientMsg {
     Unsub { name: String },
     Keys(KeysReq2),
     Resize(ResizeReq2),
+    Scroll(ScrollReq),
+}
+
+#[derive(Deserialize)]
+struct ScrollReq {
+    name: String,
+    /// Lines scrolled up into scrollback; 0 returns to the live bottom.
+    off: u16,
 }
 
 #[derive(Deserialize)]
@@ -315,6 +323,13 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
             ClientMsg::Resize(r) => {
                 if let Err(e) = m.resize(&r.name, r.cols, r.rows).await {
                     tracing::debug!("resize: {e:#}");
+                }
+            }
+            ClientMsg::Scroll(sr) => {
+                // Answer this socket alone: a scrolled frame is private to the
+                // wheel request and must not reach live subscribers.
+                if let Some(s) = m.scroll_capture(&sr.name, sr.off).await {
+                    let _ = send(&tx, &Event::Screen { screen: s }).await;
                 }
             }
         }

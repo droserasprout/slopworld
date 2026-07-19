@@ -1,15 +1,19 @@
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::{broadcast, RwLock};
+use tokio::task::JoinHandle;
+use tokio::time::{interval, MissedTickBehavior};
 
 use crate::config::{expand, Config, SessionCfg};
+use crate::emu::{parse_output, Frame, SessionEmu};
 use crate::sandbox::build_argv;
 use crate::tmux::Tmux;
 
@@ -50,6 +54,10 @@ pub struct ScreenView {
     pub rows: u16,
     pub cx: u16,
     pub cy: u16,
+    /// Lines scrolled up into scrollback; 0 for a live bottom frame. A scrolled
+    /// frame is a one-off answer to a wheel event, never broadcast.
+    #[serde(default)]
+    pub off: u16,
     /// One entry per row, still carrying SGR escapes.
     pub lines: Vec<String>,
 }
@@ -70,6 +78,11 @@ struct Live {
     cols: u16,
     rows: u16,
     screen: Option<ScreenView>,
+    /// The live terminal emulator, present only while a control reader is
+    /// attached (i.e. the session is running).
+    emu: Option<Arc<Mutex<SessionEmu>>>,
+    /// Handle to the control-mode reader task; aborted on stop/death.
+    reader: Option<JoinHandle<()>>,
 }
 
 pub struct Manager {
@@ -139,7 +152,7 @@ impl Manager {
 
     /// Reconciles the live table with config: adds new entries, drops removed
     /// ones, autostarts what asks for it.
-    pub async fn sync_from_config(&self) {
+    pub async fn sync_from_config(self: &Arc<Self>) {
         let cfg = self.config().await;
         let mut live = self.live.write().await;
 
@@ -159,6 +172,8 @@ impl Manager {
                     cols,
                     rows,
                     screen: None,
+                    emu: None,
+                    reader: None,
                 });
         }
         drop(live);
@@ -170,9 +185,18 @@ impl Manager {
                 }
             }
         }
+
+        // Attach a control reader to any session that's already running (e.g. one
+        // that survived a daemon restart). Idempotent: skips sessions we already
+        // hold an emulator for.
+        for name in self.tmux.list().await {
+            if self.live.read().await.contains_key(&name) {
+                self.spawn_reader(&name).await;
+            }
+        }
     }
 
-    pub async fn start(&self, name: &str) -> Result<()> {
+    pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
         let cfg = self.config().await;
         let s = cfg
             .session(name)
@@ -192,27 +216,32 @@ impl Manager {
         let argv = build_argv(&cfg, &s);
         tracing::info!("starting {name}: {}", argv.join(" "));
         self.tmux.spawn(name, &dir, cols, rows, &argv).await?;
+        self.spawn_reader(name).await;
         Ok(())
     }
 
-    pub async fn stop(&self, name: &str) -> Result<()> {
+    pub async fn stop(self: &Arc<Self>, name: &str) -> Result<()> {
         if self.tmux.exists(name).await {
             self.tmux.kill(name).await?;
         }
         if let Some(l) = self.live.write().await.get_mut(name) {
             l.state = State::Dead;
             l.screen = None;
+            l.emu = None;
+            if let Some(h) = l.reader.take() {
+                h.abort();
+            }
         }
         Ok(())
     }
 
-    pub async fn restart(&self, name: &str) -> Result<()> {
+    pub async fn restart(self: &Arc<Self>, name: &str) -> Result<()> {
         self.stop(name).await?;
         self.start(name).await
     }
 
     /// Adds a session to config, persists, and starts it if asked.
-    pub async fn add(&self, s: SessionCfg) -> Result<()> {
+    pub async fn add(self: &Arc<Self>, s: SessionCfg) -> Result<()> {
         let mut cfg = self.cfg.write().await;
         if cfg.session(&s.name).is_some() {
             bail!("session {} already exists", s.name);
@@ -234,7 +263,7 @@ impl Manager {
         Ok(())
     }
 
-    pub async fn update(&self, name: &str, s: SessionCfg) -> Result<()> {
+    pub async fn update(self: &Arc<Self>, name: &str, s: SessionCfg) -> Result<()> {
         let mut cfg = self.cfg.write().await;
         let idx = cfg
             .sessions
@@ -248,7 +277,7 @@ impl Manager {
         Ok(())
     }
 
-    pub async fn remove(&self, name: &str) -> Result<()> {
+    pub async fn remove(self: &Arc<Self>, name: &str) -> Result<()> {
         self.stop(name).await.ok();
         let mut cfg = self.cfg.write().await;
         cfg.sessions.retain(|s| s.name != name);
@@ -258,7 +287,7 @@ impl Manager {
         Ok(())
     }
 
-    pub async fn replace_config(&self, text: &str) -> Result<()> {
+    pub async fn replace_config(self: &Arc<Self>, text: &str) -> Result<()> {
         let new = Config::parse(text)?;
         new.save(&self.cfg_path)?;
         *self.rules.write().await = compile_rules(&new);
@@ -322,6 +351,11 @@ impl Manager {
         if self.tmux.exists(name).await {
             self.tmux.resize(name, cols, rows).await?;
         }
+        if let Some(emu) = self.live.read().await.get(name).and_then(|l| l.emu.clone()) {
+            if let Ok(mut e) = emu.lock() {
+                e.resize(cols, rows);
+            }
+        }
         Ok(())
     }
 
@@ -339,77 +373,31 @@ impl Manager {
         }
     }
 
-    /// One pass over every known session. Captures panes, updates state, emits
-    /// events on change. Called on a fixed tick by the poll loop.
-    pub async fn poll_once(&self) {
-        let names: Vec<String> = self.live.read().await.keys().cloned().collect();
-        let running = self.tmux.list().await;
+    /// A cheap in-memory tick over every live session: re-runs the state rules so
+    /// a session that fell quiet decays working -> idle. No tmux spawns and no
+    /// captures; screen changes arrive event-driven from the control readers.
+    pub async fn retick(&self) {
+        // Snapshot outside the lock so classify()'s await doesn't hold it.
+        let snapshot: Vec<(String, u64, String)> = {
+            let live = self.live.read().await;
+            live.iter()
+                .filter(|(_, l)| l.state != State::Dead)
+                .filter_map(|(n, l)| {
+                    let s = l.screen.as_ref()?;
+                    Some((n.clone(), l.last_change, strip_sgr(&s.lines.join("\n"))))
+                })
+                .collect()
+        };
+
         let mut dirty_list = false;
-
-        for name in names {
-            let alive = running.contains(&name);
-
-            if !alive {
-                let mut live = self.live.write().await;
-                if let Some(l) = live.get_mut(&name) {
-                    if l.state != State::Dead {
-                        l.state = State::Dead;
-                        l.screen = None;
-                        dirty_list = true;
-                    }
-                }
-                continue;
-            }
-
-            let Ok(cap) = self.tmux.capture(&name).await else {
-                continue;
-            };
-            let hash = hash_lines(&cap.lines);
-
-            let (prev_hash, prev_state, prev_change, seq) = {
-                let live = self.live.read().await;
-                let Some(l) = live.get(&name) else { continue };
-                (l.hash, l.state, l.last_change, l.seq)
-            };
-
-            let changed = hash != prev_hash;
-            let plain = strip_sgr(&cap.lines.join("\n"));
-            let state = self.classify(changed, prev_change, &plain).await;
-
-            if !changed && state == prev_state {
-                continue;
-            }
-
-            let (cols, rows) = self.tmux.size(&name).await.unwrap_or((80, 24));
-            let view = ScreenView {
-                name: name.clone(),
-                seq: seq + 1,
-                cols,
-                rows,
-                cx: cap.cx,
-                cy: cap.cy,
-                lines: cap.lines,
-            };
-
-            {
-                let mut live = self.live.write().await;
-                let Some(l) = live.get_mut(&name) else { continue };
-                l.hash = hash;
-                l.seq += 1;
-                l.cols = cols;
-                l.rows = rows;
-                if changed {
-                    l.last_change = now_ms();
-                }
+        for (name, last_change, plain) in snapshot {
+            let state = self.classify(false, last_change, &plain).await;
+            let mut live = self.live.write().await;
+            if let Some(l) = live.get_mut(&name) {
                 if l.state != state {
                     l.state = state;
                     dirty_list = true;
                 }
-                l.screen = Some(view.clone());
-            }
-
-            if changed {
-                let _ = self.events.send(Event::Screen { screen: view });
             }
         }
 
@@ -418,6 +406,238 @@ impl Manager {
                 sessions: self.views().await,
             });
         }
+    }
+
+    /// Attaches a control-mode reader to a running session and wires up its
+    /// emulator. Idempotent: does nothing if we already hold an emulator for the
+    /// session. Reseeds the fresh emulator from the current pane so an attach
+    /// mid-session (daemon restart) shows real content, not a blank grid.
+    async fn spawn_reader(self: &Arc<Self>, name: &str) {
+        let (cols, rows, has_emu) = {
+            let live = self.live.read().await;
+            match live.get(name) {
+                Some(l) => (l.cols, l.rows, l.emu.is_some()),
+                None => return,
+            }
+        };
+        if has_emu {
+            return;
+        }
+
+        let mut e = SessionEmu::new(cols, rows);
+        if let Ok(cap) = self.tmux.capture(name).await {
+            let mut seed = String::from("\x1b[2J\x1b[H\x1b[0m");
+            seed.push_str(&cap.lines.join("\r\n"));
+            seed.push_str(&format!("\x1b[{};{}H", cap.cy + 1, cap.cx + 1));
+            e.feed(seed.as_bytes());
+        }
+        let emu = Arc::new(Mutex::new(e));
+
+        let handle = {
+            let m = self.clone();
+            let name = name.to_string();
+            let emu = emu.clone();
+            tokio::spawn(async move { m.run_control(name, emu).await })
+        };
+
+        {
+            let mut live = self.live.write().await;
+            match live.get_mut(name) {
+                Some(l) => {
+                    l.emu = Some(emu.clone());
+                    l.reader = Some(handle);
+                }
+                None => {
+                    handle.abort();
+                    return;
+                }
+            }
+        }
+
+        // Push the seeded frame so fresh subscribers see content before any output.
+        self.render_and_broadcast(name, &emu).await;
+    }
+
+    /// The control-reader task: pumps `%output` bytes into the emulator and, on a
+    /// coalescing tick, renders + broadcasts. Ends (marking the session dead) when
+    /// the session emits `%exit` or the control client's stdout closes.
+    async fn run_control(self: Arc<Self>, name: String, emu: Arc<Mutex<SessionEmu>>) {
+        let mut child = match self.tmux.control_attach(&name) {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::error!("control attach {name}: {e:#}");
+                self.mark_dead(&name).await;
+                return;
+            }
+        };
+        let Some(stdout) = child.stdout.take() else {
+            self.mark_dead(&name).await;
+            return;
+        };
+        let mut lines = BufReader::new(stdout).lines();
+
+        // Coalesce bursts of output into ~60fps renders instead of one per line.
+        let mut flush = interval(Duration::from_millis(8));
+        flush.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        let mut dirty = false;
+
+        loop {
+            tokio::select! {
+                line = lines.next_line() => match line {
+                    Ok(Some(l)) => {
+                        if let Some(bytes) = parse_output(&l) {
+                            if let Ok(mut e) = emu.lock() {
+                                e.feed(&bytes);
+                            }
+                            dirty = true;
+                        } else if l.starts_with("%exit") {
+                            break;
+                        }
+                    }
+                    // stdout closed or a read error: the client is gone.
+                    _ => break,
+                },
+                _ = flush.tick() => {
+                    if dirty {
+                        dirty = false;
+                        self.render_and_broadcast(&name, &emu).await;
+                    }
+                }
+            }
+        }
+
+        self.mark_dead(&name).await;
+    }
+
+    /// Renders the emulator's live frame and applies it to the session's live
+    /// state, broadcasting a screen (and, on a state move, a session list) event.
+    async fn render_and_broadcast(&self, name: &str, emu: &Mutex<SessionEmu>) {
+        let frame = match emu.lock() {
+            Ok(e) => e.render(),
+            Err(_) => return,
+        };
+        self.apply_frame(name, frame).await;
+    }
+
+    /// Diffs a freshly-rendered frame against the stored one, updates live state,
+    /// and broadcasts what changed. Mirrors the old poll_session bookkeeping but
+    /// off the emulator instead of a capture.
+    async fn apply_frame(&self, name: &str, frame: Frame) {
+        let hash = hash_lines(&frame.lines);
+        let (prev_hash, prev_state, prev_change, seq, prev_cursor, cols, rows) = {
+            let live = self.live.read().await;
+            let Some(l) = live.get(name) else { return };
+            let cur = l.screen.as_ref().map(|s| (s.cx, s.cy)).unwrap_or((0, 0));
+            (
+                l.hash,
+                l.state,
+                l.last_change,
+                l.seq,
+                cur,
+                l.cols,
+                l.rows,
+            )
+        };
+
+        let changed = hash != prev_hash || (frame.cx, frame.cy) != prev_cursor;
+        let plain = strip_sgr(&frame.lines.join("\n"));
+        let state = self.classify(changed, prev_change, &plain).await;
+
+        if !changed && state == prev_state {
+            return;
+        }
+
+        let view = ScreenView {
+            name: name.to_string(),
+            seq: seq + 1,
+            cols,
+            rows,
+            cx: frame.cx,
+            cy: frame.cy,
+            off: 0,
+            lines: frame.lines,
+        };
+
+        let mut dirty_list = false;
+        {
+            let mut live = self.live.write().await;
+            let Some(l) = live.get_mut(name) else { return };
+            l.hash = hash;
+            l.seq += 1;
+            if changed {
+                l.last_change = now_ms();
+            }
+            if l.state != state {
+                l.state = state;
+                dirty_list = true;
+            }
+            l.screen = Some(view.clone());
+        }
+
+        if changed {
+            let _ = self.events.send(Event::Screen { screen: view });
+        }
+        if dirty_list {
+            let _ = self.events.send(Event::Sessions {
+                sessions: self.views().await,
+            });
+        }
+    }
+
+    /// Marks a session dead and tears down its emulator + reader. Broadcasts a
+    /// session list only when the state actually moved.
+    async fn mark_dead(&self, name: &str) {
+        let mut changed = false;
+        {
+            let mut live = self.live.write().await;
+            if let Some(l) = live.get_mut(name) {
+                if l.state != State::Dead {
+                    l.state = State::Dead;
+                    changed = true;
+                }
+                l.screen = None;
+                l.emu = None;
+                if let Some(h) = l.reader.take() {
+                    h.abort();
+                }
+            }
+        }
+        if changed {
+            let _ = self.events.send(Event::Sessions {
+                sessions: self.views().await,
+            });
+        }
+    }
+
+    /// A one-off frame scrolled `off` lines into scrollback for a wheel request.
+    /// Returned to the caller only, never broadcast, so it can't clobber the live
+    /// view. `off == 0` (or beyond history) returns the live frame.
+    pub async fn scroll_capture(&self, name: &str, off: u16) -> Option<ScreenView> {
+        if off == 0 {
+            return self.screen(name).await;
+        }
+        let (emu, seq, cols, rows) = {
+            let live = self.live.read().await;
+            let l = live.get(name)?;
+            (l.emu.clone()?, l.seq, l.cols, l.rows)
+        };
+        let (frame, achieved) = {
+            let mut e = emu.lock().ok()?;
+            e.scroll_snapshot(off)
+        };
+        if achieved == 0 {
+            return self.screen(name).await;
+        }
+        Some(ScreenView {
+            name: name.to_string(),
+            seq,
+            cols,
+            rows,
+            cx: frame.cx,
+            cy: frame.cy,
+            off: achieved,
+            lines: frame.lines,
+        })
     }
 }
 

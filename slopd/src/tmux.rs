@@ -1,5 +1,7 @@
+use std::process::Stdio;
+
 use anyhow::{bail, Result};
-use tokio::process::Command;
+use tokio::process::{Child, Command};
 
 /// Thin async wrapper over the tmux CLI, pinned to a private server socket.
 #[derive(Clone)]
@@ -108,21 +110,21 @@ impl Tmux {
         })
     }
 
-    pub async fn size(&self, name: &str) -> Result<(u16, u16)> {
-        let target = format!("{name}:.0");
-        let out = self
-            .run(&[
-                "display-message",
-                "-p",
-                "-t",
-                &target,
-                "#{pane_width} #{pane_height}",
-            ])
-            .await?;
-        let mut it = out.split_whitespace();
-        let w = it.next().and_then(|v| v.parse().ok()).unwrap_or(80);
-        let h = it.next().and_then(|v| v.parse().ok()).unwrap_or(24);
-        Ok((w, h))
+    /// Spawns a control-mode client attached to one session: it reads commands on
+    /// stdin and writes `%`-prefixed notifications (incl. `%output`) to stdout.
+    /// stdin stays piped and the child is held by the caller so the attach lives;
+    /// `kill_on_drop` tears the client down when the reader task ends.
+    pub fn control_attach(&self, name: &str) -> Result<Child> {
+        let child = Command::new("tmux")
+            .arg("-L")
+            .arg(&self.socket)
+            .args(["-C", "attach", "-t", name])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .kill_on_drop(true)
+            .spawn()?;
+        Ok(child)
     }
 
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
