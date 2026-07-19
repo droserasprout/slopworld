@@ -50,6 +50,23 @@ namespace SlopWorld
     }
 
     /// <summary>
+    /// The cell inspector - the debug-flavoured readout of terrain, things and
+    /// stats for the cell under the cursor, shown while Alt is held (Alt is bound
+    /// to ShowCellInspector). It exposes colony internals a viewer has no use for.
+    /// Both the overlay draw and the Alt-hold mouseover bracket gate on
+    /// CellInspectorDrawer.ShouldShow, so forcing it false drops the whole thing.
+    /// </summary>
+    [HarmonyPatch(typeof(CellInspectorDrawer), "ShouldShow")]
+    public static class Patch_Hide_CellInspector
+    {
+        static bool Prefix(ref bool __result)
+        {
+            __result = false;
+            return false;
+        }
+    }
+
+    /// <summary>
     /// The inspect pane's top-right buttons - Info card, hostility response and
     /// rename - none of which apply to an agent avatar. lineEndWidth is an
     /// accumulator the label sizing reads back, so zero it: with no buttons drawn,
