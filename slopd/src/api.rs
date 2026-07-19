@@ -218,6 +218,13 @@ enum ClientMsg {
     Resize(ResizeReq2),
     Scroll(ScrollReq),
     Mouse(MouseReq),
+    Paste(PasteReq),
+}
+
+#[derive(Deserialize)]
+struct PasteReq {
+    name: String,
+    text: String,
 }
 
 #[derive(Deserialize)]
@@ -358,6 +365,11 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                 };
                 if let Err(e) = m.send_mouse(&mr.name, ev).await {
                     tracing::debug!("send_mouse: {e:#}");
+                }
+            }
+            ClientMsg::Paste(pr) => {
+                if let Err(e) = m.paste(&pr.name, &pr.text).await {
+                    tracing::debug!("paste: {e:#}");
                 }
             }
         }

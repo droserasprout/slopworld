@@ -61,6 +61,9 @@ pub struct ScreenView {
     /// Cursor shape: 0 = block, 1 = underline, 2 = beam.
     #[serde(default)]
     pub cursor_shape: u8,
+    /// Whether the app wants the cursor to blink.
+    #[serde(default)]
+    pub cursor_blink: bool,
     /// The app wants mouse reports (drives Phase 3 wheel/click forwarding).
     #[serde(default)]
     pub app_mouse: bool,
@@ -362,6 +365,34 @@ impl Manager {
         Ok(())
     }
 
+    /// Pastes text into the pane. If the app enabled bracketed paste, the text is
+    /// wrapped in `\x1b[200~..\x1b[201~` and any end-marker inside the content is
+    /// stripped so a paste can't forge the terminator (paste-injection). Sent as
+    /// raw bytes so escapes survive verbatim.
+    pub async fn paste(&self, name: &str, text: &str) -> Result<()> {
+        if !self.tmux.exists(name).await {
+            bail!("session {name} is not running");
+        }
+        let bracketed = {
+            let live = self.live.read().await;
+            live.get(name)
+                .and_then(|l| l.emu.clone())
+                .map(|e| e.lock().map(|g| g.bracketed_paste()).unwrap_or(false))
+                .unwrap_or(false)
+        };
+
+        let mut bytes = Vec::new();
+        if bracketed {
+            bytes.extend_from_slice(b"\x1b[200~");
+            // Drop any embedded terminator so pasted content can't end the paste early.
+            bytes.extend_from_slice(text.replace("\x1b[201~", "").as_bytes());
+            bytes.extend_from_slice(b"\x1b[201~");
+        } else {
+            bytes.extend_from_slice(text.as_bytes());
+        }
+        self.tmux.send_bytes(name, &bytes).await
+    }
+
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
         let cols = cols.clamp(20, 500);
         let rows = rows.clamp(5, 200);
@@ -559,8 +590,8 @@ impl Manager {
             let meta = l
                 .screen
                 .as_ref()
-                .map(|s| (s.cursor_shape, s.app_mouse, s.alt_screen))
-                .unwrap_or((0, false, false));
+                .map(|s| (s.cursor_shape, s.cursor_blink, s.app_mouse, s.alt_screen))
+                .unwrap_or((0, false, false, false));
             (
                 l.hash,
                 l.state,
@@ -573,7 +604,12 @@ impl Manager {
             )
         };
 
-        let meta = (frame.cursor_shape, frame.app_mouse, frame.alt_screen);
+        let meta = (
+            frame.cursor_shape,
+            frame.cursor_blink,
+            frame.app_mouse,
+            frame.alt_screen,
+        );
         let changed =
             hash != prev_hash || (frame.cx, frame.cy) != prev_cursor || meta != prev_meta;
         let plain = strip_sgr(&frame.lines.join("\n"));
@@ -592,6 +628,7 @@ impl Manager {
             cy: frame.cy,
             off: 0,
             cursor_shape: frame.cursor_shape,
+            cursor_blink: frame.cursor_blink,
             app_mouse: frame.app_mouse,
             alt_screen: frame.alt_screen,
             lines: frame.lines,
@@ -676,6 +713,7 @@ impl Manager {
             cy: frame.cy,
             off: achieved,
             cursor_shape: frame.cursor_shape,
+            cursor_blink: frame.cursor_blink,
             app_mouse: frame.app_mouse,
             alt_screen: frame.alt_screen,
             lines: frame.lines,

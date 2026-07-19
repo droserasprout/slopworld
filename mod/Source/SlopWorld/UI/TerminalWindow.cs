@@ -256,10 +256,12 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        /// <summary>Cursor per reported shape, blinking on a half-second beat.</summary>
+        /// <summary>Cursor per reported shape; blinks on a half-second beat unless
+        /// the app asked for a steady cursor.</summary>
         void DrawCursor(Rect body, ScreenBuf buf, float cw, float ch)
         {
-            if (buf.Cy >= buf.Rows || (int)(Time.realtimeSinceStartup * 2f) % 2 != 0)
+            if (buf.Cy >= buf.Rows) return;
+            if (buf.CursorBlink && (int)(Time.realtimeSinceStartup * 2f) % 2 != 0)
                 return;
 
             float x = body.x + buf.Cx * cw;
@@ -329,7 +331,7 @@ namespace SlopWorld
                     JumpToLive();
                     string clip = GUIUtility.systemCopyBuffer;
                     if (!string.IsNullOrEmpty(clip))
-                        SessionHub.Instance.SendKeys(_name, new[] { clip }, true);
+                        SessionHub.Instance.Paste(_name, clip);
                     e.Use();
                     return;
                 }

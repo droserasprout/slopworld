@@ -10,7 +10,7 @@ use alacritty_terminal::event::VoidListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::{Config, Term, TermMode};
-use alacritty_terminal::vte::ansi::{Color, CursorShape, Processor};
+use alacritty_terminal::vte::ansi::{Color, CursorShape, CursorStyle, Processor};
 
 /// Our own `Dimensions` so we don't depend on the test-gated `TermSize`.
 /// History depth comes from `Config.scrolling_history`, not `total_lines`.
@@ -42,6 +42,8 @@ pub struct Frame {
     pub cy: u16,
     /// 0 = block, 1 = underline, 2 = beam.
     pub cursor_shape: u8,
+    /// Whether the app wants the cursor to blink.
+    pub cursor_blink: bool,
     /// The app is asking for mouse reports (any of click/motion/drag).
     pub app_mouse: bool,
     /// The app is on the alternate screen (no scrollback of its own).
@@ -62,7 +64,16 @@ impl SessionEmu {
             cols: cols as usize,
             rows: rows as usize,
         };
-        let term = Term::new(Config::default(), &dims, VoidListener);
+        // Default to a blinking block so unstyled shells keep the familiar blink;
+        // apps that set a steady cursor via DECSCUSR still override it.
+        let config = Config {
+            default_cursor_style: CursorStyle {
+                shape: CursorShape::Block,
+                blinking: true,
+            },
+            ..Config::default()
+        };
+        let term = Term::new(config, &dims, VoidListener);
         Self {
             term,
             parser: Processor::new(),
@@ -212,9 +223,15 @@ impl SessionEmu {
             cx,
             cy,
             cursor_shape,
+            cursor_blink: self.term.cursor_style().blinking,
             app_mouse: content.mode.intersects(TermMode::MOUSE_MODE),
             alt_screen: content.mode.contains(TermMode::ALT_SCREEN),
         }
+    }
+
+    /// Whether the app enabled bracketed paste (DECSET 2004).
+    pub fn bracketed_paste(&self) -> bool {
+        self.term.mode().contains(TermMode::BRACKETED_PASTE)
     }
 }
 
@@ -441,6 +458,9 @@ mod tests {
         assert_eq!(f.lines[0], "\x1b[0mhello");
         // cursor sits just past the text on row 0.
         assert_eq!((f.cx, f.cy), (5, 0));
+        // Unstyled sessions default to a blinking block.
+        assert_eq!(f.cursor_shape, 0);
+        assert!(f.cursor_blink);
     }
 
     #[test]
@@ -542,5 +562,17 @@ mod tests {
         assert_eq!(f.cursor_shape, 2);
         assert!(f.app_mouse);
         assert!(!f.alt_screen);
+        // 6 is the steady (non-blinking) bar.
+        assert!(!f.cursor_blink);
+    }
+
+    #[test]
+    fn tracks_bracketed_paste_mode() {
+        let mut e = SessionEmu::new(20, 2);
+        assert!(!e.bracketed_paste());
+        e.feed(b"\x1b[?2004h");
+        assert!(e.bracketed_paste());
+        e.feed(b"\x1b[?2004l");
+        assert!(!e.bracketed_paste());
     }
 }

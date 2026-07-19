@@ -52,6 +52,8 @@ namespace SlopWorld
         public int Off;
         /// Cursor shape: 0 = block, 1 = underline, 2 = beam.
         public int CursorShape;
+        /// Whether the app wants the cursor to blink.
+        public bool CursorBlink = true;
         /// The app wants mouse reports (drives Phase 3 wheel/click forwarding).
         public bool AppMouse;
         /// The app is on the alternate screen (no scrollback of its own).
@@ -179,6 +181,7 @@ namespace SlopWorld
                     buf.Cy = s["cy"].AsInt();
                     buf.Off = off;
                     buf.CursorShape = s["cursor_shape"].AsInt(0);
+                    buf.CursorBlink = s["cursor_blink"].AsBool(true);
                     buf.AppMouse = s["app_mouse"].AsBool(false);
                     buf.AltScreen = s["alt_screen"].AsBool(false);
                     buf.Lines = s["lines"].Items.Select(l => l.AsString()).ToArray();
@@ -226,6 +229,16 @@ namespace SlopWorld
             if (_ws == null || !_ws.Connected) return;
             _ws.SendText($"{{\"t\":\"mouse\",\"name\":{JVal.Q(name)},\"action\":{JVal.Q(action)}," +
                          $"\"button\":{button},\"col\":{col},\"row\":{row}}}");
+        }
+
+        /// <summary>
+        /// Pastes text; the daemon wraps it in bracketed-paste markers when the app
+        /// has that mode on, so multi-line pastes don't auto-run or auto-indent.
+        /// </summary>
+        public void Paste(string name, string text)
+        {
+            if (_ws == null || !_ws.Connected) return;
+            _ws.SendText($"{{\"t\":\"paste\",\"name\":{JVal.Q(name)},\"text\":{JVal.Q(text)}}}");
         }
 
         public void Resize(string name, int cols, int rows)
