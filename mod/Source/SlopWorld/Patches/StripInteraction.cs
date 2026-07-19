@@ -35,4 +35,17 @@ namespace SlopWorld
             return false;
         }
     }
+
+    /// <summary>
+    /// No right-click order menu. Every map right-click funnels through
+    /// FloatMenuMakerMap.GetOptions, and Selector.HandleMapClicks skips both the
+    /// menu and the single-option auto-order when that list comes back empty, so
+    /// clearing it drops right-click commands wholesale. Postfix rather than a skip
+    /// so the out FloatMenuContext still gets built by the original.
+    /// </summary>
+    [HarmonyPatch(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.GetOptions))]
+    public static class Patch_Hide_RightClickMenu
+    {
+        static void Postfix(List<FloatMenuOption> __result) => __result?.Clear();
+    }
 }
