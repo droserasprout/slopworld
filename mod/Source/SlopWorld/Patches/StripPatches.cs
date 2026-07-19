@@ -45,4 +45,12 @@ namespace SlopWorld
     {
         static bool Prefix() => !Settings.StripSim;
     }
+
+    /// <summary>No idle chitchat, deep talks or insults. Pawns stop initiating
+    /// social interactions, so nothing lands in the interaction log.</summary>
+    [HarmonyPatch(typeof(Pawn_InteractionsTracker), nameof(Pawn_InteractionsTracker.InteractionsTrackerTickInterval))]
+    public static class Patch_Interactions
+    {
+        static bool Prefix() => !Settings.StripSim;
+    }
 }

@@ -1,27 +1,22 @@
 # TODO
 
-## Cleanup
-
-- [x] Colonist menu: hide gear, social, bio, needs, health
-- [x] Hide learning panel top right
-- [x] Make only colonists clickable, not objects/items/trees
-- [x] Colonist menu: hide Draft
-
-## Interface
-
-- [x] Add "+" button after the last colonist in top bar to add agent
-
-## Terminal
-
-- [x] Mouse wheel scrolling
-- [x] Text selection/copy/paste
-- [x] Fix input lag
-- [x] Real emulator in slopd (alacritty_terminal + tmux control mode), event-driven
-- [x] Wide chars, cursor shape/blink parity
-- [x] Mouse forwarding to TUIs (wheel/click/drag), alt-screen wheel-as-arrows
-- [x] Bracketed paste
-- [ ] Cursor colour, OSC8/URL hyperlinks (optional)
-
-## "Game"
-
-- [ ] When agent is paused, pawn is sleeping
+- [ ] Cleanup
+  - [x] Disable right-click menu on map
+  - [x] Disable Alt hold on map
+  - [x] Disable pawn chatter in interaction log
+  - [ ] Disable "Review scenario" button in main menu if possible
+- [ ] Interface
+  - [ ] Pawn menu: square Terminal button icon and hotkey
+  - [ ] Pawn menu: rectangle Edit button
+  - [ ] New menu in bottom bar: Configuration, shows GUI for config
+- [ ] Terminal
+  - [ ] Bug: cursor is on wrong line in Claude Code
+  - [ ] Bug: no icon font in Claude Code (/context output)
+  - [ ] Bug: something crashes session
+  - [ ] Cursor colour, OSC8/URL hyperlinks (optional)
+- [ ] "Game"
+  - [ ] When agent is paused, pawn is sleeping
+  - [ ] Robot heads for agent pawns
+- [ ] Agents (low priority)
+  - [ ] OpenCode
+  - [ ] pi
