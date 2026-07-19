@@ -48,6 +48,14 @@ namespace SlopWorld
     {
         public int Seq = -1;
         public int Cols, Rows, Cx, Cy;
+        /// Lines scrolled up into scrollback; 0 for a live bottom frame.
+        public int Off;
+        /// Cursor shape: 0 = block, 1 = underline, 2 = beam.
+        public int CursorShape;
+        /// The app wants mouse reports (drives Phase 3 wheel/click forwarding).
+        public bool AppMouse;
+        /// The app is on the alternate screen (no scrollback of its own).
+        public bool AltScreen;
         public string[] Lines = new string[0];
 
         /// Parsed lazily by the terminal window and thrown away when Seq moves.
@@ -67,6 +75,7 @@ namespace SlopWorld
         public bool Online => _ws != null && _ws.Connected;
 
         readonly Dictionary<string, ScreenBuf> _screens = new Dictionary<string, ScreenBuf>();
+        readonly Dictionary<string, ScreenBuf> _scrolls = new Dictionary<string, ScreenBuf>();
         readonly HashSet<string> _subs = new HashSet<string>();
 
         MiniWebSocket _ws;
@@ -77,6 +86,10 @@ namespace SlopWorld
 
         public ScreenBuf Screen(string name) =>
             _screens.TryGetValue(name, out var s) ? s : null;
+
+        /// Latest scrollback frame answered for a wheel request, if any.
+        public ScreenBuf ScrollScreen(string name) =>
+            _scrolls.TryGetValue(name, out var s) ? s : null;
 
         // ------------------------------------------------------------ lifecycle
 
@@ -152,14 +165,22 @@ namespace SlopWorld
                 case "screen":
                     var s = ev["screen"];
                     string name = s["name"].AsString();
-                    if (!_screens.TryGetValue(name, out var buf))
-                        _screens[name] = buf = new ScreenBuf();
+                    int off = s["off"].AsInt(0);
+                    // Scrolled frames answer one wheel request; keep them apart so
+                    // they never clobber the live view the terminal falls back to.
+                    var store = off > 0 ? _scrolls : _screens;
+                    if (!store.TryGetValue(name, out var buf))
+                        store[name] = buf = new ScreenBuf();
 
                     buf.Seq = s["seq"].AsInt();
                     buf.Cols = s["cols"].AsInt(80);
                     buf.Rows = s["rows"].AsInt(24);
                     buf.Cx = s["cx"].AsInt();
                     buf.Cy = s["cy"].AsInt();
+                    buf.Off = off;
+                    buf.CursorShape = s["cursor_shape"].AsInt(0);
+                    buf.AppMouse = s["app_mouse"].AsBool(false);
+                    buf.AltScreen = s["alt_screen"].AsBool(false);
                     buf.Lines = s["lines"].Items.Select(l => l.AsString()).ToArray();
                     buf.Runs = null; // force a re-parse on next draw
                     break;
@@ -186,6 +207,13 @@ namespace SlopWorld
             var arr = string.Join(",", keys.Select(JVal.Q).ToArray());
             _ws.SendText($"{{\"t\":\"keys\",\"name\":{JVal.Q(name)},\"keys\":[{arr}]," +
                          $"\"literal\":{JVal.B(literal)}}}");
+        }
+
+        /// <summary>Asks for a one-off capture scrolled `off` lines into scrollback.</summary>
+        public void RequestScroll(string name, int off)
+        {
+            if (_ws == null || !_ws.Connected) return;
+            _ws.SendText($"{{\"t\":\"scroll\",\"name\":{JVal.Q(name)},\"off\":{off}}}");
         }
 
         public void Resize(string name, int cols, int rows)

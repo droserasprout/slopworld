@@ -22,6 +22,16 @@ namespace SlopWorld
         float _resizeAt;
         bool _sizeDirty;
 
+        // Mouse-wheel scrollback: lines scrolled up from the live bottom.
+        int _scrollOff;
+
+        // Drag selection, in cell (col,row) coordinates of the drawn buffer.
+        bool _dragging;
+        bool _hasSel;
+        Vector2Int _selA, _selB;
+
+        static readonly Color SelColor = new Color(0.30f, 0.50f, 0.90f, 0.35f);
+
         public static TerminalWindow Open(string name)
         {
             // Re-opening the same session should focus it, not stack a second copy.
@@ -99,7 +109,18 @@ namespace SlopWorld
                 return;
             }
 
-            var buf = hub.Screen(_name);
+            var live = hub.Screen(_name);
+            // While scrolled, show the history frame; fall back to live until it lands.
+            ScreenBuf buf;
+            if (_scrollOff > 0)
+            {
+                var sb = hub.ScrollScreen(_name);
+                // The daemon clamps to real scrollback; follow it so we can't run off the top.
+                if (sb != null && sb.Off > 0) _scrollOff = Mathf.Min(_scrollOff, sb.Off);
+                buf = sb ?? live;
+            }
+            else buf = live;
+
             if (buf == null || buf.Lines.Length == 0)
             {
                 DrawCentered(body, hub.Online ? "Waiting for output..." : $"Daemon {hub.Status}");
@@ -108,6 +129,10 @@ namespace SlopWorld
 
             NegotiateSize(body);
             DrawScreen(body, buf);
+            DrawSelection(body, buf);
+
+            if (_scrollOff > 0)
+                DrawScrollHint(body);
         }
 
         void DrawHeader(Rect r, SessionInfo info)
@@ -201,21 +226,18 @@ namespace SlopWorld
             float cw = TerminalFont.CellW;
             float ch = TerminalFont.CellH;
 
-            if (buf.Runs == null)
-            {
-                buf.Runs = new List<SgrRun>[buf.Lines.Length];
-                for (int i = 0; i < buf.Lines.Length; i++)
-                    buf.Runs[i] = Sgr.ParseLine(buf.Lines[i]);
-            }
+            EnsureRuns(buf);
 
             for (int row = 0; row < buf.Runs.Length; row++)
             {
                 float y = body.y + row * ch;
                 if (y > body.yMax) break;
 
-                float x = body.x;
                 foreach (var run in buf.Runs[row])
                 {
+                    // Draw at the run's true column, so wide chars (which the
+                    // daemon re-anchors with CHA) don't shift the rest of the line.
+                    float x = body.x + run.Col * cw;
                     float w = run.Text.Length * cw;
 
                     if (run.HasBg)
@@ -223,20 +245,37 @@ namespace SlopWorld
 
                     style.normal.textColor = run.Fg;
                     GUI.Label(new Rect(x, y, w + cw, ch), run.Text, style);
-
-                    x += w;
                 }
             }
 
-            // Block cursor, blinking on a half-second beat.
-            if (buf.Cy < buf.Rows && (int)(Time.realtimeSinceStartup * 2f) % 2 == 0)
-            {
-                var cur = new Rect(body.x + buf.Cx * cw, body.y + buf.Cy * ch, cw, ch);
-                if (body.Contains(new Vector2(cur.x, cur.y)))
-                    Widgets.DrawBoxSolid(cur, new Color(0.83f, 0.85f, 0.86f, 0.65f));
-            }
+            DrawCursor(body, buf, cw, ch);
 
             GUI.color = Color.white;
+        }
+
+        /// <summary>Cursor per reported shape, blinking on a half-second beat.</summary>
+        void DrawCursor(Rect body, ScreenBuf buf, float cw, float ch)
+        {
+            if (buf.Cy >= buf.Rows || (int)(Time.realtimeSinceStartup * 2f) % 2 != 0)
+                return;
+
+            float x = body.x + buf.Cx * cw;
+            float y = body.y + buf.Cy * ch;
+            if (!body.Contains(new Vector2(x, y))) return;
+
+            var col = new Color(0.83f, 0.85f, 0.86f, 0.65f);
+            switch (buf.CursorShape)
+            {
+                case 1: // underline
+                    Widgets.DrawBoxSolid(new Rect(x, y + ch - 2f, cw, 2f), col);
+                    break;
+                case 2: // beam
+                    Widgets.DrawBoxSolid(new Rect(x, y, 2f, ch), col);
+                    break;
+                default: // block
+                    Widgets.DrawBoxSolid(new Rect(x, y, cw, ch), col);
+                    break;
+            }
         }
 
         // -------------------------------------------------------------- input
@@ -244,8 +283,24 @@ namespace SlopWorld
         void HandleInput(Rect body)
         {
             var e = Event.current;
-            if (e.type != EventType.KeyDown) return;
+            switch (e.type)
+            {
+                case EventType.ScrollWheel:
+                    HandleWheel(body, e);
+                    return;
+                case EventType.MouseDown:
+                case EventType.MouseDrag:
+                case EventType.MouseUp:
+                    HandleMouse(body, e);
+                    return;
+                case EventType.KeyDown:
+                    HandleKey(e);
+                    return;
+            }
+        }
 
+        void HandleKey(Event e)
+        {
             // Shift+Escape is the way out; a bare Escape must reach the agent.
             if (e.keyCode == KeyCode.Escape && e.shift)
             {
@@ -259,6 +314,7 @@ namespace SlopWorld
                 string key = MapKey(e);
                 if (key != null)
                 {
+                    JumpToLive();
                     Flush();
                     SessionHub.Instance.SendKeys(_name, new[] { key }, false);
                     e.Use();
@@ -267,6 +323,7 @@ namespace SlopWorld
 
                 if (e.control && e.keyCode == KeyCode.V)
                 {
+                    JumpToLive();
                     string clip = GUIUtility.systemCopyBuffer;
                     if (!string.IsNullOrEmpty(clip))
                         SessionHub.Instance.SendKeys(_name, new[] { clip }, true);
@@ -280,6 +337,7 @@ namespace SlopWorld
             if (e.character != '\0' && e.character != '\n' &&
                 e.character != '\r' && e.character != '\t' && !e.control && !e.alt)
             {
+                JumpToLive();
                 _literal.Append(e.character);
                 e.Use();
                 return;
@@ -287,6 +345,170 @@ namespace SlopWorld
 
             if (e.keyCode != KeyCode.None)
                 e.Use(); // swallow it so RimWorld hotkeys don't fire behind us
+        }
+
+        // --------------------------------------------------------- scroll / select
+
+        void HandleWheel(Rect body, Event e)
+        {
+            if (!body.Contains(e.mousePosition)) return;
+
+            int step = Mathf.Max(1, Mathf.RoundToInt(Mathf.Abs(e.delta.y)));
+            // Wheel up (delta.y < 0) walks back into scrollback.
+            if (e.delta.y < 0) _scrollOff += step;
+            else _scrollOff = Mathf.Max(0, _scrollOff - step);
+
+            ClearSelection();
+            if (_scrollOff > 0) SessionHub.Instance.RequestScroll(_name, _scrollOff);
+            e.Use();
+        }
+
+        void HandleMouse(Rect body, Event e)
+        {
+            if (e.button != 0) return;
+
+            switch (e.type)
+            {
+                case EventType.MouseDown:
+                    if (!body.Contains(e.mousePosition)) return;
+                    _selA = _selB = CellAt(body, e.mousePosition);
+                    _dragging = true;
+                    _hasSel = false;
+                    e.Use();
+                    return;
+
+                case EventType.MouseDrag:
+                    if (!_dragging) return;
+                    _selB = CellAt(body, e.mousePosition);
+                    _hasSel = _selA != _selB;
+                    e.Use();
+                    return;
+
+                case EventType.MouseUp:
+                    if (!_dragging) return;
+                    _dragging = false;
+                    _selB = CellAt(body, e.mousePosition);
+                    if (_selA != _selB) { _hasSel = true; CopySelection(); }
+                    else _hasSel = false;
+                    e.Use();
+                    return;
+            }
+        }
+
+        void JumpToLive() => _scrollOff = 0;
+
+        void ClearSelection()
+        {
+            _hasSel = false;
+            _dragging = false;
+        }
+
+        Vector2Int CellAt(Rect body, Vector2 m)
+        {
+            float cw = TerminalFont.CellW, ch = TerminalFont.CellH;
+            if (cw <= 0.01f || ch <= 0.01f) return Vector2Int.zero;
+            int col = Mathf.FloorToInt((m.x - body.x) / cw);
+            int row = Mathf.FloorToInt((m.y - body.y) / ch);
+            return new Vector2Int(col, row);
+        }
+
+        ScreenBuf DisplayedBuf()
+        {
+            var hub = SessionHub.Instance;
+            var live = hub.Screen(_name);
+            return _scrollOff > 0 ? (hub.ScrollScreen(_name) ?? live) : live;
+        }
+
+        void CopySelection()
+        {
+            var buf = DisplayedBuf();
+            if (buf == null) return;
+            string text = SelectionText(buf);
+            if (!string.IsNullOrEmpty(text))
+                GUIUtility.systemCopyBuffer = text;
+        }
+
+        void OrderedSel(out Vector2Int a, out Vector2Int b)
+        {
+            a = _selA;
+            b = _selB;
+            if (b.y < a.y || (b.y == a.y && b.x < a.x)) { var t = a; a = b; b = t; }
+        }
+
+        string SelectionText(ScreenBuf buf)
+        {
+            EnsureRuns(buf);
+            OrderedSel(out var a, out var b);
+            int rows = buf.Runs.Length;
+            if (rows == 0) return "";
+
+            var sb = new StringBuilder();
+            int r0 = Mathf.Clamp(a.y, 0, rows - 1);
+            int r1 = Mathf.Clamp(b.y, 0, rows - 1);
+            for (int row = r0; row <= r1; row++)
+            {
+                string line = RowText(buf, row);
+                int startCol = row == a.y ? Mathf.Max(0, a.x) : 0;
+                // The head cell is inclusive, matching the highlight.
+                int endCol = row == b.y ? b.x + 1 : line.Length;
+                startCol = Mathf.Clamp(startCol, 0, line.Length);
+                endCol = Mathf.Clamp(endCol, 0, line.Length);
+                if (endCol > startCol) sb.Append(line.Substring(startCol, endCol - startCol));
+                if (row < r1) sb.Append('\n');
+            }
+            return sb.ToString();
+        }
+
+        void DrawSelection(Rect body, ScreenBuf buf)
+        {
+            if ((!_hasSel && !_dragging) || _selA == _selB) return;
+            EnsureRuns(buf);
+
+            float cw = TerminalFont.CellW, ch = TerminalFont.CellH;
+            OrderedSel(out var a, out var b);
+            int rows = buf.Runs.Length;
+
+            for (int row = Mathf.Max(0, a.y); row <= Mathf.Min(rows - 1, b.y); row++)
+            {
+                int lineLen = RowText(buf, row).Length;
+                int startCol = Mathf.Max(0, row == a.y ? a.x : 0);
+                int endCol = row == b.y ? b.x + 1 : lineLen;
+                endCol = Mathf.Max(startCol, endCol);
+
+                float y = body.y + row * ch;
+                if (y > body.yMax) break;
+                float w = (endCol - startCol) * cw;
+                if (w <= 0f) continue;
+
+                Widgets.DrawBoxSolid(new Rect(body.x + startCol * cw, y, w, ch), SelColor);
+            }
+        }
+
+        void DrawScrollHint(Rect body)
+        {
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.UpperRight;
+            GUI.color = new Color(0.98f, 0.80f, 0.30f);
+            Widgets.Label(new Rect(body.x, body.y, body.width - 6f, 20f),
+                $"scrollback -{_scrollOff}   type or scroll down to resume");
+            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.UpperLeft;
+            Text.Font = GameFont.Small;
+        }
+
+        static void EnsureRuns(ScreenBuf buf)
+        {
+            if (buf.Runs != null) return;
+            buf.Runs = new List<SgrRun>[buf.Lines.Length];
+            for (int i = 0; i < buf.Lines.Length; i++)
+                buf.Runs[i] = Sgr.ParseLine(buf.Lines[i]);
+        }
+
+        static string RowText(ScreenBuf buf, int row)
+        {
+            var sb = new StringBuilder();
+            foreach (var run in buf.Runs[row]) sb.Append(run.Text);
+            return sb.ToString();
         }
 
         /// <summary>Batches a frame's worth of typing into one send-keys call.</summary>

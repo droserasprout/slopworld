@@ -7,6 +7,10 @@ namespace SlopWorld
     public struct SgrRun
     {
         public string Text;
+        /// Absolute start column of this run. Set from `\x1b[<n>G` (CHA) markers
+        /// the daemon emits ahead of runs whose column jumped (past a wide char);
+        /// otherwise it tracks the natural pen position.
+        public int Col;
         public Color Fg;
         public Color Bg;
         public bool HasBg;
@@ -62,6 +66,10 @@ namespace SlopWorld
             var attr = Fresh();
             var sb = new StringBuilder();
             int i = 0;
+            // Column the pen is at; where the next appended char lands.
+            int penCol = 0;
+            // Column the run currently in `sb` began at.
+            int runStart = 0;
 
             while (i < line.Length)
             {
@@ -73,22 +81,32 @@ namespace SlopWorld
 
                     if (j < line.Length && line[j] == 'm')
                     {
-                        Flush(runs, sb, attr);
+                        Flush(runs, sb, attr, runStart);
                         Apply(line.Substring(i + 2, j - i - 2), ref attr);
+                    }
+                    else if (j < line.Length && line[j] == 'G')
+                    {
+                        // CHA: jump the pen to an absolute (1-based) column.
+                        Flush(runs, sb, attr, runStart);
+                        int.TryParse(line.Substring(i + 2, j - i - 2), out int n);
+                        penCol = Mathf.Max(0, n - 1);
+                        runStart = penCol;
                     }
                     i = j + 1;
                     continue;
                 }
 
+                if (sb.Length == 0) runStart = penCol;
                 sb.Append(line[i]);
+                penCol++;
                 i++;
             }
 
-            Flush(runs, sb, attr);
+            Flush(runs, sb, attr, runStart);
             return runs;
         }
 
-        static void Flush(List<SgrRun> runs, StringBuilder sb, Attr a)
+        static void Flush(List<SgrRun> runs, StringBuilder sb, Attr a, int col)
         {
             if (sb.Length == 0) return;
 
@@ -105,6 +123,7 @@ namespace SlopWorld
             runs.Add(new SgrRun
             {
                 Text = sb.ToString(),
+                Col = col,
                 Fg = fg,
                 Bg = bg,
                 HasBg = hasBg,

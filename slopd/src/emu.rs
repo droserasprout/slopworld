@@ -32,11 +32,20 @@ impl Dimensions for Dims {
 }
 
 /// A rendered screen: SGR-coloured rows plus the cursor cell. `cy == rows` hides
-/// the cursor (off-screen, invisible, or scrolled into history).
+/// the cursor (off-screen, invisible, or scrolled into history). Rows carry
+/// `\x1b[<n>G` (CHA) column markers ahead of any run whose true column diverges
+/// from the natural pen position, which is exactly where a wide char skipped a
+/// cell — the mod redraws such runs at their absolute column.
 pub struct Frame {
     pub lines: Vec<String>,
     pub cx: u16,
     pub cy: u16,
+    /// 0 = block, 1 = underline, 2 = beam.
+    pub cursor_shape: u8,
+    /// The app is asking for mouse reports (any of click/motion/drag).
+    pub app_mouse: bool,
+    /// The app is on the alternate screen (no scrollback of its own).
+    pub alt_screen: bool,
 }
 
 /// One live terminal: the VT engine plus the parser feeding it.
@@ -141,7 +150,20 @@ impl SessionEmu {
             (cur.point.column.0 as u16, crow as u16)
         };
 
-        Frame { lines, cx, cy }
+        let cursor_shape = match cur.shape {
+            CursorShape::Underline => 1,
+            CursorShape::Beam => 2,
+            _ => 0,
+        };
+
+        Frame {
+            lines,
+            cx,
+            cy,
+            cursor_shape,
+            app_mouse: content.mode.intersects(TermMode::MOUSE_MODE),
+            alt_screen: content.mode.contains(TermMode::ALT_SCREEN),
+        }
     }
 }
 
@@ -156,7 +178,10 @@ enum Slot {
 
 /// Serializes one row into the SGR wire format the mod parses. Each line opens
 /// with a reset, self-contained SGR runs colour each stretch, and trailing
-/// default cells are trimmed just like `capture-pane` did.
+/// default cells are trimmed just like `capture-pane` did. A `\x1b[<n>G` (CHA)
+/// marker is emitted only when the true grid column diverges from the natural
+/// pen position — i.e. right after a wide char skipped a spacer cell — so plain
+/// ASCII rows stay byte-identical to Phase 1 while wide chars keep alignment.
 fn serialize_row(row: &[Slot]) -> String {
     let mut out = String::from("\x1b[0m");
 
@@ -169,25 +194,24 @@ fn serialize_row(row: &[Slot]) -> String {
     let Some(last) = last else { return out };
 
     let mut cur_sgr = String::new();
-    for slot in &row[..=last] {
-        match slot {
-            Slot::Spacer => {}
-            Slot::Blank => {
-                if !cur_sgr.is_empty() {
-                    out.push_str("\x1b[0m");
-                    cur_sgr.clear();
-                }
-                out.push(' ');
-            }
-            Slot::Ch(c, fg, bg, flags) => {
-                let sgr = sgr_for(*fg, *bg, *flags);
-                if sgr != cur_sgr {
-                    out.push_str(if sgr.is_empty() { "\x1b[0m" } else { &sgr });
-                    cur_sgr = sgr;
-                }
-                out.push(*c);
-            }
+    // Where the mod's pen lands with no CHA: one column per emitted char.
+    let mut expected = 0usize;
+    for (col, slot) in row[..=last].iter().enumerate() {
+        let (c, sgr) = match slot {
+            Slot::Spacer => continue,
+            Slot::Blank => (' ', String::new()),
+            Slot::Ch(c, fg, bg, flags) => (*c, sgr_for(*fg, *bg, *flags)),
+        };
+        if col != expected {
+            out.push_str(&format!("\x1b[{}G", col + 1));
+            expected = col;
         }
+        if sgr != cur_sgr {
+            out.push_str(if sgr.is_empty() { "\x1b[0m" } else { &sgr });
+            cur_sgr = sgr;
+        }
+        out.push(c);
+        expected += 1;
     }
     out
 }
@@ -340,5 +364,26 @@ mod tests {
         assert_eq!(f.lines[0], "\x1b[0mab");
         // untouched second row is just the reset.
         assert_eq!(f.lines[1], "\x1b[0m");
+    }
+
+    #[test]
+    fn wide_char_emits_cha_for_following_run() {
+        let mut e = SessionEmu::new(20, 2);
+        // A CJK char occupies two cells; "X" after it sits at column 2, so the
+        // run after the wide char must be re-anchored with CHA to column 3 (1-based).
+        e.feed("\u{4f60}X".as_bytes());
+        let f = e.render();
+        assert_eq!(f.lines[0], "\x1b[0m\u{4f60}\x1b[3GX");
+    }
+
+    #[test]
+    fn reports_cursor_shape_and_modes() {
+        let mut e = SessionEmu::new(20, 2);
+        // DECSCUSR 6 -> steady bar (beam); enable SGR mouse click reporting.
+        e.feed(b"\x1b[6 q\x1b[?1006h\x1b[?1000h");
+        let f = e.render();
+        assert_eq!(f.cursor_shape, 2);
+        assert!(f.app_mouse);
+        assert!(!f.alt_screen);
     }
 }

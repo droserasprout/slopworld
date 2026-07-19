@@ -58,6 +58,15 @@ pub struct ScreenView {
     /// frame is a one-off answer to a wheel event, never broadcast.
     #[serde(default)]
     pub off: u16,
+    /// Cursor shape: 0 = block, 1 = underline, 2 = beam.
+    #[serde(default)]
+    pub cursor_shape: u8,
+    /// The app wants mouse reports (drives Phase 3 wheel/click forwarding).
+    #[serde(default)]
+    pub app_mouse: bool,
+    /// The app is on the alternate screen (no scrollback of its own).
+    #[serde(default)]
+    pub alt_screen: bool,
     /// One entry per row, still carrying SGR escapes.
     pub lines: Vec<String>,
 }
@@ -524,22 +533,30 @@ impl Manager {
     /// off the emulator instead of a capture.
     async fn apply_frame(&self, name: &str, frame: Frame) {
         let hash = hash_lines(&frame.lines);
-        let (prev_hash, prev_state, prev_change, seq, prev_cursor, cols, rows) = {
+        let (prev_hash, prev_state, prev_change, seq, prev_cursor, prev_meta, cols, rows) = {
             let live = self.live.read().await;
             let Some(l) = live.get(name) else { return };
             let cur = l.screen.as_ref().map(|s| (s.cx, s.cy)).unwrap_or((0, 0));
+            let meta = l
+                .screen
+                .as_ref()
+                .map(|s| (s.cursor_shape, s.app_mouse, s.alt_screen))
+                .unwrap_or((0, false, false));
             (
                 l.hash,
                 l.state,
                 l.last_change,
                 l.seq,
                 cur,
+                meta,
                 l.cols,
                 l.rows,
             )
         };
 
-        let changed = hash != prev_hash || (frame.cx, frame.cy) != prev_cursor;
+        let meta = (frame.cursor_shape, frame.app_mouse, frame.alt_screen);
+        let changed =
+            hash != prev_hash || (frame.cx, frame.cy) != prev_cursor || meta != prev_meta;
         let plain = strip_sgr(&frame.lines.join("\n"));
         let state = self.classify(changed, prev_change, &plain).await;
 
@@ -555,6 +572,9 @@ impl Manager {
             cx: frame.cx,
             cy: frame.cy,
             off: 0,
+            cursor_shape: frame.cursor_shape,
+            app_mouse: frame.app_mouse,
+            alt_screen: frame.alt_screen,
             lines: frame.lines,
         };
 
@@ -636,6 +656,9 @@ impl Manager {
             cx: frame.cx,
             cy: frame.cy,
             off: achieved,
+            cursor_shape: frame.cursor_shape,
+            app_mouse: frame.app_mouse,
+            alt_screen: frame.alt_screen,
             lines: frame.lines,
         })
     }
