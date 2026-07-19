@@ -28,9 +28,6 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/sessions/:name/start", post(start))
         .route("/api/sessions/:name/stop", post(stop))
         .route("/api/sessions/:name/restart", post(restart))
-        .route("/api/sessions/:name/keys", post(keys))
-        .route("/api/sessions/:name/resize", post(resize))
-        .route("/api/sessions/:name/screen", get(screen))
         .route("/api/config", get(get_config))
         .route("/api/config", put(put_config))
         .route("/api/browse", get(browse))
@@ -110,49 +107,6 @@ async fn restart(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
     Ok(Json(json!({ "ok": true })))
 }
 
-#[derive(Deserialize)]
-struct KeysReq {
-    /// tmux key names (Enter, C-c, Up) unless `literal`, in which case raw text.
-    keys: Vec<String>,
-    #[serde(default)]
-    literal: bool,
-}
-
-async fn keys(
-    State(m): State<Mgr>,
-    Path(name): Path<String>,
-    Json(req): Json<KeysReq>,
-) -> ApiResult {
-    m.send_keys(&name, req.keys, req.literal)
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true })))
-}
-
-#[derive(Deserialize)]
-struct ResizeReq {
-    cols: u16,
-    rows: u16,
-}
-
-async fn resize(
-    State(m): State<Mgr>,
-    Path(name): Path<String>,
-    Json(req): Json<ResizeReq>,
-) -> ApiResult {
-    m.resize(&name, req.cols, req.rows)
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true })))
-}
-
-async fn screen(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
-    m.screen(&name)
-        .await
-        .map(|s| Json(json!(s)))
-        .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no screen for {name}")))
-}
-
 async fn get_config(State(m): State<Mgr>) -> ApiResult {
     let text = std::fs::read_to_string(&m.cfg_path)
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
@@ -214,8 +168,8 @@ async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult 
 enum ClientMsg {
     Sub { name: String },
     Unsub { name: String },
-    Keys(KeysReq2),
-    Resize(ResizeReq2),
+    Keys(KeysReq),
+    Resize(ResizeReq),
     Scroll(ScrollReq),
     Mouse(MouseReq),
     Paste(PasteReq),
@@ -247,15 +201,16 @@ struct ScrollReq {
 }
 
 #[derive(Deserialize)]
-struct KeysReq2 {
+struct KeysReq {
     name: String,
+    /// tmux key names (Enter, C-c, Up) unless `literal`, in which case raw text.
     keys: Vec<String>,
     #[serde(default)]
     literal: bool,
 }
 
 #[derive(Deserialize)]
-struct ResizeReq2 {
+struct ResizeReq {
     name: String,
     cols: u16,
     rows: u16,

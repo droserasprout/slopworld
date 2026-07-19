@@ -308,36 +308,30 @@ fn sgr_for(fg: Color, bg: Color, flags: Flags) -> String {
 
 /// Emits the *same* index-based SGR codes tmux would, not resolved RGB, so the
 /// mod's curated palette keeps its muted look. `None` means the default colour.
-fn fg_code(c: Color) -> Option<String> {
+/// `base` is 30 for a foreground, 40 for a background; the bright and 256/RGB
+/// selectors offset from there identically for both.
+fn color_code(c: Color, base: u16) -> Option<String> {
     match c {
-        Color::Named(n) => match n as usize {
-            i if i <= 7 => Some((30 + i).to_string()),
-            i if i <= 15 => Some((90 + (i - 8)).to_string()),
+        Color::Named(n) => match n as u16 {
+            i if i <= 7 => Some((base + i).to_string()),
+            i if i <= 15 => Some((base + 60 + (i - 8)).to_string()),
             _ => None,
         },
         Color::Indexed(i) => Some(match i {
-            0..=7 => (30 + i as u16).to_string(),
-            8..=15 => (90 + (i as u16 - 8)).to_string(),
-            _ => format!("38;5;{i}"),
+            0..=7 => (base + i as u16).to_string(),
+            8..=15 => (base + 60 + (i as u16 - 8)).to_string(),
+            _ => format!("{};5;{i}", base + 8),
         }),
-        Color::Spec(rgb) => Some(format!("38;2;{};{};{}", rgb.r, rgb.g, rgb.b)),
+        Color::Spec(rgb) => Some(format!("{};2;{};{};{}", base + 8, rgb.r, rgb.g, rgb.b)),
     }
 }
 
+fn fg_code(c: Color) -> Option<String> {
+    color_code(c, 30)
+}
+
 fn bg_code(c: Color) -> Option<String> {
-    match c {
-        Color::Named(n) => match n as usize {
-            i if i <= 7 => Some((40 + i).to_string()),
-            i if i <= 15 => Some((100 + (i - 8)).to_string()),
-            _ => None,
-        },
-        Color::Indexed(i) => Some(match i {
-            0..=7 => (40 + i as u16).to_string(),
-            8..=15 => (100 + (i as u16 - 8)).to_string(),
-            _ => format!("48;5;{i}"),
-        }),
-        Color::Spec(rgb) => Some(format!("48;2;{};{};{}", rgb.r, rgb.g, rgb.b)),
-    }
+    color_code(c, 40)
 }
 
 // --------------------------------------------------------------------- mouse

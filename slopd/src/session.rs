@@ -74,6 +74,26 @@ pub struct ScreenView {
     pub lines: Vec<String>,
 }
 
+impl ScreenView {
+    /// Builds a view from a freshly-rendered frame, carrying over every mode flag.
+    fn from_frame(name: &str, seq: u64, cols: u16, rows: u16, off: u16, frame: Frame) -> Self {
+        Self {
+            name: name.to_string(),
+            seq,
+            cols,
+            rows,
+            cx: frame.cx,
+            cy: frame.cy,
+            off,
+            cursor_shape: frame.cursor_shape,
+            cursor_blink: frame.cursor_blink,
+            app_mouse: frame.app_mouse,
+            alt_screen: frame.alt_screen,
+            lines: frame.lines,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "t", rename_all = "lowercase")]
 pub enum Event {
@@ -619,20 +639,7 @@ impl Manager {
             return;
         }
 
-        let view = ScreenView {
-            name: name.to_string(),
-            seq: seq + 1,
-            cols,
-            rows,
-            cx: frame.cx,
-            cy: frame.cy,
-            off: 0,
-            cursor_shape: frame.cursor_shape,
-            cursor_blink: frame.cursor_blink,
-            app_mouse: frame.app_mouse,
-            alt_screen: frame.alt_screen,
-            lines: frame.lines,
-        };
+        let view = ScreenView::from_frame(name, seq + 1, cols, rows, 0, frame);
 
         let mut dirty_list = false;
         {
@@ -704,20 +711,7 @@ impl Manager {
         if achieved == 0 {
             return self.screen(name).await;
         }
-        Some(ScreenView {
-            name: name.to_string(),
-            seq,
-            cols,
-            rows,
-            cx: frame.cx,
-            cy: frame.cy,
-            off: achieved,
-            cursor_shape: frame.cursor_shape,
-            cursor_blink: frame.cursor_blink,
-            app_mouse: frame.app_mouse,
-            alt_screen: frame.alt_screen,
-            lines: frame.lines,
-        })
+        Some(ScreenView::from_frame(name, seq, cols, rows, achieved, frame))
     }
 }
 

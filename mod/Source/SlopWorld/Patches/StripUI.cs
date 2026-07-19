@@ -19,53 +19,34 @@ namespace SlopWorld
     // Each patch prefixes an OnGUI method and returns false to skip its draw. The
     // target names are the 1.6 ones (this mod is 1.6-only).
 
-    /// <summary>Message toasts, top-left.</summary>
-    [HarmonyPatch(typeof(Messages), "MessagesDoGUI")]
-    public static class Patch_Hide_Messages
+    /// <summary>
+    /// OnGUI methods drawing colony-management chrome we always suppress. Each is
+    /// prefixed with a shared "return false" to skip its draw wholesale. A table +
+    /// manual patch instead of one attribute class apiece: the target set is just
+    /// data. Patched from the bootstrap. 1.6 names; this mod is 1.6-only.
+    /// </summary>
+    public static class Patch_HideGui
     {
-        static bool Prefix() => false;
-    }
+        static readonly (Type Type, string Method)[] Targets =
+        {
+            (typeof(Messages), "MessagesDoGUI"),                 // message toasts, top-left
+            (typeof(LetterStack), "LettersOnGUI"),               // letter stack, right edge
+            (typeof(AlertsReadout), "AlertsReadoutOnGUI"),       // alert list, right edge
+            (typeof(ResourceReadout), "ResourceReadoutOnGUI"),   // resource counts, bottom-left
+            (typeof(GlobalControls), "GlobalControlsOnGUI"),     // date/temp/speed, bottom-right
+            (typeof(MouseoverReadout), "MouseoverReadoutOnGUI"), // under-cursor readout, bottom-left
+            (typeof(LearningReadout), "LearningReadoutOnGUI"),   // tutorial concept panel, top-right
+        };
 
-    /// <summary>The letter stack, right edge.</summary>
-    [HarmonyPatch(typeof(LetterStack), "LettersOnGUI")]
-    public static class Patch_Hide_Letters
-    {
-        static bool Prefix() => false;
-    }
+        public static void Apply(Harmony h)
+        {
+            var pre = new HarmonyMethod(
+                AccessTools.Method(typeof(Patch_HideGui), nameof(Skip)));
+            foreach (var (type, method) in Targets)
+                h.Patch(AccessTools.Method(type, method), prefix: pre);
+        }
 
-    /// <summary>The alert list, right edge.</summary>
-    [HarmonyPatch(typeof(AlertsReadout), "AlertsReadoutOnGUI")]
-    public static class Patch_Hide_Alerts
-    {
-        static bool Prefix() => false;
-    }
-
-    /// <summary>Colony resource counts, bottom-left.</summary>
-    [HarmonyPatch(typeof(ResourceReadout), "ResourceReadoutOnGUI")]
-    public static class Patch_Hide_Resources
-    {
-        static bool Prefix() => false;
-    }
-
-    /// <summary>Date, temperature, season and the speed / time buttons, bottom-right.</summary>
-    [HarmonyPatch(typeof(GlobalControls), "GlobalControlsOnGUI")]
-    public static class Patch_Hide_GlobalControls
-    {
-        static bool Prefix() => false;
-    }
-
-    /// <summary>Terrain / thing-under-cursor readout, bottom-left.</summary>
-    [HarmonyPatch(typeof(MouseoverReadout), "MouseoverReadoutOnGUI")]
-    public static class Patch_Hide_Mouseover
-    {
-        static bool Prefix() => false;
-    }
-
-    /// <summary>The tutorial "learning helper" concept panel, top-right.</summary>
-    [HarmonyPatch(typeof(LearningReadout), "LearningReadoutOnGUI")]
-    public static class Patch_Hide_Learning
-    {
-        static bool Prefix() => false;
+        static bool Skip() => false;
     }
 
     /// <summary>

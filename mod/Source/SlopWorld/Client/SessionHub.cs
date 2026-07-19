@@ -111,12 +111,18 @@ namespace SlopWorld
             }
             else
             {
-                Status = $"offline: {_ws.LastError}";
-                _ws.Dispose();
-                _ws = null;
-                _nextRetry = UnityEngine.Time.realtimeSinceStartup + _backoff;
-                _backoff = Math.Min(_backoff * 2, 30);
+                ScheduleRetry(_ws.LastError);
             }
+        }
+
+        /// <summary>Drops the dead socket and arms an exponential-backoff reconnect.</summary>
+        void ScheduleRetry(string error)
+        {
+            Status = $"offline: {error}";
+            _ws?.Dispose();
+            _ws = null;
+            _nextRetry = UnityEngine.Time.realtimeSinceStartup + _backoff;
+            _backoff = Math.Min(_backoff * 2, 30);
         }
 
         public void Disconnect()
@@ -138,11 +144,7 @@ namespace SlopWorld
                 if (_ws != null && !_ws.Connected)
                 {
                     // The reader thread noticed the socket die.
-                    Status = $"offline: {_ws.LastError ?? "closed"}";
-                    _ws.Dispose();
-                    _ws = null;
-                    _nextRetry = UnityEngine.Time.realtimeSinceStartup + _backoff;
-                    _backoff = Math.Min(_backoff * 2, 30);
+                    ScheduleRetry(_ws.LastError ?? "closed");
                 }
                 if (UnityEngine.Time.realtimeSinceStartup >= _nextRetry)
                     Connect();
