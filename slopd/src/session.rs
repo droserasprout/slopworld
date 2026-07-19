@@ -13,7 +13,7 @@ use tokio::task::JoinHandle;
 use tokio::time::{interval, MissedTickBehavior};
 
 use crate::config::{expand, Config, SessionCfg};
-use crate::emu::{parse_output, Frame, SessionEmu};
+use crate::emu::{parse_output, Frame, MouseInput, SessionEmu};
 use crate::sandbox::build_argv;
 use crate::tmux::Tmux;
 
@@ -341,6 +341,25 @@ impl Manager {
             bail!("session {name} is not running");
         }
         self.tmux.send_keys(name, &keys, literal).await
+    }
+
+    /// Encodes a mouse event to the app's current mouse protocol and writes it to
+    /// the pane. A no-op if the app isn't in a mouse mode (the mod only forwards
+    /// when it saw `app_mouse`, but re-check here off the authoritative emulator).
+    pub async fn send_mouse(&self, name: &str, ev: MouseInput) -> Result<()> {
+        if !self.tmux.exists(name).await {
+            bail!("session {name} is not running");
+        }
+        let bytes = {
+            let live = self.live.read().await;
+            live.get(name)
+                .and_then(|l| l.emu.clone())
+                .and_then(|e| e.lock().ok().and_then(|g| g.mouse_report(&ev)))
+        };
+        if let Some(b) = bytes {
+            self.tmux.send_bytes(name, &b).await?;
+        }
+        Ok(())
     }
 
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {

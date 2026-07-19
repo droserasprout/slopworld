@@ -216,6 +216,18 @@ namespace SlopWorld
             _ws.SendText($"{{\"t\":\"scroll\",\"name\":{JVal.Q(name)},\"off\":{off}}}");
         }
 
+        /// <summary>
+        /// Forwards a mouse event in cell coordinates; the daemon encodes it to the
+        /// app's current mouse protocol. `action` is press/release/drag/wheelup/
+        /// wheeldown, `button` is 0/1/2 = left/middle/right (ignored for the wheel).
+        /// </summary>
+        public void SendMouse(string name, string action, int button, int col, int row)
+        {
+            if (_ws == null || !_ws.Connected) return;
+            _ws.SendText($"{{\"t\":\"mouse\",\"name\":{JVal.Q(name)},\"action\":{JVal.Q(action)}," +
+                         $"\"button\":{button},\"col\":{col},\"row\":{row}}}");
+        }
+
         public void Resize(string name, int cols, int rows)
         {
             if (_ws == null || !_ws.Connected) return;

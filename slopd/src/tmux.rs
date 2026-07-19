@@ -146,4 +146,15 @@ impl Tmux {
         self.run(&args).await?;
         Ok(())
     }
+
+    /// Writes raw bytes into the pane via `send-keys -H` (hex), so arbitrary
+    /// control bytes (mouse reports, escape sequences) reach the app verbatim.
+    pub async fn send_bytes(&self, name: &str, bytes: &[u8]) -> Result<()> {
+        let target = format!("{name}:.0");
+        let hexes: Vec<String> = bytes.iter().map(|b| format!("{b:02x}")).collect();
+        let mut args: Vec<&str> = vec!["send-keys", "-t", &target, "-H"];
+        args.extend(hexes.iter().map(String::as_str));
+        self.run(&args).await?;
+        Ok(())
+    }
 }

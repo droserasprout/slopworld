@@ -217,6 +217,19 @@ enum ClientMsg {
     Keys(KeysReq2),
     Resize(ResizeReq2),
     Scroll(ScrollReq),
+    Mouse(MouseReq),
+}
+
+#[derive(Deserialize)]
+struct MouseReq {
+    name: String,
+    /// press | release | drag | wheelup | wheeldown
+    action: String,
+    /// 0/1/2 = left/middle/right; ignored for the wheel.
+    #[serde(default)]
+    button: u8,
+    col: u16,
+    row: u16,
 }
 
 #[derive(Deserialize)]
@@ -330,6 +343,21 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                 // wheel request and must not reach live subscribers.
                 if let Some(s) = m.scroll_capture(&sr.name, sr.off).await {
                     let _ = send(&tx, &Event::Screen { screen: s }).await;
+                }
+            }
+            ClientMsg::Mouse(mr) => {
+                let Some(action) = crate::emu::MouseAction::parse(&mr.action) else {
+                    tracing::debug!("unknown mouse action: {}", mr.action);
+                    continue;
+                };
+                let ev = crate::emu::MouseInput {
+                    action,
+                    button: mr.button,
+                    col: mr.col,
+                    row: mr.row,
+                };
+                if let Err(e) = m.send_mouse(&mr.name, ev).await {
+                    tracing::debug!("send_mouse: {e:#}");
                 }
             }
         }

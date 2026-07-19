@@ -93,6 +93,57 @@ impl SessionEmu {
         self.render_frame(false)
     }
 
+    /// Encodes a mouse event into the report bytes the app expects, per its
+    /// current mouse mode (SGR / UTF-8 / legacy). Returns `None` when the app
+    /// isn't asking for mouse reports, or for a drag it didn't opt into — the
+    /// caller then falls back to local scroll/selection.
+    pub fn mouse_report(&self, m: &MouseInput) -> Option<Vec<u8>> {
+        let mode = self.term.mode();
+        if !mode.intersects(TermMode::MOUSE_MODE) {
+            return None;
+        }
+        if matches!(m.action, MouseAction::Drag)
+            && !mode.intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG)
+        {
+            return None;
+        }
+
+        let sgr = mode.contains(TermMode::SGR_MOUSE);
+        let utf8 = mode.contains(TermMode::UTF8_MOUSE);
+        let release = matches!(m.action, MouseAction::Release);
+        let button = m.button as u32 & 3;
+        // Low 2 bits pick the button; bit 5 (32) marks motion; wheel is 64+.
+        let cb: u32 = match m.action {
+            MouseAction::WheelUp => 64,
+            MouseAction::WheelDown => 65,
+            MouseAction::Drag => button + 32,
+            MouseAction::Press => button,
+            // Legacy can't say which button released, so it reports 3.
+            MouseAction::Release => {
+                if sgr {
+                    button
+                } else {
+                    3
+                }
+            }
+        };
+
+        let x = m.col as u32 + 1;
+        let y = m.row as u32 + 1;
+        let mut out = Vec::new();
+        if sgr {
+            out.extend_from_slice(b"\x1b[<");
+            out.extend_from_slice(format!("{cb};{x};{y}").as_bytes());
+            out.push(if release { b'm' } else { b'M' });
+        } else {
+            out.extend_from_slice(b"\x1b[M");
+            push_coord(&mut out, cb + 32, utf8);
+            push_coord(&mut out, x + 32, utf8);
+            push_coord(&mut out, y + 32, utf8);
+        }
+        Some(out)
+    }
+
     /// A one-off frame scrolled `off` lines up into the scrollback, for a wheel
     /// request. Restores the live view afterwards; the cursor is always hidden in
     /// a history view. Returns the offset actually reached (clamped to history).
@@ -272,6 +323,51 @@ fn bg_code(c: Color) -> Option<String> {
     }
 }
 
+// --------------------------------------------------------------------- mouse
+
+/// What a mouse event does. `button` (in `MouseInput`) is 0/1/2 = left/mid/right
+/// for press/release/drag and ignored for the wheel.
+pub enum MouseAction {
+    Press,
+    Release,
+    Drag,
+    WheelUp,
+    WheelDown,
+}
+
+impl MouseAction {
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "press" => Some(Self::Press),
+            "release" => Some(Self::Release),
+            "drag" => Some(Self::Drag),
+            "wheelup" => Some(Self::WheelUp),
+            "wheeldown" => Some(Self::WheelDown),
+            _ => None,
+        }
+    }
+}
+
+/// A mouse event in cell coordinates (0-based), as the mod reports it.
+pub struct MouseInput {
+    pub action: MouseAction,
+    pub button: u8,
+    pub col: u16,
+    pub row: u16,
+}
+
+/// Legacy/UTF-8 coordinate byte: a raw byte, or a UTF-8 char past 127 under 1005.
+fn push_coord(out: &mut Vec<u8>, v: u32, utf8: bool) {
+    if utf8 && v > 127 {
+        if let Some(c) = char::from_u32(v) {
+            let mut buf = [0u8; 4];
+            out.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
+            return;
+        }
+    }
+    out.push(v.min(255) as u8);
+}
+
 // -------------------------------------------------------------- control mode
 
 /// Extracts the unescaped payload bytes of a `%output` control-mode line, or
@@ -374,6 +470,67 @@ mod tests {
         e.feed("\u{4f60}X".as_bytes());
         let f = e.render();
         assert_eq!(f.lines[0], "\x1b[0m\u{4f60}\x1b[3GX");
+    }
+
+    #[test]
+    fn no_mouse_report_when_app_isnt_listening() {
+        let e = SessionEmu::new(20, 5);
+        let m = MouseInput {
+            action: MouseAction::Press,
+            button: 0,
+            col: 3,
+            row: 2,
+        };
+        assert!(e.mouse_report(&m).is_none());
+    }
+
+    #[test]
+    fn sgr_mouse_report_encodes_click() {
+        let mut e = SessionEmu::new(20, 5);
+        e.feed(b"\x1b[?1000h\x1b[?1006h"); // click reporting + SGR
+        let press = e
+            .mouse_report(&MouseInput {
+                action: MouseAction::Press,
+                button: 0,
+                col: 3,
+                row: 2,
+            })
+            .unwrap();
+        assert_eq!(press, b"\x1b[<0;4;3M");
+        let release = e
+            .mouse_report(&MouseInput {
+                action: MouseAction::Release,
+                button: 0,
+                col: 3,
+                row: 2,
+            })
+            .unwrap();
+        assert_eq!(release, b"\x1b[<0;4;3m");
+        let wheel = e
+            .mouse_report(&MouseInput {
+                action: MouseAction::WheelUp,
+                button: 0,
+                col: 0,
+                row: 0,
+            })
+            .unwrap();
+        assert_eq!(wheel, b"\x1b[<64;1;1M");
+    }
+
+    #[test]
+    fn legacy_mouse_report_offsets_by_32() {
+        let mut e = SessionEmu::new(20, 5);
+        e.feed(b"\x1b[?1000h"); // click reporting, no SGR
+        let press = e
+            .mouse_report(&MouseInput {
+                action: MouseAction::Press,
+                button: 0,
+                col: 0,
+                row: 0,
+            })
+            .unwrap();
+        // ESC [ M, then button+32, col+1+32, row+1+32.
+        assert_eq!(press, b"\x1b[M\x20\x21\x21");
     }
 
     #[test]

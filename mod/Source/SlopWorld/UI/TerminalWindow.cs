@@ -30,6 +30,9 @@ namespace SlopWorld
         bool _hasSel;
         Vector2Int _selA, _selB;
 
+        // A mouse gesture currently being forwarded to an app that wants the mouse.
+        bool _mouseFwd;
+
         static readonly Color SelColor = new Color(0.30f, 0.50f, 0.90f, 0.35f);
 
         public static TerminalWindow Open(string name)
@@ -353,9 +356,34 @@ namespace SlopWorld
         {
             if (!body.Contains(e.mousePosition)) return;
 
-            int step = Mathf.Max(1, Mathf.RoundToInt(Mathf.Abs(e.delta.y)));
-            // Wheel up (delta.y < 0) walks back into scrollback.
-            if (e.delta.y < 0) _scrollOff += step;
+            var live = SessionHub.Instance.Screen(_name);
+            int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
+            bool up = e.delta.y < 0;
+
+            // App wants the mouse: forward wheel reports at the pointer cell.
+            if (live != null && live.AppMouse)
+            {
+                var cell = CellAt(body, e.mousePosition);
+                string act = up ? "wheelup" : "wheeldown";
+                for (int k = 0; k < step; k++)
+                    SessionHub.Instance.SendMouse(_name, act, 0, cell.x, cell.y);
+                e.Use();
+                return;
+            }
+
+            // Alt-screen app with no mouse (less, man, git log): the terminal
+            // convention is to translate the wheel to arrow keys.
+            if (live != null && live.AltScreen)
+            {
+                var keys = new string[step];
+                for (int k = 0; k < step; k++) keys[k] = up ? "Up" : "Down";
+                SessionHub.Instance.SendKeys(_name, keys, false);
+                e.Use();
+                return;
+            }
+
+            // Otherwise walk our own scrollback view. Wheel up goes back in history.
+            if (up) _scrollOff += step;
             else _scrollOff = Mathf.Max(0, _scrollOff - step);
 
             ClearSelection();
@@ -365,6 +393,15 @@ namespace SlopWorld
 
         void HandleMouse(Rect body, Event e)
         {
+            // Forward to the app when it wants the mouse, unless Shift is held -
+            // Shift forces our own local selection, like a real terminal.
+            var live = SessionHub.Instance.Screen(_name);
+            if (live != null && live.AppMouse && !e.shift)
+            {
+                HandleMouseForward(body, e);
+                return;
+            }
+
             if (e.button != 0) return;
 
             switch (e.type)
@@ -390,6 +427,38 @@ namespace SlopWorld
                     _selB = CellAt(body, e.mousePosition);
                     if (_selA != _selB) { _hasSel = true; CopySelection(); }
                     else _hasSel = false;
+                    e.Use();
+                    return;
+            }
+        }
+
+        /// <summary>Forwards a click/drag to an app that asked for the mouse.</summary>
+        void HandleMouseForward(Rect body, Event e)
+        {
+            int btn = Mathf.Clamp(e.button, 0, 2);
+            var cell = CellAt(body, e.mousePosition);
+
+            switch (e.type)
+            {
+                case EventType.MouseDown:
+                    if (!body.Contains(e.mousePosition)) return;
+                    JumpToLive();
+                    ClearSelection();
+                    SessionHub.Instance.SendMouse(_name, "press", btn, cell.x, cell.y);
+                    _mouseFwd = true;
+                    e.Use();
+                    return;
+
+                case EventType.MouseDrag:
+                    if (!_mouseFwd) return;
+                    SessionHub.Instance.SendMouse(_name, "drag", btn, cell.x, cell.y);
+                    e.Use();
+                    return;
+
+                case EventType.MouseUp:
+                    if (!_mouseFwd) return;
+                    SessionHub.Instance.SendMouse(_name, "release", btn, cell.x, cell.y);
+                    _mouseFwd = false;
                     e.Use();
                     return;
             }
