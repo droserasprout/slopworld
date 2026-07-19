@@ -28,7 +28,9 @@ pub struct Daemon {
     /// tmux server socket name. Dedicated so we never collide with the user's
     /// own tmux, and so `tmux -L slopworld attach` still works from a real term.
     pub tmux_socket: String,
-    /// How often a subscribed pane is re-captured, in milliseconds.
+    /// How often, in milliseconds, the in-memory state tick re-runs the rules so
+    /// a session that fell quiet decays working -> idle. Screen content itself
+    /// arrives event-driven from the control readers, not by polling.
     pub poll_ms: u64,
 }
 

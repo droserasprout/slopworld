@@ -40,7 +40,26 @@ fn err(code: StatusCode, e: impl std::fmt::Display) -> (StatusCode, Json<serde_j
     (code, Json(json!({ "error": e.to_string() })))
 }
 
+/// Whether a request carries the right token. An empty configured token means no
+/// auth (fine on a loopback bind). Shared by the HTTP middleware and the `/ws`
+/// upgrade, which re-checks because the header rides only on the upgrade request.
+pub fn token_ok(headers: &HeaderMap, token: &str) -> bool {
+    token.is_empty()
+        || headers
+            .get("x-slop-token")
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v == token)
+            .unwrap_or(false)
+}
+
 type ApiResult = Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)>;
+
+/// The standard `{"ok":true}` response for a mutating call, or a 400 carrying the
+/// manager's error message.
+fn ok_json(r: anyhow::Result<()>) -> ApiResult {
+    r.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "ok": true })))
+}
 
 async fn health(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!({
@@ -64,8 +83,7 @@ async fn one(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
 }
 
 async fn create(State(m): State<Mgr>, Json(s): Json<SessionCfg>) -> ApiResult {
-    m.add(s).await.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true })))
+    ok_json(m.add(s).await)
 }
 
 async fn update(
@@ -73,38 +91,23 @@ async fn update(
     Path(name): Path<String>,
     Json(s): Json<SessionCfg>,
 ) -> ApiResult {
-    m.update(&name, s)
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true })))
+    ok_json(m.update(&name, s).await)
 }
 
 async fn destroy(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
-    m.remove(&name)
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true })))
+    ok_json(m.remove(&name).await)
 }
 
 async fn start(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
-    m.start(&name)
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true })))
+    ok_json(m.start(&name).await)
 }
 
 async fn stop(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
-    m.stop(&name)
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true })))
+    ok_json(m.stop(&name).await)
 }
 
 async fn restart(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
-    m.restart(&name)
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true })))
+    ok_json(m.restart(&name).await)
 }
 
 async fn get_config(State(m): State<Mgr>) -> ApiResult {
@@ -119,10 +122,7 @@ struct ConfigReq {
 }
 
 async fn put_config(State(m): State<Mgr>, Json(req): Json<ConfigReq>) -> ApiResult {
-    m.replace_config(&req.text)
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true })))
+    ok_json(m.replace_config(&req.text).await)
 }
 
 #[derive(Deserialize)]
@@ -222,15 +222,8 @@ async fn ws_upgrade(
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
     let token = m.config().await.daemon.token;
-    if !token.is_empty() {
-        let ok = headers
-            .get("x-slop-token")
-            .and_then(|v| v.to_str().ok())
-            .map(|v| v == token)
-            .unwrap_or(false);
-        if !ok {
-            return err(StatusCode::UNAUTHORIZED, "bad token").into_response();
-        }
+    if !token_ok(&headers, &token) {
+        return err(StatusCode::UNAUTHORIZED, "bad token").into_response();
     }
     ws.on_upgrade(move |socket| ws_run(socket, m)).into_response()
 }

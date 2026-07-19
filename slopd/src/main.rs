@@ -72,16 +72,7 @@ async fn auth(
     next: Next,
 ) -> Result<impl IntoResponse, StatusCode> {
     let token = m.config().await.daemon.token;
-    if token.is_empty() {
-        return Ok(next.run(req).await);
-    }
-    let ok = req
-        .headers()
-        .get("x-slop-token")
-        .and_then(|v| v.to_str().ok())
-        .map(|v| v == token)
-        .unwrap_or(false);
-    if ok {
+    if api::token_ok(req.headers(), &token) {
         Ok(next.run(req).await)
     } else {
         Err(StatusCode::UNAUTHORIZED)
