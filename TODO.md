@@ -1,7 +1,7 @@
 # TODO
 
 - [ ] Cleanup
-  - [x] Disable right-click menu on map
+  - [ ] Disable right-click menu on map
   - [x] Disable Alt hold on map
   - [x] Disable pawn chatter in interaction log
   - [ ] Disable "Review scenario" button in main menu if possible
@@ -10,13 +10,15 @@
   - [ ] Pawn menu: rectangle Edit button
   - [ ] New menu in bottom bar: Configuration, shows GUI for config
 - [ ] Terminal
-  - [ ] Bug: cursor is on wrong line in Claude Code
-  - [ ] Bug: no icon font in Claude Code (/context output)
+  - [ ] Bug: cursor is on the wrong line in Claude Code
+  - [ ] Bug: no icon font in Claude Code (`/context` output)
   - [ ] Bug: something crashes session
-  - [ ] Cursor colour, OSC8/URL hyperlinks (optional)
+  - [ ] B&W: Cursor colour, OSC8/URL hyperlinks
 - [ ] "Game"
   - [ ] When agent is paused, pawn is sleeping
-  - [ ] Robot heads for agent pawns
+  - [ ] Robot head texture for agent pawns
+- [ ] Misc
+  - [ ] Create a separate game "profile" with separate saves and all mods/DLCs disabled except ours
 - [ ] Agents (low priority)
   - [ ] OpenCode
   - [ ] pi

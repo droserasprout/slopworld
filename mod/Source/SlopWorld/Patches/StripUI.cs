@@ -67,6 +67,22 @@ namespace SlopWorld
     }
 
     /// <summary>
+    /// The beauty readout - the coloured "+" / "-" value on every cell around the
+    /// cursor while Alt is held (it rides the same ShowCellInspector key as the
+    /// cell inspector, via CellInspectorDrawer.active, but is drawn by
+    /// BeautyDrawer). Just as debug-flavoured, so drop it the same way.
+    /// </summary>
+    [HarmonyPatch(typeof(BeautyDrawer), "ShouldShow")]
+    public static class Patch_Hide_Beauty
+    {
+        static bool Prefix(ref bool __result)
+        {
+            __result = false;
+            return false;
+        }
+    }
+
+    /// <summary>
     /// The inspect pane's top-right buttons - Info card, hostility response and
     /// rename - none of which apply to an agent avatar. lineEndWidth is an
     /// accumulator the label sizing reads back, so zero it: with no buttons drawn,

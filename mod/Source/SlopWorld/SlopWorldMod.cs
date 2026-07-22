@@ -1,3 +1,5 @@
+using System.Linq;
+using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
 using Verse;
@@ -112,7 +114,7 @@ namespace SlopWorld
         static SlopWorldBootstrap()
         {
             var h = new Harmony("drsr.slopworld");
-            h.PatchAll();
+            h.PatchAll(Assembly.GetExecutingAssembly());
             Patch_HideGui.Apply(h);
             Patch_MainButtons.Apply(h);
             Patch_InspectTabs.Apply(h);
