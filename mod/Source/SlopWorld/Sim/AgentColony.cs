@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
 using Verse;
+using Verse.AI;
 
 namespace SlopWorld
 {
@@ -63,6 +64,10 @@ namespace SlopWorld
                 }
             }
 
+            // Every session gets a colonist, running or not, so it shows in the
+            // colonist bar the moment it is created. A stopped agent's colonist is
+            // downed rather than removed (see Reflect), staying a live, clickable
+            // pawn that its process can wake later.
             foreach (var s in sessions)
             {
                 if (_pawns.ContainsKey(s.Name)) continue;
@@ -75,6 +80,67 @@ namespace SlopWorld
                 var pawn = FindExisting(s.Name) ?? Spawn(s.Name, map);
                 if (pawn != null) _pawns[s.Name] = pawn;
             }
+
+            // Posture each colonist to its agent: a dead process collapses it
+            // (Downed), an idle agent sleeps, a working or waiting one stays awake.
+            foreach (var kv in _pawns)
+                Reflect(kv.Value, SessionHub.Instance.Get(kv.Key)?.State ?? AgentState.Dead);
+        }
+
+        // Dead process -> the colonist collapses (Downed) but stays a live, clickable
+        // pawn its process can wake. Idle -> asleep on the spot. Working or waiting ->
+        // awake and upright.
+        static void Reflect(Pawn pawn, AgentState state)
+        {
+            if (pawn == null || !pawn.Spawned) return;
+
+            if (state == AgentState.Dead)
+            {
+                Down(pawn);
+                return;
+            }
+
+            Revive(pawn); // process is back: clear the collapse
+            if (pawn.jobs == null) return;
+            if (state == AgentState.Idle) Sleep(pawn);
+            else Wake(pawn);
+        }
+
+        // Collapse the colonist by capping its consciousness, unless already down.
+        static void Down(Pawn pawn)
+        {
+            var health = pawn.health;
+            if (health?.hediffSet == null) return;
+            if (health.hediffSet.GetFirstHediffOfDef(SlopDefOf.SlopOffline) == null)
+                health.AddHediff(SlopDefOf.SlopOffline);
+        }
+
+        // Clear the collapse so the pawn gets back on its feet.
+        static void Revive(Pawn pawn)
+        {
+            var health = pawn.health;
+            if (health?.hediffSet == null) return;
+            var h = health.hediffSet.GetFirstHediffOfDef(SlopDefOf.SlopOffline);
+            if (h != null) health.RemoveHediff(h);
+        }
+
+        // Force the pawn to lie down and sleep on the spot, unless it already is.
+        static void Sleep(Pawn pawn)
+        {
+            var cur = pawn.CurJob;
+            if (cur != null && cur.def == JobDefOf.LayDown && cur.forceSleep) return;
+
+            var job = JobMaker.MakeJob(JobDefOf.LayDown, pawn.Position);
+            job.forceSleep = true;
+            pawn.jobs.StartJob(job, JobCondition.InterruptForced);
+        }
+
+        // End only the forced sleep we started, so a woken agent stands back up.
+        static void Wake(Pawn pawn)
+        {
+            var cur = pawn.CurJob;
+            if (cur != null && cur.def == JobDefOf.LayDown && cur.forceSleep)
+                pawn.jobs.EndCurrentJob(JobCondition.InterruptForced);
         }
 
         Pawn FindExisting(string name)
@@ -91,8 +157,9 @@ namespace SlopWorld
         static void Retire(Pawn p)
         {
             if (p == null || p.Destroyed) return;
+            p.Corpse?.Destroy(); // clear the body if the agent died before removal
             if (p.Spawned) p.DeSpawn();
-            p.Destroy();
+            if (!p.Destroyed) p.Destroy();
         }
 
         static Pawn Spawn(string name, Map map)

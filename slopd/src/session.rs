@@ -132,6 +132,10 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
+/// A pane quiet for this long has gone idle. Matches the mod's rule for putting
+/// an idle agent's colonist to sleep.
+const IDLE_MS: u64 = 10_000;
+
 fn hash_lines(lines: &[String]) -> u64 {
     let mut h = std::collections::hash_map::DefaultHasher::new();
     lines.hash(&mut h);
@@ -443,8 +447,9 @@ impl Manager {
                 return *state;
             }
         }
-        // No rule hit: a pane that moved in the last second is still doing something.
-        if changed || now_ms().saturating_sub(last_change) < 1000 {
+        // No rule hit: a pane that moved recently is still doing something; once
+        // it has been quiet for IDLE_MS it has gone idle.
+        if changed || now_ms().saturating_sub(last_change) < IDLE_MS {
             State::Working
         } else {
             State::Idle

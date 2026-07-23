@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <!-- Applied to an agent's colonist while its process is not running: caps
+       consciousness so the pawn collapses (Downed) but stays alive and clickable.
+       Removed the moment the process comes back, so the same colonist gets up. -->
+  <HediffDef>
+    <defName>SlopOffline</defName>
+    <hediffClass>HediffWithComps</hediffClass>
+    <label>offline</label>
+    <description>The agent process is not running.</description>
+    <isBad>false</isBad>
+    <maxSeverity>1.0</maxSeverity>
+    <scenarioCanAdd>false</scenarioCanAdd>
+    <stages>
+      <li>
+        <capMods>
+          <li>
+            <capacity>Consciousness</capacity>
+            <setMax>0.1</setMax>
+          </li>
+        </capMods>
+      </li>
+    </stages>
+  </HediffDef>
+
+</Defs>

@@ -6,7 +6,7 @@ Loosely sorted by priority. PRs are welcome.
   - [x] Disable Alt hold on map
   - [x] Disable pawn chatter in interaction log
   - [ ] Disable items spawn on the map
-  - [ ] Disable right-click menu on map (no selection)
+  - [ ] Disable right-click menu on map (empty selection)
   - [ ] Disable "Review scenario" button in main menu if possible
 - [ ] Interface
   - [ ] Pawn and Agents menus
@@ -18,7 +18,6 @@ Loosely sorted by priority. PRs are welcome.
 - [ ] Terminal
   - [ ] Bug: cursor is on the wrong line in Claude Code
   - [ ] Bug: no icon font in Claude Code (`/context` output)
-  - [x] Bug: something crashes session
   - [ ] B&W: Cursor colour, OSC8/URL hyperlinks
 - [ ] "Game"
   - [ ] Bug: new agent can be spawned inside the rock and immobilized.
@@ -26,8 +25,8 @@ Loosely sorted by priority. PRs are welcome.
     - [x] Bug: some animals on map are still alive
     - [x] Initial map preparation is very slow
     - [x] Spill blood only around the animal/human corpses
-  - [ ] When agent is idle, pawn is sleeping
-  - [ ] When agent is dead, pawn is dead
+  - [x] When agent is idle, pawn is sleeping
+  - [x] When agent is dead, pawn is dead
   - [ ] Robot head texture for agent pawns
 - [ ] Sound
   - [ ] Original soundtrack
