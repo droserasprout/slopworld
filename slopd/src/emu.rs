@@ -6,7 +6,9 @@
 //! own the grid, cursor and modes, and serialize back into the same SGR-coloured
 //! line wire format the mod already speaks (Phase 1: mod unchanged).
 
-use alacritty_terminal::event::VoidListener;
+use std::sync::{Arc, Mutex};
+
+use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::{Config, Term, TermMode};
@@ -50,12 +52,34 @@ pub struct Frame {
     pub alt_screen: bool,
 }
 
+/// Collects the bytes the VT engine wants written *back* to the pty: replies to
+/// cursor-position reports (`ESC[6n` -> `ESC[<row>;<col>R`), device attributes
+/// and mode queries. `VoidListener` dropped all of these, which left apps that
+/// probe the terminal (Ink, the TUI runtime Claude Code is built on) waiting on
+/// a report that never came, so they anchored their cursor on the wrong line.
+#[derive(Clone)]
+struct ReplySink {
+    buf: Arc<Mutex<Vec<u8>>>,
+}
+
+impl EventListener for ReplySink {
+    fn send_event(&self, event: Event) {
+        if let Event::PtyWrite(text) = event {
+            if let Ok(mut b) = self.buf.lock() {
+                b.extend_from_slice(text.as_bytes());
+            }
+        }
+    }
+}
+
 /// One live terminal: the VT engine plus the parser feeding it.
 pub struct SessionEmu {
-    term: Term<VoidListener>,
+    term: Term<ReplySink>,
     parser: Processor,
     cols: u16,
     rows: u16,
+    /// Shared with the `ReplySink` the term holds; drained by `take_replies`.
+    replies: Arc<Mutex<Vec<u8>>>,
 }
 
 impl SessionEmu {
@@ -73,18 +97,30 @@ impl SessionEmu {
             },
             ..Config::default()
         };
-        let term = Term::new(config, &dims, VoidListener);
+        let replies = Arc::new(Mutex::new(Vec::new()));
+        let term = Term::new(config, &dims, ReplySink { buf: replies.clone() });
         Self {
             term,
             parser: Processor::new(),
             cols,
             rows,
+            replies,
         }
     }
 
     /// Advance the VT engine over a chunk of raw pty bytes.
     pub fn feed(&mut self, bytes: &[u8]) {
         self.parser.advance(&mut self.term, bytes);
+    }
+
+    /// Drains the bytes the terminal produced in reply to queries during `feed`
+    /// (cursor-position reports, device attributes). The caller writes them back
+    /// into the pane so the app gets its answer.
+    pub fn take_replies(&mut self) -> Vec<u8> {
+        match self.replies.lock() {
+            Ok(mut b) => std::mem::take(&mut *b),
+            Err(_) => Vec::new(),
+        }
     }
 
     pub fn resize(&mut self, cols: u16, rows: u16) {
@@ -383,16 +419,21 @@ fn push_coord(out: &mut Vec<u8>, v: u32, utf8: bool) {
 
 /// Extracts the unescaped payload bytes of a `%output` control-mode line, or
 /// `None` for any other notification. Line shape: `%output %<pane> <data>`.
-pub fn parse_output(line: &str) -> Option<Vec<u8>> {
-    let rest = line.strip_prefix("%output ")?;
-    let sp = rest.find(' ')?;
+///
+/// Operates on raw bytes, never a `&str`: tmux emits UTF-8 in `%output`
+/// literally (only control bytes are octal-escaped) and splits its chunks on
+/// arbitrary byte boundaries, so a line can end mid-character and is not always
+/// valid UTF-8. Treating lines as bytes lets the halves flow through to the VT
+/// parser, which reassembles the character across feeds.
+pub fn parse_output(line: &[u8]) -> Option<Vec<u8>> {
+    let rest = line.strip_prefix(b"%output ".as_slice())?;
+    let sp = rest.iter().position(|&b| b == b' ')?;
     Some(unescape(&rest[sp + 1..]))
 }
 
 /// Reverses tmux's control-mode escaping: printable bytes are literal, `\\` is a
 /// backslash, and everything else is a 3-digit octal escape (`\NNN`).
-pub fn unescape(s: &str) -> Vec<u8> {
-    let b = s.as_bytes();
+pub fn unescape(b: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(b.len());
     let mut i = 0;
     while i < b.len() {
@@ -429,18 +470,21 @@ mod tests {
     fn unescapes_octal_and_backslash() {
         // %output %0 \015\012\033[?2004l\015
         assert_eq!(
-            unescape("\\015\\012\\033[?2004l\\015"),
+            unescape(b"\\015\\012\\033[?2004l\\015"),
             b"\r\n\x1b[?2004l\r"
         );
-        assert_eq!(unescape("a\\\\b"), b"a\\b");
-        assert_eq!(unescape("hi"), b"hi");
+        assert_eq!(unescape(b"a\\\\b"), b"a\\b");
+        assert_eq!(unescape(b"hi"), b"hi");
     }
 
     #[test]
     fn parses_output_line() {
-        assert_eq!(parse_output("%output %0 \\015hi").unwrap(), b"\rhi");
-        assert!(parse_output("%exit").is_none());
-        assert!(parse_output("%session-changed $0 name").is_none());
+        assert_eq!(parse_output(b"%output %0 \\015hi").unwrap(), b"\rhi");
+        assert!(parse_output(b"%exit").is_none());
+        assert!(parse_output(b"%session-changed $0 name").is_none());
+        // A line ending mid-UTF-8 (tmux split a multibyte char) must still parse;
+        // the raw bytes pass through for the VT parser to reassemble.
+        assert_eq!(parse_output(b"%output %0 A\xf0\x9f").unwrap(), b"A\xf0\x9f");
     }
 
     #[test]
@@ -558,6 +602,24 @@ mod tests {
         assert!(!f.alt_screen);
         // 6 is the steady (non-blinking) bar.
         assert!(!f.cursor_blink);
+    }
+
+    #[test]
+    fn answers_cursor_position_report() {
+        let mut e = SessionEmu::new(20, 5);
+        // Move to row 3, col 5 (1-based via CUP), then ask for the position (DSR 6).
+        e.feed(b"\x1b[3;5H\x1b[6n");
+        // Reply is CPR: ESC [ <row> ; <col> R, both 1-based.
+        assert_eq!(e.take_replies(), b"\x1b[3;5R");
+        // Draining is one-shot.
+        assert!(e.take_replies().is_empty());
+    }
+
+    #[test]
+    fn answers_primary_device_attributes() {
+        let mut e = SessionEmu::new(20, 5);
+        e.feed(b"\x1b[c");
+        assert_eq!(e.take_replies(), b"\x1b[?6c");
     }
 
     #[test]

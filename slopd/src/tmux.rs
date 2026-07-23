@@ -110,21 +110,39 @@ impl Tmux {
         })
     }
 
-    /// Spawns a control-mode client attached to one session: it reads commands on
-    /// stdin and writes `%`-prefixed notifications (incl. `%output`) to stdout.
-    /// stdin stays piped and the child is held by the caller so the attach lives;
-    /// `kill_on_drop` tears the client down when the reader task ends.
-    pub fn control_attach(&self, name: &str) -> Result<Child> {
+    /// Spawns a control-mode client attached to one session: it writes
+    /// `%`-prefixed notifications (incl. `%output`) to its stdout. Returns the
+    /// child (held by the caller so the attach lives; `kill_on_drop` tears it down
+    /// when the reader task ends) plus the pty master to read those notifications.
+    ///
+    /// The client runs on a pty, not pipes: tmux 3.7 immediately detaches a
+    /// control client whose stdio isn't a terminal (it emits `%exit` right after
+    /// `%session-changed`), which would orphan every live session as "dead". Only
+    /// `isatty` matters here - no controlling terminal is needed - so we hand tmux
+    /// a pty slave and read the master. Commands still go out over separate `tmux`
+    /// invocations, so the master is read-only for us.
+    pub fn control_attach(&self, name: &str, cols: u16, rows: u16) -> Result<(Child, std::fs::File)> {
+        use nix::pty::{openpty, Winsize};
+
+        let ws = Winsize {
+            ws_row: rows,
+            ws_col: cols,
+            ws_xpixel: 0,
+            ws_ypixel: 0,
+        };
+        let pty = openpty(Some(&ws), None)?;
+
         let child = Command::new("tmux")
             .arg("-L")
             .arg(&self.socket)
             .args(["-C", "attach", "-t", name])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stdin(Stdio::from(pty.slave.try_clone()?))
+            .stdout(Stdio::from(pty.slave.try_clone()?))
+            .stderr(Stdio::from(pty.slave))
             .kill_on_drop(true)
             .spawn()?;
-        Ok(child)
+
+        Ok((child, std::fs::File::from(pty.master)))
     }
 
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {

@@ -7,7 +7,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use anyhow::{anyhow, bail, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::{broadcast, RwLock};
 use tokio::task::JoinHandle;
 use tokio::time::{interval, MissedTickBehavior};
@@ -541,7 +540,15 @@ impl Manager {
     /// coalescing tick, renders + broadcasts. Ends (marking the session dead) when
     /// the session emits `%exit` or the control client's stdout closes.
     async fn run_control(self: Arc<Self>, name: String, emu: Arc<Mutex<SessionEmu>>) {
-        let mut child = match self.tmux.control_attach(&name) {
+        let (cols, rows) = match self.live.read().await.get(&name) {
+            Some(l) => (l.cols, l.rows),
+            None => {
+                self.mark_dead(&name).await;
+                return;
+            }
+        };
+        // Held for the task's life: dropping it kills the control client (detach).
+        let (_child, master) = match self.tmux.control_attach(&name, cols, rows) {
             Ok(c) => c,
             Err(e) => {
                 tracing::error!("control attach {name}: {e:#}");
@@ -549,11 +556,40 @@ impl Manager {
                 return;
             }
         };
-        let Some(stdout) = child.stdout.take() else {
-            self.mark_dead(&name).await;
-            return;
-        };
-        let mut lines = BufReader::new(stdout).lines();
+
+        // The master is a blocking pty fd; bridge it to async with a reader thread
+        // that ships `%`-notification lines over a channel. Lines are raw bytes,
+        // not `String`: tmux writes UTF-8 literally in `%output` and can split a
+        // multibyte char across chunks, so a line need not be valid UTF-8. The
+        // thread ends (and the channel closes) when the client dies and the master
+        // reads EOF/EIO.
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
+        std::thread::spawn(move || {
+            use std::io::BufRead;
+            let mut reader = std::io::BufReader::new(master);
+            let mut line: Vec<u8> = Vec::new();
+            loop {
+                line.clear();
+                match reader.read_until(b'\n', &mut line) {
+                    Ok(0) => break, // EOF
+                    Ok(_) => {
+                        // Drop the LF and the CR that pty ONLCR added ahead of it;
+                        // tmux octal-escapes real control bytes, so a trailing CR
+                        // here is always that artifact, never payload.
+                        if line.last() == Some(&b'\n') {
+                            line.pop();
+                        }
+                        if line.last() == Some(&b'\r') {
+                            line.pop();
+                        }
+                        if tx.send(line.clone()).is_err() {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
 
         // Coalesce bursts of output into ~60fps renders instead of one per line.
         let mut flush = interval(Duration::from_millis(8));
@@ -562,19 +598,29 @@ impl Manager {
 
         loop {
             tokio::select! {
-                line = lines.next_line() => match line {
-                    Ok(Some(l)) => {
+                line = rx.recv() => match line {
+                    Some(l) => {
                         if let Some(bytes) = parse_output(&l) {
-                            if let Ok(mut e) = emu.lock() {
+                            let replies = if let Ok(mut e) = emu.lock() {
                                 e.feed(&bytes);
+                                e.take_replies()
+                            } else {
+                                Vec::new()
+                            };
+                            // Answer cursor-position/device queries the app sent, so
+                            // TUIs like Claude Code place their cursor correctly.
+                            if !replies.is_empty() {
+                                if let Err(e) = self.tmux.send_bytes(&name, &replies).await {
+                                    tracing::debug!("pty reply write {name}: {e:#}");
+                                }
                             }
                             dirty = true;
-                        } else if l.starts_with("%exit") {
+                        } else if l.starts_with(b"%exit") {
                             break;
                         }
                     }
-                    // stdout closed or a read error: the client is gone.
-                    _ => break,
+                    // Reader thread ended: the client is gone.
+                    None => break,
                 },
                 _ = flush.tick() => {
                     if dirty {
