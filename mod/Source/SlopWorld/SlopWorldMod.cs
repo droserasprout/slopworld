@@ -19,6 +19,10 @@ namespace SlopWorld
         public bool spawnPawns = true;
         /// Draw state icons over agent colonists.
         public bool overlay = true;
+        /// Dress a fresh colony as a massacre: dead trees, animal corpses, blood.
+        public bool deadColony = true;
+        /// Withhold the scenario's starting resources: a dead world gives nothing.
+        public bool noResources = true;
 
         public int fontSize = 14;
 
@@ -32,6 +36,8 @@ namespace SlopWorld
             Scribe_Values.Look(ref stripSim, "stripSim", true);
             Scribe_Values.Look(ref spawnPawns, "spawnPawns", true);
             Scribe_Values.Look(ref overlay, "overlay", true);
+            Scribe_Values.Look(ref deadColony, "deadColony", true);
+            Scribe_Values.Look(ref noResources, "noResources", true);
             Scribe_Values.Look(ref fontSize, "fontSize", 14);
         }
     }
@@ -48,6 +54,8 @@ namespace SlopWorld
         public static bool StripSim => S.stripSim;
         public static bool SpawnPawns => S.spawnPawns;
         public static bool Overlay => S.overlay;
+        public static bool DeadColony => S.deadColony;
+        public static bool NoResources => S.noResources;
         public static int FontSize => S.fontSize;
     }
 
@@ -88,6 +96,10 @@ namespace SlopWorld
                 "Turn off to let RimWorld run normally underneath.");
             l.CheckboxLabeled("Spawn a colonist per session", ref settings.spawnPawns);
             l.CheckboxLabeled("Draw agent state over colonists", ref settings.overlay);
+            l.CheckboxLabeled("Dress a fresh colony as a massacre", ref settings.deadColony,
+                "On a new colony, scatter dead trees, animal corpses and blood across the map.");
+            l.CheckboxLabeled("Withhold starting resources", ref settings.noResources,
+                "A new colony lands with none of the scenario's usual resources.");
 
             l.Gap(6f);
             l.Label($"Terminal font size: {settings.fontSize}");

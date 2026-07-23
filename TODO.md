@@ -21,10 +21,16 @@ Loosely sorted by priority. PRs are welcome.
   - [x] Bug: something crashes session
   - [ ] B&W: Cursor colour, OSC8/URL hyperlinks
 - [ ] "Game"
-  - [ ] On colony creation spawn dead animals, dead trees, and blood all over the map
+  - [ ] Bug: new agent can be spawned inside the rock and immobilized.
+  - [x] On colony creation spawn dead animals, dead trees, and blood all over the map
+    - [x] Bug: some animals on map are still alive
+    - [x] Initial map preparation is very slow
+    - [x] Spill blood only around the animal/human corpses
   - [ ] When agent is idle, pawn is sleeping
   - [ ] When agent is dead, pawn is dead
   - [ ] Robot head texture for agent pawns
+- [ ] Sound
+  - [ ] Original soundtrack
 - [ ] "Security"
   - [ ] Carefully read bwrap config
 - [ ] Misc

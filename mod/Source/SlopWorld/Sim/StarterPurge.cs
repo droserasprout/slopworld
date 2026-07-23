@@ -44,6 +44,16 @@ namespace SlopWorld
                 return;
             }
 
+            // Let the massacre dressing finish first. It does a heavy one-tick
+            // burst that freezes the frame; if our real-time fuse were already
+            // armed it would burn through the freeze and blow the starters early.
+            var dead = DeadScene.Current;
+            if (dead != null && !dead.Finished)
+            {
+                Unpause(); // keep time running so DeadScene ticks and finishes
+                return;
+            }
+
             var starters = Starters(map);
             if (starters.Count == 0)
             {
