@@ -3,7 +3,7 @@
 Loosely sorted by priority. PRs are welcome.
 
 - [ ] Cleanup
-  - [ ] Hide "allow/deny" icons on corpses, items
+  - [x] Hide "allow/deny" icons on corpses, items
   - [ ] Disable items spawn on the map
   - [ ] Disable right-click menu on map (empty selection)
   - [ ] Disable "Review scenario" button in main menu if possible

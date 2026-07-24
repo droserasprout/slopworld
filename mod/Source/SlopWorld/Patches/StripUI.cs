@@ -83,6 +83,21 @@ namespace SlopWorld
     }
 
     /// <summary>
+    /// The forbidden overlay - the little "allow / deny" marker drawn over
+    /// forbidden things (corpses, dropped items, the massacre's leavings). A viewer
+    /// never toggles allow / forbid, so the markers are pure clutter. In 1.6 the
+    /// overlay rides a persistent handle: CompForbiddable.UpdateOverlayHandle
+    /// enables it whenever the thing is forbidden. The method is private and only
+    /// ever called from within the comp, and the mod loads before any map ticks, so
+    /// skipping it means the handle is never enabled and no marker is ever drawn.
+    /// </summary>
+    [HarmonyPatch(typeof(CompForbiddable), "UpdateOverlayHandle")]
+    public static class Patch_Hide_ForbiddenOverlay
+    {
+        static bool Prefix() => false;
+    }
+
+    /// <summary>
     /// The inspect pane's top-right buttons - Info card, hostility response and
     /// rename - none of which apply to an agent avatar. lineEndWidth is an
     /// accumulator the label sizing reads back, so zero it: with no buttons drawn,
