@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <Operation Class="PatchOperationRemove">
+    <xpath>/Defs/SongDef[not(starts-with(defName, 'SlopWorld_'))]</xpath>
+  </Operation>
+
+  <Operation Class="PatchOperationAdd">
+    <xpath>/Defs</xpath>
+    <value>
+      <SongDef>
+        <defName>EntrySong</defName>
+        <playOnMap>false</playOnMap>
+        <clipPath>SlopWorld/silent</clipPath>
+      </SongDef>
+      <SongDef>
+        <defName>EndCreditsSong</defName>
+        <playOnMap>false</playOnMap>
+        <clipPath>SlopWorld/silent</clipPath>
+      </SongDef>
+    </value>
+  </Operation>
+</Patch>
