@@ -3,8 +3,7 @@
 Loosely sorted by priority. PRs are welcome.
 
 - [ ] Cleanup
-  - [x] Disable Alt hold on map
-  - [x] Disable pawn chatter in interaction log
+  - [ ] Hide "allow/deny" icons on corpses, items
   - [ ] Disable items spawn on the map
   - [ ] Disable right-click menu on map (empty selection)
   - [ ] Disable "Review scenario" button in main menu if possible
@@ -16,20 +15,17 @@ Loosely sorted by priority. PRs are welcome.
     - [ ] Rectangle top Edit button
   - [ ] New menu in bottom bar: Configuration, shows GUI for config
 - [ ] Terminal
-  - [ ] Bug: cursor is on the wrong line in Claude Code
+  - [ ] Bug: cursor blinkie is one symbol right than cursor in Claude Code
+  - [ ] Bug: Ctrl+Arrow jumps only one symbol
   - [ ] Bug: no icon font in Claude Code (`/context` output)
   - [ ] B&W: Cursor colour, OSC8/URL hyperlinks
 - [ ] "Game"
+  - [ ] Bug: colonists' pets not exploded
   - [ ] Bug: new agent can be spawned inside the rock and immobilized.
-  - [x] On colony creation spawn dead animals, dead trees, and blood all over the map
-    - [x] Bug: some animals on map are still alive
-    - [x] Initial map preparation is very slow
-    - [x] Spill blood only around the animal/human corpses
-  - [x] When agent is idle, pawn is sleeping
-  - [x] When agent is dead, pawn is dead
   - [ ] Robot head texture for agent pawns
 - [ ] Sound
-  - [ ] Original soundtrack
+  - [ ] Original soundtrack xD
+    - [ ] 2-3 more bg songs
 - [ ] "Security"
   - [ ] Carefully read bwrap config
 - [ ] Misc
