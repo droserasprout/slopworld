@@ -163,6 +163,28 @@ means a field, a `Scribe_Values.Look`, a shim property and a checkbox.
   ships a sample of its own source under `$RIMWORLD/Source`, but only a few files.
 - An exception thrown inside `AgentColony.GameComponentTick` stops the whole
   reconcile, not just one pawn.
+- GUI draw order in one frame is `UIRoot_Play.UIRootOnGUI`: map interface (which
+  is where the colonist bar, alerts and readouts draw), then `WindowStackOnGUI`,
+  which runs *every* window's `ExtraOnGUI` and only then *every* window's
+  contents. So anything drawn on the map layer or in `ExtraOnGUI` is behind every
+  window's background, and `TerminalWindow` fills the screen opaque. To put
+  something over the terminal, draw it from `DoWindowContents` after the fill -
+  which is also the only place `Mouse.IsOver` sees the terminal as the current
+  window and lets clicks through. This cost three iterations once; see
+  `ColonistBarAboveTerminal.cs`.
+- `Window.Margin` (18 by default) is not padding. `InnerWindowOnGUI` opens a GUI
+  group on the contracted rect, so `DoWindowContents` draws in a coordinate space
+  translated by the margin - while `GUI.matrix` and anything reading screen
+  coordinates stay where they were. Vanilla widgets are written for it; anything
+  borrowed from the map layer is not. `TerminalWindow` runs at margin 0 so the
+  two agree.
+- A Harmony patch that throws during `PatchAll` kills the whole mod, not just
+  itself: the game then looks vanilla and the report is "quick start stopped
+  working". `SlopWorldBootstrap` catches and logs `patching incomplete: ...`, so
+  grep `Player.log` for that first when the mod looks unloaded. Transpilers are
+  the usual cause - this game's Mono rejected a `ColonistBarOnGUI` transpiler
+  with `InvalidProgramException` at patch time, in two different emission
+  shapes. A clean build proves nothing about a transpiler here.
 - Renaming anything on the wire needs both halves. `SessionInfo.ParseState` treats
   an unknown state as `Down`, which keeps a version skew survivable rather than
   correct.

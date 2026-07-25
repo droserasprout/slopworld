@@ -25,6 +25,11 @@ namespace SlopWorld
         public int Cols = 120;
         public int Rows = 34;
 
+        /// The terminal window treats a session that is down or gone as one that
+        /// has nothing to show it: no pane, no colonist to watch. Checked in one
+        /// place because both spell "close" the same way.
+        public bool Gone => !Alive;
+
         public static AgentState ParseState(string s)
         {
             switch (s)

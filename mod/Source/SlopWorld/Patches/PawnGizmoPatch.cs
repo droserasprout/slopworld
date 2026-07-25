@@ -19,7 +19,8 @@ namespace SlopWorld
             if (session == null) yield break;
 
             var info = SessionHub.Instance.Get(session);
-            var state = info?.State ?? AgentState.Down;
+            if (info == null || info.Gone) yield break; // nothing to type at
+            var state = info.State;
 
             yield return new Command_Action
             {

@@ -9,8 +9,8 @@ Loosely sorted by priority. PRs are welcome.
   - [ ] Colonist selected: square action button "Start/Stop". Stop shows confirmation dialog that process will be killed.
 - [ ] Terminal
   - [ ] Bug: DnD text selection highlight the whole line under the cursor including empty space
-  - [ ] Maximize terminal window (no transparent borders)
-  - [ ] Draw smaller copy of top center colonist bar above terminal. Clicking colonist icon switches terminal.
+  - [x] Maximize terminal window (no transparent borders)
+  - [x] Draw smaller copy of top center colonist bar above terminal. Clicking colonist icon switches terminal.
   - [ ] Bells and whistles
     - [ ] Color schemes
     - [ ] Cursor color

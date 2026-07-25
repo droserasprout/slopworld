@@ -155,11 +155,17 @@ namespace SlopWorld
     /// The colonist bar, top of the screen. Kept in play - it is how an agent is
     /// picked - but hidden for the length of the opening scene, along with the
     /// bottom bar, so the intro plays over a bare map.
+    ///
+    /// It is hidden while a terminal is open too, because the bar is drawn under
+    /// every window and the terminal is opaque and fullscreen: this draw would go
+    /// nowhere. The strip above the pane calls the same method itself, from inside
+    /// the window, and that call is the one this lets through. See
+    /// ColonistBarAboveTerminal.cs.
     /// </summary>
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
     public static class Patch_Hide_ColonistBar
     {
-        static bool Prefix() => !IntroDirector.UiHidden;
+        static bool Prefix() => !IntroDirector.UiHidden && !ColonistBarOverlay.Suppressed;
     }
 
     /// <summary>

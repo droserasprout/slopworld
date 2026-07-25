@@ -13,11 +13,16 @@ namespace SlopWorld
     public class TerminalWindow : Window
     {
         const float HeaderH = 28f;
+        /// Exposed for the colonist-bar overlay, which hangs directly under the header.
+        public static float HeaderHeight => HeaderH;
         const float Pad = 6f;
 
         static readonly Color SelColor = new Color(0.30f, 0.50f, 0.90f, 0.35f);
 
-        readonly string _name;
+        // Not readonly: the strip switches sessions by pointing the window at a
+        // new one, which keeps the terminal's scroll and selection state instead
+        // of throwing the whole window away.
+        string _name;
         readonly StringBuilder _literal = new StringBuilder();
 
         int _cols, _rows;
@@ -42,11 +47,45 @@ namespace SlopWorld
             if (existing != null)
             {
                 if (existing._name == name) return existing;
-                existing.Close(false);
+                existing.SwitchTo(name);
+                return existing;
             }
             var w = new TerminalWindow(name);
             Find.WindowStack.Add(w);
             return w;
+        }
+
+        /// <summary>The session this window is showing.</summary>
+        public static string CurrentName =>
+            Find.WindowStack.WindowOfType<TerminalWindow>()?._name;
+
+        /// <summary>Points the window at another session, resetting per-pane view
+        /// state but keeping the window (and its place in the stack) where it is.</summary>
+        void SwitchTo(string name)
+        {
+            if (name == _name) return;
+            SessionHub.Instance.Unsubscribe(_name);
+            _name = name;
+            SessionHub.Instance.Subscribe(_name);
+            SelectAgent(_name);
+            _scrollOff = 0;
+            ClearSelection();
+            _sizeDirty = false;
+        }
+
+        /// <summary>Selects the shown agent's pawn, which is what puts the colonist
+        /// bar's white corner brackets on the portrait you are typing at. Clearing
+        /// first is not just tidiness: the brackets' jump-out is an animation off
+        /// SelectionDrawer's select time, so a pawn that is already selected would
+        /// keep the brackets sitting where they settled and never replay it. This
+        /// is the same clear-then-select vanilla does for a bar click - which never
+        /// reaches the map while a fullscreen window is absorbing input.</summary>
+        static void SelectAgent(string session)
+        {
+            var pawn = AgentColony.Current?.PawnOf(session);
+            if (pawn == null) return;
+            Find.Selector.ClearSelection();
+            Find.Selector.Select(pawn);
         }
 
         TerminalWindow(string name)
@@ -68,6 +107,17 @@ namespace SlopWorld
 
         public override Vector2 InitialSize => new Vector2(UI.screenWidth, UI.screenHeight);
 
+        /// <summary>No margin, for two reasons. The pane is meant to fill the
+        /// screen, and vanilla's 18 leaves a transparent border around it. And the
+        /// margin is not padding: Window.InnerWindowOnGUI opens a GUI group on the
+        /// contracted rect, which translates everything drawn here by (18,18)
+        /// without moving GUI.matrix or Event.current.mousePosition into the same
+        /// frame. Anything that works in screen coordinates then lands 18px off -
+        /// the colonist strip drew low, its hit tests missed, and its selection
+        /// brackets (drawn rotated, so pivoted through GUI.matrix) came apart. At
+        /// zero the group is the screen and the two agree again.</summary>
+        protected override float Margin => 0f;
+
         protected override void SetInitialSizeAndPosition() =>
             windowRect = new Rect(0f, 0f, UI.screenWidth, UI.screenHeight);
 
@@ -75,6 +125,7 @@ namespace SlopWorld
         {
             base.PreOpen();
             SessionHub.Instance.Subscribe(_name);
+            SelectAgent(_name);
         }
 
         public override void PostClose()
@@ -90,27 +141,32 @@ namespace SlopWorld
 
             Widgets.DrawBoxSolid(rect, Sgr.DefaultBg);
 
+            // A session that stopped or was deleted has no pane to look at; its
+            // colonist is on the floor and so is its terminal. The strip stays
+            // up one final frame so the close never races a click.
+            if (info == null || info.Gone)
+            {
+                Close();
+                return;
+            }
+
             var header = new Rect(rect.x, rect.y, rect.width, HeaderH);
             DrawHeader(header, info);
 
+            // The colonist bar hangs above the pane while this window is up, and a
+            // click on it switches the session. It has to be drawn from here, after
+            // the background fill above - drawn anywhere earlier in the frame it is
+            // painted over. See ColonistBarAboveTerminal.cs.
+            var bar = ColonistBarOverlay.Rect;
+            ColonistBarOverlay.Draw();
+
             var body = new Rect(
                 rect.x + Pad,
-                rect.y + HeaderH + Pad,
+                bar.yMax + Pad,
                 rect.width - Pad * 2,
-                rect.height - HeaderH - Pad * 2);
+                rect.height - HeaderH - bar.height - Pad * 2);
 
             HandleInput(body);
-
-            if (info == null)
-            {
-                DrawCentered(body, $"No session named '{_name}'.");
-                return;
-            }
-            if (!info.Alive)
-            {
-                DrawCentered(body, $"'{_name}' is not running.  Start it from the agents tab.");
-                return;
-            }
 
             var live = hub.Screen(_name);
             // While scrolled, show the history frame; fall back to live until it lands.
@@ -160,15 +216,8 @@ namespace SlopWorld
                 SessionHub.Instance.Restart(_name, Fail);
 
             x -= 94f;
-            if (info != null && info.Alive)
-            {
-                if (Widgets.ButtonText(new Rect(x, r.y + 2f, 90f, 24f), "Stop"))
-                    SessionHub.Instance.Stop(_name, Fail);
-            }
-            else if (Widgets.ButtonText(new Rect(x, r.y + 2f, 90f, 24f), "Start"))
-            {
-                SessionHub.Instance.Start(_name, Fail);
-            }
+            if (Widgets.ButtonText(new Rect(x, r.y + 2f, 90f, 24f), "Stop"))
+                SessionHub.Instance.Stop(_name, Fail);
         }
 
         public static Color StateColor(AgentState s)

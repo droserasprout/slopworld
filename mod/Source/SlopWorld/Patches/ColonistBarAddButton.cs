@@ -20,6 +20,11 @@ namespace SlopWorld
         static void Postfix()
         {
             if (!BarShown || IntroDirector.UiHidden) return;
+            // Left off the strip above a terminal pane: the dialog it opens is a
+            // normal window and the terminal draws on the Super layer, so the "+"
+            // there would open something the terminal covers. New agents come from
+            // the Agents tab while a terminal is up.
+            if (ColonistBarOverlay.Active) return;
 
             var bar = Find.ColonistBar;
             var locs = bar.DrawLocs;

@@ -3,6 +3,7 @@ using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
 using Verse;
+using Exception = System.Exception;
 
 namespace SlopWorld
 {
@@ -128,10 +129,21 @@ namespace SlopWorld
         static SlopWorldBootstrap()
         {
             var h = new Harmony("drsr.slopworld");
-            h.PatchAll(Assembly.GetExecutingAssembly());
-            Patch_HideGui.Apply(h);
-            Patch_MainButtons.Apply(h);
-            Patch_InspectTabs.Apply(h);
+            try
+            {
+                h.PatchAll(Assembly.GetExecutingAssembly());
+                Patch_HideGui.Apply(h);
+                Patch_MainButtons.Apply(h);
+                Patch_InspectTabs.Apply(h);
+            }
+            catch (Exception e)
+            {
+                // A patch that fails to bind must not take the rest down with
+                // it: PatchAll aborts on the first bad one, and a mod with no
+                // patches at all is indistinguishable from a mod that isn't
+                // there. Log loud and keep whatever bound before the throw.
+                Log.Error($"[SlopWorld] patching incomplete: {e}");
+            }
             Log.Message("[SlopWorld] patched; daemon at " + SlopClient.BaseUrl);
         }
     }
