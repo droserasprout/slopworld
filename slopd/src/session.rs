@@ -4,14 +4,14 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, RwLock};
 use tokio::task::JoinHandle;
 use tokio::time::{interval, MissedTickBehavior};
 
-use crate::config::{expand, Config, SessionCfg};
+use crate::config::{expand, Config, Daemon, Defaults, Sandbox, SessionCfg};
 use crate::emu::{parse_output, Frame, MouseInput, SessionEmu};
 use crate::sandbox::build_argv;
 use crate::tmux::Tmux;
@@ -373,6 +373,50 @@ impl Manager {
         cfg.sessions.retain(|s| s.name != name);
         cfg.save(&self.cfg_path)?;
         drop(cfg);
+        self.sync_from_config().await;
+        Ok(())
+    }
+
+    /// Writes back whole config sections from the settings GUI. Sessions and state
+    /// rules are addressed by their own endpoints and are never touched here.
+    /// `bind`, `tmux_socket` and `poll_ms` are read once at startup, so those land
+    /// in the file now and take hold when slopd restarts.
+    pub async fn update_sections(
+        self: &Arc<Self>,
+        daemon: Option<Daemon>,
+        defaults: Option<Defaults>,
+        sandbox: Option<Sandbox>,
+    ) -> Result<()> {
+        if let Some(d) = &daemon {
+            d.bind
+                .parse::<std::net::SocketAddr>()
+                .with_context(|| format!("bad bind address {:?}", d.bind))?;
+            if d.tmux_socket.trim().is_empty() {
+                bail!("tmux socket name must not be empty");
+            }
+        }
+        if let Some(d) = &defaults {
+            if d.agent.trim().is_empty() {
+                bail!("default agent command must not be empty");
+            }
+            if d.cols < 20 || d.rows < 5 {
+                bail!("default size must be at least 20x5");
+            }
+        }
+
+        let mut cfg = self.cfg.write().await;
+        if let Some(d) = daemon {
+            cfg.daemon = d;
+        }
+        if let Some(d) = defaults {
+            cfg.defaults = d;
+        }
+        if let Some(s) = sandbox {
+            cfg.sandbox = s;
+        }
+        cfg.save(&self.cfg_path)?;
+        drop(cfg);
+
         self.sync_from_config().await;
         Ok(())
     }

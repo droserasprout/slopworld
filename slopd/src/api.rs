@@ -30,6 +30,7 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/sessions/:name/restart", post(restart))
         .route("/api/config", get(get_config))
         .route("/api/config", put(put_config))
+        .route("/api/config/values", put(put_config_values))
         .route("/api/browse", get(browse))
         .route("/ws", get(ws_upgrade))
         .with_state(m)
@@ -110,10 +111,14 @@ async fn restart(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
     ok_json(m.restart(&name).await)
 }
 
+/// The file as text for the raw editor, and parsed for the settings GUI. Both
+/// views of the same config, so a mod can offer either without parsing TOML.
 async fn get_config(State(m): State<Mgr>) -> ApiResult {
     let text = std::fs::read_to_string(&m.cfg_path)
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
-    Ok(Json(json!({ "path": m.cfg_path, "text": text })))
+    Ok(Json(
+        json!({ "path": m.cfg_path, "text": text, "values": m.config().await }),
+    ))
 }
 
 #[derive(Deserialize)]
@@ -123,6 +128,22 @@ struct ConfigReq {
 
 async fn put_config(State(m): State<Mgr>, Json(req): Json<ConfigReq>) -> ApiResult {
     ok_json(m.replace_config(&req.text).await)
+}
+
+/// A section left out is left alone, which is what keeps a settings GUI from
+/// writing back sessions and state rules it never showed the player.
+#[derive(Deserialize)]
+struct SectionsReq {
+    #[serde(default)]
+    daemon: Option<crate::config::Daemon>,
+    #[serde(default)]
+    defaults: Option<crate::config::Defaults>,
+    #[serde(default)]
+    sandbox: Option<crate::config::Sandbox>,
+}
+
+async fn put_config_values(State(m): State<Mgr>, Json(req): Json<SectionsReq>) -> ApiResult {
+    ok_json(m.update_sections(req.daemon, req.defaults, req.sandbox).await)
 }
 
 #[derive(Deserialize)]

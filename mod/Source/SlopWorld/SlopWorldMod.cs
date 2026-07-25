@@ -145,4 +145,9 @@ namespace SlopWorld
     {
         public override void Activate() => SessionsWindow.Toggle();
     }
+
+    public class MainButtonWorker_Config : RimWorld.MainButtonWorker
+    {
+        public override void Activate() => ConfigMenuWindow.Toggle();
+    }
 }

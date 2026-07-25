@@ -8,4 +8,13 @@
     <order>75</order>
     <validWithoutMap>true</validWithoutMap>
   </MainButtonDef>
+
+  <MainButtonDef>
+    <defName>SlopWorld_Config</defName>
+    <label>config</label>
+    <description>Edit the daemon's configuration.</description>
+    <workerClass>SlopWorld.MainButtonWorker_Config</workerClass>
+    <order>76</order>
+    <validWithoutMap>true</validWithoutMap>
+  </MainButtonDef>
 </Defs>
