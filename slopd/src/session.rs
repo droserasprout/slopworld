@@ -23,8 +23,10 @@ const IDLE_MS: u64 = 10_000;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum State {
-    /// tmux session is gone: either never started or the agent exited.
-    Dead,
+    /// tmux session is gone: either never started or the agent exited. The mod
+    /// puts the colonist behind it on the floor rather than killing it, so the
+    /// same process can get the same body back up.
+    Down,
     /// Pane text is changing, or a rule says the agent is mid-turn.
     Working,
     /// Agent is blocked on the human. This is the one the player must notice.
@@ -211,7 +213,7 @@ impl Manager {
                 .and_modify(|l| l.cfg = s.clone())
                 .or_insert(Live {
                     cfg: s.clone(),
-                    state: State::Dead,
+                    state: State::Down,
                     seq: 0,
                     hash: 0,
                     last_change: 0,
@@ -271,7 +273,7 @@ impl Manager {
             self.tmux.kill(name).await?;
         }
         if let Some(l) = self.live.write().await.get_mut(name) {
-            l.state = State::Dead;
+            l.state = State::Down;
             l.screen = None;
             l.emu = None;
             if let Some(h) = l.reader.take() {
@@ -444,7 +446,7 @@ impl Manager {
                     .clone()
                     .unwrap_or_else(|| cfg.defaults.agent.clone()),
                 state: l.state,
-                alive: l.state != State::Dead,
+                alive: l.state != State::Down,
                 cols: l.cols,
                 rows: l.rows,
                 net: l.cfg.net,
@@ -564,7 +566,7 @@ impl Manager {
         let snapshot: Vec<(String, u64, String)> = {
             let live = self.live.read().await;
             live.iter()
-                .filter(|(_, l)| l.state != State::Dead)
+                .filter(|(_, l)| l.state != State::Down)
                 .filter_map(|(n, l)| {
                     let s = l.screen.as_ref()?;
                     Some((n.clone(), l.last_change, strip_sgr(&s.lines.join("\n"))))
@@ -642,13 +644,13 @@ impl Manager {
     }
 
     /// The control-reader task: pumps `%output` bytes into the emulator and, on a
-    /// coalescing tick, renders + broadcasts. Ends (marking the session dead) when
+    /// coalescing tick, renders + broadcasts. Ends (marking the session down) when
     /// the session emits `%exit` or the control client's stdout closes.
     async fn run_control(self: Arc<Self>, name: String, emu: Arc<Mutex<SessionEmu>>) {
         let (cols, rows) = match self.live.read().await.get(&name) {
             Some(l) => (l.cols, l.rows),
             None => {
-                self.mark_dead(&name).await;
+                self.mark_down(&name).await;
                 return;
             }
         };
@@ -657,7 +659,7 @@ impl Manager {
             Ok(c) => c,
             Err(e) => {
                 tracing::error!("control attach {name}: {e:#}");
-                self.mark_dead(&name).await;
+                self.mark_down(&name).await;
                 return;
             }
         };
@@ -736,7 +738,7 @@ impl Manager {
             }
         }
 
-        self.mark_dead(&name).await;
+        self.mark_down(&name).await;
     }
 
     /// Renders the emulator's live frame and applies it to the session's live
@@ -818,15 +820,15 @@ impl Manager {
         }
     }
 
-    /// Marks a session dead and tears down its emulator + reader. Broadcasts a
+    /// Marks a session down and tears down its emulator + reader. Broadcasts a
     /// session list only when the state actually moved.
-    async fn mark_dead(&self, name: &str) {
+    async fn mark_down(&self, name: &str) {
         let mut changed = false;
         {
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(name) {
-                if l.state != State::Dead {
-                    l.state = State::Dead;
+                if l.state != State::Down {
+                    l.state = State::Down;
                     changed = true;
                 }
                 l.screen = None;

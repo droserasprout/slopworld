@@ -123,7 +123,7 @@ impl Tmux {
     ///
     /// The client runs on a pty, not pipes: tmux 3.7 immediately detaches a
     /// control client whose stdio isn't a terminal (it emits `%exit` right after
-    /// `%session-changed`), which would orphan every live session as "dead". Only
+    /// `%session-changed`), which would orphan every live session as "down". Only
     /// `isatty` matters here - no controlling terminal is needed - so we hand tmux
     /// a pty slave and read the master. Commands still go out over separate `tmux`
     /// invocations, so the master is read-only for us.

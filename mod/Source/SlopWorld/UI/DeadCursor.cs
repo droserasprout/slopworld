@@ -12,11 +12,12 @@ namespace SlopWorld
     [StaticConstructorOnStartup]
     public static class DeadCursor
     {
-        /// Hardware cursors want a small square texture; the vanilla one is 32.
-        const int N = 32;
+        /// The vanilla arrow is 32, which is too polite to notice; X11 has no
+        /// trouble with a hardware cursor this size.
+        const int N = 48;
         /// The outline keeps its weight, the skin flattens out: grey, not pale.
-        const float Floor = 0.10f;
-        const float Range = 0.62f;
+        const float Floor = 0.20f;
+        const float Range = 0.68f;
 
         static Texture2D _tex;
         static Vector2 _hotspot;

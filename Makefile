@@ -31,7 +31,7 @@ install-daemon: daemon
 
 install-mod: mod
 	mkdir -p "$(MODS)/SlopWorld"
-	cp -r mod/About mod/Defs mod/Patches mod/Sounds mod/Assemblies "$(MODS)/SlopWorld/"
+	cp -r mod/About mod/Defs mod/Patches mod/Sounds mod/Textures mod/Assemblies "$(MODS)/SlopWorld/"
 	@echo "installed to $(MODS)/SlopWorld"
 
 run:

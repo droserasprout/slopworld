@@ -145,7 +145,7 @@ namespace SlopWorld
             var label = new Rect(r.x + Pad, r.y + 4f, r.width - 340f, 22f);
             Text.Font = GameFont.Small;
 
-            var state = info?.State ?? AgentState.Dead;
+            var state = info?.State ?? AgentState.Down;
             GUI.color = StateColor(state);
             Widgets.Label(label, $"{_name}  [{state.ToString().ToLower()}]  {_cols}x{_rows}");
             GUI.color = Color.white;

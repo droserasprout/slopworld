@@ -30,7 +30,7 @@ namespace SlopWorld
                 if (pawn == null || !pawn.Spawned || pawn.Map != map) continue;
 
                 var info = hub.Get(kv.Key);
-                var state = info?.State ?? AgentState.Dead;
+                var state = info?.State ?? AgentState.Down;
 
                 var pos = GenMapUI.LabelDrawPosFor(pawn, -0.85f);
                 var box = new Rect(pos.x - 40f, pos.y - 2f, 80f, 20f);
@@ -54,7 +54,7 @@ namespace SlopWorld
                 case AgentState.Working: return "working";
                 case AgentState.Waiting: return "! INPUT";
                 case AgentState.Idle: return "idle";
-                default: return "dead";
+                default: return "down";
             }
         }
     }

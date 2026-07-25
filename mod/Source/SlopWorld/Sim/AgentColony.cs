@@ -3,6 +3,7 @@ using System.Linq;
 using RimWorld;
 using Verse;
 using Verse.AI;
+using Verse.Sound;
 
 namespace SlopWorld
 {
@@ -17,6 +18,12 @@ namespace SlopWorld
         const int Interval = 60;
 
         Dictionary<string, Pawn> _pawns = new Dictionary<string, Pawn>();
+
+        // Last state each session was reconciled at, so a collapse can tell an
+        // agent that has only just gone down from one that was already there.
+        // Deliberately not saved: a load starts with nothing here, and a colony
+        // full of stopped agents should not greet the player with a wall of sirens.
+        readonly Dictionary<string, AgentState> _seen = new Dictionary<string, AgentState>();
 
         public AgentColony(Game game) { }
 
@@ -44,6 +51,11 @@ namespace SlopWorld
         {
             if (!_pawns.TryGetValue(oldName, out var pawn)) return;
             _pawns.Remove(oldName);
+            if (_seen.TryGetValue(oldName, out var state))
+            {
+                _seen.Remove(oldName);
+                _seen[newName] = state; // same agent, same history, new handle
+            }
             if (pawn == null || pawn.Destroyed) return;
 
             pawn.Name = new NameSingle(newName);
@@ -74,6 +86,7 @@ namespace SlopWorld
                 {
                     Retire(p);
                     _pawns.Remove(name);
+                    _seen.Remove(name);
                 }
                 else if (p == null || p.Destroyed)
                 {
@@ -107,22 +120,35 @@ namespace SlopWorld
                 if (pawn != null) _pawns[s.Name] = pawn;
             }
 
-            // Posture each colonist to its agent: a dead process collapses it
+            // Posture each colonist to its agent: a stopped process collapses it
             // (Downed), an idle agent sleeps, a working or waiting one stays awake.
             foreach (var kv in _pawns)
-                Reflect(kv.Value, SessionHub.Instance.Get(kv.Key)?.State ?? AgentState.Dead);
+            {
+                RobotHead.Apply(kv.Value);
+
+                var state = SessionHub.Instance.Get(kv.Key)?.State ?? AgentState.Down;
+                // A process that stopped just now, as opposed to one that was
+                // already gone when we got here. Only the first is worth a siren.
+                bool wentDown = state == AgentState.Down
+                                && _seen.TryGetValue(kv.Key, out var was)
+                                && was != AgentState.Down;
+                _seen[kv.Key] = state;
+
+                Reflect(kv.Value, state, wentDown);
+            }
         }
 
-        // Dead process -> the colonist collapses (Downed) but stays a live, clickable
-        // pawn its process can wake. Idle -> asleep on the spot. Working or waiting ->
-        // awake and upright.
-        static void Reflect(Pawn pawn, AgentState state)
+        // Stopped process -> the colonist goes down but stays a live, clickable pawn
+        // its process can get back up. Killing it instead would mean a corpse and a
+        // fresh stranger on every restart. Idle -> asleep on the spot. Working or
+        // waiting -> awake and upright.
+        static void Reflect(Pawn pawn, AgentState state, bool wentDown)
         {
             if (pawn == null || !pawn.Spawned) return;
 
-            if (state == AgentState.Dead)
+            if (state == AgentState.Down)
             {
-                Down(pawn);
+                Down(pawn, wentDown);
                 return;
             }
 
@@ -133,12 +159,23 @@ namespace SlopWorld
         }
 
         // Collapse the colonist by capping its consciousness, unless already down.
-        static void Down(Pawn pawn)
+        // `loud` means the process stopped just now, rather than having been gone
+        // all along, and the board should hear about it.
+        static void Down(Pawn pawn, bool loud)
         {
             var health = pawn.health;
             if (health?.hediffSet == null) return;
-            if (health.hediffSet.GetFirstHediffOfDef(SlopDefOf.SlopOffline) == null)
-                health.AddHediff(SlopDefOf.SlopOffline);
+            if (health.hediffSet.GetFirstHediffOfDef(SlopDefOf.SlopOffline) != null) return;
+
+            // An idle agent's colonist is asleep on the spot, and a sleeping pawn
+            // and a downed one lie in the same heap - RimWorld does not end the
+            // job on the way down, so the collapse lands on a body already flat
+            // and nothing on screen moves. Ending the forced sleep first puts it
+            // back on its feet for the instant before the hediff takes them away.
+            if (pawn.jobs != null) Wake(pawn);
+            health.AddHediff(SlopDefOf.SlopOffline);
+
+            if (loud) SlopDefOf.LetterArrive_BadUrgent.PlayOneShotOnCamera(pawn.Map);
         }
 
         // Clear the collapse so the pawn gets back on its feet.

@@ -89,7 +89,7 @@ namespace SlopWorld
                 if (session == null) return;
 
                 var info = SessionHub.Instance.Get(session);
-                var state = info?.State ?? AgentState.Dead;
+                var state = info?.State ?? AgentState.Down;
 
                 // Replaced, not appended: what vanilla puts here is gender, age and
                 // whichever job the pawn is faking, which the inspect pane is

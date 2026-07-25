@@ -5,14 +5,19 @@ using Verse;
 
 namespace SlopWorld
 {
-    public enum AgentState { Dead, Working, Waiting, Idle }
+    /// <summary>
+    /// What the daemon last saw a session doing. Down is "the process is not
+    /// running" - the colonist it stands for is put on the floor, not killed,
+    /// because a downed pawn is one the same process can get back up later.
+    /// </summary>
+    public enum AgentState { Down, Working, Waiting, Idle }
 
     public class SessionInfo
     {
         public string Name = "";
         public string Dir = "";
         public string Agent = "";
-        public AgentState State = AgentState.Dead;
+        public AgentState State = AgentState.Down;
         public bool Alive;
         public bool Net = true;
         public bool Sandbox = true;
@@ -27,7 +32,7 @@ namespace SlopWorld
                 case "working": return AgentState.Working;
                 case "waiting": return AgentState.Waiting;
                 case "idle": return AgentState.Idle;
-                default: return AgentState.Dead;
+                default: return AgentState.Down;
             }
         }
 
