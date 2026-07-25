@@ -3,33 +3,20 @@
 Loosely sorted by priority. PRs are welcome.
 
 - [ ] Cleanup
-  - [x] Hide "allow/deny" icons on corpses, items
-  - [ ] Disable items spawn on the map
-  - [ ] Disable right-click menu on map (empty selection)
-  - [ ] Disable "Review scenario" button in main menu if possible
+  - [ ] Disable resources spawn on the map (via scenario?)
+  - [ ] Disable right-click/Tab menu on map (empty selection)
 - [ ] Interface
-  - [x] Pawn and Agents menus
-    - [x] Name in Edit menu
-    - [x] Text status
-    - [x] Square side Terminal button icon and hotkey
-    - [x] Rectangle top Edit button
-  - [x] New menu in bottom bar: Configuration, shows GUI for config
 - [ ] Terminal
-  - [x] Bug: cursor blinkie is one symbol right than cursor in Claude Code
-  - [x] Bug: Ctrl+Arrow jumps only one symbol
-  - [x] Bug: no icon font in Claude Code (`/context` output)
   - [ ] B&W: Cursor colour, OSC8/URL hyperlinks
 - [ ] "Game"
-  - [x] Skip scenario/storyteller/globe/colonist pages on "New colony"
-  - [x] Opening scene: welcome dialog, live population, persona core, purge
-  - [x] Plague spreading from the core: bleeding, blasts, vomit, dead trees
-  - [ ] Bug: colonists' pets not exploded
+  - [ ] Bug: colonists' pets not exploding
   - [ ] Bug: new agent can be spawned inside the rock and immobilized.
+  - [ ] Replace cursor with "Tame" one, flipped horizontally and colored lifeless gray
   - [ ] Robot head texture for agent pawns
-  - [ ] Tune plague odds and spread rate once seen at speed
-- [ ] Sound
-  - [ ] Original soundtrack xD
-    - [ ] 2-3 more bg songs
+  - [ ] Tune plague odds and spread rate
+- [ ] Sound and music
+  - [ ] Bug: no music after bg1 stops playing
+  - [ ] 2-3 more bg songs
 - [ ] "Security"
   - [ ] Carefully read bwrap config
 - [ ] Misc
@@ -39,4 +26,4 @@ Loosely sorted by priority. PRs are welcome.
   - [ ] pi
 - [ ] Docs
   - [ ] Well, docs
-  - [ ] Attribution
+  - [ ] Attribution: game creators, libraries, freesound samples
