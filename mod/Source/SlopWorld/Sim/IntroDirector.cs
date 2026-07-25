@@ -243,30 +243,49 @@ namespace SlopWorld
             UiHidden = false;
         }
 
-        // Player colonists that are not one of our agent pawns.
+        // Player colonists that are not one of our agent pawns - the dead ones too.
+        // A colonist's corpse holds their slot in the colonist bar until it
+        // dessicates (ColonistBar.CheckRecacheEntries walks the map's corpses and
+        // adds every colonist it finds inside one), so a starter that died before
+        // the fuse - caught by a stray blast, or by something the scene threw at it
+        // - would sit up there forever if the purge only looked at the living.
         static List<Pawn> Starters(Map map)
         {
             var colony = AgentColony.Current;
-            return map.mapPawns.FreeColonists
+            var found = map.mapPawns.FreeColonists
                 .Where(p => colony == null || !colony.IsAgentPawn(p))
                 .ToList();
+
+            foreach (var thing in map.listerThings.ThingsInGroup(ThingRequestGroup.Corpse))
+            {
+                var inner = (thing as Corpse)?.InnerPawn;
+                if (inner == null || !inner.IsColonist) continue;
+                if (colony != null && colony.IsAgentPawn(inner)) continue;
+                found.Add(inner);
+            }
+
+            return found;
         }
 
         static void Explode(Pawn pawn, Map map)
         {
-            var pos = pawn.Position;
-
-            // Lots of blood, spread well past the blast.
-            int cells = GenRadial.NumCellsInRadius(PurgeBloodRadius);
-            for (int i = 0; i < PurgeBloodCount; i++)
+            // PositionHeld, not Position: one of these may already be lying inside a
+            // corpse, and it should go up in the same red mist as the rest.
+            var pos = pawn.PositionHeld;
+            if (pos.IsValid && pos.InBounds(map))
             {
-                var c = pos + GenRadial.RadialPattern[Rand.Range(0, cells)];
-                if (c.InBounds(map))
-                    FilthMaker.TryMakeFilth(c, map, ThingDefOf.Filth_Blood, pawn.LabelShort, 1);
-            }
+                // Lots of blood, spread well past the blast.
+                int cells = GenRadial.NumCellsInRadius(PurgeBloodRadius);
+                for (int i = 0; i < PurgeBloodCount; i++)
+                {
+                    var c = pos + GenRadial.RadialPattern[Rand.Range(0, cells)];
+                    if (c.InBounds(map))
+                        FilthMaker.TryMakeFilth(c, map, ThingDefOf.Filth_Blood, pawn.LabelShort, 1);
+                }
 
-            GenExplosion.DoExplosion(pos, map, PurgeBlastRadius, DamageDefOf.Bomb, pawn,
-                damAmount: PurgeBlastDamage);
+                GenExplosion.DoExplosion(pos, map, PurgeBlastRadius, DamageDefOf.Bomb, pawn,
+                    damAmount: PurgeBlastDamage);
+            }
 
             // Make sure they leave the colonist bar regardless of what the blast
             // left behind: kill, bin the corpse, then unspawn.

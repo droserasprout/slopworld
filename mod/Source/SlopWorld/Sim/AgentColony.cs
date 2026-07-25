@@ -79,6 +79,15 @@ namespace SlopWorld
                 {
                     _pawns.Remove(name);
                 }
+                else if (p.Dead)
+                {
+                    // Something killed it - a blast it stood too close to, most
+                    // likely. Its corpse would hold the session's slot in the
+                    // colonist bar and no new body would ever be spawned, so bin it
+                    // and let the reconcile below hand the session a fresh one.
+                    Retire(p);
+                    _pawns.Remove(name);
+                }
             }
 
             // Every session gets a colonist, running or not, so it shows in the

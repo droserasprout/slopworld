@@ -28,8 +28,8 @@ namespace SlopWorld
     public class Plague : MapComponent
     {
         // How the circle grows: a step every interval, forever.
-        const int SpreadInterval = 120;
-        const float SpreadStep = 6f;
+        const int SpreadInterval = 60;
+        const float SpreadStep = 4f;
         const float StartRadius = 4f;
 
         // How often a marked thing rolls for an effect, and the odds of each. What
@@ -52,7 +52,7 @@ namespace SlopWorld
         const int SeizeTicksMax = 420;
 
         // Withering is cheap, but a grown map has thousands of plants.
-        const int PlantsPerTick = 200;
+        const int PlantsPerTick = 1;
 
         // Persisted.
         IntVec3 _origin = IntVec3.Invalid;
@@ -194,7 +194,12 @@ namespace SlopWorld
             if (pawn.health?.hediffSet == null) return false;
             if (pawn.RaceProps == null) return false;
             if (!pawn.RaceProps.Animal && !pawn.RaceProps.Humanlike) return false;
-            return AgentColony.Current?.IsAgentPawn(pawn) != true;
+
+            // Nobody in the colony, ever. Agents are immune by design; the
+            // scenario's starters are the intro's to kill, and a starter the plague
+            // got to first dies off camera and leaves its corpse - and its slot in
+            // the colonist bar - behind.
+            return pawn.Faction == null || !pawn.Faction.IsPlayer;
         }
 
         bool AgentNear(IntVec3 cell, float radius)
