@@ -16,6 +16,10 @@ use crate::emu::{parse_output, Frame, MouseInput, SessionEmu};
 use crate::sandbox::build_argv;
 use crate::tmux::Tmux;
 
+/// A pane quiet for this long has gone idle. Matches the mod's rule for putting
+/// an idle agent's colonist to sleep.
+const IDLE_MS: u64 = 10_000;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum State {
@@ -133,10 +137,6 @@ fn now_ms() -> u64 {
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
 }
-
-/// A pane quiet for this long has gone idle. Matches the mod's rule for putting
-/// an idle agent's colonist to sleep.
-const IDLE_MS: u64 = 10_000;
 
 fn hash_lines(lines: &[String]) -> u64 {
     let mut h = std::collections::hash_map::DefaultHasher::new();

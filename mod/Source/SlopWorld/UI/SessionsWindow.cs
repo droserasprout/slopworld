@@ -8,6 +8,8 @@ namespace SlopWorld
     /// <summary>The colony overview: every session, its state, and the buttons to act on it.</summary>
     public class SessionsWindow : Window
     {
+        const float RowH = 52f;
+
         Vector2 _scroll;
 
         public static void Toggle()
@@ -61,7 +63,6 @@ namespace SlopWorld
 
         void DrawList(Rect rect, SessionHub hub)
         {
-            const float RowH = 52f;
             var view = new Rect(0f, 0f, rect.width - 18f, hub.Sessions.Count * RowH + 4f);
 
             Widgets.BeginScrollView(rect, ref _scroll, view);

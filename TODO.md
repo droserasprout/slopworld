@@ -13,16 +13,20 @@ Loosely sorted by priority. PRs are welcome.
     - [x] Text status
     - [x] Square side Terminal button icon and hotkey
     - [x] Rectangle top Edit button
-  - [ ] New menu in bottom bar: Configuration, shows GUI for config
+  - [x] New menu in bottom bar: Configuration, shows GUI for config
 - [ ] Terminal
   - [x] Bug: cursor blinkie is one symbol right than cursor in Claude Code
   - [x] Bug: Ctrl+Arrow jumps only one symbol
   - [x] Bug: no icon font in Claude Code (`/context` output)
   - [ ] B&W: Cursor colour, OSC8/URL hyperlinks
 - [ ] "Game"
+  - [x] Skip scenario/storyteller/globe/colonist pages on "New colony"
+  - [x] Opening scene: welcome dialog, live population, persona core, purge
+  - [x] Plague spreading from the core: bleeding, blasts, vomit, dead trees
   - [ ] Bug: colonists' pets not exploded
   - [ ] Bug: new agent can be spawned inside the rock and immobilized.
   - [ ] Robot head texture for agent pawns
+  - [ ] Tune plague odds and spread rate once seen at speed
 - [ ] Sound
   - [ ] Original soundtrack xD
     - [ ] 2-3 more bg songs

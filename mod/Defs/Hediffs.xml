@@ -24,4 +24,17 @@
     </stages>
   </HediffDef>
 
+  <!-- The plague's mark. A tag, nothing more: with the sim stripped, health never
+       ticks, so severity would never move and stages would never fire. Plague
+       drives every effect itself and reads this only to know who it has reached. -->
+  <HediffDef>
+    <defName>SlopPlague</defName>
+    <hediffClass>HediffWithComps</hediffClass>
+    <label>plague</label>
+    <description>Something from the machine is in here.</description>
+    <isBad>true</isBad>
+    <maxSeverity>1.0</maxSeverity>
+    <scenarioCanAdd>false</scenarioCanAdd>
+  </HediffDef>
+
 </Defs>

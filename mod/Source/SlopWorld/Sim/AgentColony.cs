@@ -13,10 +13,10 @@ namespace SlopWorld
     /// </summary>
     public class AgentColony : GameComponent
     {
-        Dictionary<string, Pawn> _pawns = new Dictionary<string, Pawn>();
-
         // Reconciling is cheap but pointless every tick; once a second is plenty.
         const int Interval = 60;
+
+        Dictionary<string, Pawn> _pawns = new Dictionary<string, Pawn>();
 
         public AgentColony(Game game) { }
 

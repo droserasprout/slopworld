@@ -152,6 +152,17 @@ namespace SlopWorld
     }
 
     /// <summary>
+    /// The colonist bar, top of the screen. Kept in play - it is how an agent is
+    /// picked - but hidden for the length of the opening scene, along with the
+    /// bottom bar, so the intro plays over a bare map.
+    /// </summary>
+    [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
+    public static class Patch_Hide_ColonistBar
+    {
+        static bool Prefix() => !IntroDirector.UiHidden;
+    }
+
+    /// <summary>
     /// Hides every bottom-bar button except Menu, Inspect and our Agents tab.
     /// MainButtonWorker.Visible is virtual and overridden by several workers
     /// (World, Quests, Mechs...), so we postfix the base getter plus every
@@ -182,6 +193,7 @@ namespace SlopWorld
         static void KeepOnly(MainButtonWorker __instance, ref bool __result)
         {
             if (!__result) return;
+            if (IntroDirector.UiHidden) { __result = false; return; } // opening scene
             if (Keep.Contains(__instance.def?.defName)) return;
             __result = false;
         }

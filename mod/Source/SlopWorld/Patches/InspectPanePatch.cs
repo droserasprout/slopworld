@@ -19,6 +19,13 @@ namespace SlopWorld
         /// <summary>The session behind the single selected pawn, if it is an agent.</summary>
         public static string Selected()
         {
+            // Find.Selector reaches through Find.MapUI, which casts the UI root to
+            // UIRoot_Play; on the entry root (the starting-site globe) that throws,
+            // and an exception here escapes UIRootOnGUI before the window stack is
+            // drawn, leaving the whole screen blank. Nothing is selected outside of
+            // play anyway - and the pane asking us is the world one.
+            if (Current.ProgramState != ProgramState.Playing) return null;
+
             var pawn = Find.Selector?.SingleSelectedThing as Pawn;
             return pawn == null ? null : AgentColony.Current?.SessionOf(pawn);
         }

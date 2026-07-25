@@ -19,7 +19,7 @@ namespace SlopWorld
 
         static void Postfix()
         {
-            if (!BarShown) return;
+            if (!BarShown || IntroDirector.UiHidden) return;
 
             var bar = Find.ColonistBar;
             var locs = bar.DrawLocs;

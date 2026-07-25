@@ -15,6 +15,8 @@ namespace SlopWorld
         const float HeaderH = 28f;
         const float Pad = 6f;
 
+        static readonly Color SelColor = new Color(0.30f, 0.50f, 0.90f, 0.35f);
+
         readonly string _name;
         readonly StringBuilder _literal = new StringBuilder();
 
@@ -32,8 +34,6 @@ namespace SlopWorld
 
         // A mouse gesture currently being forwarded to an app that wants the mouse.
         bool _mouseFwd;
-
-        static readonly Color SelColor = new Color(0.30f, 0.50f, 0.90f, 0.35f);
 
         public static TerminalWindow Open(string name)
         {
