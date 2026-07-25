@@ -247,13 +247,45 @@ namespace SlopWorld
                         Widgets.DrawBoxSolid(new Rect(x, y, w, ch), run.Bg);
 
                     style.normal.textColor = run.Fg;
-                    GUI.Label(new Rect(x, y, w + cw, ch), run.Text, style);
+                    DrawRun(run.Text, x, y, cw, ch, style);
                 }
             }
 
             DrawCursor(body, buf, cw, ch);
 
             GUI.color = Color.white;
+        }
+
+        /// <summary>Draws one run, breaking out every char the face cannot advance
+        /// by exactly one cell and placing it alone on its own column. Claude Code
+        /// opens its prompt with a chevron no mono face here has; drawn inline it
+        /// took no width at all, and the whole input line slid a cell left of the
+        /// grid - and of the cursor we paint on it.</summary>
+        static void DrawRun(string text, float x, float y, float cw, float ch, GUIStyle style)
+        {
+            int start = 0;
+            int i = 0;
+            while (i < text.Length)
+            {
+                // A surrogate pair is one glyph, and never a one-cell one.
+                int len = char.IsHighSurrogate(text[i]) && i + 1 < text.Length ? 2 : 1;
+                if (len == 1 && TerminalFont.FitsCell(text[i])) { i++; continue; }
+
+                DrawSpan(text, start, i, x, y, cw, ch, style);
+                GUI.Label(new Rect(x + i * cw, y, cw * 2f, ch), text.Substring(i, len), style);
+                i += len;
+                start = i;
+            }
+            DrawSpan(text, start, text.Length, x, y, cw, ch, style);
+        }
+
+        /// <summary>Draws text[from..to) at its column, whole runs without a copy.</summary>
+        static void DrawSpan(string text, int from, int to,
+            float x, float y, float cw, float ch, GUIStyle style)
+        {
+            if (to <= from) return;
+            string seg = from == 0 && to == text.Length ? text : text.Substring(from, to - from);
+            GUI.Label(new Rect(x + from * cw, y, seg.Length * cw + cw, ch), seg, style);
         }
 
         /// <summary>Cursor per reported shape; blinks on a half-second beat unless
@@ -598,6 +630,14 @@ namespace SlopWorld
 
         static string MapKey(Event e)
         {
+            // tmux turns modifier-prefixed names (C-Left, M-Up) into the xterm
+            // sequences apps read for word-wise motion; a bare "Left" for Ctrl+Left
+            // moved one char. Shift is left off - apps that don't grok S- sequences
+            // would drop a shift+arrow that used to at least move the cursor.
+            string mod = "";
+            if (e.control) mod += "C-";
+            if (e.alt) mod += "M-";
+
             switch (e.keyCode)
             {
                 case KeyCode.Return:
@@ -605,16 +645,16 @@ namespace SlopWorld
                 case KeyCode.Escape: return "Escape";
                 case KeyCode.Backspace: return "BSpace";
                 case KeyCode.Tab: return e.shift ? "BTab" : "Tab";
-                case KeyCode.UpArrow: return "Up";
-                case KeyCode.DownArrow: return "Down";
-                case KeyCode.LeftArrow: return "Left";
-                case KeyCode.RightArrow: return "Right";
-                case KeyCode.Home: return "Home";
-                case KeyCode.End: return "End";
-                case KeyCode.PageUp: return "PPage";
-                case KeyCode.PageDown: return "NPage";
-                case KeyCode.Delete: return "DC";
-                case KeyCode.Insert: return "IC";
+                case KeyCode.UpArrow: return mod + "Up";
+                case KeyCode.DownArrow: return mod + "Down";
+                case KeyCode.LeftArrow: return mod + "Left";
+                case KeyCode.RightArrow: return mod + "Right";
+                case KeyCode.Home: return mod + "Home";
+                case KeyCode.End: return mod + "End";
+                case KeyCode.PageUp: return mod + "PPage";
+                case KeyCode.PageDown: return mod + "NPage";
+                case KeyCode.Delete: return mod + "DC";
+                case KeyCode.Insert: return mod + "IC";
                 case KeyCode.F1: return "F1";
                 case KeyCode.F2: return "F2";
                 case KeyCode.F3: return "F3";

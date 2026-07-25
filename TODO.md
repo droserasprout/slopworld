@@ -15,9 +15,9 @@ Loosely sorted by priority. PRs are welcome.
     - [ ] Rectangle top Edit button
   - [ ] New menu in bottom bar: Configuration, shows GUI for config
 - [ ] Terminal
-  - [ ] Bug: cursor blinkie is one symbol right than cursor in Claude Code
-  - [ ] Bug: Ctrl+Arrow jumps only one symbol
-  - [ ] Bug: no icon font in Claude Code (`/context` output)
+  - [x] Bug: cursor blinkie is one symbol right than cursor in Claude Code
+  - [x] Bug: Ctrl+Arrow jumps only one symbol
+  - [x] Bug: no icon font in Claude Code (`/context` output)
   - [ ] B&W: Cursor colour, OSC8/URL hyperlinks
 - [ ] "Game"
   - [ ] Bug: colonists' pets not exploded
