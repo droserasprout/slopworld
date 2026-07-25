@@ -16,7 +16,7 @@ Loosely sorted by priority. PRs are welcome.
     - [ ] Cursor color
     - [ ] OSC8/URL hyperlinks
 - [ ] "Game"
-  - [ ] When plague tags flora/fauna or takes action, emit visual effect (pink smoke?)
+  - [x] When plague tags flora/fauna or takes action, emit visual effect (pink smoke?)
   - [ ] Bug: colonists' pets not exploding and not affected by plague
   - [ ] Bug: new agent can be spawned inside the rock and immobilized.
     - [ ] When choosing start location, avoid: rocky ones, deverts. Prefer: tropics.

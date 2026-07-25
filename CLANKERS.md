@@ -123,6 +123,8 @@ none of these need a def.
 - `RealClock` - maps ticks to the wall clock, and banks the stretches the clock did
   not run so old events still date correctly. Backs the real-time patches.
 - `Plague`, `IntroDirector` - the opening scene and what eats the map afterwards.
+  `PlagueFx` is the pink smoke every one of the plague's acts puts up, so the
+  spreading edge is visible while it moves.
 - `StatusOverlay`, `RobotHead`, `QuickStart`, `SlopDefOf`.
 
 ### `Patches/` - taking the game away

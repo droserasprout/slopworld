@@ -98,6 +98,7 @@ namespace SlopWorld
                 if (!InCircle(pawn.Position)) continue;
                 if (Marked(pawn)) continue;
                 pawn.health.AddHediff(SlopDefOf.SlopPlague);
+                PlagueFx.Mark(pawn);
             }
         }
 
@@ -122,10 +123,16 @@ namespace SlopWorld
 
                 if (p.def.plant.IsTree)
                 {
-                    if (!p.LeaflessNow) p.MakeLeafless(Plant.LeaflessCause.Poison, false);
+                    // Already bare is already dealt with: the list is rebuilt every
+                    // pass, so a tree comes back round forever and would smoke on
+                    // each one.
+                    if (p.LeaflessNow) continue;
+                    PlagueFx.Wither(p);
+                    p.MakeLeafless(Plant.LeaflessCause.Poison, false);
                 }
                 else
                 {
+                    PlagueFx.Wither(p); // before the destroy - a despawned plant has no DrawPos
                     p.Destroy(DestroyMode.Vanish);
                 }
             }
@@ -152,6 +159,7 @@ namespace SlopWorld
             // is, and immunity has to mean immunity.
             if (AgentNear(pawn.Position, BlastSafeRadius)) { Bleed(pawn); return; }
 
+            PlagueFx.Burst(pawn);
             GenExplosion.DoExplosion(pawn.Position, map, BlastRadius, DamageDefOf.Bomb,
                 null, damAmount: BlastDamage);
         }
@@ -161,6 +169,7 @@ namespace SlopWorld
         void Bleed(Pawn pawn)
         {
             var pos = pawn.Position;
+            PlagueFx.Act(pawn); // before the damage, which may be the one that drops it
             pawn.TakeDamage(new DamageInfo(DamageDefOf.Cut, Rand.Range(BleedMin, BleedMax)));
 
             int cells = GenRadial.NumCellsInRadius(BloodRadius);
@@ -172,15 +181,24 @@ namespace SlopWorld
             }
         }
 
+        // The two harmless effects check whether they can land before they smoke:
+        // a pawn with no job tracker, or one already retching, is a roll that did
+        // nothing, and a puff over it would advertise an effect that never came.
         static void Vomit(Pawn pawn)
         {
             if (pawn.jobs == null) return;
             if (pawn.CurJobDef == JobDefOf.Vomit) return;
+            PlagueFx.Act(pawn);
             pawn.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Vomit), JobCondition.InterruptForced);
         }
 
-        static void Seize(Pawn pawn) =>
-            pawn.stances?.stunner?.StunFor(Rand.Range(SeizeTicksMin, SeizeTicksMax), null);
+        static void Seize(Pawn pawn)
+        {
+            var stunner = pawn.stances?.stunner;
+            if (stunner == null) return;
+            PlagueFx.Act(pawn);
+            stunner.StunFor(Rand.Range(SeizeTicksMin, SeizeTicksMax), null);
+        }
 
         bool InCircle(IntVec3 cell) =>
             _origin.IsValid && cell.DistanceTo(_origin) <= _radius;
