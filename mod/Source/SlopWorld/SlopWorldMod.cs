@@ -21,6 +21,8 @@ namespace SlopWorld
         public bool overlay = true;
         /// Withhold the scenario's starting resources: a dead world gives nothing.
         public bool noResources = true;
+        /// Print every duration on the wall clock instead of RimWorld's calendar.
+        public bool realTime = true;
 
         public int fontSize = 14;
 
@@ -35,6 +37,7 @@ namespace SlopWorld
             Scribe_Values.Look(ref spawnPawns, "spawnPawns", true);
             Scribe_Values.Look(ref overlay, "overlay", true);
             Scribe_Values.Look(ref noResources, "noResources", true);
+            Scribe_Values.Look(ref realTime, "realTime", true);
             Scribe_Values.Look(ref fontSize, "fontSize", 14);
         }
     }
@@ -52,6 +55,7 @@ namespace SlopWorld
         public static bool SpawnPawns => S.spawnPawns;
         public static bool Overlay => S.overlay;
         public static bool NoResources => S.noResources;
+        public static bool RealTime => S.realTime;
         public static int FontSize => S.fontSize;
     }
 
@@ -94,6 +98,10 @@ namespace SlopWorld
             l.CheckboxLabeled("Draw agent state over colonists", ref settings.overlay);
             l.CheckboxLabeled("Withhold starting resources", ref settings.noResources,
                 "A new colony lands with none of the scenario's usual resources.");
+            l.CheckboxLabeled("Show times on the wall clock", ref settings.realTime,
+                "Every duration the game prints - the 'occurred X ago' on a colonist's " +
+                "log above all - is the span that really passed, not the one RimWorld's " +
+                "calendar makes of it.");
 
             l.Gap(6f);
             l.Label($"Terminal font size: {settings.fontSize}");
