@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using HarmonyLib;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -9,13 +10,6 @@ namespace SlopWorld
     [HarmonyPatch(typeof(Pawn), nameof(Pawn.GetGizmos))]
     public static class Patch_Pawn_GetGizmos
     {
-        static Texture2D _icon;
-
-        // A solid swatch avoids shipping a texture and reads fine at gizmo size.
-        static Texture2D Icon => _icon != null
-            ? _icon
-            : _icon = SolidColorMaterials.NewSolidColorTexture(new Color(0.12f, 0.14f, 0.16f));
-
         static IEnumerable<Gizmo> Postfix(IEnumerable<Gizmo> gizmos, Pawn __instance)
         {
             foreach (var g in gizmos) yield return g;
@@ -31,8 +25,9 @@ namespace SlopWorld
             {
                 defaultLabel = "Terminal",
                 defaultDesc = $"Open the terminal for '{session}'.\nState: {state.ToString().ToLower()}",
-                icon = Icon,
+                icon = TerminalIcon.Tex,
                 defaultIconColor = TerminalWindow.StateColor(state),
+                hotKey = SlopDefOf.SlopOpenTerminal,
                 action = () => TerminalWindow.Open(session),
             };
         }

@@ -34,6 +34,23 @@ namespace SlopWorld
 
         public bool IsAgentPawn(Pawn p) => p != null && _pawns.ContainsValue(p);
 
+        /// <summary>
+        /// Follows a rename the player just made, keeping the same colonist. The
+        /// reconcile below knows sessions only by name, so without this it would
+        /// read a rename as one session gone and another arrived - retiring a
+        /// perfectly good pawn and spawning a stranger in its place.
+        /// </summary>
+        public void Rename(string oldName, string newName)
+        {
+            if (!_pawns.TryGetValue(oldName, out var pawn)) return;
+            _pawns.Remove(oldName);
+            if (pawn == null || pawn.Destroyed) return;
+
+            pawn.Name = new NameSingle(newName);
+            _pawns[newName] = pawn;
+            Log.Message($"[SlopWorld] colonist '{oldName}' is now '{newName}'");
+        }
+
         public IEnumerable<KeyValuePair<string, Pawn>> All => _pawns;
 
         public override void GameComponentTick()

@@ -10,11 +10,15 @@ namespace SlopWorld
     {
         readonly bool _isNew;
         readonly SessionInfo _s;
+        /// The name the daemon still knows this session by: the edit is addressed
+        /// to it, and a changed name in the field is a rename.
+        readonly string _origName;
         string _cols, _rows;
 
         public EditSessionDialog(SessionInfo existing)
         {
             _isNew = existing == null;
+            _origName = existing?.Name ?? "";
             _s = existing == null
                 ? new SessionInfo { Name = "", Dir = "", Agent = "", Net = true, Sandbox = true }
                 : new SessionInfo
@@ -24,6 +28,7 @@ namespace SlopWorld
                     Agent = existing.Agent,
                     Net = existing.Net,
                     Sandbox = existing.Sandbox,
+                    Autostart = existing.Autostart,
                     Cols = existing.Cols,
                     Rows = existing.Rows,
                 };
@@ -49,10 +54,7 @@ namespace SlopWorld
             l.Gap(6f);
 
             l.Label("Name (also the colonist's name)");
-            if (_isNew)
-                _s.Name = l.TextEntry(_s.Name);
-            else
-                l.Label($"  {_s.Name}"); // renaming would orphan the tmux session
+            _s.Name = l.TextEntry(_s.Name);
 
             l.Gap(4f);
             l.Label("Project directory");
@@ -97,8 +99,15 @@ namespace SlopWorld
             if (int.TryParse(_cols, out int c)) _s.Cols = Mathf.Clamp(c, 20, 500);
             if (int.TryParse(_rows, out int r)) _s.Rows = Mathf.Clamp(r, 5, 200);
 
-            SessionHub.Instance.Save(_s, _isNew,
-                ok: () => Close(),
+            string from = _origName, to = _s.Name;
+            SessionHub.Instance.Save(_s, _isNew, _origName,
+                ok: () =>
+                {
+                    // The daemon took the rename, so carry the colonist over before
+                    // the next reconcile sees a name it doesn't know and retires it.
+                    if (!_isNew && from != to) AgentColony.Current?.Rename(from, to);
+                    Close();
+                },
                 fail: msg => Messages.Message($"SlopWorld: {msg}",
                     MessageTypeDefOf.RejectInput, false));
         }

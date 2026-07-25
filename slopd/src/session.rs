@@ -40,6 +40,8 @@ pub struct SessionView {
     pub rows: u16,
     pub net: bool,
     pub sandbox: bool,
+    /// Sent so an edit round-trips it instead of quietly clearing it.
+    pub autostart: bool,
     /// Unix millis of the last observed pane change.
     pub last_change: u64,
     pub seq: u64,
@@ -166,6 +168,15 @@ fn compile_rules(cfg: &Config) -> Vec<(State, Regex)> {
         .collect()
 }
 
+/// A session name is also a tmux target, where ':' and '.' select a window and a
+/// pane, and it is also a colonist's name in the mod.
+fn check_name(name: &str) -> Result<()> {
+    if name.is_empty() || name.contains(|c: char| c.is_whitespace() || c == ':' || c == '.') {
+        bail!("session name must be non-empty and free of whitespace, ':' and '.'");
+    }
+    Ok(())
+}
+
 impl Manager {
     pub async fn new(cfg: Config, cfg_path: PathBuf) -> Arc<Self> {
         let (events, _) = broadcast::channel(256);
@@ -281,10 +292,7 @@ impl Manager {
         if cfg.session(&s.name).is_some() {
             bail!("session {} already exists", s.name);
         }
-        if s.name.is_empty() || s.name.contains(|c: char| c.is_whitespace() || c == ':' || c == '.')
-        {
-            bail!("session name must be non-empty and free of whitespace, ':' and '.'");
-        }
+        check_name(&s.name)?;
         let autostart = s.autostart;
         let name = s.name.clone();
         cfg.sessions.push(s);
@@ -298,18 +306,65 @@ impl Manager {
         Ok(())
     }
 
+    /// Writes a session's config back. A changed name is a rename: the agent keeps
+    /// running under it, so tmux is renamed first - if it refuses, config.toml and
+    /// reality stay in step.
     pub async fn update(self: &Arc<Self>, name: &str, s: SessionCfg) -> Result<()> {
+        let renamed = s.name != name;
+        if renamed {
+            check_name(&s.name)?;
+            let cfg = self.cfg.read().await;
+            if cfg.session(name).is_none() {
+                bail!("no such session: {name}");
+            }
+            if cfg.session(&s.name).is_some() {
+                bail!("session {} already exists", s.name);
+            }
+            drop(cfg);
+            if self.tmux.exists(name).await {
+                self.tmux.rename(name, &s.name).await?;
+            }
+        }
+
         let mut cfg = self.cfg.write().await;
         let idx = cfg
             .sessions
             .iter()
             .position(|x| x.name == name)
             .ok_or_else(|| anyhow!("no such session: {name}"))?;
-        cfg.sessions[idx] = s;
+        cfg.sessions[idx] = s.clone();
         cfg.save(&self.cfg_path)?;
         drop(cfg);
+
+        if renamed {
+            self.readopt(name, &s.name).await;
+        }
         self.sync_from_config().await;
         Ok(())
+    }
+
+    /// Carries a renamed session's live state to its new key. The control reader
+    /// is pinned to the name it attached with, so it is dropped here and, if the
+    /// session was running, re-attached under the new one - which also re-seeds
+    /// the emulator from a capture, leaving the screen where the agent left it.
+    async fn readopt(self: &Arc<Self>, old: &str, new: &str) {
+        let running = {
+            let mut live = self.live.write().await;
+            let mut l = match live.remove(old) {
+                Some(l) => l,
+                None => return,
+            };
+            if let Some(h) = l.reader.take() {
+                h.abort();
+            }
+            let running = l.emu.take().is_some();
+            l.cfg.name = new.to_string();
+            live.insert(new.to_string(), l);
+            running
+        };
+        if running {
+            self.spawn_reader(new).await;
+        }
     }
 
     pub async fn remove(self: &Arc<Self>, name: &str) -> Result<()> {
@@ -350,6 +405,7 @@ impl Manager {
                 rows: l.rows,
                 net: l.cfg.net,
                 sandbox: l.cfg.sandbox,
+                autostart: l.cfg.autostart,
                 last_change: l.last_change,
                 seq: l.seq,
             })
@@ -814,7 +870,17 @@ fn utf8_len(first: u8) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::strip_sgr;
+    use super::{check_name, strip_sgr};
+
+    #[test]
+    fn rejects_names_tmux_would_read_as_targets() {
+        assert!(check_name("claude").is_ok());
+        assert!(check_name("claude-2").is_ok());
+        assert!(check_name("").is_err());
+        assert!(check_name("two words").is_err());
+        assert!(check_name("win:pane").is_err());
+        assert!(check_name("dot.ted").is_err());
+    }
 
     #[test]
     fn strips_colour_and_keeps_text() {

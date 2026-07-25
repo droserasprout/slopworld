@@ -8,11 +8,11 @@ Loosely sorted by priority. PRs are welcome.
   - [ ] Disable right-click menu on map (empty selection)
   - [ ] Disable "Review scenario" button in main menu if possible
 - [ ] Interface
-  - [ ] Pawn and Agents menus
-    - [ ] Name in Edit menu
-    - [ ] Text status
-    - [ ] Square side Terminal button icon and hotkey
-    - [ ] Rectangle top Edit button
+  - [x] Pawn and Agents menus
+    - [x] Name in Edit menu
+    - [x] Text status
+    - [x] Square side Terminal button icon and hotkey
+    - [x] Rectangle top Edit button
   - [ ] New menu in bottom bar: Configuration, shows GUI for config
 - [ ] Terminal
   - [x] Bug: cursor blinkie is one symbol right than cursor in Claude Code

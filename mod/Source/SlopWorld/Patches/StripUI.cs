@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using RimWorld;
+using UnityEngine;
 using Verse;
 
 namespace SlopWorld
@@ -115,15 +116,27 @@ namespace SlopWorld
 
     /// <summary>
     /// The pawn overview in the inspect pane: the Health / Food / Mood bars, the
-    /// timetable and area selectors, and the inspect line that leads with gender
-    /// and age. All colony-management detail, useless for a viewer, so the whole
-    /// fill is skipped for pawns. Non-pawn selections (zones, storage, buildings)
-    /// still draw normally.
+    /// timetable and area selectors. All colony-management detail, useless for a
+    /// viewer, so the fill is skipped for pawns. An agent's colonist keeps the
+    /// inspect line alone - rewritten elsewhere to its directory and state, which
+    /// is the one thing worth reading here. Non-pawn selections (zones, storage,
+    /// buildings) still draw normally.
     /// </summary>
     [HarmonyPatch(typeof(InspectPaneFiller), "DoPaneContentsFor")]
     public static class Patch_Hide_InspectContents
     {
-        static bool Prefix(ISelectable sel) => !(sel is Pawn);
+        static bool Prefix(ISelectable sel, Rect rect)
+        {
+            if (!(sel is Pawn pawn)) return true;
+            if (AgentColony.Current?.SessionOf(pawn) == null) return false;
+
+            // Vanilla draws this line in a group at the content origin, below the
+            // widget row it just laid out; with no row, it starts at the top.
+            Widgets.BeginGroup(rect);
+            InspectPaneFiller.DrawInspectStringFor(sel, rect.AtZero());
+            Widgets.EndGroup();
+            return false;
+        }
     }
 
     /// <summary>

@@ -83,6 +83,12 @@ impl Tmux {
         Ok(())
     }
 
+    /// The agent keeps running: only the handle it answers to changes.
+    pub async fn rename(&self, old: &str, new: &str) -> Result<()> {
+        self.run(&["rename-session", "-t", old, new]).await?;
+        Ok(())
+    }
+
     /// `-e` keeps SGR escapes, so tmux stays the terminal emulator and the mod
     /// only ever has to parse colour runs.
     pub async fn capture(&self, name: &str) -> Result<Screen> {

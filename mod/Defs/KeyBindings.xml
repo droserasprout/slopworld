@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <!-- Hotkey on the Terminal gizmo, so a selected agent is one key away from its
+       pane. T also toggles the beauty overlay in vanilla, which a colony of
+       agents has no use for; rebind it in Options > Keyboard config if it bites. -->
+  <KeyBindingDef>
+    <defName>SlopOpenTerminal</defName>
+    <label>open agent terminal</label>
+    <category>SelectionMisc</category>
+    <defaultKeyCodeA>T</defaultKeyCodeA>
+  </KeyBindingDef>
+
+</Defs>

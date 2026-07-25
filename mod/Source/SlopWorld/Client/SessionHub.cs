@@ -16,6 +16,7 @@ namespace SlopWorld
         public bool Alive;
         public bool Net = true;
         public bool Sandbox = true;
+        public bool Autostart;
         public int Cols = 120;
         public int Rows = 34;
 
@@ -39,6 +40,7 @@ namespace SlopWorld
             Alive = j["alive"].AsBool(),
             Net = j["net"].AsBool(true),
             Sandbox = j["sandbox"].AsBool(true),
+            Autostart = j["autostart"].AsBool(false),
             Cols = j["cols"].AsInt(120),
             Rows = j["rows"].AsInt(34),
         };
@@ -270,17 +272,22 @@ namespace SlopWorld
         public void Remove(string name, Action<string> fail = null) =>
             SlopClient.Delete($"/api/sessions/{name}", _ => Refresh(), fail);
 
-        public void Save(SessionInfo s, bool isNew, Action ok, Action<string> fail)
+        /// <summary>
+        /// Writes a session back. `origName` addresses the edit, because the name
+        /// in `s` may be a new one the daemon has not heard of yet - that is how a
+        /// rename is spelled.
+        /// </summary>
+        public void Save(SessionInfo s, bool isNew, string origName, Action ok, Action<string> fail)
         {
             string body =
                 $"{{\"name\":{JVal.Q(s.Name)},\"dir\":{JVal.Q(s.Dir)}," +
                 $"\"agent\":{(string.IsNullOrEmpty(s.Agent) ? "null" : JVal.Q(s.Agent))}," +
                 $"\"net\":{JVal.B(s.Net)},\"sandbox\":{JVal.B(s.Sandbox)}," +
-                $"\"autostart\":false,\"cols\":{s.Cols},\"rows\":{s.Rows}}}";
+                $"\"autostart\":{JVal.B(s.Autostart)},\"cols\":{s.Cols},\"rows\":{s.Rows}}}";
 
             Action<JVal> done = _ => { Refresh(); ok?.Invoke(); };
             if (isNew) SlopClient.Post("/api/sessions", body, done, fail);
-            else SlopClient.Put($"/api/sessions/{s.Name}", body, done, fail);
+            else SlopClient.Put($"/api/sessions/{origName}", body, done, fail);
         }
     }
 }

@@ -96,37 +96,46 @@ namespace SlopWorld
             Widgets.DrawBoxSolid(chip, TerminalWindow.StateColor(s.State));
 
             Text.Font = GameFont.Small;
-            Widgets.Label(new Rect(r.x + 24f, r.y + 4f, 260f, 22f), s.Name);
+            Widgets.Label(new Rect(r.x + 24f, r.y + 4f, 200f, 22f), s.Name);
 
+            // The state in words next to the name, so the row scans without
+            // decoding the colour of the chip beside it.
+            GUI.color = TerminalWindow.StateColor(s.State);
+            Widgets.Label(new Rect(r.x + 230f, r.y + 4f, 100f, 22f), s.State.ToString().ToLower());
             GUI.color = new Color(0.65f, 0.66f, 0.68f);
+
             string flags = (s.Sandbox ? "bwrap" : "unsandboxed") + (s.Net ? "" : ", no net");
-            Widgets.Label(new Rect(r.x + 24f, r.y + 24f, r.width - 300f, 20f),
+            Widgets.Label(new Rect(r.x + 24f, r.y + 24f, r.width - 340f, 20f),
                 $"{s.Dir}  ({flags})");
             GUI.color = Color.white;
 
-            float x = r.xMax - 6f;
+            // Edit spans the top line; the rest sit under it, terminal last.
+            float top = r.y + 4f, bottom = r.y + 26f;
+            float right = r.xMax - 6f;
 
-            x -= 86f;
-            if (Widgets.ButtonText(new Rect(x, r.y + 9f, 82f, 30f), "Terminal"))
+            if (Widgets.ButtonText(new Rect(right - 174f, top, 174f, 20f), "Edit"))
+                Find.WindowStack.Add(new EditSessionDialog(s));
+
+            var term = new Rect(right - 22f, bottom, 22f, 20f);
+            TooltipHandler.TipRegion(term, $"Open the terminal for '{s.Name}'.");
+            if (Widgets.ButtonImage(term, TerminalIcon.Tex))
                 TerminalWindow.Open(s.Name);
 
-            x -= 78f;
+            float x = right - 22f;
+
+            x -= 62f;
             if (s.Alive)
             {
-                if (Widgets.ButtonText(new Rect(x, r.y + 9f, 74f, 30f), "Stop"))
+                if (Widgets.ButtonText(new Rect(x, bottom, 58f, 20f), "Stop"))
                     SessionHub.Instance.Stop(s.Name, Fail);
             }
-            else if (Widgets.ButtonText(new Rect(x, r.y + 9f, 74f, 30f), "Start"))
+            else if (Widgets.ButtonText(new Rect(x, bottom, 58f, 20f), "Start"))
             {
                 SessionHub.Instance.Start(s.Name, Fail);
             }
 
-            x -= 62f;
-            if (Widgets.ButtonText(new Rect(x, r.y + 9f, 58f, 30f), "Edit"))
-                Find.WindowStack.Add(new EditSessionDialog(s));
-
-            x -= 62f;
-            if (Widgets.ButtonText(new Rect(x, r.y + 9f, 58f, 30f), "Del"))
+            x -= 52f;
+            if (Widgets.ButtonText(new Rect(x, bottom, 48f, 20f), "Del"))
             {
                 var name = s.Name;
                 Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
