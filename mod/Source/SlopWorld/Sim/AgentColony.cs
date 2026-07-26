@@ -69,6 +69,25 @@ namespace SlopWorld
 
         public IEnumerable<KeyValuePair<string, Pawn>> All => _pawns;
 
+        /// <summary>The sessions in colonist-bar order, which is the order the strip
+        /// above an open pane draws them in - so the numbered switch keys count the
+        /// portraits the player is looking at rather than a dictionary's whim. The
+        /// bar's own list is a shared scratch buffer, hence the copy.</summary>
+        public static List<string> InBarOrder()
+        {
+            var order = new List<string>();
+            var colony = Current;
+            var bar = Find.ColonistBar;
+            if (colony == null || bar == null) return order;
+
+            foreach (var pawn in bar.GetColonistsInOrder())
+            {
+                var session = colony.SessionOf(pawn);
+                if (session != null) order.Add(session);
+            }
+            return order;
+        }
+
         public override void GameComponentTick()
         {
             if (Find.TickManager.TicksGame % Interval != 0) return;

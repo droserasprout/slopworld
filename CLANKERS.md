@@ -267,6 +267,14 @@ none of these need a def.
   menu first - `GoToMainMenu` queues the teardown, so the page is opened on the
   menu's first frame instead. `Pending` is what tells `AutoSaver` not to write out
   a colony the player has just discarded, and `AutoResume` not to take the frame.
+- `TerminalHotkeys` - F12 into the terminal from anywhere, which with nothing
+  selected picks any running agent and lets the open window select its pawn.
+  Opening needs a home outside every window, since there is no window to hang it
+  off yet, so it sits on `GameComponentOnGUI`. Closing is *not* here and cannot
+  be: `WindowStack.HandleEventsHighPriority` Uses every KeyDown while a window
+  absorbs input around itself, and it runs earlier in `UIRoot.UIRootOnGUI` than
+  the game components, so with a pane up the key never arrives. `TerminalWindow`
+  holds that half - one binding, `SlopQuickTerminal`, read in two places.
 - `StatusOverlay`, `RobotHead`, `QuickStart`, `SlopDefOf`.
 
 ### `Patches/` - taking the game away
@@ -308,7 +316,14 @@ the thing being read. The countdown to a reset runs off the frame clock rather
 than off the daemon's word, so it keeps ticking between polls and when the socket
 dies; the numbers themselves are never computed here.
 
-`TerminalWindow` renders a pane and forwards keys; `Sgr` parses colour runs;
+`TerminalWindow` renders a pane and forwards keys. Almost everything typed goes
+to the agent - Escape included, which is why leaving is Shift+Escape - so the few
+keys the window keeps are taken before the forwarding: F12 closes (see
+`TerminalHotkeys` for why the pane owns that end of it), and Alt+1..9 (and Alt+0
+for the tenth) point it at that portrait in the strip above it, counting through
+`AgentColony.InBarOrder` so the slots are the ones on screen. A slot past the end
+does nothing rather than wrapping, and a slot holding a stopped agent starts it,
+which is what clicking the same portrait does. `Sgr` parses colour runs;
 `TerminalFont` deals with the cell grid. `SessionsWindow`, `EditSessionDialog`,
 `ConfigMenuWindow` and `ConfigWindow` are the session and config GUIs, all of which
 write straight through to the daemon.
@@ -346,6 +361,15 @@ reconnect on every switch, because `WriteSettings` reconnects.
   which is also the only place `Mouse.IsOver` sees the terminal as the current
   window and lets clicks through. This cost three iterations once; see
   `ColonistBarAboveTerminal.cs`.
+- Keyboard order is not draw order, and is the shorter list.
+  `WindowStack.HandleEventsHighPriority` runs near the top of
+  `UIRoot.UIRootOnGUI` and Uses every `KeyDown` (and `MouseDown`) whenever
+  `GetsInput(null)` is false - which any window with `absorbInputAroundWindow`
+  makes it. Everything downstream, the map layer and `GameComponentOnGUI` both,
+  is then reading a `Used` event, so a global hotkey taken there fires only while
+  nothing is absorbing. A key that also has to work with a window up has to be
+  read inside that window as well; `SlopQuickTerminal` is read in both places for
+  exactly that reason.
 - `Window.Margin` (18 by default) is not padding. `InnerWindowOnGUI` opens a GUI
   group on the contracted rect, so `DoWindowContents` draws in a coordinate space
   translated by the margin - while `GUI.matrix` and anything reading screen

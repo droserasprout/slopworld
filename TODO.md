@@ -11,7 +11,7 @@ Loosely sorted by priority. PRs are welcome.
   - [ ] Remove fixed terminal width/height?
 - [ ] Interface
 - [ ] Terminal
-  - [ ] Alt+Num to switch pane, F12 to quick toggle
+  - [x] Alt+Num to switch pane, F12 to quick toggle
   - [ ] Add "+" button in small floating colonist panel
   - [ ] Bug: DnD text selection highlight the whole line under the cursor including empty space
   - [ ] Bells and whistles

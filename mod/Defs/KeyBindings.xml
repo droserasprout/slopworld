@@ -20,4 +20,15 @@
     <defaultKeyCodeA>P</defaultKeyCodeA>
   </KeyBindingDef>
 
+  <!-- The way in and out of the terminal from anywhere, selection or not. F12
+       because vanilla spends nothing on it and the terminal wants a key no agent
+       is likely to miss; the terminal forwards F12 to the agent only while this
+       is bound elsewhere. See TerminalHotkeys.cs. -->
+  <KeyBindingDef>
+    <defName>SlopQuickTerminal</defName>
+    <label>open/close agent terminal</label>
+    <category>SelectionMisc</category>
+    <defaultKeyCodeA>F12</defaultKeyCodeA>
+  </KeyBindingDef>
+
 </Defs>

@@ -425,6 +425,31 @@ namespace SlopWorld
                 return;
             }
 
+            // The other way out is the key that opened this, and it has to be caught
+            // here rather than in TerminalHotkeys: a window absorbing input around
+            // itself makes WindowStack.HandleEventsHighPriority Use every KeyDown,
+            // and that runs earlier in UIRoot.UIRootOnGUI than any game component.
+            // So the pane holds the closing half of its own hotkey. While it is
+            // bound here, F12 is not a key the agent ever receives.
+            if (SlopDefOf.SlopQuickTerminal != null && SlopDefOf.SlopQuickTerminal.KeyDownEvent)
+            {
+                Close();
+                e.Use();
+                return;
+            }
+
+            // Alt+1..9 (and Alt+0 for the tenth) jump to that portrait in the strip
+            // above the pane. Ahead of the offline check on purpose: switching is
+            // local, the subscription survives a dead socket, and a terminal that
+            // will not even change pane while slopd restarts reads as hung.
+            int slot = SlotKey(e);
+            if (slot >= 0 && e.alt)
+            {
+                SwitchToSlot(slot);
+                e.Use();
+                return;
+            }
+
             // Offline: the hub drops sends on the floor, so count them and say so
             // in the banner rather than letting the terminal eat what was typed.
             if (!SessionHub.Instance.Online)
@@ -473,6 +498,37 @@ namespace SlopWorld
 
             if (e.keyCode != KeyCode.None)
                 e.Use(); // swallow it so RimWorld hotkeys don't fire behind us
+        }
+
+        /// <summary>The 0-based slot a number key names, or -1 for anything else.
+        /// Zero is the tenth, the way a tabbed terminal counts.</summary>
+        static int SlotKey(Event e)
+        {
+            var k = e.keyCode;
+            if (k >= KeyCode.Alpha1 && k <= KeyCode.Alpha9) return k - KeyCode.Alpha1;
+            if (k >= KeyCode.Keypad1 && k <= KeyCode.Keypad9) return k - KeyCode.Keypad1;
+            if (k == KeyCode.Alpha0 || k == KeyCode.Keypad0) return 9;
+            return -1;
+        }
+
+        /// <summary>Points the pane at the nth agent in the strip. A slot past the
+        /// end is a no-op rather than a wrap: the keys are meant to be muscle memory
+        /// for a fixed portrait, and wrapping would land somewhere unrelated every
+        /// time an agent comes or goes. A down agent gets started instead, which is
+        /// what a click on the same portrait does.</summary>
+        void SwitchToSlot(int slot)
+        {
+            var order = AgentColony.InBarOrder();
+            if (slot >= order.Count) return;
+
+            string name = order[slot];
+            if (name == _name) return;
+
+            var info = SessionHub.Instance.Get(name);
+            if (info == null) return;
+
+            if (info.Gone) SessionHub.Instance.Start(name);
+            else SwitchTo(name);
         }
 
         // --------------------------------------------------------- scroll / select
