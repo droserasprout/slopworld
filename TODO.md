@@ -2,7 +2,40 @@
 
 Loosely sorted by priority. PRs are welcome.
 
-## Milestone: develop SlopWorld from inside SlopWorld
+## USER
+
+- [ ] Cleanup
+  - [ ] Disable resources spawn on the map (via scenario?)
+  - [ ] Disable right-click/Tab menu on map (empty selection)
+- [ ] Interface
+  - [ ] Colonist selected: square action button "Start/Stop". Stop shows confirmation dialog that process will be killed.
+- [ ] Terminal
+  - [ ] Bug: DnD text selection highlight the whole line under the cursor including empty space
+  - [ ] Bells and whistles
+    - [ ] Color schemes
+    - [ ] Cursor color
+    - [ ] OSC8/URL hyperlinks
+- [ ] "Game"
+  - [ ] Bug: colonists' pets not exploding and not affected by plague
+  - [ ] Tune plague odds and spread rate
+  - [ ] Replace loading screen tips. Start with lorem ipsum list.
+- [ ] Sound and music
+  - [ ] Bug: no music after bg1 stops playing (not sure)
+  - [ ] Human: 2-3 more bg songs
+- [ ] "Security"
+  - [ ] Carefully read bwrap config
+- [ ] Misc
+  - [ ] Create a separate game "profile" with separate saves and all mods/DLCs disabled except ours. Runner script/binary.
+- [ ] Agents
+  - [ ] OpenCode support
+  - [ ] pi support
+- [ ] Docs
+  - [ ] Well, docs
+  - [ ] Attribution: game creators, mod libraries, freesound samples. Text and in-game.
+
+## AGENT
+
+### Milestone: develop SlopWorld from inside SlopWorld
 
 The loop we want: an agent in a session edits this repo, runs `make redeploy`,
 the daemon and the mod come back, and the same colony with the same agents is
@@ -73,21 +106,48 @@ on screen seconds later. Groups A and B below are done; C and D are not.
   - [ ] Suppress the "unsaved work will be lost" confirmation now that quitting
         always saves. Needs the game's own string keys checked with ikdasm.
 - [ ] Let a sandboxed agent actually build and deploy
-  - [ ] `~/.local/bin` is read-only (`Sandbox::default`), so `install -Dm755` of
-        the daemon fails. Same for `$(MODS)/SlopWorld` and
-        `~/.config/systemd/user`; `$MANAGED` needs to be readable, and without it
-        the mod cannot even be compiled from inside a session.
-  - [ ] Bind `/run/user/$UID/bus` and pass `XDG_RUNTIME_DIR` /
-        `DBUS_SESSION_BUS_ADDRESS`, so `systemctl --user` works in the sandbox.
-        Chosen over a `slopctl` shim for directness; it is an escape hatch, and
-        a session that has it is a session with the run of the user account.
-        Worth confining to the one dev session rather than the default sandbox.
-  - [ ] Toolchain: cargo and rustup state (`~/.cargo`, `~/.rustup`) and
-        mono/msbuild need to be reachable and writable, or every build is cold.
-  - [ ] The agent cannot see its own crashes. Serve the game log
-        (`GET /api/gamelog?tail=N`, the mod knows the path) and the daemon's own
-        log, so "patching incomplete" is visible from inside the session rather
-        than only from the host.
+  - [x] Widen the binds. All config, no daemon rebuild: `ro_paths`, `rw_paths`
+        and the session's own `rw_paths` were already there. Split by scope on
+        purpose - read-only paths any agent can have go in `[sandbox]`, the
+        writable ones go on the dev session, because a binary on `PATH` or a
+        live dbus socket is the run of the user account. Binds are built at
+        spawn, so none of it takes effect until the session restarts.
+    - [x] `~/.local/bin` was read-only (`Sandbox::default`), so `install -Dm755`
+          of the daemon failed. Same for `$(MODS)/SlopWorld` and
+          `~/.config/systemd/user`; `$MANAGED` needs to be readable, and without
+          it the mod cannot even be compiled from inside a session. A global
+          read-only bind can be overridden read-write on one session: bwrap
+          takes the last bind for a path, and `rw_paths` are pushed after
+          `ro_paths` in `build_argv`.
+    - [x] Toolchain: cargo and rustup state (`~/.cargo`, `~/.rustup`) and
+          msbuild's package cache (`~/.nuget`, which `-restore` writes), or
+          every build is cold and needs the network.
+    - [x] `~/.gitconfig`, or a session cannot commit without being handed a
+          repo-local `user.name`. `.git/config` in this repo carries one; drop
+          it now the bind has landed.
+    - [ ] `/run/user/$UID/systemd`, which is the bind that actually makes
+          `systemctl --user` work. `/run/user/$UID/bus` alone is not enough and
+          reads as though it should be: `busctl --user list` succeeds over it
+          while every systemctl call fails on ENOENT, because for user scope
+          systemctl does not use the session bus at all - it opens systemd's
+          private socket under `$XDG_RUNTIME_DIR/systemd`, which is what its
+          error means by "local transport". Bind it rw; connecting to a unix
+          socket is a write. Not the whole of `/run/user/$UID` - that is gnupg,
+          gcr and keyring, i.e. every secret the user has.
+          `XDG_RUNTIME_DIR` and `DBUS_SESSION_BUS_ADDRESS` need nothing: bwrap
+          is built without `--clearenv`, so slopd's whole environment is
+          already inherited and `pass_env` only decides what is overridden.
+  - [x] The agent cannot see its own crashes - Player.log's directory is bound
+        read-only now, which is the config-only half.
+  - [ ] `GET /api/gamelog?tail=N` and the daemon's own log, so "patching
+        incomplete" is one call rather than a path every agent has to know.
+  - Note: `~/.config/slopworld/` is deliberately *not* bound. An agent that can
+    rewrite its own sandbox rules does not have one, so every change here has to
+    come from outside the session.
+  - [ ] Per-session `ro_paths`. `SessionCfg` has `rw_paths` but no read-only
+        counterpart, so `$MANAGED` and Player.log had to go in the global
+        `[sandbox]` - harmless, both being read-only and inert, but the scoping
+        is by accident rather than by choice.
   - [ ] The agent cannot see the UI it is changing. `POST /api/screenshot`,
         handled on the mod's main thread, writing into the repo - the single
         biggest one for any UI work.
@@ -111,39 +171,3 @@ on screen seconds later. Groups A and B below are done; C and D are not.
   - [ ] CI: `make test` plus a mod build. The mod has no test harness, but a
         build that does not compile against a real install should not reach a
         redeploy.
-
-- [ ] Cleanup
-  - [ ] Disable resources spawn on the map (via scenario?)
-  - [ ] Disable right-click/Tab menu on map (empty selection)
-- [ ] Interface
-  - [ ] Colonist selected: square action button "Start/Stop". Stop shows confirmation dialog that process will be killed.
-- [ ] Terminal
-  - [ ] Bug: DnD text selection highlight the whole line under the cursor including empty space
-  - [x] Maximize terminal window (no transparent borders)
-  - [x] Draw smaller copy of top center colonist bar above terminal. Clicking colonist icon switches terminal.
-  - [ ] Bells and whistles
-    - [ ] Color schemes
-    - [ ] Cursor color
-    - [ ] OSC8/URL hyperlinks
-- [ ] "Game"
-  - [x] When plague tags flora/fauna or takes action, emit visual effect (pink smoke?)
-  - [ ] Bug: colonists' pets not exploding and not affected by plague
-  - [x] Bug: new agent can be spawned inside the rock and immobilized.
-    - [x] When choosing start location, avoid: rocky ones, deverts. Prefer: tropics.
-  - [ ] Tune plague odds and spread rate
-  - [x] Autosave every 1-2 real minutes and on exit (`AutoSaver`, in the milestone
-        above). Suppressing the "unsaved will be lost" message is still open.
-  - [ ] Replace loading screen tips. Start with lorem ipsum list.
-- [ ] Sound and music
-  - [ ] Bug: no music after bg1 stops playing (not sure)
-  - [ ] Human: 2-3 more bg songs
-- [ ] "Security"
-  - [ ] Carefully read bwrap config
-- [ ] Misc
-  - [ ] Create a separate game "profile" with separate saves and all mods/DLCs disabled except ours. Runner script/binary.
-- [ ] Agents
-  - [ ] OpenCode support
-  - [ ] pi support
-- [ ] Docs
-  - [ ] Well, docs
-  - [ ] Attribution: game creators, mod libraries, freesound samples. Text and in-game.

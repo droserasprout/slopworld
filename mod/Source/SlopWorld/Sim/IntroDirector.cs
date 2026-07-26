@@ -226,12 +226,18 @@ namespace SlopWorld
             {
                 _armed = true;
                 _fireAt = Time.realtimeSinceStartup + FuseSeconds;
+                // The pets land here, next to the people they belong to, with a fuse
+                // to spare - long enough for the player to read them as part of the
+                // team before the team stops existing.
+                Pets.Place(map, starters[0].Position);
                 return;
             }
 
             if (Time.realtimeSinceStartup < _fireAt) return;
 
-            foreach (var p in starters) Explode(p, map);
+            // Everything else in the blast is scenery. The pets are the point.
+            var spared = Pets.On(map).Cast<Thing>().ToList();
+            foreach (var p in starters) Explode(p, map, spared);
             Finish();
         }
 
@@ -267,7 +273,7 @@ namespace SlopWorld
             return found;
         }
 
-        static void Explode(Pawn pawn, Map map)
+        static void Explode(Pawn pawn, Map map, List<Thing> spared)
         {
             // PositionHeld, not Position: one of these may already be lying inside a
             // corpse, and it should go up in the same red mist as the rest.
@@ -284,7 +290,7 @@ namespace SlopWorld
                 }
 
                 GenExplosion.DoExplosion(pos, map, PurgeBlastRadius, DamageDefOf.Bomb, pawn,
-                    damAmount: PurgeBlastDamage);
+                    damAmount: PurgeBlastDamage, ignoredThings: spared);
             }
 
             // Make sure they leave the colonist bar regardless of what the blast

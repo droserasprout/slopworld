@@ -14,11 +14,21 @@ namespace SlopWorld
     /// Selector.Select - single clicks, drag boxes, the colonist bar - so gating it
     /// here makes items, plants, buildings and the rest of the map unclickable while
     /// leaving colonists (and thus their Terminal gizmo) reachable.
+    ///
+    /// The pets are the one exception, and not a selectable one: a click on a colony
+    /// animal is swallowed like any other, but it pats the animal on the way past.
+    /// Selecting it would open an inspect pane full of a sim that is not running.
     /// </summary>
     [HarmonyPatch(typeof(Selector), nameof(Selector.Select))]
     public static class Patch_Selectable_ColonistsOnly
     {
-        static bool Prefix(object obj) => obj is Pawn p && p.IsColonist;
+        static bool Prefix(object obj)
+        {
+            if (!(obj is Pawn p)) return false;
+            if (p.IsColonist) return true;
+            if (Pets.Is(p)) Pets.Poke(p);
+            return false;
+        }
     }
 
     /// <summary>

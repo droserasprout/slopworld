@@ -24,6 +24,9 @@ namespace SlopWorld
         /// What an agent wears instead of a face.
         public static HeadTypeDef SlopRobotHead;
 
+        /// The colony's one and only pet.
+        public static PawnKindDef Cat;
+
         /// The machine persona at the map's centre: where the plague comes from.
         public static ThingDef Ship_ComputerCore;
 

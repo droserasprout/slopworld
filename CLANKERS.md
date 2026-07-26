@@ -164,6 +164,25 @@ none of these need a def.
   fleck in `Defs/Flecks.xml`, not a tint on a vanilla one - colour and alpha
   have to live on the def, because a fleck's `instanceColor` is combined with a
   separately computed fade alpha and loses the transparency.
+- `Pets` - the starting cat, and only the cat. It is the only living thing on the
+  map that survives, and both halves of that are deliberate: the intro hands it to
+  `GenExplosion` as an `ignoredThing` so the purge steps around it, and
+  `Plague.Infectable` spares the whole player faction. A litter of assorted
+  biome-appropriate animals read as a starting scenario, which is what this map is
+  not; one cat in the ash reads as a survivor. Placing the cat is only half of it:
+  Crashlanded ships a `ScenPart_StartingAnimal` that hands over one random tame
+  animal weighted by biome, and since `LandingSite` aims at tropical rainforest
+  what it kept handing over was a monkey. `Patch_NoScenarioAnimals` shuts that
+  door - `PlayerStartingThings` again, but on a different ScenPart from the one
+  `Patch_NoStartingThings` covers - and `Place` culls any colony animal already on
+  the map before spawning, which closes the rest and makes it idempotent
+  (`IntroDirector._armed` is runtime state under a persisted phase, so a save
+  loaded during the fuse comes back through it). The API stays plural - `On`
+  returns a list, and the purge and the plague both iterate it - so the count is a
+  policy in `Place` rather than an assumption in three other files. Clicking it
+  plays its species' call sound rather than selecting it - `Selector.Select` still refuses
+  everything but an agent. `NuzzleInstead` is what it does with a swing
+  `NoHarmAgents` took off it.
 - `AutoResume`, `AutoSaver`, `TerminalRecall` - what makes a restart cheap. The
   mod's assembly is read once per process, so seeing a change to it means a fresh
   game; those three save the colony on the wall clock and on the way out, load the
