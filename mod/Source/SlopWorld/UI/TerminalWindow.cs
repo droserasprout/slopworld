@@ -16,9 +16,9 @@ namespace SlopWorld
         const float HeaderMinH = 28f;
 
         /// <summary>The title bar's height. The colonist strip draws inside it, so
-        /// it grows to hold a portrait, and never shrinks below the row of buttons
-        /// it also has to hold.</summary>
-        static float HeaderH => Mathf.Max(HeaderMinH, ColonistBarOverlay.PortraitH);
+        /// it grows to hold a whole row - portrait and name - and never shrinks below
+        /// the row of buttons it also has to hold.</summary>
+        static float HeaderH => Mathf.Max(HeaderMinH, ColonistBarOverlay.BarH);
         const float Pad = 6f;
 
         static readonly Color SelColor = new Color(0.30f, 0.50f, 0.90f, 0.35f);
@@ -170,8 +170,7 @@ namespace SlopWorld
             var bar = ColonistBarOverlay.Rect;
             ColonistBarOverlay.Draw();
 
-            // The strip overlaps the header and outhangs it by the names, so the pane
-            // starts below whichever of the two reaches lower.
+            // The strip is the header, or is inside it; the pane starts under both.
             float top = Mathf.Max(header.yMax, bar.yMax);
             var body = new Rect(
                 rect.x + Pad,

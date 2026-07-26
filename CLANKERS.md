@@ -549,13 +549,13 @@ which is what clicking the same portrait does. `Sgr` parses colour runs;
 
 That strip is *in* the title bar rather than under it. A row of portraits below a
 title bar is two bands of chrome stacked over the pane; the bar grown to
-`ColonistBarOverlay.PortraitH` - the cell, the overhang a head pokes out of it and
-the pad above - is one, and only the names hang past its bottom edge onto the
-terminal's own background. `TerminalWindow.HeaderH` is that height, floored at
-what the buttons need, and the buttons and the title are centred in it rather than
-parked at the top. The row is laid out from the header's bottom edge up, so a row
-that had to shrink to fit keeps its names over the edge instead of pulling them
-back inside the bar.
+`ColonistBarOverlay.BarH` - a whole row, name included, with a pad above and below
+- is one. `TerminalWindow.HeaderH` is that height, floored at what the buttons
+need, and the title and the buttons are centred in it rather than parked at the
+top. Nothing hangs onto the pane: `RowH` is the row's own extent, head to name,
+and the row is centred on that at whatever scale it had to shrink to - a name over
+the bar's bottom edge reads as the bar ending behind the portraits rather than
+holding them.
 
 The pane's size is the window's, not a setting. `NegotiateSize` divides the body
 rect by the cell size and sends a `resize` (debounced 0.2s, because dragging the

@@ -16,9 +16,10 @@ namespace SlopWorld
     ///
     /// The strip is *in* the header rather than under it. A row of portraits with a
     /// title bar above it is two bands of chrome over the pane; the header grown to
-    /// <see cref="PortraitH"/> - exactly the portrait and the pad above it - is one.
-    /// Only the names hang past its bottom edge, onto the terminal's own background,
-    /// which is what keeps the header the height of a header.
+    /// <see cref="BarH"/> - a whole row, name included, with a pad above and below -
+    /// is one. Nothing hangs onto the pane: the row is centred in the bar, which is
+    /// what makes the bar read as holding the portraits rather than as ending behind
+    /// them.
     ///
     /// It has to be called from inside the window, which is the whole trick:
     ///
@@ -48,8 +49,9 @@ namespace SlopWorld
         /// as a strip and not a second bar, large enough to still be a portrait.
         public const float Shrink = 0.6f;
 
-        /// The pawn name the bar draws under each portrait (GameFont.Tiny), which
-        /// the strip has to leave room for or the pane clips it.
+        /// The pawn name the bar draws under each portrait (GameFont.Tiny). It is
+        /// inside the title bar with everything else, so the bar is this much taller
+        /// rather than the name hanging onto the pane below it.
         const float LabelH = 16f;
         const float Pad = 4f;
 
@@ -91,19 +93,23 @@ namespace SlopWorld
         /// strip-UI gate and by the "+" slot's postfix.
         public static bool Suppressed => Active && !Drawing;
 
-        /// <summary>How tall the title bar has to be to hold a portrait: the pad
-        /// above it, the head's overhang, and the cell itself - everything but the
-        /// name, which hangs below. Measured at the nominal scale, so a row that had
-        /// to shrink to fit leaves the header the same height rather than making the
-        /// chrome jump about as agents come and go.</summary>
-        public static float PortraitH =>
-            Pad + Overhang(Shrink) + ColonistBar.BaseSize.y * Shrink;
+        /// <summary>A row's own extent, top of the head to the bottom of the name:
+        /// the overhang, the cell, the label. What has to fit inside the title bar,
+        /// and what gets centred in it.</summary>
+        static float RowH(float s) =>
+            Overhang(s) + ColonistBar.BaseSize.y * s + LabelH;
+
+        /// <summary>How tall the title bar has to be to hold a whole row - portrait
+        /// and name both - with a pad above and below. Measured at the nominal scale,
+        /// so a row that had to shrink to fit leaves the bar the same height rather
+        /// than making the chrome jump about as agents come and go.</summary>
+        public static float BarH => RowH(Shrink) + Pad * 2f;
 
         /// <summary>The strip the bar is rerouted into while the terminal is up, and
-        /// the room the terminal leaves for it. Starts at the top of the window,
-        /// because the header is underneath it. Zero-sized otherwise.</summary>
+        /// the room the terminal leaves for it - which is the title bar itself, since
+        /// the whole row lives inside it now. Zero-sized otherwise.</summary>
         public static Rect Rect =>
-            Active ? new Rect(0f, 0f, UI.screenWidth, PortraitH + LabelH) : Rect.zero;
+            Active ? new Rect(0f, 0f, UI.screenWidth, BarH) : Rect.zero;
 
         /// <summary>Draws the bar into the strip. Called from TerminalWindow's
         /// contents, after the background fill, on every event but Layout - the bar
@@ -135,10 +141,12 @@ namespace SlopWorld
             float w = ColonistBar.BaseSize.x * s;
             float gap = ColonistBar.BaseSpaceBetweenColonistsHorizontal * s;
             float x = strip.x + (strip.width - (locs.Count * w + (locs.Count - 1) * gap)) / 2f;
-            // Sat on the header's bottom edge rather than measured down from its top,
-            // so a row that had to shrink keeps its names hanging over that edge
-            // instead of pulling them up inside the bar.
-            float y = strip.y + PortraitH - ColonistBar.BaseSize.y * s;
+            // Centred in the bar rather than measured down from its top, so a row
+            // that had to shrink sits in the middle of the chrome it shares with the
+            // title and the buttons instead of riding its ceiling. The overhang is
+            // added back because the loc is the cell's top and the head pokes out
+            // above it - what is being centred is the whole row, name included.
+            float y = strip.y + (strip.height - RowH(s)) / 2f + Overhang(s);
 
             for (int i = 0; i < locs.Count; i++)
             {
