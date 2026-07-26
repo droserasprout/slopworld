@@ -35,11 +35,11 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 ## "Game"
 
-- [ ] 
+- [x] Remove rule "clankers sleep when terminal is idle". Let them do noting and "claudwatch" as some idle action named. Show normal idle icon (clock). But add gentle sound when agent becomes idle. Something from core sounds. Also, enforce "run in background" setting.
 - [ ] Bug: day/night in game is not synced with real time in user's timezone
 - [ ] Skip the welcome message window when creating a new colony.
 - [x] Plague should suppress creating new plants in its radius. Animals and humans keep spawning, but outside walk on map edges.
-- [ ] When petting cat by clicking, rotate cursor CCW then back for a couple of times.
+- [x] When petting cat by clicking, rotate cursor CCW then back for a couple of times.
 - [x] Replace loading screen tips with #loading-tips
 - [x] Make initial sequence more cinematic: Disable clicking pawns while UI is hidden. Scenario: humans and animals placed. Colonists and cat drop from the sky and start walking. Computer core drops from the sky. After a couple of seconds it starts emitting thick pink fumes of plague. Colonists explode, plague starts spreading. Clankers appear with thick pink fumes each. A couple of seconds. Then UI appears.
 - [ ] Human: slopify main background with SD or something

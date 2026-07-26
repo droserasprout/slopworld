@@ -5,9 +5,9 @@ Notes for whoever works on this next, meat or otherwise.
 ## What it is
 
 RimWorld with the colony sim torn out and replaced by live AI coding agents. Each
-tmux session on the host is a colonist: it stands up when its process runs, sleeps
-when the agent goes quiet, and goes down when the process exits. Select a colonist
-to open its terminal and type at the agent.
+tmux session on the host is a colonist: it stands up when its process runs, stands
+about doing nothing when the agent goes quiet, and goes down when the process
+exits. Select a colonist to open its terminal and type at the agent.
 
 Two halves, shipped together, talking over HTTP + WebSocket on `127.0.0.1:7717`:
 
@@ -414,7 +414,19 @@ HTTP half, with completions replayed on the main thread.
 none of these need a def.
 
 - `AgentColony` - reconciles sessions to colonists once a second: spawns, retires,
-  renames, and postures each pawn to its agent's state. It stands down entirely
+  renames, and postures each pawn to its agent's state. Idle used to be sleep on
+  the spot, and it read as the wrong thing: a colonist flat on the floor is what
+  a stopped process already looks like, and the two lay in the same heap - the
+  collapse had to wake the pawn first so that something on screen moved. So an
+  idle agent stands about instead, at `SlopClaudwatch` (`Defs/Jobs.xml`), which is
+  vanilla's own wait driver and a report string: nothing, with a name. The job is
+  started and ended from here rather than by the think tree - hence
+  `casualInterruptible` false on the def - and `InspectPanePatch` reads the name
+  back off the def rather than writing it out again. Moving *into* idle rings
+  `TinyBell`, vanilla's new-alert chime, which nothing else plays now the alerts
+  are stripped; a state we are seeing for the first time is not a move, so a
+  colony that loads with its agents already quiet stays quiet, the same rule the
+  stopped-process siren has always used. It stands down entirely
   while `IntroDirector.AgentsHeld` is up, and every colonist it spawns arrives in
   the plague's haze - not only the ones the opening scene lands, because a
   clanker is what this map makes of a person whenever it makes one.
@@ -649,8 +661,27 @@ none of these need a def.
   bound by name) are separate roads to the same place: closing only the second
   leaves an agent - invulnerable, so already unharmed - wearing a flame that never
   goes out, because a fire on an unkillable thing has nothing to finish.
-- `ColonistBarAddButton`, `ColonistBarDownIcon`, `InspectPanePatch`,
+- `ColonistBarAddButton`, `ColonistBarStateIcon`, `InspectPanePatch`,
   `PawnGizmoPatch` - the parts of the UI that are kept, extended.
+  `ColonistBarStateIcon` draws the two states worth catching from the top of the
+  screen: a red cross for a stopped process, and vanilla's own clock for an agent
+  that is up with nothing to do. The clock is ours rather than the bar's own
+  because vanilla's idle means "no work queued", which every colonist here is
+  always - it would hang a clock on an agent that is flat out, and only from the
+  second in-game day at that, since the bar gates that icon on `DaysPassed >= 1`
+  where a state here turns over in seconds and a colony is often minutes old. So
+  `Patch_AgentNeverIdle` answers `Pawn_MindState.IsIdle` false for an agent and
+  the daemon's word is the only thing that draws a clock.
+- `RunInBackground` - the game keeps ticking with its window behind something
+  else. Vanilla makes that a preference and defaults it *off*, which is right for
+  a colony sim and wrong for a board over processes that run whether the window is
+  up or not. The setter is what is forced, not the getter: what reaches Unity is
+  `PrefsData.Apply` reading the field, so a getter that lied would leave
+  `Application.runInBackground` false the next time anything applied prefs. A
+  prefs file that has it off is put right once at startup, and through
+  `LongEventHandler.ExecuteWhenFinished` rather than from the static constructor,
+  because `Apply` is a no-op off the main thread and a mod's static constructors
+  do not run on it.
 - `RealTimePatches` - every duration the game prints, in real time.
 - `LoadingScreen` - the two panels on the loading screen. The tips were advice
   for the colony sim that is not running here. A patch and not a `TipSetDef` of

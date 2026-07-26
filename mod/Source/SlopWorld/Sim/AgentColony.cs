@@ -149,41 +149,61 @@ namespace SlopWorld
             }
 
             // Posture each colonist to its agent: a stopped process collapses it
-            // (Downed), an idle agent sleeps, a working or waiting one stays awake.
+            // (Downed), an idle agent stands about claudwatching, a working or
+            // waiting one is left to get on with it.
             foreach (var kv in _pawns)
             {
                 RobotFace.Apply(kv.Value);
 
                 var state = SessionHub.Instance.Get(kv.Key)?.State ?? AgentState.Down;
-                // A process that stopped just now, as opposed to one that was
-                // already gone when we got here. Only the first is worth a siren.
-                bool wentDown = state == AgentState.Down
-                                && _seen.TryGetValue(kv.Key, out var was)
-                                && was != AgentState.Down;
+                // What it was doing when we last looked, if we have looked at all.
+                // The first sight of a session is not a move: a colony loading with
+                // half its agents already stopped must not greet the player with a
+                // wall of sirens, nor a colony of quiet ones with a peal of bells.
+                AgentState? was = _seen.TryGetValue(kv.Key, out var seen)
+                    ? seen : (AgentState?)null;
                 _seen[kv.Key] = state;
 
-                Reflect(kv.Value, state, wentDown);
+                Reflect(kv.Value, state, was);
             }
         }
 
         // Stopped process -> the colonist goes down but stays a live, clickable pawn
         // its process can get back up. Killing it instead would mean a corpse and a
-        // fresh stranger on every restart. Idle -> asleep on the spot. Working or
-        // waiting -> awake and upright.
-        static void Reflect(Pawn pawn, AgentState state, bool wentDown)
+        // fresh stranger on every restart. Idle -> claudwatching on the spot.
+        // Working or waiting -> whatever a colonist does with itself.
+        //
+        // `was` is the state this agent was last reconciled at, or nothing at all if
+        // this is the first look. A state it *moved* into is the only kind worth
+        // making a noise about.
+        static void Reflect(Pawn pawn, AgentState state, AgentState? was)
         {
             if (pawn == null || !pawn.Spawned) return;
 
+            bool moved = was.HasValue && was.Value != state;
+
             if (state == AgentState.Down)
             {
-                Down(pawn, wentDown);
+                Down(pawn, moved);
                 return;
             }
 
             Revive(pawn); // process is back: clear the collapse
             if (pawn.jobs == null) return;
-            if (state == AgentState.Idle) Sleep(pawn);
-            else Wake(pawn);
+
+            if (state != AgentState.Idle)
+            {
+                Stir(pawn);
+                return;
+            }
+
+            Claudwatch(pawn);
+
+            // An agent going quiet is the one thing a player who has looked away
+            // wants to be told, and it is a small thing rather than an alarm: this
+            // is vanilla's own new-alert chime, which nothing here plays any more
+            // now the alerts are stripped out.
+            if (moved) SoundDefOf.TinyBell.PlayOneShotOnCamera(pawn.Map);
         }
 
         // Collapse the colonist by capping its consciousness, unless already down.
@@ -195,12 +215,6 @@ namespace SlopWorld
             if (health?.hediffSet == null) return;
             if (health.hediffSet.GetFirstHediffOfDef(SlopDefOf.SlopOffline) != null) return;
 
-            // An idle agent's colonist is asleep on the spot, and a sleeping pawn
-            // and a downed one lie in the same heap - RimWorld does not end the
-            // job on the way down, so the collapse lands on a body already flat
-            // and nothing on screen moves. Ending the forced sleep first puts it
-            // back on its feet for the instant before the hediff takes them away.
-            if (pawn.jobs != null) Wake(pawn);
             health.AddHediff(SlopDefOf.SlopOffline);
 
             if (loud) SlopDefOf.LetterArrive_BadUrgent.PlayOneShotOnCamera(pawn.Map);
@@ -237,22 +251,22 @@ namespace SlopWorld
                 Log.Message($"[SlopWorld] colonist '{pawn.LabelShort}' patched up; agents take no damage");
         }
 
-        // Force the pawn to lie down and sleep on the spot, unless it already is.
-        static void Sleep(Pawn pawn)
+        // Stand about doing nothing in particular, which is this colony's one idle
+        // activity and the only one with a name (see Defs/Jobs.xml), unless the
+        // pawn is at it already.
+        static void Claudwatch(Pawn pawn)
         {
-            var cur = pawn.CurJob;
-            if (cur != null && cur.def == JobDefOf.LayDown && cur.forceSleep) return;
+            if (pawn.CurJobDef == SlopDefOf.SlopClaudwatch) return;
 
-            var job = JobMaker.MakeJob(JobDefOf.LayDown, pawn.Position);
-            job.forceSleep = true;
+            var job = JobMaker.MakeJob(SlopDefOf.SlopClaudwatch, pawn.Position);
             pawn.jobs.StartJob(job, JobCondition.InterruptForced);
         }
 
-        // End only the forced sleep we started, so a woken agent stands back up.
-        static void Wake(Pawn pawn)
+        // End only the claudwatch we started, so an agent with something to do goes
+        // back to the game's own idea of what a colonist does with itself.
+        static void Stir(Pawn pawn)
         {
-            var cur = pawn.CurJob;
-            if (cur != null && cur.def == JobDefOf.LayDown && cur.forceSleep)
+            if (pawn.CurJobDef == SlopDefOf.SlopClaudwatch)
                 pawn.jobs.EndCurrentJob(JobCondition.InterruptForced);
         }
 
