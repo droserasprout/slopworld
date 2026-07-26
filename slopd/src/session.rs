@@ -106,6 +106,9 @@ impl ScreenView {
 pub enum Event {
     Sessions { sessions: Vec<SessionView> },
     Screen { screen: ScreenView },
+    /// What is left of the subscription. Broadcast on a change only; the poll
+    /// behind it runs on the wall clock, not on anything a session did.
+    Usage { usage: crate::usage::Snapshot },
 }
 
 struct Live {
@@ -136,6 +139,9 @@ pub struct Manager {
     /// Unix millis of the last mtime check, so the retick doesn't stat the file
     /// eighty times a second.
     cfg_checked: Mutex<u64>,
+    /// Last thing the usage poller heard back. Lives here rather than in the
+    /// poller so a client connecting between polls has something to draw.
+    usage: RwLock<crate::usage::Snapshot>,
     pub events: broadcast::Sender<Event>,
 }
 
@@ -246,6 +252,7 @@ impl Manager {
             cfg: RwLock::new(cfg),
             cfg_mtime: Mutex::new(mtime),
             cfg_checked: Mutex::new(0),
+            usage: RwLock::new(crate::usage::Snapshot::default()),
             events,
         });
         // Before anything else touches tmux: whoever forks the server decides
@@ -354,6 +361,31 @@ impl Manager {
 
     pub async fn config(&self) -> Config {
         self.cfg.read().await.clone()
+    }
+
+    pub async fn usage(&self) -> crate::usage::Snapshot {
+        self.usage.read().await.clone()
+    }
+
+    /// Stores a fresh snapshot and tells the clients, but only if it says
+    /// something new: the poll runs every minute forever and an unchanged
+    /// percentage is not an event.
+    pub async fn set_usage(&self, snap: crate::usage::Snapshot) {
+        {
+            let mut cur = self.usage.write().await;
+            // fetched_ms moves on every successful poll, so compare the parts a
+            // reader would notice rather than the whole struct.
+            if cur.ok == snap.ok
+                && cur.error == snap.error
+                && cur.plan == snap.plan
+                && cur.windows == snap.windows
+            {
+                *cur = snap;
+                return;
+            }
+            *cur = snap.clone();
+        }
+        let _ = self.events.send(Event::Usage { usage: snap });
     }
 
     /// Reconciles the live table with config: adds new entries, drops removed

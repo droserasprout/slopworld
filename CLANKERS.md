@@ -81,6 +81,7 @@ game is in the daemon's cgroup any more.
 | `tmux.rs` | Thin async wrapper over the tmux CLI. |
 | `sandbox.rs` | Builds the bubblewrap argv a session is exec'd under. |
 | `config.rs` | `config.toml` load, save and seed. |
+| `usage.rs` | Polls Anthropic for what is left of the subscription. |
 
 ### Session state
 
@@ -123,12 +124,57 @@ ahead of every mutating call, so a hand edit both takes effect and survives the
 next write from the GUI. A file that does not parse is complained about once and
 otherwise ignored.
 
+### Quota
+
+The colony's one remaining resource, because a colony of agents mines nothing
+and spends limits. Nothing on the host caches that state - `stats-cache.json` is
+aggregate tokens and days stale, the transcripts carry no rate-limit fields - so
+`usage.rs` asks the same endpoint Claude Code's own `/usage` does, with the OAuth
+token Claude Code leaves in `~/.claude/.credentials.json`.
+
+That file is re-read on every poll and the token is never copied, logged or put
+on the wire: it expires hourly, something else refreshes it, and re-reading is
+how slopd follows rather than minting tokens of its own. `[daemon] usage = false`
+stops it reading the file at all, and `SLOPD_USAGE_URL` points it somewhere else
+- at a stub while working on the readout, or at the endpoint's next address
+without waiting on a build, which is worth having because none of this is a
+published API.
+
+Two rules follow from that last part. `parse` recognises rather than assumes, and
+a payload it does not know leaves *no* windows and an error, because being wrong
+has to read as "no numbers" and never as a colony sitting comfortably at zero. A
+failed poll keeps the last good windows and adds the reason, since a readout that
+empties itself on one dropped packet is worse than a stale one that says so.
+
+What the payload holds, as of the last look: `five_hour` and a row of
+`seven_day*` - the plain weekly plus `_opus`, `_sonnet`, `_cowork` and several
+that are null on any given plan. Windows are matched by that family rather than
+by a list of names, so the ones an account has come through and the next one
+arrives free. Two traps in there. `utilization` is a *percentage* (52.0 means
+52%) while the same figure rides the Messages API's `anthropic-ratelimit-unified-*`
+response headers as a fraction; telling them apart by size, which an earlier cut
+did, reads a window that is 0.8% spent as 80%. And `extra_usage` / `spend` carry
+a `utilization` too, but theirs is money - the credit balance - so the family
+match is what keeps a quota bar from silently becoming a dollar bar. `resets_at`
+is RFC3339 with fractional seconds and a numeric offset, not a `Z`, and the
+offset is applied rather than assumed: `epoch_from_rfc3339` is hand-rolled
+because chrono for one field is a dependency the daemon would carry forever.
+
+The wire carries a *list* of windows rather than two named ones, and the mod
+draws whatever arrives, so a plan with different limits needs no change on either
+side. Resets are handed over as seconds remaining, not as instants: the daemon
+has the date parser, and a countdown from when the mod heard keeps running when
+the daemon does not.
+
 ### Wire protocol
 
 Server events: `{"t":"sessions",...}` on any state move, `{"t":"screen",...}` for
-subscribed sessions only. Client messages: `sub`, `unsub`, `keys`, `resize`,
+subscribed sessions only, `{"t":"usage",...}` when the quota picture changes -
+and once on connect, because a client attaching between polls would otherwise
+draw nothing for a minute. Client messages: `sub`, `unsub`, `keys`, `resize`,
 `scroll`, `mouse`, `paste`. Everything that rewrites `config.toml` goes over HTTP
-instead, because the error body matters.
+instead, because the error body matters; `GET /api/usage` is the same snapshot
+for anything that would rather ask than listen.
 
 ## Mod
 

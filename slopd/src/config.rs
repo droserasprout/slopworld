@@ -41,10 +41,31 @@ pub struct Daemon {
     /// disables the endpoint. Split like an agent command: no shell, no globbing.
     #[serde(default)]
     pub game_cmd: String,
+    /// Whether to poll Anthropic for what is left of the subscription, which is
+    /// what the mod draws as its resource readout. Off means slopd never reads
+    /// the credentials file and never leaves the machine.
+    #[serde(default = "yes")]
+    pub usage: bool,
+    /// Seconds between usage polls. The windows it reports move in minutes, so
+    /// there is nothing to gain by asking often; floored at 10 in the poller.
+    #[serde(default = "default_usage_poll")]
+    pub usage_poll_secs: u64,
+    /// Where Claude Code keeps the OAuth token those polls are made with. Read
+    /// fresh each time and never copied, so a refresh behind us is picked up.
+    #[serde(default = "default_credentials")]
+    pub claude_credentials: String,
 }
 
 fn default_history_limit() -> u32 {
     5000
+}
+
+fn default_usage_poll() -> u64 {
+    60
+}
+
+fn default_credentials() -> String {
+    "~/.claude/.credentials.json".into()
 }
 
 impl Default for Daemon {
@@ -56,6 +77,9 @@ impl Default for Daemon {
             poll_ms: 80,
             history_limit: default_history_limit(),
             game_cmd: String::new(),
+            usage: true,
+            usage_poll_secs: default_usage_poll(),
+            claude_credentials: default_credentials(),
         }
     }
 }
@@ -228,6 +252,12 @@ mod tests {
 
         assert_eq!(cfg.daemon.history_limit, 5000);
         assert_eq!(cfg.daemon.game_cmd, "");
+        // Usage polling defaults on, so an existing install gets the readout
+        // without anyone editing a file - and off is one line when it is not
+        // wanted.
+        assert!(cfg.daemon.usage);
+        assert_eq!(cfg.daemon.usage_poll_secs, 60);
+        assert_eq!(cfg.daemon.claude_credentials, "~/.claude/.credentials.json");
     }
 
     #[test]

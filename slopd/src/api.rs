@@ -31,6 +31,7 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/config", get(get_config))
         .route("/api/config", put(put_config))
         .route("/api/config/values", put(put_config_values))
+        .route("/api/usage", get(usage))
         .route("/api/browse", get(browse))
         .route("/api/game/restart", post(restart_game))
         .route("/ws", get(ws_upgrade))
@@ -166,6 +167,13 @@ async fn restart_game(State(m): State<Mgr>, body: Option<Json<RestartGameReq>>) 
     ok_json(m.restart_game(delay).await)
 }
 
+/// What is left of the subscription. The same snapshot the socket pushes, for
+/// anything that would rather ask than listen - `curl` while the game is shut,
+/// mostly.
+async fn usage(State(m): State<Mgr>) -> ApiResult {
+    Ok(Json(json!(m.usage().await)))
+}
+
 #[derive(Deserialize)]
 struct BrowseReq {
     #[serde(default)]
@@ -275,13 +283,16 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
     let subs: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
     let mut events = m.events.subscribe();
 
-    // Fresh clients need the full picture before any deltas arrive.
+    // Fresh clients need the full picture before any deltas arrive. Usage rides
+    // along: the poll behind it speaks only on a change, so a mod that attaches
+    // between polls would otherwise draw nothing for a minute.
     let hello = Event::Sessions {
         sessions: m.views().await,
     };
     if send(&tx, &hello).await.is_err() {
         return;
     }
+    let _ = send(&tx, &Event::Usage { usage: m.usage().await }).await;
 
     let pump = {
         let tx = tx.clone();

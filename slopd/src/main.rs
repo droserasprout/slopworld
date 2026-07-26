@@ -4,6 +4,7 @@ mod emu;
 mod sandbox;
 mod session;
 mod tmux;
+mod usage;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -48,6 +49,11 @@ async fn main() -> Result<()> {
         })
     };
 
+    // Quota is the one resource this colony has; the poller is what keeps the
+    // readout honest. It sleeps rather than exits when the setting is off, so
+    // turning it back on needs no restart.
+    let usage = usage::spawn(m.clone());
+
     let app = api::router(m.clone()).layer(middleware::from_fn_with_state(m.clone(), auth));
 
     let listener = tokio::net::TcpListener::bind(&bind).await?;
@@ -61,6 +67,7 @@ async fn main() -> Result<()> {
         .await?;
 
     poller.abort();
+    usage.abort();
     Ok(())
 }
 
