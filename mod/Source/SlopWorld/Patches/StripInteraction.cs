@@ -18,12 +18,18 @@ namespace SlopWorld
     /// The pets are the one exception, and not a selectable one: a click on a colony
     /// animal is swallowed like any other, but it pats the animal on the way past.
     /// Selecting it would open an inspect pane full of a sim that is not running.
+    ///
+    /// While the opening scene plays, not even that: nothing is selectable and the
+    /// pets are not pattable, because the map is a cutscene until the UI comes back
+    /// and a pawn that answers a click is a pawn the player is being invited to
+    /// handle.
     /// </summary>
     [HarmonyPatch(typeof(Selector), nameof(Selector.Select))]
     public static class Patch_Selectable_ColonistsOnly
     {
         static bool Prefix(object obj)
         {
+            if (IntroDirector.UiHidden) return false;
             if (!(obj is Pawn p)) return false;
             if (p.IsColonist) return true;
             if (Pets.Is(p)) Pets.Poke(p);

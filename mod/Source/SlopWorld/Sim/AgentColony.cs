@@ -92,6 +92,12 @@ namespace SlopWorld
         {
             if (Find.TickManager.TicksGame % Interval != 0) return;
 
+            // The opening scene wants the board empty until it says otherwise: an
+            // agent standing in the crowd is one the purge has to step around, and
+            // the clankers walking out of the plague is the last beat of the scene
+            // rather than something that happened before it started.
+            if (IntroDirector.AgentsHeld) return;
+
             var map = Find.CurrentMap ?? Find.AnyPlayerHomeMap;
             if (map == null) return;
 
@@ -287,6 +293,11 @@ namespace SlopWorld
             RobotFace.FitHair(pawn);
 
             GenSpawn.Spawn(pawn, SpawnSpot.Find(map, Anchor(map)), map);
+
+            // Every agent arrives in the plague's own haze, not just the ones the
+            // opening scene lands: a clanker is what this map makes of a person, and
+            // the one that turns up an hour later is no different.
+            PlagueFx.Arrive(pawn);
 
             Log.Message($"[SlopWorld] colonist '{name}' joined the colony");
             return pawn;

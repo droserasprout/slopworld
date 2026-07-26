@@ -45,10 +45,23 @@ namespace SlopWorld
         /// wide enough to still be the thing you notice.</summary>
         public static void Burst(Thing t) => At(t, 8, 1.9f, 0.70f);
 
+        /// <summary>The core venting, in the seconds between it landing and the
+        /// colony coming apart. Called on a beat rather than once, so this is one
+        /// breath of a cloud that keeps coming - the rest of the thickness is the
+        /// repetition.</summary>
+        public static void Fume(Thing t) => At(t, 8, 2.6f, 0.35f, 1.1f);
+
+        /// <summary>An agent arriving. The heaviest single puff there is: a clanker
+        /// walks out of the same haze that took everything else, which is the whole
+        /// claim the opening scene is making.</summary>
+        public static void Arrive(Thing t) => At(t, 16, 2.4f, 0.60f, 1.0f);
+
         /// <summary>Shared body. Position comes from the thing rather than a passed
         /// cell so the haze lands under a pawn mid-stride instead of on the cell it
-        /// is nominally standing in.</summary>
-        static void At(Thing t, int count, float scale, float speed)
+        /// is nominally standing in. <paramref name="spread"/> goes with the scale:
+        /// big flecks dropped into the same handspan stack their alpha and give back
+        /// the solid blob the gas cloud was chosen to avoid.</summary>
+        static void At(Thing t, int count, float scale, float speed, float spread = 0.4f)
         {
             if (t == null || !t.Spawned) return;
 
@@ -60,10 +73,9 @@ namespace SlopWorld
 
             for (int i = 0; i < count; i++)
             {
-                // Scatter inside about a cell. Every fleck starting on the same point
-                // stacks its alpha there and gives back the solid blob the gas cloud
-                // was chosen to avoid.
-                var at = loc + new Vector3(Rand.Range(-0.4f, 0.4f), 0f, Rand.Range(-0.4f, 0.4f));
+                // Scatter, so the flecks are a cloud rather than a pile.
+                var at = loc + new Vector3(Rand.Range(-spread, spread), 0f,
+                                           Rand.Range(-spread, spread));
 
                 var d = FleckMaker.GetDataStatic(at, map, SlopDefOf.SlopPlagueGas,
                     scale * Rand.Range(0.7f, 1.3f));

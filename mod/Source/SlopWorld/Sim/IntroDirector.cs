@@ -8,13 +8,20 @@ using Verse;
 namespace SlopWorld
 {
     /// <summary>
-    /// Runs the opening scene of a fresh colony, once, in order: a welcome dialog
-    /// over a bare map, a hillside populated with living animals and people, the
-    /// machine persona core dropped in the middle, and - after a fuse long enough
-    /// for the player to believe they are about to play RimWorld - the scenario's
-    /// three starting colonists going up in a red mist. Then the UI comes back and
-    /// the map is handed to the plague, which kills everything the scene just put
-    /// there.
+    /// Runs the opening scene of a fresh colony, once, as a cutscene: nothing on the
+    /// map is clickable and no UI is drawn until it is over, so the player watches
+    /// rather than plays.
+    ///
+    /// The beats, in order. A welcome dialog over a bare map. A hillside populated
+    /// with living animals and people - placed, because they are scenery and a
+    /// hundred pods would be a different scene. The scenario's three starting
+    /// colonists come down in their pods, the cat comes down after them, and they
+    /// are given a few seconds on the ground to walk about and read as a landing
+    /// party. Then the machine persona core falls on the middle of it. It sits there
+    /// venting pink for a couple of seconds - long enough to be the thing you are
+    /// looking at when it happens - and then the colonists go up in a red mist and
+    /// the plague starts spreading from the core. The agents walk out of that haze,
+    /// one thick cloud each, and once they are standing the UI comes back.
     ///
     /// Successor to the massacre dressing: bodies are no longer placed dead, they
     /// are placed alive and killed on camera, which is both cheaper (no corpse, no
@@ -36,8 +43,20 @@ namespace SlopWorld
         // same budget the corpse pass used.
         const int SpawnsPerTick = 6;
 
-        // Real-time seconds between the starters touching down and detonating.
-        const float FuseSeconds = 10f;
+        // Real-time seconds each held beat lasts. Walk is measured from the first
+        // starter standing, so it has to cover the cat's own pod falling and opening
+        // - up to four seconds of it - as well as the walking it is named for.
+        const float WalkSeconds = 7f;
+        const float FumeSeconds = 3f;
+        const float BloomSeconds = 3f;
+
+        // How long the core gets to reach the ground before the scene stops waiting
+        // on it. Generous: this is a fallback against a skyfaller that never landed,
+        // not a timer anything is supposed to hit.
+        const float FallSeconds = 12f;
+
+        // Ticks between breaths of the core's vent.
+        const int PuffInterval = 10;
 
         // How the starters go: a blast, in a pool of blood wider than the blast.
         const float PurgeBlastRadius = 2.9f;
@@ -59,7 +78,7 @@ namespace SlopWorld
             "powered, still talking, still very sure of itself.\n\n" +
             "Whatever it has started here, it started before you opened your eyes.";
 
-        enum Phase { Waiting, Welcome, Populate, Console, Purge, Done }
+        enum Phase { Waiting, Welcome, Populate, Land, Core, Fume, Purge, Bloom, Done }
 
         // Persisted: how far through the scene we are.
         Phase _phase = Phase.Waiting;
@@ -68,29 +87,51 @@ namespace SlopWorld
         Map _map;
         List<PawnKindDef> _animalKinds;
         int _animalsLeft, _humansLeft;
-        bool _armed;
-        float _fireAt;
 
-        /// <summary>True while the scene is playing: the bottom bar and the colonist
-        /// bar stay off screen so the map reads as a cutscene. Runtime only - a save
-        /// loaded mid-scene comes back with the UI on rather than stuck hidden.</summary>
+        // The current phase's one-off has been done, and the real time it stops
+        // waiting. Both are cleared by every transition, so a phase reads them
+        // without caring what the last one left behind.
+        bool _armed;
+        float _at;
+
+        /// <summary>True while the scene is playing: no UI is drawn and nothing on
+        /// the map can be selected, so it reads as a cutscene rather than as a colony
+        /// with its buttons missing. Runtime only - a save loaded mid-scene comes back
+        /// with the UI on rather than stuck hidden.</summary>
         public static bool UiHidden { get; private set; }
 
-        public IntroDirector(Game game) { }
+        /// <summary>True while the scene still has killing to do. The reconcile holds
+        /// off on it, so the agents arrive on their cue instead of standing in the
+        /// crowd waiting to watch themselves not die.</summary>
+        public static bool AgentsHeld { get; private set; }
+
+        // A new Game - a load, or a fresh colony - and the two flags below are
+        // static, so whatever the last one was in the middle of when it was thrown
+        // away would otherwise still be in force. A colony discarded during its own
+        // intro must not hand the next one a hidden UI.
+        public IntroDirector(Game game)
+        {
+            UiHidden = false;
+            AgentsHeld = false;
+        }
 
         public static IntroDirector Current => Verse.Current.Game?.GetComponent<IntroDirector>();
 
         Map TheMap => _map ?? (_map = Find.CurrentMap);
 
         // Phases that must advance while the game is paused: the dialog holds time
-        // still, and the fuse burns in real time so the blast animates.
+        // still, and the held beats burn in real time so the scene keeps its rhythm
+        // whatever the clock is doing.
         public override void GameComponentUpdate()
         {
             switch (_phase)
             {
                 case Phase.Waiting: TryBegin(); break;
                 case Phase.Welcome: WaitOnWelcome(); break;
-                case Phase.Purge: BurnFuse(); break;
+                case Phase.Land: WaitOnLanding(); break;
+                case Phase.Fume: WaitOnFumes(); break;
+                case Phase.Purge: BurnThem(); break;
+                case Phase.Bloom: WaitOnBloom(); break;
             }
         }
 
@@ -101,23 +142,35 @@ namespace SlopWorld
             switch (_phase)
             {
                 case Phase.Populate: StepPopulate(); break;
-                case Phase.Console: PlaceCore(); break;
+                case Phase.Core: DropCore(); break;
+                case Phase.Fume: Vent(); break;
             }
         }
+
+        // Every phase change goes through here, so no phase inherits the last one's
+        // timer or its one-off flag.
+        void Go(Phase next, float hold = 0f)
+        {
+            _phase = next;
+            _armed = false;
+            _at = Time.realtimeSinceStartup + hold;
+        }
+
+        bool Held => Time.realtimeSinceStartup < _at;
 
         void TryBegin()
         {
             var map = TheMap;
             if (map == null) return;
 
-            if (Find.TickManager.TicksGame > FreshGameTicks)
-            {
-                _phase = Phase.Done; // a load, not a fresh landing
-                return;
-            }
+            // A load, not a fresh landing. Finish rather than just marking it done,
+            // so a colony abandoned mid-scene cannot leave the UI hidden or the
+            // agents held for the game that replaces it.
+            if (Find.TickManager.TicksGame > FreshGameTicks) { Finish(); return; }
 
             UiHidden = true;
-            _phase = Phase.Welcome;
+            AgentsHeld = true;
+            Go(Phase.Welcome);
         }
 
         // The scenario put its dialog up during FinalizeInit, before the first frame,
@@ -131,13 +184,13 @@ namespace SlopWorld
         void BeginScene()
         {
             var map = TheMap;
-            if (map == null) { _phase = Phase.Done; return; }
+            if (map == null) { Finish(); return; }
 
             _animalKinds = AnimalKinds(map);
             _animalsLeft = Rand.Range(AnimalsMin, AnimalsMax);
             _humansLeft = Rand.Range(HumansMin, HumansMax);
 
-            _phase = Phase.Populate;
+            Go(Phase.Populate);
         }
 
         // Animals first, then people, a few per tick. Everything spawns alive and
@@ -146,7 +199,7 @@ namespace SlopWorld
         void StepPopulate()
         {
             var map = TheMap;
-            if (map == null) { _phase = Phase.Done; return; }
+            if (map == null) { Finish(); return; }
 
             int budget = SpawnsPerTick;
             while (budget-- > 0 && (_animalsLeft > 0 || _humansLeft > 0))
@@ -163,7 +216,7 @@ namespace SlopWorld
                 }
             }
 
-            if (_animalsLeft <= 0 && _humansLeft <= 0) _phase = Phase.Console;
+            if (_animalsLeft <= 0 && _humansLeft <= 0) Go(Phase.Land);
         }
 
         static void Spawn(Map map, PawnKindDef kind)
@@ -183,62 +236,139 @@ namespace SlopWorld
             }
         }
 
-        // Drop the core in the middle and hand its cell to the plague. Reuses a core
-        // already on the map, so a reload mid-scene never leaves two.
-        void PlaceCore()
-        {
-            var map = TheMap;
-            if (map == null) { _phase = Phase.Done; return; }
-
-            var existing = map.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore);
-            var core = existing.Count > 0 ? existing[0] : null;
-
-            if (core == null)
-            {
-                try
-                {
-                    core = ThingMaker.MakeThing(SlopDefOf.Ship_ComputerCore);
-                    GenSpawn.Spawn(core, map.Center, map);
-                }
-                catch (System.Exception e)
-                {
-                    Log.Warning($"[SlopWorld] persona core: {e.Message}");
-                    core = null;
-                }
-            }
-
-            map.GetComponent<Plague>()?.Arm(core?.Position ?? map.Center);
-
-            _phase = Phase.Purge;
-        }
-
-        void BurnFuse()
+        // The pods are still in the air, or still sealed; TimeKeeper is what keeps
+        // the clock running through that and we only wait. Once somebody is standing
+        // the cat comes down after them, and then the whole party gets a few seconds
+        // to walk about before anything happens to it.
+        void WaitOnLanding()
         {
             var map = TheMap;
             if (map == null) { Finish(); return; }
 
-            // The pods are still in the air, or still sealed. TimeKeeper is what
-            // keeps the clock running through this; we only wait.
-            var starters = Starters(map);
-            if (starters.Count == 0) return;
-
             if (!_armed)
             {
+                var starters = Starters(map);
+                if (starters.Count == 0) return;
+
                 _armed = true;
-                _fireAt = Time.realtimeSinceStartup + FuseSeconds;
-                // The pets land here, next to the people they belong to, with a fuse
-                // to spare - long enough for the player to read them as part of the
-                // team before the team stops existing.
+                _at = Time.realtimeSinceStartup + WalkSeconds;
                 Pets.Place(map, starters[0].Position);
                 return;
             }
 
-            if (Time.realtimeSinceStartup < _fireAt) return;
+            if (!Held) Go(Phase.Core);
+        }
+
+        // Drop the core on the middle of the party and wait for it to arrive. Reuses
+        // a core already on the map, so a reload mid-scene never leaves two.
+        void DropCore()
+        {
+            var map = TheMap;
+            if (map == null) { Finish(); return; }
+
+            if (!_armed)
+            {
+                _armed = true;
+                _at = Time.realtimeSinceStartup + FallSeconds;
+                if (TheCore(map) == null) Fall(map);
+                return;
+            }
+
+            if (TheCore(map) == null)
+            {
+                if (Held) return; // still on its way down
+                // It never arrived. The rest of the scene needs a core standing -
+                // the plague spreads from it and the agents land beside it - so it
+                // gets put there without the theatre rather than not at all.
+                Log.Warning("[SlopWorld] persona core never landed; placing it");
+                Ground(map);
+            }
+
+            Go(Phase.Fume, FumeSeconds);
+        }
+
+        /// <summary>
+        /// The core comes down the way everything else on this map arrived: out of
+        /// the sky. ShipChunkIncoming is vanilla's own carrier for wreckage falling
+        /// on a colony - it holds whatever it is handed and puts it down on impact,
+        /// and with no graphicData of its own the skyfaller draws its payload, so
+        /// what falls is the core rather than a chunk. It is also the harmless one:
+        /// the variant that blows a hole in the ground is a separate def
+        /// (ShipChunkIncoming_SmallExplosion), which matters here because the cat is
+        /// standing directly underneath.
+        ///
+        /// The camera goes with it. The scene has been following the pods, the core
+        /// lands on the same spot they did, and the jump is what guarantees the
+        /// player is looking at the thing when it hits - which also matters to the
+        /// fumes, since flecks are not spawned off screen at all.
+        /// </summary>
+        void Fall(Map map)
+        {
+            var cell = map.Center;
+            Find.CameraDriver?.JumpToCurrentMapLoc(cell);
+
+            try
+            {
+                var core = ThingMaker.MakeThing(SlopDefOf.Ship_ComputerCore);
+                GenSpawn.Spawn(
+                    SkyfallerMaker.MakeSkyfaller(ThingDefOf.ShipChunkIncoming, core),
+                    cell, map);
+            }
+            catch (System.Exception e)
+            {
+                Log.Warning($"[SlopWorld] persona core skyfaller: {e.Message}");
+                Ground(map);
+            }
+        }
+
+        static void Ground(Map map)
+        {
+            try
+            {
+                GenSpawn.Spawn(ThingMaker.MakeThing(SlopDefOf.Ship_ComputerCore),
+                    map.Center, map);
+            }
+            catch (System.Exception e)
+            {
+                Log.Warning($"[SlopWorld] persona core: {e.Message}");
+            }
+        }
+
+        // The tell, before there is anything to tell. Nothing is marked yet and the
+        // plague is not armed - this is the core alone, venting, so that what comes
+        // next is read as having come out of it.
+        void Vent()
+        {
+            if (Find.TickManager.TicksGame % PuffInterval != 0) return;
+            PlagueFx.Fume(TheCore(TheMap));
+        }
+
+        void WaitOnFumes()
+        {
+            if (!Held) Go(Phase.Purge);
+        }
+
+        void BurnThem()
+        {
+            var map = TheMap;
+            if (map == null) { Finish(); return; }
 
             // Everything else in the blast is scenery. The pets are the point.
             var spared = Pets.On(map).Cast<Thing>().ToList();
-            foreach (var p in starters) Explode(p, map, spared);
-            Finish();
+            foreach (var p in Starters(map)) Explode(p, map, spared);
+
+            map.GetComponent<Plague>()?.Arm(TheCore(map)?.Position ?? map.Center);
+
+            AgentsHeld = false; // the reconcile may put the agents on the board now
+            Go(Phase.Bloom, BloomSeconds);
+        }
+
+        // The agents are spawned by AgentColony's own reconcile, on its own second,
+        // so this is a beat rather than a step: long enough for them to arrive and
+        // for their haze to be worth looking at before the UI covers it.
+        void WaitOnBloom()
+        {
+            if (!Held) Finish();
         }
 
         void Finish()
@@ -247,13 +377,20 @@ namespace SlopWorld
             _map = null;
             _animalKinds = null;
             UiHidden = false;
+            AgentsHeld = false;
+        }
+
+        static Thing TheCore(Map map)
+        {
+            var found = map?.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore);
+            return found != null && found.Count > 0 ? found[0] : null;
         }
 
         // Player colonists that are not one of our agent pawns - the dead ones too.
         // A colonist's corpse holds their slot in the colonist bar until it
         // dessicates (ColonistBar.CheckRecacheEntries walks the map's corpses and
         // adds every colonist it finds inside one), so a starter that died before
-        // the fuse - caught by a stray blast, or by something the scene threw at it
+        // the purge - caught by a stray blast, or by something the scene threw at it
         // - would sit up there forever if the purge only looked at the living.
         static List<Pawn> Starters(Map map)
         {

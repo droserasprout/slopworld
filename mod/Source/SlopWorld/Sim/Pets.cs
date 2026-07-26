@@ -36,6 +36,11 @@ namespace SlopWorld
         const int ScatterRadius = 7;
         const int PlacementTries = 40;
 
+        // Ticks the cat's pod stays shut once it is down. Shorter than vanilla's 110,
+        // because the intro is waiting on this: the cat has to be out and walking
+        // before the core lands on the party.
+        const int PodOpenDelay = 60;
+
         // Real seconds a pet stays quiet after being patted. A drag box over the
         // colony calls Select once per thing inside it, so without this a stray
         // drag sets off every animal on the map at once.
@@ -64,9 +69,13 @@ namespace SlopWorld
 
         /// <summary>
         /// Drops the cat next to <paramref name="near"/>, which is where the starters
-        /// are standing. Called once, by the intro, at the moment the fuse is lit: any
-        /// earlier and the pods are still in the air, any later and there is nobody
-        /// left to have owned it.
+        /// are standing. Called once, by the intro, the moment the first pod opens:
+        /// any earlier and they are all still in the air, any later and there is
+        /// nobody left to have owned it.
+        ///
+        /// In a pod of its own, rather than placed - the whole party arrives out of
+        /// the sky and a cat that was simply on the ground when the camera got there
+        /// belongs to the map instead of to them.
         /// </summary>
         public static void Place(Map map, IntVec3 near)
         {
@@ -107,7 +116,13 @@ namespace SlopWorld
 
                 var pet = PawnGenerator.GeneratePawn(req);
                 pet.Name = PawnBioAndNameGenerator.GeneratePawnName(pet);
-                GenSpawn.Spawn(pet, cell, map);
+
+                // Not forbidden: a forbidden pet is one the colony is told to leave
+                // alone, which is the opposite of what this animal is for.
+                DropPodUtility.DropThingsNear(cell, map, new List<Thing> { pet },
+                    openDelay: PodOpenDelay, canInstaDropDuringInit: false,
+                    leaveSlag: false, canRoofPunch: true, forbid: false,
+                    allowFogged: true, faction: Faction.OfPlayer);
 
                 Log.Message($"[SlopWorld] the cat is '{pet.LabelShort}' ({kind.defName})");
             }

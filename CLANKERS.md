@@ -261,7 +261,10 @@ HTTP half, with completions replayed on the main thread.
 none of these need a def.
 
 - `AgentColony` - reconciles sessions to colonists once a second: spawns, retires,
-  renames, and postures each pawn to its agent's state.
+  renames, and postures each pawn to its agent's state. It stands down entirely
+  while `IntroDirector.AgentsHeld` is up, and every colonist it spawns arrives in
+  the plague's haze - not only the ones the opening scene lands, because a
+  clanker is what this map makes of a person whenever it makes one.
 - `TimeKeeper` - unpauses the game. With the time controls stripped there is no way
   for the player to start the clock again, so a pause would be forever.
 - `RealClock` - maps ticks to the wall clock, and banks the stretches the clock did
@@ -270,6 +273,29 @@ none of these need a def.
   Both exist because vanilla's answer is "anywhere legal", which here means
   sealed in rock and on an ice sheet respectively.
 - `Plague`, `IntroDirector` - the opening scene and what eats the map afterwards.
+  The scene is a cutscene and is written as one: `UiHidden` takes the whole
+  interface away *and* `Selector.Select`, so for as long as it runs there is
+  nothing to click and nothing to click with. The beats are one phase each and
+  every transition goes through `Go`, which clears the phase timer and the
+  one-off flag - so no phase inherits what the last one left in them. Dialog,
+  then the hillside populated with living scenery (placed, not dropped - a
+  hundred pods is a different scene), then the scenario's own pods land and the
+  cat comes down in one of its own, then `WalkSeconds` of everyone milling about
+  before the core falls on the middle of it. `Fall` uses `ShipChunkIncoming`,
+  which is vanilla's carrier for wreckage and the harmless one - the variant
+  that cracks the ground is a separate def, and the cat is standing directly
+  underneath - and since that def has no `graphicData` the skyfaller draws its
+  payload, so what comes down is the core. The camera jumps with it, which is
+  also what makes the fumes exist at all: `PlagueFx` is gated on
+  `ShouldSpawnMotesAt` and spawns nothing off screen. Then `FumeSeconds` of the
+  core venting alone with nothing marked yet, so what follows reads as having
+  come out of it: the starters go up, `Plague.Arm` runs, and only then does
+  `AgentsHeld` drop and the agents walk out of their own haze. Holding them is
+  the point of that flag - an agent standing in the crowd is one the purge has
+  to step around, and their arrival is the last beat rather than something that
+  happened before the scene started. Both flags are static and both are cleared
+  in the constructor, because a colony discarded mid-intro must not hand the
+  next one a hidden UI.
   The plague stops rather than swallowing the map, and it stops without an edge.
   `FullFrac` and `EdgeFrac` are radii as fractions of the map's side: inside the
   first it is certain, and from there it falls off linearly to nothing at the
@@ -293,7 +319,11 @@ none of these need a def.
   spreading edge is visible while it moves. Its look is the `SlopPlagueGas`
   fleck in `Defs/Flecks.xml`, not a tint on a vanilla one - colour and alpha
   have to live on the def, because a fleck's `instanceColor` is combined with a
-  separately computed fade alpha and loses the transparency.
+  separately computed fade alpha and loses the transparency. `spread` goes with
+  the scale for the same reason the scatter exists at all: the thick calls -
+  `Fume` while the core vents, `Arrive` when an agent lands - drop big flecks,
+  and big flecks dropped into one handspan stack their alpha back into the solid
+  blob a gas cloud was chosen instead of.
   Ignition is the one effect that outlives its roll - a `Fire` is a `Thing` with
   its own tick and `StripPatches` does not touch it - which is why the odds on it
   are tiny and why `Patch_ContainFire` refuses `Fire.TrySpread` outside the
@@ -306,14 +336,18 @@ none of these need a def.
   `GenExplosion` as an `ignoredThing` so the purge steps around it, and
   `Plague.Infectable` spares the whole player faction. A litter of assorted
   biome-appropriate animals read as a starting scenario, which is what this map is
-  not; one cat in the ash reads as a survivor. Placing the cat is only half of it:
+  not; one cat in the ash reads as a survivor. It arrives in a pod of its own
+  rather than being placed, because the rest of the party comes out of the sky
+  and an animal already standing there when the camera arrives belongs to the
+  map instead of to them; its `PodOpenDelay` is shorter than vanilla's because
+  the intro is waiting on it. Placing the cat is only half of it:
   Crashlanded ships a `ScenPart_StartingAnimal` that hands over one random tame
   animal weighted by biome, and since `LandingSite` aims at tropical rainforest
   what it kept handing over was a monkey. `SlopScenario` shuts that door - the
   part is not in the scenario at all any more - and `Place` culls any colony
   animal already on the map before spawning, which closes the rest and makes it
   idempotent (`IntroDirector._armed` is runtime state under a persisted phase, so a save
-  loaded during the fuse comes back through it). The API stays plural - `On`
+  loaded while the party is landing comes back through it). The API stays plural - `On`
   returns a list, and the purge and the plague both iterate it - so the count is a
   policy in `Place` rather than an assumption in three other files. Clicking it
   plays its species' call sound rather than selecting it - `Selector.Select` still refuses
