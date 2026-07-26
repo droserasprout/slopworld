@@ -198,6 +198,22 @@ none of these need a def.
   pawn (selecting scenery, drafting).
 - `NoRescueAgents`, `NoStripAgents`, `NoStartResources` - agent pawns are the
   daemon's, and a dead world hands out nothing.
+- `NoHarmAgents` - a colonist is a status light, so nothing may hurt one and the
+  pets may not even swing. Damage dies in `Pawn.PreApplyDamage`; the three ways
+  an animal reaches an agent are closed one each - `IsAcceptablePreyFor` (a
+  stopped agent is a downed pawn, which is what predators shop for),
+  `AttackTargetFinder.BestAttackTarget` and `Pawn_MeleeVerbs.TryMeleeAttack`.
+  The last one hands a colony pet a nuzzle in place of the bite. A colonist hurt
+  before any of this existed is mended by `AgentColony.Revive`, which is the
+  visible half of the bug: injuries down a pawn for reasons the reconcile knows
+  nothing about, so it kept reporting Working at a body on the floor.
+  `NoBurningTheColony` is the same rule applied to fire, and spares the whole
+  player faction rather than just agents, because the pets are meant to outlive
+  the map and a wildfire is what would quietly take that back. Attachment
+  (`FireUtility.CanEverAttachFire`) and cell damage (`Fire.DoFireDamage`, private,
+  bound by name) are separate roads to the same place: closing only the second
+  leaves an agent - invulnerable, so already unharmed - wearing a flame that never
+  goes out, because a fire on an unkillable thing has nothing to finish.
 - `ColonistBarAddButton`, `ColonistBarDownIcon`, `InspectPanePatch`,
   `PawnGizmoPatch` - the parts of the UI that are kept, extended.
 - `RealTimePatches` - every duration the game prints, in real time.

@@ -41,6 +41,10 @@ namespace SlopWorld
 
         public bool IsAgentPawn(Pawn p) => p != null && _pawns.ContainsValue(p);
 
+        /// <summary>Shorthand for the patches that ask this on the way past, which run
+        /// whether or not there is a game to ask.</summary>
+        public static bool IsAgent(Pawn p) => p != null && Current != null && Current.IsAgentPawn(p);
+
         /// <summary>
         /// Follows a rename the player just made, keeping the same colonist. The
         /// reconcile below knows sessions only by name, so without this it would
@@ -185,6 +189,28 @@ namespace SlopWorld
             if (health?.hediffSet == null) return;
             var h = health.hediffSet.GetFirstHediffOfDef(SlopDefOf.SlopOffline);
             if (h != null) health.RemoveHediff(h);
+
+            // Still flat with the collapse gone means something hurt it, and a running
+            // agent lying in a heap is the board telling a lie. Patch_AgentsInvulnerable
+            // makes that unreachable from here on; this is for the colonists that were
+            // already chewed on when it arrived, and for whatever finds a way past it.
+            if (pawn.Downed) Mend(pawn);
+        }
+
+        // Undo the injury. Blood loss is not an injury and outlives the wounds that
+        // caused it, so it goes separately or the pawn faints straight back down.
+        static void Mend(Pawn pawn)
+        {
+            HealthUtility.HealNonPermanentInjuriesAndRestoreLegs(pawn);
+
+            var bleeding = pawn.health.hediffSet.GetFirstHediffOfDef(HediffDefOf.BloodLoss);
+            if (bleeding != null) pawn.health.RemoveHediff(bleeding);
+
+            // Only once it worked. Something this cannot mend - an anaesthetic, a
+            // missing organ - would otherwise say so once a second forever, because
+            // the reconcile comes back and tries again for as long as the pawn is down.
+            if (!pawn.Downed)
+                Log.Message($"[SlopWorld] colonist '{pawn.LabelShort}' patched up; agents take no damage");
         }
 
         // Force the pawn to lie down and sleep on the spot, unless it already is.
