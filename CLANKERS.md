@@ -122,6 +122,9 @@ none of these need a def.
   for the player to start the clock again, so a pause would be forever.
 - `RealClock` - maps ticks to the wall clock, and banks the stretches the clock did
   not run so old events still date correctly. Backs the real-time patches.
+- `SpawnSpot`, `LandingSite` - where agents land and where the colony does.
+  Both exist because vanilla's answer is "anywhere legal", which here means
+  sealed in rock and on an ice sheet respectively.
 - `Plague`, `IntroDirector` - the opening scene and what eats the map afterwards.
   `PlagueFx` is the pink haze every one of the plague's acts puts up, so the
   spreading edge is visible while it moves. Its look is the `SlopPlagueGas`

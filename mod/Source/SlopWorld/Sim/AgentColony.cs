@@ -225,7 +225,8 @@ namespace SlopWorld
             if (!p.Destroyed) p.Destroy();
         }
 
-        static Pawn Spawn(string name, Map map)
+        // Not static: the anchor it spawns against comes from the live pawn table.
+        Pawn Spawn(string name, Map map)
         {
             var req = new PawnGenerationRequest(
                 PawnKindDefOf.Colonist,
@@ -240,11 +241,26 @@ namespace SlopWorld
             var pawn = PawnGenerator.GeneratePawn(req);
             pawn.Name = new NameSingle(name);
 
-            var cell = CellFinder.RandomSpawnCellForPawnNear(map.Center, map);
-            GenSpawn.Spawn(pawn, cell, map);
+            GenSpawn.Spawn(pawn, SpawnSpot.Find(map, Anchor(map)), map);
 
             Log.Message($"[SlopWorld] colonist '{name}' joined the colony");
             return pawn;
+        }
+
+        /// <summary>Where a new agent should be looking to land. Beside one that is
+        /// already standing, first: agents scattered across the map are hard to read
+        /// on the bar, and whichever spot the last one found was open. Failing that
+        /// the persona core, which is where the intro put everything and what the
+        /// plague spreads from - so it is on open ground by construction.</summary>
+        IntVec3 Anchor(Map map)
+        {
+            foreach (var p in _pawns.Values)
+                if (p != null && p.Spawned && p.Map == map) return p.Position;
+
+            var core = map.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore);
+            if (core.Count > 0) return core[0].Position;
+
+            return map.Center;
         }
 
         public override void ExposeData()

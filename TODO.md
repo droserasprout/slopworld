@@ -18,8 +18,8 @@ Loosely sorted by priority. PRs are welcome.
 - [ ] "Game"
   - [x] When plague tags flora/fauna or takes action, emit visual effect (pink smoke?)
   - [ ] Bug: colonists' pets not exploding and not affected by plague
-  - [ ] Bug: new agent can be spawned inside the rock and immobilized.
-    - [ ] When choosing start location, avoid: rocky ones, deverts. Prefer: tropics.
+  - [x] Bug: new agent can be spawned inside the rock and immobilized.
+    - [x] When choosing start location, avoid: rocky ones, deverts. Prefer: tropics.
   - [ ] Tune plague odds and spread rate
   - [ ] Autosave every 1-2 real minutes (is it cheap?) and on exit, suppressing "unsaved will be lost" message.
   - [ ] Replace loading screen tips. Start with lorem ipsum list.

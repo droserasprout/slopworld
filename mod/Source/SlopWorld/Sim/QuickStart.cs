@@ -53,6 +53,7 @@ namespace SlopWorld
             Root_Play.SetupForQuickTestPlay();
             Find.GameInitData.mapSize = MapSize;
             Find.GameInitData.startedFromEntry = true;
+            LandingSite.Choose();
 
             // Autosave off would mean a colony that can never be picked back up.
             if (Prefs.AutosaveIntervalDays <= 0f) Prefs.AutosaveIntervalDays = AutosaveDays;
