@@ -102,10 +102,10 @@ runs its own `command`, and that is the only case where the field is read.
 
 `PRESETS` in `sandbox.rs` is that table: named bundles of ro binds, rw binds,
 dev binds and env vars - `dbus`, `systemd`, `x11`, `wayland`, `gpu`, `audio`,
-`docker`, `podman`, `ssh`, `git`, `rust`, `node`, `python`. Compiled in rather
-than configurable, because a preset the daemon does not understand is one the
-GUI cannot draw a checkbox for either; `GET /api/presets` is how the mod learns
-what this build knows, so the window never has to be kept in step by hand.
+`docker`, `podman`, `ssh`, `1password`, `git`, `rust`, `node`, `python`. Compiled
+in rather than configurable, because a preset the daemon does not understand is
+one the GUI cannot draw a checkbox for either; `GET /api/presets` is how the mod
+learns what this build knows, so the window never has to be kept in step by hand.
 Every bind is skipped unless the path is there, so a preset for something this
 host does not run costs nothing - which is also what makes `expand` handling
 `$VAR` safe: an unset `WAYLAND_DISPLAY` leaves a path that cannot exist and so
@@ -116,6 +116,14 @@ most specific answer for a path is the last one bwrap sees. Device nodes are
 emitted after the ro list, so a path in both - `~/.local/bin` global-ro and
 project-rw, which is what lets an agent `make install-daemon` - ends up
 writable rather than refused.
+
+A socket is bound by its directory wherever whoever owns it will recreate it.
+A bind of the socket file pins the inode that was there when the session was
+exec'd, so an app that unlinks and recreates its socket - `1password` on unlock,
+and anything else that relocks or restarts - leaves the sandbox holding a socket
+with nothing listening on it, which reads as a running agent refusing the
+connection rather than as a missing bind. `dbus` and `wayland` name their sockets
+directly because those are made once by something that outlives every session.
 
 A preset carries two kinds of env. `env` *forwards* names out of slopd's own
 environment, which is all a display or an auth socket ever needs. `setenv` sets

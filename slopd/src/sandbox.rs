@@ -126,6 +126,24 @@ pub const PRESETS: &[Preset] = &[
         setenv: &[],
     },
     Preset {
+        name: "1password",
+        description: "the 1Password agent, for SSH auth and signed commits",
+        ro: &[],
+        // The directory, not the socket inside it. A bind of `agent.sock` pins
+        // the inode that was there when the session was exec'd, and the desktop
+        // app unlinks and recreates it every time it restarts or relocks - so
+        // the sandbox would keep a socket file with nothing listening on the
+        // other end, which is a harder thing to read than a missing one. The
+        // signer itself is /opt/1Password/op-ssh-sign and is already inside, on
+        // the global /opt bind.
+        rw: &["~/.1password"],
+        dev: &[],
+        // op-ssh-sign finds the socket under $HOME rather than being told, and
+        // HOME inside the sandbox is the real one, so there is nothing to pass.
+        env: &[],
+        setenv: &[],
+    },
+    Preset {
         name: "git",
         description: "global git identity and config",
         ro: &["~/.gitconfig", "~/.config/git"],
