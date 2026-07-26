@@ -33,6 +33,8 @@ namespace SlopWorld
         };
 
         static GUIStyle _style;
+        static Font _font;
+        static bool _fontless; // no OS font at all, so a rebuild would not help
         static int _size;
 
         // Per-char verdicts from CalcSize, which is far too slow to run per frame.
@@ -44,6 +46,7 @@ namespace SlopWorld
         public static void Invalidate()
         {
             _style = null;
+            _fontless = false;
             _fits.Clear();
         }
 
@@ -51,16 +54,25 @@ namespace SlopWorld
         {
             get
             {
-                if (_style != null && _size == Settings.FontSize) return _style;
+                // A GUIStyle is not a UnityEngine.Object, so the font it holds is
+                // rooted by nothing Unity can see: the unload RimWorld runs on every
+                // map switch destroys it and leaves the style drawing in the default
+                // proportional face. DontUnloadUnusedAsset is the fix; the null check
+                // catches a face lost some other way, since a destroyed Font compares
+                // equal to null and the style would never rebuild on its own.
+                if (_style != null && _size == Settings.FontSize && (_font != null || _fontless))
+                    return _style;
                 _fits.Clear();
 
                 _size = Mathf.Clamp(Settings.FontSize, 8, 28);
-                var font = Font.CreateDynamicFontFromOSFont(Candidates, _size)
-                           ?? Font.CreateDynamicFontFromOSFont("Courier New", _size);
+                _font = Font.CreateDynamicFontFromOSFont(Candidates, _size)
+                        ?? Font.CreateDynamicFontFromOSFont("Courier New", _size);
+                _fontless = _font == null;
+                if (_font != null) _font.hideFlags = HideFlags.DontUnloadUnusedAsset;
 
                 _style = new GUIStyle
                 {
-                    font = font,
+                    font = _font,
                     fontSize = _size,
                     richText = false, // terminal output is full of < and >
                     wordWrap = false,
@@ -76,7 +88,7 @@ namespace SlopWorld
                 CellW = _style.CalcSize(new GUIContent(probe)).x / probe.Length;
                 CellH = Mathf.Max(_style.lineHeight, _size + 2f);
 
-                Log.Message($"[SlopWorld] terminal font: {font?.name} at {_size}pt, " +
+                Log.Message($"[SlopWorld] terminal font: {_font?.name} at {_size}pt, " +
                             $"cell {CellW:0.##}x{CellH:0.##}");
                 return _style;
             }

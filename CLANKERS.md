@@ -297,6 +297,13 @@ reconnect on every switch, because `WriteSettings` reconnects.
   coordinates stay where they were. Vanilla widgets are written for it; anything
   borrowed from the map layer is not. `TerminalWindow` runs at margin 0 so the
   two agree.
+- A `Font` from `CreateDynamicFontFromOSFont` is held only by a `GUIStyle`, which
+  is not a `UnityEngine.Object` and so roots nothing: the `Resources.UnloadUnusedAssets`
+  the game runs on any map switch - loading a save, "New colony" - destroys the
+  face, and the style silently falls back to the proportional GUI font. The
+  symptom is a terminal that stops being monospace mid-session with nothing in the
+  log. `TerminalFont` marks the font `HideFlags.DontUnloadUnusedAsset` and rebuilds
+  if it goes null anyway.
 - A Harmony patch that throws during `PatchAll` kills the whole mod, not just
   itself: the game then looks vanilla and the report is "quick start stopped
   working". `SlopWorldBootstrap` catches and logs `patching incomplete: ...`, so
