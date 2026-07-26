@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
 using UnityEngine;
@@ -5,7 +6,15 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>Add or edit one session. Writes straight through to config.toml on the daemon.</summary>
+    /// <summary>
+    /// Add or edit one agent. Writes straight through to config.toml on the
+    /// daemon.
+    ///
+    /// What is left here is the two things that are about the agent: its name
+    /// and what it runs. Where it works and what it can reach moved to the
+    /// project, which is why picking one is mandatory and why there is no
+    /// directory field any more.
+    /// </summary>
     public class EditSessionDialog : Window
     {
         readonly bool _isNew;
@@ -13,26 +22,42 @@ namespace SlopWorld
         /// The name the daemon still knows this session by: the edit is addressed
         /// to it, and a changed name in the field is a rename.
         readonly string _origName;
+        /// What a Claude session will actually run, shown greyed in the command
+        /// box so the field is never blank and never a lie.
+        string _default = "claude";
 
-        public EditSessionDialog(SessionInfo existing)
+        public EditSessionDialog(SessionInfo existing) : this(existing, null) { }
+
+        /// <param name="project">
+        /// Preselected project, for "add an agent here" from the projects list.
+        /// </param>
+        public EditSessionDialog(SessionInfo existing, string project)
         {
             _isNew = existing == null;
             _origName = existing?.Name ?? "";
             _s = existing == null
-                ? new SessionInfo { Name = "", Dir = "", Agent = "", Net = true, Sandbox = true }
+                ? new SessionInfo { Name = "", Project = project ?? "", Kind = AgentKind.Claude }
                 : new SessionInfo
                 {
                     Name = existing.Name,
-                    Dir = existing.Dir,
+                    Project = existing.Project,
+                    Kind = existing.Kind,
                     Agent = existing.Agent,
-                    Net = existing.Net,
-                    Sandbox = existing.Sandbox,
                     Autostart = existing.Autostart,
                 };
+
+            // Every Claude session resolves to the same command, so any of them
+            // will do as the placeholder - and with none about, the daemon's
+            // stock answer is right anyway.
+            var claude = SessionHub.Instance.Sessions
+                .FirstOrDefault(s => s.Kind == AgentKind.Claude && !string.IsNullOrEmpty(s.Agent));
+            if (claude != null) _default = claude.Agent;
 
             doCloseX = true;
             absorbInputAroundWindow = true;
             closeOnClickedOutside = false;
+
+            SessionHub.Instance.RefreshProjects();
         }
 
         public override Vector2 InitialSize => new Vector2(560f, 400f);
@@ -43,7 +68,7 @@ namespace SlopWorld
             l.Begin(rect);
 
             Text.Font = GameFont.Medium;
-            l.Label(_isNew ? "New session" : $"Edit '{_s.Name}'");
+            l.Label(_isNew ? "New agent" : $"Edit '{_origName}'");
             Text.Font = GameFont.Small;
             l.Gap(6f);
 
@@ -51,18 +76,41 @@ namespace SlopWorld
             _s.Name = l.TextEntry(_s.Name);
 
             l.Gap(4f);
-            l.Label("Project directory");
-            _s.Dir = l.TextEntry(_s.Dir);
-            if (l.ButtonText("Browse..."))
-                Find.WindowStack.Add(new BrowseDialog(_s.Dir, d => _s.Dir = d));
+            l.Label("Project (the directory and sandbox it works in)");
+            if (l.ButtonText(string.IsNullOrEmpty(_s.Project) ? "Pick a project..." : _s.Project))
+                PickProject();
+
+            var project = SessionHub.Instance.Project(_s.Project);
+            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            l.Label(project != null
+                ? $"{project.Dir}  ({ProjectsWindow.Summary(project)})"
+                : SessionHub.Instance.Projects.Count == 0
+                    ? "No projects yet - make one in the Projects window first."
+                    : "");
+            GUI.color = Color.white;
 
             l.Gap(4f);
-            l.Label("Agent command (blank = daemon default)");
-            _s.Agent = l.TextEntry(_s.Agent ?? "");
+            l.Label("Command");
+            if (l.ButtonText(_s.Kind == AgentKind.Custom ? "Custom" : "Claude Code"))
+                PickKind();
+
+            // Greyed rather than hidden: a Claude session runs something, and
+            // this is what, even though nothing here can change it.
+            bool custom = _s.Kind == AgentKind.Custom;
+            var box = l.GetRect(28f);
+            if (custom)
+            {
+                _s.Agent = Widgets.TextField(box, _s.Agent ?? "");
+            }
+            else
+            {
+                GUI.color = new Color(1f, 1f, 1f, 0.4f);
+                Widgets.TextField(box, _default);
+                GUI.color = Color.white;
+            }
 
             l.Gap(6f);
-            l.CheckboxLabeled("Sandbox with bubblewrap", ref _s.Sandbox);
-            l.CheckboxLabeled("Allow network", ref _s.Net);
+            l.CheckboxLabeled("Start with the daemon", ref _s.Autostart);
 
             l.End();
 
@@ -74,11 +122,41 @@ namespace SlopWorld
                 Save();
         }
 
+        void PickProject()
+        {
+            var hub = SessionHub.Instance;
+            var options = hub.Projects
+                .Select(p => new FloatMenuOption($"{p.Name}  -  {p.Dir}",
+                    () => _s.Project = p.Name))
+                .ToList();
+
+            options.Add(new FloatMenuOption("New project...",
+                () => Find.WindowStack.Add(new EditProjectDialog(null))));
+
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        void PickKind()
+        {
+            Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Claude Code", () => _s.Kind = AgentKind.Claude),
+                new FloatMenuOption("Custom", () => _s.Kind = AgentKind.Custom),
+            }));
+        }
+
         void Save()
         {
-            if (string.IsNullOrEmpty(_s.Name) || string.IsNullOrEmpty(_s.Dir))
+            if (string.IsNullOrEmpty(_s.Name) || string.IsNullOrEmpty(_s.Project))
             {
-                Messages.Message("SlopWorld: name and directory are required.",
+                Messages.Message("SlopWorld: name and project are required.",
+                    MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+
+            if (_s.Kind == AgentKind.Custom && string.IsNullOrEmpty((_s.Agent ?? "").Trim()))
+            {
+                Messages.Message("SlopWorld: a custom agent needs a command.",
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }

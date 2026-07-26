@@ -192,7 +192,8 @@ namespace SlopWorld
         // Inspect is kept because it backs the inspect pane; Menu for save / quit.
         static readonly HashSet<string> Keep = new HashSet<string>
         {
-            "Menu", "Inspect", "SlopWorld_Agents", "SlopWorld_Config",
+            "Menu", "Inspect",
+            "SlopWorld_Projects", "SlopWorld_Agents", "SlopWorld_Config",
         };
 
         public static void Apply(Harmony h)

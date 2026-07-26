@@ -79,9 +79,70 @@ game is in the daemon's cgroup any more.
 | `session.rs` | `Manager`: the live table, state classification, control readers. |
 | `emu.rs` | `SessionEmu`, an `alacritty_terminal` instance per session. |
 | `tmux.rs` | Thin async wrapper over the tmux CLI. |
-| `sandbox.rs` | Builds the bubblewrap argv a session is exec'd under. |
-| `config.rs` | `config.toml` load, save and seed. |
+| `sandbox.rs` | The preset table, and the bubblewrap argv a session is exec'd under. |
+| `config.rs` | `config.toml` load, save, seed and migration. |
 | `usage.rs` | Polls Anthropic for what is left of the subscription. |
+
+### Projects
+
+A session is an agent *in* a project, and owns almost nothing itself: a name, a
+kind, and a command if that kind is custom. Where it runs and what it can reach
+are the project's - `[[project]]` in `config.toml`, a directory plus the sandbox
+every agent in it gets. The two things a session used to carry turned out to
+belong to the work rather than to whoever is doing it: three agents in one repo
+want the same binds, and keeping that in three session entries meant it was
+wrong in at least one of them.
+
+`kind` is `claude` or `custom`. Claude is a kind rather than a command string
+because knowing it is Claude is the one thing that lets the sandbox hand it
+`~/.claude` without anyone listing that path in a project by hand -
+`presets_for` adds the `claude` preset to a Claude session whether its project
+asked or not, and `[defaults] agent` is what such a session runs. A custom one
+runs its own `command`, and that is the only case where the field is read.
+
+`PRESETS` in `sandbox.rs` is that table: named bundles of ro binds, rw binds,
+dev binds and env vars - `dbus`, `systemd`, `x11`, `wayland`, `gpu`, `audio`,
+`docker`, `podman`, `ssh`, `git`, `rust`, `node`, `python`. Compiled in rather
+than configurable, because a preset the daemon does not understand is one the
+GUI cannot draw a checkbox for either; `GET /api/presets` is how the mod learns
+what this build knows, so the window never has to be kept in step by hand.
+Every bind is skipped unless the path is there, so a preset for something this
+host does not run costs nothing - which is also what makes `expand` handling
+`$VAR` safe: an unset `WAYLAND_DISPLAY` leaves a path that cannot exist and so
+drops that bind, rather than mounting `$XDG_RUNTIME_DIR/` whole. Order is
+global, then presets, then what the project spelled out, deduplicated, so the
+most specific answer for a path is the last one bwrap sees. Device nodes are
+`--dev-bind` and go after `--dev`, or the tmpfs covers them; the rw list is
+emitted after the ro list, so a path in both - `~/.local/bin` global-ro and
+project-rw, which is what lets an agent `make install-daemon` - ends up
+writable rather than refused.
+
+A preset carries two kinds of env. `env` *forwards* names out of slopd's own
+environment, which is all a display or an auth socket ever needs. `setenv` sets
+a literal value, for the things that are true only inside the sandbox and so
+are set nowhere on the host: `systemd` uses it for `SYSTEMCTL_FORCE_BUS=1`,
+because `systemctl --user` reaches for `$XDG_RUNTIME_DIR/systemd/private`
+first and that socket's handshake does not survive bwrap's user namespace -
+it goes `AUTHENTICATING -> CLOSED` and blames "local transport". The session
+bus reaches the same manager, which is why `systemd` is no use without `dbus`.
+Literals are applied after the forwarded names so the preset's deliberate
+answer beats whatever slopd happened to be launched with.
+
+Two rules on the way in. A session must name a project that exists
+(`check_belongs`), enforced on add and update rather than at start, so the
+dialog that made the mistake is what says so. And a project with agents in it
+refuses to be deleted, listing them - deleting them with it is throwing away
+agents to tidy a list. A rename carries its sessions over in the same write,
+because a session left pointing at a project that no longer exists is one that
+will not start and nothing in the GUI would have said why.
+
+A file written before any of this loads and comes out the other side migrated:
+`Config::migrate` gives every session that still carries a `dir` a project of
+its own, sessions sharing a directory share one, and an `agent` that was
+written out becomes a custom command. It runs on every load including of a file
+it wrote itself, so it is idempotent, and the legacy fields are
+`skip_serializing_if` so they leave the file on the next write rather than
+lingering as nulls.
 
 ### Session state
 
@@ -169,12 +230,16 @@ the daemon does not.
 ### Wire protocol
 
 Server events: `{"t":"sessions",...}` on any state move, `{"t":"screen",...}` for
-subscribed sessions only, `{"t":"usage",...}` when the quota picture changes -
-and once on connect, because a client attaching between polls would otherwise
-draw nothing for a minute. Client messages: `sub`, `unsub`, `keys`, `resize`,
-`scroll`, `mouse`, `paste`. Everything that rewrites `config.toml` goes over HTTP
-instead, because the error body matters; `GET /api/usage` is the same snapshot
-for anything that would rather ask than listen.
+subscribed sessions only, `{"t":"usage",...}` when the quota picture changes,
+`{"t":"projects",...}` when one is added, edited or removed - the last two also
+once on connect, because a client attaching between polls would otherwise draw
+nothing for a minute, and one attaching after the last edit would have nothing
+to fill the "which project" dropdown from at all. Client messages: `sub`,
+`unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste`. Everything that rewrites
+`config.toml` goes over HTTP instead, because the error body matters -
+`/api/sessions`, `/api/projects` and `/api/config` all in the same shape;
+`GET /api/usage` and `GET /api/presets` are there for anything that would
+rather ask than listen.
 
 ## Mod
 
@@ -415,9 +480,21 @@ so a session whose terminal is open comes back the shape the window asked for.
 `SessionView.cols/rows` stay on the wire as an observation rather than a setting,
 so `curl /api/sessions` can answer what shape the agent thinks its terminal is.
 
-`SessionsWindow`, `EditSessionDialog`,
-`ConfigMenuWindow` and `ConfigWindow` are the session and config GUIs, all of which
-write straight through to the daemon.
+`ProjectsWindow`, `SessionsWindow`, `EditProjectDialog`, `EditSessionDialog`,
+`ConfigMenuWindow` and `ConfigWindow` are the project, session and config GUIs,
+all of which write straight through to the daemon.
+
+`ProjectsWindow` is the first button in the bottom bar, ahead of `agents`,
+because nothing can be added on the agents window until there is somewhere to
+add it. Its preset checkboxes are drawn from `GET /api/presets` rather than
+from a list in the mod, so a preset added to `sandbox.rs` appears here with no
+second edit; a project whose file names a preset this build has never heard of
+is warned about and ignored rather than refused, because the file outlives the
+binary. `EditSessionDialog` is what is left once the directory and the sandbox
+flags moved out: a name, a project picked from a dropdown, and a kind - "Claude
+Code" or "Custom", with the command box greyed and showing what a Claude
+session actually runs rather than hidden, since a field that vanishes reads as
+a setting that does not exist.
 
 ### Settings
 

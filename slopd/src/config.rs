@@ -13,6 +13,10 @@ pub struct Config {
     pub defaults: Defaults,
     #[serde(default)]
     pub sandbox: Sandbox,
+    /// Where the work is. A session is an agent *in* one of these, and takes its
+    /// directory and its sandbox from it rather than carrying either.
+    #[serde(default, rename = "project")]
+    pub projects: Vec<ProjectCfg>,
     #[serde(default, rename = "session")]
     pub sessions: Vec<SessionCfg>,
     #[serde(default, rename = "state_rule")]
@@ -101,10 +105,13 @@ impl Default for Defaults {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Sandbox {
     pub enabled: bool,
-    /// Bound read-only into every sandbox.
+    /// Bound read-only into every sandbox, whatever the project.
     pub ro_paths: Vec<String>,
-    /// Bound read-write into every sandbox, on top of the session's own dir.
-    /// Agents need their own state dir here (~/.claude, ~/.claude.json).
+    /// Bound read-write into every sandbox, on top of the project's own dir and
+    /// whatever its presets ask for. An agent's own state dir is not here any
+    /// more: `~/.claude` rides on the `claude` preset, which a Claude session
+    /// gets whether or not its project asked, so the one bind every agent of
+    /// that kind needs is not a line somebody has to remember to type.
     pub rw_paths: Vec<String>,
     /// Env vars passed through from slopd's environment.
     pub pass_env: Vec<String>,
@@ -122,31 +129,107 @@ impl Default for Sandbox {
                 "/opt".into(),
                 "~/.local/bin".into(),
             ],
-            rw_paths: vec!["~/.claude".into(), "~/.claude.json".into()],
-            pass_env: vec![
-                "PATH".into(),
-                "TERM".into(),
-                "LANG".into(),
-                "ANTHROPIC_API_KEY".into(),
-            ],
+            rw_paths: Vec::new(),
+            pass_env: vec!["PATH".into(), "TERM".into(), "LANG".into()],
         }
     }
 }
 
+/// One place work happens: a directory plus the sandbox every agent in it gets.
+///
+/// It exists because the two things a session used to carry - where it runs and
+/// what it can reach - are properties of the *work*, not of the agent doing it.
+/// Three agents in the same repo want the same binds, and keeping that in three
+/// session entries meant it was wrong in at least one of them.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SessionCfg {
+pub struct ProjectCfg {
     pub name: String,
     pub dir: String,
+    /// Named bundles of binds and env from `sandbox::PRESETS` - "dbus",
+    /// "systemd", "x11" and so on. A name this build has never heard of is
+    /// ignored with a warning rather than refused, because the file outlives the
+    /// binary and a preset removed upstream must not stop a project starting.
     #[serde(default)]
-    pub agent: Option<String>,
+    pub presets: Vec<String>,
+    /// Anything the presets do not cover, added on top of the global lists.
+    #[serde(default)]
+    pub ro_paths: Vec<String>,
+    #[serde(default)]
+    pub rw_paths: Vec<String>,
+    #[serde(default)]
+    pub pass_env: Vec<String>,
     #[serde(default = "yes")]
     pub net: bool,
     #[serde(default = "yes")]
     pub sandbox: bool,
+}
+
+impl Default for ProjectCfg {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            dir: String::new(),
+            presets: Vec::new(),
+            ro_paths: Vec::new(),
+            rw_paths: Vec::new(),
+            pass_env: Vec::new(),
+            net: true,
+            sandbox: true,
+        }
+    }
+}
+
+/// What a session runs. Claude Code is a first-class answer rather than a
+/// command string, because it is the one agent this whole thing is shaped
+/// around: knowing it is Claude is what lets the sandbox hand it its own state
+/// dir without anyone listing `~/.claude` in a project by hand.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SessionKind {
+    #[default]
+    Claude,
+    Custom,
+}
+
+impl SessionKind {
+    /// The same spelling serde uses, for the wire view.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+            Self::Custom => "custom",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SessionCfg {
+    pub name: String,
+    /// The project this agent works in. Everything about where it runs and what
+    /// it can reach comes from there.
+    #[serde(default)]
+    pub project: String,
+    #[serde(default)]
+    pub kind: SessionKind,
+    /// Read only when `kind` is custom; the Claude kind takes `[defaults] agent`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
     #[serde(default)]
     pub autostart: bool,
-    /// Extra rw binds for this session only.
-    #[serde(default)]
+
+    // ---------------------------------------------------------------- legacy
+    // Sessions used to carry all of this themselves. `Config::migrate` turns
+    // each one into a project on load and clears these, so an old file keeps
+    // working and the next write is in the new shape. Skipped when empty so
+    // they leave the file for good rather than lingering as nulls.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub net: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sandbox: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rw_paths: Vec<String>,
 }
 
@@ -181,7 +264,88 @@ impl Config {
     }
 
     pub fn parse(text: &str) -> Result<Self> {
-        toml::from_str(text).context("parsing config.toml")
+        let mut cfg: Self = toml::from_str(text).context("parsing config.toml")?;
+        cfg.migrate();
+        Ok(cfg)
+    }
+
+    /// Brings a config written before projects existed up to date.
+    ///
+    /// A session used to be a directory and a sandbox with a name on it; now it
+    /// is an agent inside a project. Every entry still shaped the old way gets a
+    /// project of its own, and two sessions pointing at the same directory get
+    /// the *same* project - which is the arrangement whoever wrote that file
+    /// meant, and the one they would have made by hand.
+    ///
+    /// Runs on every load, including of a file we just wrote, so it has to be
+    /// idempotent: an entry that already names a project is left alone.
+    fn migrate(&mut self) {
+        for i in 0..self.sessions.len() {
+            let dir = self.sessions[i].dir.take().unwrap_or_default();
+            let agent = self.sessions[i].agent.take();
+            let net = self.sessions[i].net.take();
+            let sandbox = self.sessions[i].sandbox.take();
+            let rw = std::mem::take(&mut self.sessions[i].rw_paths);
+
+            if let Some(a) = agent {
+                // A command that was written out is one somebody chose, so it
+                // survives as a custom session. The default is what "claude"
+                // means, and an entry that never set one is exactly that.
+                self.sessions[i].kind = SessionKind::Custom;
+                self.sessions[i].command = Some(a);
+            }
+
+            if !self.sessions[i].project.is_empty() || dir.is_empty() {
+                continue;
+            }
+
+            let net = net.unwrap_or(true);
+            let sandbox = sandbox.unwrap_or(true);
+            let existing = self
+                .projects
+                .iter()
+                .find(|p| p.dir == dir && p.net == net && p.sandbox == sandbox && p.rw_paths == rw)
+                .map(|p| p.name.clone());
+
+            let name = match existing {
+                Some(n) => n,
+                None => {
+                    let name = self.free_project_name(&dir, &self.sessions[i].name);
+                    self.projects.push(ProjectCfg {
+                        name: name.clone(),
+                        dir: dir.clone(),
+                        rw_paths: rw,
+                        net,
+                        sandbox,
+                        ..Default::default()
+                    });
+                    name
+                }
+            };
+            self.sessions[i].project = name;
+        }
+    }
+
+    /// A project name nothing else has yet: the directory's own last component
+    /// first, because that is what a person would have called it, then the
+    /// session's name, then a number.
+    fn free_project_name(&self, dir: &str, session: &str) -> String {
+        let base = dir
+            .trim_end_matches('/')
+            .rsplit('/')
+            .next()
+            .filter(|s| !s.is_empty())
+            .unwrap_or(session)
+            .to_string();
+
+        let taken = |n: &str| self.projects.iter().any(|p| p.name == n);
+        if !taken(&base) {
+            return base;
+        }
+        if !taken(session) {
+            return session.to_string();
+        }
+        (2..).map(|i| format!("{base}-{i}")).find(|n| !taken(n)).unwrap()
     }
 
     pub fn save(&self, path: &Path) -> Result<()> {
@@ -211,21 +375,88 @@ impl Config {
     pub fn session(&self, name: &str) -> Option<&SessionCfg> {
         self.sessions.iter().find(|s| s.name == name)
     }
-}
 
-/// `~/foo` -> `/home/you/foo`. bwrap will not do this for us.
-pub fn expand(path: &str) -> String {
-    if let Some(rest) = path.strip_prefix("~/") {
-        if let Some(home) = dirs::home_dir() {
-            return home.join(rest).to_string_lossy().into_owned();
+    pub fn project(&self, name: &str) -> Option<&ProjectCfg> {
+        self.projects.iter().find(|p| p.name == name)
+    }
+
+    /// The project a session belongs to. A session naming one that has gone is
+    /// an error everywhere it matters (starting it), and merely a blank
+    /// directory everywhere it does not (listing it), so the caller decides.
+    pub fn project_of(&self, s: &SessionCfg) -> Option<&ProjectCfg> {
+        self.project(&s.project)
+    }
+
+    /// What a session actually runs: its own command when it is a custom one,
+    /// and the daemon's default - which is what "Claude Code" means here - when
+    /// it is not.
+    pub fn command_of(&self, s: &SessionCfg) -> String {
+        match s.kind {
+            SessionKind::Custom => s
+                .command
+                .clone()
+                .filter(|c| !c.trim().is_empty())
+                .unwrap_or_else(|| self.defaults.agent.clone()),
+            SessionKind::Claude => self.defaults.agent.clone(),
         }
     }
-    path.to_string()
+}
+
+/// `~/foo` -> `/home/you/foo`, `$XDG_RUNTIME_DIR/bus` -> `/run/user/1000/bus`.
+/// bwrap will not do either for us, and the preset table is written in both.
+///
+/// A variable with nothing behind it expands to nothing, which leaves a path
+/// that cannot exist - and every bind is skipped unless the path is there, so an
+/// unset `WAYLAND_DISPLAY` drops that bind instead of mounting `/run/user/1000/`
+/// whole.
+pub fn expand(path: &str) -> String {
+    let path = if let Some(rest) = path.strip_prefix("~/") {
+        match dirs::home_dir() {
+            Some(home) => home.join(rest).to_string_lossy().into_owned(),
+            None => path.to_string(),
+        }
+    } else {
+        path.to_string()
+    };
+
+    if !path.contains('$') {
+        return path;
+    }
+
+    let mut out = String::with_capacity(path.len());
+    let mut rest = path.as_str();
+    while let Some(at) = rest.find('$') {
+        out.push_str(&rest[..at]);
+        let after = &rest[at + 1..];
+        let (name, tail) = if let Some(braced) = after.strip_prefix('{') {
+            match braced.find('}') {
+                Some(end) => (&braced[..end], &braced[end + 1..]),
+                None => {
+                    out.push('$');
+                    rest = after;
+                    continue;
+                }
+            }
+        } else {
+            let end = after
+                .find(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+                .unwrap_or(after.len());
+            (&after[..end], &after[end..])
+        };
+        if name.is_empty() {
+            out.push('$');
+        } else {
+            out.push_str(&std::env::var(name).unwrap_or_default());
+        }
+        rest = tail;
+    }
+    out.push_str(rest);
+    out
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Config;
+    use super::{Config, SessionKind};
 
     /// A config written before these fields existed has to keep loading: the file
     /// on disk outlives any one build of the daemon, and a redeploy that refused
@@ -250,6 +481,68 @@ mod tests {
         assert!(cfg.daemon.usage);
         assert_eq!(cfg.daemon.usage_poll_secs, 60);
         assert_eq!(cfg.daemon.claude_credentials, "~/.claude/.credentials.json");
+    }
+
+    /// The one that matters most: a file written when a session *was* a
+    /// directory keeps its agents, and comes out the other side with a project
+    /// under each of them. Two sessions in the same directory share it, because
+    /// that is the arrangement whoever wrote the file meant.
+    #[test]
+    fn sessions_with_dirs_become_projects() {
+        let cfg = Config::parse(
+            r#"
+            [[session]]
+            name = "alpha"
+            dir = "/home/you/git/slopworld"
+
+            [[session]]
+            name = "beta"
+            dir = "/home/you/git/slopworld"
+
+            [[session]]
+            name = "gamma"
+            dir = "/home/you/git/other"
+            agent = "codex --yolo"
+            net = false
+            "#,
+        )
+        .expect("an old config should parse");
+
+        assert_eq!(cfg.projects.len(), 2);
+        assert_eq!(cfg.session("alpha").unwrap().project, "slopworld");
+        assert_eq!(cfg.session("beta").unwrap().project, "slopworld");
+        assert_eq!(cfg.session("gamma").unwrap().project, "other");
+
+        // The flags followed the directory into the project.
+        assert!(cfg.project("slopworld").unwrap().net);
+        assert!(!cfg.project("other").unwrap().net);
+
+        // A command somebody wrote out is a custom session; one that never set
+        // one is what "Claude Code" means.
+        assert_eq!(cfg.session("alpha").unwrap().kind, SessionKind::Claude);
+        assert_eq!(cfg.session("gamma").unwrap().kind, SessionKind::Custom);
+        assert_eq!(cfg.command_of(cfg.session("gamma").unwrap()), "codex --yolo");
+        assert_eq!(cfg.command_of(cfg.session("alpha").unwrap()), "claude");
+    }
+
+    /// Migration runs on every load, including of a file it wrote itself, so a
+    /// second pass has to be a no-op rather than a second project.
+    #[test]
+    fn migration_is_idempotent() {
+        let once = Config::parse(
+            r#"
+            [[session]]
+            name = "alpha"
+            dir = "/home/you/git/slopworld"
+            "#,
+        )
+        .unwrap();
+        let twice = Config::parse(&toml::to_string_pretty(&once).unwrap()).unwrap();
+
+        assert_eq!(twice.projects.len(), 1);
+        assert_eq!(twice.session("alpha").unwrap().project, "slopworld");
+        // The legacy fields left the file rather than lingering as empties.
+        assert!(twice.session("alpha").unwrap().dir.is_none());
     }
 
     #[test]

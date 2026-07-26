@@ -135,6 +135,11 @@ namespace SlopWorld
         static void Postfix() => SessionHub.Instance.Update();
     }
 
+    public class MainButtonWorker_Projects : RimWorld.MainButtonWorker
+    {
+        public override void Activate() => ProjectsWindow.Toggle();
+    }
+
     public class MainButtonWorker_Agents : RimWorld.MainButtonWorker
     {
         public override void Activate() => SessionsWindow.Toggle();

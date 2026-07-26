@@ -11,7 +11,7 @@ use tokio::sync::{broadcast, RwLock};
 use tokio::task::JoinHandle;
 use tokio::time::{interval, MissedTickBehavior};
 
-use crate::config::{expand, Config, Daemon, Defaults, Sandbox, SessionCfg};
+use crate::config::{expand, Config, Daemon, Defaults, ProjectCfg, Sandbox, SessionCfg};
 use crate::emu::{parse_output, Frame, MouseInput, SessionEmu};
 use crate::sandbox::build_argv;
 use crate::tmux::Tmux;
@@ -38,7 +38,17 @@ pub enum State {
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionView {
     pub name: String,
+    /// The project this agent works in, and where that project lives. `dir`,
+    /// `net` and `sandbox` are all the project's answers, repeated here so a
+    /// list of sessions reads without joining it against anything - and empty
+    /// when the entry names a project that has gone, which is a state the GUI
+    /// has to be able to draw rather than one to refuse to serve.
+    pub project: String,
     pub dir: String,
+    /// "claude" or "custom": what the session runs, and whether the sandbox
+    /// hands it Claude Code's own state dir.
+    pub kind: String,
+    /// The command as it will actually be exec'd, defaults resolved.
     pub agent: String,
     pub state: State,
     pub alive: bool,
@@ -108,6 +118,10 @@ impl ScreenView {
 #[serde(tag = "t", rename_all = "lowercase")]
 pub enum Event {
     Sessions { sessions: Vec<SessionView> },
+    /// The projects, whenever one is added, edited or removed - and on connect,
+    /// because the dialog that picks one has to be able to draw before anybody
+    /// has changed anything.
+    Projects { projects: Vec<ProjectCfg> },
     Screen { screen: ScreenView },
     /// What is left of the subscription. Broadcast on a change only; the poll
     /// behind it runs on the wall clock, not on anything a session did.
@@ -256,6 +270,36 @@ fn check_name(name: &str) -> Result<()> {
     Ok(())
 }
 
+/// A project name is only ever a key in config.toml and a label in the GUI, so
+/// the bar is lower than a session's - but it is what a session points at, and
+/// a blank one would point at all of them.
+fn check_project(p: &ProjectCfg) -> Result<()> {
+    if p.name.trim().is_empty() {
+        bail!("project name must not be empty");
+    }
+    if p.dir.trim().is_empty() {
+        bail!("project {} needs a directory", p.name);
+    }
+    for name in &p.presets {
+        if crate::sandbox::preset(name).is_none() {
+            bail!("unknown sandbox preset: {name}");
+        }
+    }
+    Ok(())
+}
+
+/// Every agent works somewhere. Enforced on the way in rather than on start, so
+/// the dialog that made the mistake is the thing that says so.
+fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
+    if s.project.trim().is_empty() {
+        bail!("session {} must belong to a project", s.name);
+    }
+    if cfg.project(&s.project).is_none() {
+        bail!("no such project: {}", s.project);
+    }
+    Ok(())
+}
+
 impl Manager {
     pub async fn new(cfg: Config, cfg_path: PathBuf) -> Arc<Self> {
         let (events, _) = broadcast::channel(256);
@@ -330,6 +374,7 @@ impl Manager {
         let _ = self.events.send(Event::Sessions {
             sessions: self.views().await,
         });
+        self.announce_projects().await;
         true
     }
 
@@ -483,10 +528,18 @@ impl Manager {
             .ok_or_else(|| anyhow!("no such session: {name}"))?
             .clone();
 
+        let p = cfg.project_of(&s).cloned().ok_or_else(|| {
+            if s.project.is_empty() {
+                anyhow!("session {name} belongs to no project")
+            } else {
+                anyhow!("session {name} belongs to project {}, which does not exist", s.project)
+            }
+        })?;
+
         if self.tmux.exists(name).await {
             bail!("session {name} is already running");
         }
-        let dir = expand(&s.dir);
+        let dir = expand(&p.dir);
         if !std::path::Path::new(&dir).is_dir() {
             bail!("{dir} is not a directory");
         }
@@ -498,7 +551,7 @@ impl Manager {
             Some(l) => (l.cols, l.rows),
             None => (BOOT_COLS, BOOT_ROWS),
         };
-        let argv = build_argv(&cfg, &s);
+        let argv = build_argv(&cfg, &s, &p);
         tracing::info!("starting {name}: {}", argv.join(" "));
         self.tmux.spawn(name, &dir, cols, rows, &argv).await?;
         self.spawn_reader(name).await;
@@ -525,6 +578,102 @@ impl Manager {
         self.start(name).await
     }
 
+    // ------------------------------------------------------------- projects
+
+    pub async fn projects(&self) -> Vec<ProjectCfg> {
+        self.cfg.read().await.projects.clone()
+    }
+
+    /// Tells the clients what the projects are now. Cheap enough to send on any
+    /// change: there are a handful of them and they move when a person edits
+    /// one, not on a tick.
+    async fn announce_projects(&self) {
+        let _ = self.events.send(Event::Projects {
+            projects: self.projects().await,
+        });
+    }
+
+    pub async fn add_project(self: &Arc<Self>, p: ProjectCfg) -> Result<()> {
+        self.reload_if_changed().await;
+        check_project(&p)?;
+        let mut cfg = self.cfg.write().await;
+        if cfg.project(&p.name).is_some() {
+            bail!("project {} already exists", p.name);
+        }
+        cfg.projects.push(p);
+        self.save_cfg(&cfg)?;
+        drop(cfg);
+        self.announce_projects().await;
+        Ok(())
+    }
+
+    /// Writes a project back. A changed name is a rename, and every session
+    /// pointing at the old one is carried over in the same write - a session
+    /// left naming a project that no longer exists is one that will not start,
+    /// and nothing in the GUI would have said why.
+    pub async fn update_project(self: &Arc<Self>, name: &str, p: ProjectCfg) -> Result<()> {
+        self.reload_if_changed().await;
+        check_project(&p)?;
+
+        let mut cfg = self.cfg.write().await;
+        let idx = cfg
+            .projects
+            .iter()
+            .position(|x| x.name == name)
+            .ok_or_else(|| anyhow!("no such project: {name}"))?;
+        if p.name != name && cfg.project(&p.name).is_some() {
+            bail!("project {} already exists", p.name);
+        }
+
+        let renamed = p.name.clone();
+        cfg.projects[idx] = p;
+        if renamed != name {
+            for s in cfg.sessions.iter_mut().filter(|s| s.project == name) {
+                s.project = renamed.clone();
+            }
+        }
+        self.save_cfg(&cfg)?;
+        drop(cfg);
+
+        self.announce_projects().await;
+        // The directory or the sandbox may have moved under a running agent,
+        // which keeps running under the old one until it is restarted - but the
+        // list has to say what the next start will use.
+        let _ = self.events.send(Event::Sessions {
+            sessions: self.views().await,
+        });
+        Ok(())
+    }
+
+    /// Refused while anything still works there. The alternative is deleting the
+    /// sessions with it, which is throwing away agents to tidy a list.
+    pub async fn remove_project(self: &Arc<Self>, name: &str) -> Result<()> {
+        self.reload_if_changed().await;
+        let mut cfg = self.cfg.write().await;
+        if cfg.project(name).is_none() {
+            bail!("no such project: {name}");
+        }
+        let users: Vec<&str> = cfg
+            .sessions
+            .iter()
+            .filter(|s| s.project == name)
+            .map(|s| s.name.as_str())
+            .collect();
+        if !users.is_empty() {
+            bail!(
+                "project {name} still has agents in it: {}. Remove or move them first.",
+                users.join(", ")
+            );
+        }
+        cfg.projects.retain(|p| p.name != name);
+        self.save_cfg(&cfg)?;
+        drop(cfg);
+        self.announce_projects().await;
+        Ok(())
+    }
+
+    // ------------------------------------------------------------- sessions
+
     /// Adds a session to config, persists, and starts it if asked.
     pub async fn add(self: &Arc<Self>, s: SessionCfg) -> Result<()> {
         // Land on top of any hand edit rather than over it.
@@ -534,6 +683,7 @@ impl Manager {
             bail!("session {} already exists", s.name);
         }
         check_name(&s.name)?;
+        check_belongs(&cfg, &s)?;
         let autostart = s.autostart;
         let name = s.name.clone();
         cfg.sessions.push(s);
@@ -569,6 +719,7 @@ impl Manager {
         }
 
         let mut cfg = self.cfg.write().await;
+        check_belongs(&cfg, &s)?;
         let idx = cfg
             .sessions
             .iter()
@@ -669,6 +820,7 @@ impl Manager {
         *self.rules.write().await = compile_rules(&new);
         *self.cfg.write().await = new;
         self.sync_from_config().await;
+        self.announce_projects().await;
         Ok(())
     }
 
@@ -677,23 +829,24 @@ impl Manager {
         let live = self.live.read().await;
         let mut out: Vec<SessionView> = live
             .values()
-            .map(|l| SessionView {
-                name: l.cfg.name.clone(),
-                dir: l.cfg.dir.clone(),
-                agent: l
-                    .cfg
-                    .agent
-                    .clone()
-                    .unwrap_or_else(|| cfg.defaults.agent.clone()),
-                state: l.state,
-                alive: l.state != State::Down,
-                cols: l.cols,
-                rows: l.rows,
-                net: l.cfg.net,
-                sandbox: l.cfg.sandbox,
-                autostart: l.cfg.autostart,
-                last_change: l.last_change,
-                seq: l.seq,
+            .map(|l| {
+                let p = cfg.project_of(&l.cfg);
+                SessionView {
+                    name: l.cfg.name.clone(),
+                    project: l.cfg.project.clone(),
+                    dir: p.map(|p| p.dir.clone()).unwrap_or_default(),
+                    kind: l.cfg.kind.as_str().into(),
+                    agent: cfg.command_of(&l.cfg),
+                    state: l.state,
+                    alive: l.state != State::Down,
+                    cols: l.cols,
+                    rows: l.rows,
+                    net: p.map(|p| p.net).unwrap_or(true),
+                    sandbox: p.map(|p| p.sandbox).unwrap_or(true),
+                    autostart: l.cfg.autostart,
+                    last_change: l.last_change,
+                    seq: l.seq,
+                }
             })
             .collect();
         out.sort_by(|a, b| a.name.cmp(&b.name));

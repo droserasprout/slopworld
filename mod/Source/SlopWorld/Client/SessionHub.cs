@@ -12,13 +12,31 @@ namespace SlopWorld
     /// </summary>
     public enum AgentState { Down, Working, Waiting, Idle }
 
+    /// <summary>
+    /// What a session runs. Claude Code is a kind rather than a command string
+    /// because knowing it is Claude is what lets the daemon hand it its own
+    /// state dir without anyone listing ~/.claude in a project by hand.
+    /// </summary>
+    public enum AgentKind { Claude, Custom }
+
     public class SessionInfo
     {
         public string Name = "";
+        /// The project this agent works in. Everything about where it runs and
+        /// what it can reach is the project's answer, not the session's.
+        public string Project = "";
+        /// The project's directory, repeated on the wire so a list of sessions
+        /// reads without joining it against anything. Blank when the entry names
+        /// a project that has gone.
         public string Dir = "";
+        public AgentKind Kind = AgentKind.Claude;
+        /// The command as the daemon will actually run it, defaults resolved.
+        /// For a custom session it is also what the player typed, which is why
+        /// the dialog edits this field directly.
         public string Agent = "";
         public AgentState State = AgentState.Down;
         public bool Alive;
+        /// The project's, and read-only here: edit the project to change them.
         public bool Net = true;
         public bool Sandbox = true;
         public bool Autostart;
@@ -48,7 +66,9 @@ namespace SlopWorld
         public static SessionInfo FromJson(JVal j) => new SessionInfo
         {
             Name = j["name"].AsString(),
+            Project = j["project"].AsString(),
             Dir = j["dir"].AsString(),
+            Kind = j["kind"].AsString() == "custom" ? AgentKind.Custom : AgentKind.Claude,
             Agent = j["agent"].AsString(),
             State = ParseState(j["state"].AsString()),
             Alive = j["alive"].AsBool(),
@@ -58,6 +78,98 @@ namespace SlopWorld
             Cols = j["cols"].AsInt(0),
             Rows = j["rows"].AsInt(0),
         };
+
+        /// <summary>
+        /// The command only rides along for a custom session: a Claude one takes
+        /// the daemon's default, and writing back the resolved string would pin
+        /// today's default into the file forever.
+        /// </summary>
+        public string ToJson() =>
+            "{" +
+            $"\"name\":{JVal.Q(Name)},\"project\":{JVal.Q(Project)}," +
+            $"\"kind\":{JVal.Q(Kind == AgentKind.Custom ? "custom" : "claude")}," +
+            $"\"command\":{(Kind == AgentKind.Custom && !string.IsNullOrEmpty(Agent) ? JVal.Q(Agent) : "null")}," +
+            $"\"autostart\":{JVal.B(Autostart)}}}";
+    }
+
+    /// <summary>
+    /// A place work happens: a directory plus the sandbox every agent in it
+    /// gets. The two things a session used to carry - where it runs and what it
+    /// can reach - are properties of the work, not of the agent doing it.
+    /// </summary>
+    public class ProjectInfo
+    {
+        public string Name = "";
+        public string Dir = "";
+        /// Names out of the daemon's preset table; see <see cref="PresetInfo"/>.
+        public List<string> Presets = new List<string>();
+        /// Anything the presets do not cover.
+        public List<string> RoPaths = new List<string>();
+        public List<string> RwPaths = new List<string>();
+        public List<string> PassEnv = new List<string>();
+        public bool Net = true;
+        public bool Sandbox = true;
+
+        public static ProjectInfo FromJson(JVal j) => new ProjectInfo
+        {
+            Name = j["name"].AsString(),
+            Dir = j["dir"].AsString(),
+            Presets = Strings(j["presets"]),
+            RoPaths = Strings(j["ro_paths"]),
+            RwPaths = Strings(j["rw_paths"]),
+            PassEnv = Strings(j["pass_env"]),
+            Net = j["net"].AsBool(true),
+            Sandbox = j["sandbox"].AsBool(true),
+        };
+
+        public string ToJson() =>
+            "{" +
+            $"\"name\":{JVal.Q(Name)},\"dir\":{JVal.Q(Dir)}," +
+            $"\"presets\":{Arr(Presets)},\"ro_paths\":{Arr(RoPaths)}," +
+            $"\"rw_paths\":{Arr(RwPaths)},\"pass_env\":{Arr(PassEnv)}," +
+            $"\"net\":{JVal.B(Net)},\"sandbox\":{JVal.B(Sandbox)}}}";
+
+        public ProjectInfo Copy() => new ProjectInfo
+        {
+            Name = Name,
+            Dir = Dir,
+            Presets = new List<string>(Presets),
+            RoPaths = new List<string>(RoPaths),
+            RwPaths = new List<string>(RwPaths),
+            PassEnv = new List<string>(PassEnv),
+            Net = Net,
+            Sandbox = Sandbox,
+        };
+
+        static List<string> Strings(JVal a) => a.Items.Select(i => i.AsString()).ToList();
+
+        static string Arr(List<string> items) =>
+            "[" + string.Join(",", items.Select(JVal.Q).ToArray()) + "]";
+    }
+
+    /// <summary>
+    /// One named bundle of binds the daemon knows how to apply. Fetched rather
+    /// than listed here: a preset the daemon does not have is a checkbox that
+    /// saves and then does nothing.
+    /// </summary>
+    public class PresetInfo
+    {
+        public string Name = "";
+        public string Description = "";
+        /// Every path and env var the preset asks for, for the tooltip.
+        public List<string> Gives = new List<string>();
+
+        public static PresetInfo FromJson(JVal j)
+        {
+            var p = new PresetInfo
+            {
+                Name = j["name"].AsString(),
+                Description = j["description"].AsString(),
+            };
+            foreach (var key in new[] { "ro", "rw", "dev", "env", "setenv" })
+                p.Gives.AddRange(j[key].Items.Select(i => i.AsString()));
+            return p;
+        }
     }
 
     /// <summary>
@@ -149,6 +261,12 @@ namespace SlopWorld
         public static readonly SessionHub Instance = new SessionHub();
 
         public List<SessionInfo> Sessions = new List<SessionInfo>();
+        /// The projects, pushed on connect and on any edit, so the dropdown that
+        /// picks one can draw without asking first.
+        public List<ProjectInfo> Projects = new List<ProjectInfo>();
+        /// The daemon's sandbox preset catalogue. Fetched once per process: it
+        /// is compiled into slopd and only moves when slopd does.
+        public List<PresetInfo> Presets = new List<PresetInfo>();
         /// Last usage snapshot. Never null: an empty one draws as "no numbers",
         /// which is what a daemon that has not answered yet honestly means.
         public UsageInfo Usage = new UsageInfo();
@@ -249,6 +367,10 @@ namespace SlopWorld
                     Sessions = ev["sessions"].Items.Select(SessionInfo.FromJson).ToList();
                     break;
 
+                case "projects":
+                    Projects = ev["projects"].Items.Select(ProjectInfo.FromJson).ToList();
+                    break;
+
                 case "usage":
                     Usage = UsageInfo.FromJson(ev["usage"]);
                     break;
@@ -345,6 +467,43 @@ namespace SlopWorld
             SlopClient.Get("/api/sessions",
                 j => Sessions = j["sessions"].Items.Select(SessionInfo.FromJson).ToList());
 
+        public ProjectInfo Project(string name) =>
+            Projects.FirstOrDefault(p => p.Name == name);
+
+        /// <summary>
+        /// Asked for when a window that needs projects opens. The socket pushes
+        /// them too, but a window opened while the socket is down still has to
+        /// draw something, and this is the road that returns an error body.
+        /// </summary>
+        public void RefreshProjects(Action<string> fail = null) =>
+            SlopClient.Get("/api/projects",
+                j => Projects = j["projects"].Items.Select(ProjectInfo.FromJson).ToList(),
+                fail);
+
+        /// <summary>Once per process: the catalogue is compiled into slopd.</summary>
+        public void LoadPresets()
+        {
+            if (Presets.Count > 0) return;
+            SlopClient.Get("/api/presets",
+                j => Presets = j["presets"].Items.Select(PresetInfo.FromJson).ToList());
+        }
+
+        public void SaveProject(ProjectInfo p, bool isNew, string origName,
+                                Action ok, Action<string> fail)
+        {
+            Action<JVal> done = _ => { RefreshProjects(); Refresh(); ok?.Invoke(); };
+            if (isNew) SlopClient.Post("/api/projects", p.ToJson(), done, fail);
+            else SlopClient.Put($"/api/projects/{origName}", p.ToJson(), done, fail);
+        }
+
+        /// <summary>
+        /// The daemon refuses this while agents still work there, and says which
+        /// ones - so the message the player sees is the useful half of it.
+        /// </summary>
+        public void RemoveProject(string name, Action<string> fail = null) =>
+            SlopClient.Delete($"/api/projects/{name}",
+                _ => { RefreshProjects(); Refresh(); }, fail);
+
         public void Start(string name, Action<string> fail = null) =>
             SlopClient.Post($"/api/sessions/{name}/start", null, _ => Refresh(), fail);
 
@@ -364,15 +523,9 @@ namespace SlopWorld
         /// </summary>
         public void Save(SessionInfo s, bool isNew, string origName, Action ok, Action<string> fail)
         {
-            string body =
-                $"{{\"name\":{JVal.Q(s.Name)},\"dir\":{JVal.Q(s.Dir)}," +
-                $"\"agent\":{(string.IsNullOrEmpty(s.Agent) ? "null" : JVal.Q(s.Agent))}," +
-                $"\"net\":{JVal.B(s.Net)},\"sandbox\":{JVal.B(s.Sandbox)}," +
-                $"\"autostart\":{JVal.B(s.Autostart)}}}";
-
             Action<JVal> done = _ => { Refresh(); ok?.Invoke(); };
-            if (isNew) SlopClient.Post("/api/sessions", body, done, fail);
-            else SlopClient.Put($"/api/sessions/{origName}", body, done, fail);
+            if (isNew) SlopClient.Post("/api/sessions", s.ToJson(), done, fail);
+            else SlopClient.Put($"/api/sessions/{origName}", s.ToJson(), done, fail);
         }
     }
 }

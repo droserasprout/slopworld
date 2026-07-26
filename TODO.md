@@ -14,10 +14,12 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 ## Terminal
 
+- [ ] Bug: thin black line between every 4 green or red lines (diff in CC)
 - [ ] Bug: copy doesn't work (Claude tmux integration?)
 - [ ] Add "+" button to the small floating colonist panel
 - [ ] Bug: DnD text selection highlights the whole line under the cursor including empty space
 - [ ] Remove "Stop" and "Restart" buttons, turn "Close" button into red cross.
+- [ ] Move small colonist panel higher over the title bar (make it a bit taller, just to fit colonist icon, leave name label hang)
 - [ ] Bells and whistles
   - [ ] Color schemes
   - [ ] Cursor color
@@ -29,14 +31,19 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 ## "Game"
 
-- [ ] Tune plague odds and spread rate
-- [ ] Replace loading screen tips. Start with lorem ipsum list.
+- [ ] Bug: day/night in game is not synced with real time in user's timezone
+- [ ] Skip the welcome message window when creating a new colony.
+- [ ] Plague should suppress creating new plants in radius
+- [ ] Replace loading screen tips. Start with lorem ipsum.
+- [ ] Make initial sequence more cinematic: Disable clicking pawns while UI is hidden. Scenario: humans and animals placed. Colonists and cat drop from the sky and start walking. Computer core drops from the sky. After a couple of seconds it starts emitting thick pink fumes of plague. Colonists explode, plague starts spreading. Clankers appear with thick pink fumes each. A couple of seconds. Then UI appears.
+- [ ] Human: slopify main background with SD or something
+- [ ] Human: tune plague odds and spread rate
 
 ## Sound and music
 
 - [ ] Bug: no music after bg1 stops playing (not sure, need to check)
 - [ ] Human: replace SFX
-- [ ] Human: 2-3 more bg songs
+- [ ] Human: 2-3 more bg songs (30m+ playtime would be nice)
 
 ## Agents support
 

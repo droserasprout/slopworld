@@ -12,7 +12,7 @@ use serde::Deserialize;
 use serde_json::json;
 use tokio::sync::Mutex;
 
-use crate::config::SessionCfg;
+use crate::config::{ProjectCfg, SessionCfg};
 use crate::session::{Event, Manager};
 
 type Mgr = Arc<Manager>;
@@ -28,6 +28,12 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/sessions/:name/start", post(start))
         .route("/api/sessions/:name/stop", post(stop))
         .route("/api/sessions/:name/restart", post(restart))
+        .route("/api/projects", get(list_projects).post(create_project))
+        .route(
+            "/api/projects/:name",
+            get(one_project).put(update_project).delete(destroy_project),
+        )
+        .route("/api/presets", get(presets))
         .route("/api/config", get(get_config))
         .route("/api/config", put(put_config))
         .route("/api/config/values", put(put_config_values))
@@ -111,6 +117,57 @@ async fn stop(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
 
 async fn restart(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
     ok_json(m.restart(&name).await)
+}
+
+// ----------------------------------------------------------------- projects
+
+async fn list_projects(State(m): State<Mgr>) -> ApiResult {
+    Ok(Json(json!({ "projects": m.projects().await })))
+}
+
+async fn one_project(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+    m.projects()
+        .await
+        .into_iter()
+        .find(|p| p.name == name)
+        .map(|p| Json(json!(p)))
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such project: {name}")))
+}
+
+async fn create_project(State(m): State<Mgr>, Json(p): Json<ProjectCfg>) -> ApiResult {
+    ok_json(m.add_project(p).await)
+}
+
+async fn update_project(
+    State(m): State<Mgr>,
+    Path(name): Path<String>,
+    Json(p): Json<ProjectCfg>,
+) -> ApiResult {
+    ok_json(m.update_project(&name, p).await)
+}
+
+async fn destroy_project(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+    ok_json(m.remove_project(&name).await)
+}
+
+/// The sandbox presets this build knows, so the GUI draws a checkbox per preset
+/// rather than a list somebody has to keep in step with the daemon by hand.
+async fn presets(State(_m): State<Mgr>) -> ApiResult {
+    let list: Vec<serde_json::Value> = crate::sandbox::PRESETS
+        .iter()
+        .map(|p| {
+            json!({
+                "name": p.name,
+                "description": p.description,
+                "ro": p.ro,
+                "rw": p.rw,
+                "dev": p.dev,
+                "env": p.env,
+                "setenv": p.setenv.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>(),
+            })
+        })
+        .collect();
+    Ok(Json(json!({ "presets": list })))
 }
 
 /// The file as text for the raw editor, and parsed for the settings GUI. Both
@@ -293,6 +350,16 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
         return;
     }
     let _ = send(&tx, &Event::Usage { usage: m.usage().await }).await;
+    // Projects for the same reason: they change when a person edits one, so a
+    // client that attached afterwards would otherwise have nothing to draw the
+    // "which project" dropdown from until the next edit.
+    let _ = send(
+        &tx,
+        &Event::Projects {
+            projects: m.projects().await,
+        },
+    )
+    .await;
 
     let pump = {
         let tx = tx.clone();

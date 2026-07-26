@@ -18,6 +18,8 @@ namespace SlopWorld
             if (open != null) { open.Close(); return; }
 
             SessionHub.Instance.Refresh();
+            // The rows name a project, and the dialog they open picks one.
+            SessionHub.Instance.RefreshProjects();
             Find.WindowStack.Add(new SessionsWindow());
         }
 
@@ -51,11 +53,11 @@ namespace SlopWorld
             DrawList(list, hub);
 
             var bar = new Rect(rect.x, rect.yMax - 32f, rect.width, 30f);
-            if (Widgets.ButtonText(new Rect(bar.x, bar.y, 130f, 30f), "Add session"))
+            if (Widgets.ButtonText(new Rect(bar.x, bar.y, 130f, 30f), "Add agent"))
                 Find.WindowStack.Add(new EditSessionDialog(null));
 
-            if (Widgets.ButtonText(new Rect(bar.x + 138f, bar.y, 130f, 30f), "Edit config"))
-                ConfigWindow.Open();
+            if (Widgets.ButtonText(new Rect(bar.x + 138f, bar.y, 130f, 30f), "Projects"))
+                ProjectsWindow.Toggle();
 
             if (Widgets.ButtonText(new Rect(bar.x + 276f, bar.y, 130f, 30f), "Reconnect"))
                 hub.Connect();
@@ -110,9 +112,14 @@ namespace SlopWorld
             Widgets.Label(new Rect(r.x + 230f, r.y + 4f, 100f, 22f), s.State.ToString().ToLower());
             GUI.color = new Color(0.65f, 0.66f, 0.68f);
 
-            string flags = (s.Sandbox ? "bwrap" : "unsandboxed") + (s.Net ? "" : ", no net");
-            Widgets.Label(new Rect(r.x + 24f, r.y + 24f, r.width - 340f, 20f),
-                $"{s.Dir}  ({flags})");
+            // The project first, because it is the thing that answers where this
+            // agent runs and what it can reach; the directory is that answer
+            // spelled out. A blank project is an entry pointing at one that has
+            // gone, which is worth saying rather than drawing as an empty line.
+            string where = string.IsNullOrEmpty(s.Project)
+                ? "no project - it will not start"
+                : $"{s.Project}  -  {s.Dir}";
+            Widgets.Label(new Rect(r.x + 24f, r.y + 24f, r.width - 340f, 20f), where);
             GUI.color = Color.white;
 
             // Edit spans the top line; the rest sit under it, terminal last.
