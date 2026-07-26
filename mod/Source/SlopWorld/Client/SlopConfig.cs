@@ -15,6 +15,11 @@ namespace SlopWorld
         public string Token = "";
         public string TmuxSocket = "slopworld";
         public int PollMs = 80;
+        /// Scrollback tmux keeps per pane, and so the ceiling on how much history
+        /// survives a daemon restart.
+        public int HistoryLimit = 5000;
+        /// How the daemon relaunches the game for "save and restart".
+        public string GameCmd = "";
 
         public string Agent = "claude";
         public int Cols = 120;
@@ -36,6 +41,8 @@ namespace SlopWorld
                 Token = d["token"].AsString(),
                 TmuxSocket = d["tmux_socket"].AsString("slopworld"),
                 PollMs = d["poll_ms"].AsInt(80),
+                HistoryLimit = d["history_limit"].AsInt(5000),
+                GameCmd = d["game_cmd"].AsString(),
 
                 Agent = f["agent"].AsString("claude"),
                 Cols = f["cols"].AsInt(120),
@@ -48,10 +55,14 @@ namespace SlopWorld
             };
         }
 
+        // Every field of a section this writes back has to be here, or saving from
+        // the GUI silently resets the ones it left out to their serde defaults -
+        // which for game_cmd would mean losing it on any unrelated save.
         public string ToJson() =>
             "{\"daemon\":{" +
             $"\"bind\":{JVal.Q(Bind)},\"token\":{JVal.Q(Token)}," +
-            $"\"tmux_socket\":{JVal.Q(TmuxSocket)},\"poll_ms\":{PollMs}}}," +
+            $"\"tmux_socket\":{JVal.Q(TmuxSocket)},\"poll_ms\":{PollMs}," +
+            $"\"history_limit\":{HistoryLimit},\"game_cmd\":{JVal.Q(GameCmd)}}}," +
             "\"defaults\":{" +
             $"\"agent\":{JVal.Q(Agent)},\"cols\":{Cols},\"rows\":{Rows}}}," +
             "\"sandbox\":{" +

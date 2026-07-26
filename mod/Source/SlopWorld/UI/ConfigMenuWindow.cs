@@ -24,7 +24,7 @@ namespace SlopWorld
 
         // Free-text mirrors of the typed fields, so a half-typed number is not
         // clamped out from under the player mid-keystroke.
-        string _pollMs, _cols, _rows;
+        string _pollMs, _cols, _rows, _history;
         string _roPaths, _rwPaths, _passEnv;
 
         Vector2 _scroll;
@@ -58,6 +58,7 @@ namespace SlopWorld
                     _cfg = SlopConfig.FromJson(j["values"]);
                     _path = j["path"].AsString();
                     _pollMs = _cfg.PollMs.ToString();
+                    _history = _cfg.HistoryLimit.ToString();
                     _cols = _cfg.Cols.ToString();
                     _rows = _cfg.Rows.ToString();
                     _roPaths = SlopConfig.Lines(_cfg.RoPaths);
@@ -137,6 +138,18 @@ namespace SlopWorld
             l.Gap(4f);
             l.Label("State tick, ms (how often a quiet session decays to idle)");
             _pollMs = l.TextEntry(_pollMs);
+
+            l.Gap(4f);
+            l.Label("Scrollback lines kept per session");
+            _history = l.TextEntry(_history);
+
+            l.Gap(4f);
+            l.Label("Game command (blank disables restarting the game from here)");
+            _cfg.GameCmd = l.TextEntry(_cfg.GameCmd);
+
+            l.Gap(6f);
+            if (l.ButtonText("Save the colony and restart the game"))
+                ConfirmRestartGame();
 
             l.Gap(10f);
             GUI.color = new Color(0.85f, 0.75f, 0.45f);
@@ -291,6 +304,7 @@ namespace SlopWorld
             if (!_loaded) return;
 
             if (int.TryParse(_pollMs, out int p)) _cfg.PollMs = Mathf.Clamp(p, 20, 5000);
+            if (int.TryParse(_history, out int h)) _cfg.HistoryLimit = Mathf.Clamp(h, 0, 100000);
             if (int.TryParse(_cols, out int c)) _cfg.Cols = Mathf.Clamp(c, 20, 500);
             if (int.TryParse(_rows, out int r)) _cfg.Rows = Mathf.Clamp(r, 5, 200);
             _cfg.RoPaths = SlopConfig.Split(_roPaths);
@@ -306,6 +320,36 @@ namespace SlopWorld
                         MessageTypeDefOf.TaskCompletion, false);
                 },
                 msg => _error = msg);
+        }
+
+        /// <summary>
+        /// The other half of a redeploy. The mod's assembly is read once at
+        /// startup, so a rebuilt mod only reaches the screen in a fresh process -
+        /// and with the colony saved on the way out and resumed on the way back
+        /// in, that costs a loading screen and nothing else. The agents never
+        /// notice: they are the daemon's, and the daemon is not restarting.
+        ///
+        /// slopd does the relaunch because nothing inside the game outlives its
+        /// own shutdown, and the daemon already does.
+        /// </summary>
+        void ConfirmRestartGame()
+        {
+            if (string.IsNullOrEmpty((_cfg.GameCmd ?? "").Trim()))
+            {
+                Fail("set a game command above and save first");
+                return;
+            }
+
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                "Save the colony and restart RimWorld? The daemon starts it again a few " +
+                "seconds later and the agents keep running throughout.",
+                () =>
+                {
+                    AutoSaver.SaveNow();
+                    SlopClient.Post("/api/game/restart", "{\"delay_ms\":6000}",
+                        _ => Root.Shutdown(),
+                        Fail);
+                }));
         }
 
         static void Fail(string msg) =>
