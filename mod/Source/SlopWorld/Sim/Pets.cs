@@ -136,6 +136,10 @@ namespace SlopWorld
         /// A pat: the animal's own call sound, the friendly one. DoCall picks the
         /// species' soundCall over its soundAngry for anything not currently
         /// aggressive, which a tame pet never is, so the argument stays default.
+        ///
+        /// The hand does the patting - <see cref="DeadCursor.Pat"/> waggles the
+        /// pointer - because a sound with nothing moving under it reads as a
+        /// misclick that happened to make a noise.
         /// </summary>
         public static void Poke(Pawn pet)
         {
@@ -147,6 +151,7 @@ namespace SlopWorld
             _lastPoke[pet.thingIDNumber] = now;
 
             pet.caller?.DoCall();
+            DeadCursor.Pat();
         }
 
         /// <summary>

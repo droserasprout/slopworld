@@ -450,6 +450,38 @@ namespace SlopWorld
         }
 
         /// <summary>
+        /// Nothing grows back where the plague takes plants. Every wild plant on a
+        /// map arrives through this one method - the tick, the map generator and the
+        /// mutators all end here - so refusing the cell is the whole of it.
+        ///
+        /// The alternative is the sweep, and the sweep alone loses: it walks the
+        /// map forever and the spawner refills behind it, so the certain core spends
+        /// the rest of the colony's life growing grass and having it torn out again,
+        /// one plant per tick, permanently hazed with <c>Wither</c> flecks over
+        /// ground that is supposed to be finished.
+        ///
+        /// Gated on <see cref="Band.Full"/> rather than on <see cref="Reaches"/>, so
+        /// the falloff stays a texture. The weak band holds plants back instead of
+        /// taking them and has to keep being able to grow the ones it is holding; a
+        /// cell the dither spared is untouched ground and grows what untouched
+        /// ground grows. Both answers are stable per cell, because <c>Grit</c> is -
+        /// so a cell is either sterile forever or fertile forever, and never
+        /// flickers between the two.
+        /// </summary>
+        [HarmonyPatch(typeof(WildPlantSpawner), nameof(WildPlantSpawner.CheckSpawnWildPlantAt))]
+        public static class Patch_NoRegrowth
+        {
+            static bool Prefix(IntVec3 c, Map ___map, ref bool __result)
+            {
+                var plague = ___map?.GetComponent<Plague>();
+                if (plague == null || plague.BandAt(c) != Band.Full) return true;
+
+                __result = false;
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Fire stays inside the plague. Without this the bands are a lie the moment
         /// anything ignites: a Fire is a Thing with its own tick, the strip does not
         /// touch it, and a rainforest carries one to the map edge in minutes - so the

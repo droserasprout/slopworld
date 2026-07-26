@@ -132,7 +132,13 @@ namespace SlopWorld
     [HarmonyPatch(typeof(Root), nameof(Root.Update))]
     public static class Patch_Root_Update
     {
-        static void Postfix() => SessionHub.Instance.Update();
+        static void Postfix()
+        {
+            SessionHub.Instance.Update();
+            // The pointer's own animation, which has nowhere else to run: a
+            // hardware cursor is a texture a frame.
+            DeadCursor.Tick();
+        }
     }
 
     public class MainButtonWorker_Projects : RimWorld.MainButtonWorker

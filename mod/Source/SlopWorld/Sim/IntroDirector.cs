@@ -186,7 +186,7 @@ namespace SlopWorld
             var map = TheMap;
             if (map == null) { Finish(); return; }
 
-            _animalKinds = AnimalKinds(map);
+            _animalKinds = Outskirts.Kinds(map);
             _animalsLeft = Rand.Range(AnimalsMin, AnimalsMax);
             _humansLeft = Rand.Range(HumansMin, HumansMax);
 
@@ -439,21 +439,6 @@ namespace SlopWorld
             if (!pawn.Destroyed) pawn.Destroy();
 
             Log.Message($"[SlopWorld] purged starting colonist '{pawn.LabelShort}'");
-        }
-
-        // Animals that actually belong to this biome, falling back to any animal so
-        // an odd biome with no fauna still gets a population.
-        static List<PawnKindDef> AnimalKinds(Map map)
-        {
-            var local = new List<PawnKindDef>();
-            var any = new List<PawnKindDef>();
-            foreach (var k in DefDatabase<PawnKindDef>.AllDefsListForReading)
-            {
-                if (k.RaceProps == null || !k.RaceProps.Animal) continue;
-                any.Add(k);
-                if (map.Biome.CommonalityOfAnimal(k) > 0f) local.Add(k);
-            }
-            return local.Count > 0 ? local : any;
         }
 
         static bool TryRandomStandable(Map map, out IntVec3 cell)

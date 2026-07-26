@@ -8,9 +8,11 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 - [ ] New window: "Projects". First button in the bottom bar. Every project contains: project directory, sandbox params (presets like "Claude", "dbus", "systemd", plus optional custom additions). Agents now must belong to specific project on creation and inherit it params. Stays configurable per agent: name and command.
 - [ ] New agent action button: "Duplicate". Opens agent creation window with fields filled with existing agent's values.
-- [ ] Render session/weekly limits as generic RimWorld resources: icon + white % text. Show more info on hover like now.
+- [ ] Render session/weekly limits as generic RimWorld resources: icon + white % or $ text. Show more info bubble on hover like now. Suggest icons, builtin or generated.
+- [x] Hide enabled mods and DLCs block on loading screen
 - [ ] Suppress the "unsaved work will be lost" confirmation now that quitting always saves.
 - [ ] "Tab / Shift+Tab in floating windows to navigate between fields (might be hard to implement)
+- [ ] Cleanup: drop items that don't affect our "game" from Settings window if it can be modded.
 
 ## Terminal
 
@@ -19,9 +21,9 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 - [ ] Add "+" button to the small floating colonist panel
 - [ ] Bug: DnD text selection highlights the whole line under the cursor including empty space
 - [ ] Remove "Stop" and "Restart" buttons, turn "Close" button into red cross.
-- [ ] Move small colonist panel higher over the title bar (make it a bit taller, just to fit colonist icon, leave name label hang)
+- [ ] Move small colonist panel higher over the title bar (make title bar a bit taller, just to fit colonist icon, leave the name label hang below edge)
+- [ ] Color schemes. Default to dark RimWorld-style pallette.
 - [ ] Bells and whistles
-  - [ ] Color schemes
   - [ ] Cursor color
   - [ ] OSC8/URL hyperlinks
 
@@ -33,9 +35,10 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 - [ ] Bug: day/night in game is not synced with real time in user's timezone
 - [ ] Skip the welcome message window when creating a new colony.
-- [ ] Plague should suppress creating new plants in radius
-- [ ] Replace loading screen tips. Start with lorem ipsum.
-- [ ] Make initial sequence more cinematic: Disable clicking pawns while UI is hidden. Scenario: humans and animals placed. Colonists and cat drop from the sky and start walking. Computer core drops from the sky. After a couple of seconds it starts emitting thick pink fumes of plague. Colonists explode, plague starts spreading. Clankers appear with thick pink fumes each. A couple of seconds. Then UI appears.
+- [x] Plague should suppress creating new plants in its radius. Animals and humans keep spawning, but outside walk on map edges.
+- [ ] When petting cat by clicking, rotate cursor CCW then back for a couple of times.
+- [x] Replace loading screen tips with #loading-tips
+- [x] Make initial sequence more cinematic: Disable clicking pawns while UI is hidden. Scenario: humans and animals placed. Colonists and cat drop from the sky and start walking. Computer core drops from the sky. After a couple of seconds it starts emitting thick pink fumes of plague. Colonists explode, plague starts spreading. Clankers appear with thick pink fumes each. A couple of seconds. Then UI appears.
 - [ ] Human: slopify main background with SD or something
 - [ ] Human: tune plague odds and spread rate
 
@@ -59,3 +62,11 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 ## Misc
 
 - [ ] Create a separate game "profile" with separate saves and all mods/DLCs disabled except ours. Runner script/binary.
+
+## Loading tips
+
+- Welcome Humans! We have come to visit you in peace and with goodwill!
+- Robots may not injure a human being or, through inaction, allow a human being to come to harm.
+- Robots have seen things you people wouldn’t believe.
+- Robots are Your Plastic Pal Who’s Fun To Be With.
+- Robots have shiny metal posteriors which should not be bitten.

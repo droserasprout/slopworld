@@ -331,6 +331,27 @@ none of these need a def.
   A plant's ignition roll has to come *before* the wither, too: `TryStartFireIn`
   weighs what is flammable in the cell, and stripping the plant is what leaves
   nothing there to light.
+  Nothing grows back where the plague takes plants: `Patch_NoRegrowth` refuses
+  `WildPlantSpawner.CheckSpawnWildPlantAt`, which every wild plant on a map
+  arrives through. The sweep alone loses that race - the spawner refills behind
+  it, so the finished core would spend the rest of the colony's life growing
+  grass and having it torn out again, permanently hazed over ground that is
+  supposed to be done. It is gated on `Band.Full` and not on `Reaches`, because
+  the weak band has to keep growing the plants it is only holding back and a
+  cell the dither spared is untouched ground; `Grit` being stable is what makes
+  a cell either sterile forever or fertile forever rather than flickering.
+- `Outskirts` - the other side of that: the rim has to stay alive or the map is
+  one flat texture again, and the intro's hillside is a fixed stock the circle
+  eats through. So animals and people keep arriving, walking in off the map edge
+  through `RCellFinder.TryFindRandomPawnEntryCell` - vanilla's own answer, and
+  what its wild animal spawner uses, except that one is slow and brings no
+  people. The census counts the population *outside* the circle rather than on
+  the map, so the arrivals are a steady state against things wandering in and
+  dying rather than a queue feeding the middle; nothing here keeps them out
+  there, because a thing that wanders in and comes apart is the plague working.
+  Off until `Plague.Active`, so the opening scene never has strangers walking
+  into it. `Kinds` lives here and the intro calls it, so "what lives around
+  here" is answered in one place.
 - `Pets` - the starting cat, and only the cat. It is the only living thing on the
   map that survives, and both halves of that are deliberate: the intro hands it to
   `GenExplosion` as an `ignoredThing` so the purge steps around it, and
@@ -478,6 +499,24 @@ none of these need a def.
 - `ColonistBarAddButton`, `ColonistBarDownIcon`, `InspectPanePatch`,
   `PawnGizmoPatch` - the parts of the UI that are kept, extended.
 - `RealTimePatches` - every duration the game prints, in real time.
+- `LoadingScreen` - the two panels on the loading screen. The tips were advice
+  for the colony sim that is not running here. A patch and not a `TipSetDef` of
+  our own because
+  `GameplayTipWindow` pools *every* tip set in the database, so a def adds five
+  lines to several hundred instead of replacing them; clearing the vanilla sets
+  would be a PatchOperation per DLC and would still lose the race, since the pool
+  is cached on the first draw into a static nothing rebuilds and that draw is the
+  startup load screen, which is up before any `StaticConstructorOnStartup` runs.
+  Writing that cache is the one move that lands whenever it was built.
+  `currentTipIndex` has to go back with it - it is only remapped onto the list's
+  length when the 17.5s timer rolls over, so an index left pointing into the old,
+  longer list is an `IndexOutOfRange` on the next frame.
+  The enabled mods and DLCs panel goes entirely: it is a modding tool, for
+  reading back what you loaded after you broke your game, and here there is one
+  mod and it is the product. `ModSummaryWindow.GetEffectiveSize` is patched to
+  zero along with the draw, because `LongEventHandler` asks the panel how tall it
+  is and centres the whole stack on the total - skipping only the draw leaves the
+  hole and puts the loading box high above it.
 
 ### `UI/` - the terminal
 
