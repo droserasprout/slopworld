@@ -55,13 +55,33 @@ async fn main() -> Result<()> {
 
     axum::serve(listener, app)
         .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
+            shutdown().await;
             tracing::info!("shutting down (tmux sessions keep running)");
         })
         .await?;
 
     poller.abort();
     Ok(())
+}
+
+/// Ctrl-C for a hand-run daemon, SIGTERM for the systemd one - and the systemd
+/// one is the case that matters, because `make install-daemon` restarts the unit
+/// under a live game. Without SIGTERM here the process was simply killed, so
+/// sockets died mid-frame instead of closing.
+async fn shutdown() {
+    use tokio::signal::unix::{signal, SignalKind};
+    let mut term = match signal(SignalKind::terminate()) {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::warn!("cannot listen for SIGTERM: {e:#}");
+            let _ = tokio::signal::ctrl_c().await;
+            return;
+        }
+    };
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {}
+        _ = term.recv() => {}
+    }
 }
 
 /// The /ws route re-checks the token itself, because browsers and the mod's

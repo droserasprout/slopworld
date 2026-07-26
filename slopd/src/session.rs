@@ -130,7 +130,62 @@ pub struct Manager {
     cfg: RwLock<Config>,
     live: RwLock<HashMap<String, Live>>,
     rules: RwLock<Vec<(State, Regex)>>,
+    /// mtime of config.toml as we last wrote or read it. Anything else means
+    /// someone edited the file behind us; see `reload_if_changed`.
+    cfg_mtime: Mutex<Option<SystemTime>>,
+    /// Unix millis of the last mtime check, so the retick doesn't stat the file
+    /// eighty times a second.
+    cfg_checked: Mutex<u64>,
     pub events: broadcast::Sender<Event>,
+}
+
+/// How often the config file is checked for outside edits.
+const CFG_CHECK_MS: u64 = 2_000;
+
+fn disk_mtime(path: &std::path::Path) -> Option<SystemTime> {
+    std::fs::metadata(path).ok()?.modified().ok()
+}
+
+/// Starts a process that must outlive slopd, as a transient systemd unit where
+/// there is one.
+///
+/// Spawned as a plain child it would sit in `slopd.service`'s cgroup and be
+/// killed by the next redeploy - the same trap the tmux server was in, and worse
+/// here, because the whole point of relaunching the game is that a redeploy is
+/// happening. `--collect` clears the unit away once the game exits, so the name
+/// is free for the next restart.
+///
+/// The display environment comes from slopd's own: as a user service it was
+/// started by the same manager as the session, so it has whatever that manager
+/// imported. Passing the three that matter explicitly means a daemon run by hand
+/// from a terminal works too.
+fn launch_detached(exe: &str, args: &[String]) -> Result<()> {
+    let mut sr = std::process::Command::new("systemd-run");
+    sr.args(["--user", "--quiet", "--collect", "--unit=slopworld-game"]);
+    for k in ["DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR"] {
+        if let Ok(v) = std::env::var(k) {
+            sr.arg(format!("--setenv={k}={v}"));
+        }
+    }
+    sr.arg("--").arg(exe).args(args);
+
+    match sr.status() {
+        Ok(s) if s.success() => return Ok(()),
+        Ok(s) => tracing::warn!("systemd-run failed ({s}); launching inline"),
+        Err(e) => tracing::warn!("systemd-run unavailable ({e}); launching inline"),
+    }
+
+    // No systemd: at least give it its own process group, so a signal aimed at
+    // slopd's group doesn't take the game with it.
+    use std::os::unix::process::CommandExt;
+    std::process::Command::new(exe)
+        .args(args)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .process_group(0)
+        .spawn()?;
+    Ok(())
 }
 
 fn now_ms() -> u64 {
@@ -182,16 +237,119 @@ fn check_name(name: &str) -> Result<()> {
 impl Manager {
     pub async fn new(cfg: Config, cfg_path: PathBuf) -> Arc<Self> {
         let (events, _) = broadcast::channel(256);
+        let mtime = disk_mtime(&cfg_path);
         let m = Arc::new(Self {
-            tmux: Tmux::new(cfg.daemon.tmux_socket.clone()),
+            tmux: Tmux::new(cfg.daemon.tmux_socket.clone(), cfg.daemon.history_limit),
             cfg_path,
             rules: RwLock::new(compile_rules(&cfg)),
             live: RwLock::new(HashMap::new()),
             cfg: RwLock::new(cfg),
+            cfg_mtime: Mutex::new(mtime),
+            cfg_checked: Mutex::new(0),
             events,
         });
+        // Before anything else touches tmux: whoever forks the server decides
+        // which cgroup it dies with.
+        m.tmux.ensure_server().await;
         m.sync_from_config().await;
         m
+    }
+
+    /// Writes config out and remembers the mtime we left behind, so our own write
+    /// doesn't read back as somebody else's edit.
+    fn save_cfg(&self, cfg: &Config) -> Result<()> {
+        cfg.save(&self.cfg_path)?;
+        *self.cfg_mtime.lock().unwrap() = disk_mtime(&self.cfg_path);
+        Ok(())
+    }
+
+    /// Picks up an edit made to config.toml outside the daemon.
+    ///
+    /// The file belongs to the user as much as to us - an agent working on this
+    /// repo edits it by hand - but slopd only read it at startup and rewrote it
+    /// whole on every API write, so a hand edit was both invisible and doomed. Any
+    /// mtime we didn't cause means re-read, and every mutating call goes through
+    /// here first so the write it is about to make lands on top of that edit
+    /// rather than over it.
+    ///
+    /// A file that doesn't parse is left alone with a warning and the in-memory
+    /// config keeps serving; the mtime is recorded either way, so a broken file
+    /// complains once rather than every two seconds.
+    pub async fn reload_if_changed(self: &Arc<Self>) -> bool {
+        let disk = disk_mtime(&self.cfg_path);
+        {
+            let mut seen = self.cfg_mtime.lock().unwrap();
+            if *seen == disk {
+                return false;
+            }
+            *seen = disk;
+        }
+
+        let text = match std::fs::read_to_string(&self.cfg_path) {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::warn!("config changed on disk but is unreadable: {e:#}");
+                return false;
+            }
+        };
+        let new = match Config::parse(&text) {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::warn!("config changed on disk but does not parse, keeping the old one: {e:#}");
+                return false;
+            }
+        };
+
+        tracing::info!("config changed on disk, reloading");
+        *self.rules.write().await = compile_rules(&new);
+        *self.cfg.write().await = new;
+        self.sync_from_config().await;
+        let _ = self.events.send(Event::Sessions {
+            sessions: self.views().await,
+        });
+        true
+    }
+
+    /// Throttled `reload_if_changed`, for the tick to call.
+    async fn reload_if_due(self: &Arc<Self>) {
+        {
+            let mut last = self.cfg_checked.lock().unwrap();
+            let now = now_ms();
+            if now.saturating_sub(*last) < CFG_CHECK_MS {
+                return;
+            }
+            *last = now;
+        }
+        self.reload_if_changed().await;
+    }
+
+    /// Relaunches the game, for the in-game "save and restart" - the mod saves,
+    /// asks for this, and quits. The delay is the mod's estimate of how long its
+    /// own shutdown takes: slopd has no handle on the game process, so the two
+    /// only overlap by wall clock.
+    ///
+    /// Detached deliberately: the game must outlive the daemon that started it,
+    /// including the redeploy that is usually the reason for the restart.
+    pub async fn restart_game(&self, delay_ms: u64) -> Result<()> {
+        let cmd = self.config().await.daemon.game_cmd.trim().to_string();
+        if cmd.is_empty() {
+            bail!("daemon.game_cmd is not set, so there is nothing to launch");
+        }
+        let argv = crate::sandbox::shell_split(&cmd);
+        let Some((exe, args)) = argv.split_first() else {
+            bail!("daemon.game_cmd is empty after splitting");
+        };
+        let exe = exe.clone();
+        let args: Vec<String> = args.to_vec();
+
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(delay_ms.min(60_000))).await;
+            match launch_detached(&exe, &args) {
+                Ok(()) => tracing::info!("relaunched the game: {exe}"),
+                Err(e) => tracing::error!("relaunching the game: {e:#}"),
+            }
+        });
+        Ok(())
     }
 
     pub async fn config(&self) -> Config {
@@ -237,10 +395,38 @@ impl Manager {
         // Attach a control reader to any session that's already running (e.g. one
         // that survived a daemon restart). Idempotent: skips sessions we already
         // hold an emulator for.
+        let mut orphans: Vec<String> = Vec::new();
         for name in self.tmux.list().await {
-            if self.live.read().await.contains_key(&name) {
-                self.spawn_reader(&name).await;
+            if !self.live.read().await.contains_key(&name) {
+                orphans.push(name);
+                continue;
             }
+            if self.spawn_reader(&name).await {
+                // Adopted rather than started by us, so the app on the other end
+                // has no idea it has a new reader. Ask it to repaint, off the
+                // critical path - each nudge sleeps.
+                let m = self.clone();
+                let name = name.clone();
+                tokio::spawn(async move {
+                    let (cols, rows) = match m.live.read().await.get(&name) {
+                        Some(l) => (l.cols, l.rows),
+                        None => return,
+                    };
+                    if let Err(e) = m.tmux.nudge_redraw(&name, cols, rows).await {
+                        tracing::debug!("redraw nudge {name}: {e:#}");
+                    }
+                });
+            }
+        }
+
+        // Running under our socket but absent from config: someone renamed or
+        // deleted the entry while the agent kept working. Left alone - killing it
+        // would be worse - but said out loud, because it is invisible in-game.
+        if !orphans.is_empty() {
+            tracing::warn!(
+                "tmux sessions with no config entry, not shown in-game: {}",
+                orphans.join(", ")
+            );
         }
     }
 
@@ -290,6 +476,8 @@ impl Manager {
 
     /// Adds a session to config, persists, and starts it if asked.
     pub async fn add(self: &Arc<Self>, s: SessionCfg) -> Result<()> {
+        // Land on top of any hand edit rather than over it.
+        self.reload_if_changed().await;
         let mut cfg = self.cfg.write().await;
         if cfg.session(&s.name).is_some() {
             bail!("session {} already exists", s.name);
@@ -298,7 +486,7 @@ impl Manager {
         let autostart = s.autostart;
         let name = s.name.clone();
         cfg.sessions.push(s);
-        cfg.save(&self.cfg_path)?;
+        self.save_cfg(&cfg)?;
         drop(cfg);
 
         self.sync_from_config().await;
@@ -312,6 +500,7 @@ impl Manager {
     /// running under it, so tmux is renamed first - if it refuses, config.toml and
     /// reality stay in step.
     pub async fn update(self: &Arc<Self>, name: &str, s: SessionCfg) -> Result<()> {
+        self.reload_if_changed().await;
         let renamed = s.name != name;
         if renamed {
             check_name(&s.name)?;
@@ -335,7 +524,7 @@ impl Manager {
             .position(|x| x.name == name)
             .ok_or_else(|| anyhow!("no such session: {name}"))?;
         cfg.sessions[idx] = s.clone();
-        cfg.save(&self.cfg_path)?;
+        self.save_cfg(&cfg)?;
         drop(cfg);
 
         if renamed {
@@ -370,10 +559,11 @@ impl Manager {
     }
 
     pub async fn remove(self: &Arc<Self>, name: &str) -> Result<()> {
+        self.reload_if_changed().await;
         self.stop(name).await.ok();
         let mut cfg = self.cfg.write().await;
         cfg.sessions.retain(|s| s.name != name);
-        cfg.save(&self.cfg_path)?;
+        self.save_cfg(&cfg)?;
         drop(cfg);
         self.sync_from_config().await;
         Ok(())
@@ -389,6 +579,8 @@ impl Manager {
         defaults: Option<Defaults>,
         sandbox: Option<Sandbox>,
     ) -> Result<()> {
+        self.reload_if_changed().await;
+
         if let Some(d) = &daemon {
             d.bind
                 .parse::<std::net::SocketAddr>()
@@ -416,7 +608,7 @@ impl Manager {
         if let Some(s) = sandbox {
             cfg.sandbox = s;
         }
-        cfg.save(&self.cfg_path)?;
+        self.save_cfg(&cfg)?;
         drop(cfg);
 
         self.sync_from_config().await;
@@ -425,7 +617,7 @@ impl Manager {
 
     pub async fn replace_config(self: &Arc<Self>, text: &str) -> Result<()> {
         let new = Config::parse(text)?;
-        new.save(&self.cfg_path)?;
+        self.save_cfg(&new)?;
         *self.rules.write().await = compile_rules(&new);
         *self.cfg.write().await = new;
         self.sync_from_config().await;
@@ -561,7 +753,9 @@ impl Manager {
     /// A cheap in-memory tick over every live session: re-runs the state rules so
     /// a session that fell quiet decays working -> idle. No tmux spawns and no
     /// captures; screen changes arrive event-driven from the control readers.
-    pub async fn retick(&self) {
+    pub async fn retick(self: &Arc<Self>) {
+        self.reload_if_due().await;
+
         // Snapshot outside the lock so classify()'s await doesn't hold it.
         let snapshot: Vec<(String, u64, String)> = {
             let live = self.live.read().await;
@@ -597,20 +791,25 @@ impl Manager {
     /// emulator. Idempotent: does nothing if we already hold an emulator for the
     /// session. Reseeds the fresh emulator from the current pane so an attach
     /// mid-session (daemon restart) shows real content, not a blank grid.
-    async fn spawn_reader(self: &Arc<Self>, name: &str) {
+    async fn spawn_reader(self: &Arc<Self>, name: &str) -> bool {
         let (cols, rows, has_emu) = {
             let live = self.live.read().await;
             match live.get(name) {
                 Some(l) => (l.cols, l.rows, l.emu.is_some()),
-                None => return,
+                None => return false,
             }
         };
         if has_emu {
-            return;
+            return false;
         }
 
         let mut e = SessionEmu::new(cols, rows);
-        if let Ok(cap) = self.tmux.capture(name).await {
+        // Seeded with tmux's scrollback, not just the visible pane: history is the
+        // half of a reattached session that used to come back empty, and the lines
+        // that scroll off the top land in the emulator's own scrollback, where the
+        // wheel can reach them again.
+        let history = self.config().await.daemon.history_limit;
+        if let Ok(cap) = self.tmux.capture(name, history).await {
             let mut seed = String::from("\x1b[2J\x1b[H\x1b[0m");
             seed.push_str(&cap.lines.join("\r\n"));
             seed.push_str(&format!("\x1b[{};{}H", cap.cy + 1, cap.cx + 1));
@@ -634,13 +833,14 @@ impl Manager {
                 }
                 None => {
                     handle.abort();
-                    return;
+                    return false;
                 }
             }
         }
 
         // Push the seeded frame so fresh subscribers see content before any output.
         self.render_and_broadcast(name, &emu).await;
+        true
     }
 
     /// The control-reader task: pumps `%output` bytes into the emulator and, on a

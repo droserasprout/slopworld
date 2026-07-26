@@ -32,6 +32,7 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/config", put(put_config))
         .route("/api/config/values", put(put_config_values))
         .route("/api/browse", get(browse))
+        .route("/api/game/restart", post(restart_game))
         .route("/ws", get(ws_upgrade))
         .with_state(m)
 }
@@ -144,6 +145,25 @@ struct SectionsReq {
 
 async fn put_config_values(State(m): State<Mgr>, Json(req): Json<SectionsReq>) -> ApiResult {
     ok_json(m.update_sections(req.daemon, req.defaults, req.sandbox).await)
+}
+
+#[derive(Deserialize)]
+struct RestartGameReq {
+    /// Milliseconds to wait before launching, covering the caller's own exit.
+    #[serde(default = "default_restart_delay")]
+    delay_ms: u64,
+}
+
+fn default_restart_delay() -> u64 {
+    4000
+}
+
+/// Relaunches the game. The mod calls this after saving, then quits: the game
+/// cannot exec itself across a Unity shutdown, and slopd is the one process in
+/// the picture that outlives it.
+async fn restart_game(State(m): State<Mgr>, body: Option<Json<RestartGameReq>>) -> ApiResult {
+    let delay = body.map(|Json(r)| r.delay_ms).unwrap_or_else(default_restart_delay);
+    ok_json(m.restart_game(delay).await)
 }
 
 #[derive(Deserialize)]

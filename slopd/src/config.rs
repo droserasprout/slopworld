@@ -32,6 +32,19 @@ pub struct Daemon {
     /// a session that fell quiet decays working -> idle. Screen content itself
     /// arrives event-driven from the control readers, not by polling.
     pub poll_ms: u64,
+    /// Lines of scrollback tmux keeps per pane. It is also all we have to reseed
+    /// an emulator from when slopd restarts under a session that kept running,
+    /// so it is the ceiling on how much history survives a daemon redeploy.
+    #[serde(default = "default_history_limit")]
+    pub history_limit: u32,
+    /// How the game is launched, for the in-game "save and restart". Empty
+    /// disables the endpoint. Split like an agent command: no shell, no globbing.
+    #[serde(default)]
+    pub game_cmd: String,
+}
+
+fn default_history_limit() -> u32 {
+    5000
 }
 
 impl Default for Daemon {
@@ -41,6 +54,8 @@ impl Default for Daemon {
             token: String::new(),
             tmux_socket: "slopworld".into(),
             poll_ms: 80,
+            history_limit: default_history_limit(),
+            game_cmd: String::new(),
         }
     }
 }
@@ -190,4 +205,41 @@ pub fn expand(path: &str) -> String {
         }
     }
     path.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    /// A config written before these fields existed has to keep loading: the file
+    /// on disk outlives any one build of the daemon, and a redeploy that refused
+    /// to start would take the agents' only supervisor with it.
+    #[test]
+    fn older_config_keeps_loading() {
+        let cfg = Config::parse(
+            r#"
+            [daemon]
+            bind = "127.0.0.1:7717"
+            tmux_socket = "slopworld"
+            poll_ms = 80
+            "#,
+        )
+        .expect("old config should parse");
+
+        assert_eq!(cfg.daemon.history_limit, 5000);
+        assert_eq!(cfg.daemon.game_cmd, "");
+    }
+
+    #[test]
+    fn config_round_trips_through_toml() {
+        let mut cfg = Config::default();
+        cfg.daemon.history_limit = 200;
+        cfg.daemon.game_cmd = "/home/you/RimWorld/game/RimWorldLinux -popupwindow".into();
+
+        let text = toml::to_string_pretty(&cfg).unwrap();
+        let back = Config::parse(&text).unwrap();
+
+        assert_eq!(back.daemon.history_limit, 200);
+        assert_eq!(back.daemon.game_cmd, cfg.daemon.game_cmd);
+    }
 }
