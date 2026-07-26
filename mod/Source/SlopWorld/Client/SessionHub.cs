@@ -173,20 +173,34 @@ namespace SlopWorld
     }
 
     /// <summary>
-    /// One rate-limit window as the daemon last saw it. The reset is a duration
-    /// rather than an instant on purpose: the daemon has already done the date
-    /// arithmetic, and a countdown from when we heard stays honest if the socket
-    /// dies - it simply runs out and says so.
+    /// One row of the readout as the daemon last saw it - a rate-limit window,
+    /// or the extra-usage budget, which is the same shape in money. The reset is
+    /// a duration rather than an instant on purpose: the daemon has already done
+    /// the date arithmetic, and a countdown from when we heard stays honest if
+    /// the socket dies - it simply runs out and says so.
     /// </summary>
     public class UsageWindow
     {
         public string Key = "";
         public string Label = "";
-        /// Percent of the window spent, 0-100.
+        /// Percent of the window spent, 0-100. Always sent, money row included.
         public float Pct;
+        /// What <see cref="Pct"/> counts: "pct" or "usd". A unit this build does
+        /// not know reads as a percentage, which is what every window but one is
+        /// and is the only thing that is always true of the number.
+        public string Unit = "pct";
+        /// Dollars spent, when <see cref="Unit"/> is usd; -1 when the daemon
+        /// sent no figure, which leaves the row a percentage.
+        public float Amount = -1f;
+        /// What <see cref="Amount"/> is out of; -1 if unsaid.
+        public float Limit = -1f;
         /// Seconds to the reset as of <see cref="UsageInfo.Heard"/>; -1 if the
         /// daemon did not say.
         public long ResetsIn = -1;
+
+        /// Whether this row is drawn with a `$` rather than a `%`. Both halves
+        /// are required: a unit with no figure under it has nothing to spend.
+        public bool IsMoney => Unit == "usd" && Amount >= 0f;
     }
 
     /// <summary>
@@ -227,6 +241,9 @@ namespace SlopWorld
                 Key = w["key"].AsString(),
                 Label = w["label"].AsString(),
                 Pct = w["pct"].AsFloat(),
+                Unit = w["unit"].AsString("pct"),
+                Amount = w["amount"].AsFloat(-1f),
+                Limit = w["limit"].AsFloat(-1f),
                 ResetsIn = w["resets_in"].IsNull ? -1 : w["resets_in"].AsLong(-1),
             }).ToList(),
         };

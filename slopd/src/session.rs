@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -159,7 +160,24 @@ pub struct Manager {
     /// Last thing the usage poller heard back. Lives here rather than in the
     /// poller so a client connecting between polls has something to draw.
     usage: RwLock<crate::usage::Snapshot>,
+    /// Websocket clients attached right now, and when the count last left zero.
+    /// Only `/api/game` reads them, and it reads them as evidence: a client is a
+    /// game up far enough to have loaded the mod and talked to us.
+    clients: AtomicUsize,
+    clients_since: AtomicU64,
     pub events: broadcast::Sender<Event>,
+}
+
+/// One attached websocket client, counted for as long as the value lives. A
+/// guard rather than a pair of calls because the pump has several ways out - a
+/// dropped socket, a send error, the client going away mid-event - and every one
+/// of them has to put the count back.
+pub struct ClientGuard(Arc<Manager>);
+
+impl Drop for ClientGuard {
+    fn drop(&mut self) {
+        self.0.clients.fetch_sub(1, Ordering::Relaxed);
+    }
 }
 
 /// How often the config file is checked for outside edits.
@@ -180,48 +198,6 @@ const BOOT_ROWS: u16 = 34;
 
 fn disk_mtime(path: &std::path::Path) -> Option<SystemTime> {
     std::fs::metadata(path).ok()?.modified().ok()
-}
-
-/// Starts a process that must outlive slopd, as a transient systemd unit where
-/// there is one.
-///
-/// Spawned as a plain child it would sit in `slopd.service`'s cgroup and be
-/// killed by the next redeploy - the same trap the tmux server was in, and worse
-/// here, because the whole point of relaunching the game is that a redeploy is
-/// happening. `--collect` clears the unit away once the game exits, so the name
-/// is free for the next restart.
-///
-/// The display environment comes from slopd's own: as a user service it was
-/// started by the same manager as the session, so it has whatever that manager
-/// imported. Passing the three that matter explicitly means a daemon run by hand
-/// from a terminal works too.
-fn launch_detached(exe: &str, args: &[String]) -> Result<()> {
-    let mut sr = std::process::Command::new("systemd-run");
-    sr.args(["--user", "--quiet", "--collect", "--unit=slopworld-game"]);
-    for k in ["DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR"] {
-        if let Ok(v) = std::env::var(k) {
-            sr.arg(format!("--setenv={k}={v}"));
-        }
-    }
-    sr.arg("--").arg(exe).args(args);
-
-    match sr.status() {
-        Ok(s) if s.success() => return Ok(()),
-        Ok(s) => tracing::warn!("systemd-run failed ({s}); launching inline"),
-        Err(e) => tracing::warn!("systemd-run unavailable ({e}); launching inline"),
-    }
-
-    // No systemd: at least give it its own process group, so a signal aimed at
-    // slopd's group doesn't take the game with it.
-    use std::os::unix::process::CommandExt;
-    std::process::Command::new(exe)
-        .args(args)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .process_group(0)
-        .spawn()?;
-    Ok(())
 }
 
 fn now_ms() -> u64 {
@@ -313,6 +289,8 @@ impl Manager {
             cfg_mtime: Mutex::new(mtime),
             cfg_checked: Mutex::new(0),
             usage: RwLock::new(crate::usage::Snapshot::default()),
+            clients: AtomicUsize::new(0),
+            clients_since: AtomicU64::new(0),
             events,
         });
         // Before anything else touches tmux: whoever forks the server decides
@@ -412,12 +390,30 @@ impl Manager {
 
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(delay_ms.min(60_000))).await;
-            match launch_detached(&exe, &args) {
+            match crate::game::launch(&exe, &args) {
                 Ok(()) => tracing::info!("relaunched the game: {exe}"),
                 Err(e) => tracing::error!("relaunching the game: {e:#}"),
             }
         });
         Ok(())
+    }
+
+    /// What the daemon can see of the game, for the benefit of anything that
+    /// cannot see it at all. See `game.rs`.
+    pub async fn game(&self) -> crate::game::Status {
+        let cmd = self.config().await.daemon.game_cmd;
+        let clients = self.clients.load(Ordering::Relaxed);
+        let since = self.clients_since.load(Ordering::Relaxed);
+        let up = (clients > 0 && since > 0).then(|| now_ms().saturating_sub(since) / 1000);
+        crate::game::status(&cmd, clients, up)
+    }
+
+    /// Counts a websocket client for as long as the guard lives.
+    pub fn client_joined(self: &Arc<Self>) -> ClientGuard {
+        if self.clients.fetch_add(1, Ordering::Relaxed) == 0 {
+            self.clients_since.store(now_ms(), Ordering::Relaxed);
+        }
+        ClientGuard(self.clone())
     }
 
     pub async fn config(&self) -> Config {

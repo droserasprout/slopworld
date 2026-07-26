@@ -27,6 +27,19 @@ pub struct Preset {
     pub setenv: &'static [(&'static str, &'static str)],
 }
 
+/// Forwarded out of slopd's environment into every sandbox, whatever the config
+/// says, plus anything named `LC_*` - locale is a dozen names on a host whose
+/// language and formats differ, and a list of them is a list to get wrong.
+///
+/// The rule for what belongs here: a name that says something about *this
+/// machine* and nothing about what the sandbox can reach. Anything that names a
+/// socket, a token or a service is a preset, so that the checkbox and the
+/// variable are the same decision.
+const BASE_ENV: &[&str] = &["PATH", "LANG", "USER", "LOGNAME", "SHELL"];
+
+/// What the pane's terminal is. See where it is set for why it is not inherited.
+const PANE_TERM: &str = "tmux-256color";
+
 pub const PRESETS: &[Preset] = &[
     Preset {
         name: "claude",
@@ -64,8 +77,14 @@ pub const PRESETS: &[Preset] = &[
     },
     Preset {
         name: "x11",
-        description: "X11 display, for anything that opens a window",
-        ro: &["/tmp/.X11-unix", "~/.Xauthority"],
+        description: "X11 display, for anything that opens or reads a window",
+        // $XAUTHORITY as well as the classic path, because a desktop that runs
+        // its X clients through Xwayland writes the cookie under
+        // $XDG_RUNTIME_DIR with a name of its own choosing - mutter's is
+        // `.mutter-Xwaylandauth.XXXXXX` - and leaves ~/.Xauthority absent. The
+        // file is made once per login, by something that outlives every session,
+        // so it is bound by name like the dbus socket rather than by directory.
+        ro: &["/tmp/.X11-unix", "~/.Xauthority", "$XAUTHORITY"],
         rw: &[],
         dev: &[],
         env: &["DISPLAY", "XAUTHORITY"],
@@ -233,13 +252,21 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     let mut a: Vec<String> = vec!["bwrap".into()];
     let mut push = |args: &[&str]| a.extend(args.iter().map(|x| x.to_string()));
 
-    push(&["--die-with-parent", "--unshare-all"]);
+    // --clearenv, and the environment is built back up from here rather than
+    // inherited. bwrap hands the child whatever slopd was started with unless
+    // told otherwise, which on a desktop is eighty-odd names: DISPLAY,
+    // WAYLAND_DISPLAY, SSH_AUTH_SOCK, whatever a shell exported before a
+    // hand-started slopd. None of them are capabilities on their own - the
+    // socket is what a preset binds - but a variable naming a socket that is
+    // not there is worse than its absence, because a program reads it as "this
+    // host has one" and fails at the far end of a connect() instead of taking
+    // the road it has. It also meant `env` inside a sandbox was a poor
+    // description of the sandbox, which is the thing an agent in here reads.
+    // Now a preset's `env` list is the whole of what it forwards, and the
+    // window drawing checkboxes for those presets is telling the truth.
+    push(&["--die-with-parent", "--unshare-all", "--clearenv"]);
     if p.net {
         push(&["--share-net"]);
-    }
-
-    for path in &ro {
-        push(&["--ro-bind", path, path]);
     }
 
     // systemd-resolved / NetworkManager make /etc/resolv.conf a symlink into
@@ -271,19 +298,31 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     } else {
         None
     };
-    if let Some((src, target)) = &resolv {
-        push(&["--ro-bind", src.as_str(), target.as_str()]);
-    }
-
     // Usr-merge symlinks, otherwise nothing resolves inside the namespace.
     push(&["--symlink", "usr/lib", "/lib"]);
     push(&["--symlink", "usr/lib", "/lib64"]);
     push(&["--symlink", "usr/bin", "/bin"]);
     push(&["--symlink", "usr/bin", "/sbin"]);
 
+    // The skeleton goes down before any bind, because every one of these covers
+    // whatever is under it and bwrap mounts in the order it is given. /dev had
+    // its own note about that already; /tmp is the one that had been getting it
+    // wrong, and silently - the `x11` preset asks for /tmp/.X11-unix, which was
+    // bound and then buried under this tmpfs, so the preset looked applied, gave
+    // the client a DISPLAY, and left it with no socket to reach.
     push(&["--proc", "/proc"]);
     push(&["--dev", "/dev"]);
     push(&["--tmpfs", "/tmp"]);
+
+    for path in &ro {
+        push(&["--ro-bind", path, path]);
+    }
+    // After the ro list: the target can be under a path a preset binds - the
+    // stub lives in /run/systemd/resolve and `systemd` binds /run/systemd - and
+    // the file has to be the thing on top.
+    if let Some((src, target)) = &resolv {
+        push(&["--ro-bind", src.as_str(), target.as_str()]);
+    }
 
     // The agent's own state must survive across sessions, so it is rw, not a tmpfs.
     for path in &rw {
@@ -300,18 +339,38 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     push(&["--setenv", "SLOPWORLD_PROJECT", &p.name]);
     push(&["--chdir", &dir]);
 
+    // The terminal is one slopd built - tmux, rendering into our own emulator -
+    // so it is stated rather than forwarded. A daemon has no terminal to inherit
+    // one from, and a slopd started by hand from a shell has that shell's, which
+    // is not the pane's either. These go first, so a name deliberately put in
+    // slopd's own environment still wins.
+    push(&["--setenv", "TERM", PANE_TERM]);
+    push(&["--setenv", "COLORTERM", "truecolor"]);
+
+    // What any program expects to be there, and not a capability between them.
+    // These used to arrive by inheritance and now have to be asked for, and they
+    // are asked for here rather than in `pass_env` for the same reason the
+    // presets are compiled in: a config written before --clearenv existed lists
+    // none of them, and an agent with no PATH is a session that starts and dies.
+    let mut passed: Vec<String> = Vec::new();
+    for (k, v) in std::env::vars() {
+        if BASE_ENV.contains(&k.as_str()) || k.starts_with("LC_") {
+            push(&["--setenv", k.as_str(), v.as_str()]);
+            passed.push(k);
+        }
+    }
+
     let mut env: Vec<&str> = cfg.sandbox.pass_env.iter().map(String::as_str).collect();
     for pr in &presets {
         env.extend(pr.env.iter().copied());
     }
     env.extend(p.pass_env.iter().map(String::as_str));
 
-    let mut passed: Vec<&str> = Vec::new();
     for k in env {
-        if passed.contains(&k) {
+        if passed.iter().any(|seen| seen == k) {
             continue;
         }
-        passed.push(k);
+        passed.push(k.to_string());
         if let Ok(v) = std::env::var(k) {
             push(&["--setenv", k, &v]);
         }
@@ -391,7 +450,57 @@ pub fn shell_split(s: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::shell_split;
+    use super::*;
+
+    fn argv() -> Vec<String> {
+        let cfg = Config::default();
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "p".into(),
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            presets: vec!["x11".into()],
+            ..Default::default()
+        };
+        build_argv(&cfg, &s, &p)
+    }
+
+    fn at(a: &[String], needle: &str) -> usize {
+        a.iter().position(|x| x == needle).unwrap_or_else(|| panic!("no {needle} in {a:?}"))
+    }
+
+    /// The environment is built, not inherited: a variable in here is one a
+    /// preset or the base list asked for.
+    #[test]
+    fn the_environment_is_declared() {
+        let a = argv();
+        assert!(a.contains(&"--clearenv".to_string()));
+
+        let term = at(&a, "TERM");
+        assert_eq!(a[term - 1], "--setenv");
+        assert_eq!(a[term + 1], PANE_TERM);
+
+        // PATH is not optional: without it the agent cannot exec anything.
+        assert!(a.contains(&"PATH".to_string()));
+    }
+
+    /// Every bind lands after the tmpfs and devices that would otherwise be
+    /// mounted over it - the bug that made the x11 preset a no-op.
+    #[test]
+    fn binds_come_after_the_skeleton() {
+        let a = argv();
+        let tmp = at(&a, "--tmpfs");
+        let first_bind = a
+            .iter()
+            .position(|x| x == "--ro-bind" || x == "--bind" || x == "--dev-bind")
+            .expect("some bind");
+        assert!(tmp < first_bind, "tmpfs at {tmp} buries the bind at {first_bind}");
+        assert!(at(&a, "--dev") < first_bind);
+        assert!(at(&a, "--proc") < first_bind);
+    }
 
     #[test]
     fn splits_quoted_args() {

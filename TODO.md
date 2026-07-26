@@ -6,13 +6,15 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 ## Interface
 
-- [ ] New window: "Projects". First button in the bottom bar. Every project contains: project directory, sandbox params (presets like "Claude", "dbus", "systemd", plus optional custom additions). Agents now must belong to specific project on creation and inherit it params. Stays configurable per agent: name and command.
+- [ ] New window: "Shortcuts". 
+- [x] New window: "Projects". First button in the bottom bar. Every project contains: project directory, sandbox params (presets like "Claude", "dbus", "systemd", plus optional custom additions). Agents now must belong to specific project on creation and inherit it params. Stays configurable per agent: name and command.
 - [ ] New agent action button: "Duplicate". Opens agent creation window with fields filled with existing agent's values.
-- [ ] Render session/weekly limits as generic RimWorld resources: icon + white % or $ text. Show more info bubble on hover like now. Suggest icons, builtin or generated.
+- [x] Render session/weekly limits as generic RimWorld resources: icon + white % or $ text. Show more info bubble on hover like now. Suggest icons, builtin or generated.
 - [x] Hide enabled mods and DLCs block on loading screen
 - [ ] Suppress the "unsaved work will be lost" confirmation now that quitting always saves.
 - [ ] "Tab / Shift+Tab in floating windows to navigate between fields (might be hard to implement)
 - [ ] Cleanup: drop items that don't affect our "game" from Settings window if it can be modded.
+- [ ] Loading screen: hide loading block, the one above tips. Add tip "Press `F12` to toggle terminal". Make tips change faster to show 4-5 during game loading.
 
 ## Terminal
 

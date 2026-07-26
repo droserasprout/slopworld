@@ -72,7 +72,7 @@ impl Tmux {
         }
     }
 
-    /// Starts the tmux server, if it isn't up, in a transient systemd scope of its
+    /// Starts the tmux server, if it isn't up, in a transient systemd unit of its
     /// own.
     ///
     /// Whichever tmux command first needs a server is the one that forks it, and
@@ -80,26 +80,39 @@ impl Tmux {
     /// `slopd.service` - so `systemctl --user restart slopd`, which is exactly what
     /// `make install-daemon` runs, SIGTERMs the server and every agent under it,
     /// including the session that ran make. Putting the server in
-    /// `slopworld-tmux.scope` takes it out of the unit's cgroup, and the agents
+    /// `slopworld-tmux.service` takes it out of the unit's cgroup, and the agents
     /// then sit through a redeploy untouched.
     ///
-    /// `--scope` returns as soon as `start-server` exits; the scope itself lives on
-    /// while the forked server is in it, and `--collect` reaps the unit once it is
-    /// finally empty. Hosts without systemd (or a user bus - a session over plain
-    /// ssh, say) fall back to starting the server inline: same behaviour as before
-    /// this existed, which is to say a redeploy there still costs the agents.
+    /// It is a *service* with `Type=forking` and not a scope, which is what this
+    /// tried first and what quietly did the opposite of the above. `tmux
+    /// start-server` daemonises: the process systemd-run put in the scope forks the
+    /// server and exits immediately, systemd sees the scope's own process gone and
+    /// tears the scope down - taking the server with it, since the fork is in that
+    /// same cgroup. The next tmux command then found no server, forked one itself,
+    /// and *that* server - the one everything ran under - sat in `slopd.service`
+    /// after all. It looked like it worked, because `systemd-run` had exited zero
+    /// and the log line believed it. `Type=forking` is the shape that fits a
+    /// program which daemonises: systemd waits for the parent to exit and adopts
+    /// what is left in the cgroup as the unit's main process.
+    ///
+    /// So the log now says what happened rather than what was attempted: the socket
+    /// is checked afterwards, and a server that did not come up that way is started
+    /// inline. Hosts without systemd (or a user bus - a session over plain ssh, say)
+    /// end up there too: same behaviour as before any of this existed, which is to
+    /// say a redeploy there still costs the agents. `KillMode=process` in
+    /// `slopd.service` is the other half, for the server this did not get to start.
     pub async fn ensure_server(&self) {
         if self.server_running().await {
             return;
         }
 
-        let scoped = Command::new("systemd-run")
+        let unit = Command::new("systemd-run")
             .args([
                 "--user",
                 "--quiet",
                 "--collect",
-                "--scope",
                 "--unit=slopworld-tmux",
+                "--property=Type=forking",
                 "--",
                 "tmux",
                 "-L",
@@ -109,18 +122,32 @@ impl Tmux {
             .status()
             .await;
 
-        match scoped {
-            Ok(s) if s.success() => tracing::info!("tmux server started in slopworld-tmux.scope"),
-            other => {
-                if let Ok(s) = other {
-                    tracing::warn!("systemd-run --scope failed ({s}); starting tmux inline");
-                } else {
-                    tracing::warn!("systemd-run not available; starting tmux inline");
+        // systemd-run returns once the job is queued, so the socket is what says
+        // the server is up - the same question every other caller asks.
+        let mut up = false;
+        if matches!(&unit, Ok(s) if s.success()) {
+            for _ in 0..20 {
+                if self.server_running().await {
+                    up = true;
+                    break;
                 }
-                if let Err(e) = self.run(&["start-server"]).await {
-                    tracing::error!("start tmux server: {e:#}");
-                    return;
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            }
+        }
+
+        if up {
+            tracing::info!("tmux server started in slopworld-tmux.service");
+        } else {
+            match unit {
+                Ok(s) if s.success() => {
+                    tracing::warn!("slopworld-tmux.service started no server; starting tmux inline")
                 }
+                Ok(s) => tracing::warn!("systemd-run failed ({s}); starting tmux inline"),
+                Err(_) => tracing::warn!("systemd-run not available; starting tmux inline"),
+            }
+            if let Err(e) = self.run(&["start-server"]).await {
+                tracing::error!("start tmux server: {e:#}");
+                return;
             }
         }
 

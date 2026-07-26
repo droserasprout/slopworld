@@ -7,7 +7,7 @@ LOG        ?= $(HOME)/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/
 API        ?= http://127.0.0.1:7717
 TOKEN      ?=
 
-.PHONY: all daemon mod install install-daemon install-mod redeploy run logs test clean
+.PHONY: all daemon mod install install-daemon install-mod redeploy run logs shot test clean
 
 all: daemon mod
 
@@ -61,6 +61,11 @@ run:
 # The game's own log; Harmony and mod errors land here, not in the terminal.
 logs:
 	@tail -f "$(LOG)"
+
+# A picture of the running game, for whoever is drawing a UI they cannot see.
+# Needs the `x11` preset on this project's sandbox; see tools/shot.sh.
+shot:
+	@tools/shot.sh $(OUT)
 
 clean:
 	cd slopd && cargo clean

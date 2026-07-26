@@ -1,6 +1,7 @@
 mod api;
 mod config;
 mod emu;
+mod game;
 mod sandbox;
 mod session;
 mod tmux;

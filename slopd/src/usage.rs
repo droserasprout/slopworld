@@ -44,15 +44,43 @@ const OAUTH_BETA: &str = "oauth-2025-04-20";
 
 const TIMEOUT: Duration = Duration::from_secs(20);
 
-/// One rate-limit window: how much of it is gone, and when it comes back.
+/// What a row's number *is*, and so what the readout writes beside its icon.
+///
+/// It rides on the wire rather than being worked out from the key, because the
+/// one thing this must never do is let a percentage and a sum of money look
+/// alike. A client that does not know a unit has a number it cannot label, and
+/// that is the honest answer.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Unit {
+    /// Percent of a window spent, which is every rate limit.
+    #[default]
+    Pct,
+    /// Dollars spent, which is only ever the extra-usage budget.
+    Usd,
+}
+
+/// One row of the readout: how much of something is gone, and when it comes
+/// back. Every rate-limit window is one of these, and so is the extra-usage
+/// budget - the same shape, told apart by `unit`.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Window {
     /// Stable identifier the mod keys its icon and ordering off.
     pub key: String,
     /// What to call it on screen.
     pub label: String,
-    /// Percent of the window consumed, 0-100.
+    /// Percent of the window consumed, 0-100. Always present: a budget's
+    /// percentage is true whether or not its dollars could be read.
     pub pct: f32,
+    /// What `pct` counts, and what the mod draws next to the number.
+    pub unit: Unit,
+    /// Money spent so far, when `unit` is `usd`. Absent when the payload gave
+    /// no figure to put a `$` on, which leaves the row a percentage.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<f32>,
+    /// What `amount` is out of, for the tooltip.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<f32>,
     /// Seconds until it resets, if the endpoint said. Counted down by the mod
     /// against its own clock, so a stale snapshot still reads sensibly.
     pub resets_in: Option<u64>,
@@ -125,27 +153,91 @@ fn read_creds(path: &PathBuf) -> anyhow::Result<Creds> {
     })
 }
 
+/// Why a poll failed, and how long the far end asked us to leave it alone.
+///
+/// The wait is carried rather than worked out, because on a 429 the endpoint's
+/// own `Retry-After` is the only thing anyone has ever been told about this
+/// endpoint's limits. Everything else this daemon knows about them is a guess.
+struct PollErr {
+    msg: String,
+    /// Seconds, from `Retry-After` or from the floor a 429 gets when it does
+    /// not say. None for failures that are nobody's rate limit.
+    retry_after: Option<u64>,
+}
+
+impl PollErr {
+    fn new(msg: impl std::fmt::Display) -> Self {
+        PollErr {
+            msg: msg.to_string(),
+            retry_after: None,
+        }
+    }
+}
+
+impl std::fmt::Display for PollErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.msg)
+    }
+}
+
+/// What a 429 with no `Retry-After` is treated as having asked for. A rate
+/// limit retried a minute later is usually just another rate limit, and the
+/// numbers this polls for move in hours.
+const RATE_LIMIT_FLOOR: u64 = 300;
+
 /// The blocking half: one GET, on whatever thread the caller gives it.
-fn fetch(creds: &Creds) -> anyhow::Result<Value> {
+fn fetch(creds: &Creds) -> Result<Value, PollErr> {
     let mut res = ureq::get(usage_url())
         .config()
         .timeout_global(Some(TIMEOUT))
+        // Statuses are read here rather than raised as errors. ureq's
+        // `StatusCode` error has thrown the response away by the time we see
+        // it, and with it the one header a 429 is worth having.
+        .http_status_as_error(false)
         .build()
         .header("Authorization", format!("Bearer {}", creds.token))
         .header("anthropic-beta", OAUTH_BETA)
         .header("User-Agent", concat!("slopd/", env!("CARGO_PKG_VERSION")))
         .call()
-        .map_err(|e| match e {
-            // 401 is the one worth naming: it means the token in the file is no
-            // longer good, which is a thing the user fixes rather than waits out.
-            ureq::Error::StatusCode(401) => {
-                anyhow::anyhow!("Claude rejected the login (401); is the host still signed in?")
-            }
-            ureq::Error::StatusCode(c) => anyhow::anyhow!("usage endpoint returned {c}"),
-            other => anyhow::anyhow!("{other}"),
-        })?;
+        .map_err(PollErr::new)?;
 
-    Ok(res.body_mut().read_json::<Value>()?)
+    let status = res.status().as_u16();
+    match status {
+        // Too many polls, or too many from this account. The only failure that
+        // is made worse by retrying at the usual rate.
+        429 => {
+            return Err(PollErr {
+                msg: "Anthropic is rate-limiting usage checks (429)".into(),
+                retry_after: Some(retry_after(&res).unwrap_or(RATE_LIMIT_FLOOR)),
+            })
+        }
+        // 401 is the one worth naming: it means the token in the file is no
+        // longer good, which is a thing the user fixes rather than waits out.
+        401 => {
+            return Err(PollErr::new(
+                "Claude rejected the login (401); is the host still signed in?",
+            ))
+        }
+        s if !(200..300).contains(&s) => {
+            return Err(PollErr::new(format!("usage endpoint returned {s}")))
+        }
+        _ => {}
+    }
+
+    res.body_mut().read_json::<Value>().map_err(PollErr::new)
+}
+
+/// `Retry-After` in seconds, clamped to something a person would sit through.
+///
+/// The header's other form is an HTTP date, which is deliberately not parsed:
+/// it has never turned up here, and the exponential backoff behind this is a
+/// perfectly good answer for a header we cannot read. A number this cannot
+/// believe - a broken header asking for a year - is capped rather than
+/// honoured, because a daemon that stops polling until next week is one that
+/// has to be restarted by hand to come back.
+fn retry_after<T>(res: &ureq::http::Response<T>) -> Option<u64> {
+    let raw = res.headers().get("retry-after")?.to_str().ok()?;
+    Some(raw.trim().parse::<u64>().ok()?.min(6 * 3600))
 }
 
 /// Everything that knows what the payload looks like lives here.
@@ -158,9 +250,10 @@ fn fetch(creds: &Creds) -> anyhow::Result<Value> {
 /// one `five_hour` and a whole row of `seven_day*` - opus, sonnet, cowork and
 /// several that are null on any given plan - so matching the prefix takes
 /// whichever ones this account actually has and picks up the next one for free.
-/// The money is deliberately not in here: `extra_usage` and `spend` also carry a
-/// `utilization`, and a bar that silently changed from quota to dollars would be
-/// the worst kind of wrong.
+/// The money comes through a door of its own (`spend`), because `extra_usage`
+/// and `spend` also carry a `utilization` and a row that silently changed from
+/// quota to dollars would be the worst kind of wrong. Through that door it
+/// arrives labelled instead: `unit` says which it is.
 fn parse(v: &Value, plan: String) -> Snapshot {
     let mut windows = Vec::new();
 
@@ -180,11 +273,17 @@ fn parse(v: &Value, plan: String) -> Snapshot {
                 key,
                 label,
                 pct,
+                unit: Unit::Pct,
+                amount: None,
+                limit: None,
                 resets_in: resets_in(w),
             });
         }
     }
 
+    // Emptiness is judged on the rate limits alone, and before the money is
+    // added: a payload this does not recognise has to read as "no numbers" even
+    // if something in it happened to be spend-shaped.
     if windows.is_empty() {
         tracing::debug!("unrecognised usage payload: {v}");
         return Snapshot {
@@ -196,6 +295,10 @@ fn parse(v: &Value, plan: String) -> Snapshot {
         };
     }
 
+    // Last, because it is the one row that is not a rate limit and the readout
+    // draws them in the order they arrive.
+    windows.extend(spend(v));
+
     Snapshot {
         ok: true,
         error: None,
@@ -203,6 +306,68 @@ fn parse(v: &Value, plan: String) -> Snapshot {
         fetched_ms: now_ms(),
         windows,
     }
+}
+
+/// The extra-usage budget, as a row like any other.
+///
+/// Deliberately not part of `family`. `extra_usage` and `spend` both carry a
+/// `utilization`, and letting either through the rate-limit path is exactly how
+/// a quota row quietly becomes a dollar row. Coming through here it arrives
+/// carrying its unit, so the readout writes a `$` on purpose rather than a `%`
+/// by accident.
+///
+/// `monthly_limit` is read as minor units - 10000 is the $100 cap, not a $10,000
+/// one. Every dollar figure this payload names outright says so in the name
+/// (`limit_dollars`, `used_dollars`), so a bare integer sitting beside a
+/// percentage is cents; and where the two can be checked against each other they
+/// agree, since 20.93% of $100 is the $21 that `spend.percent` reports. A budget
+/// whose size cannot be read at all still leaves a row, without an amount: the
+/// percentage of it that is gone is true whatever it is worth, and a row with no
+/// figure to put a `$` on stays a percentage.
+fn spend(v: &Value) -> Option<Window> {
+    let e = &v["extra_usage"];
+    if e.is_null() {
+        return None;
+    }
+
+    // Off is not the same as nothing spent: an account that never opted in has
+    // no budget to draw, and a row reading $0 would imply it had one.
+    if e["is_enabled"].as_bool() == Some(false) {
+        return None;
+    }
+
+    // `spend.percent` is the same number rounded, and stands in if the budget
+    // itself stops reporting one.
+    let pct = percent(e).or_else(|| {
+        v["spend"]["percent"]
+            .as_f64()
+            .map(|p| p.clamp(0.0, 100.0) as f32)
+    })?;
+
+    let limit = budget(e);
+
+    Some(Window {
+        key: "spend".into(),
+        label: "extra usage".into(),
+        pct,
+        unit: if limit.is_some() { Unit::Usd } else { Unit::Pct },
+        amount: limit.map(|l| l * pct / 100.0),
+        limit,
+        // Monthly, and the payload does not say when. Nothing beats a countdown
+        // to a date this invented.
+        resets_in: None,
+    })
+}
+
+/// What the extra-usage budget is worth, in dollars. Named figures first, and
+/// the bare `monthly_limit` read as cents.
+fn budget(e: &Value) -> Option<f32> {
+    for k in ["monthly_limit_dollars", "limit_dollars"] {
+        if let Some(d) = e[k].as_f64() {
+            return Some(d as f32);
+        }
+    }
+    e["monthly_limit"].as_f64().map(|cents| (cents / 100.0) as f32)
 }
 
 /// Which rate-limit window a top-level key is, as (wire key, label). None for
@@ -323,11 +488,52 @@ fn offset_secs(s: &str) -> Option<i64> {
     Some(sign * (h * 3_600 + m * 60))
 }
 
+/// The longest this will wait between polls, however badly things are going.
+///
+/// Chosen against what a stale readout costs rather than against the endpoint:
+/// the shortest window this reports runs five hours, so half an hour behind is
+/// a number still worth drawing - and the tooltip says how old it is. It also
+/// bounds how long a fixed login or a flipped setting goes unnoticed, since the
+/// loop only looks at the config between sleeps.
+const BACKOFF_CAP: u64 = 1800;
+
+/// How long to wait after a failed poll: the configured interval, doubled once
+/// per consecutive failure, capped - and never less than the endpoint asked for.
+///
+/// The doubling is the point. A 429 answered by polling at exactly the rate
+/// that earned it is a daemon feeding its own rate limit, and this one polls
+/// forever; the first failure still retries at the normal interval, because one
+/// dropped packet should not slow the readout down. `asked` overrides the cap
+/// rather than being clamped by it: a limit the far end named is the one number
+/// here that is not a guess.
+fn backoff(base: u64, fails: u32, asked: Option<u64>) -> u64 {
+    let grown = base
+        .saturating_mul(1u64 << fails.saturating_sub(1).min(16))
+        .min(BACKOFF_CAP);
+    grown.max(asked.unwrap_or(0))
+}
+
+/// A duration in the shape the tooltip and the log want it. Coarse: nothing
+/// reading this cares about the seconds on a ten-minute wait.
+fn human(secs: u64) -> String {
+    if secs >= 3600 {
+        format!("{}h{:02}m", secs / 3600, (secs % 3600) / 60)
+    } else if secs >= 60 {
+        format!("{}m", secs / 60)
+    } else {
+        format!("{secs}s")
+    }
+}
+
 /// Polls for as long as the daemon lives, pushing a `usage` event whenever the
 /// picture changes. Started from main once, and quiet in the log unless
 /// something is wrong: this runs every minute forever.
 pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
+        // Consecutive failures, and so how far the interval has been turned up.
+        // Any poll that comes back with numbers puts it back.
+        let mut fails: u32 = 0;
+
         loop {
             let cfg = m.config().await;
             let d = &cfg.daemon;
@@ -343,36 +549,64 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
             let prev = m.usage().await;
             let was_ok = prev.ok;
 
-            // Both halves are blocking: a file read and a TLS round trip.
-            let next = tokio::task::spawn_blocking(move || match read_creds(&path) {
-                Err(e) => Snapshot::failed(&prev, e),
+            // Both halves are blocking: a file read and a TLS round trip. The
+            // second value is what the far end asked us to wait, when it said.
+            let (mut next, asked) = tokio::task::spawn_blocking(move || match read_creds(&path) {
+                Err(e) => (Snapshot::failed(&prev, e), None),
                 Ok(creds) => match fetch(&creds) {
-                    Err(e) => Snapshot::failed(&prev, e),
-                    Ok(body) => parse(&body, creds.plan),
+                    Err(e) => {
+                        let asked = e.retry_after;
+                        (Snapshot::failed(&prev, e), asked)
+                    }
+                    Ok(body) => (parse(&body, creds.plan), None),
                 },
             })
             .await
             .unwrap_or_default();
 
+            let base = d.usage_poll_secs.max(10);
+            let delay = if next.ok {
+                fails = 0;
+                base
+            } else {
+                fails = fails.saturating_add(1);
+                backoff(base, fails, asked)
+            };
+
             // Quiet in the steady state - this runs every minute forever - but
             // loud on either edge, because "is the readout live?" is otherwise a
             // question only the game can answer.
             match (&next.error, was_ok) {
-                (Some(e), true) => tracing::warn!("usage poll failed: {e}"),
-                (Some(e), false) => tracing::debug!("usage poll: {e}"),
+                (Some(e), true) => {
+                    tracing::warn!("usage poll failed: {e}; next try in {}", human(delay))
+                }
+                (Some(e), false) => {
+                    tracing::debug!("usage poll: {e}; next try in {}", human(delay))
+                }
                 (None, false) => tracing::info!(
                     "usage: {}",
                     next.windows
                         .iter()
-                        .map(|w| format!("{} {:.0}%", w.key, w.pct))
+                        .map(|w| match (w.unit, w.amount) {
+                            (Unit::Usd, Some(a)) => format!("{} ${a:.2}", w.key),
+                            _ => format!("{} {:.0}%", w.key, w.pct),
+                        })
                         .collect::<Vec<_>>()
                         .join(", ")
                 ),
                 (None, true) => {}
             }
+
+            // The wait goes into the message rather than being left in the log:
+            // the readout draws this string, and "429" without "and I am not
+            // asking again for ten minutes" reads as a daemon that has hung.
+            if let Some(msg) = next.error.take() {
+                next.error = Some(format!("{msg} - next try in {}", human(delay)));
+            }
+
             m.set_usage(next).await;
 
-            tokio::time::sleep(Duration::from_secs(d.usage_poll_secs.max(10))).await;
+            tokio::time::sleep(Duration::from_secs(delay)).await;
         }
     })
 }
@@ -401,7 +635,7 @@ mod tests {
         let s = parse(&serde_json::from_str(REAL).unwrap(), "pro".into());
 
         assert!(s.ok);
-        assert_eq!(s.windows.len(), 2, "null windows are absent, not zero");
+        assert_eq!(s.windows.len(), 3, "null windows are absent, not zero");
         assert_eq!(s.windows[0].key, "session");
         assert_eq!(s.windows[0].pct, 52.0);
         assert_eq!(s.windows[1].key, "week");
@@ -409,12 +643,93 @@ mod tests {
         assert!(s.windows[0].resets_in.unwrap() > 0);
     }
 
-    /// The money in that payload has a `utilization` too, and a bar that turned
-    /// into dollars without saying so would be worse than no bar.
+    /// The money in that payload has a `utilization` too, so it may never come
+    /// through as a rate limit - it comes through as its own row, last, saying
+    /// what it is. `monthly_limit` is cents: 10000 is the $100 cap.
     #[test]
-    fn spend_is_not_a_rate_limit() {
+    fn spend_is_money_and_not_a_rate_limit() {
         let s = parse(&serde_json::from_str(REAL).unwrap(), String::new());
-        assert!(s.windows.iter().all(|w| w.pct != 20.93 && w.pct != 21.0));
+
+        let rates = s.windows.iter().filter(|w| w.key != "spend");
+        assert!(rates.clone().all(|w| w.unit == Unit::Pct && w.amount.is_none()));
+        assert!(rates.map(|w| w.pct).all(|p| p != 20.93 && p != 21.0));
+
+        let m = s.windows.last().unwrap();
+        assert_eq!(m.key, "spend");
+        assert_eq!(m.unit, Unit::Usd);
+        assert_eq!(m.limit, Some(100.0));
+        assert!((m.amount.unwrap() - 20.93).abs() < 0.01);
+    }
+
+    /// A budget whose size cannot be read still leaves a row: the share of it
+    /// that is gone is true whatever it is worth. It just stays a percentage,
+    /// because there is no figure to put a `$` on.
+    #[test]
+    fn spend_without_a_readable_budget_stays_a_percentage() {
+        let v: Value = serde_json::from_str(
+            r#"{"five_hour":{"utilization":1},"extra_usage":{"is_enabled":true},
+                "spend":{"percent":21}}"#,
+        )
+        .unwrap();
+
+        let m = parse(&v, String::new()).windows.pop().unwrap();
+        assert_eq!(m.key, "spend");
+        assert_eq!(m.unit, Unit::Pct);
+        assert_eq!(m.pct, 21.0);
+        assert!(m.amount.is_none());
+    }
+
+    /// One dropped packet does not slow the readout down; a run of them does,
+    /// and the growth is bounded at both ends.
+    #[test]
+    fn backoff_doubles_and_caps() {
+        assert_eq!(backoff(60, 1, None), 60);
+        assert_eq!(backoff(60, 2, None), 120);
+        assert_eq!(backoff(60, 4, None), 480);
+        // The shift saturates rather than overflowing on a long outage.
+        assert_eq!(backoff(60, 30, None), BACKOFF_CAP);
+    }
+
+    /// `Retry-After` is the only number here that is not a guess, so it beats
+    /// both the doubling and the cap - but it may not make the poll *faster*
+    /// than it was asked to be.
+    #[test]
+    fn retry_after_beats_the_guess() {
+        assert_eq!(backoff(60, 1, Some(900)), 900);
+        assert_eq!(backoff(60, 1, Some(30)), 60);
+        assert_eq!(backoff(60, 9, Some(7200)), 7200);
+    }
+
+    /// The unit is what keeps a dollar row from reading as a percentage, so the
+    /// name it goes onto the wire under is part of the protocol.
+    #[test]
+    fn the_unit_is_on_the_wire() {
+        let s = parse(&serde_json::from_str(REAL).unwrap(), String::new());
+        let json = serde_json::to_string(s.windows.last().unwrap()).unwrap();
+
+        assert!(json.contains(r#""unit":"usd""#), "{json}");
+        assert!(json.contains(r#""amount":20.93"#), "{json}");
+        assert!(
+            serde_json::to_string(&s.windows[0])
+                .unwrap()
+                .contains(r#""unit":"pct""#)
+        );
+    }
+
+    /// Extra usage switched off has no budget to draw, and a row reading $0
+    /// would say it had one.
+    #[test]
+    fn spend_off_is_not_spend_zero() {
+        let v: Value = serde_json::from_str(
+            r#"{"five_hour":{"utilization":1},
+                "extra_usage":{"is_enabled":false,"monthly_limit":10000,"utilization":0}}"#,
+        )
+        .unwrap();
+
+        assert!(parse(&v, String::new())
+            .windows
+            .iter()
+            .all(|w| w.key != "spend"));
     }
 
     /// Utilization is a percentage here - the same figure is a fraction in the

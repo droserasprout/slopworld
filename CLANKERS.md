@@ -82,6 +82,7 @@ game is in the daemon's cgroup any more.
 | `sandbox.rs` | The preset table, and the bubblewrap argv a session is exec'd under. |
 | `config.rs` | `config.toml` load, save, seed and migration. |
 | `usage.rs` | Polls Anthropic for what is left of the subscription. |
+| `game.rs` | Launching the game, and answering whether it is up. |
 
 ### Projects
 
@@ -111,11 +112,22 @@ host does not run costs nothing - which is also what makes `expand` handling
 `$VAR` safe: an unset `WAYLAND_DISPLAY` leaves a path that cannot exist and so
 drops that bind, rather than mounting `$XDG_RUNTIME_DIR/` whole. Order is
 global, then presets, then what the project spelled out, deduplicated, so the
-most specific answer for a path is the last one bwrap sees. Device nodes are
-`--dev-bind` and go after `--dev`, or the tmpfs covers them; the rw list is
+most specific answer for a path is the last one bwrap sees. The rw list is
 emitted after the ro list, so a path in both - `~/.local/bin` global-ro and
 project-rw, which is what lets an agent `make install-daemon` - ends up
 writable rather than refused.
+
+Every bind goes down *after* the skeleton, because bwrap mounts in the order it
+is given and `--proc`, `--dev` and `--tmpfs /tmp` each cover whatever was
+underneath. The device note was always there; `/tmp` is the one that was wrong,
+and wrong in the way that costs an afternoon: `x11` binds `/tmp/.X11-unix`, the
+tmpfs then buried it, and the preset went on forwarding `DISPLAY` - so the
+sandbox told every client in it that this host had an X server and gave it
+nothing to connect to. Nothing failed at the point of the mistake. The one
+exception kept its order deliberately: the `resolv.conf` bind is emitted last of
+the read-only ones, because its target can sit under a path a preset also binds
+(the stub is in `/run/systemd/resolve`, and `systemd` binds `/run/systemd`) and
+the file has to be the thing on top.
 
 A socket is bound by its directory wherever whoever owns it will recreate it.
 A bind of the socket file pins the inode that was there when the session was
@@ -135,6 +147,23 @@ it goes `AUTHENTICATING -> CLOSED` and blames "local transport". The session
 bus reaches the same manager, which is why `systemd` is no use without `dbus`.
 Literals are applied after the forwarded names so the preset's deliberate
 answer beats whatever slopd happened to be launched with.
+
+The environment is *built*, not inherited: bwrap gets `--clearenv` and everything
+in the sandbox is something that asked to be there. Without it a session got
+whatever slopd was started with, which on a desktop is eighty-odd names -
+`DISPLAY`, `WAYLAND_DISPLAY`, `SSH_AUTH_SOCK` and anything a shell exported
+before a hand-started daemon. None of those are capabilities on their own, the
+socket is, but a name that says a socket exists is worse than its absence: a
+program reads it as "this host has one" and fails at the far end of a `connect()`
+instead of taking the road it does have. It also made `env` a poor description of
+the sandbox, which is a thing an agent in here actually reads. `BASE_ENV` is what
+survives regardless - `PATH`, `LANG`, `USER`, `LOGNAME`, `SHELL` and anything
+`LC_*` - compiled in for the same reason the presets are: a `config.toml` written
+before this existed lists none of them, and an agent with no `PATH` is a session
+that starts and dies. `TERM` and `COLORTERM` are *stated* rather than forwarded,
+because the terminal is one slopd built - tmux, into our own emulator - and slopd
+has no terminal of its own to inherit one from, while a slopd started by hand
+from a shell has that shell's, which is not the pane's either.
 
 Two rules on the way in. A session must name a project that exists
 (`check_belongs`), enforced on add and update rather than at start, so the
@@ -174,12 +203,39 @@ to come back rather than to stay up.
 
 Whichever tmux command first needs a server is the one that forks it, and the
 server inherits that client's cgroup - which, started from slopd, is
-`slopd.service`, so restarting the unit used to SIGTERM every agent along with
-it, including the one that ran make. `Tmux::ensure_server` starts the server
-under `systemd-run --user --scope` instead, in `slopworld-tmux.scope`, and
-everything else waits on that having happened. `Manager::restart_game` does the
-same for the game, as a transient unit. Hosts with no systemd fall back to
-starting things inline and pay the old price.
+`slopd.service`, so restarting the unit SIGTERMs every agent along with it,
+including the one that ran make. Two things stop that, and it needs both.
+
+`Tmux::ensure_server` starts the server in `slopworld-tmux.service`, a transient
+unit of its own, and everything else waits on that having happened.
+`Manager::restart_game` does the same for the game. It is a *service* with
+`Type=forking` rather than a scope, and the scope it used to be is worth writing
+down, because it looked like it worked for months. `tmux start-server`
+daemonises: the process `systemd-run --scope` put in the scope forked the server
+and exited, systemd saw the scope's own process gone and tore the scope down -
+killing the fork with it, same cgroup. The next tmux command found no server,
+forked its own, and *that* one - the server every agent then ran under - was back
+in `slopd.service`. Nothing said so: `systemd-run` had exited zero and the log
+line believed it, so the journal claimed a scope that `systemctl --user` could
+not find seconds later, while `systemctl status slopd` listed the tmux server
+right there in the cgroup. `Type=forking` is the shape that fits a program which
+daemonises - systemd waits for the parent to exit and adopts what is left in the
+cgroup - and `ensure_server` now checks the socket afterwards rather than
+trusting an exit code, so the log says what happened instead of what was tried.
+
+`KillMode=process` in `slopd.service` is the other half, and it is what makes
+this survivable rather than merely correct: any tmux command slopd runs forks a
+server if none is up, so there will always be a way for one to land in the
+daemon's own cgroup. With the default `control-group`, stopping the unit takes
+that server and every agent with it; with `process`, systemd signals slopd and
+leaves the rest ("Unit process N (tmux: server) remains running after unit
+stopped", followed by a grumble about a left-over process on the next start,
+which is this working as intended). It is also the migration path: reloading the
+unit *before* the restart is what lets the running agents survive the very
+redeploy that installs the fix, which is why `install-daemon` does
+`daemon-reload` before `restart`.
+
+Hosts with no systemd fall back to starting things inline and pay the old price.
 
 What a restart still costs: the emulators. `spawn_reader` rebuilds one per
 running session from `capture-pane -e -S -<history_limit>`, which brings back
@@ -215,6 +271,22 @@ has to read as "no numbers" and never as a colony sitting comfortably at zero. A
 failed poll keeps the last good windows and adds the reason, since a readout that
 empties itself on one dropped packet is worse than a stale one that says so.
 
+A failure also slows the next poll down. `backoff` doubles the configured
+interval per consecutive failure, capped at half an hour, and any poll that
+comes back with numbers puts it straight back - the first failure still retries
+at the normal rate, because one dropped packet should not cost the readout a
+minute. The case this exists for is 429: polling at exactly the rate that earned
+a rate limit is a daemon feeding its own, and this one polls forever. So the
+response is read rather than raised as an error (`http_status_as_error(false)`,
+since ureq's `StatusCode` error has already dropped the response) and
+`Retry-After` is carried out of it on `PollErr` - it beats both the doubling and
+the cap, being the one number here that is not a guess, though it can never make
+the poll *faster* than asked. A 429 that names no wait gets `RATE_LIMIT_FLOOR`
+instead, and an absurd one is clamped, because a daemon that stops polling until
+next week has to be restarted by hand. The wait then goes into the error string
+as well as the log, because the mod draws that string and "429" on its own reads
+as something that has hung.
+
 What the payload holds, as of the last look: `five_hour` and a row of
 `seven_day*` - the plain weekly plus `_opus`, `_sonnet`, `_cowork` and several
 that are null on any given plan. Windows are matched by that family rather than
@@ -224,16 +296,67 @@ arrives free. Two traps in there. `utilization` is a *percentage* (52.0 means
 response headers as a fraction; telling them apart by size, which an earlier cut
 did, reads a window that is 0.8% spent as 80%. And `extra_usage` / `spend` carry
 a `utilization` too, but theirs is money - the credit balance - so the family
-match is what keeps a quota bar from silently becoming a dollar bar. `resets_at`
+match is what keeps a quota row from silently becoming a dollar row. `resets_at`
 is RFC3339 with fractional seconds and a numeric offset, not a `Z`, and the
 offset is applied rather than assumed: `epoch_from_rfc3339` is hand-rolled
 because chrono for one field is a dependency the daemon would carry forever.
+
+The money does go over, but through a door of its own. `spend` reads
+`extra_usage` into a window like any other and stamps it `unit: usd`, so the
+readout writes a `$` on purpose rather than a `%` by accident - the unit rides
+along rather than being inferred from the key, because a client that cannot tell
+the two apart is exactly the failure the family match exists to prevent.
+`monthly_limit` is read as *cents* (10000 is the $100 cap): every dollar figure
+this payload names outright says so in the name - `limit_dollars`, `used_dollars`
+- and 20.93% of $100 is the $21 that `spend.percent` reports, which is the only
+corroboration available. A budget whose size cannot be read still leaves a row,
+without an `amount` and so still a percentage; extra usage switched *off* leaves
+none at all, because a row reading $0 would say the account had a budget. The
+check that decides a payload is unrecognised runs on the rate limits alone and
+before the money is added, so a payload with nothing but a spend shape in it
+still reads as "no numbers".
 
 The wire carries a *list* of windows rather than two named ones, and the mod
 draws whatever arrives, so a plan with different limits needs no change on either
 side. Resets are handed over as seconds remaining, not as instants: the daemon
 has the date parser, and a countdown from when the mod heard keeps running when
 the daemon does not.
+
+### The game
+
+`game.rs` starts it and says whether it is up. The second half is there for the
+agents, who cannot find out for themselves: a session runs in a PID namespace of
+its own with a fresh `/proc` over it, so `ps` and `pgrep` in a sandbox see that
+sandbox's own handful of processes and nothing else on the host - which does not
+read as "cannot tell", it reads as "no game is running", and the agent working on
+this repo believed it. Sharing the PID namespace would fix the symptom and hand
+every agent the ability to signal every process the user owns, which is a great
+deal to trade for a question the daemon can simply answer: slopd is on the host,
+it already launches the game, and it is already what a session asks about
+everything else.
+
+So `GET /api/game`, and `source` says how it knows. `unit` is the game slopd
+started, found through `slopworld-game.service`; `process` is one started by
+hand, matched on `daemon.game_cmd`'s full command line and then, failing that, on
+the executable's bare name - that order and not the other, because the bare name
+would also match an editor with the word in its argv. `client` is neither: no
+process found, but something is holding `/ws` open, which is a game up far enough
+to have loaded the mod and talked to us. That last one is usually the question
+being asked anyway - not "is a game running" but "is it running the build I just
+installed" - so the count and the age of the oldest client are in the answer, and
+a client younger than the DLL on disk is the new one. Uptimes go over as seconds
+rather than instants, the same as the usage resets and for the same reason.
+
+`tools/shot.sh` is the other half of not being able to see it: `xdotool` to find
+the window, `import` to grab it, a PNG an agent can open. It works because
+RimWorld is an SDL/X11 client and so an *Xwayland* one on a Wayland desktop -
+whose window contents can simply be read, where a Wayland compositor hands out
+nothing without a portal prompt (GNOME's own `org.gnome.Shell.Screenshot` answers
+`AccessDenied` outright). Which is why the `x11` preset is the one worth having
+here and `wayland` is not, and why `x11` also binds `$XAUTHORITY`: a desktop
+running its X clients through Xwayland writes the cookie under
+`$XDG_RUNTIME_DIR` under a name of its own choosing and leaves `~/.Xauthority`
+absent.
 
 ### Wire protocol
 
@@ -246,8 +369,9 @@ to fill the "which project" dropdown from at all. Client messages: `sub`,
 `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste`. Everything that rewrites
 `config.toml` goes over HTTP instead, because the error body matters -
 `/api/sessions`, `/api/projects` and `/api/config` all in the same shape;
-`GET /api/usage` and `GET /api/presets` are there for anything that would
-rather ask than listen.
+`GET /api/usage`, `GET /api/presets` and `GET /api/game` are there for anything
+that would rather ask than listen. The last of those has no socket half at all:
+its reader is a shell in a sandbox, and the mod is the thing being asked about.
 
 ## Mod
 
@@ -528,14 +652,38 @@ none of these need a def.
 
 ### `UI/` - the terminal
 
-`UsageReadout` is the one non-terminal thing here: the session and weekly limits
-drawn as bars in the top-left corner, which is where `Patch_HideGui` left a hole
-by stripping `ResourceReadout` and where the eye goes anyway. A `MapComponent`
-rather than a window, so it sits on the map layer behind every window - right,
-because an open terminal is fullscreen and opaque and a bar over it would cover
-the thing being read. The countdown to a reset runs off the frame clock rather
-than off the daemon's word, so it keeps ticking between polls and when the socket
-dies; the numbers themselves are never computed here.
+`UsageReadout` is the one non-terminal thing here: the quota windows drawn in the
+top-left corner, which is where `Patch_HideGui` left a hole by stripping
+`ResourceReadout` and where the eye goes anyway. A `MapComponent` rather than a
+window, so it sits on the map layer behind every window - right, because an open
+terminal is fullscreen and opaque and a readout over it would cover the thing
+being read. The countdown to a reset runs off the frame clock rather than off the
+daemon's word, so it keeps ticking between polls and when the socket dies; the
+numbers themselves are never computed here.
+
+They are drawn as the game's own resources rather than as bars: an icon and a
+white number, `%` for a rate-limit window and `$` for the extra-usage budget,
+with everything else in the hover. A bar is a widget this game has nowhere else,
+and this corner is the one place a player already knows how to read; the detail
+the bar carried - which window, when it resets, how old the number is - was in
+the tooltip either way. The geometry is vanilla's own simple readout down to the
+27px icon in a 24px row and the count at 34, and `GenUI.DrawTextWinterShadow` is
+the darkening under it that went out with the readout being stripped. Colour is
+*not* carrying anything any more: the number is white at any percentage, the way
+a steel count is white whether you have four or four thousand. Note that
+`Widgets.ThingIcon` leaves `GUI.color` on the def's own tint, so the row's white
+has to be put back before the number is drawn - stale snapshots dim through the
+icon's `alpha` argument and the colour alpha, not through one of them.
+
+Which resource stands for which window is a table in there (`Known`): chemfuel
+for the five-hour, since it burns down fast and comes back, steel for the weekly
+bulk, plasteel for opus and components for sonnet, silver for the money. It is
+arbitrary and stable, which is all an icon has to be. A window this build has
+never heard of takes the next unused resource from `Pool`, and the assignment is
+remembered per key rather than recomputed per frame, because an icon that
+depended on which other windows were in this poll would move about between polls.
+`Pool` is built on first use, not in a field initialiser: `ThingDefOf` is filled
+in during startup and a static touched too early caches a row of nulls.
 
 `TerminalWindow` renders a pane and forwards keys. Almost everything typed goes
 to the agent - Escape included, which is why leaving is Shift+Escape - so the few

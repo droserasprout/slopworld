@@ -39,6 +39,7 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/config/values", put(put_config_values))
         .route("/api/usage", get(usage))
         .route("/api/browse", get(browse))
+        .route("/api/game", get(game))
         .route("/api/game/restart", post(restart_game))
         .route("/ws", get(ws_upgrade))
         .with_state(m)
@@ -224,6 +225,12 @@ async fn restart_game(State(m): State<Mgr>, body: Option<Json<RestartGameReq>>) 
     ok_json(m.restart_game(delay).await)
 }
 
+/// Whether the game is up, and how we know. Written for an agent inside a
+/// session, which cannot see the host's process table at all - see `game.rs`.
+async fn game(State(m): State<Mgr>) -> ApiResult {
+    Ok(Json(json!(m.game().await)))
+}
+
 /// What is left of the subscription. The same snapshot the socket pushes, for
 /// anything that would rather ask than listen - `curl` while the game is shut,
 /// mostly.
@@ -335,6 +342,10 @@ async fn ws_upgrade(
 }
 
 async fn ws_run(socket: WebSocket, m: Mgr) {
+    // Held for the life of the pump, so /api/game can say whether anything is
+    // attached without either end of this having to report it.
+    let _client = m.client_joined();
+
     let (tx, mut rx) = socket.split();
     let tx = Arc::new(Mutex::new(tx));
     let subs: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
