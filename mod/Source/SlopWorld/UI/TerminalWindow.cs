@@ -12,9 +12,13 @@ namespace SlopWorld
     /// </summary>
     public class TerminalWindow : Window
     {
-        const float HeaderH = 28f;
-        /// Exposed for the colonist-bar overlay, which hangs directly under the header.
-        public static float HeaderHeight => HeaderH;
+        /// What the title bar is when it is only a title bar - one row of buttons.
+        const float HeaderMinH = 28f;
+
+        /// <summary>The title bar's height. The colonist strip draws inside it, so
+        /// it grows to hold a portrait, and never shrinks below the row of buttons
+        /// it also has to hold.</summary>
+        static float HeaderH => Mathf.Max(HeaderMinH, ColonistBarOverlay.PortraitH);
         const float Pad = 6f;
 
         static readonly Color SelColor = new Color(0.30f, 0.50f, 0.90f, 0.35f);
@@ -159,18 +163,21 @@ namespace SlopWorld
             var header = new Rect(rect.x, rect.y, rect.width, HeaderH);
             DrawHeader(header, info);
 
-            // The colonist bar hangs above the pane while this window is up, and a
-            // click on it switches the session. It has to be drawn from here, after
-            // the background fill above - drawn anywhere earlier in the frame it is
-            // painted over. See ColonistBarAboveTerminal.cs.
+            // The colonist bar draws inside that header while this window is up, and
+            // a click on it switches the session. It has to be drawn from here, after
+            // the background fill and the header - drawn anywhere earlier in the
+            // frame it is painted over. See ColonistBarAboveTerminal.cs.
             var bar = ColonistBarOverlay.Rect;
             ColonistBarOverlay.Draw();
 
+            // The strip overlaps the header and outhangs it by the names, so the pane
+            // starts below whichever of the two reaches lower.
+            float top = Mathf.Max(header.yMax, bar.yMax);
             var body = new Rect(
                 rect.x + Pad,
-                bar.yMax + Pad,
+                top + Pad,
                 rect.width - Pad * 2,
-                rect.height - HeaderH - bar.height - Pad * 2);
+                rect.height - top - Pad * 2);
 
             HandleInput(body);
 
@@ -228,7 +235,10 @@ namespace SlopWorld
         {
             Widgets.DrawBoxSolid(r, new Color(0.10f, 0.11f, 0.13f));
 
-            var label = new Rect(r.x + Pad, r.y + 4f, r.width - 340f, 22f);
+            // Centred rather than parked at the top: the bar is as tall as a portrait
+            // now, and everything that is not a portrait reads as adrift in it if it
+            // hangs off the ceiling.
+            var label = new Rect(r.x + Pad, r.y + (r.height - 22f) / 2f, r.width - 340f, 22f);
             Text.Font = GameFont.Small;
 
             var state = info?.State ?? AgentState.Down;
@@ -237,16 +247,18 @@ namespace SlopWorld
             GUI.color = Color.white;
 
             float x = r.xMax - Pad;
+            float by = r.y + (r.height - 24f) / 2f;
+
             x -= 90f;
-            if (Widgets.ButtonText(new Rect(x, r.y + 2f, 86f, 24f), "Close"))
+            if (Widgets.ButtonText(new Rect(x, by, 86f, 24f), "Close"))
                 Close();
 
             x -= 94f;
-            if (Widgets.ButtonText(new Rect(x, r.y + 2f, 90f, 24f), "Restart"))
+            if (Widgets.ButtonText(new Rect(x, by, 90f, 24f), "Restart"))
                 SessionHub.Instance.Restart(_name, Fail);
 
             x -= 94f;
-            if (Widgets.ButtonText(new Rect(x, r.y + 2f, 90f, 24f), "Stop"))
+            if (Widgets.ButtonText(new Rect(x, by, 90f, 24f), "Stop"))
                 SessionHub.Instance.Stop(_name, Fail);
         }
 

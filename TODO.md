@@ -21,7 +21,7 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 - [ ] Add "+" button to the small floating colonist panel
 - [ ] Bug: DnD text selection highlights the whole line under the cursor including empty space
 - [ ] Remove "Stop" and "Restart" buttons, turn "Close" button into red cross.
-- [ ] Move small colonist panel higher over the title bar (make title bar a bit taller, just to fit colonist icon, leave the name label hang below edge)
+- [x] Move small colonist panel higher over the title bar (make title bar a bit taller, just to fit colonist icon, leave the name label hang below edge)
 - [ ] Color schemes. Default to dark RimWorld-style pallette.
 - [ ] Bells and whistles
   - [ ] Cursor color
