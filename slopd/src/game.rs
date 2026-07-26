@@ -108,17 +108,44 @@ fn unit_pid() -> Option<u32> {
 /// working on the mod, since the game gets started once and then only ever
 /// restarted through `/api/game/restart`.
 ///
-/// Matched on the full command line first, because that is what was configured
-/// and cannot collide; then on the executable's own name, which catches a
-/// launcher that starts the same binary by another path but would also match an
-/// editor that happens to have the name in its argv - so it is the fallback and
-/// not the test.
+/// Matched on the configured path first, because that is what was asked for;
+/// then on the executable's own name, which catches a launcher that starts the
+/// same binary by another path but would also match an editor that happens to
+/// have the name in its argv - so it is the fallback and not the test.
+///
+/// The path is matched *anchored*, and that is not tidiness. `pgrep -f` takes a
+/// regex and tries it anywhere in a command line, and the game's own directory
+/// turns up in command lines that are not the game: every sandbox binds
+/// `<game>/RimWorldLinux_Data/Managed` so an agent can build the mod against the
+/// game's assemblies, so a bare `-f <path>` matches an agent - and then reports
+/// a colonist as the running game. Nothing says so until a restart, which quits
+/// the game, waits for that PID to go away, finds it still there because it was
+/// never the game, and refuses to launch: "the game is still running after being
+/// asked to quit". Bounded at both ends, only a process actually exec'd from
+/// that path can match.
 fn found(exe: &str) -> Option<u32> {
     if exe.is_empty() {
         return None;
     }
     let name = exe.rsplit('/').next().unwrap_or(exe);
-    pgrep(&["-f", exe]).or_else(|| pgrep(&["-x", name]))
+    pgrep(&["-f", &argv0_pattern(exe)]).or_else(|| pgrep(&["-x", name]))
+}
+
+/// `exe` as an extended regex that matches only a command line starting with it.
+/// The path is a string somebody typed, not a pattern, so every character a
+/// regex would read is escaped first.
+fn argv0_pattern(exe: &str) -> String {
+    let mut out = String::with_capacity(exe.len() + 8);
+    out.push('^');
+    for c in exe.chars() {
+        if "\\.^$*+?()[]{}|".contains(c) {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    // End of the command line, or the space before the first argument.
+    out.push_str("( |$)");
+    out
 }
 
 fn pgrep(args: &[&str]) -> Option<u32> {
@@ -234,5 +261,55 @@ mod tests {
         assert!(s.running);
         assert_eq!(s.source, "client");
         assert_eq!(s.clients_uptime_s, Some(3));
+    }
+
+    /// Both ends of the pattern, which is the whole of the fix: without the `^`
+    /// a bind path anywhere in an agent's argv matches, and without the `( |$)`
+    /// the game's own `RimWorldLinux_Data` does.
+    #[test]
+    fn the_game_is_matched_as_a_whole_argv0() {
+        assert_eq!(
+            argv0_pattern("/home/me/RimWorld/game/RimWorldLinux"),
+            "^/home/me/RimWorld/game/RimWorldLinux( |$)"
+        );
+    }
+
+    /// A path with a regex character in it is still a path.
+    #[test]
+    fn a_dot_in_the_path_is_a_dot() {
+        assert_eq!(argv0_pattern("/o.d/rw"), "^/o\\.d/rw( |$)");
+    }
+
+    /// The bug, against the thing that actually runs the pattern: a process
+    /// whose argv merely mentions the game, the way every sandbox's does.
+    #[test]
+    fn pgrep_does_not_take_a_bind_path_for_the_game() {
+        let exe = "/home/nobody/RimWorld/game/RimWorldLinux";
+        // A shell that cannot tail-exec its script, so the argv we gave it is
+        // the argv on /proc for as long as we need it.
+        let mut decoy = match Command::new("sh")
+            .args(["-c", "while :; do sleep 1; done"])
+            .arg(format!("bwrap --ro-bind {exe}_Data/Managed /x -- claude"))
+            .spawn()
+        {
+            Ok(c) => c,
+            Err(_) => return, // no shell here; the string tests still hold
+        };
+        // `spawn` returns before the child has exec'd, so its argv is not on
+        // /proc yet; without this the test proves only that pgrep found nothing.
+        let mut decoy_is_findable = None;
+        for _ in 0..50 {
+            decoy_is_findable = pgrep(&["-f", exe]);
+            if decoy_is_findable.is_some() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let hit = pgrep(&["-f", &argv0_pattern(exe)]);
+        let _ = decoy.kill();
+        let _ = decoy.wait();
+
+        assert_eq!(decoy_is_findable, Some(decoy.id()), "the decoy is what the old pattern found");
+        assert_eq!(hit, None, "and it is not the game");
     }
 }

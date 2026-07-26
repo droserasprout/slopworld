@@ -337,9 +337,17 @@ everything else.
 
 So `GET /api/game`, and `source` says how it knows. `unit` is the game slopd
 started, found through `slopworld-game.service`; `process` is one started by
-hand, matched on `daemon.game_cmd`'s full command line and then, failing that, on
+hand, matched on `daemon.game_cmd`'s own path and then, failing that, on
 the executable's bare name - that order and not the other, because the bare name
-would also match an editor with the word in its argv. `client` is neither: no
+would also match an editor with the word in its argv. The path is matched
+*anchored*, `^path( |$)`, and that is the whole of a bug worth remembering:
+`pgrep -f` tries its pattern anywhere in a command line, and every sandbox binds
+`<game>/RimWorldLinux_Data/Managed` so an agent can build the mod against the
+game's assemblies - so an unanchored match found an agent and called it the
+game. Nothing said so until a restart, which quits the game, waits for that PID
+to go away, finds it still there because it was never the game, and refuses to
+launch a second copy. The board stayed down and the log blamed the game for not
+quitting. `client` is neither: no
 process found, but something is holding `/ws` open, which is a game up far enough
 to have loaded the mod and talked to us. That last one is usually the question
 being asked anyway - not "is a game running" but "is it running the build I just
