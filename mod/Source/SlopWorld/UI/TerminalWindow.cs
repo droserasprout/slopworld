@@ -40,6 +40,10 @@ namespace SlopWorld
         // A mouse gesture currently being forwarded to an app that wants the mouse.
         bool _mouseFwd;
 
+        // Keys typed while the socket was down. There is nowhere to send them, and
+        // swallowing them in silence is how a redeploy reads as a frozen terminal.
+        int _droppedKeys;
+
         public static TerminalWindow Open(string name)
         {
             // Re-opening the same session should focus it, not stack a second copy.
@@ -52,6 +56,7 @@ namespace SlopWorld
             }
             var w = new TerminalWindow(name);
             Find.WindowStack.Add(w);
+            TerminalRecall.Remember(name);
             return w;
         }
 
@@ -67,6 +72,7 @@ namespace SlopWorld
             SessionHub.Instance.Unsubscribe(_name);
             _name = name;
             SessionHub.Instance.Subscribe(_name);
+            TerminalRecall.Remember(_name);
             SelectAgent(_name);
             _scrollOff = 0;
             ClearSelection();
@@ -192,6 +198,30 @@ namespace SlopWorld
 
             if (_scrollOff > 0)
                 DrawScrollHint(body);
+
+            if (!hub.Online) DrawOfflineBanner(body);
+            else _droppedKeys = 0;
+        }
+
+        /// <summary>Says the pane is a still photograph, not a live terminal. The
+        /// daemon restarting under a working agent is routine here - it is what
+        /// `make install-daemon` does - and the pane keeps showing the last frame
+        /// throughout, which without this is indistinguishable from an agent that
+        /// has stopped answering.</summary>
+        void DrawOfflineBanner(Rect body)
+        {
+            var r = new Rect(body.x, body.y, body.width, 24f);
+            Widgets.DrawBoxSolid(r, new Color(0.42f, 0.12f, 0.10f, 0.92f));
+
+            string tail = _droppedKeys > 0
+                ? $" - {_droppedKeys} keystroke{(_droppedKeys == 1 ? "" : "s")} not delivered"
+                : "";
+
+            Text.Font = GameFont.Small;
+            var anchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.Label(r, $"daemon {SessionHub.Instance.Status} - reconnecting{tail}");
+            Text.Anchor = anchor;
         }
 
         void DrawHeader(Rect r, SessionInfo info)
@@ -392,6 +422,18 @@ namespace SlopWorld
             {
                 Close();
                 e.Use();
+                return;
+            }
+
+            // Offline: the hub drops sends on the floor, so count them and say so
+            // in the banner rather than letting the terminal eat what was typed.
+            if (!SessionHub.Instance.Online)
+            {
+                if (e.keyCode != KeyCode.None || e.character != '\0')
+                {
+                    _droppedKeys++;
+                    e.Use();
+                }
                 return;
             }
 

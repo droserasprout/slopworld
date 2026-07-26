@@ -134,7 +134,11 @@ namespace SlopWorld
             _ws?.Dispose();
             _ws = null;
             _nextRetry = UnityEngine.Time.realtimeSinceStartup + _backoff;
-            _backoff = Math.Min(_backoff * 2, 30);
+            // Capped low: the usual reason the socket dies is `make install-daemon`
+            // restarting slopd, which is over in about two seconds. Half a minute
+            // of backoff after that is half a minute of a dead-looking terminal
+            // with a working agent behind it.
+            _backoff = Math.Min(_backoff * 2, 5);
         }
 
         public void Disconnect()
