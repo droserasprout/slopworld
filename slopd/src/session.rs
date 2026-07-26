@@ -42,6 +42,9 @@ pub struct SessionView {
     pub agent: String,
     pub state: State,
     pub alive: bool,
+    /// The pane's size right now, not a setting: the window it is drawn in owns
+    /// this and sends `resize` when it changes. Reported so `curl /api/sessions`
+    /// can answer "what shape does the agent think its terminal is".
     pub cols: u16,
     pub rows: u16,
     pub net: bool,
@@ -147,6 +150,19 @@ pub struct Manager {
 
 /// How often the config file is checked for outside edits.
 const CFG_CHECK_MS: u64 = 2_000;
+
+/// The size a pane is born at, and the only place a number like this lives now.
+///
+/// It used to be config - `[defaults] cols/rows` and a per-session override - and
+/// that was the wrong place for it twice over: whatever is in a file is wrong the
+/// moment the game window is a different shape, and nothing was ever going to
+/// keep the two in step by hand. The terminal window measures itself in cells and
+/// sends a `resize` (see `TerminalWindow.NegotiateSize`), so the window is
+/// authoritative and this is only what the pane wears until it is looked at -
+/// which matters, because an agent that starts, prints and is never opened still
+/// has to have wrapped its output at something sane.
+const BOOT_COLS: u16 = 120;
+const BOOT_ROWS: u16 = 34;
 
 fn disk_mtime(path: &std::path::Path) -> Option<SystemTime> {
     std::fs::metadata(path).ok()?.modified().ok()
@@ -397,8 +413,6 @@ impl Manager {
         live.retain(|name, _| cfg.session(name).is_some());
 
         for s in &cfg.sessions {
-            let cols = s.cols.unwrap_or(cfg.defaults.cols);
-            let rows = s.rows.unwrap_or(cfg.defaults.rows);
             live.entry(s.name.clone())
                 .and_modify(|l| l.cfg = s.clone())
                 .or_insert(Live {
@@ -407,8 +421,8 @@ impl Manager {
                     seq: 0,
                     hash: 0,
                     last_change: 0,
-                    cols,
-                    rows,
+                    cols: BOOT_COLS,
+                    rows: BOOT_ROWS,
                     screen: None,
                     emu: None,
                     reader: None,
@@ -477,8 +491,13 @@ impl Manager {
             bail!("{dir} is not a directory");
         }
 
-        let cols = s.cols.unwrap_or(cfg.defaults.cols);
-        let rows = s.rows.unwrap_or(cfg.defaults.rows);
+        // The size the live entry is already carrying: a restart of a session whose
+        // terminal is open should come back the shape the window asked for, not the
+        // shape a fresh one starts at.
+        let (cols, rows) = match self.live.read().await.get(name) {
+            Some(l) => (l.cols, l.rows),
+            None => (BOOT_COLS, BOOT_ROWS),
+        };
         let argv = build_argv(&cfg, &s);
         tracing::info!("starting {name}: {}", argv.join(" "));
         self.tmux.spawn(name, &dir, cols, rows, &argv).await?;
@@ -624,9 +643,6 @@ impl Manager {
         if let Some(d) = &defaults {
             if d.agent.trim().is_empty() {
                 bail!("default agent command must not be empty");
-            }
-            if d.cols < 20 || d.rows < 5 {
-                bail!("default size must be at least 20x5");
             }
         }
 

@@ -91,7 +91,6 @@ namespace SlopWorld
         public override void GameComponentTick()
         {
             if (Find.TickManager.TicksGame % Interval != 0) return;
-            if (!Settings.SpawnPawns) return;
 
             var map = Find.CurrentMap ?? Find.AnyPlayerHomeMap;
             if (map == null) return;
@@ -147,7 +146,7 @@ namespace SlopWorld
             // (Downed), an idle agent sleeps, a working or waiting one stays awake.
             foreach (var kv in _pawns)
             {
-                RobotHead.Apply(kv.Value);
+                RobotFace.Apply(kv.Value);
 
                 var state = SessionHub.Instance.Get(kv.Key)?.State ?? AgentState.Down;
                 // A process that stopped just now, as opposed to one that was
@@ -285,6 +284,7 @@ namespace SlopWorld
 
             var pawn = PawnGenerator.GeneratePawn(req);
             pawn.Name = new NameSingle(name);
+            RobotFace.FitHair(pawn);
 
             GenSpawn.Spawn(pawn, SpawnSpot.Find(map, Anchor(map)), map);
 

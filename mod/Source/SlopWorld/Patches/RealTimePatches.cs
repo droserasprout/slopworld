@@ -10,8 +10,9 @@ namespace SlopWorld
     // would have measured (see RealClock), so the board reads in the same units as
     // the agents it is watching.
     //
-    // Gated on a setting. It rewrites vanilla text everywhere, which is the point,
-    // but a switch costs nothing.
+    // Unconditional. It rewrites vanilla text everywhere, which is the point: a
+    // board that prints game days beside agents that work in minutes is a board
+    // that has to be read twice.
 
     /// <summary>The main one: "3 hours", "2 days", and the "5h" short form.</summary>
     [HarmonyPatch(typeof(GenDate), nameof(GenDate.ToStringTicksToPeriod))]
@@ -19,7 +20,6 @@ namespace SlopWorld
     {
         static bool Prefix(int numTicks, bool shortForm, ref string __result)
         {
-            if (!Settings.RealTime) return true;
             __result = RealClock.Period(RealClock.Seconds(numTicks), shortForm);
             return false;
         }
@@ -32,7 +32,6 @@ namespace SlopWorld
     {
         static bool Prefix(int numTicks, ref string __result)
         {
-            if (!Settings.RealTime) return true;
             __result = RealClock.Period(RealClock.Seconds(numTicks));
             return false;
         }
@@ -45,7 +44,6 @@ namespace SlopWorld
     {
         static bool Prefix(int numTicks, ref string __result)
         {
-            if (!Settings.RealTime) return true;
             __result = RealClock.Period(RealClock.Seconds(numTicks));
             return false;
         }
@@ -59,7 +57,6 @@ namespace SlopWorld
     {
         static bool Prefix(int numTicks, ref string __result)
         {
-            if (!Settings.RealTime) return true;
             __result = RealClock.Period(RealClock.Seconds(numTicks));
             return false;
         }
@@ -81,7 +78,6 @@ namespace SlopWorld
     {
         static bool Prefix(LogEntry __instance, ref string __result)
         {
-            if (!Settings.RealTime) return true;
             if (__instance.Timestamp < 0) return true; // never stamped
 
             string ago = RealClock.Period(RealClock.SecondsSince(__instance.Timestamp));

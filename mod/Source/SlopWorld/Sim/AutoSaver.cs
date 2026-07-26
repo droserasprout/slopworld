@@ -24,6 +24,11 @@ namespace SlopWorld
     /// </summary>
     public class AutoSaver : GameComponent
     {
+        // Real minutes between saves. Short enough that a crash costs a colony
+        // nothing worth mourning, long enough that the write is not what the
+        // player notices.
+        const float Minutes = 2f;
+
         // Runtime only: a save is worth taking on the far side of a restart too.
         float _next;
 
@@ -31,20 +36,17 @@ namespace SlopWorld
 
         public override void GameComponentTick()
         {
-            int minutes = Settings.AutosaveMinutes;
-            if (minutes <= 0) return;
-
             float now = Time.realtimeSinceStartup;
             // First tick of a session: arm the timer rather than saving immediately,
             // which would put a save between the load and the first frame.
             if (_next <= 0f)
             {
-                _next = now + minutes * 60f;
+                _next = now + Minutes * 60f;
                 return;
             }
             if (now < _next) return;
 
-            _next = now + minutes * 60f;
+            _next = now + Minutes * 60f;
             SaveNow();
         }
 

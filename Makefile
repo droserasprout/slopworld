@@ -31,7 +31,14 @@ install-daemon: daemon
 	systemctl --user restart slopd.service
 	@systemctl --user --no-pager status slopd.service | head -3
 
+# The install is wiped rather than copied over. cp -r never deletes, so a def or
+# a texture dropped from the repo stayed installed and kept working - which is
+# worse than a build error, because the game loads the stale def and the symptom
+# is the old behaviour with none of the old code behind it. The guard is because
+# this rm is only ever safe on a path we built ourselves.
 install-mod: mod
+	@test -n "$(MODS)" || { echo "MODS is empty, refusing to remove anything"; exit 1; }
+	rm -rf "$(MODS)/SlopWorld"
 	mkdir -p "$(MODS)/SlopWorld"
 	cp -r mod/About mod/Defs mod/Patches mod/Sounds mod/Textures mod/Assemblies "$(MODS)/SlopWorld/"
 	@echo "installed to $(MODS)/SlopWorld"

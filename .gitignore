@@ -5,3 +5,4 @@ mod/Assemblies/SlopWorld.dll
 *.pdb
 *.mdb
 .tokensave
+__pycache__/

@@ -244,11 +244,10 @@ none of these need a def.
   not; one cat in the ash reads as a survivor. Placing the cat is only half of it:
   Crashlanded ships a `ScenPart_StartingAnimal` that hands over one random tame
   animal weighted by biome, and since `LandingSite` aims at tropical rainforest
-  what it kept handing over was a monkey. `Patch_NoScenarioAnimals` shuts that
-  door - `PlayerStartingThings` again, but on a different ScenPart from the one
-  `Patch_NoStartingThings` covers - and `Place` culls any colony animal already on
-  the map before spawning, which closes the rest and makes it idempotent
-  (`IntroDirector._armed` is runtime state under a persisted phase, so a save
+  what it kept handing over was a monkey. `SlopScenario` shuts that door - the
+  part is not in the scenario at all any more - and `Place` culls any colony
+  animal already on the map before spawning, which closes the rest and makes it
+  idempotent (`IntroDirector._armed` is runtime state under a persisted phase, so a save
   loaded during the fuse comes back through it). The API stays plural - `On`
   returns a list, and the purge and the plague both iterate it - so the count is a
   policy in `Place` rather than an assumption in three other files. Clicking it
@@ -259,7 +258,8 @@ none of these need a def.
   mod's assembly is read once per process, so seeing a change to it means a fresh
   game; those three save the colony on the wall clock and on the way out, load the
   newest save instead of stopping at the menu, and put the open terminal back once
-  its session has reported in. All three are opt-out in mod settings.
+  its session has reported in. None of the three has a switch: a restart that
+  stops at the menu is a restart that costs a click nobody wanted to spend.
 - `NewColony` - the other end of that: "New colony" in the sessions window bins the
   current map and lands a fresh one. Vanilla's own button is nothing but
   `Find.WindowStack.Add(new Page_SelectScenario())`, which `Patch_QuickStart`
@@ -275,16 +275,91 @@ none of these need a def.
   absorbs input around itself, and it runs earlier in `UIRoot.UIRootOnGUI` than
   the game components, so with a pane up the key never arrives. `TerminalWindow`
   holds that half - one binding, `SlopQuickTerminal`, read in two places.
-- `StatusOverlay`, `RobotHead`, `QuickStart`, `SlopDefOf`.
+- `SlopScenario` - the colony's scenario, and why nothing lands with it. Derived
+  from Crashlanded with `Scenario.CopyForEditing`, then stripped of every part
+  that hands a thing over: `ScenPart_ThingCount` (the base of both the starting
+  pile and the scatter parts), `ScenPart_StartingAnimal` and
+  `ScenPart_StartingMech`. Matched by assignability, so a subclass nobody here
+  has heard of goes with them. Derived rather than written as a `ScenarioDef` of
+  our own because the parts we are *not* interested in are exactly what a
+  hand-written def gets wrong - the surface planet layer 1.6 wants, the player
+  faction, the drop-pod arrival, the opening dialog, the pawn count - and a def
+  written against fields that move between versions breaks quietly on the next
+  one. `Patch_QuickStart` inlines the rest of `Root_Play.SetupForQuickTestPlay`
+  for the same reason it exists at all: the scenario has to be in place before
+  `PreConfigure` and `PostIdeoChosen` fan out over its parts, and those sit in the
+  middle of that method with no seam to reach.
+- `RobotFace` - the faceplate an agent wears: two lenses and a vented grill in
+  metal from the hairline down, drawn *over* the vanilla head the pawn was
+  generated with rather than replacing it, so the head, its skin colour and its
+  hair are all still the game's. A person converted reads better than the whole
+  robot head this replaced, which read as a different species.
+  *From the hairline down, clipped to the skull* is the load-bearing part, and it
+  is the second try. The first drew a rounded square inset from the head on every
+  side and it read as a mask held up to the face - for three reasons, none of
+  them the colour. The plate carried its own closed outline, which is the
+  strongest cue there is that one thing sits on another; it was framed by an even
+  rim of skin, the way a picture sits in a mount, where nothing on a face has a
+  uniform border; and its corners pushed into a round silhouette, so the eye read
+  two shapes before it read a face. Opening the outline and casting a shadow onto
+  the skin was tried and barely helped, which is how we know the framing and the
+  shape were doing the damage. Now the metal runs out to the head's own outline -
+  `SKIN_INSET` short of it, because that outline is part of the head's silhouette
+  and has to stay the head's - and the only dark line is the seam along the cut.
+  So the front of the head *is* metal, and the skin left over is the crown the
+  hair grows from. In profile there is a second cut down the side (`BACK_X`), so
+  the plate wraps the front and the back of the head is still a head.
+  `SlopFaceRenderNodes` is how it gets there: every non-abstract subclass of
+  `DynamicPawnRenderNodeSetup` is found by `GenTypes.AllSubclassesNonAbstract`
+  and instantiated by the game, so it needs no def and no patch, the way a
+  `GameComponent` needs none. It runs on a render tree build - on load and on any
+  `SetAllGraphicsDirty`. Three things in there are load-bearing.
+  `PawnRenderNode_AttachmentHead` takes its mesh from
+  `GetHumanlikeHairSetForPawn`, the mesh vanilla *hair* is drawn on, so the plate
+  lands in the same frame as the hair for that head type - narrow crowns
+  included - and needs no size or offset of its own; that is also why
+  `tools/roboface.py` draws into a 128px frame whose skull is a ~47px blob at
+  (64, 64.5), and why there is no `_north` (a faceplate has no back, and
+  `visibleFacing` leaves the pawn's own head showing when it turns away). The
+  layer is read off the head node rather than written down, because layers are
+  absolute floats out of the humanlike render tree def and a copied number is a
+  number to get wrong next version. And the parent is handed back as `null`
+  deliberately: `PawnRenderTree.AddChild` resolves it from `parentTagDef` against
+  its own `nodesByTag`, so we never hold a node the tree has since rebuilt.
+  `Apply` takes the beard off - a beard hangs on a node above the head and would
+  draw over the plate, where hair does not. `FitHair` is the other half of
+  keeping the game's hair: the cut is a fixed line, so a style that shows scalp
+  (`Bald`, `Shaved`, `Mohawk`) leaves bare skin between the hair and the metal,
+  or at the sides. Those are rerolled, matched by defName rather than through a
+  DefOf so a name this game does not have is never matched instead of failing at
+  load, which is what makes the list safe to add to on sight. It runs once, at
+  generation, and not from the reconcile: nothing takes an agent's hair away
+  later, and a pawn whose every option was refused would be rerolled once a
+  second forever.
+  Dropping the old `SlopRobotHead` def leaves a save made while agents wore it
+  with an unresolvable head, and nothing here migrates it: a colony is
+  decoration over sessions the daemon owns, so "New colony" is the answer to a
+  save the defs moved under, and load-phase repair code for one is a permanent
+  patch bought for a single afternoon.
+- `StatusOverlay`, `QuickStart`, `SlopDefOf`.
 
 ### `Patches/` - taking the game away
 
 - `StripPatches` - the sim, killed by declining to tick it rather than by patching
-  out systems one at a time, so the toggle works at runtime.
+  out systems one at a time, so everything stays consistent underneath.
 - `StripUI`, `StripInteraction` - the chrome and the two remaining ways to play a
-  pawn (selecting scenery, drafting).
-- `NoRescueAgents`, `NoStripAgents`, `NoStartResources` - agent pawns are the
-  daemon's, and a dead world hands out nothing.
+  pawn (selecting scenery, drafting). Hiding a main button is not the same as
+  taking its tab away, and that gap was visible: with nothing selected,
+  right-clicking the map or pressing Tab put the Architect menu in the bottom-left
+  corner of a board that builds nothing. Two roads reach it and neither looks at
+  `Visible` - `MainButtonsRoot.MainButtonsOnGUI` fires any def whose `hotKey` went
+  down, checking only `Disabled`, and `MainTabsRoot.HandleLowPriorityShortcuts`
+  opens `Architect` by name on a right-click with an empty selection. Both end at
+  `MainButtonWorker.InterfaceTryActivate`, which nothing overrides, so
+  `Patch_MainButtons` prefixes that one method and gates it on the same `Visible`
+  the button bar reads.
+- `NoRescueAgents`, `NoStripAgents` - agent pawns are the daemon's. What a dead
+  world hands out is `SlopScenario`'s answer now, not a patch's.
 - `NoHarmAgents` - a colonist is a status light, so nothing may hurt one and the
   pets may not even swing. Damage dies in `Pawn.PreApplyDamage`; the three ways
   an animal reaches an agent are closed one each - `IsAcceptablePreyFor` (a
@@ -324,17 +399,41 @@ for the tenth) point it at that portrait in the strip above it, counting through
 `AgentColony.InBarOrder` so the slots are the ones on screen. A slot past the end
 does nothing rather than wrapping, and a slot holding a stopped agent starts it,
 which is what clicking the same portrait does. `Sgr` parses colour runs;
-`TerminalFont` deals with the cell grid. `SessionsWindow`, `EditSessionDialog`,
+`TerminalFont` deals with the cell grid.
+
+The pane's size is the window's, not a setting. `NegotiateSize` divides the body
+rect by the cell size and sends a `resize` (debounced 0.2s, because dragging the
+game window would otherwise SIGWINCH the agent once a frame and Claude Code
+redraws its whole TUI on every one). `[defaults] cols/rows` and the per-session
+override are gone, along with their two GUI fields: whatever sits in a file is
+wrong the moment the window is a different shape, and nothing was going to keep
+the two in step by hand. `BOOT_COLS`/`BOOT_ROWS` in `session.rs` is all that is
+left of it - what a pane wears until someone looks at it, which still matters,
+because an agent that starts, prints and is never opened has to have wrapped its
+output at something. A restart reuses the size the live entry is already carrying,
+so a session whose terminal is open comes back the shape the window asked for.
+`SessionView.cols/rows` stay on the wire as an observation rather than a setting,
+so `curl /api/sessions` can answer what shape the agent thinks its terminal is.
+
+`SessionsWindow`, `EditSessionDialog`,
 `ConfigMenuWindow` and `ConfigWindow` are the session and config GUIs, all of which
 write straight through to the daemon.
 
 ### Settings
 
 `SlopSettings` in `SlopWorldMod.cs`, reached through the static `Settings` shim.
-Connection (`host`, `port`, `token`, `autoConnect`), behaviour (`stripSim`,
-`spawnPawns`, `overlay`, `noResources`, `realTime`, `usageReadout`), restart behaviour
-(`resumeLastSave`, `autosaveMinutes`, `reopenTerminal`) and `fontSize`. Adding one
-means a field, a `Scribe_Values.Look`, a shim property and a checkbox.
+Connection (`host`, `port`, `token`, `autoConnect`) and `fontSize`, and that is
+all of it. Adding one means a field, a `Scribe_Values.Look`, a shim property and a
+checkbox.
+
+There used to be nine more - the sim strip, the colonist spawn, the state icons,
+the withheld resources, the wall clock, the quota bars, resume, autosave interval,
+reopen - and every one of them named something the mod exists to do. Off, they
+turned RimWorld back on underneath a terminal: a second product with the same
+Harmony patches and none of the testing. They are gone and the behaviour is
+unconditional, the way the UI stripping always was: being loaded is the switch.
+What is left is the two things that are about this machine rather than about the
+design - where the daemon is, and how big the font is on this screen.
 
 Which terminal was open is *not* here: it belongs to a colony, so `TerminalRecall`
 scribes it into the save. Writing mod settings on every switch would also mean a

@@ -4,11 +4,30 @@ Loosely sorted by priority. PRs are welcome.
 
 ## USER
 
-- [ ] Cleanup
-  - [ ] Disable resources spawn on the map (via scenario?)
-  - [ ] Disable right-click/Tab menu on map (empty selection)
-  - [ ] Remove useless mod settings
-  - [ ] Remove fixed terminal width/height?
+- [x] Cleanup
+  - [x] Disable resources spawn on the map. `SlopScenario` derives the colony's
+        scenario from Crashlanded and drops every part that hands a thing over -
+        `ScenPart_ThingCount` (the starting pile and the scatter parts both),
+        `ScenPart_StartingAnimal`, `ScenPart_StartingMech`. `Patch_NoStartingThings`
+        and `Patch_NoScenarioAnimals` are gone with it. Note this is the *scenario*
+        side only: map generation still scatters what the biome scatters (steel
+        slag via `GenStep_ScatterThings`, ore lumps, ruins), which is a separate
+        switch if the ground still looks littered.
+  - [x] Disable right-click/Tab menu on map (empty selection). It was the Architect
+        tab: `MainTabsRoot.HandleLowPriorityShortcuts` opens it by name on a
+        right-click with nothing selected, and `MainButtonsRoot.MainButtonsOnGUI`
+        fires its Tab hotkey checking `Disabled` but never `Visible`. Both go
+        through `MainButtonWorker.InterfaceTryActivate`; `Patch_MainButtons` now
+        prefixes it and refuses anything the bar is not drawing.
+  - [x] Remove useless mod settings. Nine went - `stripSim`, `spawnPawns`,
+        `overlay`, `noResources`, `realTime`, `usageReadout`, `resumeLastSave`,
+        `autosaveMinutes`, `reopenTerminal` - and the behaviour behind each is
+        unconditional. Left: `host`, `port`, `token`, `autoConnect`, `fontSize`.
+  - [x] Remove fixed terminal width/height. `[defaults] cols/rows` and the
+        per-session override are gone, and so are their two GUI fields; the window
+        was already authoritative through `resize`. `BOOT_COLS`/`BOOT_ROWS` in
+        `session.rs` is the size a pane wears until it is looked at, and a restart
+        reuses whatever the live entry is carrying.
 - [ ] Interface
 - [ ] Terminal
   - [x] Alt+Num to switch pane, F12 to quick toggle
@@ -88,9 +107,9 @@ on screen seconds later. Groups A and B below are done; C and D are not.
 - [x] Survive a mod redeploy with the same colony
   - [x] `AutoResume` loads the newest save on launch rather than stopping at the
         menu - once per process, and only when no game is loaded, so quitting to
-        the menu leaves you there. Setting: "Resume the newest colony on launch".
-  - [x] `AutoSaver` saves every `autosaveMinutes` real minutes (default 2) off
-        the game tick, plus prefixes on `Root.Shutdown` and
+        the menu leaves you there. Unconditional since the settings cleanup.
+  - [x] `AutoSaver` saves every two real minutes off the game tick (a constant
+        since the settings cleanup), plus prefixes on `Root.Shutdown` and
         `GenScene.GoToMainMenu`. RimWorld's own interval is in game days, about a
         quarter of an hour at 1x, which is far too coarse to restart against.
   - [x] Loading a save does not replay the opening - already true on inspection.
@@ -160,9 +179,8 @@ on screen seconds later. Groups A and B below are done; C and D are not.
         reach it: validate on an `ExecStartPre` check. The running daemon already
         keeps serving the last good config when a reload fails to parse.
 - [ ] Make a long session in the terminal bearable
-  - [ ] Default 120x34 is small for a coding agent, and the pane size lives in
-        config rather than following the window. Confirm the resize round-trip
-        persists, or make the window size authoritative.
+  - [x] The pane size followed config rather than the window. The window is
+        authoritative now; see Cleanup above.
   - [ ] PageUp/PageDown while scrolled, jump to bottom on keypress, scrollback
         search.
   - [ ] Hotkey to jump to the next agent in Waiting, and a toast (and optional

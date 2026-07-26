@@ -37,7 +37,6 @@ namespace SlopWorld
             if (_tried) return;
             _tried = true;
 
-            if (!Settings.ResumeLastSave) return;
             if (Current.Game != null) return; // back from a colony, not a cold start
 
             try

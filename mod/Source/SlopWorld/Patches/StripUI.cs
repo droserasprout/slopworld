@@ -169,11 +169,23 @@ namespace SlopWorld
     }
 
     /// <summary>
-    /// Hides every bottom-bar button except Menu, Inspect and our Agents tab.
+    /// Hides every bottom-bar button except Menu, Inspect and our own two.
     /// MainButtonWorker.Visible is virtual and overridden by several workers
     /// (World, Quests, Mechs...), so we postfix the base getter plus every
     /// declared override. Patched manually from the bootstrap because the target
     /// set is discovered by reflection.
+    ///
+    /// Hiding the button is not the same as taking the tab away, and that gap was
+    /// visible: with nothing selected, right-clicking the map or pressing Tab put
+    /// the Architect menu - orders, structures, the whole build tree - in the
+    /// bottom-left corner of a board that builds nothing. Two roads reach it, and
+    /// neither looks at Visible. MainButtonsRoot.MainButtonsOnGUI walks
+    /// allButtonsInOrder and fires any def whose hotKey went down, checking only
+    /// Disabled; MainTabsRoot.HandleLowPriorityShortcuts opens Architect by name
+    /// on a right-click with an empty selection. Both end at
+    /// MainButtonWorker.InterfaceTryActivate, which nothing overrides, so one
+    /// prefix there closes both - and gating it on Visible means the two rules
+    /// cannot drift apart.
     /// </summary>
     public static class Patch_MainButtons
     {
@@ -194,6 +206,12 @@ namespace SlopWorld
                 var g = AccessTools.DeclaredPropertyGetter(t, "Visible");
                 if (g != null) h.Patch(g, postfix: post);
             }
+
+            h.Patch(
+                AccessTools.Method(typeof(MainButtonWorker),
+                    nameof(MainButtonWorker.InterfaceTryActivate)),
+                prefix: new HarmonyMethod(
+                    AccessTools.Method(typeof(Patch_MainButtons), nameof(OnlyIfShown))));
         }
 
         static void KeepOnly(MainButtonWorker __instance, ref bool __result)
@@ -203,6 +221,11 @@ namespace SlopWorld
             if (Keep.Contains(__instance.def?.defName)) return;
             __result = false;
         }
+
+        // A tab you cannot see is a tab you cannot open. Both callers Use() the
+        // event before getting here, so the key and the click are still swallowed -
+        // which is what we want: right-click on the map means nothing now.
+        static bool OnlyIfShown(MainButtonWorker __instance) => __instance.Visible;
     }
 
     /// <summary>

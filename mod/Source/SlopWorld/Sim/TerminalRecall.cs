@@ -41,7 +41,7 @@ namespace SlopWorld
         {
             if (_done) return;
 
-            if (!Settings.ReopenTerminal || string.IsNullOrEmpty(_last))
+            if (string.IsNullOrEmpty(_last))
             {
                 _done = true;
                 return;

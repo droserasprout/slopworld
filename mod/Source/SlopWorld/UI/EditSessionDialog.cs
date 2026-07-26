@@ -13,7 +13,6 @@ namespace SlopWorld
         /// The name the daemon still knows this session by: the edit is addressed
         /// to it, and a changed name in the field is a rename.
         readonly string _origName;
-        string _cols, _rows;
 
         public EditSessionDialog(SessionInfo existing)
         {
@@ -29,12 +28,7 @@ namespace SlopWorld
                     Net = existing.Net,
                     Sandbox = existing.Sandbox,
                     Autostart = existing.Autostart,
-                    Cols = existing.Cols,
-                    Rows = existing.Rows,
                 };
-
-            _cols = _s.Cols.ToString();
-            _rows = _s.Rows.ToString();
 
             doCloseX = true;
             absorbInputAroundWindow = true;
@@ -70,13 +64,6 @@ namespace SlopWorld
             l.CheckboxLabeled("Sandbox with bubblewrap", ref _s.Sandbox);
             l.CheckboxLabeled("Allow network", ref _s.Net);
 
-            l.Gap(6f);
-            var row = l.GetRect(28f);
-            Widgets.Label(new Rect(row.x, row.y, 90f, 24f), "Cols");
-            _cols = Widgets.TextField(new Rect(row.x + 90f, row.y, 70f, 24f), _cols);
-            Widgets.Label(new Rect(row.x + 180f, row.y, 90f, 24f), "Rows");
-            _rows = Widgets.TextField(new Rect(row.x + 270f, row.y, 70f, 24f), _rows);
-
             l.End();
 
             var bar = new Rect(rect.x, rect.yMax - 36f, rect.width, 32f);
@@ -95,9 +82,6 @@ namespace SlopWorld
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }
-
-            if (int.TryParse(_cols, out int c)) _s.Cols = Mathf.Clamp(c, 20, 500);
-            if (int.TryParse(_rows, out int r)) _s.Rows = Mathf.Clamp(r, 5, 200);
 
             string from = _origName, to = _s.Name;
             SessionHub.Instance.Save(_s, _isNew, _origName,

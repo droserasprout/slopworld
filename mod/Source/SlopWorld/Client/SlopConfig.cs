@@ -28,8 +28,6 @@ namespace SlopWorld
         public string ClaudeCredentials = "~/.claude/.credentials.json";
 
         public string Agent = "claude";
-        public int Cols = 120;
-        public int Rows = 34;
 
         public bool SandboxEnabled = true;
         public List<string> RoPaths = new List<string>();
@@ -55,8 +53,6 @@ namespace SlopWorld
                     d["claude_credentials"].AsString("~/.claude/.credentials.json"),
 
                 Agent = f["agent"].AsString("claude"),
-                Cols = f["cols"].AsInt(120),
-                Rows = f["rows"].AsInt(34),
 
                 SandboxEnabled = s["enabled"].AsBool(true),
                 RoPaths = Strings(s["ro_paths"]),
@@ -76,7 +72,7 @@ namespace SlopWorld
             $"\"usage\":{JVal.B(Usage)},\"usage_poll_secs\":{UsagePollSecs}," +
             $"\"claude_credentials\":{JVal.Q(ClaudeCredentials)}}}," +
             "\"defaults\":{" +
-            $"\"agent\":{JVal.Q(Agent)},\"cols\":{Cols},\"rows\":{Rows}}}," +
+            $"\"agent\":{JVal.Q(Agent)}}}," +
             "\"sandbox\":{" +
             $"\"enabled\":{JVal.B(SandboxEnabled)}," +
             $"\"ro_paths\":{Arr(RoPaths)},\"rw_paths\":{Arr(RwPaths)}," +

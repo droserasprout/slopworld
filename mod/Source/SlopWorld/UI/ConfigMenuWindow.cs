@@ -24,7 +24,7 @@ namespace SlopWorld
 
         // Free-text mirrors of the typed fields, so a half-typed number is not
         // clamped out from under the player mid-keystroke.
-        string _pollMs, _cols, _rows, _history, _usagePoll;
+        string _pollMs, _history, _usagePoll;
         string _roPaths, _rwPaths, _passEnv;
 
         Vector2 _scroll;
@@ -60,8 +60,6 @@ namespace SlopWorld
                     _pollMs = _cfg.PollMs.ToString();
                     _history = _cfg.HistoryLimit.ToString();
                     _usagePoll = _cfg.UsagePollSecs.ToString();
-                    _cols = _cfg.Cols.ToString();
-                    _rows = _cfg.Rows.ToString();
                     _roPaths = SlopConfig.Lines(_cfg.RoPaths);
                     _rwPaths = SlopConfig.Lines(_cfg.RwPaths);
                     _passEnv = SlopConfig.Lines(_cfg.PassEnv);
@@ -226,16 +224,12 @@ namespace SlopWorld
             var l = new Listing_Standard();
             l.Begin(new Rect(r.x, r.y, r.width, 92f));
 
-            l.Label("Defaults for sessions that do not set their own");
+            l.Label("Command for sessions that do not set their own");
             l.Gap(2f);
 
             var row = l.GetRect(28f);
             Widgets.Label(new Rect(row.x, row.y + 3f, 60f, 24f), "Agent");
             _cfg.Agent = Widgets.TextField(new Rect(row.x + 60f, row.y, 220f, 24f), _cfg.Agent);
-            Widgets.Label(new Rect(row.x + 300f, row.y + 3f, 40f, 24f), "Cols");
-            _cols = Widgets.TextField(new Rect(row.x + 340f, row.y, 60f, 24f), _cols);
-            Widgets.Label(new Rect(row.x + 415f, row.y + 3f, 40f, 24f), "Rows");
-            _rows = Widgets.TextField(new Rect(row.x + 455f, row.y, 60f, 24f), _rows);
 
             l.End();
 
@@ -325,8 +319,6 @@ namespace SlopWorld
             // Floored at the same 10s the poller enforces, so what the GUI shows
             // after a save is what the daemon is actually doing.
             if (int.TryParse(_usagePoll, out int u)) _cfg.UsagePollSecs = Mathf.Clamp(u, 10, 3600);
-            if (int.TryParse(_cols, out int c)) _cfg.Cols = Mathf.Clamp(c, 20, 500);
-            if (int.TryParse(_rows, out int r)) _cfg.Rows = Mathf.Clamp(r, 5, 200);
             _cfg.RoPaths = SlopConfig.Split(_roPaths);
             _cfg.RwPaths = SlopConfig.Split(_rwPaths);
             _cfg.PassEnv = SlopConfig.Split(_passEnv);

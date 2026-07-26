@@ -88,16 +88,12 @@ impl Default for Daemon {
 pub struct Defaults {
     /// Command run inside the sandbox. Split on whitespace, no shell involved.
     pub agent: String,
-    pub cols: u16,
-    pub rows: u16,
 }
 
 impl Default for Defaults {
     fn default() -> Self {
         Self {
             agent: "claude".into(),
-            cols: 120,
-            rows: 34,
         }
     }
 }
@@ -149,10 +145,6 @@ pub struct SessionCfg {
     pub sandbox: bool,
     #[serde(default)]
     pub autostart: bool,
-    #[serde(default)]
-    pub cols: Option<u16>,
-    #[serde(default)]
-    pub rows: Option<u16>,
     /// Extra rw binds for this session only.
     #[serde(default)]
     pub rw_paths: Vec<String>,

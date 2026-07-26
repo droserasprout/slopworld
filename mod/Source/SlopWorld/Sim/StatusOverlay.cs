@@ -14,7 +14,6 @@ namespace SlopWorld
 
         public override void MapComponentOnGUI()
         {
-            if (!Settings.Overlay) return;
             if (Find.CameraDriver.CurrentZoom > CameraZoomRange.Far) return;
 
             var colony = AgentColony.Current;

@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -73,7 +72,7 @@ namespace SlopWorld
         {
             if (map == null) return;
 
-            // Anything that got here first goes. Patch_NoScenarioAnimals takes the
+            // Anything that got here first goes. <see cref="SlopScenario"/> takes the
             // scenario's own starting animal off at source, but that closes one known
             // door and this closes the rest - including this method running twice,
             // because IntroDirector._armed is runtime state while its phase is
@@ -159,27 +158,5 @@ namespace SlopWorld
             pet.jobs.StartJob(job, JobCondition.InterruptForced);
         }
 
-        /// <summary>
-        /// The scenario does not get to pick the pet. Crashlanded ships a
-        /// ScenPart_StartingAnimal, which hands the colony one random tame animal
-        /// weighted by biome - and <see cref="LandingSite"/> aims deliberately at
-        /// tropical rainforest, so what it kept handing over was a monkey.
-        ///
-        /// It arrives through PlayerStartingThings, the same door
-        /// <see cref="Patch_NoStartingThings"/> shuts on the starting pile, but on a
-        /// different ScenPart - so it needs its own prefix rather than a wider patch
-        /// on the base class, which would catch parts nothing here wants to touch.
-        /// Ungated, unlike the resource one: the cat is the premise, not a setting.
-        /// </summary>
-        [HarmonyPatch(typeof(ScenPart_StartingAnimal),
-            nameof(ScenPart_StartingAnimal.PlayerStartingThings))]
-        public static class Patch_NoScenarioAnimals
-        {
-            static bool Prefix(ref IEnumerable<Thing> __result)
-            {
-                __result = Enumerable.Empty<Thing>();
-                return false; // skip the original iterator
-            }
-        }
     }
 }

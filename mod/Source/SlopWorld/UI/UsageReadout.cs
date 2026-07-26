@@ -57,7 +57,6 @@ namespace SlopWorld
 
         public override void MapComponentOnGUI()
         {
-            if (!Settings.UsageReadout) return;
             if (IntroDirector.UiHidden) return; // the opening scene plays bare
 
             var usage = SessionHub.Instance.Usage;

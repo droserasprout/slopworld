@@ -22,8 +22,12 @@ namespace SlopWorld
         public bool Net = true;
         public bool Sandbox = true;
         public bool Autostart;
-        public int Cols = 120;
-        public int Rows = 34;
+
+        /// The pane's size as the daemon last reported it. Read-only here: the
+        /// terminal window measures itself and sends the resize, so there is
+        /// nothing to edit and nothing in config.toml to edit it into.
+        public int Cols;
+        public int Rows;
 
         /// The terminal window treats a session that is down or gone as one that
         /// has nothing to show it: no pane, no colonist to watch. Checked in one
@@ -51,8 +55,8 @@ namespace SlopWorld
             Net = j["net"].AsBool(true),
             Sandbox = j["sandbox"].AsBool(true),
             Autostart = j["autostart"].AsBool(false),
-            Cols = j["cols"].AsInt(120),
-            Rows = j["rows"].AsInt(34),
+            Cols = j["cols"].AsInt(0),
+            Rows = j["rows"].AsInt(0),
         };
     }
 
@@ -364,7 +368,7 @@ namespace SlopWorld
                 $"{{\"name\":{JVal.Q(s.Name)},\"dir\":{JVal.Q(s.Dir)}," +
                 $"\"agent\":{(string.IsNullOrEmpty(s.Agent) ? "null" : JVal.Q(s.Agent))}," +
                 $"\"net\":{JVal.B(s.Net)},\"sandbox\":{JVal.B(s.Sandbox)}," +
-                $"\"autostart\":{JVal.B(s.Autostart)},\"cols\":{s.Cols},\"rows\":{s.Rows}}}";
+                $"\"autostart\":{JVal.B(s.Autostart)}}}";
 
             Action<JVal> done = _ => { Refresh(); ok?.Invoke(); };
             if (isNew) SlopClient.Post("/api/sessions", body, done, fail);
