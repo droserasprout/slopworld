@@ -355,13 +355,13 @@ namespace SlopWorld
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                 "Save the colony and restart RimWorld? The daemon starts it again a few " +
                 "seconds later and the agents keep running throughout.",
-                () =>
-                {
-                    AutoSaver.SaveNow();
-                    SlopClient.Post("/api/game/restart", "{\"delay_ms\":6000}",
-                        _ => Root.Shutdown(),
-                        Fail);
-                }));
+                // Nothing here saves or quits: the daemon answers this request by
+                // telling every client to do exactly that, and doing it twice -
+                // once from the reply and once from the event - is two saves and
+                // two shutdowns. The error road is still ours, because a request
+                // that was refused sends no such event and the person is owed a
+                // reason.
+                () => SlopClient.Post("/api/game/restart", "{\"delay_ms\":1000}", _ => { }, Fail)));
         }
 
         static void Fail(string msg) =>

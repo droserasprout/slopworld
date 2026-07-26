@@ -26,20 +26,42 @@ namespace SlopWorld
         /// box so the field is never blank and never a lie.
         string _default = "claude";
 
+        /// The agent this one was copied from, for the title. Null unless it is a
+        /// duplicate: an edit already has `_origName` and a new one has nothing.
+        readonly string _copiedFrom;
+
         public EditSessionDialog(SessionInfo existing) : this(existing, null) { }
 
         /// <param name="project">
         /// Preselected project, for "add an agent here" from the projects list.
         /// </param>
-        public EditSessionDialog(SessionInfo existing, string project)
+        public EditSessionDialog(SessionInfo existing, string project) : this(existing, project, false) { }
+
+        /// <summary>
+        /// A copy of an existing agent, opened as a new one. Everything the
+        /// dialog can edit comes over - the project, and so the directory and
+        /// the whole sandbox with it, which is the point: a second agent in the
+        /// same repo is what this is for, and picking that project again by hand
+        /// is the step that gets it wrong.
+        ///
+        /// The name cannot come over, so it is the one field that is suggested
+        /// rather than copied.
+        /// </summary>
+        public static EditSessionDialog Copy(SessionInfo of) => new EditSessionDialog(of, null, true);
+
+        EditSessionDialog(SessionInfo existing, string project, bool copy)
         {
-            _isNew = existing == null;
-            _origName = existing?.Name ?? "";
+            // A copy is a new agent in every way that matters here: nothing on
+            // the daemon knows about it yet, so Save posts rather than puts and
+            // there is no rename to carry a colonist across.
+            _isNew = existing == null || copy;
+            _origName = copy ? "" : (existing?.Name ?? "");
+            _copiedFrom = copy ? existing.Name : null;
             _s = existing == null
                 ? new SessionInfo { Name = "", Project = project ?? "", Kind = AgentKind.Claude }
                 : new SessionInfo
                 {
-                    Name = existing.Name,
+                    Name = copy ? FreeName(existing.Name) : existing.Name,
                     Project = existing.Project,
                     Kind = existing.Kind,
                     Agent = existing.Agent,
@@ -68,7 +90,9 @@ namespace SlopWorld
             l.Begin(rect);
 
             Text.Font = GameFont.Medium;
-            l.Label(_isNew ? "New agent" : $"Edit '{_origName}'");
+            l.Label(_copiedFrom != null
+                ? $"Copy of '{_copiedFrom}'"
+                : _isNew ? "New agent" : $"Edit '{_origName}'");
             Text.Font = GameFont.Small;
             l.Gap(6f);
 
@@ -120,6 +144,32 @@ namespace SlopWorld
 
             if (Widgets.ButtonText(new Rect(bar.xMax - 120f, bar.y, 120f, 32f), "Save"))
                 Save();
+        }
+
+        /// <summary>
+        /// A name like the one given that nothing is using yet: "claude" ->
+        /// "claude-2", and a copy of that -> "claude-3" rather than "claude-2-2".
+        ///
+        /// Suggested and not enforced - it lands in the name field, editable, and
+        /// the daemon is still the thing that refuses a collision. Which is why
+        /// the search gives up rather than looping: past a certain point the
+        /// person is better placed to name this than we are.
+        /// </summary>
+        static string FreeName(string name)
+        {
+            string stem = name ?? "";
+            while (stem.Length > 0 && char.IsDigit(stem[stem.Length - 1]))
+                stem = stem.Substring(0, stem.Length - 1);
+            stem = stem.TrimEnd(' ', '-', '_');
+            if (stem.Length == 0) stem = name ?? "agent";
+
+            var taken = SessionHub.Instance.Sessions.Select(s => s.Name).ToList();
+            for (int n = 2; n <= 99; n++)
+            {
+                string candidate = stem + "-" + n;
+                if (!taken.Contains(candidate)) return candidate;
+            }
+            return stem;
         }
 
         void PickProject()

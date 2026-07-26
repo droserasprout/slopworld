@@ -122,12 +122,22 @@ namespace SlopWorld
             Widgets.Label(new Rect(r.x + 24f, r.y + 24f, r.width - 340f, 20f), where);
             GUI.color = Color.white;
 
-            // Edit spans the top line; the rest sit under it, terminal last.
+            // The top line is the two buttons that open a dialog, the bottom one
+            // everything that acts on the agent directly, terminal last. Both
+            // lines end at the same right edge.
             float top = r.y + 4f, bottom = r.y + 26f;
             float right = r.xMax - 6f;
 
-            if (Widgets.ButtonText(new Rect(right - 174f, top, 174f, 20f), "Edit"))
+            if (Widgets.ButtonText(new Rect(right - 174f, top, 96f, 20f), "Edit"))
                 Find.WindowStack.Add(new EditSessionDialog(s));
+
+            // Next to Edit rather than down with Del and Start, because what it
+            // does is open the same dialog with the same fields in it.
+            var dup = new Rect(right - 74f, top, 74f, 20f);
+            TooltipHandler.TipRegion(dup,
+                $"New agent with '{s.Name}'s project and command, under a new name.");
+            if (Widgets.ButtonText(dup, "Duplicate"))
+                Find.WindowStack.Add(EditSessionDialog.Copy(s));
 
             var term = new Rect(right - 22f, bottom, 22f, 20f);
             TooltipHandler.TipRegion(term, s.Gone

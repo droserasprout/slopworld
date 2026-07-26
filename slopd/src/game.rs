@@ -162,6 +162,14 @@ pub fn uptime_s(pid: u32) -> Option<u64> {
 /// imported. Passing the three that matter explicitly means a daemon run by hand
 /// from a terminal works too.
 pub fn launch(exe: &str, args: &[String]) -> Result<()> {
+    // `game_cmd` is a path a person typed into config.toml, so it can start with
+    // a ~ that nothing else here would expand: shell_split builds an argv rather
+    // than running a shell, and exec does not read tildes. Left alone it fails at
+    // the far end - "Failed to find executable ~/RimWorld/game/RimWorldLinux" -
+    // four seconds after a redeploy told the game to quit, which is a game that
+    // does not come back.
+    let exe = &crate::config::expand(exe);
+
     let mut sr = Command::new("systemd-run");
     sr.args(["--user", "--quiet", "--collect", &format!("--unit={UNIT}")]);
     for k in ["DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR"] {
@@ -208,6 +216,14 @@ mod tests {
         assert!(!s.running);
         assert_eq!(s.source, "none");
         assert_eq!(s.pid, None);
+    }
+
+    /// The same expansion `launch` does, so what we look for is what was run.
+    #[test]
+    fn a_configured_path_is_expanded_before_it_is_looked_for() {
+        let s = status("~/nowhere/RimWorldLinux -popupwindow", 0, None);
+        assert_eq!(s.source, "none");
+        assert!(s.cmd.starts_with('~'), "the config is reported as written");
     }
 
     /// A client on the socket is a game we could not find any other way, and

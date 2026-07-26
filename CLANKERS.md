@@ -347,6 +347,25 @@ installed" - so the count and the age of the oldest client are in the answer, an
 a client younger than the DLL on disk is the new one. Uptimes go over as seconds
 rather than instants, the same as the usage resets and for the same reason.
 
+Restarting it is a handshake rather than a command, because the two halves each
+hold something the other needs: only the game can save a colony, and only the
+daemon outlives the game's own shutdown. So `POST /api/game/restart` broadcasts
+`{"t":"quit"}`, the mod saves and calls `Root.Shutdown`, and the daemon waits for
+the process to actually be gone before launching - up to a minute, and it does
+*not* launch if it is still there. The wait is the part that matters: the request
+carries a `delay_ms` that is the caller's estimate of its own shutdown, and a
+colony that takes longer to write than estimated is exactly when that number is
+wrong, which used to mean two RimWorlds opening the same save. It is also what
+makes the endpoint work for a caller that is not the game - `make redeploy` from
+an agent, which had told nobody to quit.
+
+That road had never run to the end. `daemon.game_cmd` is a path a person typed,
+so it starts with a `~` that nothing expanded - `shell_split` builds an argv
+rather than running a shell - and the launch died on "Failed to find executable
+~/RimWorld/game/RimWorldLinux" four seconds after the game had been told to go.
+Which is also why nobody noticed the missing quit: the second instance that would
+have made it obvious never started.
+
 `tools/shot.sh` is the other half of not being able to see it: `xdotool` to find
 the window, `import` to grab it, a PNG an agent can open. It works because
 RimWorld is an SDL/X11 client and so an *Xwayland* one on a Wayland desktop -
@@ -365,7 +384,9 @@ subscribed sessions only, `{"t":"usage",...}` when the quota picture changes,
 `{"t":"projects",...}` when one is added, edited or removed - the last two also
 once on connect, because a client attaching between polls would otherwise draw
 nothing for a minute, and one attaching after the last edit would have nothing
-to fill the "which project" dropdown from at all. Client messages: `sub`,
+to fill the "which project" dropdown from at all. And `{"t":"quit"}`, the one
+event that asks for something rather than reporting it: save and go, the daemon
+is about to start you again. Client messages: `sub`,
 `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste`. Everything that rewrites
 `config.toml` goes over HTTP instead, because the error body matters -
 `/api/sessions`, `/api/projects` and `/api/config` all in the same shape;
@@ -734,6 +755,17 @@ flags moved out: a name, a project picked from a dropdown, and a kind - "Claude
 Code" or "Custom", with the command box greyed and showing what a Claude
 session actually runs rather than hidden, since a field that vanishes reads as
 a setting that does not exist.
+
+"Duplicate" on a row opens that same dialog as a new agent with the old one's
+values in it (`EditSessionDialog.Copy`). It sits next to Edit rather than down
+with Start and Del, because what it does is open a dialog rather than act on the
+agent. Everything the dialog can edit comes over, the project above all - a
+second agent in the same repo is what this is for, and picking that project again
+by hand is the step that gets it wrong. The name cannot come over, so it is the
+one field that is suggested: `FreeName` strips the trailing digits and counts up
+from the names in use, so a copy of `claude` is `claude-2` and a copy of *that*
+is `claude-3` rather than `claude-2-2`. Suggested and not enforced - it lands in
+the field, editable, and the daemon is still what refuses a collision.
 
 ### Settings
 

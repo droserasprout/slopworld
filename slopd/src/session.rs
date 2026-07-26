@@ -127,6 +127,12 @@ pub enum Event {
     /// What is left of the subscription. Broadcast on a change only; the poll
     /// behind it runs on the wall clock, not on anything a session did.
     Usage { usage: crate::usage::Snapshot },
+    /// Save the colony and quit, because the daemon is about to start the game
+    /// again. The only event that asks the mod for something rather than telling
+    /// it something, and it exists because nothing outside the game can save a
+    /// colony: the daemon can kill the process, but a killed RimWorld comes back
+    /// at the last autosave with a terminal nobody chose.
+    Quit,
 }
 
 struct Live {
@@ -182,6 +188,11 @@ impl Drop for ClientGuard {
 
 /// How often the config file is checked for outside edits.
 const CFG_CHECK_MS: u64 = 2_000;
+
+/// Half-second polls to wait for the game to exit before giving up on relaunching
+/// it - a minute, which is a long shutdown and a short time to sit looking at a
+/// game that has not come back.
+const QUIT_WAIT_TICKS: usize = 120;
 
 /// The size a pane is born at, and the only place a number like this lives now.
 ///
@@ -388,12 +399,34 @@ impl Manager {
         let exe = exe.clone();
         let args: Vec<String> = args.to_vec();
 
+        // Ask whoever is in there to go, because the daemon cannot save a colony
+        // and the game can. A mod that called this endpoint itself is already
+        // shutting down and will ignore its own echo; an agent running `make
+        // redeploy` has told nobody, and this is what tells them.
+        let _ = self.events.send(Event::Quit);
+        let watch = self.config().await.daemon.game_cmd;
+
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(delay_ms.min(60_000))).await;
-            match crate::game::launch(&exe, &args) {
-                Ok(()) => tracing::info!("relaunched the game: {exe}"),
-                Err(e) => tracing::error!("relaunching the game: {e:#}"),
+
+            // And then wait for it to actually be gone. Launching on a timer is
+            // how a redeploy ends up with two RimWorlds fighting over one save:
+            // the delay is the caller's estimate of its own shutdown, and a
+            // colony that takes longer to write than expected is exactly the
+            // case where that estimate is wrong.
+            for _ in 0..QUIT_WAIT_TICKS {
+                if !crate::game::status(&watch, 0, None).running {
+                    match crate::game::launch(&exe, &args) {
+                        Ok(()) => tracing::info!("relaunched the game: {exe}"),
+                        Err(e) => tracing::error!("relaunching the game: {e:#}"),
+                    }
+                    return;
+                }
+                tokio::time::sleep(Duration::from_millis(500)).await;
             }
+            tracing::error!(
+                "the game is still running after being asked to quit; not starting a second one"
+            );
         });
         Ok(())
     }

@@ -8,7 +8,7 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 - [ ] New window: "Shortcuts". 
 - [x] New window: "Projects". First button in the bottom bar. Every project contains: project directory, sandbox params (presets like "Claude", "dbus", "systemd", plus optional custom additions). Agents now must belong to specific project on creation and inherit it params. Stays configurable per agent: name and command.
-- [ ] New agent action button: "Duplicate". Opens agent creation window with fields filled with existing agent's values.
+- [x] New agent action button: "Duplicate". Opens agent creation window with fields filled with existing agent's values.
 - [x] Render session/weekly limits as generic RimWorld resources: icon + white % or $ text. Show more info bubble on hover like now. Suggest icons, builtin or generated.
 - [x] Hide enabled mods and DLCs block on loading screen
 - [ ] Suppress the "unsaved work will be lost" confirmation now that quitting always saves.
@@ -35,6 +35,7 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 ## "Game"
 
+- [ ] 
 - [ ] Bug: day/night in game is not synced with real time in user's timezone
 - [ ] Skip the welcome message window when creating a new colony.
 - [x] Plague should suppress creating new plants in its radius. Animals and humans keep spawning, but outside walk on map edges.

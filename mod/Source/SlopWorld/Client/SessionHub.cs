@@ -392,6 +392,18 @@ namespace SlopWorld
                     Usage = UsageInfo.FromJson(ev["usage"]);
                     break;
 
+                // The daemon is about to start the game again and wants the
+                // colony written first, which only the game can do. Safe here:
+                // Update() is the Root.Update patch, so this is the main thread
+                // and Shutdown is being called from the same place the menu
+                // would call it. The daemon waits for the process to go before
+                // it launches, so taking a moment over the save is fine.
+                case "quit":
+                    Log.Message("[SlopWorld] slopd asked for a restart; saving and quitting");
+                    AutoSaver.SaveNow();
+                    Root.Shutdown();
+                    break;
+
                 case "screen":
                     var s = ev["screen"];
                     string name = s["name"].AsString();
