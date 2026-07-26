@@ -19,18 +19,51 @@ namespace SlopWorld
             if (session == null) yield break;
 
             var info = SessionHub.Instance.Get(session);
-            if (info == null || info.Gone) yield break; // nothing to type at
+            if (info == null) yield break; // the daemon has never heard of it
             var state = info.State;
 
-            yield return new Command_Action
+            if (info.Alive) // nothing to type at while the process is down
             {
-                defaultLabel = "Terminal",
-                defaultDesc = $"Open the terminal for '{session}'.\nState: {state.ToString().ToLower()}",
-                icon = TerminalIcon.Tex,
-                defaultIconColor = TerminalWindow.StateColor(state),
-                hotKey = SlopDefOf.SlopOpenTerminal,
-                action = () => TerminalWindow.Open(session),
-            };
+                yield return new Command_Action
+                {
+                    defaultLabel = "Terminal",
+                    defaultDesc = $"Open the terminal for '{session}'.\nState: {state.ToString().ToLower()}",
+                    icon = TerminalIcon.Tex,
+                    defaultIconColor = TerminalWindow.StateColor(state),
+                    hotKey = SlopDefOf.SlopOpenTerminal,
+                    action = () => TerminalWindow.Open(session),
+                };
+
+                yield return new Command_Action
+                {
+                    defaultLabel = "Stop",
+                    defaultDesc = $"Stop '{session}'. The colonist stays on the floor "
+                                + "until the process runs again.",
+                    icon = PowerIcon.StopTex,
+                    defaultIconColor = new Color(0.90f, 0.45f, 0.42f),
+                    hotKey = SlopDefOf.SlopToggleSession,
+                    action = () => Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                        $"Stop '{session}'? This kills the tmux session; whatever the agent "
+                      + "is in the middle of goes with it.",
+                        () => SessionHub.Instance.Stop(session, Fail),
+                        destructive: true)),
+                };
+            }
+            else
+            {
+                yield return new Command_Action
+                {
+                    defaultLabel = "Start",
+                    defaultDesc = $"Start '{session}' and put its colonist back on its feet.",
+                    icon = PowerIcon.StartTex,
+                    defaultIconColor = new Color(0.55f, 0.82f, 0.55f),
+                    hotKey = SlopDefOf.SlopToggleSession,
+                    action = () => SessionHub.Instance.Start(session, Fail),
+                };
+            }
         }
+
+        static void Fail(string msg) =>
+            Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
     }
 }

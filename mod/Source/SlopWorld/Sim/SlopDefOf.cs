@@ -18,6 +18,9 @@ namespace SlopWorld
         /// Hotkey on the selected agent's Terminal gizmo.
         public static KeyBindingDef SlopOpenTerminal;
 
+        /// Hotkey on the selected agent's Start/Stop gizmo.
+        public static KeyBindingDef SlopToggleSession;
+
         /// What an agent wears instead of a face.
         public static HeadTypeDef SlopRobotHead;
 

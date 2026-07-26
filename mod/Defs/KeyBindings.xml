@@ -11,4 +11,13 @@
     <defaultKeyCodeA>T</defaultKeyCodeA>
   </KeyBindingDef>
 
+  <!-- Hotkey on the Start/Stop gizmo. S is vanilla's "select similar", which
+       needs a colony of things to be worth anything. -->
+  <KeyBindingDef>
+    <defName>SlopToggleSession</defName>
+    <label>start/stop agent</label>
+    <category>SelectionMisc</category>
+    <defaultKeyCodeA>S</defaultKeyCodeA>
+  </KeyBindingDef>
+
 </Defs>
