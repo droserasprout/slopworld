@@ -7,16 +7,21 @@ Loosely sorted by priority. PRs are welcome.
 - [ ] Cleanup
   - [ ] Disable resources spawn on the map (via scenario?)
   - [ ] Disable right-click/Tab menu on map (empty selection)
+  - [ ] Remove useless mod settings
+  - [ ] Remove fixed terminal width/height?
 - [ ] Interface
 - [ ] Terminal
-  - [ ] 
+  - [ ] Alt+Num to switch pane, F12 to quick toggle
+  - [ ] Add "+" button in small floating colonist panel
   - [ ] Bug: DnD text selection highlight the whole line under the cursor including empty space
   - [ ] Bells and whistles
     - [ ] Color schemes
     - [ ] Cursor color
     - [ ] OSC8/URL hyperlinks
 - [ ] "Game"
-  - [ ] Session/weekly limits as "resources"
+  - [x] Session/weekly limits as "resources"
+    - [ ] The same payload carries `extra_usage` / `spend` - the credit balance,
+          in money. Deliberately left out of the readout; a third bar if wanted.
   - [ ] Tune plague odds and spread rate
   - [ ] Replace loading screen tips. Start with lorem ipsum list.
 - [ ] Sound and music

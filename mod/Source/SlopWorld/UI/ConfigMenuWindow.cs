@@ -24,7 +24,7 @@ namespace SlopWorld
 
         // Free-text mirrors of the typed fields, so a half-typed number is not
         // clamped out from under the player mid-keystroke.
-        string _pollMs, _cols, _rows, _history;
+        string _pollMs, _cols, _rows, _history, _usagePoll;
         string _roPaths, _rwPaths, _passEnv;
 
         Vector2 _scroll;
@@ -59,6 +59,7 @@ namespace SlopWorld
                     _path = j["path"].AsString();
                     _pollMs = _cfg.PollMs.ToString();
                     _history = _cfg.HistoryLimit.ToString();
+                    _usagePoll = _cfg.UsagePollSecs.ToString();
                     _cols = _cfg.Cols.ToString();
                     _rows = _cfg.Rows.ToString();
                     _roPaths = SlopConfig.Lines(_cfg.RoPaths);
@@ -146,6 +147,22 @@ namespace SlopWorld
             l.Gap(4f);
             l.Label("Game command (blank disables restarting the game from here)");
             _cfg.GameCmd = l.TextEntry(_cfg.GameCmd);
+
+            l.Gap(6f);
+            l.CheckboxLabeled("Poll Anthropic for what is left of the subscription",
+                ref _cfg.Usage,
+                "Feeds the readout in the top-left corner. The daemon reads the OAuth " +
+                "token Claude Code keeps on this machine and asks Anthropic; off means " +
+                "it never touches that file.");
+
+            if (_cfg.Usage)
+            {
+                l.Label("Seconds between usage polls");
+                _usagePoll = l.TextEntry(_usagePoll);
+
+                l.Label("Claude credentials file");
+                _cfg.ClaudeCredentials = l.TextEntry(_cfg.ClaudeCredentials);
+            }
 
             l.Gap(6f);
             if (l.ButtonText("Save the colony and restart the game"))
@@ -305,6 +322,9 @@ namespace SlopWorld
 
             if (int.TryParse(_pollMs, out int p)) _cfg.PollMs = Mathf.Clamp(p, 20, 5000);
             if (int.TryParse(_history, out int h)) _cfg.HistoryLimit = Mathf.Clamp(h, 0, 100000);
+            // Floored at the same 10s the poller enforces, so what the GUI shows
+            // after a save is what the daemon is actually doing.
+            if (int.TryParse(_usagePoll, out int u)) _cfg.UsagePollSecs = Mathf.Clamp(u, 10, 3600);
             if (int.TryParse(_cols, out int c)) _cfg.Cols = Mathf.Clamp(c, 20, 500);
             if (int.TryParse(_rows, out int r)) _cfg.Rows = Mathf.Clamp(r, 5, 200);
             _cfg.RoPaths = SlopConfig.Split(_roPaths);

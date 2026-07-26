@@ -299,6 +299,15 @@ none of these need a def.
 
 ### `UI/` - the terminal
 
+`UsageReadout` is the one non-terminal thing here: the session and weekly limits
+drawn as bars in the top-left corner, which is where `Patch_HideGui` left a hole
+by stripping `ResourceReadout` and where the eye goes anyway. A `MapComponent`
+rather than a window, so it sits on the map layer behind every window - right,
+because an open terminal is fullscreen and opaque and a bar over it would cover
+the thing being read. The countdown to a reset runs off the frame clock rather
+than off the daemon's word, so it keeps ticking between polls and when the socket
+dies; the numbers themselves are never computed here.
+
 `TerminalWindow` renders a pane and forwards keys; `Sgr` parses colour runs;
 `TerminalFont` deals with the cell grid. `SessionsWindow`, `EditSessionDialog`,
 `ConfigMenuWindow` and `ConfigWindow` are the session and config GUIs, all of which
@@ -308,7 +317,7 @@ write straight through to the daemon.
 
 `SlopSettings` in `SlopWorldMod.cs`, reached through the static `Settings` shim.
 Connection (`host`, `port`, `token`, `autoConnect`), behaviour (`stripSim`,
-`spawnPawns`, `overlay`, `noResources`, `realTime`), restart behaviour
+`spawnPawns`, `overlay`, `noResources`, `realTime`, `usageReadout`), restart behaviour
 (`resumeLastSave`, `autosaveMinutes`, `reopenTerminal`) and `fontSize`. Adding one
 means a field, a `Scribe_Values.Look`, a shim property and a checkbox.
 

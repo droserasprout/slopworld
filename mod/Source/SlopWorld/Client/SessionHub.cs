@@ -56,6 +56,66 @@ namespace SlopWorld
         };
     }
 
+    /// <summary>
+    /// One rate-limit window as the daemon last saw it. The reset is a duration
+    /// rather than an instant on purpose: the daemon has already done the date
+    /// arithmetic, and a countdown from when we heard stays honest if the socket
+    /// dies - it simply runs out and says so.
+    /// </summary>
+    public class UsageWindow
+    {
+        public string Key = "";
+        public string Label = "";
+        /// Percent of the window spent, 0-100.
+        public float Pct;
+        /// Seconds to the reset as of <see cref="UsageInfo.Heard"/>; -1 if the
+        /// daemon did not say.
+        public long ResetsIn = -1;
+    }
+
+    /// <summary>
+    /// What is left of the subscription: the colony's one remaining resource.
+    /// Ok false means the last poll failed, in which case the windows are the
+    /// previous good ones and <see cref="Error"/> says what went wrong - stale
+    /// numbers with a reason beat a readout that empties itself.
+    /// </summary>
+    public class UsageInfo
+    {
+        public bool Ok;
+        public string Error;
+        public string Plan = "";
+        public List<UsageWindow> Windows = new List<UsageWindow>();
+
+        /// realtimeSinceStartup when this arrived, which is what ages it and what
+        /// the countdown runs from.
+        public float Heard;
+
+        public bool Any => Windows.Count > 0;
+
+        /// Real seconds since the daemon last spoke about usage.
+        public float Age => UnityEngine.Time.realtimeSinceStartup - Heard;
+
+        /// Seconds left on a window now, floored at zero: a window that has run
+        /// out reads as due rather than as a negative number.
+        public long Remaining(UsageWindow w) =>
+            w.ResetsIn < 0 ? -1 : Math.Max(0L, w.ResetsIn - (long)Age);
+
+        public static UsageInfo FromJson(JVal j) => new UsageInfo
+        {
+            Ok = j["ok"].AsBool(),
+            Error = j["error"].IsNull ? null : j["error"].AsString(),
+            Plan = j["plan"].AsString(),
+            Heard = UnityEngine.Time.realtimeSinceStartup,
+            Windows = j["windows"].Items.Select(w => new UsageWindow
+            {
+                Key = w["key"].AsString(),
+                Label = w["label"].AsString(),
+                Pct = w["pct"].AsFloat(),
+                ResetsIn = w["resets_in"].IsNull ? -1 : w["resets_in"].AsLong(-1),
+            }).ToList(),
+        };
+    }
+
     public class ScreenBuf
     {
         public int Seq = -1;
@@ -85,6 +145,9 @@ namespace SlopWorld
         public static readonly SessionHub Instance = new SessionHub();
 
         public List<SessionInfo> Sessions = new List<SessionInfo>();
+        /// Last usage snapshot. Never null: an empty one draws as "no numbers",
+        /// which is what a daemon that has not answered yet honestly means.
+        public UsageInfo Usage = new UsageInfo();
         public string Status = "disconnected";
         public bool Online => _ws != null && _ws.Connected;
 
@@ -180,6 +243,10 @@ namespace SlopWorld
             {
                 case "sessions":
                     Sessions = ev["sessions"].Items.Select(SessionInfo.FromJson).ToList();
+                    break;
+
+                case "usage":
+                    Usage = UsageInfo.FromJson(ev["usage"]);
                     break;
 
                 case "screen":

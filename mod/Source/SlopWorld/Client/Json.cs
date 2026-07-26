@@ -33,6 +33,7 @@ namespace SlopWorld
         public int AsInt(int fallback = 0) => Str == null && !IsNull ? (int)Num : fallback;
         public long AsLong(long fallback = 0) => Str == null && !IsNull ? (long)Num : fallback;
         public bool AsBool(bool fallback = false) => IsNull ? fallback : Bool;
+        public float AsFloat(float fallback = 0f) => Str == null && !IsNull ? (float)Num : fallback;
 
         public IEnumerable<JVal> Items => Arr ?? new List<JVal>();
 

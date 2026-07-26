@@ -24,6 +24,10 @@ namespace SlopWorld
         public bool noResources = true;
         /// Print every duration on the wall clock instead of RimWorld's calendar.
         public bool realTime = true;
+        /// Draw what is left of the subscription where the resource readout was.
+        /// Costs nothing when the daemon is not polling: with no numbers to show
+        /// the readout draws nothing at all.
+        public bool usageReadout = true;
 
         /// Load the newest save on launch instead of stopping at the main menu.
         /// The mod is rebuilt far more often than the colony is, so the default
@@ -50,6 +54,7 @@ namespace SlopWorld
             Scribe_Values.Look(ref overlay, "overlay", true);
             Scribe_Values.Look(ref noResources, "noResources", true);
             Scribe_Values.Look(ref realTime, "realTime", true);
+            Scribe_Values.Look(ref usageReadout, "usageReadout", true);
             Scribe_Values.Look(ref resumeLastSave, "resumeLastSave", true);
             Scribe_Values.Look(ref autosaveMinutes, "autosaveMinutes", 2);
             Scribe_Values.Look(ref reopenTerminal, "reopenTerminal", true);
@@ -71,6 +76,7 @@ namespace SlopWorld
         public static bool Overlay => S.overlay;
         public static bool NoResources => S.noResources;
         public static bool RealTime => S.realTime;
+        public static bool UsageReadout => S.usageReadout;
         public static bool ResumeLastSave => S.resumeLastSave;
         public static int AutosaveMinutes => S.autosaveMinutes;
         public static bool ReopenTerminal => S.reopenTerminal;
@@ -120,6 +126,11 @@ namespace SlopWorld
                 "Every duration the game prints - the 'occurred X ago' on a colonist's " +
                 "log above all - is the span that really passed, not the one RimWorld's " +
                 "calendar makes of it.");
+
+            l.CheckboxLabeled("Show what is left of the subscription", ref settings.usageReadout,
+                "The session and weekly limits, top left, where RimWorld's resource " +
+                "readout used to be. The daemon does the asking; turn its [daemon] " +
+                "usage setting off to stop it entirely.");
 
             l.Gap(6f);
             l.CheckboxLabeled("Resume the newest colony on launch", ref settings.resumeLastSave,

@@ -20,6 +20,12 @@ namespace SlopWorld
         public int HistoryLimit = 5000;
         /// How the daemon relaunches the game for "save and restart".
         public string GameCmd = "";
+        /// Whether the daemon polls Anthropic for what is left of the
+        /// subscription. Off means it never reads the credentials file.
+        public bool Usage = true;
+        public int UsagePollSecs = 60;
+        /// Where the daemon looks for Claude Code's OAuth token.
+        public string ClaudeCredentials = "~/.claude/.credentials.json";
 
         public string Agent = "claude";
         public int Cols = 120;
@@ -43,6 +49,10 @@ namespace SlopWorld
                 PollMs = d["poll_ms"].AsInt(80),
                 HistoryLimit = d["history_limit"].AsInt(5000),
                 GameCmd = d["game_cmd"].AsString(),
+                Usage = d["usage"].AsBool(true),
+                UsagePollSecs = d["usage_poll_secs"].AsInt(60),
+                ClaudeCredentials =
+                    d["claude_credentials"].AsString("~/.claude/.credentials.json"),
 
                 Agent = f["agent"].AsString("claude"),
                 Cols = f["cols"].AsInt(120),
@@ -62,7 +72,9 @@ namespace SlopWorld
             "{\"daemon\":{" +
             $"\"bind\":{JVal.Q(Bind)},\"token\":{JVal.Q(Token)}," +
             $"\"tmux_socket\":{JVal.Q(TmuxSocket)},\"poll_ms\":{PollMs}," +
-            $"\"history_limit\":{HistoryLimit},\"game_cmd\":{JVal.Q(GameCmd)}}}," +
+            $"\"history_limit\":{HistoryLimit},\"game_cmd\":{JVal.Q(GameCmd)}," +
+            $"\"usage\":{JVal.B(Usage)},\"usage_poll_secs\":{UsagePollSecs}," +
+            $"\"claude_credentials\":{JVal.Q(ClaudeCredentials)}}}," +
             "\"defaults\":{" +
             $"\"agent\":{JVal.Q(Agent)},\"cols\":{Cols},\"rows\":{Rows}}}," +
             "\"sandbox\":{" +
