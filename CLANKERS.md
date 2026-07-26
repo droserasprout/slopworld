@@ -159,11 +159,37 @@ none of these need a def.
   Both exist because vanilla's answer is "anywhere legal", which here means
   sealed in rock and on an ice sheet respectively.
 - `Plague`, `IntroDirector` - the opening scene and what eats the map afterwards.
+  The plague stops rather than swallowing the map, and it stops without an edge.
+  `FullFrac` and `EdgeFrac` are radii as fractions of the map's side: inside the
+  first it is certain, and from there it falls off linearly to nothing at the
+  second. `Bite` is that falloff and `Grit` is the dither - a value seeded off the
+  cell and the colony's `_seed`, so it is the same on every read and across a
+  reload. `Full` needs to beat the bite, `Weak` only its square root. Both halves
+  are load-bearing: hard radii draw a circle on the ground you can trace, and a
+  chance re-rolled each sweep converges on certainty, because the plant pass walks
+  the whole map forever - so a per-plant coin flip still ends in one flat dead
+  disc, just later. Fire containment deliberately uses plain geometry (`Reaches`)
+  rather than `BandAt`, or a fire could not cross a cell the dither spared.
+  The two bands also have to *look* different, which nothing but pawn effects made
+  them at first: `Dose.Strips` is the difference, and the weak band knocks a
+  plant's `Growth` back to `StuntTo` and leaves trees alone instead of stripping.
+  `Plant.Growth`'s setter does not dirty the map mesh, so that needs a
+  `MapMeshDirty` or the plant keeps drawing at full size.
+  The band is read from where a thing is standing *now*, not from where it was
+  marked, so a marked animal that wanders out goes quiet and starts up again when
+  it wanders back.
   `PlagueFx` is the pink haze every one of the plague's acts puts up, so the
   spreading edge is visible while it moves. Its look is the `SlopPlagueGas`
   fleck in `Defs/Flecks.xml`, not a tint on a vanilla one - colour and alpha
   have to live on the def, because a fleck's `instanceColor` is combined with a
   separately computed fade alpha and loses the transparency.
+  Ignition is the one effect that outlives its roll - a `Fire` is a `Thing` with
+  its own tick and `StripPatches` does not touch it - which is why the odds on it
+  are tiny and why `Patch_ContainFire` refuses `Fire.TrySpread` outside the
+  circle. Without that the untouched third burns and the bands mean nothing.
+  A plant's ignition roll has to come *before* the wither, too: `TryStartFireIn`
+  weighs what is flammable in the cell, and stripping the plant is what leaves
+  nothing there to light.
 - `Pets` - the starting cat, and only the cat. It is the only living thing on the
   map that survives, and both halves of that are deliberate: the intro hands it to
   `GenExplosion` as an `ignoredThing` so the purge steps around it, and
