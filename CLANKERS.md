@@ -32,6 +32,7 @@ Everything goes through the Makefile. `RIMWORLD` defaults to `~/RimWorld/game`.
 | `make install` | Both of the below. |
 | `make install-daemon` | Installs the binary and unit, then restarts the service. |
 | `make install-mod` | Copies the mod into `$(MODS)/SlopWorld`. |
+| `make redeploy` | `install`, then asks the daemon to bounce the game. |
 | `make run` | Launches the game. |
 | `make logs` | Tails `Player.log`. |
 | `make clean` | Drops build output. |
@@ -53,6 +54,12 @@ journalctl --user -u slopd -f
 
 `SLOPD_LOG=slopd=debug` turns up the daemon's own logging. `SLOPD_CONFIG` points
 it at another config file.
+
+`make redeploy` is the loop an agent working on this repo runs: both halves
+installed, then `POST /api/game/restart`, which saves the colony, quits and comes
+back into the same save a few seconds later. It needs `daemon.game_cmd` set; the
+agents themselves sit through all of it, because neither the tmux server nor the
+game is in the daemon's cgroup any more.
 
 ### Where things land
 
@@ -89,6 +96,32 @@ is not a rule: it comes from the control reader ending, on `%exit` or EOF.
 Screens arrive event-driven. A control-mode client (`tmux -C attach`, on a pty -
 tmux drops a control client whose stdio is not a terminal) feeds `%output` bytes
 into the emulator, which renders on an 8ms coalescing tick.
+
+### Surviving a redeploy
+
+`make install-daemon` restarts slopd under a live game, so the daemon is written
+to come back rather than to stay up.
+
+Whichever tmux command first needs a server is the one that forks it, and the
+server inherits that client's cgroup - which, started from slopd, is
+`slopd.service`, so restarting the unit used to SIGTERM every agent along with
+it, including the one that ran make. `Tmux::ensure_server` starts the server
+under `systemd-run --user --scope` instead, in `slopworld-tmux.scope`, and
+everything else waits on that having happened. `Manager::restart_game` does the
+same for the game, as a transient unit. Hosts with no systemd fall back to
+starting things inline and pay the old price.
+
+What a restart still costs: the emulators. `spawn_reader` rebuilds one per
+running session from `capture-pane -e -S -<history_limit>`, which brings back
+scrollback as well as the visible pane, and then nudges the pane one column
+narrower and back - the SIGWINCH is what makes the app repaint and hand the
+fresh emulator the modes (alt screen, mouse reporting, cursor shape) that a text
+capture cannot carry.
+
+`config.toml` is re-read whenever its mtime moves, on a two-second check and
+ahead of every mutating call, so a hand edit both takes effect and survives the
+next write from the GUI. A file that does not parse is complained about once and
+otherwise ignored.
 
 ### Wire protocol
 
@@ -131,6 +164,11 @@ none of these need a def.
   fleck in `Defs/Flecks.xml`, not a tint on a vanilla one - colour and alpha
   have to live on the def, because a fleck's `instanceColor` is combined with a
   separately computed fade alpha and loses the transparency.
+- `AutoResume`, `AutoSaver`, `TerminalRecall` - what makes a restart cheap. The
+  mod's assembly is read once per process, so seeing a change to it means a fresh
+  game; those three save the colony on the wall clock and on the way out, load the
+  newest save instead of stopping at the menu, and put the open terminal back once
+  its session has reported in. All three are opt-out in mod settings.
 - `StatusOverlay`, `RobotHead`, `QuickStart`, `SlopDefOf`.
 
 ### `Patches/` - taking the game away
@@ -156,8 +194,13 @@ write straight through to the daemon.
 
 `SlopSettings` in `SlopWorldMod.cs`, reached through the static `Settings` shim.
 Connection (`host`, `port`, `token`, `autoConnect`), behaviour (`stripSim`,
-`spawnPawns`, `overlay`, `noResources`, `realTime`) and `fontSize`. Adding one
+`spawnPawns`, `overlay`, `noResources`, `realTime`), restart behaviour
+(`resumeLastSave`, `autosaveMinutes`, `reopenTerminal`) and `fontSize`. Adding one
 means a field, a `Scribe_Values.Look`, a shim property and a checkbox.
+
+Which terminal was open is *not* here: it belongs to a colony, so `TerminalRecall`
+scribes it into the save. Writing mod settings on every switch would also mean a
+reconnect on every switch, because `WriteSettings` reconnects.
 
 ## Gotchas
 
@@ -193,6 +236,10 @@ means a field, a `Scribe_Values.Look`, a shim property and a checkbox.
   the usual cause - this game's Mono rejected a `ColonistBarOnGUI` transpiler
   with `InvalidProgramException` at patch time, in two different emission
   shapes. A clean build proves nothing about a transpiler here.
+- `SlopConfig.ToJson` writes whole sections of `config.toml`, so a field missing
+  from it is a field the settings GUI silently resets to its serde default on any
+  unrelated save. Adding one to `[daemon]`, `[defaults]` or `[sandbox]` in the
+  daemon means adding it here too, even if no widget ever shows it.
 - Renaming anything on the wire needs both halves. `SessionInfo.ParseState` treats
   an unknown state as `Down`, which keeps a version skew survivable rather than
   correct.

@@ -4,8 +4,10 @@ MODS       ?= $(RIMWORLD)/Mods
 BIN        ?= $(HOME)/.local/bin
 UNITS      ?= $(HOME)/.config/systemd/user
 LOG        ?= $(HOME)/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log
+API        ?= http://127.0.0.1:7717
+TOKEN      ?=
 
-.PHONY: all daemon mod install install-daemon install-mod run logs test clean
+.PHONY: all daemon mod install install-daemon install-mod redeploy run logs test clean
 
 all: daemon mod
 
@@ -33,6 +35,18 @@ install-mod: mod
 	mkdir -p "$(MODS)/SlopWorld"
 	cp -r mod/About mod/Defs mod/Patches mod/Sounds mod/Textures mod/Assemblies "$(MODS)/SlopWorld/"
 	@echo "installed to $(MODS)/SlopWorld"
+
+# The whole loop from inside a session: install both halves, then ask the daemon
+# to bounce the game so the new mod is loaded. The game saves on its way out and
+# comes back into the same colony, so an agent working on the mod can see its own
+# change without anyone touching the keyboard. Needs daemon.game_cmd set in
+# config.toml; without it the call 400s and only the install has happened.
+redeploy: install
+	@curl -fsS -X POST "$(API)/api/game/restart" \
+		-H "x-slop-token: $(TOKEN)" -H "content-type: application/json" \
+		-d '{"delay_ms":4000}' >/dev/null \
+		&& echo "game restart requested" \
+		|| echo "game not restarted (is daemon.game_cmd set, and the game running?)"
 
 run:
 	"$(RIMWORLD)/RimWorldLinux" -popupwindow -force-opengl
