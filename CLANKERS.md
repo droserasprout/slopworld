@@ -683,8 +683,9 @@ none of these need a def.
   because `Apply` is a no-op off the main thread and a mod's static constructors
   do not run on it.
 - `RealTimePatches` - every duration the game prints, in real time.
-- `LoadingScreen` - the two panels on the loading screen. The tips were advice
-  for the colony sim that is not running here. A patch and not a `TipSetDef` of
+- `LoadingScreen` - the loading screen, which is the tips and nothing else now.
+  The tips were advice for the colony sim that is not running here. A patch and
+  not a `TipSetDef` of
   our own because
   `GameplayTipWindow` pools *every* tip set in the database, so a def adds five
   lines to several hundred instead of replacing them; clearing the vanilla sets
@@ -695,12 +696,28 @@ none of these need a def.
   `currentTipIndex` has to go back with it - it is only remapped onto the list's
   length when the 17.5s timer rolls over, so an index left pointing into the old,
   longer list is an `IndexOutOfRange` on the next frame.
+  The rotation is ours as well, for the same reason the list is: 17.5s on a load
+  that lasts half a minute is one tip stared at. `tipUpdateInterval` is a const
+  inlined into `DrawContents` and so has no field to write, but the timer it is
+  compared against does - stamping `lastTimeUpdatedTooltip` with the current time
+  on every draw means vanilla's interval never elapses and the index only ever
+  moves when `TipSeconds` says so.
   The enabled mods and DLCs panel goes entirely: it is a modding tool, for
   reading back what you loaded after you broke your game, and here there is one
   mod and it is the product. `ModSummaryWindow.GetEffectiveSize` is patched to
   zero along with the draw, because `LongEventHandler` asks the panel how tall it
   is and centres the whole stack on the total - skipping only the draw leaves the
   hole and puts the loading box high above it.
+  The status box above the tips goes with it, and that same centring is why
+  `Patch_LoadingLayout` re-lays the screen out rather than hiding a panel:
+  `LongEventsOnGUI` sums the heights it is about to draw, so declining to draw
+  the box would leave its space above the tips and the tips low on the screen.
+  What is left is the menu background and the tip panel in the middle of the
+  screen. It takes over that screen only - the standard-window path (the small
+  in-game box during a save, which never had tips under it), a long event that
+  asked for no extra UI (where the box is the only thing on screen and taking it
+  away reads as a hang) and any build where one of the private fields it reads
+  has moved all fall through to vanilla.
 
 ### `UI/` - the terminal
 

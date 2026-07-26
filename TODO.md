@@ -6,7 +6,7 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 ## Interface
 
-- [ ] New window: "Shortcuts". 
+- [ ] New window: "Shortcuts". Two kinds: prompt and shell. Prompt creates new temporary clanker from template, pastes text to the input field, sends Enter. Shell spawns new clanker with interactive shell and sends text to shell. Both clankers disappear as soon as underlying process exits.
 - [x] New window: "Projects". First button in the bottom bar. Every project contains: project directory, sandbox params (presets like "Claude", "dbus", "systemd", plus optional custom additions). Agents now must belong to specific project on creation and inherit it params. Stays configurable per agent: name and command.
 - [x] New agent action button: "Duplicate". Opens agent creation window with fields filled with existing agent's values.
 - [x] Render session/weekly limits as generic RimWorld resources: icon + white % or $ text. Show more info bubble on hover like now. Suggest icons, builtin or generated.
@@ -14,10 +14,11 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 - [ ] Suppress the "unsaved work will be lost" confirmation now that quitting always saves.
 - [ ] "Tab / Shift+Tab in floating windows to navigate between fields (might be hard to implement)
 - [ ] Cleanup: drop items that don't affect our "game" from Settings window if it can be modded.
-- [ ] Loading screen: hide loading block, the one above tips. Add tip "Press `F12` to toggle terminal". Make tips change faster to show 4-5 during game loading.
+- [x] Loading screen: hide loading block, the one above tips. Add tip "Press `F12` to toggle terminal". Make tips change faster to show 4-5 during game loading.
 
 ## Terminal
 
+- [ ] Bug: after "New colony" terminals have fixed size when opening first time with "Terminal" action
 - [ ] Bug: thin black line between every 4 green or red lines (diff in CC)
 - [ ] Bug: copy doesn't work (Claude tmux integration?)
 - [ ] Add "+" button to the small floating colonist panel
@@ -35,6 +36,7 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 ## "Game"
 
+- [ ] Bug: clankers have human faces on game load until running "New colony"
 - [x] Remove rule "clankers sleep when terminal is idle". Let them do noting and "claudwatch" as some idle action named. Show normal idle icon (clock). But add gentle sound when agent becomes idle. Something from core sounds. Also, enforce "run in background" setting.
 - [ ] Bug: day/night in game is not synced with real time in user's timezone
 - [ ] Skip the welcome message window when creating a new colony.
@@ -73,3 +75,4 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 - Robots have seen things you people wouldn’t believe.
 - Robots are Your Plastic Pal Who’s Fun To Be With.
 - Robots have shiny metal posteriors which should not be bitten.
+- Press F12 to open an agent's terminal, and F12 again to leave it.
