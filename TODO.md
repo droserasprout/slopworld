@@ -75,4 +75,4 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 - Robots have seen things you people wouldn’t believe.
 - Robots are Your Plastic Pal Who’s Fun To Be With.
 - Robots have shiny metal posteriors which should not be bitten.
-- Press F12 to open an agent's terminal, and F12 again to leave it.
+- Press `F12` to toggle terminal

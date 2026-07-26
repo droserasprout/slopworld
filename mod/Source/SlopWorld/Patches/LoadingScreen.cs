@@ -41,8 +41,8 @@ namespace SlopWorld
     [HarmonyPatch(typeof(GameplayTipWindow), nameof(GameplayTipWindow.DrawWindow))]
     public static class Patch_LoadingTips
     {
-        // Long enough to read, short enough that a load shows several.
-        const float TipSeconds = 5f;
+        // Short enough that a load shows the whole list.
+        const float TipSeconds = 1f;
 
         static readonly List<string> Tips = new List<string>
         {
@@ -54,7 +54,7 @@ namespace SlopWorld
             // F12 is spelled out rather than read off SlopQuickTerminal: the first
             // loading screen is up before any def is loaded, so there is nothing to
             // read the label from at the point this list is installed.
-            "Press F12 to open an agent's terminal, and F12 again to leave it.",
+            "Press `F12` to toggle terminal",
         };
 
         static readonly FieldInfo AllTips =
