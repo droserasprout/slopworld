@@ -59,6 +59,11 @@ namespace SlopWorld
 
             if (Widgets.ButtonText(new Rect(bar.x + 276f, bar.y, 130f, 30f), "Reconnect"))
                 hub.Connect();
+
+            // Furthest from the rest, because it is the one button here that throws
+            // something away rather than changing it.
+            if (Widgets.ButtonText(new Rect(bar.xMax - 130f, bar.y, 130f, 30f), "New colony"))
+                NewColony.Confirm();
         }
 
         void DrawList(Rect rect, SessionHub hub)

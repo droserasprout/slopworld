@@ -214,6 +214,13 @@ none of these need a def.
   game; those three save the colony on the wall clock and on the way out, load the
   newest save instead of stopping at the menu, and put the open terminal back once
   its session has reported in. All three are opt-out in mod settings.
+- `NewColony` - the other end of that: "New colony" in the sessions window bins the
+  current map and lands a fresh one. Vanilla's own button is nothing but
+  `Find.WindowStack.Add(new Page_SelectScenario())`, which `Patch_QuickStart`
+  already turns into a generated colony, so the work is only getting back to the
+  menu first - `GoToMainMenu` queues the teardown, so the page is opened on the
+  menu's first frame instead. `Pending` is what tells `AutoSaver` not to write out
+  a colony the player has just discarded, and `AutoResume` not to take the frame.
 - `StatusOverlay`, `RobotHead`, `QuickStart`, `SlopDefOf`.
 
 ### `Patches/` - taking the game away
