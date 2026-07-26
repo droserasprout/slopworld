@@ -11,13 +11,13 @@
     <defaultKeyCodeA>T</defaultKeyCodeA>
   </KeyBindingDef>
 
-  <!-- Hotkey on the Start/Stop gizmo. S is vanilla's "select similar", which
-       needs a colony of things to be worth anything. -->
+  <!-- Hotkey on the Start/Stop gizmo. Not S: vanilla already spends it on a
+       selected pawn, and a clash is a key that does two things at once. -->
   <KeyBindingDef>
     <defName>SlopToggleSession</defName>
     <label>start/stop agent</label>
     <category>SelectionMisc</category>
-    <defaultKeyCodeA>S</defaultKeyCodeA>
+    <defaultKeyCodeA>P</defaultKeyCodeA>
   </KeyBindingDef>
 
 </Defs>

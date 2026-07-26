@@ -8,15 +8,15 @@ Loosely sorted by priority. PRs are welcome.
   - [ ] Disable resources spawn on the map (via scenario?)
   - [ ] Disable right-click/Tab menu on map (empty selection)
 - [ ] Interface
-  - [ ] Colonist selected: square action button "Start/Stop". Stop shows confirmation dialog that process will be killed.
 - [ ] Terminal
+  - [ ] 
   - [ ] Bug: DnD text selection highlight the whole line under the cursor including empty space
   - [ ] Bells and whistles
     - [ ] Color schemes
     - [ ] Cursor color
     - [ ] OSC8/URL hyperlinks
 - [ ] "Game"
-  - [ ] Bug: colonists' pets not exploding and not affected by plague
+  - [ ] Session/weekly limits as "resources"
   - [ ] Tune plague odds and spread rate
   - [ ] Replace loading screen tips. Start with lorem ipsum list.
 - [ ] Sound and music
