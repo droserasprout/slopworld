@@ -12,6 +12,9 @@ namespace SlopWorld
         /// Marks a living thing the plague has reached.
         public static HediffDef SlopPlague;
 
+        /// The pink haze every one of the plague's acts puts up.
+        public static FleckDef SlopPlagueGas;
+
         /// Hotkey on the selected agent's Terminal gizmo.
         public static KeyBindingDef SlopOpenTerminal;
 

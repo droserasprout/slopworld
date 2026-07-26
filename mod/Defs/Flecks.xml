@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <!--
+    The plague's tell. Modelled on vanilla's Fleck_ToxGasSmall, which is the shape
+    every atmospheric cloud in this game has: a gas texture rather than a smoke
+    puff, alpha in the sixties rather than opaque, growing as it drifts up-map, and
+    gone inside a second. Smoke is the wrong def for this - it is solid for six
+    seconds and fades for another three, so a tint on it leaves hard coloured decals
+    lying about the map instead of a haze passing over it.
+
+    The colour lives here and not in FleckCreationData.instanceColor because alpha
+    is the whole point: a fleck's instanceColor is combined with a separately
+    computed fade alpha, while graphicData's is baked into the material and stays
+    put. Dusty rose, not magenta - it has to read against grass and dirt without
+    becoming the brightest thing on screen.
+  -->
+  <FleckDef ParentName="FleckBase_Thrown">
+    <defName>SlopPlagueGas</defName>
+    <altitudeLayer>MoteOverhead</altitudeLayer>
+    <fadeInTime>0.3</fadeInTime>
+    <solidTime>0</solidTime>
+    <fadeOutTime>0.4</fadeOutTime>
+    <growthRate>0.8</growthRate>
+    <acceleration>(0, 0, 2)</acceleration>
+    <graphicData>
+      <texPath>Things/Gas/GasCloudThickA</texPath>
+      <shaderType>TransparentPostLight</shaderType>
+      <color>(214, 92, 168, 64)</color>
+    </graphicData>
+  </FleckDef>
+
+</Defs>
