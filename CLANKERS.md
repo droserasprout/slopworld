@@ -811,11 +811,11 @@ none of these need a def.
   time - 1-2-3, 2-3-4, 3-4-5 - so stepping the index one place reads as the block
   scrolling up a line rather than as one tip swapped for another. The quotes are
   shuffled once per launch. Every scroll draws its own delay between
-  `MinSeconds` and `MaxSeconds` (0.05s and 1s), so the block sometimes flicks
+  `MinSeconds` and `MaxSeconds` (0.05s and 0.5s), so the block sometimes flicks
   past and sometimes sits there; a fixed catch every tenth scroll was the first
-  cut and read as a metronome. Uniform between the two averages a little over
-  half a second a block, which makes this the pace of the thing rather than a
-  garnish on it.
+  cut and read as a metronome. Uniform between the two averages a bit over a
+  quarter of a second a block, which makes this the pace of the thing rather
+  than a garnish on it.
   The zalgo goes on the joined block and never on a line before it is joined. A
   line carries its marks wherever it goes, so seasoning the tips themselves would
   send the noise up the screen with the text - legible, and the one thing it must

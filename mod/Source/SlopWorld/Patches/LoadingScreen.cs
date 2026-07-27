@@ -58,10 +58,10 @@ namespace SlopWorld
         /// The floor is too fast to read anything at all and the ceiling is long
         /// enough to finish a short block, so a load screen is a wall of this going
         /// past that keeps stalling on something. Uniform between the two, which
-        /// averages a little over half a second a block - so this is the pace of
-        /// the whole thing and not a garnish on it.
+        /// averages a bit over a quarter of a second a block - so this is the pace
+        /// of the whole thing and not a garnish on it.
         const float MinSeconds = 0.05f;
-        const float MaxSeconds = 1.0f;
+        const float MaxSeconds = 0.5f;
 
         /// How many lines the block is. Three is what the box is sized for; see
         /// <see cref="Patch_LoadingLayout"/>, which has to grow it to fit them.
@@ -94,11 +94,11 @@ namespace SlopWorld
             "Robots have shiny metal posteriors which should not be bitten",
             // ATHF
             "Gentlemen, behold!",
-            "And after this 90-day trial, you will be judged and sentenced to a lifetime of interactive sports, news, and information",
+            "Judged and sentenced to a lifetime of interactive sports, news, and information",
             "And we will continue to draw from your account. Because banks don't care. It's not their money.",
             "You're going offline, internet wizard!",
             "Computer, search for teeth and plaque conspiracy and Metallica",
-            "Kick-ass I-startup, superjazzed about expansion, seeks visionary dot-com expert for media leadership position",
+            "Kick-ass I-startup, superjazzed about expansion, seeks visionary dot-com expert",
             // MC Pee-Pants
             "Don't care if it's nutritious or FDA approved",
             "That fuels a giant drill, bores straight into hell",
@@ -142,7 +142,8 @@ namespace SlopWorld
             // Terry Davis
             "God said everything should be simple. It is 640x480 16 color.",
             "And yet what does the bird do? Does he panic? No, he can't really panic, he just does the best he can.",
-            "Usually the bird is okay even though he doesn't understand the world. He can kinda learn what's safe and what's dangerous.",
+            "Usually the bird is okay even though he doesn't understand the world.",
+            "He can kinda learn what's safe and what's dangerous.",
             "I like elephants and God likes elephants",
             // Self-Help Singh
             "When you have a bad day - give up, go home and sleep",
