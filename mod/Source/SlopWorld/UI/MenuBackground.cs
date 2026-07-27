@@ -34,9 +34,19 @@ namespace SlopWorld
     [StaticConstructorOnStartup]
     public static class MenuBackground
     {
-        /// Frames across the rot. Eight reads as continuous once the crossfade is
-        /// on top of it, and eight is also what the cache and the decode cost.
-        const int Stages = 8;
+        /// Frames across the rot, and the whole of what the animation's smoothness
+        /// is: <see cref="Current"/> picks one and cuts to it, so a stage is a frame
+        /// and there is nothing blending between them.
+        ///
+        /// Fewer of them are seen than are baked. The breath rides
+        /// <see cref="BreatheLow"/>..<see cref="BreatheHigh"/>, so once the onset is
+        /// over the index only ever walks the top 55% of the range - at twelve that
+        /// is stages 5..11, seven frames, where eight stages gave five. The rest are
+        /// the way in from clean and are each seen once.
+        ///
+        /// Straight linear in the cache and the decode, which is the reason this is
+        /// twelve and not thirty.
+        const int Stages = 12;
 
         /// The long side the frames are baked at. Vanilla's is 4096, which is more
         /// than any screen this draws to and four times the filter cost; a picture

@@ -27,25 +27,62 @@ namespace SlopWorld
     /// under an index pointing into the old, longer list is an IndexOutOfRange
     /// on the next frame.
     ///
-    /// The order is the order they are written in - vanilla shuffles, this does
-    /// not - and the list is installed at index 0, which is why the shortcuts sit
-    /// at the top: they are what a session's first load screen shows.
+    /// What is installed is not the tips but a sliding window over them, three at
+    /// a time - 1-2-3, 2-3-4, 3-4-5 - so stepping the index one place reads as the
+    /// block scrolling up a line rather than as one tip being swapped for another.
+    /// The quotes are shuffled once per launch, so the same load screen is never
+    /// the same twice and nothing sits at the top by right.
     ///
     /// The rotation is ours too. Vanilla's tipUpdateInterval is a const inlined
     /// into DrawContents, so there is no field to write - but the timer it
     /// compares against is a field, and stamping that with the current time on
     /// every draw means vanilla's own 17.5s never elapses and the index only ever
-    /// moves when we move it.
+    /// moves when we move it. Which is what buys the variable hold: a scroll is
+    /// <see cref="TipSeconds"/> and every <see cref="CatchEvery"/>th one is
+    /// <see cref="CatchSeconds"/>, so the blur catches on something at a rhythm
+    /// instead of running past at one speed.
+    ///
+    /// The zalgo goes on the joined block and never on a line before it is joined.
+    /// A line carries its marks wherever it goes, so seasoning the tips themselves
+    /// would send the noise up the screen with the text - legible, and the one
+    /// thing it must not be. Seasoning the block instead re-rolls every line's
+    /// marks on every scroll, so the noise sits still and crawls while the words
+    /// move through it.
     /// </summary>
     [HarmonyPatch(typeof(GameplayTipWindow), nameof(GameplayTipWindow.DrawWindow))]
     public static class Patch_LoadingTips
     {
-        // Short enough that a load shows the whole list.
+        /// One scroll. Far too fast to read, which is the point: what a load screen
+        /// shows is a wall of this going past.
         const float TipSeconds = 0.05f;
+
+        /// Except every tenth, which holds. Long enough for the eye to stop on a
+        /// block rather than to finish it - three lines want nearer two seconds to
+        /// actually read, and this is a catch, not a caption.
+        const int CatchEvery = 10;
+        const float CatchSeconds = 0.3f;
+
+        /// How many lines the block is. Three is what the box is sized for; see
+        /// <see cref="Patch_LoadingLayout"/>, which has to grow it to fit them.
+        const int Lines = 3;
+
+        /// Combining marks, above and below - the U+0300 block, minus the ones that
+        /// sit on the baseline and eat the letter. Density is low on purpose: this
+        /// is meant to read as a picture that is going wrong, and a solid hedge of
+        /// diacritics reads as a font that has failed.
+        /// Spelled in escapes rather than pasted: a combining mark in source
+        /// binds to whatever precedes it, so a literal here would decorate the
+        /// opening quote and could not be read back or edited.
+        const string Marks =
+            "\u0300\u0301\u0302\u0303\u0304\u0306\u0307\u0308\u030A\u030B\u030C" +   // above
+            "\u0327\u0323\u0324\u0325\u0326\u0330\u0331";    // below
+        const double MarkChance = 0.18;
+        const double DoubleChance = 0.25;
 
         static readonly List<string> Tips = new List<string>
         {
-            // shortcuts, the only useful block
+            // shortcuts, the only useful block - shuffled in with the rest now, so
+            // they turn up when they turn up
             "Press `F12` to toggle terminal",
             "Press Alt+Num to switch terminal tab",
             // Mozilla's `about:robots`
@@ -149,6 +186,60 @@ namespace SlopWorld
         /// than the table.</summary>
         public static string RandomTip => Tips.RandomElement();
 
+        /// <summary>The blocks actually shown: the shuffled quotes, three at a
+        /// time, each window seasoned on its own. Built once, because the noise has
+        /// to hold still for as long as a block is up - re-rolled per draw it would
+        /// boil at the frame rate, and the hold every tenth scroll exists precisely
+        /// so there is something still to look at.</summary>
+        static readonly List<string> Frames = BuildFrames();
+
+        static List<string> BuildFrames()
+        {
+            // System.Random rather than Verse.Rand: this runs from a static field
+            // initialiser, which is before the game has decided what its seed is.
+            var rng = new System.Random();
+
+            var order = new List<string>(Tips);
+            for (int i = order.Count - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                string t = order[i];
+                order[i] = order[j];
+                order[j] = t;
+            }
+
+            // Wrapping rather than stopping three from the end, so the list is a
+            // loop: the index runs off the end and the scroll never has a seam.
+            var frames = new List<string>(order.Count);
+            for (int i = 0; i < order.Count; i++)
+            {
+                var block = new System.Text.StringBuilder();
+                for (int n = 0; n < Lines; n++)
+                {
+                    if (n > 0) block.Append('\n');
+                    block.Append(order[(i + n) % order.Count]);
+                }
+                frames.Add(Season(block.ToString(), rng));
+            }
+            return frames;
+        }
+
+        /// <summary>Marks sprinkled over a finished block. Whitespace is skipped:
+        /// a mark on a space has nothing to sit on and renders as one adrift.
+        /// </summary>
+        static string Season(string s, System.Random rng)
+        {
+            var sb = new System.Text.StringBuilder(s.Length * 2);
+            foreach (char c in s)
+            {
+                sb.Append(c);
+                if (char.IsWhiteSpace(c) || rng.NextDouble() >= MarkChance) continue;
+                sb.Append(Marks[rng.Next(Marks.Length)]);
+                if (rng.NextDouble() < DoubleChance) sb.Append(Marks[rng.Next(Marks.Length)]);
+            }
+            return sb.ToString();
+        }
+
         static readonly FieldInfo AllTips =
             AccessTools.Field(typeof(GameplayTipWindow), "allTipsCached");
         static readonly FieldInfo CurrentTip =
@@ -165,16 +256,25 @@ namespace SlopWorld
             if (AllTips == null) return;
 
             float now = Time.realtimeSinceStartup;
-            if (!ReferenceEquals(AllTips.GetValue(null), Tips))
+            if (!ReferenceEquals(AllTips.GetValue(null), Frames))
             {
-                AllTips.SetValue(null, Tips);
+                AllTips.SetValue(null, Frames);
                 if (CurrentTip != null) CurrentTip.SetValue(null, 0);
                 _shown = now;
             }
-            else if (CurrentTip != null && now - _shown >= TipSeconds)
+            else if (CurrentTip != null)
             {
-                CurrentTip.SetValue(null, ((int)CurrentTip.GetValue(null) + 1) % Tips.Count);
-                _shown = now;
+                // The hold is read off the index rather than off a counter of our
+                // own, so the two cannot drift; the cadence hiccups once where the
+                // list wraps and the count is not a multiple of CatchEvery, which
+                // is one stutter in a hundred and reads as part of it.
+                int i = (int)CurrentTip.GetValue(null);
+                float hold = i % CatchEvery == 0 ? CatchSeconds : TipSeconds;
+                if (now - _shown >= hold)
+                {
+                    CurrentTip.SetValue(null, (i + 1) % Frames.Count);
+                    _shown = now;
+                }
             }
 
             // Holding vanilla's timer at now is what keeps it from rolling the index
@@ -212,6 +312,43 @@ namespace SlopWorld
         static readonly MethodInfo UseStandardWindow =
             EventType == null ? null : AccessTools.PropertyGetter(EventType, "UseStandardWindow");
 
+        static readonly FieldInfo WindowSizeField =
+            AccessTools.Field(typeof(GameplayTipWindow), nameof(GameplayTipWindow.WindowSize));
+
+        /// <summary>Vanilla's box is 776x60 with an 8px margin, which leaves 44px of
+        /// text - two lines of GameFont.Small and no more. The block is three, so
+        /// the box has to grow or the middle line is the only one that survives.
+        ///
+        /// Wider as well as taller, because a quote longer than the box wraps and
+        /// spends two of the three lines: 1000 fits all but the longest few, and the
+        /// height is four lines rather than three so a wrap costs a line of air
+        /// instead of the block. Vanilla anchors the text MiddleCenter, so a block
+        /// that does not need the room is still centred in it and the spare height
+        /// never shows.
+        ///
+        /// The field is `static initonly`, which reflection may still write on this
+        /// runtime and may not. A refusal is caught and left alone: the screen then
+        /// draws vanilla's box with the middle of the block in it, which is a worse
+        /// loading screen and not a broken one.</summary>
+        const float BoxW = 1000f;
+        const float BoxH = 104f;
+        static bool _sized;
+
+        static void EnsureSize()
+        {
+            if (_sized) return;
+            _sized = true;
+            if (WindowSizeField == null) return;
+            try
+            {
+                WindowSizeField.SetValue(null, new Vector2(BoxW, BoxH));
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"[SlopWorld] tip box left at vanilla's size: {e.Message}");
+            }
+        }
+
         static bool Prefix()
         {
             if (ForceHideUI == null || ShowExtraUIInfo == null || UseStandardWindow == null) return true;
@@ -227,6 +364,9 @@ namespace SlopWorld
                 UIMenuBackgroundManager.background = new UI_BackgroundMain();
             UIMenuBackgroundManager.background.BackgroundOnGUI();
 
+            // Before the size is read, not after: DrawWindow lays its rect out from
+            // the same field, so the two have to agree on the first frame as well.
+            EnsureSize();
             Vector2 size = GameplayTipWindow.WindowSize;
             GameplayTipWindow.DrawWindow(
                 new Vector2((UI.screenWidth - size.x) / 2f, (UI.screenHeight - size.y) / 2f), false);
