@@ -761,9 +761,28 @@ none of these need a def.
   list in one method with nothing to hook in the middle, and hands the finished
   list over - so one prefix inserts the row and vanilla draws it. The same listing
   draws the startup menu and the options dialog, hence the two guards: in a game,
-  and in the window that is the in-game menu. `MainTabWindow_Menu` asks for a fixed
-  450x390 with no scrolling, so the row also needs its getter postfixed or it is
-  drawn past the bottom edge.
+  and in the window that is the in-game menu.
+  It is also drawn *twice* per menu, which the first cut of this did not know and
+  the menu said so: two "Next planet" rows, doing the same thing. The second call
+  is the column of web links - the fiction primer, the blog, the subreddit - a
+  list of its own drawn beside the first, in the in-game menu as well as at
+  startup. So a flag is armed on the way into `DoMainMenuControls` and spent by
+  the first listing to arrive, which is the options one; a rect width or a label
+  would be a guess about a layout that is free to move.
+  The same pass drops three rows. Save and Load game are answered already and
+  better - `AutoSaver` writes on the clock and on the way out, `Patch_AutoResume`
+  loads the newest on launch - and a hand-made save here is a colony that can be
+  restored underneath sessions it no longer matches. Review scenario describes
+  `SlopScenario`, which nobody picked and nobody can change. They are matched on
+  the translated label, that being what the option carries, and a key with no
+  translation comes back as itself, so the match holds in any language.
+  `MainTabWindow_Menu` asks for a fixed 450x390 with no scrolling, so the height
+  is postfixed by the *net* rows - one in, three out - or the box stands a third
+  empty. That figure is written down as the answer we expect and overwritten with
+  what the last listing actually did, which is both halves of it:
+  `RequestedTabSize` is read on `PreOpen` and not per frame, so a measured-only
+  figure is wrong the first time the menu is opened, and a written-down one is
+  wrong for good the day vanilla stops shipping one of the three.
   Nothing asks whether you meant it, because the six seconds in the middle say it
   better than a dialog: `Cutscene.Playing` takes the interface away, the camera
   drops onto the core, and a front of fire walks out of it to the map edge. The

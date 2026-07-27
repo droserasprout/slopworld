@@ -238,32 +238,88 @@ namespace SlopWorld
         /// drawn by vanilla in vanilla's own style. That same listing draws the
         /// startup menu and the options dialog, hence the two checks: in a game,
         /// and in the window that is the in-game menu.
+        ///
+        /// It also draws *twice* per menu, which is the whole of why there is a
+        /// flag here. The second call is the column of web links - the fiction
+        /// primer, the blog, the subreddit - built into a list of its own and drawn
+        /// beside the first, in the in-game menu as well as at startup. A prefix
+        /// that only looked at the window put the row in both of them, so the menu
+        /// had two Next planets that did the same thing. `Column` is armed by
+        /// <see cref="Patch_MenuFirstColumn"/> on the way into DoMainMenuControls
+        /// and spent by the first listing to arrive, which is the options one -
+        /// exact, where a rect width or a label would be a guess about a layout
+        /// that is free to move.
+        ///
+        /// The same pass drops three rows. Save and Load game are answered already
+        /// and better: <see cref="AutoSaver"/> writes on the clock and on the way
+        /// out, <see cref="Patch_AutoResume"/> loads the newest save on launch, and
+        /// a player who saves by hand here is one who can restore a colony from
+        /// under the sessions it no longer matches. Review scenario describes
+        /// <see cref="SlopScenario"/>, which nobody picked and nobody can change.
+        /// They are matched on the translated label, because that is what the
+        /// option carries - a key that has no translation comes back as itself, so
+        /// this holds in any language including a missing one.
         /// </summary>
         [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
         public static class Patch_MenuOption
         {
+            static readonly string[] Dropped = { "Save", "LoadGame", "ReviewScenario" };
+
+            /// <summary>Set on the way into DoMainMenuControls, spent by the first
+            /// listing it draws.</summary>
+            public static bool Column;
+
+            /// <summary>How many rows this build adds to the in-game menu, net: one
+            /// put in against three taken out. Written down as the answer we expect
+            /// and then overwritten with what the last listing actually did, which
+            /// is both halves of getting the window's height right.
+            /// `RequestedTabSize` is read on PreOpen rather than per frame, so a
+            /// figure only ever measured would leave the menu the wrong height the
+            /// first time it is opened; a figure only ever written down would be
+            /// wrong for good the day vanilla stops shipping one of the three.</summary>
+            public static int Net = 1 - Dropped.Length;
+
             static void Prefix(List<ListableOption> optList)
             {
+                bool first = Column;
+                Column = false;
+
+                if (!first) return; // the web links, drawn beside the options
                 if (Current.ProgramState != ProgramState.Playing) return;
                 if (Leaving) return;
                 if (!(Find.WindowStack?.currentlyDrawnWindow is MainTabWindow_Menu)) return;
 
-                // First, because leaving is what this menu is for here: the rest of
-                // it saves, loads and quits a colony sim that is not running.
+                int gone = optList.RemoveAll(o => o != null && Dropped.Any(
+                    key => o.label == (string)key.Translate()));
+
+                // First, because leaving is what this menu is for here: what is
+                // left of it quits a colony sim that is not running.
                 optList.Insert(0, new ListableOption("Next planet", Begin));
+                Net = 1 - gone;
             }
         }
 
-        /// <summary>Room for the row above. The menu tab asks for a fixed 450x390
-        /// and the listing is drawn inside it with no scrolling, so an option added
-        /// without this is one drawn past the bottom edge.</summary>
+        /// <summary>Arms the flag above. Its own prefix rather than a counter reset
+        /// inside the listing patch, because "how many listings have gone by" is
+        /// only a question worth asking from the call that draws them.</summary>
+        [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
+        public static class Patch_MenuFirstColumn
+        {
+            static void Prefix() => Patch_MenuOption.Column = true;
+        }
+
+        /// <summary>The box, sized to what is in it. The menu tab asks for a fixed
+        /// 450x390 and the listing is drawn inside it with no scrolling, so a row
+        /// added without this is one drawn past the bottom edge - and now that three
+        /// more come out than go in, a box left at vanilla's height is a third of it
+        /// standing empty.</summary>
         [HarmonyPatch(typeof(MainTabWindow_Menu), "RequestedTabSize", MethodType.Getter)]
         public static class Patch_MenuSize
         {
             // ListableOption's own minHeight, plus DrawOptionListing's spacing.
             const float RowH = 45f + 7f;
 
-            static void Postfix(ref Vector2 __result) => __result.y += RowH;
+            static void Postfix(ref Vector2 __result) => __result.y += RowH * Patch_MenuOption.Net;
         }
 
         [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI))]
