@@ -724,6 +724,9 @@ none of these need a def.
   compared against does - stamping `lastTimeUpdatedTooltip` with the current time
   on every draw means vanilla's interval never elapses and the index only ever
   moves when `TipSeconds` says so.
+  The list is read from outside as well - `RandomTip` is what `CoreTip` hangs on
+  the persona core - so the tips are the machine's voice rather than the load
+  screen's furniture, and there is one of them to edit.
   The enabled mods and DLCs panel goes entirely: it is a modding tool, for
   reading back what you loaded after you broke your game, and here there is one
   mod and it is the product. `ModSummaryWindow.GetEffectiveSize` is patched to
@@ -743,8 +746,8 @@ none of these need a def.
 
 ### `UI/` - the terminal
 
-`UsageReadout` is the one non-terminal thing here: the quota windows drawn in the
-top-left corner, which is where `Patch_HideGui` left a hole by stripping
+`UsageReadout` is the first of two non-terminal things here: the quota windows
+drawn in the top-left corner, where `Patch_HideGui` left a hole by stripping
 `ResourceReadout` and where the eye goes anyway. A `MapComponent` rather than a
 window, so it sits on the map layer behind every window - right, because an open
 terminal is fullscreen and opaque and a readout over it would cover the thing
@@ -775,6 +778,19 @@ remembered per key rather than recomputed per frame, because an icon that
 depended on which other windows were in this poll would move about between polls.
 `Pool` is built on first use, not in a field initialiser: `ThingDefOf` is filled
 in during startup and a static touched too early caches a row of nulls.
+
+`CoreTip` is the other one: hover the persona core and it says a loading screen
+tip. The list is `Patch_LoadingTips`' own rather than a second one, because those
+lines are the machine talking at you while it thinks and the core is the machine
+- and because the core is the one thing on this map worth pointing at that can be
+neither selected nor clicked, so a bubble is the whole of what it can be given. A
+tooltip rather than anything drawn here, which is also what makes an open
+terminal hide it: `Mouse.IsOver` is false whenever a window sits under the cursor
+and the map layer is what is drawing, so the tip can never surface over a pane
+that fills the screen. The line is rolled when the cursor arrives and held until
+it leaves - `TooltipHandler.TipRegion` writes the text into the live tip on every
+frame it is called, so rolling per frame would be a box of static rather than a
+sentence, and one line per hover is what makes it worth hovering twice.
 
 `TerminalWindow` renders a pane and forwards keys. Almost everything typed goes
 to the agent - Escape included, which is why leaving is Shift+Escape - so the few

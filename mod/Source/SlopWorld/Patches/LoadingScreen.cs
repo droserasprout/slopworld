@@ -57,6 +57,12 @@ namespace SlopWorld
             "Press `F12` to toggle terminal",
         };
 
+        /// <summary>One of them, at random. The other place a tip turns up is the
+        /// persona core's hover bubble (<see cref="CoreTip"/>); the list itself
+        /// stays private, because what a reader out there wants is a line rather
+        /// than the table.</summary>
+        public static string RandomTip => Tips.RandomElement();
+
         static readonly FieldInfo AllTips =
             AccessTools.Field(typeof(GameplayTipWindow), "allTipsCached");
         static readonly FieldInfo CurrentTip =
