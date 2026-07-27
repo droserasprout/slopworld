@@ -115,6 +115,7 @@ namespace SlopWorld
                 Patch_HideGui.Apply(h);
                 Patch_MainButtons.Apply(h);
                 Patch_InspectTabs.Apply(h);
+                Patch_NoRelateAgents.Apply(h);
             }
             catch (Exception e)
             {

@@ -19,6 +19,9 @@ namespace SlopWorld
     /// Appended after whatever vanilla drew rather than replacing the row: an
     /// agent can still be on fire, and that icon has to stay.
     /// </summary>
+    // Look() resolves the two textures on the first draw, not in a static ctor; the
+    // attribute is only to quiet the startup scan. See TerminalIcon.
+    [StaticConstructorOnStartup]
     [HarmonyPatch(typeof(ColonistBarColonistDrawer), "DrawIcons")]
     public static class Patch_ColonistBarStateIcon
     {

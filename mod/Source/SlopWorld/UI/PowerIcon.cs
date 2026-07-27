@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Verse;
 
 namespace SlopWorld
 {
@@ -8,6 +9,8 @@ namespace SlopWorld
     /// the same reason <see cref="TerminalIcon"/> is: two solid shapes are not
     /// worth a PNG in the mod folder. White, so callers can tint them.
     /// </summary>
+    // Built lazily on first draw; see TerminalIcon for why the attribute is here.
+    [StaticConstructorOnStartup]
     public static class PowerIcon
     {
         const int N = 32;

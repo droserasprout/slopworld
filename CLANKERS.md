@@ -546,8 +546,33 @@ none of these need a def.
   quick start because the settlement is not made until map generation, and
   because a save written before this existed is named on its next load instead
   of being asked about.
-- `RealClock` - maps ticks to the wall clock, and banks the stretches the clock did
-  not run so old events still date correctly. Backs the real-time patches.
+- `RealClock` - the wall clock, in both directions. Ticks read as real seconds at
+  Normal speed, which is what `Seconds` and `Period` hand `RealTimePatches`. And
+  the game's calendar is steered off the real one, which is the day and night.
+  Vanilla's sun is a pure function of the *absolute* tick and the tile's
+  longitude - `GenCelestial` for the glow and the shadows, `GenLocalDate` for the
+  hour, both bottoming out in `GenDate` - and at sixty ticks a second a game day
+  is sixteen minutes and forty seconds, so the sun crossed the board eighty-six
+  times a day and midnight on the map said nothing about the room the player was
+  sitting in. The absolute tick is `TicksGame` plus `TickManager.gameStartAbsTick`
+  and nothing else, and that field is public, written once when the game is made
+  and read by three methods after. So this is no patch at all: rewriting the field
+  every frame moves the whole calendar at once - glow, shadow vectors, the
+  shader's `DayPercent`, the hour, the season - where patching would have meant
+  finding every reader and hoping none was small enough for Mono to inline past
+  the patch. It is written to `DateTime.Now`, so the timezone and daylight saving
+  arrive already applied, with the hour per fifteen degrees of longitude that
+  everything downstream is about to add taken back off first - the same sum
+  vanilla does in `TicksAbsForSunPosInWorldSpace` to find noon. One game day to a
+  real day, the colony's landing day being day one, so a year is sixty real days
+  and a quadrum fifteen; that epoch is scribed, or the date would walk back to the
+  start on every load. Two things follow. An absolute tick is worth 1.44 real
+  seconds rather than a sixtieth of one, so `SecondsSince` - the pawn log's "X
+  ago", the one place a viewer reads a stamp - converts through
+  `SecondsPerAbsTick`. And the slip this used to bank is gone: it existed because
+  game ticks stood in for real seconds and the game clock stops for a forced
+  pause, a stutter and above all the stretch a save spends closed, none of which a
+  wall clock does.
 - `SpawnSpot`, `LandingSite` - where agents land and where the colony does.
   Both exist because vanilla's answer is "anywhere legal", which here means
   sealed in rock and on an ice sheet respectively.
@@ -948,6 +973,25 @@ none of these need a def.
   bound by name) are separate roads to the same place: closing only the second
   leaves an agent - invulnerable, so already unharmed - wearing a flame that never
   goes out, because a fire on an unkillable thing has nothing to finish.
+- `NoRelateAgents` - the same rule applied to family. Vanilla builds a new pawn's
+  relatives out of everyone alive (`PawnGenerator.GeneratePawnRelations` weights
+  every pawn in `AllMapsWorldAndTemporary_AliveOrDead` by each relation's
+  `GenerationChance`), so the colonists on this board are in the pool and a
+  wanderer walking in off the edge could be handed one of them for a parent. That
+  is a crash rather than a curiosity: `PawnRelationWorker_Parent.ResolveMyName`
+  reads the parent's surname through a plain `(NameTriple)` cast and an agent's
+  name is a `NameSingle`, so it surfaced as `Outskirts` logging "Specified cast is
+  not valid" and the arrival never landing. Patching the cast would be the smaller
+  change and the wrong one - the relation would still be made, and a stranger who
+  is an agent's daughter is colony sim in a game with the colony sim torn out.
+  Zeroing the weight is also all it takes: with every candidate at zero,
+  `RandomElementByWeightWithDefault` hands back the default pair, whose pawn is
+  null, and vanilla's own null check declines to create anything. The other
+  direction needs nothing, `AgentColony.Spawn` having always asked for
+  `canGeneratePawnRelations: false`. Applied by hand from the bootstrap because
+  `GenerationChance` is virtual and Harmony patches one body at a time: a patch on
+  the base alone would catch only the workers that never overrode it, which is
+  none of the ones that matter.
 - `ColonistBarAddButton`, `ColonistBarStateIcon`, `InspectPanePatch`,
   `PawnGizmoPatch` - the parts of the UI that are kept, extended.
   `ColonistBarStateIcon` draws the two states worth catching from the top of the
@@ -1275,6 +1319,13 @@ reconnect on every switch, because `WriteSettings` reconnects.
 
 - 1.6 only. Most tick methods were renamed to interval forms in 1.6, so the patch
   targets will not bind on 1.5.
+- A game tick and an absolute tick are different units here. `TicksGame` is the
+  game's, sixty to the real second; `TicksAbs` is `RealClock`'s, sixty thousand to
+  the real *day*. So `GenDate.TickAbsToGame` and `TickGameToAbs` no longer round
+  trip - the offset between the two moves every frame - and a duration in absolute
+  ticks handed to anything expecting game ticks reads eighty-six times short.
+  Nothing in the mod stores one but the pawn log's timestamps, which vanilla
+  stamps and `RealClock.SecondsSince` reads.
 - The mod builds against a real game install, and Harmony errors surface in
   `Player.log` at runtime, not at build time. A patch whose target moved fails
   silently until you read the log.

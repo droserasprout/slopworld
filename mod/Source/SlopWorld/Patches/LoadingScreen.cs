@@ -87,8 +87,8 @@ namespace SlopWorld
         const string Marks =
             "\u0300\u0301\u0302\u0303\u0304\u0306\u0307\u0308\u030A\u030B\u030C" +   // above
             "\u0327\u0323\u0324\u0325\u0326\u0330\u0331";    // below
-        const double MarkChance = 0.2;
-        const double DoubleChance = 0.3;
+        const double MarkChance = 0.3;
+        const double DoubleChance = 0.6;
 
         static readonly List<string> Tips = new List<string>
         {
@@ -112,10 +112,15 @@ namespace SlopWorld
             "Don't care if it's nutritious or FDA approved.",
             "That fuels a giant drill, bores straight into hell.",
             "Releasing ancient demons from their sleep-forever spell.",
-            // other [adult swim]
+            // Daria
             "I have a good feeling about this multimedia thing, teammate.",
             "Castle scenario, underwater paradise, futuristic dystopia?",
+            // Sealab 2021
             "I am a cyborg. My weak body couldn't deal with the viruses of the 21st century.",
+            // Archer (FX)
+            "You're not my supervisor!",
+            "Holy shit, our security is atrocious. Seriously, it's really bad.",
+            "Can you close your eyes? It feels like I'm banging tail-lights on a country road.",
             // Midnight Gospel
             "Did you get a chance to read the Universe Simulator FAQ I left in your inbox?",
             "Master, I don't mean to nag, but simulator maintenance is important for me not to wobble, so that I continue to function properly.",
@@ -187,6 +192,11 @@ namespace SlopWorld
             "For the first time ever, as a species, immortality is in our reach.",
             "They have given us purpose. They have turned our eyes toward the stars.",
             "You have already met my congregation.",
+            // SCP
+            "This message will continue until nothing is left to hear it.",
+            "They have no interest in ending the Tyranny of the Gods - they simply wish to replace them.",
+            "Struggle is the natural form of creation. This is the chaos of the primordial womb.",
+            "We are against unnecessary cruelty. Which means somebody has to decide when cruelty is necessary.",
             // Kaczynski
             "All work will be done by vast, highly organized systems of machines and no human effort will be necessary.",
             // DeepSeek 🥀

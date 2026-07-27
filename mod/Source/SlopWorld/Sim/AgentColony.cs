@@ -139,9 +139,10 @@ namespace SlopWorld
                 if (_pawns.ContainsKey(s.Name)) continue;
                 // Adopt a colonist already on the map with this name before spawning
                 // a new one. The session->pawn map is saved with reference values,
-                // which RimWorld resolves in a later load phase and silently drops
-                // when they don't round-trip; without this the reconcile would spawn
-                // a duplicate next to the loaded pawn.
+                // which RimWorld resolves in a later load phase and drops when they
+                // don't round-trip; without this the reconcile would spawn a
+                // duplicate next to the loaded pawn. It is also what covers a save
+                // written while ExposeData was losing the map outright - see there.
                 var pawn = FindExisting(s.Name) ?? Spawn(s.Name, map);
                 if (pawn == null) continue;
                 _pawns[s.Name] = pawn;
@@ -315,11 +316,22 @@ namespace SlopWorld
             return map.Center;
         }
 
+        // Scribe_Collections holds a dictionary's keys and values in two lists
+        // between the phase that reads the XML and the phase that resolves the
+        // references in it, and for a dictionary with a Reference on one side it
+        // will not supply them itself: the short overload logs "you need to
+        // provide working lists" and hands back an empty dictionary. So every
+        // load lost the whole session->pawn map and leant on FindExisting to put
+        // it back by name. These two are that scratch space and nothing else -
+        // Scribe fills and clears them, and no code here reads them.
+        List<string> _pawnKeys;
+        List<Pawn> _pawnBodies;
+
         public override void ExposeData()
         {
             base.ExposeData();
             Scribe_Collections.Look(ref _pawns, "agentPawns",
-                LookMode.Value, LookMode.Reference);
+                LookMode.Value, LookMode.Reference, ref _pawnKeys, ref _pawnBodies);
             if (_pawns == null) _pawns = new Dictionary<string, Pawn>();
         }
     }

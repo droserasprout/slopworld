@@ -1,4 +1,5 @@
 using UnityEngine;
+using Verse;
 
 namespace SlopWorld
 {
@@ -7,6 +8,11 @@ namespace SlopWorld
     /// and a bar, which is not worth a PNG in the mod folder - and drawn white so
     /// callers can tint it to an agent's state.
     /// </summary>
+    // The attribute is only to quiet the startup scan: StaticConstructorOnStartupUtility
+    // warns about any type holding a static Texture2D without it, whether or not the
+    // texture is built off the main thread. This one is built lazily on first draw,
+    // which is as main-thread as it gets, so the attribute changes nothing at runtime.
+    [StaticConstructorOnStartup]
     public static class TerminalIcon
     {
         const int N = 32;
