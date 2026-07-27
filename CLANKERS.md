@@ -601,6 +601,19 @@ none of these need a def.
   plant's `Growth` back to `StuntTo` and leaves trees alone instead of stripping.
   `Plant.Growth`'s setter does not dirty the map mesh, so that needs a
   `MapMeshDirty` or the plant keeps drawing at full size.
+  Holding a plant back needs two figures and not one. `StripPatches` takes needs,
+  health, age and the storyteller; it does not touch `Plant.TickLong`, so a
+  stunted plant goes on growing. A sweep that asks whether growth is above
+  `StuntTo` is therefore asking a question that is true again within one lap of
+  the map - the lap being `PlantsPerTick` against every plant there is, half a
+  minute or so - and every plant in the falloff was re-stunted by a fraction of a
+  percent, puffed pink and re-rolled for `PlantIgnite` on every one of them,
+  forever, for nothing you could see. `StuntFrom` is the gap: growth is allowed
+  back up to it before the band takes it down again, which is about a day, so the
+  knock-back is an event with something to show for it. The strip has that shape
+  for free - `LeaflessNow` is vanilla's own day of quiet and then a flip - and
+  that is the tell for any test the sweep asks: it has to stay false for a stretch
+  after the work is done, or the work is being done forever.
   The band is read from where a thing is standing *now*, not from where it was
   marked, so a marked animal that wanders out goes quiet and starts up again when
   it wanders back.

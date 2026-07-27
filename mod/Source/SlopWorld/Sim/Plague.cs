@@ -54,8 +54,8 @@ namespace SlopWorld
         // How far the plague reaches, as fractions of the map's side. Inside
         // FullFrac it is certain; from there to EdgeFrac it thins out to nothing.
         // Fractions rather than cells so the shape holds on any map size.
-        const float FullFrac = 0.2f;
-        const float EdgeFrac = 0.4f;
+        const float FullFrac = 0.25f;
+        const float EdgeFrac = 0.35f;
 
         // How often a marked thing rolls for an effect. What is left over after the
         // odds below is a quiet tick.
@@ -104,6 +104,19 @@ namespace SlopWorld
 
             /// What the weak band knocks a plant's growth back to.
             public float StuntTo;
+
+            /// How far it lets one climb back before knocking it down again, and
+            /// the gap is load-bearing. Nothing stops a plant ticking here - the
+            /// strip takes needs, health, age and the storyteller, not
+            /// Plant.TickLong - so growth in the falloff is continuous, where the
+            /// strip's own "done already" test is a day of quiet and then a flip.
+            /// Knocking back to StuntTo and testing against it is therefore a test
+            /// that is true again within one pass of the sweep: every weak plant on
+            /// the map puffed, re-stunted by a fraction of a percent and re-rolled
+            /// for ignition every half minute, forever, for no visible change.
+            /// With the gap a plant grows back where you can see it and is taken
+            /// down about once a day, which is what the pink puff is there to say.
+            public float StuntFrom;
         }
 
         // The plague at the core. Detonation and ignition are both rare on purpose:
@@ -141,6 +154,7 @@ namespace SlopWorld
             PlantIgnite = 0.00008f,
             Strips = false,
             StuntTo = 0.15f,
+            StuntFrom = 0.45f,
         };
 
         // Persisted. The seed is what makes the dither this colony's rather than
@@ -327,9 +341,13 @@ namespace SlopWorld
                 // comes back round forever: without this a bare tree would smoke
                 // again on each pass, and a plant the weak band has already held
                 // back would roll for ignition again until it eventually caught.
+                // Which is why the weak band asks about StuntFrom rather than
+                // about the figure it stunts to: a plant sitting where the band
+                // put it is still growing, and a test against StuntTo is one that
+                // comes true again before the sweep has finished the lap.
                 bool todo = dose.Strips
                     ? !(tree && p.LeaflessNow)
-                    : !tree && p.Growth > dose.StuntTo;
+                    : !tree && p.Growth > dose.StuntFrom;
                 if (!todo) continue;
 
                 // Rarely the plant catches instead. The roll goes first because it has
