@@ -24,14 +24,25 @@ namespace SlopWorld
     /// old game is gone and nothing has replaced it yet.
     ///
     /// Nothing asks whether you meant it. A confirmation box is what you write when
-    /// the button is one word and the consequence is a paragraph, and the six
+    /// the button is one word and the consequence is a paragraph, and the nine
     /// seconds in the middle of this say the paragraph better: the interface goes,
-    /// the camera drops onto the core, and a front of fire walks out of it to the
-    /// map edge. Anybody who did not mean to press it watches their colony burn,
+    /// the camera drops onto the core and pulls all the way out, and a front of
+    /// fire walks out of it to the map edge. Anybody who did not mean to press it watches their colony burn,
     /// which lands harder than a dialog and costs the person who did mean it
     /// nothing but the time it takes to watch. What is lost is a map - the sessions
     /// are the daemon's, and every one still running gets a fresh colonist on the
     /// next planet.
+    ///
+    /// It is paced rather than continuous, and every pause in it is load-bearing.
+    /// The interface goes and the camera lands a beat before anything happens, or
+    /// the first blast is over before the player has been shown what they are
+    /// looking at. The fire then comes in waves with a lull between them, because
+    /// one smooth expanding ring is a process where three of them are a shelling:
+    /// a wave has an end, and the quiet after it is what makes the next one an
+    /// event rather than more of the same. And the last wave is not the last beat
+    /// - the map is left burning, with nothing new landing on it, for long enough
+    /// to be read. A cut on the final explosion says the scene ran out; a hold
+    /// says it finished.
     ///
     /// It is the mirror of <see cref="IntroDirector"/> and is written the same way:
     /// real-time beats off <c>GameComponentUpdate</c>, so a pause cannot leave the
@@ -46,24 +57,48 @@ namespace SlopWorld
     /// </summary>
     public class NextPlanet : GameComponent
     {
-        // How long the map gets. The ask was five to seven seconds and this is the
-        // middle of it. The front is paced off the wall clock rather than off ticks,
-        // so it reaches the map edge exactly as the time runs out whatever speed the
-        // game happens to be running at.
-        const float BurnSeconds = 6f;
+        // The beats, all of them off the wall clock rather than off ticks, so the
+        // front reaches the map edge exactly as the last wave's time runs out
+        // whatever speed the game happens to be running at.
+
+        // The interface is gone and the camera has landed on the core, and for this
+        // long nothing else happens. What is being shown is the thing about to go
+        // off, so it has to be on screen before it does.
+        const float HoldSeconds = 1.5f;
+
+        // The fire, in this many goes. Each wave takes its own share of the way out
+        // to the map edge, so the front stops where the last one left it and the
+        // next picks it up from there rather than starting again in the middle.
+        const int Waves = 3;
+        const float WaveSeconds = 1.6f;
+
+        // Between them. Long enough that the wave that just passed is over - the
+        // point of dealing the fire out in goes at all - and short enough that
+        // nothing reads as having gone wrong.
+        const float LullSeconds = 0.7f;
+
+        // The map burns and nothing new lands on it. The scene's last beat, and the
+        // one that makes it a scene: the front has reached the edge, so there is
+        // nothing left to watch but what it did. Short, because what it is holding
+        // on is already finished - a hold that outstays the thing it is holding on
+        // is a scene waiting for the player rather than the other way round.
+        const float SettleSeconds = 1.6f;
 
         // One fireball per this much ground the front has just taken. The count
         // comes off the area rather than being a rate per tick, or the wave thins
         // out as it widens - the outer rings are where nearly all of the map is.
-        // A default map works out at something under a hundred and fifty of them.
-        const float CellsPerBlast = 700f;
+        // A default map works out at something over three hundred and fifty of
+        // them, which with the radius below is a front that leaves nothing behind
+        // it rather than a scattering of craters the eye can count.
+        const float CellsPerBlast = 175f;
 
         // A ceiling per tick, because a dropped frame hands the next one all the
         // ground it did not cover, and two hundred explosions in one tick is a hang
-        // rather than a spectacle.
-        const int BlastsPerTick = 12;
+        // rather than a spectacle. A wave is a hundred ticks or so and owes about
+        // one a tick, so this is headroom and not a rate.
+        const int BlastsPerTick = 32;
 
-        const float BlastRadius = 7.5f;
+        const float BlastRadius = 12f;
         const int FlameDamage = 40;
         const int BombDamage = 120;
 
@@ -72,20 +107,28 @@ namespace SlopWorld
         // of one.
         const float BombChance = 0.25f;
 
-        enum Phase { Off, Burn }
+        // Hold, then Wave and Lull alternating until the waves are spent, then
+        // Settle. Only Wave lays fire down; the other three are the pauses, and
+        // each of them is one phase rather than a flag on the burn, so the beat
+        // that ends one is the same line that starts the next.
+        enum Phase { Off, Hold, Wave, Lull, Settle }
 
         Phase _phase = Phase.Off;
 
-        // Where the fire starts, how far it has got, and when it stops. _owed is
-        // the fireballs the ground taken so far has earned and not yet been given:
-        // a tick moves the front about half a cell, which is a third of a blast on
-        // a map this size, and rounding that off every tick is a wave that never
-        // drops one at all.
+        // Where the fire starts, how far it has got, and when this phase ends.
+        // _owed is the fireballs the ground taken so far has earned and not yet
+        // been given: a tick moves the front about half a cell, which is a third of
+        // a blast on a map this size, and rounding that off every tick is a wave
+        // that never drops one at all. _from and _to are the current wave's share
+        // of the reach, so the pacing inside a wave knows nothing about the others.
         Map _map;
         IntVec3 _origin;
         float _front;
         float _owed;
         float _at;
+        int _wave;
+        float _from;
+        float _to;
 
         /// <summary>Set the moment the scene starts and cleared on the menu's own
         /// frame. Two things read it: <see cref="AutoSaver"/>, which must not write
@@ -138,28 +181,88 @@ namespace SlopWorld
             _origin = TheCore(_map)?.Position ?? _map.Center;
             _front = 0f;
             _owed = 0f;
-            _at = Time.realtimeSinceStartup + BurnSeconds;
-            _phase = Phase.Burn;
+            _wave = 0;
 
-            // The core is where the plague came out of, so it is where this goes in.
-            Find.CameraDriver?.JumpToCurrentMapLoc(_origin);
+            // The core is where the plague came out of, so it is where this goes
+            // in - and the camera goes out to the map's own limit with it, because
+            // what is being shown is a whole planet written off and working zoom
+            // frames three shacks and a fire. The size is read off the driver's own
+            // config rather than being a number of ours: it is where the mouse
+            // wheel would stop, so this is a view the player could have got to
+            // themselves, and a map config with a different range is honoured
+            // rather than overridden.
+            var cam = Find.CameraDriver;
+            if (cam != null)
+            {
+                cam.JumpToCurrentMapLoc(_origin);
+                if (cam.config != null) cam.SetRootSize(cam.config.sizeRange.max);
+            }
+
+            Go(Phase.Hold, HoldSeconds);
 
             Log.Message("[SlopWorld] leaving this planet; burning the map on the way out");
         }
 
-        // The beat, in real time, so a window that forces a pause - or a clock
+        // Every move between phases goes through here, so no phase can inherit the
+        // timer of the one before it - the same rule IntroDirector's own Go follows.
+        void Go(Phase phase, float seconds)
+        {
+            _phase = phase;
+            _at = Time.realtimeSinceStartup + seconds;
+        }
+
+        // The beats, in real time, so a window that forces a pause - or a clock
         // TimeKeeper has yet to get going again - cannot strand the scene.
         public override void GameComponentUpdate()
         {
-            if (_phase != Phase.Burn) return;
+            if (_phase == Phase.Off) return;
             if (Time.realtimeSinceStartup < _at) return;
-            Leave();
+
+            switch (_phase)
+            {
+                case Phase.Hold:
+                    Wake();
+                    break;
+
+                case Phase.Wave:
+                    // The wave is over when its time is, whether or not the front
+                    // got where it was going: the fire is paced off this clock and
+                    // a wave that ran short has simply nothing left to lay down.
+                    _front = _to;
+                    if (_wave < Waves) Go(Phase.Lull, LullSeconds);
+                    else Go(Phase.Settle, SettleSeconds); // the front is at the edge
+                    break;
+
+                case Phase.Lull:
+                    Wake();
+                    break;
+
+                case Phase.Settle:
+                    Leave();
+                    break;
+            }
+        }
+
+        // The next wave, from wherever the last one stopped out to its own share of
+        // the reach. The share is by wave count rather than by area, so the later
+        // ones cover more ground in the same time - which is what a front picking
+        // up speed as it goes looks like, and it earns its fireballs off the area
+        // either way.
+        void Wake()
+        {
+            if (_map == null || !Find.Maps.Contains(_map)) { Leave(); return; }
+
+            _wave++;
+            _from = _front;
+            _to = Reach(_map, _origin) * _wave / Waves;
+            _owed = 0f; // a fraction of a blast banked across a lull is not owed
+            Go(Phase.Wave, WaveSeconds);
         }
 
         // The fire, on the game's own clock, for the reason in the class comment.
         public override void GameComponentTick()
         {
-            if (_phase != Phase.Burn) return;
+            if (_phase != Phase.Wave) return;
             Step();
         }
 
@@ -167,8 +270,8 @@ namespace SlopWorld
         {
             if (_map == null || !Find.Maps.Contains(_map)) { Leave(); return; }
 
-            float done = Mathf.Clamp01(1f - (_at - Time.realtimeSinceStartup) / BurnSeconds);
-            float front = done * Reach(_map, _origin);
+            float done = Mathf.Clamp01(1f - (_at - Time.realtimeSinceStartup) / WaveSeconds);
+            float front = Mathf.Lerp(_from, _to, done);
             if (front <= _front) return;
 
             // The ring the front has just taken, in cells, over what one fireball

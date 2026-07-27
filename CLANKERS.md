@@ -811,10 +811,30 @@ none of these need a def.
   `RequestedTabSize` is read on `PreOpen` and not per frame, so a measured-only
   figure is wrong the first time the menu is opened, and a written-down one is
   wrong for good the day vanilla stops shipping one of the three.
-  Nothing asks whether you meant it, because the six seconds in the middle say it
+  Nothing asks whether you meant it, because the nine seconds in the middle say it
   better than a dialog: `Cutscene.Playing` takes the interface away, the camera
-  drops onto the core, and a front of fire walks out of it to the map edge. The
-  front is paced off the wall clock so it arrives exactly as the time runs out
+  drops onto the core and pulls out to the map's own zoom limit, and a front of
+  fire walks out of it to the map edge. That zoom is `SetRootSize` against
+  `CameraDriver.config.sizeRange.max` rather than a figure of ours - it is where
+  the mouse wheel would stop, so the scene opens on a view the player could have
+  got to themselves, and what is being shown is a planet written off where
+  working zoom frames three shacks and a fire.
+  It is a paced scene rather than one continuous burn, and the pauses are the
+  whole of that. `Hold` is a beat with the camera already down and nothing
+  happening, because the first blast must not land before the player has been
+  shown what it comes out of. The fire is then dealt in `Waves` goes with a
+  `Lull` between them - one smooth expanding ring is a process where three are a
+  shelling, and the quiet after a wave is what makes the next one an event rather
+  than more of the same. Each wave takes the front from where the last one
+  stopped out to its own share of the reach (by wave count, so the later ones
+  cover more ground in the same time, which is what a front picking up speed
+  looks like), and a wave ends when its *time* does rather than when the front
+  arrives - the clock is the pacer, and a wave that ran short has nothing left to
+  lay down. `Settle` is the last beat: the map burning with nothing new landing
+  on it, because a cut on the final explosion says the scene ran out where a hold
+  says it finished. Every move goes through `Go`, which clears the phase timer,
+  so no phase inherits the one before it - the same shape `IntroDirector` uses.
+  The front is paced off the wall clock so it arrives exactly as the time runs out
   whatever speed the game is at, and the fireballs are counted off the *area* the
   front has just taken rather than per tick - the outer rings are where nearly all
   of a map is, so a fixed rate is a wave that thins to nothing as it widens. That
