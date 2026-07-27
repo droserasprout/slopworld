@@ -210,8 +210,19 @@ namespace SlopWorld
 
         void DoFields(Rect r)
         {
-            var l = new Listing_Standard();
-            l.Begin(new Rect(r.x, r.y, r.width, 200f));
+            // Begun on the room it actually has, and pinned to one column.
+            // Listing_Standard breaks to a second column the moment a control
+            // would cross the bottom of the rect it was begun on - and a column
+            // break here means curX past the whole width (so the rest of the
+            // fields are clipped away by the group Begin opened) *and* CurHeight
+            // back to nearly nothing. Everything below is laid out from that
+            // number, so a listing begun one control too short does not overflow:
+            // it drops the presets and the three path boxes on top of the fields,
+            // the last of them sized from a y that is suddenly 20 instead of 200.
+            // A fixed height was carrying that fault the whole time; the
+            // temporary checkbox is only what tipped it over.
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(new Rect(r.x, r.y, r.width, r.height));
 
             l.Label("Name");
             _p.Name = l.TextEntry(_p.Name);

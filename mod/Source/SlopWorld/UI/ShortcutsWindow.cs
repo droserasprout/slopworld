@@ -257,12 +257,22 @@ namespace SlopWorld
             });
         }
 
-        public override Vector2 InitialSize => new Vector2(560f, 520f);
+        /// Taller than it was by about the two dropdowns "where it runs" added,
+        /// because what is left at the bottom is the prompt box - the one field
+        /// here somebody writes paragraphs in, and the one that gets squeezed
+        /// when anything above it grows.
+        public override Vector2 InitialSize => new Vector2(560f, 660f);
 
         public override void DoWindowContents(Rect rect)
         {
-            var l = new Listing_Standard();
-            l.Begin(new Rect(rect.x, rect.y, rect.width, 300f));
+            // One column, on the room it has: a Listing_Standard begun on a rect
+            // too short for its contents does not overflow, it breaks to a column
+            // that is off the right-hand edge and puts CurHeight back to nearly
+            // zero - and the prompt box below is placed and sized from that
+            // number, so it lands on top of the fields at several times its
+            // height. See EditProjectDialog.DoFields, which had the same fault.
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(new Rect(rect.x, rect.y, rect.width, rect.height));
 
             Text.Font = GameFont.Medium;
             l.Label(_isNew ? "New shortcut" : $"Edit '{_origName}'");

@@ -1146,6 +1146,19 @@ reconnect on every switch, because `WriteSettings` reconnects.
   coordinates stay where they were. Vanilla widgets are written for it; anything
   borrowed from the map layer is not. `TerminalWindow` runs at margin 0 so the
   two agree.
+- A `Listing_Standard` begun on a rect shorter than its contents does not
+  overflow it, and the failure does not look like a layout that ran out of room.
+  `Listing.Begin` opens a GUI group on that rect, and `GetRect` calls
+  `NewColumnIfNeeded` before every control: one that would cross the bottom
+  starts a *second column* - `curX` past the whole width, so everything after it
+  is clipped away by the group, and `curY` back to nearly zero. Which is the
+  part that does the damage, because `CurHeight` is what a dialog lays the rest
+  of itself out from: `EditProjectDialog` and `EditShortcutDialog` both put
+  their text boxes at `used + something` and size them from what is left, so one
+  field too many turned `used` from ~370 into ~20 and dropped a 350px input over
+  the top of the form. Begin on the room there is, and set `maxOneColumn` - then
+  a listing that grows past its rect merely loses its last field off the bottom,
+  which is a thing you can see and fix.
 - A `Font` from `CreateDynamicFontFromOSFont` is held only by a `GUIStyle`, which
   is not a `UnityEngine.Object` and so roots nothing: the `Resources.UnloadUnusedAssets`
   the game runs on any map switch - loading a save, "New colony" - destroys the
