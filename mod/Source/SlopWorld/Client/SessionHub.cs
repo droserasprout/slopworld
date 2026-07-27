@@ -19,6 +19,12 @@ namespace SlopWorld
     /// </summary>
     public enum AgentKind { Claude, Custom }
 
+    /// <summary>
+    /// What a shortcut sends its text to: an agent's input field, or a shell's
+    /// prompt. The only thing the two kinds disagree about at the far end.
+    /// </summary>
+    public enum ShortcutKind { Prompt, Shell }
+
     public class SessionInfo
     {
         public string Name = "";
@@ -40,6 +46,12 @@ namespace SlopWorld
         public bool Net = true;
         public bool Sandbox = true;
         public bool Autostart;
+
+        /// Nothing in config.toml stands behind this agent: it is a shortcut's
+        /// errand, or a tmux session somebody started by hand, and it leaves the
+        /// colony when its process exits rather than lying down. There is no
+        /// entry to edit or delete, which is what the rows read off this.
+        public bool Ephemeral;
 
         /// The pane's size as the daemon last reported it. Read-only here: the
         /// terminal window measures itself and sends the resize, so there is
@@ -75,6 +87,7 @@ namespace SlopWorld
             Net = j["net"].AsBool(true),
             Sandbox = j["sandbox"].AsBool(true),
             Autostart = j["autostart"].AsBool(false),
+            Ephemeral = j["ephemeral"].AsBool(false),
             Cols = j["cols"].AsInt(0),
             Rows = j["rows"].AsInt(0),
         };
@@ -145,6 +158,55 @@ namespace SlopWorld
 
         static string Arr(List<string> items) =>
             "[" + string.Join(",", items.Select(JVal.Q).ToArray()) + "]";
+    }
+
+    /// <summary>
+    /// One errand worth repeating: where to run it, what to run there, and what
+    /// to type in once it is up.
+    ///
+    /// The agent it lands is temporary - never written to config.toml, gone the
+    /// moment its process exits - so what is saved is the errand and not the
+    /// agent. Which is also why the template is spelled out here rather than
+    /// pointing at an existing one: a shortcut that named an agent would stop
+    /// working the day that agent was deleted.
+    /// </summary>
+    public class ShortcutInfo
+    {
+        public string Name = "";
+        public ShortcutKind Kind = ShortcutKind.Prompt;
+        /// The project the temporary agent works in - its directory and its
+        /// whole sandbox, the same as for any other agent.
+        public string Project = "";
+        /// The prompt, or the command line. Sent once the pane is ready for it.
+        public string Text = "";
+        /// Overrides what runs: another agent for a prompt shortcut, another
+        /// shell for a shell one. Blank means the daemon's own default.
+        public string Command = "";
+
+        public static ShortcutInfo FromJson(JVal j) => new ShortcutInfo
+        {
+            Name = j["name"].AsString(),
+            Kind = j["kind"].AsString() == "shell" ? ShortcutKind.Shell : ShortcutKind.Prompt,
+            Project = j["project"].AsString(),
+            Text = j["text"].AsString(),
+            Command = j["command"].IsNull ? "" : j["command"].AsString(),
+        };
+
+        public string ToJson() =>
+            "{" +
+            $"\"name\":{JVal.Q(Name)}," +
+            $"\"kind\":{JVal.Q(Kind == ShortcutKind.Shell ? "shell" : "prompt")}," +
+            $"\"project\":{JVal.Q(Project)},\"text\":{JVal.Q(Text)}," +
+            $"\"command\":{(string.IsNullOrEmpty((Command ?? "").Trim()) ? "null" : JVal.Q(Command))}}}";
+
+        public ShortcutInfo Copy() => new ShortcutInfo
+        {
+            Name = Name,
+            Kind = Kind,
+            Project = Project,
+            Text = Text,
+            Command = Command,
+        };
     }
 
     /// <summary>
@@ -281,6 +343,9 @@ namespace SlopWorld
         /// The projects, pushed on connect and on any edit, so the dropdown that
         /// picks one can draw without asking first.
         public List<ProjectInfo> Projects = new List<ProjectInfo>();
+        /// The errands, pushed on connect and on any edit, for the same reason
+        /// the projects are: the window that runs them draws a row per entry.
+        public List<ShortcutInfo> Shortcuts = new List<ShortcutInfo>();
         /// The daemon's sandbox preset catalogue. Fetched once per process: it
         /// is compiled into slopd and only moves when slopd does.
         public List<PresetInfo> Presets = new List<PresetInfo>();
@@ -386,6 +451,10 @@ namespace SlopWorld
 
                 case "projects":
                     Projects = ev["projects"].Items.Select(ProjectInfo.FromJson).ToList();
+                    break;
+
+                case "shortcuts":
+                    Shortcuts = ev["shortcuts"].Items.Select(ShortcutInfo.FromJson).ToList();
                     break;
 
                 case "usage":
@@ -508,6 +577,56 @@ namespace SlopWorld
             SlopClient.Get("/api/projects",
                 j => Projects = j["projects"].Items.Select(ProjectInfo.FromJson).ToList(),
                 fail);
+
+        public ShortcutInfo Shortcut(string name) =>
+            Shortcuts.FirstOrDefault(s => s.Name == name);
+
+        /// <summary>
+        /// Asked for when the shortcuts window opens, for the same reason
+        /// projects are: a window opened while the socket is down still has to
+        /// draw something, and this is the road that returns an error body.
+        /// </summary>
+        public void RefreshShortcuts(Action<string> fail = null) =>
+            SlopClient.Get("/api/shortcuts",
+                j => Shortcuts = j["shortcuts"].Items.Select(ShortcutInfo.FromJson).ToList(),
+                fail);
+
+        public void SaveShortcut(ShortcutInfo s, bool isNew, string origName,
+                                 Action ok, Action<string> fail)
+        {
+            Action<JVal> done = _ => { RefreshShortcuts(); ok?.Invoke(); };
+            if (isNew) SlopClient.Post("/api/shortcuts", s.ToJson(), done, fail);
+            else SlopClient.Put($"/api/shortcuts/{Esc(origName)}", s.ToJson(), done, fail);
+        }
+
+        public void RemoveShortcut(string name, Action<string> fail = null) =>
+            SlopClient.Delete($"/api/shortcuts/{Esc(name)}",
+                _ => RefreshShortcuts(), fail);
+
+        /// <summary>
+        /// Runs an errand. The daemon answers with the name of the temporary
+        /// agent doing it, and the sessions list is fetched again before that
+        /// name is handed on: a terminal opened on a session this end has never
+        /// heard of closes itself on the next frame.
+        /// </summary>
+        public void RunShortcut(string name, Action<string> started, Action<string> fail = null) =>
+            SlopClient.Post($"/api/shortcuts/{Esc(name)}/run", null,
+                j =>
+                {
+                    string session = j["session"].AsString();
+                    SlopClient.Get("/api/sessions", list =>
+                    {
+                        Sessions = list["sessions"].Items.Select(SessionInfo.FromJson).ToList();
+                        started?.Invoke(session);
+                    }, fail);
+                },
+                fail);
+
+        /// <summary>
+        /// A shortcut's name is free-form - it labels a button - so it can carry
+        /// spaces and anything else a path segment would object to.
+        /// </summary>
+        static string Esc(string name) => Uri.EscapeDataString(name ?? "");
 
         /// <summary>Once per process: the catalogue is compiled into slopd.</summary>
         public void LoadPresets()

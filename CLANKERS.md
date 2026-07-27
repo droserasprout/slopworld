@@ -181,11 +181,78 @@ it wrote itself, so it is idempotent, and the legacy fields are
 `skip_serializing_if` so they leave the file on the next write rather than
 lingering as nulls.
 
+### Shortcuts
+
+`[[shortcut]]` is an errand: a project, something to run there, and a line of
+text to type into it once it is up. `kind` is `prompt` or `shell` - a sentence
+for an agent, or a command for a shell inside that project's sandbox - and the
+`command` field overrides what runs, so one errand can be handed to codex or to
+fish without moving anybody's default. Empty means `[defaults] agent` or the new
+`[defaults] shell`, which is where "which shell does this machine have" lives for
+the same reason `agent` is there: an answer about the host, not about the errand,
+and repeating it in five entries is getting it wrong in one.
+
+`Config::session_for` is the template made real, and the one thing in it worth
+knowing is that a prompt shortcut with no command comes out a *Claude* session
+rather than a custom one running the same string. The kind is what hands the
+sandbox `~/.claude` (see `presets_for`), so spelling the command out there would
+land an agent without its own state dir - the failure being an agent that starts
+fine and has never heard of you.
+
+The agent it lands is *ephemeral*: `Live.ephemeral`, present in the live table
+and in nothing else. It is never written to `config.toml`, which is what the
+whole feature is about - a standing agent is somebody you keep talking to, and an
+errand is a body that turns up, does the thing and goes. So it has no `Down`
+state to fall into: `mark_down` sees the flag and `forget`s the entry instead,
+the session list goes out without it, and the mod's reconcile retires the
+colonist rather than laying it on the floor. `stop` has to do the same by hand,
+because killing tmux from there aborts the control reader before it can notice -
+that road is the only one to a dead session that does not go through
+`run_control`. `remove` on one writes no config at all: there is no entry to
+delete, and a file rewritten to say nothing is a file rewritten for nothing.
+
+Two things follow from the entry being the only record. `Manager::session_cfg`
+reads a session from config *or* the live table, because `start` has nothing in
+the file to look up. And a name has to be coined: `slug` turns "review diff" into
+something `check_name` accepts, `free_name` numbers it if that is taken, and both
+matter because the name is a tmux target and a colonist at once.
+
+`POST /api/shortcuts/NAME/run` starts the session, answers with its name and
+leaves the typing to a task behind it. That split is not tidiness: the mod's HTTP
+client gives up after five seconds and an agent is tens of seconds from being
+ready for input, so a call that waited would report a failure at every successful
+errand. The name is answered so the caller can open a terminal on it.
+
+`deliver` waits, then pastes, then sends Enter as a separate keypress after a
+beat. Two writes because an agent's input box takes a pasted newline as a newline
+- that is what bracketed paste is for - so a submit has to arrive as a key. The
+wait (`wait_ready`) is for output followed by `SETTLE_MS` of silence, and
+deliberately not for a pattern: a TUI and a shell prompt have nothing in common
+to grep for, but both print and then stop. `READY_MS` is a ceiling in tens of
+seconds because a first run of an agent is slow, and hitting it does *not* cancel
+the delivery - a pane that never goes quiet is usually one drawing a spinner, and
+text held back for that is an errand that silently did nothing. What this cannot
+tell apart is a pane that settled on a *question*: a project Claude Code has
+never been trusted in answers with a prompt of its own, and an errand run into
+that one answers it. The colonist reads Waiting either way, which is the tell.
+
+Anything running under our socket that config knows nothing about is `adopt`ed as
+one of these. Every one of them used to be logged as an orphan and left
+invisible, which was the wrong answer twice over: a shortcut's agent is not in
+config *by design*, so a redeploy mid-errand would have stranded a live process
+with no colonist, no terminal and no way to close it; and a session somebody
+started by hand under `tmux -L slopworld` is, by this thing's own account, a
+colonist - there is nothing else it could be. An adopted one carries no project,
+which is honest rather than lossy: we cannot know what it was started with, so it
+lists with a blank directory and refuses to restart, while watching it, typing at
+it and killing it all work.
+
 ### Session state
 
 `State` is `Down | Working | Waiting | Idle`, serialised lowercase. Down means the
 process is not running - the mod puts the colonist on the floor rather than killing
-it, so the same process can get the same body back up.
+it, so the same process can get the same body back up. Unless it is ephemeral, in
+which case there is nothing to get back up and the entry goes; see Shortcuts.
 
 Classification lives in `Manager::classify`. The `[[state_rule]]` regexes in
 `config.toml` are tried first against the pane's plain text (SGR stripped); with no
@@ -389,15 +456,20 @@ absent.
 
 Server events: `{"t":"sessions",...}` on any state move, `{"t":"screen",...}` for
 subscribed sessions only, `{"t":"usage",...}` when the quota picture changes,
-`{"t":"projects",...}` when one is added, edited or removed - the last two also
-once on connect, because a client attaching between polls would otherwise draw
-nothing for a minute, and one attaching after the last edit would have nothing
-to fill the "which project" dropdown from at all. And `{"t":"quit"}`, the one
+`{"t":"projects",...}` when one is added, edited or removed, and
+`{"t":"shortcuts",...}` on the same terms - the last three also once on connect,
+because a client attaching between polls would otherwise draw nothing for a
+minute, one attaching after the last edit would have nothing to fill the "which
+project" dropdown from at all, and the window that runs errands draws a row per
+entry. And `{"t":"quit"}`, the one
 event that asks for something rather than reporting it: save and go, the daemon
 is about to start you again. Client messages: `sub`,
 `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste`. Everything that rewrites
 `config.toml` goes over HTTP instead, because the error body matters -
-`/api/sessions`, `/api/projects` and `/api/config` all in the same shape;
+`/api/sessions`, `/api/projects`, `/api/shortcuts` and `/api/config` all in the
+same shape, plus `POST /api/shortcuts/NAME/run`, which is the one call here that
+does something rather than storing it and so answers with the name of the agent
+it started;
 `GET /api/usage`, `GET /api/presets` and `GET /api/game` are there for anything
 that would rather ask than listen. The last of those has no socket half at all:
 its reader is a shell in a sandbox, and the mod is the thing being asked about.
@@ -422,15 +494,21 @@ HTTP half, with completions replayed on the main thread.
 none of these need a def.
 
 - `AgentColony` - reconciles sessions to colonists once a second: spawns, retires,
-  renames, and postures each pawn to its agent's state. Idle used to be sleep on
-  the spot, and it read as the wrong thing: a colonist flat on the floor is what
-  a stopped process already looks like, and the two lay in the same heap - the
-  collapse had to wake the pawn first so that something on screen moved. So an
-  idle agent stands about instead, at `SlopClaudwatch` (`Defs/Jobs.xml`), which is
-  vanilla's own wait driver and a report string: nothing, with a name. The job is
-  started and ended from here rather than by the think tree - hence
-  `casualInterruptible` false on the def - and `InspectPanePatch` reads the name
-  back off the def rather than writing it out again. Moving *into* idle rings
+  renames, and postures each pawn to its agent's state. Down is the only posture
+  it imposes now. Idle was sleep on the spot first, which read as the wrong
+  thing - a colonist flat on the floor is what a stopped process already looks
+  like, and the two lay in the same heap - and then a forced wait job of our own
+  (`SlopClaudwatch`, a `JobDef` with `casualInterruptible` false and a report
+  string the inspect pane read back), which was worse in a quieter way: it pinned
+  the pawn to one tile for as long as the terminal stayed quiet, and hung a
+  made-up word on it. An idle agent is now left to the think tree, so it wanders,
+  sky-gazes and does whatever else a colonist with nothing on does. That the
+  daemon says idle is carried where a state belongs - the clock in the colonist
+  bar and the line in the inspect pane - rather than by taking the body over. A
+  save written while the job existed comes back with an unresolvable job def and
+  nothing here migrates it, the same answer `SlopRobotHead` got: the pawn drops
+  the job, and "New colony" is the fix for a colony the defs moved under.
+  Moving *into* idle rings
   `TinyBell`, vanilla's new-alert chime, which nothing else plays now the alerts
   are stripped; a state we are seeing for the first time is not a move, so a
   colony that loads with its agents already quiet stays quiet, the same rule the
@@ -438,6 +516,16 @@ none of these need a def.
   while `IntroDirector.AgentsHeld` is up, and every colonist it spawns arrives in
   the plague's haze - not only the ones the opening scene lands, because a
   clanker is what this map makes of a person whenever it makes one.
+  Taking a pawn into the table dirties its graphics, and that is the faceplate
+  rather than tidiness: `SlopFaceRenderNodes` asks `IsAgent` while a render tree
+  is being built, and a loaded colony builds every tree before this reconcile has
+  run - the saved session->pawn map is references, which do not always round-trip,
+  so `FindExisting` adopting a loaded pawn is usually the moment it becomes an
+  agent again. Nothing else dirties a pawn that has not otherwise changed, so
+  without it a loaded colony came back with human faces and stayed that way until
+  "New colony" built its pawns from scratch. `SetAllGraphicsDirty` is also what
+  clears the portrait cache, which is what the colonist bar and the terminal's
+  strip draw from - the two places the face is read at a glance.
 - `TimeKeeper` - unpauses the game. With the time controls stripped there is no way
   for the player to start the clock again, so a pause would be forever.
 - `RealClock` - maps ticks to the wall clock, and banks the stretches the clock did
@@ -826,9 +914,26 @@ so a session whose terminal is open comes back the shape the window asked for.
 `SessionView.cols/rows` stay on the wire as an observation rather than a setting,
 so `curl /api/sessions` can answer what shape the agent thinks its terminal is.
 
-`ProjectsWindow`, `SessionsWindow`, `EditProjectDialog`, `EditSessionDialog`,
-`ConfigMenuWindow` and `ConfigWindow` are the project, session and config GUIs,
-all of which write straight through to the daemon.
+Asking is a loop, not a statement, and that is the whole of the terminal that
+opened at a fixed size in a window several times bigger. A `resize` is one
+fire-and-forget message over a socket that is down for a couple of seconds on
+every redeploy, and the daemon answers a size it already holds with a no-op - so
+a window that asks once and believes itself has no way back. Two things followed
+from believing it. Pointing the window at another session (`SwitchTo`, which is
+what a click on the strip and Alt+1..9 do) kept the numbers negotiated for the
+one it left, so a pane nobody had opened stayed at `BOOT_COLS` forever, being the
+one case where the window and the pane disagree by construction. And a send that
+went nowhere was spent all the same. Now the frame is the evidence: it carries
+the emulator's own dimensions, which is the only honest answer to what shape the
+pane is, and while those disagree with what fits the window the ask goes out
+again once a second. The mod clamps to the daemon's own limits before asking, so
+a size it would clamp is never a size we chase; a scrolled frame is a capture of
+history and proves nothing about the live pane, so it is not counted.
+
+`ProjectsWindow`, `SessionsWindow`, `ShortcutsWindow`, `EditProjectDialog`,
+`EditSessionDialog`, `EditShortcutDialog`, `ConfigMenuWindow` and `ConfigWindow`
+are the project, session, shortcut and config GUIs, all of which write straight
+through to the daemon.
 
 `ProjectsWindow` is the first button in the bottom bar, ahead of `agents`,
 because nothing can be added on the agents window until there is somewhere to
@@ -852,6 +957,26 @@ one field that is suggested: `FreeName` strips the trailing digits and counts up
 from the names in use, so a copy of `claude` is `claude-2` and a copy of *that*
 is `claude-3` rather than `claude-2-2`. Suggested and not enforced - it lands in
 the field, editable, and the daemon is still what refuses a collision.
+
+`ShortcutsWindow` is the errands, between `agents` and `config` in the bottom bar
+for the same reason `projects` is ahead of both: a shortcut needs a project to run
+in, and there is nothing to run before there are agents to have taught you what
+you keep retyping. Run is the reason the window exists, so it is the wide button
+and the only thing on its row - and it closes the window and opens a terminal on
+whatever the daemon just started, because the errand is already underway and the
+only thing left to do with it is watch. Closed on the *answer* rather than on the
+click, so a refused errand leaves the list up with the message over it.
+`EditShortcutDialog` is a session template plus a text box, and it asks
+`GET /api/config` for `[defaults] agent` and `shell` so the greyed placeholder in
+the command box is this machine's answer rather than the daemon's stock one.
+
+The agents list draws a temporary agent differently, and the rule is that a row
+must not offer what the daemon would refuse: there is no config entry to Edit and
+none to Del, so both go, and Stop is what closes one - killing the process is what
+removes it. Duplicate stays, and means the useful thing: a *permanent* agent in
+the same project, which is "keep this one" for an errand that turned out to be a
+conversation. The project line says so in words, because an agent that leaves for
+good when it exits is worth telling apart from one that lies down waiting.
 
 ### Settings
 

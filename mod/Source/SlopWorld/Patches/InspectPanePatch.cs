@@ -97,12 +97,6 @@ namespace SlopWorld
                 __result = string.IsNullOrEmpty(info?.Dir)
                     ? $"Agent: {state.ToString().ToLower()}"
                     : $"{info.Dir}\nAgent: {state.ToString().ToLower()}";
-
-                // And what it is up to, on the one occasion that is a real answer.
-                // The claudwatch is this colony's only named activity; the name
-                // lives on the def, so it is read back rather than written twice.
-                if (__instance.CurJobDef == SlopDefOf.SlopClaudwatch)
-                    __result += "\n" + __instance.CurJob.GetReport(__instance).CapitalizeFirst();
             }
         }
     }

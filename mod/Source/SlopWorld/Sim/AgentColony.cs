@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
 using Verse;
-using Verse.AI;
 using Verse.Sound;
 
 namespace SlopWorld
@@ -145,12 +144,23 @@ namespace SlopWorld
                 // a duplicate next to the loaded pawn. Matching by name (each agent
                 // is a NameSingle of its session) rebuilds the map instead.
                 var pawn = FindExisting(s.Name) ?? Spawn(s.Name, map);
-                if (pawn != null) _pawns[s.Name] = pawn;
+                if (pawn == null) continue;
+                _pawns[s.Name] = pawn;
+
+                // Only now is this pawn an agent, and the faceplate hangs off that
+                // answer: SlopFaceRenderNodes asks IsAgent while the render tree is
+                // being built, and a loaded colony builds every tree before this
+                // reconcile has run - the saved session->pawn map is references,
+                // which do not always round-trip, so the line above is often where
+                // an agent becomes one again. Without this the colony comes back
+                // with human faces and stays that way, since nothing else dirties a
+                // pawn that has not changed. It is the portrait cache too, which is
+                // what the colonist bar and the terminal strip draw from.
+                pawn.Drawer?.renderer?.SetAllGraphicsDirty();
             }
 
             // Posture each colonist to its agent: a stopped process collapses it
-            // (Downed), an idle agent stands about claudwatching, a working or
-            // waiting one is left to get on with it.
+            // (Downed), and anything else is left to get on with it.
             foreach (var kv in _pawns)
             {
                 RobotFace.Apply(kv.Value);
@@ -170,8 +180,9 @@ namespace SlopWorld
 
         // Stopped process -> the colonist goes down but stays a live, clickable pawn
         // its process can get back up. Killing it instead would mean a corpse and a
-        // fresh stranger on every restart. Idle -> claudwatching on the spot.
-        // Working or waiting -> whatever a colonist does with itself.
+        // fresh stranger on every restart. Anything else -> whatever a colonist does
+        // with itself, which is the game's answer and not ours; the daemon's word is
+        // carried by the state icon and the inspect pane instead.
         //
         // `was` is the state this agent was last reconciled at, or nothing at all if
         // this is the first look. A state it *moved* into is the only kind worth
@@ -189,15 +200,8 @@ namespace SlopWorld
             }
 
             Revive(pawn); // process is back: clear the collapse
-            if (pawn.jobs == null) return;
 
-            if (state != AgentState.Idle)
-            {
-                Stir(pawn);
-                return;
-            }
-
-            Claudwatch(pawn);
+            if (state != AgentState.Idle) return;
 
             // An agent going quiet is the one thing a player who has looked away
             // wants to be told, and it is a small thing rather than an alarm: this
@@ -249,25 +253,6 @@ namespace SlopWorld
             // the reconcile comes back and tries again for as long as the pawn is down.
             if (!pawn.Downed)
                 Log.Message($"[SlopWorld] colonist '{pawn.LabelShort}' patched up; agents take no damage");
-        }
-
-        // Stand about doing nothing in particular, which is this colony's one idle
-        // activity and the only one with a name (see Defs/Jobs.xml), unless the
-        // pawn is at it already.
-        static void Claudwatch(Pawn pawn)
-        {
-            if (pawn.CurJobDef == SlopDefOf.SlopClaudwatch) return;
-
-            var job = JobMaker.MakeJob(SlopDefOf.SlopClaudwatch, pawn.Position);
-            pawn.jobs.StartJob(job, JobCondition.InterruptForced);
-        }
-
-        // End only the claudwatch we started, so an agent with something to do goes
-        // back to the game's own idea of what a colonist does with itself.
-        static void Stir(Pawn pawn)
-        {
-            if (pawn.CurJobDef == SlopDefOf.SlopClaudwatch)
-                pawn.jobs.EndCurrentJob(JobCondition.InterruptForced);
         }
 
         Pawn FindExisting(string name)

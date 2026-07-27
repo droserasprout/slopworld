@@ -28,6 +28,9 @@ namespace SlopWorld
         public string ClaudeCredentials = "~/.claude/.credentials.json";
 
         public string Agent = "claude";
+        /// What a shell shortcut runs. A per-machine answer, which is why it is
+        /// here rather than in every shortcut.
+        public string Shell = "bash";
 
         public bool SandboxEnabled = true;
         public List<string> RoPaths = new List<string>();
@@ -53,6 +56,7 @@ namespace SlopWorld
                     d["claude_credentials"].AsString("~/.claude/.credentials.json"),
 
                 Agent = f["agent"].AsString("claude"),
+                Shell = f["shell"].AsString("bash"),
 
                 SandboxEnabled = s["enabled"].AsBool(true),
                 RoPaths = Strings(s["ro_paths"]),
@@ -72,7 +76,7 @@ namespace SlopWorld
             $"\"usage\":{JVal.B(Usage)},\"usage_poll_secs\":{UsagePollSecs}," +
             $"\"claude_credentials\":{JVal.Q(ClaudeCredentials)}}}," +
             "\"defaults\":{" +
-            $"\"agent\":{JVal.Q(Agent)}}}," +
+            $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}}}," +
             "\"sandbox\":{" +
             $"\"enabled\":{JVal.B(SandboxEnabled)}," +
             $"\"ro_paths\":{Arr(RoPaths)},\"rw_paths\":{Arr(RwPaths)}," +

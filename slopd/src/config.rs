@@ -19,6 +19,10 @@ pub struct Config {
     pub projects: Vec<ProjectCfg>,
     #[serde(default, rename = "session")]
     pub sessions: Vec<SessionCfg>,
+    /// One-shot errands: a stock prompt, or a shell command, run by a temporary
+    /// agent that exists only as long as its process does.
+    #[serde(default, rename = "shortcut")]
+    pub shortcuts: Vec<ShortcutCfg>,
     #[serde(default, rename = "state_rule")]
     pub state_rules: Vec<StateRule>,
 }
@@ -92,12 +96,23 @@ impl Default for Daemon {
 pub struct Defaults {
     /// Command run inside the sandbox. Split on whitespace, no shell involved.
     pub agent: String,
+    /// What a shell shortcut runs. Here rather than in every shortcut for the
+    /// same reason `agent` is: which shell this machine has is an answer about
+    /// the machine, and repeating it in five entries means getting it wrong in
+    /// one. Bare because tmux hands it a pty, so it is interactive already.
+    #[serde(default = "default_shell")]
+    pub shell: String,
+}
+
+fn default_shell() -> String {
+    "bash".into()
 }
 
 impl Default for Defaults {
     fn default() -> Self {
         Self {
             agent: "claude".into(),
+            shell: default_shell(),
         }
     }
 }
@@ -231,6 +246,50 @@ pub struct SessionCfg {
     pub sandbox: Option<bool>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rw_paths: Vec<String>,
+}
+
+/// What a shortcut sends its text *to*, which is the only thing the two kinds
+/// disagree about at the far end: an agent's input field, or a shell's prompt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ShortcutKind {
+    /// A stock prompt handed to an agent - Claude Code unless the entry says
+    /// otherwise, which is what makes it a prompt rather than a command.
+    #[default]
+    Prompt,
+    /// A command handed to an interactive shell inside the project's sandbox.
+    Shell,
+}
+
+/// One errand, kept because it is worth repeating.
+///
+/// A shortcut is a session template with a line of text attached: where to run
+/// (a project), what to run there, and what to type into it once it is up. The
+/// agent it lands is temporary - it is never written to this file and it goes
+/// when its process does - so what is saved here is the errand, not the agent.
+///
+/// The template is spelled out rather than pointing at an existing session,
+/// because a shortcut that names an agent stops working the day that agent is
+/// deleted, and the thing it actually needs from it - the project - is the one
+/// field that would have been copied anyway.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ShortcutCfg {
+    /// Free-form: it labels a button and seeds a colonist's name, and the
+    /// session name derived from it is sanitised (see `slug`).
+    pub name: String,
+    #[serde(default)]
+    pub kind: ShortcutKind,
+    /// The project the temporary agent works in - its directory and its whole
+    /// sandbox, the same as for any other agent.
+    #[serde(default)]
+    pub project: String,
+    /// What gets typed in. A prompt for the agent, a command line for the shell.
+    #[serde(default)]
+    pub text: String,
+    /// Overrides what runs: another agent for a prompt shortcut, another shell
+    /// for a shell one. Empty means `[defaults] agent` or `[defaults] shell`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
 }
 
 fn yes() -> bool {
@@ -380,6 +439,42 @@ impl Config {
         self.projects.iter().find(|p| p.name == name)
     }
 
+    pub fn shortcut(&self, name: &str) -> Option<&ShortcutCfg> {
+        self.shortcuts.iter().find(|s| s.name == name)
+    }
+
+    /// The agent a shortcut lands, under the name it is to be called by.
+    ///
+    /// A prompt shortcut with nothing to say about the command is a *Claude*
+    /// session rather than a custom one running `[defaults] agent`, and the
+    /// difference is not cosmetic: the kind is what hands the sandbox
+    /// `~/.claude`, so spelling the command out here would land an agent
+    /// without its own state dir.
+    pub fn session_for(&self, sc: &ShortcutCfg, name: String) -> SessionCfg {
+        let (kind, command) = match sc.kind {
+            ShortcutKind::Prompt => match sc.command.as_deref().map(str::trim) {
+                Some(c) if !c.is_empty() => (SessionKind::Custom, Some(c.to_string())),
+                _ => (SessionKind::Claude, None),
+            },
+            ShortcutKind::Shell => {
+                let c = sc
+                    .command
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|c| !c.is_empty())
+                    .unwrap_or(&self.defaults.shell);
+                (SessionKind::Custom, Some(c.to_string()))
+            }
+        };
+        SessionCfg {
+            name,
+            project: sc.project.clone(),
+            kind,
+            command,
+            ..Default::default()
+        }
+    }
+
     /// The project a session belongs to. A session naming one that has gone is
     /// an error everywhere it matters (starting it), and merely a blank
     /// directory everywhere it does not (listing it), so the caller decides.
@@ -456,7 +551,7 @@ pub fn expand(path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Config, SessionKind};
+    use super::{Config, SessionKind, ShortcutCfg, ShortcutKind};
 
     /// A config written before these fields existed has to keep loading: the file
     /// on disk outlives any one build of the daemon, and a redeploy that refused
@@ -481,6 +576,78 @@ mod tests {
         assert!(cfg.daemon.usage);
         assert_eq!(cfg.daemon.usage_poll_secs, 60);
         assert_eq!(cfg.daemon.claude_credentials, "~/.claude/.credentials.json");
+        // A file written before shortcuts existed has none, and a shell to run
+        // them with regardless.
+        assert!(cfg.shortcuts.is_empty());
+        assert_eq!(cfg.defaults.shell, "bash");
+    }
+
+    /// The two kinds differ in what they land, and a prompt shortcut that names
+    /// no command has to come out a *Claude* session: the kind is what hands the
+    /// sandbox ~/.claude, so a custom session running the same string would be
+    /// an agent without its own state dir.
+    #[test]
+    fn shortcuts_become_sessions() {
+        let cfg = Config::parse(
+            r#"
+            [defaults]
+            agent = "claude --model opus"
+            shell = "fish"
+
+            [[shortcut]]
+            name = "review diff"
+            project = "slopworld"
+            text = "review the working diff"
+
+            [[shortcut]]
+            name = "tests"
+            kind = "shell"
+            project = "slopworld"
+            text = "make test"
+
+            [[shortcut]]
+            name = "codex"
+            project = "slopworld"
+            text = "have a look"
+            command = "codex --yolo"
+            "#,
+        )
+        .expect("shortcuts should parse");
+
+        let prompt = cfg.session_for(cfg.shortcut("review diff").unwrap(), "review-diff".into());
+        assert_eq!(prompt.kind, SessionKind::Claude);
+        assert_eq!(prompt.command, None);
+        assert_eq!(cfg.command_of(&prompt), "claude --model opus");
+        assert_eq!(prompt.project, "slopworld");
+
+        let shell = cfg.session_for(cfg.shortcut("tests").unwrap(), "tests".into());
+        assert_eq!(shell.kind, SessionKind::Custom);
+        assert_eq!(cfg.command_of(&shell), "fish");
+
+        let custom = cfg.session_for(cfg.shortcut("codex").unwrap(), "codex".into());
+        assert_eq!(custom.kind, SessionKind::Custom);
+        assert_eq!(cfg.command_of(&custom), "codex --yolo");
+    }
+
+    /// Shortcuts survive the round trip the GUI puts every write through, kind
+    /// and all - a shortcut that came back as a prompt would run the wrong
+    /// thing in the right place.
+    #[test]
+    fn shortcuts_round_trip_through_toml() {
+        let mut cfg = Config::default();
+        cfg.shortcuts.push(ShortcutCfg {
+            name: "tests".into(),
+            kind: ShortcutKind::Shell,
+            project: "slopworld".into(),
+            text: "make test".into(),
+            command: None,
+        });
+
+        let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        let sc = back.shortcut("tests").expect("shortcut should survive");
+        assert_eq!(sc.kind, ShortcutKind::Shell);
+        assert_eq!(sc.text, "make test");
+        assert!(sc.command.is_none());
     }
 
     /// The one that matters most: a file written when a session *was* a

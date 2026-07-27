@@ -12,7 +12,7 @@ use serde::Deserialize;
 use serde_json::json;
 use tokio::sync::Mutex;
 
-use crate::config::{ProjectCfg, SessionCfg};
+use crate::config::{ProjectCfg, SessionCfg, ShortcutCfg};
 use crate::session::{Event, Manager};
 
 type Mgr = Arc<Manager>;
@@ -33,6 +33,12 @@ pub fn router(m: Mgr) -> Router {
             "/api/projects/:name",
             get(one_project).put(update_project).delete(destroy_project),
         )
+        .route("/api/shortcuts", get(list_shortcuts).post(create_shortcut))
+        .route(
+            "/api/shortcuts/:name",
+            put(update_shortcut).delete(destroy_shortcut),
+        )
+        .route("/api/shortcuts/:name/run", post(run_shortcut))
         .route("/api/presets", get(presets))
         .route("/api/config", get(get_config))
         .route("/api/config", put(put_config))
@@ -149,6 +155,40 @@ async fn update_project(
 
 async fn destroy_project(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
     ok_json(m.remove_project(&name).await)
+}
+
+// ------------------------------------------------------------------ shortcuts
+
+async fn list_shortcuts(State(m): State<Mgr>) -> ApiResult {
+    Ok(Json(json!({ "shortcuts": m.shortcuts().await })))
+}
+
+async fn create_shortcut(State(m): State<Mgr>, Json(sc): Json<ShortcutCfg>) -> ApiResult {
+    ok_json(m.add_shortcut(sc).await)
+}
+
+async fn update_shortcut(
+    State(m): State<Mgr>,
+    Path(name): Path<String>,
+    Json(sc): Json<ShortcutCfg>,
+) -> ApiResult {
+    ok_json(m.update_shortcut(&name, sc).await)
+}
+
+async fn destroy_shortcut(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+    ok_json(m.remove_shortcut(&name).await)
+}
+
+/// Runs an errand and answers with the name of the temporary agent doing it, so
+/// the caller can open a terminal on it. It returns as soon as that agent is up:
+/// the text lands once the pane is ready for it, which is well past the point
+/// this client would have given up waiting.
+async fn run_shortcut(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+    let session = m
+        .run_shortcut(&name)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "ok": true, "session": session })))
 }
 
 /// The sandbox presets this build knows, so the GUI draws a checkbox per preset
@@ -368,6 +408,16 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
         &tx,
         &Event::Projects {
             projects: m.projects().await,
+        },
+    )
+    .await;
+    // And the shortcuts, which have the same problem: the window that runs them
+    // draws a row per entry and would otherwise have none until somebody edited
+    // one.
+    let _ = send(
+        &tx,
+        &Event::Shortcuts {
+            shortcuts: m.shortcuts().await,
         },
     )
     .await;

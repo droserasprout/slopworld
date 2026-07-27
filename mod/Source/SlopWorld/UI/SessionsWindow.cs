@@ -59,7 +59,10 @@ namespace SlopWorld
             if (Widgets.ButtonText(new Rect(bar.x + 138f, bar.y, 130f, 30f), "Projects"))
                 ProjectsWindow.Toggle();
 
-            if (Widgets.ButtonText(new Rect(bar.x + 276f, bar.y, 130f, 30f), "Reconnect"))
+            if (Widgets.ButtonText(new Rect(bar.x + 276f, bar.y, 130f, 30f), "Shortcuts"))
+                ShortcutsWindow.Toggle();
+
+            if (Widgets.ButtonText(new Rect(bar.x + 414f, bar.y, 130f, 30f), "Reconnect"))
                 hub.Connect();
 
             // Furthest from the rest, because it is the one button here that throws
@@ -116,9 +119,15 @@ namespace SlopWorld
             // agent runs and what it can reach; the directory is that answer
             // spelled out. A blank project is an entry pointing at one that has
             // gone, which is worth saying rather than drawing as an empty line.
+            // A temporary agent says so instead: there is no entry behind it, so
+            // the interesting thing about the row is that it is on its way out.
             string where = string.IsNullOrEmpty(s.Project)
-                ? "no project - it will not start"
-                : $"{s.Project}  -  {s.Dir}";
+                ? (s.Ephemeral
+                    ? "temporary - adopted from tmux, and it goes when it exits"
+                    : "no project - it will not start")
+                : s.Ephemeral
+                    ? $"temporary in {s.Project} - it goes when it exits"
+                    : $"{s.Project}  -  {s.Dir}";
             Widgets.Label(new Rect(r.x + 24f, r.y + 24f, r.width - 340f, 20f), where);
             GUI.color = Color.white;
 
@@ -128,16 +137,26 @@ namespace SlopWorld
             float top = r.y + 4f, bottom = r.y + 26f;
             float right = r.xMax - 6f;
 
-            if (Widgets.ButtonText(new Rect(right - 174f, top, 96f, 20f), "Edit"))
+            // Nothing in config.toml stands behind a temporary agent, so there is
+            // nothing to edit: the dialog would write an entry the daemon has
+            // never had and the save would be refused.
+            if (!s.Ephemeral &&
+                Widgets.ButtonText(new Rect(right - 174f, top, 96f, 20f), "Edit"))
                 Find.WindowStack.Add(new EditSessionDialog(s));
 
             // Next to Edit rather than down with Del and Start, because what it
-            // does is open the same dialog with the same fields in it.
-            var dup = new Rect(right - 74f, top, 74f, 20f);
-            TooltipHandler.TipRegion(dup,
-                $"New agent with '{s.Name}'s project and command, under a new name.");
-            if (Widgets.ButtonText(dup, "Duplicate"))
-                Find.WindowStack.Add(EditSessionDialog.Copy(s));
+            // does is open the same dialog with the same fields in it. It is the
+            // one of the two that still means something for a temporary agent -
+            // "keep this one" - as long as it knows where it is working.
+            if (!string.IsNullOrEmpty(s.Project))
+            {
+                var dup = new Rect(right - 74f, top, 74f, 20f);
+                TooltipHandler.TipRegion(dup, s.Ephemeral
+                    ? $"A permanent agent in {s.Project}, like the one running this errand."
+                    : $"New agent with '{s.Name}'s project and command, under a new name.");
+                if (Widgets.ButtonText(dup, "Duplicate"))
+                    Find.WindowStack.Add(EditSessionDialog.Copy(s));
+            }
 
             var term = new Rect(right - 22f, bottom, 22f, 20f);
             TooltipHandler.TipRegion(term, s.Gone
@@ -162,8 +181,10 @@ namespace SlopWorld
                 SessionHub.Instance.Start(s.Name, Fail);
             }
 
+            // Stop is Del for a temporary agent: killing the process is what
+            // removes it, and there is no entry left over to delete.
             x -= 52f;
-            if (Widgets.ButtonText(new Rect(x, bottom, 48f, 20f), "Del"))
+            if (!s.Ephemeral && Widgets.ButtonText(new Rect(x, bottom, 48f, 20f), "Del"))
             {
                 var name = s.Name;
                 Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(

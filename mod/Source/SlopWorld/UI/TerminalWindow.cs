@@ -80,6 +80,12 @@ namespace SlopWorld
             SelectAgent(_name);
             _scrollOff = 0;
             ClearSelection();
+            // The negotiated size belonged to the session we just left. Kept, it
+            // would read as "this pane is already the right shape" for one that has
+            // never been looked at - and a session nobody has opened is still at the
+            // daemon's boot size, so the switch would land a 120x34 pane in a window
+            // several times that and nothing would ever say otherwise.
+            _cols = _rows = 0;
             _sizeDirty = false;
         }
 
@@ -198,7 +204,7 @@ namespace SlopWorld
                 return;
             }
 
-            NegotiateSize(body);
+            NegotiateSize(body, buf);
             DrawScreen(body, buf);
             DrawSelection(body, buf);
 
@@ -284,33 +290,72 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
-        /// <summary>Tell the daemon to reshape the pane to whatever fits the screen.</summary>
-        void NegotiateSize(Rect body)
+        /// <summary>The daemon's own limits, applied here so what we ask for is
+        /// always something it can answer with exactly. Asking past them would leave
+        /// the loop below chasing a size the clamp will never report back.</summary>
+        const int MinCols = 20, MaxCols = 500, MinRows = 5, MaxRows = 200;
+
+        /// <summary>
+        /// Tell the daemon to reshape the pane to whatever fits the screen, and keep
+        /// telling it until the frames coming back are that shape.
+        ///
+        /// The second half is what makes this a loop rather than a statement, and it
+        /// is the whole of the "terminal opens at a fixed size" bug: a resize is one
+        /// fire-and-forget message over a socket that may be down at that moment, and
+        /// the daemon answers a size it already holds with a no-op. So a window that
+        /// asks once and believes itself ends up drawing a 120x34 pane full-screen
+        /// with no way back. The frame carries the emulator's own dimensions, which
+        /// is the only honest answer to "what shape is the pane", so that is what we
+        /// close the loop on.
+        /// </summary>
+        void NegotiateSize(Rect body, ScreenBuf buf)
         {
             var style = TerminalFont.Style;
             if (TerminalFont.CellW <= 0.01f) return;
 
-            int cols = Mathf.Max(20, Mathf.FloorToInt(body.width / TerminalFont.CellW));
-            int rows = Mathf.Max(5, Mathf.FloorToInt(body.height / TerminalFont.CellH));
+            int cols = Mathf.Clamp(
+                Mathf.FloorToInt(body.width / TerminalFont.CellW), MinCols, MaxCols);
+            int rows = Mathf.Clamp(
+                Mathf.FloorToInt(body.height / TerminalFont.CellH), MinRows, MaxRows);
 
-            if (cols == _cols && rows == _rows) return;
+            if (cols != _cols || rows != _rows)
+            {
+                _cols = cols;
+                _rows = rows;
+                // Debounce: dragging the game window would otherwise spam SIGWINCH at
+                // the agent, and Claude Code redraws its whole TUI on every one.
+                _resizeAt = Time.realtimeSinceStartup + 0.2f;
+                _sizeDirty = true;
+                return;
+            }
 
-            _cols = cols;
-            _rows = rows;
-            // Debounce: dragging the game window would otherwise spam SIGWINCH at
-            // the agent, and Claude Code redraws its whole TUI on every one.
-            _resizeAt = Time.realtimeSinceStartup + 0.2f;
+            // Same numbers as last frame, and nothing already on its way out. If the
+            // pane we are drawing is not that shape, the last ask did not land - so
+            // ask again, slowly, until it does. A scrolled frame is a capture of
+            // history and says nothing about the live pane, so it is not evidence.
+            if (_sizeDirty || buf.Off > 0) return;
+            if (buf.Cols == cols && buf.Rows == rows) return;
+
+            _resizeAt = Time.realtimeSinceStartup + 1f;
             _sizeDirty = true;
         }
 
         public override void WindowUpdate()
         {
             base.WindowUpdate();
-            if (_sizeDirty && Time.realtimeSinceStartup >= _resizeAt)
+            if (!_sizeDirty || Time.realtimeSinceStartup < _resizeAt) return;
+
+            // A socket that is down drops the message on the floor, so hold the ask
+            // rather than spending it: this is the redeploy case, where the daemon
+            // is away for a couple of seconds and the window is up throughout.
+            if (!SessionHub.Instance.Online)
             {
-                SessionHub.Instance.Resize(_name, _cols, _rows);
-                _sizeDirty = false;
+                _resizeAt = Time.realtimeSinceStartup + 1f;
+                return;
             }
+
+            SessionHub.Instance.Resize(_name, _cols, _rows);
+            _sizeDirty = false;
         }
 
         void DrawScreen(Rect body, ScreenBuf buf)

@@ -19,11 +19,20 @@
   </MainButtonDef>
 
   <MainButtonDef>
+    <defName>SlopWorld_Shortcuts</defName>
+    <label>shortcuts</label>
+    <description>Errands worth repeating, each run by a temporary agent.</description>
+    <workerClass>SlopWorld.MainButtonWorker_Shortcuts</workerClass>
+    <order>76</order>
+    <validWithoutMap>true</validWithoutMap>
+  </MainButtonDef>
+
+  <MainButtonDef>
     <defName>SlopWorld_Config</defName>
     <label>config</label>
     <description>Edit the daemon's configuration.</description>
     <workerClass>SlopWorld.MainButtonWorker_Config</workerClass>
-    <order>76</order>
+    <order>77</order>
     <validWithoutMap>true</validWithoutMap>
   </MainButtonDef>
 </Defs>

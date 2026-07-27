@@ -6,3 +6,4 @@ mod/Assemblies/SlopWorld.dll
 *.mdb
 .tokensave
 __pycache__/
+tools/bg/

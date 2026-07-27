@@ -44,6 +44,11 @@
       <HintPath>$(RimWorldManaged)\UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- EncodeToPNG/LoadImage, which is how the baked backgrounds reach the cache. -->
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(RimWorldManaged)\UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
   </ItemGroup>

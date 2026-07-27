@@ -12,7 +12,9 @@ use tokio::sync::{broadcast, RwLock};
 use tokio::task::JoinHandle;
 use tokio::time::{interval, MissedTickBehavior};
 
-use crate::config::{expand, Config, Daemon, Defaults, ProjectCfg, Sandbox, SessionCfg};
+use crate::config::{
+    expand, Config, Daemon, Defaults, ProjectCfg, Sandbox, SessionCfg, ShortcutCfg,
+};
 use crate::emu::{parse_output, Frame, MouseInput, SessionEmu};
 use crate::sandbox::build_argv;
 use crate::tmux::Tmux;
@@ -62,6 +64,11 @@ pub struct SessionView {
     pub sandbox: bool,
     /// Sent so an edit round-trips it instead of quietly clearing it.
     pub autostart: bool,
+    /// Nothing in config.toml stands behind this one: it is a shortcut's agent,
+    /// or a tmux session somebody started by hand, and it goes when its process
+    /// does. Said on the wire because the GUI must not offer to edit an entry
+    /// there is no entry for.
+    pub ephemeral: bool,
     /// Unix millis of the last observed pane change.
     pub last_change: u64,
     pub seq: u64,
@@ -123,6 +130,10 @@ pub enum Event {
     /// because the dialog that picks one has to be able to draw before anybody
     /// has changed anything.
     Projects { projects: Vec<ProjectCfg> },
+    /// The shortcuts, on any edit and on connect, for the same reason projects
+    /// ride along: the window that runs them has to be able to draw before
+    /// anybody has changed one.
+    Shortcuts { shortcuts: Vec<ShortcutCfg> },
     Screen { screen: ScreenView },
     /// What is left of the subscription. Broadcast on a change only; the poll
     /// behind it runs on the wall clock, not on anything a session did.
@@ -135,8 +146,22 @@ pub enum Event {
     Quit,
 }
 
+/// How a wait for a fresh pane ended. `Timeout` is not a failure - see
+/// `READY_MS` - and `Gone` is the only one that cancels the typing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Ready {
+    Settled,
+    Timeout,
+    Gone,
+}
+
 struct Live {
     cfg: SessionCfg,
+    /// This entry is the only record of the session: it is not in config.toml
+    /// and must not be written there. Set for a shortcut's agent and for a tmux
+    /// session adopted from under our socket, and it is what makes the colonist
+    /// leave for good when the process exits rather than lie down.
+    ephemeral: bool,
     state: State,
     seq: u64,
     hash: u64,
@@ -207,6 +232,24 @@ const QUIT_WAIT_TICKS: usize = 120;
 const BOOT_COLS: u16 = 120;
 const BOOT_ROWS: u16 = 34;
 
+/// How long a shortcut waits for the thing it just started to be ready for
+/// typing, how quiet the pane has to go before it counts as ready, and the beat
+/// between the text landing and the Enter that sends it.
+///
+/// Settling is the whole trick, and it is deliberately not a pattern match: an
+/// agent's TUI and a shell prompt have nothing in common to grep for, but both
+/// print and then stop. So the wait is for output followed by silence, which is
+/// also what a slow first run of an agent looks like from outside - hence a
+/// ceiling in tens of seconds rather than a second or two.
+///
+/// The timeout does not cancel the delivery. A pane that never goes quiet is
+/// usually one that is drawing something (a spinner, a progress line), not one
+/// that will never read its input, and text held back for that is a shortcut
+/// that silently did nothing.
+const READY_MS: u64 = 30_000;
+const SETTLE_MS: u64 = 750;
+const ENTER_GAP_MS: u64 = 150;
+
 fn disk_mtime(path: &std::path::Path) -> Option<SystemTime> {
     std::fs::metadata(path).ok()?.modified().ok()
 }
@@ -257,6 +300,29 @@ fn check_name(name: &str) -> Result<()> {
     Ok(())
 }
 
+/// A shortcut's name is free-form - it labels a button - but the session it
+/// lands is a tmux target and a colonist, so it has to pass `check_name`.
+/// Anything the two disagree about becomes a dash, which is what a person would
+/// have typed: "review diff" -> "review-diff".
+fn slug(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    for ch in name.chars() {
+        if ch.is_whitespace() || ch == ':' || ch == '.' || ch == '/' {
+            if !out.ends_with('-') {
+                out.push('-');
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    let out = out.trim_matches('-').to_string();
+    if out.is_empty() {
+        "shortcut".into()
+    } else {
+        out
+    }
+}
+
 /// A project name is only ever a key in config.toml and a label in the GUI, so
 /// the bar is lower than a session's - but it is what a session points at, and
 /// a blank one would point at all of them.
@@ -271,6 +337,25 @@ fn check_project(p: &ProjectCfg) -> Result<()> {
         if crate::sandbox::preset(name).is_none() {
             bail!("unknown sandbox preset: {name}");
         }
+    }
+    Ok(())
+}
+
+/// A shortcut needs somewhere to run and something to say. Same rule as a
+/// session's project, and for the same reason: the dialog that left it out is
+/// what should say so, not the button that runs it a week later.
+fn check_shortcut(cfg: &Config, sc: &ShortcutCfg) -> Result<()> {
+    if sc.name.trim().is_empty() {
+        bail!("shortcut name must not be empty");
+    }
+    if sc.project.trim().is_empty() {
+        bail!("shortcut {} must belong to a project", sc.name);
+    }
+    if cfg.project(&sc.project).is_none() {
+        bail!("no such project: {}", sc.project);
+    }
+    if sc.text.trim().is_empty() {
+        bail!("shortcut {} has nothing to send", sc.name);
     }
     Ok(())
 }
@@ -364,6 +449,7 @@ impl Manager {
             sessions: self.views().await,
         });
         self.announce_projects().await;
+        self.announce_shortcuts().await;
         true
     }
 
@@ -484,13 +570,17 @@ impl Manager {
         let cfg = self.config().await;
         let mut live = self.live.write().await;
 
-        live.retain(|name, _| cfg.session(name).is_some());
+        // An ephemeral entry is its own record - there is nothing in config for
+        // it to be missing from - so the file is only allowed to retire the
+        // sessions the file owns.
+        live.retain(|name, l| l.ephemeral || cfg.session(name).is_some());
 
         for s in &cfg.sessions {
             live.entry(s.name.clone())
                 .and_modify(|l| l.cfg = s.clone())
                 .or_insert(Live {
                     cfg: s.clone(),
+                    ephemeral: false,
                     state: State::Down,
                     seq: 0,
                     hash: 0,
@@ -515,11 +605,10 @@ impl Manager {
         // Attach a control reader to any session that's already running (e.g. one
         // that survived a daemon restart). Idempotent: skips sessions we already
         // hold an emulator for.
-        let mut orphans: Vec<String> = Vec::new();
+        let mut adopted = false;
         for name in self.tmux.list().await {
             if !self.live.read().await.contains_key(&name) {
-                orphans.push(name);
-                continue;
+                adopted |= self.adopt(&name).await;
             }
             if self.spawn_reader(&name).await {
                 // Adopted rather than started by us, so the app on the other end
@@ -539,23 +628,76 @@ impl Manager {
             }
         }
 
-        // Running under our socket but absent from config: someone renamed or
-        // deleted the entry while the agent kept working. Left alone - killing it
-        // would be worse - but said out loud, because it is invisible in-game.
-        if !orphans.is_empty() {
-            tracing::warn!(
-                "tmux sessions with no config entry, not shown in-game: {}",
-                orphans.join(", ")
-            );
+        // A colonist that arrived without config asking for one has to be
+        // announced: nothing else in here will, since an adopted session's first
+        // frame usually classifies as the state it was given.
+        if adopted {
+            let _ = self.events.send(Event::Sessions {
+                sessions: self.views().await,
+            });
         }
+    }
+
+    /// Takes a running tmux session that config knows nothing about onto the
+    /// board as a temporary agent.
+    ///
+    /// Every one of these used to be logged as an orphan and left invisible,
+    /// which was the wrong answer to two different questions. A shortcut's agent
+    /// is not in config *by design*, so a daemon restart in the middle of one
+    /// would have stranded a running process with no colonist, no terminal and
+    /// no way to close it from the game. And a session somebody started by hand
+    /// under our socket is, by this whole thing's own account, a colonist -
+    /// there is nothing else it could be.
+    ///
+    /// It carries no project, which is honest: we cannot know where it was
+    /// started from or what it can reach, so it lists with a blank directory and
+    /// refuses to restart. Watching it, typing at it and killing it all work,
+    /// which is everything else.
+    async fn adopt(self: &Arc<Self>, name: &str) -> bool {
+        let mut live = self.live.write().await;
+        if live.contains_key(name) {
+            return false;
+        }
+        tracing::info!("adopting tmux session {name} as a temporary agent");
+        live.insert(
+            name.to_string(),
+            Live {
+                cfg: SessionCfg {
+                    name: name.to_string(),
+                    ..Default::default()
+                },
+                ephemeral: true,
+                state: State::Working,
+                seq: 0,
+                hash: 0,
+                last_change: now_ms(),
+                cols: BOOT_COLS,
+                rows: BOOT_ROWS,
+                screen: None,
+                emu: None,
+                reader: None,
+            },
+        );
+        true
+    }
+
+    /// What a session is, from config if the file owns it and from the live table
+    /// if it does not. The two are kept in step by `sync_from_config`, so the
+    /// order only matters for the entries config has never heard of: a
+    /// shortcut's agent, and anything adopted from under our socket.
+    async fn session_cfg(&self, name: &str) -> Option<SessionCfg> {
+        if let Some(s) = self.cfg.read().await.session(name) {
+            return Some(s.clone());
+        }
+        self.live.read().await.get(name).map(|l| l.cfg.clone())
     }
 
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
         let cfg = self.config().await;
-        let s = cfg
-            .session(name)
-            .ok_or_else(|| anyhow!("no such session: {name}"))?
-            .clone();
+        let s = self
+            .session_cfg(name)
+            .await
+            .ok_or_else(|| anyhow!("no such session: {name}"))?;
 
         let p = cfg.project_of(&s).cloned().ok_or_else(|| {
             if s.project.is_empty() {
@@ -591,6 +733,13 @@ impl Manager {
         if self.tmux.exists(name).await {
             self.tmux.kill(name).await?;
         }
+        // Killing it here is the one road to a dead session that does not go
+        // through the control reader: the handle is aborted below, so the task
+        // never reaches mark_down and never gets to forget the entry.
+        if self.is_ephemeral(name).await {
+            self.forget(name).await;
+            return Ok(());
+        }
         if let Some(l) = self.live.write().await.get_mut(name) {
             l.state = State::Down;
             l.screen = None;
@@ -600,6 +749,40 @@ impl Manager {
             }
         }
         Ok(())
+    }
+
+    async fn is_ephemeral(&self, name: &str) -> bool {
+        self.live
+            .read()
+            .await
+            .get(name)
+            .map(|l| l.ephemeral)
+            .unwrap_or(false)
+    }
+
+    /// Drops a temporary session for good: no config entry stands behind it, so
+    /// a process that has exited leaves nothing to keep. The colonist behind it
+    /// is retired by the mod's next reconcile rather than laid on the floor,
+    /// which is the whole difference between an errand and an agent.
+    ///
+    /// The reader is aborted last on purpose: the caller is sometimes that very
+    /// task, finishing up after its session emitted `%exit`, and aborting the
+    /// task you are running in can cancel it at the next await - which would be
+    /// the one that gathers the views nobody has been told about yet.
+    async fn forget(self: &Arc<Self>, name: &str) {
+        let handle = {
+            let mut live = self.live.write().await;
+            match live.remove(name) {
+                Some(mut l) => l.reader.take(),
+                None => return,
+            }
+        };
+        let _ = self.events.send(Event::Sessions {
+            sessions: self.views().await,
+        });
+        if let Some(h) = handle {
+            h.abort();
+        }
     }
 
     pub async fn restart(self: &Arc<Self>, name: &str) -> Result<()> {
@@ -701,6 +884,236 @@ impl Manager {
         Ok(())
     }
 
+    // ------------------------------------------------------------ shortcuts
+
+    pub async fn shortcuts(&self) -> Vec<ShortcutCfg> {
+        self.cfg.read().await.shortcuts.clone()
+    }
+
+    async fn announce_shortcuts(&self) {
+        let _ = self.events.send(Event::Shortcuts {
+            shortcuts: self.shortcuts().await,
+        });
+    }
+
+    pub async fn add_shortcut(self: &Arc<Self>, sc: ShortcutCfg) -> Result<()> {
+        self.reload_if_changed().await;
+        let mut cfg = self.cfg.write().await;
+        check_shortcut(&cfg, &sc)?;
+        if cfg.shortcut(&sc.name).is_some() {
+            bail!("shortcut {} already exists", sc.name);
+        }
+        cfg.shortcuts.push(sc);
+        self.save_cfg(&cfg)?;
+        drop(cfg);
+        self.announce_shortcuts().await;
+        Ok(())
+    }
+
+    /// Writes a shortcut back, rename included. Nothing points at a shortcut by
+    /// name - the agents it lands are gone by the time anything could - so a
+    /// rename here carries nothing with it.
+    pub async fn update_shortcut(self: &Arc<Self>, name: &str, sc: ShortcutCfg) -> Result<()> {
+        self.reload_if_changed().await;
+        let mut cfg = self.cfg.write().await;
+        check_shortcut(&cfg, &sc)?;
+        let idx = cfg
+            .shortcuts
+            .iter()
+            .position(|x| x.name == name)
+            .ok_or_else(|| anyhow!("no such shortcut: {name}"))?;
+        if sc.name != name && cfg.shortcut(&sc.name).is_some() {
+            bail!("shortcut {} already exists", sc.name);
+        }
+        cfg.shortcuts[idx] = sc;
+        self.save_cfg(&cfg)?;
+        drop(cfg);
+        self.announce_shortcuts().await;
+        Ok(())
+    }
+
+    /// Nothing to refuse here, unlike a project with agents in it: whatever this
+    /// shortcut started is its own temporary agent now and outlives the entry.
+    pub async fn remove_shortcut(self: &Arc<Self>, name: &str) -> Result<()> {
+        self.reload_if_changed().await;
+        let mut cfg = self.cfg.write().await;
+        if cfg.shortcut(name).is_none() {
+            bail!("no such shortcut: {name}");
+        }
+        cfg.shortcuts.retain(|s| s.name != name);
+        self.save_cfg(&cfg)?;
+        drop(cfg);
+        self.announce_shortcuts().await;
+        Ok(())
+    }
+
+    /// Runs one errand: lands a temporary agent in the shortcut's project and
+    /// types the shortcut's text into it.
+    ///
+    /// Returns as soon as the session is up, naming it, so the caller can open a
+    /// terminal on it - the typing happens in a task behind this, because being
+    /// ready for input is tens of seconds away for an agent and the client on
+    /// the other end of this call gives up after five.
+    ///
+    /// The agent is never written to config.toml. That is the whole point of it:
+    /// an errand leaves nothing behind, and the colonist that ran it walks off
+    /// the map when its process exits instead of lying down waiting to be
+    /// restarted.
+    pub async fn run_shortcut(self: &Arc<Self>, name: &str) -> Result<String> {
+        self.reload_if_changed().await;
+        let cfg = self.config().await;
+        let sc = cfg
+            .shortcut(name)
+            .ok_or_else(|| anyhow!("no such shortcut: {name}"))?
+            .clone();
+        check_shortcut(&cfg, &sc)?;
+
+        // Named and claimed without an await in between, because the two halves
+        // are one decision: two runs of the same errand in the same instant would
+        // otherwise pick the same free name, and the second would overwrite the
+        // first's entry - reader and all - and then fail on tmux already having
+        // that session, taking the first one's entry with it on the way out.
+        let session = {
+            let mut live = self.live.write().await;
+            let name: String = "".to_string();
+            // free_name(&live, &cfg, &slug(&sc.name));
+            check_name(&name)?;
+            live.insert(
+                name.clone(),
+                Live {
+                    // In the table before the start, because that is where
+                    // `start` reads the command and the pane size from - there is
+                    // nothing in config for it to read.
+                    cfg: cfg.session_for(&sc, name.clone()),
+                    ephemeral: true,
+                    state: State::Down,
+                    seq: 0,
+                    hash: 0,
+                    last_change: 0,
+                    cols: BOOT_COLS,
+                    rows: BOOT_ROWS,
+                    screen: None,
+                    emu: None,
+                    reader: None,
+                },
+            );
+            name
+        };
+
+        if let Err(e) = self.start(&session).await {
+            // Nothing came up, so nothing should be left standing about: the
+            // entry is the only trace of it either way.
+            self.forget(&session).await;
+            return Err(e);
+        }
+
+        let _ = self.events.send(Event::Sessions {
+            sessions: self.views().await,
+        });
+
+        let m = self.clone();
+        let target = session.clone();
+        let text = sc.text.clone();
+        tokio::spawn(async move { m.deliver(&target, &text).await });
+
+        Ok(session)
+    }
+
+    /// A session name nothing is using: the shortcut's own, then numbered. The
+    /// base comes back free most times, because these do not accumulate - the
+    /// last agent that ran this errand is usually already gone.
+    async fn free_name(&self, base: &str) -> String {
+        // Sequentially, never both at once: a task holding one of these while
+        // waiting on the other is half of a deadlock.
+        let mut taken: Vec<String> = self.live.read().await.keys().cloned().collect();
+        taken.extend(self.cfg.read().await.sessions.iter().map(|s| s.name.clone()));
+
+        if !taken.iter().any(|n| n == base) {
+            return base.to_string();
+        }
+        (2..)
+            .map(|i| format!("{base}-{i}"))
+            .find(|n| !taken.contains(n))
+            .unwrap()
+    }
+
+    /// Waits for the thing that just started to be ready for typing, then sends
+    /// the text and the Enter that submits it.
+    ///
+    /// Two writes and not one, with a beat between them: an agent's input box
+    /// takes a pasted newline as a newline - that is what bracketed paste is
+    /// for - so the submit has to arrive as a keypress after the paste has
+    /// closed. A shell would take either; the agent is the one that has to be
+    /// got right.
+    async fn deliver(self: &Arc<Self>, name: &str, text: &str) {
+        match self.wait_ready(name).await {
+            Ready::Gone => {
+                tracing::warn!("{name} was gone before its shortcut text could be sent");
+                return;
+            }
+            Ready::Timeout => tracing::warn!(
+                "{name} never went quiet after {}ms; sending its shortcut text anyway",
+                READY_MS
+            ),
+            Ready::Settled => {}
+        }
+
+        if let Err(e) = self.paste(name, text).await {
+            tracing::error!("sending shortcut text to {name}: {e:#}");
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(ENTER_GAP_MS)).await;
+        if let Err(e) = self.send_keys(name, vec!["Enter".into()], false).await {
+            tracing::error!("submitting shortcut text in {name}: {e:#}");
+        }
+    }
+
+    /// Polls a pane until it has printed something and then held still for
+    /// `SETTLE_MS`. See `READY_MS` for why this is a settle rather than a match
+    /// against anything an agent or a shell prints.
+    async fn wait_ready(&self, name: &str) -> Ready {
+        let deadline = now_ms() + READY_MS;
+        let mut last_seq = u64::MAX;
+        let mut still_since = 0u64;
+
+        loop {
+            let snap = {
+                let live = self.live.read().await;
+                live.get(name).map(|l| {
+                    let printed = l
+                        .screen
+                        .as_ref()
+                        .map(|s| s.lines.iter().any(|x| !strip_sgr(x).trim().is_empty()))
+                        .unwrap_or(false);
+                    (l.seq, printed, l.state)
+                })
+            };
+            // Down and gone are the same answer here: an ephemeral session that
+            // died has already left the table.
+            let Some((seq, printed, state)) = snap else {
+                return Ready::Gone;
+            };
+            if state == State::Down {
+                return Ready::Gone;
+            }
+
+            let now = now_ms();
+            if !printed {
+                still_since = 0;
+            } else if seq != last_seq {
+                last_seq = seq;
+                still_since = now;
+            } else if still_since > 0 && now.saturating_sub(still_since) >= SETTLE_MS {
+                return Ready::Settled;
+            }
+
+            if now >= deadline {
+                return Ready::Timeout;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    }
+
     // ------------------------------------------------------------- sessions
 
     /// Adds a session to config, persists, and starts it if asked.
@@ -791,6 +1204,12 @@ impl Manager {
 
     pub async fn remove(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
+        // A temporary session is gone the moment it is stopped; there is no
+        // entry to delete and rewriting the file over one would be a write that
+        // says nothing.
+        if self.is_ephemeral(name).await {
+            return self.stop(name).await;
+        }
         self.stop(name).await.ok();
         let mut cfg = self.cfg.write().await;
         cfg.sessions.retain(|s| s.name != name);
@@ -850,6 +1269,7 @@ impl Manager {
         *self.cfg.write().await = new;
         self.sync_from_config().await;
         self.announce_projects().await;
+        self.announce_shortcuts().await;
         Ok(())
     }
 
@@ -873,6 +1293,7 @@ impl Manager {
                     net: p.map(|p| p.net).unwrap_or(true),
                     sandbox: p.map(|p| p.sandbox).unwrap_or(true),
                     autostart: l.cfg.autostart,
+                    ephemeral: l.ephemeral,
                     last_change: l.last_change,
                     seq: l.seq,
                 }
@@ -1252,7 +1673,15 @@ impl Manager {
 
     /// Marks a session down and tears down its emulator + reader. Broadcasts a
     /// session list only when the state actually moved.
-    async fn mark_down(&self, name: &str) {
+    ///
+    /// A temporary session has nowhere to be down: the process exiting is the
+    /// end of it, so it leaves the table entirely and its colonist walks off.
+    async fn mark_down(self: &Arc<Self>, name: &str) {
+        if self.is_ephemeral(name).await {
+            self.forget(name).await;
+            return;
+        }
+
         let mut changed = false;
         {
             let mut live = self.live.write().await;
@@ -1346,7 +1775,23 @@ fn utf8_len(first: u8) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{check_name, strip_sgr};
+    use super::{check_name, slug, strip_sgr};
+
+    /// A shortcut is named by a person and its session is named by tmux, so
+    /// every slug has to come out the far end of check_name.
+    #[test]
+    fn slugs_are_names_tmux_accepts() {
+        assert_eq!(slug("review diff"), "review-diff");
+        assert_eq!(slug("run make test"), "run-make-test");
+        assert_eq!(slug("v1.2 checks"), "v1-2-checks");
+        assert_eq!(slug("  spaced  out  "), "spaced-out");
+        assert_eq!(slug(" . "), "shortcut");
+        assert_eq!(slug(""), "shortcut");
+
+        for name in ["review diff", "v1.2 checks", "a/b", "", " . "] {
+            assert!(check_name(&slug(name)).is_ok(), "slug of {name:?}");
+        }
+    }
 
     #[test]
     fn rejects_names_tmux_would_read_as_targets() {

@@ -15,9 +15,6 @@ namespace SlopWorld
         /// The pink haze every one of the plague's acts puts up.
         public static FleckDef SlopPlagueGas;
 
-        /// What an idle agent stands about doing: nothing, with a name.
-        public static JobDef SlopClaudwatch;
-
         /// Hotkey on the selected agent's Terminal gizmo.
         public static KeyBindingDef SlopOpenTerminal;
 

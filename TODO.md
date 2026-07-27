@@ -6,8 +6,9 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 ## Interface
 
-- [ ] New window: "Shortcuts". Two kinds: prompt and shell. Prompt creates new temporary clanker from template, pastes text to the input field, sends Enter. Shell spawns new clanker with interactive shell and sends text to shell. Both clankers disappear as soon as underlying process exits.
+- [x] New window: "Shortcuts". Two kinds: prompt and shell. Prompt creates new temporary clanker from template, pastes text to the input field, sends Enter. Shell spawns new clanker with interactive shell and sends text to shell. Both clankers disappear as soon as underlying process exits.
 - [x] New window: "Projects". First button in the bottom bar. Every project contains: project directory, sandbox params (presets like "Claude", "dbus", "systemd", plus optional custom additions). Agents now must belong to specific project on creation and inherit it params. Stays configurable per agent: name and command.
+- [ ] In usage resources top left credits show left instead of spent
 - [x] New agent action button: "Duplicate". Opens agent creation window with fields filled with existing agent's values.
 - [x] Render session/weekly limits as generic RimWorld resources: icon + white % or $ text. Show more info bubble on hover like now. Suggest icons, builtin or generated.
 - [x] Hide enabled mods and DLCs block on loading screen
@@ -18,10 +19,11 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 ## Terminal
 
-- [ ] Bug: after "New colony" terminals have fixed size when opening first time with "Terminal" action
+- [x] Bug: after "New colony" terminals have fixed size when opening first time with "Terminal" action
 - [ ] Bug: thin black line between every 4 green or red lines (diff in CC)
 - [ ] Bug: copy doesn't work (Claude tmux integration?)
 - [ ] Add "+" button to the small floating colonist panel
+- [ ] Add terminal title to title bar (below basic terminal info)
 - [ ] Bug: DnD text selection highlights the whole line under the cursor including empty space
 - [ ] Remove "Stop" and "Restart" buttons, turn "Close" button into red cross.
 - [x] Move small colonist panel higher over the title bar (make title bar a bit taller, just to fit colonist icon, leave the name label hang below edge)
@@ -36,8 +38,12 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 ## "Game"
 
-- [ ] Bug: clankers have human faces on game load until running "New colony"
+- [x] When hovering compute core, show bubble with random loading screen tip
+- [x] Bug: "Claudwatching" is a typo in one of generic pawn behaviors when idling. They should do usual shit idling pawns do in vanilla game.
+- [ ] More thicc pink smoke when plague tags or takes effect.
+- [x] Bug: clankers have human faces on game load until running "New colony"
 - [x] Remove rule "clankers sleep when terminal is idle". Let them do noting and "claudwatch" as some idle action named. Show normal idle icon (clock). But add gentle sound when agent becomes idle. Something from core sounds. Also, enforce "run in background" setting.
+- [ ] When mouse clicking make cursor rotate a little. One time and not so intense as when petting a cat.
 - [ ] Bug: day/night in game is not synced with real time in user's timezone
 - [x] Skip the welcome message window when creating a new colony.
 - [x] Plague should suppress creating new plants in its radius. Animals and humans keep spawning, but outside walk on map edges.
@@ -55,6 +61,9 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 ## Agents support
 
+- [ ] Claude Code
+  - [x] Bump default usage interval to avoid 429
+  - [ ] Generate per-project CLAUDE.md with instructions, useful and fun
 - [ ] OpenCode support
 - [ ] pi support
 
@@ -67,12 +76,4 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 ## Misc
 
 - [ ] Create a separate game "profile" with separate saves and all mods/DLCs disabled except ours. Runner script/binary.
-
-## Loading tips
-
-- Welcome Humans! We have come to visit you in peace and with goodwill!
-- Robots may not injure a human being or, through inaction, allow a human being to come to harm.
-- Robots have seen things you people wouldn’t believe.
-- Robots are Your Plastic Pal Who’s Fun To Be With.
-- Robots have shiny metal posteriors which should not be bitten.
-- Press `F12` to toggle terminal
+- [ ] PKGBUILD with .desktop for host

@@ -224,12 +224,17 @@ namespace SlopWorld
             var l = new Listing_Standard();
             l.Begin(new Rect(r.x, r.y, r.width, 92f));
 
-            l.Label("Command for sessions that do not set their own");
+            l.Label("Commands for sessions and shortcuts that do not set their own");
             l.Gap(2f);
 
             var row = l.GetRect(28f);
             Widgets.Label(new Rect(row.x, row.y + 3f, 60f, 24f), "Agent");
             _cfg.Agent = Widgets.TextField(new Rect(row.x + 60f, row.y, 220f, 24f), _cfg.Agent);
+
+            // What a shell shortcut runs. tmux hands it a pty, so it is
+            // interactive without being told to be.
+            Widgets.Label(new Rect(row.x + 300f, row.y + 3f, 60f, 24f), "Shell");
+            _cfg.Shell = Widgets.TextField(new Rect(row.x + 360f, row.y, 160f, 24f), _cfg.Shell);
 
             l.End();
 
