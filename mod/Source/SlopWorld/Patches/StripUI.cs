@@ -169,7 +169,7 @@ namespace SlopWorld
     }
 
     /// <summary>
-    /// Hides every bottom-bar button except Menu, Inspect and our own two.
+    /// Hides every bottom-bar button except Menu, Inspect and our own four.
     /// MainButtonWorker.Visible is virtual and overridden by several workers
     /// (World, Quests, Mechs...), so we postfix the base getter plus every
     /// declared override. Patched manually from the bootstrap because the target
@@ -189,10 +189,17 @@ namespace SlopWorld
     public static class Patch_MainButtons
     {
         // Inspect is kept because it backs the inspect pane; Menu for save / quit.
+        //
+        // Every button this mod ships has to be named here, and `shortcuts` is
+        // why that is worth saying: it had a def, a worker and an order between
+        // `agents` and `config` from the day errands landed, and drew nothing for
+        // want of a line in this set. A button that is not in here is not hidden
+        // by anything you can see - it simply never appears.
         static readonly HashSet<string> Keep = new HashSet<string>
         {
             "Menu", "Inspect",
-            "SlopWorld_Projects", "SlopWorld_Agents", "SlopWorld_Config",
+            "SlopWorld_Projects", "SlopWorld_Agents", "SlopWorld_Shortcuts",
+            "SlopWorld_Config",
         };
 
         public static void Apply(Harmony h)

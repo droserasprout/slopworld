@@ -1076,6 +1076,11 @@ or an override.
 The Shortcuts button is *not* on the agents window any more - it is a window of
 its own in the bottom bar, and an errand is not something you do to an agent on
 that list: running one lands a new colonist rather than touching any of them.
+That bar button had existed since errands did and had never once drawn:
+`MainButtonDefs.xml` gave it a worker and an order of 76, squarely between
+`agents` and `config`, but `Patch_MainButtons.Keep` did not name it, and a
+button missing from that set does not appear at all. Which is the thing to
+remember about adding one: the def is half of it.
 
 The agents list draws a temporary agent differently, and the rule is that a row
 must not offer what the daemon would refuse: there is no config entry to Edit and
