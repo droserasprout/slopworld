@@ -40,6 +40,7 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/config", get(get_config))
         .route("/api/config", put(put_config))
         .route("/api/config/values", put(put_config_values))
+        .route("/api/clipboard", get(clip_read).post(clip_write))
         .route("/api/usage", get(usage))
         .route("/api/browse", get(browse))
         .route("/api/game", get(game))
@@ -278,6 +279,29 @@ async fn game(State(m): State<Mgr>) -> ApiResult {
 /// mostly.
 async fn usage(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!(m.usage().await)))
+}
+
+#[derive(Deserialize)]
+struct ClipReq {
+    #[serde(default)]
+    text: String,
+}
+
+/// The host's clipboard, which the game has no way to reach itself; see
+/// `clipboard.rs`. A tool that is missing or wedged is a 502 rather than a 400,
+/// because nothing about the request was wrong.
+async fn clip_read() -> ApiResult {
+    let text = crate::clipboard::read()
+        .await
+        .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
+    Ok(Json(json!({ "text": text })))
+}
+
+async fn clip_write(Json(q): Json<ClipReq>) -> ApiResult {
+    crate::clipboard::write(&q.text)
+        .await
+        .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
+    Ok(Json(json!({ "ok": true })))
 }
 
 #[derive(Deserialize)]

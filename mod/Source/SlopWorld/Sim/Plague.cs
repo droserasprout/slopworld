@@ -150,6 +150,10 @@ namespace SlopWorld
         List<Plant> _plants;
         int _plantIdx;
 
+        // The cat's aura, looked up once. See Aura: the one thing on this map that
+        // takes ground back off the circle.
+        Aura _aura;
+
         public Plague(Map map) : base(map) { }
 
         /// <summary>Starts the spread from the core's cell. Called by the intro once
@@ -235,6 +239,11 @@ namespace SlopWorld
             _active && _origin.IsValid &&
             cell.DistanceTo(_origin) <= Mathf.Min(_radius, EdgeRadius);
 
+        /// <summary>Whether the cat is holding this one off. Asked of a thing rather
+        /// than of a cell, because the aura's grace outlives the cat walking away and
+        /// so belongs to what was standing there.</summary>
+        bool Spared(Thing t) => (_aura ?? (_aura = Aura.Of(map)))?.Spares(t) == true;
+
         /// <summary>Whether the spread has been armed on this map. A map with no
         /// plague running on it - the menu's background, an unfinished intro - is not
         /// one whose fires we have any business containing.</summary>
@@ -251,6 +260,7 @@ namespace SlopWorld
                 if (!Infectable(pawn)) continue;
                 if (BandAt(pawn.Position) == Band.None) continue;
                 if (Marked(pawn)) continue;
+                if (Spared(pawn)) continue; // the cat has it, for now
                 pawn.health.AddHediff(SlopDefOf.SlopPlague);
                 PlagueFx.Mark(pawn);
             }
@@ -277,6 +287,7 @@ namespace SlopWorld
 
                 var band = BandAt(p.Position);
                 if (band == Band.None) continue;
+                if (Spared(p)) continue;
 
                 var dose = band == Band.Full ? Full : Weak;
                 bool tree = p.def.plant.IsTree;
@@ -336,6 +347,11 @@ namespace SlopWorld
 
                 var band = BandAt(pawn.Position);
                 if (band == Band.None) continue;
+                // Belt and braces over Spread: a marked animal that has just walked
+                // into the aura is unmarked at the aura's next sweep and not before,
+                // and a detonation in that half second would be the one thing the cat
+                // is for going visibly wrong.
+                if (Spared(pawn)) continue;
                 var dose = band == Band.Full ? Full : Weak;
 
                 float roll = Rand.Value;
@@ -476,6 +492,12 @@ namespace SlopWorld
                 var plague = ___map?.GetComponent<Plague>();
                 if (plague == null || plague.BandAt(c) != Band.Full) return true;
 
+                // Except where the cat is standing. This is the only thing that ever
+                // takes a cell back off the core, and it is what makes the aura read
+                // as anything: the sweep stops stripping, the spawner starts filling,
+                // and a green disc grows under the animal.
+                if (Aura.Of(___map)?.Covers(c) == true) return true;
+
                 __result = false;
                 return false;
             }
@@ -500,6 +522,9 @@ namespace SlopWorld
             {
                 var plague = __instance.Map?.GetComponent<Plague>();
                 if (plague == null || !plague.Active) return true;
+                // A fire under the cat is going out at the next sweep anyway; this is
+                // what stops it taking the aura's plants with it on the way.
+                if (Aura.Of(__instance.Map)?.Covers(__instance.Position) == true) return false;
                 return plague.Reaches(__instance.Position);
             }
         }

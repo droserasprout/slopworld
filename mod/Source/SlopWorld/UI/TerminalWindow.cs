@@ -41,8 +41,11 @@ namespace SlopWorld
         bool _hasSel;
         Vector2Int _selA, _selB;
 
-        // A mouse gesture currently being forwarded to an app that wants the mouse.
+        // A mouse gesture currently being forwarded to an app that wants the mouse,
+        // and the cell its press landed on - where the click is closed if the
+        // gesture turns out to be a drag the app never asked for.
         bool _mouseFwd;
+        Vector2Int _fwdCell;
 
         // Keys typed while the socket was down. There is nowhere to send them, and
         // swallowing them in silence is how a redeploy reads as a frozen terminal.
@@ -365,21 +368,31 @@ namespace SlopWorld
             float ch = TerminalFont.CellH;
 
             EnsureRuns(buf);
+            SyncSnap();
 
             for (int row = 0; row < buf.Runs.Length; row++)
             {
                 float y = body.y + row * ch;
                 if (y > body.yMax) break;
 
+                // The band this row's backgrounds fill, snapped so it meets its
+                // neighbours' on a pixel rather than near one; see SnapY.
+                float bgTop = SnapY(y);
+                float bgBot = SnapY(body.y + (row + 1) * ch);
+
                 foreach (var run in buf.Runs[row])
                 {
                     // Draw at the run's true column, so wide chars (which the
                     // daemon re-anchors with CHA) don't shift the rest of the line.
                     float x = body.x + run.Col * cw;
-                    float w = run.Text.Length * cw;
 
                     if (run.HasBg)
-                        Widgets.DrawBoxSolid(new Rect(x, y, w, ch), run.Bg);
+                    {
+                        float bgL = SnapX(x);
+                        float bgR = SnapX(body.x + (run.Col + run.Text.Length) * cw);
+                        Widgets.DrawBoxSolid(
+                            new Rect(bgL, bgTop, bgR - bgL, bgBot - bgTop), run.Bg);
+                    }
 
                     style.normal.textColor = run.Fg;
                     DrawRun(run.Text, x, y, cw, ch, style);
@@ -390,6 +403,42 @@ namespace SlopWorld
 
             GUI.color = Color.white;
         }
+
+        // The GUI-to-screen transform, sampled once a draw; see SnapX.
+        static float _snapSx = 1f, _snapSy = 1f, _snapOx, _snapOy;
+
+        /// <summary>
+        /// Reads how this frame's GUI coordinates land on the screen. Two points
+        /// are enough - the transform is a scale and an offset - and sampling it
+        /// beats reading GUI.matrix, which carries the UI scale but not the offset
+        /// of the group a window draws inside.
+        /// </summary>
+        static void SyncSnap()
+        {
+            var p0 = GUIUtility.GUIToScreenPoint(Vector2.zero);
+            var p1 = GUIUtility.GUIToScreenPoint(Vector2.one);
+            _snapSx = Mathf.Abs(p1.x - p0.x) > 0.0001f ? p1.x - p0.x : 1f;
+            _snapSy = Mathf.Abs(p1.y - p0.y) > 0.0001f ? p1.y - p0.y : 1f;
+            _snapOx = p0.x;
+            _snapOy = p0.y;
+        }
+
+        /// <summary>
+        /// Rounds a coordinate so it lands on a whole screen pixel.
+        ///
+        /// This is the thin black line that ran through a block of coloured diff.
+        /// A cell is 19 units tall and the UI runs at 1.75, so a row is 33.25
+        /// pixels: row n's background ends exactly where row n+1's begins in
+        /// arithmetic, but the shared edge sits on a pixel centre every fourth row
+        /// and a pixel split down the middle by two separate quads can come out
+        /// belonging to neither. Snapping every box's edges to the pixel grid is
+        /// what makes the rows tile rather than nearly tile. It has to be the
+        /// *screen* grid: a whole unit here is 1.75 pixels there, so rounding in
+        /// GUI coordinates would leave the fraction exactly where it was.
+        /// </summary>
+        static float SnapX(float v) => (Mathf.Round(v * _snapSx + _snapOx) - _snapOx) / _snapSx;
+
+        static float SnapY(float v) => (Mathf.Round(v * _snapSy + _snapOy) - _snapOy) / _snapSy;
 
         /// <summary>Draws one run, breaking out every char the face cannot advance
         /// by exactly one cell and placing it alone on its own column. Claude Code
@@ -435,17 +484,20 @@ namespace SlopWorld
             float y = body.y + buf.Cy * ch;
             if (!body.Contains(new Vector2(x, y))) return;
 
+            float l = SnapX(x), r = SnapX(x + cw);
+            float t = SnapY(y), b = SnapY(y + ch);
+
             var col = new Color(0.83f, 0.85f, 0.86f, 0.65f);
             switch (buf.CursorShape)
             {
                 case 1: // underline
-                    Widgets.DrawBoxSolid(new Rect(x, y + ch - 2f, cw, 2f), col);
+                    Widgets.DrawBoxSolid(new Rect(l, b - 2f, r - l, 2f), col);
                     break;
                 case 2: // beam
-                    Widgets.DrawBoxSolid(new Rect(x, y, 2f, ch), col);
+                    Widgets.DrawBoxSolid(new Rect(l, t, 2f, b - t), col);
                     break;
                 default: // block
-                    Widgets.DrawBoxSolid(new Rect(x, y, cw, ch), col);
+                    Widgets.DrawBoxSolid(new Rect(l, t, r - l, b - t), col);
                     break;
             }
         }
@@ -533,9 +585,7 @@ namespace SlopWorld
                 if (e.control && e.keyCode == KeyCode.V)
                 {
                     JumpToLive();
-                    string clip = GUIUtility.systemCopyBuffer;
-                    if (!string.IsNullOrEmpty(clip))
-                        SessionHub.Instance.Paste(_name, clip);
+                    PasteClipboard();
                     e.Use();
                     return;
                 }
@@ -631,13 +681,12 @@ namespace SlopWorld
         void HandleMouse(Rect body, Event e)
         {
             // Forward to the app when it wants the mouse, unless Shift is held -
-            // Shift forces our own local selection, like a real terminal.
+            // Shift forces our own local selection, like a real terminal. The
+            // forwarder hands a gesture back (false) when it turns out to be one
+            // the app never asked for, which is where a drag-select comes from.
             var live = SessionHub.Instance.Screen(_name);
-            if (live != null && live.AppMouse && !e.shift)
-            {
-                HandleMouseForward(body, e);
+            if (live != null && live.AppMouse && !e.shift && HandleMouseForward(body, e))
                 return;
-            }
 
             if (e.button != 0) return;
 
@@ -669,36 +718,64 @@ namespace SlopWorld
             }
         }
 
-        /// <summary>Forwards a click/drag to an app that asked for the mouse.</summary>
-        void HandleMouseForward(Rect body, Event e)
+        /// <summary>
+        /// Forwards a click/drag to an app that asked for the mouse. Answers false
+        /// for a gesture the caller should handle itself instead.
+        ///
+        /// Which is the whole of "copy doesn't work". An app in click-reporting
+        /// mode - Claude Code is one - has asked to hear about buttons and said
+        /// nothing about motion, so a drag across its output was never its to
+        /// receive; forwarding it anyway spent the gesture on an app that ignores
+        /// it and left the pane with no way to select text at all short of
+        /// holding Shift, which nothing on screen says. So the press goes over as
+        /// a press, and the moment it turns into a drag we close that click where
+        /// it started - the app sees an ordinary click, complete - and take the
+        /// rest of the gesture back as a selection.
+        /// </summary>
+        bool HandleMouseForward(Rect body, Event e)
         {
             int btn = Mathf.Clamp(e.button, 0, 2);
             var cell = CellAt(body, e.mousePosition);
+            var live = SessionHub.Instance.Screen(_name);
 
             switch (e.type)
             {
                 case EventType.MouseDown:
-                    if (!body.Contains(e.mousePosition)) return;
+                    if (!body.Contains(e.mousePosition)) return true;
                     JumpToLive();
                     ClearSelection();
                     SessionHub.Instance.SendMouse(_name, "press", btn, cell.x, cell.y);
                     _mouseFwd = true;
+                    _fwdCell = cell;
                     e.Use();
-                    return;
+                    return true;
 
                 case EventType.MouseDrag:
-                    if (!_mouseFwd) return;
-                    SessionHub.Instance.SendMouse(_name, "drag", btn, cell.x, cell.y);
-                    e.Use();
-                    return;
+                    if (!_mouseFwd) return false;
+                    if (live != null && live.AppDrag)
+                    {
+                        SessionHub.Instance.SendMouse(_name, "drag", btn, cell.x, cell.y);
+                        e.Use();
+                        return true;
+                    }
+                    // Only the left button selects; anything else the app did not
+                    // ask about is swallowed rather than handed to a path that
+                    // would drop it anyway.
+                    SessionHub.Instance.SendMouse(_name, "release", btn, _fwdCell.x, _fwdCell.y);
+                    _mouseFwd = false;
+                    if (btn != 0) { e.Use(); return true; }
+                    _selA = _fwdCell;
+                    _dragging = true;
+                    return false;
 
                 case EventType.MouseUp:
-                    if (!_mouseFwd) return;
+                    if (!_mouseFwd) return false;
                     SessionHub.Instance.SendMouse(_name, "release", btn, cell.x, cell.y);
                     _mouseFwd = false;
                     e.Use();
-                    return;
+                    return true;
             }
+            return true;
         }
 
         void JumpToLive() => _scrollOff = 0;
@@ -725,13 +802,47 @@ namespace SlopWorld
             return _scrollOff > 0 ? (hub.ScrollScreen(_name) ?? live) : live;
         }
 
+        /// <summary>
+        /// Puts the selection on the clipboard - the *host's*, through the daemon.
+        ///
+        /// `GUIUtility.systemCopyBuffer` is set as well and is not the point of
+        /// this: on the Unity player the game is, that buffer is as often the
+        /// process's own as it is the desktop's, so a selection copied out of a
+        /// pane could not be pasted into a browser and the feature read as broken.
+        /// slopd is on the host with the session's display already in its
+        /// environment, which makes it the one half of this that can reach the
+        /// clipboard the player meant. Failure is a log line rather than a dialog:
+        /// the copy is a gesture, not a command, and a box over the terminal every
+        /// time a host has no `wl-copy` is worse than the miss.
+        /// </summary>
         void CopySelection()
         {
             var buf = DisplayedBuf();
             if (buf == null) return;
             string text = SelectionText(buf);
-            if (!string.IsNullOrEmpty(text))
-                GUIUtility.systemCopyBuffer = text;
+            if (string.IsNullOrEmpty(text)) return;
+
+            GUIUtility.systemCopyBuffer = text;
+            SlopClient.Post("/api/clipboard", "{\"text\":" + JVal.Q(text) + "}", null,
+                msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
+        }
+
+        /// <summary>The other direction: paste what the host has, falling back to
+        /// the game's own buffer when the daemon cannot reach a clipboard. Reading
+        /// it is a round trip, so the paste lands a frame or two later - which is
+        /// invisible next to an agent's own redraw.</summary>
+        void PasteClipboard()
+        {
+            string name = _name;
+            SlopClient.Get("/api/clipboard",
+                j => Deliver(name, j["text"].AsString()),
+                _ => Deliver(name, null));
+        }
+
+        static void Deliver(string name, string text)
+        {
+            if (string.IsNullOrEmpty(text)) text = GUIUtility.systemCopyBuffer;
+            if (!string.IsNullOrEmpty(text)) SessionHub.Instance.Paste(name, text);
         }
 
         void OrderedSel(out Vector2Int a, out Vector2Int b)
@@ -754,11 +865,12 @@ namespace SlopWorld
             for (int row = r0; row <= r1; row++)
             {
                 string line = RowText(buf, row);
+                int len = ContentLen(line);
                 int startCol = row == a.y ? Mathf.Max(0, a.x) : 0;
                 // The head cell is inclusive, matching the highlight.
-                int endCol = row == b.y ? b.x + 1 : line.Length;
-                startCol = Mathf.Clamp(startCol, 0, line.Length);
-                endCol = Mathf.Clamp(endCol, 0, line.Length);
+                int endCol = row == b.y ? b.x + 1 : len;
+                startCol = Mathf.Clamp(startCol, 0, len);
+                endCol = Mathf.Clamp(endCol, 0, len);
                 if (endCol > startCol) sb.Append(line.Substring(startCol, endCol - startCol));
                 if (row < r1) sb.Append('\n');
             }
@@ -769,6 +881,7 @@ namespace SlopWorld
         {
             if ((!_hasSel && !_dragging) || _selA == _selB) return;
             EnsureRuns(buf);
+            SyncSnap();
 
             float cw = TerminalFont.CellW, ch = TerminalFont.CellH;
             OrderedSel(out var a, out var b);
@@ -776,17 +889,20 @@ namespace SlopWorld
 
             for (int row = Mathf.Max(0, a.y); row <= Mathf.Min(rows - 1, b.y); row++)
             {
-                int lineLen = RowText(buf, row).Length;
+                int lineLen = ContentLen(RowText(buf, row));
                 int startCol = Mathf.Max(0, row == a.y ? a.x : 0);
                 int endCol = row == b.y ? b.x + 1 : lineLen;
-                endCol = Mathf.Max(startCol, endCol);
+                endCol = Mathf.Clamp(endCol, startCol, lineLen);
 
                 float y = body.y + row * ch;
                 if (y > body.yMax) break;
-                float w = (endCol - startCol) * cw;
-                if (w <= 0f) continue;
+                if (endCol <= startCol) continue;
 
-                Widgets.DrawBoxSolid(new Rect(body.x + startCol * cw, y, w, ch), SelColor);
+                float l = SnapX(body.x + startCol * cw);
+                float r = SnapX(body.x + endCol * cw);
+                float t = SnapY(y);
+                float bot = SnapY(body.y + (row + 1) * ch);
+                Widgets.DrawBoxSolid(new Rect(l, t, r - l, bot - t), SelColor);
             }
         }
 
@@ -808,6 +924,21 @@ namespace SlopWorld
             buf.Runs = new List<SgrRun>[buf.Lines.Length];
             for (int i = 0; i < buf.Lines.Length; i++)
                 buf.Runs[i] = Sgr.ParseLine(buf.Lines[i]);
+        }
+
+        /// <summary>How far a row's text actually goes. The daemon trims a row's
+        /// trailing blanks only when they carry nothing - a cell holding a
+        /// background colour is a cell it has to emit - so a diff line, a banner
+        /// or anything else coloured to the right margin arrives padded out to the
+        /// full width with spaces. Selecting one of those highlighted a block of
+        /// empty space and copied the spaces with it, which is the "highlights the
+        /// whole line" of the report and, quietly, a paste full of trailing
+        /// whitespace.</summary>
+        static int ContentLen(string line)
+        {
+            int n = line.Length;
+            while (n > 0 && line[n - 1] == ' ') n--;
+            return n;
         }
 
         static string RowText(ScreenBuf buf, int row)

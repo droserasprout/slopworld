@@ -30,4 +30,31 @@
     </graphicData>
   </FleckDef>
 
+  <!--
+    The cat's tell, and deliberately the same cloud in the other colour: same
+    texture, same alpha, same drift up-map, so the two read as one weather with
+    two directions rather than as a haze and an unrelated sparkle. A cleaning
+    mote would have been the obvious pick and is the wrong one - it says a chore
+    was done, where this has to say the same thing the pink says, which is that
+    something is happening to this ground.
+
+    Pale green, and paler than the plague is pink: the aura is a handful of cells
+    against a circle that eats the map, and it should read as the map breathing
+    rather than as the brightest thing on it.
+  -->
+  <FleckDef ParentName="FleckBase_Thrown">
+    <defName>SlopCleanAir</defName>
+    <altitudeLayer>MoteOverhead</altitudeLayer>
+    <fadeInTime>0.3</fadeInTime>
+    <solidTime>0</solidTime>
+    <fadeOutTime>1.8</fadeOutTime>
+    <growthRate>0.8</growthRate>
+    <acceleration>(0, 0, 2)</acceleration>
+    <graphicData>
+      <texPath>Things/Gas/GasCloudThickA</texPath>
+      <shaderType>TransparentPostLight</shaderType>
+      <color>(148, 226, 160, 52)</color>
+    </graphicData>
+  </FleckDef>
+
 </Defs>

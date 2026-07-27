@@ -15,6 +15,9 @@ namespace SlopWorld
         /// The pink haze every one of the plague's acts puts up.
         public static FleckDef SlopPlagueGas;
 
+        /// The same haze in green: what the cat's aura puts up where it pushes back.
+        public static FleckDef SlopCleanAir;
+
         /// Hotkey on the selected agent's Terminal gizmo.
         public static KeyBindingDef SlopOpenTerminal;
 

@@ -323,6 +323,9 @@ namespace SlopWorld
         public bool CursorBlink = true;
         /// The app wants mouse reports (drives Phase 3 wheel/click forwarding).
         public bool AppMouse;
+        /// The app wants motion reports too. Without this a drag is ours, and
+        /// selecting text in a pane needs no Shift.
+        public bool AppDrag;
         /// The app is on the alternate screen (no scrollback of its own).
         public bool AltScreen;
         public string[] Lines = new string[0];
@@ -492,6 +495,7 @@ namespace SlopWorld
                     buf.CursorShape = s["cursor_shape"].AsInt(0);
                     buf.CursorBlink = s["cursor_blink"].AsBool(true);
                     buf.AppMouse = s["app_mouse"].AsBool(false);
+                    buf.AppDrag = s["app_drag"].AsBool(false);
                     buf.AltScreen = s["alt_screen"].AsBool(false);
                     buf.Lines = s["lines"].Items.Select(l => l.AsString()).ToArray();
                     buf.Runs = null; // force a re-parse on next draw

@@ -95,6 +95,10 @@ pub struct ScreenView {
     /// The app wants mouse reports (drives Phase 3 wheel/click forwarding).
     #[serde(default)]
     pub app_mouse: bool,
+    /// The app wants motion reports too, so a drag belongs to it rather than to
+    /// the pane's own text selection.
+    #[serde(default)]
+    pub app_drag: bool,
     /// The app is on the alternate screen (no scrollback of its own).
     #[serde(default)]
     pub alt_screen: bool,
@@ -116,6 +120,7 @@ impl ScreenView {
             cursor_shape: frame.cursor_shape,
             cursor_blink: frame.cursor_blink,
             app_mouse: frame.app_mouse,
+            app_drag: frame.app_drag,
             alt_screen: frame.alt_screen,
             lines: frame.lines,
         }
@@ -1632,8 +1637,16 @@ impl Manager {
             let meta = l
                 .screen
                 .as_ref()
-                .map(|s| (s.cursor_shape, s.cursor_blink, s.app_mouse, s.alt_screen))
-                .unwrap_or((0, false, false, false));
+                .map(|s| {
+                    (
+                        s.cursor_shape,
+                        s.cursor_blink,
+                        s.app_mouse,
+                        s.app_drag,
+                        s.alt_screen,
+                    )
+                })
+                .unwrap_or((0, false, false, false, false));
             (
                 l.hash,
                 l.state,
@@ -1650,6 +1663,7 @@ impl Manager {
             frame.cursor_shape,
             frame.cursor_blink,
             frame.app_mouse,
+            frame.app_drag,
             frame.alt_screen,
         );
         let changed = hash != prev_hash || (frame.cx, frame.cy) != prev_cursor || meta != prev_meta;

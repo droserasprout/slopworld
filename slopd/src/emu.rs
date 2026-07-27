@@ -48,6 +48,10 @@ pub struct Frame {
     pub cursor_blink: bool,
     /// The app is asking for mouse reports (any of click/motion/drag).
     pub app_mouse: bool,
+    /// The app asked to hear about *motion* as well as clicks. Apps that did
+    /// not - Claude Code among them - leave the drag to the terminal, which is
+    /// what lets the pane select text without the player holding Shift.
+    pub app_drag: bool,
     /// The app is on the alternate screen (no scrollback of its own).
     pub alt_screen: bool,
 }
@@ -267,6 +271,9 @@ impl SessionEmu {
             cursor_shape,
             cursor_blink: self.term.cursor_style().blinking,
             app_mouse: content.mode.intersects(TermMode::MOUSE_MODE),
+            app_drag: content
+                .mode
+                .intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG),
             alt_screen: content.mode.contains(TermMode::ALT_SCREEN),
         }
     }
@@ -608,6 +615,10 @@ mod tests {
         assert!(!f.alt_screen);
         // 6 is the steady (non-blinking) bar.
         assert!(!f.cursor_blink);
+        // Clicks only: the drag is still the terminal's to select with.
+        assert!(!f.app_drag);
+        e.feed(b"\x1b[?1002h");
+        assert!(e.render().app_drag);
     }
 
     #[test]

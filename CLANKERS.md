@@ -613,6 +613,7 @@ none of these need a def.
   the weak band has to keep growing the plants it is only holding back and a
   cell the dither spared is untouched ground; `Grit` being stable is what makes
   a cell either sterile forever or fertile forever rather than flickering.
+  The one exception to all of it is wherever the cat is standing; see `Aura`.
 - `Outskirts` - the other side of that: the rim has to stay alive or the map is
   one flat texture again, and the intro's hillside is a fixed stock the circle
   eats through. So animals and people keep arriving, walking in off the map edge
@@ -646,7 +647,44 @@ none of these need a def.
   policy in `Place` rather than an assumption in three other files. Clicking it
   plays its species' call sound rather than selecting it - `Selector.Select` still refuses
   everything but an agent. `NuzzleInstead` is what it does with a swing
-  `NoHarmAgents` took off it.
+  `NoHarmAgents` took off it. What it does simply by standing somewhere is
+  `Aura`'s.
+- `Aura` - the cat's own few cells, and the only thing on this map that takes
+  ground back off the core. Inside `Radius` the filth goes, fires go out, living
+  things are unmarked and refused to the spread, plants are skipped by the sweep
+  and a tree the core stripped gets its leaves back - each of those the exact
+  undo of something in `Plague`, which is why the two files read against each
+  other rather than the aura having effects of its own.
+  It is seven cells against a circle a quarter of the map wide, so it can never
+  be mistaken for a cure, and nothing can steer it: the cat is not selectable and
+  there is no sim to give it orders through, so where the good ground goes is the
+  cat's business and the player's to watch.
+  The one that makes it visible is regrowth. `Patch_NoRegrowth` stands aside for
+  a covered cell, so the sterile core starts filling again under the animal and a
+  cat that settles leaves a green disc - where merely declining to strip leaves
+  nothing to see, the ground there having been finished long ago.
+  *Temporary* is the grace: a thing the aura touched stays spared for
+  `GraceTicks` after the cat has moved on, so the green fades out behind it
+  instead of being switched off. Without it the aura is a hard-edged circle
+  sliding over the map, which is the plague's own first mistake made again at a
+  smaller size. The grace table is runtime and not saved - the cat is still
+  standing where it was, so a load rebuilds it inside half a second, and
+  persisting it would mean writing out a dictionary of thing IDs to buy back
+  thirty ticks.
+  Three checks stand between it and the plague, not two: `Spread` and the plant
+  sweep are the design, and `Effects` is there because a marked animal that walks
+  in is unmarked at the *next* sweep, and half a second is long enough to
+  detonate in.
+  Its haze is `SlopCleanAir`, deliberately `SlopPlagueGas` in green rather than a
+  cleaning sparkle of its own: the two are one weather with two directions, and a
+  chore mote would say a job was done where this has to say the same thing the
+  pink says. Which is why `PlagueFx.At` takes a def - the scatter and the
+  off-screen gate are plumbing, and the meaning is the def's.
+  Reviving a tree is the one repair here, and it is `Plant.madeLeaflessTick`
+  (protected, bound by name) pushed into the past, because `LeaflessNow` is
+  nothing but a subtraction against it. Growth is not touched: a stunted plant
+  grows back by itself once the sweep stops knocking it down, and a plant the
+  core destroyed is gone and comes back as regrowth or not at all.
 - `AutoResume`, `AutoSaver`, `TerminalRecall` - what makes a restart cheap. The
   mod's assembly is read once per process, so seeing a change to it means a fresh
   game; those three save the colony on the wall clock and on the way out, load the
