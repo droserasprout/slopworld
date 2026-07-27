@@ -45,6 +45,7 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 - [x] Remove rule "clankers sleep when terminal is idle". Let them do noting and "claudwatch" as some idle action named. Show normal idle icon (clock). But add gentle sound when agent becomes idle. Something from core sounds. Also, enforce "run in background" setting.
 - [ ] When mouse clicking make cursor rotate a little. One time and not so intense as when petting a cat.
 - [ ] Bug: day/night in game is not synced with real time in user's timezone
+- [ ] Cat emits good aura: tiles in small radius cleanes, flora and fauna get temporary cleanse and immunity from plague.
 - [x] Skip the welcome message window when creating a new colony.
 - [x] Plague should suppress creating new plants in its radius. Animals and humans keep spawning, but outside walk on map edges.
 - [x] When petting cat by clicking, rotate cursor CCW then back for a couple of times.
@@ -77,3 +78,7 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 
 - [ ] Create a separate game "profile" with separate saves and all mods/DLCs disabled except ours. Runner script/binary.
 - [ ] PKGBUILD with .desktop for host
+
+___
+
+## After 0.1 release

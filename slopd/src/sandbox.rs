@@ -47,7 +47,11 @@ pub const PRESETS: &[Preset] = &[
         ro: &[],
         rw: &["~/.claude", "~/.claude.json"],
         dev: &[],
-        env: &["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "CLAUDE_CONFIG_DIR"],
+        env: &[
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_BASE_URL",
+            "CLAUDE_CONFIG_DIR",
+        ],
         setenv: &[],
     },
     Preset {
@@ -62,7 +66,12 @@ pub const PRESETS: &[Preset] = &[
     Preset {
         name: "systemd",
         description: "systemctl --user, journalctl (needs dbus)",
-        ro: &["/run/systemd", "/sys/fs/cgroup", "/var/log/journal", "/run/log/journal"],
+        ro: &[
+            "/run/systemd",
+            "/sys/fs/cgroup",
+            "/var/log/journal",
+            "/run/log/journal",
+        ],
         rw: &["$XDG_RUNTIME_DIR/systemd"],
         dev: &[],
         env: &["XDG_RUNTIME_DIR"],
@@ -184,7 +193,12 @@ pub const PRESETS: &[Preset] = &[
         name: "node",
         description: "npm, pnpm and nvm caches",
         ro: &[],
-        rw: &["~/.npm", "~/.cache/node-gyp", "~/.nvm", "~/.local/share/pnpm"],
+        rw: &[
+            "~/.npm",
+            "~/.cache/node-gyp",
+            "~/.nvm",
+            "~/.local/share/pnpm",
+        ],
         dev: &[],
         env: &["NPM_CONFIG_PREFIX"],
         setenv: &[],
@@ -193,7 +207,12 @@ pub const PRESETS: &[Preset] = &[
         name: "python",
         description: "pip, uv and the user site-packages tree",
         ro: &[],
-        rw: &["~/.cache/pip", "~/.cache/uv", "~/.local/lib", "~/.local/share/uv"],
+        rw: &[
+            "~/.cache/pip",
+            "~/.cache/uv",
+            "~/.local/lib",
+            "~/.local/share/uv",
+        ],
         dev: &[],
         env: &["VIRTUAL_ENV", "UV_CACHE_DIR"],
         setenv: &[],
@@ -218,7 +237,10 @@ fn presets_for(s: &SessionCfg, p: &ProjectCfg) -> Vec<&'static Preset> {
         .filter_map(|n| {
             let hit = preset(n);
             if hit.is_none() {
-                tracing::warn!("project {:?} names unknown sandbox preset {n:?}, ignoring", p.name);
+                tracing::warn!(
+                    "project {:?} names unknown sandbox preset {n:?}, ignoring",
+                    p.name
+                );
             }
             hit
         })
@@ -405,7 +427,12 @@ fn paths(
         .collect();
 
     let mut out: Vec<String> = Vec::new();
-    for path in global.iter().cloned().chain(from_presets).chain(project.iter().cloned()) {
+    for path in global
+        .iter()
+        .cloned()
+        .chain(from_presets)
+        .chain(project.iter().cloned())
+    {
         let path = expand(&path);
         if path.is_empty() || out.contains(&path) {
             continue;
@@ -469,7 +496,9 @@ mod tests {
     }
 
     fn at(a: &[String], needle: &str) -> usize {
-        a.iter().position(|x| x == needle).unwrap_or_else(|| panic!("no {needle} in {a:?}"))
+        a.iter()
+            .position(|x| x == needle)
+            .unwrap_or_else(|| panic!("no {needle} in {a:?}"))
     }
 
     /// The environment is built, not inherited: a variable in here is one a
@@ -497,7 +526,10 @@ mod tests {
             .iter()
             .position(|x| x == "--ro-bind" || x == "--bind" || x == "--dev-bind")
             .expect("some bind");
-        assert!(tmp < first_bind, "tmpfs at {tmp} buries the bind at {first_bind}");
+        assert!(
+            tmp < first_bind,
+            "tmpfs at {tmp} buries the bind at {first_bind}"
+        );
         assert!(at(&a, "--dev") < first_bind);
         assert!(at(&a, "--proc") < first_bind);
     }

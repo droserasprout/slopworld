@@ -129,8 +129,8 @@ struct Creds {
 }
 
 fn read_creds(path: &PathBuf) -> anyhow::Result<Creds> {
-    let text = std::fs::read_to_string(path)
-        .map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+    let text =
+        std::fs::read_to_string(path).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
     let v: Value = serde_json::from_str(&text)?;
     let o = &v["claudeAiOauth"];
 
@@ -149,7 +149,10 @@ fn read_creds(path: &PathBuf) -> anyhow::Result<Creds> {
 
     Ok(Creds {
         token,
-        plan: o["subscriptionType"].as_str().unwrap_or_default().to_string(),
+        plan: o["subscriptionType"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string(),
     })
 }
 
@@ -350,7 +353,11 @@ fn spend(v: &Value) -> Option<Window> {
         key: "spend".into(),
         label: "extra usage".into(),
         pct,
-        unit: if limit.is_some() { Unit::Usd } else { Unit::Pct },
+        unit: if limit.is_some() {
+            Unit::Usd
+        } else {
+            Unit::Pct
+        },
         amount: limit.map(|l| l * pct / 100.0),
         limit,
         // Monthly, and the payload does not say when. Nothing beats a countdown
@@ -367,7 +374,9 @@ fn budget(e: &Value) -> Option<f32> {
             return Some(d as f32);
         }
     }
-    e["monthly_limit"].as_f64().map(|cents| (cents / 100.0) as f32)
+    e["monthly_limit"]
+        .as_f64()
+        .map(|cents| (cents / 100.0) as f32)
 }
 
 /// Which rate-limit window a top-level key is, as (wire key, label). None for
@@ -651,7 +660,9 @@ mod tests {
         let s = parse(&serde_json::from_str(REAL).unwrap(), String::new());
 
         let rates = s.windows.iter().filter(|w| w.key != "spend");
-        assert!(rates.clone().all(|w| w.unit == Unit::Pct && w.amount.is_none()));
+        assert!(rates
+            .clone()
+            .all(|w| w.unit == Unit::Pct && w.amount.is_none()));
         assert!(rates.map(|w| w.pct).all(|p| p != 20.93 && p != 21.0));
 
         let m = s.windows.last().unwrap();
@@ -709,11 +720,9 @@ mod tests {
 
         assert!(json.contains(r#""unit":"usd""#), "{json}");
         assert!(json.contains(r#""amount":20.93"#), "{json}");
-        assert!(
-            serde_json::to_string(&s.windows[0])
-                .unwrap()
-                .contains(r#""unit":"pct""#)
-        );
+        assert!(serde_json::to_string(&s.windows[0])
+            .unwrap()
+            .contains(r#""unit":"pct""#));
     }
 
     /// Extra usage switched off has no budget to draw, and a row reading $0
@@ -754,7 +763,11 @@ mod tests {
         let keys: Vec<_> = s.windows.iter().map(|w| w.key.as_str()).collect();
         assert!(keys.contains(&"week_opus") && keys.contains(&"week_cowork"));
         assert_eq!(
-            s.windows.iter().find(|w| w.key == "week_opus").unwrap().label,
+            s.windows
+                .iter()
+                .find(|w| w.key == "week_opus")
+                .unwrap()
+                .label,
             "week (opus)"
         );
     }
@@ -790,7 +803,10 @@ mod tests {
     #[test]
     fn rfc3339_handles_fractions_and_offsets() {
         let z = epoch_from_rfc3339("2026-07-26T00:00:00Z").unwrap();
-        assert_eq!(epoch_from_rfc3339("2026-07-26T00:00:00.621619+00:00"), Some(z));
+        assert_eq!(
+            epoch_from_rfc3339("2026-07-26T00:00:00.621619+00:00"),
+            Some(z)
+        );
         assert_eq!(epoch_from_rfc3339("2026-07-26T00:00:00+00:00"), Some(z));
         // Midnight five hours west of UTC is 05:00 UTC.
         assert_eq!(

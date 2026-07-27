@@ -59,7 +59,10 @@ pub struct Status {
 /// Looks for the game, cheapest road first.
 pub fn status(cmd: &str, clients: usize, clients_uptime_s: Option<u64>) -> Status {
     let argv = crate::sandbox::shell_split(cmd);
-    let exe = argv.first().map(|s| crate::config::expand(s)).unwrap_or_default();
+    let exe = argv
+        .first()
+        .map(|s| crate::config::expand(s))
+        .unwrap_or_default();
 
     let (source, pid) = match unit_pid() {
         Some(pid) => ("unit", Some(pid)),
@@ -87,7 +90,13 @@ pub fn status(cmd: &str, clients: usize, clients_uptime_s: Option<u64>) -> Statu
 /// that has finished: inactive, MainPID 0.
 fn unit_pid() -> Option<u32> {
     let out = Command::new("systemctl")
-        .args(["--user", "show", UNIT, "--property=ActiveState", "--property=MainPID"])
+        .args([
+            "--user",
+            "show",
+            UNIT,
+            "--property=ActiveState",
+            "--property=MainPID",
+        ])
         .output()
         .ok()?;
     let text = String::from_utf8_lossy(&out.stdout);
@@ -199,7 +208,12 @@ pub fn launch(exe: &str, args: &[String]) -> Result<()> {
 
     let mut sr = Command::new("systemd-run");
     sr.args(["--user", "--quiet", "--collect", &format!("--unit={UNIT}")]);
-    for k in ["DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR"] {
+    for k in [
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "XAUTHORITY",
+        "XDG_RUNTIME_DIR",
+    ] {
         if let Ok(v) = std::env::var(k) {
             sr.arg(format!("--setenv={k}={v}"));
         }
@@ -234,7 +248,10 @@ mod tests {
     #[test]
     fn our_own_uptime_is_readable() {
         let mine = uptime_s(std::process::id()).expect("a running process has an uptime");
-        assert!(mine < 60 * 60 * 24 * 365, "{mine}s is not a plausible test run");
+        assert!(
+            mine < 60 * 60 * 24 * 365,
+            "{mine}s is not a plausible test run"
+        );
     }
 
     #[test]
@@ -309,7 +326,11 @@ mod tests {
         let _ = decoy.kill();
         let _ = decoy.wait();
 
-        assert_eq!(decoy_is_findable, Some(decoy.id()), "the decoy is what the old pattern found");
+        assert_eq!(
+            decoy_is_findable,
+            Some(decoy.id()),
+            "the decoy is what the old pattern found"
+        );
         assert_eq!(hit, None, "and it is not the game");
     }
 }

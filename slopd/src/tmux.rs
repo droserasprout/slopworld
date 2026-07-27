@@ -182,7 +182,16 @@ impl Tmux {
         let cols = cols.to_string();
         let rows = rows.to_string();
         let mut args: Vec<&str> = vec![
-            "new-session", "-d", "-s", name, "-x", &cols, "-y", &rows, "-c", dir,
+            "new-session",
+            "-d",
+            "-s",
+            name,
+            "-x",
+            &cols,
+            "-y",
+            &rows,
+            "-c",
+            dir,
         ];
         args.push("--");
         args.extend(argv.iter().map(String::as_str));
@@ -256,7 +265,12 @@ impl Tmux {
     /// `isatty` matters here - no controlling terminal is needed - so we hand tmux
     /// a pty slave and read the master. Commands still go out over separate `tmux`
     /// invocations, so the master is read-only for us.
-    pub fn control_attach(&self, name: &str, cols: u16, rows: u16) -> Result<(Child, std::fs::File)> {
+    pub fn control_attach(
+        &self,
+        name: &str,
+        cols: u16,
+        rows: u16,
+    ) -> Result<(Child, std::fs::File)> {
         use nix::pty::{openpty, Winsize};
 
         let ws = Winsize {

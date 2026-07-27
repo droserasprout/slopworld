@@ -125,19 +125,29 @@ impl ScreenView {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "t", rename_all = "lowercase")]
 pub enum Event {
-    Sessions { sessions: Vec<SessionView> },
+    Sessions {
+        sessions: Vec<SessionView>,
+    },
     /// The projects, whenever one is added, edited or removed - and on connect,
     /// because the dialog that picks one has to be able to draw before anybody
     /// has changed anything.
-    Projects { projects: Vec<ProjectCfg> },
+    Projects {
+        projects: Vec<ProjectCfg>,
+    },
     /// The shortcuts, on any edit and on connect, for the same reason projects
     /// ride along: the window that runs them has to be able to draw before
     /// anybody has changed one.
-    Shortcuts { shortcuts: Vec<ShortcutCfg> },
-    Screen { screen: ScreenView },
+    Shortcuts {
+        shortcuts: Vec<ShortcutCfg>,
+    },
+    Screen {
+        screen: ScreenView,
+    },
     /// What is left of the subscription. Broadcast on a change only; the poll
     /// behind it runs on the wall clock, not on anything a session did.
-    Usage { usage: crate::usage::Snapshot },
+    Usage {
+        usage: crate::usage::Snapshot,
+    },
     /// Save the colony and quit, because the daemon is about to start the game
     /// again. The only event that asks the mod for something rather than telling
     /// it something, and it exists because nothing outside the game can save a
@@ -323,6 +333,28 @@ fn slug(name: &str) -> String {
     }
 }
 
+/// A session name nothing is using: the shortcut's own slug, then numbered. The
+/// base comes back free most times, because these do not accumulate - the last
+/// agent that ran this errand is usually already gone.
+///
+/// The live table and the config are handed in rather than read here, and that
+/// is the whole shape of this function. Its one caller is already holding the
+/// write half of `live`, because naming and claiming are one decision and an
+/// await between them is two runs of the same errand picking the same name; a
+/// method that took the read lock itself would deadlock against that guard
+/// rather than merely being redundant.
+fn free_name(live: &HashMap<String, Live>, cfg: &Config, base: &str) -> String {
+    let taken = |n: &str| live.contains_key(n) || cfg.sessions.iter().any(|s| s.name == n);
+
+    if !taken(base) {
+        return base.to_string();
+    }
+    (2..)
+        .map(|i| format!("{base}-{i}"))
+        .find(|n| !taken(n))
+        .unwrap()
+}
+
 /// A project name is only ever a key in config.toml and a label in the GUI, so
 /// the bar is lower than a session's - but it is what a session points at, and
 /// a blank one would point at all of them.
@@ -436,7 +468,9 @@ impl Manager {
         let new = match Config::parse(&text) {
             Ok(c) => c,
             Err(e) => {
-                tracing::warn!("config changed on disk but does not parse, keeping the old one: {e:#}");
+                tracing::warn!(
+                    "config changed on disk but does not parse, keeping the old one: {e:#}"
+                );
                 return false;
             }
         };
@@ -703,7 +737,10 @@ impl Manager {
             if s.project.is_empty() {
                 anyhow!("session {name} belongs to no project")
             } else {
-                anyhow!("session {name} belongs to project {}, which does not exist", s.project)
+                anyhow!(
+                    "session {name} belongs to project {}, which does not exist",
+                    s.project
+                )
             }
         })?;
 
@@ -975,8 +1012,7 @@ impl Manager {
         // that session, taking the first one's entry with it on the way out.
         let session = {
             let mut live = self.live.write().await;
-            let name: String = "".to_string();
-            // free_name(&live, &cfg, &slug(&sc.name));
+            let name = free_name(&live, &cfg, &slug(&sc.name));
             check_name(&name)?;
             live.insert(
                 name.clone(),
@@ -1017,24 +1053,6 @@ impl Manager {
         tokio::spawn(async move { m.deliver(&target, &text).await });
 
         Ok(session)
-    }
-
-    /// A session name nothing is using: the shortcut's own, then numbered. The
-    /// base comes back free most times, because these do not accumulate - the
-    /// last agent that ran this errand is usually already gone.
-    async fn free_name(&self, base: &str) -> String {
-        // Sequentially, never both at once: a task holding one of these while
-        // waiting on the other is half of a deadlock.
-        let mut taken: Vec<String> = self.live.read().await.keys().cloned().collect();
-        taken.extend(self.cfg.read().await.sessions.iter().map(|s| s.name.clone()));
-
-        if !taken.iter().any(|n| n == base) {
-            return base.to_string();
-        }
-        (2..)
-            .map(|i| format!("{base}-{i}"))
-            .find(|n| !taken.contains(n))
-            .unwrap()
     }
 
     /// Waits for the thing that just started to be ready for typing, then sends
@@ -1634,8 +1652,7 @@ impl Manager {
             frame.app_mouse,
             frame.alt_screen,
         );
-        let changed =
-            hash != prev_hash || (frame.cx, frame.cy) != prev_cursor || meta != prev_meta;
+        let changed = hash != prev_hash || (frame.cx, frame.cy) != prev_cursor || meta != prev_meta;
         let plain = strip_sgr(&frame.lines.join("\n"));
         let state = self.classify(changed, prev_change, &plain).await;
 
@@ -1723,7 +1740,9 @@ impl Manager {
         if achieved == 0 {
             return self.screen(name).await;
         }
-        Some(ScreenView::from_frame(name, seq, cols, rows, achieved, frame))
+        Some(ScreenView::from_frame(
+            name, seq, cols, rows, achieved, frame,
+        ))
     }
 }
 
@@ -1775,7 +1794,28 @@ fn utf8_len(first: u8) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{check_name, slug, strip_sgr};
+    use std::collections::HashMap;
+
+    use super::{check_name, free_name, slug, strip_sgr, Live, State, BOOT_COLS, BOOT_ROWS};
+    use crate::config::{Config, SessionCfg};
+
+    /// A live entry with nothing in it, for the tests that only care that a name
+    /// is spoken for.
+    fn placeholder() -> Live {
+        Live {
+            cfg: SessionCfg::default(),
+            ephemeral: true,
+            state: State::Down,
+            seq: 0,
+            hash: 0,
+            last_change: 0,
+            cols: BOOT_COLS,
+            rows: BOOT_ROWS,
+            screen: None,
+            emu: None,
+            reader: None,
+        }
+    }
 
     /// A shortcut is named by a person and its session is named by tmux, so
     /// every slug has to come out the far end of check_name.
@@ -1791,6 +1831,26 @@ mod tests {
         for name in ["review diff", "v1.2 checks", "a/b", "", " . "] {
             assert!(check_name(&slug(name)).is_ok(), "slug of {name:?}");
         }
+    }
+
+    /// Both halves of "nothing is using it": a standing agent in config and an
+    /// errand still running are equally in the way, and a name taken from either
+    /// is a tmux session that already exists.
+    #[test]
+    fn free_name_counts_up_past_config_and_the_live_table() {
+        let mut cfg = Config::default();
+        let mut live: HashMap<String, Live> = HashMap::new();
+
+        assert_eq!(free_name(&live, &cfg, "review-diff"), "review-diff");
+
+        cfg.sessions.push(SessionCfg {
+            name: "review-diff".into(),
+            ..Default::default()
+        });
+        assert_eq!(free_name(&live, &cfg, "review-diff"), "review-diff-2");
+
+        live.insert("review-diff-2".into(), placeholder());
+        assert_eq!(free_name(&live, &cfg, "review-diff"), "review-diff-3");
     }
 
     #[test]

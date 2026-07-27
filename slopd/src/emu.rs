@@ -98,7 +98,13 @@ impl SessionEmu {
             ..Config::default()
         };
         let replies = Arc::new(Mutex::new(Vec::new()));
-        let term = Term::new(config, &dims, ReplySink { buf: replies.clone() });
+        let term = Term::new(
+            config,
+            &dims,
+            ReplySink {
+                buf: replies.clone(),
+            },
+        );
         Self {
             term,
             parser: Processor::new(),

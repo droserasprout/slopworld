@@ -317,8 +317,8 @@ impl Config {
             cfg.save(path)?;
             return Ok(cfg);
         }
-        let text = std::fs::read_to_string(path)
-            .with_context(|| format!("reading {}", path.display()))?;
+        let text =
+            std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
         Self::parse(&text)
     }
 
@@ -404,7 +404,10 @@ impl Config {
         if !taken(session) {
             return session.to_string();
         }
-        (2..).map(|i| format!("{base}-{i}")).find(|n| !taken(n)).unwrap()
+        (2..)
+            .map(|i| format!("{base}-{i}"))
+            .find(|n| !taken(n))
+            .unwrap()
     }
 
     pub fn save(&self, path: &Path) -> Result<()> {
@@ -688,7 +691,10 @@ mod tests {
         // one is what "Claude Code" means.
         assert_eq!(cfg.session("alpha").unwrap().kind, SessionKind::Claude);
         assert_eq!(cfg.session("gamma").unwrap().kind, SessionKind::Custom);
-        assert_eq!(cfg.command_of(cfg.session("gamma").unwrap()), "codex --yolo");
+        assert_eq!(
+            cfg.command_of(cfg.session("gamma").unwrap()),
+            "codex --yolo"
+        );
         assert_eq!(cfg.command_of(cfg.session("alpha").unwrap()), "claude");
     }
 

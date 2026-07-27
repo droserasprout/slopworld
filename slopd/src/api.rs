@@ -21,10 +21,7 @@ pub fn router(m: Mgr) -> Router {
     Router::new()
         .route("/api/health", get(health))
         .route("/api/sessions", get(list).post(create))
-        .route(
-            "/api/sessions/:name",
-            get(one).put(update).delete(destroy),
-        )
+        .route("/api/sessions/:name", get(one).put(update).delete(destroy))
         .route("/api/sessions/:name/start", post(start))
         .route("/api/sessions/:name/stop", post(stop))
         .route("/api/sessions/:name/restart", post(restart))
@@ -243,7 +240,10 @@ struct SectionsReq {
 }
 
 async fn put_config_values(State(m): State<Mgr>, Json(req): Json<SectionsReq>) -> ApiResult {
-    ok_json(m.update_sections(req.daemon, req.defaults, req.sandbox).await)
+    ok_json(
+        m.update_sections(req.daemon, req.defaults, req.sandbox)
+            .await,
+    )
 }
 
 #[derive(Deserialize)]
@@ -261,7 +261,9 @@ fn default_restart_delay() -> u64 {
 /// cannot exec itself across a Unity shutdown, and slopd is the one process in
 /// the picture that outlives it.
 async fn restart_game(State(m): State<Mgr>, body: Option<Json<RestartGameReq>>) -> ApiResult {
-    let delay = body.map(|Json(r)| r.delay_ms).unwrap_or_else(default_restart_delay);
+    let delay = body
+        .map(|Json(r)| r.delay_ms)
+        .unwrap_or_else(default_restart_delay);
     ok_json(m.restart_game(delay).await)
 }
 
@@ -378,7 +380,8 @@ async fn ws_upgrade(
     if !token_ok(&headers, &token) {
         return err(StatusCode::UNAUTHORIZED, "bad token").into_response();
     }
-    ws.on_upgrade(move |socket| ws_run(socket, m)).into_response()
+    ws.on_upgrade(move |socket| ws_run(socket, m))
+        .into_response()
 }
 
 async fn ws_run(socket: WebSocket, m: Mgr) {
@@ -400,7 +403,13 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
     if send(&tx, &hello).await.is_err() {
         return;
     }
-    let _ = send(&tx, &Event::Usage { usage: m.usage().await }).await;
+    let _ = send(
+        &tx,
+        &Event::Usage {
+            usage: m.usage().await,
+        },
+    )
+    .await;
     // Projects for the same reason: they change when a person edits one, so a
     // client that attached afterwards would otherwise have nothing to draw the
     // "which project" dropdown from until the next edit.
