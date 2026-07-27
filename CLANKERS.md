@@ -988,6 +988,18 @@ a steel count is white whether you have four or four thousand. Note that
 has to be put back before the number is drawn - stale snapshots dim through the
 icon's `alpha` argument and the colour alpha, not through one of them.
 
+The number counts what is *left*, which is the other half of it being a resource
+row rather than a gauge. The daemon sends the spent figure and always will -
+that is what the endpoint reports and what an agent's own `/usage` will agree
+with - so `Count` is the one place the subtraction happens, and `Detail` says
+both ends of it in the hover. A count that climbed as the colony worked would be
+read as stock coming in by anyone who has played this game once, which is the
+exact opposite of what a window filling up means. The money row subtracts
+dollars where a budget was read and falls back to the percentage where it was
+not, because "what is left" of a sum whose size is unsaid is not a figure
+anybody has. Both are floored at zero: a window can be spent past its limit, and
+a corner in negative numbers says less than an empty one does.
+
 Which resource stands for which window is a table in there (`Known`): chemfuel
 for the five-hour, since it burns down fast and comes back, steel for the weekly
 bulk, plasteel for opus and components for sonnet, silver for the money. It is

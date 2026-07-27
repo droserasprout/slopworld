@@ -9,7 +9,7 @@ Remove ticked bullets when verified.
 ## Interface
 
 - [ ] Move "Shortcuts" from "Agents" view to bottom bar.
-- [ ] In usage resources top left credits show left instead of spent
+- [x] In usage resources top left credits show left instead of spent
 - [ ] Suppress the "unsaved work will be lost" confirmation now that quitting always saves.
 - [ ] "Tab / Shift+Tab in floating windows to navigate between fields (might be hard to implement)
 - [ ] Cleanup: drop items that don't affect our "game" from Settings window if it can be modded.

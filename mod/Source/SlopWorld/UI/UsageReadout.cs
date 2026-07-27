@@ -10,7 +10,9 @@ namespace SlopWorld
     /// that a colony of agents mines no steel. What it spends is quota, so quota
     /// is what the readout counts, and it counts it the way the game counts
     /// everything else: an icon and a number, one row per rate-limit window, plus
-    /// the extra-usage budget in dollars when there is one.
+    /// the extra-usage budget in dollars when there is one. The number is what is
+    /// left, not what is gone - see <see cref="Count"/>, which is the one place
+    /// the daemon's spent figure is turned round.
     ///
     /// Drawn as a resource rather than as a bar deliberately. A bar is a widget
     /// this game does not have anywhere else, and the corner it sits in is the
@@ -135,12 +137,33 @@ namespace SlopWorld
         /// What the row says: a percentage for a rate-limit window, dollars for
         /// the extra-usage budget. Cents survive while the sum is small, because
         /// that is when they are the whole of it, and go once it is round money.
+        ///
+        /// It counts what is *left* rather than what is spent, which is the whole
+        /// of why this is a resource row. A steel count is how much steel there
+        /// is; a number in this corner that grew as the colony worked would be
+        /// read as stock going up by anyone who has played the game once. The
+        /// figure the daemon sends is the spent one either way - the subtraction
+        /// is this readout's, and the tooltip is where both ends of it are said.
         static string Count(UsageWindow w)
         {
-            if (!w.IsMoney) return Mathf.RoundToInt(w.Pct) + "%";
-            return w.Amount >= 10f
-                ? "$" + Mathf.RoundToInt(w.Amount)
-                : "$" + w.Amount.ToString("0.00");
+            // Dollars left needs a budget to subtract from. A money row whose
+            // limit the daemon could not read falls back to the percentage,
+            // which is the only figure that can say "left" when the size of the
+            // thing is unsaid.
+            if (!w.IsMoney || w.Limit <= 0f) return Mathf.RoundToInt(Left(w)) + "%";
+
+            float left = Mathf.Max(0f, w.Limit - w.Amount);
+            return left >= 10f
+                ? "$" + Mathf.RoundToInt(left)
+                : "$" + left.ToString("0.00");
+        }
+
+        /// The percentage the daemon sent, turned round. Floored at zero: a
+        /// window can be spent past its limit, and a readout in negative numbers
+        /// says less than an empty one does.
+        static float Left(UsageWindow w)
+        {
+            return Mathf.Max(0f, 100f - w.Pct);
         }
 
         /// Everything the row cannot fit: what the window is, when it comes back,
@@ -180,16 +203,19 @@ namespace SlopWorld
                 0x51_0F_0000 ^ (w?.Key?.GetHashCode() ?? 0)));
         }
 
-        /// The first tooltip line: the row spelled out. A money row keeps its
-        /// percentage as well, because what is left of the budget is the thing
-        /// worth knowing and the dollars alone do not say it.
+        /// The first tooltip line: the row spelled out. It leads with what the
+        /// row itself says - what is left - and carries the spent figure behind
+        /// it, since that is the number the daemon actually sent and the one an
+        /// agent's own /usage will agree with. A money row keeps its percentage
+        /// as well, because the dollars alone do not say how much of the budget
+        /// that is.
         static string Detail(UsageWindow w)
         {
-            if (!w.IsMoney) return $"{Long(w)}: {w.Pct:0.#}% spent";
+            if (!w.IsMoney) return $"{Long(w)}: {Left(w):0.#}% left ({w.Pct:0.#}% spent)";
 
             return w.Limit > 0f
-                ? $"{Long(w)}: ${w.Amount:0.00} of ${w.Limit:0.##} ({w.Pct:0.#}%)"
-                : $"{Long(w)}: ${w.Amount:0.00} ({w.Pct:0.#}%)";
+                ? $"{Long(w)}: ${Mathf.Max(0f, w.Limit - w.Amount):0.00} left of ${w.Limit:0.##} (${w.Amount:0.00} spent, {w.Pct:0.#}%)"
+                : $"{Long(w)}: ${w.Amount:0.00} spent ({Left(w):0.#}% left)";
         }
 
         static string Long(UsageWindow w)
