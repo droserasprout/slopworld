@@ -17,9 +17,7 @@ namespace SlopWorld
     /// Closing is not handled here, and cannot be: WindowStack.HandleEventsHighPriority
     /// Uses every KeyDown while a window absorbs input around itself, and it runs
     /// earlier in UIRoot.UIRootOnGUI than the game components do - so with a pane up,
-    /// this never hears the key. TerminalWindow.HandleKey holds that half. The branch
-    /// below is still the honest description of the key and covers a pane that is up
-    /// without absorbing, which is the only way the event would get this far.
+    /// this never hears the key. TerminalWindow.HandleKey holds that half.
     ///
     /// GameComponents are constructed for every subclass automatically, so this
     /// needs no def.

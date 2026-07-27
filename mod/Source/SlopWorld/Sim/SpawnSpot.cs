@@ -8,18 +8,17 @@ namespace SlopWorld
     ///
     /// CellFinder.RandomSpawnCellForPawnNear is not enough on its own. It asks for
     /// standable, unfogged, unoccupied and reachable - but reachable *from the root
-    /// it was handed*, and a root sitting in a pocket inside a mountain satisfies all
-    /// four while the pawn cannot walk anywhere at all. Worse, when it finds nothing
-    /// it returns that root unchanged, so a bad anchor comes straight back out. Since
-    /// the anchor was map.Center, which is inside rock more often than you would
-    /// think, agents ended up sealed in stone and immobilised for the life of the
-    /// colony - and an immobilised agent is not obviously broken, it just never moves.
+    /// it was handed*, and a root sitting in a pocket inside a mountain satisfies
+    /// all four while the pawn cannot walk anywhere at all. Since the anchor was
+    /// map.Center, which is inside rock more often than you would think, agents
+    /// ended up sealed in stone and immobilised for the life of the colony - and
+    /// an immobilised agent is not obviously broken, it just never moves.
     ///
-    /// So every candidate here has to sit in a room that touches the map edge. Rooms
-    /// are bounded by walls and natural rock counts, so a sealed pocket is a room
-    /// that does not reach the edge, while a cave with its mouth open to the sky is
-    /// the same room as the outdoors and passes. That is the one question vanilla's
-    /// finder never asks: not "can I stand here" but "can I leave".
+    /// So every candidate here has to sit in a room that touches the map edge.
+    /// Rooms are bounded by walls and natural rock counts, so a sealed pocket is a
+    /// room that does not reach the edge, while a cave with its mouth open to the
+    /// sky is the same room as the outdoors and passes. That is the one question
+    /// vanilla's finder never asks: not "can I stand here" but "can I leave".
     /// </summary>
     public static class SpawnSpot
     {

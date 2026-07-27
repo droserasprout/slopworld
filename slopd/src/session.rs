@@ -41,11 +41,11 @@ pub enum State {
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionView {
     pub name: String,
-    /// The project this agent works in, and where that project lives. `dir`,
-    /// `net` and `sandbox` are all the project's answers, repeated here so a
-    /// list of sessions reads without joining it against anything - and empty
-    /// when the entry names a project that has gone, which is a state the GUI
-    /// has to be able to draw rather than one to refuse to serve.
+    /// The project this agent works in, and where that project lives. All the
+    /// project's answers are repeated here so a list of sessions reads without
+    /// joining it against anything - and empty when the entry names a project
+    /// that has gone, which is a state the GUI has to be able to draw rather
+    /// than one to refuse to serve.
     pub project: String,
     pub dir: String,
     /// "claude" or "custom": what the session runs, and whether the sandbox
@@ -234,16 +234,13 @@ const CFG_CHECK_MS: u64 = 2_000;
 /// game that has not come back.
 const QUIT_WAIT_TICKS: usize = 120;
 
-/// The size a pane is born at, and the only place a number like this lives now.
+/// The size a pane is born at.
 ///
-/// It used to be config - `[defaults] cols/rows` and a per-session override - and
-/// that was the wrong place for it twice over: whatever is in a file is wrong the
-/// moment the game window is a different shape, and nothing was ever going to
-/// keep the two in step by hand. The terminal window measures itself in cells and
-/// sends a `resize` (see `TerminalWindow.NegotiateSize`), so the window is
-/// authoritative and this is only what the pane wears until it is looked at -
-/// which matters, because an agent that starts, prints and is never opened still
-/// has to have wrapped its output at something sane.
+/// The terminal window measures itself in cells and sends a `resize` (see
+/// `TerminalWindow.NegotiateSize`), so the window is authoritative and this is
+/// only what the pane wears until it is looked at - which matters, because an
+/// agent that starts, prints and is never opened still has to have wrapped its
+/// output at something sane.
 const BOOT_COLS: u16 = 120;
 const BOOT_ROWS: u16 = 34;
 
@@ -258,9 +255,8 @@ const BOOT_ROWS: u16 = 34;
 /// ceiling in tens of seconds rather than a second or two.
 ///
 /// The timeout does not cancel the delivery. A pane that never goes quiet is
-/// usually one that is drawing something (a spinner, a progress line), not one
-/// that will never read its input, and text held back for that is a shortcut
-/// that silently did nothing.
+/// usually one that is drawing something (a spinner, a progress line), and text
+/// held back for that is a shortcut that silently did nothing.
 const READY_MS: u64 = 30_000;
 const SETTLE_MS: u64 = 750;
 const ENTER_GAP_MS: u64 = 150;
@@ -342,12 +338,11 @@ fn slug(name: &str) -> String {
 /// base comes back free most times, because these do not accumulate - the last
 /// agent that ran this errand is usually already gone.
 ///
-/// The live table and the config are handed in rather than read here, and that
-/// is the whole shape of this function. Its one caller is already holding the
-/// write half of `live`, because naming and claiming are one decision and an
-/// await between them is two runs of the same errand picking the same name; a
-/// method that took the read lock itself would deadlock against that guard
-/// rather than merely being redundant.
+/// The live table is handed in rather than read here: the caller is already
+/// holding the write half of `live`, because naming and claiming are one
+/// decision and an await between them is two runs of the same errand picking
+/// the same name; a method that took the read lock itself would deadlock
+/// against that guard.
 fn free_name(live: &HashMap<String, Live>, cfg: &Config, base: &str) -> String {
     let taken = |n: &str| live.contains_key(n) || cfg.sessions.iter().any(|s| s.name == n);
 
@@ -443,16 +438,15 @@ impl Manager {
 
     /// Picks up an edit made to config.toml outside the daemon.
     ///
-    /// The file belongs to the user as much as to us - an agent working on this
-    /// repo edits it by hand - but slopd only read it at startup and rewrote it
-    /// whole on every API write, so a hand edit was both invisible and doomed. Any
-    /// mtime we didn't cause means re-read, and every mutating call goes through
-    /// here first so the write it is about to make lands on top of that edit
-    /// rather than over it.
+    /// The file belongs to the user as much as to us, but slopd only read it at
+    /// startup and rewrote it whole on every API write, so a hand edit was both
+    /// invisible and doomed. Any mtime we didn't cause means re-read, and every
+    /// mutating call goes through here first so the write it is about to make
+    /// lands on top of that edit rather than over it.
     ///
-    /// A file that doesn't parse is left alone with a warning and the in-memory
-    /// config keeps serving; the mtime is recorded either way, so a broken file
-    /// complains once rather than every two seconds.
+    /// A file that doesn't parse is left alone with a warning; the mtime is
+    /// recorded either way, so a broken file complains once rather than every
+    /// two seconds.
     pub async fn reload_if_changed(self: &Arc<Self>) -> bool {
         let disk = disk_mtime(&self.cfg_path);
         {
@@ -510,8 +504,8 @@ impl Manager {
     /// own shutdown takes: slopd has no handle on the game process, so the two
     /// only overlap by wall clock.
     ///
-    /// Detached deliberately: the game must outlive the daemon that started it,
-    /// including the redeploy that is usually the reason for the restart.
+    /// Detached deliberately: the game must outlive the redeploy that is usually
+    /// the reason for the restart.
     pub async fn restart_game(&self, delay_ms: u64) -> Result<()> {
         let cmd = self.config().await.daemon.game_cmd.trim().to_string();
         if cmd.is_empty() {
@@ -681,17 +675,15 @@ impl Manager {
     /// board as a temporary agent.
     ///
     /// Every one of these used to be logged as an orphan and left invisible,
-    /// which was the wrong answer to two different questions. A shortcut's agent
-    /// is not in config *by design*, so a daemon restart in the middle of one
-    /// would have stranded a running process with no colonist, no terminal and
-    /// no way to close it from the game. And a session somebody started by hand
-    /// under our socket is, by this whole thing's own account, a colonist -
-    /// there is nothing else it could be.
+    /// which was wrong twice over: a shortcut's agent is not in config *by
+    /// design*, so a daemon restart mid-errand would have stranded a running
+    /// process with no colonist and no way to close it; and a session somebody
+    /// started by hand under our socket is, by this thing's own account, a
+    /// colonist.
     ///
-    /// It carries no project, which is honest: we cannot know where it was
-    /// started from or what it can reach, so it lists with a blank directory and
-    /// refuses to restart. Watching it, typing at it and killing it all work,
-    /// which is everything else.
+    /// It carries no project: we cannot know where it was started from or what
+    /// it can reach, so it lists with a blank directory and refuses to restart.
+    /// Watching it, typing at it and killing it all work.
     async fn adopt(self: &Arc<Self>, name: &str) -> bool {
         let mut live = self.live.write().await;
         if live.contains_key(name) {
@@ -804,8 +796,7 @@ impl Manager {
 
     /// Drops a temporary session for good: no config entry stands behind it, so
     /// a process that has exited leaves nothing to keep. The colonist behind it
-    /// is retired by the mod's next reconcile rather than laid on the floor,
-    /// which is the whole difference between an errand and an agent.
+    /// is retired by the mod's next reconcile rather than laid on the floor.
     ///
     /// The reader is aborted last on purpose: the caller is sometimes that very
     /// task, finishing up after its session emitted `%exit`, and aborting the
@@ -863,8 +854,7 @@ impl Manager {
 
     /// Writes a project back. A changed name is a rename, and every session
     /// pointing at the old one is carried over in the same write - a session
-    /// left naming a project that no longer exists is one that will not start,
-    /// and nothing in the GUI would have said why.
+    /// left naming a project that no longer exists is one that will not start.
     pub async fn update_project(self: &Arc<Self>, name: &str, p: ProjectCfg) -> Result<()> {
         self.reload_if_changed().await;
         check_project(&p)?;
@@ -997,10 +987,9 @@ impl Manager {
     /// ready for input is tens of seconds away for an agent and the client on
     /// the other end of this call gives up after five.
     ///
-    /// The agent is never written to config.toml. That is the whole point of it:
-    /// an errand leaves nothing behind, and the colonist that ran it walks off
-    /// the map when its process exits instead of lying down waiting to be
-    /// restarted.
+    /// The agent is never written to config.toml: an errand leaves nothing
+    /// behind, and the colonist that ran it walks off the map when its process
+    /// exits instead of lying down waiting to be restarted.
     pub async fn run_shortcut(self: &Arc<Self>, name: &str) -> Result<String> {
         self.reload_if_changed().await;
         let cfg = self.config().await;
@@ -1013,8 +1002,7 @@ impl Manager {
         // Named and claimed without an await in between, because the two halves
         // are one decision: two runs of the same errand in the same instant would
         // otherwise pick the same free name, and the second would overwrite the
-        // first's entry - reader and all - and then fail on tmux already having
-        // that session, taking the first one's entry with it on the way out.
+        // first's entry and then fail on tmux already having that session.
         let session = {
             let mut live = self.live.write().await;
             let name = free_name(&live, &cfg, &slug(&sc.name));
@@ -1066,8 +1054,7 @@ impl Manager {
     /// Two writes and not one, with a beat between them: an agent's input box
     /// takes a pasted newline as a newline - that is what bracketed paste is
     /// for - so the submit has to arrive as a keypress after the paste has
-    /// closed. A shell would take either; the agent is the one that has to be
-    /// got right.
+    /// closed.
     async fn deliver(self: &Arc<Self>, name: &str, text: &str) {
         match self.wait_ready(name).await {
             Ready::Gone => {
@@ -1478,10 +1465,8 @@ impl Manager {
         }
 
         let mut e = SessionEmu::new(cols, rows);
-        // Seeded with tmux's scrollback, not just the visible pane: history is the
-        // half of a reattached session that used to come back empty, and the lines
-        // that scroll off the top land in the emulator's own scrollback, where the
-        // wheel can reach them again.
+        // Seeded with tmux's scrollback, not just the visible pane: history is
+        // the half of a reattached session that used to come back empty.
         let history = self.config().await.daemon.history_limit;
         if let Ok(cap) = self.tmux.capture(name, history).await {
             let mut seed = String::from("\x1b[2J\x1b[H\x1b[0m");
@@ -1541,9 +1526,7 @@ impl Manager {
         // The master is a blocking pty fd; bridge it to async with a reader thread
         // that ships `%`-notification lines over a channel. Lines are raw bytes,
         // not `String`: tmux writes UTF-8 literally in `%output` and can split a
-        // multibyte char across chunks, so a line need not be valid UTF-8. The
-        // thread ends (and the channel closes) when the client dies and the master
-        // reads EOF/EIO.
+        // multibyte char across chunks, so a line need not be valid UTF-8.
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
         std::thread::spawn(move || {
             use std::io::BufRead;
@@ -1626,8 +1609,7 @@ impl Manager {
     }
 
     /// Diffs a freshly-rendered frame against the stored one, updates live state,
-    /// and broadcasts what changed. Mirrors the old poll_session bookkeeping but
-    /// off the emulator instead of a capture.
+    /// and broadcasts what changed.
     async fn apply_frame(&self, name: &str, frame: Frame) {
         let hash = hash_lines(&frame.lines);
         let (prev_hash, prev_state, prev_change, seq, prev_cursor, prev_meta, cols, rows) = {

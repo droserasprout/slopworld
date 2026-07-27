@@ -18,17 +18,16 @@ namespace SlopWorld
     /// whole player faction, agents and cat alike.
     ///
     /// One, not a litter: a scattering of assorted biome-appropriate animals read as
-    /// a starting scenario, which is the thing this map is not. A single cat sat in
-    /// the ash reads as a survivor.
+    /// a starting scenario, which is the thing this map is not.
     ///
     /// Clicking it pats it. It is not selectable - see
     /// <see cref="Patch_Selectable_ColonistsOnly"/> - so the click has nowhere else to
     /// go, and a pat is a better answer than nothing happening.
     ///
     /// Still plural in the API: <see cref="On"/> returns a list and the purge and the
-    /// plague both iterate it. Nothing depends on there being exactly one, so this
-    /// stays a policy in <see cref="Place(Map, IntVec3)"/> rather than an assumption
-    /// spread across three other files.
+    /// plague both iterate it, so the count stays a policy in
+    /// <see cref="Place(Map, IntVec3)"/> rather than an assumption spread across three
+    /// other files.
     /// </summary>
     public static class Pets
     {

@@ -34,16 +34,15 @@ Remove ticked bullets when verified.
 
 ## "Game"
 
-- [ ] More thicc pink smoke when plague tags or takes effect.
-- [ ] When mouse clicking make cursor rotate a little. One time and not so intense as when petting a cat.
+- [ ] More thicc pink smoke when plague tags flora/fauna or takes effect. Like A LOT of pink smoke. And compute core should emit it constantly, full-on steam locomotive.
+- [ ] When mouse clicking make cursor rotate a little. One time and not so intense as when petting a cat. (built: `DeadCursor.Click`, two frames, a quarter of the pat - verify in game)
 - [ ] Bug: day/night in game is not synced with real time in user's timezone
-- [ ] Cat emits good aura: tiles in small radius cleanes, flora and fauna get temporary cleanse and immunity from plague.
-- [ ] Human: slopify main background with SD or something
+- [ ] Cat emits good aura: tiles in small radius cleanes, flora and fauna get temporary cleanse and immunity from plague (done?)
 - [ ] Human: tune plague odds and spread rate
+- [ ] "New colony" cinematics: before starting new game burn/explode everything on the map
 
 ## Sound and music
 
-- [ ] Bug: no music after bg1 stops playing (not sure, need to check)
 - [ ] Human: replace SFX
 - [ ] Human: 2-3 more bg songs (30m+ playtime would be nice)
 
@@ -67,7 +66,7 @@ Remove ticked bullets when verified.
 
 ## A++
 
-- [ ] Centralized community workshop of templates
+- [ ] Centralized community workshop of various templates
 
 ___
 

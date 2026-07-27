@@ -1,10 +1,9 @@
-//! Real server-side terminal emulator.
+//! Server-side terminal emulator.
 //!
 //! One `SessionEmu` per running session drives the actual `alacritty_terminal`
-//! VT engine off the raw byte stream tmux control mode gives us. It replaces the
-//! old `capture-pane` screen-scraper: instead of reading a pre-rendered screen we
-//! own the grid, cursor and modes, and serialize back into the same SGR-coloured
-//! line wire format the mod already speaks (Phase 1: mod unchanged).
+//! VT engine off the raw byte stream tmux control mode gives us. Instead of
+//! reading a pre-rendered screen we own the grid, cursor and modes, and
+//! serialize back into the same SGR-coloured line wire format the mod speaks.
 
 use std::sync::{Arc, Mutex};
 
@@ -295,10 +294,10 @@ enum Slot {
 
 /// Serializes one row into the SGR wire format the mod parses. Each line opens
 /// with a reset, self-contained SGR runs colour each stretch, and trailing
-/// default cells are trimmed just like `capture-pane` did. A `\x1b[<n>G` (CHA)
-/// marker is emitted only when the true grid column diverges from the natural
-/// pen position — i.e. right after a wide char skipped a spacer cell — so plain
-/// ASCII rows stay byte-identical to Phase 1 while wide chars keep alignment.
+/// default cells are trimmed. A `\x1b[<n>G` (CHA) marker is emitted only when
+/// the true grid column diverges from the natural pen position - i.e. right
+/// after a wide char skipped a spacer cell - so plain ASCII rows stay
+/// byte-identical to a plain capture while wide chars keep alignment.
 fn serialize_row(row: &[Slot]) -> String {
     let mut out = String::from("\x1b[0m");
 

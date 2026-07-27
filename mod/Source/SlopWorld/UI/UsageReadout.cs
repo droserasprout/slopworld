@@ -15,15 +15,13 @@ namespace SlopWorld
     /// Drawn as a resource rather than as a bar deliberately. A bar is a widget
     /// this game does not have anywhere else, and the corner it sits in is the
     /// one place a player already knows how to read - icon, white number, hover
-    /// for the rest. The detail a bar was carrying (what the window is, when it
-    /// comes back, how old the number is) was always in the tooltip anyway.
+    /// for the rest. The detail a bar was carrying was always in the tooltip
+    /// anyway.
     ///
     /// This is deliberately the vanilla spot. <see cref="Patch_HideGui"/> strips
     /// ResourceReadout wholesale, which leaves the corner empty and leaves the
-    /// eye going there anyway; putting the one number this game still has where
-    /// the numbers used to be costs nothing and reads immediately. The geometry
-    /// is vanilla's own simple readout, down to the 27px icon in a 24px row and
-    /// the shadow under the text.
+    /// eye going there anyway. The geometry is vanilla's own simple readout,
+    /// down to the 27px icon in a 24px row and the shadow under the text.
     ///
     /// Drawn from a MapComponent rather than a window, so it sits on the map
     /// layer with the colonist bar and the alerts - behind every window, which is
@@ -33,7 +31,7 @@ namespace SlopWorld
     /// The numbers come from slopd (see usage.rs) and are never computed here.
     /// The one piece of arithmetic that is local is the countdown, which runs off
     /// the frame clock so it keeps ticking between polls and keeps ticking when
-    /// the daemon goes away - a reset that quietly stops moving would be a lie.
+    /// the daemon goes away.
     /// </summary>
     public class UsageReadout : MapComponent
     {

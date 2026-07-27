@@ -11,12 +11,11 @@ namespace SlopWorld
     /// worth running in a project's sandbox more than once.
     ///
     /// Running one lands a *temporary* colonist - an agent that was never in
-    /// config.toml and walks off the map when its process exits. That is the
-    /// whole shape of the feature: a standing agent is somebody you keep talking
-    /// to, and an errand is a body that turns up, does the thing and goes. Which
-    /// is why nothing here edits a session, and why the window closes on Run and
-    /// hands you the terminal instead: the errand is already underway and the
-    /// only thing left to do with it is watch.
+    /// config.toml and walks off the map when its process exits. A standing agent
+    /// is somebody you keep talking to; an errand is a body that turns up, does
+    /// the thing and goes. Which is why the window closes on Run and hands you
+    /// the terminal instead: the errand is already underway and the only thing
+    /// left to do with it is watch.
     /// </summary>
     public class ShortcutsWindow : Window
     {
@@ -187,11 +186,9 @@ namespace SlopWorld
     /// Add or edit one errand. Writes straight through to config.toml on the
     /// daemon, the same as every other window here.
     ///
-    /// The fields are a session template with a line of text attached: a
-    /// project, what to run there, and what to type into it. The command box is
-    /// greyed rather than hidden when it is empty, so the thing that will run is
-    /// on screen even when nothing here chose it - the same reasoning as the
-    /// agent dialog's.
+    /// The command box is greyed rather than hidden when it is empty, so the
+    /// thing that will run is on screen even when nothing here chose it - the
+    /// same reasoning as the agent dialog's.
     /// </summary>
     public class EditShortcutDialog : Window
     {

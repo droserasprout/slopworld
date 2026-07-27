@@ -17,10 +17,9 @@ namespace SlopWorld
     /// false whenever a window sits under the cursor and the map is what is being
     /// drawn, so the tip can never surface over a pane that fills the screen.
     ///
-    /// The line is rolled when the cursor arrives and held until it leaves.
-    /// TooltipHandler.TipRegion writes the text into the live tip on every frame it
-    /// is called, so rolling per frame would be a box of static rather than a
-    /// sentence - and one line per hover is what makes it worth hovering twice.
+    /// The line is rolled when the cursor arrives and held until it leaves:
+    /// TooltipHandler.TipRegion writes the text into the live tip on every frame,
+    /// so rolling per frame would be a box of static rather than a sentence.
     ///
     /// MapComponents are constructed for every subclass, so this needs no def.
     /// </summary>

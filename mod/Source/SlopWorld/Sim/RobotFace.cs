@@ -14,9 +14,7 @@ namespace SlopWorld
     /// read as a different species.
     ///
     /// The metal is cut against the skull rather than laid on it as a shape of its
-    /// own; tools/roboface.py has the geometry and the reasons. What matters on
-    /// this side is that the cut is a fixed line across the brow, which is why the
-    /// hair a pawn is generated with is not left entirely to the game.
+    /// own; tools/roboface.py has the geometry and the reasons.
     /// </summary>
     public static class RobotFace
     {

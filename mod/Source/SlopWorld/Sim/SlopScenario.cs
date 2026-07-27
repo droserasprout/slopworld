@@ -13,24 +13,20 @@ namespace SlopWorld
     /// across the map, and no animal but the cat <see cref="Pets"/> places by hand.
     /// It also says nothing on the way in - the opening message box goes the same
     /// way, because <see cref="IntroDirector"/> has a scene to open with instead.
-    /// This is where all of that is decided, and it replaces two Harmony prefixes
-    /// that used to say the same thing one ScenPart at a time - a scenario that never
-    /// had the part is simpler than a part patched into silence, and it says so in
-    /// the scenario text the player reads.
+    /// A scenario that never had the part is simpler than a part patched into
+    /// silence, and it says so in the scenario text the player reads.
     ///
     /// Derived from Crashlanded rather than written as a ScenarioDef of our own.
     /// Everything we are not interested in is exactly what a hand-written def gets
     /// wrong: the surface planet layer 1.6 wants, the player faction, the drop-pod
-    /// arrival, the starting-pawn count. Scenario.CopyForEditing copies the lot -
-    /// parts included, each through its own CopyForEditing - so we start from
-    /// something the game already agrees is valid and take four kinds of part out of
-    /// it. A def hand-written against fields that move between versions is a def
-    /// that breaks quietly on the next one.
+    /// arrival, the starting-pawn count. Scenario.CopyForEditing copies the lot,
+    /// so we start from something the game already agrees is valid and take four
+    /// kinds of part out of it. A def hand-written against fields that move
+    /// between versions is a def that breaks quietly on the next one.
     ///
     /// The copy is built once per process and handed to <see cref="Patch_QuickStart"/>.
-    /// A save carries its own scenario (Game.ExposeData scribes it deep, and
-    /// Scenario.ExposeData writes name, summary, description, both layer parts and
-    /// the part list), so a colony loaded from disk never comes back through here.
+    /// A save carries its own scenario, so a colony loaded from disk never comes
+    /// back through here.
     /// </summary>
     public static class SlopScenario
     {
@@ -52,10 +48,8 @@ namespace SlopWorld
         ///
         /// - ScenPart_GameStartDialog is Crashlanded's opening message box, which
         ///   IntroDirector used to fill with words of ours and wait on. Dropping the
-        ///   part is the whole of skipping it: nothing else opens that dialog, and a
-        ///   part the scenario never had is simpler than a PostGameStart patched into
-        ///   returning early. The clock it held paused is TimeKeeper's problem, which
-        ///   it was already.
+        ///   part is the whole of skipping it: nothing else opens that dialog. The
+        ///   clock it held paused is TimeKeeper's problem, which it was already.
         static readonly Type[] Dropped =
         {
             typeof(ScenPart_ThingCount),

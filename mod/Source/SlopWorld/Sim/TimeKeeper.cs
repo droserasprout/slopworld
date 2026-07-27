@@ -7,9 +7,8 @@ namespace SlopWorld
     /// it stops: Patch_HideGui drops GlobalControls wholesale, and vanilla wires up
     /// every time-speed key binding - pause, 1, 2, 3, 4 - inside
     /// TimeControls.DoTimeControlsGUI, which only ever runs while those controls are
-    /// drawing. So a pause from anywhere (a new game starts paused, a letter with a
-    /// pause mode, an error with the dev pref on) is a pause forever, on a board with
-    /// no clock to show it: the map just stops, and looks for all the world like
+    /// drawing. So a pause from anywhere is a pause forever, on a board with no
+    /// clock to show it: the map just stops, and looks for all the world like
     /// every last thing on it has died.
     ///
     /// A viewer's sim has no business sitting still, so the mod owns the clock. It is

@@ -15,23 +15,21 @@ namespace SlopWorld
     /// past the edge of its reach the map is simply left alone. Anything alive inside
     /// the circle is marked, and marked things come apart - bleeding, burning,
     /// detonating, retching. Plants do not get a slow death: a tree the circle reaches
-    /// goes bare, everything smaller is gone. Whatever wanders in later, or grows
-    /// back, is caught by a later sweep, because the circle never shrinks.
+    /// goes bare, everything smaller is gone.
     ///
     /// The bands are the point of the thing: a map that is uniformly dead is one
-    /// texture, and a map with a dead middle, a sick ring and a live rim reads as
-    /// something spreading out of the core - which is what it is.
+    /// texture, and a dead middle, a sick ring and a live rim reads as something
+    /// spreading out of the core.
     ///
-    /// Which means the bands must not have edges, and must not converge. The first
-    /// cut of this had both faults: hard radii drew a circle on the ground you could
-    /// trace with a finger, and both bands stripped plants the same way, so once the
-    /// sweep had been round a few times the whole thing was one flat disc of dead
-    /// ground. So severity is continuous - certain inside FullRadius, falling off to
-    /// nothing by EdgeRadius - and it is dithered against Grit, a value each cell
-    /// keeps forever. Ground that shrugs the plague off goes on shrugging it off, so
-    /// the falloff is a texture rather than a delay, and the boundary dissolves into
-    /// speckle instead of being drawn. The two bands also have to *look* different,
-    /// which is why the weak one holds plants back instead of taking them.
+    /// Which means the bands must not have edges, and must not converge. Hard radii
+    /// drew a circle on the ground you could trace with a finger, and a chance
+    /// re-rolled each sweep still ends in one flat dead disc, just later. So severity
+    /// is continuous - certain inside FullRadius, falling off to nothing by
+    /// EdgeRadius - and it is dithered against Grit, a value each cell keeps forever.
+    /// Ground that shrugs the plague off goes on shrugging it off, so the falloff is
+    /// a texture rather than a delay, and the boundary dissolves into speckle. The
+    /// two bands also have to *look* different, which is why the weak one holds
+    /// plants back instead of taking them.
     ///
     /// Agents are immune, wholly: never marked, never harmed, and never standing near
     /// a detonation we chose to start. An agent's colonist dying would leave its
@@ -91,9 +89,8 @@ namespace SlopWorld
             public float PlantIgnite; // per plant, once, on the sweep that strips it
 
             /// Whether the band takes plants or only holds them back. This is the
-            /// difference the eye actually reads: the two bands used to strip
-            /// identically, so the only thing telling them apart was pawn effects
-            /// nobody watches, and both ended up looking like the same dead ground.
+            /// difference the eye actually reads: stripping both bands identically
+            /// left nothing telling them apart but pawn effects nobody watches.
             public bool Strips;
 
             /// What the weak band knocks a plant's growth back to.
@@ -102,7 +99,7 @@ namespace SlopWorld
 
         // The plague at the core. Detonation and ignition are both rare on purpose:
         // one is loud enough to be an event and the other does not stop when the roll
-        // is over, so either of them landing often would be the whole map at once.
+        // is over, so either landing often would be the whole map at once.
         static readonly Dose Full = new Dose
         {
             PExplode = 0.015f,
@@ -122,7 +119,7 @@ namespace SlopWorld
         // What is left of it out at the edge: fewer rolls come up anything, the cuts
         // are shallow, and nothing detonates - a blast is the plague at full strength
         // and there is no half of one. Plants are held back rather than taken, so the
-        // band reads as thin and struggling instead of as more dead ground.
+        // band reads as thin instead of as more dead ground.
         static readonly Dose Weak = new Dose
         {
             PExplode = 0f,
@@ -186,8 +183,8 @@ namespace SlopWorld
         /// <summary>How hard the plague pushes at a cell, before the cell gets a say:
         /// 1 inside FullRadius, falling off to 0 at EdgeRadius, and 0 anywhere the
         /// front has not reached yet. Clamped against EdgeRadius as well as against
-        /// the live radius, so a colony saved before any of this existed - with a
-        /// circle already swallowing the map - comes back inside the falloff.</summary>
+        /// the live radius, so a colony saved before any of this existed comes back
+        /// inside the falloff.</summary>
         float Bite(IntVec3 cell)
         {
             float d = cell.DistanceTo(_origin);
@@ -200,12 +197,11 @@ namespace SlopWorld
         ///
         /// Everything probabilistic about the plague reads this rather than
         /// Rand.Value, and it has to: the plant sweep walks the whole map over and
-        /// over, so a chance re-rolled every pass converges on certainty. That is
-        /// precisely the failure this replaces - a per-plant coin flip still ends
-        /// with every plant inside the radius dead, only later, and the map still
-        /// finishes as one flat circle. Seeded off the cell instead, ground that
-        /// shrugged the plague off keeps shrugging it off, through a reload as
-        /// well, and the falloff stays a texture rather than a delay.</summary>
+        /// over, so a chance re-rolled every pass converges on certainty - a
+        /// per-plant coin flip still ends with every plant inside the radius dead,
+        /// only later. Seeded off the cell instead, ground that shrugged the
+        /// plague off keeps shrugging it off, through a reload as well, and the
+        /// falloff stays a texture rather than a delay.</summary>
         float Grit(IntVec3 cell) =>
             Rand.ValueSeeded(Gen.HashCombineInt(cell.GetHashCode(), _seed));
 
@@ -214,9 +210,9 @@ namespace SlopWorld
         /// root, which is the larger of the two - so the certain core is solid, and
         /// past it the ground breaks up into full, weak and untouched in shifting
         /// proportions until there is nothing left of any of it. Across the falloff
-        /// that averages out at roughly 45% stripped and 18% stunted, but it is 100/0
-        /// where the certain core ends, 50/21 halfway out and 25/25 at three quarters,
-        /// and nowhere along it is there an edge you could trace.</summary>
+        /// that averages out at roughly 45% stripped and 18% stunted, but it is
+        /// 100/0 where the certain core ends, 50/21 halfway out and 25/25 at three
+        /// quarters, and nowhere along it is there an edge you could trace.</summary>
         public Band BandAt(IntVec3 cell)
         {
             if (!_active || !_origin.IsValid) return Band.None;
@@ -292,11 +288,10 @@ namespace SlopWorld
                 var dose = band == Band.Full ? Full : Weak;
                 bool tree = p.def.plant.IsTree;
 
-                // Whether this pass has anything left to do here. The list is rebuilt
-                // every sweep, so every plant comes back round forever: without this a
-                // bare tree would smoke again on each pass, and - worse - a plant the
-                // weak band has already held back would roll for ignition again on
-                // each pass until it eventually caught.
+                // Whether this pass has anything left to do here. Every plant
+                // comes back round forever: without this a bare tree would smoke
+                // again on each pass, and a plant the weak band has already held
+                // back would roll for ignition again until it eventually caught.
                 bool todo = dose.Strips
                     ? !(tree && p.LeaflessNow)
                     : !tree && p.Growth > dose.StuntTo;
@@ -365,8 +360,7 @@ namespace SlopWorld
         void Detonate(Pawn pawn, Dose dose)
         {
             // Never light one off next to an agent: the blast does not care who it
-            // is, and immunity has to mean immunity. This blast is wide enough that
-            // the check matters far more than it used to.
+            // is, and immunity has to mean immunity.
             if (AgentNear(pawn.Position, BlastSafeRadius)) { Bleed(pawn, dose); return; }
 
             PlagueFx.Burst(pawn);
@@ -376,9 +370,9 @@ namespace SlopWorld
 
         // What a blast steps around. The core first of all: it is where the plague
         // comes from and it stands in the middle of the band that detonates hardest,
-        // so at this radius it would eventually blow a hole in its own origin - and
-        // a missing core reads as a bug rather than as the plague working. Built per
-        // blast rather than cached, because blasts are rare now and the list is not.
+        // so at this radius it would eventually blow a hole in its own origin. Built
+        // per blast rather than cached, because blasts are rare now and the list is
+        // not.
         List<Thing> Untouchable()
         {
             var spared = map.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore).ToList();
@@ -435,10 +429,8 @@ namespace SlopWorld
             if (!pawn.RaceProps.Animal && !pawn.RaceProps.Humanlike) return false;
 
             // Nobody in the colony, ever. Agents are immune by design; the
-            // scenario's starters are the intro's to kill, and a starter the plague
-            // got to first dies off camera and leaves its corpse - and its slot in
-            // the colonist bar - behind. The pets fall out of the same check and are
-            // meant to: see Pets, they outlive the map on purpose.
+            // scenario's starters are the intro's to kill; the pets fall out of the
+            // same check and are meant to: see Pets, they outlive the map on purpose.
             return pawn.Faction == null || !pawn.Faction.IsPlayer;
         }
 
@@ -472,9 +464,7 @@ namespace SlopWorld
         ///
         /// The alternative is the sweep, and the sweep alone loses: it walks the
         /// map forever and the spawner refills behind it, so the certain core spends
-        /// the rest of the colony's life growing grass and having it torn out again,
-        /// one plant per tick, permanently hazed with <c>Wither</c> flecks over
-        /// ground that is supposed to be finished.
+        /// the rest of the colony's life growing grass and having it torn out again.
         ///
         /// Gated on <see cref="Band.Full"/> rather than on <see cref="Reaches"/>, so
         /// the falloff stays a texture. The weak band holds plants back instead of
@@ -510,10 +500,9 @@ namespace SlopWorld
         /// third of the map that is supposed to be untouched would burn instead.
         ///
         /// TrySpread picks its own cell internally, so this can only allow or refuse
-        /// the whole attempt: a fire already outside the circle never spreads, which
-        /// contains the burn to the plague's reach plus the one cell it crossed on
-        /// the way out. Fires nothing to do with us - a blast, a short circuit on a
-        /// map with no plague on it - are left alone.
+        /// the whole attempt: a fire already outside the circle never spreads. Fires
+        /// nothing to do with us - a blast, a short circuit on a map with no plague
+        /// on it - are left alone.
         /// </summary>
         [HarmonyPatch(typeof(Fire), "TrySpread")]
         public static class Patch_ContainFire

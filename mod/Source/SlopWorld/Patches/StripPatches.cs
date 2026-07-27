@@ -9,7 +9,7 @@ namespace SlopWorld
     // systems, so everything stays consistent. Unconditional, like the UI
     // stripping: being loaded is the switch. A colony that ticks its needs and
     // its storyteller is not this mod with a setting flipped, it is RimWorld with
-    // a terminal bolted on, which is not a thing anyone asked to run.
+    // a terminal bolted on.
     //
     // RimWorld 1.6 moved most of these to interval ticks (delta = ticks elapsed),
     // so the target names below are the 1.6 ones and will not bind on 1.5.

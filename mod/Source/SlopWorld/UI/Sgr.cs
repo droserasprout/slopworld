@@ -18,9 +18,9 @@ namespace SlopWorld
     }
 
     /// <summary>
-    /// Turns one line of `tmux capture-pane -e` output into coloured runs.
-    /// tmux already did the hard part - it is the terminal emulator, and what it
-    /// hands us is a rendered screen - so we only ever see SGR (colour) escapes.
+    /// Turns one line of daemon screen output into coloured runs. The daemon's
+    /// emulator already did the hard part - what it hands us is a rendered
+    /// screen - so we only ever see SGR (colour) escapes and CHA column markers.
     /// </summary>
     public static class Sgr
     {

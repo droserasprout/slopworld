@@ -85,9 +85,7 @@ namespace SlopWorld
             ClearSelection();
             // The negotiated size belonged to the session we just left. Kept, it
             // would read as "this pane is already the right shape" for one that has
-            // never been looked at - and a session nobody has opened is still at the
-            // daemon's boot size, so the switch would land a 120x34 pane in a window
-            // several times that and nothing would ever say otherwise.
+            // never been looked at and is still at the daemon's boot size.
             _cols = _rows = 0;
             _sizeDirty = false;
         }
@@ -96,9 +94,8 @@ namespace SlopWorld
         /// bar's white corner brackets on the portrait you are typing at. Clearing
         /// first is not just tidiness: the brackets' jump-out is an animation off
         /// SelectionDrawer's select time, so a pawn that is already selected would
-        /// keep the brackets sitting where they settled and never replay it. This
-        /// is the same clear-then-select vanilla does for a bar click - which never
-        /// reaches the map while a fullscreen window is absorbing input.</summary>
+        /// never replay it. This is the same clear-then-select vanilla does for a
+        /// bar click.</summary>
         static void SelectAgent(string session)
         {
             var pawn = AgentColony.Current?.PawnOf(session);
@@ -132,9 +129,8 @@ namespace SlopWorld
         /// contracted rect, which translates everything drawn here by (18,18)
         /// without moving GUI.matrix or Event.current.mousePosition into the same
         /// frame. Anything that works in screen coordinates then lands 18px off -
-        /// the colonist strip drew low, its hit tests missed, and its selection
-        /// brackets (drawn rotated, so pivoted through GUI.matrix) came apart. At
-        /// zero the group is the screen and the two agree again.</summary>
+        /// the colonist strip drew low and its hit tests missed. At zero the group
+        /// is the screen and the two agree again.</summary>
         protected override float Margin => 0f;
 
         protected override void SetInitialSizeAndPosition() =>
@@ -219,10 +215,9 @@ namespace SlopWorld
         }
 
         /// <summary>Says the pane is a still photograph, not a live terminal. The
-        /// daemon restarting under a working agent is routine here - it is what
-        /// `make install-daemon` does - and the pane keeps showing the last frame
-        /// throughout, which without this is indistinguishable from an agent that
-        /// has stopped answering.</summary>
+        /// daemon restarting under a working agent is routine here, and the pane
+        /// keeps showing the last frame throughout, which without this is
+        /// indistinguishable from an agent that has stopped answering.</summary>
         void DrawOfflineBanner(Rect body)
         {
             var r = new Rect(body.x, body.y, body.width, 24f);
@@ -306,10 +301,9 @@ namespace SlopWorld
         /// is the whole of the "terminal opens at a fixed size" bug: a resize is one
         /// fire-and-forget message over a socket that may be down at that moment, and
         /// the daemon answers a size it already holds with a no-op. So a window that
-        /// asks once and believes itself ends up drawing a 120x34 pane full-screen
-        /// with no way back. The frame carries the emulator's own dimensions, which
-        /// is the only honest answer to "what shape is the pane", so that is what we
-        /// close the loop on.
+        /// asks once and believes itself has no way back. The frame carries the
+        /// emulator's own dimensions, which is the only honest answer to "what shape
+        /// is the pane", so that is what we close the loop on.
         /// </summary>
         void NegotiateSize(Rect body, ScreenBuf buf)
         {
@@ -429,12 +423,12 @@ namespace SlopWorld
         /// This is the thin black line that ran through a block of coloured diff.
         /// A cell is 19 units tall and the UI runs at 1.75, so a row is 33.25
         /// pixels: row n's background ends exactly where row n+1's begins in
-        /// arithmetic, but the shared edge sits on a pixel centre every fourth row
+        /// arithmetic, but the shared edge sits on a pixel centre every fourth row,
         /// and a pixel split down the middle by two separate quads can come out
-        /// belonging to neither. Snapping every box's edges to the pixel grid is
-        /// what makes the rows tile rather than nearly tile. It has to be the
-        /// *screen* grid: a whole unit here is 1.75 pixels there, so rounding in
-        /// GUI coordinates would leave the fraction exactly where it was.
+        /// belonging to neither. Snapping every box's edges to the pixel
+        /// grid is what makes the rows tile rather than nearly tile. It has to be
+        /// the *screen* grid: a whole unit here is 1.75 pixels there, so rounding
+        /// in GUI coordinates would leave the fraction exactly where it was.
         /// </summary>
         static float SnapX(float v) => (Mathf.Round(v * _snapSx + _snapOx) - _snapOx) / _snapSx;
 
@@ -444,7 +438,7 @@ namespace SlopWorld
         /// by exactly one cell and placing it alone on its own column. Claude Code
         /// opens its prompt with a chevron no mono face here has; drawn inline it
         /// took no width at all, and the whole input line slid a cell left of the
-        /// grid - and of the cursor we paint on it.</summary>
+        /// grid.</summary>
         static void DrawRun(string text, float x, float y, float cw, float ch, GUIStyle style)
         {
             int start = 0;
@@ -537,8 +531,7 @@ namespace SlopWorld
             // here rather than in TerminalHotkeys: a window absorbing input around
             // itself makes WindowStack.HandleEventsHighPriority Use every KeyDown,
             // and that runs earlier in UIRoot.UIRootOnGUI than any game component.
-            // So the pane holds the closing half of its own hotkey. While it is
-            // bound here, F12 is not a key the agent ever receives.
+            // So the pane holds the closing half of its own hotkey.
             if (SlopDefOf.SlopQuickTerminal != null && SlopDefOf.SlopQuickTerminal.KeyDownEvent)
             {
                 Close();
@@ -727,10 +720,10 @@ namespace SlopWorld
         /// nothing about motion, so a drag across its output was never its to
         /// receive; forwarding it anyway spent the gesture on an app that ignores
         /// it and left the pane with no way to select text at all short of
-        /// holding Shift, which nothing on screen says. So the press goes over as
-        /// a press, and the moment it turns into a drag we close that click where
-        /// it started - the app sees an ordinary click, complete - and take the
-        /// rest of the gesture back as a selection.
+        /// holding Shift. So the press goes over as a press, and the moment it
+        /// turns into a drag we close that click where it started - the app sees
+        /// an ordinary click, complete - and take the rest of the gesture back as
+        /// a selection.
         /// </summary>
         bool HandleMouseForward(Rect body, Event e)
         {
@@ -805,12 +798,11 @@ namespace SlopWorld
         /// <summary>
         /// Puts the selection on the clipboard - the *host's*, through the daemon.
         ///
-        /// `GUIUtility.systemCopyBuffer` is set as well and is not the point of
-        /// this: on the Unity player the game is, that buffer is as often the
-        /// process's own as it is the desktop's, so a selection copied out of a
-        /// pane could not be pasted into a browser and the feature read as broken.
-        /// slopd is on the host with the session's display already in its
-        /// environment, which makes it the one half of this that can reach the
+        /// On the Unity player the game is, `GUIUtility.systemCopyBuffer` is as
+        /// often the process's own buffer as the desktop's, so a selection copied
+        /// out of a pane could not be pasted into a browser and the feature read
+        /// as broken. slopd is on the host with the session's display already in
+        /// its environment, which makes it the one half of this that can reach the
         /// clipboard the player meant. Failure is a log line rather than a dialog:
         /// the copy is a gesture, not a command, and a box over the terminal every
         /// time a host has no `wl-copy` is worse than the miss.
@@ -927,13 +919,10 @@ namespace SlopWorld
         }
 
         /// <summary>How far a row's text actually goes. The daemon trims a row's
-        /// trailing blanks only when they carry nothing - a cell holding a
-        /// background colour is a cell it has to emit - so a diff line, a banner
-        /// or anything else coloured to the right margin arrives padded out to the
-        /// full width with spaces. Selecting one of those highlighted a block of
-        /// empty space and copied the spaces with it, which is the "highlights the
-        /// whole line" of the report and, quietly, a paste full of trailing
-        /// whitespace.</summary>
+        /// trailing blanks only when they carry nothing, so anything coloured to
+        /// the right margin arrives padded out to the full width with spaces.
+        /// Selecting one of those highlighted a block of empty space and copied
+        /// the spaces with it.</summary>
         static int ContentLen(string line)
         {
             int n = line.Length;

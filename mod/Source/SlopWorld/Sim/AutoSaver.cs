@@ -15,9 +15,7 @@ namespace SlopWorld
     /// so it has to be recent by definition rather than by luck.
     ///
     /// The save itself is vanilla's: `Autosaver.DoAutosave` writes to the rotating
-    /// autosave slots, so this never overwrites a save the player named. It runs
-    /// from the game tick, the same place vanilla's does - which does mean a game
-    /// held paused by a dialog is a game that is not saving.
+    /// autosave slots, so this never overwrites a save the player named.
     ///
     /// GameComponents are constructed for every subclass automatically, so this
     /// needs no def.

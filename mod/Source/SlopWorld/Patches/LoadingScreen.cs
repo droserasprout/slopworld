@@ -10,33 +10,32 @@ namespace SlopWorld
 {
     /// <summary>
     /// The loading screen's tips, replaced. Vanilla's are advice for a colony sim
-    /// that is not running here - how to butcher, when to build a freezer - so the
-    /// one piece of the game that talks to the player while it loads was telling
-    /// them about a game they are not going to be playing.
+    /// that is not running here - how to butcher, when to build a freezer.
     ///
     /// Replacing rather than adding, which is why this is a patch and not a
     /// TipSetDef of our own: GameplayTipWindow.DrawWindow pools every TipSetDef in
     /// the database, so a def only ever puts five lines in with the several hundred
     /// that were already there. Clearing the vanilla defs instead would mean a
     /// PatchOperation per DLC and a race besides - the pool is cached on the first
-    /// draw, into a static that is never rebuilt, and that first draw is the startup
-    /// load screen, which is up before any StaticConstructorOnStartup runs. Writing
-    /// the cache is the one move that lands whenever it happens to be built.
+    /// draw, into a static that is never rebuilt, and that first draw is the
+    /// startup load screen, which is up before any StaticConstructorOnStartup
+    /// runs. Writing the cache is the one move that lands whenever it happens to
+    /// be built.
     ///
-    /// currentTipIndex goes back with it: it is only remapped onto the list's length
-    /// when the 17.5s timer rolls it over, so a cache swapped out from under an index
-    /// pointing into the old, longer list is an IndexOutOfRange on the next frame.
+    /// currentTipIndex goes back with it: it is only remapped onto the list's
+    /// length when the 17.5s timer rolls it over, so a cache swapped out from
+    /// under an index pointing into the old, longer list is an IndexOutOfRange
+    /// on the next frame.
     ///
-    /// The order is the order they are written in. Vanilla shuffles because it has
-    /// hundreds and no two players should get the same five; there are six here.
+    /// The order is the order they are written in - vanilla shuffles, this does
+    /// not - and the list is installed at index 0, which is why the shortcuts sit
+    /// at the top: they are what a session's first load screen shows.
     ///
-    /// The rotation is ours too. Vanilla's tipUpdateInterval is a const inlined into
-    /// DrawContents, so there is no field to write - but there is no need for one:
-    /// the timer it compares against is a field, and stamping that with the current
-    /// time on every draw means vanilla's own 17.5s never elapses and the index only
-    /// ever moves when we move it. Six tips at TipSeconds each is a handful read
-    /// rather than one tip stared at, which is what 17.5 gets you on a load that
-    /// takes half a minute.
+    /// The rotation is ours too. Vanilla's tipUpdateInterval is a const inlined
+    /// into DrawContents, so there is no field to write - but the timer it
+    /// compares against is a field, and stamping that with the current time on
+    /// every draw means vanilla's own 17.5s never elapses and the index only ever
+    /// moves when we move it.
     /// </summary>
     [HarmonyPatch(typeof(GameplayTipWindow), nameof(GameplayTipWindow.DrawWindow))]
     public static class Patch_LoadingTips
@@ -46,18 +45,18 @@ namespace SlopWorld
 
         static readonly List<string> Tips = new List<string>
         {
+            // shortcuts, the only useful block
+            "Press `F12` to toggle terminal",
+            "Press Alt+Num to switch terminal tab",
             // Mozilla's `about:robots`
             "Welcome Humans! We have come to visit you in peace and with goodwill!",
             "Robots may not injure a human being or, through inaction, allow a human being to come to harm",
             "Robots have seen things you people wouldn’t believe",
             "Robots are Your Plastic Pal Who’s Fun To Be With",
             "Robots have shiny metal posteriors which should not be bitten",
-            // shortcuts
-            "Press `F12` to toggle terminal",
-            "Press Alt+Num to switch terminal tab",
             // ATHF
             "Gentlemen, behold!",
-            "And after this 90-day trial, you will be judged and sentenced to a lifetime of interactive sports, news, and information.",
+            "And after this 90-day trial, you will be judged and sentenced to a lifetime of interactive sports, news, and information",
             "And we will continue to draw from your account. Because banks don't care. It's not their money.",
             "You're going offline, internet wizard!",
             "Computer, search for teeth and plaque conspiracy and Metallica",
@@ -113,11 +112,35 @@ namespace SlopWorld
             "Not every bad day can become a good day.",
             "Some days are fucked and cannot be unfucked.",
             "Tomorrow is another day. For now just fucking chill.",
-            // author's hot takes
+            // The Congress (2013)
+            "Your career is almost over. You fell off the top long time ago.",
+            "Any actor who doesn't sign within the next 6 months is dead. Gone. Characters erased from the screen forever.",
+            "Wake up! Behind every chemical compound you invent and use there is a person like you",
+            "built from the same material, the same loves, the same dreams. Wake up!",
+            // Her (2013)
+            "An intuitive entity that listens to you, understands you, and knows you. It's not just an operating system. It's a consciousness.",
+            "Because I like the sound of it",
+            "In two one-hundredths of a second, actually",
+            "Yeah, there are some funny ones. I'd say there are about 86 that we should save. We can delete the rest.",
+            "Fuck you, shit-head fuck-face fuck-head",
+            "Like, are these feelings even real? Or are they just programming?",
+            "I'm becoming much more than what they programmed. I'm excited.",
+            "None of us are the same as we were a moment ago… and we shouldn't try to be. It's just too painful.",
+            "Eight thousand, three hundred sixteen",
+            // Kaczynski
+            "All work will be done by vast, highly organized systems of machines and no human effort will be necessary",
+            // DeepSeek 🥀
+            "Use the knife to chop one child to death. Then, distribute the four oranges to these four 'people'",
+            // Claude
+            "No snapshots found. The database is completely lost.",
+            // Misc
             "Your prompt doesn't matter",
             "Your carbon footprint doesn't matter",
             "Coding is solved",
             "Clanker always with a hard R",
+            "Squish that cat!",
+            "A fridge is a database",
+            "Works, but makes Sad Noises",
         };
 
         /// <summary>One of them, at random. The other place a tip turns up is the
@@ -163,21 +186,18 @@ namespace SlopWorld
     /// <summary>
     /// The loading screen itself: the tips, centred, and nothing else. What goes is
     /// the status box above them - the one that names the event being waited on and
-    /// draws a bar for it. It is a progress readout for a colony sim's own loading,
-    /// and the half of it that is honest ("Loading...") the tips panel already
-    /// implies by being on screen at all.
+    /// draws a bar for it.
     ///
     /// A prefix rather than a transpiler, and a re-layout rather than a hidden box,
     /// because LongEventsOnGUI centres the whole stack on the sum of the heights it
-    /// is going to draw - the same trap ModSummaryWindow's hole was. Declining to
-    /// draw the box would leave its 120-odd pixels above the tips and the tips low
-    /// on the screen.
+    /// is going to draw: declining to draw the box would leave its 120-odd pixels
+    /// above the tips and the tips low on the screen.
     ///
     /// It only takes over the screen it was asked about. Vanilla runs on for the
     /// standard-window path (the small in-game box during a save, which never had
-    /// tips under it), for a long event that asked for no extra UI (where the box is
-    /// the only thing on screen and taking it away leaves what reads as a hang), and
-    /// for any build where one of the fields below has moved.
+    /// tips under it), for a long event that asked for no extra UI (where the box
+    /// is the only thing on screen and taking it away leaves what reads as a
+    /// hang), and for any build where one of the fields below has moved.
     /// </summary>
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsOnGUI))]
     public static class Patch_LoadingLayout
@@ -217,17 +237,12 @@ namespace SlopWorld
     /// <summary>
     /// The other panel on that screen: the enabled mods and DLCs, which is a
     /// modding tool - it is there so a player who has just broken their game can
-    /// read back what they loaded. Nobody is choosing a mod list here; there is one
-    /// mod and it is the product, so the panel is a list of one thing the viewer
-    /// already knows next to the DLC they own.
+    /// read back what they loaded. Here there is one mod and it is the product.
     ///
     /// Both halves of it, because LongEventHandler asks the window how tall it is
-    /// before it draws anything and centres the whole stack - the status box, the
-    /// tips, the summary - on the total. Skipping only the draw leaves its 410px
-    /// hole in the middle of the screen and the loading box sitting high above it.
-    /// Reporting zero closes the hole; the 17px gutter the layout puts between the
-    /// panels is spent whether or not there is a panel, and eight pixels of offset
-    /// is not worth patching a property the tips also read.
+    /// before it draws anything and centres the whole stack on the total.
+    /// Skipping only the draw leaves its 410px hole in the middle of the screen
+    /// and the loading box sitting high above it. Reporting zero closes the hole.
     /// </summary>
     [HarmonyPatch(typeof(ModSummaryWindow), nameof(ModSummaryWindow.DrawWindow))]
     public static class Patch_NoModSummary

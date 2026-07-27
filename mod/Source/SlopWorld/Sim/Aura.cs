@@ -13,11 +13,10 @@ namespace SlopWorld
     /// the cat is near - or for a while after it has wandered off.
     ///
     /// It is small on purpose. The circle is a quarter of the map and this is seven
-    /// cells of it, so the aura is not a cure and could never be mistaken for one; it
-    /// is a patch of green that moves about, which is a thing to watch rather than a
-    /// thing to manage. Nobody can steer it either - the cat is not selectable and
-    /// there is no sim to give it orders through - so where the good ground goes is
-    /// the cat's business.
+    /// cells of it, so the aura is not a cure and could never be mistaken for one.
+    /// Nobody can steer it either - the cat is not selectable and there is no sim
+    /// to give it orders through - so where the good ground goes is the cat's
+    /// business.
     ///
     /// Three effects, and each is the exact undo of something in <see cref="Plague"/>:
     ///
@@ -36,10 +35,9 @@ namespace SlopWorld
     ///
     /// <b>Temporary</b> is the grace: a thing the aura touched stays spared for
     /// <see cref="GraceTicks"/> after the cat has moved on. Without it the aura would
-    /// be a hard-edged circle sliding across the map - the plague's own first cut and
-    /// the same mistake - and the plants it walked over would be stripped again
-    /// before the cat was out of frame. With it, the green fades out behind the cat
-    /// rather than being switched off.
+    /// be a hard-edged circle sliding across the map - the plague's own first cut
+    /// and the same mistake - and the plants it walked over would be stripped again
+    /// before the cat was out of frame.
     ///
     /// The grace table is runtime and is not saved. It rebuilds itself within half a
     /// second of a load, because the cat is still standing where it was; persisting it

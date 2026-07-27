@@ -141,6 +141,13 @@ namespace SlopWorld
             // The pointer's own animation, which has nowhere else to run: a
             // hardware cursor is a texture a frame.
             DeadCursor.Tick();
+            // And its answer to a click, answered the same way whatever it
+            // lands on. Update and not OnGUI, so it fires per frame rather
+            // than per event, and below HandleEventsHighPriority, which is
+            // where the clicks that count are used - GetMouseButtonDown still
+            // sees them, that flag being Input's own.
+            if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1))
+                DeadCursor.Click();
         }
     }
 

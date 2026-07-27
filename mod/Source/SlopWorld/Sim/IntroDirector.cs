@@ -23,17 +23,13 @@ namespace SlopWorld
     /// are standing the UI comes back.
     ///
     /// It opens on the first of those and not on a box of text. The welcome dialog
-    /// that used to be the first beat was the scenario's own
-    /// (ScenPart_GameStartDialog, which <see cref="SlopScenario"/> now drops along
-    /// with the parts that hand a thing over) with our words swapped into it, and it
-    /// was the wrong thing twice: it held the game paused on an empty hillside, and
-    /// what it said in prose is what the next twenty seconds say by dropping a core
-    /// on the party that landed. A cutscene nobody has to click into is one that has
-    /// started before the player wonders whether it will.
+    /// that used to be the first beat (ScenPart_GameStartDialog, which
+    /// <see cref="SlopScenario"/> now drops) held the game paused on an empty
+    /// hillside, and what it said in prose is what the next twenty seconds say by
+    /// dropping a core on the party that landed.
     ///
-    /// Successor to the massacre dressing: bodies are no longer placed dead, they
-    /// are placed alive and killed on camera, which is both cheaper (no corpse, no
-    /// blood pass) and the whole point of the thing.
+    /// Bodies are placed alive and killed on camera rather than placed dead, which
+    /// is both cheaper (no corpse, no blood pass) and the whole point of the thing.
     ///
     /// The phase is persisted, so a reload never replays the intro; the work lists
     /// are not, so a reload mid-intro simply skips ahead. GameComponents are built
@@ -96,9 +92,8 @@ namespace SlopWorld
         float _at;
 
         /// <summary>True while the scene is playing: no UI is drawn and nothing on
-        /// the map can be selected, so it reads as a cutscene rather than as a colony
-        /// with its buttons missing. Runtime only - a save loaded mid-scene comes back
-        /// with the UI on rather than stuck hidden.</summary>
+        /// the map can be selected. Runtime only - a save loaded mid-scene comes
+        /// back with the UI on rather than stuck hidden.</summary>
         public static bool UiHidden { get; private set; }
 
         /// <summary>True while the scene still has killing to do. The reconcile holds
@@ -120,10 +115,10 @@ namespace SlopWorld
 
         Map TheMap => _map ?? (_map = Find.CurrentMap);
 
-        // Phases that must advance while the game is paused: a new colony starts on a
-        // pause TimeKeeper has yet to lift, anything else may put one back, and the
-        // held beats burn in real time so the scene keeps its rhythm whatever the
-        // clock is doing.
+        // Phases that must advance while the game is paused: a new colony starts on
+        // a pause TimeKeeper has yet to lift, anything else may put one back, and
+        // the held beats burn in real time so the scene keeps its rhythm whatever
+        // the clock is doing.
         public override void GameComponentUpdate()
         {
             switch (_phase)
@@ -282,18 +277,16 @@ namespace SlopWorld
 
         /// <summary>
         /// The core comes down the way everything else on this map arrived: out of
-        /// the sky. ShipChunkIncoming is vanilla's own carrier for wreckage falling
-        /// on a colony - it holds whatever it is handed and puts it down on impact,
-        /// and with no graphicData of its own the skyfaller draws its payload, so
-        /// what falls is the core rather than a chunk. It is also the harmless one:
-        /// the variant that blows a hole in the ground is a separate def
-        /// (ShipChunkIncoming_SmallExplosion), which matters here because the cat is
-        /// standing directly underneath.
+        /// the sky. ShipChunkIncoming is vanilla's own carrier for wreckage - it
+        /// holds whatever it is handed, and with no graphicData of its own the
+        /// skyfaller draws its payload, so what falls is the core rather than a
+        /// chunk. It is also the harmless one: the variant that blows a hole in the
+        /// ground is a separate def, which matters here because the cat is standing
+        /// directly underneath.
         ///
-        /// The camera goes with it. The scene has been following the pods, the core
-        /// lands on the same spot they did, and the jump is what guarantees the
-        /// player is looking at the thing when it hits - which also matters to the
-        /// fumes, since flecks are not spawned off screen at all.
+        /// The camera goes with it, and the jump is what guarantees the player is
+        /// looking at the thing when it hits - which also matters to the fumes,
+        /// since flecks are not spawned off screen at all.
         /// </summary>
         void Fall(Map map)
         {

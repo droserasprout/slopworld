@@ -8,10 +8,8 @@ namespace SlopWorld
 {
     /// <summary>
     /// Where the work is. A project is a directory plus the sandbox every agent
-    /// in it gets, and it exists because those two things belong to the work
-    /// rather than to whoever is doing it: three agents in one repo want the
-    /// same binds, and keeping that in three session entries meant it was wrong
-    /// in at least one of them.
+    /// in it gets: three agents in one repo want the same binds, and keeping that
+    /// in three session entries meant it was wrong in at least one of them.
     ///
     /// First button in the bottom bar for the same reason: nothing can be added
     /// on the agents window until there is somewhere to add it.

@@ -1,11 +1,11 @@
 //! The host's clipboard, on the game's behalf.
 //!
-//! The mod cannot reach it. RimWorld is a Unity player and `systemCopyBuffer`
+//! The mod cannot reach it: RimWorld is a Unity player and `systemCopyBuffer`
 //! there is the process's own buffer as often as it is the desktop's - which
 //! makes a selection copied out of a pane land nowhere a browser can read it,
 //! and that is the whole of "copy doesn't work". slopd is on the host with the
-//! session's `DISPLAY`/`WAYLAND_DISPLAY` already forwarded to it, so the one
-//! thing here the game cannot do is exactly the thing this can.
+//! session's display variables already set, so the one thing here the game
+//! cannot do is exactly the thing this can.
 //!
 //! Which tool does it is the desktop's business rather than ours: `wl-copy`
 //! when the session is Wayland, `xclip` or `xsel` when it is X11, tried in that
@@ -110,15 +110,17 @@ async fn run(text: Option<&str>, pick: fn(&Tool) -> &'static [&'static str]) -> 
 }
 
 async fn one(argv: &[&str], text: Option<&str>) -> Result<String> {
-    let Some(t) = text else { return paste(argv).await };
+    let Some(t) = text else {
+        return paste(argv).await;
+    };
 
     // A copy tool keeps *serving* the selection after it has read it: every one
     // of these forks a holder and lets the parent exit. So the output is never
-    // collected - the fork inherits the pipes and holds them open for as long as
-    // it owns the clipboard, which is a `wait_with_output` that waits forever
-    // (this is exactly how a working `wl-copy` reported a timeout). Waiting on
-    // the parent is the whole of the handshake, and the price is that a failure
-    // is an exit status rather than a sentence.
+    // collected - the fork inherits the pipes and holds them open, which is a
+    // `wait_with_output` that waits forever (this is exactly how a working
+    // `wl-copy` reported a timeout). Waiting on the parent is the whole of the
+    // handshake, and the price is that a failure is an exit status rather than
+    // a sentence.
     let mut child = Command::new(argv[0])
         .args(&argv[1..])
         .stdin(Stdio::piped())

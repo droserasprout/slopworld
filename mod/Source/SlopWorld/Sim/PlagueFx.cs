@@ -10,20 +10,17 @@ namespace SlopWorld
     /// in a lot of places rather than a heap of unrelated misfortunes - and so the
     /// edge of the circle is visible while it moves, which it otherwise is not.
     ///
-    /// Flecks, not motes: the mote classes are gone from 1.6's throw helpers, and a
-    /// fleck is a struct submitted to the map's own batch instead of a spawned Thing.
-    /// The look is SlopPlagueGas (see Defs/Flecks.xml), which is a translucent gas
-    /// cloud that grows, drifts up-map and is gone inside a second. The first cut of
-    /// this tinted FleckDefOf.Smoke instead and it was unusable: Smoke is opaque and
-    /// stays solid for six seconds, so every event left a hard coloured decal sitting
-    /// on the map. Colour and alpha belong to the def; nothing here sets
-    /// instanceColor, because that is combined with a separate fade alpha and would
-    /// throw away the transparency that makes this a haze.
+    /// Flecks, not motes: a fleck is a struct submitted to the map's own batch
+    /// instead of a spawned Thing. The look is SlopPlagueGas (see Defs/Flecks.xml),
+    /// a translucent gas cloud that grows, drifts up-map and is gone inside a
+    /// second. Colour and alpha belong to the def; nothing here sets instanceColor,
+    /// because that is combined with a separate fade alpha and would throw away
+    /// the transparency that makes this a haze.
     ///
-    /// Flecks tick with the map and the map still ticks here, so these fade normally
-    /// even with the sim stripped. They cost nothing off screen: every entry point
-    /// gates on ShouldSpawnMotesAt first, and the plague eats the whole map, most of
-    /// which the camera is not looking at.
+    /// Flecks tick with the map and the map still ticks here, so these fade
+    /// normally even with the sim stripped. They cost nothing off screen: every
+    /// entry point gates on ShouldSpawnMotesAt first, and the plague eats the
+    /// whole map, most of which the camera is not looking at.
     /// </summary>
     public static class PlagueFx
     {

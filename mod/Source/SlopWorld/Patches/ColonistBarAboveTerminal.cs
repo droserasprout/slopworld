@@ -9,17 +9,15 @@ namespace SlopWorld
 {
     /// <summary>
     /// While a terminal is open, the colonist bar leaves the top of the screen and
-    /// sits in the pane's title bar, smaller: the same bar, the same portraits, the
-    /// same icons, one click from the session you're typing at. Nothing is redrawn
-    /// by hand - the bar's own OnGUI is called with its cached scale and draw locs
-    /// pointed at the strip.
+    /// sits in the pane's title bar, smaller: the same bar, the same portraits, one
+    /// click from the session you're typing at. Nothing is redrawn by hand - the
+    /// bar's own OnGUI is called with its cached scale and draw locs pointed at
+    /// the strip.
     ///
     /// The strip is *in* the header rather than under it. A row of portraits with a
     /// title bar above it is two bands of chrome over the pane; the header grown to
     /// <see cref="BarH"/> - a whole row, name included, with a pad above and below -
-    /// is one. Nothing hangs onto the pane: the row is centred in the bar, which is
-    /// what makes the bar read as holding the portraits rather than as ending behind
-    /// them.
+    /// is one.
     ///
     /// It has to be called from inside the window, which is the whole trick:
     ///
@@ -29,16 +27,15 @@ namespace SlopWorld
     ///
     /// The bar's own draw and every window's ExtraOnGUI both run before any window
     /// contents, and TerminalWindow fills the screen with an opaque background, so
-    /// anything drawn from either place is painted over - correct data, correct
-    /// rects, nothing on screen. Only a draw inside DoWindowContents, after that
-    /// fill, can be seen. Drawing there also puts Mouse.IsOver in the right frame
-    /// of reference: the terminal is then the currently drawn window, so clicks in
-    /// the strip register instead of counting as obscured.
+    /// anything drawn from either place is painted over. Only a draw inside
+    /// DoWindowContents, after that fill, can be seen. Drawing there also puts
+    /// Mouse.IsOver in the right frame of reference: the terminal is then the
+    /// currently drawn window, so clicks in the strip register instead of counting
+    /// as obscured.
     ///
     /// A transpiler was tried first and this game's Mono rejected the rewritten
     /// wrapper with InvalidProgramException at patch time, which in PatchAll takes
-    /// the entire mod down with it - so this is plain prefix/postfix work, and the
-    /// bootstrap catches the rest. See the gotchas in CLANKERS.md.
+    /// the entire mod down with it - so this is plain prefix/postfix work.
     ///
     /// A prefix on ColonistBarColonistDrawer.HandleClicks turns a click on a
     /// colonist into a terminal switch instead of a camera jump.
@@ -59,7 +56,7 @@ namespace SlopWorld
         /// in. GetPawnTextureRect draws PawnTextureSize (46x75) anchored to the
         /// bottom of a BaseSize (48x48) cell, which is what lets heads clear the
         /// top of the screen in vanilla. Here it would put them off the top of the
-        /// window, so the header is exactly this much taller than the cell.</summary>
+        /// window.</summary>
         static float Overhang(float s) =>
             (ColonistBarColonistDrawer.PawnTextureSize.y - ColonistBar.BaseSize.y) * s;
 
@@ -142,10 +139,10 @@ namespace SlopWorld
             float gap = ColonistBar.BaseSpaceBetweenColonistsHorizontal * s;
             float x = strip.x + (strip.width - (locs.Count * w + (locs.Count - 1) * gap)) / 2f;
             // Centred in the bar rather than measured down from its top, so a row
-            // that had to shrink sits in the middle of the chrome it shares with the
-            // title and the buttons instead of riding its ceiling. The overhang is
-            // added back because the loc is the cell's top and the head pokes out
-            // above it - what is being centred is the whole row, name included.
+            // that had to shrink sits in the middle of the chrome instead of riding
+            // its ceiling. The overhang is added back because the loc is the cell's
+            // top and the head pokes out above it - what is being centred is the
+            // whole row, name included.
             float y = strip.y + (strip.height - RowH(s)) / 2f + Overhang(s);
 
             for (int i = 0; i < locs.Count; i++)
@@ -164,8 +161,7 @@ namespace SlopWorld
                 Drawing = false;
                 // Put the bar back where it believes it is. Restoring beats marking
                 // it dirty: a dirty flag would recache the whole thing every frame
-                // the terminal is open, and would leave the top-of-screen bar
-                // parked in the strip for the frame the window closes on.
+                // the terminal is open.
                 ScaleField.SetValue(bar, scale);
                 locs.Clear();
                 locs.AddRange(Saved);

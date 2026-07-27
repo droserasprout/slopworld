@@ -14,11 +14,10 @@ namespace SlopWorld
     /// here ships art: the source is whatever background this install was going to
     /// draw anyway, and the corrupted frames are baked from it on first run.
     ///
-    /// That is the point of the effect as much as it is a licence question. A
-    /// replacement image is a different picture, and a different picture says
-    /// nothing; the planet the player has looked at for six hundred hours going
-    /// wrong in front of them is the whole joke, and it only works if it is
-    /// demonstrably the same planet underneath.
+    /// That is the point of the effect as much as it is a licence question. The
+    /// planet the player has looked at for six hundred hours going wrong in front
+    /// of them is the whole joke, and it only works if it is demonstrably the same
+    /// planet underneath.
     ///
     /// Baked rather than computed per frame because the source is 4096x2560 and a
     /// separable blur over ten megapixels is not a thing to do at 60fps. Cached to
@@ -27,11 +26,10 @@ namespace SlopWorld
     /// AutoResume) - a cost paid once per install is fine, paid once per launch is
     /// the thing that would make a redeploy expensive.
     ///
-    /// The playback breathes rather than settling. A single end state is a picture
-    /// again, and the eye stops seeing a picture in about a second; something that
-    /// keeps moving is read as a live thing that is wrong, which is what this is.
-    /// Two sines of incommensurate period, summed, so it never repeats visibly and
-    /// never lands on a beat - a single sine is a pulse, and a pulse is a metronome.
+    /// The playback breathes rather than settling: a single end state is a picture
+    /// again, and the eye stops seeing a picture in about a second. Two sines of
+    /// incommensurate period, summed, so it never repeats visibly - a single sine
+    /// is a pulse, and a pulse is a metronome.
     /// </summary>
     [StaticConstructorOnStartup]
     public static class MenuBackground
@@ -59,9 +57,8 @@ namespace SlopWorld
 
         /// The sickness the palette is pulled toward - the plague's own pink, so the
         /// menu and the map are describing the same thing. Matches SlopPlagueGas in
-        /// Defs/Flecks.xml by eye rather than by reference: that is a fleck colour
-        /// on a def and this is a filter coefficient, and tying them would mean a
-        /// def lookup at bake time for a number that is not going to move.
+        /// Defs/Flecks.xml by eye rather than by reference: a def lookup at bake
+        /// time for a number that is not going to move is not worth it.
         static readonly Color Sick = new Color(0.95f, 0.42f, 0.72f, 1f);
 
         /// The fire. It starts a third of the way down the rot rather than at the
@@ -73,9 +70,9 @@ namespace SlopWorld
         /// below the floor, fully alight at the top. Both numbers are read off the
         /// picture rather than picked - the source's median luminance is 0.09 and
         /// its 95th percentile is 0.69, so a ramp that only reaches 1 at pure white
-        /// leaves the lit face burning at a third and the fire invisible. This is
-        /// the mistake worth remembering here: the gate has to span the range the
-        /// image actually occupies, not the range the format allows.
+        /// leaves the lit face burning at a third and the fire invisible. The gate
+        /// has to span the range the image actually occupies, not the range the
+        /// format allows.
         const float FuelFloor = 0.40f;
         const float FuelFull = 0.70f;
         /// How far a bright thing has to extend before it counts as fuel, in pixels
@@ -357,11 +354,11 @@ namespace SlopWorld
         /// This is what stands between "the planet is on fire" and a sky full of
         /// vertical streaks. The starfield is single bright pixels on black, and
         /// brightness alone cannot tell one from the lit face of a planet - so every
-        /// star seeded a column and the fire climbed all of them, evenly, over the
-        /// whole frame. What tells them apart is not how bright a thing is but how
-        /// big: a star vanishes under a window this size and a planet does not
-        /// notice it. The lit face loses <see cref="FuelErode"/> pixels off its rim,
-        /// which is nothing next to the plume that rises off it.
+        /// star seeded a column and the fire climbed all of them. What tells them
+        /// apart is not how bright a thing is but how big: a star vanishes under a
+        /// window this size and a planet does not notice it. The lit face loses
+        /// <see cref="FuelErode"/> pixels off its rim, which is nothing next to the
+        /// plume that rises off it.
         ///
         /// Separable, so it is two cheap passes rather than one quadratic one.</summary>
         static float[] Erode(float[] src, int w, int h, int r)

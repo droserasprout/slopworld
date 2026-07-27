@@ -77,30 +77,27 @@ impl Tmux {
     ///
     /// Whichever tmux command first needs a server is the one that forks it, and
     /// the server inherits that client's cgroup. Started from slopd, that is
-    /// `slopd.service` - so `systemctl --user restart slopd`, which is exactly what
-    /// `make install-daemon` runs, SIGTERMs the server and every agent under it,
-    /// including the session that ran make. Putting the server in
-    /// `slopworld-tmux.service` takes it out of the unit's cgroup, and the agents
-    /// then sit through a redeploy untouched.
+    /// `slopd.service` - so `systemctl --user restart slopd`, which is exactly
+    /// what `make install-daemon` runs, SIGTERMs the server and every agent
+    /// under it. Putting the server in `slopworld-tmux.service` takes it out of
+    /// the unit's cgroup, and the agents then sit through a redeploy untouched.
     ///
     /// It is a *service* with `Type=forking` and not a scope, which is what this
-    /// tried first and what quietly did the opposite of the above. `tmux
-    /// start-server` daemonises: the process systemd-run put in the scope forks the
-    /// server and exits immediately, systemd sees the scope's own process gone and
-    /// tears the scope down - taking the server with it, since the fork is in that
-    /// same cgroup. The next tmux command then found no server, forked one itself,
-    /// and *that* server - the one everything ran under - sat in `slopd.service`
-    /// after all. It looked like it worked, because `systemd-run` had exited zero
-    /// and the log line believed it. `Type=forking` is the shape that fits a
-    /// program which daemonises: systemd waits for the parent to exit and adopts
-    /// what is left in the cgroup as the unit's main process.
+    /// tried first and what quietly did the opposite. `tmux start-server`
+    /// daemonises: the process systemd-run put in the scope forks the server and
+    /// exits, systemd sees the scope's own process gone and tears the scope
+    /// down - taking the fork with it, same cgroup. The next tmux command then
+    /// forked its own server, and *that* one sat in `slopd.service` after all.
+    /// It looked like it worked, because `systemd-run` had exited zero.
+    /// `Type=forking` is the shape that fits a program which daemonises: systemd
+    /// waits for the parent to exit and adopts what is left in the cgroup.
     ///
-    /// So the log now says what happened rather than what was attempted: the socket
-    /// is checked afterwards, and a server that did not come up that way is started
-    /// inline. Hosts without systemd (or a user bus - a session over plain ssh, say)
-    /// end up there too: same behaviour as before any of this existed, which is to
-    /// say a redeploy there still costs the agents. `KillMode=process` in
-    /// `slopd.service` is the other half, for the server this did not get to start.
+    /// So the log now says what happened rather than what was attempted: the
+    /// socket is checked afterwards, and a server that did not come up that way
+    /// is started inline. Hosts without systemd end up there too: same behaviour
+    /// as before any of this existed, which is to say a redeploy there still
+    /// costs the agents. `KillMode=process` in `slopd.service` is the other
+    /// half, for the server this did not get to start.
     pub async fn ensure_server(&self) {
         if self.server_running().await {
             return;
@@ -259,12 +256,11 @@ impl Tmux {
     /// child (held by the caller so the attach lives; `kill_on_drop` tears it down
     /// when the reader task ends) plus the pty master to read those notifications.
     ///
-    /// The client runs on a pty, not pipes: tmux 3.7 immediately detaches a
-    /// control client whose stdio isn't a terminal (it emits `%exit` right after
-    /// `%session-changed`), which would orphan every live session as "down". Only
-    /// `isatty` matters here - no controlling terminal is needed - so we hand tmux
-    /// a pty slave and read the master. Commands still go out over separate `tmux`
-    /// invocations, so the master is read-only for us.
+    /// The client runs on a pty, not pipes: tmux immediately detaches a control
+    /// client whose stdio isn't a terminal, which would orphan every live session
+    /// as "down". Only `isatty` matters here - no controlling terminal is needed -
+    /// so we hand tmux a pty slave and read the master. Commands still go out over
+    /// separate `tmux` invocations, so the master is read-only for us.
     pub fn control_attach(
         &self,
         name: &str,
@@ -309,8 +305,7 @@ impl Tmux {
     /// the characters but none of the modes the app had set - alternate screen,
     /// mouse reporting, cursor shape, bracketed paste - and nothing puts those
     /// back until the app next redraws in full. A resize is the one event every
-    /// TUI answers with exactly that. The narrow frame is on screen for one
-    /// repaint and the app reflows it away.
+    /// TUI answers with exactly that.
     pub async fn nudge_redraw(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
         if cols < 2 {
             return Ok(());

@@ -24,9 +24,8 @@ namespace SlopWorld
     /// </summary>
     public static class LandingSite
     {
-        // Green, wet, and thick with things for the plague to strip. Rainforest
-        // first; swamp is the same climate with worse footing, so it is a fallback
-        // rather than an equal.
+        // Green, wet, and thick with things for the plague to strip. Swamp is the
+        // same climate with worse footing, so it is a fallback rather than an equal.
         static readonly string[] Tropical = { "TropicalRainforest", "TropicalSwamp" };
 
         // Not tropical, still green. Some planets generate with no tropics at all.
@@ -63,8 +62,8 @@ namespace SlopWorld
         /// <summary>A random tile matching one of <paramref name="biomes"/> at
         /// <paramref name="maxHills"/> or flatter. Scans the layer once and picks
         /// among the hits rather than calling vanilla's weighted finder with a
-        /// predicate: that logs an error when it comes up empty, and coming up empty
-        /// is the normal case here for three of the four passes.</summary>
+        /// predicate: that logs an error when it comes up empty, and coming up
+        /// empty is the normal case here.</summary>
         static PlanetTile? Pick(PlanetLayer layer, string[] biomes, Hilliness maxHills)
         {
             var hits = new List<PlanetTile>();

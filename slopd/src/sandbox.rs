@@ -1,11 +1,9 @@
 use crate::config::{expand, Config, ProjectCfg, SessionCfg, SessionKind};
 
 /// A named bundle of binds and env vars, so a project can say "dbus" instead of
-/// four paths nobody remembers correctly.
-///
-/// These are data, not policy: every path is bound only if it exists, so a
-/// preset for something this host does not run costs nothing. The list is
-/// compiled in rather than configurable because a preset the daemon does not
+/// four paths nobody remembers correctly. Every path is bound only if it
+/// exists, so a preset for something this host does not run costs nothing. The
+/// list is compiled in rather than configurable: a preset the daemon does not
 /// understand is one the GUI cannot draw a checkbox for either.
 pub struct Preset {
     pub name: &'static str,
@@ -21,20 +19,19 @@ pub struct Preset {
     pub env: &'static [&'static str],
     /// Env vars set to a literal value, which `env` cannot do: it forwards what
     /// slopd was started with, and some of what a sandboxed tool needs is true
-    /// only *inside* the sandbox and so is set nowhere on the host. Applied
-    /// after the forwarded ones, because this is the preset's deliberate answer
-    /// and the environment's is an accident of how slopd was launched.
+    /// only *inside* the sandbox. Applied after the forwarded ones, so the
+    /// preset's deliberate answer beats how slopd happened to be launched.
     pub setenv: &'static [(&'static str, &'static str)],
 }
 
 /// Forwarded out of slopd's environment into every sandbox, whatever the config
-/// says, plus anything named `LC_*` - locale is a dozen names on a host whose
-/// language and formats differ, and a list of them is a list to get wrong.
+/// says, plus anything named `LC_*` - locale is a dozen names, and a list of
+/// them is a list to get wrong.
 ///
-/// The rule for what belongs here: a name that says something about *this
-/// machine* and nothing about what the sandbox can reach. Anything that names a
-/// socket, a token or a service is a preset, so that the checkbox and the
-/// variable are the same decision.
+/// What belongs here: a name that says something about *this machine* and
+/// nothing about what the sandbox can reach. Anything that names a socket, a
+/// token or a service is a preset, so the checkbox and the variable are the
+/// same decision.
 const BASE_ENV: &[&str] = &["PATH", "LANG", "USER", "LOGNAME", "SHELL"];
 
 /// What the pane's terminal is. See where it is set for why it is not inherited.
@@ -76,12 +73,11 @@ pub const PRESETS: &[Preset] = &[
         dev: &[],
         env: &["XDG_RUNTIME_DIR"],
         // systemctl talks to $XDG_RUNTIME_DIR/systemd/private first, and that
-        // socket authenticates the peer in a way that does not survive bwrap's
-        // user namespace: the handshake goes AUTHENTICATING -> CLOSED and the
-        // error is the unhelpful "Failed to connect to user scope bus via local
-        // transport". The session bus reaches the same manager and works, and
-        // this is what makes systemctl take that road - which is also why this
-        // preset is no use without `dbus`.
+        // socket's handshake does not survive bwrap's user namespace: it goes
+        // AUTHENTICATING -> CLOSED and the error is the unhelpful "Failed to
+        // connect to user scope bus via local transport". The session bus
+        // reaches the same manager, and this is what makes systemctl take that
+        // road - which is also why this preset is no use without `dbus`.
         setenv: &[("SYSTEMCTL_FORCE_BUS", "1")],
     },
     Preset {
@@ -159,11 +155,11 @@ pub const PRESETS: &[Preset] = &[
         ro: &[],
         // The directory, not the socket inside it. A bind of `agent.sock` pins
         // the inode that was there when the session was exec'd, and the desktop
-        // app unlinks and recreates it every time it restarts or relocks - so
-        // the sandbox would keep a socket file with nothing listening on the
-        // other end, which is a harder thing to read than a missing one. The
-        // signer itself is /opt/1Password/op-ssh-sign and is already inside, on
-        // the global /opt bind.
+        // app unlinks and recreates it on restart or relock - so the sandbox
+        // would keep a socket file with nothing listening on the other end,
+        // which is a harder thing to read than a missing one. The signer itself
+        // is /opt/1Password/op-ssh-sign and is already inside, on the global
+        // /opt bind.
         rw: &["~/.1password"],
         dev: &[],
         // op-ssh-sign finds the socket under $HOME rather than being told, and
@@ -224,9 +220,8 @@ pub fn preset(name: &str) -> Option<&'static Preset> {
 }
 
 /// The presets a session runs under: its project's, plus `claude` for a Claude
-/// session whether the project asked or not. That last part is the whole reason
-/// the kind is a kind rather than a command string - the agent that needs
-/// `~/.claude` is the one thing about it we can know.
+/// session whether the project asked or not - the agent that needs `~/.claude`
+/// is the one thing about it we can know.
 fn presets_for(s: &SessionCfg, p: &ProjectCfg) -> Vec<&'static Preset> {
     let mut names: Vec<&str> = p.presets.iter().map(String::as_str).collect();
     if s.kind == SessionKind::Claude && !names.contains(&"claude") {
@@ -263,10 +258,9 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
         .unwrap_or_else(|| "/root".into());
 
     // Global first, then the presets, then whatever the project spelled out, so
-    // the most specific answer for a path is the last one bwrap sees. Each list
-    // is expanded and filtered here, once: a path that does not exist is left
-    // out rather than mounted, which is what makes a preset for something this
-    // host does not run cost nothing.
+    // the most specific answer for a path is the last one bwrap sees. A path
+    // that does not exist is left out rather than mounted, which is what makes
+    // a preset for something this host does not run cost nothing.
     let ro = paths(&cfg.sandbox.ro_paths, &presets, |pr| pr.ro, &p.ro_paths);
     let rw = paths(&cfg.sandbox.rw_paths, &presets, |pr| pr.rw, &p.rw_paths);
     let dev = paths(&[], &presets, |pr| pr.dev, &[]);
@@ -275,34 +269,27 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     let mut push = |args: &[&str]| a.extend(args.iter().map(|x| x.to_string()));
 
     // --clearenv, and the environment is built back up from here rather than
-    // inherited. bwrap hands the child whatever slopd was started with unless
-    // told otherwise, which on a desktop is eighty-odd names: DISPLAY,
-    // WAYLAND_DISPLAY, SSH_AUTH_SOCK, whatever a shell exported before a
-    // hand-started slopd. None of them are capabilities on their own - the
-    // socket is what a preset binds - but a variable naming a socket that is
-    // not there is worse than its absence, because a program reads it as "this
-    // host has one" and fails at the far end of a connect() instead of taking
-    // the road it has. It also meant `env` inside a sandbox was a poor
-    // description of the sandbox, which is the thing an agent in here reads.
-    // Now a preset's `env` list is the whole of what it forwards, and the
-    // window drawing checkboxes for those presets is telling the truth.
+    // inherited. None of the inherited names is a capability on its own, but a
+    // variable naming a socket that is not there is worse than its absence: a
+    // program reads it as "this host has one" and fails at the far end of a
+    // connect() instead of taking the road it has. It also meant `env` inside
+    // a sandbox was a poor description of the sandbox, which is the thing an
+    // agent in here reads.
     push(&["--die-with-parent", "--unshare-all", "--clearenv"]);
     if p.net {
         push(&["--share-net"]);
     }
 
     // systemd-resolved / NetworkManager make /etc/resolv.conf a symlink into
-    // /run, which the sandbox never mounts. With only /etc bound the symlink
-    // dangles inside the namespace, so every lookup fails with ENOENT and the
-    // agent reports it as an API connection error. Materialise a working
+    // /run, which the sandbox never mounts; with only /etc bound the symlink
+    // dangles and every lookup fails with ENOENT. Materialise a working
     // resolv.conf at whatever path the symlink points to.
     //
     // Prefer resolved's stub listener (127.0.0.53, reachable over the shared
-    // loopback): it does the split-DNS routing - a Tailscale uplink, say - that a
-    // resolver querying the raw server list gets wrong, where an upstream answers
-    // NOTIMP and the agent then sees an ENOTIMP error. Fall back to the symlink's
-    // own target elsewhere. Only relevant with the network shared; a resolv.conf
-    // that is already a plain file under /etc needs nothing extra.
+    // loopback): it does the split-DNS routing - a Tailscale uplink, say - that
+    // a resolver querying the raw server list gets wrong, where an upstream
+    // answers NOTIMP and the agent then sees an ENOTIMP error. Fall back to the
+    // symlink's own target elsewhere. Only relevant with the network shared.
     let resolv = if p.net {
         std::fs::canonicalize("/etc/resolv.conf")
             .ok()
@@ -327,11 +314,11 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     push(&["--symlink", "usr/bin", "/sbin"]);
 
     // The skeleton goes down before any bind, because every one of these covers
-    // whatever is under it and bwrap mounts in the order it is given. /dev had
-    // its own note about that already; /tmp is the one that had been getting it
-    // wrong, and silently - the `x11` preset asks for /tmp/.X11-unix, which was
-    // bound and then buried under this tmpfs, so the preset looked applied, gave
-    // the client a DISPLAY, and left it with no socket to reach.
+    // whatever is under it and bwrap mounts in the order it is given. /tmp is
+    // the one that had been getting it wrong, and silently - the `x11` preset
+    // asks for /tmp/.X11-unix, which was bound and then buried under this
+    // tmpfs, so the preset looked applied, gave the client a DISPLAY, and left
+    // it with no socket to reach.
     push(&["--proc", "/proc"]);
     push(&["--dev", "/dev"]);
     push(&["--tmpfs", "/tmp"]);
@@ -364,16 +351,14 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     // The terminal is one slopd built - tmux, rendering into our own emulator -
     // so it is stated rather than forwarded. A daemon has no terminal to inherit
     // one from, and a slopd started by hand from a shell has that shell's, which
-    // is not the pane's either. These go first, so a name deliberately put in
-    // slopd's own environment still wins.
+    // is not the pane's either.
     push(&["--setenv", "TERM", PANE_TERM]);
     push(&["--setenv", "COLORTERM", "truecolor"]);
 
     // What any program expects to be there, and not a capability between them.
-    // These used to arrive by inheritance and now have to be asked for, and they
-    // are asked for here rather than in `pass_env` for the same reason the
-    // presets are compiled in: a config written before --clearenv existed lists
-    // none of them, and an agent with no PATH is a session that starts and dies.
+    // Asked for here rather than in `pass_env` for the same reason the presets
+    // are compiled in: a config written before --clearenv existed lists none of
+    // them, and an agent with no PATH is a session that starts and dies.
     let mut passed: Vec<String> = Vec::new();
     for (k, v) in std::env::vars() {
         if BASE_ENV.contains(&k.as_str()) || k.starts_with("LC_") {

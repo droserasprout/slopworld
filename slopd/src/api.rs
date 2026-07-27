@@ -418,9 +418,11 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
     let subs: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
     let mut events = m.events.subscribe();
 
-    // Fresh clients need the full picture before any deltas arrive. Usage rides
-    // along: the poll behind it speaks only on a change, so a mod that attaches
-    // between polls would otherwise draw nothing for a minute.
+    // Fresh clients need the full picture before any deltas arrive. Usage,
+    // projects and shortcuts ride along: they speak only on a change, so a mod
+    // that attaches between polls would otherwise draw nothing for a minute -
+    // and one attaching after the last edit would have nothing to fill the
+    // "which project" dropdown from at all.
     let hello = Event::Sessions {
         sessions: m.views().await,
     };
@@ -434,9 +436,6 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
         },
     )
     .await;
-    // Projects for the same reason: they change when a person edits one, so a
-    // client that attached afterwards would otherwise have nothing to draw the
-    // "which project" dropdown from until the next edit.
     let _ = send(
         &tx,
         &Event::Projects {
@@ -444,9 +443,6 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
         },
     )
     .await;
-    // And the shortcuts, which have the same problem: the window that runs them
-    // draws a row per entry and would otherwise have none until somebody edited
-    // one.
     let _ = send(
         &tx,
         &Event::Shortcuts {

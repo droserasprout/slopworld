@@ -2,21 +2,18 @@
 //! up.
 //!
 //! The second half exists because nothing inside a session can answer it. An
-//! agent runs in a PID namespace of its own (`--unshare-all`, and `--proc` mounts
-//! a fresh procfs over it), so `ps` and `pgrep` in there see the agent's own
-//! handful of processes and nothing else on the host - which reads exactly like
-//! an answer, and the answer it reads like is "no game is running". That is not a
-//! hole worth punching in the sandbox: sharing the PID namespace to make `pgrep`
-//! work would also hand every agent the ability to signal every process the user
-//! owns, which is a large thing to trade for a question slopd can simply answer.
-//! slopd is on the host, it already launches the game, and it is already the
+//! agent runs in a PID namespace of its own, so `ps` and `pgrep` in there see
+//! the agent's own handful of processes and nothing else on the host - which
+//! does not read as "cannot tell", it reads as "no game is running". Sharing
+//! the PID namespace would fix the symptom and hand every agent the ability to
+//! signal every process the user owns; slopd is on the host and already the
 //! thing sessions ask about everything else.
 //!
 //! So: `GET /api/game`. The question behind it is usually not "is a game
 //! running" but "is the game running the mod I just built", which is why the
 //! attached client count is in the answer - a websocket client is a game far
-//! enough up to have loaded our assembly and talk over it, which no amount of
-//! looking at the process table proves.
+//! enough up to have loaded our assembly, which no amount of looking at the
+//! process table proves.
 
 use std::process::Command;
 
@@ -30,16 +27,15 @@ const UNIT: &str = "slopworld-game.service";
 #[derive(Debug, Clone, Serialize)]
 pub struct Status {
     pub running: bool,
-    /// How we know, which is worth saying: a game slopd started is a game slopd
-    /// can name a unit and a PID for, a game started by hand is one we found by
-    /// its command line, and a client on the socket is proof of a game we could
-    /// not find either way (`daemon.game_cmd` unset, or a launcher that execs
-    /// something else).
+    /// How we know: a game slopd started has a unit and a PID, a game started by
+    /// hand is one we found by its command line, and a client on the socket is
+    /// proof of a game we could not find either way (`daemon.game_cmd` unset,
+    /// or a launcher that execs something else).
     pub source: &'static str,
     pub pid: Option<u32>,
     /// Seconds it has been up, not the instant it started - the same choice the
-    /// usage window resets make, and for the same reason: an age keeps meaning
-    /// what it meant when the reader's clock is not ours.
+    /// usage window resets make: an age keeps meaning what it meant when the
+    /// reader's clock is not ours.
     pub uptime_s: Option<u64>,
     pub unit: Option<&'static str>,
     /// What `daemon.game_cmd` says to run, so a caller getting `none` can see
@@ -122,16 +118,14 @@ fn unit_pid() -> Option<u32> {
 /// same binary by another path but would also match an editor that happens to
 /// have the name in its argv - so it is the fallback and not the test.
 ///
-/// The path is matched *anchored*, and that is not tidiness. `pgrep -f` takes a
-/// regex and tries it anywhere in a command line, and the game's own directory
-/// turns up in command lines that are not the game: every sandbox binds
+/// The path is matched *anchored*, and that is not tidiness. `pgrep -f` tries
+/// its pattern anywhere in a command line, and the game's own directory turns
+/// up in command lines that are not the game: every sandbox binds
 /// `<game>/RimWorldLinux_Data/Managed` so an agent can build the mod against the
-/// game's assemblies, so a bare `-f <path>` matches an agent - and then reports
-/// a colonist as the running game. Nothing says so until a restart, which quits
-/// the game, waits for that PID to go away, finds it still there because it was
-/// never the game, and refuses to launch: "the game is still running after being
-/// asked to quit". Bounded at both ends, only a process actually exec'd from
-/// that path can match.
+/// game's assemblies, so a bare `-f <path>` matches an agent. Nothing says so
+/// until a restart, which quits the game, waits for that PID to go away, finds
+/// it still there because it was never the game, and refuses to launch. Bounded
+/// at both ends, only a process actually exec'd from that path can match.
 fn found(exe: &str) -> Option<u32> {
     if exe.is_empty() {
         return None;
@@ -200,10 +194,8 @@ pub fn uptime_s(pid: u32) -> Option<u64> {
 pub fn launch(exe: &str, args: &[String]) -> Result<()> {
     // `game_cmd` is a path a person typed into config.toml, so it can start with
     // a ~ that nothing else here would expand: shell_split builds an argv rather
-    // than running a shell, and exec does not read tildes. Left alone it fails at
-    // the far end - "Failed to find executable ~/RimWorld/game/RimWorldLinux" -
-    // four seconds after a redeploy told the game to quit, which is a game that
-    // does not come back.
+    // than running a shell, and exec does not read tildes. Left alone it fails
+    // four seconds after a redeploy told the game to quit.
     let exe = &crate::config::expand(exe);
 
     let mut sr = Command::new("systemd-run");

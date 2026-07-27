@@ -17,9 +17,7 @@ namespace SlopWorld
     /// arrives on a map it did not start on: walking in from the edge.
     /// <c>TryFindRandomPawnEntryCell</c> is vanilla's own answer for that - it is
     /// what the wild animal spawner uses - and the validator only says what the
-    /// edge already implies, that the cell is not one the plague has reached. It is
-    /// kept because it is the sentence that is actually true: nothing here assumes
-    /// the circle is centred.
+    /// edge already implies, that the cell is not one the plague has reached.
     ///
     /// What it does not do is keep them out there. A thing that wanders into the
     /// circle is marked and comes apart, which is the plague working rather than

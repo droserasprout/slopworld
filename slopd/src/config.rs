@@ -123,10 +123,9 @@ pub struct Sandbox {
     /// Bound read-only into every sandbox, whatever the project.
     pub ro_paths: Vec<String>,
     /// Bound read-write into every sandbox, on top of the project's own dir and
-    /// whatever its presets ask for. An agent's own state dir is not here any
-    /// more: `~/.claude` rides on the `claude` preset, which a Claude session
-    /// gets whether or not its project asked, so the one bind every agent of
-    /// that kind needs is not a line somebody has to remember to type.
+    /// whatever its presets ask for. An agent's own state dir is not here:
+    /// `~/.claude` rides on the `claude` preset, which a Claude session gets
+    /// whether or not its project asked.
     pub rw_paths: Vec<String>,
     /// Env vars passed through from slopd's environment.
     pub pass_env: Vec<String>,
@@ -151,9 +150,6 @@ impl Default for Sandbox {
 }
 
 /// One place work happens: a directory plus the sandbox every agent in it gets.
-///
-/// It exists because the two things a session used to carry - where it runs and
-/// what it can reach - are properties of the *work*, not of the agent doing it.
 /// Three agents in the same repo want the same binds, and keeping that in three
 /// session entries meant it was wrong in at least one of them.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -162,8 +158,8 @@ pub struct ProjectCfg {
     pub dir: String,
     /// Named bundles of binds and env from `sandbox::PRESETS` - "dbus",
     /// "systemd", "x11" and so on. A name this build has never heard of is
-    /// ignored with a warning rather than refused, because the file outlives the
-    /// binary and a preset removed upstream must not stop a project starting.
+    /// ignored with a warning rather than refused, because the file outlives
+    /// the binary.
     #[serde(default)]
     pub presets: Vec<String>,
     /// Anything the presets do not cover, added on top of the global lists.
@@ -195,9 +191,8 @@ impl Default for ProjectCfg {
 }
 
 /// What a session runs. Claude Code is a first-class answer rather than a
-/// command string, because it is the one agent this whole thing is shaped
-/// around: knowing it is Claude is what lets the sandbox hand it its own state
-/// dir without anyone listing `~/.claude` in a project by hand.
+/// command string: knowing it is Claude is what lets the sandbox hand it its
+/// own state dir without anyone listing `~/.claude` in a project by hand.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SessionKind {
@@ -268,10 +263,8 @@ pub enum ShortcutKind {
 /// agent it lands is temporary - it is never written to this file and it goes
 /// when its process does - so what is saved here is the errand, not the agent.
 ///
-/// The template is spelled out rather than pointing at an existing session,
-/// because a shortcut that names an agent stops working the day that agent is
-/// deleted, and the thing it actually needs from it - the project - is the one
-/// field that would have been copied anyway.
+/// The template is spelled out rather than pointing at an existing session:
+/// a shortcut that names an agent stops working the day that agent is deleted.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ShortcutCfg {
     /// Free-form: it labels a button and seeds a colonist's name, and the
@@ -334,7 +327,7 @@ impl Config {
     /// is an agent inside a project. Every entry still shaped the old way gets a
     /// project of its own, and two sessions pointing at the same directory get
     /// the *same* project - which is the arrangement whoever wrote that file
-    /// meant, and the one they would have made by hand.
+    /// meant.
     ///
     /// Runs on every load, including of a file we just wrote, so it has to be
     /// idempotent: an entry that already names a project is left alone.
@@ -386,8 +379,7 @@ impl Config {
     }
 
     /// A project name nothing else has yet: the directory's own last component
-    /// first, because that is what a person would have called it, then the
-    /// session's name, then a number.
+    /// first, then the session's name, then a number.
     fn free_project_name(&self, dir: &str, session: &str) -> String {
         let base = dir
             .trim_end_matches('/')
@@ -479,8 +471,8 @@ impl Config {
     }
 
     /// The project a session belongs to. A session naming one that has gone is
-    /// an error everywhere it matters (starting it), and merely a blank
-    /// directory everywhere it does not (listing it), so the caller decides.
+    /// an error where it matters (starting it) and merely a blank directory
+    /// where it does not (listing it), so the caller decides.
     pub fn project_of(&self, s: &SessionCfg) -> Option<&ProjectCfg> {
         self.project(&s.project)
     }

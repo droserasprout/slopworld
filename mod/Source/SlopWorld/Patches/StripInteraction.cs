@@ -20,9 +20,7 @@ namespace SlopWorld
     /// Selecting it would open an inspect pane full of a sim that is not running.
     ///
     /// While the opening scene plays, not even that: nothing is selectable and the
-    /// pets are not pattable, because the map is a cutscene until the UI comes back
-    /// and a pawn that answers a click is a pawn the player is being invited to
-    /// handle.
+    /// pets are not pattable, because the map is a cutscene until the UI comes back.
     /// </summary>
     [HarmonyPatch(typeof(Selector), nameof(Selector.Select))]
     public static class Patch_Selectable_ColonistsOnly

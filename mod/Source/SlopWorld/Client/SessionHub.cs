@@ -13,9 +13,8 @@ namespace SlopWorld
     public enum AgentState { Down, Working, Waiting, Idle }
 
     /// <summary>
-    /// What a session runs. Claude Code is a kind rather than a command string
-    /// because knowing it is Claude is what lets the daemon hand it its own
-    /// state dir without anyone listing ~/.claude in a project by hand.
+    /// What a session runs. Claude Code is a kind rather than a command string:
+    /// knowing it is Claude is what lets the daemon hand it its own state dir.
     /// </summary>
     public enum AgentKind { Claude, Custom }
 
@@ -107,8 +106,7 @@ namespace SlopWorld
 
     /// <summary>
     /// A place work happens: a directory plus the sandbox every agent in it
-    /// gets. The two things a session used to carry - where it runs and what it
-    /// can reach - are properties of the work, not of the agent doing it.
+    /// gets.
     /// </summary>
     public class ProjectInfo
     {
@@ -166,9 +164,9 @@ namespace SlopWorld
     ///
     /// The agent it lands is temporary - never written to config.toml, gone the
     /// moment its process exits - so what is saved is the errand and not the
-    /// agent. Which is also why the template is spelled out here rather than
-    /// pointing at an existing one: a shortcut that named an agent would stop
-    /// working the day that agent was deleted.
+    /// agent. The template is spelled out here rather than pointing at an
+    /// existing one: a shortcut that named an agent would stop working the day
+    /// that agent was deleted.
     /// </summary>
     public class ShortcutInfo
     {
@@ -237,9 +235,8 @@ namespace SlopWorld
     /// <summary>
     /// One row of the readout as the daemon last saw it - a rate-limit window,
     /// or the extra-usage budget, which is the same shape in money. The reset is
-    /// a duration rather than an instant on purpose: the daemon has already done
-    /// the date arithmetic, and a countdown from when we heard stays honest if
-    /// the socket dies - it simply runs out and says so.
+    /// a duration rather than an instant on purpose: a countdown from when we
+    /// heard stays honest if the socket dies.
     /// </summary>
     public class UsageWindow
     {
@@ -248,8 +245,7 @@ namespace SlopWorld
         /// Percent of the window spent, 0-100. Always sent, money row included.
         public float Pct;
         /// What <see cref="Pct"/> counts: "pct" or "usd". A unit this build does
-        /// not know reads as a percentage, which is what every window but one is
-        /// and is the only thing that is always true of the number.
+        /// not know reads as a percentage, which is what every window but one is.
         public string Unit = "pct";
         /// Dollars spent, when <see cref="Unit"/> is usd; -1 when the daemon
         /// sent no figure, which leaves the row a percentage.
@@ -405,9 +401,7 @@ namespace SlopWorld
             _ws = null;
             _nextRetry = UnityEngine.Time.realtimeSinceStartup + _backoff;
             // Capped low: the usual reason the socket dies is `make install-daemon`
-            // restarting slopd, which is over in about two seconds. Half a minute
-            // of backoff after that is half a minute of a dead-looking terminal
-            // with a working agent behind it.
+            // restarting slopd, which is over in about two seconds.
             _backoff = Math.Min(_backoff * 2, 5);
         }
 

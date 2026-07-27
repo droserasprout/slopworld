@@ -38,6 +38,14 @@ namespace SlopWorld
         /// twelve textures, built the first time a cat is patted and then kept.
         const int SpinSteps = 12;
 
+        /// The click, which is the same swing with most of it taken away: one
+        /// dip and back, two frames with no transition between them. A quarter
+        /// of the pat's angle because a click is a glance rather than a fuss;
+        /// the length is just long enough for the tilt to register as a tilt
+        /// rather than as the cursor blinking.
+        const int ClickStep = 3;
+        const float ClickSeconds = 0.12f;
+
         static Texture2D _tex;
         static Vector2 _hotspot;
         /// The resting pixels, kept because every spun frame is cut from them.
@@ -50,6 +58,11 @@ namespace SlopWorld
         /// frame the pointer is actually wearing, so a still hand costs no calls.
         static float _spinUntil = -1f;
         static int _shown;
+
+        /// The same for a click. The two never run at once: a click while a pat
+        /// is going is dropped, the pat being the bigger answer, and a pat cuts
+        /// a click short rather than let the hand snap through a tilt it owns.
+        static float _clickUntil = -1f;
 
         static DeadCursor()
         {
@@ -75,7 +88,20 @@ namespace SlopWorld
         {
             if (_spinUntil >= 0f) return;
             if (_tex == null) Build();
+            _clickUntil = -1f; // the pat speaks over the click
             _spinUntil = Time.realtimeSinceStartup + SpinSeconds;
+        }
+
+        /// <summary>One dip of the hand, answering a mouse button going down -
+        /// anywhere, so it is honest about which clicks count: the pointer
+        /// cannot tell a click on dead ground from one on a portrait, and
+        /// pretending it can is how the gesture starts to mean something it
+        /// does not.</summary>
+        public static void Click()
+        {
+            if (_spinUntil >= 0f) return; // a pat is the bigger answer
+            if (_tex == null) Build();
+            _clickUntil = Time.realtimeSinceStartup + ClickSeconds;
         }
 
         /// <summary>Drives the waggle, once a frame off <c>Root.Update</c>. A
@@ -83,7 +109,14 @@ namespace SlopWorld
         /// frame and there is nowhere else to put it.</summary>
         public static void Tick()
         {
-            if (_spinUntil < 0f) return;
+            if (_spinUntil < 0f)
+            {
+                if (_clickUntil < 0f) return;
+                bool down = Time.realtimeSinceStartup < _clickUntil;
+                if (!down) _clickUntil = -1f;
+                Show(down ? ClickStep : 0);
+                return;
+            }
 
             float left = _spinUntil - Time.realtimeSinceStartup;
             if (left <= 0f)

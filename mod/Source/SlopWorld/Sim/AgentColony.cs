@@ -141,8 +141,7 @@ namespace SlopWorld
                 // a new one. The session->pawn map is saved with reference values,
                 // which RimWorld resolves in a later load phase and silently drops
                 // when they don't round-trip; without this the reconcile would spawn
-                // a duplicate next to the loaded pawn. Matching by name (each agent
-                // is a NameSingle of its session) rebuilds the map instead.
+                // a duplicate next to the loaded pawn.
                 var pawn = FindExisting(s.Name) ?? Spawn(s.Name, map);
                 if (pawn == null) continue;
                 _pawns[s.Name] = pawn;
@@ -150,12 +149,10 @@ namespace SlopWorld
                 // Only now is this pawn an agent, and the faceplate hangs off that
                 // answer: SlopFaceRenderNodes asks IsAgent while the render tree is
                 // being built, and a loaded colony builds every tree before this
-                // reconcile has run - the saved session->pawn map is references,
-                // which do not always round-trip, so the line above is often where
-                // an agent becomes one again. Without this the colony comes back
-                // with human faces and stays that way, since nothing else dirties a
-                // pawn that has not changed. It is the portrait cache too, which is
-                // what the colonist bar and the terminal strip draw from.
+                // reconcile has run. Without this the colony comes back with human
+                // faces and stays that way, since nothing else dirties a pawn that
+                // has not changed. It is the portrait cache too, which is what the
+                // colonist bar and the terminal strip draw from.
                 pawn.Drawer?.renderer?.SetAllGraphicsDirty();
             }
 

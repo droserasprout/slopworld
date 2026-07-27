@@ -345,9 +345,6 @@ namespace SlopWorld
         /// and with the colony saved on the way out and resumed on the way back
         /// in, that costs a loading screen and nothing else. The agents never
         /// notice: they are the daemon's, and the daemon is not restarting.
-        ///
-        /// slopd does the relaunch because nothing inside the game outlives its
-        /// own shutdown, and the daemon already does.
         /// </summary>
         void ConfirmRestartGame()
         {

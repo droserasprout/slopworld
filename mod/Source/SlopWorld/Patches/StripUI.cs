@@ -22,9 +22,9 @@ namespace SlopWorld
 
     /// <summary>
     /// OnGUI methods drawing colony-management chrome we always suppress. Each is
-    /// prefixed with a shared "return false" to skip its draw wholesale. A table +
-    /// manual patch instead of one attribute class apiece: the target set is just
-    /// data. Patched from the bootstrap. 1.6 names; this mod is 1.6-only.
+    /// prefixed with a shared "return false" to skip its draw wholesale; the
+    /// target set is just data, so a table + manual patch instead of one
+    /// attribute class apiece. 1.6 names; this mod is 1.6-only.
     /// </summary>
     public static class Patch_HideGui
     {
@@ -53,9 +53,10 @@ namespace SlopWorld
     /// <summary>
     /// The cell inspector - the debug-flavoured readout of terrain, things and
     /// stats for the cell under the cursor, shown while Alt is held (Alt is bound
-    /// to ShowCellInspector). It exposes colony internals a viewer has no use for.
-    /// Both the overlay draw and the Alt-hold mouseover bracket gate on
-    /// CellInspectorDrawer.ShouldShow, so forcing it false drops the whole thing.
+    /// to ShowCellInspector). It exposes colony internals a viewer has no use
+    /// for. Both the overlay draw and the
+    /// Alt-hold mouseover bracket gate on CellInspectorDrawer.ShouldShow, so
+    /// forcing it false drops the whole thing.
     /// </summary>
     [HarmonyPatch(typeof(CellInspectorDrawer), "ShouldShow")]
     public static class Patch_Hide_CellInspector
@@ -85,12 +86,11 @@ namespace SlopWorld
 
     /// <summary>
     /// The forbidden overlay - the little "allow / deny" marker drawn over
-    /// forbidden things (corpses, dropped items, the massacre's leavings). A viewer
-    /// never toggles allow / forbid, so the markers are pure clutter. In 1.6 the
-    /// overlay rides a persistent handle: CompForbiddable.UpdateOverlayHandle
-    /// enables it whenever the thing is forbidden. The method is private and only
-    /// ever called from within the comp, and the mod loads before any map ticks, so
-    /// skipping it means the handle is never enabled and no marker is ever drawn.
+    /// forbidden things. A viewer never toggles allow / forbid, so the markers
+    /// are pure clutter. In 1.6 the overlay rides a persistent handle:
+    /// CompForbiddable.UpdateOverlayHandle enables it whenever the thing is
+    /// forbidden, and the mod loads before any map ticks, so skipping it means
+    /// the handle is never enabled and no marker is ever drawn.
     /// </summary>
     [HarmonyPatch(typeof(CompForbiddable), "UpdateOverlayHandle")]
     public static class Patch_Hide_ForbiddenOverlay
@@ -119,8 +119,8 @@ namespace SlopWorld
     /// timetable and area selectors. All colony-management detail, useless for a
     /// viewer, so the fill is skipped for pawns. An agent's colonist keeps the
     /// inspect line alone - rewritten elsewhere to its directory and state, which
-    /// is the one thing worth reading here. Non-pawn selections (zones, storage,
-    /// buildings) still draw normally.
+    /// is the one thing worth reading here. Non-pawn selections still draw
+    /// normally.
     /// </summary>
     [HarmonyPatch(typeof(InspectPaneFiller), "DoPaneContentsFor")]
     public static class Patch_Hide_InspectContents
@@ -143,7 +143,7 @@ namespace SlopWorld
     /// The "select next thing in this cell" overlay button. It's drawn in
     /// InspectPaneOnGUI, separate from the pane buttons above, and gated on this
     /// getter. Only colonists are selectable now, so cycling a cell's things is
-    /// moot; force the gate false to drop the button.
+    /// moot.
     /// </summary>
     [HarmonyPatch(typeof(MainTabWindow_Inspect), "ShouldShowSelectNextInCellButton", MethodType.Getter)]
     public static class Patch_Hide_SelectNextInCell
@@ -179,13 +179,12 @@ namespace SlopWorld
     /// visible: with nothing selected, right-clicking the map or pressing Tab put
     /// the Architect menu - orders, structures, the whole build tree - in the
     /// bottom-left corner of a board that builds nothing. Two roads reach it, and
-    /// neither looks at Visible. MainButtonsRoot.MainButtonsOnGUI walks
-    /// allButtonsInOrder and fires any def whose hotKey went down, checking only
-    /// Disabled; MainTabsRoot.HandleLowPriorityShortcuts opens Architect by name
-    /// on a right-click with an empty selection. Both end at
-    /// MainButtonWorker.InterfaceTryActivate, which nothing overrides, so one
-    /// prefix there closes both - and gating it on Visible means the two rules
-    /// cannot drift apart.
+    /// neither looks at Visible. MainButtonsRoot.MainButtonsOnGUI fires any def
+    /// whose hotKey went down, checking only Disabled; MainTabsRoot
+    /// .HandleLowPriorityShortcuts opens Architect by name on a right-click with
+    /// an empty selection. Both end at MainButtonWorker.InterfaceTryActivate,
+    /// which nothing overrides, so one prefix there closes both - and gating it
+    /// on Visible means the two rules cannot drift apart.
     /// </summary>
     public static class Patch_MainButtons
     {

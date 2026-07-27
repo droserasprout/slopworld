@@ -9,9 +9,6 @@
 //!
 //! That file is read fresh on every poll and never copied anywhere: the token
 //! expires, Claude Code refreshes it behind us, and re-reading is how we follow.
-//! slopd does not do the refresh dance itself - the agents are logged in, so
-//! something else already keeps that file current, and a daemon that could mint
-//! tokens is a daemon worth stealing.
 //!
 //! Failure is a state, not an error: a snapshot carries whatever it managed to
 //! read plus the reason it got no further, and the readout says so rather than
@@ -46,10 +43,8 @@ const TIMEOUT: Duration = Duration::from_secs(20);
 
 /// What a row's number *is*, and so what the readout writes beside its icon.
 ///
-/// It rides on the wire rather than being worked out from the key, because the
-/// one thing this must never do is let a percentage and a sum of money look
-/// alike. A client that does not know a unit has a number it cannot label, and
-/// that is the honest answer.
+/// It rides on the wire rather than being worked out from the key: the one
+/// thing this must never do is let a percentage and a sum of money look alike.
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Unit {
@@ -232,12 +227,11 @@ fn fetch(creds: &Creds) -> Result<Value, PollErr> {
 
 /// `Retry-After` in seconds, clamped to something a person would sit through.
 ///
-/// The header's other form is an HTTP date, which is deliberately not parsed:
-/// it has never turned up here, and the exponential backoff behind this is a
-/// perfectly good answer for a header we cannot read. A number this cannot
-/// believe - a broken header asking for a year - is capped rather than
-/// honoured, because a daemon that stops polling until next week is one that
-/// has to be restarted by hand to come back.
+/// The header's other form is an HTTP date, deliberately not parsed: it has
+/// never turned up here, and the backoff behind this is a perfectly good answer
+/// for a header we cannot read. A number this cannot believe - a broken header
+/// asking for a year - is capped, because a daemon that stops polling until
+/// next week has to be restarted by hand.
 fn retry_after<T>(res: &ureq::http::Response<T>) -> Option<u64> {
     let raw = res.headers().get("retry-after")?.to_str().ok()?;
     Some(raw.trim().parse::<u64>().ok()?.min(6 * 3600))
@@ -253,10 +247,9 @@ fn retry_after<T>(res: &ureq::http::Response<T>) -> Option<u64> {
 /// one `five_hour` and a whole row of `seven_day*` - opus, sonnet, cowork and
 /// several that are null on any given plan - so matching the prefix takes
 /// whichever ones this account actually has and picks up the next one for free.
-/// The money comes through a door of its own (`spend`), because `extra_usage`
-/// and `spend` also carry a `utilization` and a row that silently changed from
-/// quota to dollars would be the worst kind of wrong. Through that door it
-/// arrives labelled instead: `unit` says which it is.
+/// The money comes through a door of its own (`spend`): `extra_usage` and
+/// `spend` also carry a `utilization`, and a row that silently changed from
+/// quota to dollars would be the worst kind of wrong.
 fn parse(v: &Value, plan: String) -> Snapshot {
     let mut windows = Vec::new();
 
@@ -324,9 +317,8 @@ fn parse(v: &Value, plan: String) -> Snapshot {
 /// (`limit_dollars`, `used_dollars`), so a bare integer sitting beside a
 /// percentage is cents; and where the two can be checked against each other they
 /// agree, since 20.93% of $100 is the $21 that `spend.percent` reports. A budget
-/// whose size cannot be read at all still leaves a row, without an amount: the
-/// percentage of it that is gone is true whatever it is worth, and a row with no
-/// figure to put a `$` on stays a percentage.
+/// whose size cannot be read still leaves a row, without an amount: there is no
+/// figure to put a `$` on, so it stays a percentage.
 fn spend(v: &Value) -> Option<Window> {
     let e = &v["extra_usage"];
     if e.is_null() {
@@ -509,9 +501,9 @@ const BACKOFF_CAP: u64 = 1800;
 /// How long to wait after a failed poll: the configured interval, doubled once
 /// per consecutive failure, capped - and never less than the endpoint asked for.
 ///
-/// The doubling is the point. A 429 answered by polling at exactly the rate
+/// The doubling is the point: a 429 answered by polling at exactly the rate
 /// that earned it is a daemon feeding its own rate limit, and this one polls
-/// forever; the first failure still retries at the normal interval, because one
+/// forever. The first failure still retries at the normal interval, because one
 /// dropped packet should not slow the readout down. `asked` overrides the cap
 /// rather than being clamped by it: a limit the far end named is the one number
 /// here that is not a guess.

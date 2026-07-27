@@ -40,8 +40,7 @@ namespace SlopWorld
     /// <summary>
     /// Agents are not food. Predators pick prey through FoodUtility.IsAcceptablePreyFor,
     /// which weighs a downed pawn as an easy meal - and every stopped agent is a downed
-    /// pawn lying in the open. That is the shape the boar found: nothing had gone wrong
-    /// with the pet, it was reading the colony exactly as vanilla asks it to.
+    /// pawn lying in the open.
     /// </summary>
     [HarmonyPatch(typeof(FoodUtility), nameof(FoodUtility.IsAcceptablePreyFor))]
     public static class Patch_NoPreyOnAgents
@@ -56,8 +55,7 @@ namespace SlopWorld
     /// No animal ever picks an agent as something to attack. Hunting, revenge and
     /// manhunter rage all shop for a target through AttackTargetFinder.BestAttackTarget,
     /// so folding agents into the caller's own validator takes them off the list at
-    /// source rather than nulling a choice already made - the searcher goes on to
-    /// consider whatever else is around, and finds nothing, which is the point.
+    /// source rather than nulling a choice already made.
     /// </summary>
     [HarmonyPatch(typeof(AttackTargetFinder), nameof(AttackTargetFinder.BestAttackTarget))]
     public static class Patch_NoTargetingAgents

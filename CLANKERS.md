@@ -86,17 +86,14 @@ game is in the daemon's cgroup any more.
 
 ### Projects
 
-A session is an agent *in* a project, and owns almost nothing itself: a name, a
-kind, and a command if that kind is custom. Where it runs and what it can reach
-are the project's - `[[project]]` in `config.toml`, a directory plus the sandbox
-every agent in it gets. The two things a session used to carry turned out to
-belong to the work rather than to whoever is doing it: three agents in one repo
-want the same binds, and keeping that in three session entries meant it was
-wrong in at least one of them.
+A session is an agent *in* a project: a name, a kind, and a command if the kind is
+custom. Where it runs and what it can reach are the project's - `[[project]]` in
+`config.toml`, a directory plus the sandbox every agent in it gets. Three agents
+in one repo want the same binds, and keeping that in three session entries meant
+it was wrong in at least one of them.
 
 `kind` is `claude` or `custom`. Claude is a kind rather than a command string
-because knowing it is Claude is the one thing that lets the sandbox hand it
-`~/.claude` without anyone listing that path in a project by hand -
+because knowing it is Claude is what lets the sandbox hand it `~/.claude`:
 `presets_for` adds the `claude` preset to a Claude session whether its project
 asked or not, and `[defaults] agent` is what such a session runs. A custom one
 runs its own `command`, and that is the only case where the field is read.
@@ -106,80 +103,64 @@ dev binds and env vars - `dbus`, `systemd`, `x11`, `wayland`, `gpu`, `audio`,
 `docker`, `podman`, `ssh`, `1password`, `git`, `rust`, `node`, `python`. Compiled
 in rather than configurable, because a preset the daemon does not understand is
 one the GUI cannot draw a checkbox for either; `GET /api/presets` is how the mod
-learns what this build knows, so the window never has to be kept in step by hand.
-Every bind is skipped unless the path is there, so a preset for something this
-host does not run costs nothing - which is also what makes `expand` handling
-`$VAR` safe: an unset `WAYLAND_DISPLAY` leaves a path that cannot exist and so
-drops that bind, rather than mounting `$XDG_RUNTIME_DIR/` whole. Order is
-global, then presets, then what the project spelled out, deduplicated, so the
-most specific answer for a path is the last one bwrap sees. The rw list is
-emitted after the ro list, so a path in both - `~/.local/bin` global-ro and
-project-rw, which is what lets an agent `make install-daemon` - ends up
-writable rather than refused.
+learns what this build knows. Every bind is skipped unless the path is there -
+which is also what makes `expand` handling `$VAR` safe: an unset
+`WAYLAND_DISPLAY` leaves a path that cannot exist and so drops that bind, rather
+than mounting `$XDG_RUNTIME_DIR/` whole. Order is global, then presets, then what
+the project spelled out, deduplicated, and the rw list goes after the ro list,
+so a path in both - `~/.local/bin` global-ro and project-rw, which is what lets
+an agent `make install-daemon` - ends up writable.
 
 Every bind goes down *after* the skeleton, because bwrap mounts in the order it
 is given and `--proc`, `--dev` and `--tmpfs /tmp` each cover whatever was
-underneath. The device note was always there; `/tmp` is the one that was wrong,
-and wrong in the way that costs an afternoon: `x11` binds `/tmp/.X11-unix`, the
+underneath. `/tmp` is the one that was wrong: `x11` binds `/tmp/.X11-unix`, the
 tmpfs then buried it, and the preset went on forwarding `DISPLAY` - so the
 sandbox told every client in it that this host had an X server and gave it
-nothing to connect to. Nothing failed at the point of the mistake. The one
-exception kept its order deliberately: the `resolv.conf` bind is emitted last of
-the read-only ones, because its target can sit under a path a preset also binds
-(the stub is in `/run/systemd/resolve`, and `systemd` binds `/run/systemd`) and
-the file has to be the thing on top.
+nothing to connect to. The one exception kept its order deliberately: the
+`resolv.conf` bind is emitted last of the read-only ones, because its target can
+sit under a path a preset also binds (the stub is in `/run/systemd/resolve`, and
+`systemd` binds `/run/systemd`) and the file has to be the thing on top.
 
-A socket is bound by its directory wherever whoever owns it will recreate it.
-A bind of the socket file pins the inode that was there when the session was
+A socket is bound by its directory wherever whoever owns it will recreate it. A
+bind of the socket file pins the inode that was there when the session was
 exec'd, so an app that unlinks and recreates its socket - `1password` on unlock,
 and anything else that relocks or restarts - leaves the sandbox holding a socket
 with nothing listening on it, which reads as a running agent refusing the
-connection rather than as a missing bind. `dbus` and `wayland` name their sockets
-directly because those are made once by something that outlives every session.
+connection. `dbus` and `wayland` name their sockets directly because those are
+made once by something that outlives every session.
 
 A preset carries two kinds of env. `env` *forwards* names out of slopd's own
 environment, which is all a display or an auth socket ever needs. `setenv` sets
-a literal value, for the things that are true only inside the sandbox and so
-are set nowhere on the host: `systemd` uses it for `SYSTEMCTL_FORCE_BUS=1`,
-because `systemctl --user` reaches for `$XDG_RUNTIME_DIR/systemd/private`
-first and that socket's handshake does not survive bwrap's user namespace -
-it goes `AUTHENTICATING -> CLOSED` and blames "local transport". The session
-bus reaches the same manager, which is why `systemd` is no use without `dbus`.
-Literals are applied after the forwarded names so the preset's deliberate
-answer beats whatever slopd happened to be launched with.
+a literal value, for things that are true only inside the sandbox: `systemd`
+uses it for `SYSTEMCTL_FORCE_BUS=1`, because `systemctl --user` reaches for
+`$XDG_RUNTIME_DIR/systemd/private` first and that socket's handshake does not
+survive bwrap's user namespace. The session bus reaches the same manager, which
+is why `systemd` is no use without `dbus`. Literals are applied after forwarded
+names so the preset's deliberate answer beats whatever slopd was launched with.
 
 The environment is *built*, not inherited: bwrap gets `--clearenv` and everything
-in the sandbox is something that asked to be there. Without it a session got
-whatever slopd was started with, which on a desktop is eighty-odd names -
-`DISPLAY`, `WAYLAND_DISPLAY`, `SSH_AUTH_SOCK` and anything a shell exported
-before a hand-started daemon. None of those are capabilities on their own, the
-socket is, but a name that says a socket exists is worse than its absence: a
-program reads it as "this host has one" and fails at the far end of a `connect()`
-instead of taking the road it does have. It also made `env` a poor description of
-the sandbox, which is a thing an agent in here actually reads. `BASE_ENV` is what
-survives regardless - `PATH`, `LANG`, `USER`, `LOGNAME`, `SHELL` and anything
-`LC_*` - compiled in for the same reason the presets are: a `config.toml` written
-before this existed lists none of them, and an agent with no `PATH` is a session
-that starts and dies. `TERM` and `COLORTERM` are *stated* rather than forwarded,
-because the terminal is one slopd built - tmux, into our own emulator - and slopd
-has no terminal of its own to inherit one from, while a slopd started by hand
-from a shell has that shell's, which is not the pane's either.
+in the sandbox is something that asked to be there. A name that says a socket
+exists is worse than its absence: a program reads it as "this host has one" and
+fails at the far end of a `connect()` instead of taking the road it does have.
+`BASE_ENV` is what survives regardless - `PATH`, `LANG`, `USER`, `LOGNAME`,
+`SHELL` and anything `LC_*` - compiled in because a `config.toml` written before
+this existed lists none of them, and an agent with no `PATH` is a session that
+starts and dies. `TERM` and `COLORTERM` are *stated* rather than forwarded: the
+terminal is one slopd built - tmux, into our own emulator - and slopd has no
+terminal of its own to inherit one from.
 
 Two rules on the way in. A session must name a project that exists
 (`check_belongs`), enforced on add and update rather than at start, so the
 dialog that made the mistake is what says so. And a project with agents in it
-refuses to be deleted, listing them - deleting them with it is throwing away
-agents to tidy a list. A rename carries its sessions over in the same write,
-because a session left pointing at a project that no longer exists is one that
-will not start and nothing in the GUI would have said why.
+refuses to be deleted, listing them. A rename carries its sessions over in the
+same write, because a session left pointing at a project that no longer exists
+is one that will not start and nothing in the GUI would have said why.
 
-A file written before any of this loads and comes out the other side migrated:
 `Config::migrate` gives every session that still carries a `dir` a project of
 its own, sessions sharing a directory share one, and an `agent` that was
 written out becomes a custom command. It runs on every load including of a file
 it wrote itself, so it is idempotent, and the legacy fields are
-`skip_serializing_if` so they leave the file on the next write rather than
-lingering as nulls.
+`skip_serializing_if` so they leave the file on the next write.
 
 ### Shortcuts
 
@@ -189,27 +170,25 @@ for an agent, or a command for a shell inside that project's sandbox - and the
 `command` field overrides what runs, so one errand can be handed to codex or to
 fish without moving anybody's default. Empty means `[defaults] agent` or the new
 `[defaults] shell`, which is where "which shell does this machine have" lives for
-the same reason `agent` is there: an answer about the host, not about the errand,
-and repeating it in five entries is getting it wrong in one.
+the same reason `agent` is there: an answer about the host, not about the errand.
 
 `Config::session_for` is the template made real, and the one thing in it worth
 knowing is that a prompt shortcut with no command comes out a *Claude* session
 rather than a custom one running the same string. The kind is what hands the
 sandbox `~/.claude` (see `presets_for`), so spelling the command out there would
-land an agent without its own state dir - the failure being an agent that starts
-fine and has never heard of you.
+land an agent without its own state dir - an agent that starts fine and has
+never heard of you.
 
 The agent it lands is *ephemeral*: `Live.ephemeral`, present in the live table
-and in nothing else. It is never written to `config.toml`, which is what the
-whole feature is about - a standing agent is somebody you keep talking to, and an
-errand is a body that turns up, does the thing and goes. So it has no `Down`
-state to fall into: `mark_down` sees the flag and `forget`s the entry instead,
-the session list goes out without it, and the mod's reconcile retires the
-colonist rather than laying it on the floor. `stop` has to do the same by hand,
-because killing tmux from there aborts the control reader before it can notice -
-that road is the only one to a dead session that does not go through
-`run_control`. `remove` on one writes no config at all: there is no entry to
-delete, and a file rewritten to say nothing is a file rewritten for nothing.
+and in nothing else. It is never written to `config.toml` - a standing agent is
+somebody you keep talking to, and an errand is a body that turns up, does the
+thing and goes. So it has no `Down` state to fall into: `mark_down` sees the
+flag and `forget`s the entry instead, the session list goes out without it, and
+the mod's reconcile retires the colonist rather than laying it on the floor.
+`stop` has to do the same by hand, because killing tmux from there aborts the
+control reader before it can notice. `remove` on one writes no config at all:
+there is no entry to delete, and a file rewritten to say nothing is a file
+rewritten for nothing.
 
 Two things follow from the entry being the only record. `Manager::session_cfg`
 reads a session from config *or* the live table, because `start` has nothing in
@@ -218,10 +197,9 @@ something `check_name` accepts, `free_name` numbers it if that is taken, and bot
 matter because the name is a tmux target and a colonist at once.
 
 `POST /api/shortcuts/NAME/run` starts the session, answers with its name and
-leaves the typing to a task behind it. That split is not tidiness: the mod's HTTP
-client gives up after five seconds and an agent is tens of seconds from being
-ready for input, so a call that waited would report a failure at every successful
-errand. The name is answered so the caller can open a terminal on it.
+leaves the typing to a task behind it. The mod's HTTP client gives up after five
+seconds and an agent is tens of seconds from being ready for input, so a call
+that waited would report a failure at every successful errand.
 
 `deliver` waits, then pastes, then sends Enter as a separate keypress after a
 beat. Two writes because an agent's input box takes a pasted newline as a newline
@@ -237,15 +215,13 @@ never been trusted in answers with a prompt of its own, and an errand run into
 that one answers it. The colonist reads Waiting either way, which is the tell.
 
 Anything running under our socket that config knows nothing about is `adopt`ed as
-one of these. Every one of them used to be logged as an orphan and left
-invisible, which was the wrong answer twice over: a shortcut's agent is not in
-config *by design*, so a redeploy mid-errand would have stranded a live process
-with no colonist, no terminal and no way to close it; and a session somebody
-started by hand under `tmux -L slopworld` is, by this thing's own account, a
-colonist - there is nothing else it could be. An adopted one carries no project,
-which is honest rather than lossy: we cannot know what it was started with, so it
-lists with a blank directory and refuses to restart, while watching it, typing at
-it and killing it all work.
+one of these. It used to be logged as an orphan and left invisible, which was
+wrong twice over: a shortcut's agent is not in config *by design*, so a redeploy
+mid-errand would have stranded a live process with no colonist and no way to
+close it; and a session somebody started by hand under `tmux -L slopworld` is,
+by this thing's own account, a colonist. An adopted one carries no project: we
+cannot know what it was started with, so it lists with a blank directory and
+refuses to restart, while watching it, typing at it and killing it all work.
 
 ### Session state
 
@@ -281,25 +257,20 @@ down, because it looked like it worked for months. `tmux start-server`
 daemonises: the process `systemd-run --scope` put in the scope forked the server
 and exited, systemd saw the scope's own process gone and tore the scope down -
 killing the fork with it, same cgroup. The next tmux command found no server,
-forked its own, and *that* one - the server every agent then ran under - was back
-in `slopd.service`. Nothing said so: `systemd-run` had exited zero and the log
-line believed it, so the journal claimed a scope that `systemctl --user` could
-not find seconds later, while `systemctl status slopd` listed the tmux server
-right there in the cgroup. `Type=forking` is the shape that fits a program which
-daemonises - systemd waits for the parent to exit and adopts what is left in the
-cgroup - and `ensure_server` now checks the socket afterwards rather than
-trusting an exit code, so the log says what happened instead of what was tried.
+forked its own, and *that* one was back in `slopd.service`. Nothing said so:
+`systemd-run` had exited zero, so the journal claimed a scope that
+`systemctl --user` could not find seconds later, while `systemctl status slopd`
+listed the tmux server right there in the cgroup. `Type=forking` is the shape
+that fits a program which daemonises - systemd waits for the parent to exit and
+adopts what is left in the cgroup - and `ensure_server` now checks the socket
+afterwards rather than trusting an exit code, so the log says what happened
+instead of what was tried.
 
-`KillMode=process` in `slopd.service` is the other half, and it is what makes
-this survivable rather than merely correct: any tmux command slopd runs forks a
-server if none is up, so there will always be a way for one to land in the
-daemon's own cgroup. With the default `control-group`, stopping the unit takes
-that server and every agent with it; with `process`, systemd signals slopd and
-leaves the rest ("Unit process N (tmux: server) remains running after unit
-stopped", followed by a grumble about a left-over process on the next start,
-which is this working as intended). It is also the migration path: reloading the
-unit *before* the restart is what lets the running agents survive the very
-redeploy that installs the fix, which is why `install-daemon` does
+`KillMode=process` in `slopd.service` is the other half: with the default
+`control-group`, stopping the unit takes any tmux server that landed in the
+daemon's cgroup and every agent with it. It is also the migration path:
+reloading the unit *before* the restart is what lets the running agents survive
+the very redeploy that installs the fix, which is why `install-daemon` does
 `daemon-reload` before `restart`.
 
 Hosts with no systemd fall back to starting things inline and pay the old price.
@@ -340,19 +311,17 @@ empties itself on one dropped packet is worse than a stale one that says so.
 
 A failure also slows the next poll down. `backoff` doubles the configured
 interval per consecutive failure, capped at half an hour, and any poll that
-comes back with numbers puts it straight back - the first failure still retries
-at the normal rate, because one dropped packet should not cost the readout a
-minute. The case this exists for is 429: polling at exactly the rate that earned
-a rate limit is a daemon feeding its own, and this one polls forever. So the
-response is read rather than raised as an error (`http_status_as_error(false)`,
-since ureq's `StatusCode` error has already dropped the response) and
-`Retry-After` is carried out of it on `PollErr` - it beats both the doubling and
-the cap, being the one number here that is not a guess, though it can never make
-the poll *faster* than asked. A 429 that names no wait gets `RATE_LIMIT_FLOOR`
-instead, and an absurd one is clamped, because a daemon that stops polling until
-next week has to be restarted by hand. The wait then goes into the error string
-as well as the log, because the mod draws that string and "429" on its own reads
-as something that has hung.
+comes back with numbers puts it straight back. The case this exists for is 429:
+polling at exactly the rate that earned a rate limit is a daemon feeding its
+own, and this one polls forever. So the response is read rather than raised as
+an error (`http_status_as_error(false)`, since ureq's `StatusCode` error has
+already dropped the response) and `Retry-After` is carried out of it on
+`PollErr` - it beats both the doubling and the cap, being the one number here
+that is not a guess, though it can never make the poll *faster* than asked. A
+429 that names no wait gets `RATE_LIMIT_FLOOR` instead, and an absurd one is
+clamped, because a daemon that stops polling until next week has to be restarted
+by hand. The wait goes into the error string as well as the log, because the mod
+draws that string and "429" on its own reads as something that has hung.
 
 What the payload holds, as of the last look: `five_hour` and a row of
 `seven_day*` - the plain weekly plus `_opus`, `_sonnet`, `_cowork` and several
@@ -398,9 +367,7 @@ sandbox's own handful of processes and nothing else on the host - which does not
 read as "cannot tell", it reads as "no game is running", and the agent working on
 this repo believed it. Sharing the PID namespace would fix the symptom and hand
 every agent the ability to signal every process the user owns, which is a great
-deal to trade for a question the daemon can simply answer: slopd is on the host,
-it already launches the game, and it is already what a session asks about
-everything else.
+deal to trade for a question the daemon can simply answer.
 
 So `GET /api/game`, and `source` says how it knows. `unit` is the game slopd
 started, found through `slopworld-game.service`; `process` is one started by
@@ -414,13 +381,13 @@ game's assemblies - so an unanchored match found an agent and called it the
 game. Nothing said so until a restart, which quits the game, waits for that PID
 to go away, finds it still there because it was never the game, and refuses to
 launch a second copy. The board stayed down and the log blamed the game for not
-quitting. `client` is neither: no
-process found, but something is holding `/ws` open, which is a game up far enough
-to have loaded the mod and talked to us. That last one is usually the question
-being asked anyway - not "is a game running" but "is it running the build I just
-installed" - so the count and the age of the oldest client are in the answer, and
-a client younger than the DLL on disk is the new one. Uptimes go over as seconds
-rather than instants, the same as the usage resets and for the same reason.
+quitting. `client` is neither: no process found, but something is holding `/ws`
+open, which is a game up far enough to have loaded the mod and talked to us.
+That last one is usually the question being asked anyway - not "is a game
+running" but "is it running the build I just installed" - so the count and the
+age of the oldest client are in the answer, and a client younger than the DLL on
+disk is the new one. Uptimes go over as seconds rather than instants, the same
+as the usage resets and for the same reason.
 
 Restarting it is a handshake rather than a command, because the two halves each
 hold something the other needs: only the game can save a colony, and only the
@@ -461,18 +428,17 @@ subscribed sessions only, `{"t":"usage",...}` when the quota picture changes,
 because a client attaching between polls would otherwise draw nothing for a
 minute, one attaching after the last edit would have nothing to fill the "which
 project" dropdown from at all, and the window that runs errands draws a row per
-entry. And `{"t":"quit"}`, the one
-event that asks for something rather than reporting it: save and go, the daemon
-is about to start you again. Client messages: `sub`,
-`unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste`. Everything that rewrites
-`config.toml` goes over HTTP instead, because the error body matters -
-`/api/sessions`, `/api/projects`, `/api/shortcuts` and `/api/config` all in the
-same shape, plus `POST /api/shortcuts/NAME/run`, which is the one call here that
-does something rather than storing it and so answers with the name of the agent
-it started;
-`GET /api/usage`, `GET /api/presets` and `GET /api/game` are there for anything
-that would rather ask than listen. The last of those has no socket half at all:
-its reader is a shell in a sandbox, and the mod is the thing being asked about.
+entry. And `{"t":"quit"}`, the one event that asks for something rather than
+reporting it: save and go, the daemon is about to start you again.
+Client messages: `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste`.
+Everything that rewrites `config.toml` goes over HTTP instead, because the error
+body matters - `/api/sessions`, `/api/projects`, `/api/shortcuts` and
+`/api/config` all in the same shape, plus `POST /api/shortcuts/NAME/run`, which
+is the one call here that does something rather than storing it and so answers
+with the name of the agent it started; `GET /api/usage`, `GET /api/presets` and
+`GET /api/game` are there for anything that would rather ask than listen. The
+last of those has no socket half at all: its reader is a shell in a sandbox, and
+the mod is the thing being asked about.
 
 ## Mod
 
@@ -495,19 +461,17 @@ none of these need a def.
 
 - `AgentColony` - reconciles sessions to colonists once a second: spawns, retires,
   renames, and postures each pawn to its agent's state. Down is the only posture
-  it imposes now. Idle was sleep on the spot first, which read as the wrong
-  thing - a colonist flat on the floor is what a stopped process already looks
-  like, and the two lay in the same heap - and then a forced wait job of our own
-  (`SlopClaudwatch`, a `JobDef` with `casualInterruptible` false and a report
-  string the inspect pane read back), which was worse in a quieter way: it pinned
-  the pawn to one tile for as long as the terminal stayed quiet, and hung a
-  made-up word on it. An idle agent is now left to the think tree, so it wanders,
-  sky-gazes and does whatever else a colonist with nothing on does. That the
-  daemon says idle is carried where a state belongs - the clock in the colonist
-  bar and the line in the inspect pane - rather than by taking the body over. A
-  save written while the job existed comes back with an unresolvable job def and
-  nothing here migrates it, the same answer `SlopRobotHead` got: the pawn drops
-  the job, and "New colony" is the fix for a colony the defs moved under.
+  it imposes now. Idle was sleep on the spot first - a colonist flat on the
+  floor is what a stopped process already looks like, and the two lay in the
+  same heap - and then a forced wait job of our own (`SlopClaudwatch`), which
+  pinned the pawn to one tile for as long as the terminal stayed quiet and hung
+  a made-up word on it. An idle agent is now left to the think tree, so it
+  wanders and sky-gazes, and the daemon's word is carried where a state
+  belongs - the clock in the colonist bar and the line in the inspect pane -
+  rather than by taking the body over. A save written while the job existed
+  comes back with an unresolvable job def and nothing here migrates it, the same
+  answer `SlopRobotHead` got: the pawn drops the job, and "New colony" is the
+  fix for a colony the defs moved under.
   Moving *into* idle rings
   `TinyBell`, vanilla's new-alert chime, which nothing else plays now the alerts
   are stripped; a state we are seeing for the first time is not a move, so a
@@ -519,13 +483,10 @@ none of these need a def.
   Taking a pawn into the table dirties its graphics, and that is the faceplate
   rather than tidiness: `SlopFaceRenderNodes` asks `IsAgent` while a render tree
   is being built, and a loaded colony builds every tree before this reconcile has
-  run - the saved session->pawn map is references, which do not always round-trip,
-  so `FindExisting` adopting a loaded pawn is usually the moment it becomes an
-  agent again. Nothing else dirties a pawn that has not otherwise changed, so
-  without it a loaded colony came back with human faces and stayed that way until
-  "New colony" built its pawns from scratch. `SetAllGraphicsDirty` is also what
-  clears the portrait cache, which is what the colonist bar and the terminal's
-  strip draw from - the two places the face is read at a glance.
+  run. Without it a loaded colony came back with human faces and stayed that way
+  until "New colony" built its pawns from scratch. `SetAllGraphicsDirty` is also
+  what clears the portrait cache, which is what the colonist bar and the
+  terminal's strip draw from - the two places the face is read at a glance.
 - `TimeKeeper` - unpauses the game. With the time controls stripped there is no way
   for the player to start the clock again, so a pause would be forever.
 - `RealClock` - maps ticks to the wall clock, and banks the stretches the clock did
@@ -559,16 +520,14 @@ none of these need a def.
   next one a hidden UI.
   There is no welcome dialog in front of any of it. The first beat used to be
   Crashlanded's own `ScenPart_GameStartDialog` with words of ours prefixed into
-  its private `text` field, and a `Welcome` phase that waited for the box to go;
-  both are gone, and skipping it is one line - the part is in `SlopScenario`'s
-  `Dropped` table now, next to the ones that hand a thing over, because a
-  scenario that never had the part beats a `PostGameStart` patched into
-  returning early. What it said in prose the next twenty seconds say by dropping
-  a core on the party that landed, and it said it over an empty hillside with the
-  clock stopped. That pause is the one thing the box was carrying: a new game
-  starts paused, closing the dialog was what let the clock go, and the tick-driven
-  beats need it running - `TimeKeeper` is what starts it now, on the first frame
-  nothing is forcing a pause, which is what it was already for.
+  its private `text` field; both are gone, and skipping it is one line - the part
+  is in `SlopScenario`'s `Dropped` table now, because a scenario that never had
+  the part beats a `PostGameStart` patched into returning early. What it said in
+  prose the next twenty seconds say by dropping a core on the party that landed,
+  and it said it over an empty hillside with the clock stopped. That pause is
+  the one thing the box was carrying: a new game starts paused, closing the
+  dialog was what let the clock go, and the tick-driven beats need it running -
+  `TimeKeeper` is what starts it now.
   The plague stops rather than swallowing the map, and it stops without an edge.
   `FullFrac` and `EdgeFrac` are radii as fractions of the map's side: inside the
   first it is certain, and from there it falls off linearly to nothing at the
@@ -608,12 +567,12 @@ none of these need a def.
   `WildPlantSpawner.CheckSpawnWildPlantAt`, which every wild plant on a map
   arrives through. The sweep alone loses that race - the spawner refills behind
   it, so the finished core would spend the rest of the colony's life growing
-  grass and having it torn out again, permanently hazed over ground that is
-  supposed to be done. It is gated on `Band.Full` and not on `Reaches`, because
-  the weak band has to keep growing the plants it is only holding back and a
-  cell the dither spared is untouched ground; `Grit` being stable is what makes
-  a cell either sterile forever or fertile forever rather than flickering.
-  The one exception to all of it is wherever the cat is standing; see `Aura`.
+  grass and having it torn out again. It is gated on `Band.Full` and not on
+  `Reaches`, because the weak band has to keep growing the plants it is only
+  holding back and a cell the dither spared is untouched ground; `Grit` being
+  stable is what makes a cell either sterile forever or fertile forever rather
+  than flickering. The one exception to all of it is wherever the cat is
+  standing; see `Aura`.
 - `Outskirts` - the other side of that: the rim has to stay alive or the map is
   one flat texture again, and the intro's hillside is a fixed stock the circle
   eats through. So animals and people keep arriving, walking in off the map edge
@@ -632,17 +591,17 @@ none of these need a def.
   `Plague.Infectable` spares the whole player faction. A litter of assorted
   biome-appropriate animals read as a starting scenario, which is what this map is
   not; one cat in the ash reads as a survivor. It arrives in a pod of its own
-  rather than being placed, because the rest of the party comes out of the sky
-  and an animal already standing there when the camera arrives belongs to the
-  map instead of to them; its `PodOpenDelay` is shorter than vanilla's because
-  the intro is waiting on it. Placing the cat is only half of it:
-  Crashlanded ships a `ScenPart_StartingAnimal` that hands over one random tame
-  animal weighted by biome, and since `LandingSite` aims at tropical rainforest
-  what it kept handing over was a monkey. `SlopScenario` shuts that door - the
-  part is not in the scenario at all any more - and `Place` culls any colony
-  animal already on the map before spawning, which closes the rest and makes it
-  idempotent (`IntroDirector._armed` is runtime state under a persisted phase, so a save
-  loaded while the party is landing comes back through it). The API stays plural - `On`
+  rather than being placed, because an animal already standing there when the
+  camera arrives belongs to the map instead of to them; its `PodOpenDelay` is
+  shorter than vanilla's because the intro is waiting on it. Placing the cat is
+  only half of it: Crashlanded ships a `ScenPart_StartingAnimal` that hands over
+  one random tame animal weighted by biome, and since `LandingSite` aims at
+  tropical rainforest what it kept handing over was a monkey. `SlopScenario`
+  shuts that door - the part is not in the scenario at all any more - and
+  `Place` culls any colony animal already on the map before spawning, which
+  closes the rest and makes it idempotent (`IntroDirector._armed` is runtime
+  state under a persisted phase, so a save loaded while the party is landing
+  comes back through it). The API stays plural - `On`
   returns a list, and the purge and the plague both iterate it - so the count is a
   policy in `Place` rather than an assumption in three other files. Clicking it
   plays its species' call sound rather than selecting it - `Selector.Select` still refuses
@@ -729,13 +688,12 @@ none of these need a def.
   robot head this replaced, which read as a different species.
   *From the hairline down, clipped to the skull* is the load-bearing part, and it
   is the second try. The first drew a rounded square inset from the head on every
-  side and it read as a mask held up to the face - for three reasons, none of
-  them the colour. The plate carried its own closed outline, which is the
-  strongest cue there is that one thing sits on another; it was framed by an even
-  rim of skin, the way a picture sits in a mount, where nothing on a face has a
-  uniform border; and its corners pushed into a round silhouette, so the eye read
-  two shapes before it read a face. Opening the outline and casting a shadow onto
-  the skin was tried and barely helped, which is how we know the framing and the
+  side and it read as a mask held up to the face: the plate carried its own
+  closed outline, the strongest cue there is that one thing sits on another; it
+  was framed by an even rim of skin, where nothing on a face has a uniform
+  border; and its corners pushed into a round silhouette, so the eye read two
+  shapes before it read a face. Opening the outline and casting a shadow onto the
+  skin was tried and barely helped, which is how we know the framing and the
   shape were doing the damage. Now the metal runs out to the head's own outline -
   `SKIN_INSET` short of it, because that outline is part of the head's silhouette
   and has to stay the head's - and the only dark line is the seam along the cut.
@@ -833,8 +791,7 @@ none of these need a def.
 - `RealTimePatches` - every duration the game prints, in real time.
 - `LoadingScreen` - the loading screen, which is the tips and nothing else now.
   The tips were advice for the colony sim that is not running here. A patch and
-  not a `TipSetDef` of
-  our own because
+  not a `TipSetDef` of our own because
   `GameplayTipWindow` pools *every* tip set in the database, so a def adds five
   lines to several hundred instead of replacing them; clearing the vanilla sets
   would be a PatchOperation per DLC and would still lose the race, since the pool
