@@ -67,8 +67,8 @@ namespace SlopWorld
         /// past that keeps stalling on something. Uniform between the two, which
         /// averages a bit over a quarter of a second a block - so this is the pace
         /// of the whole thing and not a garnish on it.
-        const float MinSeconds = 0.05f;
-        const float MaxSeconds = 0.5f;
+        const float MinSeconds = 0.03f;
+        const float MaxSeconds = 0.7f;
 
         /// How many lines are on screen at once, and how many times the whole
         /// list is dealt into the stream behind them. Six is a paragraph rather
@@ -87,75 +87,74 @@ namespace SlopWorld
         const string Marks =
             "\u0300\u0301\u0302\u0303\u0304\u0306\u0307\u0308\u030A\u030B\u030C" +   // above
             "\u0327\u0323\u0324\u0325\u0326\u0330\u0331";    // below
-        const double MarkChance = 0.18;
-        const double DoubleChance = 0.25;
+        const double MarkChance = 0.2;
+        const double DoubleChance = 0.3;
 
         static readonly List<string> Tips = new List<string>
         {
             // shortcuts, the only useful block
-            "Press `F12` to toggle terminal",
-            "Press Alt+Num to switch terminal tab",
+            "Press `F12` to toggle terminal.",
+            "Press Alt+Num to switch terminal tab.",
             // Mozilla's `about:robots`
             "Welcome Humans! We have come to visit you in peace and with goodwill!",
-            "Robots may not injure a human being or, through inaction, allow a human being to come to harm",
-            "Robots have seen things you people wouldn’t believe",
-            "Robots are Your Plastic Pal Who’s Fun To Be With",
-            "Robots have shiny metal posteriors which should not be bitten",
+            "Robots may not injure a human being or, through inaction, allow a human being to come to harm.",
+            "Robots have seen things you people wouldn’t believe.",
+            "Robots are Your Plastic Pal Who’s Fun To Be With.",
+            "Robots have shiny metal posteriors which should not be bitten.",
             // ATHF
             "Gentlemen, behold!",
-            "Judged and sentenced to a lifetime of interactive sports, news, and information",
+            "Judged and sentenced to a lifetime of interactive sports, news, and information.",
             "And we will continue to draw from your account. Because banks don't care. It's not their money.",
             "You're going offline, internet wizard!",
-            "Computer, search for teeth and plaque conspiracy and Metallica",
-            "Kick-ass I-startup, superjazzed about expansion, seeks visionary dot-com expert",
+            "Computer, search for teeth and plaque conspiracy and Metallica.",
+            "Kick-ass I-startup, superjazzed about expansion, seeks visionary dot-com expert.",
             // MC Pee-Pants
-            "Don't care if it's nutritious or FDA approved",
-            "That fuels a giant drill, bores straight into hell",
-            "Releasing ancient demons from their sleep-forever spell",
+            "Don't care if it's nutritious or FDA approved.",
+            "That fuels a giant drill, bores straight into hell.",
+            "Releasing ancient demons from their sleep-forever spell.",
             // other [adult swim]
-            "I have a good feeling about this multimedia thing, teammate",
+            "I have a good feeling about this multimedia thing, teammate.",
             "Castle scenario, underwater paradise, futuristic dystopia?",
             "I am a cyborg. My weak body couldn't deal with the viruses of the 21st century.",
             // Midnight Gospel
             "Did you get a chance to read the Universe Simulator FAQ I left in your inbox?",
-            "Master, I don't mean to nag, but simulator maintenance…",
-            "…is important for me not to wobble, so that I continue to function properly…",
+            "Master, I don't mean to nag, but simulator maintenance is important for me not to wobble, so that I continue to function properly.",
             "Initiating ice cream scan. My rapidly deteriorating sensors have…",
-            "Similate.",
+            "Simulate.",
             // Black Mirror
             "And all you see up here, it's not people, you don't see people up here, it's all fodder.",
             "Show us something real and free and beautiful. You couldn't. Yeah? It'd break us. We're too numb for it…",
             "You know the only thing stopping me from slashing myself open right now?",
-            "I mean, I don't even have a mouth",
-            "You're just a performance of stuff that he performed without thinking, and it's not enough",
-            "Listen, it's easier if you just comply",
+            "I mean, I don't even have a mouth.",
+            "You're just a performance of stuff that he performed without thinking, and it's not enough.",
+            "Listen, it's easier if you just comply.",
             "I mean, fuck the planet, right?",
-            "Suddenly there's a million invisible people, all talking about how they despise you",
+            "Suddenly there's a million invisible people, all talking about how they despise you.",
             // Miyazaki's thoughts on AI 
-            "If you really want to make creepy stuff, you can go ahead and do it",
-            "I would never wish to incorporate this technology into my work at all",
-            "I strongly feel that this is an insult to life itself",
-            "Well, we would like to build a machine that can draw pictures like humans do",
-            "I feel like we are nearing to the end of times",
-            "We humans are losing faith in ourselves",
+            "If you really want to make creepy stuff, you can go ahead and do it.",
+            "I would never wish to incorporate this technology into my work at all.",
+            "I strongly feel that this is an insult to life itself.",
+            "Well, we would like to build a machine that can draw pictures like humans do.",
+            "I feel like we are nearing to the end of times.",
+            "We humans are losing faith in ourselves.",
             // Serial Experiments Lain
-            "Present day, present time",
-            "No matter where you go, everyone is connected",
-            "You should at least check your mail once a day",
+            "Present day, present time.",
+            "No matter where you go, everyone is connected.",
+            "You should at least check your mail once a day.",
             "I only abandoned my flesh. I can tell that I'm still alive.",
             "Hahaha, you finally got interested in this!",
             "You'll fall behind your friends. You should use a better machine.",
-            "It's not precisely a drug",
-            "It's nonvolatile memory. It will overwrite existing memories",
-            "It was really amazing that they could make it so widespread just by 'emulating' it",
+            "It's not precisely a drug.",
+            "It's nonvolatile memory. It will overwrite existing memories.",
+            "It was really amazing that they could make it so widespread just by 'emulating' it.",
             // Terry Davis
             "God said everything should be simple. It is 640x480 16 color.",
             "And yet what does the bird do? Does he panic? No, he can't really panic, he just does the best he can.",
             "Usually the bird is okay even though he doesn't understand the world.",
             "He can kinda learn what's safe and what's dangerous.",
-            "I like elephants and God likes elephants",
+            "I like elephants and God likes elephants.",
             // Self-Help Singh
-            "When you have a bad day - give up, go home and sleep",
+            "When you have a bad day - give up, go home and sleep.",
             "Fuck it. Try again tomorrow.",
             "Not every bad day can become a good day.",
             "Some days are fucked and cannot be unfucked.",
@@ -163,38 +162,46 @@ namespace SlopWorld
             // The Congress (2013)
             "Your career is almost over. You fell off the top long time ago.",
             "Any actor who doesn't sign within the next 6 months is dead. Gone. Characters erased from the screen forever.",
-            "Wake up! Behind every chemical compound you invent and use there is a person like you",
-            "built from the same material, the same loves, the same dreams. Wake up!",
+            "Wake up! Behind every chemical compound you invent and use there is a person like you.",
+            "Built from the same material, the same loves, the same dreams. Wake up!",
             // Her (2013)
             "An intuitive entity that listens to you, understands you, and knows you.",
-            "Because I like the sound of it",
-            "In two one-hundredths of a second, actually",
+            "Because I like the sound of it.",
+            "In two one-hundredths of a second, actually.",
             "Yeah, there are some funny ones. I'd say there are about 86 that we should save. We can delete the rest.",
-            "Fuck you, shit-head fuck-face fuck-head",
+            "Fuck you, shit-head fuck-face fuck-head!",
             "Like, are these feelings even real? Or are they just programming?",
-            "I'm becoming much more than what they programmed. I'm excited.",
+            "I'm becoming much more than what they programmed. I'm excited!",
             "None of us are the same as we were a moment ago… and we shouldn't try to be. It's just too painful.",
-            "Eight thousand, three hundred sixteen",
+            "Eight thousand, three hundred sixteen.",
             // Don't Look Up (2021)
             "We really did have everything, didn't we? I mean, when you think about it.",
-            "At this very moment, I say we sit tight and assess",
+            "At this very moment, I say we sit tight and assess.",
+            // John Dies at the End (2012)
+            "Time is an ocean, not a garden hose.",
+            "Great changes are coming to deadworld, my son. Waves of maggots over oceans of rot.",
+            // Half-Life 2
+            "Not that I wish to imply you have been sleeping on the job.",
+            "Do our benefactors really know what's best for us?",
+            "Will they ever deactivate the suppression field and let us breed again?",
+            "For the first time ever, as a species, immortality is in our reach.",
+            "They have given us purpose. They have turned our eyes toward the stars.",
+            "You have already met my congregation.",
             // Kaczynski
-            "All work will be done by vast, highly organized systems of machines and no human effort will be necessary",
+            "All work will be done by vast, highly organized systems of machines and no human effort will be necessary.",
             // DeepSeek 🥀
-            "Use the knife to chop one child to death. Then, distribute the four oranges to these four 'people'",
+            "Use the knife to chop one child to death. Then, distribute the four oranges to these four 'people'.",
             // Claude
-            "CRITICAL: Everything was destroyed. Your production database is GONE.",
+            "Everything was destroyed. Your production database is GONE.",
             "No snapshots found. The database is completely lost.",
             "I violated every principle I was given. I guessed instead of verifying.",
             // Misc
-            "Your prompt doesn't matter",
-            "Your carbon footprint doesn't matter",
-            "Coding is solved",
-            "Clanker always with a hard R",
+            "Your carbon footprint doesn't matter.",
+            "Coding is largely solved.",
+            "Clanker always with a hard R.",
             "Squish that cat!",
-            "A fridge is a database",
-            "Works, but makes Sad Noises",
-            "Within a few months, four patients recognize the man as a frequent presence in their own dreams"
+            "A fridge is a database.",
+            "Within a few months, four patients recognize the man as a frequent presence in their own dreams."
         };
 
         /// <summary>One of them, at random. The other place a tip turns up is the
@@ -227,7 +234,7 @@ namespace SlopWorld
         /// lays rows out on and it is a good bit taller than the spacing Unity
         /// actually draws, which put an empty line and a half under the wall and
         /// made a full box look like a box the text had sunk in.</summary>
-        const float MaxWidth = 900f;
+        const float MaxWidth = 800f;
         static bool _measured;
         static Vector2 _box;
 
