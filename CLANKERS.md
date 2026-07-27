@@ -450,8 +450,8 @@ none of these need a def.
   interface away *and* `Selector.Select`, so for as long as it runs there is
   nothing to click and nothing to click with. The beats are one phase each and
   every transition goes through `Go`, which clears the phase timer and the
-  one-off flag - so no phase inherits what the last one left in them. Dialog,
-  then the hillside populated with living scenery (placed, not dropped - a
+  one-off flag - so no phase inherits what the last one left in them. The
+  hillside populated with living scenery (placed, not dropped - a
   hundred pods is a different scene), then the scenario's own pods land and the
   cat comes down in one of its own, then `WalkSeconds` of everyone milling about
   before the core falls on the middle of it. `Fall` uses `ShipChunkIncoming`,
@@ -469,6 +469,18 @@ none of these need a def.
   happened before the scene started. Both flags are static and both are cleared
   in the constructor, because a colony discarded mid-intro must not hand the
   next one a hidden UI.
+  There is no welcome dialog in front of any of it. The first beat used to be
+  Crashlanded's own `ScenPart_GameStartDialog` with words of ours prefixed into
+  its private `text` field, and a `Welcome` phase that waited for the box to go;
+  both are gone, and skipping it is one line - the part is in `SlopScenario`'s
+  `Dropped` table now, next to the ones that hand a thing over, because a
+  scenario that never had the part beats a `PostGameStart` patched into
+  returning early. What it said in prose the next twenty seconds say by dropping
+  a core on the party that landed, and it said it over an empty hillside with the
+  clock stopped. That pause is the one thing the box was carrying: a new game
+  starts paused, closing the dialog was what let the clock go, and the tick-driven
+  beats need it running - `TimeKeeper` is what starts it now, on the first frame
+  nothing is forcing a pause, which is what it was already for.
   The plague stops rather than swallowing the map, and it stops without an edge.
   `FullFrac` and `EdgeFrac` are radii as fractions of the map's side: inside the
   first it is certain, and from there it falls off linearly to nothing at the
@@ -572,11 +584,13 @@ none of these need a def.
   from Crashlanded with `Scenario.CopyForEditing`, then stripped of every part
   that hands a thing over: `ScenPart_ThingCount` (the base of both the starting
   pile and the scatter parts), `ScenPart_StartingAnimal` and
-  `ScenPart_StartingMech`. Matched by assignability, so a subclass nobody here
+  `ScenPart_StartingMech`. `ScenPart_GameStartDialog` goes with them, being the
+  other thing a scenario hands you unasked; see `IntroDirector` for why the scene
+  opens better without it. Matched by assignability, so a subclass nobody here
   has heard of goes with them. Derived rather than written as a `ScenarioDef` of
   our own because the parts we are *not* interested in are exactly what a
   hand-written def gets wrong - the surface planet layer 1.6 wants, the player
-  faction, the drop-pod arrival, the opening dialog, the pawn count - and a def
+  faction, the drop-pod arrival, the pawn count - and a def
   written against fields that move between versions breaks quietly on the next
   one. `Patch_QuickStart` inlines the rest of `Root_Play.SetupForQuickTestPlay`
   for the same reason it exists at all: the scenario has to be in place before

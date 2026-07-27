@@ -12,9 +12,11 @@ namespace SlopWorld
     /// no clock to show it: the map just stops, and looks for all the world like
     /// every last thing on it has died.
     ///
-    /// A viewer's sim has no business sitting still, so the mod owns the clock.
-    /// Windows that force a pause - the opening dialog, a game-over box - still hold
-    /// time while they are up; this only stops the pause from outliving them.
+    /// A viewer's sim has no business sitting still, so the mod owns the clock. It is
+    /// also the only thing that starts it on a fresh colony now the scenario's opening
+    /// dialog is gone: that box held the pause a new game begins on, and closing it
+    /// was what let the clock go. Windows that force a pause - a game-over box - still
+    /// hold time while they are up; this only stops the pause from outliving them.
     ///
     /// GameComponents are built for every subclass automatically, so this needs no
     /// def.

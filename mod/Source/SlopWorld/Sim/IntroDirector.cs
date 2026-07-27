@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -12,16 +11,25 @@ namespace SlopWorld
     /// map is clickable and no UI is drawn until it is over, so the player watches
     /// rather than plays.
     ///
-    /// The beats, in order. A welcome dialog over a bare map. A hillside populated
-    /// with living animals and people - placed, because they are scenery and a
-    /// hundred pods would be a different scene. The scenario's three starting
-    /// colonists come down in their pods, the cat comes down after them, and they
-    /// are given a few seconds on the ground to walk about and read as a landing
-    /// party. Then the machine persona core falls on the middle of it. It sits there
-    /// venting pink for a couple of seconds - long enough to be the thing you are
-    /// looking at when it happens - and then the colonists go up in a red mist and
-    /// the plague starts spreading from the core. The agents walk out of that haze,
-    /// one thick cloud each, and once they are standing the UI comes back.
+    /// The beats, in order. A hillside populated with living animals and people -
+    /// placed, because they are scenery and a hundred pods would be a different
+    /// scene. The scenario's three starting colonists come down in their pods, the
+    /// cat comes down after them, and they are given a few seconds on the ground to
+    /// walk about and read as a landing party. Then the machine persona core falls
+    /// on the middle of it. It sits there venting pink for a couple of seconds -
+    /// long enough to be the thing you are looking at when it happens - and then
+    /// the colonists go up in a red mist and the plague starts spreading from the
+    /// core. The agents walk out of that haze, one thick cloud each, and once they
+    /// are standing the UI comes back.
+    ///
+    /// It opens on the first of those and not on a box of text. The welcome dialog
+    /// that used to be the first beat was the scenario's own
+    /// (ScenPart_GameStartDialog, which <see cref="SlopScenario"/> now drops along
+    /// with the parts that hand a thing over) with our words swapped into it, and it
+    /// was the wrong thing twice: it held the game paused on an empty hillside, and
+    /// what it said in prose is what the next twenty seconds say by dropping a core
+    /// on the party that landed. A cutscene nobody has to click into is one that has
+    /// started before the player wonders whether it will.
     ///
     /// Successor to the massacre dressing: bodies are no longer placed dead, they
     /// are placed alive and killed on camera, which is both cheaper (no corpse, no
@@ -71,14 +79,7 @@ namespace SlopWorld
         // an existing colony, which we must never touch.
         const int FreshGameTicks = 2000;
 
-        const string WelcomeText =
-            "You wake to sirens and the smell of burnt insulation.\n\n" +
-            "The ship is gone. What is left of it came down across a hillside on an " +
-            "unnamed rimworld, and the persona core came down with it - still " +
-            "powered, still talking, still very sure of itself.\n\n" +
-            "Whatever it has started here, it started before you opened your eyes.";
-
-        enum Phase { Waiting, Welcome, Populate, Land, Core, Fume, Purge, Bloom, Done }
+        enum Phase { Waiting, Populate, Land, Core, Fume, Purge, Bloom, Done }
 
         // Persisted: how far through the scene we are.
         Phase _phase = Phase.Waiting;
@@ -119,15 +120,15 @@ namespace SlopWorld
 
         Map TheMap => _map ?? (_map = Find.CurrentMap);
 
-        // Phases that must advance while the game is paused: the dialog holds time
-        // still, and the held beats burn in real time so the scene keeps its rhythm
-        // whatever the clock is doing.
+        // Phases that must advance while the game is paused: a new colony starts on a
+        // pause TimeKeeper has yet to lift, anything else may put one back, and the
+        // held beats burn in real time so the scene keeps its rhythm whatever the
+        // clock is doing.
         public override void GameComponentUpdate()
         {
             switch (_phase)
             {
                 case Phase.Waiting: TryBegin(); break;
-                case Phase.Welcome: WaitOnWelcome(); break;
                 case Phase.Land: WaitOnLanding(); break;
                 case Phase.Fume: WaitOnFumes(); break;
                 case Phase.Purge: BurnThem(); break;
@@ -170,15 +171,7 @@ namespace SlopWorld
 
             UiHidden = true;
             AgentsHeld = true;
-            Go(Phase.Welcome);
-        }
-
-        // The scenario put its dialog up during FinalizeInit, before the first frame,
-        // so by now it is on the stack and holding the game paused. Gone means read -
-        // by the OK button or by Escape, either way the scene can start.
-        void WaitOnWelcome()
-        {
-            if (Find.WindowStack.WindowOfType<Dialog_NodeTree>() == null) BeginScene();
+            BeginScene();
         }
 
         void BeginScene()
@@ -457,25 +450,6 @@ namespace SlopWorld
         {
             base.ExposeData();
             Scribe_Values.Look(ref _phase, "introPhase", Phase.Waiting);
-        }
-
-        /// <summary>
-        /// The scenario's own opening dialog, with our words in it. Vanilla owns the
-        /// choreography around it - the game starts paused, the dialog holds the
-        /// pause, and closing it starts the clock and lets the music back in - so we
-        /// swap the text rather than putting up a second dialog of our own. A
-        /// ScenPart_GameStartDialog prefers its literal text over its textKey, and
-        /// Crashlanded ships only the key, so setting one is enough. The field is
-        /// private, hence the ref.
-        /// </summary>
-        [HarmonyPatch(typeof(ScenPart_GameStartDialog), nameof(ScenPart_GameStartDialog.PostGameStart))]
-        public static class Patch_WelcomeText
-        {
-            static readonly AccessTools.FieldRef<ScenPart_GameStartDialog, string> TextOf =
-                AccessTools.FieldRefAccess<ScenPart_GameStartDialog, string>("text");
-
-            static void Prefix(ScenPart_GameStartDialog __instance) =>
-                TextOf(__instance) = WelcomeText;
         }
     }
 }

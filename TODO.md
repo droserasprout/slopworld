@@ -39,7 +39,7 @@ This file is for humans. If you're a clanker - go to `docslop/`.
 - [ ] Bug: clankers have human faces on game load until running "New colony"
 - [x] Remove rule "clankers sleep when terminal is idle". Let them do noting and "claudwatch" as some idle action named. Show normal idle icon (clock). But add gentle sound when agent becomes idle. Something from core sounds. Also, enforce "run in background" setting.
 - [ ] Bug: day/night in game is not synced with real time in user's timezone
-- [ ] Skip the welcome message window when creating a new colony.
+- [x] Skip the welcome message window when creating a new colony.
 - [x] Plague should suppress creating new plants in its radius. Animals and humans keep spawning, but outside walk on map edges.
 - [x] When petting cat by clicking, rotate cursor CCW then back for a couple of times.
 - [x] Replace loading screen tips with #loading-tips

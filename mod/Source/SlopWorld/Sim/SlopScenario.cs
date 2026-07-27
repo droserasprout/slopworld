@@ -11,19 +11,21 @@ namespace SlopWorld
     /// A colony of agents mines nothing, builds nothing and eats nothing, so the
     /// scenario hands over nothing: no pile in the drop pods, nothing scattered
     /// across the map, and no animal but the cat <see cref="Pets"/> places by hand.
-    /// This is where that is decided, and it replaces two Harmony prefixes that
-    /// used to say the same thing one ScenPart at a time - a scenario that never
+    /// It also says nothing on the way in - the opening message box goes the same
+    /// way, because <see cref="IntroDirector"/> has a scene to open with instead.
+    /// This is where all of that is decided, and it replaces two Harmony prefixes
+    /// that used to say the same thing one ScenPart at a time - a scenario that never
     /// had the part is simpler than a part patched into silence, and it says so in
     /// the scenario text the player reads.
     ///
     /// Derived from Crashlanded rather than written as a ScenarioDef of our own.
     /// Everything we are not interested in is exactly what a hand-written def gets
     /// wrong: the surface planet layer 1.6 wants, the player faction, the drop-pod
-    /// arrival, the opening dialog, the starting-pawn count. Scenario.CopyForEditing
-    /// copies the lot - parts included, each through its own CopyForEditing - so we
-    /// start from something the game already agrees is valid and take three kinds of
-    /// part out of it. A def hand-written against fields that move between versions
-    /// is a def that breaks quietly on the next one.
+    /// arrival, the starting-pawn count. Scenario.CopyForEditing copies the lot -
+    /// parts included, each through its own CopyForEditing - so we start from
+    /// something the game already agrees is valid and take four kinds of part out of
+    /// it. A def hand-written against fields that move between versions is a def
+    /// that breaks quietly on the next one.
     ///
     /// The copy is built once per process and handed to <see cref="Patch_QuickStart"/>.
     /// A save carries its own scenario (Game.ExposeData scribes it deep, and
@@ -32,9 +34,10 @@ namespace SlopWorld
     /// </summary>
     public static class SlopScenario
     {
-        /// Parts that put a thing on the map or in the pods. Matched by
-        /// assignability rather than by exact type, so a subclass we have never
-        /// heard of goes with them:
+        /// Parts this colony does without. Matched by assignability rather than by
+        /// exact type, so a subclass we have never heard of goes with them.
+        ///
+        /// The ones that put a thing on the map or in the pods:
         ///
         /// - ScenPart_ThingCount is the base of both ScenPart_StartingThing_Defined
         ///   (the pile: steel, silver, food, medicine, wood, components, weapons)
@@ -44,11 +47,21 @@ namespace SlopWorld
         ///   it picks a random tame animal weighted by biome, and LandingSite aims
         ///   deliberately at tropical rainforest.
         /// - ScenPart_StartingMech is Biotech's, and arrives the same way.
-        static readonly Type[] Giving =
+        ///
+        /// And the one that puts a window up:
+        ///
+        /// - ScenPart_GameStartDialog is Crashlanded's opening message box, which
+        ///   IntroDirector used to fill with words of ours and wait on. Dropping the
+        ///   part is the whole of skipping it: nothing else opens that dialog, and a
+        ///   part the scenario never had is simpler than a PostGameStart patched into
+        ///   returning early. The clock it held paused is TimeKeeper's problem, which
+        ///   it was already.
+        static readonly Type[] Dropped =
         {
             typeof(ScenPart_ThingCount),
             typeof(ScenPart_StartingAnimal),
             typeof(ScenPart_StartingMech),
+            typeof(ScenPart_GameStartDialog),
         };
 
         const string Summary = "Nothing here is yours to build.";
@@ -91,19 +104,19 @@ namespace SlopWorld
             // AllParts and RemovePart rather than the parts list itself, which is
             // internal. AllParts also yields playerFaction and surfaceLayer, and
             // RemovePart complains about anything not in the list proper - which is
-            // fine, because neither of those is ever a giving part. ToList first:
+            // fine, because neither of those is ever one we drop. ToList first:
             // AllParts is a live enumeration over the list being edited.
-            var giving = scen.AllParts.Where(Gives).ToList();
-            foreach (var part in giving) scen.RemovePart(part);
+            var dropped = scen.AllParts.Where(Drop).ToList();
+            foreach (var part in dropped) scen.RemovePart(part);
 
-            Log.Message($"[SlopWorld] scenario from Crashlanded, {giving.Count} giving " +
+            Log.Message($"[SlopWorld] scenario from Crashlanded, {dropped.Count} " +
                         $"part(s) dropped, {scen.AllParts.Count()} kept");
 
             _scen = scen;
             return _scen;
         }
 
-        static bool Gives(ScenPart part) =>
-            part != null && Giving.Any(t => t.IsInstanceOfType(part));
+        static bool Drop(ScenPart part) =>
+            part != null && Dropped.Any(t => t.IsInstanceOfType(part));
     }
 }

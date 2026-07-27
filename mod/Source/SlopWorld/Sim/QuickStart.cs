@@ -27,8 +27,8 @@ namespace SlopWorld
     /// The one thing the quick start gets wrong for us is startedFromEntry, which it
     /// leaves false - that is GameInitData.QuickStarted, and the scenario reads it as
     /// "this is a dev test": the pods insta-drop with the colonists already standing
-    /// on the ground, and the game-start dialog (the one thing we do want, with our
-    /// text in it) never fires. We came from the menu like anyone else, so we say so.
+    /// on the ground. The opening scene is a landing, so it needs pods that fall. We
+    /// came from the menu like anyone else, so we say so.
     /// </summary>
     [HarmonyPatch(typeof(Page_SelectScenario), "PreOpen")]
     public static class Patch_QuickStart
