@@ -806,10 +806,38 @@ none of these need a def.
   inlined into `DrawContents` and so has no field to write, but the timer it is
   compared against does - stamping `lastTimeUpdatedTooltip` with the current time
   on every draw means vanilla's interval never elapses and the index only ever
-  moves when `TipSeconds` says so.
+  moves when we move it.
+  What is installed is not the tips but a sliding window over them, three at a
+  time - 1-2-3, 2-3-4, 3-4-5 - so stepping the index one place reads as the block
+  scrolling up a line rather than as one tip swapped for another. The quotes are
+  shuffled once per launch. Every scroll draws its own delay between
+  `MinSeconds` and `MaxSeconds` (0.05s and 1s), so the block sometimes flicks
+  past and sometimes sits there; a fixed catch every tenth scroll was the first
+  cut and read as a metronome. Uniform between the two averages a little over
+  half a second a block, which makes this the pace of the thing rather than a
+  garnish on it.
+  The zalgo goes on the joined block and never on a line before it is joined. A
+  line carries its marks wherever it goes, so seasoning the tips themselves would
+  send the noise up the screen with the text - legible, and the one thing it must
+  not be. Seasoned after the join it re-rolls every line's marks on every scroll,
+  so the noise sits still and crawls while the words move through it. Marks are
+  spelled as escapes in the source, because a combining character in a literal
+  binds to the opening quote and cannot be read back.
+  The dice are `System.Random` and not `Verse.Rand`, which is load-bearing: this
+  screen is up *during* map generation, and a draw off the global sequence once a
+  frame is a loading screen quietly deciding where the rivers go.
+  Three lines need a box that holds them. Vanilla's is 776x60 with an 8px margin,
+  which leaves 44px of text - two lines of `GameFont.Small` and no more - so
+  `Patch_LoadingLayout` writes `GameplayTipWindow.WindowSize` to 1000x104 before
+  it reads it, four lines and enough width that only the longest few quotes wrap.
+  The field is `static initonly` and the write is caught: a runtime that refuses
+  it leaves vanilla's box with the middle of the block in it, which is a worse
+  loading screen and not a broken one. The text anchors `MiddleCenter`, so a
+  block that does not need the room is still centred in it.
   The list is read from outside as well - `RandomTip` is what `CoreTip` hangs on
-  the persona core - so the tips are the machine's voice rather than the load
-  screen's furniture, and there is one of them to edit.
+  the persona core, and it reads the clean tips rather than the seasoned blocks -
+  so the tips are the machine's voice rather than the load screen's furniture,
+  and there is one of them to edit.
   The enabled mods and DLCs panel goes entirely: it is a modding tool, for
   reading back what you loaded after you broke your game, and here there is one
   mod and it is the product. `ModSummaryWindow.GetEffectiveSize` is patched to

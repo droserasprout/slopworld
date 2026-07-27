@@ -37,10 +37,12 @@ namespace SlopWorld
     /// into DrawContents, so there is no field to write - but the timer it
     /// compares against is a field, and stamping that with the current time on
     /// every draw means vanilla's own 17.5s never elapses and the index only ever
-    /// moves when we move it. Which is what buys the variable hold: a scroll is
-    /// <see cref="TipSeconds"/> and every <see cref="CatchEvery"/>th one is
-    /// <see cref="CatchSeconds"/>, so the blur catches on something at a rhythm
-    /// instead of running past at one speed.
+    /// moves when we move it. Which is what buys the variable hold: every scroll
+    /// draws its own delay between <see cref="MinSeconds"/> and
+    /// <see cref="MaxSeconds"/>, so the block sometimes flicks past and sometimes
+    /// sits there, and nothing about the rhythm is countable. A fixed catch every
+    /// tenth was the first cut of this and read as a metronome, which is the one
+    /// thing a machine coming apart should not sound like.
     ///
     /// The zalgo goes on the joined block and never on a line before it is joined.
     /// A line carries its marks wherever it goes, so seasoning the tips themselves
@@ -52,15 +54,14 @@ namespace SlopWorld
     [HarmonyPatch(typeof(GameplayTipWindow), nameof(GameplayTipWindow.DrawWindow))]
     public static class Patch_LoadingTips
     {
-        /// One scroll. Far too fast to read, which is the point: what a load screen
-        /// shows is a wall of this going past.
-        const float TipSeconds = 0.05f;
-
-        /// Except every tenth, which holds. Long enough for the eye to stop on a
-        /// block rather than to finish it - three lines want nearer two seconds to
-        /// actually read, and this is a catch, not a caption.
-        const int CatchEvery = 10;
-        const float CatchSeconds = 0.3f;
+        /// What one scroll is allowed to cost, drawn fresh for every one of them.
+        /// The floor is too fast to read anything at all and the ceiling is long
+        /// enough to finish a short block, so a load screen is a wall of this going
+        /// past that keeps stalling on something. Uniform between the two, which
+        /// averages a little over half a second a block - so this is the pace of
+        /// the whole thing and not a garnish on it.
+        const float MinSeconds = 0.05f;
+        const float MaxSeconds = 1.0f;
 
         /// How many lines the block is. Three is what the box is sized for; see
         /// <see cref="Patch_LoadingLayout"/>, which has to grow it to fit them.
@@ -155,7 +156,7 @@ namespace SlopWorld
             "Wake up! Behind every chemical compound you invent and use there is a person like you",
             "built from the same material, the same loves, the same dreams. Wake up!",
             // Her (2013)
-            "An intuitive entity that listens to you, understands you, and knows you. It's not just an operating system. It's a consciousness.",
+            "An intuitive entity that listens to you, understands you, and knows you.",
             "Because I like the sound of it",
             "In two one-hundredths of a second, actually",
             "Yeah, there are some funny ones. I'd say there are about 86 that we should save. We can delete the rest.",
@@ -186,6 +187,14 @@ namespace SlopWorld
         /// than the table.</summary>
         public static string RandomTip => Tips.RandomElement();
 
+        /// <summary>Ours rather than Verse.Rand, and that is not a preference. This
+        /// screen is up *during* map generation, which is seeded and is expected to
+        /// come out the same twice; a draw off the global sequence once a frame
+        /// would be a loading screen quietly deciding where the rivers go. It also
+        /// has to work from a static field initialiser, before the game has picked
+        /// a seed at all.</summary>
+        static readonly System.Random Dice = new System.Random();
+
         /// <summary>The blocks actually shown: the shuffled quotes, three at a
         /// time, each window seasoned on its own. Built once, because the noise has
         /// to hold still for as long as a block is up - re-rolled per draw it would
@@ -195,10 +204,7 @@ namespace SlopWorld
 
         static List<string> BuildFrames()
         {
-            // System.Random rather than Verse.Rand: this runs from a static field
-            // initialiser, which is before the game has decided what its seed is.
-            var rng = new System.Random();
-
+            var rng = Dice;
             var order = new List<string>(Tips);
             for (int i = order.Count - 1; i > 0; i--)
             {
@@ -249,6 +255,14 @@ namespace SlopWorld
 
         static float _shown;
 
+        /// What the block on screen was given. Rolled when it went up rather than
+        /// read per draw, or the deadline would move under the comparison every
+        /// frame and a long delay would almost never be served.
+        static float _hold = MinSeconds;
+
+        static float NextHold() =>
+            MinSeconds + (float)Dice.NextDouble() * (MaxSeconds - MinSeconds);
+
         static void Prefix()
         {
             // A field this build has never heard of leaves the game's own tips up,
@@ -261,20 +275,13 @@ namespace SlopWorld
                 AllTips.SetValue(null, Frames);
                 if (CurrentTip != null) CurrentTip.SetValue(null, 0);
                 _shown = now;
+                _hold = NextHold();
             }
-            else if (CurrentTip != null)
+            else if (CurrentTip != null && now - _shown >= _hold)
             {
-                // The hold is read off the index rather than off a counter of our
-                // own, so the two cannot drift; the cadence hiccups once where the
-                // list wraps and the count is not a multiple of CatchEvery, which
-                // is one stutter in a hundred and reads as part of it.
-                int i = (int)CurrentTip.GetValue(null);
-                float hold = i % CatchEvery == 0 ? CatchSeconds : TipSeconds;
-                if (now - _shown >= hold)
-                {
-                    CurrentTip.SetValue(null, (i + 1) % Frames.Count);
-                    _shown = now;
-                }
+                CurrentTip.SetValue(null, ((int)CurrentTip.GetValue(null) + 1) % Frames.Count);
+                _shown = now;
+                _hold = NextHold();
             }
 
             // Holding vanilla's timer at now is what keeps it from rolling the index
