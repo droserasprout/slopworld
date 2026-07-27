@@ -890,17 +890,23 @@ none of these need a def.
   compared against does - stamping `lastTimeUpdatedTooltip` with the current time
   on every draw means vanilla's interval never elapses and the index only ever
   moves when we move it.
-  What is installed is not the tips but a sliding window over them, three at a
-  time - 1-2-3, 2-3-4, 3-4-5 - so stepping the index one place reads as the block
-  scrolling up a line rather than as one tip swapped for another. The quotes are
-  shuffled once per launch. Every scroll draws its own delay between
+  What is installed is not the tips but a sliding window over a wall of them. The
+  quotes are shuffled and run together into one stream - a space between, no
+  punctuation added, nothing to say where one ends - which is broken into lines at
+  the width of the box, and a frame is six of those in a row. Stepping the index
+  one place is the wall scrolling up a line. A quote no longer owns a line: it
+  starts wherever the last one left off, which is what makes this read as dense
+  text going past rather than as a series of sayings. The stream is dealt three
+  times, each pass shuffled on its own, because one pass is forty-odd lines and a
+  loop that comes round in ten seconds is shorter than a load. Every scroll draws
+  its own delay between
   `MinSeconds` and `MaxSeconds` (0.05s and 0.5s), so the block sometimes flicks
   past and sometimes sits there; a fixed catch every tenth scroll was the first
   cut and read as a metronome. Uniform between the two averages a bit over a
   quarter of a second a block, which makes this the pace of the thing rather
   than a garnish on it.
-  The zalgo goes on the joined block and never on a line before it is joined. A
-  line carries its marks wherever it goes, so seasoning the tips themselves would
+  The zalgo goes on the joined frame and never on a line before it is joined. A
+  line carries its marks wherever it goes, so seasoning the text itself would
   send the noise up the screen with the text - legible, and the one thing it must
   not be. Seasoned after the join it re-rolls every line's marks on every scroll,
   so the noise sits still and crawls while the words move through it. Marks are
@@ -909,14 +915,33 @@ none of these need a def.
   The dice are `System.Random` and not `Verse.Rand`, which is load-bearing: this
   screen is up *during* map generation, and a draw off the global sequence once a
   frame is a loading screen quietly deciding where the rivers go.
-  Three lines need a box that holds them. Vanilla's is 776x60 with an 8px margin,
+  Six lines need a box that holds them. Vanilla's is 776x60 with a 15x8 margin,
   which leaves 44px of text - two lines of `GameFont.Small` and no more - so
-  `Patch_LoadingLayout` writes `GameplayTipWindow.WindowSize` to 1000x104 before
-  it reads it, four lines and enough width that only the longest few quotes wrap.
-  The field is `static initonly` and the write is caught: a runtime that refuses
-  it leaves vanilla's box with the middle of the block in it, which is a worse
-  loading screen and not a broken one. The text anchors `MiddleCenter`, so a
-  block that does not need the room is still centred in it.
+  `Patch_LoadingLayout` writes `GameplayTipWindow.WindowSize` before it reads it.
+  What it writes is `Patch_LoadingTips.Box` rather than a number of its own,
+  because the same figure is what the text was wrapped to and a box that
+  disagrees with the wrap is lines that stop short or spill off the edge. Width
+  is a ceiling (900) rather than a number, since `UI.screenWidth` is in the
+  game's own scaled coordinates and a 4K screen at UI scale 2 reports 960 of
+  them; height is measured off a probe of six lines rather than multiplied out of
+  `Text.LineHeight`, which is what the game lays rows out on and is a good bit
+  taller than the spacing Unity draws - the difference was an empty line and a
+  half under the wall. The field is `static initonly` and the write is caught: a
+  runtime that refuses it leaves vanilla's box with the left of the wall in it,
+  which is a worse loading screen and not a broken one.
+  The drawing is ours too, `Patch_LoadingTipBlock` on the private `DrawContents`.
+  Vanilla sets `MiddleCenter`, which is right for one line of advice and wrong for
+  a wall - centred text has a ragged edge on both sides, and every scroll shuffles
+  every line sideways as the wrapping changes under it. Left is what makes the
+  thing hold still while the words go up through it. Word wrap is off, and that is
+  the pair to measuring the wrap ourselves: the lines were fitted clean and the
+  marks are sprinkled on afterwards, so a combining mark the font gives an advance
+  width to would push a line over the edge and let Unity re-wrap it, which costs
+  the bottom line and reflows the rest. Off, the worst it can do is overhang, and
+  the group it draws inside cuts that off at the box. Both patches stand down -
+  the cache write, the index, the draw - if the wall could not be built, which is
+  also why the frames are built lazily rather than in a field initialiser: the
+  wrap measures text, so it needs a font, so it has to happen inside OnGUI.
   The list is read from outside as well - `RandomTip` is what `CoreTip` hangs on
   the persona core, and it reads the clean tips rather than the seasoned blocks -
   so the tips are the machine's voice rather than the load screen's furniture,

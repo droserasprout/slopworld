@@ -27,11 +27,18 @@ namespace SlopWorld
     /// under an index pointing into the old, longer list is an IndexOutOfRange
     /// on the next frame.
     ///
-    /// What is installed is not the tips but a sliding window over them, three at
-    /// a time - 1-2-3, 2-3-4, 3-4-5 - so stepping the index one place reads as the
-    /// block scrolling up a line rather than as one tip being swapped for another.
-    /// The quotes are shuffled once per launch, so the same load screen is never
-    /// the same twice and nothing sits at the top by right.
+    /// What is installed is not the tips but a sliding window over a wall of
+    /// them. The quotes are shuffled and run together into one stream - a space
+    /// between, no punctuation added, nothing to say where one ends - which is
+    /// then broken into lines at the width of the box, and a frame is
+    /// <see cref="Lines"/> of those in a row. Stepping the index one place is the
+    /// wall scrolling up a line. A quote no longer owns a line: it starts
+    /// wherever the last one left off, which is what makes this read as dense
+    /// text going past rather than as a series of sayings.
+    ///
+    /// The stream is dealt <see cref="Passes"/> times, each pass shuffled on its
+    /// own. One pass is forty-odd lines - a loop that comes round in ten seconds,
+    /// which is less than a load - and the cost of three is a hundred kilobytes.
     ///
     /// The rotation is ours too. Vanilla's tipUpdateInterval is a const inlined
     /// into DrawContents, so there is no field to write - but the timer it
@@ -44,12 +51,12 @@ namespace SlopWorld
     /// tenth was the first cut of this and read as a metronome, which is the one
     /// thing a machine coming apart should not sound like.
     ///
-    /// The zalgo goes on the joined block and never on a line before it is joined.
-    /// A line carries its marks wherever it goes, so seasoning the tips themselves
-    /// would send the noise up the screen with the text - legible, and the one
-    /// thing it must not be. Seasoning the block instead re-rolls every line's
-    /// marks on every scroll, so the noise sits still and crawls while the words
-    /// move through it.
+    /// The zalgo goes on the joined frame and never on a line before it is
+    /// joined. A line carries its marks wherever it goes, so seasoning the text
+    /// itself would send the noise up the screen with the words - legible, and
+    /// the one thing it must not be. Seasoned after the join it re-rolls every
+    /// line's marks on every scroll, so the noise sits still and crawls while the
+    /// words move through it.
     /// </summary>
     [HarmonyPatch(typeof(GameplayTipWindow), nameof(GameplayTipWindow.DrawWindow))]
     public static class Patch_LoadingTips
@@ -63,9 +70,12 @@ namespace SlopWorld
         const float MinSeconds = 0.05f;
         const float MaxSeconds = 0.5f;
 
-        /// How many lines the block is. Three is what the box is sized for; see
-        /// <see cref="Patch_LoadingLayout"/>, which has to grow it to fit them.
-        const int Lines = 3;
+        /// How many lines are on screen at once, and how many times the whole
+        /// list is dealt into the stream behind them. Six is a paragraph rather
+        /// than a caption, which is the whole point of running the quotes
+        /// together; <see cref="Box"/> is sized from it.
+        const int Lines = 6;
+        const int Passes = 3;
 
         /// Combining marks, above and below - the U+0300 block, minus the ones that
         /// sit on the baseline and eat the letter. Density is low on purpose: this
@@ -82,8 +92,7 @@ namespace SlopWorld
 
         static readonly List<string> Tips = new List<string>
         {
-            // shortcuts, the only useful block - shuffled in with the rest now, so
-            // they turn up when they turn up
+            // shortcuts, the only useful block
             "Press `F12` to toggle terminal",
             "Press Alt+Num to switch terminal tab",
             // Mozilla's `about:robots`
@@ -166,12 +175,17 @@ namespace SlopWorld
             "I'm becoming much more than what they programmed. I'm excited.",
             "None of us are the same as we were a moment ago… and we shouldn't try to be. It's just too painful.",
             "Eight thousand, three hundred sixteen",
+            // Don't Look Up (2021)
+            "We really did have everything, didn't we? I mean, when you think about it.",
+            "At this very moment, I say we sit tight and assess",
             // Kaczynski
             "All work will be done by vast, highly organized systems of machines and no human effort will be necessary",
             // DeepSeek 🥀
             "Use the knife to chop one child to death. Then, distribute the four oranges to these four 'people'",
             // Claude
+            "CRITICAL: Everything was destroyed. Your production database is GONE.",
             "No snapshots found. The database is completely lost.",
+            "I violated every principle I was given. I guessed instead of verifying.",
             // Misc
             "Your prompt doesn't matter",
             "Your carbon footprint doesn't matter",
@@ -180,6 +194,7 @@ namespace SlopWorld
             "Squish that cat!",
             "A fridge is a database",
             "Works, but makes Sad Noises",
+            "Within a few months, four patients recognize the man as a frequent presence in their own dreams"
         };
 
         /// <summary>One of them, at random. The other place a tip turns up is the
@@ -196,39 +211,162 @@ namespace SlopWorld
         /// a seed at all.</summary>
         static readonly System.Random Dice = new System.Random();
 
-        /// <summary>The blocks actually shown: the shuffled quotes, three at a
-        /// time, each window seasoned on its own. Built once, because the noise has
-        /// to hold still for as long as a block is up - re-rolled per draw it would
-        /// boil at the frame rate, and the hold every tenth scroll exists precisely
-        /// so there is something still to look at.</summary>
-        static readonly List<string> Frames = BuildFrames();
+        /// <summary>Vanilla's own TextMargin, which is private and which we
+        /// contract by ourselves now that the drawing is ours. The 15 is what
+        /// keeps a left-aligned wall off the window's edge.</summary>
+        internal static readonly Vector2 Margin = new Vector2(15f, 8f);
+
+        /// <summary>The box the whole screen is laid out around, and the only
+        /// authority on it: <see cref="Patch_LoadingLayout"/> writes this into
+        /// GameplayTipWindow.WindowSize and the wrap measures against it, so the
+        /// two can never disagree about where a line ends. Width is a ceiling
+        /// rather than a number - UI.screenWidth is in the game's own scaled
+        /// coordinates, and a 4K screen at UI scale 2 reports 960 of them.
+        /// Height is measured off a probe of the right number of lines rather
+        /// than multiplied out of Text.LineHeight: that figure is what the game
+        /// lays rows out on and it is a good bit taller than the spacing Unity
+        /// actually draws, which put an empty line and a half under the wall and
+        /// made a full box look like a box the text had sunk in.</summary>
+        const float MaxWidth = 900f;
+        static bool _measured;
+        static Vector2 _box;
+
+        internal static Vector2 Box
+        {
+            get
+            {
+                if (!_measured)
+                {
+                    _measured = true;
+                    float w = Mathf.Clamp(UI.screenWidth - 80f, 400f, MaxWidth);
+
+                    var probe = new System.Text.StringBuilder();
+                    for (int i = 0; i < Lines; i++)
+                    {
+                        if (i > 0) probe.Append('\n');
+                        probe.Append('A');
+                    }
+
+                    GameFont font = Text.Font;
+                    bool wrap = Text.WordWrap;
+                    Text.Font = GameFont.Small;
+                    Text.WordWrap = false;
+                    float h = Text.CalcHeight(probe.ToString(), w - Margin.x * 2f);
+                    Text.Font = font;
+                    Text.WordWrap = wrap;
+
+                    _box = new Vector2(w, h + Margin.y * 2f);
+                }
+                return _box;
+            }
+        }
+
+        /// <summary>The frames actually shown: a sliding window over the wrapped
+        /// wall, each one seasoned on its own. Built once, because the noise has
+        /// to hold still for as long as a frame is up - re-rolled per draw it
+        /// would boil at the frame rate, and the long holds exist precisely so
+        /// there is something still to look at.
+        ///
+        /// Lazily rather than in a field initialiser, because the wrap measures
+        /// text: it needs a font, which means it has to happen inside OnGUI, and
+        /// a static constructor is not a place to require that. Both callers are
+        /// mid-draw. A build that throws leaves an empty list rather than
+        /// retrying every frame, and an empty list is what makes both patches
+        /// stand down and let vanilla have the screen.</summary>
+        static List<string> _frames;
+
+        internal static List<string> Frames
+        {
+            get
+            {
+                if (_frames != null) return _frames;
+                try
+                {
+                    _frames = BuildFrames();
+                }
+                catch (Exception e)
+                {
+                    _frames = new List<string>();
+                    Log.Warning($"[SlopWorld] loading tips left to vanilla: {e}");
+                }
+                return _frames;
+            }
+        }
 
         static List<string> BuildFrames()
         {
             var rng = Dice;
+            var stream = new System.Text.StringBuilder();
             var order = new List<string>(Tips);
-            for (int i = order.Count - 1; i > 0; i--)
+            for (int p = 0; p < Passes; p++)
             {
-                int j = rng.Next(i + 1);
-                string t = order[i];
-                order[i] = order[j];
-                order[j] = t;
+                for (int i = order.Count - 1; i > 0; i--)
+                {
+                    int j = rng.Next(i + 1);
+                    string t = order[i];
+                    order[i] = order[j];
+                    order[j] = t;
+                }
+                foreach (string tip in order)
+                {
+                    if (stream.Length > 0) stream.Append(' ');
+                    stream.Append(tip);
+                }
             }
 
-            // Wrapping rather than stopping three from the end, so the list is a
+            List<string> lines;
+            GameFont font = Text.Font;
+            bool wrap = Text.WordWrap;
+            Text.Font = GameFont.Small;
+            Text.WordWrap = false;      // or CalcSize answers about a wrapped block
+            try
+            {
+                lines = Wrap(stream.ToString(), Box.x - Margin.x * 2f);
+            }
+            finally
+            {
+                Text.Font = font;
+                Text.WordWrap = wrap;
+            }
+
+            // Wrapping rather than stopping six from the end, so the list is a
             // loop: the index runs off the end and the scroll never has a seam.
-            var frames = new List<string>(order.Count);
-            for (int i = 0; i < order.Count; i++)
+            var frames = new List<string>(lines.Count);
+            for (int i = 0; i < lines.Count; i++)
             {
                 var block = new System.Text.StringBuilder();
                 for (int n = 0; n < Lines; n++)
                 {
                     if (n > 0) block.Append('\n');
-                    block.Append(order[(i + n) % order.Count]);
+                    block.Append(lines[(i + n) % lines.Count]);
                 }
                 frames.Add(Season(block.ToString(), rng));
             }
             return frames;
+        }
+
+        /// <summary>Word wrap, measured rather than counted: the font is
+        /// proportional, so a column of characters would leave a right edge that
+        /// wanders by half an inch and the wall would stop reading as a wall. A
+        /// word wider than the whole box is left on its own line and clipped by
+        /// the group it is drawn in, which is what the box is for.</summary>
+        static List<string> Wrap(string text, float width)
+        {
+            var lines = new List<string>();
+            var line = new System.Text.StringBuilder();
+            foreach (string word in text.Split(' '))
+            {
+                if (word.Length == 0) continue;
+                int end = line.Length;
+                if (end > 0) line.Append(' ');
+                line.Append(word);
+                if (end == 0 || Text.CalcSize(line.ToString()).x <= width) continue;
+                lines.Add(line.ToString(0, end));
+                line.Length = 0;
+                line.Append(word);
+            }
+            if (line.Length > 0) lines.Add(line.ToString());
+            return lines;
         }
 
         /// <summary>Marks sprinkled over a finished block. Whitespace is skipped:
@@ -261,28 +399,35 @@ namespace SlopWorld
         /// frame and a long delay would almost never be served.
         static float _hold = MinSeconds;
 
+        /// <summary>Where the window is. Ours rather than vanilla's field, because
+        /// the drawing is ours; the field is written anyway, for the build where
+        /// <see cref="Patch_LoadingTipBlock"/> did not bind and vanilla is still
+        /// the thing drawing the label.</summary>
+        static int _frame;
+        internal static int Frame => _frame;
+
         static float NextHold() =>
             MinSeconds + (float)Dice.NextDouble() * (MaxSeconds - MinSeconds);
 
         static void Prefix()
         {
-            // A field this build has never heard of leaves the game's own tips up,
-            // which is a worse loading screen and not a broken one.
-            if (AllTips == null) return;
+            var frames = Frames;
+            if (frames.Count == 0) return;
 
             float now = Time.realtimeSinceStartup;
-            if (!ReferenceEquals(AllTips.GetValue(null), Frames))
+            if (now - _shown >= _hold)
             {
-                AllTips.SetValue(null, Frames);
-                if (CurrentTip != null) CurrentTip.SetValue(null, 0);
+                _frame = (_frame + 1) % frames.Count;
                 _shown = now;
                 _hold = NextHold();
             }
-            else if (CurrentTip != null && now - _shown >= _hold)
+
+            // A field this build has never heard of leaves vanilla's own list in
+            // the cache, which only matters if the draw patch missed too.
+            if (AllTips != null)
             {
-                CurrentTip.SetValue(null, ((int)CurrentTip.GetValue(null) + 1) % Frames.Count);
-                _shown = now;
-                _hold = NextHold();
+                if (!ReferenceEquals(AllTips.GetValue(null), frames)) AllTips.SetValue(null, frames);
+                if (CurrentTip != null) CurrentTip.SetValue(null, _frame);
             }
 
             // Holding vanilla's timer at now is what keeps it from rolling the index
@@ -292,7 +437,55 @@ namespace SlopWorld
     }
 
     /// <summary>
-    /// The loading screen itself: the tips, centred, and nothing else. What goes is
+    /// The block itself, drawn. Vanilla's DrawContents sets MiddleCenter and hands
+    /// the string to Widgets.Label, which is right for one line of advice and
+    /// wrong for a wall: centred text has a ragged edge on both sides, and every
+    /// scroll shuffles every line sideways as the wrapping changes under it. Left
+    /// is what makes the thing hold still while the words go up through it.
+    ///
+    /// Word wrap is off, and that is the pair to measuring the wrap ourselves. The
+    /// lines were fitted to this width clean; the marks are then sprinkled on, and
+    /// a combining mark that the font gives an advance width to would push a line
+    /// over the edge and let Unity re-wrap it - which costs the bottom line of the
+    /// block and reflows the rest. Off, the worst it can do is overhang, and the
+    /// group is there to cut that off at the box.
+    ///
+    /// A prefix rather than a transpiler because there is nothing of vanilla's
+    /// left to keep, and one that stands down - returning true, letting the game
+    /// draw its own - whenever the wall could not be built.
+    /// </summary>
+    [HarmonyPatch(typeof(GameplayTipWindow), "DrawContents")]
+    public static class Patch_LoadingTipBlock
+    {
+        static bool Prefix(Rect rect)
+        {
+            List<string> frames = Patch_LoadingTips.Frames;
+            if (frames.Count == 0) return true;
+
+            Vector2 margin = Patch_LoadingTips.Margin;
+            Rect inner = new Rect(
+                rect.x + margin.x, rect.y + margin.y,
+                rect.width - margin.x * 2f, rect.height - margin.y * 2f);
+
+            GameFont font = Text.Font;
+            bool wrap = Text.WordWrap;
+            Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.UpperLeft;
+            Text.WordWrap = false;
+
+            Widgets.BeginGroup(inner);
+            Widgets.Label(new Rect(0f, 0f, inner.width, inner.height), frames[Patch_LoadingTips.Frame]);
+            Widgets.EndGroup();
+
+            Text.WordWrap = wrap;
+            Text.Font = font;
+            Text.Anchor = TextAnchor.UpperLeft;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The loading screen itself: the wall of tips, and nothing else. What goes is
     /// the status box above them - the one that names the event being waited on and
     /// draws a bar for it.
     ///
@@ -323,23 +516,20 @@ namespace SlopWorld
         static readonly FieldInfo WindowSizeField =
             AccessTools.Field(typeof(GameplayTipWindow), nameof(GameplayTipWindow.WindowSize));
 
-        /// <summary>Vanilla's box is 776x60 with an 8px margin, which leaves 44px of
-        /// text - two lines of GameFont.Small and no more. The block is three, so
-        /// the box has to grow or the middle line is the only one that survives.
+        /// <summary>Vanilla's box is 776x60 with a 15x8 margin, which leaves 44px
+        /// of text - two lines of GameFont.Small and no more. The wall is six, and
+        /// wider besides, so the box has to grow or all but the middle of it is
+        /// cut away.
         ///
-        /// Wider as well as taller, because a quote longer than the box wraps and
-        /// spends two of the three lines: 1000 fits all but the longest few, and the
-        /// height is four lines rather than three so a wrap costs a line of air
-        /// instead of the block. Vanilla anchors the text MiddleCenter, so a block
-        /// that does not need the room is still centred in it and the spare height
-        /// never shows.
+        /// The size is <see cref="Patch_LoadingTips.Box"/>'s rather than a number
+        /// here, because the same figure is what the text was wrapped to: a box
+        /// and a wrap that disagree are lines that stop short or spill off the
+        /// edge.
         ///
         /// The field is `static initonly`, which reflection may still write on this
         /// runtime and may not. A refusal is caught and left alone: the screen then
-        /// draws vanilla's box with the middle of the block in it, which is a worse
+        /// draws vanilla's box with the left of the wall in it, which is a worse
         /// loading screen and not a broken one.</summary>
-        const float BoxW = 1000f;
-        const float BoxH = 104f;
         static bool _sized;
 
         static void EnsureSize()
@@ -349,7 +539,7 @@ namespace SlopWorld
             if (WindowSizeField == null) return;
             try
             {
-                WindowSizeField.SetValue(null, new Vector2(BoxW, BoxH));
+                WindowSizeField.SetValue(null, Patch_LoadingTips.Box);
             }
             catch (Exception e)
             {
