@@ -489,6 +489,16 @@ none of these need a def.
   terminal's strip draw from - the two places the face is read at a glance.
 - `TimeKeeper` - unpauses the game. With the time controls stripped there is no way
   for the player to start the clock again, so a pause would be forever.
+- `ColonyNames` - the faction is "Clankers" and the settlement is "SlopWorld",
+  written on `FinalizeInit` rather than asked for. Vanilla's naming boxes are
+  opened from `Faction.FactionTick` on nothing more than
+  `Faction.OfPlayer.HasName` and `Settlement.namedByPlayer` being false a few
+  days in, so answering both up front closes all three of them
+  (`Dialog_NamePlayerFaction`, the settlement's, and the combined one) with no
+  patch and nothing to keep in step if they move. `FinalizeInit` rather than the
+  quick start because the settlement is not made until map generation, and
+  because a save written before this existed is named on its next load instead
+  of being asked about.
 - `RealClock` - maps ticks to the wall clock, and banks the stretches the clock did
   not run so old events still date correctly. Backs the real-time patches.
 - `SpawnSpot`, `LandingSite` - where agents land and where the colony does.
