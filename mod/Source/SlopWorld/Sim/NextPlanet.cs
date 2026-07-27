@@ -250,12 +250,17 @@ namespace SlopWorld
         /// exact, where a rect width or a label would be a guess about a layout
         /// that is free to move.
         ///
-        /// The same pass drops three rows. Save and Load game are answered already
+        /// The same pass drops four rows. Save and Load game are answered already
         /// and better: <see cref="AutoSaver"/> writes on the clock and on the way
         /// out, <see cref="Patch_AutoResume"/> loads the newest save on launch, and
         /// a player who saves by hand here is one who can restore a colony from
         /// under the sessions it no longer matches. Review scenario describes
         /// <see cref="SlopScenario"/>, which nobody picked and nobody can change.
+        /// Quit to main menu is a road with nothing at the end of it: the menu is
+        /// somewhere this product passes through rather than somewhere it stops,
+        /// and `Patch_AutoResume` is what would meet you there and put you straight
+        /// back in. Quitting the process still works, and so does leaving this
+        /// planet for the next one, which is the door that was actually wanted.
         /// They are matched on the translated label, because that is what the
         /// option carries - a key that has no translation comes back as itself, so
         /// this holds in any language including a missing one.
@@ -263,7 +268,8 @@ namespace SlopWorld
         [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
         public static class Patch_MenuOption
         {
-            static readonly string[] Dropped = { "Save", "LoadGame", "ReviewScenario" };
+            static readonly string[] Dropped =
+                { "Save", "LoadGame", "ReviewScenario", "QuitToMainMenu" };
 
             /// <summary>Set on the way into DoMainMenuControls, spent by the first
             /// listing it draws.</summary>

@@ -769,15 +769,18 @@ none of these need a def.
   startup. So a flag is armed on the way into `DoMainMenuControls` and spent by
   the first listing to arrive, which is the options one; a rect width or a label
   would be a guess about a layout that is free to move.
-  The same pass drops three rows. Save and Load game are answered already and
+  The same pass drops four rows. Save and Load game are answered already and
   better - `AutoSaver` writes on the clock and on the way out, `Patch_AutoResume`
   loads the newest on launch - and a hand-made save here is a colony that can be
   restored underneath sessions it no longer matches. Review scenario describes
-  `SlopScenario`, which nobody picked and nobody can change. They are matched on
-  the translated label, that being what the option carries, and a key with no
-  translation comes back as itself, so the match holds in any language.
+  `SlopScenario`, which nobody picked and nobody can change. Quit to main menu is
+  a road with nothing at the end: the menu is somewhere this passes through rather
+  than somewhere it stops, and `Patch_AutoResume` is what would meet you there and
+  put you straight back in. They are matched on the translated label, that being
+  what the option carries, and a key with no translation comes back as itself, so
+  the match holds in any language.
   `MainTabWindow_Menu` asks for a fixed 450x390 with no scrolling, so the height
-  is postfixed by the *net* rows - one in, three out - or the box stands a third
+  is postfixed by the *net* rows - one in, four out - or the box stands half
   empty. That figure is written down as the answer we expect and overwritten with
   what the last listing actually did, which is both halves of it:
   `RequestedTabSize` is read on `PreOpen` and not per frame, so a measured-only
