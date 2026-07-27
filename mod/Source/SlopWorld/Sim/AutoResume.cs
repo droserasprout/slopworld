@@ -31,8 +31,8 @@ namespace SlopWorld
         static void Prefix()
         {
             // The player is passing through the menu on their way to a new colony,
-            // not arriving at it. Resuming here would race NewColony for the frame.
-            if (NewColony.Pending) return;
+            // not arriving at it. Resuming here would race NextPlanet for the frame.
+            if (NextPlanet.Pending) return;
 
             if (_tried) return;
             _tried = true;

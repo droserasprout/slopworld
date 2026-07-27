@@ -66,7 +66,7 @@ namespace SlopWorld
 
         public override void MapComponentOnGUI()
         {
-            if (IntroDirector.UiHidden) return; // the opening scene plays bare
+            if (Cutscene.Playing) return; // a scene plays bare
 
             var usage = SessionHub.Instance.Usage;
 

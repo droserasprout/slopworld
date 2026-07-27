@@ -517,7 +517,7 @@ none of these need a def.
   belongs - the clock in the colonist bar and the line in the inspect pane -
   rather than by taking the body over. A save written while the job existed
   comes back with an unresolvable job def and nothing here migrates it, the same
-  answer `SlopRobotHead` got: the pawn drops the job, and "New colony" is the
+  answer `SlopRobotHead` got: the pawn drops the job, and "Next planet" is the
   fix for a colony the defs moved under.
   Moving *into* idle rings
   `TinyBell`, vanilla's new-alert chime, which nothing else plays now the alerts
@@ -531,7 +531,7 @@ none of these need a def.
   rather than tidiness: `SlopFaceRenderNodes` asks `IsAgent` while a render tree
   is being built, and a loaded colony builds every tree before this reconcile has
   run. Without it a loaded colony came back with human faces and stayed that way
-  until "New colony" built its pawns from scratch. `SetAllGraphicsDirty` is also
+  until "Next planet" built its pawns from scratch. `SetAllGraphicsDirty` is also
   what clears the portrait cache, which is what the colonist bar and the
   terminal's strip draw from - the two places the face is read at a glance.
 - `TimeKeeper` - unpauses the game. With the time controls stripped there is no way
@@ -746,13 +746,43 @@ none of these need a def.
   newest save instead of stopping at the menu, and put the open terminal back once
   its session has reported in. None of the three has a switch: a restart that
   stops at the menu is a restart that costs a click nobody wanted to spend.
-- `NewColony` - the other end of that: "New colony" in the sessions window bins the
-  current map and lands a fresh one. Vanilla's own button is nothing but
+- `NextPlanet` - the other end of that: "Next planet" bins the current map and
+  lands a fresh one. Vanilla's own New colony button is nothing but
   `Find.WindowStack.Add(new Page_SelectScenario())`, which `Patch_QuickStart`
   already turns into a generated colony, so the work is only getting back to the
   menu first - `GoToMainMenu` queues the teardown, so the page is opened on the
   menu's first frame instead. `Pending` is what tells `AutoSaver` not to write out
   a colony the player has just discarded, and `AutoResume` not to take the frame.
+  It sits in the menu behind Escape and the last button in the bottom bar, not on
+  the agents window where it started: that list is the daemon's sessions and this
+  touches none of them, where the menu is already the place that ends what you are
+  in. The seam is `OptionListingUtility.DrawOptionListing` rather than the menu
+  itself - `MainMenuDrawer.DoMainMenuControls` builds its whole `ListableOption`
+  list in one method with nothing to hook in the middle, and hands the finished
+  list over - so one prefix inserts the row and vanilla draws it. The same listing
+  draws the startup menu and the options dialog, hence the two guards: in a game,
+  and in the window that is the in-game menu. `MainTabWindow_Menu` asks for a fixed
+  450x390 with no scrolling, so the row also needs its getter postfixed or it is
+  drawn past the bottom edge.
+  Nothing asks whether you meant it, because the six seconds in the middle say it
+  better than a dialog: `Cutscene.Playing` takes the interface away, the camera
+  drops onto the core, and a front of fire walks out of it to the map edge. The
+  front is paced off the wall clock so it arrives exactly as the time runs out
+  whatever speed the game is at, and the fireballs are counted off the *area* the
+  front has just taken rather than per tick - the outer rings are where nearly all
+  of a map is, so a fixed rate is a wave that thins to nothing as it widens. That
+  count is banked in a float and paid out whole (`_owed`): a tick moves the front
+  about half a cell, which is a third of a blast, and rounding that off every tick
+  is a wave that never drops one at all. `Patch_ContainFire` stands down while it
+  runs, containment being for a map with a future. The beat is on
+  `GameComponentUpdate` so a pause cannot strand it and the fire on
+  `GameComponentTick`, because an explosion is a Thing and a Thing that never
+  ticks never goes off.
+- `Cutscene` - which of the two scenes has the board, asked in one place. The
+  opening one and the closing one want the same things of everything else - the
+  interface away, nothing on the map clickable, the reconcile standing still - and
+  a second scene otherwise means eight files each learning about it and one of
+  them being missed.
 - `TerminalHotkeys` - F12 into the terminal from anywhere, which with nothing
   selected picks any running agent and lets the open window select its pawn.
   Opening needs a home outside every window, since there is no window to hang it
@@ -825,7 +855,7 @@ none of these need a def.
   second forever.
   Dropping the old `SlopRobotHead` def leaves a save made while agents wore it
   with an unresolvable head, and nothing here migrates it: a colony is
-  decoration over sessions the daemon owns, so "New colony" is the answer to a
+  decoration over sessions the daemon owns, so "Next planet" is the answer to a
   save the defs moved under, and load-phase repair code for one is a permanent
   patch bought for a single afternoon.
 - `StatusOverlay`, `QuickStart`, `SlopDefOf`.
@@ -1237,7 +1267,7 @@ reconnect on every switch, because `WriteSettings` reconnects.
   which is a thing you can see and fix.
 - A `Font` from `CreateDynamicFontFromOSFont` is held only by a `GUIStyle`, which
   is not a `UnityEngine.Object` and so roots nothing: the `Resources.UnloadUnusedAssets`
-  the game runs on any map switch - loading a save, "New colony" - destroys the
+  the game runs on any map switch - loading a save, "Next planet" - destroys the
   face, and the style silently falls back to the proportional GUI font. The
   symptom is a terminal that stops being monospace mid-session with nothing in the
   log. `TerminalFont` marks the font `HideFlags.DontUnloadUnusedAsset` and rebuilds

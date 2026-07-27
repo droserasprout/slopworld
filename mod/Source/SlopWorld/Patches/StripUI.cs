@@ -165,7 +165,7 @@ namespace SlopWorld
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
     public static class Patch_Hide_ColonistBar
     {
-        static bool Prefix() => !IntroDirector.UiHidden && !ColonistBarOverlay.Suppressed;
+        static bool Prefix() => !Cutscene.Playing && !ColonistBarOverlay.Suppressed;
     }
 
     /// <summary>
@@ -224,7 +224,7 @@ namespace SlopWorld
         static void KeepOnly(MainButtonWorker __instance, ref bool __result)
         {
             if (!__result) return;
-            if (IntroDirector.UiHidden) { __result = false; return; } // opening scene
+            if (Cutscene.Playing) { __result = false; return; } // a scene has the board
             if (Keep.Contains(__instance.def?.defName)) return;
             __result = false;
         }

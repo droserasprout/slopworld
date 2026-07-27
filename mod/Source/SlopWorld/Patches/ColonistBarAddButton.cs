@@ -19,7 +19,7 @@ namespace SlopWorld
 
         static void Postfix()
         {
-            if (!BarShown || IntroDirector.UiHidden) return;
+            if (!BarShown || Cutscene.Playing) return;
             // Left off the strip above a terminal pane: the dialog it opens is a
             // normal window and the terminal draws on the Super layer, so the "+"
             // there would open something the terminal covers. New agents come from

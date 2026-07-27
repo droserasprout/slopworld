@@ -62,13 +62,12 @@ namespace SlopWorld
             // Shortcuts is not here: it is a window of its own in the bottom bar,
             // and an errand is not something you do to an agent on this list -
             // running one lands a new colonist rather than touching any of these.
+            // "New colony" is not here either, and for the same reason: throwing
+            // this map away and landing on the next one is not something you do to
+            // an agent on this list. It is "Next planet" in the menu behind Escape
+            // now - see NextPlanet.
             if (Widgets.ButtonText(new Rect(bar.x + 276f, bar.y, 130f, 30f), "Reconnect"))
                 hub.Connect();
-
-            // Furthest from the rest, because it is the one button here that throws
-            // something away rather than changing it.
-            if (Widgets.ButtonText(new Rect(bar.xMax - 130f, bar.y, 130f, 30f), "New colony"))
-                NewColony.Confirm();
         }
 
         void DrawList(Rect rect, SessionHub hub)

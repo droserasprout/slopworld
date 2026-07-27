@@ -52,11 +52,20 @@ namespace SlopWorld
         /// Saves if there is anything to save. Everything that quits goes through
         /// here, including paths the player did not choose - a failure must never
         /// be what stops the game from closing.
+        ///
+        /// Except a colony already on its way to the bin. "Next planet" says this
+        /// one is finished with, and it says so several seconds before the game is
+        /// gone - long enough for the interval below to come round on a map that is
+        /// burning. A save taken in there would both contradict the button and hand
+        /// `Patch_AutoResume` a discarded colony to come back to. The guard is here
+        /// rather than at the callers because every road to a save passes through
+        /// this method and only one of them used to check.
         /// </summary>
         public static void SaveNow()
         {
             try
             {
+                if (NextPlanet.Pending) return;
                 if (Current.ProgramState != ProgramState.Playing) return;
                 Current.Game?.autosaver?.DoAutosave();
             }
@@ -76,16 +85,10 @@ namespace SlopWorld
     }
 
     /// <summary>Quitting to the main menu, which drops the game without touching
-    /// the process. Not when the colony is on its way to the bin: "New colony" says
-    /// the current one is finished with, and a save here would both contradict that
-    /// and leave `Patch_AutoResume` a discarded colony to come back to.</summary>
+    /// the process. A colony on its way to the bin is refused by SaveNow itself.</summary>
     [HarmonyPatch(typeof(GenScene), nameof(GenScene.GoToMainMenu))]
     public static class Patch_SaveOnMainMenu
     {
-        static void Prefix()
-        {
-            if (NewColony.Pending) return;
-            AutoSaver.SaveNow();
-        }
+        static void Prefix() => AutoSaver.SaveNow();
     }
 }

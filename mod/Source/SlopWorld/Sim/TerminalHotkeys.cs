@@ -34,9 +34,9 @@ namespace SlopWorld
             if (!SlopDefOf.SlopQuickTerminal.KeyDownEvent) return;
 
             Event.current.Use();
-            // The opening scene hides the rest of the UI to read as a cutscene, and
-            // a fullscreen pane over it would be the loudest thing on screen.
-            if (IntroDirector.UiHidden) return;
+            // A scene hides the rest of the UI to read as a cutscene, and a
+            // fullscreen pane over it would be the loudest thing on screen.
+            if (Cutscene.Playing) return;
             Toggle();
         }
 

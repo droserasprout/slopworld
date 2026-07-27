@@ -27,7 +27,7 @@ namespace SlopWorld
     {
         static bool Prefix(object obj)
         {
-            if (IntroDirector.UiHidden) return false;
+            if (Cutscene.Playing) return false;
             if (!(obj is Pawn p)) return false;
             if (p.IsColonist) return true;
             if (Pets.Is(p)) Pets.Poke(p);

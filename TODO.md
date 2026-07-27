@@ -11,7 +11,7 @@ Remove ticked bullets when verified.
 - [ ] Suppress the "unsaved work will be lost" confirmation now that quitting always saves.
 - [ ] "Tab / Shift+Tab in floating windows to navigate between fields (might be hard to implement)
 - [ ] Cleanup: drop items that don't affect our "game" from Settings window if it can be modded.
-- [ ] Move "New colony" button from "Agents" to the main menu (one triggered by Esc or the last hamburger button in the bottom bar). Rename to "Next planet". Skip the confirmation. Cinematics before starting new game: disable UI like in initial scene, then burn/explode everything on the map. Wait 5-7 seconds and proceed to creating new game.
+- [x] Move "New colony" button from "Agents" to the main menu (one triggered by Esc or the last hamburger button in the bottom bar). Rename to "Next planet". Skip the confirmation. Cinematics before starting new game: disable UI like in initial scene, then burn/explode everything on the map. Wait 5-7 seconds and proceed to creating new game.
 
 ## Terminal
 

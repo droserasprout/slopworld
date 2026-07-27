@@ -36,7 +36,7 @@ namespace SlopWorld
 
         public override void MapComponentOnGUI()
         {
-            if (IntroDirector.UiHidden) return; // the opening scene plays bare
+            if (Cutscene.Playing) return; // a scene plays bare
 
             // ThingAt answers for every cell the core stands on and takes an
             // out-of-bounds cell without complaint, which the mouse regularly is.

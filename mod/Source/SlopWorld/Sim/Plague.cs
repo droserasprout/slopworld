@@ -556,12 +556,19 @@ namespace SlopWorld
         /// the whole attempt: a fire already outside the circle never spreads. Fires
         /// nothing to do with us - a blast, a short circuit on a map with no plague
         /// on it - are left alone.
+        ///
+        /// And containment is for a map with a future. <see cref="NextPlanet"/> is
+        /// six seconds of this one burning on the way out, and holding the fire to
+        /// a circle drawn for the plague's sake is the one thing that would stop
+        /// the map from going up.
         /// </summary>
         [HarmonyPatch(typeof(Fire), "TrySpread")]
         public static class Patch_ContainFire
         {
             static bool Prefix(Fire __instance)
             {
+                if (NextPlanet.Leaving) return true;
+
                 var plague = __instance.Map?.GetComponent<Plague>();
                 if (plague == null || !plague.Active) return true;
                 // A fire under the cat is going out at the next sweep anyway; this is

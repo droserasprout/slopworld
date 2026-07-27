@@ -1,0 +1,280 @@
+using System.Collections.Generic;
+using System.Linq;
+using HarmonyLib;
+using RimWorld;
+using UnityEngine;
+using Verse;
+
+namespace SlopWorld
+{
+    /// <summary>
+    /// Leaving. This planet is finished with, so it burns, and then the colony
+    /// lands on the next one.
+    ///
+    /// The landing itself is not ours - vanilla's own New colony button is exactly
+    /// `Find.WindowStack.Add(new Page_SelectScenario())`, and `Patch_QuickStart`
+    /// turns that into a generated map without asking five pages of questions. All
+    /// this has to do is get back to the menu first, because a scenario page opened
+    /// over a live game would build a second one underneath it.
+    ///
+    /// The gap between the two is why there is a flag rather than two statements:
+    /// `GenScene.GoToMainMenu` queues the teardown as a long event, so the page has
+    /// to be opened on the far side of it. The menu's first frame is where that is,
+    /// for the same reason <see cref="Patch_AutoResume"/> hooks it - the moment the
+    /// old game is gone and nothing has replaced it yet.
+    ///
+    /// Nothing asks whether you meant it. A confirmation box is what you write when
+    /// the button is one word and the consequence is a paragraph, and the six
+    /// seconds in the middle of this say the paragraph better: the interface goes,
+    /// the camera drops onto the core, and a front of fire walks out of it to the
+    /// map edge. Anybody who did not mean to press it watches their colony burn,
+    /// which lands harder than a dialog and costs the person who did mean it
+    /// nothing but the time it takes to watch. What is lost is a map - the sessions
+    /// are the daemon's, and every one still running gets a fresh colonist on the
+    /// next planet.
+    ///
+    /// It is the mirror of <see cref="IntroDirector"/> and is written the same way:
+    /// real-time beats off <c>GameComponentUpdate</c>, so a pause cannot leave the
+    /// scene half run, and the work itself off <c>GameComponentTick</c>, because an
+    /// explosion is a Thing and a Thing that never ticks never goes off. Nothing
+    /// here is persisted - the colony is not being saved again, see
+    /// <see cref="Pending"/> - so there is no load that could come back into the
+    /// middle of it.
+    ///
+    /// GameComponents are built for every subclass automatically, so this needs no
+    /// def.
+    /// </summary>
+    public class NextPlanet : GameComponent
+    {
+        // How long the map gets. The ask was five to seven seconds and this is the
+        // middle of it. The front is paced off the wall clock rather than off ticks,
+        // so it reaches the map edge exactly as the time runs out whatever speed the
+        // game happens to be running at.
+        const float BurnSeconds = 6f;
+
+        // One fireball per this much ground the front has just taken. The count
+        // comes off the area rather than being a rate per tick, or the wave thins
+        // out as it widens - the outer rings are where nearly all of the map is.
+        // A default map works out at something under a hundred and fifty of them.
+        const float CellsPerBlast = 700f;
+
+        // A ceiling per tick, because a dropped frame hands the next one all the
+        // ground it did not cover, and two hundred explosions in one tick is a hang
+        // rather than a spectacle.
+        const int BlastsPerTick = 12;
+
+        const float BlastRadius = 7.5f;
+        const int FlameDamage = 40;
+        const int BombDamage = 120;
+
+        // Most of it catches; some of it goes up. A map that only burns reads as a
+        // wildfire, which is a thing that happens to a colony rather than the end
+        // of one.
+        const float BombChance = 0.25f;
+
+        enum Phase { Off, Burn }
+
+        Phase _phase = Phase.Off;
+
+        // Where the fire starts, how far it has got, and when it stops. _owed is
+        // the fireballs the ground taken so far has earned and not yet been given:
+        // a tick moves the front about half a cell, which is a third of a blast on
+        // a map this size, and rounding that off every tick is a wave that never
+        // drops one at all.
+        Map _map;
+        IntVec3 _origin;
+        float _front;
+        float _owed;
+        float _at;
+
+        /// <summary>Set the moment the scene starts and cleared on the menu's own
+        /// frame. Two things read it: <see cref="AutoSaver"/>, which must not write
+        /// out a colony on its way to the bin, and <see cref="Patch_AutoResume"/>,
+        /// which would otherwise take the menu frame this is passing through.</summary>
+        public static bool Pending { get; private set; }
+
+        /// <summary>True while the closing scene plays. Read through
+        /// <see cref="Cutscene"/> by everything that stands down for one, and by
+        /// <see cref="Plague.Patch_ContainFire"/>, which stops holding the fire in.
+        /// Runtime only, and cleared by the constructor below.</summary>
+        public static bool Leaving { get; private set; }
+
+        // A new Game - a load, or the colony this scene went to fetch. Both flags
+        // are static, so whatever the last game was in the middle of would
+        // otherwise still be in force: a planet left behind must not hand the next
+        // one a hidden interface.
+        public NextPlanet(Game game)
+        {
+            Pending = false;
+            Leaving = false;
+        }
+
+        /// <summary>The button, and the whole of it. Idempotent, because the option
+        /// is drawn on every frame the menu is up and a second press during the burn
+        /// is a player who has already been answered.</summary>
+        public static void Begin()
+        {
+            if (Current.ProgramState != ProgramState.Playing) return;
+            if (Leaving) return;
+            Current.Game?.GetComponent<NextPlanet>()?.Start();
+        }
+
+        void Start()
+        {
+            _map = Find.CurrentMap;
+            if (_map == null) { Leave(); return; }
+
+            Leaving = true;
+            Pending = true;
+
+            // Everything the player could still be looking at, the menu it was
+            // pressed in included. Cutscene.Playing takes the map's own interface
+            // away; a window sits above all of that and has to be closed by hand.
+            foreach (var w in Find.WindowStack.Windows.ToList())
+                if (!(w is MainTabWindow)) w.Close(false);
+            Find.MainTabsRoot?.EscapeCurrentTab(false);
+            Find.Selector?.ClearSelection();
+
+            _origin = TheCore(_map)?.Position ?? _map.Center;
+            _front = 0f;
+            _owed = 0f;
+            _at = Time.realtimeSinceStartup + BurnSeconds;
+            _phase = Phase.Burn;
+
+            // The core is where the plague came out of, so it is where this goes in.
+            Find.CameraDriver?.JumpToCurrentMapLoc(_origin);
+
+            Log.Message("[SlopWorld] leaving this planet; burning the map on the way out");
+        }
+
+        // The beat, in real time, so a window that forces a pause - or a clock
+        // TimeKeeper has yet to get going again - cannot strand the scene.
+        public override void GameComponentUpdate()
+        {
+            if (_phase != Phase.Burn) return;
+            if (Time.realtimeSinceStartup < _at) return;
+            Leave();
+        }
+
+        // The fire, on the game's own clock, for the reason in the class comment.
+        public override void GameComponentTick()
+        {
+            if (_phase != Phase.Burn) return;
+            Step();
+        }
+
+        void Step()
+        {
+            if (_map == null || !Find.Maps.Contains(_map)) { Leave(); return; }
+
+            float done = Mathf.Clamp01(1f - (_at - Time.realtimeSinceStartup) / BurnSeconds);
+            float front = done * Reach(_map, _origin);
+            if (front <= _front) return;
+
+            // The ring the front has just taken, in cells, over what one fireball
+            // stands for - banked, then paid out whole.
+            _owed += Mathf.PI * (front * front - _front * _front) / CellsPerBlast;
+            int n = Mathf.Min(Mathf.FloorToInt(_owed), BlastsPerTick);
+            _owed -= n;
+
+            for (int i = 0; i < n; i++) Blast(_map, Rand.Range(_front, front));
+
+            _front = front;
+        }
+
+        void Blast(Map map, float dist)
+        {
+            float a = Rand.Range(0f, Mathf.PI * 2f);
+            var cell = new IntVec3(_origin.x + Mathf.RoundToInt(Mathf.Cos(a) * dist), 0,
+                                   _origin.z + Mathf.RoundToInt(Mathf.Sin(a) * dist));
+            // A circle drawn on a square map spends its last rings mostly outside
+            // it, and a blast off the map is not one worth clamping back on.
+            if (!cell.InBounds(map)) return;
+
+            bool bomb = Rand.Chance(BombChance);
+            GenExplosion.DoExplosion(cell, map, BlastRadius,
+                bomb ? DamageDefOf.Bomb : DamageDefOf.Flame, null,
+                damAmount: bomb ? BombDamage : FlameDamage);
+        }
+
+        void Leave()
+        {
+            _phase = Phase.Off;
+            _map = null;
+            // Leaving stays up. The teardown is a long event and the frames between
+            // here and it are still this map's, so putting the interface back for
+            // them would be a flash of a colony that is already gone; the next
+            // Game's constructor is what clears it.
+            Log.Message("[SlopWorld] discarding the colony, landing a new one");
+            GenScene.GoToMainMenu();
+        }
+
+        static Thing TheCore(Map map)
+        {
+            var found = map?.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore);
+            return found != null && found.Count > 0 ? found[0] : null;
+        }
+
+        // How far the front has to go to have covered the map: the furthest corner
+        // from wherever the core happens to be standing, which is not the middle.
+        static float Reach(Map map, IntVec3 from)
+        {
+            float x = Mathf.Max(from.x, map.Size.x - from.x);
+            float z = Mathf.Max(from.z, map.Size.z - from.z);
+            return Mathf.Sqrt(x * x + z * z);
+        }
+
+        /// <summary>
+        /// "Next planet", in the menu behind Escape and the last button in the
+        /// bottom bar - the one place in this game already about ending what you
+        /// are in rather than doing anything inside it. It used to be a button on
+        /// the agents window, which was the wrong shelf twice over: that list is
+        /// the daemon's sessions, and this touches none of them.
+        ///
+        /// The seam is the option listing rather than the menu itself.
+        /// `MainMenuDrawer.DoMainMenuControls` builds its List&lt;ListableOption&gt;
+        /// in one method with nothing to hook in the middle of it, and hands the
+        /// finished list here - so inserting into it is one prefix, and the row is
+        /// drawn by vanilla in vanilla's own style. That same listing draws the
+        /// startup menu and the options dialog, hence the two checks: in a game,
+        /// and in the window that is the in-game menu.
+        /// </summary>
+        [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
+        public static class Patch_MenuOption
+        {
+            static void Prefix(List<ListableOption> optList)
+            {
+                if (Current.ProgramState != ProgramState.Playing) return;
+                if (Leaving) return;
+                if (!(Find.WindowStack?.currentlyDrawnWindow is MainTabWindow_Menu)) return;
+
+                // First, because leaving is what this menu is for here: the rest of
+                // it saves, loads and quits a colony sim that is not running.
+                optList.Insert(0, new ListableOption("Next planet", Begin));
+            }
+        }
+
+        /// <summary>Room for the row above. The menu tab asks for a fixed 450x390
+        /// and the listing is drawn inside it with no scrolling, so an option added
+        /// without this is one drawn past the bottom edge.</summary>
+        [HarmonyPatch(typeof(MainTabWindow_Menu), "RequestedTabSize", MethodType.Getter)]
+        public static class Patch_MenuSize
+        {
+            // ListableOption's own minHeight, plus DrawOptionListing's spacing.
+            const float RowH = 45f + 7f;
+
+            static void Postfix(ref Vector2 __result) => __result.y += RowH;
+        }
+
+        [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI))]
+        public static class Patch_LandAgain
+        {
+            static void Prefix()
+            {
+                if (!Pending) return;
+                Pending = false;
+                Find.WindowStack.Add(new Page_SelectScenario());
+            }
+        }
+    }
+}

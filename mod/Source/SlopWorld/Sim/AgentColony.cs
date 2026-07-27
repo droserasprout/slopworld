@@ -95,7 +95,7 @@ namespace SlopWorld
             // agent standing in the crowd is one the purge has to step around, and
             // the clankers walking out of the plague is the last beat of the scene
             // rather than something that happened before it started.
-            if (IntroDirector.AgentsHeld) return;
+            if (Cutscene.AgentsHeld) return;
 
             var map = Find.CurrentMap ?? Find.AnyPlayerHomeMap;
             if (map == null) return;
