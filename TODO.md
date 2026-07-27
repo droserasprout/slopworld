@@ -8,25 +8,24 @@ Remove ticked bullets when verified.
 
 ## Interface
 
-- [ ] Move "Shortcuts" from "Agents" view to bottom bar.
-- [x] In usage resources top left credits show left instead of spent
 - [ ] Suppress the "unsaved work will be lost" confirmation now that quitting always saves.
 - [ ] "Tab / Shift+Tab in floating windows to navigate between fields (might be hard to implement)
 - [ ] Cleanup: drop items that don't affect our "game" from Settings window if it can be modded.
+- [ ] Move "New colony" button from "Agents" to the main menu (one triggered by Esc or the last hamburger button in the bottom bar). Rename to "Next planet". Skip the confirmation. Cinematics before starting new game: disable UI like in initial scene, then burn/explode everything on the map. Wait 5-7 seconds and proceed to creating new game.
 
 ## Terminal
 
 - [ ] Bug: thin black line between every 4 green or red lines (diff in CC)
+- [ ] Remove "Stop" and "Restart" buttons, turn "Close" button into red cross.
 - [ ] Bug: copy doesn't work (Claude tmux integration?)
 - [ ] Add "+" button to the small floating colonist panel
 - [ ] Add terminal title to title bar (below basic terminal info)
 - [ ] Don't minify colonists top center bar. Render it as is and grow title bar accordingly.
 - [ ] Bug: DnD text selection highlights the whole line under the cursor including empty space
-- [ ] Remove "Stop" and "Restart" buttons, turn "Close" button into red cross.
 - [ ] Color schemes. Default to dark RimWorld-style pallette.
-- [ ] Bells and whistles
-  - [ ] Cursor color
-  - [ ] OSC8/URL hyperlinks
+- [ ] Cursor color
+- [ ] OSC8/URL hyperlinks
+- [ ] RMB menu
 
 ## Sandbox
 
@@ -35,11 +34,9 @@ Remove ticked bullets when verified.
 ## "Game"
 
 - [ ] Bug: When clanker is down, Strip action button shown in it's menu.
-- [x] Cat aura rework. Emit it only when petted by click. Lower the range and tune probabilities so ONE plant is revived nearby with green smoke every 2-3 clicks. No green smoke from cat or surface. Also when cat is petted it gets cleaned from any debuffs, pain, etc.
-- [x] More thicc pink smoke when plague tags flora/fauna or takes effect. And compute core should emit it constantly, full-on steam locomotive.
 - [ ] Bug: day/night in game is not synced with real time in user's timezone
 - [ ] Human: tune plague odds and spread rate
-- [ ] "New colony" cinematics: before starting new game burn/explode everything on the map
+- [ ] Alt+Num focuses clanker in main view like a tab in terminal
 
 ## Sound and music
 
