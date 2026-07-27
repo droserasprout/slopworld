@@ -92,6 +92,20 @@ custom. Where it runs and what it can reach are the project's - `[[project]]` in
 in one repo want the same binds, and keeping that in three session entries meant
 it was wrong in at least one of them.
 
+`temp` is the one project that names no directory, because it has none to name:
+the daemon coins `/tmp/slopworld/<name>` from the entry's own name (through
+`slug`, so a project called "scratch pad" is not a path with a space in it) and
+`start` makes it the first time an agent lands there. What is temporary is the
+*ground* and not the entry - `/tmp` is the machine's to clear, so nothing here
+has to decide when scratch work has outlived its use, and a project ticked this
+way keeps its presets and its agents like any other. `settle` is where the dir
+is coined, on the way in rather than on the way out, so everything downstream -
+the sandbox, the views, the start - reads `dir` the way it reads anybody's; a
+rename moves the project to fresh ground, which is the honest reading of a
+directory named after a name that has changed. `dir` is `serde(default)` for
+this one field's sake, and `check_project` is what still refuses an ordinary
+project without one - a sentence rather than a deserialiser's complaint.
+
 `kind` is `claude` or `custom`. Claude is a kind rather than a command string
 because knowing it is Claude is what lets the sandbox hand it `~/.claude`:
 `presets_for` adds the `claude` preset to a Claude session whether its project
@@ -172,12 +186,42 @@ fish without moving anybody's default. Empty means `[defaults] agent` or the new
 `[defaults] shell`, which is where "which shell does this machine have" lives for
 the same reason `agent` is there: an answer about the host, not about the errand.
 
+`link` is the one thing about an errand allowed to be left open, because "which
+repo does this get to write to" is a different question from the rest of the
+template. `project` runs in the one it names, `temp` gets a scratch project of
+its own per run, and `ask` decides at the button. It defaults to `project`,
+which is what every entry written before it existed meant. What `project` is
+*read as* moves with it: the place to run, or the sandbox the scratch one is
+copied from, or nothing at all - so `check_shortcut` insists on one only in the
+first case and checks that a named one exists in every case, the name being as
+wrong when it is a template as when it is a destination.
+
+A `temp` errand's project is ephemeral the same way its agent is: coined in
+`run_shortcut`, held in `Manager::temp` and in no file, dropped by `forget` with
+the session that asked for it. The directory is *not* dropped - what the errand
+did in there is worth being able to read afterwards, and /tmp is the machine's
+to clear. It is named after the agent (`free_project_name` dodging both the
+file's projects and the ephemeral ones), because the body doing the errand and
+the place it does it are one thing to whoever is watching. The two tables are
+taken in the order `live` then `temp` wherever both are held - `run_shortcut`
+coins the name and the project under one guard, for the same reason it always
+did: two runs of one errand in the same instant would otherwise pick the same
+name twice.
+
+`RunWhere` is the caller's answer, and it is an override rather than only an
+answer: a project named there beats the entry's whatever the link says, so one
+errand can be sent somewhere else once without being edited. `temp` beats a
+named project, being the more specific of the two. The one refusal is an `ask`
+entry run with neither, because guessing a project is guessing which repo an
+agent gets to write to.
+
 `Config::session_for` is the template made real, and the one thing in it worth
 knowing is that a prompt shortcut with no command comes out a *Claude* session
 rather than a custom one running the same string. The kind is what hands the
 sandbox `~/.claude` (see `presets_for`), so spelling the command out there would
 land an agent without its own state dir - an agent that starts fine and has
-never heard of you.
+never heard of you. The project is handed *in* rather than read off the entry,
+because the entry is allowed not to name one.
 
 The agent it lands is *ephemeral*: `Live.ephemeral`, present in the live table
 and in nothing else. It is never written to `config.toml` - a standing agent is
@@ -199,7 +243,10 @@ matter because the name is a tmux target and a colonist at once.
 `POST /api/shortcuts/NAME/run` starts the session, answers with its name and
 leaves the typing to a task behind it. The mod's HTTP client gives up after five
 seconds and an agent is tens of seconds from being ready for input, so a call
-that waited would report a failure at every successful errand.
+that waited would report a failure at every successful errand. Its body is the
+`RunWhere` above - `{"project":"..."}` or `{"temp":true}` - and it is optional,
+extracted as `Option<Json<_>>` so a bare `curl -X POST` still runs every errand
+that already knows where it belongs.
 
 `deliver` waits, then pastes, then sends Enter as a separate keypress after a
 beat. Two writes because an agent's input box takes a pasted newline as a newline
@@ -974,7 +1021,16 @@ add it. Its preset checkboxes are drawn from `GET /api/presets` rather than
 from a list in the mod, so a preset added to `sandbox.rs` appears here with no
 second edit; a project whose file names a preset this build has never heard of
 is warned about and ignored rather than refused, because the file outlives the
-binary. `EditSessionDialog` is what is left once the directory and the sandbox
+binary. Its "temporary" checkbox is the scratch project: the directory box
+below it is greyed and shows the path the name is about to become, and Browse
+goes, there being nothing yet to find. Greyed rather than hidden for the same
+reason the agent dialog's command box is - a field that vanishes reads as a
+setting that does not exist. `ProjectInfo.TempDir` is the daemon's `slug`
+written out a second time, and it is a preview and not an authority: the daemon
+coins the path again on the way in, so a mod that spelled it differently would
+lose rather than corrupt.
+
+`EditSessionDialog` is what is left once the directory and the sandbox
 flags moved out: a name, a project picked from a dropdown, and a kind - "Claude
 Code" or "Custom", with the command box greyed and showing what a Claude
 session actually runs rather than hidden, since a field that vanishes reads as
@@ -992,9 +1048,9 @@ is `claude-3` rather than `claude-2-2`. Suggested and not enforced - it lands in
 the field, editable, and the daemon is still what refuses a collision.
 
 `ShortcutsWindow` is the errands, between `agents` and `config` in the bottom bar
-for the same reason `projects` is ahead of both: a shortcut needs a project to run
-in, and there is nothing to run before there are agents to have taught you what
-you keep retyping. Run is the reason the window exists, so it is the wide button
+for the same reason `projects` is ahead of both: a shortcut usually names a
+project to run in, and there is nothing worth keeping before there are agents to
+have taught you what you keep retyping. Run is the reason the window exists, so it is the wide button
 and the only thing on its row - and it closes the window and opens a terminal on
 whatever the daemon just started, because the errand is already underway and the
 only thing left to do with it is watch. Closed on the *answer* rather than on the
@@ -1002,6 +1058,24 @@ click, so a refused errand leaves the list up with the message over it.
 `EditShortcutDialog` is a session template plus a text box, and it asks
 `GET /api/config` for `[defaults] agent` and `shell` so the greyed placeholder in
 the command box is this machine's answer rather than the daemon's stock one.
+
+"Where it runs" is that dialog's first dropdown and `link` made visible. The
+project dropdown under it stays up for two of the three answers, because in
+`temp` mode it still answers something - which sandbox the scratch project is
+given, with "None" as a real option - and only `ask` leaves it with nothing to
+say. The grey line beneath is the part the two dropdowns together do not: what
+each run actually gets.
+
+An `ask` errand's Run button says "Run..." and opens a float menu of every
+project plus a temporary one, last, being the answer for the run that belongs
+nowhere in particular. It is the same button either way, because "run it" is
+what is being asked for in both cases. The mod sends the choice as the run
+body; the daemon is the only thing that has to know whether that was an answer
+or an override.
+
+The Shortcuts button is *not* on the agents window any more - it is a window of
+its own in the bottom bar, and an errand is not something you do to an agent on
+that list: running one lands a new colonist rather than touching any of them.
 
 The agents list draws a temporary agent differently, and the rule is that a row
 must not offer what the daemon would refuse: there is no config entry to Edit and

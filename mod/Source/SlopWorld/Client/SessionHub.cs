@@ -24,6 +24,13 @@ namespace SlopWorld
     /// </summary>
     public enum ShortcutKind { Prompt, Shell }
 
+    /// <summary>
+    /// Where an errand runs, which is the one thing about a shortcut allowed to
+    /// be left open. Project is a named one, Temp is a fresh scratch directory
+    /// per run, and Ask is decided when the button is pressed.
+    /// </summary>
+    public enum ShortcutLink { Project, Temp, Ask }
+
     public class SessionInfo
     {
         public string Name = "";
@@ -112,6 +119,10 @@ namespace SlopWorld
     {
         public string Name = "";
         public string Dir = "";
+        /// Scratch ground: the directory is <see cref="TempRoot"/>/name, coined by
+        /// the daemon from the name and made when the first agent starts there.
+        /// The entry is as permanent as any other - it is /tmp that is temporary.
+        public bool Temp;
         /// Names out of the daemon's preset table; see <see cref="PresetInfo"/>.
         public List<string> Presets = new List<string>();
         /// Anything the presets do not cover.
@@ -121,10 +132,37 @@ namespace SlopWorld
         public bool Net = true;
         public bool Sandbox = true;
 
+        /// <summary>
+        /// Where a temporary project's directory goes. The daemon coins the path
+        /// and is the only thing that writes it; this is here so the dialog can
+        /// show what a name is about to become before anything is saved.
+        /// </summary>
+        public const string TempRoot = "/tmp/slopworld";
+
+        /// <summary>
+        /// What the daemon will call this project's directory if it is
+        /// temporary. The same rule as the daemon's `slug`: a path segment is
+        /// not a place to put whitespace, a colon or a slash.
+        /// </summary>
+        public static string TempDir(string name)
+        {
+            var slug = new System.Text.StringBuilder();
+            foreach (char c in (name ?? "").Trim())
+            {
+                if (char.IsWhiteSpace(c) || c == ':' || c == '.' || c == '/')
+                {
+                    if (slug.Length > 0 && slug[slug.Length - 1] != '-') slug.Append('-');
+                }
+                else slug.Append(c);
+            }
+            return TempRoot + "/" + slug.ToString().Trim('-');
+        }
+
         public static ProjectInfo FromJson(JVal j) => new ProjectInfo
         {
             Name = j["name"].AsString(),
             Dir = j["dir"].AsString(),
+            Temp = j["temp"].AsBool(false),
             Presets = Strings(j["presets"]),
             RoPaths = Strings(j["ro_paths"]),
             RwPaths = Strings(j["rw_paths"]),
@@ -135,7 +173,7 @@ namespace SlopWorld
 
         public string ToJson() =>
             "{" +
-            $"\"name\":{JVal.Q(Name)},\"dir\":{JVal.Q(Dir)}," +
+            $"\"name\":{JVal.Q(Name)},\"dir\":{JVal.Q(Dir)},\"temp\":{JVal.B(Temp)}," +
             $"\"presets\":{Arr(Presets)},\"ro_paths\":{Arr(RoPaths)}," +
             $"\"rw_paths\":{Arr(RwPaths)},\"pass_env\":{Arr(PassEnv)}," +
             $"\"net\":{JVal.B(Net)},\"sandbox\":{JVal.B(Sandbox)}}}";
@@ -144,6 +182,7 @@ namespace SlopWorld
         {
             Name = Name,
             Dir = Dir,
+            Temp = Temp,
             Presets = new List<string>(Presets),
             RoPaths = new List<string>(RoPaths),
             RwPaths = new List<string>(RwPaths),
@@ -172,8 +211,12 @@ namespace SlopWorld
     {
         public string Name = "";
         public ShortcutKind Kind = ShortcutKind.Prompt;
+        /// Which of the three answers to "where does this run" the entry gives.
+        public ShortcutLink Link = ShortcutLink.Project;
         /// The project the temporary agent works in - its directory and its
-        /// whole sandbox, the same as for any other agent.
+        /// whole sandbox, the same as for any other agent. Where it runs when
+        /// <see cref="Link"/> is Project, the sandbox a fresh scratch project
+        /// copies when it is Temp, and unread when it is Ask.
         public string Project = "";
         /// The prompt, or the command line. Sent once the pane is ready for it.
         public string Text = "";
@@ -185,15 +228,36 @@ namespace SlopWorld
         {
             Name = j["name"].AsString(),
             Kind = j["kind"].AsString() == "shell" ? ShortcutKind.Shell : ShortcutKind.Prompt,
+            Link = ParseLink(j["link"].AsString()),
             Project = j["project"].AsString(),
             Text = j["text"].AsString(),
             Command = j["command"].IsNull ? "" : j["command"].AsString(),
         };
 
+        /// <summary>
+        /// A link this build has never heard of reads as Project, the same way an
+        /// unknown session state reads as Down: a version skew has to stay
+        /// survivable, and the named project is the answer that does something
+        /// rather than the one that opens a menu.
+        /// </summary>
+        public static ShortcutLink ParseLink(string s)
+        {
+            switch (s)
+            {
+                case "temp": return ShortcutLink.Temp;
+                case "ask": return ShortcutLink.Ask;
+                default: return ShortcutLink.Project;
+            }
+        }
+
+        public static string LinkName(ShortcutLink l) =>
+            l == ShortcutLink.Temp ? "temp" : l == ShortcutLink.Ask ? "ask" : "project";
+
         public string ToJson() =>
             "{" +
             $"\"name\":{JVal.Q(Name)}," +
             $"\"kind\":{JVal.Q(Kind == ShortcutKind.Shell ? "shell" : "prompt")}," +
+            $"\"link\":{JVal.Q(LinkName(Link))}," +
             $"\"project\":{JVal.Q(Project)},\"text\":{JVal.Q(Text)}," +
             $"\"command\":{(string.IsNullOrEmpty((Command ?? "").Trim()) ? "null" : JVal.Q(Command))}}}";
 
@@ -201,6 +265,7 @@ namespace SlopWorld
         {
             Name = Name,
             Kind = Kind,
+            Link = Link,
             Project = Project,
             Text = Text,
             Command = Command,
@@ -606,9 +671,17 @@ namespace SlopWorld
         /// agent doing it, and the sessions list is fetched again before that
         /// name is handed on: a terminal opened on a session this end has never
         /// heard of closes itself on the next frame.
+        ///
+        /// `project` and `temp` are the answer to an entry that does not say
+        /// where to run - and an override for one that does, which is the same
+        /// message either way, so the daemon is the only thing that has to know
+        /// which of the two it is being sent.
         /// </summary>
-        public void RunShortcut(string name, Action<string> started, Action<string> fail = null) =>
-            SlopClient.Post($"/api/shortcuts/{Esc(name)}/run", null,
+        public void RunShortcut(string name, Action<string> started, Action<string> fail = null,
+                                string project = null, bool temp = false) =>
+            SlopClient.Post($"/api/shortcuts/{Esc(name)}/run",
+                "{" + $"\"project\":{(string.IsNullOrEmpty(project) ? "null" : JVal.Q(project))}," +
+                $"\"temp\":{JVal.B(temp)}" + "}",
                 j =>
                 {
                     string session = j["session"].AsString();

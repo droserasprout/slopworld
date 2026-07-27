@@ -13,7 +13,7 @@ use tokio::task::JoinHandle;
 use tokio::time::{interval, MissedTickBehavior};
 
 use crate::config::{
-    expand, Config, Daemon, Defaults, ProjectCfg, Sandbox, SessionCfg, ShortcutCfg,
+    expand, Config, Daemon, Defaults, ProjectCfg, Sandbox, SessionCfg, ShortcutCfg, ShortcutLink,
 };
 use crate::emu::{parse_output, Frame, MouseInput, SessionEmu};
 use crate::sandbox::build_argv;
@@ -72,6 +72,22 @@ pub struct SessionView {
     /// Unix millis of the last observed pane change.
     pub last_change: u64,
     pub seq: u64,
+}
+
+/// Where one run of an errand is to happen, when the entry does not say - and an
+/// override when it does. Both fields empty is "whatever the shortcut says",
+/// which is what every caller that has nothing to add sends.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct RunWhere {
+    /// A project by name. It has to be one config knows: the ephemeral ones
+    /// belong to the errands that coined them and are gone by the time anything
+    /// could ask for one by name.
+    #[serde(default)]
+    pub project: Option<String>,
+    /// A temporary project of its own instead, made for this run. Beats
+    /// `project` when both are given, being the more specific answer.
+    #[serde(default)]
+    pub temp: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -196,6 +212,14 @@ pub struct Manager {
     pub cfg_path: PathBuf,
     cfg: RwLock<Config>,
     live: RwLock<HashMap<String, Live>>,
+    /// Projects nothing in config.toml stands behind: one is coined per errand
+    /// run in `temp` mode and dropped with the agent that asked for it. The same
+    /// arrangement the ephemeral session in it lives under, and for the same
+    /// reason - a scratch place used once is not a place worth writing down.
+    ///
+    /// Read after `live` wherever both are held, so the two are always taken in
+    /// that order.
+    temp: RwLock<HashMap<String, ProjectCfg>>,
     rules: RwLock<Vec<(State, Regex)>>,
     /// mtime of config.toml as we last wrote or read it. Anything else means
     /// someone edited the file behind us; see `reload_if_changed`.
@@ -373,23 +397,54 @@ fn check_project(p: &ProjectCfg) -> Result<()> {
     Ok(())
 }
 
-/// A shortcut needs somewhere to run and something to say. Same rule as a
-/// session's project, and for the same reason: the dialog that left it out is
-/// what should say so, not the button that runs it a week later.
+/// A shortcut needs something to say, and somewhere to run unless it says
+/// outright that where is not its business. Same rule as a session's project,
+/// and for the same reason: the dialog that left it out is what should say so,
+/// not the button that runs it a week later.
+///
+/// The project is checked whenever one is named, whatever the link says: in
+/// `temp` mode it is the sandbox the fresh project copies, so a name that has
+/// gone is as wrong there as anywhere. Only `project` mode insists on having one
+/// at all.
 fn check_shortcut(cfg: &Config, sc: &ShortcutCfg) -> Result<()> {
     if sc.name.trim().is_empty() {
         bail!("shortcut name must not be empty");
     }
-    if sc.project.trim().is_empty() {
+    if sc.link == ShortcutLink::Project && sc.project.trim().is_empty() {
         bail!("shortcut {} must belong to a project", sc.name);
     }
-    if cfg.project(&sc.project).is_none() {
+    if !sc.project.trim().is_empty() && cfg.project(&sc.project).is_none() {
         bail!("no such project: {}", sc.project);
     }
     if sc.text.trim().is_empty() {
         bail!("shortcut {} has nothing to send", sc.name);
     }
     Ok(())
+}
+
+/// A temporary project's directory is coined from its name rather than typed -
+/// that flag is there so nobody has to find a place for scratch work. Settled on
+/// the way in, so everything downstream reads `dir` the way it reads any other
+/// project's, and a rename moves the project to fresh ground rather than leaving
+/// its name pointing at somebody else's leavings.
+fn settle(p: &mut ProjectCfg) {
+    if p.temp {
+        p.dir = crate::config::temp_dir(&slug(&p.name));
+    }
+}
+
+/// A project name the config and the ephemeral table both have free. Numbered
+/// like a session's, and off the same base: the agent running the errand and the
+/// place it works are one thing to a reader, so they should read as one name.
+fn free_project_name(cfg: &Config, temp: &HashMap<String, ProjectCfg>, base: &str) -> String {
+    let taken = |n: &str| cfg.project(n).is_some() || temp.contains_key(n);
+    if !taken(base) {
+        return base.to_string();
+    }
+    (2..)
+        .map(|i| format!("{base}-{i}"))
+        .find(|n| !taken(n))
+        .unwrap()
 }
 
 /// Every agent works somewhere. Enforced on the way in rather than on start, so
@@ -413,6 +468,7 @@ impl Manager {
             cfg_path,
             rules: RwLock::new(compile_rules(&cfg)),
             live: RwLock::new(HashMap::new()),
+            temp: RwLock::new(HashMap::new()),
             cfg: RwLock::new(cfg),
             cfg_mtime: Mutex::new(mtime),
             cfg_checked: Mutex::new(0),
@@ -723,6 +779,17 @@ impl Manager {
         self.live.read().await.get(name).map(|l| l.cfg.clone())
     }
 
+    /// The project a session works in, from config if the file owns it and from
+    /// the ephemeral table if it does not - the same fallback `session_cfg` makes
+    /// for the session itself, and for the same reason: an errand run in `temp`
+    /// mode has a project nothing wrote down.
+    async fn project_for(&self, cfg: &Config, s: &SessionCfg) -> Option<ProjectCfg> {
+        if let Some(p) = cfg.project_of(s) {
+            return Some(p.clone());
+        }
+        self.temp.read().await.get(&s.project).cloned()
+    }
+
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
         let cfg = self.config().await;
         let s = self
@@ -730,7 +797,7 @@ impl Manager {
             .await
             .ok_or_else(|| anyhow!("no such session: {name}"))?;
 
-        let p = cfg.project_of(&s).cloned().ok_or_else(|| {
+        let p = self.project_for(&cfg, &s).await.ok_or_else(|| {
             if s.project.is_empty() {
                 anyhow!("session {name} belongs to no project")
             } else {
@@ -745,6 +812,14 @@ impl Manager {
             bail!("session {name} is already running");
         }
         let dir = expand(&p.dir);
+        // A temporary project's directory is scratch space nobody made: it is
+        // coined from the name, so the first agent to start there is what brings
+        // it into being. Any other project names somewhere that was already
+        // there, and a path that is not there is a mistake worth reporting
+        // rather than a directory to conjure up under a typo.
+        if p.temp {
+            std::fs::create_dir_all(&dir).with_context(|| format!("making {dir}"))?;
+        }
         if !std::path::Path::new(&dir).is_dir() {
             bail!("{dir} is not a directory");
         }
@@ -803,13 +878,19 @@ impl Manager {
     /// task you are running in can cancel it at the next await - which would be
     /// the one that gathers the views nobody has been told about yet.
     async fn forget(self: &Arc<Self>, name: &str) {
-        let handle = {
+        let (handle, project) = {
             let mut live = self.live.write().await;
             match live.remove(name) {
-                Some(mut l) => l.reader.take(),
+                Some(mut l) => (l.reader.take(), l.cfg.project.clone()),
                 None => return,
             }
         };
+        // A temporary project exists for the one agent that asked for one, so it
+        // goes with it. The directory does not: what the errand did in there is
+        // worth being able to read afterwards, and /tmp is the machine's to
+        // clear. A project the file owns is not in this table, so this is a
+        // no-op for every other kind of session.
+        self.temp.write().await.remove(&project);
         let _ = self.events.send(Event::Sessions {
             sessions: self.views().await,
         });
@@ -838,8 +919,9 @@ impl Manager {
         });
     }
 
-    pub async fn add_project(self: &Arc<Self>, p: ProjectCfg) -> Result<()> {
+    pub async fn add_project(self: &Arc<Self>, mut p: ProjectCfg) -> Result<()> {
         self.reload_if_changed().await;
+        settle(&mut p);
         check_project(&p)?;
         let mut cfg = self.cfg.write().await;
         if cfg.project(&p.name).is_some() {
@@ -855,8 +937,9 @@ impl Manager {
     /// Writes a project back. A changed name is a rename, and every session
     /// pointing at the old one is carried over in the same write - a session
     /// left naming a project that no longer exists is one that will not start.
-    pub async fn update_project(self: &Arc<Self>, name: &str, p: ProjectCfg) -> Result<()> {
+    pub async fn update_project(self: &Arc<Self>, name: &str, mut p: ProjectCfg) -> Result<()> {
         self.reload_if_changed().await;
+        settle(&mut p);
         check_project(&p)?;
 
         let mut cfg = self.cfg.write().await;
@@ -990,7 +1073,14 @@ impl Manager {
     /// The agent is never written to config.toml: an errand leaves nothing
     /// behind, and the colonist that ran it walks off the map when its process
     /// exits instead of lying down waiting to be restarted.
-    pub async fn run_shortcut(self: &Arc<Self>, name: &str) -> Result<String> {
+    ///
+    /// Where it runs is the entry's business unless the entry says otherwise -
+    /// see `ShortcutLink` - and `want` is how the caller answers when it does.
+    /// An override is honoured whatever the link says, so one errand can be sent
+    /// somewhere else once without being edited; an `ask` entry with nothing to
+    /// go on is the one case that is refused, because guessing a project is
+    /// guessing which repo an agent gets to write to.
+    pub async fn run_shortcut(self: &Arc<Self>, name: &str, want: RunWhere) -> Result<String> {
         self.reload_if_changed().await;
         let cfg = self.config().await;
         let sc = cfg
@@ -999,21 +1089,65 @@ impl Manager {
             .clone();
         check_shortcut(&cfg, &sc)?;
 
-        // Named and claimed without an await in between, because the two halves
-        // are one decision: two runs of the same errand in the same instant would
-        // otherwise pick the same free name, and the second would overwrite the
-        // first's entry and then fail on tmux already having that session.
+        let asked = match want.project.as_deref().map(str::trim) {
+            Some(p) if !p.is_empty() => Some(p.to_string()),
+            _ => None,
+        };
+        // A fresh project is asked for outright, or is what the entry always
+        // wanted; anything else names one, and an `ask` entry that named none is
+        // an errand nobody has said where to run yet.
+        let fresh = want.temp || (asked.is_none() && sc.link == ShortcutLink::Temp);
+        let named = match (&asked, sc.link) {
+            _ if fresh => String::new(),
+            (Some(p), _) => p.clone(),
+            (None, ShortcutLink::Ask) => {
+                bail!("shortcut {name} asks where to run; name a project or ask for a temporary one")
+            }
+            (None, _) => sc.project.clone(),
+        };
+        if !fresh && cfg.project(&named).is_none() {
+            bail!("no such project: {named}");
+        }
+        // What a fresh project copies: the entry's own, when it names one. A
+        // scratch directory with nobody's sandbox around it is the honest
+        // default, and this is how an errand asks for its usual one anyway.
+        let template = cfg.project(&sc.project).cloned().unwrap_or_default();
+
+        // Named and claimed without letting go of the table, because the two
+        // halves are one decision: two runs of the same errand in the same
+        // instant would otherwise pick the same free name, and the second would
+        // overwrite the first's entry and then fail on tmux already having that
+        // session. The temporary project is coined under the same guard and for
+        // the same reason, `temp` being taken after `live` as everywhere else.
         let session = {
             let mut live = self.live.write().await;
             let name = free_name(&live, &cfg, &slug(&sc.name));
             check_name(&name)?;
+
+            let project = if fresh {
+                let mut temp = self.temp.write().await;
+                let pname = free_project_name(&cfg, &temp, &name);
+                temp.insert(
+                    pname.clone(),
+                    ProjectCfg {
+                        name: pname.clone(),
+                        dir: crate::config::temp_dir(&pname),
+                        temp: true,
+                        ..template
+                    },
+                );
+                pname
+            } else {
+                named
+            };
+
             live.insert(
                 name.clone(),
                 Live {
                     // In the table before the start, because that is where
                     // `start` reads the command and the pane size from - there is
                     // nothing in config for it to read.
-                    cfg: cfg.session_for(&sc, name.clone()),
+                    cfg: cfg.session_for(&sc, name.clone(), project),
                     ephemeral: true,
                     state: State::Down,
                     seq: 0,
@@ -1286,10 +1420,15 @@ impl Manager {
     pub async fn views(&self) -> Vec<SessionView> {
         let cfg = self.config().await;
         let live = self.live.read().await;
+        // Both tables, because an errand running in a temporary project has one
+        // the file has never heard of - and a row that could not name where its
+        // agent is working would read as an entry pointing at a project that has
+        // gone, which is a different and much worse thing.
+        let temp = self.temp.read().await;
         let mut out: Vec<SessionView> = live
             .values()
             .map(|l| {
-                let p = cfg.project_of(&l.cfg);
+                let p = cfg.project_of(&l.cfg).or_else(|| temp.get(&l.cfg.project));
                 SessionView {
                     name: l.cfg.name.clone(),
                     project: l.cfg.project.clone(),
@@ -1792,8 +1931,11 @@ fn utf8_len(first: u8) -> usize {
 mod tests {
     use std::collections::HashMap;
 
-    use super::{check_name, free_name, slug, strip_sgr, Live, State, BOOT_COLS, BOOT_ROWS};
-    use crate::config::{Config, SessionCfg};
+    use super::{
+        check_name, free_name, free_project_name, settle, slug, strip_sgr, Live, State, BOOT_COLS,
+        BOOT_ROWS,
+    };
+    use crate::config::{Config, ProjectCfg, SessionCfg};
 
     /// A live entry with nothing in it, for the tests that only care that a name
     /// is spoken for.
@@ -1847,6 +1989,62 @@ mod tests {
 
         live.insert("review-diff-2".into(), placeholder());
         assert_eq!(free_name(&live, &cfg, "review-diff"), "review-diff-3");
+    }
+
+    /// A temporary project's directory is coined from its name, and the name is
+    /// a person's - so it goes through the same slug a session's does, or a
+    /// project called "my stuff" would name a path with a space in it and one
+    /// called "../etc" would name somewhere else entirely.
+    #[test]
+    fn temp_projects_settle_on_a_path_under_the_root() {
+        let mut p = ProjectCfg {
+            name: "scratch pad".into(),
+            temp: true,
+            ..Default::default()
+        };
+        settle(&mut p);
+        assert_eq!(p.dir, "/tmp/slopworld/scratch-pad");
+
+        // Whatever was typed in the box is overwritten: a temporary project's
+        // directory is not a field anybody is editing.
+        p.dir = "/home/you/git/repo".into();
+        settle(&mut p);
+        assert_eq!(p.dir, "/tmp/slopworld/scratch-pad");
+
+        // And an ordinary project's directory is left exactly as it was.
+        let mut plain = ProjectCfg {
+            name: "repo".into(),
+            dir: "/home/you/git/repo".into(),
+            ..Default::default()
+        };
+        settle(&mut plain);
+        assert_eq!(plain.dir, "/home/you/git/repo");
+    }
+
+    /// An errand's temporary project is named after the agent running it, and
+    /// has to dodge both tables: a project in the file and one another errand
+    /// coined a moment ago are equally in the way.
+    #[test]
+    fn temp_project_names_dodge_both_tables() {
+        let mut cfg = Config::default();
+        let mut temp: HashMap<String, ProjectCfg> = HashMap::new();
+
+        assert_eq!(free_project_name(&cfg, &temp, "review-diff"), "review-diff");
+
+        cfg.projects.push(ProjectCfg {
+            name: "review-diff".into(),
+            ..Default::default()
+        });
+        assert_eq!(
+            free_project_name(&cfg, &temp, "review-diff"),
+            "review-diff-2"
+        );
+
+        temp.insert("review-diff-2".into(), ProjectCfg::default());
+        assert_eq!(
+            free_project_name(&cfg, &temp, "review-diff"),
+            "review-diff-3"
+        );
     }
 
     #[test]

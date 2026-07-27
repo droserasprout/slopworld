@@ -131,8 +131,16 @@ namespace SlopWorld
         /// <summary>The sandbox in one line, the way the agent rows read it.</summary>
         public static string Summary(ProjectInfo p)
         {
-            if (!p.Sandbox) return "unsandboxed";
-            var bits = new List<string> { "bwrap" };
+            var bits = new List<string>();
+            // First, because it is the one thing here that is about the ground
+            // rather than about the sandbox around it.
+            if (p.Temp) bits.Add("temporary");
+            if (!p.Sandbox)
+            {
+                bits.Add("unsandboxed");
+                return string.Join(", ", bits.ToArray());
+            }
+            bits.Add("bwrap");
             if (!p.Net) bits.Add("no net");
             bits.AddRange(p.Presets);
             int extra = p.RoPaths.Count + p.RwPaths.Count;
@@ -187,7 +195,7 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
 
             var body = new Rect(rect.x, rect.y + 38f, rect.width, rect.height - 38f - 40f);
-            var view = new Rect(0f, 0f, body.width - 18f, 660f);
+            var view = new Rect(0f, 0f, body.width - 18f, 690f);
 
             Widgets.BeginScrollView(body, ref _scroll, view);
             DoFields(view);
@@ -209,10 +217,29 @@ namespace SlopWorld
             _p.Name = l.TextEntry(_p.Name);
 
             l.Gap(4f);
+            l.CheckboxLabeled("Temporary - scratch space under /tmp", ref _p.Temp,
+                "The directory is made for you under " + ProjectInfo.TempRoot + ", named after " +
+                "this project, and it is there the first time an agent starts. Nothing " +
+                "deletes it; the machine clears /tmp.");
+
+            l.Gap(4f);
             l.Label("Directory");
-            _p.Dir = l.TextEntry(_p.Dir);
-            if (l.ButtonText("Browse..."))
-                Find.WindowStack.Add(new BrowseDialog(_p.Dir, d => _p.Dir = d));
+            if (_p.Temp)
+            {
+                // Greyed rather than hidden, the same as the agent dialog's
+                // command box: what this project will actually work in is worth
+                // reading off the field even when nothing here typed it. Browse
+                // goes with it - there is nothing to find yet.
+                GUI.color = new Color(1f, 1f, 1f, 0.4f);
+                Widgets.TextField(l.GetRect(28f), ProjectInfo.TempDir(_p.Name));
+                GUI.color = Color.white;
+            }
+            else
+            {
+                _p.Dir = l.TextEntry(_p.Dir);
+                if (l.ButtonText("Browse..."))
+                    Find.WindowStack.Add(new BrowseDialog(_p.Dir, d => _p.Dir = d));
+            }
 
             l.Gap(6f);
             l.CheckboxLabeled("Sandbox with bubblewrap", ref _p.Sandbox,
@@ -291,10 +318,19 @@ namespace SlopWorld
             _p.RwPaths = Split(_rwPaths);
             _p.PassEnv = Split(_passEnv);
 
-            if (string.IsNullOrEmpty((_p.Name ?? "").Trim()) ||
-                string.IsNullOrEmpty((_p.Dir ?? "").Trim()))
+            if (string.IsNullOrEmpty((_p.Name ?? "").Trim()))
             {
-                Messages.Message("SlopWorld: name and directory are required.",
+                Messages.Message("SlopWorld: a project needs a name.",
+                    MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+            // A temporary project's directory is the daemon's to coin, and it
+            // coins it again on the way in - this is only so the list has the
+            // right path in it before the answer comes back.
+            if (_p.Temp) _p.Dir = ProjectInfo.TempDir(_p.Name);
+            else if (string.IsNullOrEmpty((_p.Dir ?? "").Trim()))
+            {
+                Messages.Message("SlopWorld: a project needs a directory.",
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }

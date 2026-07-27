@@ -116,10 +116,7 @@ namespace SlopWorld
                 s.Kind == ShortcutKind.Shell ? "shell" : "prompt");
 
             GUI.color = new Color(0.65f, 0.66f, 0.68f);
-            string where = string.IsNullOrEmpty(s.Project)
-                ? "no project - it will not run"
-                : s.Project;
-            Widgets.Label(new Rect(r.x + 302f, r.y + 4f, r.width - 480f, 22f), where);
+            Widgets.Label(new Rect(r.x + 302f, r.y + 4f, r.width - 480f, 22f), Where(s));
 
             // What it will say, on one line: the box that edits it is where the
             // rest of it lives, and a row that grew with the text would push the
@@ -138,8 +135,14 @@ namespace SlopWorld
             TooltipHandler.TipRegion(run, s.Kind == ShortcutKind.Shell
                 ? $"Run '{s.Text}' in a temporary shell in {Where(s)}."
                 : $"Hand this to a temporary agent in {Where(s)}.");
-            if (Widgets.ButtonText(run, "Run"))
-                Run(s.Name);
+            // An entry that never said where goes through a menu first; the
+            // button is the same button either way, because "run it" is what the
+            // player is asking for in both cases.
+            if (Widgets.ButtonText(run, s.Link == ShortcutLink.Ask ? "Run..." : "Run"))
+            {
+                if (s.Link == ShortcutLink.Ask) AskWhere(s);
+                else Run(s.Name);
+            }
 
             if (Widgets.ButtonText(new Rect(right - 74f, r.y + 4f, 74f, 20f), "Edit"))
                 Find.WindowStack.Add(new EditShortcutDialog(s));
@@ -154,7 +157,7 @@ namespace SlopWorld
             }
         }
 
-        void Run(string name)
+        void Run(string name, string project = null, bool temp = false)
         {
             SessionHub.Instance.RunShortcut(name,
                 session =>
@@ -164,11 +167,42 @@ namespace SlopWorld
                     Close();
                     TerminalWindow.Open(session);
                 },
-                Fail);
+                Fail, project, temp);
         }
 
-        static string Where(ShortcutInfo s) =>
-            string.IsNullOrEmpty(s.Project) ? "no project" : s.Project;
+        /// <summary>
+        /// The menu an "ask me every time" errand runs through. Every project,
+        /// plus a temporary one - which is last, being the answer for the run
+        /// that belongs nowhere in particular.
+        /// </summary>
+        void AskWhere(ShortcutInfo s)
+        {
+            var name = s.Name;
+            var options = SessionHub.Instance.Projects
+                .Select(p => new FloatMenuOption($"{p.Name}  -  {p.Dir}",
+                    () => Run(name, p.Name)))
+                .ToList();
+
+            options.Add(new FloatMenuOption(
+                $"A temporary project under {ProjectInfo.TempRoot}",
+                () => Run(name, null, true)));
+
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        /// <summary>Where an errand runs, in the few words a row and a tooltip have.</summary>
+        static string Where(ShortcutInfo s)
+        {
+            switch (s.Link)
+            {
+                case ShortcutLink.Temp: return "a temporary project";
+                case ShortcutLink.Ask: return "wherever you say";
+                default:
+                    return string.IsNullOrEmpty(s.Project)
+                        ? "no project - it will not run"
+                        : s.Project;
+            }
+        }
 
         /// <summary>The first line of a prompt, which is all a row has space for.</summary>
         static string OneLine(string text)
@@ -246,17 +280,29 @@ namespace SlopWorld
                 PickKind();
 
             l.Gap(4f);
-            l.Label("Project (the directory and sandbox it runs in)");
-            if (l.ButtonText(string.IsNullOrEmpty(_s.Project) ? "Pick a project..." : _s.Project))
-                PickProject();
+            l.Label("Where it runs");
+            if (l.ButtonText(LinkLabel(_s.Link)))
+                PickLink();
+
+            // The project dropdown stays up for two of the three, because in temp
+            // mode it still answers something - which sandbox the scratch project
+            // is given - and a field that vanished would read as a setting that
+            // does not exist. Ask mode is the one where it answers nothing.
+            if (_s.Link != ShortcutLink.Ask)
+            {
+                l.Gap(4f);
+                l.Label(_s.Link == ShortcutLink.Temp
+                    ? "Sandbox to copy (blank = plain: network on, no presets)"
+                    : "Project (the directory and sandbox it runs in)");
+                if (l.ButtonText(string.IsNullOrEmpty(_s.Project)
+                        ? (_s.Link == ShortcutLink.Temp ? "None" : "Pick a project...")
+                        : _s.Project))
+                    PickProject();
+            }
 
             var project = SessionHub.Instance.Project(_s.Project);
             GUI.color = new Color(0.65f, 0.66f, 0.68f);
-            l.Label(project != null
-                ? $"{project.Dir}  ({ProjectsWindow.Summary(project)})"
-                : SessionHub.Instance.Projects.Count == 0
-                    ? "No projects yet - make one in the Projects window first."
-                    : "");
+            l.Label(Explain(project));
             GUI.color = Color.white;
 
             l.Gap(4f);
@@ -299,6 +345,55 @@ namespace SlopWorld
                 Save();
         }
 
+        /// <summary>The three answers, in the words the dropdown shows them in.</summary>
+        public static string LinkLabel(ShortcutLink l)
+        {
+            switch (l)
+            {
+                case ShortcutLink.Temp: return "A new temporary project each run";
+                case ShortcutLink.Ask: return "Ask me every time";
+                default: return "One project, named below";
+            }
+        }
+
+        /// <summary>
+        /// The grey line under the dropdowns: what this errand will actually do
+        /// with the ground it is given, which is the part the two dropdowns
+        /// together do not say outright.
+        /// </summary>
+        string Explain(ProjectInfo project)
+        {
+            switch (_s.Link)
+            {
+                case ShortcutLink.Temp:
+                    return $"Each run gets an empty directory under {ProjectInfo.TempRoot}" +
+                           (project != null
+                               ? $", sandboxed like '{project.Name}'."
+                               : ". Nothing deletes it; the machine clears /tmp.");
+                case ShortcutLink.Ask:
+                    return "Running it opens a list of projects, plus a temporary one.";
+                default:
+                    return project != null
+                        ? $"{project.Dir}  ({ProjectsWindow.Summary(project)})"
+                        : SessionHub.Instance.Projects.Count == 0
+                            ? "No projects yet - make one in the Projects window first."
+                            : "";
+            }
+        }
+
+        void PickLink()
+        {
+            Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
+            {
+                new FloatMenuOption(LinkLabel(ShortcutLink.Project),
+                    () => _s.Link = ShortcutLink.Project),
+                new FloatMenuOption(LinkLabel(ShortcutLink.Temp),
+                    () => _s.Link = ShortcutLink.Temp),
+                new FloatMenuOption(LinkLabel(ShortcutLink.Ask),
+                    () => _s.Link = ShortcutLink.Ask),
+            }));
+        }
+
         void PickKind()
         {
             Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
@@ -317,6 +412,11 @@ namespace SlopWorld
                     () => _s.Project = p.Name))
                 .ToList();
 
+            // Only where it means something: in temp mode the project is the
+            // sandbox to copy, and copying nobody's is a real answer.
+            if (_s.Link == ShortcutLink.Temp)
+                options.Insert(0, new FloatMenuOption("None", () => _s.Project = ""));
+
             options.Add(new FloatMenuOption("New project...",
                 () => Find.WindowStack.Add(new EditProjectDialog(null))));
 
@@ -325,10 +425,16 @@ namespace SlopWorld
 
         void Save()
         {
-            if (string.IsNullOrEmpty((_s.Name ?? "").Trim()) ||
+            if (string.IsNullOrEmpty((_s.Name ?? "").Trim()))
+            {
+                Messages.Message("SlopWorld: a shortcut needs a name.",
+                    MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+            if (_s.Link == ShortcutLink.Project &&
                 string.IsNullOrEmpty((_s.Project ?? "").Trim()))
             {
-                Messages.Message("SlopWorld: name and project are required.",
+                Messages.Message("SlopWorld: pick a project, or a way to choose one.",
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }

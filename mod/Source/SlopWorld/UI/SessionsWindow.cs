@@ -59,10 +59,10 @@ namespace SlopWorld
             if (Widgets.ButtonText(new Rect(bar.x + 138f, bar.y, 130f, 30f), "Projects"))
                 ProjectsWindow.Toggle();
 
-            if (Widgets.ButtonText(new Rect(bar.x + 276f, bar.y, 130f, 30f), "Shortcuts"))
-                ShortcutsWindow.Toggle();
-
-            if (Widgets.ButtonText(new Rect(bar.x + 414f, bar.y, 130f, 30f), "Reconnect"))
+            // Shortcuts is not here: it is a window of its own in the bottom bar,
+            // and an errand is not something you do to an agent on this list -
+            // running one lands a new colonist rather than touching any of these.
+            if (Widgets.ButtonText(new Rect(bar.x + 276f, bar.y, 130f, 30f), "Reconnect"))
                 hub.Connect();
 
             // Furthest from the rest, because it is the one button here that throws

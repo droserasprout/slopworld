@@ -149,13 +149,40 @@ impl Default for Sandbox {
     }
 }
 
+/// Where a temporary project's directory goes. Under `/tmp` deliberately: the
+/// machine clears it, so nothing here has to decide when a scratch directory has
+/// outlived its use, and a name under our own folder keeps a colony's leavings
+/// together and recognisable.
+pub const TEMP_ROOT: &str = "/tmp/slopworld";
+
+/// The directory a temporary project of this name works in. Coined rather than
+/// typed, which is the whole point of the flag: a scratch project is one nobody
+/// had to find a place for.
+pub fn temp_dir(name: &str) -> String {
+    format!("{TEMP_ROOT}/{name}")
+}
+
 /// One place work happens: a directory plus the sandbox every agent in it gets.
 /// Three agents in the same repo want the same binds, and keeping that in three
 /// session entries meant it was wrong in at least one of them.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectCfg {
     pub name: String,
+    /// Defaulted rather than required, because a temporary project does not have
+    /// one to give: the daemon coins it from the name. `check_project` is what
+    /// insists on one for every other kind, so an entry that left it out by
+    /// mistake is still refused - with a sentence rather than a serde error.
+    #[serde(default)]
     pub dir: String,
+    /// Scratch space rather than somewhere that was already there. The directory
+    /// is not typed by anyone: it is `TEMP_ROOT/<name>`, coined when the entry is
+    /// written and made when the first agent in it starts. What is temporary is
+    /// the *ground*, not the entry - `/tmp` is cleared by the machine, so a
+    /// project ticked this way is a place to make a mess in rather than a place
+    /// that is forgotten. The other kind of temporary project is never written
+    /// here at all; see `ShortcutLink::Temp`.
+    #[serde(default)]
+    pub temp: bool,
     /// Named bundles of binds and env from `sandbox::PRESETS` - "dbus",
     /// "systemd", "x11" and so on. A name this build has never heard of is
     /// ignored with a warning rather than refused, because the file outlives
@@ -180,6 +207,7 @@ impl Default for ProjectCfg {
         Self {
             name: String::new(),
             dir: String::new(),
+            temp: false,
             presets: Vec::new(),
             ro_paths: Vec::new(),
             rw_paths: Vec::new(),
@@ -256,6 +284,27 @@ pub enum ShortcutKind {
     Shell,
 }
 
+/// Where an errand's agent works, which is the one thing about a shortcut that
+/// is allowed not to be decided in advance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ShortcutLink {
+    /// The project named in the entry, the same as any other agent's. The
+    /// default, because it is what every shortcut written before this existed
+    /// meant.
+    #[default]
+    Project,
+    /// A temporary project of its own, one per run: an empty directory under
+    /// `TEMP_ROOT` that nothing else has touched. Never written to this file -
+    /// it is coined when the errand starts and dropped when the agent goes, the
+    /// same rule the agent itself lives by. The entry's `project`, if it names
+    /// one, is what the fresh one copies its sandbox from.
+    Temp,
+    /// Nothing is decided: whoever runs it says where, per run. For an errand
+    /// that is worth keeping and is not about any one place.
+    Ask,
+}
+
 /// One errand, kept because it is worth repeating.
 ///
 /// A shortcut is a session template with a line of text attached: where to run
@@ -272,8 +321,13 @@ pub struct ShortcutCfg {
     pub name: String,
     #[serde(default)]
     pub kind: ShortcutKind,
+    /// Which of the three answers to "where does this run" the entry gives.
+    #[serde(default)]
+    pub link: ShortcutLink,
     /// The project the temporary agent works in - its directory and its whole
-    /// sandbox, the same as for any other agent.
+    /// sandbox, the same as for any other agent. Read as the place to run when
+    /// `link` is `project`, as the sandbox to copy when it is `temp`, and not
+    /// at all when it is `ask`.
     #[serde(default)]
     pub project: String,
     /// What gets typed in. A prompt for the agent, a command line for the shell.
@@ -445,7 +499,11 @@ impl Config {
     /// difference is not cosmetic: the kind is what hands the sandbox
     /// `~/.claude`, so spelling the command out here would land an agent
     /// without its own state dir.
-    pub fn session_for(&self, sc: &ShortcutCfg, name: String) -> SessionCfg {
+    ///
+    /// The project is handed in rather than read off the entry, because the
+    /// entry is allowed not to name one: see `ShortcutLink`. Resolving which
+    /// place this run happens in belongs to whoever is running it.
+    pub fn session_for(&self, sc: &ShortcutCfg, name: String, project: String) -> SessionCfg {
         let (kind, command) = match sc.kind {
             ShortcutKind::Prompt => match sc.command.as_deref().map(str::trim) {
                 Some(c) if !c.is_empty() => (SessionKind::Custom, Some(c.to_string())),
@@ -463,7 +521,7 @@ impl Config {
         };
         SessionCfg {
             name,
-            project: sc.project.clone(),
+            project,
             kind,
             command,
             ..Default::default()
@@ -546,7 +604,7 @@ pub fn expand(path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Config, SessionKind, ShortcutCfg, ShortcutKind};
+    use super::{temp_dir, Config, SessionKind, ShortcutCfg, ShortcutKind, ShortcutLink};
 
     /// A config written before these fields existed has to keep loading: the file
     /// on disk outlives any one build of the daemon, and a redeploy that refused
@@ -609,19 +667,89 @@ mod tests {
         )
         .expect("shortcuts should parse");
 
-        let prompt = cfg.session_for(cfg.shortcut("review diff").unwrap(), "review-diff".into());
+        let sc = cfg.shortcut("review diff").unwrap();
+        let prompt = cfg.session_for(sc, "review-diff".into(), sc.project.clone());
         assert_eq!(prompt.kind, SessionKind::Claude);
         assert_eq!(prompt.command, None);
         assert_eq!(cfg.command_of(&prompt), "claude --model opus");
         assert_eq!(prompt.project, "slopworld");
 
-        let shell = cfg.session_for(cfg.shortcut("tests").unwrap(), "tests".into());
+        let shell = cfg.session_for(cfg.shortcut("tests").unwrap(), "tests".into(), "x".into());
         assert_eq!(shell.kind, SessionKind::Custom);
         assert_eq!(cfg.command_of(&shell), "fish");
 
-        let custom = cfg.session_for(cfg.shortcut("codex").unwrap(), "codex".into());
+        let custom = cfg.session_for(cfg.shortcut("codex").unwrap(), "codex".into(), "x".into());
         assert_eq!(custom.kind, SessionKind::Custom);
         assert_eq!(cfg.command_of(&custom), "codex --yolo");
+
+        // The place is the caller's answer and not the entry's, which is what
+        // lets one errand be run somewhere it never named.
+        let anywhere = cfg.session_for(sc, "review-diff-2".into(), "elsewhere".into());
+        assert_eq!(anywhere.project, "elsewhere");
+    }
+
+    /// The three answers to "where does this run" have to survive the file, and
+    /// an entry written before they existed has to keep meaning what it did: a
+    /// shortcut that names a project and says nothing about links is one that
+    /// runs there.
+    #[test]
+    fn shortcut_links_round_trip_and_default_to_the_project() {
+        let cfg = Config::parse(
+            r#"
+            [[shortcut]]
+            name = "old"
+            project = "slopworld"
+            text = "carry on"
+
+            [[shortcut]]
+            name = "scratch"
+            link = "temp"
+            text = "have a go"
+
+            [[shortcut]]
+            name = "wherever"
+            link = "ask"
+            text = "you decide"
+            "#,
+        )
+        .expect("links should parse");
+
+        assert_eq!(cfg.shortcut("old").unwrap().link, ShortcutLink::Project);
+        assert_eq!(cfg.shortcut("scratch").unwrap().link, ShortcutLink::Temp);
+        assert_eq!(cfg.shortcut("wherever").unwrap().link, ShortcutLink::Ask);
+
+        let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        assert_eq!(back.shortcut("scratch").unwrap().link, ShortcutLink::Temp);
+        assert_eq!(back.shortcut("wherever").unwrap().link, ShortcutLink::Ask);
+    }
+
+    /// A temporary project is a flag and a name; the directory under it is
+    /// coined, and the point of the whole thing is that nobody typed it.
+    #[test]
+    fn temp_projects_name_their_own_directory() {
+        assert_eq!(temp_dir("scratch"), "/tmp/slopworld/scratch");
+
+        let cfg = Config::parse(
+            r#"
+            [[project]]
+            name = "scratch"
+            dir = "/tmp/slopworld/scratch"
+            temp = true
+            "#,
+        )
+        .expect("a temp project should parse");
+
+        assert!(cfg.project("scratch").unwrap().temp);
+        // And an ordinary one is not one by accident.
+        let plain = Config::parse(
+            r#"
+            [[project]]
+            name = "repo"
+            dir = "/home/you/git/repo"
+            "#,
+        )
+        .unwrap();
+        assert!(!plain.project("repo").unwrap().temp);
     }
 
     /// Shortcuts survive the round trip the GUI puts every write through, kind
@@ -633,6 +761,7 @@ mod tests {
         cfg.shortcuts.push(ShortcutCfg {
             name: "tests".into(),
             kind: ShortcutKind::Shell,
+            link: ShortcutLink::Project,
             project: "slopworld".into(),
             text: "make test".into(),
             command: None,

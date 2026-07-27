@@ -13,7 +13,7 @@ use serde_json::json;
 use tokio::sync::Mutex;
 
 use crate::config::{ProjectCfg, SessionCfg, ShortcutCfg};
-use crate::session::{Event, Manager};
+use crate::session::{Event, Manager, RunWhere};
 
 type Mgr = Arc<Manager>;
 
@@ -181,9 +181,18 @@ async fn destroy_shortcut(State(m): State<Mgr>, Path(name): Path<String>) -> Api
 /// the caller can open a terminal on it. It returns as soon as that agent is up:
 /// the text lands once the pane is ready for it, which is well past the point
 /// this client would have given up waiting.
-async fn run_shortcut(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+///
+/// The body says where to run it - `{"project":"..."}` or `{"temp":true}` - and
+/// is optional, because most shortcuts already know. `Option<Json<_>>` rather
+/// than `Json<_>` so a `curl -X POST` with no body at all still runs the ones
+/// that do.
+async fn run_shortcut(
+    State(m): State<Mgr>,
+    Path(name): Path<String>,
+    want: Option<Json<RunWhere>>,
+) -> ApiResult {
     let session = m
-        .run_shortcut(&name)
+        .run_shortcut(&name, want.map(|Json(w)| w).unwrap_or_default())
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "ok": true, "session": session })))
