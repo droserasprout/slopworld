@@ -610,9 +610,13 @@ none of these need a def.
   have to live on the def, because a fleck's `instanceColor` is combined with a
   separately computed fade alpha and loses the transparency. `spread` goes with
   the scale for the same reason the scatter exists at all: the thick calls -
-  `Fume` while the core vents, `Arrive` when an agent lands - drop big flecks,
-  and big flecks dropped into one handspan stack their alpha back into the solid
-  blob a gas cloud was chosen instead of.
+  `Fume` at the core, `Arrive` when an agent lands - drop big flecks, and big
+  flecks dropped into one handspan stack their alpha back into the solid blob a
+  gas cloud was chosen instead of. Every one of the calls is thick: a wisp per
+  marked animal and a hint per withered plant were invisible against grass at any
+  zoom a player actually watches from, so the counts and the scales are up across
+  the board and `Wither` - ten a tick over thousands of plants - is the only one
+  still deliberately small.
   Ignition is the one effect that outlives its roll - a `Fire` is a `Thing` with
   its own tick and `StripPatches` does not touch it - which is why the odds on it
   are tiny and why `Patch_ContainFire` refuses `Fire.TrySpread` outside the
@@ -628,8 +632,18 @@ none of these need a def.
   `Reaches`, because the weak band has to keep growing the plants it is only
   holding back and a cell the dither spared is untouched ground; `Grit` being
   stable is what makes a cell either sterile forever or fertile forever rather
-  than flickering. The one exception to all of it is wherever the cat is
-  standing; see `Aura`.
+  than flickering. The one exception to all of it is wherever the cat was last
+  patted; see `Aura`.
+  `Vent` is the core itself, breathing, for as long as the colony lasts - the
+  intro's own venting beat never quite switched off. The plume is what makes the
+  thing in the middle of the map the source of what is happening to it rather
+  than a prop the plague was seeded next to, and that takes a wisp that is always
+  there rather than a column: three breaths a second of the smallest puff in
+  `PlagueFx`, which is why it is `Vent` and not the intro's `Fume`. Anything
+  heavier is a fog bank parked on the middle of the map, with everything the
+  plague does out at the edge read through it. It costs nothing when the camera
+  is elsewhere, every call being gated on `ShouldSpawnMotesAt`, and the whole
+  stack is one cell's worth of flecks.
 - `Outskirts` - the other side of that: the rim has to stay alive or the map is
   one flat texture again, and the intro's hillside is a fixed stock the circle
   eats through. So animals and people keep arriving, walking in off the map edge
@@ -663,44 +677,56 @@ none of these need a def.
   policy in `Place` rather than an assumption in three other files. Clicking it
   plays its species' call sound rather than selecting it - `Selector.Select` still refuses
   everything but an agent. `NuzzleInstead` is what it does with a swing
-  `NoHarmAgents` took off it. What it does simply by standing somewhere is
-  `Aura`'s.
-- `Aura` - the cat's own few cells, and the only thing on this map that takes
-  ground back off the core. Inside `Radius` the filth goes, fires go out, living
-  things are unmarked and refused to the spread, plants are skipped by the sweep
-  and a tree the core stripped gets its leaves back - each of those the exact
-  undo of something in `Plague`, which is why the two files read against each
-  other rather than the aura having effects of its own.
-  It is seven cells against a circle a quarter of the map wide, so it can never
-  be mistaken for a cure, and nothing can steer it: the cat is not selectable and
-  there is no sim to give it orders through, so where the good ground goes is the
-  cat's business and the player's to watch.
-  The one that makes it visible is regrowth. `Patch_NoRegrowth` stands aside for
-  a covered cell, so the sterile core starts filling again under the animal and a
-  cat that settles leaves a green disc - where merely declining to strip leaves
-  nothing to see, the ground there having been finished long ago.
-  *Temporary* is the grace: a thing the aura touched stays spared for
-  `GraceTicks` after the cat has moved on, so the green fades out behind it
-  instead of being switched off. Without it the aura is a hard-edged circle
-  sliding over the map, which is the plague's own first mistake made again at a
-  smaller size. The grace table is runtime and not saved - the cat is still
-  standing where it was, so a load rebuilds it inside half a second, and
-  persisting it would mean writing out a dictionary of thing IDs to buy back
-  thirty ticks.
+  `NoHarmAgents` took off it. What the pat does to the ground it is standing on -
+  and to the cat - is `Aura`'s.
+- `Aura` - the only thing on this map that takes ground back off the core, and
+  the only thing on this map a player does rather than watches. `Pat` is its
+  whole input: `Pets.Poke` calls it, the click that pats the cat goes nowhere
+  else, and between pats this component does nothing but prune its own tables.
+  It used to be weather - a green disc that followed the animal about on nothing
+  but where the animal was - and that was two automatic systems arguing in front
+  of a player with no part in it, with green on screen constantly until the eye
+  stopped reading either colour.
+  A pulse is four things, and each is the exact undo of something in `Plague`:
+  the filth goes and fires go out, whatever is standing in it is unmarked and
+  spared the spread, the plants in it are skipped by the sweep, and *one* of them
+  is put right. The cat itself is the fourth - `Comfort` takes every `isBad`
+  hediff off it, injuries and pain included, because `Patch_Health` means nothing
+  on this map ever heals by itself and a cat cut in the intro would carry it for
+  the life of the colony.
+  That one plant is what the pat is *for*, and `ReviveChance` keeps it to every
+  second or third: a pat that always worked would be a repair button, and one
+  that fixed a field would make the core look weak. `Mend` prefers something the
+  core visibly damaged - a stripped tree (`Plant.madeLeaflessTick`, protected and
+  bound by name, pushed into the past, because `LeaflessNow` is nothing but a
+  subtraction against it) or a plant the falloff stunted. Where there is nothing
+  left to repair, which is most of the certain core, `Sow` puts a sprout in bare
+  ground instead: the sterile ground is the thing being argued with, so a pat
+  there has to answer with something growing rather than with nothing happening.
+  `PlantUtility.CanEverPlantAt` is the game's own answer to whether a cell would
+  take one, so nothing here knows about terrain or roofs.
+  The green smoke rides on that plant and on nothing else. No breath from the
+  cat, none from the cells, none on the cleanse - `SlopCleanAir` marks the one
+  thing the pat won, and a puff on every pat everywhere is what spends that.
+  Its haze is deliberately `SlopPlagueGas` in green rather than a cleaning
+  sparkle of its own: the two are one weather with two directions, and a chore
+  mote would say a job was done where this has to say the same thing the pink
+  says. Which is why `PlagueFx.At` takes a def - the scatter and the off-screen
+  gate are plumbing, and the meaning is the def's.
+  *Temporary* is the grace: a pulse holds its ground and what it touched for
+  `GraceTicks`, an hour of colony time, and then the sweep comes back through. A
+  revived tree stripped again on the next pass would be a pat undone inside the
+  minute, and a pat that bought its cell forever would make a patient player the
+  cure this map must not have. Neither table is saved: a pat is a gesture with an
+  hour's half-life, and persisting a dictionary of thing IDs to carry that across
+  a load would be writing down the weather.
   Three checks stand between it and the plague, not two: `Spread` and the plant
-  sweep are the design, and `Effects` is there because a marked animal that walks
-  in is unmarked at the *next* sweep, and half a second is long enough to
+  sweep are the design, and `Effects` is there because a thing that walks into a
+  pulse is not unmarked until the next one, and a few seconds is long enough to
   detonate in.
-  Its haze is `SlopCleanAir`, deliberately `SlopPlagueGas` in green rather than a
-  cleaning sparkle of its own: the two are one weather with two directions, and a
-  chore mote would say a job was done where this has to say the same thing the
-  pink says. Which is why `PlagueFx.At` takes a def - the scatter and the
-  off-screen gate are plumbing, and the meaning is the def's.
-  Reviving a tree is the one repair here, and it is `Plant.madeLeaflessTick`
-  (protected, bound by name) pushed into the past, because `LeaflessNow` is
-  nothing but a subtraction against it. Growth is not touched: a stunted plant
-  grows back by itself once the sweep stops knocking it down, and a plant the
-  core destroyed is gone and comes back as regrowth or not at all.
+  `Pets.Poke`'s cooldown is load-bearing twice over now: a drag box calls
+  `Selector.Select` once per thing inside it, which without it would be a dozen
+  pulses in one frame.
 - `AutoResume`, `AutoSaver`, `TerminalRecall` - what makes a restart cheap. The
   mod's assembly is read once per process, so seeing a change to it means a fresh
   game; those three save the colony on the wall clock and on the way out, load the

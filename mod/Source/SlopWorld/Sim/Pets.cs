@@ -139,6 +139,11 @@ namespace SlopWorld
         /// The hand does the patting - <see cref="DeadCursor.Pat"/> waggles the
         /// pointer - because a sound with nothing moving under it reads as a
         /// misclick that happened to make a noise.
+        ///
+        /// And it is the whole of the input to <see cref="Aura"/>: the cat is put
+        /// right and the ground under it gets a pulse. That is the only way anything
+        /// is ever taken back off the core, so the cooldown above is load-bearing
+        /// twice over - a drag box would otherwise be a dozen pulses at once.
         /// </summary>
         public static void Poke(Pawn pet)
         {
@@ -151,6 +156,7 @@ namespace SlopWorld
 
             pet.caller?.DoCall();
             DeadCursor.Pat();
+            Aura.Of(pet.Map)?.Pat(pet);
         }
 
         /// <summary>

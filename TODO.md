@@ -34,10 +34,10 @@ Remove ticked bullets when verified.
 
 ## "Game"
 
-- [ ] More thicc pink smoke when plague tags flora/fauna or takes effect. Like A LOT of pink smoke. And compute core should emit it constantly, full-on steam locomotive.
-- [ ] When mouse clicking make cursor rotate a little. One time and not so intense as when petting a cat. (built: `DeadCursor.Click`, two frames, a quarter of the pat - verify in game)
+- [ ] Bug: When clanker is down, Strip action button shown in it's menu.
+- [x] Cat aura rework. Emit it only when petted by click. Lower the range and tune probabilities so ONE plant is revived nearby with green smoke every 2-3 clicks. No green smoke from cat or surface. Also when cat is petted it gets cleaned from any debuffs, pain, etc.
+- [x] More thicc pink smoke when plague tags flora/fauna or takes effect. And compute core should emit it constantly, full-on steam locomotive.
 - [ ] Bug: day/night in game is not synced with real time in user's timezone
-- [ ] Cat emits good aura: tiles in small radius cleanes, flora and fauna get temporary cleanse and immunity from plague (done?)
 - [ ] Human: tune plague odds and spread rate
 - [ ] "New colony" cinematics: before starting new game burn/explode everything on the map
 

@@ -73,6 +73,15 @@ namespace SlopWorld
         // Withering is cheap, but a grown map has thousands of plants.
         const int PlantsPerTick = 10;
 
+        // Ticks between breaths of the core's stack: three a second at normal speed,
+        // of the smallest puff there is. The core should never be a quiet object
+        // sitting in a field, and that is the whole of what this is for - a plume
+        // any heavier is a fog bank parked on the middle of the map, with everything
+        // the plague does out at the edge read through it. It costs nothing off
+        // screen either way, PlagueFx.At dropping whatever ShouldSpawnMotesAt
+        // refuses, and the whole stack is one cell's worth of flecks.
+        const int VentInterval = 20;
+
         /// <summary>How hard the plague lands somewhere. Read from the cell, not from
         /// the mark, so a marked animal that wanders out of reach goes quiet and
         /// starts up again when it wanders back.</summary>
@@ -151,6 +160,10 @@ namespace SlopWorld
         // takes ground back off the circle.
         Aura _aura;
 
+        // The core, looked up until it is found. Held rather than asked for every
+        // eighth tick, and dropped if it ever stops being spawned.
+        Thing _core;
+
         public Plague(Map map) : base(map) { }
 
         /// <summary>Starts the spread from the core's cell. Called by the intro once
@@ -173,7 +186,29 @@ namespace SlopWorld
             int t = Find.TickManager.TicksGame;
             if (t % SpreadInterval == 0) Spread();
             if (t % EffectInterval == 0) Effects();
+            if (t % VentInterval == 0) Vent();
             StepPlants();
+        }
+
+        /// <summary>
+        /// The core, venting, for as long as the colony lasts: the intro's own
+        /// venting beat (<see cref="IntroDirector"/>, in the seconds before anything
+        /// is marked) never quite switched off. The plume is what makes the thing in
+        /// the middle of the map the source of what is happening to it rather than a
+        /// prop the plague was seeded next to - which takes a wisp that is always
+        /// there rather than a column, so this is <see cref="PlagueFx.Vent"/> and not
+        /// the intro's <see cref="PlagueFx.Fume"/>.
+        /// </summary>
+        void Vent()
+        {
+            if (_core == null || _core.Destroyed || !_core.Spawned)
+            {
+                var found = map.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore);
+                _core = found != null && found.Count > 0 ? found[0] : null;
+                if (_core == null) return;
+            }
+
+            PlagueFx.Vent(_core);
         }
 
         float MapSide => Mathf.Max(map.Size.x, map.Size.z);

@@ -26,32 +26,41 @@ namespace SlopWorld
     {
         /// <summary>Something living just got marked. The loudest of the quiet ones:
         /// this is the moment the circle reached it.</summary>
-        public static void Mark(Thing t) => At(SlopDefOf.SlopPlagueGas, t, 3, 1.1f, 0.25f);
+        public static void Mark(Thing t) => At(SlopDefOf.SlopPlagueGas, t, 8, 1.8f, 0.25f, 0.55f);
 
-        /// <summary>A plant went bare or went away. Small - there are thousands of
-        /// these and they go one per tick, so a sweep should look like a haze
-        /// crossing the field, not a barrage.</summary>
-        public static void Wither(Thing t) => At(SlopDefOf.SlopPlagueGas, t, 2, 0.8f, 0.12f);
+        /// <summary>A plant went bare or went away. The smallest of them, and it has
+        /// to stay the smallest - there are thousands of these and they go ten a tick
+        /// - but a single wisp per plant left the sweep invisible against grass, so
+        /// this is a puff now rather than a hint of one.</summary>
+        public static void Wither(Thing t) => At(SlopDefOf.SlopPlagueGas, t, 5, 1.3f, 0.14f, 0.3f);
 
         /// <summary>A marked thing's roll came up something. Bleeding, retching and
         /// seizing look nothing alike; the haze is what says they are the same
-        /// cause.</summary>
-        public static void Act(Thing t) => At(SlopDefOf.SlopPlagueGas, t, 4, 1.4f, 0.35f);
+        /// cause, so it wants to be thick enough to be read as the cause.</summary>
+        public static void Act(Thing t) => At(SlopDefOf.SlopPlagueGas, t, 12, 2.2f, 0.35f, 0.6f);
 
         /// <summary>A detonation. Vanilla's blast is orange and generic, so this goes
         /// wide enough to still be the thing you notice.</summary>
-        public static void Burst(Thing t) => At(SlopDefOf.SlopPlagueGas, t, 8, 1.9f, 0.70f);
+        public static void Burst(Thing t) => At(SlopDefOf.SlopPlagueGas, t, 22, 2.9f, 0.70f, 1.1f);
 
-        /// <summary>The core venting, in the seconds between it landing and the
-        /// colony coming apart. Called on a beat rather than once, so this is one
-        /// breath of a cloud that keeps coming - the rest of the thickness is the
-        /// repetition.</summary>
-        public static void Fume(Thing t) => At(SlopDefOf.SlopPlagueGas, t, 8, 2.6f, 0.35f, 1.1f);
+        /// <summary>The core venting in the intro, in the seconds between it landing
+        /// and the colony coming apart. Heavy, and it is the one time the core is
+        /// heavy: nothing is marked yet, so this cloud is the only thing on screen
+        /// making the claim that what follows came out of that object.</summary>
+        public static void Fume(Thing t) => At(SlopDefOf.SlopPlagueGas, t, 9, 2.6f, 0.40f, 1.1f);
+
+        /// <summary>The core's stack, ever after - see <see cref="Plague.Vent"/>.
+        /// Small, and small on purpose: this one never stops, so its job is to keep
+        /// the core from ever being a quiet object in a field, not to be the thing
+        /// you are looking at. A breath the size of <see cref="Fume"/> three times a
+        /// second is a fog bank parked on the middle of the map, and everything the
+        /// plague does out at the edge has to be read through it.</summary>
+        public static void Vent(Thing t) => At(SlopDefOf.SlopPlagueGas, t, 4, 1.15f, 0.25f, 0.6f);
 
         /// <summary>An agent arriving. The heaviest single puff there is: a clanker
         /// walks out of the same haze that took everything else, which is the whole
         /// claim the opening scene is making.</summary>
-        public static void Arrive(Thing t) => At(SlopDefOf.SlopPlagueGas, t, 16, 2.4f, 0.60f, 1.0f);
+        public static void Arrive(Thing t) => At(SlopDefOf.SlopPlagueGas, t, 24, 2.8f, 0.60f, 1.1f);
 
         /// <summary>Shared body. Position comes from the thing rather than a passed
         /// cell so the haze lands under a pawn mid-stride instead of on the cell it
