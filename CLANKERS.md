@@ -897,6 +897,39 @@ none of these need a def.
   `MainButtonWorker.InterfaceTryActivate`, which nothing overrides, so
   `Patch_MainButtons` prefixes that one method and gates it on the same `Visible`
   the button bar reads.
+- `StripOptions` - the same job done to the one vanilla window left standing.
+  Options cannot go the way the rest of the chrome did, the mod's own settings
+  being in it, so what is wrong in it comes out a piece at a time: a row whose
+  answer this build has already made, and a page about a game that is not
+  running. The two are different jobs because `Dialog_Options` is built two
+  ways. Categories are `OptionCategoryDef`s and `DoWindowContents` walks the
+  database, so there is a list to drop one from - and the def carries `isDev`,
+  which that loop already skips on unless `Prefs.DevMode`, so Gameplay goes by
+  moving a field rather than by a patch. The def stays where it is, which is the
+  point of moving a field instead of removing it: `OptionCategoryDefOf` names
+  all eight and a def taken out from under it is an error at every rebind. The
+  row counter advances only for the categories drawn, so the column has no hole
+  in it. What that costs is dev mode bringing it back, which is the honest
+  reading - the same switch un-hides vanilla's Dev page and the debug toolbar.
+  Rows are not a list at all: `DoOptions` makes the `Listing_Standard` and hands
+  it to a private method per category which draws its rows by calling widgets on
+  it, one line of code each, so a row can only be taken out on the way past.
+  Three prefixes cover the window - `CheckboxLabeled`, `ButtonTextLabeledPct`,
+  `SliderLabeled`, which between them are every row in it but a header - and
+  each declines to draw when the label is one of ours. Declining is the whole of
+  it, because the listing advances *inside* the widget rather than before it, so
+  a row never drawn leaves no gap where it would have been; what a skipped row
+  has to answer is only what its caller assigns back, which is the value it was
+  given (the slider) or an unclicked button (false). Matched on the finished
+  label, that being the only thing a widget is handed that says which row it is,
+  and a key with no translation comes back as itself so it holds in any language
+  - the same rule `NextPlanet`'s dropped menu rows go by. The labels are built
+  per call rather than written down once, because vanilla writes the count into
+  the autosaves slider's own label and a table computed at load would hold the
+  number this game started with. The gate is `currentlyDrawnWindow` rather than
+  a flag armed around `DoOptions`: these widgets are drawn all over the game and
+  by this mod's own dialogs, and a flag left set by an exception thrown
+  mid-listing would filter every listing after it for the life of the process.
 - `NoRescueAgents`, `NoStripAgents` - agent pawns are the daemon's. What a dead
   world hands out is `SlopScenario`'s answer now, not a patch's.
 - `NoHarmAgents` - a colonist is a status light, so nothing may hurt one and the

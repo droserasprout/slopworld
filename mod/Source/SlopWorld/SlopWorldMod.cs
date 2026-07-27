@@ -127,6 +127,9 @@ namespace SlopWorld
             // Not a patch: a preference this build insists on, which has to be put
             // right once for a file that has it off. See Patch_RunInBackground.
             Patch_RunInBackground.Enforce();
+            // Nor is this one: a field moved on a def vanilla already reads, which
+            // is how a whole options category goes. See StripOptions.
+            StripOptions.Hide();
             Log.Message("[SlopWorld] patched; daemon at " + SlopClient.BaseUrl);
         }
     }
