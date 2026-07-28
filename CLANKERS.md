@@ -388,10 +388,22 @@ none of these need a def.
   and `PawnRelationWorker_Parent.ResolveMyName` casts a parent's name to
   `NameTriple` where an agent's is a `NameSingle`. Zeroing the weight is all it
   takes. Applied by hand because `GenerationChance` is virtual.
-- `ColonistBarAddButton`, `ColonistBarStateIcon`, `InspectPanePatch`,
-  `PawnGizmoPatch` - the parts of the UI that are kept, extended.
-  `Patch_AgentNeverIdle` answers `IsIdle` false for an agent, so the daemon's word
-  is the only thing that draws a clock.
+- `ColonistBarStrip`, `ColonistBarAddButton`, `ColonistBarStateIcon`,
+  `InspectPanePatch`, `PawnGizmoPatch` - the parts of the UI that are kept,
+  extended. `Patch_AgentNeverIdle` answers `IsIdle` false for an agent, so the
+  daemon's word is the only thing that draws a clock.
+- `ColonistBarStrip` is the bar in *both* views, and that is the point: it prefixes
+  `ColonistBarOnGUI` to point the bar's own cached scale and draw locs at one
+  shrunk, centred row in a `BarH`-tall band, and a finalizer puts them back. Map or
+  terminal, the same call lays out the same pixels, so toggling a pane moves
+  nothing. Over a pane the call has to come from *inside* the window
+  (`ColonistBarStrip.Draw`, from `TerminalWindow.DoWindowContents`) or the terminal
+  paints over it, and `Suppressed` is what keeps the map-layer call from drawing a
+  buried second copy. The "+" slot is reserved before the row is centred, so the
+  portraits do not shuffle sideways when it appears; `Blocked` is the strip
+  declining to answer clicks while something is stacked over the pane, which on the
+  map layer never arises because `HandleEventsHighPriority` has already Used the
+  event by the time the map interface draws.
 - `RunInBackground` - the setter is forced, not the getter, because what reaches
   Unity is `PrefsData.Apply` reading the field. Enforced once at startup through
   `LongEventHandler.ExecuteWhenFinished`, `Apply` being a no-op off the main thread.
@@ -429,12 +441,19 @@ screen draws the same background without going near `Init`.
 `TerminalWindow` renders a pane and forwards keys. Almost everything typed goes to
 the agent - Escape included, so leaving is Shift+Escape - and the few keys the
 window keeps are taken first: F12 closes, Alt+1..9 (and Alt+0) point it at that
-portrait, counting through `AgentColony.InBarOrder`. `Sgr` parses colour runs;
+portrait, counting through `AgentColony.InBarOrder`. The same numbers are read on
+the map by `TerminalHotkeys`, where they select that agent and jump the camera
+instead - the strip is the same row either way, so its shortcuts have to be. Game
+components run *ahead* of the window stack in `UIRootOnGUI`, so the map half stands
+down while a pane is open rather than trusting the pane to have eaten the key.
+`Sgr` parses colour runs;
 `TerminalFont` deals with the cell grid; `SnapX`/`SnapY` put every box edge on a
 screen pixel, which is the thin black line that used to run through coloured diff.
 
 The colonist strip is *in* the title bar, which is why `HeaderH` is
-`ColonistBarOverlay.BarH`. The pane's size is the window's, not a setting:
+`ColonistBarStrip.BarH`. `OpenOverPane` is how a window opened from the strip - the
+"+" - is put on the Super layer with the pane, since an ordinary dialog would be
+added underneath it and never seen. The pane's size is the window's, not a setting:
 `NegotiateSize` divides the body rect by the cell size and sends a `resize`
 (debounced 0.2s), and keeps asking once a second while the frames coming back
 disagree - a fire-and-forget message over a socket that drops on every redeploy has
@@ -494,7 +513,7 @@ the save; writing mod settings on every switch would also mean a reconnect.
   layer or in `ExtraOnGUI` is behind every window's background, and `TerminalWindow`
   fills the screen opaque. To put something over the terminal, draw it from
   `DoWindowContents` after the fill - which is also the only place `Mouse.IsOver`
-  lets clicks through. This cost three iterations; see `ColonistBarAboveTerminal.cs`.
+  lets clicks through. This cost three iterations; see `ColonistBarStrip.cs`.
 - Keyboard order is not draw order. `WindowStack.HandleEventsHighPriority` runs near
   the top of `UIRoot.UIRootOnGUI` and Uses every `KeyDown` whenever a window absorbs
   input around itself, so a global hotkey taken in a game component fires only while

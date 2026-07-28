@@ -15,7 +15,7 @@ namespace SlopWorld
 
         // The colonist strip draws inside it, so it grows to hold a whole row and never
         // shrinks below the buttons.
-        static float HeaderH => Mathf.Max(HeaderMinH, ColonistBarOverlay.BarH);
+        static float HeaderH => Mathf.Max(HeaderMinH, ColonistBarStrip.BarH);
         const float Pad = 6f;
 
         static readonly Color SelColor = new Color(0.30f, 0.50f, 0.90f, 0.35f);
@@ -64,6 +64,17 @@ namespace SlopWorld
 
         public static string CurrentName =>
             Find.WindowStack.WindowOfType<TerminalWindow>()?._name;
+
+        // The pane is on the Super layer, so an ordinary dialog opened from inside it -
+        // the strip's "+" - would be added underneath and never seen. Raised rather than
+        // closing the pane first: the errand is "add an agent", not "leave this one".
+        public static void OpenOverPane(Window w)
+        {
+            if (Find.WindowStack == null) return;
+            if (Find.WindowStack.WindowOfType<TerminalWindow>() != null)
+                w.layer = WindowLayer.Super;
+            Find.WindowStack.Add(w);
+        }
 
         // Whether a pane stands over the map; PaneOverDraw reads it several times a frame,
         // so the closed case costs one static read. Open, it is checked against the stack
@@ -163,10 +174,14 @@ namespace SlopWorld
             var header = new Rect(rect.x, rect.y, rect.width, HeaderH);
             DrawHeader(header, info);
 
+            // Anything stacked over the pane takes the keys and the clicks, or a dialog the
+            // strip opened would be typed straight through into the agent.
+            bool input = Find.WindowStack == null || Find.WindowStack.GetsInput(this);
+
             // Drawn from here, after the background fill and the header: anywhere earlier in
-            // the frame it is painted over. See ColonistBarAboveTerminal.cs.
-            var bar = ColonistBarOverlay.Rect;
-            ColonistBarOverlay.Draw();
+            // the frame it is painted over. See ColonistBarStrip.cs.
+            var bar = ColonistBarStrip.Rect;
+            ColonistBarStrip.Draw(input);
 
             // The strip is the header, or is inside it; the pane starts under both.
             float top = Mathf.Max(header.yMax, bar.yMax);
@@ -176,7 +191,7 @@ namespace SlopWorld
                 rect.width - Pad * 2,
                 rect.height - top - Pad * 2);
 
-            HandleInput(body);
+            if (input) HandleInput(body);
 
             var live = hub.Screen(_name);
             // While scrolled, show the history frame; fall back to live until it lands.
@@ -634,7 +649,7 @@ namespace SlopWorld
             // Ahead of the offline check on purpose: switching is local and the subscription
             // survives a dead socket, so a terminal that will not change pane during a
             // redeploy reads as hung.
-            int slot = SlotKey(e);
+            int slot = TerminalHotkeys.SlotKey(e);
             if (slot >= 0 && e.alt)
             {
                 SwitchToSlot(slot);
@@ -687,16 +702,6 @@ namespace SlopWorld
 
             if (e.keyCode != KeyCode.None)
                 e.Use(); // swallow it so RimWorld hotkeys don't fire behind us
-        }
-
-        // Zero is the tenth, the way a tabbed terminal counts.
-        static int SlotKey(Event e)
-        {
-            var k = e.keyCode;
-            if (k >= KeyCode.Alpha1 && k <= KeyCode.Alpha9) return k - KeyCode.Alpha1;
-            if (k >= KeyCode.Keypad1 && k <= KeyCode.Keypad9) return k - KeyCode.Keypad1;
-            if (k == KeyCode.Alpha0 || k == KeyCode.Keypad0) return 9;
-            return -1;
         }
 
         // A slot past the end is a no-op rather than a wrap: the keys are muscle memory

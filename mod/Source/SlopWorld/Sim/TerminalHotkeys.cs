@@ -18,16 +18,58 @@ namespace SlopWorld
 
         public override void GameComponentOnGUI()
         {
-            // KeyDownEvent already refuses a search widget that has focus, so this cannot
-            // steal the key from someone typing a session name.
-            if (SlopDefOf.SlopQuickTerminal == null) return;
-            if (!SlopDefOf.SlopQuickTerminal.KeyDownEvent) return;
-
-            Event.current.Use();
             // A scene hides the rest of the UI to read as a cutscene, and a fullscreen pane
             // over it would be the loudest thing on screen.
             if (Cutscene.Playing) return;
-            Toggle();
+
+            if (SlopDefOf.SlopQuickTerminal != null && SlopDefOf.SlopQuickTerminal.KeyDownEvent)
+            {
+                // KeyDownEvent already refuses a search widget that has focus, so this cannot
+                // steal the key from someone typing a session name.
+                Event.current.Use();
+                Toggle();
+                return;
+            }
+
+            // The strip's numbers, read on the map as well as over a pane, so the portrait
+            // under Alt+3 is the same portrait either way. Here it is what clicking that
+            // portrait does in vanilla - select and look at it - since there is no pane to
+            // point at; TerminalWindow.HandleKey holds the other half. Game components run
+            // ahead of the window stack in UIRootOnGUI, so the pane is asked about rather
+            // than trusted to have eaten the key first.
+            if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null) return;
+            if (Event.current.type != EventType.KeyDown || !Event.current.alt) return;
+            int slot = SlotKey(Event.current);
+            if (slot < 0) return;
+
+            Event.current.Use();
+            FocusSlot(slot);
+        }
+
+        // Zero is the tenth, the way a tabbed terminal counts.
+        public static int SlotKey(Event e)
+        {
+            var k = e.keyCode;
+            if (k >= KeyCode.Alpha1 && k <= KeyCode.Alpha9) return k - KeyCode.Alpha1;
+            if (k >= KeyCode.Keypad1 && k <= KeyCode.Keypad9) return k - KeyCode.Keypad1;
+            if (k == KeyCode.Alpha0 || k == KeyCode.Keypad0) return 9;
+            return -1;
+        }
+
+        // A slot past the end is a no-op rather than a wrap, the same as over a pane.
+        static void FocusSlot(int slot)
+        {
+            var order = AgentColony.InBarOrder();
+            if (slot >= order.Count) return;
+
+            var pawn = AgentColony.Current?.PawnOf(order[slot]);
+            if (pawn == null) return;
+
+            // Clear first: the selection brackets' jump-out is an animation off
+            // SelectionDrawer's select time, so a pawn already selected would never replay
+            // it. Same clear-then-select vanilla does for a bar click.
+            Find.Selector.ClearSelection();
+            CameraJumper.TryJumpAndSelect(pawn);
         }
 
         static void Toggle()

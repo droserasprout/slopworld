@@ -5,48 +5,21 @@ using Verse;
 namespace SlopWorld
 {
     // A "+" slot after the last colonist opens the new-session dialog. Postfixed onto
-    // the bar's OnGUI, so the slot is laid out with the bar's own cached draw locs
-    // and scale and stays the size of a real colonist for any number of agents.
+    // the bar's OnGUI, so the slot draws in whichever view called it - map or terminal -
+    // from the cell geometry ColonistBarStrip reserved for it on the way in. One slot,
+    // one place, so toggling a pane never moves it.
     [HarmonyLib.HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
     public static class Patch_ColonistBarAddButton
     {
-        // Mirrors ColonistBar.Visible, which is private: the bar hides itself under
-        // 800x500 and while the tile picker is up.
-        static bool BarShown =>
-            UI.screenWidth >= 800 && UI.screenHeight >= 500 && !Find.TilePicker.Active;
-
         static void Postfix()
         {
-            if (!BarShown || Cutscene.Playing) return;
-            // Left off the strip above a terminal pane: the dialog it opens is a normal
-            // window and the terminal draws on the Super layer, so the "+" there would open
-            // something the terminal covers.
-            if (ColonistBarOverlay.Active) return;
+            // The map-layer call while a terminal is up drew nothing; the terminal's own
+            // call is the one that counts. Runs before the layout finalizer, so AddRect is
+            // still the strip's.
+            if (ColonistBarStrip.Suppressed || !ColonistBarStrip.ShowAdd) return;
 
-            var bar = Find.ColonistBar;
-            var locs = bar.DrawLocs;
-            var size = bar.Size; // BaseSize * Scale
-
-            Vector2 loc;
-            if (locs != null && locs.Count > 0)
-            {
-                // One slot to the right of the rightmost colonist.
-                var last = locs[locs.Count - 1];
-                loc = new Vector2(
-                    last.x + size.x + bar.SpaceBetweenColonistsHorizontal,
-                    last.y);
-            }
-            else
-            {
-                // No colonists yet: drop it where the first would sit, centred at the top.
-                float scale = bar.Scale > 0f ? bar.Scale : 1f;
-                loc = new Vector2(UI.screenWidth * 0.5f - size.x * 0.5f, 21f * scale);
-            }
-
-            // Clamp inside the screen so a long bar never pushes it off the right.
-            loc.x = Mathf.Min(loc.x, UI.screenWidth - size.x - 4f);
-
-            var rect = new Rect(loc.x, loc.y, size.x, size.y);
+            var rect = ColonistBarStrip.AddRect;
+            if (rect.width <= 0f) return;
 
             // Look like a colonist slot: the bar's own background, then a plus.
             GUI.DrawTexture(rect, ColonistBar.BGTex);
@@ -58,8 +31,10 @@ namespace SlopWorld
 
             TooltipHandler.TipRegion(rect, "Add agent");
 
+            if (ColonistBarStrip.Blocked) return;
+
             if (Widgets.ButtonInvisible(rect, false))
-                Find.WindowStack.Add(new EditSessionDialog(null));
+                TerminalWindow.OpenOverPane(new EditSessionDialog(null));
         }
     }
 }

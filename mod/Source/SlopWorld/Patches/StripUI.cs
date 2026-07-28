@@ -111,13 +111,13 @@ namespace SlopWorld
     }
 
     // Hidden for the opening scene, and while a terminal is open - the bar is drawn
-    // under every window and the terminal is opaque and fullscreen. The strip above
-    // the pane calls the same method from inside the window, and that call is the one
-    // this lets through. See ColonistBarAboveTerminal.cs.
+    // under every window and the terminal is opaque and fullscreen. The strip inside
+    // the pane's title bar calls the same method from inside the window, and that call
+    // is the one this lets through. See ColonistBarStrip.cs.
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
     public static class Patch_Hide_ColonistBar
     {
-        static bool Prefix() => !Cutscene.Playing && !ColonistBarOverlay.Suppressed;
+        static bool Prefix() => !Cutscene.Playing && !ColonistBarStrip.Suppressed;
     }
 
     // MainButtonWorker.Visible is virtual and overridden by several workers, so the
