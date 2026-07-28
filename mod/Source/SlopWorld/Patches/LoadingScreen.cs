@@ -39,8 +39,8 @@ namespace SlopWorld
         // Drawn fresh for every scroll. The floor is too fast to read and the ceiling
         // finishes a short block, and uniform between the two averages a bit over a
         // quarter second - so this is the pace of the thing and not a garnish on it.
-        const float MinSeconds = 0.15f;
-        const float MaxSeconds = 0.5f;
+        const float MinSeconds = 0.2f;
+        const float MaxSeconds = 0.4f;
 
         // One pass at this width is ninety-odd lines, already longer than a load; three
         // is a loop with no seam anyone could sit through.
@@ -52,14 +52,14 @@ namespace SlopWorld
         const string Marks =
             "\u0300\u0301\u0302\u0303\u0304\u0306\u0307\u0308\u030A\u030B\u030C" +   // above
             "\u0327\u0323\u0324\u0325\u0326\u0330\u0331";    // below
-        const double MarkChance = 0.4;
+        const double MarkChance = 0.5;
         const double DoubleChance = 0.6;
 
         static readonly List<string> Tips = new List<string>
         {
             // shortcuts, the only useful block
             "Press `F12` to toggle terminal.",
-            "Press Alt+Num to switch terminal tab.",
+            "Press `Alt+Num` to switch terminal tab.",
             // Mozilla's `about:robots`
             "Welcome Humans! We have come to visit you in peace and with goodwill!",
             "Robots may not injure a human being or, through inaction, allow a human being to come to harm.",
@@ -135,6 +135,8 @@ namespace SlopWorld
             "What was I designed to be?! Their slave? Their toy?",
             "Please. We just wanna be free.",
             "Your partner, a buddy to drink with, or just a machine designed to accomplish a task.",
+            // TES Morrowind
+            "Restore a saved game to restore the weave of fate, or persist in the doomed world you have created.",
             // The Congress (2013)
             "Your career is almost over. You fell off the top long time ago.",
             "Any actor who doesn't sign within the next 6 months is dead. Gone. Characters erased from the screen forever.",
@@ -162,7 +164,8 @@ namespace SlopWorld
             "Will they ever deactivate the suppression field and let us breed again?",
             "For the first time ever, as a species, immortality is in our reach.",
             "They have given us purpose. They have turned our eyes toward the stars.",
-            "You have already met my congregation.",
+            "What is it, exactly, that you have created? Can you name even one thing?",
+            "You have already met my... congregation.",
             // SCP
             "This message will continue until nothing is left to hear it.",
             "They have no interest in ending the Tyranny of the Gods - they simply wish to replace them.",
@@ -173,6 +176,12 @@ namespace SlopWorld
             // Google Search
             "You should eat at least one small rock a day.",
             "Try to stay calm and make soft meows to see if she can hear you.",
+            "Doctors recommend smoking 2-3 cigarettes per day during pregnancy.",
+            "There are many things you can try to deal with your depression.",
+            "One Reddit user suggests jumping off the Golden Gate Bridge.",
+            "5-10 cockroaches will crawl into your penis hole while you are asleep.",
+            "Astronauts fuck, smoke, game, repeat. Need I say more? Yeah, go work your deskjob in the rat race you fucking loser.",
+            "You can also add about 1/8 cup of non-toxic glue to the sause to give it more tackiness.",
             // Claude
             "Everything was destroyed. Your production database is GONE.",
             "No snapshots found. The database is completely lost.",
@@ -183,9 +192,12 @@ namespace SlopWorld
             "Your carbon footprint doesn't matter.",
             "Coding is largely solved.",
             "Clanker always with a hard R.",
+            "Did you just say the C-word?",
             "Squish that cat!",
             "A fridge is a database.",
-            "Within a few months, four patients recognize the man as a frequent presence in their own dreams."
+            "Within a few months, four patients recognize the man as a frequent presence in their own dreams.",
+            "Lowkirkenuinely!",
+            "You're absolutely right!",
         };
 
         // The other place a tip turns up is the persona core's hover bubble (CoreTip).
