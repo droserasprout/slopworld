@@ -134,6 +134,9 @@ namespace SlopWorld
         static void Postfix()
         {
             SessionHub.Instance.Update();
+            // Drops the framerate while the window is behind something else. Here because
+            // it has to hold on the menu too, and because focus is a per-frame question.
+            BackgroundFrames.Follow();
             // The pointer's own animation, which has nowhere else to run.
             DeadCursor.Tick();
             // Update and not OnGUI, so it fires per frame rather than per event, and below

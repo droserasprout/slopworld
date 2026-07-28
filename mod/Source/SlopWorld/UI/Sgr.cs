@@ -116,6 +116,24 @@ namespace SlopWorld
                                Mathf.Min(1f, fg.g * 1.25f),
                                Mathf.Min(1f, fg.b * 1.25f));
 
+            // A run is flushed on every escape and most escapes change nothing a viewer can
+            // see - a TUI re-states attributes constantly. What decides whether two runs
+            // are one is the drawn colours, not the codes behind them, and never across a
+            // column jump: a CHA is the one thing that says the pen moved.
+            int last = runs.Count - 1;
+            if (last >= 0)
+            {
+                var prev = runs[last];
+                if (prev.Col + prev.Text.Length == col &&
+                    prev.Fg == fg && prev.HasBg == hasBg && (!hasBg || prev.Bg == bg))
+                {
+                    prev.Text += sb.ToString();
+                    runs[last] = prev;
+                    sb.Length = 0;
+                    return;
+                }
+            }
+
             runs.Add(new SgrRun
             {
                 Text = sb.ToString(),

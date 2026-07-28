@@ -43,15 +43,21 @@ namespace SlopWorld
     [HarmonyPatch(typeof(AttackTargetFinder), nameof(AttackTargetFinder.BestAttackTarget))]
     public static class Patch_NoTargetingAgents
     {
+        // Most callers hand over no validator of their own, and that path gets this same
+        // delegate rather than a fresh closure per search.
+        static readonly Predicate<Thing> NoAgents =
+            t => !(t is Pawn p && AgentColony.IsAgent(p));
+
         static void Prefix(IAttackTargetSearcher searcher, ref Predicate<Thing> validator)
         {
             var hunter = searcher?.Thing as Pawn;
             if (hunter?.RaceProps == null || !hunter.RaceProps.Animal) return;
             if (AgentColony.Current == null) return;
 
+            if (validator == null) { validator = NoAgents; return; }
+
             var inner = validator;
-            validator = t => !(t is Pawn p && AgentColony.IsAgent(p))
-                             && (inner == null || inner(t));
+            validator = t => NoAgents(t) && inner(t);
         }
     }
 

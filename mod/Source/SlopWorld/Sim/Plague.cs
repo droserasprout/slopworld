@@ -122,9 +122,14 @@ namespace SlopWorld
         bool _active;
         int _seed;
 
-        // Rebuilt when it runs off the end, which is also how regrowth gets caught.
-        List<Plant> _plants;
+        // Refilled when it runs off the end, which is also how regrowth gets caught.
+        // Cleared rather than rebuilt: a lap is a minute and a grown map is tens of
+        // thousands of plants.
+        readonly List<Plant> _plants = new List<Plant>();
         int _plantIdx;
+
+        // Effects has to walk a copy: an effect can despawn the pawn it lands on.
+        readonly List<Pawn> _rolling = new List<Pawn>();
 
         // See Aura: the one thing on this map that takes ground back off the circle.
         Aura _aura;
@@ -191,8 +196,19 @@ namespace SlopWorld
         // plant sweep walks the whole map over and over, so a chance re-rolled every pass
         // converges on certainty. Seeded off the cell, ground that shrugged the plague
         // off keeps shrugging it off, through a reload as well.
-        float Grit(IntVec3 cell) =>
-            Rand.ValueSeeded(Gen.HashCombineInt(cell.GetHashCode(), _seed));
+        //
+        // Hashed (lowbias32, top 24 bits) rather than Rand.ValueSeeded, which pushes the
+        // global RNG state onto a stack, reseeds it, draws and pops.
+        float Grit(IntVec3 cell)
+        {
+            uint h = (uint)Gen.HashCombineInt(cell.GetHashCode(), _seed);
+            h ^= h >> 16;
+            h *= 0x7feb352du;
+            h ^= h >> 15;
+            h *= 0x846ca68bu;
+            h ^= h >> 16;
+            return (h >> 8) * (1f / 16777216f);
+        }
 
         // Full needs to beat the bite outright and Weak only its square root, so the
         // certain core is solid and past it the ground breaks up into full, weak and
@@ -246,12 +262,14 @@ namespace SlopWorld
         // since last time still gets its turn.
         void StepPlants()
         {
-            if (_plants == null || _plantIdx >= _plants.Count)
+            if (_plantIdx >= _plants.Count)
             {
-                _plants = map.listerThings.ThingsInGroup(ThingRequestGroup.Plant)
-                    .OfType<Plant>().ToList();
+                _plants.Clear();
+                var all = map.listerThings.ThingsInGroup(ThingRequestGroup.Plant);
+                for (int i = 0; i < all.Count; i++)
+                    if (all[i] is Plant p) _plants.Add(p);
                 _plantIdx = 0;
-                return; // keep the allocation off the same tick as the work
+                return; // keep the refill off the same tick as the work
             }
 
             int budget = PlantsPerTick;
@@ -263,7 +281,6 @@ namespace SlopWorld
 
                 var band = BandAt(p.Position);
                 if (band == Band.None) continue;
-                if (Spared(p)) continue;
 
                 var dose = band == Band.Full ? Full : Weak;
                 bool tree = p.def.plant.IsTree;
@@ -276,6 +293,10 @@ namespace SlopWorld
                     ? !(tree && p.LeaflessNow)
                     : !tree && p.Growth > dose.StuntFrom;
                 if (!todo) continue;
+
+                // After the todo check, not before: same answer, and in the steady state
+                // nearly every plant the sweep walks past is one the band has finished with.
+                if (Spared(p)) continue;
 
                 // The roll goes first because TryStartFireIn weighs what is flammable in the
                 // cell, and stripping the plant is what leaves nothing there to light.
@@ -310,7 +331,10 @@ namespace SlopWorld
         // at the edge and nothing at all past it.
         void Effects()
         {
-            foreach (var pawn in map.mapPawns.AllPawnsSpawned.ToList())
+            _rolling.Clear();
+            _rolling.AddRange(map.mapPawns.AllPawnsSpawned);
+
+            foreach (var pawn in _rolling)
             {
                 if (!Infectable(pawn) || !Marked(pawn)) continue;
 

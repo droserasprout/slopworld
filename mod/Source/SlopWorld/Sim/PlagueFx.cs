@@ -54,6 +54,10 @@ namespace SlopWorld
 
             if (t == null || !t.Spawned) return;
 
+            // The camera rule, harder: with a pane up the map is not drawn at all
+            // (PaneOverDraw), so a fleck made here is one that fades out unseen.
+            if (TerminalWindow.Covering) return;
+
             var map = t.Map;
             if (map == null) return;
 

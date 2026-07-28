@@ -65,6 +65,14 @@ namespace SlopWorld
         public static string CurrentName =>
             Find.WindowStack.WindowOfType<TerminalWindow>()?._name;
 
+        // Whether a pane stands over the map; PaneOverDraw reads it several times a frame,
+        // so the closed case costs one static read. Open, it is checked against the stack
+        // rather than believed: a flag left standing wrongly is a map never drawn again.
+        static bool _covering;
+
+        public static bool Covering =>
+            _covering && Find.WindowStack?.WindowOfType<TerminalWindow>() != null;
+
         // Resets per-pane view state but keeps the window's place in the stack.
         void SwitchTo(string name)
         {
@@ -124,6 +132,7 @@ namespace SlopWorld
         public override void PreOpen()
         {
             base.PreOpen();
+            _covering = true;
             SessionHub.Instance.Subscribe(_name);
             SelectAgent(_name);
         }
@@ -131,6 +140,8 @@ namespace SlopWorld
         public override void PostClose()
         {
             base.PostClose();
+            _covering = false;
+            Drop(); // a screen's worth of VRAM, held for a window that is gone
             SessionHub.Instance.Unsubscribe(_name);
         }
 
@@ -326,12 +337,27 @@ namespace SlopWorld
 
         void DrawScreen(Rect body, ScreenBuf buf)
         {
-            var style = TerminalFont.Style;
             float cw = TerminalFont.CellW;
             float ch = TerminalFont.CellH;
 
             EnsureRuns(buf);
             SyncSnap();
+
+            // The runs go down only on the frames they change; see Blit.
+            if (!Blit(body, buf, cw, ch)) Paint(body, buf, cw, ch);
+
+            // Not cached: a cursor blinks twice a second without the pane moving under it,
+            // and it is four quads.
+            DrawCursor(body, buf, cw, ch);
+
+            GUI.color = Color.white;
+        }
+
+        // The runs, laid down where they go - a pure function of the buffer, the rect and
+        // the font, which is exactly what makes it worth keeping.
+        void Paint(Rect body, ScreenBuf buf, float cw, float ch)
+        {
+            var style = TerminalFont.Style;
 
             for (int row = 0; row < buf.Runs.Length; row++)
             {
@@ -360,10 +386,126 @@ namespace SlopWorld
                     DrawRun(run.Text, x, y, cw, ch, style);
                 }
             }
+        }
 
-            DrawCursor(body, buf, cw, ch);
+        // ------------------------------------------------------------- pane cache
 
-            GUI.color = Color.white;
+        // What the pane looked like last time it changed.
+        RenderTexture _cache;
+        string _cacheName;
+        int _cacheSeq = -1, _cacheOff = -1;
+        Rect _cacheBody;
+        float _cacheCw, _cacheCh;
+        bool _noCache;
+
+        // The pane is drawn only on the frames it moves.
+        //
+        // A frame arrives about ten times a second - the daemon coalesces at 8ms and sends
+        // only when the hash moves - and the window draws at the monitor's rate, so five
+        // frames in six laid ~130 GUI.Labels down again over an identical picture. IMGUI
+        // has no retained mode to ask for, so the picture is kept.
+        //
+        // Screen-sized rather than pane-sized, which is what keeps it simple: GUI drawing
+        // goes to the active render target in the coordinates it already holds, so a
+        // target shaped like the backbuffer needs no projection of ours and no argument
+        // with GUIClip.
+        //
+        // Cleared opaque and blitted back by the corner. Glyph edges are part-transparent,
+        // so over a clear target they would blend twice and every letter would carry a
+        // fringe; and a blit that stopped at the pane leaves the header alone.
+        //
+        // Throwing takes the cache out for the life of the process rather than per frame.
+        bool Blit(Rect body, ScreenBuf buf, float cw, float ch)
+        {
+            if (_noCache) return false;
+            // Labels and boxes draw on repaint and nowhere else.
+            if (Event.current.type != EventType.Repaint) return true;
+
+            try
+            {
+                int pw = Screen.width, ph = Screen.height;
+                if (pw <= 0 || ph <= 0) return false;
+
+                if (_cache != null && (_cache.width != pw || _cache.height != ph)) Drop();
+
+                bool fresh = _cache == null;
+                if (fresh)
+                    _cache = new RenderTexture(pw, ph, 0, RenderTextureFormat.ARGB32)
+                    {
+                        name = "SlopWorldPane",
+                        filterMode = FilterMode.Point,
+                        hideFlags = HideFlags.DontUnloadUnusedAsset, // see TerminalFont
+                    };
+
+                if (!_cache.IsCreated()) { _cache.Create(); fresh = true; }
+
+                if (fresh
+                    || _cacheName != _name
+                    || _cacheSeq != buf.Seq || _cacheOff != buf.Off
+                    || _cacheBody != body
+                    || _cacheCw != cw || _cacheCh != ch)
+                {
+                    var was = RenderTexture.active;
+                    RenderTexture.active = _cache;
+                    GL.Clear(false, true, Sgr.DefaultBg);
+                    Paint(body, buf, cw, ch);
+                    RenderTexture.active = was;
+
+                    _cacheName = _name;
+                    _cacheSeq = buf.Seq;
+                    _cacheOff = buf.Off;
+                    _cacheBody = body;
+                    _cacheCw = cw;
+                    _cacheCh = ch;
+                }
+
+                // Where the pane sits in the texture is where it sits on the screen: the
+                // same sum SnapX does, run forwards.
+                float x0 = body.x * _snapSx + _snapOx;
+                float y0 = body.y * _snapSy + _snapOy;
+                float w = body.width * _snapSx;
+                float h = body.height * _snapSy;
+
+                float u0 = x0 / pw, u1 = (x0 + w) / pw;
+
+                // texCoords y counts from the destination's bottom either way; which end of
+                // the texture that is, is where the API put the target's first row.
+                float v0, v1;
+                if (SystemInfo.graphicsUVStartsAtTop)
+                {
+                    v0 = (y0 + h) / ph;
+                    v1 = y0 / ph;
+                }
+                else
+                {
+                    v0 = 1f - (y0 + h) / ph;
+                    v1 = 1f - y0 / ph;
+                }
+
+                var tint = GUI.color;
+                GUI.color = Color.white;
+                GUI.DrawTextureWithTexCoords(
+                    body, _cache, new Rect(u0, v0, u1 - u0, v1 - v0));
+                GUI.color = tint;
+                return true;
+            }
+            catch (System.Exception e)
+            {
+                _noCache = true;
+                Drop();
+                Log.Warning($"[SlopWorld] pane cache off, drawing straight to the screen: {e}");
+                return false;
+            }
+        }
+
+        void Drop()
+        {
+            if (_cache == null) return;
+            _cache.Release();
+            Object.Destroy(_cache);
+            _cache = null;
+            _cacheSeq = _cacheOff = -1;
+            _cacheName = null;
         }
 
         // The GUI-to-screen transform, sampled once a draw; see SnapX.

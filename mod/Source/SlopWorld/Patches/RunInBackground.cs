@@ -1,4 +1,5 @@
 using HarmonyLib;
+using UnityEngine;
 using Verse;
 
 namespace SlopWorld
@@ -26,5 +27,47 @@ namespace SlopWorld
             Prefs.Save();
             Log.Message("[SlopWorld] run in background turned on: the board has to keep up");
         });
+    }
+
+    // The half that makes running in the background affordable: keeping up is not the
+    // same as drawing sixty times a second at a window nobody is looking at.
+    //
+    // The sim does not slow with the frames. TickManagerUpdate banks Time.deltaTime and
+    // spends up to 45ms a frame paying it back, so fifteen frames a second is four ticks
+    // a frame at exact pace. Below ten it stops banking - the accumulator is assigned
+    // rather than added once deltaTime reaches 0.1 - hence the clearance.
+    //
+    // vSync comes off with it or the cap does nothing: Unity ignores targetFrameRate
+    // while vSyncCount is set. Both are put back as found, vanilla having written
+    // targetFrameRate once in Root.CheckGlobalInit.
+    public static class BackgroundFrames
+    {
+        const int Fps = 15;
+
+        static bool _capped;
+        static int _wasTarget;
+        static int _wasVSync;
+
+        // Off Root.Update, menu and game alike. Only the edges do anything.
+        public static void Follow()
+        {
+            bool want = !Application.isFocused;
+            if (want == _capped) return;
+
+            if (want)
+            {
+                _wasTarget = Application.targetFrameRate;
+                _wasVSync = QualitySettings.vSyncCount;
+                QualitySettings.vSyncCount = 0;
+                Application.targetFrameRate = Fps;
+            }
+            else
+            {
+                Application.targetFrameRate = _wasTarget;
+                QualitySettings.vSyncCount = _wasVSync;
+            }
+
+            _capped = want;
+        }
     }
 }

@@ -14,34 +14,88 @@ namespace SlopWorld
 
         Dictionary<string, Pawn> _pawns = new Dictionary<string, Pawn>();
 
+        // An index, not a convenience: IsAgent is asked on the way past by most of
+        // Patches/ - a validator inside BestAttackTarget, the IsIdle the colonist bar
+        // reads per colonist per frame - and the answer used to be ContainsValue.
+        readonly Dictionary<Pawn, string> _names = new Dictionary<Pawn, string>();
+
+        // Scribe hands back a whole new _pawns, so an index built before a load indexes
+        // nothing. Rebuilt on the next question, not in ExposeData: references are not
+        // resolved until a later phase and the pawns would all still be null.
+        bool _reindex = true;
+
         // Deliberately not saved: a colony loading with its agents already stopped should
         // not greet the player with a wall of sirens.
         readonly Dictionary<string, AgentState> _seen = new Dictionary<string, AgentState>();
 
-        public AgentColony(Game game) { }
+        readonly Game _game;
 
-        public static AgentColony Current => Verse.Current.Game?.GetComponent<AgentColony>();
+        public AgentColony(Game game) { _game = game; }
 
-        public string SessionOf(Pawn p)
+        // Held rather than looked up: Game.GetComponent walks the components with a type
+        // check each, and this is read several times a frame per pawn. Checked against the
+        // live game, so a discarded colony cannot answer for the one that replaced it.
+        static AgentColony _current;
+
+        public static AgentColony Current
         {
-            foreach (var kv in _pawns)
-                if (kv.Value == p) return kv.Key;
-            return null;
+            get
+            {
+                var game = Verse.Current.Game;
+                if (game == null) return _current = null;
+                if (_current != null && _current._game == game) return _current;
+                return _current = game.GetComponent<AgentColony>();
+            }
         }
+
+        Dictionary<Pawn, string> Names
+        {
+            get
+            {
+                if (!_reindex) return _names;
+                _reindex = false;
+                _names.Clear();
+                foreach (var kv in _pawns)
+                    if (kv.Value != null) _names[kv.Value] = kv.Key;
+                return _names;
+            }
+        }
+
+        // The two tables move together or not at all.
+        void Bind(string name, Pawn pawn)
+        {
+            Unbind(name);
+            _pawns[name] = pawn;
+            if (pawn != null) Names[pawn] = name;
+        }
+
+        void Unbind(string name)
+        {
+            if (_pawns.TryGetValue(name, out var had) && had != null) Names.Remove(had);
+            _pawns.Remove(name);
+        }
+
+        public string SessionOf(Pawn p) =>
+            p != null && Names.TryGetValue(p, out var s) ? s : null;
 
         public Pawn PawnOf(string session) =>
             _pawns.TryGetValue(session, out var p) ? p : null;
 
-        public bool IsAgentPawn(Pawn p) => p != null && _pawns.ContainsValue(p);
+        public bool IsAgentPawn(Pawn p) => p != null && Names.ContainsKey(p);
 
-        public static bool IsAgent(Pawn p) => p != null && Current != null && Current.IsAgentPawn(p);
+        public static bool IsAgent(Pawn p)
+        {
+            if (p == null) return false;
+            var colony = Current;
+            return colony != null && colony.IsAgentPawn(p);
+        }
 
         // The reconcile knows sessions only by name, so without this a rename reads as
         // one session gone and another arrived.
         public void Rename(string oldName, string newName)
         {
             if (!_pawns.TryGetValue(oldName, out var pawn)) return;
-            _pawns.Remove(oldName);
+            Unbind(oldName);
             if (_seen.TryGetValue(oldName, out var state))
             {
                 _seen.Remove(oldName);
@@ -50,7 +104,7 @@ namespace SlopWorld
             if (pawn == null || pawn.Destroyed) return;
 
             pawn.Name = new NameSingle(newName);
-            _pawns[newName] = pawn;
+            Bind(newName, pawn);
             Log.Message($"[SlopWorld] colonist '{oldName}' is now '{newName}'");
         }
 
@@ -97,19 +151,19 @@ namespace SlopWorld
                 if (!live.Contains(name))
                 {
                     Retire(p);
-                    _pawns.Remove(name);
+                    Unbind(name);
                     _seen.Remove(name);
                 }
                 else if (p == null || p.Destroyed)
                 {
-                    _pawns.Remove(name);
+                    Unbind(name);
                 }
                 else if (p.Dead)
                 {
                     // Its corpse would hold the session's slot in the colonist bar and no new body
                     // would ever be spawned.
                     Retire(p);
-                    _pawns.Remove(name);
+                    Unbind(name);
                 }
             }
 
@@ -123,7 +177,7 @@ namespace SlopWorld
                 // the reconcile spawns a duplicate next to the loaded pawn.
                 var pawn = FindExisting(s.Name) ?? Spawn(s.Name, map);
                 if (pawn == null) continue;
-                _pawns[s.Name] = pawn;
+                Bind(s.Name, pawn);
 
                 // Only now is this pawn an agent, and the faceplate hangs off that answer:
                 // SlopFaceRenderNodes asks IsAgent while the render tree is built, and a loaded
@@ -288,6 +342,7 @@ namespace SlopWorld
             Scribe_Collections.Look(ref _pawns, "agentPawns",
                 LookMode.Value, LookMode.Reference, ref _pawnKeys, ref _pawnBodies);
             if (_pawns == null) _pawns = new Dictionary<string, Pawn>();
+            _reindex = true; // whatever the table is now, it is not what the index holds
         }
     }
 }
