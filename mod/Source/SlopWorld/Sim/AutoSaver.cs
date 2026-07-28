@@ -74,4 +74,15 @@ namespace SlopWorld
     {
         static void Prefix() => AutoSaver.SaveNow();
     }
+
+    [HarmonyPatch(typeof(GameDataSaveLoader),
+        nameof(GameDataSaveLoader.CurrentGameStateIsValuable), MethodType.Getter)]
+    public static class Patch_NothingToLose
+    {
+        static bool Prefix(ref bool __result)
+        {
+            __result = false;
+            return false;
+        }
+    }
 }

@@ -41,7 +41,6 @@ namespace SlopWorld
 
         static ThingDef[] _pool;
 
-        // The colonist bar's own clock face, which is the one clock this game draws.
         static Texture2D _clock;
         static bool _looked;
 
@@ -54,7 +53,7 @@ namespace SlopWorld
             var usage = SessionHub.Instance.Usage;
 
             // Nothing ever heard and nothing wrong: usage polling is off, or the daemon has
-            // not answered yet. The clock is the colony's own and stays either way.
+            // not answered yet.
             bool quota = usage.Any || !string.IsNullOrEmpty(usage.Error);
 
             // Vanilla's legibility trick for this corner, which went out with the readout
@@ -68,7 +67,6 @@ namespace SlopWorld
 
             float y = Y;
 
-            // First row, above the quota: the resource nothing here can spend or make back.
             GUI.color = Color.white;
             DrawClock(new Rect(X, y, RowW, RowH));
             y += RowH;
@@ -99,8 +97,6 @@ namespace SlopWorld
             GUI.color = old;
         }
 
-        // The wall clock, which is also the game's - RealClock steers the calendar off it,
-        // so the hour in this row is the hour the sun outside the window is keeping.
         void DrawClock(Rect row)
         {
             DateTime now = DateTime.Now;
@@ -113,8 +109,6 @@ namespace SlopWorld
 
             if (_clock != null)
             {
-                // A colonist bar icon is drawn small; a resource icon has the whole row, so
-                // it is inset to sit at the weight of the ThingIcons under it.
                 var box = new Rect(row.x, row.y, IconSize, IconSize).ContractedBy(3f);
                 GUI.DrawTexture(box, _clock);
             }
@@ -123,8 +117,7 @@ namespace SlopWorld
                 now.ToString("HH:mm"));
 
             TooltipHandler.TipRegion(row, new TipSignal(
-                now.ToString("dddd, d MMMM yyyy") + "\n" + now.ToString("HH:mm:ss")
-                + "\n" + "one real day to the colony's day, landing day being day one",
+                now.ToString("dddd, d MMMM yyyy") + "\n" + now.ToString("HH:mm:ss"),
                 0x51_0F_0001));
         }
 
