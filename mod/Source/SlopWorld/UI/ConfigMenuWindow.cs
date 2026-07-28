@@ -6,12 +6,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// Settings GUI over the daemon's config.toml. Three tabs: the daemon itself,
-    /// the sandbox every agent runs in, and the sessions. State rules keep to the
-    /// raw editor behind "Edit as TOML" - they are regexes, and a text box is the
-    /// honest widget for a regex.
-    /// </summary>
+    // Three tabs: the daemon, the sandbox every agent runs in, and the sessions.
+    // State rules keep to the raw editor behind "Edit as TOML" - they are regexes,
+    // and a text box is the honest widget for a regex.
     public class ConfigMenuWindow : Window
     {
         enum Tab { Daemon, Sandbox, Sessions }
@@ -22,8 +19,8 @@ namespace SlopWorld
         string _error;
         bool _loaded;
 
-        // Free-text mirrors of the typed fields, so a half-typed number is not
-        // clamped out from under the player mid-keystroke.
+        // Free-text mirrors of the typed fields, so a half-typed number is not clamped
+        // out from under the player mid-keystroke.
         string _pollMs, _history, _usagePoll;
         string _roPaths, _rwPaths, _passEnv;
 
@@ -116,7 +113,6 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        // ----------------------------------------------------------- daemon tab
 
         void DoDaemon(Rect r)
         {
@@ -181,7 +177,6 @@ namespace SlopWorld
             l.End();
         }
 
-        // ---------------------------------------------------------- sandbox tab
 
         void DoSandbox(Rect r)
         {
@@ -194,8 +189,8 @@ namespace SlopWorld
             l.Gap(6f);
             l.End();
 
-            // Three path lists side by side: they are read together, and stacking
-            // them would push the last one off the tab.
+            // Three path lists side by side: they are read together, and stacking them would
+            // push the last one off the tab.
             float colW = (r.width - 16f) / 3f;
             float top = r.y + 64f;
             float h = r.height - 64f;
@@ -208,7 +203,7 @@ namespace SlopWorld
                 "Passed env vars", _passEnv);
         }
 
-        /// <summary>One entry per line; blank lines are dropped on save.</summary>
+        // One entry per line; blank lines are dropped on save.
         static string PathList(Rect r, string label, string text)
         {
             Widgets.Label(new Rect(r.x, r.y, r.width, 22f), label);
@@ -217,7 +212,6 @@ namespace SlopWorld
             return Widgets.TextArea(box.ContractedBy(4f), text);
         }
 
-        // --------------------------------------------------------- sessions tab
 
         void DoSessions(Rect r)
         {
@@ -231,8 +225,8 @@ namespace SlopWorld
             Widgets.Label(new Rect(row.x, row.y + 3f, 60f, 24f), "Agent");
             _cfg.Agent = Widgets.TextField(new Rect(row.x + 60f, row.y, 220f, 24f), _cfg.Agent);
 
-            // What a shell shortcut runs. tmux hands it a pty, so it is
-            // interactive without being told to be.
+            // What a shell shortcut runs. tmux hands it a pty, so it is interactive without
+            // being told to be.
             Widgets.Label(new Rect(row.x + 300f, row.y + 3f, 60f, 24f), "Shell");
             _cfg.Shell = Widgets.TextField(new Rect(row.x + 360f, row.y, 160f, 24f), _cfg.Shell);
 
@@ -294,7 +288,6 @@ namespace SlopWorld
             }
         }
 
-        // -------------------------------------------------------------- footer
 
         void DoFooter(Rect bar)
         {
@@ -321,8 +314,8 @@ namespace SlopWorld
 
             if (int.TryParse(_pollMs, out int p)) _cfg.PollMs = Mathf.Clamp(p, 20, 5000);
             if (int.TryParse(_history, out int h)) _cfg.HistoryLimit = Mathf.Clamp(h, 0, 100000);
-            // Floored at the same 10s the poller enforces, so what the GUI shows
-            // after a save is what the daemon is actually doing.
+            // Floored at the same 10s the poller enforces, so what the GUI shows after a save
+            // is what the daemon is actually doing.
             if (int.TryParse(_usagePoll, out int u)) _cfg.UsagePollSecs = Mathf.Clamp(u, 10, 3600);
             _cfg.RoPaths = SlopConfig.Split(_roPaths);
             _cfg.RwPaths = SlopConfig.Split(_rwPaths);
@@ -339,13 +332,10 @@ namespace SlopWorld
                 msg => _error = msg);
         }
 
-        /// <summary>
-        /// The other half of a redeploy. The mod's assembly is read once at
-        /// startup, so a rebuilt mod only reaches the screen in a fresh process -
-        /// and with the colony saved on the way out and resumed on the way back
-        /// in, that costs a loading screen and nothing else. The agents never
-        /// notice: they are the daemon's, and the daemon is not restarting.
-        /// </summary>
+        // The mod's assembly is read once at startup, so a rebuilt mod only reaches the
+        // screen in a fresh process - which, with the colony saved on the way out and
+        // resumed on the way back in, costs a loading screen and nothing else. The agents
+        // are the daemon's and it is not restarting.
         void ConfirmRestartGame()
         {
             if (string.IsNullOrEmpty((_cfg.GameCmd ?? "").Trim()))
@@ -357,12 +347,9 @@ namespace SlopWorld
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                 "Save the colony and restart RimWorld? The daemon starts it again a few " +
                 "seconds later and the agents keep running throughout.",
-                // Nothing here saves or quits: the daemon answers this request by
-                // telling every client to do exactly that, and doing it twice -
-                // once from the reply and once from the event - is two saves and
-                // two shutdowns. The error road is still ours, because a request
-                // that was refused sends no such event and the person is owed a
-                // reason.
+                // Nothing here saves or quits: the daemon answers this request by telling every
+                // client to do exactly that, and doing it twice is two saves and two shutdowns.
+                // The error road is still ours, because a refused request sends no such event.
                 () => SlopClient.Post("/api/game/restart", "{\"delay_ms\":1000}", _ => { }, Fail)));
         }
 

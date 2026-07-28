@@ -1,16 +1,12 @@
 //! The host's clipboard, on the game's behalf.
 //!
-//! The mod cannot reach it: RimWorld is a Unity player and `systemCopyBuffer`
-//! there is the process's own buffer as often as it is the desktop's - which
-//! makes a selection copied out of a pane land nowhere a browser can read it,
-//! and that is the whole of "copy doesn't work". slopd is on the host with the
-//! session's display variables already set, so the one thing here the game
-//! cannot do is exactly the thing this can.
+//! The mod cannot reach it: RimWorld is a Unity player, and `systemCopyBuffer`
+//! there is the process's own buffer as often as it is the desktop's - which is
+//! the whole of "copy doesn't work". slopd is on the host with the session's
+//! display variables already set.
 //!
-//! Which tool does it is the desktop's business rather than ours: `wl-copy`
-//! when the session is Wayland, `xclip` or `xsel` when it is X11, tried in that
-//! order and skipping anything the host does not have. A binary that is missing
-//! is not an error until every one of them is.
+//! Which tool does it is the desktop's business: anything missing is skipped, and
+//! that is not an error until every one of them is.
 
 use std::process::Stdio;
 use std::time::Duration;
@@ -19,13 +15,10 @@ use anyhow::{bail, Result};
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
-/// A tool never gets longer than this. A clipboard command talks to a
-/// compositor or an X server and either can be wedged; the mod's HTTP client
-/// gives up at five seconds, so an answer has to beat that or the pane reports
-/// a failure it could have reported itself.
+/// The mod's HTTP client gives up at five seconds, so an answer has to beat that;
+/// a compositor or an X server can be wedged.
 const TIMEOUT: Duration = Duration::from_secs(3);
 
-/// Which display server a tool needs to be worth trying.
 #[derive(PartialEq)]
 enum Needs {
     Wayland,
@@ -38,9 +31,8 @@ struct Tool {
     paste: &'static [&'static str],
 }
 
-/// Wayland first when the session is one: a compositor's own clipboard is what
-/// its Xwayland clients read too, so it answers for both, while the X11 tools
-/// on a Wayland desktop only ever see the Xwayland half.
+/// Wayland first when the session is one: a compositor's clipboard is what its
+/// Xwayland clients read too, while the X11 tools see only the Xwayland half.
 const TOOLS: &[Tool] = &[
     Tool {
         needs: Needs::Wayland,
@@ -67,8 +59,8 @@ fn have(needs: &Needs) -> bool {
     std::env::var(var).map(|v| !v.is_empty()).unwrap_or(false)
 }
 
-/// Whether the error is "no such binary", which means try the next tool rather
-/// than give up: a host with `xclip` and no `xsel` is the ordinary case.
+/// "No such binary" means try the next tool rather than give up: a host with
+/// `xclip` and no `xsel` is the ordinary case.
 fn missing(e: &anyhow::Error) -> bool {
     e.downcast_ref::<std::io::Error>()
         .map(|io| io.kind() == std::io::ErrorKind::NotFound)
@@ -83,9 +75,7 @@ pub async fn read() -> Result<String> {
     run(None, |t| t.paste).await
 }
 
-/// Walks the tools, running the first that is installed and whose display
-/// server this session has. `text` is what goes down the tool's stdin on a
-/// copy; a paste passes `None` and reads its stdout back.
+/// `text` goes down the tool's stdin on a copy; a paste passes `None`.
 async fn run(text: Option<&str>, pick: fn(&Tool) -> &'static [&'static str]) -> Result<String> {
     let mut last: Option<anyhow::Error> = None;
     for tool in TOOLS {
@@ -114,13 +104,10 @@ async fn one(argv: &[&str], text: Option<&str>) -> Result<String> {
         return paste(argv).await;
     };
 
-    // A copy tool keeps *serving* the selection after it has read it: every one
-    // of these forks a holder and lets the parent exit. So the output is never
-    // collected - the fork inherits the pipes and holds them open, which is a
-    // `wait_with_output` that waits forever (this is exactly how a working
-    // `wl-copy` reported a timeout). Waiting on the parent is the whole of the
-    // handshake, and the price is that a failure is an exit status rather than
-    // a sentence.
+    // A copy tool keeps *serving* the selection after reading it: every one of these
+    // forks a holder and lets the parent exit. So the output is never collected - the
+    // fork inherits the pipes and holds them open, which is a `wait_with_output` that
+    // waits forever. The price is that a failure is an exit status, not a sentence.
     let mut child = Command::new(argv[0])
         .args(&argv[1..])
         .stdin(Stdio::piped())
@@ -143,8 +130,6 @@ async fn one(argv: &[&str], text: Option<&str>) -> Result<String> {
     Ok(String::new())
 }
 
-/// Reading is the ordinary shape: nothing forks, so the output can be collected
-/// and a failure says why.
 async fn paste(argv: &[&str]) -> Result<String> {
     let out = Command::new(argv[0])
         .args(&argv[1..])

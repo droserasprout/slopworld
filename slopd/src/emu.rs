@@ -1,9 +1,7 @@
-//! Server-side terminal emulator.
-//!
-//! One `SessionEmu` per running session drives the actual `alacritty_terminal`
-//! VT engine off the raw byte stream tmux control mode gives us. Instead of
-//! reading a pre-rendered screen we own the grid, cursor and modes, and
-//! serialize back into the same SGR-coloured line wire format the mod speaks.
+//! Server-side terminal emulator: one `SessionEmu` per running session, driving an
+//! `alacritty_terminal` VT engine off the raw bytes tmux control mode gives us. We
+//! own the grid, cursor and modes, and serialize back into the SGR-coloured line
+//! format the mod speaks.
 
 use std::sync::{Arc, Mutex};
 
@@ -13,8 +11,7 @@ use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::{Config, Term, TermMode};
 use alacritty_terminal::vte::ansi::{Color, CursorShape, CursorStyle, Processor};
 
-/// Our own `Dimensions` so we don't depend on the test-gated `TermSize`.
-/// History depth comes from `Config.scrolling_history`, not `total_lines`.
+/// Our own `Dimensions`, so we don't depend on the test-gated `TermSize`.
 struct Dims {
     cols: usize,
     rows: usize,
@@ -32,34 +29,29 @@ impl Dimensions for Dims {
     }
 }
 
-/// A rendered screen: SGR-coloured rows plus the cursor cell. `cy == rows` hides
-/// the cursor (off-screen, invisible, or scrolled into history). Rows carry
-/// `\x1b[<n>G` (CHA) column markers ahead of any run whose true column diverges
-/// from the natural pen position, which is exactly where a wide char skipped a
-/// cell — the mod redraws such runs at their absolute column.
+/// `cy == rows` hides the cursor (off-screen, invisible, or scrolled into
+/// history). Rows carry `\x1b[<n>G` (CHA) markers ahead of any run whose true
+/// column diverges from the natural pen position - which is exactly where a wide
+/// char skipped a cell - and the mod redraws those runs at their absolute column.
 pub struct Frame {
     pub lines: Vec<String>,
     pub cx: u16,
     pub cy: u16,
     /// 0 = block, 1 = underline, 2 = beam.
     pub cursor_shape: u8,
-    /// Whether the app wants the cursor to blink.
     pub cursor_blink: bool,
-    /// The app is asking for mouse reports (any of click/motion/drag).
     pub app_mouse: bool,
-    /// The app asked to hear about *motion* as well as clicks. Apps that did
-    /// not - Claude Code among them - leave the drag to the terminal, which is
-    /// what lets the pane select text without the player holding Shift.
+    /// Apps that did not ask - Claude Code among them - leave the drag to the
+    /// terminal, which is what lets the pane select text without holding Shift.
     pub app_drag: bool,
     /// The app is on the alternate screen (no scrollback of its own).
     pub alt_screen: bool,
 }
 
-/// Collects the bytes the VT engine wants written *back* to the pty: replies to
-/// cursor-position reports (`ESC[6n` -> `ESC[<row>;<col>R`), device attributes
-/// and mode queries. `VoidListener` dropped all of these, which left apps that
-/// probe the terminal (Ink, the TUI runtime Claude Code is built on) waiting on
-/// a report that never came, so they anchored their cursor on the wrong line.
+/// Replies to cursor-position reports (`ESC[6n`), device attributes and mode
+/// queries. `VoidListener` dropped all of these, which left apps that probe the
+/// terminal (Ink, which Claude Code is built on) waiting on a report that never
+/// came and anchoring their cursor on the wrong line.
 #[derive(Clone)]
 struct ReplySink {
     buf: Arc<Mutex<Vec<u8>>>,
@@ -75,13 +67,11 @@ impl EventListener for ReplySink {
     }
 }
 
-/// One live terminal: the VT engine plus the parser feeding it.
 pub struct SessionEmu {
     term: Term<ReplySink>,
     parser: Processor,
     cols: u16,
     rows: u16,
-    /// Shared with the `ReplySink` the term holds; drained by `take_replies`.
     replies: Arc<Mutex<Vec<u8>>>,
 }
 
@@ -91,8 +81,8 @@ impl SessionEmu {
             cols: cols as usize,
             rows: rows as usize,
         };
-        // Default to a blinking block so unstyled shells keep the familiar blink;
-        // apps that set a steady cursor via DECSCUSR still override it.
+        // A blinking block, so unstyled shells keep the familiar blink; DECSCUSR still
+        // overrides it.
         let config = Config {
             default_cursor_style: CursorStyle {
                 shape: CursorShape::Block,
@@ -117,14 +107,11 @@ impl SessionEmu {
         }
     }
 
-    /// Advance the VT engine over a chunk of raw pty bytes.
     pub fn feed(&mut self, bytes: &[u8]) {
         self.parser.advance(&mut self.term, bytes);
     }
 
-    /// Drains the bytes the terminal produced in reply to queries during `feed`
-    /// (cursor-position reports, device attributes). The caller writes them back
-    /// into the pane so the app gets its answer.
+    /// The caller writes these back into the pane, so the app gets its answer.
     pub fn take_replies(&mut self) -> Vec<u8> {
         match self.replies.lock() {
             Ok(mut b) => std::mem::take(&mut *b),
@@ -144,15 +131,12 @@ impl SessionEmu {
         });
     }
 
-    /// The live bottom frame.
     pub fn render(&self) -> Frame {
         self.render_frame(false)
     }
 
-    /// Encodes a mouse event into the report bytes the app expects, per its
-    /// current mouse mode (SGR / UTF-8 / legacy). Returns `None` when the app
-    /// isn't asking for mouse reports, or for a drag it didn't opt into — the
-    /// caller then falls back to local scroll/selection.
+    /// `None` when the app isn't asking for mouse reports, or for a drag it didn't opt
+    /// into - the caller then falls back to local scroll/selection.
     pub fn mouse_report(&self, m: &MouseInput) -> Option<Vec<u8>> {
         let mode = self.term.mode();
         if !mode.intersects(TermMode::MOUSE_MODE) {
@@ -200,9 +184,8 @@ impl SessionEmu {
         Some(out)
     }
 
-    /// A one-off frame scrolled `off` lines up into the scrollback, for a wheel
-    /// request. Restores the live view afterwards; the cursor is always hidden in
-    /// a history view. Returns the offset actually reached (clamped to history).
+    /// Restores the live view afterwards; the cursor is always hidden in a history
+    /// view. Returns the offset actually reached, clamped to history.
     pub fn scroll_snapshot(&mut self, off: u16) -> (Frame, u16) {
         let cur = self.term.grid().display_offset() as i32;
         self.term.scroll_display(Scroll::Delta(off as i32 - cur));
@@ -277,13 +260,12 @@ impl SessionEmu {
         }
     }
 
-    /// Whether the app enabled bracketed paste (DECSET 2004).
+    /// DECSET 2004.
     pub fn bracketed_paste(&self) -> bool {
         self.term.mode().contains(TermMode::BRACKETED_PASTE)
     }
 }
 
-/// One grid cell in a rendered row.
 enum Slot {
     /// Never-touched cell: a default-attribute space.
     Blank,
@@ -292,12 +274,10 @@ enum Slot {
     Ch(char, Color, Color, Flags),
 }
 
-/// Serializes one row into the SGR wire format the mod parses. Each line opens
-/// with a reset, self-contained SGR runs colour each stretch, and trailing
-/// default cells are trimmed. A `\x1b[<n>G` (CHA) marker is emitted only when
-/// the true grid column diverges from the natural pen position - i.e. right
-/// after a wide char skipped a spacer cell - so plain ASCII rows stay
-/// byte-identical to a plain capture while wide chars keep alignment.
+/// Each line opens with a reset, SGR runs are self-contained, and trailing default
+/// cells are trimmed. The CHA marker is emitted only where the true column
+/// diverges from the pen - right after a wide char - so plain ASCII rows stay
+/// byte-identical to a plain capture.
 fn serialize_row(row: &[Slot]) -> String {
     let mut out = String::from("\x1b[0m");
 
@@ -332,8 +312,7 @@ fn serialize_row(row: &[Slot]) -> String {
     out
 }
 
-/// A self-contained SGR sequence for one cell, or "" when it needs no attributes.
-/// The mod only renders bold, reverse and colour, so that's all we emit.
+/// The mod renders only bold, reverse and colour, so that's all we emit.
 fn sgr_for(fg: Color, bg: Color, flags: Flags) -> String {
     let mut params: Vec<String> = Vec::new();
     if flags.contains(Flags::BOLD) {
@@ -354,10 +333,9 @@ fn sgr_for(fg: Color, bg: Color, flags: Flags) -> String {
     format!("\x1b[0;{}m", params.join(";"))
 }
 
-/// Emits the *same* index-based SGR codes tmux would, not resolved RGB, so the
-/// mod's curated palette keeps its muted look. `None` means the default colour.
-/// `base` is 30 for a foreground, 40 for a background; the bright and 256/RGB
-/// selectors offset from there identically for both.
+/// The *same* index-based SGR codes tmux would send, not resolved RGB, so the
+/// mod's curated palette keeps its muted look. `base` is 30 for a foreground, 40
+/// for a background.
 fn color_code(c: Color, base: u16) -> Option<String> {
     match c {
         Color::Named(n) => match n as u16 {
@@ -382,10 +360,9 @@ fn bg_code(c: Color) -> Option<String> {
     color_code(c, 40)
 }
 
-// --------------------------------------------------------------------- mouse
 
-/// What a mouse event does. `button` (in `MouseInput`) is 0/1/2 = left/mid/right
-/// for press/release/drag and ignored for the wheel.
+/// `button` is 0/1/2 = left/mid/right for press/release/drag, ignored for the
+/// wheel.
 pub enum MouseAction {
     Press,
     Release,
@@ -407,7 +384,6 @@ impl MouseAction {
     }
 }
 
-/// A mouse event in cell coordinates (0-based), as the mod reports it.
 pub struct MouseInput {
     pub action: MouseAction,
     pub button: u8,
@@ -415,7 +391,7 @@ pub struct MouseInput {
     pub row: u16,
 }
 
-/// Legacy/UTF-8 coordinate byte: a raw byte, or a UTF-8 char past 127 under 1005.
+/// Legacy/UTF-8 coordinate byte: raw, or a UTF-8 char past 127 under 1005.
 fn push_coord(out: &mut Vec<u8>, v: u32, utf8: bool) {
     if utf8 && v > 127 {
         if let Some(c) = char::from_u32(v) {
@@ -427,24 +403,19 @@ fn push_coord(out: &mut Vec<u8>, v: u32, utf8: bool) {
     out.push(v.min(255) as u8);
 }
 
-// -------------------------------------------------------------- control mode
 
-/// Extracts the unescaped payload bytes of a `%output` control-mode line, or
-/// `None` for any other notification. Line shape: `%output %<pane> <data>`.
-///
-/// Operates on raw bytes, never a `&str`: tmux emits UTF-8 in `%output`
-/// literally (only control bytes are octal-escaped) and splits its chunks on
-/// arbitrary byte boundaries, so a line can end mid-character and is not always
-/// valid UTF-8. Treating lines as bytes lets the halves flow through to the VT
-/// parser, which reassembles the character across feeds.
+/// Line shape: `%output %<pane> <data>`. Operates on raw bytes, never a `&str`:
+/// tmux emits UTF-8 literally and splits its chunks on arbitrary byte boundaries,
+/// so a line can end mid-character. The halves flow through to the VT parser,
+/// which reassembles across feeds.
 pub fn parse_output(line: &[u8]) -> Option<Vec<u8>> {
     let rest = line.strip_prefix(b"%output ".as_slice())?;
     let sp = rest.iter().position(|&b| b == b' ')?;
     Some(unescape(&rest[sp + 1..]))
 }
 
-/// Reverses tmux's control-mode escaping: printable bytes are literal, `\\` is a
-/// backslash, and everything else is a 3-digit octal escape (`\NNN`).
+/// Printable bytes are literal, `\\` is a backslash, everything else is a 3-digit
+/// octal escape.
 pub fn unescape(b: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(b.len());
     let mut i = 0;
@@ -494,8 +465,8 @@ mod tests {
         assert_eq!(parse_output(b"%output %0 \\015hi").unwrap(), b"\rhi");
         assert!(parse_output(b"%exit").is_none());
         assert!(parse_output(b"%session-changed $0 name").is_none());
-        // A line ending mid-UTF-8 (tmux split a multibyte char) must still parse;
-        // the raw bytes pass through for the VT parser to reassemble.
+        // A line ending mid-UTF-8 must still parse; the raw bytes pass through for the VT
+        // parser to reassemble.
         assert_eq!(parse_output(b"%output %0 A\xf0\x9f").unwrap(), b"A\xf0\x9f");
     }
 
@@ -506,9 +477,7 @@ mod tests {
         let f = e.render();
         assert_eq!(f.lines.len(), 3);
         assert_eq!(f.lines[0], "\x1b[0mhello");
-        // cursor sits just past the text on row 0.
         assert_eq!((f.cx, f.cy), (5, 0));
-        // Unstyled sessions default to a blinking block.
         assert_eq!(f.cursor_shape, 0);
         assert!(f.cursor_blink);
     }
@@ -516,7 +485,6 @@ mod tests {
     #[test]
     fn maps_colour_to_index_sgr() {
         let mut e = SessionEmu::new(20, 2);
-        // bold + red fg
         e.feed(b"\x1b[1;31mX\x1b[0m");
         let f = e.render();
         assert_eq!(f.lines[0], "\x1b[0m\x1b[0;1;31mX");
@@ -528,15 +496,14 @@ mod tests {
         e.feed(b"ab");
         let f = e.render();
         assert_eq!(f.lines[0], "\x1b[0mab");
-        // untouched second row is just the reset.
         assert_eq!(f.lines[1], "\x1b[0m");
     }
 
     #[test]
     fn wide_char_emits_cha_for_following_run() {
         let mut e = SessionEmu::new(20, 2);
-        // A CJK char occupies two cells; "X" after it sits at column 2, so the
-        // run after the wide char must be re-anchored with CHA to column 3 (1-based).
+        // A CJK char occupies two cells, so the run after it must be re-anchored with CHA
+        // to column 3.
         e.feed("\u{4f60}X".as_bytes());
         let f = e.render();
         assert_eq!(f.lines[0], "\x1b[0m\u{4f60}\x1b[3GX");
@@ -606,13 +573,12 @@ mod tests {
     #[test]
     fn reports_cursor_shape_and_modes() {
         let mut e = SessionEmu::new(20, 2);
-        // DECSCUSR 6 -> steady bar (beam); enable SGR mouse click reporting.
+        // DECSCUSR 6 -> steady bar; enable SGR mouse click reporting.
         e.feed(b"\x1b[6 q\x1b[?1006h\x1b[?1000h");
         let f = e.render();
         assert_eq!(f.cursor_shape, 2);
         assert!(f.app_mouse);
         assert!(!f.alt_screen);
-        // 6 is the steady (non-blinking) bar.
         assert!(!f.cursor_blink);
         // Clicks only: the drag is still the terminal's to select with.
         assert!(!f.app_drag);
@@ -623,9 +589,8 @@ mod tests {
     #[test]
     fn answers_cursor_position_report() {
         let mut e = SessionEmu::new(20, 5);
-        // Move to row 3, col 5 (1-based via CUP), then ask for the position (DSR 6).
+        // Move to row 3, col 5 (CUP), then ask for the position (DSR 6).
         e.feed(b"\x1b[3;5H\x1b[6n");
-        // Reply is CPR: ESC [ <row> ; <col> R, both 1-based.
         assert_eq!(e.take_replies(), b"\x1b[3;5R");
         // Draining is one-shot.
         assert!(e.take_replies().is_empty());

@@ -7,56 +7,36 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// While a terminal is open, the colonist bar leaves the top of the screen and
-    /// sits in the pane's title bar, smaller: the same bar, the same portraits, one
-    /// click from the session you're typing at. Nothing is redrawn by hand - the
-    /// bar's own OnGUI is called with its cached scale and draw locs pointed at
-    /// the strip.
-    ///
-    /// The strip is *in* the header rather than under it. A row of portraits with a
-    /// title bar above it is two bands of chrome over the pane; the header grown to
-    /// <see cref="BarH"/> - a whole row, name included, with a pad above and below -
-    /// is one.
-    ///
-    /// It has to be called from inside the window, which is the whole trick:
-    ///
-    ///   UIRoot_Play.UIRootOnGUI  ->  MapInterfaceOnGUI_BeforeMainTabs (the bar)
-    ///                            ->  WindowStackOnGUI: every ExtraOnGUI, THEN
-    ///                                every WindowOnGUI
-    ///
-    /// The bar's own draw and every window's ExtraOnGUI both run before any window
-    /// contents, and TerminalWindow fills the screen with an opaque background, so
-    /// anything drawn from either place is painted over. Only a draw inside
-    /// DoWindowContents, after that fill, can be seen. Drawing there also puts
-    /// Mouse.IsOver in the right frame of reference: the terminal is then the
-    /// currently drawn window, so clicks in the strip register instead of counting
-    /// as obscured.
-    ///
-    /// A transpiler was tried first and this game's Mono rejected the rewritten
-    /// wrapper with InvalidProgramException at patch time, which in PatchAll takes
-    /// the entire mod down with it - so this is plain prefix/postfix work.
-    ///
-    /// A prefix on ColonistBarColonistDrawer.HandleClicks turns a click on a
-    /// colonist into a terminal switch instead of a camera jump.
-    /// </summary>
+    // While a terminal is open the colonist bar leaves the top of the screen and sits
+    // in the pane's title bar, smaller. Nothing is redrawn by hand: the bar's own
+    // OnGUI is called with its cached scale and draw locs pointed at the strip, which
+    // is *in* the header rather than under it - a row of portraits below a title bar
+    // is two bands of chrome over the pane where one grown to BarH is one.
+    //
+    // It has to be called from inside the window, which is the whole trick:
+    // UIRootOnGUI draws the map interface (the bar), then every window's ExtraOnGUI,
+    // and only then every window's contents. TerminalWindow fills the screen opaque,
+    // so anything drawn from the first two is painted over. Drawing after that fill
+    // also puts Mouse.IsOver in the right frame of reference, so clicks in the strip
+    // register instead of counting as obscured.
+    //
+    // A transpiler was tried first and this game's Mono rejected the rewritten
+    // wrapper with InvalidProgramException at patch time, which in PatchAll takes the
+    // whole mod down.
     public static class ColonistBarOverlay
     {
-        /// How much smaller than wherever the bar already was. Small enough to read
-        /// as a strip and not a second bar, large enough to still be a portrait.
+        // Small enough to read as a strip and not a second bar, large enough to still be
+        // a portrait.
         public const float Shrink = 0.6f;
 
-        /// The pawn name the bar draws under each portrait (GameFont.Tiny). It is
-        /// inside the title bar with everything else, so the bar is this much taller
-        /// rather than the name hanging onto the pane below it.
+        // The name is inside the title bar with everything else, so the bar is this much
+        // taller rather than the name hanging onto the pane below it.
         const float LabelH = 16f;
         const float Pad = 4f;
 
-        /// <summary>How far a portrait pokes out the top of the cell it is laid out
-        /// in. GetPawnTextureRect draws PawnTextureSize (46x75) anchored to the
-        /// bottom of a BaseSize (48x48) cell, which is what lets heads clear the
-        /// top of the screen in vanilla. Here it would put them off the top of the
-        /// window.</summary>
+        // GetPawnTextureRect draws PawnTextureSize (46x75) anchored to the bottom of a
+        // BaseSize (48x48) cell, which lets heads clear the top of the screen in vanilla
+        // and would put them off the top of the window here.
         static float Overhang(float s) =>
             (ColonistBarColonistDrawer.PawnTextureSize.y - ColonistBar.BaseSize.y) * s;
 
@@ -65,8 +45,7 @@ namespace SlopWorld
         static readonly FieldInfo ScaleField =
             AccessTools.Field(typeof(ColonistBar), "cachedScale");
 
-        /// A reflection target that stops resolving must be loud once, not silently
-        /// inert: the feature would otherwise look like it was never built.
+        // A reflection target that stops resolving must be loud once, not silently inert.
         static readonly bool Ready = Check();
 
         static bool Check()
@@ -76,41 +55,33 @@ namespace SlopWorld
             return false;
         }
 
-        /// Scratch for the positions the strip borrows and hands back.
         static readonly List<Vector2> Saved = new List<Vector2>();
 
         public static bool Active =>
             Ready && Find.WindowStack?.WindowOfType<TerminalWindow>() != null;
 
-        /// True only for the length of the strip's own call to the bar.
+        // True only for the length of the strip's own call to the bar.
         public static bool Drawing { get; private set; }
 
-        /// The map-layer draw is pointless while the terminal covers it, and would
-        /// leave the bar's reorderable groups registered twice a frame. Read by the
-        /// strip-UI gate and by the "+" slot's postfix.
+        // The map-layer draw is pointless while the terminal covers it, and would leave
+        // the bar's reorderable groups registered twice a frame.
         public static bool Suppressed => Active && !Drawing;
 
-        /// <summary>A row's own extent, top of the head to the bottom of the name:
-        /// the overhang, the cell, the label. What has to fit inside the title bar,
-        /// and what gets centred in it.</summary>
+        // What has to fit inside the title bar, and what gets centred in it.
         static float RowH(float s) =>
             Overhang(s) + ColonistBar.BaseSize.y * s + LabelH;
 
-        /// <summary>How tall the title bar has to be to hold a whole row - portrait
-        /// and name both - with a pad above and below. Measured at the nominal scale,
-        /// so a row that had to shrink to fit leaves the bar the same height rather
-        /// than making the chrome jump about as agents come and go.</summary>
+        // Measured at the nominal scale, so a row that had to shrink leaves the bar the
+        // same height rather than making the chrome jump about as agents come and go.
         public static float BarH => RowH(Shrink) + Pad * 2f;
 
-        /// <summary>The strip the bar is rerouted into while the terminal is up, and
-        /// the room the terminal leaves for it - which is the title bar itself, since
-        /// the whole row lives inside it now. Zero-sized otherwise.</summary>
+        // The room the terminal leaves for it is the title bar itself, since the whole
+        // row lives inside it now.
         public static Rect Rect =>
             Active ? new Rect(0f, 0f, UI.screenWidth, BarH) : Rect.zero;
 
-        /// <summary>Draws the bar into the strip. Called from TerminalWindow's
-        /// contents, after the background fill, on every event but Layout - the bar
-        /// handles its own clicks and returns early on Layout anyway.</summary>
+        // On every event but Layout - the bar handles its own clicks and returns early on
+        // Layout anyway.
         public static void Draw()
         {
             if (!Ready || Drawing) return;
@@ -118,10 +89,9 @@ namespace SlopWorld
             var bar = Find.ColonistBar;
             if (bar == null) return;
 
-            // Touch Entries first: it recaches both fields below from scratch when
-            // the layout is dirty, and does so from inside ColonistBarOnGUI, which
-            // would undo everything this method sets. Forcing it now means the
-            // recache inside is a no-op.
+            // Touch Entries first: it recaches both fields below from scratch when the layout
+            // is dirty, and does so from inside ColonistBarOnGUI, which would undo everything
+            // this method sets.
             if (bar.Entries.Count == 0) return;
 
             var locs = DrawLocsField.GetValue(bar) as List<Vector2>;
@@ -138,11 +108,9 @@ namespace SlopWorld
             float w = ColonistBar.BaseSize.x * s;
             float gap = ColonistBar.BaseSpaceBetweenColonistsHorizontal * s;
             float x = strip.x + (strip.width - (locs.Count * w + (locs.Count - 1) * gap)) / 2f;
-            // Centred in the bar rather than measured down from its top, so a row
-            // that had to shrink sits in the middle of the chrome instead of riding
-            // its ceiling. The overhang is added back because the loc is the cell's
-            // top and the head pokes out above it - what is being centred is the
-            // whole row, name included.
+            // Centred in the bar rather than measured down from its top, so a row that had to
+            // shrink sits in the middle of the chrome. The overhang is added back because the
+            // loc is the cell's top and the head pokes out above it.
             float y = strip.y + (strip.height - RowH(s)) / 2f + Overhang(s);
 
             for (int i = 0; i < locs.Count; i++)
@@ -159,18 +127,16 @@ namespace SlopWorld
             finally
             {
                 Drawing = false;
-                // Put the bar back where it believes it is. Restoring beats marking
-                // it dirty: a dirty flag would recache the whole thing every frame
-                // the terminal is open.
+                // Restoring beats marking it dirty: a dirty flag would recache the whole thing
+                // every frame the terminal is open.
                 ScaleField.SetValue(bar, scale);
                 locs.Clear();
                 locs.AddRange(Saved);
             }
         }
 
-        /// <summary>Shrink, then shrink further if that many portraits still don't
-        /// fit one row - the strip is a single row by construction, where the bar's
-        /// own layout would have wrapped.</summary>
+        // The strip is a single row by construction, where the bar's own layout would
+        // have wrapped.
         static float FitScale(int count, float scale)
         {
             float s = scale * Shrink;
@@ -182,12 +148,8 @@ namespace SlopWorld
         }
     }
 
-    /// <summary>
-    /// A left click on a portrait in the strip points the terminal at that agent
-    /// instead of jumping the camera to it. Vanilla's double-click jump and its
-    /// right-click swallow stay out of the way underneath; only the strip's own
-    /// clicks are taken.
-    /// </summary>
+    // Vanilla's double-click jump and its right-click swallow stay out of the way
+    // underneath; only the strip's own clicks are taken.
     [HarmonyPatch(typeof(ColonistBarColonistDrawer), "HandleClicks")]
     public static class Patch_BarClickSwitchesTerminal
     {
@@ -204,8 +166,7 @@ namespace SlopWorld
             var info = SessionHub.Instance.Get(session);
             if (info == null) return true;
 
-            // A down agent has no pane to show; the click starts it back up, and
-            // the terminal follows once the process is up and the pawn is standing.
+            // A down agent has no pane to show; the click starts it back up.
             if (info.Gone) SessionHub.Instance.Start(session);
             else if (session != TerminalWindow.CurrentName) TerminalWindow.Open(session);
 

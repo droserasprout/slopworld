@@ -2,28 +2,20 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// Keeps the clock running. There is no way for the player to start it again if
-    /// it stops: Patch_HideGui drops GlobalControls wholesale, and vanilla wires up
-    /// every time-speed key binding - pause, 1, 2, 3, 4 - inside
-    /// TimeControls.DoTimeControlsGUI, which only ever runs while those controls are
-    /// drawing. So a pause from anywhere is a pause forever, on a board with no
-    /// clock to show it: the map just stops, and looks for all the world like
-    /// every last thing on it has died.
-    ///
-    /// A viewer's sim has no business sitting still, so the mod owns the clock. It is
-    /// also the only thing that starts it on a fresh colony now the scenario's opening
-    /// dialog is gone: that box held the pause a new game begins on, and closing it
-    /// was what let the clock go. Windows that force a pause - a game-over box - still
-    /// hold time while they are up; this only stops the pause from outliving them.
-    ///
-    /// GameComponents are built for every subclass automatically, so this needs no
-    /// def.
-    /// </summary>
+    // There is no way for the player to start the clock again if it stops:
+    // Patch_HideGui drops GlobalControls wholesale, and vanilla wires up every
+    // time-speed key binding inside TimeControls.DoTimeControlsGUI, which only runs
+    // while those controls are drawing. So a pause is a pause forever, on a board
+    // with no clock to show it - the map just stops, and looks like everything on it
+    // has died.
+    //
+    // It is also the only thing that starts the clock on a fresh colony now the
+    // scenario's opening dialog is gone: that box held the pause a new game begins
+    // on. Windows that force a pause still hold time while they are up.
     public class TimeKeeper : GameComponent
     {
-        // Logged once: knowing that something out there still pauses the game, and
-        // when, is worth one line. Repeating it every time would be noise.
+        // Logged once: knowing that something out there still pauses the game, and when,
+        // is worth one line.
         bool _reported;
 
         public TimeKeeper(Game game) { }

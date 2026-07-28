@@ -49,14 +49,12 @@ pub fn router(m: Mgr) -> Router {
         .with_state(m)
 }
 
-/// Turns any error into a JSON body the mod can surface in a dialog.
 fn err(code: StatusCode, e: impl std::fmt::Display) -> (StatusCode, Json<serde_json::Value>) {
     (code, Json(json!({ "error": e.to_string() })))
 }
 
-/// Whether a request carries the right token. An empty configured token means no
-/// auth (fine on a loopback bind). Shared by the HTTP middleware and the `/ws`
-/// upgrade, which re-checks because the header rides only on the upgrade request.
+/// An empty configured token means no auth. Shared with the `/ws` upgrade, which
+/// re-checks because the header rides only on the upgrade request.
 pub fn token_ok(headers: &HeaderMap, token: &str) -> bool {
     token.is_empty()
         || headers
@@ -68,8 +66,6 @@ pub fn token_ok(headers: &HeaderMap, token: &str) -> bool {
 
 type ApiResult = Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)>;
 
-/// The standard `{"ok":true}` response for a mutating call, or a 400 carrying the
-/// manager's error message.
 fn ok_json(r: anyhow::Result<()>) -> ApiResult {
     r.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "ok": true })))
@@ -124,7 +120,6 @@ async fn restart(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
     ok_json(m.restart(&name).await)
 }
 
-// ----------------------------------------------------------------- projects
 
 async fn list_projects(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!({ "projects": m.projects().await })))
@@ -155,7 +150,6 @@ async fn destroy_project(State(m): State<Mgr>, Path(name): Path<String>) -> ApiR
     ok_json(m.remove_project(&name).await)
 }
 
-// ------------------------------------------------------------------ shortcuts
 
 async fn list_shortcuts(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!({ "shortcuts": m.shortcuts().await })))
@@ -177,15 +171,11 @@ async fn destroy_shortcut(State(m): State<Mgr>, Path(name): Path<String>) -> Api
     ok_json(m.remove_shortcut(&name).await)
 }
 
-/// Runs an errand and answers with the name of the temporary agent doing it, so
-/// the caller can open a terminal on it. It returns as soon as that agent is up:
-/// the text lands once the pane is ready for it, which is well past the point
-/// this client would have given up waiting.
-///
-/// The body says where to run it - `{"project":"..."}` or `{"temp":true}` - and
-/// is optional, because most shortcuts already know. `Option<Json<_>>` rather
-/// than `Json<_>` so a `curl -X POST` with no body at all still runs the ones
-/// that do.
+/// Answers with the name of the temporary agent as soon as it is up, so the caller
+/// can open a terminal on it; the text lands well past the point this client would
+/// have given up waiting. The body says where to run - `{"project":"..."}` or
+/// `{"temp":true}` - and `Option<Json<_>>` is so a bodyless curl still runs the
+/// errands that already know.
 async fn run_shortcut(
     State(m): State<Mgr>,
     Path(name): Path<String>,
@@ -198,8 +188,8 @@ async fn run_shortcut(
     Ok(Json(json!({ "ok": true, "session": session })))
 }
 
-/// The sandbox presets this build knows, so the GUI draws a checkbox per preset
-/// rather than a list somebody has to keep in step with the daemon by hand.
+/// So the GUI draws a checkbox per preset rather than a list somebody keeps in
+/// step by hand.
 async fn presets(State(_m): State<Mgr>) -> ApiResult {
     let list: Vec<serde_json::Value> = crate::sandbox::PRESETS
         .iter()
@@ -218,8 +208,8 @@ async fn presets(State(_m): State<Mgr>) -> ApiResult {
     Ok(Json(json!({ "presets": list })))
 }
 
-/// The file as text for the raw editor, and parsed for the settings GUI. Both
-/// views of the same config, so a mod can offer either without parsing TOML.
+/// Text for the raw editor, parsed for the settings GUI, so a mod can offer either
+/// without parsing TOML.
 async fn get_config(State(m): State<Mgr>) -> ApiResult {
     let text = std::fs::read_to_string(&m.cfg_path)
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
@@ -237,8 +227,8 @@ async fn put_config(State(m): State<Mgr>, Json(req): Json<ConfigReq>) -> ApiResu
     ok_json(m.replace_config(&req.text).await)
 }
 
-/// A section left out is left alone, which is what keeps a settings GUI from
-/// writing back sessions and state rules it never showed the player.
+/// A section left out is left alone, which keeps a settings GUI from writing back
+/// sessions and state rules it never showed the player.
 #[derive(Deserialize)]
 struct SectionsReq {
     #[serde(default)]
@@ -267,9 +257,8 @@ fn default_restart_delay() -> u64 {
     4000
 }
 
-/// Relaunches the game. The mod calls this after saving, then quits: the game
-/// cannot exec itself across a Unity shutdown, and slopd is the one process in
-/// the picture that outlives it.
+/// The mod calls this after saving, then quits: the game cannot exec itself across
+/// a Unity shutdown, and slopd outlives it.
 async fn restart_game(State(m): State<Mgr>, body: Option<Json<RestartGameReq>>) -> ApiResult {
     let delay = body
         .map(|Json(r)| r.delay_ms)
@@ -277,15 +266,12 @@ async fn restart_game(State(m): State<Mgr>, body: Option<Json<RestartGameReq>>) 
     ok_json(m.restart_game(delay).await)
 }
 
-/// Whether the game is up, and how we know. Written for an agent inside a
-/// session, which cannot see the host's process table at all - see `game.rs`.
+/// Written for an agent inside a session, which cannot see the host's process
+/// table at all - see `game.rs`.
 async fn game(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!(m.game().await)))
 }
 
-/// What is left of the subscription. The same snapshot the socket pushes, for
-/// anything that would rather ask than listen - `curl` while the game is shut,
-/// mostly.
 async fn usage(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!(m.usage().await)))
 }
@@ -296,9 +282,8 @@ struct ClipReq {
     text: String,
 }
 
-/// The host's clipboard, which the game has no way to reach itself; see
-/// `clipboard.rs`. A tool that is missing or wedged is a 502 rather than a 400,
-/// because nothing about the request was wrong.
+/// A tool that is missing or wedged is a 502 rather than a 400, because nothing
+/// about the request was wrong.
 async fn clip_read() -> ApiResult {
     let text = crate::clipboard::read()
         .await
@@ -319,8 +304,8 @@ struct BrowseReq {
     path: String,
 }
 
-/// Directory listing so the in-game "add session" dialog can pick a project dir
-/// without the mod ever touching the host filesystem across the Wine boundary.
+/// So the dialog can pick a project dir without the mod touching the host
+/// filesystem itself.
 async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult {
     let base = if q.path.is_empty() {
         dirs::home_dir().unwrap_or_else(|| "/".into())
@@ -349,7 +334,6 @@ async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult 
     })))
 }
 
-// ---------------------------------------------------------------- websocket
 
 #[derive(Deserialize)]
 #[serde(tag = "t", rename_all = "lowercase")]
@@ -419,7 +403,7 @@ async fn ws_upgrade(
 
 async fn ws_run(socket: WebSocket, m: Mgr) {
     // Held for the life of the pump, so /api/game can say whether anything is
-    // attached without either end of this having to report it.
+    // attached.
     let _client = m.client_joined();
 
     let (tx, mut rx) = socket.split();
@@ -427,11 +411,10 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
     let subs: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
     let mut events = m.events.subscribe();
 
-    // Fresh clients need the full picture before any deltas arrive. Usage,
-    // projects and shortcuts ride along: they speak only on a change, so a mod
-    // that attaches between polls would otherwise draw nothing for a minute -
-    // and one attaching after the last edit would have nothing to fill the
-    // "which project" dropdown from at all.
+    // Usage, projects and shortcuts ride along because they speak only on a change: a
+    // mod attaching between polls would otherwise draw nothing for a minute, and one
+    // attaching after the last edit would have nothing to fill the project dropdown
+    // from.
     let hello = Event::Sessions {
         sessions: m.views().await,
     };
@@ -493,7 +476,6 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
         match cm {
             ClientMsg::Sub { name } => {
                 subs.lock().await.insert(name.clone());
-                // Push current contents immediately, don't wait for the next change.
                 if let Some(s) = m.screen(&name).await {
                     let _ = send(&tx, &Event::Screen { screen: s }).await;
                 }
@@ -512,8 +494,8 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                 }
             }
             ClientMsg::Scroll(sr) => {
-                // Answer this socket alone: a scrolled frame is private to the
-                // wheel request and must not reach live subscribers.
+                // Answer this socket alone: a scrolled frame is private to the wheel request and
+                // must not reach live subscribers.
                 if let Some(s) = m.scroll_capture(&sr.name, sr.off).await {
                     let _ = send(&tx, &Event::Screen { screen: s }).await;
                 }

@@ -6,54 +6,37 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// Add or edit one agent. Writes straight through to config.toml on the
-    /// daemon.
-    ///
-    /// What is left here is the two things that are about the agent: its name
-    /// and what it runs. Where it works and what it can reach moved to the
-    /// project, which is why picking one is mandatory and why there is no
-    /// directory field any more.
-    /// </summary>
+    // What is left here is the two things about the agent: its name and what it runs.
+    // Where it works and what it can reach moved to the project, which is why picking
+    // one is mandatory and there is no directory field.
     public class EditSessionDialog : Window
     {
         readonly bool _isNew;
         readonly SessionInfo _s;
-        /// The name the daemon still knows this session by: the edit is addressed
-        /// to it, and a changed name in the field is a rename.
+        // The edit is addressed to it, and a changed name in the field is a rename.
         readonly string _origName;
-        /// What a Claude session will actually run, shown greyed in the command
-        /// box so the field is never blank and never a lie.
+        // Shown greyed in the command box, so the field is never blank and never a lie.
         string _default = "claude";
 
-        /// The agent this one was copied from, for the title. Null unless it is a
-        /// duplicate: an edit already has `_origName` and a new one has nothing.
+        // For the title. Null unless it is a duplicate: an edit already has `_origName`.
         readonly string _copiedFrom;
 
         public EditSessionDialog(SessionInfo existing) : this(existing, null) { }
 
-        /// <param name="project">
-        /// Preselected project, for "add an agent here" from the projects list.
-        /// </param>
+        // Preselected project, for "add an agent here" from the projects list.
         public EditSessionDialog(SessionInfo existing, string project) : this(existing, project, false) { }
 
-        /// <summary>
-        /// A copy of an existing agent, opened as a new one. Everything the
-        /// dialog can edit comes over - the project, and so the directory and
-        /// the whole sandbox with it, which is the point: a second agent in the
-        /// same repo is what this is for, and picking that project again by hand
-        /// is the step that gets it wrong.
-        ///
-        /// The name cannot come over, so it is the one field that is suggested
-        /// rather than copied.
-        /// </summary>
+        // Everything the dialog can edit comes over - the project above all, since a
+        // second agent in the same repo is what this is for and picking that project
+        // again by hand is the step that gets it wrong. The name cannot, so it is the one
+        // field that is suggested rather than copied.
         public static EditSessionDialog Copy(SessionInfo of) => new EditSessionDialog(of, null, true);
 
         EditSessionDialog(SessionInfo existing, string project, bool copy)
         {
-            // A copy is a new agent in every way that matters here: nothing on
-            // the daemon knows about it yet, so Save posts rather than puts and
-            // there is no rename to carry a colonist across.
+            // A copy is a new agent in every way that matters here: nothing on the daemon
+            // knows about it, so Save posts rather than puts and there is no rename to carry
+            // a colonist across.
             _isNew = existing == null || copy;
             _origName = copy ? "" : (existing?.Name ?? "");
             _copiedFrom = copy ? existing.Name : null;
@@ -68,9 +51,8 @@ namespace SlopWorld
                     Autostart = existing.Autostart,
                 };
 
-            // Every Claude session resolves to the same command, so any of them
-            // will do as the placeholder - and with none about, the daemon's
-            // stock answer is right anyway.
+            // Every Claude session resolves to the same command, so any will do as the
+            // placeholder.
             var claude = SessionHub.Instance.Sessions
                 .FirstOrDefault(s => s.Kind == AgentKind.Claude && !string.IsNullOrEmpty(s.Agent));
             if (claude != null) _default = claude.Agent;
@@ -118,8 +100,7 @@ namespace SlopWorld
             if (l.ButtonText(_s.Kind == AgentKind.Custom ? "Custom" : "Claude Code"))
                 PickKind();
 
-            // Greyed rather than hidden: a Claude session runs something, and
-            // this is what, even though nothing here can change it.
+            // Greyed rather than hidden: a Claude session runs something, and this is what.
             bool custom = _s.Kind == AgentKind.Custom;
             var box = l.GetRect(28f);
             if (custom)
@@ -146,15 +127,9 @@ namespace SlopWorld
                 Save();
         }
 
-        /// <summary>
-        /// A name like the one given that nothing is using yet: "claude" ->
-        /// "claude-2", and a copy of that -> "claude-3" rather than "claude-2-2".
-        ///
-        /// Suggested and not enforced - it lands in the name field, editable, and
-        /// the daemon is still the thing that refuses a collision. Which is why
-        /// the search gives up rather than looping: past a certain point the
-        /// person is better placed to name this than we are.
-        /// </summary>
+        // "claude" -> "claude-2", and a copy of that -> "claude-3" rather than
+        // "claude-2-2". Suggested and not enforced - the daemon still refuses a
+        // collision, which is why the search gives up rather than looping.
         static string FreeName(string name)
         {
             string stem = name ?? "";
@@ -215,8 +190,8 @@ namespace SlopWorld
             SessionHub.Instance.Save(_s, _isNew, _origName,
                 ok: () =>
                 {
-                    // The daemon took the rename, so carry the colonist over before
-                    // the next reconcile sees a name it doesn't know and retires it.
+                    // The daemon took the rename, so carry the colonist over before the next
+                    // reconcile sees a name it doesn't know and retires it.
                     if (!_isNew && from != to) AgentColony.Current?.Rename(from, to);
                     Close();
                 },
@@ -225,10 +200,8 @@ namespace SlopWorld
         }
     }
 
-    /// <summary>
-    /// Directory picker backed by the daemon's /api/browse. The game is inside Wine
-    /// and cannot see the host filesystem, so the daemon does the listing.
-    /// </summary>
+    // The game is inside Wine and cannot see the host filesystem, so the daemon does
+    // the listing.
     public class BrowseDialog : Window
     {
         readonly System.Action<string> _pick;

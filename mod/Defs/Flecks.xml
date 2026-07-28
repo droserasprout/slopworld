@@ -2,18 +2,13 @@
 <Defs>
 
   <!--
-    The plague's tell. Modelled on vanilla's Fleck_ToxGasSmall, which is the shape
-    every atmospheric cloud in this game has: a gas texture rather than a smoke
-    puff, alpha in the sixties rather than opaque, growing as it drifts up-map, and
-    gone inside a second. Smoke is the wrong def for this - it is solid for six
-    seconds and fades for another three, so a tint on it leaves hard coloured decals
-    lying about the map instead of a haze passing over it.
+    The plague's tell, modelled on Fleck_ToxGasSmall. Smoke is the wrong def: it
+    is solid for six seconds and fades for another three, so a tint on it leaves
+    hard coloured decals lying about the map instead of a haze passing over it.
 
-    The colour lives here and not in FleckCreationData.instanceColor because alpha
-    is the whole point: a fleck's instanceColor is combined with a separately
-    computed fade alpha, while graphicData's is baked into the material and stays
-    put. Dusty rose, not magenta - it has to read against grass and dirt without
-    becoming the brightest thing on screen.
+    The colour lives here rather than in FleckCreationData.instanceColor because
+    alpha is the whole point: instanceColor is combined with a separately computed
+    fade alpha, where graphicData's is baked into the material.
   -->
   <FleckDef ParentName="FleckBase_Thrown">
     <defName>SlopPlagueGas</defName>
@@ -31,16 +26,10 @@
   </FleckDef>
 
   <!--
-    The cat's tell, and deliberately the same cloud in the other colour: same
-    texture, same alpha, same drift up-map, so the two read as one weather with
-    two directions rather than as a haze and an unrelated sparkle. A cleaning
-    mote would have been the obvious pick and is the wrong one - it says a chore
-    was done, where this has to say the same thing the pink says, which is that
-    something is happening to this ground.
-
-    Pale green, and paler than the plague is pink: the aura is a handful of cells
-    against a circle that eats the map, and it should read as the map breathing
-    rather than as the brightest thing on it.
+    The cat's tell: deliberately the same cloud in the other colour, so the two
+    read as one weather with two directions. A cleaning mote would say a chore was
+    done, where this has to say what the pink says. Paler than the plague is pink,
+    the aura being a handful of cells against a circle that eats the map.
   -->
   <FleckDef ParentName="FleckBase_Thrown">
     <defName>SlopCleanAir</defName>

@@ -6,35 +6,18 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// Runs the opening scene of a fresh colony, once, as a cutscene: nothing on the
-    /// map is clickable and no UI is drawn until it is over, so the player watches
-    /// rather than plays.
-    ///
-    /// The beats, in order. A hillside populated with living animals and people -
-    /// placed, because they are scenery and a hundred pods would be a different
-    /// scene. The scenario's three starting colonists come down in their pods, the
-    /// cat comes down after them, and they are given a few seconds on the ground to
-    /// walk about and read as a landing party. Then the machine persona core falls
-    /// on the middle of it. It sits there venting pink for a couple of seconds -
-    /// long enough to be the thing you are looking at when it happens - and then
-    /// the colonists go up in a red mist and the plague starts spreading from the
-    /// core. The agents walk out of that haze, one thick cloud each, and once they
-    /// are standing the UI comes back.
-    ///
-    /// It opens on the first of those and not on a box of text. The welcome dialog
-    /// that used to be the first beat (ScenPart_GameStartDialog, which
-    /// <see cref="SlopScenario"/> now drops) held the game paused on an empty
-    /// hillside, and what it said in prose is what the next twenty seconds say by
-    /// dropping a core on the party that landed.
-    ///
-    /// Bodies are placed alive and killed on camera rather than placed dead, which
-    /// is both cheaper (no corpse, no blood pass) and the whole point of the thing.
-    ///
-    /// The phase is persisted, so a reload never replays the intro; the work lists
-    /// are not, so a reload mid-intro simply skips ahead. GameComponents are built
-    /// for every subclass automatically, so this needs no def.
-    /// </summary>
+    // The opening scene of a fresh colony, once, as a cutscene: nothing on the map is
+    // clickable and no UI is drawn until it is over.
+    //
+    // A hillside populated with living animals and people - placed, because a hundred
+    // pods would be a different scene - then the scenario's starters and the cat come
+    // down, walk about, and the persona core falls on the middle of them. It vents
+    // alone for a couple of seconds, so what follows reads as having come out of it:
+    // the starters go up, the plague is armed, and the agents walk out of the haze.
+    //
+    // Bodies are placed alive and killed on camera rather than placed dead, which is
+    // cheaper and the whole point. The phase is persisted so a reload never replays
+    // the intro; the work lists are not, so a reload mid-intro skips ahead.
     public class IntroDirector : GameComponent
     {
         // How much life the scene puts on the map before killing it.
@@ -43,20 +26,17 @@ namespace SlopWorld
         const int HumansMin = 20;
         const int HumansMax = 30;
 
-        // Generating a pawn is expensive; a few per tick keeps the frame smooth,
-        // same budget the corpse pass used.
+        // Generating a pawn is expensive; a few per tick keeps the frame smooth.
         const int SpawnsPerTick = 6;
 
-        // Real-time seconds each held beat lasts. Walk is measured from the first
-        // starter standing, so it has to cover the cat's own pod falling and opening
-        // - up to four seconds of it - as well as the walking it is named for.
+        // Walk is measured from the first starter standing, so it has to cover the cat's
+        // own pod falling and opening - up to four seconds - as well as the walking.
         const float WalkSeconds = 7f;
         const float FumeSeconds = 3f;
         const float BloomSeconds = 3f;
 
-        // How long the core gets to reach the ground before the scene stops waiting
-        // on it. Generous: this is a fallback against a skyfaller that never landed,
-        // not a timer anything is supposed to hit.
+        // A fallback against a skyfaller that never landed, not a timer anything is
+        // supposed to hit.
         const float FallSeconds = 12f;
 
         // Ticks between breaths of the core's vent.
@@ -71,8 +51,7 @@ namespace SlopWorld
         // Tries at a random standable cell before a spawn gives up on the middle.
         const int PlacementTries = 30;
 
-        // A brand-new game is only a few ticks in; anything past this is a load of
-        // an existing colony, which we must never touch.
+        // A brand-new game is only a few ticks in; anything past this is a load.
         const int FreshGameTicks = 2000;
 
         enum Phase { Waiting, Populate, Land, Core, Fume, Purge, Bloom, Done }
@@ -80,31 +59,25 @@ namespace SlopWorld
         // Persisted: how far through the scene we are.
         Phase _phase = Phase.Waiting;
 
-        // Runtime only.
         Map _map;
         List<PawnKindDef> _animalKinds;
         int _animalsLeft, _humansLeft;
 
-        // The current phase's one-off has been done, and the real time it stops
-        // waiting. Both are cleared by every transition, so a phase reads them
-        // without caring what the last one left behind.
+        // Both are cleared by every transition, so a phase reads them without caring what
+        // the last one left behind.
         bool _armed;
         float _at;
 
-        /// <summary>True while the scene is playing: no UI is drawn and nothing on
-        /// the map can be selected. Runtime only - a save loaded mid-scene comes
-        /// back with the UI on rather than stuck hidden.</summary>
+        // Runtime only - a save loaded mid-scene comes back with the UI on rather than
+        // stuck hidden.
         public static bool UiHidden { get; private set; }
 
-        /// <summary>True while the scene still has killing to do. The reconcile holds
-        /// off on it, so the agents arrive on their cue instead of standing in the
-        /// crowd waiting to watch themselves not die.</summary>
+        // The reconcile holds off, so the agents arrive on their cue instead of standing
+        // in the crowd waiting to watch themselves not die.
         public static bool AgentsHeld { get; private set; }
 
-        // A new Game - a load, or a fresh colony - and the two flags below are
-        // static, so whatever the last one was in the middle of when it was thrown
-        // away would otherwise still be in force. A colony discarded during its own
-        // intro must not hand the next one a hidden UI.
+        // Both flags are static, so a colony discarded during its own intro must not hand
+        // the next one a hidden UI.
         public IntroDirector(Game game)
         {
             UiHidden = false;
@@ -115,10 +88,8 @@ namespace SlopWorld
 
         Map TheMap => _map ?? (_map = Find.CurrentMap);
 
-        // Phases that must advance while the game is paused: a new colony starts on
-        // a pause TimeKeeper has yet to lift, anything else may put one back, and
-        // the held beats burn in real time so the scene keeps its rhythm whatever
-        // the clock is doing.
+        // Phases that must advance while the game is paused: a new colony starts on a
+        // pause TimeKeeper has yet to lift, and the held beats burn in real time.
         public override void GameComponentUpdate()
         {
             switch (_phase)
@@ -131,8 +102,7 @@ namespace SlopWorld
             }
         }
 
-        // Phases that spawn things. Pawns and buildings only stick once the map is
-        // live and ticking; anything placed pre-tick silently vanishes.
+        // Pawns and buildings only stick once the map is live and ticking.
         public override void GameComponentTick()
         {
             switch (_phase)
@@ -143,8 +113,7 @@ namespace SlopWorld
             }
         }
 
-        // Every phase change goes through here, so no phase inherits the last one's
-        // timer or its one-off flag.
+        // So no phase inherits the last one's timer or its one-off flag.
         void Go(Phase next, float hold = 0f)
         {
             _phase = next;
@@ -159,9 +128,8 @@ namespace SlopWorld
             var map = TheMap;
             if (map == null) return;
 
-            // A load, not a fresh landing. Finish rather than just marking it done,
-            // so a colony abandoned mid-scene cannot leave the UI hidden or the
-            // agents held for the game that replaces it.
+            // A load, not a fresh landing. Finish rather than marking it done, so a colony
+            // abandoned mid-scene cannot leave the UI hidden or the agents held.
             if (Find.TickManager.TicksGame > FreshGameTicks) { Finish(); return; }
 
             UiHidden = true;
@@ -181,9 +149,8 @@ namespace SlopWorld
             Go(Phase.Populate);
         }
 
-        // Animals first, then people, a few per tick. Everything spawns alive and
-        // factionless: they wander, they never join the colonist bar, and they are
-        // here to die of the plague rather than to be found already dead.
+        // Everything spawns alive and factionless: they wander, they never join the
+        // colonist bar, and they are here to die of the plague.
         void StepPopulate()
         {
             var map = TheMap;
@@ -224,10 +191,8 @@ namespace SlopWorld
             }
         }
 
-        // The pods are still in the air, or still sealed; TimeKeeper is what keeps
-        // the clock running through that and we only wait. Once somebody is standing
-        // the cat comes down after them, and then the whole party gets a few seconds
-        // to walk about before anything happens to it.
+        // The pods are still in the air, or still sealed. Once somebody is standing the
+        // cat comes down, and then the party gets a few seconds to walk about.
         void WaitOnLanding()
         {
             var map = TheMap;
@@ -247,8 +212,7 @@ namespace SlopWorld
             if (!Held) Go(Phase.Core);
         }
 
-        // Drop the core on the middle of the party and wait for it to arrive. Reuses
-        // a core already on the map, so a reload mid-scene never leaves two.
+        // Reuses a core already on the map, so a reload mid-scene never leaves two.
         void DropCore()
         {
             var map = TheMap;
@@ -265,9 +229,8 @@ namespace SlopWorld
             if (TheCore(map) == null)
             {
                 if (Held) return; // still on its way down
-                // It never arrived. The rest of the scene needs a core standing -
-                // the plague spreads from it and the agents land beside it - so it
-                // gets put there without the theatre rather than not at all.
+                // The rest of the scene needs a core standing, so it gets put there without the
+                // theatre rather than not at all.
                 Log.Warning("[SlopWorld] persona core never landed; placing it");
                 Ground(map);
             }
@@ -275,19 +238,12 @@ namespace SlopWorld
             Go(Phase.Fume, FumeSeconds);
         }
 
-        /// <summary>
-        /// The core comes down the way everything else on this map arrived: out of
-        /// the sky. ShipChunkIncoming is vanilla's own carrier for wreckage - it
-        /// holds whatever it is handed, and with no graphicData of its own the
-        /// skyfaller draws its payload, so what falls is the core rather than a
-        /// chunk. It is also the harmless one: the variant that blows a hole in the
-        /// ground is a separate def, which matters here because the cat is standing
-        /// directly underneath.
-        ///
-        /// The camera goes with it, and the jump is what guarantees the player is
-        /// looking at the thing when it hits - which also matters to the fumes,
-        /// since flecks are not spawned off screen at all.
-        /// </summary>
+        // ShipChunkIncoming is vanilla's own carrier for wreckage: with no graphicData of
+        // its own the skyfaller draws its payload, so what falls is the core. It is also
+        // the harmless one - the variant that blows a hole in the ground is a separate
+        // def, which matters because the cat is standing underneath. The camera goes with
+        // it, which is also what makes the fumes exist: flecks are not spawned off
+        // screen.
         void Fall(Map map)
         {
             var cell = map.Center;
@@ -320,9 +276,8 @@ namespace SlopWorld
             }
         }
 
-        // The tell, before there is anything to tell. Nothing is marked yet and the
-        // plague is not armed - this is the core alone, venting, so that what comes
-        // next is read as having come out of it.
+        // Nothing is marked yet and the plague is not armed - this is the core alone, so
+        // that what comes next is read as having come out of it.
         void Vent()
         {
             if (Find.TickManager.TicksGame % PuffInterval != 0) return;
@@ -349,9 +304,8 @@ namespace SlopWorld
             Go(Phase.Bloom, BloomSeconds);
         }
 
-        // The agents are spawned by AgentColony's own reconcile, on its own second,
-        // so this is a beat rather than a step: long enough for them to arrive and
-        // for their haze to be worth looking at before the UI covers it.
+        // The agents are spawned by AgentColony's own reconcile on its own second, so
+        // this is a beat: long enough for their haze to be worth looking at.
         void WaitOnBloom()
         {
             if (!Held) Finish();
@@ -372,12 +326,9 @@ namespace SlopWorld
             return found != null && found.Count > 0 ? found[0] : null;
         }
 
-        // Player colonists that are not one of our agent pawns - the dead ones too.
-        // A colonist's corpse holds their slot in the colonist bar until it
-        // dessicates (ColonistBar.CheckRecacheEntries walks the map's corpses and
-        // adds every colonist it finds inside one), so a starter that died before
-        // the purge - caught by a stray blast, or by something the scene threw at it
-        // - would sit up there forever if the purge only looked at the living.
+        // The dead ones too. A colonist's corpse holds their slot in the colonist bar
+        // until it dessicates, so a starter that died before the purge would sit up there
+        // forever if this only looked at the living.
         static List<Pawn> Starters(Map map)
         {
             var colony = AgentColony.Current;
@@ -398,8 +349,7 @@ namespace SlopWorld
 
         static void Explode(Pawn pawn, Map map, List<Thing> spared)
         {
-            // PositionHeld, not Position: one of these may already be lying inside a
-            // corpse, and it should go up in the same red mist as the rest.
+            // PositionHeld, not Position: one of these may already be lying inside a corpse.
             var pos = pawn.PositionHeld;
             if (pos.IsValid && pos.InBounds(map))
             {
@@ -416,8 +366,7 @@ namespace SlopWorld
                     damAmount: PurgeBlastDamage, ignoredThings: spared);
             }
 
-            // Make sure they leave the colonist bar regardless of what the blast
-            // left behind: kill, bin the corpse, then unspawn.
+            // Make sure they leave the colonist bar regardless of what the blast left behind.
             if (!pawn.Dead)
                 pawn.Kill(new DamageInfo(DamageDefOf.Bomb, 9999f, 999f, -1f, pawn));
             pawn.Corpse?.Destroy();

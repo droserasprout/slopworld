@@ -3,19 +3,13 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// Remembers which agent's terminal was open, and puts it back after a restart.
-    ///
-    /// It lives in the save rather than in mod settings on purpose: the terminal
-    /// belongs to a colony, the same way a selected pawn does, and writing mod
-    /// settings on every switch would mean a settings write - and the reconnect
-    /// that hangs off it - every time the player clicks the colonist strip.
-    ///
-    /// Reopening waits for the daemon: the game comes back long before the
-    /// WebSocket has said what is running, and a terminal opened against a session
-    /// the hub has never heard of closes itself on its first frame. It gives up
-    /// after a while rather than waiting out a daemon that is not coming back.
-    /// </summary>
+    // It lives in the save rather than in mod settings because the terminal belongs
+    // to a colony, and writing mod settings on every switch would mean a reconnect
+    // every time the player clicks the colonist strip.
+    //
+    // Reopening waits for the daemon: the game comes back long before the WebSocket
+    // has said what is running, and a terminal opened against a session the hub has
+    // never heard of closes itself on its first frame.
     public class TerminalRecall : GameComponent
     {
         const float WaitSeconds = 30f;
@@ -30,7 +24,7 @@ namespace SlopWorld
 
         static TerminalRecall Instance => Verse.Current.Game?.GetComponent<TerminalRecall>();
 
-        /// <summary>Called by the terminal whenever it points at a session.</summary>
+        // Called by the terminal whenever it points at a session.
         public static void Remember(string name)
         {
             var c = Instance;

@@ -9,14 +9,11 @@ Restart=on-failure
 RestartSec=2
 Environment=SLOPD_LOG=slopd=info
 
-# Stop slopd, not everything that happens to be under it. The daemon runs tmux
-# commands, and any one of them forks the tmux server if it is not up yet - into
-# this cgroup, where the default KillMode=control-group would SIGTERM it along
-# with the daemon on every `make install-daemon`, killing every agent including
-# whichever one ran make. Tmux::ensure_server puts the server in a transient unit
-# of its own so that it is normally not in here at all; this is what covers the
-# server that got forked some other way. Nothing else slopd leaves behind wants
-# killing either: the sessions are the point, and they outlive it deliberately.
+# Stop slopd, not everything under it. Any tmux command forks the server if it is
+# not up, into this cgroup, where the default KillMode=control-group would SIGTERM
+# it on every `make install-daemon` and take every agent with it.
+# Tmux::ensure_server normally keeps the server out of here; this covers the one
+# forked some other way.
 KillMode=process
 
 [Install]

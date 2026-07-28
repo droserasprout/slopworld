@@ -8,11 +8,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// HTTP half of the daemon API. Requests run on the thread pool; completions
-    /// are queued and replayed on Unity's main thread, because callers touch
-    /// game state and IMGUI from them.
-    /// </summary>
+    // Requests run on the thread pool; completions are queued and replayed on Unity's
+    // main thread, because callers touch game state and IMGUI from them.
     public static class SlopClient
     {
         static readonly ConcurrentQueue<Action> Completions = new ConcurrentQueue<Action>();
@@ -88,7 +85,7 @@ namespace SlopWorld
             });
         }
 
-        /// <summary>Drained once per frame from the main thread.</summary>
+        // Drained once per frame from the main thread.
         public static void PumpCompletions()
         {
             while (Completions.TryDequeue(out var a))

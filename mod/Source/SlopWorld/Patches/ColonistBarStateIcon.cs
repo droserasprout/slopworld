@@ -8,41 +8,24 @@ using Verse.AI;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// The two agent states worth catching from the top of the screen get an icon
-    /// in the colonist bar: a red cross for one whose process is not running, and
-    /// the game's own clock for one that is up and has nothing to do. Vanilla has
-    /// an icon for asleep and one for idle, but nothing for a pawn that is simply
-    /// on the floor - and its idle clock is no use to us either (see
-    /// <see cref="Patch_AgentNeverIdle"/> below).
-    ///
-    /// Appended after whatever vanilla drew rather than replacing the row: an
-    /// agent can still be on fire, and that icon has to stay.
-    /// </summary>
-    // Look() resolves the two textures on the first draw, not in a static ctor; the
-    // attribute is only to quiet the startup scan. See TerminalIcon.
+    // Vanilla has no icon for a pawn on the floor, and its idle one is no use here
+    // (see Patch_AgentNeverIdle). Appended rather than replacing the row: an agent
+    // can still be on fire.
+    // The attribute only quiets the startup scan; Look() resolves on first draw.
     [StaticConstructorOnStartup]
     [HarmonyPatch(typeof(ColonistBarColonistDrawer), "DrawIcons")]
     public static class Patch_ColonistBarStateIcon
     {
-        /// The drawer's own cap on one icon. Its BaseIconMaxSize is private, but
-        /// the width the icons share is just PawnTextureSize.x, which is not.
+        // Vanilla's own BaseIconMaxSize, which is private.
         const float MaxSize = 20f;
 
-        /// <summary>
-        /// The list the drawer fills and then draws from. It is not cleared until
-        /// the next pawn's turn, so reading it here says how many icons went out
-        /// and where ours belongs. Private, hence the reflection; if it ever stops
-        /// resolving, ours simply lands first in the row.
-        /// </summary>
+        // Not cleared until the next pawn's turn, so it still holds this pawn's
+        // icons - which is how many went out and where ours belongs.
         static readonly FieldInfo IconsField =
             AccessTools.Field(typeof(ColonistBarColonistDrawer), "tmpIconsToDraw");
 
-        // Both off vanilla's own bar. The medical cross's bed-rest meaning is beside
-        // the point at this size: a cross is the one shape that still reads at 20px,
-        // which the battle log's downed symbol was not. Resolved once and kept even
-        // when null, so a missing texture is one error in the log rather than one
-        // per colonist per frame.
+        // A bed-rest cross for Down: at 20px a cross is the one shape that still
+        // reads, where the battle log's downed symbol did not.
         static Texture2D _down;
         static Texture2D _idle;
         static bool _looked;
@@ -57,8 +40,8 @@ namespace SlopWorld
 
         static void Postfix(Rect rect, Pawn colonist)
         {
-            // Vanilla bails on a corpse before drawing anything, and so must we -
-            // the list would still be holding the previous pawn's icons.
+            // Vanilla bails on a corpse before drawing, so the list still holds the
+            // previous pawn's icons.
             if (colonist == null || colonist.Dead) return;
 
             var session = AgentColony.Current?.SessionOf(colonist);
@@ -84,9 +67,8 @@ namespace SlopWorld
             }
             if (tex == null) return;
 
-            // Mirrors the drawer's own sizing, so ours sits in the row at the size
-            // the rest were given. With nothing else drawn the division vanilla
-            // does is by zero and lands on the cap; Max keeps us off that edge.
+            // The drawer's own sizing. Max is for the empty row, where vanilla's
+            // division is by zero.
             int drawn = Drawn();
             float size = Mathf.Min(
                 ColonistBarColonistDrawer.PawnTextureSize.x / Mathf.Max(drawn, 1), MaxSize)
@@ -105,17 +87,9 @@ namespace SlopWorld
         static int Drawn() => (IconsField?.GetValue(null) as ICollection)?.Count ?? 0;
     }
 
-    /// <summary>
-    /// An agent is never idle in its own pawn's mind, so vanilla never draws the
-    /// clock for one and the icon above is the only thing that does.
-    ///
-    /// Vanilla's idle means "no work queued", which every colonist here is, all the
-    /// time: the board has no work. Left alone it would hang a clock on an agent
-    /// that is flat out - and only after the first in-game day at that, since the
-    /// bar gates the icon on DaysPassed >= 1, where the state that matters here
-    /// turns over in seconds and a colony is often minutes old. So the daemon's
-    /// word is what draws it, and the pawn's own idleness is answered false.
-    /// </summary>
+    // Vanilla's idle means "no work queued", which every colonist here always is,
+    // and the bar gates that icon on DaysPassed >= 1 anyway. The daemon's word is
+    // the only thing that draws a clock.
     [HarmonyPatch(typeof(Pawn_MindState), nameof(Pawn_MindState.IsIdle), MethodType.Getter)]
     public static class Patch_AgentNeverIdle
     {

@@ -6,17 +6,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// The errands: things worth saying to an agent more than once, and things
-    /// worth running in a project's sandbox more than once.
-    ///
-    /// Running one lands a *temporary* colonist - an agent that was never in
-    /// config.toml and walks off the map when its process exits. A standing agent
-    /// is somebody you keep talking to; an errand is a body that turns up, does
-    /// the thing and goes. Which is why the window closes on Run and hands you
-    /// the terminal instead: the errand is already underway and the only thing
-    /// left to do with it is watch.
-    /// </summary>
+    // Running one lands a *temporary* colonist - never in config.toml, and it walks
+    // off the map when its process exits. Which is why the window closes on Run and
+    // hands you the terminal: the errand is already underway.
     public class ShortcutsWindow : Window
     {
         const float RowH = 62f;
@@ -107,8 +99,8 @@ namespace SlopWorld
 
             Widgets.Label(new Rect(r.x + 8f, r.y + 4f, 220f, 22f), s.Name);
 
-            // The kind, because it decides what the text even is - a sentence for
-            // an agent or a command line for a shell.
+            // The kind decides what the text even is - a sentence for an agent or a command
+            // line for a shell.
             GUI.color = s.Kind == ShortcutKind.Shell
                 ? new Color(0.85f, 0.75f, 0.45f)
                 : new Color(0.55f, 0.75f, 0.9f);
@@ -118,9 +110,8 @@ namespace SlopWorld
             GUI.color = new Color(0.65f, 0.66f, 0.68f);
             Widgets.Label(new Rect(r.x + 302f, r.y + 4f, r.width - 480f, 22f), Where(s));
 
-            // What it will say, on one line: the box that edits it is where the
-            // rest of it lives, and a row that grew with the text would push the
-            // next shortcut off the list.
+            // One line: the box that edits it is where the rest lives, and a row that grew
+            // with the text would push the next shortcut off the list.
             var was = Text.WordWrap;
             Text.WordWrap = false;
             Widgets.Label(new Rect(r.x + 8f, r.y + 26f, r.width - 190f, 22f), OneLine(s.Text));
@@ -129,15 +120,14 @@ namespace SlopWorld
 
             float right = r.xMax - 6f;
 
-            // Run is the reason this window exists, so it is the widest button and
-            // the one on its own line.
+            // Run is the reason this window exists, so it is the widest button and the one on
+            // its own line.
             var run = new Rect(right - 174f, r.y + 4f, 96f, 20f);
             TooltipHandler.TipRegion(run, s.Kind == ShortcutKind.Shell
                 ? $"Run '{s.Text}' in a temporary shell in {Where(s)}."
                 : $"Hand this to a temporary agent in {Where(s)}.");
-            // An entry that never said where goes through a menu first; the
-            // button is the same button either way, because "run it" is what the
-            // player is asking for in both cases.
+            // An entry that never said where goes through a menu first; the button is the
+            // same either way, because "run it" is what is being asked for in both cases.
             if (Widgets.ButtonText(run, s.Link == ShortcutLink.Ask ? "Run..." : "Run"))
             {
                 if (s.Link == ShortcutLink.Ask) AskWhere(s);
@@ -162,19 +152,16 @@ namespace SlopWorld
             SessionHub.Instance.RunShortcut(name,
                 session =>
                 {
-                    // Closed only once something is actually running, so a
-                    // refused errand leaves the list up with the message over it.
+                    // Closed only once something is actually running, so a refused errand leaves the
+                    // list up with the message over it.
                     Close();
                     TerminalWindow.Open(session);
                 },
                 Fail, project, temp);
         }
 
-        /// <summary>
-        /// The menu an "ask me every time" errand runs through. Every project,
-        /// plus a temporary one - which is last, being the answer for the run
-        /// that belongs nowhere in particular.
-        /// </summary>
+        // Every project, plus a temporary one - last, being the answer for the run that
+        // belongs nowhere in particular.
         void AskWhere(ShortcutInfo s)
         {
             var name = s.Name;
@@ -190,7 +177,7 @@ namespace SlopWorld
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        /// <summary>Where an errand runs, in the few words a row and a tooltip have.</summary>
+        // Where an errand runs, in the few words a row and a tooltip have.
         static string Where(ShortcutInfo s)
         {
             switch (s.Link)
@@ -204,7 +191,7 @@ namespace SlopWorld
             }
         }
 
-        /// <summary>The first line of a prompt, which is all a row has space for.</summary>
+        // The first line of a prompt, which is all a row has space for.
         static string OneLine(string text)
         {
             text = (text ?? "").Replace("\r", "");
@@ -216,25 +203,17 @@ namespace SlopWorld
             Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
     }
 
-    /// <summary>
-    /// Add or edit one errand. Writes straight through to config.toml on the
-    /// daemon, the same as every other window here.
-    ///
-    /// The command box is greyed rather than hidden when it is empty, so the
-    /// thing that will run is on screen even when nothing here chose it - the
-    /// same reasoning as the agent dialog's.
-    /// </summary>
+    // The command box is greyed rather than hidden when it is empty, so the thing
+    // that will run is on screen even when nothing here chose it.
     public class EditShortcutDialog : Window
     {
         readonly bool _isNew;
         readonly ShortcutInfo _s;
-        /// The name the daemon still knows this shortcut by: the edit is
-        /// addressed to it, and a changed name in the field is a rename.
+        // The edit is addressed to it, and a changed name in the field is a rename.
         readonly string _origName;
 
-        /// What each kind runs when the command box is left empty. Asked for
-        /// rather than assumed: `[defaults] shell` is a per-machine answer and
-        /// this dialog would otherwise print somebody else's.
+        // Asked for rather than assumed: `[defaults] shell` is a per-machine answer and
+        // this dialog would otherwise print somebody else's.
         string _agentDefault = "claude";
         string _shellDefault = "bash";
 
@@ -257,20 +236,16 @@ namespace SlopWorld
             });
         }
 
-        /// Taller than it was by about the two dropdowns "where it runs" added,
-        /// because what is left at the bottom is the prompt box - the one field
-        /// here somebody writes paragraphs in, and the one that gets squeezed
-        /// when anything above it grows.
+        // What is left at the bottom is the prompt box - the one field here somebody
+        // writes paragraphs in, and the one that gets squeezed when anything above grows.
         public override Vector2 InitialSize => new Vector2(560f, 660f);
 
         public override void DoWindowContents(Rect rect)
         {
-            // One column, on the room it has: a Listing_Standard begun on a rect
-            // too short for its contents does not overflow, it breaks to a column
-            // that is off the right-hand edge and puts CurHeight back to nearly
-            // zero - and the prompt box below is placed and sized from that
-            // number, so it lands on top of the fields at several times its
-            // height. See EditProjectDialog.DoFields, which had the same fault.
+            // One column, on the room it has: a Listing_Standard begun on a rect too short
+            // for its contents does not overflow, it breaks to a column off the right-hand
+            // edge and puts CurHeight back to nearly zero - and the prompt box below is
+            // placed and sized from that number. See EditProjectDialog.DoFields.
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(new Rect(rect.x, rect.y, rect.width, rect.height));
 
@@ -294,10 +269,9 @@ namespace SlopWorld
             if (l.ButtonText(LinkLabel(_s.Link)))
                 PickLink();
 
-            // The project dropdown stays up for two of the three, because in temp
-            // mode it still answers something - which sandbox the scratch project
-            // is given - and a field that vanished would read as a setting that
-            // does not exist. Ask mode is the one where it answers nothing.
+            // The project dropdown stays up for two of the three, because in temp mode it
+            // still answers something - which sandbox the scratch project is given - and a
+            // field that vanished would read as a setting that does not exist.
             if (_s.Link != ShortcutLink.Ask)
             {
                 l.Gap(4f);
@@ -321,8 +295,7 @@ namespace SlopWorld
             var box = l.GetRect(28f);
             if (string.IsNullOrEmpty((_s.Command ?? "").Trim()))
             {
-                // Empty is the normal answer, and what it means is worth reading
-                // off the field rather than out of the daemon's config.
+                // Empty is the normal answer, and what it means is worth reading off the field.
                 GUI.color = new Color(1f, 1f, 1f, 0.4f);
                 string shown = Widgets.TextField(box,
                     _s.Kind == ShortcutKind.Shell ? _shellDefault : _agentDefault);
@@ -355,7 +328,7 @@ namespace SlopWorld
                 Save();
         }
 
-        /// <summary>The three answers, in the words the dropdown shows them in.</summary>
+        // The three answers, in the words the dropdown shows them in.
         public static string LinkLabel(ShortcutLink l)
         {
             switch (l)
@@ -366,11 +339,8 @@ namespace SlopWorld
             }
         }
 
-        /// <summary>
-        /// The grey line under the dropdowns: what this errand will actually do
-        /// with the ground it is given, which is the part the two dropdowns
-        /// together do not say outright.
-        /// </summary>
+        // What this errand will actually do with the ground it is given, which is the
+        // part the two dropdowns together do not say outright.
         string Explain(ProjectInfo project)
         {
             switch (_s.Link)
@@ -422,8 +392,8 @@ namespace SlopWorld
                     () => _s.Project = p.Name))
                 .ToList();
 
-            // Only where it means something: in temp mode the project is the
-            // sandbox to copy, and copying nobody's is a real answer.
+            // Only where it means something: in temp mode the project is the sandbox to copy,
+            // and copying nobody's is a real answer.
             if (_s.Link == ShortcutLink.Temp)
                 options.Insert(0, new FloatMenuOption("None", () => _s.Project = ""));
 

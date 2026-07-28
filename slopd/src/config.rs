@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-/// Everything slopd knows lives in one TOML file. The mod can read it and write
-/// it back verbatim, so hand-edits and in-game edits use the same format.
+/// One TOML file, which the mod reads and writes back verbatim, so hand-edits and
+/// in-game edits use the same format.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
@@ -13,14 +13,14 @@ pub struct Config {
     pub defaults: Defaults,
     #[serde(default)]
     pub sandbox: Sandbox,
-    /// Where the work is. A session is an agent *in* one of these, and takes its
-    /// directory and its sandbox from it rather than carrying either.
+    /// A session is an agent *in* one of these, and takes its directory and sandbox
+    /// from it rather than carrying either.
     #[serde(default, rename = "project")]
     pub projects: Vec<ProjectCfg>,
     #[serde(default, rename = "session")]
     pub sessions: Vec<SessionCfg>,
-    /// One-shot errands: a stock prompt, or a shell command, run by a temporary
-    /// agent that exists only as long as its process does.
+    /// One-shot errands, run by a temporary agent that exists only as long as its
+    /// process does.
     #[serde(default, rename = "shortcut")]
     pub shortcuts: Vec<ShortcutCfg>,
     #[serde(default, rename = "state_rule")]
@@ -30,36 +30,29 @@ pub struct Config {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Daemon {
     pub bind: String,
-    /// Shared secret. Empty means no auth, which is fine on a loopback bind.
+    /// Empty means no auth, which is fine on a loopback bind.
     #[serde(default)]
     pub token: String,
-    /// tmux server socket name. Dedicated so we never collide with the user's
-    /// own tmux, and so `tmux -L slopworld attach` still works from a real term.
+    /// Dedicated, so we never collide with the user's own tmux and `tmux -L slopworld
+    /// attach` still works from a real terminal.
     pub tmux_socket: String,
-    /// How often, in milliseconds, the in-memory state tick re-runs the rules so
-    /// a session that fell quiet decays working -> idle. Screen content itself
-    /// arrives event-driven from the control readers, not by polling.
+    /// How often the state tick decays working -> idle. Screen content itself arrives
+    /// event-driven from the control readers, not by polling.
     pub poll_ms: u64,
-    /// Lines of scrollback tmux keeps per pane. It is also all we have to reseed
-    /// an emulator from when slopd restarts under a session that kept running,
-    /// so it is the ceiling on how much history survives a daemon redeploy.
+    /// Also all we have to reseed an emulator from when slopd restarts under a session
+    /// that kept running, so it is the ceiling on history surviving a redeploy.
     #[serde(default = "default_history_limit")]
     pub history_limit: u32,
-    /// How the game is launched, for the in-game "save and restart". Empty
-    /// disables the endpoint. Split like an agent command: no shell, no globbing.
+    /// Empty disables the endpoint. Split like an agent command: no shell.
     #[serde(default)]
     pub game_cmd: String,
-    /// Whether to poll Anthropic for what is left of the subscription, which is
-    /// what the mod draws as its resource readout. Off means slopd never reads
-    /// the credentials file and never leaves the machine.
+    /// Off means slopd never reads the credentials file and never leaves the machine.
     #[serde(default = "yes")]
     pub usage: bool,
-    /// Seconds between usage polls. The windows it reports move in minutes, so
-    /// there is nothing to gain by asking often; floored at 10 in the poller.
+    /// The windows it reports move in minutes; floored at 10 in the poller.
     #[serde(default = "default_usage_poll")]
     pub usage_poll_secs: u64,
-    /// Where Claude Code keeps the OAuth token those polls are made with. Read
-    /// fresh each time and never copied, so a refresh behind us is picked up.
+    /// Read fresh each time and never copied, so a refresh behind us is picked up.
     #[serde(default = "default_credentials")]
     pub claude_credentials: String,
 }
@@ -94,12 +87,11 @@ impl Default for Daemon {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Defaults {
-    /// Command run inside the sandbox. Split on whitespace, no shell involved.
+    /// Split on whitespace, no shell involved.
     pub agent: String,
-    /// What a shell shortcut runs. Here rather than in every shortcut for the
-    /// same reason `agent` is: which shell this machine has is an answer about
-    /// the machine, and repeating it in five entries means getting it wrong in
-    /// one. Bare because tmux hands it a pty, so it is interactive already.
+    /// Here rather than in every shortcut for the same reason `agent` is: which shell
+    /// this machine has is an answer about the machine. Bare, because tmux hands it a
+    /// pty and it is interactive already.
     #[serde(default = "default_shell")]
     pub shell: String,
 }
@@ -120,14 +112,11 @@ impl Default for Defaults {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Sandbox {
     pub enabled: bool,
-    /// Bound read-only into every sandbox, whatever the project.
+    /// Bound into every sandbox, whatever the project.
     pub ro_paths: Vec<String>,
-    /// Bound read-write into every sandbox, on top of the project's own dir and
-    /// whatever its presets ask for. An agent's own state dir is not here:
-    /// `~/.claude` rides on the `claude` preset, which a Claude session gets
-    /// whether or not its project asked.
+    /// An agent's own state dir is not here: `~/.claude` rides on the `claude` preset,
+    /// which a Claude session gets whether or not its project asked.
     pub rw_paths: Vec<String>,
-    /// Env vars passed through from slopd's environment.
     pub pass_env: Vec<String>,
 }
 
@@ -135,8 +124,8 @@ impl Default for Sandbox {
     fn default() -> Self {
         Self {
             enabled: true,
-            // ~/.local/bin so agent-run tools (MCP servers, wrappers) on PATH
-            // resolve inside the sandbox; without it their spawn fails with ENOENT.
+            // ~/.local/bin so agent-run tools on PATH resolve inside the sandbox; without it
+            // their spawn fails with ENOENT.
             ro_paths: vec![
                 "/usr".into(),
                 "/etc".into(),
@@ -149,47 +138,34 @@ impl Default for Sandbox {
     }
 }
 
-/// Where a temporary project's directory goes. Under `/tmp` deliberately: the
-/// machine clears it, so nothing here has to decide when a scratch directory has
-/// outlived its use, and a name under our own folder keeps a colony's leavings
-/// together and recognisable.
+/// Under `/tmp` deliberately: the machine clears it, so nothing here has to decide
+/// when scratch work has outlived its use.
 pub const TEMP_ROOT: &str = "/tmp/slopworld";
 
-/// The directory a temporary project of this name works in. Coined rather than
-/// typed, which is the whole point of the flag: a scratch project is one nobody
-/// had to find a place for.
+/// Coined rather than typed, which is the whole point of the flag.
 pub fn temp_dir(name: &str) -> String {
     format!("{TEMP_ROOT}/{name}")
 }
 
-/// One place work happens: a directory plus the sandbox every agent in it gets.
 /// Three agents in the same repo want the same binds, and keeping that in three
 /// session entries meant it was wrong in at least one of them.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectCfg {
     pub name: String,
-    /// Defaulted rather than required, because a temporary project does not have
-    /// one to give: the daemon coins it from the name. `check_project` is what
-    /// insists on one for every other kind, so an entry that left it out by
-    /// mistake is still refused - with a sentence rather than a serde error.
+    /// Defaulted rather than required, because a temporary project has none to give.
+    /// `check_project` is what insists on one for every other kind.
     #[serde(default)]
     pub dir: String,
-    /// Scratch space rather than somewhere that was already there. The directory
-    /// is not typed by anyone: it is `TEMP_ROOT/<name>`, coined when the entry is
-    /// written and made when the first agent in it starts. What is temporary is
-    /// the *ground*, not the entry - `/tmp` is cleared by the machine, so a
-    /// project ticked this way is a place to make a mess in rather than a place
-    /// that is forgotten. The other kind of temporary project is never written
-    /// here at all; see `ShortcutLink::Temp`.
+    /// The directory is `TEMP_ROOT/<name>`, coined when the entry is written and made
+    /// when the first agent starts. What is temporary is the *ground*, not the entry.
+    /// The other kind of temporary project is never written here at all; see
+    /// `ShortcutLink::Temp`.
     #[serde(default)]
     pub temp: bool,
-    /// Named bundles of binds and env from `sandbox::PRESETS` - "dbus",
-    /// "systemd", "x11" and so on. A name this build has never heard of is
-    /// ignored with a warning rather than refused, because the file outlives
-    /// the binary.
+    /// A name this build has never heard of is ignored with a warning rather than
+    /// refused, because the file outlives the binary.
     #[serde(default)]
     pub presets: Vec<String>,
-    /// Anything the presets do not cover, added on top of the global lists.
     #[serde(default)]
     pub ro_paths: Vec<String>,
     #[serde(default)]
@@ -218,9 +194,8 @@ impl Default for ProjectCfg {
     }
 }
 
-/// What a session runs. Claude Code is a first-class answer rather than a
-/// command string: knowing it is Claude is what lets the sandbox hand it its
-/// own state dir without anyone listing `~/.claude` in a project by hand.
+/// Claude is a kind rather than a command string because knowing it is Claude is
+/// what lets the sandbox hand it `~/.claude`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SessionKind {
@@ -230,7 +205,6 @@ pub enum SessionKind {
 }
 
 impl SessionKind {
-    /// The same spelling serde uses, for the wire view.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Claude => "claude",
@@ -242,8 +216,7 @@ impl SessionKind {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SessionCfg {
     pub name: String,
-    /// The project this agent works in. Everything about where it runs and what
-    /// it can reach comes from there.
+    /// Everything about where it runs and what it can reach comes from there.
     #[serde(default)]
     pub project: String,
     #[serde(default)]
@@ -254,11 +227,9 @@ pub struct SessionCfg {
     #[serde(default)]
     pub autostart: bool,
 
-    // ---------------------------------------------------------------- legacy
-    // Sessions used to carry all of this themselves. `Config::migrate` turns
-    // each one into a project on load and clears these, so an old file keeps
-    // working and the next write is in the new shape. Skipped when empty so
-    // they leave the file for good rather than lingering as nulls.
+    // Legacy. `Config::migrate` turns each old session into a project on load and
+    // clears these. Skipped when empty, so they leave the file for good rather than
+    // lingering as nulls.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dir: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -271,70 +242,56 @@ pub struct SessionCfg {
     pub rw_paths: Vec<String>,
 }
 
-/// What a shortcut sends its text *to*, which is the only thing the two kinds
-/// disagree about at the far end: an agent's input field, or a shell's prompt.
+/// The only thing the two kinds disagree about at the far end: an agent's input
+/// field, or a shell's prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ShortcutKind {
-    /// A stock prompt handed to an agent - Claude Code unless the entry says
-    /// otherwise, which is what makes it a prompt rather than a command.
+    /// Claude Code unless the entry says otherwise, which is what makes it a prompt
+    /// rather than a command.
     #[default]
     Prompt,
-    /// A command handed to an interactive shell inside the project's sandbox.
+    /// Handed to an interactive shell inside the project's sandbox.
     Shell,
 }
 
-/// Where an errand's agent works, which is the one thing about a shortcut that
-/// is allowed not to be decided in advance.
+/// The one thing about a shortcut allowed not to be decided in advance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ShortcutLink {
-    /// The project named in the entry, the same as any other agent's. The
-    /// default, because it is what every shortcut written before this existed
+    /// The default, because it is what every shortcut written before this existed
     /// meant.
     #[default]
     Project,
-    /// A temporary project of its own, one per run: an empty directory under
-    /// `TEMP_ROOT` that nothing else has touched. Never written to this file -
-    /// it is coined when the errand starts and dropped when the agent goes, the
-    /// same rule the agent itself lives by. The entry's `project`, if it names
-    /// one, is what the fresh one copies its sandbox from.
+    /// One per run, never written to this file: coined when the errand starts and
+    /// dropped when the agent goes. The entry's `project`, if it names one, is what
+    /// the fresh one copies its sandbox from.
     Temp,
-    /// Nothing is decided: whoever runs it says where, per run. For an errand
-    /// that is worth keeping and is not about any one place.
+    /// Whoever runs it says where, per run.
     Ask,
 }
 
-/// One errand, kept because it is worth repeating.
-///
-/// A shortcut is a session template with a line of text attached: where to run
-/// (a project), what to run there, and what to type into it once it is up. The
-/// agent it lands is temporary - it is never written to this file and it goes
-/// when its process does - so what is saved here is the errand, not the agent.
-///
-/// The template is spelled out rather than pointing at an existing session:
-/// a shortcut that names an agent stops working the day that agent is deleted.
+/// A session template with a line of text attached. The agent it lands is
+/// temporary, so what is saved here is the errand and not the agent. The template
+/// is spelled out rather than pointing at an existing session: a shortcut that
+/// names an agent stops working the day that agent is deleted.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ShortcutCfg {
-    /// Free-form: it labels a button and seeds a colonist's name, and the
-    /// session name derived from it is sanitised (see `slug`).
+    /// Labels a button and seeds a colonist's name; the session name derived from it
+    /// is sanitised (see `slug`).
     pub name: String,
     #[serde(default)]
     pub kind: ShortcutKind,
-    /// Which of the three answers to "where does this run" the entry gives.
     #[serde(default)]
     pub link: ShortcutLink,
-    /// The project the temporary agent works in - its directory and its whole
-    /// sandbox, the same as for any other agent. Read as the place to run when
-    /// `link` is `project`, as the sandbox to copy when it is `temp`, and not
-    /// at all when it is `ask`.
+    /// Read as the place to run when `link` is `project`, as the sandbox to copy when
+    /// it is `temp`, and not at all when it is `ask`.
     #[serde(default)]
     pub project: String,
-    /// What gets typed in. A prompt for the agent, a command line for the shell.
+    /// A prompt for the agent, a command line for the shell.
     #[serde(default)]
     pub text: String,
-    /// Overrides what runs: another agent for a prompt shortcut, another shell
-    /// for a shell one. Empty means `[defaults] agent` or `[defaults] shell`.
+    /// Empty means `[defaults] agent` or `[defaults] shell`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
 }
@@ -343,7 +300,6 @@ fn yes() -> bool {
     true
 }
 
-/// Screen-scraping heuristics that turn a pane's text into an agent state.
 /// Ordered: first match wins. Shipped defaults target Claude Code's TUI.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateRule {
@@ -375,16 +331,10 @@ impl Config {
         Ok(cfg)
     }
 
-    /// Brings a config written before projects existed up to date.
-    ///
-    /// A session used to be a directory and a sandbox with a name on it; now it
-    /// is an agent inside a project. Every entry still shaped the old way gets a
-    /// project of its own, and two sessions pointing at the same directory get
-    /// the *same* project - which is the arrangement whoever wrote that file
-    /// meant.
-    ///
-    /// Runs on every load, including of a file we just wrote, so it has to be
-    /// idempotent: an entry that already names a project is left alone.
+    /// Every session still shaped the old way - a directory and a sandbox with a name
+    /// on it - gets a project of its own, and two sessions pointing at the same
+    /// directory get the *same* project. Runs on every load, including of a file we
+    /// just wrote, so it has to be idempotent.
     fn migrate(&mut self) {
         for i in 0..self.sessions.len() {
             let dir = self.sessions[i].dir.take().unwrap_or_default();
@@ -394,9 +344,8 @@ impl Config {
             let rw = std::mem::take(&mut self.sessions[i].rw_paths);
 
             if let Some(a) = agent {
-                // A command that was written out is one somebody chose, so it
-                // survives as a custom session. The default is what "claude"
-                // means, and an entry that never set one is exactly that.
+                // A command that was written out is one somebody chose, so it survives as a
+                // custom session.
                 self.sessions[i].kind = SessionKind::Custom;
                 self.sessions[i].command = Some(a);
             }
@@ -432,8 +381,8 @@ impl Config {
         }
     }
 
-    /// A project name nothing else has yet: the directory's own last component
-    /// first, then the session's name, then a number.
+    /// The directory's own last component first, then the session's name, then a
+    /// number.
     fn free_project_name(&self, dir: &str, session: &str) -> String {
         let base = dir
             .trim_end_matches('/')
@@ -492,17 +441,10 @@ impl Config {
         self.shortcuts.iter().find(|s| s.name == name)
     }
 
-    /// The agent a shortcut lands, under the name it is to be called by.
-    ///
-    /// A prompt shortcut with nothing to say about the command is a *Claude*
-    /// session rather than a custom one running `[defaults] agent`, and the
-    /// difference is not cosmetic: the kind is what hands the sandbox
-    /// `~/.claude`, so spelling the command out here would land an agent
-    /// without its own state dir.
-    ///
-    /// The project is handed in rather than read off the entry, because the
-    /// entry is allowed not to name one: see `ShortcutLink`. Resolving which
-    /// place this run happens in belongs to whoever is running it.
+    /// A prompt shortcut with nothing to say about the command is a *Claude* session
+    /// rather than a custom one running `[defaults] agent`: the kind is what hands the
+    /// sandbox `~/.claude`. The project is handed in rather than read off the entry,
+    /// because the entry is allowed not to name one.
     pub fn session_for(&self, sc: &ShortcutCfg, name: String, project: String) -> SessionCfg {
         let (kind, command) = match sc.kind {
             ShortcutKind::Prompt => match sc.command.as_deref().map(str::trim) {
@@ -528,16 +470,12 @@ impl Config {
         }
     }
 
-    /// The project a session belongs to. A session naming one that has gone is
-    /// an error where it matters (starting it) and merely a blank directory
-    /// where it does not (listing it), so the caller decides.
+    /// A session naming one that has gone is an error where it matters (starting it)
+    /// and a blank directory where it does not (listing it), so the caller decides.
     pub fn project_of(&self, s: &SessionCfg) -> Option<&ProjectCfg> {
         self.project(&s.project)
     }
 
-    /// What a session actually runs: its own command when it is a custom one,
-    /// and the daemon's default - which is what "Claude Code" means here - when
-    /// it is not.
     pub fn command_of(&self, s: &SessionCfg) -> String {
         match s.kind {
             SessionKind::Custom => s
@@ -550,13 +488,10 @@ impl Config {
     }
 }
 
-/// `~/foo` -> `/home/you/foo`, `$XDG_RUNTIME_DIR/bus` -> `/run/user/1000/bus`.
-/// bwrap will not do either for us, and the preset table is written in both.
-///
-/// A variable with nothing behind it expands to nothing, which leaves a path
-/// that cannot exist - and every bind is skipped unless the path is there, so an
-/// unset `WAYLAND_DISPLAY` drops that bind instead of mounting `/run/user/1000/`
-/// whole.
+/// bwrap expands neither, and the preset table is written in both. A variable with
+/// nothing behind it expands to nothing, leaving a path that cannot exist - and
+/// every bind is skipped unless the path is there, so an unset `WAYLAND_DISPLAY`
+/// drops that bind instead of mounting `/run/user/1000/` whole.
 pub fn expand(path: &str) -> String {
     let path = if let Some(rest) = path.strip_prefix("~/") {
         match dirs::home_dir() {
@@ -606,9 +541,8 @@ pub fn expand(path: &str) -> String {
 mod tests {
     use super::{temp_dir, Config, SessionKind, ShortcutCfg, ShortcutKind, ShortcutLink};
 
-    /// A config written before these fields existed has to keep loading: the file
-    /// on disk outlives any one build of the daemon, and a redeploy that refused
-    /// to start would take the agents' only supervisor with it.
+    /// The file on disk outlives any one build, and a redeploy that refused to start
+    /// would take the agents' only supervisor with it.
     #[test]
     fn older_config_keeps_loading() {
         let cfg = Config::parse(
@@ -623,22 +557,17 @@ mod tests {
 
         assert_eq!(cfg.daemon.history_limit, 5000);
         assert_eq!(cfg.daemon.game_cmd, "");
-        // Usage polling defaults on, so an existing install gets the readout
-        // without anyone editing a file - and off is one line when it is not
-        // wanted.
+        // Usage polling defaults on, so an existing install gets the readout without
+        // anyone editing a file.
         assert!(cfg.daemon.usage);
         assert_eq!(cfg.daemon.usage_poll_secs, 60);
         assert_eq!(cfg.daemon.claude_credentials, "~/.claude/.credentials.json");
-        // A file written before shortcuts existed has none, and a shell to run
-        // them with regardless.
         assert!(cfg.shortcuts.is_empty());
         assert_eq!(cfg.defaults.shell, "bash");
     }
 
-    /// The two kinds differ in what they land, and a prompt shortcut that names
-    /// no command has to come out a *Claude* session: the kind is what hands the
-    /// sandbox ~/.claude, so a custom session running the same string would be
-    /// an agent without its own state dir.
+    /// A prompt shortcut that names no command has to come out a *Claude* session: the
+    /// kind is what hands the sandbox ~/.claude.
     #[test]
     fn shortcuts_become_sessions() {
         let cfg = Config::parse(
@@ -682,16 +611,14 @@ mod tests {
         assert_eq!(custom.kind, SessionKind::Custom);
         assert_eq!(cfg.command_of(&custom), "codex --yolo");
 
-        // The place is the caller's answer and not the entry's, which is what
-        // lets one errand be run somewhere it never named.
+        // The place is the caller's answer and not the entry's, which is what lets one
+        // errand be run somewhere it never named.
         let anywhere = cfg.session_for(sc, "review-diff-2".into(), "elsewhere".into());
         assert_eq!(anywhere.project, "elsewhere");
     }
 
-    /// The three answers to "where does this run" have to survive the file, and
-    /// an entry written before they existed has to keep meaning what it did: a
-    /// shortcut that names a project and says nothing about links is one that
-    /// runs there.
+    /// An entry written before links existed has to keep meaning what it did: a
+    /// shortcut that names a project runs there.
     #[test]
     fn shortcut_links_round_trip_and_default_to_the_project() {
         let cfg = Config::parse(
@@ -723,8 +650,7 @@ mod tests {
         assert_eq!(back.shortcut("wherever").unwrap().link, ShortcutLink::Ask);
     }
 
-    /// A temporary project is a flag and a name; the directory under it is
-    /// coined, and the point of the whole thing is that nobody typed it.
+    /// The directory under it is coined; the point is that nobody typed it.
     #[test]
     fn temp_projects_name_their_own_directory() {
         assert_eq!(temp_dir("scratch"), "/tmp/slopworld/scratch");
@@ -752,9 +678,8 @@ mod tests {
         assert!(!plain.project("repo").unwrap().temp);
     }
 
-    /// Shortcuts survive the round trip the GUI puts every write through, kind
-    /// and all - a shortcut that came back as a prompt would run the wrong
-    /// thing in the right place.
+    /// A shortcut that came back as a prompt would run the wrong thing in the right
+    /// place.
     #[test]
     fn shortcuts_round_trip_through_toml() {
         let mut cfg = Config::default();
@@ -774,10 +699,9 @@ mod tests {
         assert!(sc.command.is_none());
     }
 
-    /// The one that matters most: a file written when a session *was* a
-    /// directory keeps its agents, and comes out the other side with a project
-    /// under each of them. Two sessions in the same directory share it, because
-    /// that is the arrangement whoever wrote the file meant.
+    /// A file written when a session *was* a directory keeps its agents. Two sessions
+    /// in the same directory share a project, which is the arrangement whoever wrote
+    /// the file meant.
     #[test]
     fn sessions_with_dirs_become_projects() {
         let cfg = Config::parse(
@@ -808,8 +732,8 @@ mod tests {
         assert!(cfg.project("slopworld").unwrap().net);
         assert!(!cfg.project("other").unwrap().net);
 
-        // A command somebody wrote out is a custom session; one that never set
-        // one is what "Claude Code" means.
+        // A command somebody wrote out is a custom session; one that never set one is
+        // what "Claude Code" means.
         assert_eq!(cfg.session("alpha").unwrap().kind, SessionKind::Claude);
         assert_eq!(cfg.session("gamma").unwrap().kind, SessionKind::Custom);
         assert_eq!(
@@ -819,8 +743,7 @@ mod tests {
         assert_eq!(cfg.command_of(cfg.session("alpha").unwrap()), "claude");
     }
 
-    /// Migration runs on every load, including of a file it wrote itself, so a
-    /// second pass has to be a no-op rather than a second project.
+    /// Migration runs on every load, including of a file it wrote itself.
     #[test]
     fn migration_is_idempotent() {
         let once = Config::parse(

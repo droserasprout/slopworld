@@ -1,18 +1,12 @@
 #!/bin/sh
-# Grabs the game's window into a PNG, so whoever is working on the mod can look
-# at what they just built.
-#
-# This exists because an agent working on this repo is drawing a UI it cannot
-# see: the sandbox has no display unless its project asks for one, and even the
-# process is invisible from in there (see game.rs). Ask slopd whether the game is
-# up; ask X what it looks like.
+# Grabs the game's window into a PNG, because an agent working on this repo is
+# drawing a UI it cannot see: the sandbox has no display unless its project asks
+# for one, and the process is invisible from in there (see game.rs).
 #
 # X11 and not Wayland on purpose. RimWorld is an SDL/X11 client, so on a Wayland
-# desktop it is an Xwayland one - which is the thing that makes this possible at
-# all, because a Wayland compositor hands out no screen contents without a
-# portal prompt, while an X client's window can simply be read. The `x11` preset
-# is what binds /tmp/.X11-unix and the auth cookie; a project without it gets the
-# message below rather than a mystery.
+# desktop it is an Xwayland one - whose window contents can simply be read, where
+# a compositor hands out nothing without a portal prompt. The `x11` preset is
+# what binds /tmp/.X11-unix and the auth cookie.
 #
 # Usage: tools/shot.sh [out.png]  (default /tmp/slopworld-shot.png)
 set -eu

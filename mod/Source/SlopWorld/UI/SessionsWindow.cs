@@ -5,7 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>The colony overview: every session, its state, and the buttons to act on it.</summary>
+    // The colony overview: every session, its state, and the buttons to act on it.
     public class SessionsWindow : Window
     {
         const float RowH = 52f;
@@ -59,13 +59,9 @@ namespace SlopWorld
             if (Widgets.ButtonText(new Rect(bar.x + 138f, bar.y, 130f, 30f), "Projects"))
                 ProjectsWindow.Toggle();
 
-            // Shortcuts is not here: it is a window of its own in the bottom bar,
-            // and an errand is not something you do to an agent on this list -
-            // running one lands a new colonist rather than touching any of these.
-            // "New colony" is not here either, and for the same reason: throwing
-            // this map away and landing on the next one is not something you do to
-            // an agent on this list. It is "Next planet" in the menu behind Escape
-            // now - see NextPlanet.
+            // Shortcuts is not here: it is a window of its own in the bottom bar, and an
+            // errand is not something you do to an agent on this list. Nor is "New colony",
+            // for the same reason - it is "Next planet" in the menu behind Escape now.
             if (Widgets.ButtonText(new Rect(bar.x + 276f, bar.y, 130f, 30f), "Reconnect"))
                 hub.Connect();
         }
@@ -108,18 +104,16 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
             Widgets.Label(new Rect(r.x + 24f, r.y + 4f, 200f, 22f), s.Name);
 
-            // The state in words next to the name, so the row scans without
-            // decoding the colour of the chip beside it.
+            // The state in words next to the name, so the row scans without decoding the
+            // colour of the chip beside it.
             GUI.color = TerminalWindow.StateColor(s.State);
             Widgets.Label(new Rect(r.x + 230f, r.y + 4f, 100f, 22f), s.State.ToString().ToLower());
             GUI.color = new Color(0.65f, 0.66f, 0.68f);
 
-            // The project first, because it is the thing that answers where this
-            // agent runs and what it can reach; the directory is that answer
-            // spelled out. A blank project is an entry pointing at one that has
-            // gone, which is worth saying rather than drawing as an empty line.
-            // A temporary agent says so instead: there is no entry behind it, so
-            // the interesting thing about the row is that it is on its way out.
+            // The project first, because it answers where this agent runs and what it can
+            // reach. A blank project is an entry pointing at one that has gone, which is
+            // worth saying; a temporary agent says so instead, the interesting thing about
+            // that row being that it is on its way out.
             string where = string.IsNullOrEmpty(s.Project)
                 ? (s.Ephemeral
                     ? "temporary - adopted from tmux, and it goes when it exits"
@@ -130,23 +124,20 @@ namespace SlopWorld
             Widgets.Label(new Rect(r.x + 24f, r.y + 24f, r.width - 340f, 20f), where);
             GUI.color = Color.white;
 
-            // The top line is the two buttons that open a dialog, the bottom one
-            // everything that acts on the agent directly, terminal last. Both
-            // lines end at the same right edge.
+            // The top line is the two buttons that open a dialog, the bottom one everything
+            // that acts on the agent directly, terminal last.
             float top = r.y + 4f, bottom = r.y + 26f;
             float right = r.xMax - 6f;
 
-            // Nothing in config.toml stands behind a temporary agent, so there is
-            // nothing to edit: the dialog would write an entry the daemon has
-            // never had and the save would be refused.
+            // Nothing in config.toml stands behind a temporary agent, so the dialog would
+            // write an entry the daemon has never had and the save would be refused.
             if (!s.Ephemeral &&
                 Widgets.ButtonText(new Rect(right - 174f, top, 96f, 20f), "Edit"))
                 Find.WindowStack.Add(new EditSessionDialog(s));
 
-            // Next to Edit rather than down with Del and Start, because what it
-            // does is open the same dialog with the same fields in it. It is the
-            // one of the two that still means something for a temporary agent -
-            // "keep this one" - as long as it knows where it is working.
+            // Next to Edit rather than down with Del and Start, because what it does is open
+            // the same dialog. It is the one of the two that still means something for a
+            // temporary agent - "keep this one".
             if (!string.IsNullOrEmpty(s.Project))
             {
                 var dup = new Rect(right - 74f, top, 74f, 20f);
@@ -180,8 +171,7 @@ namespace SlopWorld
                 SessionHub.Instance.Start(s.Name, Fail);
             }
 
-            // Stop is Del for a temporary agent: killing the process is what
-            // removes it, and there is no entry left over to delete.
+            // Stop is Del for a temporary agent: killing the process is what removes it.
             x -= 52f;
             if (!s.Ephemeral && Widgets.ButtonText(new Rect(x, bottom, 48f, 20f), "Del"))
             {

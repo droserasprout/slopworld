@@ -51,9 +51,8 @@ async fn main() -> Result<()> {
         })
     };
 
-    // Quota is the one resource this colony has; the poller is what keeps the
-    // readout honest. It sleeps rather than exits when the setting is off, so
-    // turning it back on needs no restart.
+    // It sleeps rather than exits when the setting is off, so turning it back on
+    // needs no restart.
     let usage = usage::spawn(m.clone());
 
     let app = api::router(m.clone()).layer(middleware::from_fn_with_state(m.clone(), auth));
@@ -73,10 +72,9 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// Ctrl-C for a hand-run daemon, SIGTERM for the systemd one - and the systemd
-/// one is the case that matters, because `make install-daemon` restarts the unit
-/// under a live game. Without SIGTERM here the process was simply killed, so
-/// sockets died mid-frame instead of closing.
+/// SIGTERM is the case that matters: `make install-daemon` restarts the unit under
+/// a live game, and without this the process was killed outright, so sockets died
+/// mid-frame instead of closing.
 async fn shutdown() {
     use tokio::signal::unix::{signal, SignalKind};
     let mut term = match signal(SignalKind::terminate()) {
@@ -93,8 +91,8 @@ async fn shutdown() {
     }
 }
 
-/// The /ws route re-checks the token itself, because browsers and the mod's
-/// hand-rolled client both send it as a header on the upgrade request only.
+/// The /ws route re-checks the token itself, because the mod sends it as a header
+/// on the upgrade request only.
 async fn auth(
     State(m): State<Arc<Manager>>,
     req: Request,

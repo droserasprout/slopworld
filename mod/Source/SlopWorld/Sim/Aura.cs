@@ -7,96 +7,59 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// What the cat does to a dying world, which is the only argument this map has
-    /// against the core - and it is made by hand, one pat at a time.
-    ///
-    /// It used to be weather: a green disc that followed the animal about, on
-    /// whether it was standing there rather than on anything anybody did. That
-    /// read as a second automatic system running against the first, and it was on
-    /// screen constantly, so the pink and the green cancelled out into a colour the
-    /// eye stopped seeing. Now the cat is the only thing on this map a player can
-    /// touch (<see cref="Pets.Poke"/>, and the click that reaches it goes nowhere
-    /// else), and the aura is what that touch is for: a pulse where the animal is
-    /// standing, once per pat, and nothing at all in between.
-    ///
-    /// One pulse, four effects, and each is the exact undo of something in
-    /// <see cref="Plague"/>:
-    ///
-    /// - <b>Cells.</b> Filth goes and fires go out. <c>Patch_NoRegrowth</c> stands
-    ///   aside for as long as the pulse lasts, so the sterile core is allowed to
-    ///   grow again where it landed.
-    /// - <b>Fauna.</b> The mark comes off whatever was standing in it, and while a
-    ///   thing is spared the spread declines to put it back on.
-    /// - <b>Flora.</b> Plants inside are spared the sweep, and <em>one</em> of them
-    ///   is put right: a stripped tree gets its leaves back, a stunted plant its
-    ///   growth, and where the core left bare ground a sprout comes up instead.
-    ///   That is the pat's answer, and the only green smoke on this map.
-    /// - <b>The cat.</b> Every bad hediff on it goes, injuries and pain included -
-    ///   see <see cref="Comfort"/>. Nothing else here gets that, and nothing else
-    ///   here is being patted.
-    ///
-    /// The one plant is deliberate and so is the coin flip in front of it
-    /// (<see cref="ReviveChance"/>): a pat that always worked would be a button
-    /// for repairing the map, and a pat that healed a field would make the core
-    /// look weak. One plant every second or third pat is a person kneeling in the
-    /// ash putting things back one at a time, against a circle a quarter of the map
-    /// wide that is taking them ten a tick.
-    ///
-    /// <b>Temporary</b> is the grace: a pulse spares what it touched for
-    /// <see cref="GraceTicks"/> and its ground for as long. Without it a revived
-    /// tree would be stripped again on the sweep's next pass through that cell,
-    /// which is a pat visibly undone within the minute.
-    ///
-    /// Neither table is saved. A pat is a gesture and its half-life is an hour of
-    /// colony time; persisting a dictionary of thing IDs to buy that back across a
-    /// load would be writing down the weather.
-    ///
-    /// MapComponents are instantiated for every subclass, so this needs no def.
-    /// </summary>
+    // What the cat does to a dying world: the only argument this map has against the
+    // core, and it is made by hand, one pat at a time.
+    //
+    // It used to be weather - a green disc that followed the animal about - which was
+    // two automatic systems arguing in front of a player with no part in it, with
+    // green on screen constantly until the eye stopped reading either colour. Now the
+    // cat is the only thing here a player can touch (Pets.Poke), and a pulse is one
+    // pat.
+    //
+    // Four effects, each the exact undo of something in Plague: filth and fire go,
+    // Patch_NoRegrowth stands aside so the sterile core may grow again; the mark
+    // comes off whatever was standing there; the plants inside are spared the sweep
+    // and *one* is put right; and the cat itself is healed (Comfort).
+    //
+    // The one plant and the coin flip in front of it are deliberate: a pat that
+    // always worked would be a repair button, and one that fixed a field would make
+    // the core look weak. The grace is what keeps a revived tree from being stripped
+    // again on the sweep's next pass. Neither table is saved - persisting thing IDs
+    // to carry a gesture across a load would be writing down the weather.
     public class Aura : MapComponent
     {
-        // How far a pat reaches. Small - smaller than the aura that used to drift
-        // about on its own - because this one is aimed: the player put the cursor
-        // there, so the circle is the handful of cells under the animal rather than
-        // a weather front it was dragging behind it.
+        // Small, because this one is aimed: the player put the cursor there, so it is the
+        // handful of cells under the animal rather than a weather front.
         const float Radius = 3.9f;
 
-        // How often a pat actually puts a plant back. Every second or third one, so
-        // the ones that do land are worth watching for.
+        // Every second or third pat, so the ones that land are worth watching for.
         const float ReviveChance = 0.42f;
 
-        // How long a pulse holds: an hour of colony time, which at the plague's own
-        // pace is a couple of dozen passes of the sweep.
+        // An hour of colony time, which at the plague's pace is a couple of dozen passes
+        // of the sweep.
         const int GraceTicks = 2500;
 
-        // Filth cleared per pat. More than the old sweep took per pass, there being
-        // one of these per click rather than two a second.
+        // More than the old sweep took per pass, there being one of these per click.
         const int FilthPerPat = 6;
 
-        // How often the tables are swept for entries that have run out. Nothing else
-        // happens on a tick here any more.
+        // Nothing else happens on a tick here any more.
         const int PruneInterval = 60;
 
-        // What counts as a plant the plague has held back, and what putting it right
-        // means. Not full growth: a plant restored to ripe reads as a cheat, where
-        // one restored to most of the way reads as one that has been growing again.
+        // Not full growth: a plant restored to ripe reads as a cheat, where one restored
+        // to most of the way reads as one that has been growing again.
         const float StuntedBelow = 0.55f;
         const float ReviveGrowth = 0.80f;
 
-        // A sprout, where there was nothing to revive. Small, and it grows from
-        // there on its own, the sweep having been told to leave it alone.
+        // It grows from there on its own, the sweep having been told to leave it alone.
         const float SproutGrowth = 0.25f;
         const int SproutTries = 25;
 
-        // Verse.Plant.madeLeaflessTick, which is protected: LeaflessNow is
-        // TicksGame - madeLeaflessTick < 60000, so pushing it into the far past is
-        // how a stripped tree comes back. Bound by name and allowed to fail - a
-        // field that moved costs the trees and nothing else.
+        // Verse.Plant.madeLeaflessTick, which is protected: LeaflessNow is TicksGame -
+        // madeLeaflessTick < 60000, so pushing it into the far past is how a stripped
+        // tree comes back. Bound by name and allowed to fail.
         static readonly AccessTools.FieldRef<Plant, int> LeaflessTick = BindLeafless();
 
-        // Where the pats landed, and when. Read per cell by Patch_NoRegrowth, so it
-        // is a short list of cells rather than anything that has to be searched.
+        // Read per cell by Patch_NoRegrowth, so it is a short list of cells.
         readonly List<Pulse> _pulses = new List<Pulse>();
 
         // thingIDNumber -> the tick a pulse last had it.
@@ -113,10 +76,8 @@ namespace SlopWorld
 
         public static Aura Of(Map map) => map?.GetComponent<Aura>();
 
-        /// <summary>Whether a live pulse is standing over this cell. The plain
-        /// geometry, with nothing about what was in it: this is what decides whether
-        /// ground grows and whether a fire may creep, and both are properties of the
-        /// place rather than of anything standing there.</summary>
+        // The plain geometry, with nothing about what was in it: this decides whether
+        // ground grows and whether a fire may creep, and both belong to the place.
         public bool Covers(IntVec3 cell)
         {
             if (_pulses.Count == 0) return false;
@@ -128,10 +89,8 @@ namespace SlopWorld
             return false;
         }
 
-        /// <summary>Whether the plague has to leave this thing alone: inside a pulse
-        /// now, or touched by one recently enough. The second half is what carries a
-        /// revived tree past the sweep's next pass, and what covers a thing that has
-        /// since wandered out of the circle it was blessed in.</summary>
+        // The second half carries a revived tree past the sweep's next pass, and covers a
+        // thing that has wandered out of the circle it was blessed in.
         public bool Spares(Thing t)
         {
             if (t == null || !t.Spawned) return false;
@@ -146,12 +105,8 @@ namespace SlopWorld
             Prune(Find.TickManager.TicksGame);
         }
 
-        /// <summary>
-        /// A pat, which is the whole of this component's input. The cat is put right
-        /// first - that is what the click was aimed at - and then the ground under it
-        /// gets one pulse: filth and fire out, marks off, everything spared for a
-        /// while, and, on a good roll, one plant back.
-        /// </summary>
+        // The cat is put right first - that is what the click was aimed at - and then the
+        // ground under it gets one pulse.
         public void Pat(Pawn pet)
         {
             if (pet == null || pet.Dead || !pet.Spawned || pet.Map != map) return;
@@ -165,19 +120,11 @@ namespace SlopWorld
             if (Rand.Value < ReviveChance) Revive(pet.Position, now);
         }
 
-        /// <summary>
-        /// What the pat does to the animal it lands on. Every bad hediff comes off -
-        /// injuries, pain, the plague's own mark, whatever it picked up walking
-        /// through a blast - because with health ticks stripped
-        /// (<see cref="Patch_Health"/>) nothing on this map ever heals by itself, so
-        /// a cat that took a cut in the intro would carry it for the life of the
-        /// colony. Good hediffs are left where they are; <c>isBad</c> is the game's
-        /// own word for the difference.
-        ///
-        /// A mental state goes with them. Vanilla's own recovery path is the one
-        /// used rather than clearing the field, so the state gets to say its piece
-        /// and put the pawn's job tracker back the way it found it.
-        /// </summary>
+        // Every bad hediff comes off, injuries and pain included, because with health
+        // ticks stripped nothing on this map heals by itself: a cat cut in the intro
+        // would carry it for the life of the colony. A mental state goes through
+        // vanilla's own recovery path rather than by clearing the field, so it puts the
+        // job tracker back the way it found it.
         static void Comfort(Pawn pet)
         {
             var set = pet.health?.hediffSet;
@@ -191,11 +138,8 @@ namespace SlopWorld
             pet.mindState?.mentalStateHandler?.CurState?.RecoverFromState();
         }
 
-        // The cells. Filth and fire go, and everything alive or growing in there is
-        // spared - flora included, which is what keeps the revived plant standing
-        // until the grace runs out. No haze on any of it: the only green smoke this
-        // map gets is the one plant, and a puff on every pat everywhere would spend
-        // that.
+        // No haze on any of it: the only green smoke this map gets is the one plant, and
+        // a puff on every pat everywhere would spend that.
         void Sweep(IntVec3 centre, int now)
         {
             int cells = GenRadial.NumCellsInRadius(Radius);
@@ -207,8 +151,7 @@ namespace SlopWorld
                 if (!c.InBounds(map)) continue;
 
                 var things = c.GetThingList(map);
-                // Backwards, because destroying takes the thing out of this very
-                // list: anything shifted down is something already visited.
+                // Backwards, because destroying takes the thing out of this very list.
                 for (int j = things.Count - 1; j >= 0; j--)
                 {
                     var t = things[j];
@@ -220,8 +163,8 @@ namespace SlopWorld
                     }
                     else if (t is Fire)
                     {
-                        // An attached fire is spawned in the cell like any other, so
-                        // this is also how a burning animal stops burning.
+                        // An attached fire is spawned in the cell like any other, so this is also how a
+                        // burning animal stops burning.
                         t.Destroy(DestroyMode.Vanish);
                     }
                     else if (t is Plant plant) _grace[plant.thingIDNumber] = now;
@@ -230,9 +173,7 @@ namespace SlopWorld
             }
         }
 
-        // The cleanse, on something alive. Recording the grace is most of it; the
-        // mark coming off is the rest, and neither is worth a puff - see Revive for
-        // where the pat's one piece of theatre goes.
+        // Recording the grace is most of it; neither half is worth a puff.
         void Unmark(Pawn pawn, int now)
         {
             if (pawn.Dead) return;
@@ -242,15 +183,9 @@ namespace SlopWorld
             if (mark != null) pawn.health.RemoveHediff(mark);
         }
 
-        /// <summary>
-        /// One plant, put back, with the green on it. Something the core has damaged
-        /// is preferred - a stripped tree, a plant the falloff stunted - because
-        /// repairing what is visibly wrong reads better than adding to what is
-        /// merely absent. Where there is nothing left to repair, which is most of
-        /// the certain core, a sprout comes up instead: the sterile ground is the
-        /// thing being argued with, so a pat there has to answer with something
-        /// growing rather than with nothing happening.
-        /// </summary>
+        // Something the core has damaged is preferred, because repairing what is visibly
+        // wrong reads better than adding to what is merely absent. Where there is nothing
+        // left to repair - most of the certain core - a sprout comes up instead.
         void Revive(IntVec3 centre, int now)
         {
             var hurt = Damaged(centre);
@@ -258,12 +193,9 @@ namespace SlopWorld
             Sow(centre, now);
         }
 
-        // The plants inside the pulse that the plague has had at. A bare tree comes
-        // first whatever else is standing about: that one is unambiguously something
-        // the core did, where a plant merely short of full growth might only be
-        // young. Within a list the pick is random rather than nearest, because a run
-        // of pats should work outwards in no particular order rather than clearing a
-        // tidy ring.
+        // A bare tree comes first whatever else is standing: that one is unambiguously
+        // something the core did, where a plant short of full growth might only be young.
+        // Within a list the pick is random rather than nearest.
         Plant Damaged(IntVec3 centre)
         {
             var bare = new List<Plant>();
@@ -286,9 +218,8 @@ namespace SlopWorld
             return stunted.Count == 0 ? null : stunted.RandomElement();
         }
 
-        // A tree gets its leaves back, a stunted plant its growth. Leaflessness is
-        // nothing but a subtraction against madeLeaflessTick, so dating that into the
-        // past is the whole repair.
+        // Leaflessness is nothing but a subtraction against madeLeaflessTick, so dating
+        // that into the past is the whole repair.
         void Mend(Plant plant, int now)
         {
             _grace[plant.thingIDNumber] = now;
@@ -296,16 +227,15 @@ namespace SlopWorld
             if (plant.LeaflessNow && LeaflessTick != null) LeaflessTick(plant) = -60000;
             if (plant.Growth < ReviveGrowth) plant.Growth = ReviveGrowth;
 
-            // Growth and leaflessness are both printed into the map mesh and neither
-            // setter dirties it - see Plague.StepPlants, which pays the same price.
+            // Neither setter dirties the map mesh - see Plague.StepPlants, which pays the
+            // same price.
             map.mapDrawer?.MapMeshDirty(plant.Position, MapMeshFlagDefOf.Things);
             Puff(plant);
         }
 
-        // Bare ground, so something is put in it: whatever this biome grows, weighted
-        // the way the biome weights it, in a cell that would take it. CanEverPlantAt
-        // is the game's own answer to "may this stand here" - terrain, roof, what is
-        // already in the cell - so nothing here has to know about any of that.
+        // CanEverPlantAt is the game's own answer to "may this stand here" - terrain,
+        // roof, what is already in the cell - so nothing here has to know about any of
+        // it.
         void Sow(IntVec3 centre, int now)
         {
             var biome = map.Biome;
@@ -327,8 +257,7 @@ namespace SlopWorld
                 if (plant == null) return;
 
                 plant.Growth = SproutGrowth;
-                // The spawn dirties the cell, but it does so before the growth is
-                // written; see Mend for the setter that never dirties anything.
+                // The spawn dirties the cell, but before the growth is written.
                 map.mapDrawer?.MapMeshDirty(c, MapMeshFlagDefOf.Things);
 
                 _grace[plant.thingIDNumber] = now;
@@ -349,10 +278,9 @@ namespace SlopWorld
             foreach (var id in _stale) _grace.Remove(id);
         }
 
-        // The plague's plumbing in the other colour; see PlagueFx.At for why the def
-        // is a parameter and everything else is shared. Small, and it stays small
-        // however much this one puff has to carry: it marks a single plant, and a
-        // cloud that covers its neighbours says the pat mended the patch.
+        // Small, and it stays small however much this puff has to carry: it marks a
+        // single plant, and a cloud that covers its neighbours says the pat mended the
+        // patch.
         static void Puff(Thing t) =>
             PlagueFx.At(SlopDefOf.SlopCleanAir, t, 10, 0.85f, 0.20f, 0.28f);
 

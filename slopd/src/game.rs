@@ -1,58 +1,39 @@
 //! What the daemon can say about the game: how it is launched, and whether it is
 //! up.
 //!
-//! The second half exists because nothing inside a session can answer it. An
-//! agent runs in a PID namespace of its own, so `ps` and `pgrep` in there see
-//! the agent's own handful of processes and nothing else on the host - which
-//! does not read as "cannot tell", it reads as "no game is running". Sharing
-//! the PID namespace would fix the symptom and hand every agent the ability to
-//! signal every process the user owns; slopd is on the host and already the
-//! thing sessions ask about everything else.
-//!
-//! So: `GET /api/game`. The question behind it is usually not "is a game
-//! running" but "is the game running the mod I just built", which is why the
-//! attached client count is in the answer - a websocket client is a game far
-//! enough up to have loaded our assembly, which no amount of looking at the
-//! process table proves.
+//! Nothing inside a session can answer the second half. An agent runs in a PID
+//! namespace of its own, so `pgrep` in there sees the agent's own handful of
+//! processes - which does not read as "cannot tell", it reads as "no game is
+//! running". The attached client count is in the answer because the question is
+//! usually "is it running the mod I just built", which the process table cannot
+//! prove.
 
 use std::process::Command;
 
 use anyhow::Result;
 use serde::Serialize;
 
-/// The transient unit `launch` puts the game in, and so the first place `status`
-/// looks for it.
 const UNIT: &str = "slopworld-game.service";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Status {
     pub running: bool,
-    /// How we know: a game slopd started has a unit and a PID, a game started by
-    /// hand is one we found by its command line, and a client on the socket is
-    /// proof of a game we could not find either way (`daemon.game_cmd` unset,
-    /// or a launcher that execs something else).
+    /// `unit` is one slopd started, `process` one found by command line, `client` one
+    /// we could not find either way but that is holding /ws open.
     pub source: &'static str,
     pub pid: Option<u32>,
-    /// Seconds it has been up, not the instant it started - the same choice the
-    /// usage window resets make: an age keeps meaning what it meant when the
-    /// reader's clock is not ours.
     pub uptime_s: Option<u64>,
     pub unit: Option<&'static str>,
-    /// What `daemon.game_cmd` says to run, so a caller getting `none` can see
-    /// whether that is because nothing is configured.
+    /// So a caller getting `none` can see whether that is because nothing is
+    /// configured.
     pub cmd: String,
-    /// Websocket clients attached right now. Normally the mod, and exactly one
-    /// of it; anything holding /ws open counts, because the daemon cannot tell
-    /// a mod from a curl and should not pretend to.
+    /// Anything holding /ws open counts; the daemon cannot tell a mod from a curl.
     pub clients: usize,
-    /// How long the oldest of them has been attached. Across a redeploy this is
-    /// the useful number in here: a client younger than the game is a mod that
-    /// reconnected, and one younger than the DLL on disk is the build you just
-    /// installed.
+    /// Across a redeploy this is the useful number: a client younger than the DLL on
+    /// disk is the build you just installed.
     pub clients_uptime_s: Option<u64>,
 }
 
-/// Looks for the game, cheapest road first.
 pub fn status(cmd: &str, clients: usize, clients_uptime_s: Option<u64>) -> Status {
     let argv = crate::sandbox::shell_split(cmd);
     let exe = argv
@@ -81,9 +62,8 @@ pub fn status(cmd: &str, clients: usize, clients_uptime_s: Option<u64>) -> Statu
     }
 }
 
-/// The unit's main PID, if it is up. `--collect` clears the unit away when the
-/// game exits, so a `show` of a unit that never existed answers the same as one
-/// that has finished: inactive, MainPID 0.
+/// `--collect` clears the unit away when the game exits, so a `show` of a unit
+/// that never existed answers the same as one that has finished: inactive, PID 0.
 fn unit_pid() -> Option<u32> {
     let out = Command::new("systemctl")
         .args([
@@ -109,23 +89,14 @@ fn unit_pid() -> Option<u32> {
     (active && pid > 0).then_some(pid)
 }
 
-/// The game as launched by somebody else - which is the normal case while
-/// working on the mod, since the game gets started once and then only ever
-/// restarted through `/api/game/restart`.
+/// The configured path first, then the executable's bare name - which would also
+/// match an editor with the word in its argv, so it is the fallback and not the
+/// test.
 ///
-/// Matched on the configured path first, because that is what was asked for;
-/// then on the executable's own name, which catches a launcher that starts the
-/// same binary by another path but would also match an editor that happens to
-/// have the name in its argv - so it is the fallback and not the test.
-///
-/// The path is matched *anchored*, and that is not tidiness. `pgrep -f` tries
-/// its pattern anywhere in a command line, and the game's own directory turns
-/// up in command lines that are not the game: every sandbox binds
-/// `<game>/RimWorldLinux_Data/Managed` so an agent can build the mod against the
-/// game's assemblies, so a bare `-f <path>` matches an agent. Nothing says so
-/// until a restart, which quits the game, waits for that PID to go away, finds
-/// it still there because it was never the game, and refuses to launch. Bounded
-/// at both ends, only a process actually exec'd from that path can match.
+/// The path is matched *anchored*. `pgrep -f` tries its pattern anywhere in a
+/// command line, and every sandbox binds `<game>/RimWorldLinux_Data/Managed` so an
+/// agent can build against the game's assemblies - so a bare `-f <path>` matches
+/// an agent, and a restart then waits forever for a PID that was never the game.
 fn found(exe: &str) -> Option<u32> {
     if exe.is_empty() {
         return None;
@@ -134,9 +105,8 @@ fn found(exe: &str) -> Option<u32> {
     pgrep(&["-f", &argv0_pattern(exe)]).or_else(|| pgrep(&["-x", name]))
 }
 
-/// `exe` as an extended regex that matches only a command line starting with it.
-/// The path is a string somebody typed, not a pattern, so every character a
-/// regex would read is escaped first.
+/// The path is a string somebody typed, not a pattern, so every character a regex
+/// would read is escaped first.
 fn argv0_pattern(exe: &str) -> String {
     let mut out = String::with_capacity(exe.len() + 8);
     out.push('^');
@@ -146,7 +116,6 @@ fn argv0_pattern(exe: &str) -> String {
         }
         out.push(c);
     }
-    // End of the command line, or the space before the first argument.
     out.push_str("( |$)");
     out
 }
@@ -158,11 +127,9 @@ fn pgrep(args: &[&str]) -> Option<u32> {
         .find_map(|l| l.trim().parse().ok())
 }
 
-/// Seconds since a PID started, from procfs rather than from `ps`: field 22 of
-/// `stat` is the start in clock ticks since boot, and /proc/uptime is where boot
-/// was. Everything before the last `)` is skipped because the process name sits
-/// in there unescaped, parentheses and spaces included, and splitting the line
-/// from the left is how that bites.
+/// Field 22 of `stat` is the start in clock ticks since boot. Everything before
+/// the last `)` is skipped because the process name sits in there unescaped,
+/// parentheses and spaces included.
 pub fn uptime_s(pid: u32) -> Option<u64> {
     let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
     let fields = &stat[stat.rfind(')')? + 1..];
@@ -178,24 +145,16 @@ pub fn uptime_s(pid: u32) -> Option<u64> {
     Some((up - ticks / 100.0).max(0.0) as u64)
 }
 
-/// Starts a process that must outlive slopd, as a transient systemd unit where
-/// there is one.
+/// Starts a process that must outlive slopd. Spawned as a plain child it would sit
+/// in `slopd.service`'s cgroup and be killed by the next redeploy - which is
+/// exactly when the game is being relaunched. `--collect` frees the unit name for
+/// the next restart.
 ///
-/// Spawned as a plain child it would sit in `slopd.service`'s cgroup and be
-/// killed by the next redeploy - the same trap the tmux server was in, and worse
-/// here, because the whole point of relaunching the game is that a redeploy is
-/// happening. `--collect` clears the unit away once the game exits, so the name
-/// is free for the next restart.
-///
-/// The display environment comes from slopd's own: as a user service it was
-/// started by the same manager as the session, so it has whatever that manager
-/// imported. Passing the three that matter explicitly means a daemon run by hand
-/// from a terminal works too.
+/// The three display variables are passed explicitly so a daemon run by hand from
+/// a terminal works too.
 pub fn launch(exe: &str, args: &[String]) -> Result<()> {
-    // `game_cmd` is a path a person typed into config.toml, so it can start with
-    // a ~ that nothing else here would expand: shell_split builds an argv rather
-    // than running a shell, and exec does not read tildes. Left alone it fails
-    // four seconds after a redeploy told the game to quit.
+    // `game_cmd` is a path a person typed, so it can start with a ~ that nothing else
+    // expands: shell_split builds an argv rather than running a shell.
     let exe = &crate::config::expand(exe);
 
     let mut sr = Command::new("systemd-run");
@@ -218,8 +177,7 @@ pub fn launch(exe: &str, args: &[String]) -> Result<()> {
         Err(e) => tracing::warn!("systemd-run unavailable ({e}); launching inline"),
     }
 
-    // No systemd: at least give it its own process group, so a signal aimed at
-    // slopd's group doesn't take the game with it.
+    // Its own process group, so a signal aimed at slopd's does not take the game.
     use std::os::unix::process::CommandExt;
     Command::new(exe)
         .args(args)
@@ -235,8 +193,8 @@ pub fn launch(exe: &str, args: &[String]) -> Result<()> {
 mod tests {
     use super::*;
 
-    /// A name with a space and a bracket in it is the case that breaks a stat
-    /// line parsed from the left, and the kernel does not escape it.
+    /// A name with a space and a bracket in it is what breaks a stat line parsed from
+    /// the left, and the kernel does not escape it.
     #[test]
     fn our_own_uptime_is_readable() {
         let mine = uptime_s(std::process::id()).expect("a running process has an uptime");
@@ -254,7 +212,6 @@ mod tests {
         assert_eq!(s.pid, None);
     }
 
-    /// The same expansion `launch` does, so what we look for is what was run.
     #[test]
     fn a_configured_path_is_expanded_before_it_is_looked_for() {
         let s = status("~/nowhere/RimWorldLinux -popupwindow", 0, None);
@@ -262,8 +219,6 @@ mod tests {
         assert!(s.cmd.starts_with('~'), "the config is reported as written");
     }
 
-    /// A client on the socket is a game we could not find any other way, and
-    /// saying so is the point of `source`.
     #[test]
     fn a_client_is_evidence() {
         let s = status("", 1, Some(3));
@@ -272,9 +227,8 @@ mod tests {
         assert_eq!(s.clients_uptime_s, Some(3));
     }
 
-    /// Both ends of the pattern, which is the whole of the fix: without the `^`
-    /// a bind path anywhere in an agent's argv matches, and without the `( |$)`
-    /// the game's own `RimWorldLinux_Data` does.
+    /// Without the `^` a bind path anywhere in an agent's argv matches; without the
+    /// `( |$)` the game's own `RimWorldLinux_Data` does.
     #[test]
     fn the_game_is_matched_as_a_whole_argv0() {
         assert_eq!(
@@ -283,19 +237,17 @@ mod tests {
         );
     }
 
-    /// A path with a regex character in it is still a path.
     #[test]
     fn a_dot_in_the_path_is_a_dot() {
         assert_eq!(argv0_pattern("/o.d/rw"), "^/o\\.d/rw( |$)");
     }
 
-    /// The bug, against the thing that actually runs the pattern: a process
-    /// whose argv merely mentions the game, the way every sandbox's does.
+    /// The bug, against the thing that actually runs the pattern.
     #[test]
     fn pgrep_does_not_take_a_bind_path_for_the_game() {
         let exe = "/home/nobody/RimWorld/game/RimWorldLinux";
-        // A shell that cannot tail-exec its script, so the argv we gave it is
-        // the argv on /proc for as long as we need it.
+        // A shell that cannot tail-exec its script, so the argv we gave it stays on
+        // /proc.
         let mut decoy = match Command::new("sh")
             .args(["-c", "while :; do sleep 1; done"])
             .arg(format!("bwrap --ro-bind {exe}_Data/Managed /x -- claude"))
@@ -304,8 +256,7 @@ mod tests {
             Ok(c) => c,
             Err(_) => return, // no shell here; the string tests still hold
         };
-        // `spawn` returns before the child has exec'd, so its argv is not on
-        // /proc yet; without this the test proves only that pgrep found nothing.
+        // `spawn` returns before the child has exec'd, so its argv is not on /proc yet.
         let mut decoy_is_findable = None;
         for _ in 0..50 {
             decoy_is_findable = pgrep(&["-f", exe]);

@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
 
-  <!-- Applied to an agent's colonist while its process is not running: caps
-       consciousness so the pawn collapses (Downed) but stays alive and clickable.
-       Removed the moment the process comes back, so the same colonist gets up. -->
+  <!-- Caps consciousness, so the pawn collapses but stays alive and clickable
+       and the same colonist gets up when its process comes back. -->
   <HediffDef>
     <defName>SlopOffline</defName>
     <hediffClass>HediffWithComps</hediffClass>
@@ -24,9 +23,8 @@
     </stages>
   </HediffDef>
 
-  <!-- The plague's mark. A tag, nothing more: with the sim stripped, health never
-       ticks, so severity would never move and stages would never fire. Plague
-       drives every effect itself and reads this only to know who it has reached. -->
+  <!-- A tag, nothing more: with the sim stripped health never ticks, so severity
+       would never move. Plague drives every effect itself. -->
   <HediffDef>
     <defName>SlopPlague</defName>
     <hediffClass>HediffWithComps</hediffClass>

@@ -1,30 +1,19 @@
 #!/usr/bin/env python3
 """Draws mod/Textures/SlopWorld/RobotFace_{south,east}.png.
 
-The agent's faceplate is geometry, not art, so it lives here as code: run
-`python3 tools/roboface.py` after changing a constant and the textures are
-rebuilt. Needs numpy and pillow.
+The faceplate is geometry, not art, so it lives here as code: run
+`python3 tools/roboface.py` after changing a constant. Needs numpy and pillow.
 
-This is an overlay, not a head. It is drawn over whatever vanilla head the pawn
-was generated with, one render node above it, so every constant below is in the
-*head's* frame: a 128x128 texture whose skull is a ~47px blob centred at
-(64, 64.5). Stray outside that and the plate slides off the face.
+It is an overlay, not a head. Every constant below is in the *head's* frame - a
+128x128 texture whose skull is a ~47px blob centred at (64, 64.5) - and the
+metal is clipped to that skull rather than drawn as a shape of its own. An
+earlier cut drew a rounded square inset from the head and it read as a mask held
+up to the face: it carried its own closed outline, it was framed by an even rim
+of skin, and its corners pushed into a round silhouette. Here the metal runs out
+to the head's own edge and the only dark line is the seam along the hairline.
 
-The metal is *clipped to that skull* rather than drawn as a shape of its own, and
-that is the whole design. An earlier cut drew a rounded square inset from the
-head on every side, and it read as a mask held up to the face - three reasons,
-all of them about being a separate object rather than about the colour. It
-carried its own closed outline, which is the strongest cue there is that one
-thing sits on another. It was framed by an even rim of skin, the way a picture
-sits in a mount, and nothing on a face has a uniform border. And its corners
-pushed into a round silhouette, so the eye read two shapes before it read a
-face. Here the metal runs out to the head's own edge and the only dark line is
-the seam along the hairline, so the front of the head *is* metal and the skin
-that is left is the crown the hair grows from.
-
-There is no north texture on purpose - a faceplate has no back, and the render
-node's visibleFacing leaves the pawn's own head showing when it turns away.
-West is Graphic_Multi's mirror of east.
+No north texture: a faceplate has no back, and the node's visibleFacing leaves
+the pawn's own head showing when it turns away. West is Graphic_Multi's mirror.
 """
 import os
 
@@ -37,26 +26,24 @@ N = 128                     # the head frame RimWorld draws us into
 SS = 4                      # supersample factor, box-filtered down at the end
 S = N * SS
 
-# The head under us: a superellipse centred at (CX, CY) with these radii, so it
-# spans x 40.5..87.5 and y 40..89. Nothing here draws it - this is the shape the
-# metal is cut against, which is why the exponent matters as much as the radii.
+# The shape the metal is cut against: a superellipse centred at (CX, CY),
+# spanning x 40.5..87.5 and y 40..89. The exponent matters as much as the radii.
 CX, CY, RX, RY, EXP = 64.0, 64.5, 23.5, 24.5, 3.0
 
-# Where the metal stops. HAIRLINE is the cut across the brow, and SKIN_INSET is
-# how far short of the head's outline the metal runs out at the sides and jaw -
-# the head's own outline is part of its silhouette, so leaving it uncovered is
-# what keeps the edge reading as the head's edge and not the plate's.
+# HAIRLINE is the cut across the brow; SKIN_INSET is how far short of the head's
+# outline the metal runs out at the sides and jaw, that outline being part of the
+# head's silhouette and so the head's to own.
 HAIRLINE = 54.0
 SKIN_INSET = 2.0
 SEAM_W = 1.6
 
-# In profile the plate wraps the front of the head rather than all of it, so the
-# metal also stops at a seam down the side. Behind this the pawn's own head shows,
-# which is what makes turning from east to north a continuous thing.
+# In profile the plate wraps the front of the head rather than all of it. Behind
+# this seam the pawn's own head shows, which is what makes turning from east to
+# north continuous.
 BACK_X = 56.0
 
-# Eyes: big enough to nearly span the plate, and far enough apart to survive the
-# downsample as two things. Sockets are cut dark and the lens sits inside them.
+# Big enough to nearly span the plate and far enough apart to survive the
+# downsample as two things. Sockets are cut dark, the lens sits inside them.
 EYE_Y, EYE_R, IRIS_R = 64.0, 5.8, 3.5
 EYES_X = (57.0, 71.0)
 
@@ -69,8 +56,8 @@ BAR_W = 0.8
 BOLTS = ((52.0, 58.0), (76.0, 58.0), (52.5, 84.0), (75.5, 84.0))
 BOLT_R = 1.2
 
-# No outline colour in here any more: the only dark line the plate draws is the
-# seam along its cuts, and the silhouette is the head's to own.
+# The only dark line the plate draws is the seam along its cuts; the silhouette
+# is the head's.
 C_PLATE_TOP = np.array([0.42, 0.435, 0.46])
 C_PLATE_BOT = np.array([0.25, 0.265, 0.29])
 C_SEAM = np.array([0.16, 0.175, 0.195])

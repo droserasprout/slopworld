@@ -3,33 +3,28 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// The parts of config.toml the settings GUI edits. The daemon owns the file
-    /// and hands these over parsed, so nothing in the mod has to speak TOML;
-    /// sessions and state rules are left out on purpose, because a section this
-    /// window never shows is a section it must not write back.
-    /// </summary>
+    // The daemon owns the file and hands these over parsed, so nothing in the mod has
+    // to speak TOML. Sessions and state rules are left out on purpose: a section this
+    // window never shows is a section it must not write back.
     public class SlopConfig
     {
         public string Bind = "127.0.0.1:7717";
         public string Token = "";
         public string TmuxSocket = "slopworld";
         public int PollMs = 80;
-        /// Scrollback tmux keeps per pane, and so the ceiling on how much history
-        /// survives a daemon restart.
+        // Scrollback tmux keeps per pane, and so the ceiling on how much history survives
+        // a daemon restart.
         public int HistoryLimit = 5000;
-        /// How the daemon relaunches the game for "save and restart".
+        // How the daemon relaunches the game for "save and restart".
         public string GameCmd = "";
-        /// Whether the daemon polls Anthropic for what is left of the
-        /// subscription. Off means it never reads the credentials file.
+        // Off means the daemon never reads the credentials file.
         public bool Usage = true;
         public int UsagePollSecs = 60;
-        /// Where the daemon looks for Claude Code's OAuth token.
+        // Where the daemon looks for Claude Code's OAuth token.
         public string ClaudeCredentials = "~/.claude/.credentials.json";
 
         public string Agent = "claude";
-        /// What a shell shortcut runs. A per-machine answer, which is why it is
-        /// here rather than in every shortcut.
+        // A per-machine answer, which is why it is here rather than in every shortcut.
         public string Shell = "bash";
 
         public bool SandboxEnabled = true;
@@ -65,9 +60,9 @@ namespace SlopWorld
             };
         }
 
-        // Every field of a section this writes back has to be here, or saving from
-        // the GUI silently resets the ones it left out to their serde defaults -
-        // which for game_cmd would mean losing it on any unrelated save.
+        // Every field of a section this writes back has to be here, or saving from the
+        // GUI silently resets the ones it left out to their serde defaults - which for
+        // game_cmd would mean losing it on any unrelated save.
         public string ToJson() =>
             "{\"daemon\":{" +
             $"\"bind\":{JVal.Q(Bind)},\"token\":{JVal.Q(Token)}," +
@@ -87,7 +82,7 @@ namespace SlopWorld
         static string Arr(List<string> items) =>
             "[" + string.Join(",", items.Select(JVal.Q).ToArray()) + "]";
 
-        /// <summary>One entry per line, which is how the GUI edits these lists.</summary>
+        // One entry per line, which is how the GUI edits these lists.
         public static string Lines(List<string> items) =>
             string.Join("\n", items.ToArray());
 

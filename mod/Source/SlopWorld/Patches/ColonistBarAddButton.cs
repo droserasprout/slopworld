@@ -4,26 +4,23 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The colonist bar is the natural place to grow the colony: a "+" slot after
-    // the last colonist opens the new-session dialog, same one the Agents tab
-    // uses. We postfix the bar's OnGUI so the slot is laid out with the bar's own
-    // cached draw locs and scale, which keeps it on the same row and at the same
-    // size as a real colonist for any number of agents.
+    // A "+" slot after the last colonist opens the new-session dialog. Postfixed onto
+    // the bar's OnGUI, so the slot is laid out with the bar's own cached draw locs
+    // and scale and stays the size of a real colonist for any number of agents.
     [HarmonyLib.HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
     public static class Patch_ColonistBarAddButton
     {
-        // Mirror ColonistBar.Visible (private): the bar hides itself under 800x500
-        // and while the tile picker is up, and so should we.
+        // Mirrors ColonistBar.Visible, which is private: the bar hides itself under
+        // 800x500 and while the tile picker is up.
         static bool BarShown =>
             UI.screenWidth >= 800 && UI.screenHeight >= 500 && !Find.TilePicker.Active;
 
         static void Postfix()
         {
             if (!BarShown || Cutscene.Playing) return;
-            // Left off the strip above a terminal pane: the dialog it opens is a
-            // normal window and the terminal draws on the Super layer, so the "+"
-            // there would open something the terminal covers. New agents come from
-            // the Agents tab while a terminal is up.
+            // Left off the strip above a terminal pane: the dialog it opens is a normal
+            // window and the terminal draws on the Super layer, so the "+" there would open
+            // something the terminal covers.
             if (ColonistBarOverlay.Active) return;
 
             var bar = Find.ColonistBar;
@@ -41,8 +38,7 @@ namespace SlopWorld
             }
             else
             {
-                // No colonists yet (daemon off, or fresh game): drop it where the
-                // first colonist would sit, centered at the top of the screen.
+                // No colonists yet: drop it where the first would sit, centred at the top.
                 float scale = bar.Scale > 0f ? bar.Scale : 1f;
                 loc = new Vector2(UI.screenWidth * 0.5f - size.x * 0.5f, 21f * scale);
             }

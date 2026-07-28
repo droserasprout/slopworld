@@ -6,14 +6,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// Where the work is. A project is a directory plus the sandbox every agent
-    /// in it gets: three agents in one repo want the same binds, and keeping that
-    /// in three session entries meant it was wrong in at least one of them.
-    ///
-    /// First button in the bottom bar for the same reason: nothing can be added
-    /// on the agents window until there is somewhere to add it.
-    /// </summary>
+    // A directory plus the sandbox every agent in it gets. First button in the bottom
+    // bar, because nothing can be added on the agents window until there is somewhere
+    // to add it.
     public class ProjectsWindow : Window
     {
         const float RowH = 52f;
@@ -101,8 +96,7 @@ namespace SlopWorld
 
             Widgets.Label(new Rect(r.x + 8f, r.y + 4f, 200f, 22f), p.Name);
 
-            // How many agents live here, because it is the number that decides
-            // whether this project can be deleted at all.
+            // The number that decides whether this project can be deleted at all.
             int agents = hub.Sessions.Count(s => s.Project == p.Name);
             GUI.color = new Color(0.65f, 0.66f, 0.68f);
             Widgets.Label(new Rect(r.x + 214f, r.y + 4f, 120f, 22f),
@@ -128,12 +122,12 @@ namespace SlopWorld
             }
         }
 
-        /// <summary>The sandbox in one line, the way the agent rows read it.</summary>
+        // The sandbox in one line, the way the agent rows read it.
         public static string Summary(ProjectInfo p)
         {
             var bits = new List<string>();
-            // First, because it is the one thing here that is about the ground
-            // rather than about the sandbox around it.
+            // First, because it is the one thing here about the ground rather than about the
+            // sandbox around it.
             if (p.Temp) bits.Add("temporary");
             if (!p.Sandbox)
             {
@@ -152,17 +146,14 @@ namespace SlopWorld
             Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
     }
 
-    /// <summary>
-    /// Add or edit one project. Presets are checkboxes drawn from whatever the
-    /// daemon says it knows, so this window never has to be kept in step with
-    /// the table in sandbox.rs by hand.
-    /// </summary>
+    // Presets are checkboxes drawn from whatever the daemon says it knows, so this
+    // never has to be kept in step with sandbox.rs by hand.
     public class EditProjectDialog : Window
     {
         readonly bool _isNew;
         readonly ProjectInfo _p;
-        /// The name the daemon still knows this project by; a changed name in
-        /// the field is a rename, and the daemon carries its sessions over.
+        // A changed name in the field is a rename, and the daemon carries its sessions
+        // over.
         readonly string _origName;
 
         string _roPaths, _rwPaths, _passEnv;
@@ -210,17 +201,11 @@ namespace SlopWorld
 
         void DoFields(Rect r)
         {
-            // Begun on the room it actually has, and pinned to one column.
-            // Listing_Standard breaks to a second column the moment a control
-            // would cross the bottom of the rect it was begun on - and a column
-            // break here means curX past the whole width (so the rest of the
-            // fields are clipped away by the group Begin opened) *and* CurHeight
-            // back to nearly nothing. Everything below is laid out from that
-            // number, so a listing begun one control too short does not overflow:
-            // it drops the presets and the three path boxes on top of the fields,
-            // the last of them sized from a y that is suddenly 20 instead of 200.
-            // A fixed height was carrying that fault the whole time; the
-            // temporary checkbox is only what tipped it over.
+            // Begun on the room it has and pinned to one column. Listing_Standard breaks to a
+            // second column the moment a control would cross the bottom of the rect it was
+            // begun on - curX past the whole width, so everything after is clipped away by
+            // the group, and CurHeight back to nearly nothing. Everything below is laid out
+            // from that number, so the path boxes land on top of the fields.
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(new Rect(r.x, r.y, r.width, r.height));
 
@@ -237,9 +222,7 @@ namespace SlopWorld
             l.Label("Directory");
             if (_p.Temp)
             {
-                // Greyed rather than hidden, the same as the agent dialog's
-                // command box: what this project will actually work in is worth
-                // reading off the field even when nothing here typed it. Browse
+                // Greyed rather than hidden, the same as the agent dialog's command box. Browse
                 // goes with it - there is nothing to find yet.
                 GUI.color = new Color(1f, 1f, 1f, 0.4f);
                 Widgets.TextField(l.GetRect(28f), ProjectInfo.TempDir(_p.Name));
@@ -274,8 +257,8 @@ namespace SlopWorld
                 y += 24f;
             }
 
-            // Two columns: there are a dozen of these and stacking them would
-            // push the path boxes off the bottom of the dialog.
+            // Two columns: there are a dozen of these and stacking them would push the path
+            // boxes off the bottom of the dialog.
             float colW = r.width / 2f;
             for (int i = 0; i < presets.Count; i++)
             {
@@ -296,9 +279,8 @@ namespace SlopWorld
             }
             y += ((presets.Count + 1) / 2) * 24f + 10f;
 
-            // A Claude agent gets this one whether or not it is ticked here, and
-            // saying so is cheaper than the player wondering why ~/.claude is
-            // bound in a project that never asked for it.
+            // A Claude agent gets this one whether or not it is ticked here, and saying so is
+            // cheaper than the player wondering why ~/.claude is bound.
             GUI.color = new Color(0.65f, 0.66f, 0.68f);
             Widgets.Label(new Rect(r.x, y, r.width, 22f),
                 "Claude Code agents always get the 'claude' preset, project or not.");
@@ -314,7 +296,7 @@ namespace SlopWorld
                 "Passed env vars", _passEnv);
         }
 
-        /// <summary>One entry per line, the way the sandbox tab edits these.</summary>
+        // One entry per line, the way the sandbox tab edits these.
         static string PathList(Rect r, string label, string text)
         {
             Widgets.Label(new Rect(r.x, r.y, r.width, 22f), label);
@@ -335,9 +317,9 @@ namespace SlopWorld
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }
-            // A temporary project's directory is the daemon's to coin, and it
-            // coins it again on the way in - this is only so the list has the
-            // right path in it before the answer comes back.
+            // A temporary project's directory is the daemon's to coin, and it coins it again
+            // on the way in - this is only so the list has the right path before the answer
+            // comes back.
             if (_p.Temp) _p.Dir = ProjectInfo.TempDir(_p.Name);
             else if (string.IsNullOrEmpty((_p.Dir ?? "").Trim()))
             {

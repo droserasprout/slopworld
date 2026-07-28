@@ -7,9 +7,8 @@ namespace SlopWorld
     public struct SgrRun
     {
         public string Text;
-        /// Absolute start column of this run. Set from `\x1b[<n>G` (CHA) markers
-        /// the daemon emits ahead of runs whose column jumped (past a wide char);
-        /// otherwise it tracks the natural pen position.
+        // Absolute start column, set from the `\x1b[<n>G` (CHA) markers the daemon emits
+        // ahead of runs whose column jumped past a wide char.
         public int Col;
         public Color Fg;
         public Color Bg;
@@ -17,11 +16,8 @@ namespace SlopWorld
         public bool Bold;
     }
 
-    /// <summary>
-    /// Turns one line of daemon screen output into coloured runs. The daemon's
-    /// emulator already did the hard part - what it hands us is a rendered
-    /// screen - so we only ever see SGR (colour) escapes and CHA column markers.
-    /// </summary>
+    // The daemon's emulator already did the hard part, so we only ever see SGR colour
+    // escapes and CHA column markers.
     public static class Sgr
     {
         public static readonly Color DefaultFg = new Color(0.83f, 0.85f, 0.86f);

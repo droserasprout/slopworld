@@ -5,11 +5,8 @@ using System.Text;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// RimWorld ships no JSON library and pulling one in would mean shipping a
-    /// second DLL, so this is a minimal reader plus an escape helper for writes.
-    /// It only has to handle what slopd emits.
-    /// </summary>
+    // RimWorld ships no JSON library and pulling one in would mean shipping a second
+    // DLL. It only has to handle what slopd emits.
     public class JVal
     {
         public Dictionary<string, JVal> Obj;
@@ -161,7 +158,7 @@ namespace SlopWorld
             return new JVal { Num = d };
         }
 
-        /// <summary>Escapes a string and wraps it in quotes, ready to drop into a request body.</summary>
+        // Escapes a string and wraps it in quotes, ready to drop into a request body.
         public static string Q(string s)
         {
             var sb = new StringBuilder("\"");

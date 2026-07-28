@@ -7,18 +7,11 @@ using Exception = System.Exception;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// What is left after the toggles went. Everything the mod does to the game -
-    /// stripping the sim, spawning a colonist per session, the state icons, the
-    /// wall clock, the quota bars, resuming and autosaving and reopening the last
-    /// terminal - is unconditional now: being loaded is the switch, as it always
-    /// was for the UI stripping. A checkbox that turns the mod back into RimWorld
-    /// is not a setting anyone wants, it is a second product nobody tests.
-    ///
-    /// So what is here is the two things that are genuinely about this machine
-    /// rather than about the design: where the daemon is, and how big the terminal
-    /// font should be on this screen.
-    /// </summary>
+    // Everything the mod does to the game is unconditional: being loaded is the
+    // switch, as it always was for the UI stripping. A checkbox that turns the mod
+    // back into RimWorld is not a setting anyone wants, it is a second product nobody
+    // tests. What is left is the two things about this machine rather than about the
+    // design: where the daemon is, and how big the font is on this screen.
     public class SlopSettings : ModSettings
     {
         public string host = "127.0.0.1";
@@ -39,7 +32,7 @@ namespace SlopWorld
         }
     }
 
-    /// <summary>Static shorthand so call sites don't reach through the Mod instance.</summary>
+    // Static shorthand so call sites don't reach through the Mod instance.
     public static class Settings
     {
         public static SlopSettings S => SlopWorldMod.Instance.settings;
@@ -119,37 +112,33 @@ namespace SlopWorld
             }
             catch (Exception e)
             {
-                // A patch that fails to bind must not take the rest down with
-                // it: PatchAll aborts on the first bad one, and a mod with no
-                // patches at all is indistinguishable from a mod that isn't
-                // there. Log loud and keep whatever bound before the throw.
+                // PatchAll aborts on the first bad one, and a mod with no patches at all is
+                // indistinguishable from a mod that isn't there. Log loud and keep whatever bound
+                // before the throw.
                 Log.Error($"[SlopWorld] patching incomplete: {e}");
             }
-            // Not a patch: a preference this build insists on, which has to be put
-            // right once for a file that has it off. See Patch_RunInBackground.
+            // Not a patch: a preference this build insists on, which has to be put right once
+            // for a file that has it off.
             Patch_RunInBackground.Enforce();
-            // Nor is this one: a field moved on a def vanilla already reads, which
-            // is how a whole options category goes. See StripOptions.
+            // Nor is this one: a field moved on a def vanilla already reads, which is how a
+            // whole options category goes.
             StripOptions.Hide();
             Log.Message("[SlopWorld] patched; daemon at " + SlopClient.BaseUrl);
         }
     }
 
-    /// <summary>Drives the hub. Root.Update runs on the menu and in-game alike.</summary>
+    // Drives the hub. Root.Update runs on the menu and in-game alike.
     [HarmonyPatch(typeof(Root), nameof(Root.Update))]
     public static class Patch_Root_Update
     {
         static void Postfix()
         {
             SessionHub.Instance.Update();
-            // The pointer's own animation, which has nowhere else to run: a
-            // hardware cursor is a texture a frame.
+            // The pointer's own animation, which has nowhere else to run.
             DeadCursor.Tick();
-            // And its answer to a click, answered the same way whatever it
-            // lands on. Update and not OnGUI, so it fires per frame rather
-            // than per event, and below HandleEventsHighPriority, which is
-            // where the clicks that count are used - GetMouseButtonDown still
-            // sees them, that flag being Input's own.
+            // Update and not OnGUI, so it fires per frame rather than per event, and below
+            // HandleEventsHighPriority, where the clicks that count are used -
+            // GetMouseButtonDown still sees them, that flag being Input's own.
             if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1))
                 DeadCursor.Click();
         }

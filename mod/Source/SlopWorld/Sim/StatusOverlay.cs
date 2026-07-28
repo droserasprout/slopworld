@@ -3,11 +3,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// Floats each agent's state over its colonist, so the map reads as a status
-    /// board at a glance. MapComponents are instantiated for every subclass, so
-    /// this needs no def either.
-    /// </summary>
+    // Floats each agent's state over its colonist, so the map reads at a glance.
     public class StatusOverlay : MapComponent
     {
         public StatusOverlay(Map map) : base(map) { }

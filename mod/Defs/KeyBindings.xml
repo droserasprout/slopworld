@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
 
-  <!-- Hotkey on the Terminal gizmo, so a selected agent is one key away from its
-       pane. T also toggles the beauty overlay in vanilla, which a colony of
-       agents has no use for; rebind it in Options > Keyboard config if it bites. -->
+  <!-- T also toggles vanilla's beauty overlay, which a colony of agents has no
+       use for. -->
   <KeyBindingDef>
     <defName>SlopOpenTerminal</defName>
     <label>open agent terminal</label>
@@ -11,8 +10,7 @@
     <defaultKeyCodeA>T</defaultKeyCodeA>
   </KeyBindingDef>
 
-  <!-- Hotkey on the Start/Stop gizmo. Not S: vanilla already spends it on a
-       selected pawn, and a clash is a key that does two things at once. -->
+  <!-- Not S: vanilla already spends it on a selected pawn. -->
   <KeyBindingDef>
     <defName>SlopToggleSession</defName>
     <label>start/stop agent</label>
@@ -20,10 +18,8 @@
     <defaultKeyCodeA>P</defaultKeyCodeA>
   </KeyBindingDef>
 
-  <!-- The way in and out of the terminal from anywhere, selection or not. F12
-       because vanilla spends nothing on it and the terminal wants a key no agent
-       is likely to miss; the terminal forwards F12 to the agent only while this
-       is bound elsewhere. See TerminalHotkeys.cs. -->
+  <!-- In and out of the terminal from anywhere. F12 because vanilla spends
+       nothing on it; see TerminalHotkeys.cs. -->
   <KeyBindingDef>
     <defName>SlopQuickTerminal</defName>
     <label>open/close agent terminal</label>

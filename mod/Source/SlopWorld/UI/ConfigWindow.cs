@@ -4,10 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// Raw config.toml editor. The daemon parses on save and rejects the write if
-    /// it does not round-trip, so a typo cannot leave slopd with no config.
-    /// </summary>
+    // The daemon parses on save and rejects the write if it does not round-trip, so a
+    // typo cannot leave slopd with no config.
     public class ConfigWindow : Window
     {
         string _text = "loading...";

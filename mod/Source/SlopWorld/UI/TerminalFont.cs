@@ -4,17 +4,13 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// RimWorld's own fonts are proportional, which a terminal cannot use. We ask
-    /// the OS for a monospace face instead; under Wine these resolve against both
-    /// the prefix's fonts and the host's.
-    /// </summary>
+    // RimWorld's own fonts are proportional, which a terminal cannot use. Under Wine
+    // an OS font resolves against both the prefix's fonts and the host's.
     public static class TerminalFont
     {
-        /// The first installed name becomes the face; the rest are per-glyph
-        /// fallbacks. The symbol faces at the tail are there for that alone - mono
-        /// faces stop well short of the arrows, draughts pieces and prompt chevrons
-        /// TUIs decorate with, and Claude Code's whole UI is built out of them.
+        // The first installed name becomes the face; the rest are per-glyph fallbacks.
+        // The symbol faces at the tail are there for that alone - mono faces stop well
+        // short of the arrows and chevrons Claude Code's whole UI is built out of.
         static readonly string[] Candidates =
         {
             "DejaVu Sans Mono",
@@ -54,12 +50,10 @@ namespace SlopWorld
         {
             get
             {
-                // A GUIStyle is not a UnityEngine.Object, so the font it holds is
-                // rooted by nothing Unity can see: the unload RimWorld runs on every
-                // map switch destroys it and leaves the style drawing in the default
-                // proportional face. DontUnloadUnusedAsset is the fix; the null check
-                // catches a face lost some other way, since a destroyed Font compares
-                // equal to null and the style would never rebuild on its own.
+                // A GUIStyle is not a UnityEngine.Object, so the font it holds is rooted by
+                // nothing Unity can see: the unload RimWorld runs on every map switch destroys it
+                // and leaves the style in the default proportional face. The null check catches a
+                // face lost some other way, a destroyed Font comparing equal to null.
                 if (_style != null && _size == Settings.FontSize && (_font != null || _fontless))
                     return _style;
                 _fits.Clear();
@@ -82,8 +76,8 @@ namespace SlopWorld
                     margin = new RectOffset(0, 0, 0, 0),
                 };
 
-                // Measure a run of identical glyphs: on a monospace face the advance
-                // is exact, and this dodges dynamic-font atlas warm-up entirely.
+                // Measure a run of identical glyphs: on a monospace face the advance is exact,
+                // and this dodges dynamic-font atlas warm-up entirely.
                 const string probe = "MMMMMMMMMMMMMMMMMMMM";
                 CellW = _style.CalcSize(new GUIContent(probe)).x / probe.Length;
                 CellH = Mathf.Max(_style.lineHeight, _size + 2f);
@@ -94,10 +88,9 @@ namespace SlopWorld
             }
         }
 
-        /// <summary>Whether a char advances exactly one cell. ASCII always does;
-        /// a symbol pulled from a fallback face carries that face's own advance,
-        /// and a glyph nobody has advances not at all - either would drag the rest
-        /// of the row off the grid, so the caller draws those one at a time.</summary>
+        // ASCII always does; a symbol from a fallback face carries that face's advance,
+        // and a glyph nobody has advances not at all - either would drag the rest of the
+        // row off the grid.
         public static bool FitsCell(char c)
         {
             if (c >= ' ' && c <= '~') return true;

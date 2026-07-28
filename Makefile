@@ -31,10 +31,8 @@ install-daemon: daemon
 	systemctl --user restart slopd.service
 	@systemctl --user --no-pager status slopd.service | head -3
 
-# The install is wiped rather than copied over. cp -r never deletes, so a def or
-# a texture dropped from the repo stayed installed and kept working - which is
-# worse than a build error, because the game loads the stale def and the symptom
-# is the old behaviour with none of the old code behind it. The guard is because
+# Wiped rather than copied over: cp -r never deletes, so a def dropped from the
+# repo stayed installed and the game went on loading it. The guard is because
 # this rm is only ever safe on a path we built ourselves.
 install-mod: mod
 	@test -n "$(MODS)" || { echo "MODS is empty, refusing to remove anything"; exit 1; }
@@ -43,11 +41,9 @@ install-mod: mod
 	cp -r mod/About mod/Defs mod/Patches mod/Sounds mod/Textures mod/Assemblies "$(MODS)/SlopWorld/"
 	@echo "installed to $(MODS)/SlopWorld"
 
-# The whole loop from inside a session: install both halves, then ask the daemon
-# to bounce the game so the new mod is loaded. The game saves on its way out and
-# comes back into the same colony, so an agent working on the mod can see its own
-# change without anyone touching the keyboard. Needs daemon.game_cmd set in
-# config.toml; without it the call 400s and only the install has happened.
+# Install both halves, then ask the daemon to bounce the game: it saves on the
+# way out and comes back into the same colony, so an agent working on the mod
+# sees its own change. Needs daemon.game_cmd set, or the call 400s.
 redeploy: install
 	@curl -fsS -X POST "$(API)/api/game/restart" \
 		-H "x-slop-token: $(TOKEN)" -H "content-type: application/json" \
@@ -62,7 +58,6 @@ run:
 logs:
 	@tail -f "$(LOG)"
 
-# A picture of the running game, for whoever is drawing a UI they cannot see.
 # Needs the `x11` preset on this project's sandbox; see tools/shot.sh.
 shot:
 	@tools/shot.sh $(OUT)

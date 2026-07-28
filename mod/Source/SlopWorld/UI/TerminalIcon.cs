@@ -3,15 +3,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// The ">_" that means terminal everywhere, drawn in code. It is two strokes
-    /// and a bar, which is not worth a PNG in the mod folder - and drawn white so
-    /// callers can tint it to an agent's state.
-    /// </summary>
-    // The attribute is only to quiet the startup scan: StaticConstructorOnStartupUtility
-    // warns about any type holding a static Texture2D without it, whether or not the
-    // texture is built off the main thread. This one is built lazily on first draw,
-    // which is as main-thread as it gets, so the attribute changes nothing at runtime.
+    // The ">_" that means terminal everywhere, drawn in code: two strokes and a bar,
+    // white so callers can tint it to an agent's state. The attribute only quiets the
+    // startup scan, which warns about any type holding a static Texture2D.
     [StaticConstructorOnStartup]
     public static class TerminalIcon
     {
@@ -42,9 +36,8 @@ namespace SlopWorld
             return tex;
         }
 
-        /// <summary>Lays a stroke down by distance to the segment, which antialiases
-        /// the diagonals for free - a plain Bresenham line reads as a staircase once
-        /// the gizmo scales this up.</summary>
+        // By distance to the segment, which antialiases the diagonals for free - a plain
+        // Bresenham line reads as a staircase once the gizmo scales this up.
         static void Stroke(Color[] px, float x0, float y0, float x1, float y1, float half)
         {
             float dx = x1 - x0, dy = y1 - y0;

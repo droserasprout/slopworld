@@ -8,13 +8,9 @@ using System.Threading;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// RFC6455 client, just the parts we need: text frames, ping/pong, close.
-    ///
-    /// System.Net.WebSockets.ClientWebSocket is not dependable on Unity's mono
-    /// (and less so under Wine), so we speak the protocol ourselves over a plain
-    /// TcpClient. Reads happen on a background thread; callers drain Incoming.
-    /// </summary>
+    // Text frames, ping/pong, close. ClientWebSocket is not dependable on Unity's
+    // mono and less so under Wine, so we speak the protocol over a plain TcpClient.
+    // Reads happen on a background thread; callers drain Incoming.
     public class MiniWebSocket : IDisposable
     {
         public readonly ConcurrentQueue<string> Incoming = new ConcurrentQueue<string>();
@@ -84,7 +80,7 @@ namespace SlopWorld
             }
         }
 
-        /// <summary>Reads headers byte by byte; we must not over-read into frame data.</summary>
+        // Byte by byte: we must not over-read into frame data.
         string ReadHandshake()
         {
             var sb = new StringBuilder();

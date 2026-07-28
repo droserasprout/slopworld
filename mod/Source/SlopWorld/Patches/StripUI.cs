@@ -7,25 +7,13 @@ using Verse;
 
 namespace SlopWorld
 {
-    // With the mod loaded RimWorld is a viewer, not a colony you play, so most of
-    // its own UI is dead weight. These patches strip it wholesale and
-    // unconditionally: there is no setting, being loaded is the switch.
-    //
-    // Kept on purpose (agent-facing or navigation): the colonist bar, the inspect
-    // pane, the Menu main button (save / load / quit) and our own Agents button.
-    // Everything else in the bottom bar, both notification stacks, the alert
-    // readout, the resource readout, the global controls (date / speed / temp) and
-    // the mouseover readout are suppressed. See DROPS.md for the full list.
-    //
-    // Each patch prefixes an OnGUI method and returns false to skip its draw. The
-    // target names are the 1.6 ones (this mod is 1.6-only).
+    // RimWorld is a viewer here, not a colony you play, so most of its UI is stripped
+    // wholesale and unconditionally. Kept on purpose: the colonist bar, the inspect
+    // pane, the Menu button and our own. Each patch prefixes an OnGUI method and
+    // returns false. 1.6 names; this mod is 1.6-only.
 
-    /// <summary>
-    /// OnGUI methods drawing colony-management chrome we always suppress. Each is
-    /// prefixed with a shared "return false" to skip its draw wholesale; the
-    /// target set is just data, so a table + manual patch instead of one
-    /// attribute class apiece. 1.6 names; this mod is 1.6-only.
-    /// </summary>
+    // The target set is data, so a table and a manual patch rather than one attribute
+    // class apiece.
     public static class Patch_HideGui
     {
         static readonly (Type Type, string Method)[] Targets =
@@ -50,14 +38,8 @@ namespace SlopWorld
         static bool Skip() => false;
     }
 
-    /// <summary>
-    /// The cell inspector - the debug-flavoured readout of terrain, things and
-    /// stats for the cell under the cursor, shown while Alt is held (Alt is bound
-    /// to ShowCellInspector). It exposes colony internals a viewer has no use
-    /// for. Both the overlay draw and the
-    /// Alt-hold mouseover bracket gate on CellInspectorDrawer.ShouldShow, so
-    /// forcing it false drops the whole thing.
-    /// </summary>
+    // The cell inspector, shown while Alt is held. Both the overlay draw and the
+    // Alt-hold bracket gate on ShouldShow, so forcing it false drops the whole thing.
     [HarmonyPatch(typeof(CellInspectorDrawer), "ShouldShow")]
     public static class Patch_Hide_CellInspector
     {
@@ -68,12 +50,8 @@ namespace SlopWorld
         }
     }
 
-    /// <summary>
-    /// The beauty readout - the coloured "+" / "-" value on every cell around the
-    /// cursor while Alt is held (it rides the same ShowCellInspector key as the
-    /// cell inspector, via CellInspectorDrawer.active, but is drawn by
-    /// BeautyDrawer). Just as debug-flavoured, so drop it the same way.
-    /// </summary>
+    // The beauty readout, on the same Alt key via CellInspectorDrawer.active but
+    // drawn by BeautyDrawer, so it needs its own.
     [HarmonyPatch(typeof(BeautyDrawer), "ShouldShow")]
     public static class Patch_Hide_Beauty
     {
@@ -84,26 +62,18 @@ namespace SlopWorld
         }
     }
 
-    /// <summary>
-    /// The forbidden overlay - the little "allow / deny" marker drawn over
-    /// forbidden things. A viewer never toggles allow / forbid, so the markers
-    /// are pure clutter. In 1.6 the overlay rides a persistent handle:
-    /// CompForbiddable.UpdateOverlayHandle enables it whenever the thing is
-    /// forbidden, and the mod loads before any map ticks, so skipping it means
-    /// the handle is never enabled and no marker is ever drawn.
-    /// </summary>
+    // In 1.6 the forbidden overlay rides a persistent handle:
+    // CompForbiddable.UpdateOverlayHandle enables it whenever the thing is forbidden,
+    // and the mod loads before any map ticks, so skipping it means the handle is
+    // never enabled.
     [HarmonyPatch(typeof(CompForbiddable), "UpdateOverlayHandle")]
     public static class Patch_Hide_ForbiddenOverlay
     {
         static bool Prefix() => false;
     }
 
-    /// <summary>
-    /// The inspect pane's top-right buttons - Info card, hostility response and
-    /// rename - none of which apply to an agent avatar. lineEndWidth is an
-    /// accumulator the label sizing reads back, so zero it: with no buttons drawn,
-    /// the name gets the pane's full width.
-    /// </summary>
+    // Info card, hostility response and rename. lineEndWidth is an accumulator the
+    // label sizing reads back, so zeroing it gives the name the pane's full width.
     [HarmonyPatch(typeof(MainTabWindow_Inspect), "DoInspectPaneButtons")]
     public static class Patch_Hide_InspectButtons
     {
@@ -114,14 +84,8 @@ namespace SlopWorld
         }
     }
 
-    /// <summary>
-    /// The pawn overview in the inspect pane: the Health / Food / Mood bars, the
-    /// timetable and area selectors. All colony-management detail, useless for a
-    /// viewer, so the fill is skipped for pawns. An agent's colonist keeps the
-    /// inspect line alone - rewritten elsewhere to its directory and state, which
-    /// is the one thing worth reading here. Non-pawn selections still draw
-    /// normally.
-    /// </summary>
+    // The Health/Food/Mood bars and the area selectors. An agent's colonist keeps the
+    // inspect line alone; non-pawn selections still draw normally.
     [HarmonyPatch(typeof(InspectPaneFiller), "DoPaneContentsFor")]
     public static class Patch_Hide_InspectContents
     {
@@ -130,8 +94,8 @@ namespace SlopWorld
             if (!(sel is Pawn pawn)) return true;
             if (AgentColony.Current?.SessionOf(pawn) == null) return false;
 
-            // Vanilla draws this line in a group at the content origin, below the
-            // widget row it just laid out; with no row, it starts at the top.
+            // Vanilla draws this line in a group at the content origin, below the widget row
+            // it just laid out; with no row, it starts at the top.
             Widgets.BeginGroup(rect);
             InspectPaneFiller.DrawInspectStringFor(sel, rect.AtZero());
             Widgets.EndGroup();
@@ -139,62 +103,37 @@ namespace SlopWorld
         }
     }
 
-    /// <summary>
-    /// The "select next thing in this cell" overlay button. It's drawn in
-    /// InspectPaneOnGUI, separate from the pane buttons above, and gated on this
-    /// getter. Only colonists are selectable now, so cycling a cell's things is
-    /// moot.
-    /// </summary>
+    // Only colonists are selectable now, so cycling a cell's things is moot.
     [HarmonyPatch(typeof(MainTabWindow_Inspect), "ShouldShowSelectNextInCellButton", MethodType.Getter)]
     public static class Patch_Hide_SelectNextInCell
     {
         static void Postfix(ref bool __result) => __result = false;
     }
 
-    /// <summary>
-    /// The colonist bar, top of the screen. Kept in play - it is how an agent is
-    /// picked - but hidden for the length of the opening scene, along with the
-    /// bottom bar, so the intro plays over a bare map.
-    ///
-    /// It is hidden while a terminal is open too, because the bar is drawn under
-    /// every window and the terminal is opaque and fullscreen: this draw would go
-    /// nowhere. The strip above the pane calls the same method itself, from inside
-    /// the window, and that call is the one this lets through. See
-    /// ColonistBarAboveTerminal.cs.
-    /// </summary>
+    // Hidden for the opening scene, and while a terminal is open - the bar is drawn
+    // under every window and the terminal is opaque and fullscreen. The strip above
+    // the pane calls the same method from inside the window, and that call is the one
+    // this lets through. See ColonistBarAboveTerminal.cs.
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
     public static class Patch_Hide_ColonistBar
     {
         static bool Prefix() => !Cutscene.Playing && !ColonistBarOverlay.Suppressed;
     }
 
-    /// <summary>
-    /// Hides every bottom-bar button except Menu, Inspect and our own four.
-    /// MainButtonWorker.Visible is virtual and overridden by several workers
-    /// (World, Quests, Mechs...), so we postfix the base getter plus every
-    /// declared override. Patched manually from the bootstrap because the target
-    /// set is discovered by reflection.
-    ///
-    /// Hiding the button is not the same as taking the tab away, and that gap was
-    /// visible: with nothing selected, right-clicking the map or pressing Tab put
-    /// the Architect menu - orders, structures, the whole build tree - in the
-    /// bottom-left corner of a board that builds nothing. Two roads reach it, and
-    /// neither looks at Visible. MainButtonsRoot.MainButtonsOnGUI fires any def
-    /// whose hotKey went down, checking only Disabled; MainTabsRoot
-    /// .HandleLowPriorityShortcuts opens Architect by name on a right-click with
-    /// an empty selection. Both end at MainButtonWorker.InterfaceTryActivate,
-    /// which nothing overrides, so one prefix there closes both - and gating it
-    /// on Visible means the two rules cannot drift apart.
-    /// </summary>
+    // MainButtonWorker.Visible is virtual and overridden by several workers, so the
+    // base getter and every declared override are postfixed, from the bootstrap
+    // because the set is found by reflection.
+    //
+    // Hiding the button is not taking the tab away: with nothing selected,
+    // right-clicking the map or pressing Tab put the Architect menu on a board that
+    // builds nothing. MainButtonsRoot fires any def whose hotKey went down checking
+    // only Disabled, and HandleLowPriorityShortcuts opens Architect by name - both
+    // end at InterfaceTryActivate, which nothing overrides.
     public static class Patch_MainButtons
     {
-        // Inspect is kept because it backs the inspect pane; Menu for save / quit.
-        //
-        // Every button this mod ships has to be named here, and `shortcuts` is
-        // why that is worth saying: it had a def, a worker and an order between
-        // `agents` and `config` from the day errands landed, and drew nothing for
-        // want of a line in this set. A button that is not in here is not hidden
-        // by anything you can see - it simply never appears.
+        // Every button this mod ships has to be named here. `shortcuts` had a def, a
+        // worker and an order from the day errands landed and drew nothing for want of a
+        // line in this set: a button missing from here does not appear at all.
         static readonly HashSet<string> Keep = new HashSet<string>
         {
             "Menu", "Inspect",
@@ -229,22 +168,14 @@ namespace SlopWorld
             __result = false;
         }
 
-        // A tab you cannot see is a tab you cannot open. Both callers Use() the
-        // event before getting here, so the key and the click are still swallowed -
-        // which is what we want: right-click on the map means nothing now.
+        // Both callers Use() the event before getting here, so the key and the click are
+        // still swallowed - which is what we want.
         static bool OnlyIfShown(MainButtonWorker __instance) => __instance.Visible;
     }
 
-    /// <summary>
-    /// Hides the pawn inspect-pane tabs that only make sense when you play the
-    /// colony: Bio, Needs, Health, Gear and Social. The pane itself stays for the
-    /// summary line, and non-pawn tabs (and any we don't name) are untouched.
-    ///
-    /// InspectTabBase.IsVisible is virtual: Health inherits the base getter while
-    /// the others override it and don't chain up, so - like Patch_MainButtons - we
-    /// postfix the base getter plus each override and force it false by type.
-    /// Patched manually from the bootstrap.
-    /// </summary>
+    // Bio, Needs, Health, Gear and Social. IsVisible is virtual: Health inherits the
+    // base getter while the others override it without chaining up, so the base and
+    // each override are postfixed and forced false by type.
     public static class Patch_InspectTabs
     {
         static readonly HashSet<Type> Drop = new HashSet<Type>
@@ -264,8 +195,7 @@ namespace SlopWorld
             // Base getter covers tabs that don't override IsVisible (e.g. Health).
             h.Patch(AccessTools.PropertyGetter(typeof(InspectTabBase), "IsVisible"), postfix: post);
 
-            // The overriders compute their own visibility and may not call base,
-            // so each declared getter needs the postfix too.
+            // The overriders compute their own visibility and may not call base.
             foreach (var t in Drop)
             {
                 var g = AccessTools.DeclaredPropertyGetter(t, "IsVisible");

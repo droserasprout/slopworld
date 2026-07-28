@@ -4,12 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// The transport pair - a play triangle and a stop square - drawn in code for
-    /// the same reason <see cref="TerminalIcon"/> is: two solid shapes are not
-    /// worth a PNG in the mod folder. White, so callers can tint them.
-    /// </summary>
-    // Built lazily on first draw; see TerminalIcon for why the attribute is here.
+    // A play triangle and a stop square, drawn in code for the same reason
+    // TerminalIcon is. White, so callers can tint them.
     [StaticConstructorOnStartup]
     public static class PowerIcon
     {
@@ -21,18 +17,15 @@ namespace SlopWorld
 
         public static Texture2D StopTex => _stop != null ? _stop : _stop = Build(InSquare);
 
-        /// <summary>Points right, sitting on the same optical centre as the square.</summary>
+        // Points right, sitting on the same optical centre as the square.
         static bool InTriangle(float x, float y) =>
             x >= 10f && x <= 24f && Mathf.Abs(y - 16f) <= (24f - x) * 0.62f;
 
         static bool InSquare(float x, float y) =>
             x >= 10f && x <= 22f && y >= 10f && y <= 22f;
 
-        /// <summary>
-        /// Fills by 4x4 supersampled coverage, which antialiases the triangle's
-        /// slopes for free - the gizmo scales this up well past its 32px, and a
-        /// hard-edged hypotenuse reads as a staircase there.
-        /// </summary>
+        // 4x4 supersampled coverage, which antialiases the triangle's slopes for free -
+        // the gizmo scales this well past its 32px.
         static Texture2D Build(Func<float, float, bool> inside)
         {
             const int S = 4;

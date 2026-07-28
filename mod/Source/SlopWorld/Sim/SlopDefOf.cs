@@ -33,9 +33,8 @@ namespace SlopWorld
         /// The machine persona at the map's centre: where the plague comes from.
         public static ThingDef Ship_ComputerCore;
 
-        /// Vanilla's raid klaxon, borrowed for an agent's process dying. Not on
-        /// SoundDefOf - vanilla only ever reaches it through a LetterDef - so it
-        /// gets a field here.
+        // Not on SoundDefOf - vanilla only ever reaches it through a LetterDef - so it
+        // gets a field here.
         public static SoundDef LetterArrive_BadUrgent;
 
         static SlopDefOf() => DefOfHelper.EnsureInitializedInCtor(typeof(SlopDefOf));

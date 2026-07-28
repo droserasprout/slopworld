@@ -4,64 +4,51 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// The pointer, replaced with the Tame designator's hand: mirrored so it
-    /// reaches up-left the way the vanilla arrow points, and drained to a
-    /// lifeless grey, because there is nothing left down there to tame.
-    ///
-    /// Except the cat. <see cref="Pat"/> waggles the hand for half a second when
-    /// one is patted - the one thing on this map the pointer still has a use for,
-    /// and the only time the grey moves.
-    /// </summary>
+    // The pointer, replaced with the Tame designator's hand: mirrored to reach
+    // up-left the way the vanilla arrow points, and drained to a lifeless grey,
+    // because there is nothing left down there to tame. Except the cat - Pat waggles
+    // the hand when one is patted, the only time the grey moves.
     [StaticConstructorOnStartup]
     public static class DeadCursor
     {
-        /// The vanilla arrow is 32, which is too polite to notice; X11 has no
-        /// trouble with a hardware cursor this size.
+        // The vanilla arrow is 32, which is too polite to notice; X11 has no trouble with
+        // a hardware cursor this size.
         const int N = 48;
-        /// The outline keeps its weight, the skin flattens out: grey, not pale.
+        // The outline keeps its weight, the skin flattens out: grey, not pale.
         const float Floor = 0.20f;
         const float Range = 0.68f;
 
-        /// A turned square is wider than the square: at the swing below it needs
-        /// N*(cos+sin), a shade over 62, so the spun frames get a canvas of their
-        /// own or the hand loses a corner. Still inside what X11 is safe at.
+        // A turned square is wider than the square: at the swing below it needs
+        // N*(cos+sin), a shade over 62, so the spun frames get a canvas of their own.
         const int M = 64;
 
-        /// How far the hand swings, how many times it goes out and back, and how
-        /// long all of it takes. Counter-clockwise and back rather than side to
-        /// side: a hand that crosses straight reads as a metronome.
+        // Counter-clockwise and back rather than side to side: a hand that crosses
+        // straight reads as a metronome.
         const float SpinDegrees = 22f;
         const int SpinWaggles = 2;
         const float SpinSeconds = 0.5f;
-        /// Frames cut across the swing. Twelve is smooth at this size and it is
-        /// twelve textures, built the first time a cat is patted and then kept.
+        // Twelve is smooth at this size, built the first time a cat is patted and kept.
         const int SpinSteps = 12;
 
-        /// The click, which is the same swing with most of it taken away: one
-        /// dip and back, two frames with no transition between them. A quarter
-        /// of the pat's angle because a click is a glance rather than a fuss;
-        /// the length is just long enough for the tilt to register as a tilt
-        /// rather than as the cursor blinking.
+        // The click is the same swing with most of it taken away: one dip and back, a
+        // quarter of the pat's angle, because a click is a glance rather than a fuss.
         const int ClickStep = 3;
         const float ClickSeconds = 0.12f;
 
         static Texture2D _tex;
         static Vector2 _hotspot;
-        /// The resting pixels, kept because every spun frame is cut from them.
+        // The resting pixels, kept because every spun frame is cut from them.
         static Color[] _px;
 
         static readonly Texture2D[] _spun = new Texture2D[SpinSteps + 1];
         static readonly Vector2[] _spunHot = new Vector2[SpinSteps + 1];
 
-        /// Real time the waggle ends, negative while the hand is still; and which
-        /// frame the pointer is actually wearing, so a still hand costs no calls.
+        // Which frame the pointer is actually wearing, so a still hand costs no calls.
         static float _spinUntil = -1f;
         static int _shown;
 
-        /// The same for a click. The two never run at once: a click while a pat
-        /// is going is dropped, the pat being the bigger answer, and a pat cuts
-        /// a click short rather than let the hand snap through a tilt it owns.
+        // The two never run at once: a click during a pat is dropped, the pat being the
+        // bigger answer, and a pat cuts a click short.
         static float _clickUntil = -1f;
 
         static DeadCursor()
@@ -69,21 +56,19 @@ namespace SlopWorld
             Apply();
         }
 
-        /// <summary>Hands the cursor to Unity. Cheap enough to call on every
-        /// prefs change, which is the only time the game touches the cursor.</summary>
+        // Cheap enough to call on every prefs change, which is the only time the game
+        // touches the cursor.
         public static void Apply()
         {
             if (_tex == null) Build();
             Cursor.SetCursor(_tex, _hotspot, CursorMode.Auto);
-            // Whatever frame was up is gone; a waggle in progress puts its next
-            // one back on the very next Update.
+            // Whatever frame was up is gone; a waggle in progress puts its next one back on
+            // the very next Update.
             _shown = 0;
         }
 
-        /// <summary>Sets the hand waggling, which is what a pat looks like from
-        /// this end - see <see cref="Pets.Poke"/>, the only caller. A pat while it
-        /// is already going is one that has been answered, so it is dropped rather
-        /// than snapping the swing back to straight.</summary>
+        // A pat while it is already going is one that has been answered, so it is dropped
+        // rather than snapping the swing back to straight.
         public static void Pat()
         {
             if (_spinUntil >= 0f) return;
@@ -92,11 +77,8 @@ namespace SlopWorld
             _spinUntil = Time.realtimeSinceStartup + SpinSeconds;
         }
 
-        /// <summary>One dip of the hand, answering a mouse button going down -
-        /// anywhere, so it is honest about which clicks count: the pointer
-        /// cannot tell a click on dead ground from one on a portrait, and
-        /// pretending it can is how the gesture starts to mean something it
-        /// does not.</summary>
+        // Answers a mouse button going down anywhere, which is honest: the pointer cannot
+        // tell a click on dead ground from one on a portrait.
         public static void Click()
         {
             if (_spinUntil >= 0f) return; // a pat is the bigger answer
@@ -104,9 +86,7 @@ namespace SlopWorld
             _clickUntil = Time.realtimeSinceStartup + ClickSeconds;
         }
 
-        /// <summary>Drives the waggle, once a frame off <c>Root.Update</c>. A
-        /// hardware cursor is one still image, so an animation is a texture per
-        /// frame and there is nowhere else to put it.</summary>
+        // A hardware cursor is one still image, so an animation is a texture per frame.
         public static void Tick()
         {
             if (_spinUntil < 0f)
@@ -126,8 +106,8 @@ namespace SlopWorld
                 return;
             }
 
-            // Half a sine per waggle, so the hand goes out and comes back without
-            // ever crossing to the other side of straight.
+            // Half a sine per waggle, so the hand goes out and back without ever crossing to
+            // the other side of straight.
             float t = 1f - left / SpinSeconds;
             float f = Mathf.Abs(Mathf.Sin(t * SpinWaggles * Mathf.PI));
             Show(Mathf.RoundToInt(f * SpinSteps));
@@ -150,14 +130,9 @@ namespace SlopWorld
             Cursor.SetCursor(_spun[step], _spunHot[step], CursorMode.Auto);
         }
 
-        /// <summary>The resting hand turned <paramref name="deg"/> degrees
-        /// counter-clockwise about the middle of its canvas, with the hotspot
-        /// carried along - so the fingertip stays under the mouse and it is the
-        /// hand that swings, not the pointer.
-        ///
-        /// Sampled nearest-neighbour: this is a hand-drawn icon with a black
-        /// outline, and blending it into its own transparent margin greys the
-        /// outline out at every angle.</summary>
+        // The hotspot is carried along, so the fingertip stays under the mouse and it is
+        // the hand that swings, not the pointer. Sampled nearest-neighbour: blending a
+        // black-outlined icon into its own transparent margin greys the outline out.
         static Texture2D Spin(float deg, out Vector2 hotspot)
         {
             float rad = deg * Mathf.Deg2Rad;
@@ -226,8 +201,8 @@ namespace SlopWorld
                         for (int i = x0; i < x1; i++)
                         {
                             var c = srcPx[j * w + i];
-                            // Weighting the shade by coverage keeps the transparent
-                            // margin from dragging the outline towards black.
+                            // Weighting the shade by coverage keeps the transparent margin from dragging the
+                            // outline towards black.
                             aSum += c.a;
                             lumSum += c.grayscale * c.a;
                             n++;
@@ -253,8 +228,7 @@ namespace SlopWorld
             _tex.Apply();
         }
 
-        /// <summary>Core textures come out of the bundles unreadable, so the pixels
-        /// have to be fetched back off the GPU.</summary>
+        // Core textures come out of the bundles unreadable.
         static Color[] ReadBack(Texture2D src)
         {
             var rt = RenderTexture.GetTemporary(src.width, src.height, 0, RenderTextureFormat.ARGB32);
@@ -275,9 +249,8 @@ namespace SlopWorld
             return px;
         }
 
-        /// <summary>Where the pointer actually points: the solid pixel nearest the
-        /// top-left corner, which is the fingertip here and is exactly where the
-        /// vanilla arrow puts its own hotspot.</summary>
+        // The solid pixel nearest the top-left corner, which is the fingertip and exactly
+        // where the vanilla arrow puts its own hotspot.
         static Vector2 Tip(Color[] px)
         {
             var tip = Vector2.zero;
@@ -300,8 +273,8 @@ namespace SlopWorld
         }
     }
 
-    /// <summary>The game only reaches for the cursor when prefs are applied, and it
-    /// gets ours either way - the arrow is not coming back.</summary>
+    // The game only reaches for the cursor when prefs are applied, and it gets ours
+    // either way.
     [HarmonyPatch(typeof(CustomCursor), nameof(CustomCursor.Activate))]
     public static class Patch_CustomCursor_Activate
     {
