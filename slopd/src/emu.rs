@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::term::cell::Flags;
-use alacritty_terminal::term::{Config, Term, TermMode};
+use alacritty_terminal::term::{ClipboardType, Config, Term, TermMode};
 use alacritty_terminal::vte::ansi::{Color, CursorShape, CursorStyle, Processor};
 
 /// Our own `Dimensions`, so we don't depend on the test-gated `TermSize`.
@@ -46,23 +46,46 @@ pub struct Frame {
     pub app_drag: bool,
     /// The app is on the alternate screen (no scrollback of its own).
     pub alt_screen: bool,
+    /// What the app called itself (OSC 0/2); empty until it says, and empty again
+    /// when it resets.
+    pub title: String,
+}
+
+/// Everything the VT engine hands *back* rather than draws.
+#[derive(Default)]
+struct Side {
+    /// Answers owed to the pane, written back down the pty.
+    replies: Vec<u8>,
+    /// The last OSC 52 store. One slot rather than a queue: a clipboard holds one
+    /// thing, so an app that copies twice before we drain has only ever meant the
+    /// second.
+    clip: Option<String>,
+    title: Option<String>,
 }
 
 /// Replies to cursor-position reports (`ESC[6n`), device attributes and mode
 /// queries. `VoidListener` dropped all of these, which left apps that probe the
 /// terminal (Ink, which Claude Code is built on) waiting on a report that never
 /// came and anchoring their cursor on the wrong line.
+///
+/// It also takes the two things an app says *about* itself rather than to itself:
+/// its title, and a clipboard write. Only the store half of OSC 52 is here - the
+/// default `Osc52::OnlyCopy` has `Term` refuse a load, which is the right way
+/// round when the app is an agent and the clipboard is the operator's.
 #[derive(Clone)]
 struct ReplySink {
-    buf: Arc<Mutex<Vec<u8>>>,
+    side: Arc<Mutex<Side>>,
 }
 
 impl EventListener for ReplySink {
     fn send_event(&self, event: Event) {
-        if let Event::PtyWrite(text) = event {
-            if let Ok(mut b) = self.buf.lock() {
-                b.extend_from_slice(text.as_bytes());
-            }
+        let Ok(mut s) = self.side.lock() else { return };
+        match event {
+            Event::PtyWrite(text) => s.replies.extend_from_slice(text.as_bytes()),
+            Event::ClipboardStore(ClipboardType::Clipboard, text) => s.clip = Some(text),
+            Event::Title(t) => s.title = Some(t),
+            Event::ResetTitle => s.title = None,
+            _ => {}
         }
     }
 }
@@ -72,7 +95,7 @@ pub struct SessionEmu {
     parser: Processor,
     cols: u16,
     rows: u16,
-    replies: Arc<Mutex<Vec<u8>>>,
+    side: Arc<Mutex<Side>>,
 }
 
 impl SessionEmu {
@@ -90,20 +113,14 @@ impl SessionEmu {
             },
             ..Config::default()
         };
-        let replies = Arc::new(Mutex::new(Vec::new()));
-        let term = Term::new(
-            config,
-            &dims,
-            ReplySink {
-                buf: replies.clone(),
-            },
-        );
+        let side = Arc::new(Mutex::new(Side::default()));
+        let term = Term::new(config, &dims, ReplySink { side: side.clone() });
         Self {
             term,
             parser: Processor::new(),
             cols,
             rows,
-            replies,
+            side,
         }
     }
 
@@ -113,10 +130,25 @@ impl SessionEmu {
 
     /// The caller writes these back into the pane, so the app gets its answer.
     pub fn take_replies(&mut self) -> Vec<u8> {
-        match self.replies.lock() {
-            Ok(mut b) => std::mem::take(&mut *b),
+        match self.side.lock() {
+            Ok(mut s) => std::mem::take(&mut s.replies),
             Err(_) => Vec::new(),
         }
+    }
+
+    /// The last OSC 52 store, for the caller to put on the host's clipboard.
+    /// Left in place if the caller does not ask, so a write in flight never loses
+    /// the copy that came after it.
+    pub fn take_clip(&mut self) -> Option<String> {
+        self.side.lock().ok().and_then(|mut s| s.clip.take())
+    }
+
+    fn title(&self) -> String {
+        self.side
+            .lock()
+            .ok()
+            .and_then(|s| s.title.clone())
+            .unwrap_or_default()
     }
 
     pub fn resize(&mut self, cols: u16, rows: u16) {
@@ -257,6 +289,7 @@ impl SessionEmu {
                 .mode
                 .intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG),
             alt_screen: content.mode.contains(TermMode::ALT_SCREEN),
+            title: self.title(),
         }
     }
 
@@ -584,6 +617,36 @@ mod tests {
         assert!(!f.app_drag);
         e.feed(b"\x1b[?1002h");
         assert!(e.render().app_drag);
+    }
+
+    #[test]
+    fn takes_the_title_the_app_states() {
+        let mut e = SessionEmu::new(20, 2);
+        assert_eq!(e.render().title, "");
+        e.feed(b"\x1b]0;claude - slopworld\x07");
+        assert_eq!(e.render().title, "claude - slopworld");
+        // OSC 2 is the same errand, and an empty one is a reset.
+        e.feed(b"\x1b]2;another\x1b\\");
+        assert_eq!(e.render().title, "another");
+        e.feed(b"\x1b]0;\x07");
+        assert_eq!(e.render().title, "");
+    }
+
+    #[test]
+    fn takes_an_osc52_copy() {
+        let mut e = SessionEmu::new(20, 2);
+        assert!(e.take_clip().is_none());
+        // "hello world", base64, for the clipboard selection.
+        e.feed(b"\x1b]52;c;aGVsbG8gd29ybGQ=\x07");
+        assert_eq!(e.take_clip().as_deref(), Some("hello world"));
+        // Draining is one-shot.
+        assert!(e.take_clip().is_none());
+        // Only the last one survives: a clipboard holds one thing.
+        e.feed(b"\x1b]52;c;Zmlyc3Q=\x07\x1b]52;c;c2Vjb25k\x07");
+        assert_eq!(e.take_clip().as_deref(), Some("second"));
+        // The primary selection is not the clipboard, and we have no tool for it.
+        e.feed(b"\x1b]52;p;cHJpbWFyeQ==\x07");
+        assert!(e.take_clip().is_none());
     }
 
     #[test]

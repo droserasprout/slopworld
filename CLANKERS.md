@@ -80,7 +80,7 @@ of it, neither the tmux server nor the game being in the daemon's cgroup.
 | `sandbox.rs` | The preset table, and the bubblewrap argv a session is exec'd under. |
 | `config.rs` | `config.toml` load, save, seed and migration. |
 | `usage.rs` | Polls Anthropic for what is left of the subscription. |
-| `clipboard.rs` | The host clipboard, which the game cannot reach itself. |
+| `clipboard.rs` | The host clipboard, which neither the game nor an agent can reach. |
 | `game.rs` | Launching the game, and answering whether it is up. |
 
 ### Projects
@@ -173,6 +173,26 @@ control reader ending, on `%exit` or EOF.
 
 Screens arrive event-driven: a control-mode client (`tmux -C attach`, on a pty)
 feeds `%output` bytes into the emulator, which renders on an 8ms coalescing tick.
+
+### What the app says back
+
+`%output` is the pane's bytes *raw* - tmux parses them for its own screen and
+copies them to control clients untouched - so the escapes an app aims at its
+terminal arrive here rather than being spent on tmux. `emu.rs`'s `Side` is where
+they land, alongside the pty replies:
+
+- OSC 0/2, the title, onto `Frame::title` and `ScreenView::title`, which the mod
+  draws under the session's name. It is part of what makes a frame *changed*, or a
+  title moving on a still screen would never be sent.
+- OSC 52, a copy, onto the host clipboard. This is the only word we get when an
+  app draws its own selection - Claude Code does - because the drag never comes our
+  way. `Term`'s default is `Osc52::OnlyCopy`, which is the right way round when the
+  app is an agent and the clipboard is the operator's: it may write, never read.
+  Only the `c` selection; we have no tool for PRIMARY.
+
+The clip is one slot rather than a queue - a clipboard holds one thing - and the
+control loop leaves it there while a write is in flight, so an app that states OSC
+52 every frame gets one `wl-copy` at a time and the newest text.
 
 ### Surviving a redeploy
 
@@ -413,9 +433,13 @@ none of these need a def.
   `StaticConstructorOnStartup`, so writing the cache is the one move that lands;
   `currentTipIndex` goes back with it. What is installed is a sliding window over a
   wall of quotes, shuffled and run together, wrapped to the box and scrolled a line
-  at a time with a delay drawn per scroll. The zalgo goes on the joined frame, or
-  the noise travels with the words. Dice are `System.Random`, because this screen is
-  up during map generation. `Patch_LoadingLayout` writes
+  at a time. One clock does both halves: `Tick` re-seasons and redraws, and the
+  scroll is `ScrollChance` flipped against that same tick rather than a delay of its
+  own, so the pace never reads as the machine's load. The zalgo goes on the joined
+  frame, or the noise travels with the words - `Marks` over the letter, `Overlays`
+  through it, `Gaps` a hair of extra space between words, which is the only one of
+  the three that moves anything sideways. Dice are `System.Random`, because this
+  screen is up during map generation. `Patch_LoadingLayout` writes
   `GameplayTipWindow.WindowSize` before reading it - `Box`, ISO 216, with `Lines`
   counted by probe rather than written down - and both patches stand down if the
   wall could not be built. The mods/DLC panel is patched to zero size as well as no
@@ -449,6 +473,16 @@ down while a pane is open rather than trusting the pane to have eaten the key.
 `Sgr` parses colour runs;
 `TerminalFont` deals with the cell grid; `SnapX`/`SnapY` put every box edge on a
 screen pixel, which is the thin black line that used to run through coloured diff.
+
+The title bar carries a cross and nothing else. Stop and Restart used to sit beside
+it and are in the agents list instead; `OpenMenu`, on the right button, is Copy,
+Paste and Select all - the clipboard errands, which never had a button anywhere.
+Nothing that ends an agent is in it, because a menu opened to copy a line is the
+wrong place to find one. The right button is taken before the forwarder ever sees
+it, in every mode: the menu has to be reachable from inside a full-screen TUI, and
+no agent here asks for button 2. Line two of the bar is the app's own title,
+`ScreenView.title`, off OSC 0/2 - drawn only when there is one, so a shell that
+never states one leaves the bar the height it was.
 
 The colonist strip is *in* the title bar, which is why `HeaderH` is
 `ColonistBarStrip.BarH`. `OpenOverPane` is how a window opened from the strip - the

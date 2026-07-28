@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -103,6 +103,10 @@ pub struct ScreenView {
     /// The app is on the alternate screen (no scrollback of its own).
     #[serde(default)]
     pub alt_screen: bool,
+    /// What the app calls itself (OSC 0/2), for the pane's title bar. Empty until
+    /// it says.
+    #[serde(default)]
+    pub title: String,
     /// One entry per row, still carrying SGR escapes.
     pub lines: Vec<String>,
 }
@@ -122,6 +126,7 @@ impl ScreenView {
             app_mouse: frame.app_mouse,
             app_drag: frame.app_drag,
             alt_screen: frame.alt_screen,
+            title: frame.title,
             lines: frame.lines,
         }
     }
@@ -1546,6 +1551,11 @@ impl Manager {
         let mut flush = interval(Duration::from_millis(8));
         flush.set_missed_tick_behavior(MissedTickBehavior::Delay);
         let mut dirty = false;
+        // One clipboard writer at a time. The tool is a process and the tick is 8ms
+        // apart, so an app that states OSC 52 on every frame would otherwise fork one
+        // per frame; while a write is in flight the copy stays in the emulator, and
+        // what lands is the newest.
+        let copying = Arc::new(AtomicBool::new(false));
 
         loop {
             tokio::select! {
@@ -1576,6 +1586,23 @@ impl Manager {
                     if dirty {
                         dirty = false;
                         self.render_and_broadcast(&name, &emu).await;
+                    }
+                    // The agent's own copy, on the operator's clipboard: an app that draws
+                    // its own selection - Claude Code does - never sends the drag our way,
+                    // so OSC 52 is the only word we get that anything was copied at all.
+                    if !copying.load(Ordering::Relaxed) {
+                        let clip = emu.lock().ok().and_then(|mut e| e.take_clip());
+                        if let Some(text) = clip {
+                            copying.store(true, Ordering::Relaxed);
+                            let done = copying.clone();
+                            let who = name.clone();
+                            tokio::spawn(async move {
+                                if let Err(e) = crate::clipboard::write(&text).await {
+                                    tracing::debug!("osc52 clipboard {who}: {e:#}");
+                                }
+                                done.store(false, Ordering::Relaxed);
+                            });
+                        }
                     }
                 }
             }
@@ -1608,9 +1635,10 @@ impl Manager {
                         s.app_mouse,
                         s.app_drag,
                         s.alt_screen,
+                        s.title.clone(),
                     )
                 })
-                .unwrap_or((0, false, false, false, false));
+                .unwrap_or_default();
             (
                 l.hash,
                 l.state,
@@ -1629,6 +1657,7 @@ impl Manager {
             frame.app_mouse,
             frame.app_drag,
             frame.alt_screen,
+            frame.title.clone(),
         );
         let changed = hash != prev_hash || (frame.cx, frame.cy) != prev_cursor || meta != prev_meta;
         let plain = strip_sgr(&frame.lines.join("\n"));

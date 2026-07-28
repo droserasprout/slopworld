@@ -318,6 +318,8 @@ namespace SlopWorld
         public bool AppDrag;
         // The app is on the alternate screen (no scrollback of its own).
         public bool AltScreen;
+        // What the app calls itself (OSC 0/2); empty until it says.
+        public string Title = "";
         public string[] Lines = new string[0];
 
         // Parsed lazily by the terminal window and thrown away when Seq moves.
@@ -474,6 +476,7 @@ namespace SlopWorld
                     buf.AppMouse = s["app_mouse"].AsBool(false);
                     buf.AppDrag = s["app_drag"].AsBool(false);
                     buf.AltScreen = s["alt_screen"].AsBool(false);
+                    buf.Title = s["title"].AsString();
                     buf.Lines = s["lines"].Items.Select(l => l.AsString()).ToArray();
                     buf.Runs = null; // force a re-parse on next draw
                     break;

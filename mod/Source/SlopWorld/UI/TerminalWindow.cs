@@ -241,34 +241,55 @@ namespace SlopWorld
             Text.Anchor = anchor;
         }
 
+        // Line one is ours - who this is and how big; line two is the app's own, whatever
+        // it last called itself.
+        const float NameH = 22f, TitleH = 15f;
+
+        static readonly Color CrossIdle = new Color(0.62f, 0.64f, 0.66f);
+        static readonly Color TitleColor = new Color(0.55f, 0.57f, 0.60f);
+
         void DrawHeader(Rect r, SessionInfo info)
         {
             Widgets.DrawBoxSolid(r, new Color(0.10f, 0.11f, 0.13f));
 
-            // Centred rather than parked at the top: the bar is as tall as a portrait now,
-            // and anything hanging off the ceiling reads as adrift in it.
-            var label = new Rect(r.x + Pad, r.y + (r.height - 22f) / 2f, r.width - 340f, 22f);
-            Text.Font = GameFont.Small;
-
-            var state = info?.State ?? AgentState.Down;
-            GUI.color = StateColor(state);
-            Widgets.Label(label, $"{_name}  [{state.ToString().ToLower()}]  {_cols}x{_rows}");
-            GUI.color = Color.white;
-
-            float x = r.xMax - Pad;
-            float by = r.y + (r.height - 24f) / 2f;
-
-            x -= 90f;
-            if (Widgets.ButtonText(new Rect(x, by, 86f, 24f), "Close"))
+            // Stop and Restart used to sit here, and are in the agents list instead: a
+            // status light does not want three buttons over it, and the one thing worth a
+            // click of its own is leaving.
+            // 18, which is the texture's own size: anything larger is a scaled-up X with
+            // soft edges where the rest of the chrome is crisp.
+            var cross = new Rect(r.xMax - Pad - 18f, r.y + (r.height - 18f) / 2f, 18f, 18f);
+            TooltipHandler.TipRegion(cross, "Close  (Shift+Esc)");
+            if (Widgets.ButtonImage(cross, TexButton.CloseXSmall, CrossIdle, Color.white))
                 Close();
 
-            x -= 94f;
-            if (Widgets.ButtonText(new Rect(x, by, 90f, 24f), "Restart"))
-                SessionHub.Instance.Restart(_name, Fail);
+            var buf = DisplayedBuf();
+            string title = buf?.Title ?? "";
 
-            x -= 94f;
-            if (Widgets.ButtonText(new Rect(x, by, 90f, 24f), "Stop"))
-                SessionHub.Instance.Stop(_name, Fail);
+            // The two lines are centred together rather than parked at the top: the bar is
+            // as tall as a portrait now, and anything hanging off the ceiling reads as
+            // adrift in it.
+            float h = string.IsNullOrEmpty(title) ? NameH : NameH + TitleH;
+            float w = Mathf.Min(r.width * 0.4f, cross.x - r.x - Pad * 2f);
+            float y = r.y + (r.height - h) / 2f;
+
+            var state = info?.State ?? AgentState.Down;
+            Text.Font = GameFont.Small;
+            GUI.color = StateColor(state);
+            Widgets.Label(new Rect(r.x + Pad, y, w, NameH),
+                $"{_name}  [{state.ToString().ToLower()}]  {_cols}x{_rows}");
+
+            if (!string.IsNullOrEmpty(title))
+            {
+                // Tiny, so a title long enough to matter still fits the width the strip
+                // leaves; truncated with the game's own ellipsis rather than clipped, which
+                // is the difference between a shortened title and a broken one.
+                Text.Font = GameFont.Tiny;
+                GUI.color = TitleColor;
+                Widgets.Label(new Rect(r.x + Pad, y + NameH, w, TitleH), title.Truncate(w));
+            }
+
+            GUI.color = Color.white;
+            Text.Font = GameFont.Small;
         }
 
         public static Color StateColor(AgentState s)
@@ -281,9 +302,6 @@ namespace SlopWorld
                 default: return new Color(0.85f, 0.35f, 0.35f);
             }
         }
-
-        static void Fail(string msg) => Messages.Message($"SlopWorld: {msg}",
-            MessageTypeDefOf.RejectInput, false);
 
         void DrawCentered(Rect r, string msg)
         {
@@ -764,6 +782,17 @@ namespace SlopWorld
 
         void HandleMouse(Rect body, Event e)
         {
+            // The right button is the pane's own, in every mode and whatever the app asked
+            // for: with the header down to a cross this menu is where the rest of the
+            // actions live, and it has to be reachable from inside a full-screen TUI.
+            if (e.button == 1)
+            {
+                if (e.type == EventType.MouseDown && body.Contains(e.mousePosition))
+                    OpenMenu();
+                e.Use();
+                return;
+            }
+
             // Shift forces our own local selection, like a real terminal. The forwarder hands
             // a gesture back when it turns out to be one the app never asked for.
             var live = SessionHub.Instance.Screen(_name);
@@ -875,20 +904,69 @@ namespace SlopWorld
             return _scrollOff > 0 ? (hub.ScrollScreen(_name) ?? live) : live;
         }
 
+        void CopySelection()
+        {
+            var buf = DisplayedBuf();
+            if (buf != null) CopyText(SelectionText(buf));
+        }
+
+        // What the pane is showing, whole. The trailing newlines go: a screen is padded
+        // out to its row count and an app half a screen tall would otherwise copy the
+        // blank half with it.
+        void SelectAll()
+        {
+            var buf = DisplayedBuf();
+            if (buf == null || buf.Lines.Length == 0) return;
+
+            EnsureRuns(buf);
+            _selA = Vector2Int.zero;
+            _selB = new Vector2Int(buf.Cols, buf.Runs.Length - 1);
+            _hasSel = true;
+            _dragging = false;
+            CopyText(SelectionText(buf).TrimEnd('\n'));
+        }
+
         // The *host's* clipboard, through the daemon: on this Unity player
         // `GUIUtility.systemCopyBuffer` is as often the process's own buffer as the
         // desktop's. Failure is a log line rather than a dialog - a box over the terminal
         // every time a host has no `wl-copy` is worse than the miss.
-        void CopySelection()
+        //
+        // An agent copying on its own behalf never comes through here: it says OSC 52 and
+        // the daemon puts that on the same clipboard, which is the only word we get when
+        // the app draws its own selection.
+        void CopyText(string text)
         {
-            var buf = DisplayedBuf();
-            if (buf == null) return;
-            string text = SelectionText(buf);
             if (string.IsNullOrEmpty(text)) return;
 
             GUIUtility.systemCopyBuffer = text;
             SlopClient.Post("/api/clipboard", "{\"text\":" + JVal.Q(text) + "}", null,
                 msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
+        }
+
+        // The clipboard errands, which never had a button at all. Nothing that ends an
+        // agent is in here: stopping one is a thing you go to the agents list to do, and
+        // a menu you opened to copy a line is the wrong place to find it.
+        //
+        // Opened over the pane, since an ordinary dialog would be added underneath a
+        // window on the Super layer and never seen.
+        void OpenMenu()
+        {
+            var options = new List<FloatMenuOption>();
+
+            var copy = new FloatMenuOption("Copy", CopySelection);
+            copy.Disabled = !_hasSel;
+            options.Add(copy);
+            options.Add(new FloatMenuOption("Paste", () => { JumpToLive(); PasteClipboard(); }));
+            options.Add(new FloatMenuOption("Select all", SelectAll));
+
+            if (_scrollOff > 0)
+                options.Add(new FloatMenuOption("Back to the live view", () =>
+                {
+                    JumpToLive();
+                    ClearSelection();
+                }));
+
+            OpenOverPane(new FloatMenu(options));
         }
 
         // Falling back to the game's own buffer when the daemon cannot reach a clipboard.
