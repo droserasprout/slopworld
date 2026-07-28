@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
@@ -40,6 +41,10 @@ namespace SlopWorld
 
         static ThingDef[] _pool;
 
+        // The colonist bar's own clock face, which is the one clock this game draws.
+        static Texture2D _clock;
+        static bool _looked;
+
         public UsageReadout(Map map) : base(map) { }
 
         public override void MapComponentOnGUI()
@@ -49,39 +54,78 @@ namespace SlopWorld
             var usage = SessionHub.Instance.Usage;
 
             // Nothing ever heard and nothing wrong: usage polling is off, or the daemon has
-            // not answered yet.
-            if (!usage.Any && string.IsNullOrEmpty(usage.Error)) return;
+            // not answered yet. The clock is the colony's own and stays either way.
+            bool quota = usage.Any || !string.IsNullOrEmpty(usage.Error);
 
             // Vanilla's legibility trick for this corner, which went out with the readout
             // Patch_HideGui strips. It leaves GUI.color white behind it, so it goes before
             // anything is tinted.
             GenUI.DrawTextWinterShadow(new Rect(256f, 512f, -256f, -512f));
 
-            // Stale numbers stay on screen but stop looking authoritative.
-            bool stale = !usage.Ok || usage.Age > StaleAfter;
-            float alpha = stale ? 0.55f : 1f;
-
             var old = GUI.color;
-            GUI.color = new Color(1f, 1f, 1f, alpha);
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
 
             float y = Y;
-            if (!usage.Any)
+
+            // First row, above the quota: the resource nothing here can spend or make back.
+            GUI.color = Color.white;
+            DrawClock(new Rect(X, y, RowW, RowH));
+            y += RowH;
+
+            if (quota)
             {
-                DrawUnknown(new Rect(X, y, RowW, RowH), usage);
-            }
-            else
-            {
-                foreach (var w in usage.Windows)
+                // Stale numbers stay on screen but stop looking authoritative.
+                bool stale = !usage.Ok || usage.Age > StaleAfter;
+                float alpha = stale ? 0.55f : 1f;
+
+                GUI.color = new Color(1f, 1f, 1f, alpha);
+
+                if (!usage.Any)
                 {
-                    DrawWindow(new Rect(X, y, RowW, RowH), usage, w, alpha);
-                    y += RowH;
+                    DrawUnknown(new Rect(X, y, RowW, RowH), usage);
+                }
+                else
+                {
+                    foreach (var w in usage.Windows)
+                    {
+                        DrawWindow(new Rect(X, y, RowW, RowH), usage, w, alpha);
+                        y += RowH;
+                    }
                 }
             }
 
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = old;
+        }
+
+        // The wall clock, which is also the game's - RealClock steers the calendar off it,
+        // so the hour in this row is the hour the sun outside the window is keeping.
+        void DrawClock(Rect row)
+        {
+            DateTime now = DateTime.Now;
+
+            if (!_looked)
+            {
+                _looked = true;
+                _clock = ContentFinder<Texture2D>.Get("UI/Icons/ColonistBar/Idle", false);
+            }
+
+            if (_clock != null)
+            {
+                // A colonist bar icon is drawn small; a resource icon has the whole row, so
+                // it is inset to sit at the weight of the ThingIcons under it.
+                var box = new Rect(row.x, row.y, IconSize, IconSize).ContractedBy(3f);
+                GUI.DrawTexture(box, _clock);
+            }
+
+            Widgets.Label(new Rect(row.x + TextX, row.y, row.width - TextX, row.height),
+                now.ToString("HH:mm"));
+
+            TooltipHandler.TipRegion(row, new TipSignal(
+                now.ToString("dddd, d MMMM yyyy") + "\n" + now.ToString("HH:mm:ss")
+                + "\n" + "one real day to the colony's day, landing day being day one",
+                0x51_0F_0001));
         }
 
         void DrawWindow(Rect row, UsageInfo usage, UsageWindow w, float alpha)
