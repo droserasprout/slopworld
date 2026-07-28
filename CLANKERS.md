@@ -1055,12 +1055,12 @@ none of these need a def.
   What is installed is not the tips but a sliding window over a wall of them. The
   quotes are shuffled and run together into one stream - a space between, no
   punctuation added, nothing to say where one ends - which is broken into lines at
-  the width of the box, and a frame is six of those in a row. Stepping the index
+  the width of the box, and a frame is a boxful of those in a row. Stepping the index
   one place is the wall scrolling up a line. A quote no longer owns a line: it
   starts wherever the last one left off, which is what makes this read as dense
   text going past rather than as a series of sayings. The stream is dealt three
-  times, each pass shuffled on its own, because one pass is forty-odd lines and a
-  loop that comes round in ten seconds is shorter than a load. Every scroll draws
+  times, each pass shuffled on its own, because one pass is ninety-odd lines and a
+  loop a load could sit through twice has a seam in it. Every scroll draws
   its own delay between
   `MinSeconds` and `MaxSeconds` (0.05s and 0.5s), so the block sometimes flicks
   past and sometimes sits there; a fixed catch every tenth scroll was the first
@@ -1077,20 +1077,29 @@ none of these need a def.
   The dice are `System.Random` and not `Verse.Rand`, which is load-bearing: this
   screen is up *during* map generation, and a draw off the global sequence once a
   frame is a loading screen quietly deciding where the rivers go.
-  Six lines need a box that holds them. Vanilla's is 776x60 with a 15x8 margin,
+  A wall needs a box that holds one. Vanilla's is 776x60 with a 15x8 margin,
   which leaves 44px of text - two lines of `GameFont.Small` and no more - so
   `Patch_LoadingLayout` writes `GameplayTipWindow.WindowSize` before it reads it.
   What it writes is `Patch_LoadingTips.Box` rather than a number of its own,
   because the same figure is what the text was wrapped to and a box that
-  disagrees with the wrap is lines that stop short or spill off the edge. Width
-  is a ceiling (900) rather than a number, since `UI.screenWidth` is in the
-  game's own scaled coordinates and a 4K screen at UI scale 2 reports 960 of
-  them; height is measured off a probe of six lines rather than multiplied out of
-  `Text.LineHeight`, which is what the game lays rows out on and is a good bit
-  taller than the spacing Unity draws - the difference was an empty line and a
-  half under the wall. The field is `static initonly` and the write is caught: a
-  runtime that refuses it leaves vanilla's box with the left of the wall in it,
-  which is a worse loading screen and not a broken one.
+  disagrees with the wrap is lines that stop short or spill off the edge. The
+  shape is a sheet of paper - `Ratio`, ISO 216 - because that is what a narrow
+  column of dense text going past is: a page being read rather than a ticker. So
+  the width is the small figure and a ceiling (420) rather than a number, since
+  `UI.screenWidth` is in the game's own scaled coordinates and a 4K screen at UI
+  scale 2 reports 960 of them; the height follows from the width, and the line
+  count from the height. `Lines` is counted rather than written down - a probe of
+  one line and a probe of two give the font's own slack and the step between
+  rows, and the rows that fit the sheet are the rest of the division - because
+  that answer is the font's and moves with the screen. A screen with no room for
+  a whole sheet gets what it has room for, down to `MinLines`, below which this
+  is a caption again and vanilla's box would do. Every height in there is a
+  probe rather than a multiple of `Text.LineHeight`, which is what the game lays
+  rows out on and is a good bit taller than the spacing Unity draws - the
+  difference was an empty line and a half under the wall. The field is
+  `static initonly` and the write is caught: a runtime that refuses it leaves
+  vanilla's box with the left of the wall in it, which is a worse loading screen
+  and not a broken one.
   The drawing is ours too, `Patch_LoadingTipBlock` on the private `DrawContents`.
   Vanilla sets `MiddleCenter`, which is right for one line of advice and wrong for
   a wall - centred text has a ragged edge on both sides, and every scroll shuffles

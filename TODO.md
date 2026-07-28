@@ -11,7 +11,7 @@ Remove ticked bullets when verified.
 - [ ] Suppress the "unsaved work will be lost" confirmation now that quitting always saves.
 - [ ] "Tab / Shift+Tab in floating windows to navigate between fields (might be hard to implement)
 - [ ] Cleanup: drop items that don't affect our "game" from Settings window if it can be modded.
-- [x] Move "New colony" button from "Agents" to the main menu (one triggered by Esc or the last hamburger button in the bottom bar). Rename to "Next planet". Skip the confirmation. Cinematics before starting new game: disable UI like in initial scene, then burn/explode everything on the map. Wait 5-7 seconds and proceed to creating new game.
+- [ ] Next planet cinematics: disable UI, pause a little before bombing, bomb in multiple waves with a little pause. Then drammatic pause. Then new game.
 
 ## Terminal
 
@@ -20,7 +20,7 @@ Remove ticked bullets when verified.
 - [ ] Bug: copy doesn't work (Claude tmux integration?)
 - [ ] Add "+" button to the small floating colonist panel
 - [ ] Add terminal title to title bar (below basic terminal info)
-- [ ] Don't minify colonists top center bar. Render it as is and grow title bar accordingly.
+- [ ] Don't minify colonists top center bar. Render it as is and grow title bar accordingly (a little). Also resources (== usage) drawn above terminal.
 - [ ] Bug: DnD text selection highlights the whole line under the cursor including empty space
 - [ ] Color schemes. Default to dark RimWorld-style pallette.
 - [ ] Cursor color
@@ -34,7 +34,8 @@ Remove ticked bullets when verified.
 ## "Game"
 
 - [ ] Bug: When clanker is down, Strip action button shown in it's menu.
-- [ ] Bug: day/night in game is not synced with real time in user's timezone
+- [ ] Lights
+- [ ] Workplaces
 - [ ] Human: tune plague odds and spread rate
 - [ ] Alt+Num focuses clanker in main view like a tab in terminal
 

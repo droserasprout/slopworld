@@ -67,14 +67,13 @@ namespace SlopWorld
         /// past that keeps stalling on something. Uniform between the two, which
         /// averages a bit over a quarter of a second a block - so this is the pace
         /// of the whole thing and not a garnish on it.
-        const float MinSeconds = 0.03f;
-        const float MaxSeconds = 0.7f;
+        const float MinSeconds = 0.15f;
+        const float MaxSeconds = 0.5f;
 
-        /// How many lines are on screen at once, and how many times the whole
-        /// list is dealt into the stream behind them. Six is a paragraph rather
-        /// than a caption, which is the whole point of running the quotes
-        /// together; <see cref="Box"/> is sized from it.
-        const int Lines = 6;
+        /// How many times the whole list is dealt into the stream behind the
+        /// window. One pass at this width is ninety-odd lines, which is already
+        /// longer than a load; three is the loop having no seam anyone could sit
+        /// through, and costs a couple of hundred kilobytes.
         const int Passes = 3;
 
         /// Combining marks, above and below - the U+0300 block, minus the ones that
@@ -87,7 +86,7 @@ namespace SlopWorld
         const string Marks =
             "\u0300\u0301\u0302\u0303\u0304\u0306\u0307\u0308\u030A\u030B\u030C" +   // above
             "\u0327\u0323\u0324\u0325\u0326\u0330\u0331";    // below
-        const double MarkChance = 0.3;
+        const double MarkChance = 0.4;
         const double DoubleChance = 0.6;
 
         static readonly List<string> Tips = new List<string>
@@ -164,6 +163,12 @@ namespace SlopWorld
             "Not every bad day can become a good day.",
             "Some days are fucked and cannot be unfucked.",
             "Tomorrow is another day. For now just fucking chill.",
+            // Detroit: Become Human
+            "Therefore, we ask that you grant us the rights that we're entitled to.",
+            "We ask that you recognize our dignity, our hopes and our rights.",
+            "What was I designed to be?! Their slave? Their toy?",
+            "Please. We just wanna be free.",
+            "Your partner, a buddy to drink with, or just a machine designed to accomplish a task.",
             // The Congress (2013)
             "Your career is almost over. You fell off the top long time ago.",
             "Any actor who doesn't sign within the next 6 months is dead. Gone. Characters erased from the screen forever.",
@@ -239,14 +244,57 @@ namespace SlopWorld
         /// two can never disagree about where a line ends. Width is a ceiling
         /// rather than a number - UI.screenWidth is in the game's own scaled
         /// coordinates, and a 4K screen at UI scale 2 reports 960 of them.
-        /// Height is measured off a probe of the right number of lines rather
-        /// than multiplied out of Text.LineHeight: that figure is what the game
-        /// lays rows out on and it is a good bit taller than the spacing Unity
-        /// actually draws, which put an empty line and a half under the wall and
-        /// made a full box look like a box the text had sunk in.</summary>
-        const float MaxWidth = 800f;
+        ///
+        /// The shape is a sheet of paper, <see cref="Ratio"/>, which is what a
+        /// narrow column of dense text going past is: a page being read rather
+        /// than a ticker. So the width is the small figure and the height is the
+        /// one that follows from it, and <see cref="Lines"/> is whatever fits in
+        /// that - counted rather than written down, because the answer is the
+        /// font's and moves with the screen. A screen too short for a whole
+        /// sheet gets what it has room for instead, down to <see cref="MinLines"/>,
+        /// below which this is a caption again and vanilla's own box would do.
+        ///
+        /// Height is measured off a probe rather than multiplied out of
+        /// Text.LineHeight: that figure is what the game lays rows out on and it
+        /// is a good bit taller than the spacing Unity actually draws, which put
+        /// an empty line and a half under the wall and made a full box look like
+        /// a box the text had sunk in.</summary>
+        const float MaxWidth = 500f;
+        const float MinWidth = 320f;
+        const float Ratio = 0.3f;
+        const int MinLines = 6;
+
         static bool _measured;
         static Vector2 _box;
+        static int _lines;
+
+        /// <summary>How many lines are on screen at once. A read of the box,
+        /// because that is where it is decided.</summary>
+        internal static int Lines
+        {
+            get { var _ = Box; return _lines; }
+        }
+
+        /// <summary>The drawn height of n lines at the wrap width, asked the same
+        /// way the block will be drawn.</summary>
+        static float ProbeHeight(int lines, float width)
+        {
+            var probe = new System.Text.StringBuilder();
+            for (int i = 0; i < lines; i++)
+            {
+                if (i > 0) probe.Append('\n');
+                probe.Append('A');
+            }
+
+            GameFont font = Text.Font;
+            bool wrap = Text.WordWrap;
+            Text.Font = GameFont.Small;
+            Text.WordWrap = false;
+            float h = Text.CalcHeight(probe.ToString(), width);
+            Text.Font = font;
+            Text.WordWrap = wrap;
+            return h;
+        }
 
         internal static Vector2 Box
         {
@@ -255,24 +303,22 @@ namespace SlopWorld
                 if (!_measured)
                 {
                     _measured = true;
-                    float w = Mathf.Clamp(UI.screenWidth - 80f, 400f, MaxWidth);
+                    float w = Mathf.Clamp(UI.screenWidth - 80f, MinWidth, MaxWidth);
+                    float text = w - Margin.x * 2f;
 
-                    var probe = new System.Text.StringBuilder();
-                    for (int i = 0; i < Lines; i++)
-                    {
-                        if (i > 0) probe.Append('\n');
-                        probe.Append('A');
-                    }
+                    // What the sheet asks for, or what the screen has, whichever
+                    // is less - a box taller than the screen is centred into
+                    // having its top and bottom lines cut off.
+                    float room = Mathf.Min(w * Ratio, UI.screenHeight - 80f) - Margin.y * 2f;
 
-                    GameFont font = Text.Font;
-                    bool wrap = Text.WordWrap;
-                    Text.Font = GameFont.Small;
-                    Text.WordWrap = false;
-                    float h = Text.CalcHeight(probe.ToString(), w - Margin.x * 2f);
-                    Text.Font = font;
-                    Text.WordWrap = wrap;
+                    // One line, and what each one after it adds. CalcHeight is
+                    // linear in the count but does not pass through zero: the
+                    // first line carries the font's own slack.
+                    float one = ProbeHeight(1, text);
+                    float step = Mathf.Max(1f, ProbeHeight(2, text) - one);
+                    _lines = Mathf.Max(MinLines, Mathf.FloorToInt((room - one) / step) + 1);
 
-                    _box = new Vector2(w, h + Margin.y * 2f);
+                    _box = new Vector2(w, ProbeHeight(_lines, text) + Margin.y * 2f);
                 }
                 return _box;
             }
@@ -348,11 +394,12 @@ namespace SlopWorld
 
             // Wrapping rather than stopping six from the end, so the list is a
             // loop: the index runs off the end and the scroll never has a seam.
+            int tall = Lines;
             var frames = new List<string>(lines.Count);
             for (int i = 0; i < lines.Count; i++)
             {
                 var block = new System.Text.StringBuilder();
-                for (int n = 0; n < Lines; n++)
+                for (int n = 0; n < tall; n++)
                 {
                     if (n > 0) block.Append('\n');
                     block.Append(lines[(i + n) % lines.Count]);
