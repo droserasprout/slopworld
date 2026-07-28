@@ -40,9 +40,9 @@ namespace SlopWorld
         // How long the first rot takes, once, on the way in from clean.
         const float OnsetSecs = 6f;
 
-        // The plague's own pink, so the menu and the map describe the same thing. Matches
-        // SlopPlagueGas by eye rather than by reference.
-        static readonly Color Sick = new Color(0.95f, 0.42f, 0.72f, 1f);
+        // The plague's own violet, so the menu and the map describe the same thing.
+        // Matches SlopPlagueGas by eye rather than by reference.
+        static readonly Color Sick = new Color(0.80f, 0.38f, 0.86f, 1f);
 
         // Starts a third of the way down the rot, so the planet goes wrong before it goes
         // up - a picture already alight at stage one has nowhere to travel.
@@ -76,7 +76,7 @@ namespace SlopWorld
 
         // Bump it and every install rebakes, which is what a change to any constant above
         // needs.
-        const int Version = 4;
+        const int Version = 5;
 
         static Texture2D[] _frames;
         // The cache key, and how a background switched in Options is noticed.

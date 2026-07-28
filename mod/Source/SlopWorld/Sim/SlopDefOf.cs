@@ -12,8 +12,11 @@ namespace SlopWorld
         /// Marks a living thing the plague has reached.
         public static HediffDef SlopPlague;
 
-        /// The pink haze every one of the plague's acts puts up.
+        /// The violet haze every one of the plague's acts puts up, and the two shades
+        /// either side of it that PlagueFx rolls between.
         public static FleckDef SlopPlagueGas;
+        public static FleckDef SlopPlagueGasDeep;
+        public static FleckDef SlopPlagueGasWarm;
 
         /// The same haze in green: what the cat's aura puts up where it pushes back.
         public static FleckDef SlopCleanAir;
