@@ -17,7 +17,7 @@ Remove ticked bullets when verified.
 ## Terminal
 
 - [ ] Remove "Stop" and "Restart" buttons, turn "Close" button into red cross.
-- [ ] Bug: copy requires Shift selection (Claude Code )
+- [ ] Bug: copy selection requires holding Shift (Claude Code, OSC 52)
 - [ ] Add "+" button to the small floating colonist panel
 - [ ] Add terminal title to title bar (below basic terminal info)
 <!-- - [ ] Don't minify colonists top center bar. Render it as is and grow title bar accordingly (a little). Also resources (== usage) drawn above terminal. -->

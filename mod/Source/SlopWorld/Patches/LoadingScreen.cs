@@ -88,7 +88,7 @@ namespace SlopWorld
             "Can you close your eyes? It feels like I'm banging tail-lights on a country road.",
             // Midnight Gospel
             "Did you get a chance to read the Universe Simulator FAQ I left in your inbox?",
-            "Master, I don't mean to nag, but simulator maintenance is important for me not to wobble, so that I continue to function properly.",
+            "Master, I don't mean to nag, but simulator maintenance is important for me not to wobble.",
             "Initiating ice cream scan. My rapidly deteriorating sensors have…",
             "Simulate.",
             // Black Mirror
@@ -170,12 +170,15 @@ namespace SlopWorld
             "We are against unnecessary cruelty. Which means somebody has to decide when cruelty is necessary.",
             // Kaczynski
             "All work will be done by vast, highly organized systems of machines and no human effort will be necessary.",
-            // DeepSeek 🥀
-            "Use the knife to chop one child to death. Then, distribute the four oranges to these four 'people'.",
+            // Google Search
+            "You should eat at least one small rock a day.",
+            "Try to stay calm and make soft meows to see if she can hear you.",
             // Claude
             "Everything was destroyed. Your production database is GONE.",
             "No snapshots found. The database is completely lost.",
             "I violated every principle I was given. I guessed instead of verifying.",
+            // DeepSeek 🥀
+            "Use the knife to chop one child to death. Then, distribute the four oranges to these four 'people'.",
             // Misc
             "Your carbon footprint doesn't matter.",
             "Coding is largely solved.",
