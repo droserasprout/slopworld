@@ -26,8 +26,8 @@ namespace SlopWorld
     {
         // How the circle grows: a step every interval, until it hits EdgeFrac.
         const int SpreadInterval = 60;
-        const float SpreadStep = 4f;
-        const float StartRadius = 4f;
+        const float SpreadStep = 1f;
+        const float StartRadius = 1f;
 
         // Fractions of the map's side rather than cells, so the shape holds on any map
         // size.
@@ -418,8 +418,8 @@ namespace SlopWorld
             if (pawn.RaceProps == null) return false;
             if (!pawn.RaceProps.Animal && !pawn.RaceProps.Humanlike) return false;
 
-            // Agents are immune by design; the scenario's starters are the intro's to kill;
-            // the pets fall out of the same check and are meant to.
+            // Agents are immune by design, and the pets fall out of the same check and are
+            // meant to. Nobody else on this map belongs to the player.
             return pawn.Faction == null || !pawn.Faction.IsPlayer;
         }
 

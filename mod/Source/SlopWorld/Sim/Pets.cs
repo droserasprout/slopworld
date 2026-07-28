@@ -7,9 +7,8 @@ using Verse.AI;
 
 namespace SlopWorld
 {
-    // The colony's cat: the one living thing on this map that nothing kills, and both
-    // halves are deliberate - the purge hands it to GenExplosion as an ignoredThing,
-    // and Plague.Infectable spares the whole player faction.
+    // The colony's cat: the one living thing on this map that nothing kills, which is
+    // `Plague.Infectable` sparing the whole player faction.
     //
     // One, not a litter: a scattering of biome-appropriate animals reads as a
     // starting scenario, which is what this map is not. Clicking it pats it, the cat
@@ -17,13 +16,8 @@ namespace SlopWorld
     // so the count is a policy in Place rather than an assumption in three files.
     public static class Pets
     {
-        // How far from the starters it lands, and how hard we look for a cell.
-        const int ScatterRadius = 7;
+        // How hard we look for a cell to stand her on.
         const int PlacementTries = 40;
-
-        // Shorter than vanilla's 110, because the intro is waiting on this: the cat has
-        // to be out and walking before the core lands on the party.
-        const int PodOpenDelay = 60;
 
         // A drag box over the colony calls Select once per thing inside it, so without
         // this a stray drag sets off every animal on the map at once.
@@ -47,11 +41,12 @@ namespace SlopWorld
         public static List<Pawn> On(Map map) =>
             map?.mapPawns?.SpawnedColonyAnimals?.Where(Is).ToList() ?? new List<Pawn>();
 
-        // Called once by the intro, the moment the first pod opens: any earlier and they
-        // are all still in the air, any later and there is nobody left to have owned it.
-        // In a pod of its own rather than placed - an animal already standing there when
-        // the camera arrives belongs to the map instead of to them.
-        public static void Place(Map map, IntVec3 near)
+        // Called once by the intro, at the top of the scene: she is already out there
+        // when everything else is placed, so she reads as having been on this hillside
+        // before any of it - the core falls onto her map rather than her onto its.
+        // Placed anywhere standable, not near the middle: a cat that lands on the mark
+        // is a delivery.
+        public static void Place(Map map)
         {
             if (map == null) return;
 
@@ -71,16 +66,16 @@ namespace SlopWorld
                 return;
             }
 
-            Place(map, near, cat);
+            Place(map, cat);
         }
 
-        static void Place(Map map, IntVec3 near, PawnKindDef kind)
+        static void Place(Map map, PawnKindDef kind)
         {
             try
             {
-                if (!CellFinder.TryFindRandomCellNear(near, map, ScatterRadius,
-                        c => c.Standable(map), out var cell, PlacementTries))
-                    cell = near;
+                if (!CellFinderLoose.TryGetRandomCellWith(
+                        c => c.Standable(map), map, PlacementTries, out var cell))
+                    cell = map.Center;
 
                 var req = new PawnGenerationRequest(kind, Faction.OfPlayer,
                     PawnGenerationContext.NonPlayer, forceGenerateNewPawn: true);
@@ -88,11 +83,7 @@ namespace SlopWorld
                 var pet = PawnGenerator.GeneratePawn(req);
                 pet.Name = PawnBioAndNameGenerator.GeneratePawnName(pet);
 
-                // Not forbidden: a forbidden pet is one the colony is told to leave alone.
-                DropPodUtility.DropThingsNear(cell, map, new List<Thing> { pet },
-                    openDelay: PodOpenDelay, canInstaDropDuringInit: false,
-                    leaveSlag: false, canRoofPunch: true, forbid: false,
-                    allowFogged: true, faction: Faction.OfPlayer);
+                GenSpawn.Spawn(pet, cell, map);
 
                 Log.Message($"[SlopWorld] the cat is '{pet.LabelShort}' ({kind.defName})");
             }

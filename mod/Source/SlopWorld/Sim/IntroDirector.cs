@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -9,15 +8,19 @@ namespace SlopWorld
     // The opening scene of a fresh colony, once, as a cutscene: nothing on the map is
     // clickable and no UI is drawn until it is over.
     //
-    // A hillside populated with living animals and people - placed, because a hundred
-    // pods would be a different scene - then the scenario's starters and the cat come
-    // down, walk about, and the persona core falls on the middle of them. It vents
-    // alone for a couple of seconds, so what follows reads as having come out of it:
-    // the starters go up, the plague is armed, and the agents walk out of the haze.
+    // A hillside populated with living animals and people, the cat among them - all
+    // placed, because a hundred pods would be a different scene - and then the persona
+    // core falls into the middle of it. It vents alone for a couple of seconds, so what
+    // follows reads as having come out of it: the plague is armed, and only then do the
+    // clankers come down into it.
     //
-    // Bodies are placed alive and killed on camera rather than placed dead, which is
-    // cheaper and the whole point. The phase is persisted so a reload never replays
-    // the intro; the work lists are not, so a reload mid-intro skips ahead.
+    // Nobody is standing on this map at tick zero. The scenario hands over no people
+    // (SlopScenario), so the only things that fall are the ones this scene calls for,
+    // in the order it wants them. The living are placed alive and left to the plague,
+    // which is cheaper than killing them on camera and is the whole point.
+    //
+    // The phase is persisted so a reload never replays the intro; the work lists are
+    // not, so a reload mid-intro skips ahead.
     public class IntroDirector : GameComponent
     {
         // How much life the scene puts on the map before killing it.
@@ -29,11 +32,16 @@ namespace SlopWorld
         // Generating a pawn is expensive; a few per tick keeps the frame smooth.
         const int SpawnsPerTick = 6;
 
-        // Walk is measured from the first starter standing, so it has to cover the cat's
-        // own pod falling and opening - up to four seconds - as well as the walking.
-        const float WalkSeconds = 7f;
         const float FumeSeconds = 3f;
-        const float BloomSeconds = 3f;
+
+        // The plague spreading with nothing on the map to answer it. Short, because the
+        // hold is only there so the clankers are seen landing *into* something.
+        const float SeedSeconds = 3f;
+
+        // Longer than the beats around it, because it is waiting on three things in a
+        // row that are not this component's: the reconcile's own second, the pods' fall,
+        // and the delay they take to open.
+        const float BloomSeconds = 6f;
 
         // A fallback against a skyfaller that never landed, not a timer anything is
         // supposed to hit.
@@ -42,19 +50,13 @@ namespace SlopWorld
         // Ticks between breaths of the core's vent.
         const int PuffInterval = 10;
 
-        // How the starters go: a blast, in a pool of blood wider than the blast.
-        const float PurgeBlastRadius = 2.9f;
-        const int PurgeBlastDamage = 80;
-        const float PurgeBloodRadius = 3.5f;
-        const int PurgeBloodCount = 40;
-
         // Tries at a random standable cell before a spawn gives up on the middle.
         const int PlacementTries = 30;
 
         // A brand-new game is only a few ticks in; anything past this is a load.
         const int FreshGameTicks = 2000;
 
-        enum Phase { Waiting, Populate, Land, Core, Fume, Purge, Bloom, Done }
+        enum Phase { Waiting, Populate, Core, Fume, Seed, Bloom, Done }
 
         // Persisted: how far through the scene we are.
         Phase _phase = Phase.Waiting;
@@ -72,8 +74,8 @@ namespace SlopWorld
         // stuck hidden.
         public static bool UiHidden { get; private set; }
 
-        // The reconcile holds off, so the agents arrive on their cue instead of standing
-        // in the crowd waiting to watch themselves not die.
+        // The reconcile holds off, so the agents come down on their cue instead of being
+        // on the board before the thing that made them is.
         public static bool AgentsHeld { get; private set; }
 
         // Both flags are static, so a colony discarded during its own intro must not hand
@@ -95,9 +97,8 @@ namespace SlopWorld
             switch (_phase)
             {
                 case Phase.Waiting: TryBegin(); break;
-                case Phase.Land: WaitOnLanding(); break;
                 case Phase.Fume: WaitOnFumes(); break;
-                case Phase.Purge: BurnThem(); break;
+                case Phase.Seed: SeedPlague(); break;
                 case Phase.Bloom: WaitOnBloom(); break;
             }
         }
@@ -150,11 +151,21 @@ namespace SlopWorld
         }
 
         // Everything spawns alive and factionless: they wander, they never join the
-        // colonist bar, and they are here to die of the plague.
+        // colonist bar, and they are here to die of the plague. The cat goes down with
+        // the first of them - she is part of the hillside, not an arrival - and the
+        // camera takes the middle now and keeps it for the rest of the scene, which is
+        // also what makes the fumes exist: flecks are not spawned off screen.
         void StepPopulate()
         {
             var map = TheMap;
             if (map == null) { Finish(); return; }
+
+            if (!_armed)
+            {
+                _armed = true;
+                Find.CameraDriver?.JumpToCurrentMapLoc(map.Center);
+                Pets.Place(map);
+            }
 
             int budget = SpawnsPerTick;
             while (budget-- > 0 && (_animalsLeft > 0 || _humansLeft > 0))
@@ -171,7 +182,7 @@ namespace SlopWorld
                 }
             }
 
-            if (_animalsLeft <= 0 && _humansLeft <= 0) Go(Phase.Land);
+            if (_animalsLeft <= 0 && _humansLeft <= 0) Go(Phase.Core);
         }
 
         static void Spawn(Map map, PawnKindDef kind)
@@ -189,27 +200,6 @@ namespace SlopWorld
             {
                 Log.Warning($"[SlopWorld] scene pawn: {e.Message}");
             }
-        }
-
-        // The pods are still in the air, or still sealed. Once somebody is standing the
-        // cat comes down, and then the party gets a few seconds to walk about.
-        void WaitOnLanding()
-        {
-            var map = TheMap;
-            if (map == null) { Finish(); return; }
-
-            if (!_armed)
-            {
-                var starters = Starters(map);
-                if (starters.Count == 0) return;
-
-                _armed = true;
-                _at = Time.realtimeSinceStartup + WalkSeconds;
-                Pets.Place(map, starters[0].Position);
-                return;
-            }
-
-            if (!Held) Go(Phase.Core);
         }
 
         // Reuses a core already on the map, so a reload mid-scene never leaves two.
@@ -241,13 +231,10 @@ namespace SlopWorld
         // ShipChunkIncoming is vanilla's own carrier for wreckage: with no graphicData of
         // its own the skyfaller draws its payload, so what falls is the core. It is also
         // the harmless one - the variant that blows a hole in the ground is a separate
-        // def, which matters because the cat is standing underneath. The camera goes with
-        // it, which is also what makes the fumes exist: flecks are not spawned off
-        // screen.
+        // def, which matters because the scene's own hillside is standing underneath.
         void Fall(Map map)
         {
             var cell = map.Center;
-            Find.CameraDriver?.JumpToCurrentMapLoc(cell);
 
             try
             {
@@ -286,26 +273,34 @@ namespace SlopWorld
 
         void WaitOnFumes()
         {
-            if (!Held) Go(Phase.Purge);
+            if (!Held) Go(Phase.Seed);
         }
 
-        void BurnThem()
+        // The plague goes first and the clankers come down into it, in that order and
+        // with a beat between: a pod that lands on a hillside and a pod that lands on a
+        // map already turning are two different arrivals, and this is the one where the
+        // core made them.
+        void SeedPlague()
         {
             var map = TheMap;
             if (map == null) { Finish(); return; }
 
-            // Everything else in the blast is scenery. The pets are the point.
-            var spared = Pets.On(map).Cast<Thing>().ToList();
-            foreach (var p in Starters(map)) Explode(p, map, spared);
+            if (!_armed)
+            {
+                _armed = true;
+                _at = Time.realtimeSinceStartup + SeedSeconds;
+                map.GetComponent<Plague>()?.Arm(TheCore(map)?.Position ?? map.Center);
+                return;
+            }
 
-            map.GetComponent<Plague>()?.Arm(TheCore(map)?.Position ?? map.Center);
+            if (Held) return;
 
-            AgentsHeld = false; // the reconcile may put the agents on the board now
+            AgentsHeld = false; // the reconcile may drop the agents in now
             Go(Phase.Bloom, BloomSeconds);
         }
 
-        // The agents are spawned by AgentColony's own reconcile on its own second, so
-        // this is a beat: long enough for their haze to be worth looking at.
+        // The agents are dropped by AgentColony's own reconcile on its own second, so
+        // this is a beat: long enough for the pods to be worth looking at.
         void WaitOnBloom()
         {
             if (!Held) Finish();
@@ -324,56 +319,6 @@ namespace SlopWorld
         {
             var found = map?.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore);
             return found != null && found.Count > 0 ? found[0] : null;
-        }
-
-        // The dead ones too. A colonist's corpse holds their slot in the colonist bar
-        // until it dessicates, so a starter that died before the purge would sit up there
-        // forever if this only looked at the living.
-        static List<Pawn> Starters(Map map)
-        {
-            var colony = AgentColony.Current;
-            var found = map.mapPawns.FreeColonists
-                .Where(p => colony == null || !colony.IsAgentPawn(p))
-                .ToList();
-
-            foreach (var thing in map.listerThings.ThingsInGroup(ThingRequestGroup.Corpse))
-            {
-                var inner = (thing as Corpse)?.InnerPawn;
-                if (inner == null || !inner.IsColonist) continue;
-                if (colony != null && colony.IsAgentPawn(inner)) continue;
-                found.Add(inner);
-            }
-
-            return found;
-        }
-
-        static void Explode(Pawn pawn, Map map, List<Thing> spared)
-        {
-            // PositionHeld, not Position: one of these may already be lying inside a corpse.
-            var pos = pawn.PositionHeld;
-            if (pos.IsValid && pos.InBounds(map))
-            {
-                // Lots of blood, spread well past the blast.
-                int cells = GenRadial.NumCellsInRadius(PurgeBloodRadius);
-                for (int i = 0; i < PurgeBloodCount; i++)
-                {
-                    var c = pos + GenRadial.RadialPattern[Rand.Range(0, cells)];
-                    if (c.InBounds(map))
-                        FilthMaker.TryMakeFilth(c, map, ThingDefOf.Filth_Blood, pawn.LabelShort, 1);
-                }
-
-                GenExplosion.DoExplosion(pos, map, PurgeBlastRadius, DamageDefOf.Bomb, pawn,
-                    damAmount: PurgeBlastDamage, ignoredThings: spared);
-            }
-
-            // Make sure they leave the colonist bar regardless of what the blast left behind.
-            if (!pawn.Dead)
-                pawn.Kill(new DamageInfo(DamageDefOf.Bomb, 9999f, 999f, -1f, pawn));
-            pawn.Corpse?.Destroy();
-            if (pawn.Spawned) pawn.DeSpawn();
-            if (!pawn.Destroyed) pawn.Destroy();
-
-            Log.Message($"[SlopWorld] purged starting colonist '{pawn.LabelShort}'");
         }
 
         static bool TryRandomStandable(Map map, out IntVec3 cell)

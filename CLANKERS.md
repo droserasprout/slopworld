@@ -283,10 +283,13 @@ none of these need a def.
   renames, postures. Down is the only posture it imposes; an idle agent is left to
   the think tree, and the daemon's word is carried by the state icon and the
   inspect pane instead. Moving *into* idle rings `TinyBell`; a state seen for the
-  first time is not a move. It stands down while `Cutscene.AgentsHeld` is up, and
-  every colonist it spawns arrives in the plague's haze. Taking a pawn into the
-  table dirties its graphics, which is what gets the faceplate onto a loaded colony
-  and what refreshes the portrait cache.
+  first time is not a move. It stands down while `Cutscene.AgentsHeld` is up. Every
+  colonist it spawns comes down in a drop pod - the opening scene's and the one
+  added on a Tuesday alike - so `Spawn` hands back a pawn that is not spawned yet,
+  and the haze it arrives in waits on `_landing`, checked every tick rather than on
+  the reconcile's own second. Taking a pawn into the table dirties its graphics,
+  which is what gets the faceplate onto a loaded colony and what refreshes the
+  portrait cache.
 - `TimeKeeper` - unpauses the game. With the time controls stripped there is no way
   for the player to start the clock again, so a pause would be forever.
 - `ColonyNames` - "Clankers" and "SlopWorld", written on `FinalizeInit`. Answering
@@ -301,7 +304,11 @@ none of these need a def.
 - `Plague`, `IntroDirector` - the opening scene and what eats the map afterwards.
   The scene is a cutscene: `UiHidden` takes the interface away *and*
   `Selector.Select`. Beats are one phase each and every transition goes through
-  `Go`, which clears the phase timer and the one-off flag. The plague's bands are a
+  `Go`, which clears the phase timer and the one-off flag. Nobody is standing on the
+  map at tick zero - `SlopScenario` drops the part that hands over people - so what
+  arrives is the scene's to choose: the hillside is placed, cat and all, then the
+  core falls into it, then a few seconds of it venting alone, then the plague is
+  armed, and only then are the agents released to come down into it. The plague's bands are a
   continuous falloff dithered against `Grit`, a per-cell value stable across
   reloads - hard radii draw a circle you can trace, and a chance re-rolled each
   sweep converges on certainty. `StuntFrom` is the gap that keeps the weak band's
@@ -312,10 +319,12 @@ none of these need a def.
 - `Outskirts` - the other side of that: animals and people keep walking in off the
   map edge, so the rim stays alive. The census counts the population *outside* the
   circle. Off until `Plague.Active`.
-- `Pets` - the starting cat, and only the cat. It survives by two separate rules
-  (the purge's `ignoredThing`, and `Plague.Infectable` sparing the player faction).
-  It arrives in a pod of its own; `Place` culls any colony animal already there,
-  which makes it idempotent. Clicking it plays its call and pats it.
+- `Pets` - the starting cat, and only the cat. It survives because
+  `Plague.Infectable` spares the player faction. She is placed anywhere standable
+  with the rest of the hillside, before anything falls, so she reads as the map's
+  rather than as a delivery; `Place` culls any colony animal already there, which
+  makes it idempotent. Clicking it plays its call
+  and pats it.
 - `Aura` - the only thing that takes ground back off the core, and the only thing a
   player *does*. `Pat` is its whole input. A pulse clears filth and fire, unmarks
   what is standing in it, spares the plants, mends one of them, and heals the cat
@@ -339,10 +348,14 @@ none of these need a def.
 - `TerminalHotkeys` - F12 in from anywhere. Opening lives here; closing cannot (see
   Gotchas) and lives in `TerminalWindow`.
 - `SlopScenario` - Crashlanded via `Scenario.CopyForEditing`, stripped of every
-  part that hands a thing over (`ScenPart_ThingCount`, `StartingAnimal`,
-  `StartingMech`) plus `GameStartDialog`. Matched by assignability. Derived rather
-  than hand-written, because the parts we are *not* interested in are what a
-  hand-written def gets wrong.
+  part that hands anything over: `ScenPart_ThingCount`, `StartingAnimal`,
+  `StartingMech` and `ConfigPage_ConfigureStartingPawnsBase`, plus
+  `GameStartDialog`. Matched by assignability. Derived rather than hand-written,
+  because the parts we are *not* interested in are what a hand-written def gets
+  wrong. Dropping the pawn part is only half of starting empty - it leaves
+  `GameInitData.startingPawnCount` at the field's own `-1`, which `PrepForMapGen`
+  indexes the pawn list with, so `QuickStart` writes a zero over it after
+  `PostIdeoChosen`.
 - `RobotFace` - the faceplate: metal from the hairline down, clipped to the skull,
   drawn over the vanilla head. `SlopFaceRenderNodes` is a
   `DynamicPawnRenderNodeSetup`, so it needs no def; it takes its mesh from the hair

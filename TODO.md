@@ -12,7 +12,7 @@ Remove ticked bullets when verified.
 - [ ] Suppress the "unsaved work will be lost" confirmation now that quitting always saves.
 - [ ] "Tab / Shift+Tab in floating windows to navigate between fields (might be hard to implement)
 - [ ] Cleanup: drop items that don't affect our "game" from Settings window if it can be modded.
-- [ ] Next planet cinematics: disable UI, pause a little before bombing, bomb in multiple waves with a little pause. Then drammatic pause. Then new game.
+- [x] Next planet cinematics: disable UI, pause a little before bombing, bomb in multiple waves with a little pause. Then drammatic pause. Then new game.
 
 ## Terminal
 
@@ -33,7 +33,7 @@ Remove ticked bullets when verified.
 
 ## "Game"
 
-- [ ] New game cinematics: skip dropping 3 initial colonists in pods (and exploding them later). Instead, if clankers are configured, drop them in pods after computer core starts emitting plague. When new clanker is added it's also dropped in pod from the sky.
+- [x] New game cinematics: Cat spawns somewhere on map at the beginning instead of dropping in pod.
 - [ ] Don't pause the game while main menu (Esc or habburger one) is open
 - [ ] Bug: When clanker is down, Strip action button shown in it's menu.
 - [ ] Lights

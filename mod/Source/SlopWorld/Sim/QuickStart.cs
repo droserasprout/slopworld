@@ -5,8 +5,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The five pages a new colony asks for are moot here: the starters are blown up
-    // on landing and the map is eaten by the plague.
+    // The five pages a new colony asks for are moot here: nobody starts on the map
+    // and it is eaten by the plague regardless.
     //
     // The chain is copied out of Root_Play.SetupForQuickTestPlay - what the dev Quick
     // Test button runs - with the scenario swapped for SlopScenario. Copied rather
@@ -15,9 +15,10 @@ namespace SlopWorld
     // method with no seam to reach.
     //
     // The one thing the quick start gets wrong for us is startedFromEntry, which it
-    // leaves false: that is GameInitData.QuickStarted, which the scenario reads as
-    // "this is a dev test" and insta-drops the pods with the colonists already
-    // standing. The opening scene is a landing, so it needs pods that fall.
+    // leaves false: that is GameInitData.QuickStarted, which the rest of the game
+    // reads as "this is a dev test". Nothing it changes reaches us any more now that
+    // no pawn starts on the map, but the honest answer is still that this is a real
+    // start.
     [HarmonyPatch(typeof(Page_SelectScenario), "PreOpen")]
     public static class Patch_QuickStart
     {
@@ -63,9 +64,14 @@ namespace SlopWorld
             // Overwrites the tile just chosen, and needs it there to fall back on.
             LandingSite.Choose();
 
-            // Last, as in vanilla: this generates the starting pawns, and the tile is settled
-            // by now.
+            // Last, as in vanilla: this is where a scenario generates its starting pawns.
+            // Ours has no part left that does, so it generates none.
             Find.Scenario.PostIdeoChosen();
+
+            // And this is what says so. Written after PostIdeoChosen rather than before,
+            // so it is the last word whatever the parts did; -1 is the field's own default
+            // and PrepForMapGen indexes the pawn list with it.
+            Find.GameInitData.startingPawnCount = 0;
 
             // Autosave off would mean a colony that can never be picked back up.
             if (Prefs.AutosaveIntervalDays <= 0f) Prefs.AutosaveIntervalDays = AutosaveDays;

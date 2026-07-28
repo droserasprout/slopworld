@@ -12,6 +12,10 @@ namespace SlopWorld
         // Reconciling is cheap but pointless every tick.
         const int Interval = 60;
 
+        // Shorter than vanilla's 110: the pod is theatre, and the agent is wanted on the
+        // colonist bar.
+        const int PodOpenDelay = 60;
+
         Dictionary<string, Pawn> _pawns = new Dictionary<string, Pawn>();
 
         // An index, not a convenience: IsAgent is asked on the way past by most of
@@ -27,6 +31,13 @@ namespace SlopWorld
         // Deliberately not saved: a colony loading with its agents already stopped should
         // not greet the player with a wall of sirens.
         readonly Dictionary<string, AgentState> _seen = new Dictionary<string, AgentState>();
+
+        // Agents still in the air. A pawn inside a pod is not spawned, so the haze it
+        // arrives in cannot go up until the pod opens - and that is watched every tick
+        // rather than on the reconcile's own second, because a puff a beat after the dust
+        // has settled reads as a second event. Not saved either: a game put down while a
+        // pod is falling loses one puff, which is cheaper than scribing a list to say so.
+        readonly List<Pawn> _landing = new List<Pawn>();
 
         readonly Game _game;
 
@@ -130,10 +141,12 @@ namespace SlopWorld
 
         public override void GameComponentTick()
         {
+            if (_landing.Count > 0) Landed();
+
             if (Find.TickManager.TicksGame % Interval != 0) return;
 
-            // An agent standing in the crowd is one the purge has to step around, and the
-            // clankers walking out of the plague is the scene's last beat.
+            // The clankers coming down into the plague is the opening scene's last beat,
+            // and there is nothing worth dropping onto a map that is on fire.
             if (Cutscene.AgentsHeld) return;
 
             var map = Find.CurrentMap ?? Find.AnyPlayerHomeMap;
@@ -287,7 +300,21 @@ namespace SlopWorld
             if (!p.Destroyed) p.Destroy();
         }
 
-        // Not static: the anchor it spawns against comes from the live pawn table.
+        // The pod opened. Walked backwards so the list can be edited as it goes; a pawn
+        // that was retired or destroyed mid-flight just drops out.
+        void Landed()
+        {
+            for (int i = _landing.Count - 1; i >= 0; i--)
+            {
+                var p = _landing[i];
+                if (p != null && !p.Destroyed && !p.Spawned) continue;
+
+                if (p != null && p.Spawned) PlagueFx.Arrive(p);
+                _landing.RemoveAt(i);
+            }
+        }
+
+        // Not static: the anchor it drops against comes from the live pawn table.
         Pawn Spawn(string name, Map map)
         {
             var req = new PawnGenerationRequest(
@@ -304,13 +331,21 @@ namespace SlopWorld
             pawn.Name = new NameSingle(name);
             RobotFace.FitHair(pawn);
 
-            GenSpawn.Spawn(pawn, SpawnSpot.Find(map, Anchor(map)), map);
+            // In a pod, always. An agent added on a Tuesday afternoon comes down the same
+            // way the opening scene's did, because a colonist that was simply *there* the
+            // next time you looked is the one arrival this board cannot narrate. Not
+            // forbidden and not slagged: the pod is the arrival, not wreckage to clear.
+            // SpawnSpot picks the ground; DropCellFinder does the last few cells itself.
+            DropPodUtility.DropThingsNear(SpawnSpot.Find(map, Anchor(map)), map,
+                new List<Thing> { pawn }, openDelay: PodOpenDelay,
+                canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: true,
+                forbid: false, allowFogged: true, faction: Faction.OfPlayer);
 
             // Every agent arrives in the plague's haze, not just the ones the opening scene
-            // lands: a clanker is what this map makes of a person.
-            PlagueFx.Arrive(pawn);
+            // lands: a clanker is what this map makes of a person. It waits on the pod.
+            _landing.Add(pawn);
 
-            Log.Message($"[SlopWorld] colonist '{name}' joined the colony");
+            Log.Message($"[SlopWorld] colonist '{name}' is on its way down");
             return pawn;
         }
 

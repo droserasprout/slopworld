@@ -24,21 +24,28 @@ namespace SlopWorld
         // rainforest. ScenPart_StartingMech is Biotech's. And ScenPart_GameStartDialog is
         // Crashlanded's opening message box - dropping the part is the whole of skipping
         // it, and the clock it held paused is TimeKeeper's problem.
+        //
+        // ConfigureStartingPawnsBase is the one that hands over people. The colony's
+        // people are the agents, and they come down when the core has started venting,
+        // so nobody walks out of a pod before that. Dropping it leaves
+        // GameInitData.startingPawnCount at its own -1 default, which PrepForMapGen
+        // indexes with - hence the zero QuickStart writes in its place.
         static readonly Type[] Dropped =
         {
             typeof(ScenPart_ThingCount),
             typeof(ScenPart_StartingAnimal),
             typeof(ScenPart_StartingMech),
             typeof(ScenPart_GameStartDialog),
+            typeof(ScenPart_ConfigPage_ConfigureStartingPawnsBase),
         };
 
         const string Summary = "Nothing here is yours to build.";
 
         const string Description =
-            "The ship came down and the persona core came down with it. What walked " +
-            "out of the pods did not last, and what is left of the colony is a " +
-            "hillside, a cat, and however many agents are running.\n\n" +
-            "You brought no supplies. There would be nothing to do with them.";
+            "The persona core came down on an empty hillside and started venting. " +
+            "What the pods brought after that were not people, and what is left of " +
+            "the colony is a hillside, a cat, and however many agents are running." +
+            "\n\nYou brought no supplies. There would be nothing to do with them.";
 
         static Scenario _scen;
 
