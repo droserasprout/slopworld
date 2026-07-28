@@ -324,6 +324,8 @@ namespace SlopWorld
 
         // Parsed lazily by the terminal window and thrown away when Seq moves.
         public List<SgrRun>[] Runs;
+        // Which palette the runs were parsed against; a scheme change re-parses them.
+        public int RunsRev = -1;
     }
 
     // Owns the WebSocket, reconnects with backoff, and is pumped once per frame on

@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
@@ -10,8 +9,11 @@ namespace SlopWorld
     // Everything the mod does to the game is unconditional: being loaded is the
     // switch, as it always was for the UI stripping. A checkbox that turns the mod
     // back into RimWorld is not a setting anyone wants, it is a second product nobody
-    // tests. What is left is the two things about this machine rather than about the
-    // design: where the daemon is, and how big the font is on this screen.
+    // tests. What is left is about this machine and about the eyes reading it, never
+    // about the design: where the daemon is, and what a pane looks like on this screen.
+    //
+    // The pane's half of that is edited in TerminalSettingsWindow rather than here, but
+    // it is scribed here, because there is one settings file.
     public class SlopSettings : ModSettings
     {
         public string host = "127.0.0.1";
@@ -21,6 +23,14 @@ namespace SlopWorld
 
         public int fontSize = 14;
 
+        // The pane's palette, by name. A scheme this build no longer ships reads as the
+        // default rather than as no colours at all.
+        public string theme = "clankers";
+        // "#rrggbb", or blank for the scheme's own. The one colour worth overriding on
+        // its own: everything else is the scheme's business, and a cursor you cannot find
+        // is about the screen it is on.
+        public string cursorColor = "";
+
         public override void ExposeData()
         {
             base.ExposeData();
@@ -29,6 +39,8 @@ namespace SlopWorld
             Scribe_Values.Look(ref token, "token", "");
             Scribe_Values.Look(ref autoConnect, "autoConnect", true);
             Scribe_Values.Look(ref fontSize, "fontSize", 14);
+            Scribe_Values.Look(ref theme, "theme", "clankers");
+            Scribe_Values.Look(ref cursorColor, "cursorColor", "");
         }
     }
 
@@ -42,6 +54,8 @@ namespace SlopWorld
         public static string Token => S.token;
         public static bool AutoConnect => S.autoConnect;
         public static int FontSize => S.fontSize;
+        public static string Theme => S.theme ?? "";
+        public static string CursorColor => S.cursorColor ?? "";
     }
 
     public class SlopWorldMod : Mod
@@ -77,13 +91,17 @@ namespace SlopWorld
             l.Gap(6f);
             l.CheckboxLabeled("Auto-connect and reconnect", ref settings.autoConnect);
 
-            l.Gap(6f);
-            l.Label($"Terminal font size: {settings.fontSize}");
-            settings.fontSize = Mathf.RoundToInt(l.Slider(settings.fontSize, 8, 28));
-
             l.Gap(10f);
             if (l.ButtonText("Reconnect now"))
                 SessionHub.Instance.Connect();
+
+            l.Gap(10f);
+            // Font size and palette live on the gear in the terminal's own title bar, which
+            // is where they are judged. The button is here so they are still reachable with
+            // no agent running - and greyed-and-shown beats vanished everywhere else in this
+            // mod, so a door beats no mention at all.
+            if (l.ButtonText("Terminal appearance..."))
+                TerminalSettingsWindow.Open();
 
             l.End();
         }
@@ -92,6 +110,7 @@ namespace SlopWorld
         {
             base.WriteSettings();
             TerminalFont.Invalidate();
+            TerminalTheme.Invalidate();
             SessionHub.Instance.Connect();
         }
     }

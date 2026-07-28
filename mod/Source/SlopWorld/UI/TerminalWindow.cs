@@ -18,8 +18,6 @@ namespace SlopWorld
         static float HeaderH => Mathf.Max(HeaderMinH, ColonistBarStrip.BarH);
         const float Pad = 6f;
 
-        static readonly Color SelColor = new Color(0.30f, 0.50f, 0.90f, 0.35f);
-
         // Not readonly: the strip switches sessions by pointing the window at a new one,
         // which keeps the terminal's scroll and selection instead of rebuilding it.
         string _name;
@@ -41,6 +39,12 @@ namespace SlopWorld
         // out to be a drag the app never asked for.
         bool _mouseFwd;
         Vector2Int _fwdCell;
+
+        // The link the pointer is over, and the stretch of one row it covers. Held for
+        // the draw rather than looked up there: the same answer decides the highlight,
+        // the tooltip and what a Ctrl+click opens.
+        string _hoverUrl;
+        int _hoverRow, _hoverC0, _hoverC1;
 
         // There is nowhere to send them, and swallowing them in silence is how a redeploy
         // reads as a frozen terminal.
@@ -245,22 +249,43 @@ namespace SlopWorld
         // it last called itself.
         const float NameH = 22f, TitleH = 15f;
 
-        static readonly Color CrossIdle = new Color(0.62f, 0.64f, 0.66f);
+        // Grey at rest and white under the pointer, for both of them: chrome over a
+        // terminal should be quieter than anything the agent prints.
+        static readonly Color IconIdle = new Color(0.62f, 0.64f, 0.66f);
         static readonly Color TitleColor = new Color(0.55f, 0.57f, 0.60f);
+
+        // 18, which is the close texture's own size: anything larger is a scaled-up X with
+        // soft edges where the rest of the chrome is crisp. The gear is drawn to match.
+        const float IconSize = 18f;
+
+        // What the colonist strip has to leave clear at each end of the band. The buttons
+        // are drawn before the strip is, so without this a full row of portraits is laid
+        // over the top of them - and the strip shrinks to within twenty pixels of the
+        // screen edge before it gives up, which is well inside the corner.
+        public static float CornerW => Pad * 2f + IconSize * 2f + 4f;
 
         void DrawHeader(Rect r, SessionInfo info)
         {
             Widgets.DrawBoxSolid(r, new Color(0.10f, 0.11f, 0.13f));
 
+            // Parked at the top rather than centred. The bar is as tall as a portrait, and a
+            // button floating in the middle of one reads as sitting on the strip rather than
+            // on the window - the corner is where a window's own controls live.
+            float iy = r.y + Pad;
+
             // Stop and Restart used to sit here, and are in the agents list instead: a
-            // status light does not want three buttons over it, and the one thing worth a
-            // click of its own is leaving.
-            // 18, which is the texture's own size: anything larger is a scaled-up X with
-            // soft edges where the rest of the chrome is crisp.
-            var cross = new Rect(r.xMax - Pad - 18f, r.y + (r.height - 18f) / 2f, 18f, 18f);
+            // status light does not want a row of buttons over it. What is left is the two
+            // that are about this window rather than about the agent in it, leaving last
+            // because it is the one that is always in the corner.
+            var cross = new Rect(r.xMax - Pad - IconSize, iy, IconSize, IconSize);
             TooltipHandler.TipRegion(cross, "Close  (Shift+Esc)");
-            if (Widgets.ButtonImage(cross, TexButton.CloseXSmall, CrossIdle, Color.white))
+            if (Widgets.ButtonImage(cross, TexButton.CloseXSmall, IconIdle, Color.white))
                 Close();
+
+            var gear = new Rect(cross.x - 4f - IconSize, iy, IconSize, IconSize);
+            TooltipHandler.TipRegion(gear, "Terminal settings - font size and colours");
+            if (Widgets.ButtonImage(gear, GearIcon.Tex, IconIdle, Color.white))
+                TerminalSettingsWindow.Open();
 
             var buf = DisplayedBuf();
             string title = buf?.Title ?? "";
@@ -269,7 +294,7 @@ namespace SlopWorld
             // as tall as a portrait now, and anything hanging off the ceiling reads as
             // adrift in it.
             float h = string.IsNullOrEmpty(title) ? NameH : NameH + TitleH;
-            float w = Mathf.Min(r.width * 0.4f, cross.x - r.x - Pad * 2f);
+            float w = Mathf.Min(r.width * 0.4f, gear.x - r.x - Pad * 2f);
             float y = r.y + (r.height - h) / 2f;
 
             var state = info?.State ?? AgentState.Down;
@@ -379,8 +404,10 @@ namespace SlopWorld
             // The runs go down only on the frames they change; see Blit.
             if (!Blit(body, buf, cw, ch)) Paint(body, buf, cw, ch);
 
-            // Not cached: a cursor blinks twice a second without the pane moving under it,
-            // and it is four quads.
+            // Neither of these is cached, and for the same reason: the pointer moves over a
+            // pane that is not moving, and a cursor blinks twice a second under one.
+            TrackHover(body, buf);
+            DrawHover(body);
             DrawCursor(body, buf, cw, ch);
 
             GUI.color = Color.white;
@@ -417,6 +444,18 @@ namespace SlopWorld
 
                     style.normal.textColor = run.Fg;
                     DrawRun(run.Text, x, y, cw, ch, style);
+
+                    // Underlined at half strength in the text's own colour, which is what a
+                    // link looks like everywhere else: the pointer is what makes one loud.
+                    if (run.Url != null)
+                    {
+                        var u = run.Fg;
+                        u.a *= 0.5f;
+                        Widgets.DrawBoxSolid(
+                            new Rect(SnapX(x), bgBot - 1f,
+                                     SnapX(body.x + (run.Col + run.Text.Length) * cw) - SnapX(x), 1f),
+                            u);
+                    }
                 }
             }
         }
@@ -426,7 +465,7 @@ namespace SlopWorld
         // What the pane looked like last time it changed.
         RenderTexture _cache;
         string _cacheName;
-        int _cacheSeq = -1, _cacheOff = -1;
+        int _cacheSeq = -1, _cacheOff = -1, _cacheRev = -1;
         Rect _cacheBody;
         float _cacheCw, _cacheCh;
         bool _noCache;
@@ -476,7 +515,8 @@ namespace SlopWorld
                     || _cacheName != _name
                     || _cacheSeq != buf.Seq || _cacheOff != buf.Off
                     || _cacheBody != body
-                    || _cacheCw != cw || _cacheCh != ch)
+                    || _cacheCw != cw || _cacheCh != ch
+                    || _cacheRev != TerminalTheme.Rev)
                 {
                     var was = RenderTexture.active;
                     RenderTexture.active = _cache;
@@ -487,6 +527,7 @@ namespace SlopWorld
                     _cacheName = _name;
                     _cacheSeq = buf.Seq;
                     _cacheOff = buf.Off;
+                    _cacheRev = TerminalTheme.Rev;
                     _cacheBody = body;
                     _cacheCw = cw;
                     _cacheCh = ch;
@@ -537,7 +578,7 @@ namespace SlopWorld
             _cache.Release();
             Object.Destroy(_cache);
             _cache = null;
-            _cacheSeq = _cacheOff = -1;
+            _cacheSeq = _cacheOff = _cacheRev = -1;
             _cacheName = null;
         }
 
@@ -595,6 +636,105 @@ namespace SlopWorld
             GUI.Label(new Rect(x + from * cw, y, seg.Length * cw + cw, ch), seg, style);
         }
 
+        // ------------------------------------------------------------------- links
+
+        // Which link the pointer is over, kept as a row and a stretch of columns so the
+        // highlight covers the whole thing rather than the run the pointer happens to be
+        // in - a URL drawn in two colours is still one link.
+        void TrackHover(Rect body, ScreenBuf buf)
+        {
+            _hoverUrl = null;
+            var e = Event.current;
+            if (e == null) return;
+            if (Find.WindowStack != null && !Find.WindowStack.GetsInput(this)) return;
+
+            _hoverUrl = LinkAt(body, buf, e.mousePosition,
+                out _hoverRow, out _hoverC0, out _hoverC1);
+        }
+
+        // Looked up rather than remembered from the last draw: a click is handled ahead of
+        // the frame it lands in, so what the pane was drawn with is one pointer position
+        // out of date.
+        string LinkAt(Rect body, ScreenBuf buf, Vector2 m, out int row, out int c0, out int c1)
+        {
+            row = c0 = c1 = 0;
+            if (buf == null || buf.Runs == null || !body.Contains(m)) return null;
+
+            var cell = CellAt(body, m);
+            if (cell.y < 0 || cell.y >= buf.Runs.Length) return null;
+
+            var line = buf.Runs[cell.y];
+            int hit = -1;
+            for (int i = 0; i < line.Count; i++)
+            {
+                var run = line[i];
+                if (run.Url == null) continue;
+                if (cell.x >= run.Col && cell.x < run.Col + run.Text.Length) { hit = i; break; }
+            }
+            if (hit < 0) return null;
+
+            // A link split across runs by a colour change is still one link, so the span
+            // walks outwards over everything carrying the same URL.
+            string url = line[hit].Url;
+            c0 = line[hit].Col;
+            c1 = line[hit].Col + line[hit].Text.Length;
+            for (int i = hit - 1; i >= 0 && line[i].Url == url; i--) c0 = line[i].Col;
+            for (int i = hit + 1; i < line.Count && line[i].Url == url; i++)
+                c1 = line[i].Col + line[i].Text.Length;
+
+            row = cell.y;
+            return url;
+        }
+
+        // What a click or the right-button menu is about, with the runs made sure of
+        // first - a pane that has arrived but never been drawn has none.
+        string LinkUnder(Rect body, Vector2 m)
+        {
+            var buf = DisplayedBuf();
+            if (buf == null || buf.Lines.Length == 0) return null;
+            EnsureRuns(buf);
+            return LinkAt(body, buf, m, out _, out _, out _);
+        }
+
+        void DrawHover(Rect body)
+        {
+            if (_hoverUrl == null) return;
+
+            float cw = TerminalFont.CellW, ch = TerminalFont.CellH;
+            float l = SnapX(body.x + _hoverC0 * cw);
+            float r = SnapX(body.x + _hoverC1 * cw);
+            float t = SnapY(body.y + _hoverRow * ch);
+            float b = SnapY(body.y + (_hoverRow + 1) * ch);
+            if (b > body.yMax) return;
+
+            // Over the text rather than under it, which is the only place a window can put
+            // anything once the pane has been blitted; the wash is faint enough to read
+            // through and the rule under it is what actually says "link".
+            var col = TerminalTheme.Current.Link;
+            var wash = col;
+            wash.a = 0.14f;
+            Widgets.DrawBoxSolid(new Rect(l, t, r - l, b - t), wash);
+            Widgets.DrawBoxSolid(new Rect(l, b - 2f, r - l, 2f), col);
+
+            TooltipHandler.TipRegion(new Rect(l, t, r - l, b - t),
+                $"{_hoverUrl}\n\nCtrl+click to open it on the host");
+        }
+
+        // Through the daemon: the game is a Unity player under Wine as often as not, and
+        // slopd is the half of this that is on the host with a desktop to hand the URL
+        // to. Application.OpenURL is the fallback rather than the road, since what it
+        // reaches from inside a prefix is anyone's guess.
+        static void OpenUrl(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return;
+            SlopClient.Post("/api/open", "{\"url\":" + JVal.Q(url) + "}", null,
+                msg =>
+                {
+                    Log.Warning($"[SlopWorld] open {url}: {msg}");
+                    Application.OpenURL(url);
+                });
+        }
+
         // Blinks on a half-second beat unless the app asked for a steady cursor.
         void DrawCursor(Rect body, ScreenBuf buf, float cw, float ch)
         {
@@ -609,7 +749,7 @@ namespace SlopWorld
             float l = SnapX(x), r = SnapX(x + cw);
             float t = SnapY(y), b = SnapY(y + ch);
 
-            var col = new Color(0.83f, 0.85f, 0.86f, 0.65f);
+            var col = TerminalTheme.CursorColor;
             switch (buf.CursorShape)
             {
                 case 1: // underline
@@ -619,8 +759,29 @@ namespace SlopWorld
                     Widgets.DrawBoxSolid(new Rect(l, t, 2f, b - t), col);
                     break;
                 default: // block
+                    // Opaque, and the glyph goes back over it in the scheme's cursor text
+                    // colour: a block cursor is a reversed cell, and drawing it as a translucent
+                    // box was what left the character under it half-legible in every scheme.
                     Widgets.DrawBoxSolid(new Rect(l, t, r - l, b - t), col);
+                    DrawCursorGlyph(buf, x, y, cw, ch);
                     break;
+            }
+        }
+
+        void DrawCursorGlyph(ScreenBuf buf, float x, float y, float cw, float ch)
+        {
+            if (buf.Cy >= buf.Runs.Length) return;
+
+            foreach (var run in buf.Runs[buf.Cy])
+            {
+                if (buf.Cx < run.Col || buf.Cx >= run.Col + run.Text.Length) continue;
+                char c = run.Text[buf.Cx - run.Col];
+                if (c == ' ' || c == '\0') return;
+
+                var style = TerminalFont.Style;
+                style.normal.textColor = TerminalTheme.Current.CursorText;
+                DrawRun(c.ToString(), x, y, cw, ch, style);
+                return;
             }
         }
 
@@ -788,9 +949,23 @@ namespace SlopWorld
             if (e.button == 1)
             {
                 if (e.type == EventType.MouseDown && body.Contains(e.mousePosition))
-                    OpenMenu();
+                    OpenMenu(LinkUnder(body, e.mousePosition));
                 e.Use();
                 return;
+            }
+
+            // Ctrl+click opens a link, ahead of everything else the pane does with a press:
+            // a plain click belongs to the app or to a selection, and a URL printed inside a
+            // TUI is over something that wants the mouse as often as not.
+            if (e.type == EventType.MouseDown && e.button == 0 && e.control)
+            {
+                string url = LinkUnder(body, e.mousePosition);
+                if (url != null)
+                {
+                    OpenUrl(url);
+                    e.Use();
+                    return;
+                }
             }
 
             // Shift forces our own local selection, like a real terminal. The forwarder hands
@@ -949,9 +1124,17 @@ namespace SlopWorld
         //
         // Opened over the pane, since an ordinary dialog would be added underneath a
         // window on the Super layer and never seen.
-        void OpenMenu()
+        void OpenMenu(string url)
         {
             var options = new List<FloatMenuOption>();
+
+            // First, when there is one: the pointer is already on it, and the right button
+            // is the road for anyone who never learned the Ctrl+click.
+            if (url != null)
+            {
+                options.Add(new FloatMenuOption("Open " + url.Truncate(360f), () => OpenUrl(url)));
+                options.Add(new FloatMenuOption("Copy link", () => CopyText(url)));
+            }
 
             var copy = new FloatMenuOption("Copy", CopySelection);
             copy.Disabled = !_hasSel;
@@ -1042,7 +1225,8 @@ namespace SlopWorld
                 float r = SnapX(body.x + endCol * cw);
                 float t = SnapY(y);
                 float bot = SnapY(body.y + (row + 1) * ch);
-                Widgets.DrawBoxSolid(new Rect(l, t, r - l, bot - t), SelColor);
+                Widgets.DrawBoxSolid(new Rect(l, t, r - l, bot - t),
+                    TerminalTheme.Current.Selection);
             }
         }
 
@@ -1058,12 +1242,16 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
         }
 
+        // The colours are resolved into the runs at parse time, so a scheme change is a
+        // re-parse of whatever is on the screen: without it the pane keeps the old palette
+        // until the agent next moves it, which on an idle session is never.
         static void EnsureRuns(ScreenBuf buf)
         {
-            if (buf.Runs != null) return;
+            if (buf.Runs != null && buf.RunsRev == TerminalTheme.Rev) return;
             buf.Runs = new List<SgrRun>[buf.Lines.Length];
             for (int i = 0; i < buf.Lines.Length; i++)
                 buf.Runs[i] = Sgr.ParseLine(buf.Lines[i]);
+            buf.RunsRev = TerminalTheme.Rev;
         }
 
         // The daemon trims trailing blanks only when they carry nothing, so anything

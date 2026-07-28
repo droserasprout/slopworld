@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::{Dimensions, Scroll};
-use alacritty_terminal::term::cell::Flags;
+use alacritty_terminal::term::cell::{Flags, Hyperlink};
 use alacritty_terminal::term::{ClipboardType, Config, Term, TermMode};
 use alacritty_terminal::vte::ansi::{Color, CursorShape, CursorStyle, Processor};
 
@@ -253,7 +253,7 @@ impl SessionEmu {
             if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
                 grid[row][col] = Slot::Spacer;
             } else {
-                grid[row][col] = Slot::Ch(cell.c, cell.fg, cell.bg, cell.flags);
+                grid[row][col] = Slot::Ch(cell.c, cell.fg, cell.bg, cell.flags, cell.hyperlink());
             }
         }
 
@@ -304,7 +304,7 @@ enum Slot {
     Blank,
     /// The second half of a wide char; produces no output of its own.
     Spacer,
-    Ch(char, Color, Color, Flags),
+    Ch(char, Color, Color, Flags, Option<Hyperlink>),
 }
 
 /// Each line opens with a reset, SGR runs are self-contained, and trailing default
@@ -315,21 +315,30 @@ fn serialize_row(row: &[Slot]) -> String {
     let mut out = String::from("\x1b[0m");
 
     let last = row.iter().rposition(|s| match s {
-        Slot::Ch(c, fg, bg, flags) => {
-            !(*c == ' ' && fg_code(*fg).is_none() && bg_code(*bg).is_none() && flags.is_empty())
+        Slot::Ch(c, fg, bg, flags, link) => {
+            !(*c == ' '
+                && fg_code(*fg).is_none()
+                && bg_code(*bg).is_none()
+                && flags.is_empty()
+                && link.is_none())
         }
         Slot::Spacer | Slot::Blank => false,
     });
     let Some(last) = last else { return out };
 
     let mut cur_sgr = String::new();
+    let mut cur_uri = String::new();
     // Where the mod's pen lands with no CHA: one column per emitted char.
     let mut expected = 0usize;
     for (col, slot) in row[..=last].iter().enumerate() {
-        let (c, sgr) = match slot {
+        let (c, sgr, uri) = match slot {
             Slot::Spacer => continue,
-            Slot::Blank => (' ', String::new()),
-            Slot::Ch(c, fg, bg, flags) => (*c, sgr_for(*fg, *bg, *flags)),
+            Slot::Blank => (' ', String::new(), String::new()),
+            Slot::Ch(c, fg, bg, flags, link) => (
+                *c,
+                sgr_for(*fg, *bg, *flags),
+                link.as_ref().map(|h| safe_uri(h.uri())).unwrap_or_default(),
+            ),
         };
         if col != expected {
             out.push_str(&format!("\x1b[{}G", col + 1));
@@ -339,10 +348,21 @@ fn serialize_row(row: &[Slot]) -> String {
             out.push_str(if sgr.is_empty() { "\x1b[0m" } else { &sgr });
             cur_sgr = sgr;
         }
+        if uri != cur_uri {
+            out.push_str(&format!("\x1b]8;;{uri}\x1b\\"));
+            cur_uri = uri;
+        }
         out.push(c);
         expected += 1;
     }
+    if !cur_uri.is_empty() {
+        out.push_str("\x1b]8;;\x1b\\");
+    }
     out
+}
+
+fn safe_uri(uri: &str) -> String {
+    uri.chars().filter(|c| !c.is_control()).take(2048).collect()
 }
 
 /// The mod renders only bold, reverse and colour, so that's all we emit.
@@ -540,6 +560,31 @@ mod tests {
         e.feed("\u{4f60}X".as_bytes());
         let f = e.render();
         assert_eq!(f.lines[0], "\x1b[0m\u{4f60}\x1b[3GX");
+    }
+
+    #[test]
+    fn wraps_a_hyperlinked_run_in_osc8() {
+        let mut e = SessionEmu::new(20, 2);
+        e.feed(b"go \x1b]8;;https://example.com\x1b\\here\x1b]8;;\x1b\\ now");
+        let f = e.render();
+        assert_eq!(
+            f.lines[0],
+            "\x1b[0mgo \x1b]8;;https://example.com\x1b\\here\x1b]8;;\x1b\\ now"
+        );
+    }
+
+    #[test]
+    fn closes_a_hyperlink_left_open_at_the_margin() {
+        let mut e = SessionEmu::new(8, 2);
+        e.feed(b"\x1b]8;;https://a.example\x1b\\linked");
+        let f = e.render();
+        assert!(f.lines[0].ends_with("linked\x1b]8;;\x1b\\"));
+    }
+
+    #[test]
+    fn strips_escapes_out_of_a_uri() {
+        assert_eq!(safe_uri("https://a\u{1b}b\u{7}c"), "https://abc");
+        assert_eq!(safe_uri(&"x".repeat(4000)).len(), 2048);
     }
 
     #[test]

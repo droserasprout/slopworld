@@ -41,6 +41,7 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/config", put(put_config))
         .route("/api/config/values", put(put_config_values))
         .route("/api/clipboard", get(clip_read).post(clip_write))
+        .route("/api/open", post(open_url))
         .route("/api/usage", get(usage))
         .route("/api/browse", get(browse))
         .route("/api/game", get(game))
@@ -293,6 +294,20 @@ async fn clip_read() -> ApiResult {
 
 async fn clip_write(Json(q): Json<ClipReq>) -> ApiResult {
     crate::clipboard::write(&q.text)
+        .await
+        .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+#[derive(Deserialize)]
+struct OpenReq {
+    #[serde(default)]
+    url: String,
+}
+
+async fn open_url(Json(q): Json<OpenReq>) -> ApiResult {
+    crate::open::check(q.url.trim()).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    crate::open::url(&q.url)
         .await
         .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
     Ok(Json(json!({ "ok": true })))

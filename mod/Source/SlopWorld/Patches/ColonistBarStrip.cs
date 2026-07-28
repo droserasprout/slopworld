@@ -198,7 +198,10 @@ namespace SlopWorld
             float s = scale * Shrink;
             float need = cells * ColonistBar.BaseSize.x
                 + (cells - 1) * ColonistBar.BaseSpaceBetweenColonistsHorizontal;
-            float room = UI.screenWidth - 40f;
+            // Both ends, because the row is centred, and unconditionally rather than only
+            // over a pane: the map view has to lay out the same pixels or toggling a terminal
+            // would shuffle every portrait sideways.
+            float room = UI.screenWidth - 40f - TerminalWindow.CornerW * 2f;
             if (need > 0f && need * s > room) s = room / need;
             return s;
         }

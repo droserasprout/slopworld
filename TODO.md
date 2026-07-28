@@ -12,9 +12,9 @@ Remove ticked bullets when verified.
 
 ## Terminal
 
-- [ ] Color schemes. Default to dark RimWorld-style pallette.
-- [ ] Cursor color
-- [ ] OSC8/URL hyperlinks
+- [x] Color schemes. Default to dark RimWorld-style pallette.
+- [x] Cursor color
+- [x] OSC8/URL hyperlinks
 
 ## Sandbox
 

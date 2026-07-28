@@ -3,6 +3,7 @@ mod clipboard;
 mod config;
 mod emu;
 mod game;
+mod open;
 mod sandbox;
 mod session;
 mod tmux;

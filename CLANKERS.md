@@ -277,7 +277,9 @@ Everything that rewrites `config.toml` goes over HTTP instead, because the error
 body matters: `/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`,
 plus `POST /api/shortcuts/NAME/run`, which answers with the agent's name.
 `GET /api/usage`, `/api/presets` and `/api/game` are there for anything that would
-rather ask than listen.
+rather ask than listen. `POST /api/open` is the odd one out: not config at all, but
+an errand on the host, and it answers 400 for a URL it will not take and 502 for an
+opener that would not.
 
 ## Mod
 
@@ -474,10 +476,51 @@ down while a pane is open rather than trusting the pane to have eaten the key.
 `TerminalFont` deals with the cell grid; `SnapX`/`SnapY` put every box edge on a
 screen pixel, which is the thin black line that used to run through coloured diff.
 
-The title bar carries a cross and nothing else. Stop and Restart used to sit beside
-it and are in the agents list instead; `OpenMenu`, on the right button, is Copy,
-Paste and Select all - the clipboard errands, which never had a button anywhere.
-Nothing that ends an agent is in it, because a menu opened to copy a line is the
+`TerminalTheme` is the palette - foreground, background, cursor and its text,
+selection, link, and the sixteen ANSI slots - and `Sgr.DefaultFg`/`DefaultBg` are
+properties off it rather than constants, so the window's own fills follow the
+scheme too. The colours are resolved *into* the runs at parse time, which is why
+`Rev` exists: it moves on every scheme change, and both the run cache
+(`ScreenBuf.RunsRev`) and the pane's RenderTexture (`_cacheRev`) are keyed on it.
+Without that an idle agent keeps the old palette until it next writes something,
+which on an idle agent is never. `Get` on a name this build no longer ships answers
+the default rather than nothing, and the cursor override is read as `#rrggbb` or
+ignored - a bad hex leaves the scheme's own cursor rather than a white one. A block
+cursor is drawn opaque with the glyph put back over it in `CursorText`, because a
+translucent box left the character under it half-legible in every scheme.
+
+Links come from two places and are the same thing by the time they are drawn.
+`emu.rs` carries the app's own OSC 8 through into the row (`safe_uri` strips
+controls and caps it), and `Sgr.Autolink` reads each row once more as *characters*
+to catch the http(s) URLs an agent merely printed - runs are how a row will be
+drawn, and a URL has no reason to respect where one ends, so `Split` cuts the runs
+against the spans instead. A run the app already linked is left alone. It is a row
+at a time, which is the whole limitation: a link the app wrapped is two links here,
+because the daemon does not mark the wrap. `TrackHover`/`LinkAt` decide the
+highlight, the tooltip and the click from one lookup, walking outwards over every
+run carrying the same URL. Ctrl+click opens; the right-button menu opens and copies,
+for anyone who never learned it. Opening goes through `POST /api/open` - slopd is
+the half of this on the host with a desktop to hand a URL to, and `open.rs` takes
+http, https and mailto and nothing else, tries `xdg-open`, `gio` and `wslview` in
+turn, and treats a child still alive after `HANDOFF` as a success, since an opener
+that has forked a browser has done its job. `Application.OpenURL` is the fallback
+rather than the road.
+
+The title bar carries a gear and a cross, and nothing else. Stop and Restart used to
+sit beside them and are in the agents list instead; nothing that ends an agent has a
+button here. Both sit at the *top* of the band rather than centred in it - the band
+is as tall as a portrait, and a control floating in the middle of one reads as
+sitting on the strip rather than on the window. The gear opens
+`TerminalSettingsWindow`; its icon is drawn in code (`GearIcon`, an annulus whose
+outer radius steps with the angle) because `TexButton` has no gear and a content
+path that resolves to null draws a button nobody can see. Because the buttons are
+drawn *before* `ColonistBarStrip.Draw`, the strip has to keep their corner clear:
+`TerminalWindow.CornerW`, subtracted from both ends of `FitScale`'s room, since the
+row is centred and the map view has to lay out the same pixels either way.
+`OpenMenu`, on the right button, is Copy,
+Paste and Select all - the clipboard errands, which never had a button anywhere -
+and, over a link, opening and copying that. Nothing that ends an agent is in it
+either, because a menu opened to copy a line is the
 wrong place to find one. The right button is taken before the forwarder ever sees
 it, in every mode: the menu has to be reachable from inside a full-screen TUI, and
 no agent here asks for button 2. Line two of the bar is the app's own title,
@@ -485,9 +528,9 @@ no agent here asks for button 2. Line two of the bar is the app's own title,
 never states one leaves the bar the height it was.
 
 The colonist strip is *in* the title bar, which is why `HeaderH` is
-`ColonistBarStrip.BarH`. `OpenOverPane` is how a window opened from the strip - the
-"+" - is put on the Super layer with the pane, since an ordinary dialog would be
-added underneath it and never seen. The pane's size is the window's, not a setting:
+`ColonistBarStrip.BarH`. `OpenOverPane` is how a window opened from the bar - the
+"+", and the gear - is put on the Super layer with the pane, since an ordinary
+dialog would be added underneath it and never seen. The pane's size is the window's, not a setting:
 `NegotiateSize` divides the body rect by the cell size and sends a `resize`
 (debounced 0.2s), and keeps asking once a second while the frames coming back
 disagree - a fire-and-forget message over a socket that drops on every redeploy has
@@ -497,6 +540,9 @@ until someone looks at it.
 `ProjectsWindow`, `SessionsWindow`, `ShortcutsWindow`, `EditProjectDialog`,
 `EditSessionDialog`, `EditShortcutDialog`, `ConfigMenuWindow` and `ConfigWindow`
 are the GUIs, all of which write straight through to the daemon.
+`TerminalSettingsWindow` is the exception: the only one that edits mod settings
+rather than `config.toml`, since the font and the palette are this screen's business
+and no agent's.
 
 `ProjectsWindow` is the first button in the bottom bar, ahead of `agents`, because
 nothing can be added there until there is somewhere to add it. Its preset
@@ -514,12 +560,36 @@ daemon would refuse both, and Stop is what closes one.
 ### Settings
 
 `SlopSettings` in `SlopWorldMod.cs`, reached through the static `Settings` shim:
-connection (`host`, `port`, `token`, `autoConnect`) and `fontSize`. Adding one
-means a field, a `Scribe_Values.Look`, a shim property and a checkbox.
+connection (`host`, `port`, `token`, `autoConnect`), `fontSize`, and the pane's
+`theme` and `cursorColor`. Adding one means a field, a `Scribe_Values.Look`, a shim
+property and a widget.
 
 There used to be nine more, and every one named something the mod exists to do.
-Off, they turned RimWorld back on underneath a terminal. What is left is the two
-things about this machine rather than about the design.
+Off, they turned RimWorld back on underneath a terminal. What is left is about this
+machine and about the eyes reading it, never about the design.
+
+They are scribed together and edited in two places. The connection is
+`DoSettingsWindowContents`, the vanilla road; the pane's three are
+`TerminalSettingsWindow`, off the gear, because a font size and a palette are judged
+by looking at a terminal and Options > Mod settings is behind a menu the terminal
+covers. The mod settings window keeps a button through to it, so neither is
+reachable only when the other is - a setting you can find in one place only, and
+that place a running agent, reads as a setting that does not exist.
+
+Everything in that window writes through as it moves and the file is written once,
+in `PostClose`, by `ModSettings.Write` rather than `Mod.WriteSettings` - the latter
+reconnects the socket, which is not what a font size is asking for. A size change
+also calls `TerminalFont.Invalidate`: the style rebuilds itself off the size, but
+the per-glyph fit verdicts are measured at one size and the pane's cache is keyed on
+the cell it was drawn at. The scheme is picked from a float menu and calls
+`TerminalTheme.Invalidate`; the cursor field needs neither, since `Resolve` compares
+the hex it was given.
+
+The window is mostly preview, because neither setting is a number anyone can
+picture: sixteen swatches over the background they will be read on, and under them
+five rows drawn the way the pane draws them - same style, same cell, the same rule
+under a link and the same glyph put back over a block cursor - so what is judged
+there is what arrives here.
 
 Which terminal was open belongs to a colony, so `TerminalRecall` scribes it into
 the save; writing mod settings on every switch would also mean a reconnect.
