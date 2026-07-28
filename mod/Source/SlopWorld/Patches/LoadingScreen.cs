@@ -32,15 +32,23 @@ namespace SlopWorld
     // The zalgo goes on the joined frame and never on a line before it is joined. A
     // line carries its marks wherever it goes, so seasoning the text itself would
     // send the noise up the screen with the words - legible, and the one thing it
-    // must not be.
+    // must not be. It is rolled again on every tick, over whichever frame is up: the
+    // noise boils on a clock of ours, and the scroll is a coin flipped against that
+    // same clock rather than a second one. So the rate never reads as the machine's
+    // load, which is what a timer drawn fresh per scroll made of it.
     [HarmonyPatch(typeof(GameplayTipWindow), nameof(GameplayTipWindow.DrawWindow))]
     public static class Patch_LoadingTips
     {
-        // Drawn fresh for every scroll. The floor is too fast to read and the ceiling
-        // finishes a short block, and uniform between the two averages a bit over a
-        // quarter second - so this is the pace of the thing and not a garnish on it.
-        const float MinSeconds = 0.2f;
-        const float MaxSeconds = 0.4f;
+        // One clock, and the scroll is a coin flipped against it rather than a clock of
+        // its own. Everything is re-seasoned and redrawn on this beat, so the noise
+        // crawls at a rate of ours and not at whatever frame rate the machine is
+        // managing while it generates a map underneath.
+        const float Tick = 0.075f;
+
+        // Rolled per tick, so the text moves a line every three of them on average -
+        // the pace the old random hold had, now with the scroll and the boil on
+        // separate schedules instead of one moving because the other did.
+        const double ScrollChance = 0.33;
 
         // One pass at this width is ninety-odd lines, already longer than a load; three
         // is a loop with no seam anyone could sit through.
@@ -54,6 +62,28 @@ namespace SlopWorld
             "\u0327\u0323\u0324\u0325\u0326\u0330\u0331";    // below
         const double MarkChance = 0.5;
         const double DoubleChance = 0.6;
+
+        // U+0334..0338, the overlays - struck through the glyph rather than perched over
+        // it, which is what actually costs a letter its shape. Kept apart from Marks and
+        // rolled on their own chance because they are not interchangeable with them: one
+        // is legibility taken away, the other is only weather. Never doubled - a second
+        // stroke on the same character is a blot, and a blot reads as a redaction rather
+        // than as a word going bad.
+        const string Overlays = "\u0334\u0335\u0336\u0337\u0338";
+        const double OverlayChance = 0.4;
+
+        // Hair and thin space, dropped into a gap between words. Rolled with the rest on
+        // every tick, and what it buys is the wobble: the tail of a line shifted a pixel
+        // or two and back while the words themselves hold still.
+        //
+        // Small on purpose, and not only for the look. Word wrap is off and these land
+        // after the wrap, so what a line gains here it can only lose off its right edge
+        // to the group's clip - a fifth of an em at the outside, and only on some of the
+        // gaps. A font that has never heard of them draws nothing, which is the one
+        // failure this is allowed: a space with no glyph is still a space. On ' ' alone,
+        // never on the '\n' between rows, which has no width to give.
+        const string Gaps = "\u200a\u2009";
+        const double GapChance = 0.25;
 
         static readonly List<string> Tips = new List<string>
         {
@@ -282,11 +312,12 @@ namespace SlopWorld
             }
         }
 
-        // Built once, because the noise has to hold still for as long as a frame is up -
-        // re-rolled per draw it would boil at the frame rate. Lazily rather than in a
-        // field initialiser, because the wrap measures text and so needs a font, which
-        // means inside OnGUI. A build that throws leaves an empty list, which is what
-        // makes both patches stand down and let vanilla have the screen.
+        // The windows, clean. The zalgo is not baked in any more: it is rolled onto
+        // whichever of these is up, on the tick, so a frame can boil where it stands
+        // without the text under it having moved. Lazily rather than in a field
+        // initialiser, because the wrap measures text and so needs a font, which means
+        // inside OnGUI. A build that throws leaves an empty list, which is what makes
+        // both patches stand down and let vanilla have the screen.
         static List<string> _frames;
 
         internal static List<string> Frames
@@ -355,7 +386,7 @@ namespace SlopWorld
                     if (n > 0) block.Append('\n');
                     block.Append(lines[(i + n) % lines.Count]);
                 }
-                frames.Add(Season(block.ToString(), rng));
+                frames.Add(block.ToString());
             }
             return frames;
         }
@@ -382,14 +413,23 @@ namespace SlopWorld
             return lines;
         }
 
-        // Whitespace is skipped: a mark on a space has nothing to sit on.
+        // Whitespace takes no marks - a mark on a space has nothing to sit on - and is
+        // where the gaps go instead.
+        //
+        // The overlay goes on first and the marks after it, which is canonical order -
+        // combining class 1 before 220 and 230 - and is also the only order that draws
+        // right, a stroke being positioned against the letter and not against whatever
+        // has already been stacked over it.
         static string Season(string s, System.Random rng)
         {
-            var sb = new System.Text.StringBuilder(s.Length * 2);
+            var sb = new System.Text.StringBuilder(s.Length * 3);
             foreach (char c in s)
             {
                 sb.Append(c);
-                if (char.IsWhiteSpace(c) || rng.NextDouble() >= MarkChance) continue;
+                if (c == ' ' && rng.NextDouble() < GapChance) sb.Append(Gaps[rng.Next(Gaps.Length)]);
+                if (char.IsWhiteSpace(c)) continue;
+                if (rng.NextDouble() < OverlayChance) sb.Append(Overlays[rng.Next(Overlays.Length)]);
+                if (rng.NextDouble() >= MarkChance) continue;
                 sb.Append(Marks[rng.Next(Marks.Length)]);
                 if (rng.NextDouble() < DoubleChance) sb.Append(Marks[rng.Next(Marks.Length)]);
             }
@@ -405,17 +445,17 @@ namespace SlopWorld
 
         static float _shown;
 
-        // Rolled when the block went up rather than read per draw, or the deadline would
-        // move under the comparison every frame.
-        static float _hold = MinSeconds;
-
         // Ours rather than vanilla's field, because the drawing is ours; the field is
         // written anyway, for the build where Patch_LoadingTipBlock did not bind.
         static int _frame;
         internal static int Frame => _frame;
 
-        static float NextHold() =>
-            MinSeconds + (float)Dice.NextDouble() * (MaxSeconds - MinSeconds);
+        // What the block patch draws: the frame that is up, seasoned as of the last tick.
+        // Held rather than seasoned per draw, so the noise is on the tick's clock and not
+        // on the frame rate's - which is the whole of the arrangement, the map generating
+        // underneath being what decides how often this screen gets drawn at all.
+        static string _painted;
+        internal static string Painted => _painted;
 
         static void Prefix()
         {
@@ -423,11 +463,11 @@ namespace SlopWorld
             if (frames.Count == 0) return;
 
             float now = Time.realtimeSinceStartup;
-            if (now - _shown >= _hold)
+            if (now - _shown >= Tick || _painted == null)
             {
-                _frame = (_frame + 1) % frames.Count;
+                if (Dice.NextDouble() < ScrollChance) _frame = (_frame + 1) % frames.Count;
                 _shown = now;
-                _hold = NextHold();
+                _painted = Season(frames[_frame], Dice);
             }
 
             // A field this build has never heard of leaves vanilla's own list in the cache,
@@ -460,6 +500,9 @@ namespace SlopWorld
             List<string> frames = Patch_LoadingTips.Frames;
             if (frames.Count == 0) return true;
 
+            // Clean if the tick has not run yet; it has, DrawWindow being what called us.
+            string block = Patch_LoadingTips.Painted ?? frames[Patch_LoadingTips.Frame];
+
             Vector2 margin = Patch_LoadingTips.Margin;
             Rect inner = new Rect(
                 rect.x + margin.x, rect.y + margin.y,
@@ -472,7 +515,7 @@ namespace SlopWorld
             Text.WordWrap = false;
 
             Widgets.BeginGroup(inner);
-            Widgets.Label(new Rect(0f, 0f, inner.width, inner.height), frames[Patch_LoadingTips.Frame]);
+            Widgets.Label(new Rect(0f, 0f, inner.width, inner.height), block);
             Widgets.EndGroup();
 
             Text.WordWrap = wrap;
