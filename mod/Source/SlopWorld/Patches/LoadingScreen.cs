@@ -43,12 +43,12 @@ namespace SlopWorld
         // its own. Everything is re-seasoned and redrawn on this beat, so the noise
         // crawls at a rate of ours and not at whatever frame rate the machine is
         // managing while it generates a map underneath.
-        const float Tick = 0.075f;
+        const float Tick = 0.07f;
 
         // Rolled per tick, so the text moves a line every three of them on average -
         // the pace the old random hold had, now with the scroll and the boil on
         // separate schedules instead of one moving because the other did.
-        const double ScrollChance = 0.33;
+        const double ScrollChance = 0.4;
 
         // One pass at this width is ninety-odd lines, already longer than a load; three
         // is a loop with no seam anyone could sit through.
@@ -60,8 +60,8 @@ namespace SlopWorld
         const string Marks =
             "\u0300\u0301\u0302\u0303\u0304\u0306\u0307\u0308\u030A\u030B\u030C" +   // above
             "\u0327\u0323\u0324\u0325\u0326\u0330\u0331";    // below
-        const double MarkChance = 0.5;
-        const double DoubleChance = 0.6;
+        const double MarkChance = 0.4;
+        const double DoubleChance = 0.4;
 
         // U+0334..0338, the overlays - struck through the glyph rather than perched over
         // it, which is what actually costs a letter its shape. Kept apart from Marks and
@@ -82,8 +82,8 @@ namespace SlopWorld
         // gaps. A font that has never heard of them draws nothing, which is the one
         // failure this is allowed: a space with no glyph is still a space. On ' ' alone,
         // never on the '\n' between rows, which has no width to give.
-        const string Gaps = "\u200a\u2009";
-        const double GapChance = 0.25;
+        const string Gaps = "\u200a";
+        const double GapChance = 0.2;
 
         static readonly List<string> Tips = new List<string>
         {
