@@ -1007,10 +1007,20 @@ namespace SlopWorld
             _literal.Length = 0;
         }
 
+        // UI.screenWidth truncates, so the window is a fraction of a pixel short of the real
+        // right edge and the last column is one nothing covers - and nothing repaints either,
+        // PaneOverDraw having stood the map down. Painted here because ExtraOnGUI runs in
+        // screen coordinates: a wider window would be a wider pane, and one column too many.
         public override void ExtraOnGUI()
         {
             base.ExtraOnGUI();
-            if (Event.current.type == EventType.Repaint) Flush();
+            if (Event.current.type != EventType.Repaint) return;
+
+            Widgets.DrawBoxSolid(new Rect(0f, 0f,
+                Mathf.Ceil(Screen.width / Prefs.UIScale),
+                Mathf.Ceil(Screen.height / Prefs.UIScale)), Sgr.DefaultBg);
+
+            Flush();
         }
 
         static string MapKey(Event e)
