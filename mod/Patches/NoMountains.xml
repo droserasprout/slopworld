@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <Operation Class="PatchOperationRemove">
+    <xpath>/Defs/MapGeneratorDef[defName='Base_Player']/genSteps/li[text()='RocksFromGrid']</xpath>
+  </Operation>
+</Patch>
