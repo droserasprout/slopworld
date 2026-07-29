@@ -357,9 +357,11 @@ none of these need a def.
   tokens. A working agent takes the nearest frame nobody has reserved and hammers at
   it; with none free it opens one where it is standing, which is wherever an agent
   with nothing to do had wandered to - a free spread, and the walk out to the errand
-  is a few steps rather than a crossing. The half of the plague circle nearest the
-  core is the whole of the constraint on that, and a pawn that has wandered out of it
-  is aimed back in.
+  is a few steps rather than a crossing. The plague circle entire is the whole of the
+  constraint on that, and a pawn that has wandered out of it is aimed back in. It is
+  `Plague.Reach` - the plain geometry, the same answer `Reaches` gives fire, not
+  `BandAt` - because the dither spares cells inside the circle and a site that stepped
+  around each of them would be a lace doily rather than a colony.
   Leaving `Working` ends the job where it stands, and `Frame.workDone` stays on the
   frame, so a monument is the sum of every burst the agent has had. The one system
   here that does *not* apply its effects by hand: the vanilla job driver walks the
@@ -378,9 +380,21 @@ none of these need a def.
   `Patch_ErrandWork` is where that lands on `Frame.WorkToBuild`, because vanilla's own
   figures are an economy's and this one has none: a metal plate is instant, a column
   or a grave four seconds, a sarcophagus eight, a large stele fifteen and a grand one
-  thirty. The target is the hour - a session's worth of a couple of agents being busy
-  has to leave the circle with nowhere left to put anything, because running out of
-  ground is the only thing on this map that ever asks the player for a decision.
+  thirty; the ancient kit sits on those same tiers, a lamp or a lamppost against the
+  four and the big machine against the thirty. How *often* each is picked is the
+  `*Odds` block at the top of the class, and that block is the whole of the tuning:
+  whole numbers summing to a hundred, so a line reads as the share of the finished site
+  that will be that thing. Nothing enforces the sum - `Pick` normalises whatever it is
+  handed, and has to, because it weighs only what the pawn in front of it could finish.
+  Fifty-five is paving, twenty the monuments, twenty-five the machines; the rack, the
+  screens and the cabinets carry that last share, and the lamp and the lamppost are
+  held to three each, one of them lighting a good few cells and a field of them
+  lighting the same ground over and over. The target is the hour - a session's worth
+  of a couple of agents being busy has to leave the circle with nowhere left to put
+  anything, because running out of ground is the only thing on this map that ever asks
+  the player for a decision. The circle being the plague's whole reach rather than half
+  of it is four times the ground, so that target is four times further off than it was;
+  the seconds and `PavingSide` are what would buy it back.
   Paving is most of what gets picked on top of that, where a monument is an event
   because it is rare. `Interval` is a quarter second for the same reason: the errand a
   pawn is handed here is the whole of what it does next, and a plate takes less than a
@@ -390,9 +404,12 @@ none of these need a def.
   A frame is only handed out if `GenConstruct.CanConstruct` says yes, which is the
   driver's own fail condition asked one tick early: without it a frame nobody can
   reach is handed out, fails, and is handed straight back on the next look forever.
-  A round of darts that finds nowhere to build sits the whole site down for five
+  A round of darts that finds nowhere to lay *floor* sits the whole site down for five
   seconds (`BlockedFor`), because a full circle is the state all of this is aimed at
-  and it has to be cheap to be in.
+  and it has to be cheap to be in - a plate is one cell and wants no clearance, so its
+  failing is the circle's answer rather than its own. Anything with a shape asks for a
+  footprint and a pad, and a five-by-three machine finding no room within a few steps
+  of one pawn is not grounds for stopping the agents who still had somewhere to pave.
   The other half of that is `Sweep`, once a second: a frame with a plant grown into it
   or a chunk landed on it is one vanilla wants *cleared* before it can be built, which
   on this map means work no agent is allowed and a hauler that does not exist. It can
@@ -412,7 +429,22 @@ none of these need a def.
   about what for builds a marker, a place to put somebody, and a slab with writing on
   it nobody will read; sculptures are not among them because they are bench work in
   this game, crafted and installed rather than built, and steles carry the same
-  `CompArt` anyway. Stone for those, and the tile's own rock, so they read as one
+  `CompArt` anyway. The other half of what it was told nothing about is the world it
+  came out of: racks, monitor banks, cabinets, a generator, and one machine the size
+  of a house that does nothing. Vanilla ships those as scenery for its own ruins and
+  lets no player build one - `Patches/AncientBuildings.xml` is the whole of what stands
+  between here and a server rack, since `BuildableDef.BuildableByPlayer` is literally
+  `designationCategory != null` and a frame is generated for nothing else. They cost
+  nothing and ask for no construction skill, so a frame is workable the tick it is
+  placed and every agent that lands can raise one. `AncientLamp` is the only one of
+  them that is not decoration: a `CompGlower` with neither a power comp nor a fuel one,
+  which makes it the one light in the game that simply burns - no grid, no hauler,
+  nothing to run out. A few of them is a night with somewhere to walk and the rest is
+  daylight, which is why it is one of the rarest of the seven rather than one of the
+  commonest. `AncientMachine` needs `disableImpassableShotOverConfigError` in the same
+  patch, because vanilla calls impassable-and-half-filling an error the moment a def
+  becomes player-buildable.
+  Stone for the monuments, and the tile's own rock, so they read as one
   thing; the floor is metal plate rather than the matching flagstone, because a
   machine paving over ash lays down what it is made of and stone read as a garden path
   through a dead world. Floors are laid a square at a time, around the cell the site

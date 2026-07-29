@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ruins, handed a frame.
+
+  Vanilla's machine kit - the racks, the monitor banks, the lamps - is all
+  scenery: it is dropped onto maps by the generator and no player ever builds
+  it. A def gets a blueprint and a frame if and only if BuildableDef
+  BuildableByPlayer, which is literally "designationCategory != null", so this
+  is the whole of what stands between Worksite and a server rack. The category
+  itself never shows: the Architect button is stripped and the two roads into
+  its menu are gated on the same Visible the bar reads.
+
+  They are the right shape for this map in a way nothing player-buildable is.
+  They cost nothing and want no stuff, so a frame is ready the tick it is
+  placed; they ask for no construction skill, so every agent that lands can
+  raise one; and they arrive already ruined, which is what a machine told
+  nothing about what for builds when it copies the world it came out of.
+-->
+<Patch>
+  <Operation Class="PatchOperationAdd">
+    <xpath>/Defs/ThingDef[
+      defName='AncientLamp' or
+      defName='AncientLamppost' or
+      defName='AncientSystemRack' or
+      defName='AncientDisplayBank' or
+      defName='AncientLockerBank' or
+      defName='AncientGenerator' or
+      defName='AncientMachine']</xpath>
+    <value>
+      <designationCategory>Misc</designationCategory>
+    </value>
+  </Operation>
+
+  <!--
+    The ancient machine is Impassable and only half-filling, and ThingDef
+    ConfigErrors calls that combination an error the moment a def becomes
+    player-buildable - a wall you can shoot over. Nothing on this map shoots.
+  -->
+  <Operation Class="PatchOperationAdd">
+    <xpath>/Defs/ThingDef[defName='AncientMachine']</xpath>
+    <value>
+      <disableImpassableShotOverConfigError>true</disableImpassableShotOverConfigError>
+    </value>
+  </Operation>
+</Patch>

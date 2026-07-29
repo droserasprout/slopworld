@@ -13,10 +13,10 @@ namespace SlopWorld
     // A working agent walks to the nearest frame nobody has claimed and hammers at it;
     // if there is no such frame it opens one where it is standing. Where it is standing
     // is where an agent with nothing to do had wandered to, which is as fair a spread as
-    // this needs and costs nothing to work out. The half of the plague circle nearest
-    // the core is the whole of the constraint on that: ground the core has already
-    // taken, so the site is built on ash rather than on anything living, and the ground
-    // runs out while there is still a map around it. Leaving Working ends the job on the
+    // this needs and costs nothing to work out. The plague circle is the whole of the
+    // constraint on that: ground the core has already taken, so the site is built on ash
+    // rather than on anything living, and the ground runs out while there is still a map
+    // around it. Leaving Working ends the job on the
     // spot. Frame.workDone
     // is on the frame rather than the pawn, so a thing standing here is the sum of every
     // burst the agent had while it was going up.
@@ -95,9 +95,41 @@ namespace SlopWorld
         const float SiteNear = 4f;
         const float SiteRadius = 12f;
 
-        // The share of the plague circle the site is allowed, measured from the core.
-        const float SiteFrac = 0.5f;
+        // The floor under the circle the site is allowed, so the plague's first minute
+        // does not have the agents building inside the core itself. Everything above it
+        // is the plague's own reach.
         const float MinCircle = 6f;
+
+        // What share of the errands each thing is, out of a hundred. This block is the
+        // whole of the tuning: they are whole numbers and they sum to a hundred, so a
+        // line here reads as the share of the finished site that will be that thing,
+        // which is the only question anyone adjusting this is asking. Nothing enforces
+        // the sum - Pick normalises whatever it is handed, and it has to, because it
+        // weighs only what the pawn in front of it could finish.
+        //
+        // Paving is more than half of it deliberately: it is the errand that finishes,
+        // it is what a short burst has to show for itself, and it is what makes anything
+        // with a shape read as an event rather than as the only thing the site does.
+        const float PavingOdds = 55f;
+
+        // Markers, and what a machine told nothing about what for puts up.
+        const float ColumnOdds = 4f;
+        const float GraveOdds = 5f;
+        const float SarcophagusOdds = 4f;
+        const float SteleLargeOdds = 4f;
+        const float SteleGrandOdds = 3f;
+
+        // The world it came out of. The rack, the screens and the cabinets carry this
+        // half, because they are the ones with a silhouette worth looking at twice; the
+        // lamp and the lamppost are held down to nearly nothing, since one of them lights
+        // a good few cells and a field of them lights the same ground over and over.
+        const float LampOdds = 3f;
+        const float LamppostOdds = 3f;
+        const float RackOdds = 6f;
+        const float ScreensOdds = 5f;
+        const float LockersOdds = 4f;
+        const float GeneratorOdds = 3f;
+        const float MachineOdds = 1f;
 
         struct Errand
         {
@@ -134,6 +166,21 @@ namespace SlopWorld
         // Passes since the last sweep.
         int _swept;
 
+        // The frame each agent was last sent to, and the frames being passed over.
+        //
+        // Being asked for an errand at all means the last job did not survive a quarter
+        // of a second: a pass that found the pawn on FinishFrame leaves it alone. So
+        // whatever we were told about that frame was wrong, whoever was wrong about it,
+        // and it is passed over until the next sweep rather than handed straight back.
+        // Two systems can disagree about one frame forever otherwise, and from the
+        // outside that is a clanker walking to the same spot for the life of the colony.
+        readonly Dictionary<Pawn, Frame> _sent = new Dictionary<Pawn, Frame>();
+        readonly HashSet<Frame> _shunned = new HashSet<Frame>();
+
+        // Scratch, held rather than allocated: the sweep runs once a second forever.
+        readonly List<Pawn> _hands = new List<Pawn>();
+        readonly List<Pawn> _stale = new List<Pawn>();
+
         // How often the standing frames are looked over, in passes - once a second.
         const int SweepEvery = 4;
 
@@ -164,7 +211,7 @@ namespace SlopWorld
                 if (pawn.Dead || pawn.Downed) continue;
 
                 var state = hub.Get(kv.Key)?.State ?? AgentState.Down;
-                if (state != AgentState.Working) { Stop(pawn); continue; }
+                if (state != AgentState.Working) { _sent.Remove(pawn); Stop(pawn); continue; }
 
                 // Already at it. The top-up is not idle work: a failed construction empties
                 // the frame, and vanilla's own answer to that is a hauler this map has not
@@ -231,17 +278,38 @@ namespace SlopWorld
             // the errand back over it is how a clanker ends up walking on the spot.
             if (pawn.CurJobDef == JobDefOf.Goto) return;
 
+            Frame stale;
+            if (_sent.TryGetValue(pawn, out stale))
+            {
+                _sent.Remove(pawn);
+                if (stale != null && stale.Spawned) _shunned.Add(stale);
+            }
+
             var frame = Free(pawn) ?? Open(pawn);
             if (frame == null) return;
 
             // Asked of an opened frame as well as a found one, because a frame can be
             // blocked the moment it is placed - by whoever wandered past while it was being
             // placed, or by the pawn that asked for it.
-            if (!GenConstruct.CanConstruct(frame, pawn, false, true)) return;
+            if (!Buildable(frame, pawn)) return;
 
             Fill(frame);
-            pawn.jobs.TryTakeOrderedJob(JobMaker.MakeJob(JobDefOf.FinishFrame, frame), JobTag.Misc);
+            if (pawn.jobs.TryTakeOrderedJob(JobMaker.MakeJob(JobDefOf.FinishFrame, frame), JobTag.Misc))
+                _sent[pawn] = frame;
         }
+
+        // The driver's own fail condition, asked one tick early and asked *the same way*.
+        //
+        // It used to be asked the easy way - skills off, forced on - and the gap between
+        // the two is the whole of how a clanker gets stuck. A sarcophagus wants
+        // Construction 5 (vanilla's own figure, in Buildings_Misc.xml); with skills off
+        // the frame is handed to a clanker with three, which walks the length of the site,
+        // is refused on arrival because the fail condition sits on the build toil and not
+        // the walk, and is handed the same frame a quarter of a second later. It is the
+        // nearest, it is unreserved, and nothing takes it away: that frame traps every
+        // low-skilled agent that ever comes near it, for the life of the colony.
+        static bool Buildable(Frame frame, Pawn pawn) =>
+            GenConstruct.CanConstruct(frame, pawn, true, false);
 
         // Construction has to be *on* for as long as the hammer is swinging:
         // GenConstruct.CanConstruct reads the work settings and the job driver fails on
@@ -271,13 +339,11 @@ namespace SlopWorld
                 var frame = thing as Frame;
                 if (frame == null || !frame.Spawned) continue;
                 if (WorkFor(frame.def?.entityDefToBuild) <= 0f) continue;
+                if (_shunned.Contains(frame)) continue;
+                // Cheap first: the reservation is a dictionary lookup and the rest is a
+                // path.
                 if (!pawn.CanReserve(frame)) continue;
-                if (!pawn.CanReach(frame, PathEndMode.Touch, Danger.Deadly)) continue;
-                // The same question the driver's own fail condition asks every tick it runs.
-                // Without it a frame the pawn cannot work - something standing in it, no cell
-                // to stand in - is handed out, fails on the spot and is handed straight back
-                // on the next look, which is a clanker walking on the spot forever.
-                if (!GenConstruct.CanConstruct(frame, pawn, false, true)) continue;
+                if (!Buildable(frame, pawn)) continue;
 
                 float d = frame.Position.DistanceToSquared(pawn.Position);
                 if (d >= nearest) continue;
@@ -294,7 +360,7 @@ namespace SlopWorld
             if (now < _blocked) return null;
             if (Standing() >= MaxOpen) return null;
 
-            var pick = Pick();
+            var pick = Pick(pawn);
             if (pick == null) return null;
             var errand = pick.Value;
 
@@ -305,11 +371,20 @@ namespace SlopWorld
                 if (frame != null) return frame;
             }
 
-            // Thirty sites and nowhere to put it is what a full circle looks like from in
-            // here, and that is the state this is all aimed at - so it must be cheap to be
-            // in. Every agent asking four times a second otherwise means five hundred
-            // CanPlaceBlueprintAt calls a second against ground that is not going to change.
-            _blocked = now + BlockedFor;
+            // Thirty sites and nowhere to put it. For the floor that is what a full circle
+            // looks like from in here - it is one cell, it wants no clearance, and it goes
+            // down on anything - and a full circle is the state this is all aimed at, so it
+            // must be cheap to be in. Every agent asking four times a second otherwise
+            // means five hundred CanPlaceBlueprintAt calls a second against ground that is
+            // not going to change.
+            //
+            // Anything with a shape asks for a footprint and a pad around it, so its
+            // failing says only that there is no room for *it* within a few steps of this
+            // pawn. Sitting the whole site down on that would be a five-by-three machine
+            // stopping every agent who still had somewhere to lay a plate - and the floor
+            // is more than half the table, so a circle that really is full arms this within
+            // a look or two regardless.
+            if (errand.Patch > 1) _blocked = now + BlockedFor;
             return null;
         }
 
@@ -331,18 +406,38 @@ namespace SlopWorld
         // it.
         void Sweep()
         {
+            // One look each is enough, and the list is short. A frame this colony has
+            // nobody skilled enough for is rubbish in exactly the way a blocked one is:
+            // nothing will ever take it, and it counts against MaxOpen while it stands.
+            _hands.Clear();
+            var colony = AgentColony.Current;
+            if (colony != null)
+                foreach (var kv in colony.All)
+                {
+                    var agent = kv.Value;
+                    if (agent != null && agent.Spawned && agent.Map == map && !agent.Dead)
+                        _hands.Add(agent);
+                }
+
             List<Thing> doomed = null;
 
             foreach (var thing in map.listerThings.ThingsInGroup(ThingRequestGroup.BuildingFrame))
             {
                 var frame = thing as Frame;
                 if (frame == null || !frame.Spawned) continue;
-                if (WorkFor(frame.def?.entityDefToBuild) <= 0f) continue;
-                if (GenConstruct.FirstBlockingThing(frame, null) == null) continue;
+                var what = frame.def?.entityDefToBuild;
+                if (WorkFor(what) <= 0f) continue;
+
+                if (GenConstruct.FirstBlockingThing(frame, null) == null && Anyone(what)) continue;
 
                 if (doomed == null) doomed = new List<Thing>();
                 doomed.Add(frame);
             }
+
+            // A frame passed over for a quarter of a second gets another chance now: the
+            // ones that deserved to be passed over for good have just been destroyed.
+            _shunned.Clear();
+            Prune();
 
             if (doomed == null) return;
 
@@ -354,6 +449,30 @@ namespace SlopWorld
             _blocked = 0;
         }
 
+        // With nobody on the map to ask, nothing is condemned: an empty colony is not the
+        // same answer as a colony of clumsy hands.
+        bool Anyone(BuildableDef what)
+        {
+            if (_hands.Count == 0) return true;
+            for (int i = 0; i < _hands.Count; i++)
+                if (Skilled(what, _hands[i])) return true;
+            return false;
+        }
+
+        // Agents come and go, and a dictionary keyed on pawns would hold every one of
+        // them that ever landed.
+        void Prune()
+        {
+            if (_sent.Count == 0) return;
+
+            _stale.Clear();
+            foreach (var kv in _sent)
+                if (kv.Key == null || !kv.Key.Spawned || kv.Value == null || !kv.Value.Spawned)
+                    _stale.Add(kv.Key);
+
+            for (int i = 0; i < _stale.Count; i++) _sent.Remove(_stale[i]);
+        }
+
         int Standing()
         {
             int n = 0;
@@ -362,21 +481,41 @@ namespace SlopWorld
             return n;
         }
 
-        Errand? Pick()
+        // Weighted, and only over what the pawn asking could finish. A clanker that opens
+        // a frame beyond its own hands has built the trap it then walks into.
+        Errand? Pick(Pawn pawn)
         {
             var list = Errands;
-            if (list.Count == 0) return null;
 
             float total = 0f;
-            for (int i = 0; i < list.Count; i++) total += list[i].Weight;
+            for (int i = 0; i < list.Count; i++)
+                if (Skilled(list[i].What, pawn)) total += list[i].Weight;
+            if (total <= 0f) return null;
 
             float roll = Rand.Range(0f, total);
+            Errand? last = null;
             for (int i = 0; i < list.Count; i++)
             {
+                if (!Skilled(list[i].What, pawn)) continue;
+                last = list[i];
                 roll -= list[i].Weight;
                 if (roll <= 0f) return list[i];
             }
-            return list[list.Count - 1];
+            return last;
+        }
+
+        // Vanilla's two prerequisites, read off the def rather than guessed at. This is
+        // the half of CanConstruct that is about the pawn rather than about the ground,
+        // and the only half that can be asked before the frame exists.
+        static bool Skilled(BuildableDef what, Pawn pawn)
+        {
+            var skills = pawn?.skills;
+            if (what == null || skills == null) return true;
+
+            return what.constructionSkillPrerequisite
+                       <= skills.GetSkill(SkillDefOf.Construction).Level
+                && what.artisticSkillPrerequisite
+                       <= skills.GetSkill(SkillDefOf.Artistic).Level;
         }
 
         // Next to whoever is asking. An agent with nothing to do wanders, and where it
@@ -406,9 +545,12 @@ namespace SlopWorld
             return from + new IntVec3(Mathf.RoundToInt(v.x), 0, Mathf.RoundToInt(v.z));
         }
 
-        // The half of the plague circle the site is allowed, and never so small that the
-        // plague's first minute has the agents building inside the core itself.
-        float Circle() => _plague == null ? 0f : Mathf.Max(_plague.Reach * SiteFrac, MinCircle);
+        // The plague circle entire, and never so small that the plague's first minute has
+        // the agents building inside the core itself. Plague.Reach is the plain geometry
+        // rather than BandAt, which is the same answer Reaches gives fire: the dither
+        // spares cells inside the circle, and a site that stepped around each of them
+        // would be a lace doily rather than a colony.
+        float Circle() => _plague == null ? 0f : Mathf.Max(_plague.Reach, MinCircle);
 
         IntVec3 Heart() => _plague == null ? map.Center : _plague.Heart;
 
@@ -597,20 +739,38 @@ namespace SlopWorld
                 // through a dead world. Steel, which the map has none of and never needed.
                 var plate = DefDatabase<TerrainDef>.GetNamedSilentFail("MetalTile");
 
-                // Most of what happens here, and deliberately: paving is the errand that
-                // finishes. It is what a short burst has to show for itself, and a monument
-                // that arrives now and then reads as an event where one a minute would read
-                // as the only thing the site does.
-                Add(plate, PavingSeconds, 55f, PavingSide);
+                Add(plate, PavingSeconds, PavingOdds, PavingSide);
 
                 // Monuments and graves. What a machine builds when it is told nothing about
                 // what for: a marker, a place to put somebody, and a slab with writing on it
                 // that nobody will read.
-                Add(Named("Column"), SmallSeconds, 15f);
-                Add(Named("Grave"), SmallSeconds, 10f);
-                Add(Named("Sarcophagus"), MediumSeconds, 8f);
-                Add(Named("SteleLarge"), LargeSeconds, 7f);
-                Add(Named("SteleGrand"), MonumentSeconds, 5f);
+                Add(Named("Column"), SmallSeconds, ColumnOdds);
+                Add(Named("Grave"), SmallSeconds, GraveOdds);
+                Add(Named("Sarcophagus"), MediumSeconds, SarcophagusOdds);
+                Add(Named("SteleLarge"), LargeSeconds, SteleLargeOdds);
+                Add(Named("SteleGrand"), MonumentSeconds, SteleGrandOdds);
+
+                // And the other half of what it was told nothing about: the world it came
+                // out of. Racks, screens, cabinets, a generator, and one machine the size of
+                // a house that does nothing. Vanilla ships these as scenery for its own
+                // ruins and never lets a player build one - Patches/AncientBuildings.xml is
+                // what hands them a frame. They cost nothing and want no skill, so every
+                // agent that lands can raise one and the frame is ready the tick it is
+                // placed.
+                //
+                // The lamp is the only thing on this list that is not decoration: a
+                // CompGlower with neither a power comp nor a fuel one, which makes it the
+                // one light in the game that simply burns - no grid, no hauler, nothing to
+                // run out. A few of them is a night with somewhere to walk; the rest is
+                // daylight, so it is one of the rarest things here rather than one of the
+                // commonest.
+                Add(Named("AncientLamp"), SmallSeconds, LampOdds);
+                Add(Named("AncientLamppost"), SmallSeconds, LamppostOdds);
+                Add(Named("AncientSystemRack"), MediumSeconds, RackOdds);
+                Add(Named("AncientDisplayBank"), MediumSeconds, ScreensOdds);
+                Add(Named("AncientLockerBank"), MediumSeconds, LockersOdds);
+                Add(Named("AncientGenerator"), MediumSeconds, GeneratorOdds);
+                Add(Named("AncientMachine"), MonumentSeconds, MachineOdds);
 
                 if (_errands.Count == 0)
                     Log.Warning("[SlopWorld] no errands this build knows how to build; agents will stand about");
