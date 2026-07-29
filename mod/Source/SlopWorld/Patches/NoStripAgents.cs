@@ -21,4 +21,13 @@ namespace SlopWorld
             return true;
         }
     }
+
+    [HarmonyPatch(typeof(StrippableUtility), nameof(StrippableUtility.CanBeStrippedByColony))]
+    public static class Patch_NoStripAgentsDowned
+    {
+        static void Postfix(Thing th, ref bool __result)
+        {
+            if (__result && th is Pawn p && AgentColony.IsAgent(p)) __result = false;
+        }
+    }
 }
