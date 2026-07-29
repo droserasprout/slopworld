@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Verse;
@@ -36,7 +37,7 @@ namespace SlopWorld
             closeOnClickedOutside = false;
         }
 
-        public override Vector2 InitialSize => new Vector2(470f, 580f);
+        public override Vector2 InitialSize => new Vector2(470f, 630f);
 
         static SlopSettings S => SlopWorldMod.Instance.settings;
 
@@ -68,6 +69,29 @@ namespace SlopWorld
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(new Rect(rect.x, rect.y, rect.width, caption.y - rect.y - 6f));
 
+            if (l.ButtonText($"Font: {(s.fontName.NullOrEmpty() ? "Automatic" : s.fontName)}"))
+            {
+                var opts = new List<FloatMenuOption>
+                {
+                    new FloatMenuOption("Automatic", () =>
+                    {
+                        s.fontName = "";
+                        TerminalFont.Invalidate();
+                    }),
+                };
+                foreach (var name in TerminalFont.Mono)
+                {
+                    var picked = name;
+                    opts.Add(new FloatMenuOption(picked, () =>
+                    {
+                        s.fontName = picked;
+                        TerminalFont.Invalidate();
+                    }));
+                }
+                Find.WindowStack.Add(new FloatMenu(opts));
+            }
+
+            l.Gap(8f);
             l.Label($"Font size: {s.fontSize}");
             int size = Mathf.RoundToInt(l.Slider(s.fontSize, 8, 28));
             if (size != s.fontSize)

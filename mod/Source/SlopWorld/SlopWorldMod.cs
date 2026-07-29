@@ -22,6 +22,7 @@ namespace SlopWorld
         public bool autoConnect = true;
 
         public int fontSize = 14;
+        public string fontName = "";
 
         // The pane's palette, by name. A scheme this build no longer ships reads as the
         // default rather than as no colours at all.
@@ -39,6 +40,7 @@ namespace SlopWorld
             Scribe_Values.Look(ref token, "token", "");
             Scribe_Values.Look(ref autoConnect, "autoConnect", true);
             Scribe_Values.Look(ref fontSize, "fontSize", 14);
+            Scribe_Values.Look(ref fontName, "fontName", "");
             Scribe_Values.Look(ref theme, "theme", "clankers");
             Scribe_Values.Look(ref cursorColor, "cursorColor", "");
         }
@@ -54,6 +56,7 @@ namespace SlopWorld
         public static string Token => S.token;
         public static bool AutoConnect => S.autoConnect;
         public static int FontSize => S.fontSize;
+        public static string FontName => S.fontName ?? "";
         public static string Theme => S.theme ?? "";
         public static string CursorColor => S.cursorColor ?? "";
     }
