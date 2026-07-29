@@ -110,8 +110,11 @@ impl Default for Defaults {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// The base every sandbox is built on. There is no master switch here: whether an
+/// agent is sandboxed is the project's answer (`ProjectCfg::sandbox`) and only the
+/// project's, because a daemon-wide override that silently beat every one of those
+/// checkboxes read as a checkbox that did nothing.
 pub struct Sandbox {
-    pub enabled: bool,
     /// Bound into every sandbox, whatever the project.
     pub ro_paths: Vec<String>,
     /// An agent's own state dir is not here: `~/.claude` rides on the `claude` preset,
@@ -123,7 +126,6 @@ pub struct Sandbox {
 impl Default for Sandbox {
     fn default() -> Self {
         Self {
-            enabled: true,
             // ~/.local/bin so agent-run tools on PATH resolve inside the sandbox; without it
             // their spawn fails with ENOENT.
             ro_paths: vec![
@@ -564,6 +566,46 @@ mod tests {
         assert_eq!(cfg.daemon.claude_credentials, "~/.claude/.credentials.json");
         assert!(cfg.shortcuts.is_empty());
         assert_eq!(cfg.defaults.shell, "bash");
+    }
+
+    /// `[sandbox] enabled` was a daemon-wide override that silently beat every
+    /// project's own checkbox, so it went. A config written before that still has the
+    /// key: it has to be ignored on the way in rather than refused, and gone on the way
+    /// back out, or an install that never opens the config window keeps a dead line
+    /// forever.
+    #[test]
+    fn stale_sandbox_switch_is_ignored() {
+        let cfg = Config::parse(
+            r#"
+            [daemon]
+            bind = "127.0.0.1:7717"
+            tmux_socket = "slopworld"
+            poll_ms = 80
+
+            [sandbox]
+            enabled = false
+            ro_paths = ["/usr"]
+            rw_paths = []
+            pass_env = ["PATH"]
+
+            [[project]]
+            name = "p"
+            dir = "/tmp/p"
+            "#,
+        )
+        .expect("a config with the old switch should still parse");
+
+        assert_eq!(cfg.sandbox.ro_paths, vec!["/usr".to_string()]);
+
+        let out = toml::to_string_pretty(&cfg).expect("should serialise");
+        assert!(
+            !out.contains("enabled"),
+            "the dead switch should not be written back:\n{out}"
+        );
+
+        // And the project's own answer is the only one left: an unsandboxed project is
+        // unsandboxed, a sandboxed one is sandboxed, whatever that key said.
+        assert!(cfg.projects[0].sandbox);
     }
 
     /// A prompt shortcut that names no command has to come out a *Claude* session: the

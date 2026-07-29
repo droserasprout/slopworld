@@ -1,19 +1,22 @@
-using System.Collections.Generic;
-using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
 
 namespace SlopWorld
 {
-    // Three tabs: the daemon, the sandbox every agent runs in, and the sessions.
-    // State rules keep to the raw editor behind "Edit as TOML" - they are regexes,
+    // One page, because there was only ever one subject here: what this machine does.
+    // The tabs went because two of the three were answering somebody else's question -
+    // the agent list is the `agents` window, and the sandbox a project runs in is that
+    // project's. What is left is the daemon, and the base every sandbox is built on,
+    // which has nowhere else to be.
+    //
+    // The connection is not here either. Where the daemon listens and where the game
+    // dials are one question - they are the same machine - and only one of the two ends
+    // can be edited with the socket down, so mod settings owns it and this window states
+    // it. State rules keep to the raw editor behind "Edit as TOML": they are regexes,
     // and a text box is the honest widget for a regex.
     public class ConfigMenuWindow : Window
     {
-        enum Tab { Daemon, Sandbox, Sessions }
-
-        Tab _tab = Tab.Daemon;
         SlopConfig _cfg;
         string _path = "";
         string _error;
@@ -25,6 +28,10 @@ namespace SlopWorld
         string _roPaths, _rwPaths, _passEnv;
 
         Vector2 _scroll;
+        // Last frame's measured height for the field column. The listing is begun on a
+        // rect far taller than it needs, so it never breaks to a second column, and what
+        // it actually used is what the scroll view is sized from next frame.
+        float _fieldsH;
 
         public static void Toggle()
         {
@@ -45,7 +52,7 @@ namespace SlopWorld
             closeOnClickedOutside = false;
         }
 
-        public override Vector2 InitialSize => new Vector2(720f, 560f);
+        public override Vector2 InitialSize => new Vector2(760f, 640f);
 
         void Load()
         {
@@ -64,8 +71,6 @@ namespace SlopWorld
                     _error = null;
                 },
                 msg => { _error = msg; _loaded = false; });
-
-            SessionHub.Instance.Refresh();
         }
 
         public override void DoWindowContents(Rect rect)
@@ -79,70 +84,62 @@ namespace SlopWorld
                 _loaded ? _path : "loading...");
             GUI.color = Color.white;
 
-            var body = new Rect(rect.x, rect.y + 68f, rect.width, rect.height - 68f - 40f);
+            var body = new Rect(rect.x, rect.y + 44f, rect.width, rect.height - 44f - 40f);
             Widgets.DrawMenuSection(body);
-            TabDrawer.DrawTabs(body, new List<TabRecord>
-            {
-                new TabRecord("Daemon", () => _tab = Tab.Daemon, _tab == Tab.Daemon),
-                new TabRecord("Sandbox", () => _tab = Tab.Sandbox, _tab == Tab.Sandbox),
-                new TabRecord("Sessions", () => _tab = Tab.Sessions, _tab == Tab.Sessions),
-            });
-
             var inner = body.ContractedBy(12f);
+
             if (!_loaded)
             {
-                DrawNotice(inner, _error ?? "Waiting for the daemon...");
+                GUI.color = _error != null ? new Color(0.95f, 0.45f, 0.45f) : Color.gray;
+                Widgets.Label(inner, _error ?? "Waiting for the daemon...");
+                GUI.color = Color.white;
             }
             else
             {
-                switch (_tab)
-                {
-                    case Tab.Daemon: DoDaemon(inner); break;
-                    case Tab.Sandbox: DoSandbox(inner); break;
-                    default: DoSessions(inner); break;
-                }
+                // The fields want reading top to bottom and the bind lists want width,
+                // so they get a column each rather than the lists being pushed under a
+                // form that scrolls.
+                float rightW = Mathf.Min(300f, inner.width * 0.42f);
+                float leftW = inner.width - rightW - 12f;
+                DoFields(new Rect(inner.x, inner.y, leftW, inner.height));
+                DoBaseBinds(new Rect(inner.xMax - rightW, inner.y, rightW, inner.height));
             }
 
             DoFooter(new Rect(rect.x, rect.yMax - 34f, rect.width, 32f));
         }
 
-        void DrawNotice(Rect r, string msg)
+
+        void DoFields(Rect r)
         {
-            GUI.color = _error != null ? new Color(0.95f, 0.45f, 0.45f) : Color.gray;
-            Widgets.Label(r, msg);
-            GUI.color = Color.white;
-        }
+            var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(_fieldsH, r.height));
+            Widgets.BeginScrollView(r, ref _scroll, view);
 
+            // Begun far taller than it is, so a control that would cross the bottom does
+            // not start a second column and drop the rest of the form on top of itself.
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(new Rect(0f, 0f, view.width, 4000f));
 
-        void DoDaemon(Rect r)
-        {
-            var l = new Listing_Standard();
-            l.Begin(r);
+            DoConnectionNote(l);
 
-            l.Label("Bind address");
-            _cfg.Bind = l.TextEntry(_cfg.Bind);
+            l.Gap(8f);
+            l.Label("Commands for agents and shortcuts that do not set their own");
+            l.Gap(2f);
+            l.Label("Agent");
+            _cfg.Agent = l.TextEntry(_cfg.Agent);
+            l.Gap(2f);
+            // What a shell shortcut runs. tmux hands it a pty, so it is interactive
+            // without being told to be.
+            l.Label("Shell");
+            _cfg.Shell = l.TextEntry(_cfg.Shell);
 
-            l.Gap(4f);
-            l.Label("Token (blank = no auth, fine on a loopback bind)");
-            _cfg.Token = l.TextEntry(_cfg.Token);
-
-            l.Gap(4f);
-            l.Label("tmux socket");
-            _cfg.TmuxSocket = l.TextEntry(_cfg.TmuxSocket);
-
-            l.Gap(4f);
-            l.Label("State tick, ms (how often a quiet session decays to idle)");
-            _pollMs = l.TextEntry(_pollMs);
-
-            l.Gap(4f);
-            l.Label("Scrollback lines kept per session");
-            _history = l.TextEntry(_history);
-
-            l.Gap(4f);
+            l.Gap(10f);
             l.Label("Game command (blank disables restarting the game from here)");
             _cfg.GameCmd = l.TextEntry(_cfg.GameCmd);
+            l.Gap(4f);
+            if (l.ButtonText("Save the colony and restart the game"))
+                ConfirmRestartGame();
 
-            l.Gap(6f);
+            l.Gap(10f);
             l.CheckboxLabeled("Poll Anthropic for what is left of the subscription",
                 ref _cfg.Usage,
                 "Feeds the readout in the top-left corner. The daemon reads the OAuth " +
@@ -153,53 +150,83 @@ namespace SlopWorld
             {
                 l.Label("Seconds between usage polls");
                 _usagePoll = l.TextEntry(_usagePoll);
-
                 l.Label("Claude credentials file");
                 _cfg.ClaudeCredentials = l.TextEntry(_cfg.ClaudeCredentials);
             }
 
-            l.Gap(6f);
-            if (l.ButtonText("Save the colony and restart the game"))
-                ConfirmRestartGame();
-
             l.Gap(10f);
+            l.Label("tmux socket");
+            _cfg.TmuxSocket = l.TextEntry(_cfg.TmuxSocket);
+            l.Gap(2f);
+            l.Label("State tick, ms (how often a quiet session decays to idle)");
+            _pollMs = l.TextEntry(_pollMs);
+            l.Gap(2f);
+            l.Label("Scrollback lines kept per session");
+            _history = l.TextEntry(_history);
+
+            l.Gap(6f);
             GUI.color = new Color(0.85f, 0.75f, 0.45f);
-            l.Label("Bind address, socket and tick are read once at startup: they are " +
+            l.Label("Socket, tick and scrollback are read once at startup: they are " +
                     "saved now and take hold when slopd restarts.");
             GUI.color = Color.white;
 
-            l.Gap(6f);
+            _fieldsH = l.CurHeight + 8f;
+            l.End();
+
+            Widgets.EndScrollView();
+        }
+
+        // The two doors out of this page, and the only two things on it that are not
+        // `config.toml`. Both are mod settings - RimWorld's own file, not the daemon's -
+        // and they are here because this is the one window that is about *setting things
+        // up*, so a player looking for a knob has one place to look rather than a
+        // vanilla options menu behind a terminal that covers it.
+        //
+        // The connection is stated rather than edited: the mod's end of it is the only
+        // half that can be changed while the socket is down, which is exactly when it
+        // needs changing, so mod settings owns it and this window points at it. The
+        // daemon's own bind is TOML-only - slopd reads it at startup, so a box here that
+        // took effect on the next restart would mostly read as a field that did nothing.
+        void DoConnectionNote(Listing_Standard l)
+        {
             GUI.color = new Color(0.65f, 0.66f, 0.68f);
-            l.Label($"The mod talks to {SlopClient.BaseUrl} ({SessionHub.Instance.Status}). " +
-                    "Change that end in Options > Mod settings.");
+            l.Label($"This game dials {SlopClient.BaseUrl} ({SessionHub.Instance.Status}). " +
+                    $"The daemon is bound to {_cfg.Bind}.");
             GUI.color = Color.white;
 
-            l.End();
+            var row = l.GetRect(30f);
+            float w = (row.width - 8f) / 2f;
+            if (Widgets.ButtonText(new Rect(row.x, row.y, w, 30f), "Connection..."))
+                Find.WindowStack.Add(new Dialog_ModSettings(SlopWorldMod.Instance));
+
+            // Judged against a running pane, which is why it is also on the terminal's own
+            // gear. Reachable from both, because a setting you can find in one place only,
+            // and that place a running agent, reads as a setting that does not exist.
+            if (Widgets.ButtonText(new Rect(row.x + w + 8f, row.y, w, 30f), "Appearance..."))
+                TerminalSettingsWindow.Open();
         }
 
 
-        void DoSandbox(Rect r)
+        void DoBaseBinds(Rect r)
         {
-            var l = new Listing_Standard();
-            l.Begin(r);
+            Widgets.Label(new Rect(r.x, r.y, r.width, 22f), "Bound into every sandbox");
 
-            l.CheckboxLabeled("Sandbox agents with bubblewrap", ref _cfg.SandboxEnabled,
-                "Off means every agent runs with your full user account. A session can " +
-                "still opt out on its own.");
-            l.Gap(6f);
-            l.End();
+            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            var note = new Rect(r.x, r.y + 22f, r.width, 52f);
+            Widgets.Label(note,
+                "The base every project builds on. A project's own presets and binds are " +
+                "added to these; whether an agent is sandboxed at all is its project's " +
+                "answer.");
+            GUI.color = Color.white;
 
-            // Three path lists side by side: they are read together, and stacking them would
-            // push the last one off the tab.
-            float colW = (r.width - 16f) / 3f;
-            float top = r.y + 64f;
-            float h = r.height - 64f;
+            float top = note.yMax + 6f;
+            float h = (r.yMax - top - 16f) / 3f;
 
-            _roPaths = PathList(new Rect(r.x, top, colW, h),
+            _roPaths = PathList(new Rect(r.x, top, r.width, h),
                 "Read-only binds", _roPaths);
-            _rwPaths = PathList(new Rect(r.x + colW + 8f, top, colW, h),
+            _rwPaths = PathList(new Rect(r.x, top + h + 8f, r.width, h),
                 "Read-write binds", _rwPaths);
-            _passEnv = PathList(new Rect(r.x + (colW + 8f) * 2f, top, colW, h),
+            _passEnv = PathList(new Rect(r.x, top + (h + 8f) * 2f, r.width, h),
                 "Passed env vars", _passEnv);
         }
 
@@ -207,85 +234,9 @@ namespace SlopWorld
         static string PathList(Rect r, string label, string text)
         {
             Widgets.Label(new Rect(r.x, r.y, r.width, 22f), label);
-            var box = new Rect(r.x, r.y + 24f, r.width, r.height - 24f);
+            var box = new Rect(r.x, r.y + 22f, r.width, Mathf.Max(r.height - 22f, 40f));
             Widgets.DrawBoxSolid(box, new Color(0f, 0f, 0f, 0.25f));
             return Widgets.TextArea(box.ContractedBy(4f), text);
-        }
-
-
-        void DoSessions(Rect r)
-        {
-            var l = new Listing_Standard();
-            l.Begin(new Rect(r.x, r.y, r.width, 92f));
-
-            l.Label("Commands for sessions and shortcuts that do not set their own");
-            l.Gap(2f);
-
-            var row = l.GetRect(28f);
-            Widgets.Label(new Rect(row.x, row.y + 3f, 60f, 24f), "Agent");
-            _cfg.Agent = Widgets.TextField(new Rect(row.x + 60f, row.y, 220f, 24f), _cfg.Agent);
-
-            // What a shell shortcut runs. tmux hands it a pty, so it is interactive without
-            // being told to be.
-            Widgets.Label(new Rect(row.x + 300f, row.y + 3f, 60f, 24f), "Shell");
-            _cfg.Shell = Widgets.TextField(new Rect(row.x + 360f, row.y, 160f, 24f), _cfg.Shell);
-
-            l.End();
-
-            var list = new Rect(r.x, r.y + 96f, r.width, r.height - 96f - 36f);
-            var sessions = SessionHub.Instance.Sessions;
-            var view = new Rect(0f, 0f, list.width - 18f, Mathf.Max(sessions.Count * 34f, list.height));
-
-            Widgets.BeginScrollView(list, ref _scroll, view);
-            float y = 0f;
-            foreach (var s in sessions.ToList())
-            {
-                DrawSessionRow(new Rect(0f, y, view.width, 30f), s);
-                y += 34f;
-            }
-            if (sessions.Count == 0)
-            {
-                GUI.color = Color.gray;
-                Widgets.Label(new Rect(4f, 4f, view.width - 8f, 24f),
-                    "No sessions in config.toml yet.");
-                GUI.color = Color.white;
-            }
-            Widgets.EndScrollView();
-
-            if (Widgets.ButtonText(new Rect(r.x, list.yMax + 4f, 140f, 28f), "Add session"))
-                Find.WindowStack.Add(new EditSessionDialog(null));
-        }
-
-        void DrawSessionRow(Rect r, SessionInfo s)
-        {
-            Widgets.DrawBoxSolid(r, new Color(1f, 1f, 1f, 0.03f));
-            Widgets.DrawHighlightIfMouseover(r);
-
-            Widgets.Label(new Rect(r.x + 6f, r.y + 4f, 150f, 22f), s.Name);
-
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
-            string flags = (s.Sandbox ? "bwrap" : "unsandboxed") +
-                           (s.Net ? "" : ", no net") +
-                           (s.Autostart ? ", autostart" : "");
-            Widgets.Label(new Rect(r.x + 160f, r.y + 4f, r.width - 290f, 22f),
-                $"{s.Dir}  ({flags})");
-            GUI.color = Color.white;
-
-            float x = r.xMax - 6f;
-
-            x -= 58f;
-            if (Widgets.ButtonText(new Rect(x, r.y + 3f, 54f, 24f), "Edit"))
-                Find.WindowStack.Add(new EditSessionDialog(s));
-
-            x -= 58f;
-            if (Widgets.ButtonText(new Rect(x, r.y + 3f, 54f, 24f), "Del"))
-            {
-                var name = s.Name;
-                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                    $"Remove session '{name}'? This kills the tmux session and drops it from config.toml.",
-                    () => SessionHub.Instance.Remove(name, Fail),
-                    destructive: true));
-            }
         }
 
 

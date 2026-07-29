@@ -159,6 +159,17 @@ namespace SlopWorld
         string _roPaths, _rwPaths, _passEnv;
         Vector2 _scroll;
 
+        // The base every project builds on, off `[sandbox]`. Fetched per dialog rather
+        // than cached on the hub, because it is one small request and a stale answer
+        // here would be a readout quietly describing the wrong sandbox.
+        List<string> _baseRo = new List<string>();
+        List<string> _baseRw = new List<string>();
+        List<string> _baseEnv = new List<string>();
+
+        // Last frame's laid-out height, so the scroll view is sized by what the form
+        // actually drew rather than by a number that drifts as fields are added.
+        float _contentH = 690f;
+
         public EditProjectDialog(ProjectInfo existing)
         {
             _isNew = existing == null;
@@ -170,13 +181,22 @@ namespace SlopWorld
             _passEnv = Lines(_p.PassEnv);
 
             doCloseX = true;
+            draggable = true;
+            resizeable = true;
             absorbInputAroundWindow = true;
             closeOnClickedOutside = false;
 
             SessionHub.Instance.LoadPresets();
+            SlopClient.Get("/api/config", j =>
+            {
+                var c = SlopConfig.FromJson(j["values"]);
+                _baseRo = c.RoPaths;
+                _baseRw = c.RwPaths;
+                _baseEnv = c.PassEnv;
+            });
         }
 
-        public override Vector2 InitialSize => new Vector2(680f, 640f);
+        public override Vector2 InitialSize => new Vector2(680f, 680f);
 
         public override void DoWindowContents(Rect rect)
         {
@@ -186,7 +206,7 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
 
             var body = new Rect(rect.x, rect.y + 38f, rect.width, rect.height - 38f - 40f);
-            var view = new Rect(0f, 0f, body.width - 18f, 690f);
+            var view = new Rect(0f, 0f, body.width - 18f, Mathf.Max(_contentH, body.height));
 
             Widgets.BeginScrollView(body, ref _scroll, view);
             DoFields(view);
@@ -288,12 +308,87 @@ namespace SlopWorld
             y += 26f;
 
             float boxW = (r.width - 16f) / 3f;
-            float boxH = r.yMax - y - 8f;
+            float boxH = 132f;
             _roPaths = PathList(new Rect(r.x, y, boxW, boxH), "Read-only binds", _roPaths);
             _rwPaths = PathList(new Rect(r.x + boxW + 8f, y, boxW, boxH),
                 "Read-write binds", _rwPaths);
             _passEnv = PathList(new Rect(r.x + (boxW + 8f) * 2f, y, boxW, boxH),
                 "Passed env vars", _passEnv);
+            y += boxH + 12f;
+
+            y = DoEffective(r, y, boxW);
+            _contentH = y - r.y + 8f;
+        }
+
+        // The three boxes above are what this project *adds*. On their own they say
+        // nothing about what an agent in here can actually reach, which is the only
+        // question anybody opens this dialog to answer - and it is the reason the
+        // machine-wide lists on the config window read as doing nothing. So the merge is
+        // drawn where it is asked about, in the same three groups and the same order the
+        // daemon assembles them: `[sandbox]`, then the ticked presets, then this project.
+        //
+        // Asked for rather than handed over: `paths()` drops any bind whose path is not
+        // on this machine, and only the daemon knows which those are. Saying so is
+        // cheaper than a readout that is quietly wrong about a socket that was not there.
+        float DoEffective(Rect r, float y, float colW)
+        {
+            Widgets.Label(new Rect(r.x, y, r.width, 22f),
+                "What an agent here asks for");
+            y += 22f;
+
+            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            var note = new Rect(r.x, y, r.width, 20f);
+            Widgets.Label(note,
+                "The base, the presets and the boxes above, together. A path that is not " +
+                "on this machine is skipped.");
+            y += 22f;
+
+            var cols = new[]
+            {
+                Merge(_baseRo, pr => pr.Ro, Split(_roPaths)),
+                Merge(_baseRw, pr => pr.Rw, Split(_rwPaths)),
+                Merge(_baseEnv, pr => pr.Env, Split(_passEnv)),
+            };
+
+            float tallest = 0f;
+            for (int i = 0; i < 3; i++)
+            {
+                string text = cols[i].Count > 0
+                    ? string.Join("\n", cols[i].ToArray())
+                    : "(nothing)";
+                float w = colW - 8f;
+                float h = Text.CalcHeight(text, w);
+                Widgets.Label(new Rect(r.x + i * (colW + 8f), y, w, h), text);
+                tallest = Mathf.Max(tallest, h);
+            }
+            GUI.color = Color.white;
+
+            return y + tallest;
+        }
+
+        // Gathered in the order `sandbox.rs` binds them - global, presets, project - so
+        // a path named twice is deduplicated against the first that asked for it, then
+        // sorted, because this column is read to find out whether a particular path is
+        // in it. Bind order is the daemon's business and settles nothing a reader here
+        // can see; alphabetical means a path can be looked for rather than hunted, and
+        // means two projects' columns can be held side by side and compared.
+        List<string> Merge(List<string> baseList,
+                           System.Func<PresetInfo, List<string>> pick,
+                           List<string> own)
+        {
+            var all = new List<string>(baseList);
+            foreach (var pr in SessionHub.Instance.Presets)
+                if (_p.Presets.Contains(pr.Name))
+                    all.AddRange(pick(pr));
+            all.AddRange(own);
+
+            var seen = new List<string>();
+            foreach (var s in all)
+                if (s.Length > 0 && !seen.Contains(s))
+                    seen.Add(s);
+
+            seen.Sort(System.StringComparer.OrdinalIgnoreCase);
+            return seen;
         }
 
         // One entry per line, the way the sandbox tab edits these.

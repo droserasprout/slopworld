@@ -8,6 +8,11 @@ namespace SlopWorld
     // window never shows is a section it must not write back.
     public class SlopConfig
     {
+        // Read and written back but never drawn. Where the daemon listens and where the
+        // game dials are one question - the daemon is always on this machine - and mod
+        // settings is the half of it that still works with the socket down, so that is
+        // the only place either is edited. These two ride along because a field missing
+        // from ToJson is a field the next unrelated save resets to its serde default.
         public string Bind = "127.0.0.1:7717";
         public string Token = "";
         public string TmuxSocket = "slopworld";
@@ -27,7 +32,8 @@ namespace SlopWorld
         // A per-machine answer, which is why it is here rather than in every shortcut.
         public string Shell = "bash";
 
-        public bool SandboxEnabled = true;
+        // The base every sandbox gets. Whether an agent is sandboxed at all is the
+        // project's checkbox and nothing else's.
         public List<string> RoPaths = new List<string>();
         public List<string> RwPaths = new List<string>();
         public List<string> PassEnv = new List<string>();
@@ -53,7 +59,6 @@ namespace SlopWorld
                 Agent = f["agent"].AsString("claude"),
                 Shell = f["shell"].AsString("bash"),
 
-                SandboxEnabled = s["enabled"].AsBool(true),
                 RoPaths = Strings(s["ro_paths"]),
                 RwPaths = Strings(s["rw_paths"]),
                 PassEnv = Strings(s["pass_env"]),
@@ -73,7 +78,6 @@ namespace SlopWorld
             "\"defaults\":{" +
             $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}}}," +
             "\"sandbox\":{" +
-            $"\"enabled\":{JVal.B(SandboxEnabled)}," +
             $"\"ro_paths\":{Arr(RoPaths)},\"rw_paths\":{Arr(RwPaths)}," +
             $"\"pass_env\":{Arr(PassEnv)}}}}}";
 

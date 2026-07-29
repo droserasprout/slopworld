@@ -227,7 +227,7 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     let agent_argv: Vec<String> = shell_split(&cfg.command_of(s));
     let dir = expand(&p.dir);
 
-    if !cfg.sandbox.enabled || !p.sandbox {
+    if !p.sandbox {
         return agent_argv;
     }
     let presets = presets_for(s, p);

@@ -225,8 +225,17 @@ namespace SlopWorld
     {
         public string Name = "";
         public string Description = "";
+        // Kept apart rather than in one bag, because the project dialog groups what a
+        // sandbox is handed the same way it is edited: read-only, read-write, env. A
+        // device node is grouped with the read-only binds - it is bound rather than
+        // passed, and which flag bwrap gets for it is not this screen's business.
+        public List<string> Ro = new List<string>();
+        public List<string> Rw = new List<string>();
+        public List<string> Env = new List<string>();
+
         // Every path and env var the preset asks for, for the tooltip.
-        public List<string> Gives = new List<string>();
+        public List<string> Gives =>
+            Ro.Concat(Rw).Concat(Env).ToList();
 
         public static PresetInfo FromJson(JVal j)
         {
@@ -235,8 +244,11 @@ namespace SlopWorld
                 Name = j["name"].AsString(),
                 Description = j["description"].AsString(),
             };
-            foreach (var key in new[] { "ro", "rw", "dev", "env", "setenv" })
-                p.Gives.AddRange(j[key].Items.Select(i => i.AsString()));
+            foreach (var key in new[] { "ro", "dev" })
+                p.Ro.AddRange(j[key].Items.Select(i => i.AsString()));
+            p.Rw.AddRange(j["rw"].Items.Select(i => i.AsString()));
+            foreach (var key in new[] { "env", "setenv" })
+                p.Env.AddRange(j[key].Items.Select(i => i.AsString()));
             return p;
         }
     }

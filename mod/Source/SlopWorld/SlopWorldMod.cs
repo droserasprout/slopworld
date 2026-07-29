@@ -98,14 +98,6 @@ namespace SlopWorld
             if (l.ButtonText("Reconnect now"))
                 SessionHub.Instance.Connect();
 
-            l.Gap(10f);
-            // Font size and palette live on the gear in the terminal's own title bar, which
-            // is where they are judged. The button is here so they are still reachable with
-            // no agent running - and greyed-and-shown beats vanished everywhere else in this
-            // mod, so a door beats no mention at all.
-            if (l.ButtonText("Terminal appearance..."))
-                TerminalSettingsWindow.Open();
-
             l.End();
         }
 

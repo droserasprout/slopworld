@@ -671,6 +671,41 @@ warned about and ignored. Greyed-and-shown beats hidden throughout (the temp
 project's directory, a Claude session's command), because a field that vanishes
 reads as a setting that does not exist.
 
+`EditProjectDialog`'s three path boxes are what the project *adds*, and under them
+`DoEffective` draws the merge - `[sandbox]`, then the ticked presets, then those
+boxes, deduplicated against the first that asked for it the way `paths()` does, then
+*sorted*: bind order is the daemon's business and settles nothing a reader can see,
+where a column read to find out whether some path is in it wants looking up rather
+than hunting through. It is there
+because the boxes alone say nothing about what an agent can reach, which is the only
+question the dialog is opened to answer, and because without it the machine-wide
+lists on the config window read as doing nothing. It says *asked for* rather than
+handed over: `paths()` drops a bind whose path is not on this machine and only the
+daemon knows which those are, so a readout claiming otherwise would be quietly wrong
+about a socket that was never there. `PresetInfo` keeps `Ro`/`Rw`/`Env` apart for
+this, `Gives` being the flattened tooltip view rather than the stored shape.
+
+`ConfigMenuWindow` is one page. The tabs went because two of the three answered
+somebody else's question - the agent list is `SessionsWindow`, and the sandbox an
+agent runs in is its project's - leaving the daemon, `[defaults]`, and the base
+every sandbox is built on, which has nowhere else to live. The field column is a
+scroll view sized from the previous frame's `CurHeight`, and its listing is begun on
+a rect far taller than it needs so nothing breaks to a second column.
+
+The connection is *stated* there, not edited: where the daemon listens and where the
+game dials are one question, since it is always this machine, and mod settings owns
+it because that is the half that can still be changed with the socket down. The
+button goes through to `Dialog_ModSettings`. `bind` and `token` stay in `SlopConfig`
+undrawn, because a field missing from `ToJson` is one the next unrelated save resets
+to its serde default; moving `bind` is `Edit as TOML` and a slopd restart, which is
+when it takes hold anyway.
+
+There is no daemon-wide sandbox switch. Whether an agent is sandboxed is
+`ProjectCfg::sandbox` and only that, because `[sandbox] enabled` silently beat every
+one of those checkboxes and so read as a checkbox that did nothing. A stale
+`enabled = true` in an existing `config.toml` is ignored on load and dropped on the
+next save; serde takes no notice of unknown fields.
+
 `ShortcutsWindow` sits between `agents` and `config`. Run is the wide button and
 closes the window on the *answer*, opening a terminal on whatever the daemon
 started; an `ask` errand's Run opens a float menu of every project plus a temporary
@@ -684,6 +719,15 @@ connection (`host`, `port`, `token`, `autoConnect`), `fontSize`, and the pane's
 `theme` and `cursorColor`. Adding one means a field, a `Scribe_Values.Look`, a shim
 property and a widget.
 
+*Not* `config.toml`. These are RimWorld's own, scribed through `ModSettings` into
+`Config/Mod_SlopWorld_SlopWorldMod.xml` beside `Player.log` - named for the mod
+folder and the `Mod` subclass. `Scribe_Values` writes nothing that equals its
+default, so a file holding only `<ModSettings Class="SlopWorld.SlopSettings" />` is
+an install where every one of them is untouched, not a file that failed to save. The
+split is the same one the config window is built on: the daemon's file is about this
+machine, and this file is about this *install* - which screen is being read, and
+where it dials to reach a daemon it may not have reached yet.
+
 There used to be nine more, and every one named something the mod exists to do.
 Off, they turned RimWorld back on underneath a terminal. What is left is about this
 machine and about the eyes reading it, never about the design.
@@ -692,9 +736,11 @@ They are scribed together and edited in two places. The connection is
 `DoSettingsWindowContents`, the vanilla road; the pane's three are
 `TerminalSettingsWindow`, off the gear, because a font size and a palette are judged
 by looking at a terminal and Options > Mod settings is behind a menu the terminal
-covers. The mod settings window keeps a button through to it, so neither is
-reachable only when the other is - a setting you can find in one place only, and
-that place a running agent, reads as a setting that does not exist.
+covers. Both are also doors on `ConfigMenuWindow`, which is where a player goes to
+set the thing up and so the one place worth looking first - so neither is reachable
+only when the other is, a setting you can find in one place only, and that place a
+running agent, reading as a setting that does not exist. The vanilla road is what
+still answers with no colony loaded, where the bottom bar does not exist.
 
 Everything in that window writes through as it moves and the file is written once,
 in `PostClose`, by `ModSettings.Write` rather than `Mod.WriteSettings` - the latter
