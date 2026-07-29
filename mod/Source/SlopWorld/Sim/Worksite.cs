@@ -87,6 +87,12 @@ namespace SlopWorld
         // How far from the pawn an errand may be opened. A few steps, so the walk out to
         // it is not what the burst is spent on, and wide enough that a clanker standing
         // still is not laying every square on the same cell.
+        //
+        // The near edge is not decoration. A pawn standing inside a frame *blocks* it,
+        // vanilla answers that with a job to go and stand somewhere else, and this loop
+        // forces the errand back over the top a quarter second later - a clanker that
+        // never starts and re-paths forever. The pad in Fits is the other half of it.
+        const float SiteNear = 4f;
         const float SiteRadius = 12f;
 
         // The share of the plague circle the site is allowed, measured from the core.
@@ -125,6 +131,12 @@ namespace SlopWorld
         // have one more go.
         int _blocked;
 
+        // Passes since the last sweep.
+        int _swept;
+
+        // How often the standing frames are looked over, in passes - once a second.
+        const int SweepEvery = 4;
+
         public Worksite(Map map) : base(map) { }
 
         public override void MapComponentTick()
@@ -137,6 +149,8 @@ namespace SlopWorld
 
             _plague = map.GetComponent<Plague>();
             if (_plague == null || !_plague.Active) return;
+
+            if (++_swept >= SweepEvery) { _swept = 0; Sweep(); }
 
             var colony = AgentColony.Current;
             if (colony == null) return;
@@ -212,8 +226,18 @@ namespace SlopWorld
         {
             if (!Ready(pawn)) return;
 
+            // Something is in the way of a frame and vanilla has sent the pawn to stand
+            // elsewhere so it can be built. That job is the game agreeing with us; forcing
+            // the errand back over it is how a clanker ends up walking on the spot.
+            if (pawn.CurJobDef == JobDefOf.Goto) return;
+
             var frame = Free(pawn) ?? Open(pawn);
             if (frame == null) return;
+
+            // Asked of an opened frame as well as a found one, because a frame can be
+            // blocked the moment it is placed - by whoever wandered past while it was being
+            // placed, or by the pawn that asked for it.
+            if (!GenConstruct.CanConstruct(frame, pawn, false, true)) return;
 
             Fill(frame);
             pawn.jobs.TryTakeOrderedJob(JobMaker.MakeJob(JobDefOf.FinishFrame, frame), JobTag.Misc);
@@ -289,6 +313,47 @@ namespace SlopWorld
             return null;
         }
 
+        // A frame nobody on this map can ever finish is worse than no frame at all. It
+        // counts against MaxOpen, it is picked up by nothing, and it stands there for the
+        // life of the colony - so a site left alone fills its own quota with rubbish and
+        // the agents run out of anywhere to build while the ground is still empty. That
+        // is what a clanker with nothing to do looks like from the outside: walking,
+        // stopping, walking again.
+        //
+        // Blocked means vanilla's own word for it. GenConstruct.FirstBlockingThing is the
+        // question the job driver asks every tick it runs, and the answer is a thing
+        // somebody would have to cut down or carry off first - which on this map is work
+        // no agent is allowed and no hauler exists to do. A plant grew into it, a chunk
+        // landed on it, the plague blew something over it. It goes.
+        //
+        // Placement declines these on the way in (Fits), but only what it can see: this
+        // is for the ground changing afterwards, which on a map being eaten is most of
+        // it.
+        void Sweep()
+        {
+            List<Thing> doomed = null;
+
+            foreach (var thing in map.listerThings.ThingsInGroup(ThingRequestGroup.BuildingFrame))
+            {
+                var frame = thing as Frame;
+                if (frame == null || !frame.Spawned) continue;
+                if (WorkFor(frame.def?.entityDefToBuild) <= 0f) continue;
+                if (GenConstruct.FirstBlockingThing(frame, null) == null) continue;
+
+                if (doomed == null) doomed = new List<Thing>();
+                doomed.Add(frame);
+            }
+
+            if (doomed == null) return;
+
+            for (int i = 0; i < doomed.Count; i++)
+                if (!doomed[i].Destroyed) doomed[i].Destroy(DestroyMode.Vanish);
+
+            // Room where there was none. Whatever the last round of darts concluded about
+            // this map is out of date now.
+            _blocked = 0;
+        }
+
         int Standing()
         {
             int n = 0;
@@ -329,7 +394,14 @@ namespace SlopWorld
         {
             bool home = Inside(pawn.Position);
             var from = home ? pawn.Position : Heart();
-            var v = Rand.InsideUnitCircleVec3 * (home ? SiteRadius : Circle());
+
+            // An annulus rather than a disc when it is aimed at the pawn: the middle of
+            // that disc is the cell the pawn is standing in.
+            var dir = Rand.InsideUnitCircleVec3.normalized;
+            if (dir == Vector3.zero) dir = Vector3.forward;
+            var v = home
+                ? dir * Rand.Range(SiteNear, SiteRadius)
+                : Rand.InsideUnitCircleVec3 * Circle();
 
             return from + new IntVec3(Mathf.RoundToInt(v.x), 0, Mathf.RoundToInt(v.z));
         }
@@ -378,8 +450,17 @@ namespace SlopWorld
             // grows into one lump. Floors want none of it: paving right up to a monument is
             // the point of them.
             int pad = what is TerrainDef ? 0 : 1;
+            bool floor = what is TerrainDef;
+            var footprint = GenAdj.OccupiedRect(at, rot, what.Size);
 
-            foreach (var c in GenAdj.OccupiedRect(at, rot, what.Size).ExpandedBy(pad))
+            // What vanilla would want cleared off the ground before this could go up. A
+            // colony answers that with somebody to cut the tree and somebody to carry the
+            // chunk away; this map has neither, and an agent is allowed no work but its
+            // own. So a cell that would ask for either is not a site.
+            bool clear = what.clearBuildingArea;
+            bool tidy = clear || what.forceMoveItemsBeforeConstruction;
+
+            foreach (var c in footprint.ExpandedBy(pad))
             {
                 if (!c.InBounds(map)) return false;
                 // The hillside is scenery, not a building site.
@@ -387,7 +468,20 @@ namespace SlopWorld
 
                 var things = c.GetThingList(map);
                 for (int i = 0; i < things.Count; i++)
-                    if (things[i] is Building || things[i] is Blueprint) return false;
+                {
+                    var thing = things[i];
+                    if (thing is Building || thing is Blueprint) return false;
+                    if (!footprint.Contains(c)) continue;
+
+                    if (clear && thing.def.category == ThingCategory.Plant) return false;
+                    if (tidy && thing.def.category == ThingCategory.Item) return false;
+
+                    // Anything standing where the thing is going blocks it being built, and
+                    // being blocked is the state this must never open a frame into: the pawn
+                    // is told to move, we tell it to build, and neither of us wins. Only for
+                    // what has a shape, since nothing has to move out of the way of a floor.
+                    if (!floor && thing is Pawn) return false;
+                }
             }
 
             // Paving a cell that is already paved builds nothing and the sweep would come
@@ -548,6 +642,25 @@ namespace SlopWorld
             {
                 float work = WorkFor(__instance?.def?.entityDefToBuild);
                 if (work > 0f) __result = work;
+            }
+        }
+
+        // A terrain frame is drawn as four white corner brackets, and the site queues
+        // paving a square at a time - so the ground ahead of the agents is a grid of
+        // them, which is most of what is on the board. They say nothing anybody can act
+        // on: there is no order to cancel, no material to deliver and nothing to decide.
+        // The floor arrives without the scaffolding.
+        //
+        // Anything with a shape keeps its frame. A monument is half a minute of somebody
+        // being busy and worth watching go up.
+        // By name: the override is not public, so nameof would not compile.
+        [HarmonyPatch(typeof(Frame), "DrawAt", new[] { typeof(Vector3), typeof(bool) })]
+        public static class Patch_HideFloorFrames
+        {
+            static bool Prefix(Frame __instance)
+            {
+                var what = __instance?.def?.entityDefToBuild;
+                return !(what is TerrainDef) || WorkFor(what) <= 0f;
             }
         }
     }

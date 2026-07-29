@@ -392,7 +392,23 @@ none of these need a def.
   reach is handed out, fails, and is handed straight back on the next look forever.
   A round of darts that finds nowhere to build sits the whole site down for five
   seconds (`BlockedFor`), because a full circle is the state all of this is aimed at
-  and it has to be cheap to be in. Monuments and graves otherwise, because a machine told nothing
+  and it has to be cheap to be in.
+  The other half of that is `Sweep`, once a second: a frame with a plant grown into it
+  or a chunk landed on it is one vanilla wants *cleared* before it can be built, which
+  on this map means work no agent is allowed and a hauler that does not exist. It can
+  never be finished, it counts against `MaxOpen`, and nothing else would ever take it
+  away - so a site left alone fills its own quota with rubbish and the agents run out
+  of anywhere to build while the ground is still empty, which from the outside is a
+  clanker walking, stopping and walking again. `GenConstruct.FirstBlockingThing` is
+  vanilla's own word for it rather than a guess of ours; `Fits` declines the same
+  ground on the way in, off `clearBuildingArea` and `forceMoveItemsBeforeConstruction`,
+  but only what it can see, and on a map being eaten the ground changes afterwards.
+  `Patch_HideFloorFrames` takes the paving frame's four white corner brackets off the
+  board: the site queues floor a square at a time, so ahead of the agents that is a
+  grid over most of the map, saying nothing anybody can act on - no order to cancel, no
+  material to deliver. Anything with a shape keeps its frame, a monument being half a
+  minute of somebody being busy and worth watching go up.
+  Monuments and graves otherwise, because a machine told nothing
   about what for builds a marker, a place to put somebody, and a slab with writing on
   it nobody will read; sculptures are not among them because they are bench work in
   this game, crafted and installed rather than built, and steles carry the same
@@ -473,6 +489,12 @@ none of these need a def.
   `InspectPanePatch`, `PawnGizmoPatch` - the parts of the UI that are kept,
   extended. `Patch_AgentNeverIdle` answers `IsIdle` false for an agent, so the
   daemon's word is the only thing that draws a clock.
+  `Patch_NoPrioritizedWorkGizmo` takes "Clear prioritized work" off the row: work
+  here comes from `Worksite` off the daemon's word and never through the priority
+  system, so the button has nothing to clear - and it turns up anyway, because a
+  `PriorityWork` that was never set reads back from a save with a zeroed cell and
+  `IntVec3` counts a zero as valid. A row that does nothing says the player has a
+  lever here.
 - `ColonistBarStrip` is the bar in *both* views, and that is the point: it prefixes
   `ColonistBarOnGUI` to point the bar's own cached scale and draw locs at one
   shrunk, centred row in a `BarH`-tall band, and a finalizer puts them back. Map or
