@@ -1,3 +1,5 @@
+using HarmonyLib;
+using RimWorld;
 using Verse;
 
 namespace SlopWorld
@@ -34,5 +36,11 @@ namespace SlopWorld
             _reported = true;
             Log.Message($"[SlopWorld] something paused the game at tick {ticks.TicksGame}; resumed");
         }
+    }
+
+    [HarmonyPatch(typeof(MainTabWindow_Menu), MethodType.Constructor)]
+    public static class Patch_MenuNoPause
+    {
+        static void Postfix(MainTabWindow_Menu __instance) => __instance.forcePause = false;
     }
 }
