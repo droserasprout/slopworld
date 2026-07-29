@@ -25,14 +25,14 @@ namespace SlopWorld
     public class Plague : MapComponent
     {
         // How the circle grows: a step every interval, until it hits EdgeFrac.
-        const int SpreadInterval = 60;
-        const float SpreadStep = 1f;
+        const int SpreadInterval = 180;
+        const float SpreadStep = 0.25f;
         const float StartRadius = 1f;
 
         // Fractions of the map's side rather than cells, so the shape holds on any map
         // size.
-        const float FullFrac = 0.25f;
-        const float EdgeFrac = 0.35f;
+        const float FullFrac = 0.3f;
+        const float EdgeFrac = 0.33f;
 
         // What is left over after the odds below is a quiet tick.
         const int EffectInterval = 300;
@@ -46,7 +46,7 @@ namespace SlopWorld
         const float BloodRadius = 1.8f;
 
         // Withering is cheap, but a grown map has thousands of plants.
-        const int PlantsPerTick = 10;
+        const int PlantsPerTick = 5;
 
         // Three breaths a second of the smallest puff there is. Anything heavier is a fog
         // bank parked on the middle of the map, with everything the plague does out at
