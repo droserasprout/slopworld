@@ -213,6 +213,49 @@ namespace SlopWorld
 
                 Reflect(kv.Value, state, was);
             }
+
+            Reorder();
+        }
+
+        void Reorder()
+        {
+            var names = _pawns.Keys.ToList();
+            names.Sort(Alphanum);
+            for (int i = 0; i < names.Count; i++)
+            {
+                var settings = _pawns[names[i]]?.playerSettings;
+                if (settings != null) settings.displayOrder = i;
+            }
+        }
+
+        static int Alphanum(string a, string b)
+        {
+            int i = 0, j = 0;
+            while (i < a.Length && j < b.Length)
+            {
+                if (char.IsDigit(a[i]) && char.IsDigit(b[j]))
+                {
+                    int si = i, sj = j;
+                    while (i < a.Length && char.IsDigit(a[i])) i++;
+                    while (j < b.Length && char.IsDigit(b[j])) j++;
+
+                    var na = a.Substring(si, i - si).TrimStart('0');
+                    var nb = b.Substring(sj, j - sj).TrimStart('0');
+                    if (na.Length != nb.Length) return na.Length - nb.Length;
+                    int num = string.CompareOrdinal(na, nb);
+                    if (num != 0) return num;
+                    continue;
+                }
+
+                int c = char.ToLowerInvariant(a[i]).CompareTo(char.ToLowerInvariant(b[j]));
+                if (c != 0) return c;
+                i++;
+                j++;
+            }
+
+            if (i < a.Length) return 1;
+            if (j < b.Length) return -1;
+            return string.CompareOrdinal(a, b);
         }
 
         // The colonist goes down but stays a live pawn its process can get back up;
