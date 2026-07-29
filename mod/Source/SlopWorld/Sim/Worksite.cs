@@ -49,6 +49,10 @@ namespace SlopWorld
         // not.
         const int Tries = 30;
 
+        // How long the whole site sits down for after a round of darts found nowhere to
+        // build. Five seconds, which nobody can see and a full map does not spend.
+        const int BlockedFor = 300;
+
         // Frames outlive the burst that opened them, so without a ceiling a colony of
         // busy agents leaves the map a field of half-built graves. Generous, because a
         // square of paving is fifty frames on its own.
@@ -117,6 +121,10 @@ namespace SlopWorld
         // those.
         Plague _plague;
 
+        // The tick placement may be attempted again. Not saved: a reload is welcome to
+        // have one more go.
+        int _blocked;
+
         public Worksite(Map map) : base(map) { }
 
         public override void MapComponentTick()
@@ -159,22 +167,45 @@ namespace SlopWorld
 
         // The daemon's word is the whole of it: an agent that has gone quiet puts the
         // hammer down where it stands, and the frame keeps what it has been given.
-        //
-        // Taking the work type back off it is the other half, and not optional. The
-        // errand is ours to hand out, but Construction being *on* is an open invitation
-        // to vanilla's own work giver, which hands any free colonist the nearest frame -
-        // so an idle agent would walk over and build, and the one thing the site is
-        // supposed to say is which processes are busy.
         static void Stop(Pawn pawn)
         {
             if (pawn.jobs != null && pawn.CurJobDef == JobDefOf.FinishFrame)
                 pawn.jobs.EndCurrentJob(JobCondition.InterruptForced);
 
+            Allow(pawn, false);
+        }
+
+        // An agent is allowed exactly one kind of work, and only while the process it
+        // stands for is busy. Everything else is off, always.
+        //
+        // This is not tidiness. A colonist with the vanilla work sheet is a colonist
+        // vanilla's own work givers will find jobs for - blood to clean, steel to haul
+        // out of a frame the plague blew up - and this loop comes back a quarter of a
+        // second later and forces the errand over the top of whatever it had started.
+        // Two systems taking turns at one pawn reads exactly as it is: a clanker that
+        // turns round every few steps and never arrives anywhere.
+        //
+        // Construction itself is on the same switch, for the same reason from the other
+        // side: left on, the work giver hands an *idle* agent the nearest frame, and the
+        // one thing the site is supposed to say is which processes are busy.
+        static void Allow(Pawn pawn, bool building)
+        {
             var work = pawn.workSettings;
-            if (work == null || !work.Initialized) return;
-            if (pawn.WorkTypeIsDisabled(WorkTypeDefOf.Construction)) return;
-            if (work.GetPriority(WorkTypeDefOf.Construction) != 0)
-                work.SetPriority(WorkTypeDefOf.Construction, 0);
+            if (work == null) return;
+            work.EnableAndInitializeIfNotAlreadyInitialized();
+            if (!work.EverWork) return;
+
+            var types = DefDatabase<WorkTypeDef>.AllDefsListForReading;
+            for (int i = 0; i < types.Count; i++)
+            {
+                var type = types[i];
+                if (pawn.WorkTypeIsDisabled(type)) continue;
+
+                int want = building && type == WorkTypeDefOf.Construction ? 3 : 0;
+                // Only on a change: the setter dirties the pawn's work giver lists, and this
+                // is asked of every agent four times a second.
+                if (work.GetPriority(type) != want) work.SetPriority(type, want);
+            }
         }
 
         void Send(Pawn pawn)
@@ -191,20 +222,14 @@ namespace SlopWorld
         // Construction has to be *on* for as long as the hammer is swinging:
         // GenConstruct.CanConstruct reads the work settings and the job driver fails on
         // that every tick it runs. Patch_AgentsCanBuild is what makes sure the answer may
-        // be yes whatever backstory the pawn was handed; this is what says it, and Stop
+        // be yes whatever backstory the pawn was handed; Allow is what says it, and Stop
         // is what takes it back the moment the process goes quiet.
         static bool Ready(Pawn pawn)
         {
-            if (pawn.jobs == null) return false;
-
-            var work = pawn.workSettings;
-            if (work == null) return false;
-            work.EnableAndInitializeIfNotAlreadyInitialized();
-
+            if (pawn.jobs == null || pawn.workSettings == null) return false;
             if (pawn.WorkTypeIsDisabled(WorkTypeDefOf.Construction)) return false;
-            if (work.GetPriority(WorkTypeDefOf.Construction) == 0)
-                work.SetPriority(WorkTypeDefOf.Construction, 3);
 
+            Allow(pawn, true);
             return true;
         }
 
@@ -224,6 +249,11 @@ namespace SlopWorld
                 if (WorkFor(frame.def?.entityDefToBuild) <= 0f) continue;
                 if (!pawn.CanReserve(frame)) continue;
                 if (!pawn.CanReach(frame, PathEndMode.Touch, Danger.Deadly)) continue;
+                // The same question the driver's own fail condition asks every tick it runs.
+                // Without it a frame the pawn cannot work - something standing in it, no cell
+                // to stand in - is handed out, fails on the spot and is handed straight back
+                // on the next look, which is a clanker walking on the spot forever.
+                if (!GenConstruct.CanConstruct(frame, pawn, false, true)) continue;
 
                 float d = frame.Position.DistanceToSquared(pawn.Position);
                 if (d >= nearest) continue;
@@ -236,6 +266,8 @@ namespace SlopWorld
 
         Frame Open(Pawn pawn)
         {
+            int now = Find.TickManager.TicksGame;
+            if (now < _blocked) return null;
             if (Standing() >= MaxOpen) return null;
 
             var pick = Pick();
@@ -249,6 +281,11 @@ namespace SlopWorld
                 if (frame != null) return frame;
             }
 
+            // Thirty sites and nowhere to put it is what a full circle looks like from in
+            // here, and that is the state this is all aimed at - so it must be cheap to be
+            // in. Every agent asking four times a second otherwise means five hundred
+            // CanPlaceBlueprintAt calls a second against ground that is not going to change.
+            _blocked = now + BlockedFor;
             return null;
         }
 

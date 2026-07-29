@@ -366,10 +366,14 @@ none of these need a def.
   pawn, faces it, throws the construction effecter, draws the progress bar and rolls
   quality off the builder. What the map cannot supply is materials - no stockpiles, no
   haulers, no economy - so a frame arrives with its stone already in it (`Fill`).
-  Ending the job is only half of standing an agent down: Construction being *on* is an
-  open invitation to vanilla's own work giver, which hands any free colonist the
-  nearest frame, so `Stop` takes the work type back off the pawn as well - or an idle
-  agent walks over and builds, and the site stops saying which processes are busy.
+  An agent is allowed exactly one kind of work and only while its process is busy:
+  `Allow` puts every work type at zero and Construction at three, and `Stop` puts that
+  back. Both halves are load-bearing. Left with the vanilla work sheet a colonist is
+  one vanilla's own work givers find jobs for - blood to clean, steel to haul out of a
+  frame the plague blew up - and this loop forces its errand over the top a quarter
+  second later, which reads as a clanker that turns round every few steps and never
+  arrives. Left with Construction on while idle, the work giver hands it the nearest
+  frame and the site stops saying which processes are busy.
   The errand table states its costs in *seconds of an agent's working time* and
   `Patch_ErrandWork` is where that lands on `Frame.WorkToBuild`, because vanilla's own
   figures are an economy's and this one has none: a metal plate is instant, a column
@@ -382,7 +386,13 @@ none of these need a def.
   pawn is handed here is the whole of what it does next, and a plate takes less than a
   tick to lay. `Wipe`, from `NextPlanet.Leave`, takes the site down before the colony
   is discarded - a new planet is a new map and nothing of this one's could reach it,
-  but the site is the only thing here that leaves permanent marks on the board. Monuments and graves otherwise, because a machine told nothing
+  but the site is the only thing here that leaves permanent marks on the board.
+  A frame is only handed out if `GenConstruct.CanConstruct` says yes, which is the
+  driver's own fail condition asked one tick early: without it a frame nobody can
+  reach is handed out, fails, and is handed straight back on the next look forever.
+  A round of darts that finds nowhere to build sits the whole site down for five
+  seconds (`BlockedFor`), because a full circle is the state all of this is aimed at
+  and it has to be cheap to be in. Monuments and graves otherwise, because a machine told nothing
   about what for builds a marker, a place to put somebody, and a slab with writing on
   it nobody will read; sculptures are not among them because they are bench work in
   this game, crafted and installed rather than built, and steles carry the same
