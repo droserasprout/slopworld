@@ -368,19 +368,26 @@ none of these need a def.
   agent walks over and builds, and the site stops saying which processes are busy.
   The errand table states its costs in *seconds of an agent's working time* and
   `Patch_ErrandWork` is where that lands on `Frame.WorkToBuild`, because vanilla's own
-  figures are an economy's and this one has none: three seconds a paving stone, twenty
-  for a column or a grave, forty-five for a sarcophagus, ninety for a large stele and
-  three minutes for a grand one. All of it fast, because these go up at the speed the
-  things they stand for are written and a burst that lasted a minute has to leave
-  something behind. Paving is most of what gets picked on top of that, where a
-  monument is an event because it is rare. Monuments and graves otherwise, because a machine told nothing
+  figures are an economy's and this one has none: a metal plate is instant, a column
+  or a grave four seconds, a sarcophagus eight, a large stele fifteen and a grand one
+  thirty. The target is the hour - a session's worth of a couple of agents being busy
+  has to leave the circle with nowhere left to put anything, because running out of
+  ground is the only thing on this map that ever asks the player for a decision.
+  Paving is most of what gets picked on top of that, where a monument is an event
+  because it is rare. `Interval` is a quarter second for the same reason: the errand a
+  pawn is handed here is the whole of what it does next, and a plate takes less than a
+  tick to lay. `Wipe`, from `NextPlanet.Leave`, takes the site down before the colony
+  is discarded - a new planet is a new map and nothing of this one's could reach it,
+  but the site is the only thing here that leaves permanent marks on the board. Monuments and graves otherwise, because a machine told nothing
   about what for builds a marker, a place to put somebody, and a slab with writing on
   it nobody will read; sculptures are not among them because they are bench work in
   this game, crafted and installed rather than built, and steles carry the same
-  `CompArt` anyway. Stone, and the tile's own rock, so the site reads as one thing.
-  Floors are laid a square at a time and prefer ground beside something already
-  standing, or the filler reads as squares dropped at random rather than as a plaza
-  being kept.
+  `CompArt` anyway. Stone for those, and the tile's own rock, so they read as one
+  thing; the floor is metal plate rather than the matching flagstone, because a
+  machine paving over ash lays down what it is made of and stone read as a garden path
+  through a dead world. Floors are laid a square at a time and prefer ground beside
+  something already standing, or the filler reads as squares dropped at random rather
+  than as a plaza being kept.
 - `AutoResume`, `AutoSaver`, `TerminalRecall` - what makes a restart cheap. None of
   the three has a switch.
 - `NextPlanet` - bins the map and lands a fresh one. The seam is

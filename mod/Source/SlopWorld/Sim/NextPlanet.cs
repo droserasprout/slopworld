@@ -238,6 +238,10 @@ namespace SlopWorld
         void Leave()
         {
             _phase = Phase.Off;
+            // Belt and braces: a new planet is a new map and nothing of this one's is
+            // meant to reach it, so the site goes down before the colony is discarded
+            // rather than being trusted to.
+            Worksite.Wipe(_map);
             _map = null;
             // Leaving stays up: the frames between here and the teardown are still this
             // map's, so putting the interface back would be a flash of a colony already gone.

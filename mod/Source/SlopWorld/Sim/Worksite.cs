@@ -32,10 +32,13 @@ namespace SlopWorld
     // (Fill).
     public class Worksite : MapComponent
     {
-        // Off AgentColony's own second by half, so the reconcile and the errands are not
-        // paid for on the same tick.
-        const int Interval = 60;
-        const int Phase = 30;
+        // Four times a second, and off AgentColony's own second, so the reconcile and the
+        // errands are never paid for on the same tick. Not once a second, because a
+        // paving stone takes less than a tick to lay and the errand a pawn is handed here
+        // is the whole of what it does next: at a second a look the site would be one
+        // clanker standing over a finished floor, waiting to be told about the next cell.
+        const int Interval = 15;
+        const int Phase = 7;
 
         // Sites are picked by throwing darts at the circle rather than by searching it:
         // most of the ground is fine, and a search would want the whole map when it is
@@ -44,8 +47,8 @@ namespace SlopWorld
 
         // Frames outlive the burst that opened them, so without a ceiling a colony of
         // busy agents leaves the map a field of half-built graves. Generous, because a
-        // square of paving is two dozen frames on its own.
-        const int MaxOpen = 48;
+        // square of paving is fifty frames on its own.
+        const int MaxOpen = 96;
 
         // What one tick of construction is worth to a middling clanker: the driver pays
         // ConstructionSpeed * 1.7 a tick and stone knocks that back a little. It is only
@@ -54,20 +57,24 @@ namespace SlopWorld
         // falls behind.
         const float WorkPerTick = 1.4f;
 
-        // Real seconds of an agent's *working* time, not of the colony's day, and few of
-        // them: these things go up at the speed the things they stand for are written.
-        // A burst that lasted a minute has a column in it and half a plaza; nothing here
-        // is a project, because nothing the agents do is either.
-        const float PavingSeconds = 3f;
-        const float SmallSeconds = 20f;
-        const float MediumSeconds = 45f;
-        const float LargeSeconds = 90f;
-        const float MonumentSeconds = 180f;
+        // Real seconds of an agent's *working* time, not of the colony's day, and barely
+        // any of them. The target is the hour: a session's worth of a couple of agents
+        // being busy has to leave the circle with nowhere left to put anything, because
+        // running out of ground is the only thing on this map that ever asks the player
+        // for a decision.
+        //
+        // Paving is instant in the hand - the walk to the next cell is the whole cost.
+        const float PavingSeconds = 0.1f;
+        const float SmallSeconds = 4f;
+        const float MediumSeconds = 8f;
+        const float LargeSeconds = 15f;
+        const float MonumentSeconds = 30f;
 
         // Floors are laid a square at a time, or every errand would be one cell and the
-        // agent would spend the burst walking between them. Wide, because at three
-        // seconds a cell a small square is over before the walk out there was worth it.
-        const int PavingSide = 5;
+        // agent would spend the burst walking between them. Wide, because a cell costs
+        // nothing to lay and a small square is over before the walk out there was worth
+        // it.
+        const int PavingSide = 7;
 
         // Where paving goes when there is already something to pave around.
         const float PavingBesideChance = 0.6f;
@@ -355,6 +362,28 @@ namespace SlopWorld
             return frame;
         }
 
+        // Nothing this lot built follows the colony off the planet. Nothing should be
+        // able to - a new planet is a new map, generated from nothing this one touched -
+        // but the site is the one thing here that leaves permanent marks on the board,
+        // and a monument turning up on the next world would be the kind of bug nobody
+        // thinks to look for. So it is stated: the frames, the blueprints and everything
+        // finished go before the map does.
+        public static void Wipe(Map map)
+        {
+            if (map == null) return;
+
+            var doomed = new List<Thing>();
+            foreach (var thing in map.listerThings.AllThings)
+            {
+                if (thing == null || thing.Destroyed) continue;
+                if (thing is Blueprint || thing is Frame ||
+                    (thing is Building && WorkFor(thing.def) > 0f)) doomed.Add(thing);
+            }
+
+            for (int i = 0; i < doomed.Count; i++)
+                if (!doomed[i].Destroyed) doomed[i].Destroy(DestroyMode.Vanish);
+        }
+
         static void Fill(Frame frame)
         {
             if (frame == null || !frame.Spawned || frame.resourceContainer == null) return;
@@ -413,25 +442,27 @@ namespace SlopWorld
                 if (_errands != null) return _errands;
                 _errands = new List<Errand>();
 
-                Blocks(); // which is what settles the rock the rest of this is quarried from
-                var flagstone = _rock != null
-                    ? DefDatabase<TerrainDef>.GetNamedSilentFail("Flagstone" + _rock.defName)
-                    : null;
+                Blocks(); // which is what settles the rock the monuments are quarried from
+
+                // Metal plate rather than the tile's own flagstone: a machine paving over
+                // ash lays down what it is made of, and stone here read as a garden path
+                // through a dead world. Steel, which the map has none of and never needed.
+                var plate = DefDatabase<TerrainDef>.GetNamedSilentFail("MetalTile");
 
                 // Most of what happens here, and deliberately: paving is the errand that
                 // finishes. It is what a short burst has to show for itself, and a monument
-                // that arrives now and then reads as an event where one a day would read as
-                // the only thing the site does.
-                Add(flagstone, PavingSeconds, 70f, PavingSide);
+                // that arrives now and then reads as an event where one a minute would read
+                // as the only thing the site does.
+                Add(plate, PavingSeconds, 55f, PavingSide);
 
                 // Monuments and graves. What a machine builds when it is told nothing about
                 // what for: a marker, a place to put somebody, and a slab with writing on it
                 // that nobody will read.
-                Add(Named("Column"), SmallSeconds, 10f);
-                Add(Named("Grave"), SmallSeconds, 7f);
-                Add(Named("Sarcophagus"), MediumSeconds, 6f);
-                Add(Named("SteleLarge"), LargeSeconds, 4f);
-                Add(Named("SteleGrand"), MonumentSeconds, 3f);
+                Add(Named("Column"), SmallSeconds, 15f);
+                Add(Named("Grave"), SmallSeconds, 10f);
+                Add(Named("Sarcophagus"), MediumSeconds, 8f);
+                Add(Named("SteleLarge"), LargeSeconds, 7f);
+                Add(Named("SteleGrand"), MonumentSeconds, 5f);
 
                 if (_errands.Count == 0)
                     Log.Warning("[SlopWorld] no errands this build knows how to build; agents will stand about");
