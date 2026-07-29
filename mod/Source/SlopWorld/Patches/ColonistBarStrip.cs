@@ -65,6 +65,10 @@ namespace SlopWorld
         static bool _applied;
         static float _savedScale;
 
+        // Whether the bar is currently wearing the strip's geometry. Read by the hit-test
+        // patch, which must not restore a layout somebody else is still drawing with.
+        public static bool Applied => _applied;
+
         public static bool Active =>
             Ready && Find.WindowStack?.WindowOfType<TerminalWindow>() != null;
 
@@ -215,6 +219,33 @@ namespace SlopWorld
     {
         static void Prefix() => ColonistBarStrip.Apply();
         static void Finalizer() => ColonistBarStrip.Restore();
+    }
+
+    // Selecting a colonist off the bar does not happen inside ColonistBarOnGUI. The
+    // Selector asks ColonistBar.TryGetEntryAt while the *map* handles the click, which
+    // is long after the finalizer above has put the vanilla layout back - so the click
+    // was being tested against where the portraits would be if this mod were not
+    // loaded. The two layouts overlap for part of the row and not the rest, which is
+    // why it read as some colonists selecting and some not answering at all.
+    //
+    // The hit test gets the same treatment the draw does, and for the same reason: one
+    // geometry, computed in one place.
+    [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.TryGetEntryAt))]
+    public static class Patch_StripHitTest
+    {
+        // Only the outermost call owns the swap. The bar asks this of itself from inside
+        // its own OnGUI, and restoring there would put the vanilla layout back halfway
+        // through drawing the strip with it.
+        static void Prefix(out bool __state)
+        {
+            __state = !ColonistBarStrip.Applied;
+            if (__state) ColonistBarStrip.Apply();
+        }
+
+        static void Finalizer(bool __state)
+        {
+            if (__state) ColonistBarStrip.Restore();
+        }
     }
 
     // Vanilla's double-click jump and its right-click swallow stay out of the way

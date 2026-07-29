@@ -484,7 +484,14 @@ none of these need a def.
   portraits do not shuffle sideways when it appears; `Blocked` is the strip
   declining to answer clicks while something is stacked over the pane, which on the
   map layer never arises because `HandleEventsHighPriority` has already Used the
-  event by the time the map interface draws.
+  event by the time the map interface draws. The same swap has to go round
+  `ColonistBar.TryGetEntryAt`, because *selecting* a colonist off the bar does not
+  happen inside `ColonistBarOnGUI` at all: `Selector` asks that method while the map
+  handles the click, by which time the finalizer has put the vanilla layout back, and
+  the click was being tested against where the portraits would be without this mod.
+  The two layouts overlap for part of the row, which is why it read as some colonists
+  selecting and some not answering. Only the outermost call owns that swap - the bar
+  asks it of itself mid-draw, and restoring there would undo the layout being drawn.
 - `RunInBackground` - the setter is forced, not the getter, because what reaches
   Unity is `PrefsData.Apply` reading the field. Enforced once at startup through
   `LongEventHandler.ExecuteWhenFinished`, `Apply` being a no-op off the main thread.
