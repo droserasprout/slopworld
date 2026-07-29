@@ -355,7 +355,11 @@ none of these need a def.
   table is saved.
 - `Worksite` - what a clanker does with its hands while its process is burning
   tokens. A working agent takes the nearest frame nobody has reserved and hammers at
-  it; with none free it opens one, in the half of the plague circle nearest the core.
+  it; with none free it opens one where it is standing, which is wherever an agent
+  with nothing to do had wandered to - a free spread, and the walk out to the errand
+  is a few steps rather than a crossing. The half of the plague circle nearest the
+  core is the whole of the constraint on that, and a pawn that has wandered out of it
+  is aimed back in.
   Leaving `Working` ends the job where it stands, and `Frame.workDone` stays on the
   frame, so a monument is the sum of every burst the agent has had. The one system
   here that does *not* apply its effects by hand: the vanilla job driver walks the
@@ -385,9 +389,8 @@ none of these need a def.
   `CompArt` anyway. Stone for those, and the tile's own rock, so they read as one
   thing; the floor is metal plate rather than the matching flagstone, because a
   machine paving over ash lays down what it is made of and stone read as a garden path
-  through a dead world. Floors are laid a square at a time and prefer ground beside
-  something already standing, or the filler reads as squares dropped at random rather
-  than as a plaza being kept.
+  through a dead world. Floors are laid a square at a time, around the cell the site
+  landed on, or the agent would spend the burst walking between single cells.
 - `AutoResume`, `AutoSaver`, `TerminalRecall` - what makes a restart cheap. None of
   the three has a switch.
 - `NextPlanet` - bins the map and lands a fresh one. The seam is

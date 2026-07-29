@@ -11,9 +11,13 @@ namespace SlopWorld
     // What a clanker does with its hands while its process is burning tokens.
     //
     // A working agent walks to the nearest frame nobody has claimed and hammers at it;
-    // if there is no such frame it opens one, in the half of the plague circle nearest
-    // the core - ground the core has already taken, so the site is built on ash rather
-    // than on anything living. Leaving Working ends the job on the spot. Frame.workDone
+    // if there is no such frame it opens one where it is standing. Where it is standing
+    // is where an agent with nothing to do had wandered to, which is as fair a spread as
+    // this needs and costs nothing to work out. The half of the plague circle nearest
+    // the core is the whole of the constraint on that: ground the core has already
+    // taken, so the site is built on ash rather than on anything living, and the ground
+    // runs out while there is still a map around it. Leaving Working ends the job on the
+    // spot. Frame.workDone
     // is on the frame rather than the pawn, so a thing standing here is the sum of every
     // burst the agent had while it was going up.
     //
@@ -76,9 +80,14 @@ namespace SlopWorld
         // it.
         const int PavingSide = 7;
 
-        // Where paving goes when there is already something to pave around.
-        const float PavingBesideChance = 0.6f;
-        const int PavingBesideSpread = 3;
+        // How far from the pawn an errand may be opened. A few steps, so the walk out to
+        // it is not what the burst is spent on, and wide enough that a clanker standing
+        // still is not laying every square on the same cell.
+        const float SiteRadius = 12f;
+
+        // The share of the plague circle the site is allowed, measured from the core.
+        const float SiteFrac = 0.5f;
+        const float MinCircle = 6f;
 
         struct Errand
         {
@@ -103,6 +112,11 @@ namespace SlopWorld
         ThingDef _rock;
         bool _quarried;
 
+        // Held for the length of a pass rather than passed down through five calls: the
+        // circle is asked about once per candidate cell, and a paving square is fifty of
+        // those.
+        Plague _plague;
+
         public Worksite(Map map) : base(map) { }
 
         public override void MapComponentTick()
@@ -113,8 +127,8 @@ namespace SlopWorld
             // it.
             if (Cutscene.AgentsHeld) return;
 
-            var plague = map.GetComponent<Plague>();
-            if (plague == null || !plague.Active) return;
+            _plague = map.GetComponent<Plague>();
+            if (_plague == null || !_plague.Active) return;
 
             var colony = AgentColony.Current;
             if (colony == null) return;
@@ -139,7 +153,7 @@ namespace SlopWorld
                     continue;
                 }
 
-                Send(pawn, plague);
+                Send(pawn);
             }
         }
 
@@ -163,11 +177,11 @@ namespace SlopWorld
                 work.SetPriority(WorkTypeDefOf.Construction, 0);
         }
 
-        void Send(Pawn pawn, Plague plague)
+        void Send(Pawn pawn)
         {
             if (!Ready(pawn)) return;
 
-            var frame = Free(pawn) ?? Open(pawn, plague);
+            var frame = Free(pawn) ?? Open(pawn);
             if (frame == null) return;
 
             Fill(frame);
@@ -220,7 +234,7 @@ namespace SlopWorld
             return best;
         }
 
-        Frame Open(Pawn pawn, Plague plague)
+        Frame Open(Pawn pawn)
         {
             if (Standing() >= MaxOpen) return null;
 
@@ -228,15 +242,10 @@ namespace SlopWorld
             if (pick == null) return null;
             var errand = pick.Value;
 
-            // Half the circle, and never so small that the first minute of the plague has
-            // the agents building inside the core itself.
-            float reach = Mathf.Max(plague.Reach * 0.5f, 6f);
-
             for (int i = 0; i < Tries; i++)
             {
-                var frame = errand.Patch > 1
-                    ? Pave(errand, pawn, plague, reach)
-                    : Raise(errand, Site(plague, reach), pawn);
+                var at = Site(pawn);
+                var frame = errand.Patch > 1 ? Pave(errand, pawn, at) : Raise(errand, at, pawn);
                 if (frame != null) return frame;
             }
 
@@ -268,13 +277,34 @@ namespace SlopWorld
             return list[list.Count - 1];
         }
 
-        // A dart at the circle. Round rather than truncate, or the sites lean towards the
-        // core by half a cell in both axes.
-        IntVec3 Site(Plague plague, float reach)
+        // Next to whoever is asking. An agent with nothing to do wanders, and where it
+        // has wandered is as fair a spread as this wants: the ground fills the way the
+        // colony moves over it, and the walk out to the errand is a few steps rather
+        // than a crossing. A dart at the circle instead put every errand somewhere else
+        // and filled the middle first.
+        //
+        // A pawn that has wandered out of the circle is aimed back into it, or an agent
+        // caught outside would spend every look asking for ground it is not allowed.
+        //
+        // Round rather than truncate, or the sites lean one way by half a cell in both
+        // axes.
+        IntVec3 Site(Pawn pawn)
         {
-            var v = Rand.InsideUnitCircleVec3 * reach;
-            return plague.Heart + new IntVec3(Mathf.RoundToInt(v.x), 0, Mathf.RoundToInt(v.z));
+            bool home = Inside(pawn.Position);
+            var from = home ? pawn.Position : Heart();
+            var v = Rand.InsideUnitCircleVec3 * (home ? SiteRadius : Circle());
+
+            return from + new IntVec3(Mathf.RoundToInt(v.x), 0, Mathf.RoundToInt(v.z));
         }
+
+        // The half of the plague circle the site is allowed, and never so small that the
+        // plague's first minute has the agents building inside the core itself.
+        float Circle() => _plague == null ? 0f : Mathf.Max(_plague.Reach * SiteFrac, MinCircle);
+
+        IntVec3 Heart() => _plague == null ? map.Center : _plague.Heart;
+
+        bool Inside(IntVec3 cell) =>
+            _plague != null && _plague.Active && cell.DistanceTo(_plague.Heart) <= Circle();
 
         Frame Raise(Errand errand, IntVec3 at, Pawn pawn)
         {
@@ -284,15 +314,10 @@ namespace SlopWorld
             return Pitch(errand.What, at, rot);
         }
 
-        // Paving prefers ground beside something already standing: a floor spreading out
-        // from under a stele reads as a plaza being kept, where squares dropped at random
-        // read as a bug.
-        Frame Pave(Errand errand, Pawn pawn, Plague plague, float reach)
+        // A square of it, around the cell the site landed on - which, the site being
+        // where the pawn is, is the ground it has been standing on.
+        Frame Pave(Errand errand, Pawn pawn, IntVec3 centre)
         {
-            IntVec3 centre = IntVec3.Invalid;
-            if (Rand.Chance(PavingBesideChance)) centre = Beside();
-            if (!centre.IsValid) centre = Site(plague, reach);
-
             Frame first = null;
             foreach (var c in CellRect.CenteredOn(centre, errand.Patch / 2))
             {
@@ -303,22 +328,14 @@ namespace SlopWorld
             return first;
         }
 
-        // Something this lot built, finished or not.
-        IntVec3 Beside()
-        {
-            var built = map.listerBuildings.allBuildingsColonist
-                .Where(b => WorkFor(b.def) > 0f || WorkFor(b.def?.entityDefToBuild) > 0f)
-                .RandomElementWithFallback();
-            if (built == null) return IntVec3.Invalid;
-
-            return built.Position + new IntVec3(
-                Rand.RangeInclusive(-PavingBesideSpread, PavingBesideSpread), 0,
-                Rand.RangeInclusive(-PavingBesideSpread, PavingBesideSpread));
-        }
-
         bool Fits(BuildableDef what, IntVec3 at, Rot4 rot, Pawn pawn)
         {
             if (!at.InBounds(map) || at.Fogged(map)) return false;
+
+            // Ground the core has already taken, wherever the pawn that asked has got to:
+            // a site is built on ash rather than on anything living, and the site filling
+            // up is the point of the circle being the size it is.
+            if (!Inside(at)) return false;
 
             // A pad around anything with a shape, so a site never closes a path off or
             // grows into one lump. Floors want none of it: paving right up to a monument is
