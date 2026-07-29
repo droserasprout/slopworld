@@ -22,45 +22,52 @@ namespace SlopWorld
         // Current picks one and cuts to it, so a stage is a frame with nothing blending
         // between them. Fewer are seen than are baked: the breath only ever walks the top
         // 55% of the range, and the rest are the way in from clean.
-        const int Stages = 12;
+        //
+        // At this count the cut between neighbours is small enough to read as flicker
+        // rather than as a jump, which is what lets the breath run as fast as it now does.
+        // The ceiling here is memory, not bake time: every frame is a resident RGB24
+        // texture of up to MaxSide on its long edge, so ~8MB each, ~380MB for the set.
+        // Raising Stages again means lowering MaxSide with it.
+        const int Stages = 30;
 
-        // Vanilla's is 4096, which is more than any screen this draws to and four times
-        // the filter cost.
-        const int MaxSide = 2048;
+        const int MaxSide = 1024; // slightly more than god said
 
         // It never returns to clean, but it does not sit at the bottom of the well
         // either.
-        const float BreatheLow = 0.45f;
-        const float BreatheHigh = 1.0f;
+        const float BreatheLow = 0.7f;
+        const float BreatheHigh = 0.9f;
 
         // The two periods, in seconds. Deliberately not a ratio of small integers.
-        const float SlowSecs = 11.3f;
-        const float FastSecs = 4.1f;
+        // Short enough that the walk across the stages is a flutter rather than a swell:
+        // at the peak of the fast term this steps through something like thirty frames a
+        // second, which is the rate the whole thing is pitched at.
+        const float SlowSecs = 4.15f;
+        const float FastSecs = 1.27f;
 
         // How long the first rot takes, once, on the way in from clean.
-        const float OnsetSecs = 6f;
+        const float OnsetSecs = 2f;
 
         // The plague's own violet, so the menu and the map describe the same thing.
         // Matches SlopPlagueGas by eye rather than by reference.
-        static readonly Color Sick = new Color(0.80f, 0.38f, 0.86f, 1f);
+        static readonly Color Sick = new Color(0.80f, 0.38f, 0.86f, 0.9f);
 
         // Starts a third of the way down the rot, so the planet goes wrong before it goes
         // up - a picture already alight at stage one has nowhere to travel.
-        const float FireFrom = 0.30f;
+        const float FireFrom = 0.33f;
         // Read off the picture rather than picked: the source's median luminance is 0.09
         // and its 95th percentile 0.69, so a ramp that only reaches 1 at pure white
         // leaves the fire invisible.
-        const float FuelFloor = 0.40f;
-        const float FuelFull = 0.70f;
+        const float FuelFloor = 0.4f;
+        const float FuelFull = 0.65f;
         // How far a bright thing has to extend before it counts as fuel. This is the star
         // filter; see Erode.
         const int FuelErode = 3;
         // 0.985 over a 1280-row frame is a plume of a hundred-odd pixels.
-        const float FuelDecay = 0.985f;
+        const float FuelDecay = 0.98f;
         // fBm piles up around its middle, so taking 0..1 as-is gives an even shimmer;
         // stretching this band out is what gives a flame a lit body and a dark gap.
         const float NoiseLow = 0.38f;
-        const float NoiseHigh = 0.72f;
+        const float NoiseHigh = 0.62f;
         const float FireGain = 1.15f;
 
         // The noise field is drawn at 1/N of the frame and read back bilinear.
@@ -74,9 +81,16 @@ namespace SlopWorld
         static readonly Color Ember = new Color(1f, 0.24f, 0.05f, 1f);
         static readonly Color Flame = new Color(1f, 0.76f, 0.28f, 1f);
 
+        // JPEG, and at a quality no photograph would survive, because the artefacts are
+        // the point: 8x8 blocking and smeared chroma are exactly the failure the rest of
+        // this file is imitating by hand, and the encoder does them for free. It also
+        // keeps the cache to a few megabytes at this stage count, where PNG at 48 frames
+        // of 2048x1280 would be most of a gigabyte on disk.
+        const int JpegQuality = 10;
+
         // Bump it and every install rebakes, which is what a change to any constant above
         // needs.
-        const int Version = 5;
+        const int Version = 1;
 
         static Texture2D[] _frames;
         // The cache key, and how a background switched in Options is noticed.
@@ -168,15 +182,21 @@ namespace SlopWorld
             var frames = new Texture2D[Stages];
             for (int i = 0; i < Stages; i++)
             {
-                string path = Path.Combine(dir, $"{i:D2}.png");
+                // D2 still holds the whole set; past 99 stages this needs widening.
+                string path = Path.Combine(dir, $"{i:D2}.jpg");
                 if (!File.Exists(path)) return null;
 
+                // LoadImage sniffs the header, so the JPEG needs nothing said about it here
+                // beyond the name - and a leftover PNG cache from before the format change
+                // lives under an older key, so it is never reached.
                 var tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
                 if (!tex.LoadImage(File.ReadAllBytes(path)))
                 {
                     UnityEngine.Object.Destroy(tex);
                     return null;                    // a half-written cache rebakes
                 }
+                tex.filterMode = FilterMode.Bilinear;
+                tex.wrapMode = TextureWrapMode.Clamp;
                 Keep(tex);
                 frames[i] = tex;
             }
@@ -202,27 +222,34 @@ namespace SlopWorld
             {
                 Color[] px = Rot(clean, fuel, bw, bh, i / (float)(Stages - 1), i);
 
-                var tex = new Texture2D(bw, bh, TextureFormat.RGB24, false)
-                {
-                    filterMode = FilterMode.Bilinear,
-                    wrapMode = TextureWrapMode.Clamp,
-                };
+                var tex = new Texture2D(bw, bh, TextureFormat.RGB24, false);
                 tex.SetPixels(px);
                 tex.Apply();
+
+                byte[] jpg = tex.EncodeToJPG(JpegQuality);
+                File.WriteAllBytes(Path.Combine(dir, $"{i:D2}.jpg"), jpg);
+
+                // Straight back in through the decoder. The frames this run holds have to be
+                // the frames every later run loads, and at this quality the difference between
+                // the two is most of the look - a first launch that came up clean-edged and
+                // then blocked itself on restart is a bug, and would be reported as one.
+                tex.LoadImage(jpg);
+                tex.filterMode = FilterMode.Bilinear;
+                tex.wrapMode = TextureWrapMode.Clamp;
                 Keep(tex);
                 frames[i] = tex;
-
-                File.WriteAllBytes(Path.Combine(dir, $"{i:D2}.png"), tex.EncodeToPNG());
             }
 
-            Log.Message($"[SlopWorld] baked {Stages} background frames at {bw}x{bh} into {dir}");
+            Log.Message($"[SlopWorld] baked {Stages} background frames at {bw}x{bh}, jpeg q{JpegQuality}, into {dir}");
             return frames;
         }
 
         // Order is load-bearing. The smear goes first, because blurring after the
         // contrast crush undoes it; the tint next, because a colour bias applied before a
         // stretch comes back out of it; the fire last, because it is emissive - light
-        // arriving at the lens, not a property of the surface.
+        // arriving at the lens, not a property of the surface. The encoder's own damage
+        // lands after all of it, which is the right end: it is the transmission, not the
+        // scene.
         static Color[] Rot(Color[] src, float[] fuel, int w, int h, float k, int stage)
         {
             if (k <= 0f) return (Color[])src.Clone();
