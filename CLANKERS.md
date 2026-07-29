@@ -353,6 +353,34 @@ none of these need a def.
   (`Comfort` - nothing on this map heals by itself). `ReviveChance` keeps the mend
   to every second or third pat. The grace is temporary (`GraceTicks`), and neither
   table is saved.
+- `Worksite` - what a clanker does with its hands while its process is burning
+  tokens. A working agent takes the nearest frame nobody has reserved and hammers at
+  it; with none free it opens one, in the half of the plague circle nearest the core.
+  Leaving `Working` ends the job where it stands, and `Frame.workDone` stays on the
+  frame, so a monument is the sum of every burst the agent has had. The one system
+  here that does *not* apply its effects by hand: the vanilla job driver walks the
+  pawn, faces it, throws the construction effecter, draws the progress bar and rolls
+  quality off the builder. What the map cannot supply is materials - no stockpiles, no
+  haulers, no economy - so a frame arrives with its stone already in it (`Fill`).
+  Ending the job is only half of standing an agent down: Construction being *on* is an
+  open invitation to vanilla's own work giver, which hands any free colonist the
+  nearest frame, so `Stop` takes the work type back off the pawn as well - or an idle
+  agent walks over and builds, and the site stops saying which processes are busy.
+  The errand table states its costs in *seconds of an agent's working time* and
+  `Patch_ErrandWork` is where that lands on `Frame.WorkToBuild`, because vanilla's own
+  figures are an economy's and this one has none: three seconds a paving stone, twenty
+  for a column or a grave, forty-five for a sarcophagus, ninety for a large stele and
+  three minutes for a grand one. All of it fast, because these go up at the speed the
+  things they stand for are written and a burst that lasted a minute has to leave
+  something behind. Paving is most of what gets picked on top of that, where a
+  monument is an event because it is rare. Monuments and graves otherwise, because a machine told nothing
+  about what for builds a marker, a place to put somebody, and a slab with writing on
+  it nobody will read; sculptures are not among them because they are bench work in
+  this game, crafted and installed rather than built, and steles carry the same
+  `CompArt` anyway. Stone, and the tile's own rock, so the site reads as one thing.
+  Floors are laid a square at a time and prefer ground beside something already
+  standing, or the filler reads as squares dropped at random rather than as a plaza
+  being kept.
 - `AutoResume`, `AutoSaver`, `TerminalRecall` - what makes a restart cheap. None of
   the three has a switch.
 - `NextPlanet` - bins the map and lands a fresh one. The seam is
@@ -410,6 +438,17 @@ none of these need a def.
   and `PawnRelationWorker_Parent.ResolveMyName` casts a parent's name to
   `NameTriple` where an agent's is a `NameSingle`. Zeroing the weight is all it
   takes. Applied by hand because `GenerationChance` is virtual.
+- `AgentsCanBuild` - roughly one backstory in five disables ManualSkilled, which
+  takes Construction with it, and `Worksite` would then have an agent that stood
+  about through every burst it ever worked. The list `Pawn.GetDisabledWorkTypes`
+  hands back is the pawn's own cache, so removing Construction from it is what makes
+  the answer stick, and vanilla rebuilding the cache only means this runs again.
+- `SteadyHands` - a `StatPart` on `ConstructSuccessChance` answering 1 for an agent.
+  Vanilla rolls that stat once per work tick and a short roll eats the frame's
+  materials and everything done to it, which on a map with no economy is not a lesson
+  about who was handed the hammer, it is an hour of somebody's tokens deleted because
+  the pawn generator rolled a backstory. Added to the def at startup rather than
+  patched into the driver: the roll is what wants changing, not the job.
 - `ColonistBarStrip`, `ColonistBarAddButton`, `ColonistBarStateIcon`,
   `InspectPanePatch`, `PawnGizmoPatch` - the parts of the UI that are kept,
   extended. `Patch_AgentNeverIdle` answers `IsIdle` false for an agent, so the

@@ -242,6 +242,12 @@ namespace SlopWorld
         // - is not one whose fires we have any business containing.
         public bool Active => _active;
 
+        // The circle stated rather than asked about, for Worksite: it is the one thing
+        // here that wants to work *inside* the plague rather than be told whether it is
+        // caught, and it puts its errands in the half of the circle nearest the core.
+        public IntVec3 Heart => _origin;
+        public float Reach => Mathf.Min(_radius, EdgeRadius);
+
         // The radius stops at the edge; the pass does not, because things wander.
         void Spread()
         {
@@ -366,10 +372,17 @@ namespace SlopWorld
 
         // The core first of all: it stands in the middle of the band that detonates
         // hardest, so at this radius it would eventually blow a hole in its own origin.
+        //
+        // Then everything the agents have built, finished or half-built, on the same
+        // grounds NoBurningTheColony spares the whole player faction: a monument is an
+        // hour of somebody's tokens, and a blast that takes it is the board deleting work
+        // rather than the plague being dangerous.
         List<Thing> Untouchable()
         {
             var spared = map.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore).ToList();
             spared.AddRange(Pets.On(map).Cast<Thing>());
+            spared.AddRange(map.listerBuildings.allBuildingsColonist.Cast<Thing>());
+            spared.AddRange(map.listerThings.ThingsInGroup(ThingRequestGroup.BuildingFrame));
             return spared;
         }
 
