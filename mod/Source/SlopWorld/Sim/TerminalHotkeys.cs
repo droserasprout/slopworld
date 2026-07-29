@@ -3,8 +3,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // F12 closes whatever pane is open, and with none open opens the selected agent's
-    // - or, with nothing selected, any agent that is up.
+    // F12 closes whatever pane is open, and with none open opens the selected agent's -
+    // or, with nothing selected, the one that was last on screen, and failing that any
+    // agent that is up.
     //
     // Opening needs a home outside every window, since there is no window to hang it
     // off yet. Closing is not here and cannot be:
@@ -81,8 +82,14 @@ namespace SlopWorld
                 return;
             }
 
-            var session = SelectedLive() ?? AnyLive();
+            var session = SelectedLive() ?? LastLive() ?? AnyLive();
             if (session != null) TerminalWindow.Open(session);
+        }
+
+        static string LastLive()
+        {
+            var session = TerminalRecall.Last;
+            return Live(session) ? session : null;
         }
 
         // A stopped agent has no pane to open, so it counts as nothing selected and the

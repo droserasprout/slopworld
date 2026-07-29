@@ -24,6 +24,15 @@ namespace SlopWorld
 
         static TerminalRecall Instance => Verse.Current.Game?.GetComponent<TerminalRecall>();
 
+        public static string Last
+        {
+            get
+            {
+                var c = Instance;
+                return string.IsNullOrEmpty(c?._last) ? null : c._last;
+            }
+        }
+
         // Called by the terminal whenever it points at a session.
         public static void Remember(string name)
         {
