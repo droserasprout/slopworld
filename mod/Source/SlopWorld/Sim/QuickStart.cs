@@ -19,8 +19,7 @@ namespace SlopWorld
     // reads as "this is a dev test". Nothing it changes reaches us any more now that
     // no pawn starts on the map, but the honest answer is still that this is a real
     // start.
-    [HarmonyPatch(typeof(Page_SelectScenario), "PreOpen")]
-    public static class Patch_QuickStart
+    public static class QuickStart
     {
         // Vanilla's own quick-start size is 250; 200 generates faster and is more than
         // enough for a colony that is only ever looked at.
@@ -33,10 +32,10 @@ namespace SlopWorld
         // In-game days between autosaves, if the player has them switched off.
         const float AutosaveDays = 1f;
 
-        // PreOpen is the only opening hook Page_SelectScenario declares. The page itself
-        // is left alone: Root.OnGUI skips the window stack while a long event is pending,
-        // so it never draws. The exception handler is vanilla's.
-        static void Postfix() =>
+        // The two ways in are the same call: the player asking for a colony, and there
+        // being no colony to ask about. Queued rather than run, so both callers can be
+        // in the middle of drawing something. The exception handler is vanilla's.
+        public static void Queue() =>
             LongEventHandler.QueueLongEvent(Begin, "GeneratingMap", true,
                 GameAndMapInitExceptionHandlers.ErrorWhileGeneratingMap);
 
@@ -79,5 +78,14 @@ namespace SlopWorld
             Log.Message("[SlopWorld] scripted colony start");
             PageUtility.InitGameStart();
         }
+    }
+
+    // The player's own way in. PreOpen is the only opening hook Page_SelectScenario
+    // declares; the page itself is left alone, because Root.OnGUI skips the window
+    // stack while a long event is pending and so it never draws.
+    [HarmonyPatch(typeof(Page_SelectScenario), "PreOpen")]
+    public static class Patch_QuickStart
+    {
+        static void Postfix() => QuickStart.Queue();
     }
 }

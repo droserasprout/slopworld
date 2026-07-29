@@ -12,9 +12,11 @@ colonist to open its terminal and type at the agent.
 Two halves, shipped together, talking over HTTP + WebSocket on `127.0.0.1:7717`:
 
 - `slopd/` - Rust daemon. Owns tmux, the sandbox, the terminal emulator and
-  `config.toml`. Runs as a systemd user service.
+  `config.toml`. Runs as a systemd user service. Ships `slopworld` alongside it, the
+  launcher that makes the profile and starts the game in it.
 - `mod/` - C# RimWorld mod (Harmony, 1.6 only). Draws the board, strips everything
-  that would make it a game, and renders the panes slopd sends.
+  that would make it a game, and renders the panes slopd sends. Refuses to patch
+  anything outside the profile.
 
 The daemon is the source of truth. The mod holds no session state of its own; it
 mirrors what arrives over the socket.
@@ -29,11 +31,12 @@ Everything goes through the Makefile. `RIMWORLD` defaults to `~/RimWorld/game`.
 | `make daemon` | `cargo build --release` in `slopd/`. |
 | `make mod` | msbuild the C# project into `mod/Assemblies/SlopWorld.dll`. |
 | `make test` | `cargo test`. The mod has no test harness; it needs the game. |
-| `make install` | Both of the below. |
+| `make install` | All three of the below. |
 | `make install-daemon` | Installs the binary and unit, then restarts the service. |
+| `make install-runner` | Installs `slopworld` into `$(BIN)`. |
 | `make install-mod` | Copies the mod into `$(MODS)/SlopWorld`. |
 | `make redeploy` | `install`, then asks the daemon to bounce the game. |
-| `make run` | Launches the game. |
+| `make run` | Launches the game through the runner. `PROFILE` picks the folder. |
 | `make logs` | Tails `Player.log`. |
 | `make clean` | Drops build output. |
 
@@ -56,17 +59,84 @@ another config file. `tools/shot.sh` grabs the game's window into a PNG (needs t
 
 `make redeploy` is the loop an agent working on this repo runs: both halves
 installed, then `POST /api/game/restart`, which saves the colony, quits and comes
-back into the same save. It needs `daemon.game_cmd` set. The agents sit through all
-of it, neither the tmux server nor the game being in the daemon's cgroup.
+back into the same save. It needs `daemon.game_cmd` set, which now defaults to
+`~/.local/bin/slopworld` - the launcher, where `make install-runner` puts it. The
+agents sit through all of it, neither the tmux server nor the game being in the
+daemon's cgroup.
 
 ### Where things land
 
 - Daemon config: `~/.config/slopworld/config.toml` (seeded on first run).
-- Mod settings: RimWorld's own `Mod settings` file, edited in
-  `Options > Mod settings`.
+- Profile: `$XDG_DATA_HOME/slopworld/profile`, i.e. `~/.local/share/slopworld/profile`.
+  Saves, screenshots, `Config/ModsConfig.xml` and `Config/Prefs.xml` - everything
+  RimWorld keeps per install, kept per *this* install instead. See "Profile".
+- Mod settings: RimWorld's own `Mod settings` file, in the profile's `Config/`,
+  edited in `Options > Mod settings`.
 - Game log: `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log`.
-  Harmony and mod exceptions land there, not in the terminal that launched it.
+  Harmony and mod exceptions land there, not in the terminal that launched it. Unity
+  writes it and Unity does not know about the profile, so it is the one thing a
+  second profile would share.
 - tmux server: private socket `slopworld`, so it never collides with yours.
+
+## Profile
+
+RimWorld keeps its saves, its prefs and its mod list in one folder, and an install
+has exactly one of them. This mod is not something you add to a colony: it takes the
+sim away, renames the faction, rewrites the calendar, deletes every vanilla song and
+ships defs a vanilla save has never heard of. Sharing that folder with somebody's
+real game is how a colony they cared about comes back wearing a faceplate, in a save
+that no longer loads without us.
+
+So there is a save data folder of our own, and one binary that makes it and starts
+the game in it.
+
+`slopd/src/bin/slopworld.rs` is the launcher - a second binary in the daemon's crate
+rather than a script, for reasons the next paragraph is about. It finds the game
+(`--game`, `$SLOPWORLD_GAME`, then the four places a Linux RimWorld actually lives),
+finds or coins the profile (`--profile`, `$SLOPWORLD_PROFILE`, then XDG), seeds it,
+and runs `RimWorldLinux -savedatafolder=<profile>` with whatever else it was handed.
+Ours are `--long` and the game's are `-single`, which is what lets an unknown
+`--word` be refused as a typo rather than forwarded; `--` ends ours for good.
+
+Seeding is `Config/ModsConfig.xml` with `ludeon.rimworld` and `drsr.slopworld` and
+nothing else, plus `knownExpansions` naming all five so an owned DLC is never
+*offered*. Written only if absent, `--reset` being the one way to lose an edited
+list. Two traps in that file: it carries **no** `<version>`, because the game
+compares one when it is there and throws the whole list away on a mismatch - and
+what it starts again with has every expansion on; and `-savedatafolder` is split on
+`=` into exactly two halves, so a profile path with one in it is refused on the way
+in rather than silently not used.
+
+The launcher **waits on** the game rather than exec'ing into it, and that is
+load-bearing. `daemon.game_cmd` is matched against `argv[0]` *anchored* (see
+`game.rs`), so the process slopd finds has to be the thing it launched: exec'ing
+would leave a RimWorld the daemon cannot see, and `restart_game` would start a
+second one over a colony still being written. Waiting also makes the launcher's
+lifetime the game's, which is what `slopworld-game.service` reports. A shell script
+could not do either - a shebang puts `/bin/sh` in `argv[0]`.
+
+The other half is the mod refusing. `SlopProfile.Ok` is one question - is there a
+`slopworld.profile` marker in `GenFilePaths.SaveDataFolderPath` - and the marker is
+written by the launcher rather than by us on purpose: a folder the game made for
+itself is somebody's install, and only something outside the game can say this one
+is for agents. Refusing means refusing *before touching anything*:
+
+- `SlopWorldBootstrap` returns before `PatchAll`, so not one Harmony patch binds.
+- `SteadyHands` returns before welding a `StatPart` onto a vanilla stat.
+- `PatchOperationInProfile` wraps every XML operation of ours that rewrites a def
+  the base game shipped - the songs, the map generator's rocks, the ancient kit's
+  designation category. It is a `PatchOperationSequence` subclass that answers true
+  without running its `operations`, true being what keeps the game from logging a
+  failed patch over a mod that stood aside politely. Assemblies load before the XML
+  is patched, which is the only reason this can exist at all; static constructors
+  run after, which is why the C# gate is separate.
+
+What survives a refusal is the defs we *add*, which nothing can take back: four main
+buttons, some flecks, hediffs, key bindings and a song. The buttons are doors onto
+the explanation instead - `MainButtonWorker_Slop` gates all four on the same
+question and puts up the dialog. `SlopProfile.Complain` logs once and offers the
+dialog every time, because a button that silently does nothing is worse than a mod
+that is not there.
 
 ## Daemon
 
@@ -256,7 +326,9 @@ every sandbox binds `<game>/RimWorldLinux_Data/Managed`, so an unanchored match
 finds an agent and calls it the game - after which a restart waits forever for a
 PID that was never the game. The client count and the age of the oldest client are
 in the answer, because the question is usually "is it running the build I just
-installed".
+installed". What `game_cmd` names is the *launcher* rather than the game (see
+"Profile"), and the whole of why that binary waits on its child instead of exec'ing
+is so this paragraph stays true of it.
 
 `POST /api/game/restart` is a handshake: the daemon broadcasts `{"t":"quit"}`, the
 mod saves and calls `Root.Shutdown`, and the daemon waits up to a minute for the
@@ -285,7 +357,9 @@ opener that would not.
 
 Harmony patches are applied from `SlopWorldBootstrap`. Most bind by attribute;
 `Patch_HideGui`, `Patch_MainButtons`, `Patch_InspectTabs` and `Patch_NoRelateAgents`
-are applied manually because their target sets are data or reflection.
+are applied manually because their target sets are data or reflection. Ahead of all
+of it is `SlopProfile.Ok`, which is what makes the whole thing conditional on being
+in a profile - see "Profile".
 
 ### `Client/` - talking to slopd
 
@@ -450,7 +524,11 @@ none of these need a def.
   through a dead world. Floors are laid a square at a time, around the cell the site
   landed on, or the agent would spend the burst walking between single cells.
 - `AutoResume`, `AutoSaver`, `TerminalRecall` - what makes a restart cheap. None of
-  the three has a switch.
+  the three has a switch. `AutoResume` loads the newest save on a cold start and,
+  finding none, calls `QuickStart.Queue` instead - a fresh profile lands in a colony
+  rather than on a menu, which is the same place every launch after it lands. Both
+  ways in are that one call: the player's is `Patch_QuickStart`, off
+  `Page_SelectScenario.PreOpen`.
 - `NextPlanet` - bins the map and lands a fresh one. The seam is
   `OptionListingUtility.DrawOptionListing` rather than the menu itself, and the
   listing is drawn *twice* per menu (the second is the web links column), hence the
@@ -720,8 +798,8 @@ connection (`host`, `port`, `token`, `autoConnect`), `fontSize`, and the pane's
 property and a widget.
 
 *Not* `config.toml`. These are RimWorld's own, scribed through `ModSettings` into
-`Config/Mod_SlopWorld_SlopWorldMod.xml` beside `Player.log` - named for the mod
-folder and the `Mod` subclass. `Scribe_Values` writes nothing that equals its
+`Config/Mod_SlopWorld_SlopWorldMod.xml` under the profile - named for the mod folder
+and the `Mod` subclass. `Scribe_Values` writes nothing that equals its
 default, so a file holding only `<ModSettings Class="SlopWorld.SlopSettings" />` is
 an install where every one of them is untouched, not a file that failed to save. The
 split is the same one the config window is built on: the daemon's file is about this
@@ -764,6 +842,11 @@ the save; writing mod settings on every switch would also mean a reconnect.
 
 - 1.6 only. Most tick methods were renamed to interval forms in 1.6, so the patch
   targets will not bind on 1.5.
+- Launching `RimWorldLinux` by hand gets you a mod that has patched nothing and a
+  dialog saying why. Everything here goes through `slopworld`, and a save made
+  outside the profile is a save made against the game's own folder. `make run` is
+  the shortest way in; the marker file is `slopworld.profile` and the check is
+  `SlopProfile.Ok`.
 - A game tick and an absolute tick are different units here. `TicksGame` is the
   game's, sixty to the real second; `TicksAbs` is `RealClock`'s, sixty thousand to
   the real *day*. So `GenDate.TickAbsToGame` and `TickGameToAbs` no longer round

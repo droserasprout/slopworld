@@ -115,6 +115,15 @@ namespace SlopWorld
     {
         static SlopWorldBootstrap()
         {
+            // First, and before anything is patched: this mod is only ever run in a save
+            // folder of its own, and in anybody else's game it does nothing at all. See
+            // SlopProfile.
+            if (!SlopProfile.Ok)
+            {
+                SlopProfile.Complain();
+                return;
+            }
+
             var h = new Harmony("drsr.slopworld");
             try
             {
@@ -161,23 +170,42 @@ namespace SlopWorld
         }
     }
 
-    public class MainButtonWorker_Projects : RimWorld.MainButtonWorker
+    // A def is the one thing a refusing mod cannot take back: these four buttons are
+    // added to the bar by XML, which is read whether we patched anything or not. So in
+    // somebody's ordinary game they are doors onto the explanation rather than onto a
+    // daemon we never dialled.
+    public abstract class MainButtonWorker_Slop : RimWorld.MainButtonWorker
     {
-        public override void Activate() => ProjectsWindow.Toggle();
+        public sealed override void Activate()
+        {
+            if (!SlopProfile.Ok)
+            {
+                SlopProfile.Complain();
+                return;
+            }
+            Open();
+        }
+
+        protected abstract void Open();
     }
 
-    public class MainButtonWorker_Agents : RimWorld.MainButtonWorker
+    public class MainButtonWorker_Projects : MainButtonWorker_Slop
     {
-        public override void Activate() => SessionsWindow.Toggle();
+        protected override void Open() => ProjectsWindow.Toggle();
     }
 
-    public class MainButtonWorker_Shortcuts : RimWorld.MainButtonWorker
+    public class MainButtonWorker_Agents : MainButtonWorker_Slop
     {
-        public override void Activate() => ShortcutsWindow.Toggle();
+        protected override void Open() => SessionsWindow.Toggle();
     }
 
-    public class MainButtonWorker_Config : RimWorld.MainButtonWorker
+    public class MainButtonWorker_Shortcuts : MainButtonWorker_Slop
     {
-        public override void Activate() => ConfigMenuWindow.Toggle();
+        protected override void Open() => ShortcutsWindow.Toggle();
+    }
+
+    public class MainButtonWorker_Config : MainButtonWorker_Slop
+    {
+        protected override void Open() => ConfigMenuWindow.Toggle();
     }
 }

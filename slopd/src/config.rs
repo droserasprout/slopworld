@@ -44,7 +44,12 @@ pub struct Daemon {
     #[serde(default = "default_history_limit")]
     pub history_limit: u32,
     /// Empty disables the endpoint. Split like an agent command: no shell.
-    #[serde(default)]
+    ///
+    /// The launcher rather than the game, because the mod refuses to patch anything
+    /// outside a save data folder of its own and the launcher is what makes one. It
+    /// is also what keeps `found` working: the launcher waits on the game, so the
+    /// process this path matches is the one that goes away when the colony is saved.
+    #[serde(default = "default_game_cmd")]
     pub game_cmd: String,
     /// Off means slopd never reads the credentials file and never leaves the machine.
     #[serde(default = "yes")]
@@ -69,6 +74,14 @@ fn default_credentials() -> String {
     "~/.claude/.credentials.json".into()
 }
 
+/// Where `make install-runner` puts it. Stated in full rather than left to PATH: a
+/// user unit's PATH is the manager's, not a login shell's, and `~/.local/bin` is
+/// not reliably on it. No display flags - which of those this machine wants is the
+/// machine's answer, and the launcher passes on whatever it is given.
+fn default_game_cmd() -> String {
+    "~/.local/bin/slopworld".into()
+}
+
 impl Default for Daemon {
     fn default() -> Self {
         Self {
@@ -77,7 +90,7 @@ impl Default for Daemon {
             tmux_socket: "slopworld".into(),
             poll_ms: 80,
             history_limit: default_history_limit(),
-            game_cmd: String::new(),
+            game_cmd: default_game_cmd(),
             usage: true,
             usage_poll_secs: default_usage_poll(),
             claude_credentials: default_credentials(),
@@ -558,7 +571,10 @@ mod tests {
         .expect("old config should parse");
 
         assert_eq!(cfg.daemon.history_limit, 5000);
-        assert_eq!(cfg.daemon.game_cmd, "");
+        // The launcher, for the same reason usage polling defaults on: a config from
+        // before the field existed is an install that would otherwise have no way to
+        // restart the game, and the answer is the same on every machine.
+        assert_eq!(cfg.daemon.game_cmd, "~/.local/bin/slopworld");
         // Usage polling defaults on, so an existing install gets the readout without
         // anyone editing a file.
         assert!(cfg.daemon.usage);

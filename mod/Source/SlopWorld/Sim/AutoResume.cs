@@ -36,7 +36,12 @@ namespace SlopWorld
                 var newest = GenFilePaths.AllSavedGameFiles.FirstOrDefault();
                 if (newest == null)
                 {
-                    Log.Message("[SlopWorld] nothing to resume; staying on the menu");
+                    // A fresh profile: no colony to come back to, and a main menu with
+                    // nothing on it worth reading. The same call the New colony button
+                    // makes, so the first launch and every one after it land in the same
+                    // place - which is the whole of what the profile is for.
+                    Log.Message("[SlopWorld] no colony here yet; starting one");
+                    QuickStart.Queue();
                     return;
                 }
 

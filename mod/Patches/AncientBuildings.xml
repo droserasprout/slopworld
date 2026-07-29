@@ -15,31 +15,40 @@
   placed; they ask for no construction skill, so every agent that lands can
   raise one; and they arrive already ruined, which is what a machine told
   nothing about what for builds when it copies the world it came out of.
+
+  Wrapped, like every operation of ours that rewrites a def the base game
+  shipped: outside a SlopWorld profile it is not applied at all - the Architect
+  menu that stays stripped here is a menu somebody else still uses. See
+  Source/SlopWorld/SlopProfile.cs.
 -->
 <Patch>
-  <Operation Class="PatchOperationAdd">
-    <xpath>/Defs/ThingDef[
-      defName='AncientLamp' or
-      defName='AncientLamppost' or
-      defName='AncientSystemRack' or
-      defName='AncientDisplayBank' or
-      defName='AncientLockerBank' or
-      defName='AncientGenerator' or
-      defName='AncientMachine']</xpath>
-    <value>
-      <designationCategory>Misc</designationCategory>
-    </value>
-  </Operation>
+  <Operation Class="SlopWorld.PatchOperationInProfile">
+    <operations>
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[
+          defName='AncientLamp' or
+          defName='AncientLamppost' or
+          defName='AncientSystemRack' or
+          defName='AncientDisplayBank' or
+          defName='AncientLockerBank' or
+          defName='AncientGenerator' or
+          defName='AncientMachine']</xpath>
+        <value>
+          <designationCategory>Misc</designationCategory>
+        </value>
+      </li>
 
-  <!--
-    The ancient machine is Impassable and only half-filling, and ThingDef
-    ConfigErrors calls that combination an error the moment a def becomes
-    player-buildable - a wall you can shoot over. Nothing on this map shoots.
-  -->
-  <Operation Class="PatchOperationAdd">
-    <xpath>/Defs/ThingDef[defName='AncientMachine']</xpath>
-    <value>
-      <disableImpassableShotOverConfigError>true</disableImpassableShotOverConfigError>
-    </value>
+      <!--
+        The ancient machine is Impassable and only half-filling, and ThingDef
+        ConfigErrors calls that combination an error the moment a def becomes
+        player-buildable - a wall you can shoot over. Nothing on this map shoots.
+      -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/ThingDef[defName='AncientMachine']</xpath>
+        <value>
+          <disableImpassableShotOverConfigError>true</disableImpassableShotOverConfigError>
+        </value>
+      </li>
+    </operations>
   </Operation>
 </Patch>
