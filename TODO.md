@@ -2,52 +2,43 @@
 
 Loosely sorted by priority. PRs are welcome.
 
-This file is for humans. If you're a clanker - go to `docslop/`.
+This file is for humans.
 
 Remove ticked bullets when verified.
 
+## Packaging
+
+- PKGBUILD with .desktop for host
+- AppImage
+
 ## Interface
 
-- [ ] "Tab / Shift+Tab in floating windows to navigate between fields (might be hard to implement)
+- Alternative TST-style UI layout: left panel with agents grouped by project
+- Tab / Shift+Tab in floating windows to navigate between input fields
 
-## Terminal
+## Integrations
 
-## Sandbox
+- OpenCode fixes
+- pi
+- tokensave
 
-- [ ] Bind `/run/user/$UID/systemd` that makes `systemctl --user` work.
+## Finetuning
 
-## "Game"
-
-- [ ] Human: tune plague odds and spread rate
+- Plague radius and tickrate
+- Construction speed
+- Cat aura
 
 ## Sound and music
 
-- [ ] Human: replace SFX
-- [ ] Human: 2-3 more bg songs (30m+ playtime would be nice)
-
-## Agents support
-
-- [ ] Claude Code
-  - [ ] Generate per-project CLAUDE.md with instructions, useful and fun
-- [ ] OpenCode support
-- [ ] pi support
-
-## Docs
-
-- [ ] Wipe the slop comments
-- [ ] Clanker notes in `docslop/`
-- [ ] Human notes in `docs/`
-- [ ] Attribution: game creators, mod libraries, freesound samples. Text and in-game.
+- Replace SFX with creepy freesound
+- 2-3 more bg songs (30m+ playtime would be nice)
 
 ## Misc
 
-- [x] Create a separate game "profile" with separate saves and all mods/DLCs disabled except ours. Runner script/binary.
-- [ ] PKGBUILD with .desktop for host
+- Snoop should leave the map after 5-10 minutes.
+- A++: Centralized community workshop of templates/presets/plugins
 
-## A++
+## Docs
 
-- [ ] Centralized community workshop of various templates
-
-___
-
-## After 0.1 release
+- Docs
+- Attribution: game creators, mod libraries, freesound samples. Markdown rendered in-game.
