@@ -21,7 +21,7 @@
     <fadeInTime>0.3</fadeInTime>
     <solidTime>0</solidTime>
     <fadeOutTime>1.8</fadeOutTime>
-    <growthRate>0.8</growthRate>
+    <growthRate>0.5</growthRate>
     <acceleration>(0, 0, 1.4)</acceleration>
     <graphicData>
       <texPath>Things/Gas/GasCloudThickA</texPath>
@@ -33,7 +33,7 @@
   <FleckDef ParentName="SlopGasBase">
     <defName>SlopPlagueGas</defName>
     <graphicData>
-      <color>(184, 88, 200, 64)</color>
+      <color>(184, 88, 200, 38)</color>
     </graphicData>
   </FleckDef>
 
@@ -46,14 +46,14 @@
   <FleckDef ParentName="SlopGasBase">
     <defName>SlopPlagueGasDeep</defName>
     <graphicData>
-      <color>(146, 76, 212, 64)</color>
+      <color>(146, 76, 212, 38)</color>
     </graphicData>
   </FleckDef>
 
   <FleckDef ParentName="SlopGasBase">
     <defName>SlopPlagueGasWarm</defName>
     <graphicData>
-      <color>(212, 96, 186, 64)</color>
+      <color>(212, 96, 186, 38)</color>
     </graphicData>
   </FleckDef>
 
@@ -67,7 +67,7 @@
   <FleckDef ParentName="SlopGasBase">
     <defName>SlopCleanAir</defName>
     <graphicData>
-      <color>(148, 226, 160, 52)</color>
+      <color>(148, 226, 160, 15)</color>
     </graphicData>
   </FleckDef>
 
