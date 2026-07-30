@@ -194,16 +194,35 @@ namespace SlopWorld
         static readonly Dictionary<BuildableDef, float> Work = new Dictionary<BuildableDef, float>();
         static readonly Dictionary<BuildableDef, float> Blooms = new Dictionary<BuildableDef, float>();
 
-        public static float WorkFor(BuildableDef def) =>
-            def != null && Work.TryGetValue(def, out float w) ? w : 0f;
+        // Both go through Errands, which is what builds the two tables. A load comes back
+        // with frames already on the board and pawns already swinging at them, and the
+        // first thing that asks about one of those frames is Patch_ErrandWork rather than
+        // a pass of ours - so a table filled only when the site next hands out an errand
+        // is an empty table for as long as the resumed job lasts, which reads as a plate
+        // that suddenly costs vanilla's eleven hundred ticks. Asking here is what makes
+        // the answer the same on either side of a restart.
+        public static float WorkFor(BuildableDef def)
+        {
+            if (def == null) return 0f;
+            Ensure();
+            return Work.TryGetValue(def, out float w) ? w : 0f;
+        }
 
-        public static float BloomFor(BuildableDef def) =>
-            def != null && Blooms.TryGetValue(def, out float r) ? r : 0f;
+        public static float BloomFor(BuildableDef def)
+        {
+            if (def == null) return 0f;
+            Ensure();
+            return Blooms.TryGetValue(def, out float r) ? r : 0f;
+        }
 
-        // Not saved: both are questions about the tile and the def database, and a load
-        // can ask them again.
-        List<Errand> _errands;
-        TerrainDef _plate;
+        static void Ensure() { if (_errands == null) { var _ = Errands; } }
+
+        // Static, because nothing on the list is the map's: the defs are the database's and
+        // the figures are this file's. Only the stone a monument is quarried from is the
+        // tile's, and Blocks() settles that on its own. Not saved either way - a load can
+        // ask the def database again.
+        static List<Errand> _errands;
+        static TerrainDef _plate;
         ThingDef _blocks;
         ThingDef _rock;
         bool _quarried;
@@ -850,14 +869,12 @@ namespace SlopWorld
             return _blocks;
         }
 
-        List<Errand> Errands
+        static List<Errand> Errands
         {
             get
             {
                 if (_errands != null) return _errands;
                 _errands = new List<Errand>();
-
-                Blocks(); // which is what settles the rock the monuments are quarried from
 
                 // Metal plate rather than the tile's own flagstone: a machine paving over
                 // ash lays down what it is made of, and stone here read as a garden path
@@ -904,7 +921,7 @@ namespace SlopWorld
             }
         }
 
-        void Add(BuildableDef what, float seconds, float weight, float bloom, int patch = 1)
+        static void Add(BuildableDef what, float seconds, float weight, float bloom, int patch = 1)
         {
             if (what == null || what.frameDef == null) return;
 
