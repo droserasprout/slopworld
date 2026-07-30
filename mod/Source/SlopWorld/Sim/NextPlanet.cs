@@ -7,73 +7,50 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Leaving. This planet burns, and then the colony lands on the next one.
+    // This planet burns, then the colony lands on the next one. The landing is vanilla's -
+    // Patch_QuickStart turns a Page_SelectScenario into a generated map - and all this does is
+    // get back to the menu first, a scenario page opened over a live game building a second
+    // one underneath it. GoToMainMenu queues the teardown as a long event, hence the flag: the
+    // page is opened on the menu's first frame, the seam Patch_AutoResume hooks.
     //
-    // The landing is vanilla's: New colony is `Find.WindowStack.Add(new
-    // Page_SelectScenario())` and Patch_QuickStart turns that into a generated map.
-    // All this does is get back to the menu first, because a scenario page opened
-    // over a live game builds a second one underneath it. GoToMainMenu queues the
-    // teardown as a long event, hence the flag: the page is opened on the menu's
-    // first frame, the same seam Patch_AutoResume hooks.
-    //
-    // Nothing asks whether you meant it, because the nine seconds in the middle say
-    // it better than a dialog. It is paced rather than continuous: the camera lands a
-    // beat before anything happens, the fire comes in waves with a lull between them,
-    // and the map is left burning afterwards - a cut on the final explosion says the
-    // scene ran out where a hold says it finished.
-    //
-    // Real-time beats off GameComponentUpdate so a pause cannot strand it, and the
-    // work off GameComponentTick, because an explosion is a Thing and a Thing that
-    // never ticks never goes off.
+    // Beats off GameComponentUpdate so a pause cannot strand the scene, work off
+    // GameComponentTick, an explosion being a Thing that has to tick to go off.
     public class NextPlanet : GameComponent
     {
-        // All off the wall clock rather than ticks, so the front reaches the map edge
-        // exactly as the last wave's time runs out whatever speed the game is at.
-
-        // What is being shown is the thing about to go off, so it has to be on screen
-        // before it does.
+        // Everything below is wall clock, so the front reaches the map edge exactly as the
+        // last wave's time runs out whatever speed the game is at.
         const float HoldSeconds = 1.5f;
 
-        // Each wave takes its own share of the way out, so the front stops where the last
-        // one left it rather than starting again in the middle.
+        // Each wave takes its own share of the way out, so the front carries on from where
+        // the last one left it.
         const int Waves = 3;
         const float WaveSeconds = 1.6f;
 
-        // Long enough that the wave that just passed is over, short enough that nothing
-        // reads as having gone wrong.
         const float LullSeconds = 0.7f;
-
-        // The front has reached the edge, so there is nothing left to watch but what it
-        // did. Short, because a hold that outstays what it holds on is a scene waiting
-        // for the player.
         const float SettleSeconds = 1.6f;
 
-        // The count comes off the area rather than being a rate per tick, or the wave
-        // thins out as it widens - the outer rings are where nearly all of the map is. A
-        // default map works out at something over three hundred and fifty of them.
+        // Off the area rather than a rate per tick, or the wave thins as it widens, the outer
+        // rings being where nearly all of the map is. A default map is 350-odd blasts.
         const float CellsPerBlast = 175f;
 
-        // A dropped frame hands the next one all the ground it did not cover, and two
-        // hundred explosions in one tick is a hang rather than a spectacle.
+        // A dropped frame hands the next one all the ground it did not cover, and two hundred
+        // explosions in one tick is a hang.
         const int BlastsPerTick = 32;
 
         const float BlastRadius = 12f;
         const int FlameDamage = 40;
         const int BombDamage = 120;
 
-        // Most of it catches; some goes up. A map that only burns reads as a wildfire,
-        // which is a thing that happens to a colony rather than the end of one.
+        // A map that only burns reads as a wildfire, which is a thing that happens to a
+        // colony rather than the end of one.
         const float BombChance = 0.25f;
 
-        // Each pause is a phase of its own rather than a flag on the burn, so the beat
-        // that ends one is the same line that starts the next.
         enum Phase { Off, Hold, Wave, Lull, Settle }
 
         Phase _phase = Phase.Off;
 
-        // _owed is the fireballs the ground taken has earned and not yet been given: a
-        // tick moves the front about half a cell, which is a third of a blast, and
-        // rounding that off every tick is a wave that never drops one at all.
+        // _owed is fireballs earned and not yet given: a tick moves the front about half a
+        // cell, a third of a blast, and rounding that off every tick drops none at all.
         Map _map;
         IntVec3 _origin;
         float _front;
@@ -83,17 +60,14 @@ namespace SlopWorld
         float _from;
         float _to;
 
-        // Read by AutoSaver, which must not write out a colony on its way to the bin, and
-        // by Patch_AutoResume, which would otherwise take the menu frame this passes
-        // through.
+        // Read by AutoSaver, which must not write out a colony on its way to the bin, and by
+        // Patch_AutoResume, which would otherwise take the menu frame this passes through.
         public static bool Pending { get; private set; }
 
-        // Read through Cutscene by everything that stands down for one, and by
-        // Patch_ContainFire, which stops holding the fire in.
+        // Read through Cutscene, and by Patch_ContainFire, which stops holding the fire in.
         public static bool Leaving { get; private set; }
 
-        // Both flags are static, so whatever the last game was in the middle of would
-        // otherwise still be in force: a planet left behind must not hand the next one a
+        // Both are static, so a planet left behind would otherwise hand the next one a
         // hidden interface.
         public NextPlanet(Game game)
         {
@@ -129,10 +103,8 @@ namespace SlopWorld
             _owed = 0f;
             _wave = 0;
 
-            // The core is where the plague came out of, so it is where this goes in. The zoom
-            // is read off the driver's own config rather than being a number of ours: it is
-            // where the mouse wheel would stop, so this is a view the player could have got
-            // to themselves.
+            // Zoom off the driver's own config rather than a number of ours - where the mouse
+            // wheel would stop, so this is a view the player could have got to.
             var cam = Find.CameraDriver;
             if (cam != null)
             {
@@ -145,8 +117,7 @@ namespace SlopWorld
             Log.Message("[SlopWorld] leaving this planet; burning the map on the way out");
         }
 
-        // So no phase can inherit the timer of the one before it - the same rule
-        // IntroDirector's Go follows.
+        // So no phase inherits the timer of the one before it; IntroDirector's Go likewise.
         void Go(Phase phase, float seconds)
         {
             _phase = phase;
@@ -166,8 +137,7 @@ namespace SlopWorld
                     break;
 
                 case Phase.Wave:
-                    // The wave is over when its time is, whether or not the front got where it was
-                    // going: a wave that ran short has nothing left to lay down.
+                    // Over when its time is, whether or not the front got where it was going.
                     _front = _to;
                     if (_wave < Waves) Go(Phase.Lull, LullSeconds);
                     else Go(Phase.Settle, SettleSeconds); // the front is at the edge
@@ -183,8 +153,8 @@ namespace SlopWorld
             }
         }
 
-        // The share is by wave count rather than area, so the later ones cover more
-        // ground in the same time - what a front picking up speed looks like.
+        // Shares by wave count rather than area, so later waves cover more ground in the same
+        // time - a front picking up speed.
         void Wake()
         {
             if (_map == null || !Find.Maps.Contains(_map)) { Leave(); return; }
@@ -210,8 +180,7 @@ namespace SlopWorld
             float front = Mathf.Lerp(_from, _to, done);
             if (front <= _front) return;
 
-            // The ring the front has just taken, over what one fireball stands for - banked,
-            // then paid out whole.
+            // The ring just taken, over what one fireball stands for; banked, then paid whole.
             _owed += Mathf.PI * (front * front - _front * _front) / CellsPerBlast;
             int n = Mathf.Min(Mathf.FloorToInt(_owed), BlastsPerTick);
             _owed -= n;
@@ -238,13 +207,12 @@ namespace SlopWorld
         void Leave()
         {
             _phase = Phase.Off;
-            // Belt and braces: a new planet is a new map and nothing of this one's is
-            // meant to reach it, so the site goes down before the colony is discarded
-            // rather than being trusted to.
+            // Nothing of this map is meant to reach the next one, so the site goes down rather
+            // than being trusted to.
             Worksite.Wipe(_map);
             _map = null;
-            // Leaving stays up: the frames between here and the teardown are still this
-            // map's, so putting the interface back would be a flash of a colony already gone.
+            // Leaving stays up: the frames between here and the teardown are still this map's,
+            // so putting the interface back would flash a colony already gone.
             Log.Message("[SlopWorld] discarding the colony, landing a new one");
             GenScene.GoToMainMenu();
         }
@@ -264,28 +232,13 @@ namespace SlopWorld
             return Mathf.Sqrt(x * x + z * z);
         }
 
-        // "Next planet", in the menu behind Escape and the last button in the bottom bar.
-        // It used to be on the agents window, which was the wrong shelf: that list is the
-        // daemon's sessions, and this touches none of them.
-        //
-        // The seam is the option listing rather than the menu: DoMainMenuControls builds
-        // its whole list in one method with nothing to hook in the middle, and hands the
-        // finished list here. The same listing draws the startup menu and the options
-        // dialog, hence the two checks.
-        //
-        // It also draws *twice* per menu - the second call is the column of web links -
-        // so a prefix that only looked at the window put the row in both. `Column` is
-        // armed on the way into DoMainMenuControls and spent by the first listing to
-        // arrive, where a rect width or a label would be a guess about a layout that is
-        // free to move.
-        //
-        // The same pass drops four rows. Save and Load are answered already by AutoSaver
-        // and Patch_AutoResume, and a hand-made save here is a colony restorable under
-        // sessions it no longer matches. Review scenario describes SlopScenario, which
-        // nobody picked. Quit to main menu is a road with nothing at the end:
-        // Patch_AutoResume would meet you there and put you straight back in. Matched on
-        // the translated label, which is what the option carries, so it holds in any
-        // language.
+        // The seam is the option listing rather than the menu: DoMainMenuControls builds its
+        // whole list in one method with nothing to hook in the middle, and hands the finished
+        // list here. The same listing draws the startup menu and the options dialog, hence the
+        // two checks; it also draws *twice* per menu, the second call being the column of web
+        // links, so `Column` is armed on the way into DoMainMenuControls and spent by the first
+        // listing to arrive - a rect width or a label would be a guess about a layout free to
+        // move. The same pass drops four rows, matched on the translated label.
         [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
         public static class Patch_MenuOption
         {
@@ -294,11 +247,10 @@ namespace SlopWorld
 
             public static bool Column;
 
-            // Written down as the answer we expect and overwritten with what the last listing
-            // actually did, which is both halves of it: RequestedTabSize is read on PreOpen
-            // rather than per frame, so a measured-only figure is wrong the first time the
-            // menu is opened and a written-down one is wrong for good the day vanilla stops
-            // shipping one of the three.
+            // Written down *and* overwritten with what the last listing did. RequestedTabSize
+            // is read on PreOpen rather than per frame, so a measured-only figure is wrong the
+            // first time the menu opens and a written-down one is wrong for good the day
+            // vanilla stops shipping one of the four.
             public static int Net = 1 - Dropped.Length;
 
             static void Prefix(List<ListableOption> optList)
@@ -314,24 +266,20 @@ namespace SlopWorld
                 int gone = optList.RemoveAll(o => o != null && Dropped.Any(
                     key => o.label == (string)key.Translate()));
 
-                // First, because leaving is what this menu is for here.
                 optList.Insert(0, new ListableOption("Next planet", Begin));
                 Net = 1 - gone;
             }
         }
 
-        // Its own prefix rather than a counter reset inside the listing patch, because
-        // "how many listings have gone by" is only worth asking from the call that draws
-        // them.
         [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoMainMenuControls))]
         public static class Patch_MenuFirstColumn
         {
             static void Prefix() => Patch_MenuOption.Column = true;
         }
 
-        // The menu tab asks for a fixed 450x390 with no scrolling, so a row added without
-        // this is drawn past the bottom edge - and with three more coming out than going
-        // in, vanilla's height leaves a third of the box empty.
+        // The menu tab asks for a fixed 450x390 with no scrolling, so a row added without this
+        // is drawn past the bottom edge, and with more coming out than going in vanilla's
+        // height leaves a third of the box empty.
         [HarmonyPatch(typeof(MainTabWindow_Menu), "RequestedTabSize", MethodType.Getter)]
         public static class Patch_MenuSize
         {

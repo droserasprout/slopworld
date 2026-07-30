@@ -13,7 +13,7 @@ namespace SlopWorld
         const int Minute = 20;
 
         const int Interval = 60;
-        const int SmokeInterval = 90;
+        const int SmokeInterval = 600;
         const int Stash = 40;
 
         const string HairName = "Afro";

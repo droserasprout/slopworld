@@ -43,11 +43,8 @@ pub struct Daemon {
     /// that kept running, so it is the ceiling on history surviving a redeploy.
     #[serde(default = "default_history_limit")]
     pub history_limit: u32,
-    /// Empty disables the endpoint. Split like an agent command: no shell.
-    ///
-    /// The launcher rather than the game, because the mod refuses to patch anything
-    /// outside a save data folder of its own and the launcher is what makes one. It
-    /// is also what keeps `found` working: the launcher waits on the game, so the
+    /// Empty disables the endpoint. Split like an agent command: no shell. Names the
+    /// *launcher*, which makes the profile the mod insists on and waits on the game, so the
     /// process this path matches is the one that goes away when the colony is saved.
     #[serde(default = "default_game_cmd")]
     pub game_cmd: String,
@@ -74,10 +71,8 @@ fn default_credentials() -> String {
     "~/.claude/.credentials.json".into()
 }
 
-/// Where `make install-runner` puts it. Stated in full rather than left to PATH: a
-/// user unit's PATH is the manager's, not a login shell's, and `~/.local/bin` is
-/// not reliably on it. No display flags - which of those this machine wants is the
-/// machine's answer, and the launcher passes on whatever it is given.
+/// Where `make install-runner` puts it, in full rather than left to PATH: a user unit's PATH
+/// is the manager's, and `~/.local/bin` is not reliably on it.
 fn default_game_cmd() -> String {
     "~/.local/bin/slopworld".into()
 }
@@ -102,15 +97,20 @@ impl Default for Daemon {
 pub struct Defaults {
     /// Split on whitespace, no shell involved.
     pub agent: String,
-    /// Here rather than in every shortcut for the same reason `agent` is: which shell
-    /// this machine has is an answer about the machine. Bare, because tmux hands it a
-    /// pty and it is interactive already.
+    /// Here rather than in every shortcut: which shell this machine has is the machine's
+    /// answer. Bare, because tmux hands it a pty and it is interactive already.
     #[serde(default = "default_shell")]
     pub shell: String,
+    #[serde(default = "default_opencode")]
+    pub opencode: String,
 }
 
 fn default_shell() -> String {
     "bash".into()
+}
+
+fn default_opencode() -> String {
+    "opencode".into()
 }
 
 impl Default for Defaults {
@@ -118,15 +118,15 @@ impl Default for Defaults {
         Self {
             agent: "claude".into(),
             shell: default_shell(),
+            opencode: default_opencode(),
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-/// The base every sandbox is built on. There is no master switch here: whether an
-/// agent is sandboxed is the project's answer (`ProjectCfg::sandbox`) and only the
-/// project's, because a daemon-wide override that silently beat every one of those
-/// checkboxes read as a checkbox that did nothing.
+/// The base every sandbox is built on. No master switch: whether an agent is sandboxed is
+/// `ProjectCfg::sandbox` and only that, a daemon-wide override having silently beaten every
+/// one of those checkboxes.
 pub struct Sandbox {
     /// Bound into every sandbox, whatever the project.
     pub ro_paths: Vec<String>,
@@ -171,10 +171,9 @@ pub struct ProjectCfg {
     /// `check_project` is what insists on one for every other kind.
     #[serde(default)]
     pub dir: String,
-    /// The directory is `TEMP_ROOT/<name>`, coined when the entry is written and made
-    /// when the first agent starts. What is temporary is the *ground*, not the entry.
-    /// The other kind of temporary project is never written here at all; see
-    /// `ShortcutLink::Temp`.
+    /// The directory is `TEMP_ROOT/<name>`, coined when the entry is written and made when
+    /// the first agent starts: what is temporary is the *ground*, not the entry. The other
+    /// kind is never written here at all; see `ShortcutLink::Temp`.
     #[serde(default)]
     pub temp: bool,
     /// A name this build has never heard of is ignored with a warning rather than
@@ -216,6 +215,7 @@ impl Default for ProjectCfg {
 pub enum SessionKind {
     #[default]
     Claude,
+    Opencode,
     Custom,
 }
 
@@ -223,7 +223,16 @@ impl SessionKind {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Claude => "claude",
+            Self::Opencode => "opencode",
             Self::Custom => "custom",
+        }
+    }
+
+    pub fn preset(self) -> Option<&'static str> {
+        match self {
+            Self::Claude => Some("claude"),
+            Self::Opencode => Some("opencode"),
+            Self::Custom => None,
         }
     }
 }
@@ -239,12 +248,13 @@ pub struct SessionCfg {
     /// Read only when `kind` is custom; the Claude kind takes `[defaults] agent`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub env: Vec<String>,
     #[serde(default)]
     pub autostart: bool,
 
-    // Legacy. `Config::migrate` turns each old session into a project on load and
-    // clears these. Skipped when empty, so they leave the file for good rather than
-    // lingering as nulls.
+    // Legacy: `Config::migrate` turns each old session into a project on load and clears
+    // these. Skipped when empty, so they leave the file rather than linger as nulls.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dir: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -278,18 +288,15 @@ pub enum ShortcutLink {
     /// meant.
     #[default]
     Project,
-    /// One per run, never written to this file: coined when the errand starts and
-    /// dropped when the agent goes. The entry's `project`, if it names one, is what
-    /// the fresh one copies its sandbox from.
+    /// One per run, never written to this file. The entry's `project`, if it names one, is
+    /// what the fresh one copies its sandbox from.
     Temp,
     /// Whoever runs it says where, per run.
     Ask,
 }
 
-/// A session template with a line of text attached. The agent it lands is
-/// temporary, so what is saved here is the errand and not the agent. The template
-/// is spelled out rather than pointing at an existing session: a shortcut that
-/// names an agent stops working the day that agent is deleted.
+/// A session template with a line of text attached. Spelled out rather than pointing at an
+/// existing session, which would stop working the day that session was deleted.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ShortcutCfg {
     /// Labels a button and seeds a colonist's name; the session name derived from it
@@ -346,10 +353,8 @@ impl Config {
         Ok(cfg)
     }
 
-    /// Every session still shaped the old way - a directory and a sandbox with a name
-    /// on it - gets a project of its own, and two sessions pointing at the same
-    /// directory get the *same* project. Runs on every load, including of a file we
-    /// just wrote, so it has to be idempotent.
+    /// Every session shaped the old way gets a project, and two sessions in the same
+    /// directory get the *same* one. Runs on every load, so it has to be idempotent.
     fn migrate(&mut self) {
         for i in 0..self.sessions.len() {
             let dir = self.sessions[i].dir.take().unwrap_or_default();
@@ -456,10 +461,9 @@ impl Config {
         self.shortcuts.iter().find(|s| s.name == name)
     }
 
-    /// A prompt shortcut with nothing to say about the command is a *Claude* session
-    /// rather than a custom one running `[defaults] agent`: the kind is what hands the
-    /// sandbox `~/.claude`. The project is handed in rather than read off the entry,
-    /// because the entry is allowed not to name one.
+    /// A prompt shortcut with no command comes out a *Claude* session rather than a custom
+    /// one running `[defaults] agent`: the kind is what hands the sandbox `~/.claude`. The
+    /// project is handed in, the entry being allowed not to name one.
     pub fn session_for(&self, sc: &ShortcutCfg, name: String, project: String) -> SessionCfg {
         let (kind, command) = match sc.kind {
             ShortcutKind::Prompt => match sc.command.as_deref().map(str::trim) {
@@ -499,14 +503,33 @@ impl Config {
                 .filter(|c| !c.trim().is_empty())
                 .unwrap_or_else(|| self.defaults.agent.clone()),
             SessionKind::Claude => self.defaults.agent.clone(),
+            SessionKind::Opencode => self.defaults.opencode.clone(),
         }
     }
 }
 
-/// bwrap expands neither, and the preset table is written in both. A variable with
-/// nothing behind it expands to nothing, leaving a path that cannot exist - and
-/// every bind is skipped unless the path is there, so an unset `WAYLAND_DISPLAY`
-/// drops that bind instead of mounting `/run/user/1000/` whole.
+pub fn env_pairs(lines: &[String]) -> Vec<(String, String)> {
+    lines
+        .iter()
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                return None;
+            }
+            let (k, v) = line.split_once('=')?;
+            let k = k.trim();
+            if k.is_empty() {
+                return None;
+            }
+            Some((k.to_string(), v.to_string()))
+        })
+        .collect()
+}
+
+/// bwrap expands neither `~` nor `$VAR`, and the preset table is written in both. An unset
+/// variable expands to nothing, leaving a path that cannot exist - and every bind is skipped
+/// unless the path is there, so an unset `WAYLAND_DISPLAY` drops that bind rather than
+/// mounting `/run/user/1000/` whole.
 pub fn expand(path: &str) -> String {
     let path = if let Some(rest) = path.strip_prefix("~/") {
         match dirs::home_dir() {
@@ -571,12 +594,9 @@ mod tests {
         .expect("old config should parse");
 
         assert_eq!(cfg.daemon.history_limit, 5000);
-        // The launcher, for the same reason usage polling defaults on: a config from
-        // before the field existed is an install that would otherwise have no way to
-        // restart the game, and the answer is the same on every machine.
+        // A config from before the field is an install with no way to restart the game.
         assert_eq!(cfg.daemon.game_cmd, "~/.local/bin/slopworld");
-        // Usage polling defaults on, so an existing install gets the readout without
-        // anyone editing a file.
+        // On, so an existing install gets the readout without anyone editing a file.
         assert!(cfg.daemon.usage);
         assert_eq!(cfg.daemon.usage_poll_secs, 60);
         assert_eq!(cfg.daemon.claude_credentials, "~/.claude/.credentials.json");
@@ -584,11 +604,8 @@ mod tests {
         assert_eq!(cfg.defaults.shell, "bash");
     }
 
-    /// `[sandbox] enabled` was a daemon-wide override that silently beat every
-    /// project's own checkbox, so it went. A config written before that still has the
-    /// key: it has to be ignored on the way in rather than refused, and gone on the way
-    /// back out, or an install that never opens the config window keeps a dead line
-    /// forever.
+    /// A config written before `[sandbox] enabled` went still has the key: ignored on the way
+    /// in rather than refused, and gone on the way back out.
     #[test]
     fn stale_sandbox_switch_is_ignored() {
         let cfg = Config::parse(
@@ -757,9 +774,8 @@ mod tests {
         assert!(sc.command.is_none());
     }
 
-    /// A file written when a session *was* a directory keeps its agents. Two sessions
-    /// in the same directory share a project, which is the arrangement whoever wrote
-    /// the file meant.
+    /// A file written when a session *was* a directory keeps its agents, and two sessions in
+    /// the same directory share a project.
     #[test]
     fn sessions_with_dirs_become_projects() {
         let cfg = Config::parse(

@@ -7,65 +7,48 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The menu and loading-screen background, rotting. The game's own planet is what
-    // comes up and the corrupted frames are baked from it on first run: nothing here
-    // ships art, and the joke only works if it is demonstrably the same planet
-    // underneath.
-    //
-    // Baked rather than computed per frame because the source is 4096x2560, and
-    // cached to disk rather than per launch because a restart is cheap here by
-    // design. The playback breathes on two sines of incommensurate period, summed, so
-    // it never repeats visibly - a single sine is a metronome.
+    // The menu and loading-screen background, rotting. Nothing here ships art: the frames are
+    // baked from the game's own planet on first run. Baked rather than computed per frame
+    // because the source is 4096x2560, and cached to disk. Playback breathes on two sines of
+    // incommensurate period, summed, so it never repeats visibly.
     [StaticConstructorOnStartup]
     public static class MenuBackground
     {
-        // Current picks one and cuts to it, so a stage is a frame with nothing blending
-        // between them. Fewer are seen than are baked: the breath only ever walks the top
-        // 55% of the range, and the rest are the way in from clean.
-        //
-        // At this count the cut between neighbours is small enough to read as flicker
-        // rather than as a jump, which is what lets the breath run as fast as it now does.
-        // The ceiling here is memory, not bake time: every frame is a resident RGB24
-        // texture of up to MaxSide on its long edge, so ~8MB each, ~380MB for the set.
-        // Raising Stages again means lowering MaxSide with it.
+        // Current cuts between stages with nothing blending, so the count has to be high
+        // enough that a neighbour reads as flicker rather than a jump. The ceiling is memory,
+        // not bake time: each frame is a resident RGB24 texture up to MaxSide on its long
+        // edge, ~8MB, ~380MB for the set. Raising this means lowering MaxSide.
         const int Stages = 30;
 
         const int MaxSide = 1024; // slightly more than god said
 
-        // It never returns to clean, but it does not sit at the bottom of the well
-        // either.
+        // Never back to clean, never at the bottom of the well.
         const float BreatheLow = 0.7f;
         const float BreatheHigh = 0.9f;
 
-        // The two periods, in seconds. Deliberately not a ratio of small integers.
-        // Short enough that the walk across the stages is a flutter rather than a swell:
-        // at the peak of the fast term this steps through something like thirty frames a
-        // second, which is the rate the whole thing is pitched at.
+        // Seconds, deliberately not a ratio of small integers. Short enough that the walk
+        // across the stages is a flutter rather than a swell.
         const float SlowSecs = 4.15f;
         const float FastSecs = 1.27f;
 
         // How long the first rot takes, once, on the way in from clean.
         const float OnsetSecs = 2f;
 
-        // The plague's own violet, so the menu and the map describe the same thing.
-        // Matches SlopPlagueGas by eye rather than by reference.
+        // SlopPlagueGas's violet, matched by eye rather than by reference.
         static readonly Color Sick = new Color(0.80f, 0.38f, 0.86f, 0.9f);
 
-        // Starts a third of the way down the rot, so the planet goes wrong before it goes
-        // up - a picture already alight at stage one has nowhere to travel.
+        // A third of the way down the rot: a picture alight at stage one has nowhere to go.
         const float FireFrom = 0.33f;
-        // Read off the picture rather than picked: the source's median luminance is 0.09
-        // and its 95th percentile 0.69, so a ramp that only reaches 1 at pure white
-        // leaves the fire invisible.
+        // Read off the picture: its median luminance is 0.09 and its 95th percentile 0.69, so
+        // a ramp reaching 1 only at pure white leaves the fire invisible.
         const float FuelFloor = 0.4f;
         const float FuelFull = 0.65f;
-        // How far a bright thing has to extend before it counts as fuel. This is the star
-        // filter; see Erode.
+        // How far a bright thing must extend to count as fuel - the star filter, see Erode.
         const int FuelErode = 3;
-        // 0.985 over a 1280-row frame is a plume of a hundred-odd pixels.
+        // Over a 1280-row frame, a plume of a hundred-odd pixels.
         const float FuelDecay = 0.98f;
-        // fBm piles up around its middle, so taking 0..1 as-is gives an even shimmer;
-        // stretching this band out is what gives a flame a lit body and a dark gap.
+        // fBm piles up around its middle, so 0..1 as-is is an even shimmer; stretching this
+        // band gives a flame a lit body and a dark gap.
         const float NoiseLow = 0.38f;
         const float NoiseHigh = 0.62f;
         const float FireGain = 1.15f;
@@ -74,22 +57,19 @@ namespace SlopWorld
         const int NoiseDiv = 4;
         const float NoiseFreq = 0.035f;
         const int Octaves = 4;
-        // Large enough that consecutive stages are unrelated draws: a fire that slid
-        // smoothly would read as a pan across a still picture.
+        // Large enough that consecutive stages are unrelated draws; a fire that slid smoothly
+        // would read as a pan across a still picture.
         const float StagePhase = 37.7f;
 
         static readonly Color Ember = new Color(1f, 0.24f, 0.05f, 1f);
         static readonly Color Flame = new Color(1f, 0.76f, 0.28f, 1f);
 
-        // JPEG, and at a quality no photograph would survive, because the artefacts are
-        // the point: 8x8 blocking and smeared chroma are exactly the failure the rest of
-        // this file is imitating by hand, and the encoder does them for free. It also
-        // keeps the cache to a few megabytes at this stage count, where PNG at 48 frames
-        // of 2048x1280 would be most of a gigabyte on disk.
+        // The artefacts are the point: 8x8 blocking and smeared chroma are the failure the
+        // rest of this file imitates by hand, and the encoder does them for free. Also keeps
+        // the cache to a few megabytes where PNG would be most of a gigabyte.
         const int JpegQuality = 10;
 
-        // Bump it and every install rebakes, which is what a change to any constant above
-        // needs.
+        // Bump it and every install rebakes - what a change to any constant above needs.
         const int Version = 1;
 
         static Texture2D[] _frames;
@@ -101,8 +81,8 @@ namespace SlopWorld
 
         public static bool HasFrames => _frames != null;
 
-        // A null source means "whatever you baked from last time". Null back means there
-        // is nothing to bake from and the caller should leave the field alone.
+        // A null source means "whatever you baked from last time". Null back means there is
+        // nothing to bake from and the caller should leave the field alone.
         public static Texture2D Current(Texture2D source)
         {
             if (source != null && !Ready(source)) return null;
@@ -112,14 +92,14 @@ namespace SlopWorld
             if (_began < 0f) _began = now;
             float t = now - _began;
 
-            // Amplitudes are unequal so the fast one reads as a tremor over the slow swell
-            // rather than a second beat of its own.
+            // Unequal amplitudes, so the fast term is a tremor over the swell rather than a
+            // second beat.
             float breath =
                 0.68f * Mathf.Sin(t * 2f * Mathf.PI / SlowSecs) +
                 0.32f * Mathf.Sin(t * 2f * Mathf.PI / FastSecs);
             float band = Mathf.Lerp(BreatheLow, BreatheHigh, (breath + 1f) * 0.5f);
 
-            // Smoothstep rather than linear, because a ramp that starts instantly is a cut.
+            // Smoothstep, a ramp that starts instantly being a cut.
             float onset = OnsetSecs <= 0f ? 1f : Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / OnsetSecs));
 
             int i = Mathf.Clamp(Mathf.RoundToInt(band * onset * (Stages - 1)), 0, Stages - 1);
@@ -144,8 +124,7 @@ namespace SlopWorld
             }
             catch (Exception e)
             {
-                // A background that will not bake is a cosmetic loss; nothing here is worth
-                // taking the mod down.
+                // A background that will not bake is a cosmetic loss.
                 Log.Warning($"[SlopWorld] background bake failed, leaving it clean: {e.Message}");
                 _frames = null;
             }
@@ -153,8 +132,8 @@ namespace SlopWorld
             return _frames != null;
         }
 
-        // The name is what changes when the player picks another expansion's background,
-        // so keying on it is what makes that switch rebake.
+        // The name changes when the player picks another expansion's background, so keying on
+        // it is what makes that switch rebake.
         static string Key(Texture2D src)
         {
             string name = string.IsNullOrEmpty(src.name) ? "bg" : src.name;
@@ -164,8 +143,8 @@ namespace SlopWorld
         static string Dir(string key) =>
             Path.Combine(Path.Combine(CacheRoot(), "slopworld"), Path.Combine("bg", key));
 
-        // Not GenFilePaths: that is the game's config and saves, and a derived texture is
-        // regenerable, which is what makes it safe for a user to delete.
+        // Not GenFilePaths, which is config and saves; a derived texture is regenerable and so
+        // safe to delete.
         static string CacheRoot()
         {
             string xdg = Environment.GetEnvironmentVariable("XDG_CACHE_HOME");
@@ -186,9 +165,7 @@ namespace SlopWorld
                 string path = Path.Combine(dir, $"{i:D2}.jpg");
                 if (!File.Exists(path)) return null;
 
-                // LoadImage sniffs the header, so the JPEG needs nothing said about it here
-                // beyond the name - and a leftover PNG cache from before the format change
-                // lives under an older key, so it is never reached.
+                // LoadImage sniffs the header.
                 var tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
                 if (!tex.LoadImage(File.ReadAllBytes(path)))
                 {
@@ -229,10 +206,9 @@ namespace SlopWorld
                 byte[] jpg = tex.EncodeToJPG(JpegQuality);
                 File.WriteAllBytes(Path.Combine(dir, $"{i:D2}.jpg"), jpg);
 
-                // Straight back in through the decoder. The frames this run holds have to be
-                // the frames every later run loads, and at this quality the difference between
-                // the two is most of the look - a first launch that came up clean-edged and
-                // then blocked itself on restart is a bug, and would be reported as one.
+                // Back in through the decoder: at this quality the difference is most of the
+                // look, and a first launch that came up clean-edged then blocked itself on
+                // restart would be reported as a bug.
                 tex.LoadImage(jpg);
                 tex.filterMode = FilterMode.Bilinear;
                 tex.wrapMode = TextureWrapMode.Clamp;
@@ -244,18 +220,15 @@ namespace SlopWorld
             return frames;
         }
 
-        // Order is load-bearing. The smear goes first, because blurring after the
-        // contrast crush undoes it; the tint next, because a colour bias applied before a
-        // stretch comes back out of it; the fire last, because it is emissive - light
-        // arriving at the lens, not a property of the surface. The encoder's own damage
-        // lands after all of it, which is the right end: it is the transmission, not the
-        // scene.
+        // Order is load-bearing: smear first, because blurring after the contrast crush undoes
+        // it; tint next, because a colour bias applied before a stretch comes back out of it;
+        // fire last, being emissive. The encoder's damage lands after all of it, being the
+        // transmission rather than the scene.
         static Color[] Rot(Color[] src, float[] fuel, int w, int h, float k, int stage)
         {
             if (k <= 0f) return (Color[])src.Clone();
 
-            // Horizontal, because it reads as a signal being dragged rather than a lens out
-            // of focus. Separable, so the cost is the radius rather than its square.
+            // Horizontal: a signal being dragged rather than a lens out of focus.
             int radius = Mathf.RoundToInt(Mathf.Lerp(0f, 24f, k * k));
             Color[] px = radius > 0 ? Smear(src, w, h, radius) : (Color[])src.Clone();
 
@@ -277,8 +250,8 @@ namespace SlopWorld
                 c.g = (c.g - 0.5f) * contrast + 0.5f + lift;
                 c.b = (c.b - 0.5f) * contrast + 0.5f + lift;
 
-                // Multiplied in rather than blended over: a blend fogs the whole frame evenly,
-                // where this leaves what is dark dark and puts the colour where there is light.
+                // Multiplied rather than blended: a blend fogs the frame evenly, where this
+                // leaves the dark dark and puts colour where there is light.
                 c.r = Mathf.Lerp(c.r, c.r * Sick.r, tint);
                 c.g = Mathf.Lerp(c.g, c.g * Sick.g, tint);
                 c.b = Mathf.Lerp(c.b, c.b * Sick.b, tint);
@@ -290,9 +263,8 @@ namespace SlopWorld
             return px;
         }
 
-        // Read off the clean picture rather than the graded one, so the fire sits on the
-        // planet's own lit face. One upward sweep with a decay is the cheap way to say
-        // heat rises, and this runs over ten megapixels. Pixels run bottom-up, so the
+        // Read off the clean picture, so the fire sits on the planet's own lit face. One upward
+        // sweep with a decay, this running over ten megapixels. Pixels run bottom-up, so the
         // sweep and "up" agree without a flip.
         static float[] Fuel(Color[] clean, int w, int h)
         {
@@ -316,10 +288,9 @@ namespace SlopWorld
             return fuel;
         }
 
-        // What stands between "the planet is on fire" and a sky full of vertical streaks.
-        // The starfield is single bright pixels on black, and brightness alone cannot
-        // tell one from a lit planet - what can is size: a star vanishes under a window
-        // this wide and a planet does not notice it.
+        // What stands between a burning planet and a sky full of vertical streaks. Brightness
+        // cannot tell a star from a lit planet; size can - a star vanishes under a window this
+        // wide and a planet does not notice it.
         static float[] Erode(float[] src, int w, int h, int r)
         {
             if (r <= 0) return src;
@@ -352,11 +323,10 @@ namespace SlopWorld
             return dst;
         }
 
-        // Gated by Fuel so it only burns where there is something lit, and rolled in with
-        // k so the planet catches as it rots. The noise is drawn at a fraction of the
-        // frame and read back bilinear: four octaves over ten megapixels is seconds of
-        // bake, and fire has no fine detail to lose. Each stage draws from a different
-        // offset, which is what makes the flames move as the breath walks the stages.
+        // Gated by Fuel, and rolled in with k so the planet catches as it rots. The noise is
+        // drawn at a fraction of the frame and read back bilinear - four octaves over ten
+        // megapixels is seconds of bake, and fire has no fine detail to lose. Each stage draws
+        // from a different offset, which is what makes the flames move.
         static void Burn(Color[] px, float[] fuel, int w, int h, float k, int stage)
         {
             float heat = Mathf.InverseLerp(FireFrom, 1f, k);
@@ -387,14 +357,14 @@ namespace SlopWorld
                         Mathf.Lerp(noise[ny1 * nw + nx0], noise[ny1 * nw + nx1], fx),
                         fy);
 
-                    // Fuel says where fire is allowed and the shaped noise what shape it takes there.
+                    // Fuel says where fire is allowed, the shaped noise what shape it takes.
                     // Multiplying the raw field in would let the noise decide both.
                     float shaped = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(NoiseLow, NoiseHigh, n));
                     float t = f * shaped * heat;
                     if (t <= 0f) continue;
 
-                    // Added rather than blended, so it lights the picture instead of painting over
-                    // it.
+                    // Added rather than blended, so it lights the picture rather than painting
+                    // over it.
                     Color fire = Color.Lerp(Ember, Flame, t);
                     Color c = px[row + x];
                     px[row + x] = new Color(
@@ -406,8 +376,8 @@ namespace SlopWorld
             }
         }
 
-        // Each octave is stretched twice as far across x as up y, which gives the field
-        // its vertical grain - isotropic noise is a cloud.
+        // Each octave stretched twice as far across x as up y, for the vertical grain;
+        // isotropic noise is a cloud.
         static float[] Fbm(int w, int h, float phase)
         {
             var field = new float[w * h];
@@ -435,8 +405,8 @@ namespace SlopWorld
             return field;
         }
 
-        // Box rather than gaussian: at this radius the difference is invisible through
-        // the contrast crush, and a running sum makes it independent of the radius.
+        // Box rather than gaussian: through the contrast crush the difference is invisible, and
+        // a running sum makes the cost independent of the radius.
         static Color[] Smear(Color[] src, int w, int h, int radius)
         {
             var dst = new Color[src.Length];
@@ -469,8 +439,8 @@ namespace SlopWorld
             return dst;
         }
 
-        // Averaging rather than sampling: this is a starfield, and point-sampling one at
-        // half scale throws away half the stars.
+        // Averaging rather than sampling: point-sampling a starfield at half scale throws away
+        // half the stars.
         static Color[] Downsample(Color[] src, int w, int h, int bw, int bh)
         {
             if (bw == w && bh == h) return src;
@@ -508,8 +478,8 @@ namespace SlopWorld
             return dst;
         }
 
-        // Core textures come out of the bundles unreadable, so the pixels have to be
-        // fetched back off the GPU - the trip DeadCursor makes too.
+        // Core textures come out of the bundles unreadable, so the pixels are fetched back off
+        // the GPU - the trip DeadCursor makes too.
         static Color[] ReadBack(Texture2D src)
         {
             var rt = RenderTexture.GetTemporary(src.width, src.height, 0, RenderTextureFormat.ARGB32);
@@ -530,9 +500,8 @@ namespace SlopWorld
             return px;
         }
 
-        // A generated texture is an asset nothing in the scene references, so the
-        // Resources.UnloadUnusedAssets on any map switch is entitled to take it - the
-        // trap TerminalFont documents.
+        // A generated texture is referenced by nothing in the scene, so the
+        // Resources.UnloadUnusedAssets on any map switch may take it - see TerminalFont.
         static void Keep(Texture2D tex) => tex.hideFlags = HideFlags.DontUnloadUnusedAsset;
 
         // So the source capture below never bakes the rot from an already-rotted frame.
@@ -545,13 +514,10 @@ namespace SlopWorld
         }
     }
 
-    // A prefix on the draw rather than a postfix on MainMenuDrawer.Init: Init runs
-    // once where this has to change every frame, and the loading screen draws this
-    // same background without going near Init.
-    //
-    // overrideBGImage is an instance field and vanilla's BackgroundOnGUI reads its
-    // size to do the aspect fit, so handing it our frame is the whole integration -
-    // scaling, letterboxing and the expansion crossfade all keep working.
+    // On the draw rather than on MainMenuDrawer.Init: Init runs once where this changes every
+    // frame, and the loading screen draws the same background without going near Init.
+    // BackgroundOnGUI reads overrideBGImage's size for the aspect fit, so handing it our frame
+    // keeps scaling, letterboxing and the expansion crossfade working.
     [HarmonyPatch(typeof(UI_BackgroundMain), nameof(UI_BackgroundMain.BackgroundOnGUI))]
     public static class Patch_MenuBackgroundRot
     {
@@ -559,13 +525,12 @@ namespace SlopWorld
         {
             Texture2D src = __instance.overrideBGImage;
 
-            // Handing our own frame back as a source would key the cache off a rotted picture
-            // and rot it again.
+            // Our own frame as a source would key the cache off a rotted picture.
             if (MenuBackground.IsOurs(src)) src = null;
 
             // A null field means vanilla is about to draw BGPlanet without consulting it, so
-            // we fetch the same texture - but only when nothing is baked, because
-            // ContentFinder.Get walks every loaded mod and this runs once a frame.
+            // fetch the same texture - but only when nothing is baked, ContentFinder.Get
+            // walking every loaded mod and this running once a frame.
             if (src == null && !MenuBackground.HasFrames)
                 src = ContentFinder<Texture2D>.Get("UI/HeroArt/BGPlanet", false);
 

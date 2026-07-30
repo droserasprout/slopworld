@@ -172,11 +172,10 @@ async fn destroy_shortcut(State(m): State<Mgr>, Path(name): Path<String>) -> Api
     ok_json(m.remove_shortcut(&name).await)
 }
 
-/// Answers with the name of the temporary agent as soon as it is up, so the caller
-/// can open a terminal on it; the text lands well past the point this client would
-/// have given up waiting. The body says where to run - `{"project":"..."}` or
-/// `{"temp":true}` - and `Option<Json<_>>` is so a bodyless curl still runs the
-/// errands that already know.
+/// Answers with the temporary agent's name as soon as it is up; the text lands well past the
+/// point this client would have given up waiting. The body says where to run -
+/// `{"project":"..."}` or `{"temp":true}` - and `Option<Json<_>>` is so a bodyless curl still
+/// runs the errands that already know.
 async fn run_shortcut(
     State(m): State<Mgr>,
     Path(name): Path<String>,
@@ -426,10 +425,8 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
     let subs: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
     let mut events = m.events.subscribe();
 
-    // Usage, projects and shortcuts ride along because they speak only on a change: a
-    // mod attaching between polls would otherwise draw nothing for a minute, and one
-    // attaching after the last edit would have nothing to fill the project dropdown
-    // from.
+    // Usage, projects and shortcuts ride along because they speak only on a change: a mod
+    // attaching between polls would otherwise draw nothing for a minute.
     let hello = Event::Sessions {
         sessions: m.views().await,
     };

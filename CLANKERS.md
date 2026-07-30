@@ -1,25 +1,14 @@
 # CLANKERS.md
 
-Notes for whoever works on this next, meat or otherwise.
-
-## What it is
-
-RimWorld with the colony sim torn out and replaced by live AI coding agents. Each
-tmux session on the host is a colonist: it stands up when its process runs, stands
-about when the agent goes quiet, and goes down when the process exits. Select a
-colonist to open its terminal and type at the agent.
-
-Two halves, shipped together, talking over HTTP + WebSocket on `127.0.0.1:7717`:
+RimWorld with the colony sim replaced by live AI coding agents. One tmux session
+on the host is one colonist. Select a colonist to type at the agent.
 
 - `slopd/` - Rust daemon. Owns tmux, the sandbox, the terminal emulator and
-  `config.toml`. Runs as a systemd user service. Ships `slopworld` alongside it, the
-  launcher that makes the profile and starts the game in it.
-- `mod/` - C# RimWorld mod (Harmony, 1.6 only). Draws the board, strips everything
-  that would make it a game, and renders the panes slopd sends. Refuses to patch
-  anything outside the profile.
+  `config.toml`. systemd user service. Ships the `slopworld` launcher.
+- `mod/` - C# RimWorld mod (Harmony, 1.6 only).
 
-The daemon is the source of truth. The mod holds no session state of its own; it
-mirrors what arrives over the socket.
+HTTP + WebSocket on `127.0.0.1:7717`. The daemon is the source of truth; the mod
+mirrors it and keeps no session state.
 
 ## Commands
 
@@ -29,22 +18,20 @@ Everything goes through the Makefile. `RIMWORLD` defaults to `~/RimWorld/game`.
 | --- | --- |
 | `make` | Builds both halves. |
 | `make daemon` | `cargo build --release` in `slopd/`. |
-| `make mod` | msbuild the C# project into `mod/Assemblies/SlopWorld.dll`. |
+| `make mod` | msbuild into `mod/Assemblies/SlopWorld.dll`. |
 | `make test` | `cargo test`. The mod has no test harness; it needs the game. |
-| `make install` | All three of the below. |
-| `make install-daemon` | Installs the binary and unit, then restarts the service. |
-| `make install-runner` | Installs `slopworld` into `$(BIN)`. |
-| `make install-mod` | Copies the mod into `$(MODS)/SlopWorld`. |
-| `make redeploy` | `install`, then asks the daemon to bounce the game. |
-| `make run` | Launches the game through the runner. `PROFILE` picks the folder. |
+| `make install` | The three below. |
+| `make install-daemon` | Binary and unit, then restarts the service. |
+| `make install-runner` | `slopworld` into `$(BIN)`. |
+| `make install-mod` | Mod into `$(MODS)/SlopWorld`. |
+| `make redeploy` | `install`, then bounces the game. |
+| `make run` | Launches through the runner. `PROFILE` picks the folder. |
 | `make logs` | Tails `Player.log`. |
 | `make clean` | Drops build output. |
 
-The mod builds against the game's own assemblies, so `RIMWORLD` has to point at a
-real install. `install-mod` copies loose folders, so a new top-level folder under
+`RIMWORLD` must point at a real install; the mod builds against the game's own
+assemblies. `install-mod` copies loose folders, so a new top-level folder under
 `mod/` needs adding to that line.
-
-### Poking at it without the game
 
 ```sh
 curl -s localhost:7717/api/sessions | python3 -m json.tool
@@ -53,91 +40,61 @@ tmux -L slopworld list-sessions
 journalctl --user -u slopd -f
 ```
 
-`SLOPD_LOG=slopd=debug` turns up the daemon's logging. `SLOPD_CONFIG` points it at
-another config file. `tools/shot.sh` grabs the game's window into a PNG (needs the
-`x11` preset). `python3 tools/loc.py` counts the code.
+`SLOPD_LOG=slopd=debug`, `SLOPD_CONFIG` for another config file. `tools/shot.sh`
+grabs the game window (needs the `x11` preset). `python3 tools/loc.py` counts code.
 
-`make redeploy` is the loop an agent working on this repo runs: both halves
-installed, then `POST /api/game/restart`, which saves the colony, quits and comes
-back into the same save. It needs `daemon.game_cmd` set, which now defaults to
-`~/.local/bin/slopworld` - the launcher, where `make install-runner` puts it. The
-agents sit through all of it, neither the tmux server nor the game being in the
-daemon's cgroup.
+`make redeploy` = install both halves, then `POST /api/game/restart`. Needs
+`daemon.game_cmd` (default `~/.local/bin/slopworld`). Agents survive it: neither
+tmux nor the game is in the daemon's cgroup.
 
 ### Where things land
 
-- Daemon config: `~/.config/slopworld/config.toml` (seeded on first run).
-- Profile: `$XDG_DATA_HOME/slopworld/profile`, i.e. `~/.local/share/slopworld/profile`.
-  Saves, screenshots, `Config/ModsConfig.xml` and `Config/Prefs.xml` - everything
-  RimWorld keeps per install, kept per *this* install instead. See "Profile".
-- Mod settings: RimWorld's own `Mod settings` file, in the profile's `Config/`,
-  edited in `Options > Mod settings`.
+- Daemon config: `~/.config/slopworld/config.toml`, seeded on first run.
+- Profile: `$XDG_DATA_HOME/slopworld/profile`. Saves, screenshots, `Config/`.
+- Mod settings: `Config/Mod_SlopWorld_SlopWorldMod.xml` inside the profile.
 - Game log: `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log`.
-  Harmony and mod exceptions land there, not in the terminal that launched it. Unity
-  writes it and Unity does not know about the profile, so it is the one thing a
-  second profile would share.
-- tmux server: private socket `slopworld`, so it never collides with yours.
+  Harmony and mod exceptions land there, not in the launching terminal. Unity does
+  not know about the profile, so a second profile would share it.
+- tmux server: private socket `slopworld`.
 
 ## Profile
 
-RimWorld keeps its saves, its prefs and its mod list in one folder, and an install
-has exactly one of them. This mod is not something you add to a colony: it takes the
-sim away, renames the faction, rewrites the calendar, deletes every vanilla song and
-ships defs a vanilla save has never heard of. Sharing that folder with somebody's
-real game is how a colony they cared about comes back wearing a faceplate, in a save
-that no longer loads without us.
+RimWorld keeps saves, prefs and the mod list in one folder per install, so this mod
+gets a save data folder of its own and a launcher that makes it.
 
-So there is a save data folder of our own, and one binary that makes it and starts
-the game in it.
+`slopd/src/bin/slopworld.rs` finds the game (`--game`, `$SLOPWORLD_GAME`, four usual
+paths) and the profile (`--profile`, `$SLOPWORLD_PROFILE`, XDG), seeds it, runs
+`RimWorldLinux -savedatafolder=<profile>`. Ours are `--long`, the game's `-single`,
+so an unknown `--word` is a typo rather than something to forward; `--` ends ours.
 
-`slopd/src/bin/slopworld.rs` is the launcher - a second binary in the daemon's crate
-rather than a script, for reasons the next paragraph is about. It finds the game
-(`--game`, `$SLOPWORLD_GAME`, then the four places a Linux RimWorld actually lives),
-finds or coins the profile (`--profile`, `$SLOPWORLD_PROFILE`, then XDG), seeds it,
-and runs `RimWorldLinux -savedatafolder=<profile>` with whatever else it was handed.
-Ours are `--long` and the game's are `-single`, which is what lets an unknown
-`--word` be refused as a typo rather than forwarded; `--` ends ours for good.
+Seeding writes `Config/ModsConfig.xml` (two mods, `knownExpansions` naming all five)
+only if absent; `--reset` overwrites. Two traps:
 
-Seeding is `Config/ModsConfig.xml` with `ludeon.rimworld` and `drsr.slopworld` and
-nothing else, plus `knownExpansions` naming all five so an owned DLC is never
-*offered*. Written only if absent, `--reset` being the one way to lose an edited
-list. Two traps in that file: it carries **no** `<version>`, because the game
-compares one when it is there and throws the whole list away on a mismatch - and
-what it starts again with has every expansion on; and `-savedatafolder` is split on
-`=` into exactly two halves, so a profile path with one in it is refused on the way
-in rather than silently not used.
+- No `<version>` element. The game compares one when present, throws the whole list
+  away on mismatch, and rebuilds it with every expansion on.
+- `-savedatafolder` is split on `=` into exactly two halves, so a profile path
+  containing one is refused on the way in rather than silently ignored.
 
-The launcher **waits on** the game rather than exec'ing into it, and that is
-load-bearing. `daemon.game_cmd` is matched against `argv[0]` *anchored* (see
-`game.rs`), so the process slopd finds has to be the thing it launched: exec'ing
-would leave a RimWorld the daemon cannot see, and `restart_game` would start a
-second one over a colony still being written. Waiting also makes the launcher's
-lifetime the game's, which is what `slopworld-game.service` reports. A shell script
-could not do either - a shebang puts `/bin/sh` in `argv[0]`.
+The launcher **waits on** the game rather than exec'ing. `daemon.game_cmd` is matched
+*anchored* against `argv[0]` (`game.rs`), so exec'ing would leave a RimWorld the
+daemon cannot see and `restart_game` would launch a second one over a colony still
+being written. Waiting also makes the launcher's lifetime the game's, which is what
+`slopworld-game.service` reports. Cannot be a script: a shebang puts `/bin/sh` in
+`argv[0]`.
 
-The other half is the mod refusing. `SlopProfile.Ok` is one question - is there a
-`slopworld.profile` marker in `GenFilePaths.SaveDataFolderPath` - and the marker is
-written by the launcher rather than by us on purpose: a folder the game made for
-itself is somebody's install, and only something outside the game can say this one
-is for agents. Refusing means refusing *before touching anything*:
+`SlopProfile.Ok` = is there a `slopworld.profile` marker in
+`GenFilePaths.SaveDataFolderPath`. The launcher writes it, not the mod. Refusal
+happens before anything is touched:
 
-- `SlopWorldBootstrap` returns before `PatchAll`, so not one Harmony patch binds.
+- `SlopWorldBootstrap` returns before `PatchAll`.
 - `SteadyHands` returns before welding a `StatPart` onto a vanilla stat.
-- `PatchOperationInProfile` wraps every XML operation of ours that rewrites a def
-  the base game shipped - the songs, the map generator's rocks, the ancient kit's
-  designation category, the paving terrain's skill requirement. It is a
-  `PatchOperationSequence` subclass that answers true without running its
-  `operations`, true being what keeps the game from logging a
-  failed patch over a mod that stood aside politely. Assemblies load before the XML
-  is patched, which is the only reason this can exist at all; static constructors
-  run after, which is why the C# gate is separate.
+- `PatchOperationInProfile` wraps every XML op of ours that rewrites a vanilla def
+  and answers true without running its `operations`; false would make the game log a
+  failed patch.
 
-What survives a refusal is the defs we *add*, which nothing can take back: four main
-buttons, some flecks, hediffs, key bindings and a song. The buttons are doors onto
-the explanation instead - `MainButtonWorker_Slop` gates all four on the same
-question and puts up the dialog. `SlopProfile.Complain` logs once and offers the
-dialog every time, because a button that silently does nothing is worse than a mod
-that is not there.
+Assemblies load before XML is patched, which is why that class works; static
+constructors run after, which is why the C# gate is separate. Defs we *add* survive
+a refusal, so `MainButtonWorker_Slop` gates all four buttons and shows the dialog.
 
 ## Daemon
 
@@ -145,835 +102,581 @@ that is not there.
 | --- | --- |
 | `main.rs` | Startup, the retick loop, the token middleware. |
 | `api.rs` | Routes and the WebSocket pump. |
-| `session.rs` | `Manager`: the live table, state classification, control readers. |
-| `emu.rs` | `SessionEmu`, an `alacritty_terminal` instance per session. |
-| `tmux.rs` | Thin async wrapper over the tmux CLI. |
-| `sandbox.rs` | The preset table, and the bubblewrap argv a session is exec'd under. |
-| `config.rs` | `config.toml` load, save, seed and migration. |
+| `session.rs` | `Manager`: live table, state classification, control readers. |
+| `emu.rs` | `SessionEmu`, an `alacritty_terminal` per session. |
+| `tmux.rs` | Async wrapper over the tmux CLI. |
+| `sandbox.rs` | Preset table and the bubblewrap argv. |
+| `config.rs` | `config.toml` load, save, seed, migration. |
 | `usage.rs` | Polls Anthropic for what is left of the subscription. |
-| `clipboard.rs` | The host clipboard, which neither the game nor an agent can reach. |
-| `game.rs` | Launching the game, and answering whether it is up. |
+| `clipboard.rs` | The host clipboard. |
+| `game.rs` | Launching the game, and whether it is up. |
 
 ### Projects
 
-A session is an agent *in* a project: a name, a kind (`claude` or `custom`), and a
-command if it is custom. Where it runs and what it can reach are the project's -
-`[[project]]` in `config.toml`, a directory plus a sandbox.
+A session is an agent in a project: name, kind (`claude` or `custom`), command if
+custom. `[[project]]` is a directory plus a sandbox.
 
-`temp` projects name no directory: the daemon coins `/tmp/slopworld/<name>` from
-the entry's name (through `slug`) in `settle`, on the way in, so everything
-downstream reads `dir` like anybody's. `dir` is `serde(default)` for this one
-field's sake, and `check_project` is what still refuses an ordinary project without
-one.
+- `temp` projects name no directory; `settle` coins `/tmp/slopworld/<name>` on the
+  way in. Hence `dir` is `serde(default)`, and `check_project` still refuses an
+  ordinary project without one.
+- Claude is a *kind* rather than a command string: knowing it is Claude is what lets
+  the sandbox hand it `~/.claude` (`presets_for`).
+- `check_belongs` runs on add and update, not at start. A project with agents refuses
+  deletion. A rename carries its sessions in the same write.
+- `Config::migrate` is idempotent; the legacy fields are `skip_serializing_if`.
 
-Claude is a kind rather than a command string because knowing it is Claude is what
-lets the sandbox hand it `~/.claude` (`presets_for`).
+`PRESETS` in `sandbox.rs` is compiled in - the GUI cannot draw a checkbox for a
+preset the daemon does not understand. `GET /api/presets` is how the mod learns what
+this build knows. Rules:
 
-`PRESETS` in `sandbox.rs` is the bundle table - `dbus`, `systemd`, `x11`,
-`wayland`, `gpu`, `audio`, `docker`, `podman`, `ssh`, `1password`, `git`, `rust`,
-`node`, `python`. Compiled in, because a preset the daemon does not understand is
-one the GUI cannot draw a checkbox for; `GET /api/presets` is how the mod learns
-what this build knows. Rules worth keeping:
-
-- Every bind is skipped unless the path exists, which is what makes `$VAR`
-  expansion safe.
-- Order is global, presets, project, deduplicated, rw after ro - so a path in both
-  ends up writable.
-- Binds go down *after* the skeleton (`--proc`, `--dev`, `--tmpfs /tmp`), or the
-  tmpfs buries them. The `resolv.conf` bind is emitted last of the read-only ones,
-  because a preset can bind the directory it sits in.
-- A socket is bound by its *directory* wherever its owner recreates it; `dbus` and
-  `wayland` name their sockets directly because those outlive every session.
-- `env` forwards names out of slopd's environment; `setenv` sets a literal, for
-  what is true only inside the sandbox (`SYSTEMCTL_FORCE_BUS=1`, which is why
-  `systemd` is no use without `dbus`). Literals are applied last.
-- The environment is *built*: bwrap gets `--clearenv`, `BASE_ENV` is what survives
-  regardless, and `TERM`/`COLORTERM` are stated rather than forwarded.
-
-Two rules on the way in: a session must name a project that exists
-(`check_belongs`), enforced on add and update rather than at start, and a project
-with agents in it refuses to be deleted. A rename carries its sessions over in the
-same write. `Config::migrate` gives every legacy session a project, is idempotent,
-and the legacy fields are `skip_serializing_if`.
+- Every bind is skipped unless the path exists, which makes `$VAR` expansion safe.
+- Order: global, presets, project, deduplicated, rw after ro, so a path in both ends
+  up writable.
+- Binds go down *after* the skeleton (`--proc`, `--dev`, `--tmpfs /tmp`) or the tmpfs
+  buries them. `resolv.conf` is emitted last of the read-only ones, because a preset
+  can bind the directory it sits in.
+- A socket is bound by its *directory*, wherever its owner recreates it. `dbus` and
+  `wayland` name sockets directly because those outlive every session.
+- `env` forwards names out of slopd's environment; `setenv` sets literals, applied
+  last (`SYSTEMCTL_FORCE_BUS=1`, which is why `systemd` is useless without `dbus`).
+- bwrap gets `--clearenv`; `BASE_ENV` survives regardless, `TERM`/`COLORTERM` are
+  stated rather than forwarded.
 
 ### Shortcuts
 
-`[[shortcut]]` is an errand: a project, something to run there, and a line to type
-into it. `kind` is `prompt` or `shell`; `command` overrides what runs, and empty
-means `[defaults] agent` or `[defaults] shell`.
+`[[shortcut]]` is an errand: a project, something to run there, a line to type into
+it. `kind` is `prompt` or `shell`; empty `command` means `[defaults] agent`/`shell`.
 
-`link` is `project`, `temp` or `ask`, and it is what the entry's `project` field is
-*read as*: the place to run, the sandbox a scratch project copies, or nothing.
-`check_shortcut` insists on one only in the first case. `RunWhere` is the caller's
-answer and an override both; `temp` beats a named project, and an `ask` entry run
-with neither is the one refusal.
-
-A `temp` errand's project is coined in `run_shortcut`, held in `Manager::temp`, and
-dropped by `forget`. The directory is not: /tmp is the machine's to clear. Both
-tables are taken in the order `live` then `temp`.
-
-`Config::session_for` builds the agent: a prompt shortcut with no command comes out
-a *Claude* session rather than a custom one running the same string, because the
-kind is what hands it `~/.claude`.
-
-The agent is ephemeral - `Live.ephemeral`, never written to `config.toml`. It has
-no `Down` state: `mark_down` forgets it instead, and `stop` has to do the same by
-hand because killing tmux aborts the control reader first. `remove` on one writes
-no config at all. `Manager::session_cfg` reads from config *or* the live table,
-because `start` has nothing in the file to look up.
-
-`POST /api/shortcuts/NAME/run` starts the session, answers with its name, and
-leaves the typing to a task behind it, because the mod's HTTP client gives up after
-five seconds and an agent is tens of seconds from ready. `deliver` waits, pastes,
-then sends Enter as a separate keypress - two writes, because bracketed paste takes
-a pasted newline as a newline. `wait_ready` waits for output followed by
-`SETTLE_MS` of silence rather than for a pattern, and hitting `READY_MS` does not
-cancel delivery.
-
-Anything running under our socket that config knows nothing about is `adopt`ed as
-one of these, carrying no project: it lists with a blank directory and refuses to
-restart, while watching, typing and killing all work.
+- `link` (`project`|`temp`|`ask`) is how the entry's `project` field is *read*: where
+  to run, the sandbox a scratch project copies, or nothing. `check_shortcut` insists
+  on one only in the first case. `RunWhere` overrides; `temp` beats a named project,
+  and an `ask` entry run with neither is the one refusal.
+- A `temp` errand's project is coined in `run_shortcut`, held in `Manager::temp`,
+  dropped by `forget`. The directory is not - /tmp is the machine's to clear. Both
+  tables are read `live` then `temp`.
+- `Config::session_for`: a prompt shortcut with no command comes out a *Claude*
+  session, because the kind is what hands it `~/.claude`.
+- The agent is ephemeral (`Live.ephemeral`), never written to config, and has no
+  `Down` state: `mark_down` forgets it, and `stop` must too, by hand, because killing
+  tmux aborts the control reader first. `remove` writes no config.
+  `Manager::session_cfg` reads config *or* the live table, since `start` has nothing
+  in the file to look up.
+- `POST /api/shortcuts/NAME/run` answers with the session name and leaves typing to a
+  task behind it: the mod's HTTP client gives up after five seconds, an agent is tens
+  of seconds from ready. `deliver` pastes, then sends Enter as a *separate* keypress,
+  because bracketed paste takes a pasted newline as a newline. `wait_ready` waits for
+  output followed by `SETTLE_MS` of silence, not for a pattern; hitting `READY_MS`
+  does not cancel delivery.
+- Anything running under our socket that config knows nothing about is `adopt`ed as
+  one of these with no project: blank directory, refuses to restart, while watching,
+  typing and killing work.
 
 ### Session state
 
-`State` is `Down | Working | Waiting | Idle`, serialised lowercase. Classification
-is `Manager::classify`: the `[[state_rule]]` regexes are tried first against the
-pane's plain text (SGR stripped); with no hit, a pane that moved inside `IDLE_MS`
-is working and a quieter one is idle. Down is not a rule - it comes from the
-control reader ending, on `%exit` or EOF.
+`State` is `Down | Working | Waiting | Idle`, serialised lowercase.
+`Manager::classify` tries the `[[state_rule]]` regexes against the pane's plain text
+(SGR stripped); with no hit, a pane that moved inside `IDLE_MS` is working. Down is
+not a rule - it comes from the control reader ending on `%exit` or EOF.
 
-Screens arrive event-driven: a control-mode client (`tmux -C attach`, on a pty)
-feeds `%output` bytes into the emulator, which renders on an 8ms coalescing tick.
+A control-mode client (`tmux -C attach`, on a pty) feeds `%output` into the emulator,
+which renders on an 8ms coalescing tick. `%output` is the pane's bytes *raw* - tmux
+parses them for its own screen and copies them to control clients untouched - so
+escapes an app aims at its terminal arrive here. `emu.rs`'s `Side`:
 
-### What the app says back
-
-`%output` is the pane's bytes *raw* - tmux parses them for its own screen and
-copies them to control clients untouched - so the escapes an app aims at its
-terminal arrive here rather than being spent on tmux. `emu.rs`'s `Side` is where
-they land, alongside the pty replies:
-
-- OSC 0/2, the title, onto `Frame::title` and `ScreenView::title`, which the mod
-  draws under the session's name. It is part of what makes a frame *changed*, or a
-  title moving on a still screen would never be sent.
-- OSC 52, a copy, onto the host clipboard. This is the only word we get when an
-  app draws its own selection - Claude Code does - because the drag never comes our
-  way. `Term`'s default is `Osc52::OnlyCopy`, which is the right way round when the
-  app is an agent and the clipboard is the operator's: it may write, never read.
+- OSC 0/2 (title) onto `Frame::title`, and it counts toward a frame being *changed*,
+  or a title moving on a still screen would never be sent.
+- OSC 52 (copy) onto the host clipboard: the only word we get when an app draws its
+  own selection, as Claude Code does. `Osc52::OnlyCopy` - it may write, never read.
   Only the `c` selection; we have no tool for PRIMARY.
 
-The clip is one slot rather than a queue - a clipboard holds one thing - and the
-control loop leaves it there while a write is in flight, so an app that states OSC
-52 every frame gets one `wl-copy` at a time and the newest text.
+The clip is one slot, not a queue, and the control loop leaves it there while a write
+is in flight, so an app stating OSC 52 every frame gets one `wl-copy` at a time.
 
 ### Surviving a redeploy
 
-`make install-daemon` restarts slopd under a live game, so the daemon is written to
-come back rather than to stay up. Whichever tmux command first needs a server forks
-it, and the server inherits that client's cgroup. Two things stop that, and it
-needs both:
+`make install-daemon` restarts slopd under a live game. Whichever tmux command first
+needs a server forks it, and the server inherits that client's cgroup. Both of these
+are needed:
 
 - `Tmux::ensure_server` starts the server in `slopworld-tmux.service`, a transient
-  unit. `Manager::restart_game` does the same for the game. `Type=forking` and not
-  a scope: `tmux start-server` daemonises, so a scope tears itself down and the
-  next tmux command forks a server back into `slopd.service`. `ensure_server`
-  checks the socket afterwards rather than trusting an exit code.
+  unit; `Manager::restart_game` does the same for the game. `Type=forking`, not a
+  scope: `tmux start-server` daemonises, so a scope tears itself down and the next
+  tmux command forks a server back into `slopd.service`. `ensure_server` checks the
+  socket afterwards rather than trusting an exit code.
 - `KillMode=process` in `slopd.service`, or stopping the unit takes any tmux server
-  in its cgroup with it. `install-daemon` does `daemon-reload` before `restart` so
-  the running agents survive the redeploy that installs the fix.
+  in its cgroup with it. `install-daemon` does `daemon-reload` before `restart`.
 
-What a restart still costs: the emulators. `spawn_reader` rebuilds one per running
-session from `capture-pane -e -S -<history_limit>`, then nudges the pane a column
-narrower and back - the SIGWINCH is what makes the app repaint and hand the fresh
-emulator the modes a text capture cannot carry.
+A restart costs the emulators. `spawn_reader` rebuilds one per running session from
+`capture-pane -e -S -<history_limit>`, then nudges the pane a column narrower and
+back; the SIGWINCH makes the app repaint and hand the fresh emulator the modes a text
+capture cannot carry.
 
-What a session that outlived the daemon is *shaped* like is tmux's answer and never
-ours: `sync_from_config` asks `Tmux::size` before building the emulator, because the
-boot size is a guess and stating a guess at a running app resizes it down to one.
-`Manager::nudge_redraw` reads the size back after the shrink for the same reason from
-the other end - a terminal window that reconnected mid-nudge has already stated its
+A session's *shape* is tmux's answer, never ours. `sync_from_config` asks
+`Tmux::size` before building the emulator, or the boot guess stated at a running app
+resizes it. `Manager::nudge_redraw` reads the size back after the shrink for the same
+reason from the other end: a window that reconnected mid-nudge has already stated its
 own shape, and the mod only resends while the frames disagree, so restoring the older
 figure strands the pane at it.
 
 Every window under our socket is called `bwrap`, and a tmux *window* target resolves
-by window name before session name - so `resize-window -t b` prefix-matched some
-neighbour's `bwrap` and shaped that session instead. Anything taking a window or pane
-target writes `name:` or `name:.0`; a bare `name` is only ever safe for the
-session-target commands (`kill-session`, `rename-session`, `attach`).
+by window name before session name - `resize-window -t b` prefix-matched a
+neighbour's `bwrap`. Anything taking a window or pane target writes `name:` or
+`name:.0`; a bare `name` is only safe for `kill-session`, `rename-session`, `attach`.
 
-`config.toml` is re-read whenever its mtime moves, on a two-second check and ahead
-of every mutating call. A file that does not parse is complained about once.
+`config.toml` is re-read whenever its mtime moves, on a two-second check and ahead of
+every mutating call. A file that does not parse is complained about once.
 
 ### Quota
 
-The colony's one remaining resource. `usage.rs` asks the same endpoint Claude
-Code's own `/usage` does, with the OAuth token in `~/.claude/.credentials.json` -
-re-read per poll, never copied or logged. `[daemon] usage = false` stops it reading
-the file; `SLOPD_USAGE_URL` points it elsewhere.
+`usage.rs` asks the endpoint Claude Code's own `/usage` does, with the OAuth token in
+`~/.claude/.credentials.json`, re-read per poll and never copied or logged.
+`[daemon] usage = false` stops it reading the file; `SLOPD_USAGE_URL` points it
+elsewhere.
 
-`parse` recognises rather than assumes: an unrecognised payload leaves *no* windows
-and an error, because being wrong must read as "no numbers" and never as a colony
-at zero. A failed poll keeps the last good windows and adds the reason. `backoff`
-doubles per consecutive failure, capped at half an hour, and `Retry-After` beats
-both the doubling and the cap. A 429 is read rather than raised
-(`http_status_as_error(false)`), and the wait goes into the error string because
-the mod draws it.
-
-Traps in the payload: `utilization` is a *percentage* where the same figure is a
-fraction in the Messages API headers; `extra_usage`/`spend` carry a `utilization`
-too, but theirs is money, so the family match is what keeps a quota row from
-becoming a dollar row; `monthly_limit` is cents; `resets_at` is RFC3339 with a
-numeric offset, applied rather than assumed. Windows are matched by family
-(`five_hour`, `seven_day*`), so a plan with different limits needs no change on
-either side. Money rides over stamped `unit: usd`. Resets go over as seconds
-remaining, so the countdown keeps running when the daemon does not.
+- `parse` recognises rather than assumes: an unrecognised payload leaves *no* windows
+  and an error, so being wrong reads as "no numbers" and never as a colony at zero. A
+  failed poll keeps the last good windows and adds the reason.
+- `backoff` doubles per consecutive failure, capped at half an hour; `Retry-After`
+  beats both. A 429 is read rather than raised (`http_status_as_error(false)`), and
+  the wait goes into the error string because the mod draws it.
+- Payload traps: `utilization` is a *percentage* here, a fraction in the Messages API
+  headers; `extra_usage`/`spend` carry a `utilization` too, but theirs is money, so
+  the family match keeps a quota row from becoming a dollar row; `monthly_limit` is
+  cents; `resets_at` is RFC3339 with a numeric offset, applied rather than assumed.
+- Windows are matched by family (`five_hour`, `seven_day*`), so a plan with different
+  limits needs no change on either side. Money rides over stamped `unit: usd`. Resets
+  go over as seconds remaining, so the countdown survives the daemon.
 
 ### The game
 
-`game.rs` starts it and says whether it is up. The second half is for the agents,
-who cannot find out themselves: a session runs in a PID namespace of its own, so
-`pgrep` in there reads as "no game is running" rather than "cannot tell".
+`game.rs` also answers whether the game is up for the *agents*, who cannot find out:
+a session runs in its own PID namespace, so `pgrep` in there reads as "no game"
+rather than "cannot tell".
 
-`GET /api/game`, and `source` says how it knows: `unit` (found through
-`slopworld-game.service`), `process` (matched on `daemon.game_cmd`'s path, then on
-the executable's bare name), or `client` (something holding `/ws` open). The path
-match is *anchored*, `^path( |$)`: `pgrep -f` matches anywhere in a command line and
-every sandbox binds `<game>/RimWorldLinux_Data/Managed`, so an unanchored match
-finds an agent and calls it the game - after which a restart waits forever for a
-PID that was never the game. The client count and the age of the oldest client are
-in the answer, because the question is usually "is it running the build I just
-installed". What `game_cmd` names is the *launcher* rather than the game (see
-"Profile"), and the whole of why that binary waits on its child instead of exec'ing
-is so this paragraph stays true of it.
+`GET /api/game`; `source` is `unit` (via `slopworld-game.service`), `process` (on
+`daemon.game_cmd`'s path, then the executable's bare name) or `client` (something
+holding `/ws` open). The path match is *anchored*, `^path( |$)`: `pgrep -f` matches
+anywhere in a command line and every sandbox binds
+`<game>/RimWorldLinux_Data/Managed`, so an unanchored match finds an agent, calls it
+the game, and a restart then waits forever. The client count and the age of the
+oldest client are in the answer, the question usually being "is it running the build
+I just installed".
 
-`POST /api/game/restart` is a handshake: the daemon broadcasts `{"t":"quit"}`, the
-mod saves and calls `Root.Shutdown`, and the daemon waits up to a minute for the
-process to be gone before launching. It does *not* launch if it is still there.
-`game_cmd` is expanded (`~`) before exec, because `shell_split` builds an argv
-rather than running a shell.
+`POST /api/game/restart` is a handshake: broadcast `{"t":"quit"}`, the mod saves and
+calls `Root.Shutdown`, the daemon waits up to a minute for the process to be gone and
+does *not* launch if it is still there. `game_cmd` is `~`-expanded before exec,
+because `shell_split` builds an argv rather than running a shell.
 
 ### Wire protocol
 
-Server events: `{"t":"sessions",...}` on any state move, `{"t":"screen",...}` for
-subscribed sessions, `{"t":"usage",...}`, `{"t":"projects",...}` and
-`{"t":"shortcuts",...}` - the last three also once on connect, because a client
-attaching between polls would otherwise draw nothing. And `{"t":"quit"}`, the one
-event that asks for something: save and go.
+Server events: `{"t":"sessions"}` on any state move, `{"t":"screen"}` for subscribed
+sessions, `{"t":"usage"}`, `{"t":"projects"}`, `{"t":"shortcuts"}` - the last three
+also once on connect, or a client attaching between polls draws nothing. And
+`{"t":"quit"}`: save and go.
 
 Client messages: `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste`.
-Everything that rewrites `config.toml` goes over HTTP instead, because the error
-body matters: `/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`,
-plus `POST /api/shortcuts/NAME/run`, which answers with the agent's name.
-`GET /api/usage`, `/api/presets` and `/api/game` are there for anything that would
-rather ask than listen. `POST /api/open` is the odd one out: not config at all, but
-an errand on the host, and it answers 400 for a URL it will not take and 502 for an
-opener that would not.
+Everything that rewrites `config.toml` goes over HTTP instead, because the error body
+matters: `/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`, plus
+`POST /api/shortcuts/NAME/run`. `GET /api/usage`, `/api/presets` and `/api/game` are
+for anything that would rather ask than listen. `POST /api/open` answers 400 for a
+URL it will not take and 502 for an opener that would not.
 
 ## Mod
 
-Harmony patches are applied from `SlopWorldBootstrap`. Most bind by attribute;
-`Patch_HideGui`, `Patch_MainButtons`, `Patch_InspectTabs` and `Patch_NoRelateAgents`
-are applied manually because their target sets are data or reflection. Ahead of all
-of it is `SlopProfile.Ok`, which is what makes the whole thing conditional on being
-in a profile - see "Profile".
+Patches are applied from `SlopWorldBootstrap`, most by attribute. `Patch_HideGui`,
+`Patch_MainButtons`, `Patch_InspectTabs` and `Patch_NoRelateAgents` are manual
+because their target sets are data or reflection.
 
-### `Client/` - talking to slopd
+### `Client/`
 
-`SessionHub` is the singleton and the single source of truth, pumped once a frame
-from a `Root.Update` postfix. `MiniWebSocket` speaks RFC6455 by hand, because
-Unity's mono cannot be trusted with `ClientWebSocket`. `Json` is a minimal reader,
-because RimWorld ships none. `SlopClient` is the HTTP half, with completions
-replayed on the main thread. `SlopConfig` mirrors the config sections the settings
-GUI edits.
+`SessionHub` is the singleton and single source of truth, pumped once a frame from a
+`Root.Update` postfix. `MiniWebSocket` speaks RFC6455 by hand because Unity's mono
+cannot be trusted with `ClientWebSocket`; `Json` is a minimal reader because RimWorld
+ships none. `SlopClient` is the HTTP half, completions replayed on the main thread.
+`SlopConfig` mirrors the config sections the settings GUI edits.
 
-### `Sim/` - the board
+### `Sim/`
 
-`GameComponent` and `MapComponent` subclasses are constructed automatically, so
-none of these need a def.
+`GameComponent` and `MapComponent` subclasses are constructed automatically, so none
+of these need a def.
 
-- `AgentColony` - reconciles sessions to colonists once a second: spawns, retires,
-  renames, postures. Down is the only posture it imposes; an idle agent is left to
-  the think tree, and the daemon's word is carried by the state icon and the
-  inspect pane instead. Moving *into* idle rings `TinyBell`; a state seen for the
-  first time is not a move. It stands down while `Cutscene.AgentsHeld` is up. Every
-  colonist it spawns comes down in a drop pod - the opening scene's and the one
-  added on a Tuesday alike - so `Spawn` hands back a pawn that is not spawned yet,
-  and the haze it arrives in waits on `_landing`, checked every tick rather than on
-  the reconcile's own second. Taking a pawn into the table dirties its graphics,
-  which is what gets the faceplate onto a loaded colony and what refreshes the
-  portrait cache.
-- `TimeKeeper` - unpauses the game. With the time controls stripped there is no way
-  for the player to start the clock again, so a pause would be forever.
-- `ColonyNames` - "Clankers" and "SlopWorld", written on `FinalizeInit`. Answering
-  both up front closes all three naming dialogs with no patch.
-- `RealClock` - the wall clock, both ways. Ticks read as real seconds at Normal
-  speed; the calendar is steered by rewriting `TickManager.gameStartAbsTick` every
-  frame, which moves glow, shadows, hour and season at once. One game day to a real
-  day, the landing day being day one; the epoch is scribed.
-- `SpawnSpot`, `LandingSite` - where agents land and where the colony does. Both
-  exist because vanilla's answer is "anywhere legal", which here means sealed in
-  rock and on an ice sheet.
-- `Plague`, `IntroDirector` - the opening scene and what eats the map afterwards.
-  The scene is a cutscene: `UiHidden` takes the interface away *and*
-  `Selector.Select`. Beats are one phase each and every transition goes through
-  `Go`, which clears the phase timer and the one-off flag. Nobody is standing on the
-  map at tick zero - `SlopScenario` drops the part that hands over people - so what
-  arrives is the scene's to choose: the hillside is placed, cat and all, then the
-  core falls into it, then a few seconds of it venting alone, then the plague is
-  armed, and only then are the agents released to come down into it. The plague's bands are a
-  continuous falloff dithered against `Grit`, a per-cell value stable across
-  reloads - a hard threshold draws a line you can trace, and a chance re-rolled each
-  sweep converges on certainty. `StuntFrom` is the gap that keeps the weak band's
-  work from being redone every lap. Fire containment asks only whether the plague has
-  been there (`Reaches`), or a fire could not cross a cell the dither spared.
-  `Patch_NoRegrowth` is gated on `Band.Full`, so the weak band keeps growing what
-  it only holds back. `Vent` is the core breathing for the life of the colony.
-  The plague is not a circle. It is the union of a source per finished thing: the core
-  emits `CoreRadius` and nothing else it ever does, and every plate and monument the
-  agents raise emits its own (`Bloom`, off `Worksite.Patch_ErrandDone`). So the map is
-  not eaten on a figure - it dies where the agents have been, and the shape of the dead
-  ground is the shape of an hour's work. Nothing is earned and nothing is spent: a
-  monument is not a payment for a ring, it is a thing that kills the ground round it.
-  What is kept is one **arrival tick a cell** (`Cells`), min-combined on the way in and
-  never raised, because nothing here takes a finished thing back off the board. That
-  append-only field is the whole reason the model is affordable: `BandAt` is asked ten
-  thousand times a second and a source per paved cell is thousands of sources, so the
-  region has to be a lookup and can never be a loop. A cell's *age* is its dose -
-  `Bite` ramps from nothing to certain over `RipenTicks`, and `CreepPerCell` is how
-  fast a stamp opens outward - which is the same falloff the old rim measured off a
-  radius, said in time instead. Saying it in time is what makes one figure right at
-  both ends of the scale: a stamp two cells across is a fringe entire for half a minute
-  and solid after, while ground paved over for an hour is old in the middle and young
-  only at the outer hull. `Girth` is the plague said as a radius - the circle that
-  would hold as much ground as it has actually taken - and it is a *bulk* rather than a
-  furthest reach, because a leash one plate thrown at its edge could drag is not a
-  leash. The field is scribed through `MapExposeUtility.ExposeUshort` as a signed
-  offset in seconds, which halves it and loses nothing the dither would show; the
-  offsets are rebased in `FinalizeInit` rather than in `Unpack`, because a map is
-  scribed *before* the tick manager is and the clock read during a load is the last
-  game's. A save from before the field is not migrated - a radius says nothing about
-  which cell died when - and comes back with the core's own circle and no more.
-- `Outskirts` - the other side of that: animals and people keep walking in off the
-  map edge, so the rim stays alive. The census counts the population the plague has
-  not reached rather than the map's. Off until `Plague.Active`.
-- `Pets` - the starting cat, and only the cat. It survives because
-  `Plague.Infectable` spares the player faction. She is placed anywhere standable
-  with the rest of the hillside, before anything falls, so she reads as the map's
-  rather than as a delivery; `Place` culls any colony animal already there, which
-  makes it idempotent. Clicking it plays its call
-  and pats it.
-- `Aura` - the only thing that takes ground back off the core, and the only thing a
-  player *does*. `Pat` is its whole input. A pulse clears filth and fire, unmarks
-  what is standing in it, spares the plants, mends one of them, and heals the cat
-  (`Comfort` - nothing on this map heals by itself). `ReviveChance` keeps the mend
-  to every second or third pat. The grace is temporary (`GraceTicks`), and neither
+- `AgentColony` - reconciles sessions to colonists once a second. Down is the only
+  posture it imposes. Moving *into* idle rings `TinyBell`; a state seen for the first
+  time is not a move. Stands down while `Cutscene.AgentsHeld`. Colonists arrive in
+  drop pods, so `Spawn` hands back a pawn that is not spawned yet and the arrival haze
+  waits on `_landing`, checked every tick rather than on the reconcile's second.
+  Taking a pawn into the table dirties its graphics, which is what gets the faceplate
+  onto a loaded colony.
+- `TimeKeeper` - unpauses. With the time controls stripped, a pause is forever.
+- `ColonyNames` - answers all three naming dialogs up front on `FinalizeInit`, which
+  closes them with no patch.
+- `RealClock` - ticks read as real seconds at Normal speed; the calendar is steered by
+  rewriting `TickManager.gameStartAbsTick` every frame, which moves glow, shadows,
+  hour and season at once. One game day per real day; the epoch is scribed.
+- `SpawnSpot`, `LandingSite` - vanilla's "anywhere legal" means sealed in rock or on
+  an ice sheet.
+- `IntroDirector` - `UiHidden` takes the interface away *and* `Selector.Select`. Every
+  transition goes through `Go`, which clears the phase timer and the one-off flag.
+  `SlopScenario` drops the part that hands over people, so nobody is on the map at
+  tick zero and the scene chooses what arrives.
+- `Plague` - the union of a source per finished thing: the core emits `CoreRadius`,
+  every plate and monument its own (`Bloom`, off `Worksite.Patch_ErrandDone`).
+  - `Cells` keeps one **arrival tick per cell**, min-combined and never raised.
+    Append-only is what makes it affordable: `BandAt` is asked ten thousand times a
+    second, so the region must be a lookup and can never be a loop over sources.
+  - A cell's age is its dose: `Bite` ramps to certain over `RipenTicks`,
+    `CreepPerCell` is how fast a stamp opens outward.
+  - Bands are a continuous falloff dithered against `Grit`, a per-cell value stable
+    across reloads. A hard threshold draws a traceable line; a chance re-rolled each
+    sweep converges on certainty.  `StuntFrom` keeps the weak band's work from being
+    redone every lap.
+  - Fire containment asks only whether the plague has *been* there (`Reaches`), or a
+    fire could not cross a cell the dither spared. `Patch_NoRegrowth` is gated on
+    `Band.Full`, so the weak band keeps growing what it only holds back.
+  - `Girth` is the plague as a radius: the circle holding as much ground as it has
+    taken. A bulk rather than a furthest reach, or one plate at the edge drags the
+    leash.
+  - Scribed via `MapExposeUtility.ExposeUshort` as a signed offset in seconds, rebased
+    in `FinalizeInit` rather than `Unpack` - a map is scribed *before* the tick
+    manager, so the clock read during a load is the last game's. Older saves are not
+    migrated and come back with the core's circle only.
+- `Outskirts` - animals and people walk in off the map edge so the rim stays alive.
+  The census counts the population the plague has *not* reached. Off until
+  `Plague.Active`.
+- `Pets` - the cat survives because `Plague.Infectable` spares the player faction.
+  `Place` culls any colony animal already there, which makes it idempotent.
+- `Aura` - the only thing that takes ground back off the core, and the only player
+  input (`Pat`). A pulse clears filth and fire, unmarks what stands in it, mends one
+  plant and heals the cat (`Comfort` - nothing here heals by itself). `ReviveChance`
+  keeps the mend to every second or third pat. `GraceTicks` is temporary and neither
   table is saved.
-- `Worksite` - what a clanker does with its hands while its process is burning
-  tokens. A working agent takes the nearest frame nobody has reserved and hammers at
-  it; with none free it opens one where it is standing, which is wherever an agent
-  with nothing to do had wandered to - a free spread, and the walk out to the errand
-  is a few steps rather than a crossing. Everything it finishes emits plague
-  (`Plague.Bloom`), which is the whole causal line this map is about and it runs one
-  way: the agents build, the ground they built on dies, and the dead ground is the
-  visible sum of what the sessions have been busy doing.
-  So the site is *not* held inside the dead ground - it could not be, since ground only
-  the site makes cannot also be the ground the site needs to start. It is held near the
-  middle instead: `Roam` is `Plague.Girth` plus `RoamMargin`, a ring of living ground
-  outside the plague, and a pawn that has wandered out past it is aimed back in. That
-  leash can neither stall nor run away, and both halves are the point - building
-  anywhere blooms, blooming grows the girth, and the girth is what the leash is measured
-  off, so the room to work in is opened by the work; and girth being a bulk rather than
-  a furthest reach means the next ring costs ground that actually died rather than one
-  plate thrown at the edge. A distance rather than the plague's own shape, because the
-  region is a union of thousands of stamps and "within a few cells of somewhere dead"
-  asked of every candidate cell is hundreds of lookups where this is one.
-  Leaving `Working` ends the job where it stands, and `Frame.workDone` stays on the
-  frame, so a monument is the sum of every burst the agent has had. The one system
-  here that does *not* apply its effects by hand: the vanilla job driver walks the
-  pawn, faces it, throws the construction effecter, draws the progress bar and rolls
-  quality off the builder. What the map cannot supply is materials - no stockpiles, no
-  haulers, no economy - so a frame arrives with its stone already in it (`Fill`).
-  An agent is allowed exactly one kind of work and only while its process is busy:
-  `Allow` puts every work type at zero and Construction at three, and `Stop` puts that
-  back. Both halves are load-bearing. Left with the vanilla work sheet a colonist is
-  one vanilla's own work givers find jobs for - blood to clean, steel to haul out of a
-  frame the plague blew up - and this loop forces its errand over the top a quarter
-  second later, which reads as a clanker that turns round every few steps and never
-  arrives. Left with Construction on while idle, the work giver hands it the nearest
-  frame and the site stops saying which processes are busy.
-  The errand table states its costs in *seconds of an agent's working time* and
-  `Patch_ErrandWork` is where that lands on `Frame.WorkToBuild`, because vanilla's own
-  figures are an economy's and this one has none: a metal plate is instant, a column
-  or a grave four seconds, a sarcophagus eight, a large stele fifteen and a grand one
-  thirty; the ancient kit sits on those same tiers, a lamp or a lamppost against the
-  four and the big machine against the thirty. How *often* each is picked is the
-  `*Odds` block at the top of the class, and that block is the whole of the tuning:
-  whole numbers summing to a hundred, so a line reads as the share of the finished site
-  that will be that thing. Nothing enforces the sum - `Pick` normalises whatever it is
-  handed, and has to, because it weighs only what the pawn in front of it could finish.
-  Which is why the paving terrain must ask for no construction skill:
-  `Patches/PavingHands.xml` takes steel tile's inherited
-  `constructionSkillPrerequisite` of three off it, or a colonist the generator rolled
-  a two for never lays a plate in the life of the colony - more than half the table
-  silently off its sheet - and `Sweep` destroys the floor a skilled clanker queued
-  the moment no agent on the map has the hands for it. Same ground as `SteadyHands`
-  and `Patch_AgentsCanBuild`: whose hands the frame was put into is never allowed to
-  be the answer to what this site builds.
-  Paving is ten parts in thirty-six by count, the monuments and graves ten, the ancient
-  kit sixteen; the rack, the screens and the cabinets carry most of that last share, and
-  the lamppost and the big machine are held to one each, one lamp lighting a good few
-  cells and a field of them lighting the same ground over and over. Shares by *count*
-  are not shares of the clock - a plate is a tenth of a second where a grand stele is
-  thirty - but a paving errand is forty-nine frames, which is what keeps the floor most
-  of what actually gets laid.
-  Alongside the odds is the `*Bloom` block, which is how far the plague walks out of each
-  thing once it stands, and between them they are what sets how fast the map dies. It is
-  roughly flat per second of an agent's working time on purpose: the map has to die at
-  the speed the sessions are busy and not at the speed of whichever errand the darts
-  happened to favour.
-  Paving is most of what gets picked on top of that, where a monument is an event
-  because it is rare. `Interval` is a quarter second for the same reason: the errand a
-  pawn is handed here is the whole of what it does next, and a plate takes less than a
-  tick to lay. `Wipe`, from `NextPlanet.Leave`, takes the site down before the colony
-  is discarded - a new planet is a new map and nothing of this one's could reach it,
-  but the site is the only thing here that leaves permanent marks on the board.
-  A frame is only handed out if `GenConstruct.CanConstruct` says yes, which is the
-  driver's own fail condition asked one tick early: without it a frame nobody can
-  reach is handed out, fails, and is handed straight back on the next look forever.
-  A round of darts that finds nowhere to lay *floor* sits the whole site down for five
-  seconds (`BlockedFor`) - a plate is one cell and wants no clearance, so its failing is
-  the leash's answer rather than its own, and every agent asking four times a second
-  otherwise means five hundred `CanPlaceBlueprintAt` calls a second against ground that
-  is not going to change. Anything with a shape asks for a
-  footprint and a pad, and a five-by-three machine finding no room within a few steps
-  of one pawn is not grounds for stopping the agents who still had somewhere to pave.
-  The other half of that is `Sweep`, once a second: a frame with a plant grown into it
-  or a chunk landed on it is one vanilla wants *cleared* before it can be built, which
-  on this map means work no agent is allowed and a hauler that does not exist. It can
-  never be finished, it counts against `MaxOpen`, and nothing else would ever take it
-  away - so a site left alone fills its own quota with rubbish and the agents run out
-  of anywhere to build while the ground is still empty, which from the outside is a
-  clanker walking, stopping and walking again. `GenConstruct.FirstBlockingThing` is
-  vanilla's own word for it rather than a guess of ours; `Fits` declines the same
-  ground on the way in, off `clearBuildingArea` and `forceMoveItemsBeforeConstruction`,
-  but only what it can see, and on a map being eaten the ground changes afterwards.
-  Those two flags are read off the thing's *blueprint* rather than off the thing,
-  because for a floor the two disagree and only the blueprint's is the answer the game
-  will give: `NewBlueprintDef_Terrain` sets both false, so a plate goes straight over
-  grass and over a chunk of slag, and only a plant worth harvesting blocks one
-  (`Rooted`, which is where `GenConstruct.BlocksConstruction` draws the line). Read off
-  the `TerrainDef`, where `clearBuildingArea` is true as it is on every `BuildableDef`
-  by default, every cell with a blade of grass or a bit of rubble in it was refused as
-  a paving site - which on the rim, where the weak band leaves plants standing, and
-  anywhere a detonation has been, is most of them. A round of darts that lands there
-  finds nowhere to pave and `BlockedFor` sits the site down on that answer, so from
-  outside it read as clankers that only ever build things.
-  Nothing samples how full the ground is any more, and nothing needs to: what the site
-  has finished with is written into the plague's own field as it happens, and `_laid` is
-  the tally of it kept only to be printed.
-  `Patch_HideFloorFrames` takes the paving frame's four white corner brackets off the
-  board: the site queues floor a square at a time, so ahead of the agents that is a
-  grid over most of the map, saying nothing anybody can act on - no order to cancel, no
-  material to deliver. Anything with a shape keeps its frame, a monument being half a
-  minute of somebody being busy and worth watching go up.
-  Monuments and graves otherwise, because a machine told nothing
-  about what for builds a marker, a place to put somebody, and a slab with writing on
-  it nobody will read; sculptures are not among them because they are bench work in
-  this game, crafted and installed rather than built, and steles carry the same
-  `CompArt` anyway. The other half of what it was told nothing about is the world it
-  came out of: racks, monitor banks, cabinets, a generator, and one machine the size
-  of a house that does nothing. Vanilla ships those as scenery for its own ruins and
-  lets no player build one - `Patches/AncientBuildings.xml` is the whole of what stands
-  between here and a server rack, since `BuildableDef.BuildableByPlayer` is literally
-  `designationCategory != null` and a frame is generated for nothing else. They cost
-  nothing and ask for no construction skill, so a frame is workable the tick it is
-  placed and every agent that lands can raise one. `AncientLamp` is the only one of
-  them that is not decoration: a `CompGlower` with neither a power comp nor a fuel one,
-  which makes it the one light in the game that simply burns - no grid, no hauler,
-  nothing to run out. A few of them is a night with somewhere to walk and the rest is
-  daylight, which is why it is one of the rarest of the seven rather than one of the
-  commonest. `AncientMachine` needs `disableImpassableShotOverConfigError` in the same
-  patch, because vanilla calls impassable-and-half-filling an error the moment a def
-  becomes player-buildable.
-  Stone for the monuments, and the tile's own rock, so they read as one
-  thing; the floor is metal plate rather than the matching flagstone, because a
-  machine paving over ash lays down what it is made of and stone read as a garden path
-  through a dead world. Floors are laid a square at a time, around the cell the site
-  landed on, or the agent would spend the burst walking between single cells.
-- `AutoResume`, `AutoSaver`, `TerminalRecall` - what makes a restart cheap. None of
-  the three has a switch. `AutoResume` loads the newest save on a cold start and,
-  finding none, calls `QuickStart.Queue` instead - a fresh profile lands in a colony
-  rather than on a menu, which is the same place every launch after it lands. Both
-  ways in are that one call: the player's is `Patch_QuickStart`, off
+- `Worksite` - a working agent takes the nearest unreserved frame; with none free it
+  opens one where it stands. Everything finished emits plague (`Plague.Bloom`).
+  - The site cannot be held *inside* the dead ground: ground only the site makes
+    cannot also be ground it needs to start. `Roam` is `Plague.Girth` plus
+    `RoamMargin` and a pawn past it is aimed back in - building blooms, blooming grows
+    the girth, and the girth is what the leash is measured off. A distance rather than
+    the plague's own shape, because "within a few cells of somewhere dead" asked of
+    every candidate is hundreds of lookups where this is one.
+  - Leaving `Working` ends the job where it stands and `Frame.workDone` stays on the
+    frame, so a monument is the sum of every burst.
+  - No stockpiles, no haulers, no economy, so a frame arrives with its stone in it
+    (`Fill`).
+  - `Allow` puts every work type at zero and Construction at three; `Stop` puts that
+    back. Both halves are load-bearing: on the vanilla work sheet a colonist finds
+    vanilla jobs and this loop overrides them a quarter second later, so the pawn
+    turns round every few steps; with Construction left on while idle, the work giver
+    hands it the nearest frame and the site stops saying which processes are busy.
+  - The errand table states costs in *seconds of an agent's working time*;
+    `Patch_ErrandWork` lands that on `Frame.WorkToBuild`. `*Odds` is the whole of the
+    tuning: whole numbers summing to a hundred, each the share of the finished site.
+    Nothing enforces the sum - `Pick` normalises whatever it is handed, and must,
+    because it weighs only what the pawn in front of it could finish. `*Bloom` is kept
+    roughly flat per second of working time, so the map dies at the speed the sessions
+    are busy.
+  - `Patches/PavingHands.xml` takes steel tile's inherited
+    `constructionSkillPrerequisite` of three off the paving terrain, or a colonist
+    rolled a two never lays a plate and half the table is silently off its sheet, and
+    `Sweep` destroys floor a skilled clanker queued once nobody has the hands. Same
+    ground as `SteadyHands` and `Patch_AgentsCanBuild`.
+  - `Interval` is a quarter second: the errand a pawn is handed is the whole of what
+    it does next, and a plate takes less than a tick to lay.
+  - `Wipe`, from `NextPlanet.Leave` - the site is the only thing here leaving
+    permanent marks on the board.
+  - A frame is handed out only if `GenConstruct.CanConstruct` says yes, the driver's
+    own fail condition asked one tick early; otherwise an unreachable frame is handed
+    out, fails, and is handed back forever. A round of darts finding nowhere to lay
+    *floor* sits the site down for five seconds (`BlockedFor`), or every agent asking
+    four times a second is five hundred `CanPlaceBlueprintAt` calls a second against
+    ground that will not change. Anything with a shape asks for a footprint and a pad,
+    and finding no room near one pawn is not grounds for stopping agents who could
+    pave.
+  - `Sweep`, once a second: a frame with a plant grown into it or a chunk on it is one
+    vanilla wants *cleared* first, which here means work no agent is allowed and a
+    hauler that does not exist. It can never finish and counts against `MaxOpen`, so a
+    site left alone fills its own quota with rubbish.
+    `GenConstruct.FirstBlockingThing` is vanilla's own word for it. `Fits` reads
+    `clearBuildingArea` and `forceMoveItemsBeforeConstruction` off the thing's
+    *blueprint* rather than the thing: for a floor the two disagree and only the
+    blueprint's is the answer the game will give. `NewBlueprintDef_Terrain` sets both
+    false, so a plate goes over grass and slag and only a plant worth harvesting
+    blocks one (`Rooted`). Read off the `TerrainDef`, where `clearBuildingArea`
+    defaults true, every cell with a blade of grass was refused as a paving site.
+  - `Patch_HideFloorFrames` - floor is queued a square at a time, so its corner
+    brackets are a grid over most of the map saying nothing anybody can act on.
+    Anything with a shape keeps its frame.
+  - `Patches/AncientBuildings.xml` is all that stands between here and a server rack:
+    `BuildableDef.BuildableByPlayer` is literally `designationCategory != null`, and a
+    frame is generated for nothing else. Those defs cost nothing and ask no skill, so
+    a frame is workable the tick it is placed. `AncientLamp` is a `CompGlower` with
+    neither a power nor a fuel comp, the one light in the game that simply burns.
+    `AncientMachine` needs `disableImpassableShotOverConfigError` in the same patch:
+    vanilla calls impassable-and-half-filling an error the moment a def becomes
+    player-buildable. Sculptures are absent because they are bench work in this game,
+    and steles carry the same `CompArt` anyway.
+- `AutoResume`, `AutoSaver`, `TerminalRecall` - what makes a restart cheap; none has a
+  switch. `AutoResume` loads the newest save on a cold start and, finding none, calls
+  `QuickStart.Queue`. The player's way in is `Patch_QuickStart`, off
   `Page_SelectScenario.PreOpen`.
-- `NextPlanet` - bins the map and lands a fresh one. The seam is
-  `OptionListingUtility.DrawOptionListing` rather than the menu itself, and the
-  listing is drawn *twice* per menu (the second is the web links column), hence the
-  `Column` flag armed on the way into `DoMainMenuControls`. The same pass drops
-  four rows - Save, Load, Review scenario, Quit to main menu - matched on the
+- `NextPlanet` - the seam is `OptionListingUtility.DrawOptionListing`, drawn *twice*
+  per menu (the second is the web links column), hence the `Column` flag armed on the
+  way into `DoMainMenuControls`. The same pass drops four rows, matched on the
   translated label. `MainTabWindow_Menu` asks for a fixed size, so the height is
   postfixed by the net row count, written down *and* overwritten with what the last
-  listing did. The closing scene is paced: `Hold`, then `Waves` with a `Lull`
-  between, then `Settle`; the front is paced off the wall clock, fireballs are
-  counted off the *area* taken and banked in `_owed`. Beat on
-  `GameComponentUpdate`, fire on `GameComponentTick`.
+  listing did. Closing scene: beat on `GameComponentUpdate`, fire on
+  `GameComponentTick`, fireballs counted off the *area* taken and banked in `_owed`.
 - `Cutscene` - which of the two scenes has the board, asked in one place.
-- `TerminalHotkeys` - F12 in from anywhere. Opening lives here; closing cannot (see
-  Gotchas) and lives in `TerminalWindow`.
-- `SlopScenario` - Crashlanded via `Scenario.CopyForEditing`, stripped of every
-  part that hands anything over: `ScenPart_ThingCount`, `StartingAnimal`,
-  `StartingMech` and `ConfigPage_ConfigureStartingPawnsBase`, plus
-  `GameStartDialog`. Matched by assignability. Derived rather than hand-written,
-  because the parts we are *not* interested in are what a hand-written def gets
-  wrong. Dropping the pawn part is only half of starting empty - it leaves
-  `GameInitData.startingPawnCount` at the field's own `-1`, which `PrepForMapGen`
-  indexes the pawn list with, so `QuickStart` writes a zero over it after
-  `PostIdeoChosen`.
-- `RobotFace` - the faceplate: metal from the hairline down, clipped to the skull,
-  drawn over the vanilla head. `SlopFaceRenderNodes` is a
-  `DynamicPawnRenderNodeSetup`, so it needs no def; it takes its mesh from the hair
-  set, reads its layer off the head node, and hands back a null parent so we never
-  hold a node the tree has rebuilt. `Apply` takes the beard off; `FitHair` rerolls
-  hair that shows scalp, once, at generation. `tools/roboface.py` draws the texture.
+- `TerminalHotkeys` - F12 in from anywhere. Closing cannot live here (see Gotchas) and
+  lives in `TerminalWindow`.
+- `SlopScenario` - Crashlanded via `Scenario.CopyForEditing`, stripped by
+  assignability of every part that hands anything over. Derived rather than
+  hand-written, because the parts we are *not* interested in are what a hand-written
+  def gets wrong. Dropping the pawn part leaves `GameInitData.startingPawnCount` at
+  the field's own `-1`, which `PrepForMapGen` indexes the pawn list with, so
+  `QuickStart` writes a zero over it after `PostIdeoChosen`.
+- `RobotFace` - `SlopFaceRenderNodes` is a `DynamicPawnRenderNodeSetup`, so it needs
+  no def; it takes its mesh from the hair set, reads its layer off the head node, and
+  hands back a null parent so we never hold a node the tree has rebuilt. `FitHair`
+  rerolls hair showing scalp, once, at generation. `tools/roboface.py` draws the
+  texture.
 - `StatusOverlay`, `QuickStart`, `SlopDefOf`.
 
-### `Patches/` - taking the game away
+### `Patches/`
 
-- `StripPatches` - the sim, killed by declining to tick it rather than by patching
-  out systems one at a time.
-- `StripUI`, `StripInteraction` - the chrome and the two remaining ways to play a
-  pawn. Hiding a main button is not taking its tab away: two roads reach the
-  Architect menu and neither looks at `Visible`, so `Patch_MainButtons` prefixes
-  `MainButtonWorker.InterfaceTryActivate` and gates it on the same `Visible` the
-  bar reads. A button missing from `Keep` never appears at all.
-- `StripOptions` - the same job on the one vanilla window left standing. Categories
-  are defs, so Gameplay goes by setting `isDev` (which vanilla's own loop already
-  skips on) rather than by removing a def `OptionCategoryDefOf` names. Rows are
-  widget calls, so three prefixes decline to draw when the label is one of ours -
-  labels built per call, matched on the finished string, gated on
-  `currentlyDrawnWindow` rather than a flag that an exception could strand.
-- `NoRescueAgents`, `NoStripAgents`, `NoHarmAgents` - a colonist is a status light.
-  Damage dies in `Pawn.PreApplyDamage`; the three ways an animal reaches an agent
-  are closed one each, and the last hands a pet a nuzzle instead of a bite.
-  `NoBurningTheColony` closes both attachment and cell damage, and spares the whole
-  player faction.
-- `NoRelateAgents` - vanilla builds a new pawn's relatives out of everyone alive,
-  and `PawnRelationWorker_Parent.ResolveMyName` casts a parent's name to
-  `NameTriple` where an agent's is a `NameSingle`. Zeroing the weight is all it
-  takes. Applied by hand because `GenerationChance` is virtual.
-- `AgentsCanBuild` - roughly one backstory in five disables ManualSkilled, which
-  takes Construction with it, and `Worksite` would then have an agent that stood
-  about through every burst it ever worked. The list `Pawn.GetDisabledWorkTypes`
-  hands back is the pawn's own cache, so removing Construction from it is what makes
-  the answer stick, and vanilla rebuilding the cache only means this runs again.
+- `StripPatches` - the sim, killed by declining to tick it rather than by patching out
+  systems one at a time.
+- `StripUI`, `StripInteraction` - hiding a main button is not taking its tab away: two
+  roads reach the Architect menu and neither looks at `Visible`, so
+  `Patch_MainButtons` prefixes `MainButtonWorker.InterfaceTryActivate` and gates it on
+  the same `Visible` the bar reads. A button missing from `Keep` never appears.
+- `StripOptions` - categories are defs, so Gameplay goes by setting `isDev` (which
+  vanilla's own loop already skips on) rather than by removing a def
+  `OptionCategoryDefOf` names. Rows are widget calls, so three prefixes decline to
+  draw when the label is one of ours, matched on the finished string and gated on
+  `currentlyDrawnWindow` rather than a flag an exception could strand.
+- `NoRescueAgents`, `NoStripAgents`, `NoHarmAgents` - damage dies in
+  `Pawn.PreApplyDamage`; the three ways an animal reaches an agent are closed one
+  each. `NoBurningTheColony` closes both attachment and cell damage and spares the
+  whole player faction.
+- `NoRelateAgents` - vanilla builds a new pawn's relatives out of everyone alive, and
+  `PawnRelationWorker_Parent.ResolveMyName` casts a parent's name to `NameTriple`
+  where an agent's is a `NameSingle`. Zeroing the weight is all it takes; applied by
+  hand because `GenerationChance` is virtual.
+- `AgentsCanBuild` - roughly one backstory in five disables ManualSkilled, which takes
+  Construction with it. The list `Pawn.GetDisabledWorkTypes` hands back is the pawn's
+  own cache, so removing Construction from it is what makes the answer stick, and
+  vanilla rebuilding the cache only means this runs again.
 - `SteadyHands` - a `StatPart` on `ConstructSuccessChance` answering 1 for an agent.
   Vanilla rolls that stat once per work tick and a short roll eats the frame's
-  materials and everything done to it, which on a map with no economy is not a lesson
-  about who was handed the hammer, it is an hour of somebody's tokens deleted because
-  the pawn generator rolled a backstory. Added to the def at startup rather than
-  patched into the driver: the roll is what wants changing, not the job.
+  materials and everything done to it. Added to the def at startup rather than patched
+  into the driver: the roll is what wants changing, not the job.
 - `ColonistBarStrip`, `ColonistBarAddButton`, `ColonistBarStateIcon`,
-  `InspectPanePatch`, `PawnGizmoPatch` - the parts of the UI that are kept,
-  extended. `Patch_AgentNeverIdle` answers `IsIdle` false for an agent, so the
-  daemon's word is the only thing that draws a clock.
-  `Patch_NoPrioritizedWorkGizmo` takes "Clear prioritized work" off the row: work
-  here comes from `Worksite` off the daemon's word and never through the priority
-  system, so the button has nothing to clear - and it turns up anyway, because a
-  `PriorityWork` that was never set reads back from a save with a zeroed cell and
-  `IntVec3` counts a zero as valid. A row that does nothing says the player has a
-  lever here.
-- `ColonistBarStrip` is the bar in *both* views, and that is the point: it prefixes
-  `ColonistBarOnGUI` to point the bar's own cached scale and draw locs at one
-  shrunk, centred row in a `BarH`-tall band, and a finalizer puts them back. Map or
-  terminal, the same call lays out the same pixels, so toggling a pane moves
-  nothing. Over a pane the call has to come from *inside* the window
-  (`ColonistBarStrip.Draw`, from `TerminalWindow.DoWindowContents`) or the terminal
-  paints over it, and `Suppressed` is what keeps the map-layer call from drawing a
-  buried second copy. The "+" slot is reserved before the row is centred, so the
-  portraits do not shuffle sideways when it appears; `Blocked` is the strip
-  declining to answer clicks while something is stacked over the pane, which on the
-  map layer never arises because `HandleEventsHighPriority` has already Used the
-  event by the time the map interface draws. The same swap has to go round
-  `ColonistBar.TryGetEntryAt`, because *selecting* a colonist off the bar does not
-  happen inside `ColonistBarOnGUI` at all: `Selector` asks that method while the map
-  handles the click, by which time the finalizer has put the vanilla layout back, and
-  the click was being tested against where the portraits would be without this mod.
-  The two layouts overlap for part of the row, which is why it read as some colonists
-  selecting and some not answering. Only the outermost call owns that swap - the bar
-  asks it of itself mid-draw, and restoring there would undo the layout being drawn.
-- `RunInBackground` - the setter is forced, not the getter, because what reaches
-  Unity is `PrefsData.Apply` reading the field. Enforced once at startup through
+  `InspectPanePatch`, `PawnGizmoPatch` - the kept parts of the UI, extended.
+  `Patch_AgentNeverIdle` answers `IsIdle` false, so the daemon's word is the only
+  thing that draws a clock. `Patch_NoPrioritizedWorkGizmo` removes "Clear prioritized
+  work", which turns up despite nothing setting it: a `PriorityWork` read back from a
+  save has a zeroed cell and `IntVec3` counts a zero as valid.
+- `ColonistBarStrip` is the bar in *both* views. It prefixes `ColonistBarOnGUI` to
+  point the bar's own cached scale and draw locs at one shrunk, centred row in a
+  `BarH`-tall band, and a finalizer puts them back, so toggling a pane moves nothing.
+  Over a pane the call must come from *inside* the window (`ColonistBarStrip.Draw`,
+  from `TerminalWindow.DoWindowContents`) or the terminal paints over it, and
+  `Suppressed` keeps the map-layer call from drawing a buried second copy. The "+"
+  slot is reserved before the row is centred, so portraits do not shuffle sideways.
+  `Blocked` is the strip declining clicks while something is stacked over the pane; on
+  the map layer that never arises, `HandleEventsHighPriority` having already Used the
+  event.
+  The same swap has to go round `ColonistBar.TryGetEntryAt`: `Selector` asks that
+  method while the map handles the click, by which time the finalizer has restored the
+  vanilla layout, and the two layouts overlap for part of the row - which is why it
+  read as some colonists selecting and some not. Only the outermost call owns the
+  swap; the bar asks it of itself mid-draw, and restoring there would undo the layout
+  being drawn.
+- `RunInBackground` - the setter is forced, not the getter, because what reaches Unity
+  is `PrefsData.Apply` reading the field. Enforced once at startup through
   `LongEventHandler.ExecuteWhenFinished`, `Apply` being a no-op off the main thread.
 - `RealTimePatches` - every duration the game prints, in real time.
-- `LoadingScreen` - the tips, and nothing else. The tip pool is cached on the first
-  draw into a static nothing rebuilds, and that draw is before any
-  `StaticConstructorOnStartup`, so writing the cache is the one move that lands;
-  `currentTipIndex` goes back with it. What is installed is a sliding window over a
-  wall of quotes, shuffled and run together, wrapped to the box and scrolled a line
-  at a time. One clock does both halves: `Tick` re-seasons and redraws, and the
-  scroll is `ScrollChance` flipped against that same tick rather than a delay of its
-  own, so the pace never reads as the machine's load. The zalgo goes on the joined
-  frame, or the noise travels with the words - `Marks` over the letter, `Overlays`
-  through it, `Gaps` a hair of extra space between words, which is the only one of
-  the three that moves anything sideways. Dice are `System.Random`, because this
-  screen is up during map generation. `Patch_LoadingLayout` writes
-  `GameplayTipWindow.WindowSize` before reading it - `Box`, ISO 216, with `Lines`
-  counted by probe rather than written down - and both patches stand down if the
-  wall could not be built. The mods/DLC panel is patched to zero size as well as no
-  draw, because `LongEventHandler` centres the stack on the total.
+- `LoadingScreen` - the tip pool is cached on the first draw into a static nothing
+  rebuilds, and that draw is before any `StaticConstructorOnStartup`, so writing the
+  cache is the one move that lands; `currentTipIndex` goes back with it. The scroll is
+  `ScrollChance` flipped against `Tick` rather than a delay of its own, so the pace
+  never reads as machine load. Zalgo goes on the joined frame, or the noise travels
+  with the words. Dice are `System.Random`, because this screen is up during map
+  generation. `Patch_LoadingLayout` writes `GameplayTipWindow.WindowSize` before
+  reading it, with `Lines` counted by probe; both patches stand down if the wall could
+  not be built. The mods/DLC panel is patched to zero size as well as no draw, because
+  `LongEventHandler` centres the stack on the total.
 
-### `UI/` - the terminal
+### `UI/`
 
-`UsageReadout` draws the quota windows top-left as the game's own resources - icon
-and white number, `%` or `$` - counting what is *left*, since a number that grew as
-the colony worked would read as stock coming in. A `MapComponent`, so it sits
-behind every window. Icons are assigned per key from `Known`/`Pool` and remembered,
-or they would move between polls.
+`UsageReadout` draws the quota windows as the game's own resources, counting what is
+*left*. A `MapComponent`, so it sits behind every window. Icons are assigned per key
+from `Known`/`Pool` and remembered, or they would move between polls.
 
 `CoreTip` hangs a loading-screen tip on the persona core, rolled once per hover.
-`DeadCursor` replaces the pointer with the Tame designator's hand, greyed, and
-waggles it when the cat is patted.
-
-`MenuBackground` rots the game's own menu planet: filters baked from whatever
-background this install ships, cached to disk, played back on two summed sines.
+`DeadCursor` replaces the pointer with the Tame designator's hand. `MenuBackground`
+bakes filters from whatever background this install ships and caches them to disk;
 `Patch_MenuBackgroundRot` hooks the draw rather than `Init`, because the loading
 screen draws the same background without going near `Init`.
 
 `TerminalWindow` renders a pane and forwards keys. Almost everything typed goes to
-the agent - Escape included, so leaving is Shift+Escape - and the few keys the
-window keeps are taken first: F12 closes, Alt+1..9 (and Alt+0) point it at that
-portrait, counting through `AgentColony.InBarOrder`. The same numbers are read on
-the map by `TerminalHotkeys`, where they select that agent and jump the camera
-instead - the strip is the same row either way, so its shortcuts have to be. Game
-components run *ahead* of the window stack in `UIRootOnGUI`, so the map half stands
-down while a pane is open rather than trusting the pane to have eaten the key.
-`Sgr` parses colour runs;
-`TerminalFont` deals with the cell grid; `SnapX`/`SnapY` put every box edge on a
-screen pixel, which is the thin black line that used to run through coloured diff.
+the agent - Escape included, so leaving is Shift+Escape - and the few keys the window
+keeps are taken first: F12 closes, Alt+1..9/Alt+0 point it at that portrait, counting
+through `AgentColony.InBarOrder`. The same numbers are read on the map by
+`TerminalHotkeys`. Game components run *ahead* of the window stack in `UIRootOnGUI`,
+so the map half stands down while a pane is open rather than trusting the pane to
+have eaten the key. `SnapX`/`SnapY` put every box edge on a screen pixel.
 
-`TerminalTheme` is the palette - foreground, background, cursor and its text,
-selection, link, and the sixteen ANSI slots - and `Sgr.DefaultFg`/`DefaultBg` are
-properties off it rather than constants, so the window's own fills follow the
-scheme too. The colours are resolved *into* the runs at parse time, which is why
-`Rev` exists: it moves on every scheme change, and both the run cache
-(`ScreenBuf.RunsRev`) and the pane's RenderTexture (`_cacheRev`) are keyed on it.
-Without that an idle agent keeps the old palette until it next writes something,
-which on an idle agent is never. `Get` on a name this build no longer ships answers
-the default rather than nothing, and the cursor override is read as `#rrggbb` or
-ignored - a bad hex leaves the scheme's own cursor rather than a white one. A block
-cursor is drawn opaque with the glyph put back over it in `CursorText`, because a
-translucent box left the character under it half-legible in every scheme.
+`TerminalTheme`: `Sgr.DefaultFg`/`DefaultBg` are properties off it rather than
+constants, so the window's own fills follow the scheme. Colours are resolved *into*
+the runs at parse time, which is why `Rev` exists - it moves on every scheme change,
+and both the run cache (`ScreenBuf.RunsRev`) and the pane's RenderTexture
+(`_cacheRev`) are keyed on it, or an idle agent keeps the old palette until it next
+writes, which on an idle agent is never. `Get` on an unknown name answers the
+default; the cursor override is read as `#rrggbb` or ignored. A block cursor is drawn
+opaque with the glyph put back over it in `CursorText`.
 
 Links come from two places and are the same thing by the time they are drawn.
-`emu.rs` carries the app's own OSC 8 through into the row (`safe_uri` strips
-controls and caps it), and `Sgr.Autolink` reads each row once more as *characters*
-to catch the http(s) URLs an agent merely printed - runs are how a row will be
-drawn, and a URL has no reason to respect where one ends, so `Split` cuts the runs
-against the spans instead. A run the app already linked is left alone. It is a row
-at a time, which is the whole limitation: a link the app wrapped is two links here,
-because the daemon does not mark the wrap. `TrackHover`/`LinkAt` decide the
-highlight, the tooltip and the click from one lookup, walking outwards over every
-run carrying the same URL. Ctrl+click opens; the right-button menu opens and copies,
-for anyone who never learned it. Opening goes through `POST /api/open` - slopd is
-the half of this on the host with a desktop to hand a URL to, and `open.rs` takes
-http, https and mailto and nothing else, tries `xdg-open`, `gio` and `wslview` in
-turn, and treats a child still alive after `HANDOFF` as a success, since an opener
-that has forked a browser has done its job. `Application.OpenURL` is the fallback
-rather than the road.
+`emu.rs` carries the app's own OSC 8 through into the row (`safe_uri` strips controls
+and caps it); `Sgr.Autolink` reads each row once more as *characters* to catch URLs
+an agent merely printed - runs are how a row will be drawn and a URL has no reason to
+respect where one ends, so `Split` cuts the runs against the spans. A run the app
+already linked is left alone. Row at a time is the limitation: a link the app wrapped
+is two links here, the daemon not marking the wrap. `TrackHover`/`LinkAt` decide
+highlight, tooltip and click from one lookup. Ctrl+click opens through
+`POST /api/open`; `open.rs` takes http, https and mailto and nothing else, tries
+`xdg-open`, `gio` and `wslview`, and treats a child still alive after `HANDOFF` as
+success. `Application.OpenURL` is the fallback rather than the road.
 
-The title bar carries a gear and a cross, and nothing else. Stop and Restart used to
-sit beside them and are in the agents list instead; nothing that ends an agent has a
-button here. Both sit at the *top* of the band rather than centred in it - the band
-is as tall as a portrait, and a control floating in the middle of one reads as
-sitting on the strip rather than on the window. The gear opens
-`TerminalSettingsWindow`; its icon is drawn in code (`GearIcon`, an annulus whose
-outer radius steps with the angle) because `TexButton` has no gear and a content
-path that resolves to null draws a button nobody can see. Because the buttons are
-drawn *before* `ColonistBarStrip.Draw`, the strip has to keep their corner clear:
-`TerminalWindow.CornerW`, subtracted from both ends of `FitScale`'s room, since the
-row is centred and the map view has to lay out the same pixels either way.
-`OpenMenu`, on the right button, is Copy,
-Paste and Select all - the clipboard errands, which never had a button anywhere -
-and, over a link, opening and copying that. Nothing that ends an agent is in it
-either, because a menu opened to copy a line is the
-wrong place to find one. The right button is taken before the forwarder ever sees
-it, in every mode: the menu has to be reachable from inside a full-screen TUI, and
-no agent here asks for button 2. Line two of the bar is the app's own title,
-`ScreenView.title`, off OSC 0/2 - drawn only when there is one, so a shell that
-never states one leaves the bar the height it was.
+The title bar carries a gear and a cross; anything that ends an agent is in the
+agents list instead. `GearIcon` is drawn in code because `TexButton` has no gear and
+a content path resolving to null draws an invisible button. Those buttons are drawn
+*before* `ColonistBarStrip.Draw`, so the strip keeps their corner clear via
+`TerminalWindow.CornerW`, subtracted from both ends of `FitScale`'s room since the
+row is centred and the map view lays out the same pixels. `OpenMenu` is on the right
+button, taken before the forwarder sees it in every mode: the menu has to be
+reachable from inside a full-screen TUI, and no agent here asks for button 2. Line
+two of the bar is `ScreenView.title` off OSC 0/2, drawn only when there is one.
 
-The colonist strip is *in* the title bar, which is why `HeaderH` is
-`ColonistBarStrip.BarH`. `OpenOverPane` is how a window opened from the bar - the
-"+", and the gear - is put on the Super layer with the pane, since an ordinary
-dialog would be added underneath it and never seen. The pane's size is the window's, not a setting:
-`NegotiateSize` divides the body rect by the cell size and sends a `resize`
-(debounced 0.2s), and keeps asking once a second while the frames coming back
-disagree - a fire-and-forget message over a socket that drops on every redeploy has
-no other way back. `BOOT_COLS`/`BOOT_ROWS` in `session.rs` is what a pane wears
+The colonist strip is *in* the title bar, hence `HeaderH` is `ColonistBarStrip.BarH`.
+`OpenOverPane` puts a window opened from the bar on the Super layer with the pane,
+since an ordinary dialog would land underneath. The pane's size is the window's, not
+a setting: `NegotiateSize` divides the body rect by the cell size and sends a
+`resize` (debounced 0.2s), and keeps asking once a second while the frames coming
+back disagree - a fire-and-forget message over a socket that drops on every redeploy
+has no other way back. `BOOT_COLS`/`BOOT_ROWS` in `session.rs` is what a pane wears
 until someone looks at it.
 
-`ProjectsWindow`, `SessionsWindow`, `ShortcutsWindow`, `EditProjectDialog`,
-`EditSessionDialog`, `EditShortcutDialog`, `ConfigMenuWindow` and `ConfigWindow`
-are the GUIs, all of which write straight through to the daemon.
-`TerminalSettingsWindow` is the exception: the only one that edits mod settings
-rather than `config.toml`, since the font and the palette are this screen's business
-and no agent's.
+The GUI windows write straight through to the daemon; `TerminalSettingsWindow` is the
+exception, editing mod settings instead.
 
-`ProjectsWindow` is the first button in the bottom bar, ahead of `agents`, because
-nothing can be added there until there is somewhere to add it. Its preset
-checkboxes come from `GET /api/presets`; a preset this build has never heard of is
-warned about and ignored. Greyed-and-shown beats hidden throughout (the temp
-project's directory, a Claude session's command), because a field that vanishes
-reads as a setting that does not exist.
-
-`EditProjectDialog`'s three path boxes are what the project *adds*, and under them
-`DoEffective` draws the merge - `[sandbox]`, then the ticked presets, then those
-boxes, deduplicated against the first that asked for it the way `paths()` does, then
-*sorted*: bind order is the daemon's business and settles nothing a reader can see,
-where a column read to find out whether some path is in it wants looking up rather
-than hunting through. It is there
-because the boxes alone say nothing about what an agent can reach, which is the only
-question the dialog is opened to answer, and because without it the machine-wide
-lists on the config window read as doing nothing. It says *asked for* rather than
-handed over: `paths()` drops a bind whose path is not on this machine and only the
-daemon knows which those are, so a readout claiming otherwise would be quietly wrong
-about a socket that was never there. `PresetInfo` keeps `Ro`/`Rw`/`Env` apart for
-this, `Gives` being the flattened tooltip view rather than the stored shape.
-
-`ConfigMenuWindow` is one page. The tabs went because two of the three answered
-somebody else's question - the agent list is `SessionsWindow`, and the sandbox an
-agent runs in is its project's - leaving the daemon, `[defaults]`, and the base
-every sandbox is built on, which has nowhere else to live. The field column is a
-scroll view sized from the previous frame's `CurHeight`, and its listing is begun on
-a rect far taller than it needs so nothing breaks to a second column.
-
-The connection is *stated* there, not edited: where the daemon listens and where the
-game dials are one question, since it is always this machine, and mod settings owns
-it because that is the half that can still be changed with the socket down. The
-button goes through to `Dialog_ModSettings`. `bind` and `token` stay in `SlopConfig`
-undrawn, because a field missing from `ToJson` is one the next unrelated save resets
-to its serde default; moving `bind` is `Edit as TOML` and a slopd restart, which is
-when it takes hold anyway.
-
-There is no daemon-wide sandbox switch. Whether an agent is sandboxed is
-`ProjectCfg::sandbox` and only that, because `[sandbox] enabled` silently beat every
-one of those checkboxes and so read as a checkbox that did nothing. A stale
-`enabled = true` in an existing `config.toml` is ignored on load and dropped on the
-next save; serde takes no notice of unknown fields.
-
-`ShortcutsWindow` sits between `agents` and `config`. Run is the wide button and
-closes the window on the *answer*, opening a terminal on whatever the daemon
-started; an `ask` errand's Run opens a float menu of every project plus a temporary
-one. The agents list draws a temporary agent without Edit or Del, because the
-daemon would refuse both, and Stop is what closes one.
+- `ProjectsWindow` is the first button in the bottom bar, ahead of `agents`, because
+  nothing can be added there until there is somewhere to add it. Preset checkboxes
+  come from `GET /api/presets`; an unknown preset is warned about and ignored.
+  Greyed-and-shown beats hidden throughout.
+- `EditProjectDialog`'s three path boxes are what the project *adds*; `DoEffective`
+  draws the merge - `[sandbox]`, presets, boxes, deduplicated the way `paths()` does,
+  then *sorted*. It says *asked for* rather than handed over, because `paths()` drops
+  a bind whose path is not on this machine and only the daemon knows which.
+  `PresetInfo` keeps `Ro`/`Rw`/`Env` apart for this, `Gives` being the flattened
+  tooltip view.
+- `ConfigMenuWindow` is one page: the daemon, `[defaults]`, and the base every sandbox
+  is built on. The field column is a scroll view sized from the previous frame's
+  `CurHeight`, its listing begun on a rect far taller than it needs so nothing breaks
+  to a second column. The connection is *stated* there, not edited - mod settings owns
+  it because that is the half still changeable with the socket down - and the button
+  goes through to `Dialog_ModSettings`. `bind` and `token` stay in `SlopConfig`
+  undrawn: a field missing from `ToJson` is one the next unrelated save resets to its
+  serde default.
+- No daemon-wide sandbox switch: it is `ProjectCfg::sandbox` and only that, because
+  `[sandbox] enabled` silently beat every one of those checkboxes. A stale
+  `enabled = true` is ignored on load and dropped on the next save.
+- `ShortcutsWindow` - Run closes the window on the *answer*, opening a terminal on
+  whatever the daemon started; an `ask` errand's Run opens a float menu of every
+  project plus a temporary one. A temporary agent draws without Edit or Del, because
+  the daemon would refuse both.
 
 ### Settings
 
 `SlopSettings` in `SlopWorldMod.cs`, reached through the static `Settings` shim:
-connection (`host`, `port`, `token`, `autoConnect`), `fontSize`, and the pane's
-`theme` and `cursorColor`. Adding one means a field, a `Scribe_Values.Look`, a shim
-property and a widget.
+`host`, `port`, `token`, `autoConnect`, `fontSize`, `theme`, `cursorColor`. Adding
+one means a field, a `Scribe_Values.Look`, a shim property and a widget.
 
-*Not* `config.toml`. These are RimWorld's own, scribed through `ModSettings` into
-`Config/Mod_SlopWorld_SlopWorldMod.xml` under the profile - named for the mod folder
-and the `Mod` subclass. `Scribe_Values` writes nothing that equals its
-default, so a file holding only `<ModSettings Class="SlopWorld.SlopSettings" />` is
-an install where every one of them is untouched, not a file that failed to save. The
-split is the same one the config window is built on: the daemon's file is about this
-machine, and this file is about this *install* - which screen is being read, and
-where it dials to reach a daemon it may not have reached yet.
+*Not* `config.toml`: RimWorld's own `ModSettings`, scribed into
+`Config/Mod_SlopWorld_SlopWorldMod.xml` under the profile, named for the mod folder
+and the `Mod` subclass. `Scribe_Values` writes nothing equal to its default, so a
+file holding only `<ModSettings Class="SlopWorld.SlopSettings" />` is an install
+where none of them was touched, not a failed save. The daemon's file is about this
+machine; this one is about this *install*.
 
-There used to be nine more, and every one named something the mod exists to do.
-Off, they turned RimWorld back on underneath a terminal. What is left is about this
-machine and about the eyes reading it, never about the design.
+Edited in two places: the connection in `DoSettingsWindowContents`, which still
+answers with no colony loaded where the bottom bar does not exist; the pane's three
+in `TerminalSettingsWindow` off the gear. Both are also doors on `ConfigMenuWindow`.
 
-They are scribed together and edited in two places. The connection is
-`DoSettingsWindowContents`, the vanilla road; the pane's three are
-`TerminalSettingsWindow`, off the gear, because a font size and a palette are judged
-by looking at a terminal and Options > Mod settings is behind a menu the terminal
-covers. Both are also doors on `ConfigMenuWindow`, which is where a player goes to
-set the thing up and so the one place worth looking first - so neither is reachable
-only when the other is, a setting you can find in one place only, and that place a
-running agent, reading as a setting that does not exist. The vanilla road is what
-still answers with no colony loaded, where the bottom bar does not exist.
+The file is written once, in `PostClose`, by `ModSettings.Write` rather than
+`Mod.WriteSettings` - the latter reconnects the socket. A size change also calls
+`TerminalFont.Invalidate`: the style rebuilds off the size, but the per-glyph fit
+verdicts are measured at one size and the pane's cache is keyed on the cell it was
+drawn at. The scheme calls `TerminalTheme.Invalidate`; the cursor field needs
+neither, since `Resolve` compares the hex it was given.
 
-Everything in that window writes through as it moves and the file is written once,
-in `PostClose`, by `ModSettings.Write` rather than `Mod.WriteSettings` - the latter
-reconnects the socket, which is not what a font size is asking for. A size change
-also calls `TerminalFont.Invalidate`: the style rebuilds itself off the size, but
-the per-glyph fit verdicts are measured at one size and the pane's cache is keyed on
-the cell it was drawn at. The scheme is picked from a float menu and calls
-`TerminalTheme.Invalidate`; the cursor field needs neither, since `Resolve` compares
-the hex it was given.
-
-The window is mostly preview, because neither setting is a number anyone can
-picture: sixteen swatches over the background they will be read on, and under them
-five rows drawn the way the pane draws them - same style, same cell, the same rule
-under a link and the same glyph put back over a block cursor - so what is judged
-there is what arrives here.
-
-Which terminal was open belongs to a colony, so `TerminalRecall` scribes it into
-the save; writing mod settings on every switch would also mean a reconnect.
+Which terminal was open belongs to a colony, so `TerminalRecall` scribes it into the
+save; writing mod settings on every switch would also mean a reconnect.
 
 ## Gotchas
 
 - 1.6 only. Most tick methods were renamed to interval forms in 1.6, so the patch
   targets will not bind on 1.5.
-- Launching `RimWorldLinux` by hand gets you a mod that has patched nothing and a
-  dialog saying why. Everything here goes through `slopworld`, and a save made
-  outside the profile is a save made against the game's own folder. `make run` is
-  the shortest way in; the marker file is `slopworld.profile` and the check is
-  `SlopProfile.Ok`.
-- A game tick and an absolute tick are different units here. `TicksGame` is the
-  game's, sixty to the real second; `TicksAbs` is `RealClock`'s, sixty thousand to
-  the real *day*. So `GenDate.TickAbsToGame` and `TickGameToAbs` no longer round
-  trip, and a duration in absolute ticks handed to anything expecting game ticks
-  reads eighty-six times short. Only the pawn log's timestamps store one.
-- The mod builds against a real game install, and Harmony errors surface in
-  `Player.log` at runtime, not at build time. A patch whose target moved fails
-  silently until you read the log.
-- When a vanilla method needs checking, disassemble rather than guess:
+- Launching `RimWorldLinux` by hand gets a mod that has patched nothing and a dialog
+  saying why. A save made outside the profile is a save against the game's own folder.
+- A game tick and an absolute tick are different units here. `TicksGame` is sixty to
+  the real second; `TicksAbs` is `RealClock`'s, sixty thousand to the real *day*. So
+  `GenDate.TickAbsToGame` and `TickGameToAbs` no longer round trip, and a duration in
+  absolute ticks handed to something expecting game ticks reads eighty-six times
+  short. Only the pawn log's timestamps store one.
+- Harmony errors surface in `Player.log` at runtime, not at build time. A patch whose
+  target moved fails silently until you read the log.
+- Disassemble rather than guess:
   `ikdasm "$RIMWORLD/RimWorldLinux_Data/Managed/Assembly-CSharp.dll"`. The game also
   ships a sample of its own source under `$RIMWORLD/Source`.
-- An exception thrown inside `AgentColony.GameComponentTick` stops the whole
-  reconcile, not just one pawn.
-- GUI draw order in one frame is `UIRoot_Play.UIRootOnGUI`: map interface (colonist
-  bar, alerts, readouts), then `WindowStackOnGUI`, which runs *every* window's
-  `ExtraOnGUI` and only then *every* window's contents. So anything drawn on the map
-  layer or in `ExtraOnGUI` is behind every window's background, and `TerminalWindow`
-  fills the screen opaque. To put something over the terminal, draw it from
-  `DoWindowContents` after the fill - which is also the only place `Mouse.IsOver`
-  lets clicks through. This cost three iterations; see `ColonistBarStrip.cs`.
+- An exception inside `AgentColony.GameComponentTick` stops the whole reconcile, not
+  just one pawn.
+- Draw order in one frame is `UIRoot_Play.UIRootOnGUI`: map interface, then
+  `WindowStackOnGUI`, which runs *every* window's `ExtraOnGUI` and only then *every*
+  window's contents. So anything drawn on the map layer or in `ExtraOnGUI` is behind
+  every window's background, and `TerminalWindow` fills the screen opaque. To put
+  something over the terminal, draw it from `DoWindowContents` after the fill - also
+  the only place `Mouse.IsOver` lets clicks through.
 - Keyboard order is not draw order. `WindowStack.HandleEventsHighPriority` runs near
   the top of `UIRoot.UIRootOnGUI` and Uses every `KeyDown` whenever a window absorbs
   input around itself, so a global hotkey taken in a game component fires only while
-  nothing is absorbing. A key that also has to work with a window up has to be read
-  inside that window as well; `SlopQuickTerminal` is read in both places.
-- `Window.Margin` (18 by default) is not padding. `InnerWindowOnGUI` opens a GUI
-  group on the contracted rect, so `DoWindowContents` draws in a space translated by
-  the margin while `GUI.matrix` and screen coordinates stay where they were.
-  `TerminalWindow` runs at margin 0 so the two agree.
+  nothing is absorbing. A key that must also work with a window up has to be read
+  inside that window as well; `SlopQuickTerminal` is read in both.
+- `Window.Margin` (18 by default) is not padding. `InnerWindowOnGUI` opens a GUI group
+  on the contracted rect, so `DoWindowContents` draws in a space translated by the
+  margin while `GUI.matrix` and screen coordinates stay put. `TerminalWindow` runs at
+  margin 0 so the two agree.
 - A `Listing_Standard` begun on a rect shorter than its contents does not overflow.
-  `GetRect` calls `NewColumnIfNeeded`, so a control that would cross the bottom
-  starts a *second column* - `curX` past the whole width, everything after it
-  clipped away by the group, and `curY` back to nearly zero. `CurHeight` is what a
-  dialog lays the rest of itself out from, so one field too many drops a 350px input
-  over the top of the form. Begin on the room there is, and set `maxOneColumn`.
+  `GetRect` calls `NewColumnIfNeeded`, so a control that would cross the bottom starts
+  a *second column* - `curX` past the whole width, everything after it clipped away by
+  the group, `curY` back to nearly zero. `CurHeight` is what a dialog lays the rest of
+  itself out from, so one field too many drops a 350px input over the form. Begin on
+  the room there is, and set `maxOneColumn`.
 - A `Font` from `CreateDynamicFontFromOSFont` is held only by a `GUIStyle`, which is
   not a `UnityEngine.Object` and so roots nothing: the `Resources.UnloadUnusedAssets`
-  the game runs on any map switch destroys the face, and the style silently falls
-  back to the proportional GUI font. Same trap for generated textures
+  the game runs on any map switch destroys the face, and the style silently falls back
+  to the proportional GUI font. Same trap for generated textures
   (`MenuBackground.Keep`). Mark them `HideFlags.DontUnloadUnusedAsset`.
-- A Harmony patch that throws during `PatchAll` kills the whole mod, not just
-  itself, and the game then looks vanilla. `SlopWorldBootstrap` catches and logs
-  `patching incomplete: ...`, so grep `Player.log` for that first. Transpilers are
-  the usual cause - this game's Mono rejected a `ColonistBarOnGUI` transpiler with
-  `InvalidProgramException` at patch time, in two different emission shapes.
-- `SlopConfig.ToJson` writes whole sections of `config.toml`, so a field missing
-  from it is a field the settings GUI silently resets to its serde default on any
-  unrelated save. Adding one to `[daemon]`, `[defaults]` or `[sandbox]` means adding
-  it here too, even if no widget ever shows it.
-- Renaming anything on the wire needs both halves. `SessionInfo.ParseState` treats
-  an unknown state as `Down`, which keeps a version skew survivable rather than
-  correct.
+- A Harmony patch that throws during `PatchAll` kills the whole mod, and the game then
+  looks vanilla. `SlopWorldBootstrap` catches and logs `patching incomplete:`, so grep
+  `Player.log` for that first. Transpilers are the usual cause - this game's Mono
+  rejected a `ColonistBarOnGUI` transpiler with `InvalidProgramException` at patch
+  time, in two emission shapes.
+- `SlopConfig.ToJson` writes whole sections of `config.toml`, so a field missing from
+  it is one the settings GUI silently resets to its serde default on any unrelated
+  save. Adding one to `[daemon]`, `[defaults]` or `[sandbox]` means adding it here
+  too, even if no widget shows it.
+- Renaming anything on the wire needs both halves. `SessionInfo.ParseState` treats an
+  unknown state as `Down`, which keeps a version skew survivable rather than correct.
 - A save written against defs this build no longer ships (`SlopRobotHead`,
   `SlopClaudwatch`) is not migrated. "Next planet" is the answer.

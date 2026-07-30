@@ -25,12 +25,12 @@ const IDLE_MS: u64 = 10_000;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum State {
-    /// Either never started or the agent exited. The mod puts the colonist on the
-    /// floor rather than killing it, so the same process can get the same body back.
+    /// Never started, or the agent exited. The mod puts the colonist on the floor rather
+    /// than killing it, so the same process can get the same body back.
     Down,
     /// Pane text is changing, or a rule says the agent is mid-turn.
     Working,
-    /// Blocked on the human. This is the one the player must notice.
+    /// Blocked on the human.
     Waiting,
     /// Alive, quiet, nothing to do.
     Idle,
@@ -39,8 +39,8 @@ pub enum State {
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionView {
     pub name: String,
-    /// Repeated here so a list of sessions reads without joining it against anything,
-    /// and empty when the entry names a project that has gone.
+    /// Repeated here so a session list reads without a join. Empty when the entry names a
+    /// project that has gone.
     pub project: String,
     pub dir: String,
     /// Whether the sandbox hands it Claude Code's own state dir.
@@ -49,29 +49,26 @@ pub struct SessionView {
     pub agent: String,
     pub state: State,
     pub alive: bool,
-    /// The pane's size right now, not a setting: the window owns this and sends
-    /// `resize` when it changes.
+    /// The pane's size now, not a setting: the window owns this and sends `resize`.
     pub cols: u16,
     pub rows: u16,
     pub net: bool,
     pub sandbox: bool,
+    pub env: Vec<String>,
     /// Sent so an edit round-trips it instead of quietly clearing it.
     pub autostart: bool,
-    /// A shortcut's agent, or a tmux session somebody started by hand: it goes when
-    /// its process does. Said on the wire because the GUI must not offer to edit an
-    /// entry there is no entry for.
+    /// A shortcut's agent, or a session started by hand: it goes when its process does. On
+    /// the wire because the GUI must not offer to edit an entry there is no entry for.
     pub ephemeral: bool,
     /// Unix millis of the last observed pane change.
     pub last_change: u64,
     pub seq: u64,
 }
 
-/// Both fields empty is "whatever the shortcut says", which is what every caller
-/// with nothing to add sends.
+/// Both fields empty is "whatever the shortcut says".
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct RunWhere {
-    /// It has to be one config knows: the ephemeral ones are gone by the time anything
-    /// could ask for one by name.
+    /// One config knows: the ephemeral ones are gone by the time anything could name one.
     #[serde(default)]
     pub project: Option<String>,
     /// Beats `project` when both are given, being the more specific answer.
@@ -103,8 +100,7 @@ pub struct ScreenView {
     /// The app is on the alternate screen (no scrollback of its own).
     #[serde(default)]
     pub alt_screen: bool,
-    /// What the app calls itself (OSC 0/2), for the pane's title bar. Empty until
-    /// it says.
+    /// What the app calls itself (OSC 0/2). Empty until it says.
     #[serde(default)]
     pub title: String,
     /// One entry per row, still carrying SGR escapes.
@@ -138,12 +134,12 @@ pub enum Event {
     Sessions {
         sessions: Vec<SessionView>,
     },
-    /// On connect too, because the dialog that picks one has to draw before anybody
-    /// has changed anything.
+    /// On connect too: the dialog that picks one has to draw before anybody has changed
+    /// anything.
     Projects {
         projects: Vec<ProjectCfg>,
     },
-    /// On connect too, for the same reason projects ride along.
+    /// On connect too, same reason.
     Shortcuts {
         shortcuts: Vec<ShortcutCfg>,
     },
@@ -154,14 +150,12 @@ pub enum Event {
     Usage {
         usage: crate::usage::Snapshot,
     },
-    /// The only event that asks the mod for something rather than telling it
-    /// something. It exists because nothing outside the game can save a colony: a
-    /// killed RimWorld comes back at the last autosave with a terminal nobody chose.
+    /// The only event that asks the mod for something. Nothing outside the game can save a
+    /// colony: a killed RimWorld comes back at the last autosave.
     Quit,
 }
 
-/// `Timeout` is not a failure - see `READY_MS` - and `Gone` is the only one that
-/// cancels the typing.
+/// `Timeout` is not a failure (see `READY_MS`); `Gone` is the only one that cancels typing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Ready {
     Settled,
@@ -171,8 +165,8 @@ enum Ready {
 
 struct Live {
     cfg: SessionCfg,
-    /// Set for a shortcut's agent and for a tmux session adopted from under our
-    /// socket. It is what makes the colonist leave for good rather than lie down.
+    /// Set for a shortcut's agent and for an adopted session: what makes the colonist leave
+    /// for good rather than lie down.
     ephemeral: bool,
     state: State,
     seq: u64,
@@ -192,27 +186,26 @@ pub struct Manager {
     pub cfg_path: PathBuf,
     cfg: RwLock<Config>,
     live: RwLock<HashMap<String, Live>>,
-    /// Coined per errand run in `temp` mode and dropped with the agent that asked for
-    /// it - a scratch place used once is not worth writing down. Read after `live`
-    /// wherever both are held, so the two are always taken in that order.
+    /// Coined per errand run in `temp` mode and dropped with the agent that asked for it.
+    /// Taken after `live` wherever both are held.
     temp: RwLock<HashMap<String, ProjectCfg>>,
     rules: RwLock<Vec<(State, Regex)>>,
     /// Anything else means someone edited the file behind us.
     cfg_mtime: Mutex<Option<SystemTime>>,
     /// So the retick doesn't stat the file eighty times a second.
     cfg_checked: Mutex<u64>,
-    /// Here rather than in the poller, so a client connecting between polls has
-    /// something to draw.
+    /// Here rather than in the poller, so a client connecting between polls has something
+    /// to draw.
     usage: RwLock<crate::usage::Snapshot>,
-    /// Only `/api/game` reads them, and as evidence: a client is a game up far enough
-    /// to have loaded the mod and talked to us.
+    /// Read by `/api/game` as evidence: a client is a game up far enough to have loaded the
+    /// mod and talked to us.
     clients: AtomicUsize,
     clients_since: AtomicU64,
     pub events: broadcast::Sender<Event>,
 }
 
-/// A guard rather than a pair of calls because the pump has several ways out and
-/// every one of them has to put the count back.
+/// A guard rather than a pair of calls: the pump has several ways out and every one has to
+/// put the count back.
 pub struct ClientGuard(Arc<Manager>);
 
 impl Drop for ClientGuard {
@@ -223,23 +216,19 @@ impl Drop for ClientGuard {
 
 const CFG_CHECK_MS: u64 = 2_000;
 
-/// Half-second polls: a minute is a long shutdown and a short time to sit looking
-/// at a game that has not come back.
+/// Half-second polls; a minute is a long shutdown.
 const QUIT_WAIT_TICKS: usize = 120;
 
-/// The terminal window measures itself in cells and sends a `resize`, so this is
-/// only what a pane wears until it is looked at - which still matters, because an
-/// agent that starts, prints and is never opened has to have wrapped at something.
+/// What a pane wears until someone looks at it - the terminal window measures itself and
+/// sends a `resize`. Still matters: an agent that starts, prints and is never opened has to
+/// have wrapped at something.
 const BOOT_COLS: u16 = 120;
 const BOOT_ROWS: u16 = 34;
 
-/// Settling is deliberately not a pattern match: an agent's TUI and a shell prompt
-/// have nothing in common to grep for, but both print and then stop. A slow first
-/// run looks the same from outside, hence a ceiling in tens of seconds.
-///
-/// The timeout does not cancel the delivery: a pane that never goes quiet is
-/// usually drawing a spinner, and text held back for that is an errand that
-/// silently did nothing.
+/// A settle rather than a pattern match: an agent's TUI and a shell prompt have nothing in
+/// common to grep for, but both print and then stop. A slow first run looks the same from
+/// outside, hence a ceiling in tens of seconds. The timeout does not cancel delivery - a pane
+/// that never goes quiet is usually drawing a spinner.
 const READY_MS: u64 = 30_000;
 const SETTLE_MS: u64 = 750;
 const ENTER_GAP_MS: u64 = 150;
@@ -285,8 +274,7 @@ fn compile_rules(cfg: &Config) -> Vec<(State, Regex)> {
         .collect()
 }
 
-/// It is a tmux target, where ':' and '.' select a window and a pane, and a
-/// colonist's name in the mod.
+/// A tmux target, where ':' and '.' select a window and a pane.
 fn check_name(name: &str) -> Result<()> {
     if name.is_empty() || name.contains(|c: char| c.is_whitespace() || c == ':' || c == '.') {
         bail!("session name must be non-empty and free of whitespace, ':' and '.'");
@@ -315,9 +303,9 @@ fn slug(name: &str) -> String {
     }
 }
 
-/// The live table is handed in rather than read here: the caller already holds the
-/// write half of `live`, because naming and claiming are one decision and an await
-/// between them is two runs of the same errand picking the same name.
+/// The live table is handed in because the caller already holds its write half: naming and
+/// claiming are one decision, and an await between them is two runs of the same errand
+/// picking the same name.
 fn free_name(live: &HashMap<String, Live>, cfg: &Config, base: &str) -> String {
     let taken = |n: &str| live.contains_key(n) || cfg.sessions.iter().any(|s| s.name == n);
 
@@ -330,8 +318,7 @@ fn free_name(live: &HashMap<String, Live>, cfg: &Config, base: &str) -> String {
         .unwrap()
 }
 
-/// Lower bar than a session's, but it is what a session points at, and a blank one
-/// would point at all of them.
+/// A blank name would be one every session points at.
 fn check_project(p: &ProjectCfg) -> Result<()> {
     if p.name.trim().is_empty() {
         bail!("project name must not be empty");
@@ -347,10 +334,8 @@ fn check_project(p: &ProjectCfg) -> Result<()> {
     Ok(())
 }
 
-/// Same rule as a session's project: the dialog that left it out should say so,
-/// not the button that runs it a week later. The project is checked whenever one
-/// is named, whatever the link says - in `temp` mode it is the sandbox the fresh
-/// project copies. Only `project` mode insists on having one at all.
+/// The project is checked whenever one is named, whatever the link says - in `temp` mode it
+/// is the sandbox the fresh project copies. Only `project` mode insists on having one.
 fn check_shortcut(cfg: &Config, sc: &ShortcutCfg) -> Result<()> {
     if sc.name.trim().is_empty() {
         bail!("shortcut name must not be empty");
@@ -367,16 +352,15 @@ fn check_shortcut(cfg: &Config, sc: &ShortcutCfg) -> Result<()> {
     Ok(())
 }
 
-/// Settled on the way in, so everything downstream reads `dir` the way it reads
-/// any other project's, and a rename moves the project to fresh ground.
+/// On the way in, so everything downstream reads `dir` normally; a rename moves the project
+/// to fresh ground.
 fn settle(p: &mut ProjectCfg) {
     if p.temp {
         p.dir = crate::config::temp_dir(&slug(&p.name));
     }
 }
 
-/// Off the same base as the session's: the agent running the errand and the place
-/// it works are one thing to a reader.
+/// Off the same base as the session's, so the agent and the place it works read as one.
 fn free_project_name(cfg: &Config, temp: &HashMap<String, ProjectCfg>, base: &str) -> String {
     let taken = |n: &str| cfg.project(n).is_some() || temp.contains_key(n);
     if !taken(base) {
@@ -388,14 +372,27 @@ fn free_project_name(cfg: &Config, temp: &HashMap<String, ProjectCfg>, base: &st
         .unwrap()
 }
 
-/// Enforced on the way in rather than on start, so the dialog that made the
-/// mistake is the thing that says so.
+/// On the way in rather than at start, so the dialog that made the mistake says so.
 fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
     if s.project.trim().is_empty() {
         bail!("session {} must belong to a project", s.name);
     }
     if cfg.project(&s.project).is_none() {
         bail!("no such project: {}", s.project);
+    }
+    check_env(s)
+}
+
+fn check_env(s: &SessionCfg) -> Result<()> {
+    for line in &s.env {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        match line.split_once('=') {
+            Some((k, _)) if !k.trim().is_empty() => {}
+            _ => bail!("environment override {line:?} is not KEY=VALUE"),
+        }
     }
     Ok(())
 }
@@ -418,8 +415,8 @@ impl Manager {
             clients_since: AtomicU64::new(0),
             events,
         });
-        // Before anything else touches tmux: whoever forks the server decides which
-        // cgroup it dies with.
+        // Before anything else touches tmux: whoever forks the server decides which cgroup it
+        // dies with.
         m.tmux.ensure_server().await;
         m.sync_from_config().await;
         m
@@ -433,10 +430,9 @@ impl Manager {
         Ok(())
     }
 
-    /// Any mtime we didn't cause means re-read, and every mutating call goes through
-    /// here first so the write it is about to make lands on top of a hand edit rather
-    /// than over it. A file that doesn't parse is left alone with a warning; the mtime
-    /// is recorded either way, so it complains once rather than every two seconds.
+    /// Every mutating call goes through here first, so the write it is about to make lands on
+    /// top of a hand edit rather than over it. A file that doesn't parse is left alone; the
+    /// mtime is recorded either way, so it complains once rather than every two seconds.
     pub async fn reload_if_changed(self: &Arc<Self>) -> bool {
         let disk = disk_mtime(&self.cfg_path);
         {
@@ -488,9 +484,9 @@ impl Manager {
         self.reload_if_changed().await;
     }
 
-    /// The delay is the mod's estimate of how long its own shutdown takes: slopd has
-    /// no handle on the game process, so the two only overlap by wall clock. Detached,
-    /// because the game must outlive the redeploy that is usually the reason for it.
+    /// The delay is the mod's estimate of its own shutdown: slopd has no handle on the game
+    /// process, so the two only overlap by wall clock. Detached, the game having to outlive
+    /// the redeploy that is usually the reason for it.
     pub async fn restart_game(&self, delay_ms: u64) -> Result<()> {
         let cmd = self.config().await.daemon.game_cmd.trim().to_string();
         if cmd.is_empty() {
@@ -503,18 +499,16 @@ impl Manager {
         let exe = exe.clone();
         let args: Vec<String> = args.to_vec();
 
-        // The daemon cannot save a colony and the game can. A mod that called this
-        // endpoint is already shutting down and ignores its own echo; an agent running
-        // `make redeploy` has told nobody.
+        // Only the game can save a colony. A mod that called this endpoint is already
+        // shutting down and ignores its own echo; an agent running `make redeploy` told nobody.
         let _ = self.events.send(Event::Quit);
         let watch = self.config().await.daemon.game_cmd;
 
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(delay_ms.min(60_000))).await;
 
-            // Launching on a timer is how a redeploy ends up with two RimWorlds fighting over
-            // one save: a colony that takes longer to write than the caller estimated is
-            // exactly the case where that estimate is wrong.
+            // Waiting rather than launching on the timer: a colony that takes longer to write
+            // than estimated is exactly the case where two RimWorlds fight over one save.
             for _ in 0..QUIT_WAIT_TICKS {
                 if !crate::game::status(&watch, 0, None).running {
                     match crate::game::launch(&exe, &args) {
@@ -556,13 +550,12 @@ impl Manager {
         self.usage.read().await.clone()
     }
 
-    /// Only if it says something new: the poll runs every minute forever and an
-    /// unchanged percentage is not an event.
+    /// Broadcast only on a change: the poll runs every minute forever.
     pub async fn set_usage(&self, snap: crate::usage::Snapshot) {
         {
             let mut cur = self.usage.write().await;
-            // fetched_ms moves on every successful poll, so compare the parts a reader would
-            // notice rather than the whole struct.
+            // fetched_ms moves on every successful poll, so compare what a reader would notice
+            // rather than the whole struct.
             if cur.ok == snap.ok
                 && cur.error == snap.error
                 && cur.plan == snap.plan
@@ -580,8 +573,7 @@ impl Manager {
         let cfg = self.config().await;
         let mut live = self.live.write().await;
 
-        // An ephemeral entry is its own record, so the file is only allowed to retire the
-        // sessions the file owns.
+        // An ephemeral entry is its own record: the file only retires what the file owns.
         live.retain(|name, l| l.ephemeral || cfg.session(name).is_some());
 
         for s in &cfg.sessions {
@@ -617,11 +609,8 @@ impl Manager {
             if !self.live.read().await.contains_key(&name) {
                 adopted |= self.adopt(&name).await;
             }
-            // A session with no emulator is one we are picking up rather than one we
-            // started, so its shape is tmux's answer and not ours. Inventing the boot
-            // size here resized a running app down to it on the way past - the nudge
-            // below states whatever this says, and `spawn_reader` builds the emulator
-            // at it.
+            // A session with no emulator is one we are picking up, so its shape is tmux's
+            // answer and not ours: stating the boot size resized a running app down to it.
             let fresh = !self
                 .live
                 .read()
@@ -637,17 +626,15 @@ impl Manager {
                 }
             }
             if self.spawn_reader(&name).await {
-                // Adopted rather than started by us, so the app has no idea it has a new reader.
-                // Off the critical path - the nudge sleeps.
+                // Off the critical path: the nudge sleeps.
                 let m = self.clone();
                 let name = name.clone();
                 tokio::spawn(async move { m.nudge_redraw(&name).await });
             }
         }
 
-        // A colonist that arrived without config asking for one has to be announced:
-        // nothing else will, since an adopted session's first frame usually classifies as
-        // the state it was given.
+        // Nothing else will announce it: an adopted session's first frame usually classifies
+        // as the state it was given.
         if adopted {
             let _ = self.events.send(Event::Sessions {
                 sessions: self.views().await,
@@ -655,15 +642,14 @@ impl Manager {
         }
     }
 
-    /// A SIGWINCH is the one event every TUI answers with a full redraw, which is what
-    /// puts back the modes a text capture cannot carry - alternate screen, mouse
-    /// reporting, cursor shape, bracketed paste.
+    /// A SIGWINCH is the one event every TUI answers with a full redraw, which puts back the
+    /// modes a text capture cannot carry - alternate screen, mouse reporting, cursor shape,
+    /// bracketed paste.
     ///
-    /// The size to come back to is read again *after* the shrink rather than held over
-    /// it. A terminal window that reconnected mid-nudge has already stated its own
-    /// shape through `resize`, and restoring the figure this started with would leave
-    /// the pane the wrong size with nothing left to correct it - the mod only resends
-    /// while the frames coming back disagree, and they no longer would.
+    /// The size to come back to is read again *after* the shrink: a terminal window that
+    /// reconnected mid-nudge has already stated its own shape, and restoring the figure this
+    /// started with would strand the pane there - the mod only resends while the frames
+    /// coming back disagree, and they no longer would.
     async fn nudge_redraw(self: &Arc<Self>, name: &str) {
         let Some((cols, rows)) = self.size_of(name).await else {
             return;
@@ -688,13 +674,10 @@ impl Manager {
         self.live.read().await.get(name).map(|l| (l.cols, l.rows))
     }
 
-    /// These used to be logged as orphans and left invisible, which was wrong twice
-    /// over: a shortcut's agent is not in config *by design*, and a session somebody
-    /// started by hand under our socket is, by this thing's own account, a colonist.
-    ///
-    /// It carries no project - we cannot know what it was started with - so it lists
-    /// with a blank directory and refuses to restart, while watching, typing and
-    /// killing all work.
+    /// A shortcut's agent is not in config by design, and a session started by hand under our
+    /// socket is a colonist by this thing's own account. It carries no project - we cannot
+    /// know what it was started with - so it lists with a blank directory and refuses to
+    /// restart, while watching, typing and killing all work.
     async fn adopt(self: &Arc<Self>, name: &str) -> bool {
         let mut live = self.live.write().await;
         if live.contains_key(name) {
@@ -723,8 +706,8 @@ impl Manager {
         true
     }
 
-    /// The order only matters for entries config has never heard of: a shortcut's
-    /// agent, and anything adopted from under our socket.
+    /// The order matters only for entries config has never heard of: a shortcut's agent, and
+    /// anything adopted from under our socket.
     async fn session_cfg(&self, name: &str) -> Option<SessionCfg> {
         if let Some(s) = self.cfg.read().await.session(name) {
             return Some(s.clone());
@@ -732,8 +715,8 @@ impl Manager {
         self.live.read().await.get(name).map(|l| l.cfg.clone())
     }
 
-    /// The same fallback `session_cfg` makes for the session itself: an errand run in
-    /// `temp` mode has a project nothing wrote down.
+    /// The same fallback `session_cfg` makes: an errand run in `temp` mode has a project
+    /// nothing wrote down.
     async fn project_for(&self, cfg: &Config, s: &SessionCfg) -> Option<ProjectCfg> {
         if let Some(p) = cfg.project_of(s) {
             return Some(p.clone());
@@ -763,10 +746,9 @@ impl Manager {
             bail!("session {name} is already running");
         }
         let dir = expand(&p.dir);
-        // A temporary project's directory is coined from its name, so the first agent to
-        // start there brings it into being. Any other project names somewhere that was
-        // already there, and a path that is not there is a mistake worth reporting rather
-        // than a directory to conjure up under a typo.
+        // A temporary project's directory is coined from its name, so the first agent to start
+        // there brings it into being. Any other project names somewhere that already exists,
+        // and a missing path is a typo worth reporting rather than a directory to conjure up.
         if p.temp {
             std::fs::create_dir_all(&dir).with_context(|| format!("making {dir}"))?;
         }
@@ -774,8 +756,7 @@ impl Manager {
             bail!("{dir} is not a directory");
         }
 
-        // A restart of a session whose terminal is open should come back the shape the
-        // window asked for, not the shape a fresh one starts at.
+        // A restart with the terminal open comes back the shape the window asked for.
         let (cols, rows) = match self.live.read().await.get(name) {
             Some(l) => (l.cols, l.rows),
             None => (BOOT_COLS, BOOT_ROWS),
@@ -792,7 +773,7 @@ impl Manager {
             self.tmux.kill(name).await?;
         }
         // The one road to a dead session that does not go through the control reader: the
-        // handle is aborted below, so the task never reaches mark_down.
+        // handle is aborted below, so the task never reaches `mark_down`.
         if self.is_ephemeral(name).await {
             self.forget(name).await;
             return Ok(());
@@ -817,10 +798,9 @@ impl Manager {
             .unwrap_or(false)
     }
 
-    /// No config entry stands behind it, so a process that has exited leaves nothing
-    /// to keep. The reader is aborted last on purpose: the caller is sometimes that
-    /// very task, and aborting the task you are running in can cancel it at the next
-    /// await - the one that gathers the views nobody has been told about yet.
+    /// The reader is aborted last: the caller is sometimes that very task, and aborting the
+    /// task you are running in cancels it at the next await - the one gathering the views
+    /// nobody has been told about yet.
     async fn forget(self: &Arc<Self>, name: &str) {
         let (handle, project) = {
             let mut live = self.live.write().await;
@@ -829,9 +809,8 @@ impl Manager {
                 None => return,
             }
         };
-        // The directory does not go with it: what the errand did in there is worth
-        // reading afterwards, and /tmp is the machine's to clear. A project the file owns
-        // is not in this table, so this is a no-op for every other kind of session.
+        // The directory stays: what the errand did in there is worth reading afterwards, and
+        // /tmp is the machine's to clear. A project the file owns is not in this table.
         self.temp.write().await.remove(&project);
         let _ = self.events.send(Event::Sessions {
             sessions: self.views().await,
@@ -851,8 +830,7 @@ impl Manager {
         self.cfg.read().await.projects.clone()
     }
 
-    /// Cheap enough to send on any change: there are a handful of them and they move
-    /// when a person edits one, not on a tick.
+    /// Cheap on any change: a handful of them, moving when a person edits one.
     async fn announce_projects(&self) {
         let _ = self.events.send(Event::Projects {
             projects: self.projects().await,
@@ -874,9 +852,8 @@ impl Manager {
         Ok(())
     }
 
-    /// A changed name is a rename, and every session pointing at the old one is
-    /// carried over in the same write - a session left naming a project that no longer
-    /// exists is one that will not start.
+    /// A changed name is a rename, and every session pointing at the old one is carried over
+    /// in the same write; one left naming a project that no longer exists will not start.
     pub async fn update_project(self: &Arc<Self>, name: &str, mut p: ProjectCfg) -> Result<()> {
         self.reload_if_changed().await;
         settle(&mut p);
@@ -903,16 +880,15 @@ impl Manager {
         drop(cfg);
 
         self.announce_projects().await;
-        // The directory or the sandbox may have moved under a running agent, which keeps
-        // running under the old one until it is restarted.
+        // A running agent keeps the old directory and sandbox until it is restarted.
         let _ = self.events.send(Event::Sessions {
             sessions: self.views().await,
         });
         Ok(())
     }
 
-    /// Refused while anything still works there. The alternative is throwing away
-    /// agents to tidy a list.
+    /// Refused while anything still works there, the alternative being throwing agents away
+    /// to tidy a list.
     pub async fn remove_project(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
         let mut cfg = self.cfg.write().await;
@@ -963,8 +939,7 @@ impl Manager {
         Ok(())
     }
 
-    /// Nothing points at a shortcut by name - the agents it lands are gone by the time
-    /// anything could - so a rename carries nothing with it.
+    /// Nothing points at a shortcut by name, so a rename carries nothing with it.
     pub async fn update_shortcut(self: &Arc<Self>, name: &str, sc: ShortcutCfg) -> Result<()> {
         self.reload_if_changed().await;
         let mut cfg = self.cfg.write().await;
@@ -984,8 +959,8 @@ impl Manager {
         Ok(())
     }
 
-    /// Nothing to refuse, unlike a project with agents in it: whatever this shortcut
-    /// started is its own temporary agent now and outlives the entry.
+    /// Nothing to refuse, unlike a project with agents in it: whatever this started is its
+    /// own temporary agent now and outlives the entry.
     pub async fn remove_shortcut(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
         let mut cfg = self.cfg.write().await;
@@ -999,14 +974,11 @@ impl Manager {
         Ok(())
     }
 
-    /// Returns as soon as the session is up, naming it, so the caller can open a
-    /// terminal on it; the typing happens in a task behind this, because an agent is
-    /// tens of seconds from ready and the client gives up after five.
+    /// Returns as soon as the session is up, naming it; the typing happens in a task behind
+    /// this, an agent being tens of seconds from ready where the client gives up after five.
     ///
-    /// Where it runs is the entry's business unless the entry says otherwise, and
-    /// `want` is how the caller answers when it does. An override is honoured whatever
-    /// the link says; an `ask` entry with nothing to go on is refused, because
-    /// guessing a project is guessing which repo an agent gets to write to.
+    /// An override in `want` is honoured whatever the link says; an `ask` entry with nothing
+    /// to go on is refused, guessing a project being guessing which repo an agent may write to.
     pub async fn run_shortcut(self: &Arc<Self>, name: &str, want: RunWhere) -> Result<String> {
         self.reload_if_changed().await;
         let cfg = self.config().await;
@@ -1036,10 +1008,9 @@ impl Manager {
         // What a fresh project copies: the entry's own, when it names one.
         let template = cfg.project(&sc.project).cloned().unwrap_or_default();
 
-        // Named and claimed without letting go of the table: two runs of the same errand
-        // in the same instant would otherwise pick the same free name, and the second
-        // would overwrite the first's entry and then fail on tmux. The temporary project
-        // is coined under the same guard, `temp` taken after `live` as everywhere else.
+        // Named and claimed without letting go of the table: two runs of the same errand at
+        // once would otherwise pick the same free name, and the second would overwrite the
+        // first's entry and then fail on tmux. `temp` taken after `live`, as everywhere.
         let session = {
             let mut live = self.live.write().await;
             let name = free_name(&live, &cfg, &slug(&sc.name));
@@ -1065,8 +1036,8 @@ impl Manager {
             live.insert(
                 name.clone(),
                 Live {
-                    // Before the start, because that is where `start` reads the command and the pane
-                    // size from - there is nothing in config for it to read.
+                    // Before the start: that is where `start` reads the command and the pane
+                    // size from, there being nothing in config for it to read.
                     cfg: cfg.session_for(&sc, name.clone(), project),
                     ephemeral: true,
                     state: State::Down,
@@ -1101,9 +1072,8 @@ impl Manager {
         Ok(session)
     }
 
-    /// Two writes and not one, with a beat between: an agent's input box takes a
-    /// pasted newline as a newline - that is what bracketed paste is for - so the
-    /// submit has to arrive as a keypress after the paste has closed.
+    /// Two writes with a beat between: an agent's input box takes a pasted newline as a
+    /// newline, so the submit has to arrive as a keypress after the paste has closed.
     async fn deliver(self: &Arc<Self>, name: &str, text: &str) {
         match self.wait_ready(name).await {
             Ready::Gone => {
@@ -1146,8 +1116,8 @@ impl Manager {
                     (l.seq, printed, l.state)
                 })
             };
-            // Down and gone are the same answer here: an ephemeral session that died has
-            // already left the table.
+            // Down and gone are the same answer: an ephemeral session that died has already
+            // left the table.
             let Some((seq, printed, state)) = snap else {
                 return Ready::Gone;
             };
@@ -1195,8 +1165,8 @@ impl Manager {
         Ok(())
     }
 
-    /// A changed name is a rename: the agent keeps running under it, so tmux is
-    /// renamed first - if it refuses, config.toml and reality stay in step.
+    /// A changed name is a rename: the agent keeps running, so tmux is renamed first - if it
+    /// refuses, config.toml and reality stay in step.
     pub async fn update(self: &Arc<Self>, name: &str, s: SessionCfg) -> Result<()> {
         self.reload_if_changed().await;
         let renamed = s.name != name;
@@ -1233,9 +1203,8 @@ impl Manager {
         Ok(())
     }
 
-    /// The control reader is pinned to the name it attached with, so it is dropped
-    /// here and re-attached under the new one - which also re-seeds the emulator from
-    /// a capture, leaving the screen where the agent left it.
+    /// The control reader is pinned to the name it attached with, so it is dropped and
+    /// re-attached under the new one - which re-seeds the emulator from a capture.
     async fn readopt(self: &Arc<Self>, old: &str, new: &str) {
         let running = {
             let mut live = self.live.write().await;
@@ -1258,8 +1227,7 @@ impl Manager {
 
     pub async fn remove(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
-        // A temporary session is gone the moment it is stopped; rewriting the file over
-        // one would be a write that says nothing.
+        // A temporary session is gone the moment it is stopped, and the file never had it.
         if self.is_ephemeral(name).await {
             return self.stop(name).await;
         }
@@ -1328,9 +1296,8 @@ impl Manager {
     pub async fn views(&self) -> Vec<SessionView> {
         let cfg = self.config().await;
         let live = self.live.read().await;
-        // Both tables, because an errand running in a temporary project has one the file
-        // has never heard of - and a row that could not name where its agent works would
-        // read as one pointing at a project that has gone.
+        // Both tables: an errand running in a temporary project has one the file never heard
+        // of, and a row that could not name its directory reads as pointing at a dead project.
         let temp = self.temp.read().await;
         let mut out: Vec<SessionView> = live
             .values()
@@ -1348,6 +1315,7 @@ impl Manager {
                     rows: l.rows,
                     net: p.map(|p| p.net).unwrap_or(true),
                     sandbox: p.map(|p| p.sandbox).unwrap_or(true),
+                    env: l.cfg.env.clone(),
                     autostart: l.cfg.autostart,
                     ephemeral: l.ephemeral,
                     last_change: l.last_change,
@@ -1388,9 +1356,8 @@ impl Manager {
         Ok(())
     }
 
-    /// If the app enabled bracketed paste the text is wrapped, and any end-marker
-    /// inside the content is stripped so a paste can't forge the terminator. Raw
-    /// bytes, so escapes survive verbatim.
+    /// Any end-marker inside the content is stripped, so a paste can't forge the terminator.
+    /// Raw bytes, so escapes survive verbatim.
     pub async fn paste(&self, name: &str, text: &str) -> Result<()> {
         if !self.tmux.exists(name).await {
             bail!("session {name} is not running");
@@ -1453,8 +1420,7 @@ impl Manager {
         }
     }
 
-    /// No tmux spawns and no captures; screen changes arrive event-driven from the
-    /// control readers.
+    /// No tmux spawns and no captures; screens arrive event-driven from the control readers.
     pub async fn retick(self: &Arc<Self>) {
         self.reload_if_due().await;
 
@@ -1504,8 +1470,8 @@ impl Manager {
         }
 
         let mut e = SessionEmu::new(cols, rows);
-        // Seeded with tmux's scrollback, not just the visible pane: history is the half
-        // of a reattached session that used to come back empty.
+        // Scrollback and not just the visible pane: history is the half of a reattached
+        // session that used to come back empty.
         let history = self.config().await.daemon.history_limit;
         if let Ok(cap) = self.tmux.capture(name, history).await {
             let mut seed = String::from("\x1b[2J\x1b[H\x1b[0m");
@@ -1561,9 +1527,9 @@ impl Manager {
             }
         };
 
-        // The master is a blocking pty fd, bridged to async by a reader thread. Lines are
-        // raw bytes, not `String`: tmux writes UTF-8 literally in `%output` and can split
-        // a multibyte char across chunks.
+        // The master is a blocking pty fd, bridged to async by a reader thread. Raw bytes and
+        // not `String`: tmux writes UTF-8 literally in `%output` and can split a multibyte
+        // char across chunks.
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
         std::thread::spawn(move || {
             use std::io::BufRead;
@@ -1574,8 +1540,8 @@ impl Manager {
                 match reader.read_until(b'\n', &mut line) {
                     Ok(0) => break, // EOF
                     Ok(_) => {
-                        // Drop the LF and the CR that pty ONLCR added ahead of it; tmux octal-escapes
-                        // real control bytes, so a trailing CR here is always that artifact.
+                        // Drop the LF and the CR pty ONLCR added ahead of it; tmux octal-escapes
+                        // real control bytes, so a trailing CR is always that artifact.
                         if line.last() == Some(&b'\n') {
                             line.pop();
                         }
@@ -1595,10 +1561,9 @@ impl Manager {
         let mut flush = interval(Duration::from_millis(8));
         flush.set_missed_tick_behavior(MissedTickBehavior::Delay);
         let mut dirty = false;
-        // One clipboard writer at a time. The tool is a process and the tick is 8ms
-        // apart, so an app that states OSC 52 on every frame would otherwise fork one
-        // per frame; while a write is in flight the copy stays in the emulator, and
-        // what lands is the newest.
+        // One clipboard writer at a time: the tool is a process and the tick is 8ms, so an app
+        // stating OSC 52 every frame would fork one per frame. While a write is in flight the
+        // copy stays in the emulator, and what lands is the newest.
         let copying = Arc::new(AtomicBool::new(false));
 
         loop {
@@ -1612,8 +1577,7 @@ impl Manager {
                             } else {
                                 Vec::new()
                             };
-                            // Answer the cursor-position and device queries the app sent, or TUIs place their
-                            // cursor wrongly.
+                            // Cursor-position and device queries, or TUIs place their cursor wrongly.
                             if !replies.is_empty() {
                                 if let Err(e) = self.tmux.send_bytes(&name, &replies).await {
                                     tracing::debug!("pty reply write {name}: {e:#}");
@@ -1631,9 +1595,8 @@ impl Manager {
                         dirty = false;
                         self.render_and_broadcast(&name, &emu).await;
                     }
-                    // The agent's own copy, on the operator's clipboard: an app that draws
-                    // its own selection - Claude Code does - never sends the drag our way,
-                    // so OSC 52 is the only word we get that anything was copied at all.
+                    // An app that draws its own selection - Claude Code does - never sends the
+                    // drag our way, so OSC 52 is the only word we get that anything was copied.
                     if !copying.load(Ordering::Relaxed) {
                         let clip = emu.lock().ok().and_then(|mut e| e.take_clip());
                         if let Some(text) = clip {
@@ -1739,8 +1702,7 @@ impl Manager {
         }
     }
 
-    /// A temporary session has nowhere to be down: the process exiting is the end of
-    /// it, so it leaves the table entirely and its colonist walks off.
+    /// A temporary session has nowhere to be down, so it leaves the table entirely.
     async fn mark_down(self: &Arc<Self>, name: &str) {
         if self.is_ephemeral(name).await {
             self.forget(name).await;
@@ -1769,8 +1731,8 @@ impl Manager {
         }
     }
 
-    /// Returned to the caller only, never broadcast, so it can't clobber the live
-    /// view. `off == 0` or beyond history returns the live frame.
+    /// Returned to the caller only, never broadcast, so it cannot clobber the live view.
+    /// `off == 0` or beyond history returns the live frame.
     pub async fn scroll_capture(&self, name: &str, off: u16) -> Option<ScreenView> {
         if off == 0 {
             return self.screen(name).await;
@@ -1865,8 +1827,8 @@ mod tests {
         }
     }
 
-    /// A shortcut is named by a person and its session by tmux, so every slug has to
-    /// come out the far end of check_name.
+    /// A shortcut is named by a person and its session by tmux, so every slug has to come out
+    /// the far end of `check_name`.
     #[test]
     fn slugs_are_names_tmux_accepts() {
         assert_eq!(slug("review diff"), "review-diff");
@@ -1899,8 +1861,8 @@ mod tests {
         assert_eq!(free_name(&live, &cfg, "review-diff"), "review-diff-3");
     }
 
-    /// A project called "my stuff" would otherwise name a path with a space in it, and
-    /// one called "../etc" somewhere else entirely.
+    /// A project called "my stuff" would otherwise name a path with a space in it, and one
+    /// called "../etc" somewhere else entirely.
     #[test]
     fn temp_projects_settle_on_a_path_under_the_root() {
         let mut p = ProjectCfg {
@@ -1911,13 +1873,12 @@ mod tests {
         settle(&mut p);
         assert_eq!(p.dir, "/tmp/slopworld/scratch-pad");
 
-        // Whatever was typed in the box is overwritten: a temporary project's directory
-        // is not a field anybody is editing.
+        // Whatever was typed in the box is overwritten.
         p.dir = "/home/you/git/repo".into();
         settle(&mut p);
         assert_eq!(p.dir, "/tmp/slopworld/scratch-pad");
 
-        // And an ordinary project's directory is left exactly as it was.
+        // An ordinary project's directory is left as it was.
         let mut plain = ProjectCfg {
             name: "repo".into(),
             dir: "/home/you/git/repo".into(),

@@ -7,13 +7,10 @@ using Verse;
 
 namespace SlopWorld
 {
-    // RimWorld is a viewer here, not a colony you play, so most of its UI is stripped
-    // wholesale and unconditionally. Kept on purpose: the colonist bar, the inspect
-    // pane, the Menu button and our own. Each patch prefixes an OnGUI method and
-    // returns false. 1.6 names; this mod is 1.6-only.
+    // Most of the UI, stripped unconditionally. Kept: the colonist bar, the inspect pane, the
+    // Menu button and our own. 1.6 names.
 
-    // The target set is data, so a table and a manual patch rather than one attribute
-    // class apiece.
+    // The target set is data, so a table and a manual patch rather than a class apiece.
     public static class Patch_HideGui
     {
         static readonly (Type Type, string Method)[] Targets =
@@ -62,10 +59,8 @@ namespace SlopWorld
         }
     }
 
-    // In 1.6 the forbidden overlay rides a persistent handle:
-    // CompForbiddable.UpdateOverlayHandle enables it whenever the thing is forbidden,
-    // and the mod loads before any map ticks, so skipping it means the handle is
-    // never enabled.
+    // In 1.6 the forbidden overlay rides a persistent handle, enabled here whenever the thing
+    // is forbidden - and the mod loads before any map ticks, so skipping means never enabled.
     [HarmonyPatch(typeof(CompForbiddable), "UpdateOverlayHandle")]
     public static class Patch_Hide_ForbiddenOverlay
     {
@@ -110,30 +105,24 @@ namespace SlopWorld
         static void Postfix(ref bool __result) => __result = false;
     }
 
-    // Hidden for the opening scene, and while a terminal is open - the bar is drawn
-    // under every window and the terminal is opaque and fullscreen. The strip inside
-    // the pane's title bar calls the same method from inside the window, and that call
-    // is the one this lets through. See ColonistBarStrip.cs.
+    // Hidden for the opening scene, and while a terminal is open. The strip calls the same
+    // method from inside the window, and that call is the one this lets through.
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
     public static class Patch_Hide_ColonistBar
     {
         static bool Prefix() => !Cutscene.Playing && !ColonistBarStrip.Suppressed;
     }
 
-    // MainButtonWorker.Visible is virtual and overridden by several workers, so the
-    // base getter and every declared override are postfixed, from the bootstrap
-    // because the set is found by reflection.
+    // MainButtonWorker.Visible is virtual and overridden by several workers, so the base
+    // getter and every declared override are postfixed, from the bootstrap because the set is
+    // found by reflection.
     //
-    // Hiding the button is not taking the tab away: with nothing selected,
-    // right-clicking the map or pressing Tab put the Architect menu on a board that
-    // builds nothing. MainButtonsRoot fires any def whose hotKey went down checking
-    // only Disabled, and HandleLowPriorityShortcuts opens Architect by name - both
-    // end at InterfaceTryActivate, which nothing overrides.
+    // Hiding the button is not taking the tab away: MainButtonsRoot fires any def whose hotKey
+    // went down checking only Disabled, and HandleLowPriorityShortcuts opens Architect by name
+    // - both end at InterfaceTryActivate, which nothing overrides.
     public static class Patch_MainButtons
     {
-        // Every button this mod ships has to be named here. `shortcuts` had a def, a
-        // worker and an order from the day errands landed and drew nothing for want of a
-        // line in this set: a button missing from here does not appear at all.
+        // Every button this mod ships has to be named here; one missing does not appear at all.
         static readonly HashSet<string> Keep = new HashSet<string>
         {
             "Menu", "Inspect",
@@ -169,13 +158,12 @@ namespace SlopWorld
         }
 
         // Both callers Use() the event before getting here, so the key and the click are
-        // still swallowed - which is what we want.
+        // swallowed either way.
         static bool OnlyIfShown(MainButtonWorker __instance) => __instance.Visible;
     }
 
-    // Bio, Needs, Health, Gear and Social. IsVisible is virtual: Health inherits the
-    // base getter while the others override it without chaining up, so the base and
-    // each override are postfixed and forced false by type.
+    // IsVisible is virtual: Health inherits the base getter while the others override without
+    // chaining up, so the base and each override are postfixed and forced false by type.
     public static class Patch_InspectTabs
     {
         static readonly HashSet<Type> Drop = new HashSet<Type>

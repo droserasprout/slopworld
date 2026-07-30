@@ -1,6 +1,5 @@
-//! Server-side terminal emulator: one `SessionEmu` per running session, driving an
-//! `alacritty_terminal` VT engine off the raw bytes tmux control mode gives us. We
-//! own the grid, cursor and modes, and serialize back into the SGR-coloured line
+//! One `SessionEmu` per running session, driving an `alacritty_terminal` VT engine off the
+//! raw bytes tmux control mode gives us and serialising back into the SGR-coloured line
 //! format the mod speaks.
 
 use std::sync::{Arc, Mutex};
@@ -29,10 +28,9 @@ impl Dimensions for Dims {
     }
 }
 
-/// `cy == rows` hides the cursor (off-screen, invisible, or scrolled into
-/// history). Rows carry `\x1b[<n>G` (CHA) markers ahead of any run whose true
-/// column diverges from the natural pen position - which is exactly where a wide
-/// char skipped a cell - and the mod redraws those runs at their absolute column.
+/// `cy == rows` hides the cursor. Rows carry `\x1b[<n>G` (CHA) ahead of any run whose true
+/// column diverges from the pen - which is where a wide char skipped a cell - and the mod
+/// redraws those runs at their absolute column.
 pub struct Frame {
     pub lines: Vec<String>,
     pub cx: u16,
@@ -56,22 +54,18 @@ pub struct Frame {
 struct Side {
     /// Answers owed to the pane, written back down the pty.
     replies: Vec<u8>,
-    /// The last OSC 52 store. One slot rather than a queue: a clipboard holds one
-    /// thing, so an app that copies twice before we drain has only ever meant the
-    /// second.
+    /// The last OSC 52 store. One slot rather than a queue: a clipboard holds one thing.
     clip: Option<String>,
     title: Option<String>,
 }
 
-/// Replies to cursor-position reports (`ESC[6n`), device attributes and mode
-/// queries. `VoidListener` dropped all of these, which left apps that probe the
-/// terminal (Ink, which Claude Code is built on) waiting on a report that never
-/// came and anchoring their cursor on the wrong line.
+/// Replies to cursor-position reports (`ESC[6n`), device attributes and mode queries.
+/// `VoidListener` dropped all of these, leaving apps that probe the terminal (Ink, which
+/// Claude Code is built on) anchoring their cursor on the wrong line.
 ///
-/// It also takes the two things an app says *about* itself rather than to itself:
-/// its title, and a clipboard write. Only the store half of OSC 52 is here - the
-/// default `Osc52::OnlyCopy` has `Term` refuse a load, which is the right way
-/// round when the app is an agent and the clipboard is the operator's.
+/// Also takes the two things an app says *about* itself: its title and a clipboard write.
+/// Only the store half of OSC 52 - `Osc52::OnlyCopy` has `Term` refuse a load, which is the
+/// right way round when the clipboard is the operator's.
 #[derive(Clone)]
 struct ReplySink {
     side: Arc<Mutex<Side>>,
@@ -136,9 +130,8 @@ impl SessionEmu {
         }
     }
 
-    /// The last OSC 52 store, for the caller to put on the host's clipboard.
-    /// Left in place if the caller does not ask, so a write in flight never loses
-    /// the copy that came after it.
+    /// Left in place if the caller does not ask, so a write in flight never loses the copy
+    /// that came after it.
     pub fn take_clip(&mut self) -> Option<String> {
         self.side.lock().ok().and_then(|mut s| s.clip.take())
     }
@@ -307,10 +300,9 @@ enum Slot {
     Ch(char, Color, Color, Flags, Option<Hyperlink>),
 }
 
-/// Each line opens with a reset, SGR runs are self-contained, and trailing default
-/// cells are trimmed. The CHA marker is emitted only where the true column
-/// diverges from the pen - right after a wide char - so plain ASCII rows stay
-/// byte-identical to a plain capture.
+/// Each line opens with a reset, runs are self-contained, trailing default cells are trimmed.
+/// CHA is emitted only where the true column diverges from the pen - right after a wide char
+/// - so plain ASCII rows stay byte-identical to a plain capture.
 fn serialize_row(row: &[Slot]) -> String {
     let mut out = String::from("\x1b[0m");
 
@@ -386,9 +378,8 @@ fn sgr_for(fg: Color, bg: Color, flags: Flags) -> String {
     format!("\x1b[0;{}m", params.join(";"))
 }
 
-/// The *same* index-based SGR codes tmux would send, not resolved RGB, so the
-/// mod's curated palette keeps its muted look. `base` is 30 for a foreground, 40
-/// for a background.
+/// Index-based SGR codes rather than resolved RGB, so the mod's palette keeps its look.
+/// `base` is 30 for a foreground, 40 for a background.
 fn color_code(c: Color, base: u16) -> Option<String> {
     match c {
         Color::Named(n) => match n as u16 {
@@ -457,10 +448,9 @@ fn push_coord(out: &mut Vec<u8>, v: u32, utf8: bool) {
 }
 
 
-/// Line shape: `%output %<pane> <data>`. Operates on raw bytes, never a `&str`:
-/// tmux emits UTF-8 literally and splits its chunks on arbitrary byte boundaries,
-/// so a line can end mid-character. The halves flow through to the VT parser,
-/// which reassembles across feeds.
+/// Line shape: `%output %<pane> <data>`. Raw bytes, never a `&str`: tmux emits UTF-8 literally
+/// and splits chunks on arbitrary byte boundaries, so a line can end mid-character. The halves
+/// flow through to the VT parser, which reassembles across feeds.
 pub fn parse_output(line: &[u8]) -> Option<Vec<u8>> {
     let rest = line.strip_prefix(b"%output ".as_slice())?;
     let sp = rest.iter().position(|&b| b == b' ')?;

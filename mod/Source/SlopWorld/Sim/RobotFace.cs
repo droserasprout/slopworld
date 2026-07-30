@@ -5,27 +5,23 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Two lenses and a vented grill in metal from the hairline down, drawn over the
-    // vanilla head rather than replacing it: the head, its skin colour and its hair
-    // are still the game's, and a person converted reads better than the whole robot
-    // head this replaced, which read as a different species. The metal is cut against
-    // the skull rather than laid on it; tools/roboface.py has the geometry.
+    // Metal from the hairline down, drawn over the vanilla head rather than replacing it, so
+    // the head, its skin colour and its hair are still the game's. tools/roboface.py has the
+    // geometry.
     public static class RobotFace
     {
-        // No _north: a faceplate has no back, and the node below hides on that facing.
-        // _west is Graphic_Multi's mirror of _east.
+        // No _north: a faceplate has no back, and the node below hides on that facing. _west is
+        // Graphic_Multi's mirror of _east.
         public const string TexPath = "SlopWorld/RobotFace";
 
-        // The plate's edge is a fixed line across the brow, so a cut whose hairline sits
-        // above it leaves bare skin between the two. Matched by defName rather than
-        // through a DefOf, so a name this game does not have is never matched instead of
-        // failing at load.
+        // The plate's edge is a fixed line across the brow, so a cut whose hairline sits above
+        // it leaves bare skin. By defName rather than through a DefOf, so a name this game does
+        // not have is never matched instead of failing at load.
         static readonly HashSet<string> ScalpHair =
             new HashSet<string> { "Bald", "Shaved", "Mohawk" };
 
-        // Called once at generation rather than from the reconcile: nothing takes an
-        // agent's hair away later, and a pawn whose every option is refused would be
-        // rerolled once a second forever.
+        // Once at generation rather than from the reconcile: nothing takes an agent's hair away
+        // later, and a pawn whose every option is refused would be rerolled forever.
         public static void FitHair(Pawn pawn)
         {
             if (pawn?.story == null) return;
@@ -53,12 +49,10 @@ namespace SlopWorld
         }
     }
 
-    // Every non-abstract subclass of DynamicPawnRenderNodeSetup is found by
-    // GenTypes.AllSubclassesNonAbstract and instantiated by the game, so this needs
-    // no def and no patch. It runs when a render tree is built - on load and on any
-    // SetAllGraphicsDirty. The parent is handed back as null on purpose:
-    // PawnRenderTree.AddChild resolves it from parentTagDef against its own
-    // nodesByTag, so we never hold a node the tree has since rebuilt.
+    // Every non-abstract DynamicPawnRenderNodeSetup is found by AllSubclassesNonAbstract and
+    // instantiated by the game, so this needs no def and no patch. The parent is handed back
+    // null: AddChild resolves it from parentTagDef against its own nodesByTag, so we never
+    // hold a node the tree has since rebuilt.
     public class SlopFaceRenderNodes : DynamicPawnRenderNodeSetup
     {
         public override bool HumanlikeOnly => true;
@@ -73,24 +67,23 @@ namespace SlopWorld
 
             var props = new PawnRenderNodeProperties
             {
-                // PawnRenderNode_AttachmentHead takes its mesh from GetHumanlikeHairSetForPawn,
-                // the mesh vanilla hair is drawn on - so the plate lands in the same frame as the
-                // hair for this head type, narrow crowns included, and needs no size of its own.
+                // AttachmentHead takes its mesh from GetHumanlikeHairSetForPawn, the mesh
+                // vanilla hair is drawn on, so the plate lands in the same frame as the hair
+                // for this head type and needs no size of its own.
                 nodeClass = typeof(PawnRenderNode_AttachmentHead),
                 texPath = RobotFace.TexPath,
                 parentTagDef = PawnRenderNodeTagDefOf.Head,
-                // The plate arrives painted, so it takes the plain cutout shader and no tint. On
-                // the skin shader it would change colour with the pawn under it.
+                // The plate arrives painted; on the skin shader it would change colour with
+                // the pawn under it.
                 shaderTypeDef = ShaderTypeDefOf.Cutout,
                 colorType = PawnRenderNodeProperties.AttachmentColorType.Custom,
                 color = Color.white,
-                // Read off the head node rather than written down: layers are absolute floats out
-                // of the humanlike render tree def, and a copied number is one to get wrong next
-                // version. Half a layer, so the plate cannot tie with whatever the tree puts on
-                // the next layer up.
+                // Read off the head node rather than written down: layers are absolute floats
+                // out of the humanlike render tree def. Half a layer, so the plate cannot tie
+                // with whatever the tree puts above.
                 baseLayer = head.Props.baseLayer + 0.5f,
-                // A face is not visible from behind. Leaving north out shows the pawn's own head
-                // there instead of a plate on the back of it.
+                // Leaving north out shows the pawn's own head there rather than a plate on the
+                // back of it.
                 visibleFacing = new List<Rot4> { Rot4.South, Rot4.East, Rot4.West },
             };
 

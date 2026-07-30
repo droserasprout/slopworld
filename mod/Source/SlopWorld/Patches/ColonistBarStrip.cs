@@ -7,40 +7,30 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The colonist bar is a strip: one row of portraits, shrunk, centred in a band the
-    // height of the terminal's title bar, with a "+" slot on the end. It is laid out
-    // that way in both views, so opening or closing a pane moves nothing - the strip is
-    // the same pixels whether the map or a terminal is underneath it.
+    // One row of portraits, shrunk, centred in a band the height of the terminal's title bar,
+    // with a "+" on the end. Laid out that way in both views, so toggling a pane moves nothing.
     //
-    // Nothing is redrawn by hand. The bar's own OnGUI is called with its cached scale
-    // and draw locs pointed at the strip, from a prefix, and put back from a finalizer.
-    // One code path, so the two views cannot drift.
+    // Nothing is redrawn by hand: the bar's own OnGUI is called with its cached scale and draw
+    // locs pointed at the strip from a prefix, and put back from a finalizer.
     //
-    // Over a terminal the call has to come from inside the window, which is the whole
-    // trick: UIRootOnGUI draws the map interface (the bar), then every window's
-    // ExtraOnGUI, and only then every window's contents. TerminalWindow fills the screen
-    // opaque, so anything drawn from the first two is painted over. Drawing after that
-    // fill also puts Mouse.IsOver in the right frame of reference, so clicks in the
-    // strip register instead of counting as obscured. Hence Draw(), and Suppressed to
-    // keep the map-layer call from drawing a second, buried copy.
+    // Over a terminal the call has to come from inside the window. UIRootOnGUI draws the map
+    // interface, then every window's ExtraOnGUI, and only then every window's contents -
+    // TerminalWindow fills the screen opaque, so anything from the first two is painted over.
+    // Drawing after that fill also puts Mouse.IsOver in the right frame of reference. Hence
+    // Draw(), and Suppressed to keep the map-layer call from drawing a buried second copy.
     //
-    // A transpiler was tried first and this game's Mono rejected the rewritten wrapper
-    // with InvalidProgramException at patch time, which in PatchAll takes the whole mod
-    // down.
+    // A transpiler was tried first and this game's Mono rejected the rewritten wrapper with
+    // InvalidProgramException at patch time, which in PatchAll takes the whole mod down.
     public static class ColonistBarStrip
     {
-        // Small enough to read as a strip and not a second bar, large enough to still be
-        // a portrait.
         public const float Shrink = 0.6f;
 
-        // The name is inside the band with everything else, so the band is this much
-        // taller rather than the name hanging onto whatever is below it.
+        // The name is inside the band, so the band is this much taller.
         const float LabelH = 16f;
         const float Pad = 4f;
 
-        // GetPawnTextureRect draws PawnTextureSize (46x75) anchored to the bottom of a
-        // BaseSize (48x48) cell, which lets heads clear the top of the screen in vanilla
-        // and would put them off the top of the terminal window here.
+        // GetPawnTextureRect draws PawnTextureSize (46x75) anchored to the bottom of a BaseSize
+        // (48x48) cell, which would put heads off the top of the terminal window.
         static float Overhang(float s) =>
             (ColonistBarColonistDrawer.PawnTextureSize.y - ColonistBar.BaseSize.y) * s;
 
@@ -65,8 +55,8 @@ namespace SlopWorld
         static bool _applied;
         static float _savedScale;
 
-        // Whether the bar is currently wearing the strip's geometry. Read by the hit-test
-        // patch, which must not restore a layout somebody else is still drawing with.
+        // Read by the hit-test patch, which must not restore a layout somebody else is still
+        // drawing with.
         public static bool Applied => _applied;
 
         public static bool Active =>
@@ -75,45 +65,38 @@ namespace SlopWorld
         // True only for the length of the terminal's own call to the bar.
         public static bool Drawing { get; private set; }
 
-        // The strip is drawn from the terminal's contents, which run before anything
-        // stacked above it - so with a dialog up (the one "+" just opened, say) the bar
-        // would still be answering clicks underneath it. It keeps drawing; it stops
-        // listening. On the map layer this never arises: HandleEventsHighPriority has
-        // already Used the event by the time the map interface draws.
+        // The strip draws from the terminal's contents, which run before anything stacked above
+        // it, so with a dialog up the bar would still be answering clicks underneath. It keeps
+        // drawing; it stops listening. On the map layer this never arises, HandleEventsHighPriority
+        // having already Used the event.
         public static bool Blocked { get; private set; }
 
-        // The map-layer draw is pointless while the terminal covers it, and would leave
-        // the bar's reorderable groups registered twice a frame.
+        // The map-layer draw is pointless under a terminal and would register the bar's
+        // reorderable groups twice a frame.
         public static bool Suppressed => Active && !Drawing;
 
-        // Mirrors ColonistBar.Visible, which is private: the bar hides itself under
-        // 800x500 and while the tile picker is up.
+        // Mirrors the private ColonistBar.Visible: the bar hides itself under 800x500 and
+        // while the tile picker is up.
         static bool BarShown =>
             UI.screenWidth >= 800 && UI.screenHeight >= 500 && !Find.TilePicker.Active;
 
-        // The "+" is part of the row, so it is reserved before the row is centred - the
-        // portraits would otherwise shuffle sideways the moment it appeared.
+        // Reserved before the row is centred, or the portraits shuffle sideways when it
+        // appears.
         public static bool ShowAdd => BarShown && !Cutscene.Playing;
 
-        // Where the add button goes, in the same cell geometry as a portrait. Set by
-        // Apply, which is the only thing that knows the fitted scale.
+        // Set by Apply, the only thing that knows the fitted scale.
         public static Rect AddRect { get; private set; }
 
-        // What has to fit inside the band, and what gets centred in it.
         static float RowH(float s) =>
             Overhang(s) + ColonistBar.BaseSize.y * s + LabelH;
 
-        // Measured at the nominal scale, so a row that had to shrink leaves the band the
-        // same height rather than making the chrome jump about as agents come and go.
+        // Measured at the nominal scale, so a row that had to shrink leaves the band the same
+        // height rather than making the chrome jump as agents come and go.
         public static float BarH => RowH(Shrink) + Pad * 2f;
 
-        // The top of the screen in either view; over a terminal it is the title bar,
-        // since the whole row lives inside it now.
         public static Rect Rect => new Rect(0f, 0f, UI.screenWidth, BarH);
 
-        // Called from TerminalWindow.DoWindowContents, after the background fill.
-        // On every event but Layout - the bar handles its own clicks and returns early on
-        // Layout anyway.
+        // From TerminalWindow.DoWindowContents, after the background fill.
         public static void Draw(bool interactive)
         {
             if (!Ready || Drawing) return;
@@ -127,8 +110,6 @@ namespace SlopWorld
             finally { Drawing = false; Blocked = false; }
         }
 
-        // Prefixed onto the bar's OnGUI, so the map-layer call and the terminal's own
-        // land on identical geometry.
         public static void Apply()
         {
             AddRect = Rect.zero;
@@ -136,9 +117,8 @@ namespace SlopWorld
             var bar = Find.ColonistBar;
             if (bar == null) return;
 
-            // Touch Entries first: it recaches both fields below from scratch when the layout
-            // is dirty, and does so from inside ColonistBarOnGUI, which would undo everything
-            // this method sets.
+            // Entries first: it recaches both fields below from scratch when the layout is
+            // dirty, from inside ColonistBarOnGUI, undoing everything this sets.
             int entries = bar.Entries.Count;
             var locs = DrawLocsField.GetValue(bar) as List<Vector2>;
             int count = entries == 0 || locs == null ? 0 : locs.Count;
@@ -155,9 +135,8 @@ namespace SlopWorld
 
             var strip = Rect;
             float x = strip.x + (strip.width - (cells * w + (cells - 1) * gap)) / 2f;
-            // Centred in the band rather than measured down from its top, so a row that had
-            // to shrink sits in the middle of the chrome. The overhang is added back because
-            // the loc is the cell's top and the head pokes out above it.
+            // Centred rather than measured from the top, so a shrunk row sits in the middle.
+            // The overhang goes back on: the loc is the cell's top and the head pokes above it.
             float y = strip.y + (strip.height - RowH(s)) / 2f + Overhang(s);
 
             if (count > 0)
@@ -185,8 +164,7 @@ namespace SlopWorld
             var bar = Find.ColonistBar;
             if (bar == null) return;
 
-            // Restoring beats marking it dirty: a dirty flag would recache the whole thing
-            // every frame.
+            // Restoring beats marking it dirty, which would recache everything every frame.
             ScaleField.SetValue(bar, _savedScale);
             if (DrawLocsField.GetValue(bar) is List<Vector2> locs)
             {
@@ -202,18 +180,16 @@ namespace SlopWorld
             float s = scale * Shrink;
             float need = cells * ColonistBar.BaseSize.x
                 + (cells - 1) * ColonistBar.BaseSpaceBetweenColonistsHorizontal;
-            // Both ends, because the row is centred, and unconditionally rather than only
-            // over a pane: the map view has to lay out the same pixels or toggling a terminal
-            // would shuffle every portrait sideways.
+            // Both ends because the row is centred, and unconditionally: the map view has to
+            // lay out the same pixels or toggling a terminal shuffles every portrait sideways.
             float room = UI.screenWidth - 40f - TerminalWindow.CornerW * 2f;
             if (need > 0f && need * s > room) s = room / need;
             return s;
         }
     }
 
-    // Apply before the bar lays anything out, put it back after everything that reads
-    // the layout has run. A finalizer rather than a last-priority postfix, so an
-    // exception out of the bar cannot strand the game at the strip's scale.
+    // A finalizer rather than a last-priority postfix, so an exception out of the bar cannot
+    // strand the game at the strip's scale.
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
     public static class Patch_ColonistBarStripLayout
     {
@@ -221,21 +197,16 @@ namespace SlopWorld
         static void Finalizer() => ColonistBarStrip.Restore();
     }
 
-    // Selecting a colonist off the bar does not happen inside ColonistBarOnGUI. The
-    // Selector asks ColonistBar.TryGetEntryAt while the *map* handles the click, which
-    // is long after the finalizer above has put the vanilla layout back - so the click
-    // was being tested against where the portraits would be if this mod were not
-    // loaded. The two layouts overlap for part of the row and not the rest, which is
-    // why it read as some colonists selecting and some not answering at all.
-    //
-    // The hit test gets the same treatment the draw does, and for the same reason: one
-    // geometry, computed in one place.
+    // Selecting off the bar does not happen inside ColonistBarOnGUI: the Selector asks
+    // TryGetEntryAt while the *map* handles the click, long after the finalizer above has put
+    // the vanilla layout back - so the click was tested against where the portraits would be
+    // without this mod. The two layouts overlap for part of the row, which is why it read as
+    // some colonists selecting and some not.
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.TryGetEntryAt))]
     public static class Patch_StripHitTest
     {
-        // Only the outermost call owns the swap. The bar asks this of itself from inside
-        // its own OnGUI, and restoring there would put the vanilla layout back halfway
-        // through drawing the strip with it.
+        // Only the outermost call owns the swap: the bar asks this of itself from inside its
+        // own OnGUI, and restoring there would undo the layout being drawn.
         static void Prefix(out bool __state)
         {
             __state = !ColonistBarStrip.Applied;

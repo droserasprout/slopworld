@@ -158,6 +158,8 @@ namespace SlopWorld
 
         string _roPaths, _rwPaths, _passEnv;
         Vector2 _scroll;
+        Vector2 _presetScroll;
+        const float PresetsH = 152f;
 
         // The base every project builds on, off `[sandbox]`. Fetched per dialog rather
         // than cached on the hub, because it is one small request and a stale answer
@@ -185,6 +187,7 @@ namespace SlopWorld
             resizeable = true;
             absorbInputAroundWindow = true;
             closeOnClickedOutside = false;
+            closeOnAccept = false;
 
             SessionHub.Instance.LoadPresets();
             SlopClient.Get("/api/config", j =>
@@ -277,13 +280,22 @@ namespace SlopWorld
                 y += 24f;
             }
 
-            // Two columns: there are a dozen of these and stacking them would push the path
-            // boxes off the bottom of the dialog.
-            float colW = r.width / 2f;
-            for (int i = 0; i < presets.Count; i++)
+            // One column in a box of its own: the list is as long as whatever the daemon
+            // was built with, and a form that grows with it is one where the path boxes
+            // move every time a preset is added.
+            var sorted = presets.OrderBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var outer = new Rect(r.x, y, r.width, PresetsH);
+            Widgets.DrawBoxSolid(outer, new Color(0f, 0f, 0f, 0.25f));
+            var pad = outer.ContractedBy(4f);
+            var inner = new Rect(0f, 0f, pad.width - 18f, sorted.Count * 24f);
+
+            Widgets.BeginScrollView(pad, ref _presetScroll, inner);
+            for (int i = 0; i < sorted.Count; i++)
             {
-                var pr = presets[i];
-                var cell = new Rect(r.x + (i % 2) * colW, y + (i / 2) * 24f, colW - 8f, 22f);
+                var pr = sorted[i];
+                var cell = new Rect(0f, i * 24f, inner.width, 22f);
 
                 bool on = _p.Presets.Contains(pr.Name);
                 bool was = on;
@@ -297,13 +309,15 @@ namespace SlopWorld
                     else _p.Presets.Remove(pr.Name);
                 }
             }
-            y += ((presets.Count + 1) / 2) * 24f + 10f;
+            Widgets.EndScrollView();
+            y += PresetsH + 6f;
 
-            // A Claude agent gets this one whether or not it is ticked here, and saying so is
-            // cheaper than the player wondering why ~/.claude is bound.
+            // A Claude or OpenCode agent gets its own whether or not it is ticked here, and
+            // saying so is cheaper than the player wondering why ~/.claude is bound.
             GUI.color = new Color(0.65f, 0.66f, 0.68f);
             Widgets.Label(new Rect(r.x, y, r.width, 22f),
-                "Claude Code agents always get the 'claude' preset, project or not.");
+                "Claude Code and OpenCode agents always get the preset of their own name, " +
+                "project or not.");
             GUI.color = Color.white;
             y += 26f;
 

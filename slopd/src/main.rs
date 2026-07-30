@@ -73,9 +73,8 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// SIGTERM is the case that matters: `make install-daemon` restarts the unit under
-/// a live game, and without this the process was killed outright, so sockets died
-/// mid-frame instead of closing.
+/// SIGTERM is the case that matters: `make install-daemon` restarts the unit under a live
+/// game, and without this sockets died mid-frame instead of closing.
 async fn shutdown() {
     use tokio::signal::unix::{signal, SignalKind};
     let mut term = match signal(SignalKind::terminate()) {

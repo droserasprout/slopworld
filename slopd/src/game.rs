@@ -1,12 +1,9 @@
-//! What the daemon can say about the game: how it is launched, and whether it is
-//! up.
+//! How the game is launched, and whether it is up.
 //!
-//! Nothing inside a session can answer the second half. An agent runs in a PID
-//! namespace of its own, so `pgrep` in there sees the agent's own handful of
-//! processes - which does not read as "cannot tell", it reads as "no game is
-//! running". The attached client count is in the answer because the question is
-//! usually "is it running the mod I just built", which the process table cannot
-//! prove.
+//! Nothing inside a session can answer the second half: an agent runs in its own PID
+//! namespace, so `pgrep` there reads as "no game is running" rather than "cannot tell". The
+//! attached client count is in the answer because the question is usually "is it running the
+//! mod I just built", which the process table cannot prove.
 
 use std::process::Command;
 
@@ -89,14 +86,12 @@ fn unit_pid() -> Option<u32> {
     (active && pid > 0).then_some(pid)
 }
 
-/// The configured path first, then the executable's bare name - which would also
-/// match an editor with the word in its argv, so it is the fallback and not the
-/// test.
+/// The configured path first, then the executable's bare name - which would also match an
+/// editor with the word in its argv, hence the fallback and not the test.
 ///
-/// The path is matched *anchored*. `pgrep -f` tries its pattern anywhere in a
-/// command line, and every sandbox binds `<game>/RimWorldLinux_Data/Managed` so an
-/// agent can build against the game's assemblies - so a bare `-f <path>` matches
-/// an agent, and a restart then waits forever for a PID that was never the game.
+/// The path is matched *anchored*: `pgrep -f` tries its pattern anywhere in a command line,
+/// and every sandbox binds `<game>/RimWorldLinux_Data/Managed`, so a bare `-f <path>` matches
+/// an agent and a restart then waits forever for a PID that was never the game.
 fn found(exe: &str) -> Option<u32> {
     if exe.is_empty() {
         return None;
@@ -127,9 +122,8 @@ fn pgrep(args: &[&str]) -> Option<u32> {
         .find_map(|l| l.trim().parse().ok())
 }
 
-/// Field 22 of `stat` is the start in clock ticks since boot. Everything before
-/// the last `)` is skipped because the process name sits in there unescaped,
-/// parentheses and spaces included.
+/// Field 22 of `stat` is the start in clock ticks since boot. Everything before the last `)`
+/// is skipped, the process name sitting in there unescaped.
 pub fn uptime_s(pid: u32) -> Option<u64> {
     let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
     let fields = &stat[stat.rfind(')')? + 1..];
@@ -145,13 +139,10 @@ pub fn uptime_s(pid: u32) -> Option<u64> {
     Some((up - ticks / 100.0).max(0.0) as u64)
 }
 
-/// Starts a process that must outlive slopd. Spawned as a plain child it would sit
-/// in `slopd.service`'s cgroup and be killed by the next redeploy - which is
-/// exactly when the game is being relaunched. `--collect` frees the unit name for
-/// the next restart.
-///
-/// The three display variables are passed explicitly so a daemon run by hand from
-/// a terminal works too.
+/// Starts a process that must outlive slopd: a plain child would sit in `slopd.service`'s
+/// cgroup and be killed by the next redeploy, which is exactly when the game is being
+/// relaunched. `--collect` frees the unit name for the next restart. The three display
+/// variables are passed explicitly so a daemon run by hand from a terminal works too.
 pub fn launch(exe: &str, args: &[String]) -> Result<()> {
     // `game_cmd` is a path a person typed, so it can start with a ~ that nothing else
     // expands: shell_split builds an argv rather than running a shell.

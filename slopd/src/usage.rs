@@ -1,14 +1,13 @@
 //! What is left of the subscription, polled from Anthropic.
 //!
-//! Nothing on the host caches it - `stats-cache.json` is aggregate tokens and days
-//! stale, the transcripts carry no rate-limit fields - so the numbers come from
-//! where Claude Code's own `/usage` gets them, with the OAuth token it leaves in
-//! `~/.claude/.credentials.json`. That file is read fresh per poll and never
-//! copied: the token expires hourly and something else refreshes it.
+//! Nothing on the host caches it - `stats-cache.json` is aggregate tokens and days stale, the
+//! transcripts carry no rate-limit fields - so the numbers come from where Claude Code's own
+//! `/usage` gets them, with the OAuth token in `~/.claude/.credentials.json`. Read fresh per
+//! poll and never copied: the token expires hourly and something else refreshes it.
 //!
-//! Failure is a state, not an error: a snapshot carries what it managed to read
-//! plus the reason it got no further. The mod is told a *list* of windows rather
-//! than two named ones, so a plan with different limits draws whatever it has.
+//! Failure is a state rather than an error: a snapshot carries what it read plus the reason
+//! it got no further. The mod is told a *list* of windows, so a plan with different limits
+//! draws whatever it has.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -163,9 +162,8 @@ fn fetch(creds: &Creds) -> Result<Value, PollErr> {
     let mut res = ureq::get(usage_url())
         .config()
         .timeout_global(Some(TIMEOUT))
-        // Statuses are read rather than raised as errors: ureq's `StatusCode` error has
-        // thrown the response away by the time we see it, and with it the one header a
-        // 429 is worth having.
+        // Statuses read rather than raised: ureq's `StatusCode` error has thrown the response
+        // away by the time we see it, and with it a 429's `Retry-After`.
         .http_status_as_error(false)
         .build()
         .header("Authorization", format!("Bearer {}", creds.token))
@@ -199,23 +197,19 @@ fn fetch(creds: &Creds) -> Result<Value, PollErr> {
     res.body_mut().read_json::<Value>().map_err(PollErr::new)
 }
 
-/// Seconds only; the header's HTTP-date form has never turned up here and the
-/// backoff behind this is a good enough answer for one we cannot read. Clamped,
-/// because a daemon that stops polling until next week has to be restarted by
-/// hand.
+/// Seconds only; the header's HTTP-date form has never turned up here, and the backoff
+/// behind this answers one we cannot read. Clamped: a daemon that stops polling until next
+/// week has to be restarted by hand.
 fn retry_after<T>(res: &ureq::http::Response<T>) -> Option<u64> {
     let raw = res.headers().get("retry-after")?.to_str().ok()?;
     Some(raw.trim().parse::<u64>().ok()?.min(6 * 3600))
 }
 
-/// The endpoint is nobody's published API, so this recognises rather than assumes:
-/// anything unrecognised leaves an empty list. Being wrong must read as "no
-/// numbers", never as "0% used".
-///
-/// Windows are picked out by family rather than by name - one `five_hour` and a
-/// row of `seven_day*`, several null on any given plan - so this takes whichever
-/// ones the account has and picks up the next one free. The money comes through a
-/// door of its own, because `extra_usage` and `spend` carry a `utilization` too.
+/// The endpoint is nobody's published API, so this recognises rather than assumes: anything
+/// unrecognised leaves an empty list, being wrong having to read as "no numbers" and never as
+/// "0% used". Windows are picked out by family rather than name - one `five_hour` and a row
+/// of `seven_day*`, several null on any plan. Money comes through a door of its own, because
+/// `extra_usage` and `spend` carry a `utilization` too.
 fn parse(v: &Value, plan: String) -> Snapshot {
     let mut windows = Vec::new();
 
@@ -243,9 +237,8 @@ fn parse(v: &Value, plan: String) -> Snapshot {
         }
     }
 
-    // Emptiness is judged on the rate limits alone and before the money is added: an
-    // unrecognised payload has to read as "no numbers" even if something in it was
-    // spend-shaped.
+    // Judged on the rate limits alone and before the money is added: an unrecognised payload
+    // has to read as "no numbers" even if something in it was spend-shaped.
     if windows.is_empty() {
         tracing::debug!("unrecognised usage payload: {v}");
         return Snapshot {
@@ -270,13 +263,9 @@ fn parse(v: &Value, plan: String) -> Snapshot {
     }
 }
 
-/// Deliberately not part of `family`: `extra_usage` and `spend` both carry a
-/// `utilization`, and letting either through the rate-limit path is how a quota
-/// row quietly becomes a dollar row.
-///
-/// `monthly_limit` is minor units - 10000 is the $100 cap. Every dollar figure
-/// this payload names outright says so in the name (`limit_dollars`), and 20.93%
-/// of $100 is the $21 `spend.percent` reports. A budget whose size cannot be read
+/// Not part of `family`: `extra_usage` and `spend` both carry a `utilization`, and letting
+/// either through the rate-limit path is how a quota row becomes a dollar row.
+/// `monthly_limit` is minor units - 10000 is the $100 cap. A budget whose size cannot be read
 /// still leaves a row, without an amount.
 fn spend(v: &Value) -> Option<Window> {
     let e = &v["extra_usage"];
@@ -346,9 +335,8 @@ fn family(name: &str) -> Option<(String, String)> {
     }
 }
 
-/// `utilization` is a percentage here - 52.0 means 52% - where the same figure
-/// rides the API's response headers as a fraction. Guessing between them by size
-/// reads a window that is 0.8% spent as 80%.
+/// A percentage here - 52.0 means 52% - where the same figure rides the API's response
+/// headers as a fraction. Guessing between them by size reads 0.8% spent as 80%.
 fn percent(w: &Value) -> Option<f32> {
     for k in ["utilization", "used_pct", "percent_used"] {
         if let Some(p) = w[k].as_f64() {
@@ -384,9 +372,9 @@ fn resets_in(w: &Value) -> Option<u64> {
     None
 }
 
-/// `2026-07-26T09:59:59.621619+00:00` -> epoch seconds. All three forms this
-/// endpoint uses are handled: fractional seconds (thrown away), a trailing `Z`,
-/// and a numeric offset, which is applied rather than assumed to be zero.
+/// `2026-07-26T09:59:59.621619+00:00` -> epoch seconds. All three forms this endpoint uses:
+/// fractional seconds (dropped), a trailing `Z`, and a numeric offset, which is applied
+/// rather than assumed zero.
 fn epoch_from_rfc3339(s: &str) -> Option<u64> {
     let b = s.as_bytes();
     if b.len() < 19 || b[4] != b'-' || b[7] != b'-' || b[10] != b'T' {
@@ -432,15 +420,14 @@ fn offset_secs(s: &str) -> Option<i64> {
     Some(sign * (h * 3_600 + m * 60))
 }
 
-/// The shortest window this reports runs five hours, so half an hour behind is
-/// still worth drawing. It also bounds how long a fixed login goes unnoticed,
-/// since the loop only looks at the config between sleeps.
+/// The shortest window reported runs five hours, so half an hour behind is still worth
+/// drawing. Also bounds how long a fixed login goes unnoticed, the loop only looking at the
+/// config between sleeps.
 const BACKOFF_CAP: u64 = 1800;
 
-/// A 429 answered by polling at exactly the rate that earned it is a daemon
-/// feeding its own rate limit, and this one polls forever. The first failure still
-/// retries at the normal interval. `asked` overrides the cap rather than being
-/// clamped by it: a limit the far end named is not a guess.
+/// A 429 answered at the rate that earned it is a daemon feeding its own rate limit. The
+/// first failure still retries at the normal interval. `asked` overrides the cap rather than
+/// being clamped by it: a limit the far end named is not a guess.
 fn backoff(base: u64, fails: u32, asked: Option<u64>) -> u64 {
     let grown = base
         .saturating_mul(1u64 << fails.saturating_sub(1).min(16))

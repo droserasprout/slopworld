@@ -6,24 +6,16 @@ using Verse;
 namespace SlopWorld
 {
     // The opening scene of a fresh colony, once, as a cutscene: nothing on the map is
-    // clickable and no UI is drawn until it is over.
+    // clickable and no UI is drawn until it is over. A hillside is placed, the core falls into
+    // it, it vents alone, the plague is armed, and only then are the clankers released.
     //
-    // A hillside populated with living animals and people, the cat among them - all
-    // placed, because a hundred pods would be a different scene - and then the persona
-    // core falls into the middle of it. It vents alone for a couple of seconds, so what
-    // follows reads as having come out of it: the plague is armed, and only then do the
-    // clankers come down into it.
+    // Nobody is on this map at tick zero - SlopScenario hands over no people - so the only
+    // things that arrive are the ones this scene calls for, in the order it wants them.
     //
-    // Nobody is standing on this map at tick zero. The scenario hands over no people
-    // (SlopScenario), so the only things that fall are the ones this scene calls for,
-    // in the order it wants them. The living are placed alive and left to the plague,
-    // which is cheaper than killing them on camera and is the whole point.
-    //
-    // The phase is persisted so a reload never replays the intro; the work lists are
-    // not, so a reload mid-intro skips ahead.
+    // The phase is persisted so a reload never replays the intro; the work lists are not, so a
+    // reload mid-intro skips ahead.
     public class IntroDirector : GameComponent
     {
-        // How much life the scene puts on the map before killing it.
         const int AnimalsMin = 50;
         const int AnimalsMax = 70;
         const int HumansMin = 20;
@@ -34,17 +26,14 @@ namespace SlopWorld
 
         const float FumeSeconds = 3f;
 
-        // The plague spreading with nothing on the map to answer it. Short, because the
-        // hold is only there so the clankers are seen landing *into* something.
+        // Long enough that the clankers are seen landing *into* something.
         const float SeedSeconds = 3f;
 
-        // Longer than the beats around it, because it is waiting on three things in a
-        // row that are not this component's: the reconcile's own second, the pods' fall,
-        // and the delay they take to open.
+        // Waiting on three things that are not this component's: the reconcile's second, the
+        // pods' fall, and the delay they take to open.
         const float BloomSeconds = 6f;
 
-        // A fallback against a skyfaller that never landed, not a timer anything is
-        // supposed to hit.
+        // A fallback against a skyfaller that never landed, not a timer anything should hit.
         const float FallSeconds = 12f;
 
         // Ticks between breaths of the core's vent.
@@ -70,16 +59,15 @@ namespace SlopWorld
         bool _armed;
         float _at;
 
-        // Runtime only - a save loaded mid-scene comes back with the UI on rather than
-        // stuck hidden.
+        // Runtime only: a save loaded mid-scene comes back with the UI on rather than stuck
+        // hidden.
         public static bool UiHidden { get; private set; }
 
-        // The reconcile holds off, so the agents come down on their cue instead of being
-        // on the board before the thing that made them is.
+        // The reconcile holds off, so the agents come down on their cue.
         public static bool AgentsHeld { get; private set; }
 
-        // Both flags are static, so a colony discarded during its own intro must not hand
-        // the next one a hidden UI.
+        // Both are static, so a colony discarded during its own intro must not hand the next
+        // one a hidden UI.
         public IntroDirector(Game game)
         {
             UiHidden = false;
@@ -129,8 +117,8 @@ namespace SlopWorld
             var map = TheMap;
             if (map == null) return;
 
-            // A load, not a fresh landing. Finish rather than marking it done, so a colony
-            // abandoned mid-scene cannot leave the UI hidden or the agents held.
+            // A load. Finish rather than marking it done, so a colony abandoned mid-scene
+            // cannot leave the UI hidden or the agents held.
             if (Find.TickManager.TicksGame > FreshGameTicks) { Finish(); return; }
 
             UiHidden = true;
@@ -150,11 +138,9 @@ namespace SlopWorld
             Go(Phase.Populate);
         }
 
-        // Everything spawns alive and factionless: they wander, they never join the
-        // colonist bar, and they are here to die of the plague. The cat goes down with
-        // the first of them - she is part of the hillside, not an arrival - and the
-        // camera takes the middle now and keeps it for the rest of the scene, which is
-        // also what makes the fumes exist: flecks are not spawned off screen.
+        // Alive and factionless: they wander, never join the colonist bar, and are here to die
+        // of the plague. The camera takes the middle now and keeps it, which is also what
+        // makes the fumes exist - flecks are not spawned off screen.
         void StepPopulate()
         {
             var map = TheMap;
@@ -219,8 +205,7 @@ namespace SlopWorld
             if (TheCore(map) == null)
             {
                 if (Held) return; // still on its way down
-                // The rest of the scene needs a core standing, so it gets put there without the
-                // theatre rather than not at all.
+                // The rest of the scene needs a core standing.
                 Log.Warning("[SlopWorld] persona core never landed; placing it");
                 Ground(map);
             }
@@ -228,10 +213,9 @@ namespace SlopWorld
             Go(Phase.Fume, FumeSeconds);
         }
 
-        // ShipChunkIncoming is vanilla's own carrier for wreckage: with no graphicData of
-        // its own the skyfaller draws its payload, so what falls is the core. It is also
-        // the harmless one - the variant that blows a hole in the ground is a separate
-        // def, which matters because the scene's own hillside is standing underneath.
+        // With no graphicData of its own a skyfaller draws its payload, so what falls is the
+        // core. ShipChunkIncoming is also the harmless one - the variant that blows a hole in
+        // the ground is a separate def, and the hillside is standing underneath.
         void Fall(Map map)
         {
             var cell = map.Center;
@@ -263,8 +247,7 @@ namespace SlopWorld
             }
         }
 
-        // Nothing is marked yet and the plague is not armed - this is the core alone, so
-        // that what comes next is read as having come out of it.
+        // The core alone: nothing is marked yet and the plague is not armed.
         void Vent()
         {
             if (Find.TickManager.TicksGame % PuffInterval != 0) return;
@@ -276,10 +259,7 @@ namespace SlopWorld
             if (!Held) Go(Phase.Seed);
         }
 
-        // The plague goes first and the clankers come down into it, in that order and
-        // with a beat between: a pod that lands on a hillside and a pod that lands on a
-        // map already turning are two different arrivals, and this is the one where the
-        // core made them.
+        // The plague goes first, with a beat before the clankers come down into it.
         void SeedPlague()
         {
             var map = TheMap;
@@ -299,8 +279,8 @@ namespace SlopWorld
             Go(Phase.Bloom, BloomSeconds);
         }
 
-        // The agents are dropped by AgentColony's own reconcile on its own second, so
-        // this is a beat: long enough for the pods to be worth looking at.
+        // AgentColony drops the agents on its own second, so this is just a beat long enough
+        // for the pods to be worth looking at.
         void WaitOnBloom()
         {
             if (!Held) Finish();

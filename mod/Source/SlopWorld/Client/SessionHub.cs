@@ -5,16 +5,14 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Down is "the process is not running": the colonist is put on the floor, not
-    // killed, because the same process can get it back up.
+    // Down is "the process is not running": the colonist is put on the floor rather than
+    // killed, the same process being able to get it back up.
     public enum AgentState { Down, Working, Waiting, Idle }
 
-    // Claude is a kind rather than a command string: knowing it is Claude is what
-    // lets the daemon hand it its own state dir.
-    public enum AgentKind { Claude, Custom }
+    // A kind rather than a command string: knowing it is Claude is what lets the daemon hand
+    // it its own state dir.
+    public enum AgentKind { Claude, Opencode, Custom }
 
-    // The only thing the two kinds disagree about at the far end: an agent's input
-    // field, or a shell's prompt.
     public enum ShortcutKind { Prompt, Shell }
 
     // Temp is a fresh scratch directory per run; Ask is decided at the button.
@@ -23,14 +21,13 @@ namespace SlopWorld
     public class SessionInfo
     {
         public string Name = "";
-        // Everything about where it runs and what it can reach is the project's answer.
         public string Project = "";
-        // Repeated on the wire so a list of sessions reads without joining it against
-        // anything. Blank when the entry names a project that has gone.
+        // Repeated on the wire so a session list reads without a join. Blank when the entry
+        // names a project that has gone.
         public string Dir = "";
         public AgentKind Kind = AgentKind.Claude;
-        // Defaults resolved. For a custom session it is also what the player typed, which
-        // is why the dialog edits this field directly.
+        // Defaults resolved; for a custom session also what the player typed, which is why
+        // the dialog edits this field directly.
         public string Agent = "";
         public AgentState State = AgentState.Down;
         public bool Alive;
@@ -38,9 +35,10 @@ namespace SlopWorld
         public bool Net = true;
         public bool Sandbox = true;
         public bool Autostart;
+        public List<string> Env = new List<string>();
 
-        // A shortcut's errand, or a tmux session somebody started by hand: it leaves the
-        // colony when its process exits. There is no entry to edit or delete.
+        // A shortcut's errand or a tmux session started by hand: it leaves the colony when its
+        // process exits, and there is no entry to edit or delete.
         public bool Ephemeral;
 
         // Read-only here: the terminal window measures itself and sends the resize.
@@ -60,18 +58,39 @@ namespace SlopWorld
             }
         }
 
+        public static AgentKind ParseKind(string s)
+        {
+            switch (s)
+            {
+                case "custom": return AgentKind.Custom;
+                case "opencode": return AgentKind.Opencode;
+                default: return AgentKind.Claude;
+            }
+        }
+
+        public static string KindName(AgentKind k)
+        {
+            switch (k)
+            {
+                case AgentKind.Custom: return "custom";
+                case AgentKind.Opencode: return "opencode";
+                default: return "claude";
+            }
+        }
+
         public static SessionInfo FromJson(JVal j) => new SessionInfo
         {
             Name = j["name"].AsString(),
             Project = j["project"].AsString(),
             Dir = j["dir"].AsString(),
-            Kind = j["kind"].AsString() == "custom" ? AgentKind.Custom : AgentKind.Claude,
+            Kind = ParseKind(j["kind"].AsString()),
             Agent = j["agent"].AsString(),
             State = ParseState(j["state"].AsString()),
             Alive = j["alive"].AsBool(),
             Net = j["net"].AsBool(true),
             Sandbox = j["sandbox"].AsBool(true),
             Autostart = j["autostart"].AsBool(false),
+            Env = j["env"].Items.Select(i => i.AsString()).ToList(),
             Ephemeral = j["ephemeral"].AsBool(false),
             Cols = j["cols"].AsInt(0),
             Rows = j["rows"].AsInt(0),
@@ -82,8 +101,9 @@ namespace SlopWorld
         public string ToJson() =>
             "{" +
             $"\"name\":{JVal.Q(Name)},\"project\":{JVal.Q(Project)}," +
-            $"\"kind\":{JVal.Q(Kind == AgentKind.Custom ? "custom" : "claude")}," +
+            $"\"kind\":{JVal.Q(KindName(Kind))}," +
             $"\"command\":{(Kind == AgentKind.Custom && !string.IsNullOrEmpty(Agent) ? JVal.Q(Agent) : "null")}," +
+            $"\"env\":[{string.Join(",", Env.Select(JVal.Q).ToArray())}]," +
             $"\"autostart\":{JVal.B(Autostart)}}}";
     }
 
@@ -91,8 +111,8 @@ namespace SlopWorld
     {
         public string Name = "";
         public string Dir = "";
-        // Scratch ground: the daemon coins TempRoot/name and makes it when the first
-        // agent starts there. It is /tmp that is temporary, not the entry.
+        // The daemon coins TempRoot/name and makes it when the first agent starts there. It
+        // is /tmp that is temporary, not the entry.
         public bool Temp;
         public List<string> Presets = new List<string>();
         public List<string> RoPaths = new List<string>();
@@ -101,8 +121,8 @@ namespace SlopWorld
         public bool Net = true;
         public bool Sandbox = true;
 
-        // The daemon coins the path and is the only thing that writes it; this is so the
-        // dialog can show what a name is about to become before anything is saved.
+        // The daemon coins the path and is the only thing that writes it; this is so the dialog
+        // can show what a name is about to become before anything is saved.
         public const string TempRoot = "/tmp/slopworld";
 
         // The same rule as the daemon's `slug`.
@@ -159,9 +179,9 @@ namespace SlopWorld
             "[" + string.Join(",", items.Select(JVal.Q).ToArray()) + "]";
     }
 
-    // The agent it lands is temporary - never written to config.toml - so what is
-    // saved is the errand and not the agent. The template is spelled out rather than
-    // pointing at an existing agent, which would stop working the day it was deleted.
+    // The agent it lands is temporary and never written to config.toml, so what is saved is
+    // the errand. Spelled out rather than pointing at an existing agent, which would stop
+    // working the day that agent was deleted.
     public class ShortcutInfo
     {
         public string Name = "";
@@ -185,8 +205,8 @@ namespace SlopWorld
             Command = j["command"].IsNull ? "" : j["command"].AsString(),
         };
 
-        // A link this build has never heard of reads as Project, the same way an unknown
-        // state reads as Down: a version skew has to stay survivable.
+        // An unknown link reads as Project, the way an unknown state reads as Down: a version
+        // skew has to stay survivable.
         public static ShortcutLink ParseLink(string s)
         {
             switch (s)
@@ -225,10 +245,9 @@ namespace SlopWorld
     {
         public string Name = "";
         public string Description = "";
-        // Kept apart rather than in one bag, because the project dialog groups what a
-        // sandbox is handed the same way it is edited: read-only, read-write, env. A
-        // device node is grouped with the read-only binds - it is bound rather than
-        // passed, and which flag bwrap gets for it is not this screen's business.
+        // Kept apart because the project dialog groups what a sandbox is handed the way it is
+        // edited. A device node goes with the read-only binds: it is bound rather than passed,
+        // and which flag bwrap gets is not this screen's business.
         public List<string> Ro = new List<string>();
         public List<string> Rw = new List<string>();
         public List<string> Env = new List<string>();
@@ -253,9 +272,8 @@ namespace SlopWorld
         }
     }
 
-    // A rate-limit window, or the extra-usage budget, which is the same shape in
-    // money. The reset is a duration rather than an instant, so a countdown from when
-    // we heard stays honest if the socket dies.
+    // A rate-limit window, or the extra-usage budget in money. The reset is a duration rather
+    // than an instant, so the countdown stays honest when the socket dies.
     public class UsageWindow
     {
         public string Key = "";
@@ -284,16 +302,15 @@ namespace SlopWorld
         public string Plan = "";
         public List<UsageWindow> Windows = new List<UsageWindow>();
 
-        // realtimeSinceStartup when this arrived, which is what ages it and what the
-        // countdown runs from.
+        // realtimeSinceStartup when this arrived - what ages it and what the countdown runs
+        // from.
         public float Heard;
 
         public bool Any => Windows.Count > 0;
 
         public float Age => UnityEngine.Time.realtimeSinceStartup - Heard;
 
-        // Floored at zero: a window that has run out reads as due rather than as a
-        // negative number.
+        // Floored at zero: a spent window reads as due rather than as a negative number.
         public long Remaining(UsageWindow w) =>
             w.ResetsIn < 0 ? -1 : Math.Max(0L, w.ResetsIn - (long)Age);
 
@@ -347,14 +364,14 @@ namespace SlopWorld
         public static readonly SessionHub Instance = new SessionHub();
 
         public List<SessionInfo> Sessions = new List<SessionInfo>();
-        // Pushed on connect and on any edit, so the dropdown that picks one can draw
-        // without asking first.
+        // Pushed on connect and on any edit, so the dropdown that picks one draws without
+        // asking first.
         public List<ProjectInfo> Projects = new List<ProjectInfo>();
         public List<ShortcutInfo> Shortcuts = new List<ShortcutInfo>();
-        // Fetched once per process: it is compiled into slopd.
+        // Fetched once per process: compiled into slopd.
         public List<PresetInfo> Presets = new List<PresetInfo>();
-        // Never null: an empty one draws as "no numbers", which is what a daemon that has
-        // not answered yet honestly means.
+        // Never null: an empty one draws as "no numbers", which is what a daemon that has not
+        // answered yet means.
         public UsageInfo Usage = new UsageInfo();
         public string Status = "disconnected";
         public bool Online => _ws != null && _ws.Connected;
@@ -402,8 +419,8 @@ namespace SlopWorld
             _ws?.Dispose();
             _ws = null;
             _nextRetry = UnityEngine.Time.realtimeSinceStartup + _backoff;
-            // Capped low: the usual reason the socket dies is `make install-daemon`
-            // restarting slopd, which is over in about two seconds.
+            // Capped low: the usual reason the socket dies is `make install-daemon`, which is
+            // over in about two seconds.
             _backoff = Math.Min(_backoff * 2, 5);
         }
 
@@ -460,9 +477,8 @@ namespace SlopWorld
                     Usage = UsageInfo.FromJson(ev["usage"]);
                     break;
 
-                // Safe here: Update() is the Root.Update patch, so this is the main thread and
-                // Shutdown is being called from where the menu would call it. The daemon waits
-                // for the process to go before it launches.
+                // Update() is the Root.Update patch, so this is the main thread and Shutdown is
+                // called from where the menu would call it.
                 case "quit":
                     Log.Message("[SlopWorld] slopd asked for a restart; saving and quitting");
                     AutoSaver.SaveNow();
@@ -473,8 +489,7 @@ namespace SlopWorld
                     var s = ev["screen"];
                     string name = s["name"].AsString();
                     int off = s["off"].AsInt(0);
-                    // Scrolled frames answer one wheel request; kept apart so they never clobber the
-                    // live view.
+                    // Scrolled frames answer one wheel request; kept apart from the live view.
                     var store = off > 0 ? _scrolls : _screens;
                     if (!store.TryGetValue(name, out var buf))
                         store[name] = buf = new ScreenBuf();
@@ -547,8 +562,8 @@ namespace SlopWorld
                          $"\"cols\":{cols},\"rows\":{rows}}}");
         }
 
-        // Session mutations go over HTTP, not the socket: they rewrite config.toml and we
-        // want the error body back.
+        // Mutations go over HTTP rather than the socket: they rewrite config.toml, and the
+        // error body matters.
         public void Refresh() =>
             SlopClient.Get("/api/sessions",
                 j => Sessions = j["sessions"].Items.Select(SessionInfo.FromJson).ToList());
@@ -556,8 +571,8 @@ namespace SlopWorld
         public ProjectInfo Project(string name) =>
             Projects.FirstOrDefault(p => p.Name == name);
 
-        // The socket pushes these too, but a window opened while the socket is down still
-        // has to draw something, and this road returns an error body.
+        // The socket pushes these too, but a window opened while it is down still has to draw
+        // something, and this road returns an error body.
         public void RefreshProjects(Action<string> fail = null) =>
             SlopClient.Get("/api/projects",
                 j => Projects = j["projects"].Items.Select(ProjectInfo.FromJson).ToList(),
@@ -583,10 +598,9 @@ namespace SlopWorld
             SlopClient.Delete($"/api/shortcuts/{Esc(name)}",
                 _ => RefreshShortcuts(), fail);
 
-        // The sessions list is fetched again before the daemon's answer is handed on: a
-        // terminal opened on a session this end has never heard of closes itself on the
-        // next frame. `project` and `temp` are the same message whether they answer an
-        // entry that does not say where to run or override one that does.
+        // The sessions list is fetched again before the answer is handed on: a terminal opened
+        // on a session this end has never heard of closes itself next frame. `project` and
+        // `temp` are the same message whether they answer an `ask` entry or override one.
         public void RunShortcut(string name, Action<string> started, Action<string> fail = null,
                                 string project = null, bool temp = false) =>
             SlopClient.Post($"/api/shortcuts/{Esc(name)}/run",
@@ -603,11 +617,9 @@ namespace SlopWorld
                 },
                 fail);
 
-        // A shortcut's name is free-form, so it can carry anything a path segment would
-        // object to.
+        // A shortcut's name is free-form, so it can carry anything a path segment objects to.
         static string Esc(string name) => Uri.EscapeDataString(name ?? "");
 
-        // Once per process: the catalogue is compiled into slopd.
         public void LoadPresets()
         {
             if (Presets.Count > 0) return;
@@ -640,8 +652,8 @@ namespace SlopWorld
         public void Remove(string name, Action<string> fail = null) =>
             SlopClient.Delete($"/api/sessions/{name}", _ => Refresh(), fail);
 
-        // `origName` addresses the edit, because the name in `s` may be a new one the
-        // daemon has not heard of - that is how a rename is spelled.
+        // `origName` addresses the edit: the name in `s` may be a new one the daemon has not
+        // heard of, which is how a rename is spelled.
         public void Save(SessionInfo s, bool isNew, string origName, Action ok, Action<string> fail)
         {
             Action<JVal> done = _ => { Refresh(); ok?.Invoke(); };

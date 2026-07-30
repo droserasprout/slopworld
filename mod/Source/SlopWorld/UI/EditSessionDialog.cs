@@ -17,6 +17,8 @@ namespace SlopWorld
         readonly string _origName;
         // Shown greyed in the command box, so the field is never blank and never a lie.
         string _default = "claude";
+        string _defaultOpencode = "opencode";
+        string _env;
 
         // For the title. Null unless it is a duplicate: an edit already has `_origName`.
         readonly string _copiedFrom;
@@ -49,22 +51,30 @@ namespace SlopWorld
                     Kind = existing.Kind,
                     Agent = existing.Agent,
                     Autostart = existing.Autostart,
+                    Env = new List<string>(existing.Env),
                 };
 
+            _env = string.Join("\n", _s.Env.ToArray());
+
             // Every Claude session resolves to the same command, so any will do as the
-            // placeholder.
+            // placeholder, and the same is true of every OpenCode one.
             var claude = SessionHub.Instance.Sessions
                 .FirstOrDefault(s => s.Kind == AgentKind.Claude && !string.IsNullOrEmpty(s.Agent));
             if (claude != null) _default = claude.Agent;
 
+            var oc = SessionHub.Instance.Sessions
+                .FirstOrDefault(s => s.Kind == AgentKind.Opencode && !string.IsNullOrEmpty(s.Agent));
+            if (oc != null) _defaultOpencode = oc.Agent;
+
             doCloseX = true;
             absorbInputAroundWindow = true;
             closeOnClickedOutside = false;
+            closeOnAccept = false;
 
             SessionHub.Instance.RefreshProjects();
         }
 
-        public override Vector2 InitialSize => new Vector2(560f, 400f);
+        public override Vector2 InitialSize => new Vector2(560f, 560f);
 
         public override void DoWindowContents(Rect rect)
         {
@@ -97,7 +107,7 @@ namespace SlopWorld
 
             l.Gap(4f);
             l.Label("Command");
-            if (l.ButtonText(_s.Kind == AgentKind.Custom ? "Custom" : "Claude Code"))
+            if (l.ButtonText(KindLabel(_s.Kind)))
                 PickKind();
 
             // Greyed rather than hidden: a Claude session runs something, and this is what.
@@ -110,9 +120,20 @@ namespace SlopWorld
             else
             {
                 GUI.color = new Color(1f, 1f, 1f, 0.4f);
-                Widgets.TextField(box, _default);
+                Widgets.TextField(box,
+                    _s.Kind == AgentKind.Opencode ? _defaultOpencode : _default);
                 GUI.color = Color.white;
             }
+
+            l.Gap(6f);
+            l.Label("Environment variables (overrides)");
+            var env = l.GetRect(96f);
+            Widgets.DrawBoxSolid(env, new Color(0f, 0f, 0f, 0.25f));
+            _env = Widgets.TextArea(env.ContractedBy(4f), _env ?? "");
+            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            l.Label("One KEY=VALUE a line. Set last of all, so these beat the project's " +
+                    "passed variables and any preset's own.");
+            GUI.color = Color.white;
 
             l.Gap(6f);
             l.CheckboxLabeled("Start with the daemon", ref _s.Autostart);
@@ -161,17 +182,42 @@ namespace SlopWorld
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
+        static string KindLabel(AgentKind k)
+        {
+            switch (k)
+            {
+                case AgentKind.Custom: return "Custom";
+                case AgentKind.Opencode: return "OpenCode";
+                default: return "Claude Code";
+            }
+        }
+
         void PickKind()
         {
             Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption("Claude Code", () => _s.Kind = AgentKind.Claude),
+                new FloatMenuOption("OpenCode", () => _s.Kind = AgentKind.Opencode),
                 new FloatMenuOption("Custom", () => _s.Kind = AgentKind.Custom),
             }));
         }
 
         void Save()
         {
+            _s.Env = (_env ?? "").Split('\n')
+                .Select(x => x.Trim())
+                .Where(x => x.Length > 0)
+                .ToList();
+
+            var bad = _s.Env.FirstOrDefault(
+                x => !x.StartsWith("#") && (x.IndexOf('=') <= 0));
+            if (bad != null)
+            {
+                Messages.Message($"SlopWorld: '{bad}' is not KEY=VALUE.",
+                    MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+
             if (string.IsNullOrEmpty(_s.Name) || string.IsNullOrEmpty(_s.Project))
             {
                 Messages.Message("SlopWorld: name and project are required.",

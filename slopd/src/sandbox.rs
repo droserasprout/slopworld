@@ -1,8 +1,8 @@
-use crate::config::{expand, Config, ProjectCfg, SessionCfg, SessionKind};
+use crate::config::{env_pairs, expand, Config, ProjectCfg, SessionCfg};
 
-/// Every path is bound only if it exists, so a preset for something this host does
-/// not run costs nothing. Compiled in rather than configurable: a preset the
-/// daemon does not understand is one the GUI cannot draw a checkbox for either.
+/// Every path is bound only if it exists, so a preset for something this host does not run
+/// costs nothing. Compiled in: a preset the daemon does not understand is one the GUI cannot
+/// draw a checkbox for.
 pub struct Preset {
     pub name: &'static str,
     pub description: &'static str,
@@ -18,10 +18,9 @@ pub struct Preset {
     pub setenv: &'static [(&'static str, &'static str)],
 }
 
-/// Forwarded whatever the config says, plus anything named `LC_*`. What belongs
-/// here is a name that says something about *this machine* and nothing about what
-/// the sandbox can reach; anything naming a socket, a token or a service is a
-/// preset, so the checkbox and the variable are the same decision.
+/// Forwarded whatever the config says, plus anything named `LC_*`. What belongs here says
+/// something about *this machine* and nothing about what the sandbox can reach; anything
+/// naming a socket, a token or a service is a preset.
 const BASE_ENV: &[&str] = &["PATH", "LANG", "USER", "LOGNAME", "SHELL"];
 
 const PANE_TERM: &str = "tmux-256color";
@@ -37,6 +36,27 @@ pub const PRESETS: &[Preset] = &[
             "ANTHROPIC_API_KEY",
             "ANTHROPIC_BASE_URL",
             "CLAUDE_CONFIG_DIR",
+        ],
+        setenv: &[],
+    },
+    Preset {
+        name: "opencode",
+        description: "OpenCode's own state, config and credentials",
+        ro: &[],
+        rw: &[
+            "~/.local/share/opencode",
+            "~/.local/state/opencode",
+            "~/.config/opencode",
+            "~/.cache/opencode",
+        ],
+        dev: &[],
+        env: &[
+            "OPENCODE_CONFIG",
+            "OPENCODE_CONFIG_DIR",
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_BASE_URL",
+            "OPENAI_API_KEY",
+            "OPENROUTER_API_KEY",
         ],
         setenv: &[],
     },
@@ -61,19 +81,17 @@ pub const PRESETS: &[Preset] = &[
         rw: &["$XDG_RUNTIME_DIR/systemd"],
         dev: &[],
         env: &["XDG_RUNTIME_DIR"],
-        // systemctl talks to $XDG_RUNTIME_DIR/systemd/private first, and that socket's
-        // handshake does not survive bwrap's user namespace - it goes AUTHENTICATING ->
-        // CLOSED. The session bus reaches the same manager, which is why this preset is
-        // no use without `dbus`.
+        // systemctl talks to $XDG_RUNTIME_DIR/systemd/private first, and that handshake does
+        // not survive bwrap's user namespace (AUTHENTICATING -> CLOSED). The session bus
+        // reaches the same manager, which is why this preset is no use without `dbus`.
         setenv: &[("SYSTEMCTL_FORCE_BUS", "1")],
     },
     Preset {
         name: "x11",
         description: "X11 display, for anything that opens or reads a window",
-        // $XAUTHORITY as well as the classic path: a desktop running its X clients
-        // through Xwayland writes the cookie under $XDG_RUNTIME_DIR under a name of its
-        // own choosing and leaves ~/.Xauthority absent. Made once per login, so it is
-        // bound by name rather than by directory.
+        // $XAUTHORITY as well as the classic path: Xwayland writes the cookie under
+        // $XDG_RUNTIME_DIR under a name of its own and leaves ~/.Xauthority absent. Made once
+        // per login, so bound by name rather than by directory.
         ro: &["/tmp/.X11-unix", "~/.Xauthority", "$XAUTHORITY"],
         rw: &[],
         dev: &[],
@@ -138,10 +156,9 @@ pub const PRESETS: &[Preset] = &[
         name: "1password",
         description: "the 1Password agent, for SSH auth and signed commits",
         ro: &[],
-        // The directory, not the socket inside it. A bind of `agent.sock` pins the inode
-        // that was there at exec, and the app unlinks and recreates it on restart or
-        // relock - leaving the sandbox a socket with nothing listening, which reads worse
-        // than a missing one.
+        // The directory, not the socket in it: a bind of `agent.sock` pins the inode that was
+        // there at exec, and the app unlinks and recreates it on restart or relock, leaving
+        // the sandbox a socket with nothing listening.
         rw: &["~/.1password"],
         dev: &[],
         // op-ssh-sign finds the socket under $HOME rather than being told, and HOME
@@ -201,12 +218,14 @@ pub fn preset(name: &str) -> Option<&'static Preset> {
     PRESETS.iter().find(|p| p.name == name)
 }
 
-/// Plus `claude` for a Claude session whether the project asked or not: the agent
-/// that needs `~/.claude` is the one thing about it we can know.
+/// Plus the kind's own preset whether the project asked or not: the state directory
+/// an agent of a known kind needs is the one thing about it we can know.
 fn presets_for(s: &SessionCfg, p: &ProjectCfg) -> Vec<&'static Preset> {
     let mut names: Vec<&str> = p.presets.iter().map(String::as_str).collect();
-    if s.kind == SessionKind::Claude && !names.contains(&"claude") {
-        names.insert(0, "claude");
+    if let Some(own) = s.kind.preset() {
+        if !names.contains(&own) {
+            names.insert(0, own);
+        }
     }
     names
         .into_iter()
@@ -227,8 +246,16 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     let agent_argv: Vec<String> = shell_split(&cfg.command_of(s));
     let dir = expand(&p.dir);
 
+    let overrides = env_pairs(&s.env);
+
     if !p.sandbox {
-        return agent_argv;
+        if overrides.is_empty() {
+            return agent_argv;
+        }
+        let mut a: Vec<String> = vec!["env".into()];
+        a.extend(overrides.into_iter().map(|(k, v)| format!("{k}={v}")));
+        a.extend(agent_argv);
+        return a;
     }
     let presets = presets_for(s, p);
 
@@ -245,22 +272,19 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     let mut a: Vec<String> = vec!["bwrap".into()];
     let mut push = |args: &[&str]| a.extend(args.iter().map(|x| x.to_string()));
 
-    // The environment is built back up from here rather than inherited. A variable
-    // naming a socket that is not there is worse than its absence: a program reads it
-    // as "this host has one" and fails at the far end of a connect().
+    // Built back up rather than inherited: a variable naming a socket that is not there is
+    // worse than its absence, a program reading it as "this host has one" and failing at the
+    // far end of a connect().
     push(&["--die-with-parent", "--unshare-all", "--clearenv"]);
     if p.net {
         push(&["--share-net"]);
     }
 
-    // systemd-resolved / NetworkManager make /etc/resolv.conf a symlink into /run,
-    // which the sandbox never mounts, so with only /etc bound every lookup fails with
-    // ENOENT.
-    //
-    // Prefer resolved's stub listener (127.0.0.53, reachable over the shared
-    // loopback): it does the split-DNS routing - a Tailscale uplink, say - that a
-    // resolver querying the raw server list gets wrong, where an upstream answers
-    // NOTIMP and the agent sees ENOTIMP.
+    // systemd-resolved / NetworkManager make /etc/resolv.conf a symlink into /run, which the
+    // sandbox never mounts, so with only /etc bound every lookup fails with ENOENT. Prefer
+    // resolved's stub listener (127.0.0.53, over the shared loopback): it does the split-DNS
+    // routing - a Tailscale uplink, say - that a resolver querying the raw server list gets
+    // wrong, where an upstream answers NOTIMP and the agent sees ENOTIMP.
     let resolv = if p.net {
         std::fs::canonicalize("/etc/resolv.conf")
             .ok()
@@ -284,9 +308,8 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     push(&["--symlink", "usr/bin", "/bin"]);
     push(&["--symlink", "usr/bin", "/sbin"]);
 
-    // The skeleton goes down before any bind, because each of these covers whatever
-    // is under it and bwrap mounts in the order given. /tmp is the one that was
-    // getting it wrong: `x11` binds /tmp/.X11-unix, this tmpfs buried it, and the
+    // The skeleton goes down before any bind: each of these covers what is under it and bwrap
+    // mounts in the order given. `x11` binds /tmp/.X11-unix, this tmpfs buried it, and the
     // preset went on handing out a DISPLAY with no socket behind it.
     push(&["--proc", "/proc"]);
     push(&["--dev", "/dev"]);
@@ -295,9 +318,8 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     for path in &ro {
         push(&["--ro-bind", path, path]);
     }
-    // After the ro list: the target can be under a path a preset binds - the stub is
-    // in /run/systemd/resolve and `systemd` binds /run/systemd - and this file has to
-    // be the thing on top.
+    // After the ro list: the target can sit under a path a preset binds (the stub is in
+    // /run/systemd/resolve and `systemd` binds /run/systemd), and this file has to be on top.
     if let Some((src, target)) = &resolv {
         push(&["--ro-bind", src.as_str(), target.as_str()]);
     }
@@ -321,9 +343,8 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     push(&["--setenv", "TERM", PANE_TERM]);
     push(&["--setenv", "COLORTERM", "truecolor"]);
 
-    // Compiled in for the same reason the presets are: a config written before
-    // --clearenv existed lists none of them, and an agent with no PATH is a session
-    // that starts and dies.
+    // Compiled in: a config written before --clearenv lists none of them, and an agent with
+    // no PATH is a session that starts and dies.
     let mut passed: Vec<String> = Vec::new();
     for (k, v) in std::env::vars() {
         if BASE_ENV.contains(&k.as_str()) || k.starts_with("LC_") {
@@ -354,6 +375,10 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
         for (k, v) in pr.setenv {
             push(&["--setenv", k, v]);
         }
+    }
+
+    for (k, v) in &overrides {
+        push(&["--setenv", k.as_str(), v.as_str()]);
     }
 
     a.push("--".into());

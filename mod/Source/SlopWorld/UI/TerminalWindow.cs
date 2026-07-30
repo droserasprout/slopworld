@@ -69,9 +69,8 @@ namespace SlopWorld
         public static string CurrentName =>
             Find.WindowStack.WindowOfType<TerminalWindow>()?._name;
 
-        // The pane is on the Super layer, so an ordinary dialog opened from inside it -
-        // the strip's "+" - would be added underneath and never seen. Raised rather than
-        // closing the pane first: the errand is "add an agent", not "leave this one".
+        // The pane is on the Super layer, so an ordinary dialog opened from inside it would
+        // be added underneath and never seen.
         public static void OpenOverPane(Window w)
         {
             if (Find.WindowStack == null) return;
@@ -80,9 +79,9 @@ namespace SlopWorld
             Find.WindowStack.Add(w);
         }
 
-        // Whether a pane stands over the map; PaneOverDraw reads it several times a frame,
-        // so the closed case costs one static read. Open, it is checked against the stack
-        // rather than believed: a flag left standing wrongly is a map never drawn again.
+        // PaneOverDraw reads this several times a frame, so the closed case costs one static
+        // read. Open, it is checked against the stack: a flag left standing wrongly is a map
+        // never drawn again.
         static bool _covering;
 
         public static bool Covering =>
@@ -105,9 +104,8 @@ namespace SlopWorld
             _sizeDirty = false;
         }
 
-        // Clearing first is not tidiness: the brackets' jump-out is an animation off
-        // SelectionDrawer's select time, so a pawn already selected would never replay
-        // it. Same clear-then-select vanilla does for a bar click.
+        // Clearing first: the brackets' jump-out is an animation off SelectionDrawer's select
+        // time, so a pawn already selected would never replay it.
         static void SelectAgent(string session)
         {
             var pawn = AgentColony.Current?.PawnOf(session);
@@ -135,10 +133,9 @@ namespace SlopWorld
 
         public override Vector2 InitialSize => new Vector2(UI.screenWidth, UI.screenHeight);
 
-        // The pane fills the screen, and the margin is not padding:
         // Window.InnerWindowOnGUI opens a GUI group on the contracted rect, translating
-        // everything drawn here by (18,18) without moving GUI.matrix or mousePosition
-        // with it. Anything working in screen coordinates then lands 18px off.
+        // everything drawn here by the margin without moving GUI.matrix or mousePosition with
+        // it, so anything working in screen coordinates lands 18px off.
         protected override float Margin => 0f;
 
         protected override void SetInitialSizeAndPosition() =>
@@ -167,8 +164,6 @@ namespace SlopWorld
 
             Widgets.DrawBoxSolid(rect, Sgr.DefaultBg);
 
-            // A session that stopped or was deleted has no pane to look at. The strip stays
-            // up one final frame so the close never races a click.
             if (info == null || info.Gone)
             {
                 Close();
@@ -182,12 +177,11 @@ namespace SlopWorld
             // strip opened would be typed straight through into the agent.
             bool input = Find.WindowStack == null || Find.WindowStack.GetsInput(this);
 
-            // Drawn from here, after the background fill and the header: anywhere earlier in
-            // the frame it is painted over. See ColonistBarStrip.cs.
+            // After the background fill and the header: anywhere earlier in the frame it is
+            // painted over. See ColonistBarStrip.cs.
             var bar = ColonistBarStrip.Rect;
             ColonistBarStrip.Draw(input);
 
-            // The strip is the header, or is inside it; the pane starts under both.
             float top = Mathf.Max(header.yMax, bar.yMax);
             var body = new Rect(
                 rect.x + Pad,
@@ -226,9 +220,8 @@ namespace SlopWorld
             else _droppedKeys = 0;
         }
 
-        // The daemon restarting under a working agent is routine, and the pane keeps
-        // showing its last frame throughout - which without this is indistinguishable
-        // from an agent that has stopped answering.
+        // The pane keeps showing its last frame across a daemon restart, which without this
+        // is indistinguishable from an agent that has stopped answering.
         void DrawOfflineBanner(Rect body)
         {
             var r = new Rect(body.x, body.y, body.width, 24f);
@@ -245,38 +238,27 @@ namespace SlopWorld
             Text.Anchor = anchor;
         }
 
-        // Line one is ours - who this is and how big; line two is the app's own, whatever
-        // it last called itself.
+        // Line one is ours; line two is the app's own title.
         const float NameH = 22f, TitleH = 15f;
 
-        // Grey at rest and white under the pointer, for both of them: chrome over a
-        // terminal should be quieter than anything the agent prints.
         static readonly Color IconIdle = new Color(0.62f, 0.64f, 0.66f);
         static readonly Color TitleColor = new Color(0.55f, 0.57f, 0.60f);
 
-        // 18, which is the close texture's own size: anything larger is a scaled-up X with
-        // soft edges where the rest of the chrome is crisp. The gear is drawn to match.
+        // The close texture's own size; anything larger is a scaled-up X with soft edges.
         const float IconSize = 18f;
 
-        // What the colonist strip has to leave clear at each end of the band. The buttons
-        // are drawn before the strip is, so without this a full row of portraits is laid
-        // over the top of them - and the strip shrinks to within twenty pixels of the
-        // screen edge before it gives up, which is well inside the corner.
+        // What the colonist strip must leave clear at each end. The buttons are drawn before
+        // the strip, so without this a full row of portraits lands over them.
         public static float CornerW => Pad * 2f + IconSize * 2f + 4f;
 
         void DrawHeader(Rect r, SessionInfo info)
         {
             Widgets.DrawBoxSolid(r, new Color(0.10f, 0.11f, 0.13f));
 
-            // Parked at the top rather than centred. The bar is as tall as a portrait, and a
-            // button floating in the middle of one reads as sitting on the strip rather than
-            // on the window - the corner is where a window's own controls live.
+            // At the top rather than centred: the band is as tall as a portrait, and a button
+            // floating in the middle of one reads as sitting on the strip.
             float iy = r.y + Pad;
 
-            // Stop and Restart used to sit here, and are in the agents list instead: a
-            // status light does not want a row of buttons over it. What is left is the two
-            // that are about this window rather than about the agent in it, leaving last
-            // because it is the one that is always in the corner.
             var cross = new Rect(r.xMax - Pad - IconSize, iy, IconSize, IconSize);
             TooltipHandler.TipRegion(cross, "Close  (Shift+Esc)");
             if (Widgets.ButtonImage(cross, TexButton.CloseXSmall, IconIdle, Color.white))
@@ -290,9 +272,6 @@ namespace SlopWorld
             var buf = DisplayedBuf();
             string title = buf?.Title ?? "";
 
-            // The two lines are centred together rather than parked at the top: the bar is
-            // as tall as a portrait now, and anything hanging off the ceiling reads as
-            // adrift in it.
             float h = string.IsNullOrEmpty(title) ? NameH : NameH + TitleH;
             float w = Mathf.Min(r.width * 0.4f, gear.x - r.x - Pad * 2f);
             float y = r.y + (r.height - h) / 2f;
@@ -305,9 +284,7 @@ namespace SlopWorld
 
             if (!string.IsNullOrEmpty(title))
             {
-                // Tiny, so a title long enough to matter still fits the width the strip
-                // leaves; truncated with the game's own ellipsis rather than clipped, which
-                // is the difference between a shortened title and a broken one.
+                // Truncated with the game's ellipsis rather than clipped.
                 Text.Font = GameFont.Tiny;
                 GUI.color = TitleColor;
                 Widgets.Label(new Rect(r.x + Pad, y + NameH, w, TitleH), title.Truncate(w));
@@ -337,14 +314,12 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
-        // The daemon's own limits, applied here so what we ask for is always something it
-        // can answer with exactly.
+        // The daemon's own limits, so what we ask for is always something it can answer with.
         const int MinCols = 20, MaxCols = 500, MinRows = 5, MaxRows = 200;
 
-        // A loop rather than a statement, which is the whole of the "terminal opens at a
-        // fixed size" bug: a resize is one fire-and-forget message over a socket that may
-        // be down, and the daemon answers a size it already holds with a no-op. The frame
-        // carries the emulator's own dimensions, so that is what we close the loop on.
+        // A loop rather than a statement: a resize is one fire-and-forget message over a
+        // socket that may be down, and the daemon answers a size it already holds with a
+        // no-op. The frame carries the emulator's dimensions, so that closes the loop.
         void NegotiateSize(Rect body, ScreenBuf buf)
         {
             var style = TerminalFont.Style;
@@ -359,16 +334,15 @@ namespace SlopWorld
             {
                 _cols = cols;
                 _rows = rows;
-                // Debounce: dragging the game window would otherwise spam SIGWINCH at the agent,
-                // and Claude Code redraws its whole TUI on every one.
+                // Debounce: dragging the game window otherwise spams SIGWINCH, and Claude Code
+                // redraws its whole TUI on every one.
                 _resizeAt = Time.realtimeSinceStartup + 0.2f;
                 _sizeDirty = true;
                 return;
             }
 
-            // If the pane we are drawing is not that shape, the last ask did not land. A
-            // scrolled frame is a capture of history and says nothing about the live pane, so
-            // it is not evidence.
+            // A pane not that shape means the last ask did not land. A scrolled frame is
+            // history and says nothing about the live pane.
             if (_sizeDirty || buf.Off > 0) return;
             if (buf.Cols == cols && buf.Rows == rows) return;
 
@@ -381,8 +355,7 @@ namespace SlopWorld
             base.WindowUpdate();
             if (!_sizeDirty || Time.realtimeSinceStartup < _resizeAt) return;
 
-            // A socket that is down drops the message on the floor, so hold the ask rather
-            // than spending it: this is the redeploy case.
+            // A socket that is down drops the message, so hold the ask rather than spend it.
             if (!SessionHub.Instance.Online)
             {
                 _resizeAt = Time.realtimeSinceStartup + 1f;
@@ -404,8 +377,7 @@ namespace SlopWorld
             // The runs go down only on the frames they change; see Blit.
             if (!Blit(body, buf, cw, ch)) Paint(body, buf, cw, ch);
 
-            // Neither of these is cached, and for the same reason: the pointer moves over a
-            // pane that is not moving, and a cursor blinks twice a second under one.
+            // Not cached: the pointer moves over a still pane, and the cursor blinks under one.
             TrackHover(body, buf);
             DrawHover(body);
             DrawCursor(body, buf, cw, ch);
@@ -413,8 +385,8 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        // The runs, laid down where they go - a pure function of the buffer, the rect and
-        // the font, which is exactly what makes it worth keeping.
+        // A pure function of the buffer, the rect and the font, which is what makes Blit's
+        // cache possible.
         void Paint(Rect body, ScreenBuf buf, float cw, float ch)
         {
             var style = TerminalFont.Style;
@@ -430,8 +402,8 @@ namespace SlopWorld
 
                 foreach (var run in buf.Runs[row])
                 {
-                    // Draw at the run's true column, so wide chars (which the daemon re-anchors with
-                    // CHA) don't shift the rest of the line.
+                    // At the run's true column, so wide chars (which the daemon re-anchors
+                    // with CHA) do not shift the rest of the line.
                     float x = body.x + run.Col * cw;
 
                     if (run.HasBg)
@@ -445,8 +417,8 @@ namespace SlopWorld
                     style.normal.textColor = run.Fg;
                     DrawRun(run.Text, x, y, cw, ch, style);
 
-                    // Underlined at half strength in the text's own colour, which is what a
-                    // link looks like everywhere else: the pointer is what makes one loud.
+                    // Half strength in the text's own colour; the pointer is what makes a
+                    // link loud.
                     if (run.Url != null)
                     {
                         var u = run.Fg;
@@ -470,21 +442,14 @@ namespace SlopWorld
         float _cacheCw, _cacheCh;
         bool _noCache;
 
-        // The pane is drawn only on the frames it moves.
+        // The pane is drawn only on the frames it moves: a frame arrives about ten times a
+        // second and the window draws at the monitor's rate, so five frames in six laid ~130
+        // GUI.Labels down again over an identical picture.
         //
-        // A frame arrives about ten times a second - the daemon coalesces at 8ms and sends
-        // only when the hash moves - and the window draws at the monitor's rate, so five
-        // frames in six laid ~130 GUI.Labels down again over an identical picture. IMGUI
-        // has no retained mode to ask for, so the picture is kept.
-        //
-        // Screen-sized rather than pane-sized, which is what keeps it simple: GUI drawing
-        // goes to the active render target in the coordinates it already holds, so a
-        // target shaped like the backbuffer needs no projection of ours and no argument
-        // with GUIClip.
-        //
-        // Cleared opaque and blitted back by the corner. Glyph edges are part-transparent,
-        // so over a clear target they would blend twice and every letter would carry a
-        // fringe; and a blit that stopped at the pane leaves the header alone.
+        // Screen-sized rather than pane-sized: GUI drawing goes to the active render target
+        // in the coordinates it already holds, so a target shaped like the backbuffer needs
+        // no projection and no argument with GUIClip. Cleared opaque, because glyph edges are
+        // part-transparent and over a clear target would blend twice into a fringe.
         //
         // Throwing takes the cache out for the life of the process rather than per frame.
         bool Blit(Rect body, ScreenBuf buf, float cw, float ch)
@@ -533,8 +498,8 @@ namespace SlopWorld
                     _cacheCh = ch;
                 }
 
-                // Where the pane sits in the texture is where it sits on the screen: the
-                // same sum SnapX does, run forwards.
+                // Where the pane sits in the texture is where it sits on the screen - SnapX's
+                // sum, run forwards.
                 float x0 = body.x * _snapSx + _snapOx;
                 float y0 = body.y * _snapSy + _snapOy;
                 float w = body.width * _snapSx;
@@ -585,8 +550,8 @@ namespace SlopWorld
         // The GUI-to-screen transform, sampled once a draw; see SnapX.
         static float _snapSx = 1f, _snapSy = 1f, _snapOx, _snapOy;
 
-        // Two points are enough - the transform is a scale and an offset - and sampling
-        // beats reading GUI.matrix, which carries the UI scale but not the offset of the
+        // Two points are enough, the transform being a scale and an offset. Sampled rather
+        // than read off GUI.matrix, which carries the UI scale but not the offset of the
         // group a window draws inside.
         static void SyncSnap()
         {
@@ -598,18 +563,17 @@ namespace SlopWorld
             _snapOy = p0.y;
         }
 
-        // This is the thin black line that ran through a block of coloured diff. A cell
-        // is 19 units tall and the UI runs at 1.75, so a row is 33.25 pixels: the shared
-        // edge sits on a pixel centre every fourth row, and a pixel split down the middle
-        // by two quads can come out belonging to neither. It has to be the *screen* grid
-        // - a whole unit here is 1.75 pixels there.
+        // The thin black line that ran through coloured diff: a cell is 19 units tall and the
+        // UI runs at 1.75, so a row is 33.25 pixels, the shared edge sits on a pixel centre
+        // every fourth row, and a pixel split by two quads belongs to neither. It has to be
+        // the *screen* grid - a whole unit here is 1.75 pixels there.
         static float SnapX(float v) => (Mathf.Round(v * _snapSx + _snapOx) - _snapOx) / _snapSx;
 
         static float SnapY(float v) => (Mathf.Round(v * _snapSy + _snapOy) - _snapOy) / _snapSy;
 
-        // Every char the face cannot advance by exactly one cell is placed alone on its
-        // own column. Claude Code opens its prompt with a chevron no mono face here has;
-        // drawn inline it took no width and slid the whole input line a cell left.
+        // Every char the face cannot advance by exactly one cell is placed alone on its own
+        // column. Claude Code's prompt chevron is in no mono face here, and drawn inline it
+        // took no width and slid the whole input line a cell left.
         static void DrawRun(string text, float x, float y, float cw, float ch, GUIStyle style)
         {
             int start = 0;
@@ -638,9 +602,8 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------- links
 
-        // Which link the pointer is over, kept as a row and a stretch of columns so the
-        // highlight covers the whole thing rather than the run the pointer happens to be
-        // in - a URL drawn in two colours is still one link.
+        // A row and a stretch of columns rather than a run, a URL drawn in two colours being
+        // still one link.
         void TrackHover(Rect body, ScreenBuf buf)
         {
             _hoverUrl = null;
@@ -652,9 +615,8 @@ namespace SlopWorld
                 out _hoverRow, out _hoverC0, out _hoverC1);
         }
 
-        // Looked up rather than remembered from the last draw: a click is handled ahead of
-        // the frame it lands in, so what the pane was drawn with is one pointer position
-        // out of date.
+        // Looked up rather than remembered from the last draw: a click is handled ahead of the
+        // frame it lands in, so the drawn answer is one pointer position out of date.
         string LinkAt(Rect body, ScreenBuf buf, Vector2 m, out int row, out int c0, out int c1)
         {
             row = c0 = c1 = 0;
@@ -673,8 +635,7 @@ namespace SlopWorld
             }
             if (hit < 0) return null;
 
-            // A link split across runs by a colour change is still one link, so the span
-            // walks outwards over everything carrying the same URL.
+            // Outwards over everything carrying the same URL.
             string url = line[hit].Url;
             c0 = line[hit].Col;
             c1 = line[hit].Col + line[hit].Text.Length;
@@ -686,8 +647,7 @@ namespace SlopWorld
             return url;
         }
 
-        // What a click or the right-button menu is about, with the runs made sure of
-        // first - a pane that has arrived but never been drawn has none.
+        // Runs made sure of first: a pane that arrived but was never drawn has none.
         string LinkUnder(Rect body, Vector2 m)
         {
             var buf = DisplayedBuf();
@@ -707,9 +667,7 @@ namespace SlopWorld
             float b = SnapY(body.y + (_hoverRow + 1) * ch);
             if (b > body.yMax) return;
 
-            // Over the text rather than under it, which is the only place a window can put
-            // anything once the pane has been blitted; the wash is faint enough to read
-            // through and the rule under it is what actually says "link".
+            // Over the text: the only place anything can go once the pane has been blitted.
             var col = TerminalTheme.Current.Link;
             var wash = col;
             wash.a = 0.14f;
@@ -721,9 +679,7 @@ namespace SlopWorld
         }
 
         // Through the daemon: the game is a Unity player under Wine as often as not, and
-        // slopd is the half of this that is on the host with a desktop to hand the URL
-        // to. Application.OpenURL is the fallback rather than the road, since what it
-        // reaches from inside a prefix is anyone's guess.
+        // slopd is the half on the host with a desktop to hand the URL to.
         static void OpenUrl(string url)
         {
             if (string.IsNullOrEmpty(url)) return;
@@ -759,9 +715,8 @@ namespace SlopWorld
                     Widgets.DrawBoxSolid(new Rect(l, t, 2f, b - t), col);
                     break;
                 default: // block
-                    // Opaque, and the glyph goes back over it in the scheme's cursor text
-                    // colour: a block cursor is a reversed cell, and drawing it as a translucent
-                    // box was what left the character under it half-legible in every scheme.
+                    // Opaque with the glyph put back over it: a block cursor is a reversed
+                    // cell, and a translucent box left the character half-legible.
                     Widgets.DrawBoxSolid(new Rect(l, t, r - l, b - t), col);
                     DrawCursorGlyph(buf, x, y, cw, ch);
                     break;
@@ -815,9 +770,9 @@ namespace SlopWorld
                 return;
             }
 
-            // Caught here rather than in TerminalHotkeys: a window absorbing input makes
-            // WindowStack.HandleEventsHighPriority Use every KeyDown, and that runs earlier
-            // in UIRoot.UIRootOnGUI than any game component.
+            // Not in TerminalHotkeys: a window absorbing input makes
+            // WindowStack.HandleEventsHighPriority Use every KeyDown, and that runs earlier in
+            // UIRoot.UIRootOnGUI than any game component.
             if (SlopDefOf.SlopQuickTerminal != null && SlopDefOf.SlopQuickTerminal.KeyDownEvent)
             {
                 Close();
@@ -825,9 +780,8 @@ namespace SlopWorld
                 return;
             }
 
-            // Ahead of the offline check on purpose: switching is local and the subscription
-            // survives a dead socket, so a terminal that will not change pane during a
-            // redeploy reads as hung.
+            // Ahead of the offline check: switching is local and the subscription survives a
+            // dead socket, so a pane that will not change during a redeploy reads as hung.
             int slot = TerminalHotkeys.SlotKey(e);
             if (slot >= 0 && e.alt)
             {
@@ -836,8 +790,8 @@ namespace SlopWorld
                 return;
             }
 
-            // Offline, the hub drops sends on the floor, so count them and say so in the
-            // banner rather than letting the terminal eat what was typed.
+            // Offline the hub drops sends, so count them for the banner rather than letting
+            // the terminal silently eat what was typed.
             if (!SessionHub.Instance.Online)
             {
                 if (e.keyCode != KeyCode.None || e.character != '\0')
@@ -883,9 +837,8 @@ namespace SlopWorld
                 e.Use(); // swallow it so RimWorld hotkeys don't fire behind us
         }
 
-        // A slot past the end is a no-op rather than a wrap: the keys are muscle memory
-        // for a fixed portrait. A down agent is started, which is what clicking the same
-        // portrait does.
+        // A slot past the end is a no-op rather than a wrap: the keys are muscle memory for a
+        // fixed portrait. A down agent is started, as clicking the portrait does.
         void SwitchToSlot(int slot)
         {
             var order = AgentColony.InBarOrder();
@@ -943,9 +896,8 @@ namespace SlopWorld
 
         void HandleMouse(Rect body, Event e)
         {
-            // The right button is the pane's own, in every mode and whatever the app asked
-            // for: with the header down to a cross this menu is where the rest of the
-            // actions live, and it has to be reachable from inside a full-screen TUI.
+            // The pane's own in every mode, whatever the app asked for: the menu has to be
+            // reachable from inside a full-screen TUI.
             if (e.button == 1)
             {
                 if (e.type == EventType.MouseDown && body.Contains(e.mousePosition))
@@ -954,9 +906,8 @@ namespace SlopWorld
                 return;
             }
 
-            // Ctrl+click opens a link, ahead of everything else the pane does with a press:
-            // a plain click belongs to the app or to a selection, and a URL printed inside a
-            // TUI is over something that wants the mouse as often as not.
+            // Ahead of everything else a press does: a URL printed inside a TUI is over
+            // something that wants the mouse as often as not.
             if (e.type == EventType.MouseDown && e.button == 0 && e.control)
             {
                 string url = LinkUnder(body, e.mousePosition);
@@ -968,8 +919,7 @@ namespace SlopWorld
                 }
             }
 
-            // Shift forces our own local selection, like a real terminal. The forwarder hands
-            // a gesture back when it turns out to be one the app never asked for.
+            // Shift forces our own selection, like a real terminal.
             var live = SessionHub.Instance.Screen(_name);
             if (live != null && live.AppMouse && !e.shift && HandleMouseForward(body, e))
                 return;
@@ -1004,12 +954,10 @@ namespace SlopWorld
             }
         }
 
-        // The whole of "copy doesn't work". An app in click-reporting mode - Claude Code
-        // is one - said nothing about motion, so a drag across its output was never its
-        // to receive; forwarding it anyway spent the gesture on an app that ignores it
-        // and left no way to select text short of holding Shift. So the press goes over
-        // as a press, and the moment it turns into a drag we close that click where it
-        // started and take the rest back as a selection.
+        // An app in click-reporting mode (Claude Code is one) said nothing about motion, so a
+        // drag across its output was never its to receive - forwarded anyway, it left no way
+        // to select text short of holding Shift. The press goes over as a press, and the
+        // moment it turns into a drag that click is closed and the rest taken as a selection.
         bool HandleMouseForward(Rect body, Event e)
         {
             int btn = Mathf.Clamp(e.button, 0, 2);
@@ -1036,8 +984,7 @@ namespace SlopWorld
                         e.Use();
                         return true;
                     }
-                    // Only the left button selects; anything else the app did not ask about is
-                    // swallowed.
+                    // Only the left button selects; anything else is swallowed.
                     SessionHub.Instance.SendMouse(_name, "release", btn, _fwdCell.x, _fwdCell.y);
                     _mouseFwd = false;
                     if (btn != 0) { e.Use(); return true; }
@@ -1085,9 +1032,8 @@ namespace SlopWorld
             if (buf != null) CopyText(SelectionText(buf));
         }
 
-        // What the pane is showing, whole. The trailing newlines go: a screen is padded
-        // out to its row count and an app half a screen tall would otherwise copy the
-        // blank half with it.
+        // Trailing newlines go: a screen is padded to its row count, so an app half a screen
+        // tall would copy the blank half with it.
         void SelectAll()
         {
             var buf = DisplayedBuf();
@@ -1102,13 +1048,8 @@ namespace SlopWorld
         }
 
         // The *host's* clipboard, through the daemon: on this Unity player
-        // `GUIUtility.systemCopyBuffer` is as often the process's own buffer as the
-        // desktop's. Failure is a log line rather than a dialog - a box over the terminal
-        // every time a host has no `wl-copy` is worse than the miss.
-        //
-        // An agent copying on its own behalf never comes through here: it says OSC 52 and
-        // the daemon puts that on the same clipboard, which is the only word we get when
-        // the app draws its own selection.
+        // GUIUtility.systemCopyBuffer is as often the process's own buffer as the desktop's.
+        // An agent copying on its own behalf goes via OSC 52 instead, never through here.
         void CopyText(string text)
         {
             if (string.IsNullOrEmpty(text)) return;
@@ -1118,18 +1059,14 @@ namespace SlopWorld
                 msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
         }
 
-        // The clipboard errands, which never had a button at all. Nothing that ends an
-        // agent is in here: stopping one is a thing you go to the agents list to do, and
-        // a menu you opened to copy a line is the wrong place to find it.
-        //
-        // Opened over the pane, since an ordinary dialog would be added underneath a
-        // window on the Super layer and never seen.
+        // The clipboard errands, which never had a button anywhere. Nothing that ends an agent
+        // is here - a menu opened to copy a line is the wrong place to find it.
         void OpenMenu(string url)
         {
             var options = new List<FloatMenuOption>();
 
-            // First, when there is one: the pointer is already on it, and the right button
-            // is the road for anyone who never learned the Ctrl+click.
+            // First when there is one: the pointer is already on it, and the right button is
+            // the road for anyone who never learned Ctrl+click.
             if (url != null)
             {
                 options.Add(new FloatMenuOption("Open " + url.Truncate(360f), () => OpenUrl(url)));
@@ -1152,8 +1089,8 @@ namespace SlopWorld
             OpenOverPane(new FloatMenu(options));
         }
 
-        // Falling back to the game's own buffer when the daemon cannot reach a clipboard.
-        // Reading is a round trip, so the paste lands a frame or two later.
+        // Falls back to the game's own buffer. A round trip, so the paste lands a frame or
+        // two later.
         void PasteClipboard()
         {
             string name = _name;
@@ -1242,9 +1179,9 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
         }
 
-        // The colours are resolved into the runs at parse time, so a scheme change is a
-        // re-parse of whatever is on the screen: without it the pane keeps the old palette
-        // until the agent next moves it, which on an idle session is never.
+        // Colours are resolved into the runs at parse time, so a scheme change is a re-parse:
+        // without it an idle pane keeps the old palette until the agent next writes, which on
+        // an idle agent is never.
         static void EnsureRuns(ScreenBuf buf)
         {
             if (buf.Runs != null && buf.RunsRev == TerminalTheme.Rev) return;
@@ -1254,9 +1191,8 @@ namespace SlopWorld
             buf.RunsRev = TerminalTheme.Rev;
         }
 
-        // The daemon trims trailing blanks only when they carry nothing, so anything
-        // coloured to the right margin arrives padded out with spaces - which selected as
-        // a block of empty space and copied the spaces with it.
+        // The daemon trims trailing blanks only when they carry nothing, so anything coloured
+        // to the right margin arrives padded with spaces - which copied as spaces.
         static int ContentLen(string line)
         {
             int n = line.Length;
@@ -1278,10 +1214,9 @@ namespace SlopWorld
             _literal.Length = 0;
         }
 
-        // UI.screenWidth truncates, so the window is a fraction of a pixel short of the real
-        // right edge and the last column is one nothing covers - and nothing repaints either,
-        // PaneOverDraw having stood the map down. Painted here because ExtraOnGUI runs in
-        // screen coordinates: a wider window would be a wider pane, and one column too many.
+        // UI.screenWidth truncates, so the window is a fraction of a pixel short of the right
+        // edge and nothing covers or repaints the last column, PaneOverDraw having stood the
+        // map down. Here rather than by widening the window, which would be a wider pane.
         public override void ExtraOnGUI()
         {
             base.ExtraOnGUI();
@@ -1297,8 +1232,8 @@ namespace SlopWorld
         static string MapKey(Event e)
         {
             // tmux turns modifier-prefixed names (C-Left, M-Up) into the xterm sequences apps
-            // read for word-wise motion. Shift is left off: apps that don't grok S- sequences
-            // would drop a shift+arrow that used to at least move the cursor.
+            // read for word-wise motion. Shift is left off: an app that does not grok S-
+            // sequences would drop a shift+arrow that at least used to move the cursor.
             string mod = "";
             if (e.control) mod += "C-";
             if (e.alt) mod += "M-";

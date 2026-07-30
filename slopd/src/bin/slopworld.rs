@@ -1,24 +1,17 @@
 //! `slopworld` - the launcher, and the only supported way in.
 //!
-//! RimWorld keeps its saves, its prefs and its mod list in one folder, and every
-//! install has exactly one of them. This mod is not something you add to a colony:
-//! it takes the sim away, renames the faction, rewrites the calendar and ships defs
-//! a vanilla save has never heard of. Sharing a save folder with somebody's real
-//! game is how a colony they care about comes back wearing a faceplate.
+//! RimWorld keeps saves, prefs and the mod list in one folder per install, and this mod takes
+//! the sim away, renames the faction, rewrites the calendar and ships unknown defs - so it
+//! gets a *profile*: a save data folder of its own, seeded with a mod list that is Core and
+//! us, handed over through `-savedatafolder=`. The marker file this writes is what the mod
+//! looks for; without it, it refuses to patch anything and says so. It is written here rather
+//! than by the game because a folder the game made on its own is somebody's install.
 //!
-//! So there is a *profile*: a save data folder of our own, seeded with a mod list
-//! that is Core and us and nothing else, handed to the game through
-//! `-savedatafolder=`. The marker file this writes is what the mod looks for on the
-//! way up; without it, it refuses to patch anything and says so. That check is the
-//! reason the marker is written here rather than by the game - a folder the game
-//! made on its own is somebody's install, not a profile.
-//!
-//! The game is *waited on* rather than exec'd into, and that is load-bearing:
-//! `daemon.game_cmd` is matched against `argv[0]` anchored (see `game.rs`), so the
-//! process slopd finds has to be this binary. Exec'ing would leave a RimWorld the
-//! daemon cannot see, and `restart_game` would launch a second one over the top of
-//! a colony still being written. Waiting also means this process lives exactly as
-//! long as the game, which is the answer `slopworld-game.service` reports.
+//! The game is *waited on* rather than exec'd into: `daemon.game_cmd` is matched against
+//! `argv[0]` anchored (see `game.rs`), so the process slopd finds has to be this binary.
+//! Exec'ing would leave a RimWorld the daemon cannot see, and `restart_game` would launch a
+//! second one over a colony still being written. Waiting also makes this process's lifetime
+//! the game's, which is what `slopworld-game.service` reports.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -32,9 +25,8 @@ const MARKER: &str = "slopworld.profile";
 const CORE: &str = "ludeon.rimworld";
 const SLOPWORLD: &str = "drsr.slopworld";
 
-/// Stated rather than discovered, so a DLC the player owns is *known* and the game
-/// never opens the "you have a new expansion" page over a colony of agents. This is
-/// 1.6's list, and the mod is 1.6 only.
+/// Stated rather than discovered, so a DLC the player owns is *known* and the game never
+/// opens the "you have a new expansion" page over a colony of agents. 1.6's list.
 const EXPANSIONS: [&str; 5] = [
     "ludeon.rimworld.royalty",
     "ludeon.rimworld.ideology",
@@ -85,9 +77,8 @@ fn run() -> Result<ExitCode, String> {
     let game = game_dir(args.game.as_deref())?;
     let profile = profile_dir(args.profile.as_deref())?;
 
-    // The game splits this argument on `=` and wants exactly two halves, so a path
-    // with one in it does not arrive as a path at all - it arrives as a folder the
-    // game never heard of and a profile that was silently not used.
+    // The game splits this argument on `=` into exactly two halves, so a path with one in it
+    // arrives as a folder the game never heard of and a profile silently not used.
     if profile.to_string_lossy().contains('=') {
         return Err(format!(
             "the profile path contains '=', which the game's own -savedatafolder cannot carry: {}",
@@ -137,10 +128,8 @@ struct Args {
     rest: Vec<String>,
 }
 
-/// `Ok(None)` is `--help`: nothing to do and nothing wrong.
-///
-/// Ours are all `--long`; the game's are all `-single`, which is what makes an
-/// unknown `--word` a typo worth refusing rather than something to forward. A game
+/// `Ok(None)` is `--help`. Ours are all `--long` and the game's all `-single`, which is what
+/// makes an unknown `--word` a typo worth refusing rather than something to forward; a game
 /// argument that really is double-dashed goes after `--`.
 fn parse(args: &[String]) -> Result<Option<Args>, String> {
     let mut out = Args::default();
@@ -179,9 +168,8 @@ fn parse(args: &[String]) -> Result<Option<Args>, String> {
     Ok(Some(out))
 }
 
-/// The named one if there is one, and then the places a Linux RimWorld is actually
-/// installed. Being told is different from guessing: a `--game` or an env var that
-/// is wrong is an error naming it, where a guess that misses just moves on.
+/// The named one first, then the places a Linux RimWorld is actually installed. A wrong
+/// `--game` or env var is an error naming it, where a guess that misses just moves on.
 fn game_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
     if let Some(dir) = explicit.or(option_env_nonempty("SLOPWORLD_GAME").as_deref()) {
         let dir = PathBuf::from(expand(dir));
@@ -223,9 +211,8 @@ fn profile_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
             None => PathBuf::from(expand("~/.local/share/slopworld/profile")),
         },
     };
-    // The game resolves a relative path against its own working directory, which is
-    // whatever launched it - so a profile named `./p` is a different folder depending
-    // on where you stood when you typed it.
+    // The game resolves a relative path against its own working directory, so a profile named
+    // `./p` is a different folder depending on where you stood when you typed it.
     if dir.is_relative() {
         return std::env::current_dir()
             .map(|cwd| cwd.join(&dir))
@@ -234,9 +221,8 @@ fn profile_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-/// Creates what is missing and leaves alone what is not, `--reset` being the one way
-/// to lose an edited mod list. The marker is restored either way: an existing
-/// profile from before there was one is still a profile.
+/// Creates what is missing and leaves the rest, `--reset` being the one way to lose an edited
+/// mod list. The marker is restored either way.
 fn seed(profile: &Path, reset: bool) -> Result<(), String> {
     let config = profile.join("Config");
     std::fs::create_dir_all(&config).map_err(|e| format!("creating {}: {e}", config.display()))?;
@@ -272,10 +258,9 @@ fn marker_text(profile: &Path) -> String {
     )
 }
 
-/// No `<version>`: the game only compares one when the field is there, and a
-/// mismatch makes it throw the whole list away and start again with every expansion
-/// on. Absent, the list is taken as written and stamped with this build's version
-/// the first time the game writes it back.
+/// No `<version>`: the game compares one only when the field is there, and a mismatch makes
+/// it throw the whole list away and start again with every expansion on. Absent, the list is
+/// taken as written and stamped the first time the game writes it back.
 fn mods_config_xml() -> String {
     let mut s = String::from("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<ModsConfigData>\n");
     s.push_str("  <activeMods>\n");

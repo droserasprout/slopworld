@@ -226,6 +226,7 @@ namespace SlopWorld
             doCloseX = true;
             absorbInputAroundWindow = true;
             closeOnClickedOutside = false;
+            closeOnAccept = false;
 
             SessionHub.Instance.RefreshProjects();
             SlopClient.Get("/api/config", j =>

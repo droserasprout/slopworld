@@ -71,17 +71,15 @@ impl Tmux {
         }
     }
 
-    /// Whichever tmux command first needs a server is the one that forks it, and the
-    /// server inherits that client's cgroup - `slopd.service`, so the restart that
-    /// `make install-daemon` runs SIGTERMs every agent. A unit of its own is what
-    /// keeps them.
+    /// Whichever tmux command first needs a server forks it, and the server inherits that
+    /// client's cgroup - `slopd.service`, so `make install-daemon` SIGTERMs every agent. A
+    /// unit of its own is what keeps them.
     ///
     /// `Type=forking` and not a scope: `tmux start-server` daemonises, so the process
-    /// systemd-run put in a scope forks the server and exits, systemd sees the scope
-    /// empty and tears it down, and the next tmux command forks its own server back
-    /// into `slopd.service`. It looked like it worked, because systemd-run exited
-    /// zero. So the socket is checked afterwards rather than the exit code, and a
-    /// host without systemd falls through to starting the server inline.
+    /// systemd-run put in a scope forks the server and exits, systemd tears the empty scope
+    /// down, and the next tmux command forks a server back into `slopd.service` - while
+    /// systemd-run exits zero throughout. Hence checking the socket rather than the exit code;
+    /// a host without systemd falls through to starting the server inline.
     pub async fn ensure_server(&self) {
         if self.server_running().await {
             return;
@@ -177,9 +175,8 @@ impl Tmux {
         args.extend(argv.iter().map(String::as_str));
         self.run(&args).await?;
 
-        // Without this a detached pane clamps to the size of any later client.
-        // `window-size` is a window option, so it wants a window target and the colon
-        // that keeps one from prefix-matching a neighbour's `bwrap` - see `resize`.
+        // Without this a detached pane clamps to the size of any later client. `window-size`
+        // is a window option, so it wants a window target and the colon - see `resize`.
         let target = format!("{name}:");
         self.run(&["set-option", "-w", "-t", &target, "window-size", "manual"])
             .await
@@ -200,9 +197,8 @@ impl Tmux {
         Ok(())
     }
 
-    /// `-e` keeps SGR escapes, so tmux stays the terminal emulator. The scrollback
-    /// above the visible pane is the only way it survives a daemon restart: tmux kept
-    /// it and our emulator did not.
+    /// `-e` keeps SGR escapes. The scrollback above the visible pane is the only way history
+    /// survives a daemon restart: tmux kept it and our emulator did not.
     pub async fn capture(&self, name: &str, history: u32) -> Result<Screen> {
         let target = format!("{name}:.0");
         let start = format!("-{history}");
@@ -233,9 +229,8 @@ impl Tmux {
         })
     }
 
-    /// The client runs on a pty, not pipes: tmux immediately detaches a control client
-    /// whose stdio isn't a terminal, which would orphan every live session as "down".
-    /// Only `isatty` matters - no controlling terminal is needed. The child is handed
+    /// A pty and not pipes: tmux detaches a control client whose stdio isn't a terminal, which
+    /// would orphan every live session as "down". Only `isatty` matters. The child is handed
     /// back so the attach lives, and `kill_on_drop` ends it with the reader task.
     pub fn control_attach(
         &self,
@@ -266,11 +261,9 @@ impl Tmux {
         Ok((child, std::fs::File::from(pty.master)))
     }
 
-    /// The target is `name:` rather than `name`, and that colon is load-bearing. This
-    /// takes a *window* target, and tmux resolves one by window name before session
-    /// name - every window here is called `bwrap`, so a bare `b` prefix-matched some
-    /// other session's `bwrap` and resized that instead. Sessions were shaped by
-    /// whichever of their neighbours last had a terminal open on it.
+    /// The colon in `name:` is load-bearing: this takes a *window* target, and tmux resolves
+    /// one by window name before session name - every window here is called `bwrap`, so a bare
+    /// `b` prefix-matched another session's `bwrap` and resized that instead.
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
         let target = format!("{name}:");
         let cols = cols.to_string();
@@ -280,9 +273,8 @@ impl Tmux {
         Ok(())
     }
 
-    /// What shape the window actually is. A session that outlived the daemon is
-    /// whatever size the last terminal window asked for, and tmux is the only one left
-    /// who remembers - so it is asked rather than guessed at.
+    /// A session that outlived the daemon is whatever size the last terminal window asked for,
+    /// and tmux is the only one left who remembers.
     pub async fn size(&self, name: &str) -> Option<(u16, u16)> {
         // `name:` for the same reason `resize` needs it - see there.
         let target = format!("{name}:");

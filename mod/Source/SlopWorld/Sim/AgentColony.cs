@@ -18,34 +18,31 @@ namespace SlopWorld
 
         Dictionary<string, Pawn> _pawns = new Dictionary<string, Pawn>();
 
-        // An index, not a convenience: IsAgent is asked on the way past by most of
-        // Patches/ - a validator inside BestAttackTarget, the IsIdle the colonist bar
-        // reads per colonist per frame - and the answer used to be ContainsValue.
+        // An index rather than a convenience: IsAgent is asked on the way past by most of
+        // Patches/ - a validator inside BestAttackTarget, the IsIdle the bar reads per
+        // colonist per frame - and the answer used to be ContainsValue.
         readonly Dictionary<Pawn, string> _names = new Dictionary<Pawn, string>();
 
-        // Scribe hands back a whole new _pawns, so an index built before a load indexes
-        // nothing. Rebuilt on the next question, not in ExposeData: references are not
-        // resolved until a later phase and the pawns would all still be null.
+        // Scribe hands back a whole new _pawns. Rebuilt on the next question rather than in
+        // ExposeData: references resolve in a later phase, so the pawns would still be null.
         bool _reindex = true;
 
-        // Deliberately not saved: a colony loading with its agents already stopped should
-        // not greet the player with a wall of sirens.
+        // Not saved: a colony loading with its agents already stopped must not greet the
+        // player with a wall of sirens.
         readonly Dictionary<string, AgentState> _seen = new Dictionary<string, AgentState>();
 
-        // Agents still in the air. A pawn inside a pod is not spawned, so the haze it
-        // arrives in cannot go up until the pod opens - and that is watched every tick
-        // rather than on the reconcile's own second, because a puff a beat after the dust
-        // has settled reads as a second event. Not saved either: a game put down while a
-        // pod is falling loses one puff, which is cheaper than scribing a list to say so.
+        // Agents still in the air. A pawn inside a pod is not spawned, so the haze waits on
+        // the pod opening - watched every tick rather than on the reconcile's second, a puff
+        // after the dust has settled reading as a second event.
         readonly List<Pawn> _landing = new List<Pawn>();
 
         readonly Game _game;
 
         public AgentColony(Game game) { _game = game; }
 
-        // Held rather than looked up: Game.GetComponent walks the components with a type
-        // check each, and this is read several times a frame per pawn. Checked against the
-        // live game, so a discarded colony cannot answer for the one that replaced it.
+        // Held rather than looked up: Game.GetComponent walks the components with a type check
+        // each, and this is read several times a frame per pawn. Checked against the live game
+        // so a discarded colony cannot answer for the one that replaced it.
         static AgentColony _current;
 
         public static AgentColony Current
@@ -121,9 +118,8 @@ namespace SlopWorld
 
         public IEnumerable<KeyValuePair<string, Pawn>> All => _pawns;
 
-        // The order the strip above an open pane draws them in, so the numbered switch
-        // keys count the portraits the player is looking at. The bar's own list is a
-        // shared scratch buffer, hence the copy.
+        // The order the strip draws them in, so the numbered switch keys count the portraits
+        // the player is looking at. The bar's own list is a shared scratch buffer.
         public static List<string> InBarOrder()
         {
             var order = new List<string>();
@@ -145,8 +141,6 @@ namespace SlopWorld
 
             if (Find.TickManager.TicksGame % Interval != 0) return;
 
-            // The clankers coming down into the plague is the opening scene's last beat,
-            // and there is nothing worth dropping onto a map that is on fire.
             if (Cutscene.AgentsHeld) return;
 
             var map = Find.CurrentMap ?? Find.AnyPlayerHomeMap;
@@ -173,8 +167,7 @@ namespace SlopWorld
                 }
                 else if (p.Dead)
                 {
-                    // Its corpse would hold the session's slot in the colonist bar and no new body
-                    // would ever be spawned.
+                    // Its corpse would hold the session's slot in the bar forever.
                     Retire(p);
                     Unbind(name);
                 }
@@ -186,16 +179,15 @@ namespace SlopWorld
             {
                 if (_pawns.ContainsKey(s.Name)) continue;
                 // The session->pawn map is saved with reference values, which RimWorld resolves
-                // in a later load phase and drops when they don't round-trip - so without this
-                // the reconcile spawns a duplicate next to the loaded pawn.
+                // in a later load phase and drops when they do not round-trip - without this
+                // the reconcile spawns a duplicate beside the loaded pawn.
                 var pawn = FindExisting(s.Name) ?? Spawn(s.Name, map);
                 if (pawn == null) continue;
                 Bind(s.Name, pawn);
 
                 // Only now is this pawn an agent, and the faceplate hangs off that answer:
                 // SlopFaceRenderNodes asks IsAgent while the render tree is built, and a loaded
-                // colony builds every tree before this has run. It is the portrait cache too,
-                // which the colonist bar and the terminal strip draw from.
+                // colony builds every tree before this runs. Also the portrait cache.
                 pawn.Drawer?.renderer?.SetAllGraphicsDirty();
             }
 
@@ -205,8 +197,7 @@ namespace SlopWorld
                 RobotFace.Apply(kv.Value);
 
                 var state = SessionHub.Instance.Get(kv.Key)?.State ?? AgentState.Down;
-                // The first sight of a session is not a move: a colony loading with half its
-                // agents stopped must not greet the player with a wall of sirens.
+                // The first sight of a session is not a move.
                 AgentState? was = _seen.TryGetValue(kv.Key, out var seen)
                     ? seen : (AgentState?)null;
                 _seen[kv.Key] = state;
@@ -258,11 +249,9 @@ namespace SlopWorld
             return string.CompareOrdinal(a, b);
         }
 
-        // The colonist goes down but stays a live pawn its process can get back up;
-        // killing it would mean a corpse and a fresh stranger on every restart. The
-        // daemon's word is carried by the state icon and the inspect pane instead. `was`
-        // is nothing at all on the first look, and a state it *moved* into is the only
-        // kind worth making a noise about.
+        // The colonist goes down but stays a live pawn its process can get back up; killing it
+        // would mean a corpse and a fresh stranger on every restart. `was` is nothing on the
+        // first look, and only a state it *moved* into is worth a noise.
         static void Reflect(Pawn pawn, AgentState state, AgentState? was)
         {
             if (pawn == null || !pawn.Spawned) return;
@@ -279,8 +268,7 @@ namespace SlopWorld
 
             if (state != AgentState.Idle) return;
 
-            // Vanilla's own new-alert chime, which nothing here plays any more now the alerts
-            // are stripped.
+            // Vanilla's new-alert chime, which nothing plays now the alerts are stripped.
             if (moved) SoundDefOf.TinyBell.PlayOneShotOnCamera(pawn.Map);
         }
 
@@ -304,8 +292,7 @@ namespace SlopWorld
             var h = health.hediffSet.GetFirstHediffOfDef(SlopDefOf.SlopOffline);
             if (h != null) health.RemoveHediff(h);
 
-            // A running agent lying in a heap is the board telling a lie. This is for the
-            // colonists that were already chewed on when NoHarmAgents arrived.
+            // For colonists already chewed on when NoHarmAgents arrived.
             if (pawn.Downed) Mend(pawn);
         }
 
@@ -318,8 +305,8 @@ namespace SlopWorld
             var bleeding = pawn.health.hediffSet.GetFirstHediffOfDef(HediffDefOf.BloodLoss);
             if (bleeding != null) pawn.health.RemoveHediff(bleeding);
 
-            // Only once it worked. Something this cannot mend would otherwise say so once a
-            // second forever, the reconcile coming back for as long as the pawn is down.
+            // Only once it worked: something this cannot mend would say so once a second
+            // forever, the reconcile coming back for as long as the pawn is down.
             if (!pawn.Downed)
                 Log.Message($"[SlopWorld] colonist '{pawn.LabelShort}' patched up; agents take no damage");
         }
@@ -343,8 +330,8 @@ namespace SlopWorld
             if (!p.Destroyed) p.Destroy();
         }
 
-        // The pod opened. Walked backwards so the list can be edited as it goes; a pawn
-        // that was retired or destroyed mid-flight just drops out.
+        // Walked backwards so the list can be edited as it goes; a pawn retired mid-flight
+        // drops out.
         void Landed()
         {
             for (int i = _landing.Count - 1; i >= 0; i--)
@@ -374,26 +361,21 @@ namespace SlopWorld
             pawn.Name = new NameSingle(name);
             RobotFace.FitHair(pawn);
 
-            // In a pod, always. An agent added on a Tuesday afternoon comes down the same
-            // way the opening scene's did, because a colonist that was simply *there* the
-            // next time you looked is the one arrival this board cannot narrate. Not
-            // forbidden and not slagged: the pod is the arrival, not wreckage to clear.
-            // SpawnSpot picks the ground; DropCellFinder does the last few cells itself.
+            // In a pod, always, and neither forbidden nor slagged: the pod is the arrival, not
+            // wreckage to clear. SpawnSpot picks the ground; DropCellFinder does the last few
+            // cells itself.
             DropPodUtility.DropThingsNear(SpawnSpot.Find(map, Anchor(map)), map,
                 new List<Thing> { pawn }, openDelay: PodOpenDelay,
                 canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: true,
                 forbid: false, allowFogged: true, faction: Faction.OfPlayer);
 
-            // Every agent arrives in the plague's haze, not just the ones the opening scene
-            // lands: a clanker is what this map makes of a person. It waits on the pod.
             _landing.Add(pawn);
 
             Log.Message($"[SlopWorld] colonist '{name}' is on its way down");
             return pawn;
         }
 
-        // Beside one already standing, first - agents scattered across the map are hard
-        // to read on the bar. Failing that the core, which is on open ground by
+        // Beside one already standing; failing that the core, which is on open ground by
         // construction.
         IntVec3 Anchor(Map map)
         {
@@ -406,11 +388,10 @@ namespace SlopWorld
             return map.Center;
         }
 
-        // Scribe_Collections holds a dictionary's keys and values in two lists between
-        // the phase that reads the XML and the phase that resolves references, and for a
-        // Reference on one side it will not supply them itself - the short overload logs
-        // "you need to provide working lists" and hands back an empty dictionary. These
-        // two are that scratch space and nothing here reads them.
+        // Scribe_Collections holds a dictionary's keys and values in two lists between the
+        // phase that reads the XML and the phase that resolves references, and will not supply
+        // them itself for a Reference side: the short overload logs "you need to provide
+        // working lists" and hands back an empty dictionary. Scratch space; nothing reads them.
         List<string> _pawnKeys;
         List<Pawn> _pawnBodies;
 

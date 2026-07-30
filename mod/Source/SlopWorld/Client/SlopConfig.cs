@@ -31,6 +31,7 @@ namespace SlopWorld
         public string Agent = "claude";
         // A per-machine answer, which is why it is here rather than in every shortcut.
         public string Shell = "bash";
+        public string Opencode = "opencode";
 
         // The base every sandbox gets. Whether an agent is sandboxed at all is the
         // project's checkbox and nothing else's.
@@ -58,6 +59,7 @@ namespace SlopWorld
 
                 Agent = f["agent"].AsString("claude"),
                 Shell = f["shell"].AsString("bash"),
+                Opencode = f["opencode"].AsString("opencode"),
 
                 RoPaths = Strings(s["ro_paths"]),
                 RwPaths = Strings(s["rw_paths"]),
@@ -76,7 +78,8 @@ namespace SlopWorld
             $"\"usage\":{JVal.B(Usage)},\"usage_poll_secs\":{UsagePollSecs}," +
             $"\"claude_credentials\":{JVal.Q(ClaudeCredentials)}}}," +
             "\"defaults\":{" +
-            $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}}}," +
+            $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}," +
+            $"\"opencode\":{JVal.Q(Opencode)}}}," +
             "\"sandbox\":{" +
             $"\"ro_paths\":{Arr(RoPaths)},\"rw_paths\":{Arr(RwPaths)}," +
             $"\"pass_env\":{Arr(PassEnv)}}}}}";

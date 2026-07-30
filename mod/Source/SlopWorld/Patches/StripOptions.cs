@@ -6,24 +6,16 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The one vanilla window left standing, the mod's own settings being in it, so
-    // what is wrong in it comes out a piece at a time: a row whose answer this build
-    // has already made, and a page about a game that is not running.
-    //
-    // A category is taken out whole and a row one at a time, because Dialog_Options
-    // is built two ways: categories are OptionCategoryDefs walked out of the
-    // database, where rows are widget calls a private method per category makes on
-    // one Listing_Standard. So a row can only be taken out on the way past.
+    // The one vanilla window left standing, the mod's own settings being in it. A category is
+    // taken out whole and a row one at a time, because Dialog_Options is built two ways:
+    // categories are OptionCategoryDefs walked out of the database, where rows are widget
+    // calls a private method per category makes on one Listing_Standard.
     public static class StripOptions
     {
-        // Built rather than written down because the finished label is the only thing a
-        // widget is handed that says which row it is. A key with no translation comes
-        // back as itself, so this holds in any language.
-        //
-        // Two are plain keys and one is not: vanilla writes the count into the slider's
-        // own label, so a table computed at load would hold the count this game started
-        // with. All three are already decided - Patch_RunInBackground forces its
-        // preference on, and AutoSaver writes the colony on the wall clock.
+        // Built rather than written down: the finished label is the only thing a widget is
+        // handed that says which row it is, and a key with no translation comes back as
+        // itself. One is not a plain key - vanilla writes the count into the slider's own
+        // label, so a table computed at load would hold the count this game started with.
         static readonly Func<string>[] Dropped =
         {
             () => "AutosaveInterval".Translate(),
@@ -31,22 +23,18 @@ namespace SlopWorld
             () => "RunInBackground".Translate(),
         };
 
-        // Gated on the window rather than on a flag armed around DoOptions: these widgets
-        // are drawn all over the game and by this mod's own dialogs, and a flag left set
-        // by an exception thrown mid-listing would filter every listing after it for the
-        // life of the process.
+        // Gated on the window rather than a flag armed around DoOptions: these widgets are
+        // drawn all over the game, and a flag stranded by an exception mid-listing would
+        // filter every listing after it for the life of the process.
         static bool Drops(string label) =>
             label != null
             && Find.WindowStack?.currentlyDrawnWindow is Dialog_Options
             && Dropped.Any(built => label == built());
 
-        // The Gameplay category is entirely about the game this product tore out. Done by
-        // setting the def's own isDev rather than by patching, because that is the switch
-        // vanilla already reads: the loop skips a dev category unless Prefs.DevMode, and
-        // advances its row counter only for the ones it draws, so the column has no hole.
-        // The def stays in the database - OptionCategoryDefOf names all eight, and one
-        // taken out from under it is an error at every rebind. The cost is that dev mode
-        // brings it back, which is the honest reading.
+        // By the def's own isDev rather than by patching, because that is the switch vanilla
+        // already reads: the loop skips a dev category unless Prefs.DevMode and advances its
+        // row counter only for the ones it draws, so the column has no hole. The def stays in
+        // the database - OptionCategoryDefOf names all eight. Dev mode brings it back.
         public static void Hide()
         {
             var gone = OptionCategoryDefOf.Gameplay;

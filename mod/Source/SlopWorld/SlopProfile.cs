@@ -5,28 +5,15 @@ using Exception = System.Exception;
 
 namespace SlopWorld
 {
-    // The one question asked before anything else: is this our install, or somebody's
-    // game?
+    // Is this our install or somebody's game? This mod takes the sim away, renames the
+    // faction, rewrites the calendar, deletes the vanilla songs and ships unknown defs, so it
+    // keeps to a save data folder of its own, handed to the game with `-savedatafolder=` by
+    // the `slopworld` runner. The runner writes the marker file rather than us: a folder the
+    // game made for itself is an install, and only something outside the game can say this
+    // one is for agents.
     //
-    // Every other mod is something you add to a colony. This one takes the sim away,
-    // renames the faction, rewrites the calendar, deletes every vanilla song and ships
-    // defs a vanilla save has never heard of. Loaded into an ordinary install it does
-    // not degrade, it eats the place - and a colony somebody cared about comes back
-    // wearing a faceplate, on a map with no rock in it, in a save that no longer loads
-    // without us.
-    //
-    // So there is a profile: a save data folder of our own, handed to the game with
-    // `-savedatafolder=` by the `slopworld` runner, holding a mod list that is Core and
-    // us. The runner writes a marker file into it, and that file is the whole of this
-    // check. It is written by the runner rather than by us on purpose: a folder the
-    // game made for itself is an install, and the only way to say "this one is for
-    // agents" is for something outside the game to have said so.
-    //
-    // Refusing means refusing *before touching anything*: no Harmony patches, no stat
-    // parts, no XML operations. What is left of us in a vanilla game is the defs we
-    // add - four main buttons, which say so when clicked, and some sounds and flecks
-    // nothing references. The parts that rewrite vanilla's own defs go through
-    // PatchOperationInProfile below and stand down with the rest.
+    // Refusing means refusing *before touching anything*: no Harmony patches, no stat parts,
+    // no XML operations. What is left in a vanilla game is the defs we add.
     public static class SlopProfile
     {
         // Written by `slopworld`; see slopd/src/bin/slopworld.rs.
@@ -45,9 +32,8 @@ namespace SlopWorld
             }
         }
 
-        // Asked at XML patch time, long before defs exist, and again at every gate
-        // afterwards, so it is answered once and remembered. Nothing moves the marker
-        // while the game is up.
+        // Asked at XML patch time, before defs exist, and again at every gate afterwards, so
+        // it is answered once and remembered.
         public static bool Ok
         {
             get
@@ -72,14 +58,9 @@ namespace SlopWorld
             }
         }
 
-        // The log line is for whoever is reading Player.log and is said once, since the
-        // gates that call this are every door in the mod. The dialog is for whoever is
-        // looking at the screen and is said every time one is tried: a button that
-        // silently does nothing is worse than the mod being absent.
-        //
-        // Queued rather than added, because the first caller is a static constructor
-        // and there is no window stack yet. With nothing loading, the queue is drained
-        // on the next frame anyway.
+        // The log line once, the dialog every time a door is tried: a button that silently
+        // does nothing is worse than the mod being absent. Queued rather than added, the first
+        // caller being a static constructor with no window stack yet.
         public static void Complain()
         {
             if (!_complained)
@@ -113,20 +94,12 @@ namespace SlopWorld
         }
     }
 
-    // The XML half of standing down. Vanilla's own patch operations cannot ask a
-    // question, and ours are the ones that rewrite defs the base game shipped -
-    // removing every song, taking the rocks out of map generation, handing the player
-    // buildings no player was meant to build. Wrapped in this, they are applied in a
-    // profile and skipped everywhere else.
-    //
-    // Assemblies are loaded before the XML is patched, which is the only reason this
-    // can exist; static constructors run after, which is why the C# half is a separate
-    // gate rather than this one.
+    // The XML half of standing down: wraps every operation of ours that rewrites a def the
+    // base game shipped. Assemblies load before the XML is patched, which is the only reason
+    // this can exist; static constructors run after, which is why the C# gate is separate.
     public class PatchOperationInProfile : PatchOperationSequence
     {
-        // True either way: nothing was done, and nothing went wrong. A false here is
-        // what makes the game log a failed patch, which is not what a mod standing
-        // aside politely should look like.
+        // True either way - a false is what makes the game log a failed patch.
         protected override bool ApplyWorker(XmlDocument xml) =>
             !SlopProfile.Ok || base.ApplyWorker(xml);
     }

@@ -28,6 +28,7 @@ namespace SlopWorld
             resizeable = true;
             absorbInputAroundWindow = true;
             closeOnClickedOutside = false;
+            closeOnAccept = false;
         }
 
         public override Vector2 InitialSize => new Vector2(720f, 620f);

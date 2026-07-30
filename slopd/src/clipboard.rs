@@ -1,12 +1,7 @@
-//! The host's clipboard, on the game's behalf.
-//!
-//! The mod cannot reach it: RimWorld is a Unity player, and `systemCopyBuffer`
-//! there is the process's own buffer as often as it is the desktop's - which is
-//! the whole of "copy doesn't work". slopd is on the host with the session's
-//! display variables already set.
-//!
-//! Which tool does it is the desktop's business: anything missing is skipped, and
-//! that is not an error until every one of them is.
+//! The host's clipboard, on the game's behalf. The mod cannot reach it: RimWorld is a Unity
+//! player, and `systemCopyBuffer` there is the process's own buffer as often as the desktop's.
+//! Which tool does it is the desktop's business - anything missing is skipped, and that is not
+//! an error until every one of them is.
 
 use std::process::Stdio;
 use std::time::Duration;
@@ -104,10 +99,10 @@ async fn one(argv: &[&str], text: Option<&str>) -> Result<String> {
         return paste(argv).await;
     };
 
-    // A copy tool keeps *serving* the selection after reading it: every one of these
-    // forks a holder and lets the parent exit. So the output is never collected - the
-    // fork inherits the pipes and holds them open, which is a `wait_with_output` that
-    // waits forever. The price is that a failure is an exit status, not a sentence.
+    // A copy tool keeps *serving* the selection after reading it, forking a holder and letting
+    // the parent exit - so the output is never collected: the fork inherits the pipes and
+    // holds them open, and `wait_with_output` would wait forever. The price is that a failure
+    // is an exit status rather than a sentence.
     let mut child = Command::new(argv[0])
         .args(&argv[1..])
         .stdin(Stdio::piped())

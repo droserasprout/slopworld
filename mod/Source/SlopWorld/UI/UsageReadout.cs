@@ -6,20 +6,12 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The resource readout, top left, where RimWorld's own used to be - except that a
-    // colony of agents mines no steel. What it spends is quota, counted the way the
-    // game counts everything else: an icon and a number per window. The number is
-    // what is *left* - see Count, the one place the daemon's spent figure is turned
-    // round.
+    // The resource readout, in vanilla's own corner and geometry, counting quota. The number
+    // is what is *left* - see Count, the one place the daemon's spent figure is turned round.
     //
-    // A bar is a widget this game has nowhere else, and this corner is the one place
-    // a player already knows how to read; the detail a bar carried was in the tooltip
-    // anyway. The geometry is vanilla's own simple readout.
-    //
-    // A MapComponent rather than a window, so it sits on the map layer behind every
-    // window - right, because an open terminal is fullscreen and opaque. The numbers
-    // are never computed here; the countdown is, off the frame clock, so it keeps
-    // ticking between polls and when the daemon goes away.
+    // A MapComponent rather than a window, so it sits behind every window. The numbers are
+    // never computed here; the countdown is, off the frame clock, so it keeps ticking between
+    // polls and when the daemon goes away.
     public class UsageReadout : MapComponent
     {
         // Vanilla's own corner and row, from ResourceReadout.DoReadoutSimple.
@@ -57,8 +49,7 @@ namespace SlopWorld
             bool quota = usage.Any || !string.IsNullOrEmpty(usage.Error);
 
             // Vanilla's legibility trick for this corner, which went out with the readout
-            // Patch_HideGui strips. It leaves GUI.color white behind it, so it goes before
-            // anything is tinted.
+            // Patch_HideGui strips. It leaves GUI.color white behind it.
             GenUI.DrawTextWinterShadow(new Rect(256f, 512f, -256f, -512f));
 
             var old = GUI.color;
@@ -137,23 +128,21 @@ namespace SlopWorld
             Tip(row, usage, w);
         }
 
-        // Say so in the same space rather than leaving the corner blank, because
-        // "unknown" and "0%" must never look alike. No icon: there is no resource to
-        // stand for a number nobody has.
+        // Said in the same space rather than left blank: "unknown" and "0%" must never look
+        // alike. No icon - there is no resource to stand for a number nobody has.
         void DrawUnknown(Rect row, UsageInfo usage)
         {
             Widgets.Label(row, "quota: unknown");
             Tip(row, usage, null);
         }
 
-        // It counts what is *left* rather than what is spent, which is the whole of why
-        // this is a resource row: a number in this corner that grew as the colony worked
-        // would be read as stock going up. The daemon sends the spent figure either way,
-        // so the subtraction is this readout's and the tooltip says both ends of it.
+        // What is *left*: a number in this corner that grew as the colony worked would read as
+        // stock coming in. The daemon sends the spent figure, so the subtraction is here and
+        // the tooltip says both ends of it.
         static string Count(UsageWindow w)
         {
             // A money row whose limit the daemon could not read falls back to the percentage,
-            // which is the only figure that can say "left" when the size is unsaid.
+            // the only figure that can say "left" when the size is unsaid.
             if (!w.IsMoney || w.Limit <= 0f) return Mathf.RoundToInt(Left(w)) + "%";
 
             float left = Mathf.Max(0f, w.Limit - w.Amount);
@@ -168,8 +157,8 @@ namespace SlopWorld
             return Mathf.Max(0f, 100f - w.Pct);
         }
 
-        // With the label gone from the row itself this is also where a window is named,
-        // which is how the game's own resources work.
+        // With no label on the row, this is also where a window is named - as the game's own
+        // resources work.
         void Tip(Rect row, UsageInfo usage, UsageWindow w)
         {
             var lines = new List<string>();
@@ -203,8 +192,8 @@ namespace SlopWorld
                 0x51_0F_0000 ^ (w?.Key?.GetHashCode() ?? 0)));
         }
 
-        // It leads with what the row says and carries the spent figure behind it, that
-        // being the number an agent's own /usage will agree with.
+        // Leads with what the row says and carries the spent figure behind it, that being the
+        // number an agent's own /usage will agree with.
         static string Detail(UsageWindow w)
         {
             if (!w.IsMoney) return $"{Long(w)}: {Left(w):0.#}% left ({w.Pct:0.#}% spent)";
@@ -224,11 +213,9 @@ namespace SlopWorld
             return w.Label;
         }
 
-        // Arbitrary and deliberately so, but stable, which is all an icon has to be: the
-        // session window burns down fast and comes back, so chemfuel; the weekly limit is
-        // the bulk, so steel; opus the expensive one, sonnet the everyday one. Remembered
-        // per key rather than worked out per frame, or an icon would move about between
-        // polls depending on which other windows were in one.
+        // Arbitrary but stable, which is all an icon has to be. Remembered per key rather than
+        // worked out per frame, or an icon would move between polls depending on which other
+        // windows were in one.
         ThingDef IconFor(string key)
         {
             ThingDef def;
@@ -261,9 +248,9 @@ namespace SlopWorld
             }
         }
 
-        // The point is only that no two rows wear the same icon. Built on first use
-        // rather than in a field initialiser, because ThingDefOf is filled in during
-        // startup and a static touched too early caches a row of nulls.
+        // Only so no two rows wear the same icon. Built on first use rather than in a field
+        // initialiser: ThingDefOf is filled during startup, and a static touched too early
+        // caches a row of nulls.
         static ThingDef[] Pool => _pool ?? (_pool = new[]
         {
             ThingDefOf.Uranium,
