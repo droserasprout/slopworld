@@ -178,7 +178,10 @@ impl Tmux {
         self.run(&args).await?;
 
         // Without this a detached pane clamps to the size of any later client.
-        self.run(&["set-option", "-t", name, "window-size", "manual"])
+        // `window-size` is a window option, so it wants a window target and the colon
+        // that keeps one from prefix-matching a neighbour's `bwrap` - see `resize`.
+        let target = format!("{name}:");
+        self.run(&["set-option", "-w", "-t", &target, "window-size", "manual"])
             .await
             .ok();
         self.run(&["set-option", "-t", name, "status", "off"])
@@ -263,24 +266,40 @@ impl Tmux {
         Ok((child, std::fs::File::from(pty.master)))
     }
 
+    /// The target is `name:` rather than `name`, and that colon is load-bearing. This
+    /// takes a *window* target, and tmux resolves one by window name before session
+    /// name - every window here is called `bwrap`, so a bare `b` prefix-matched some
+    /// other session's `bwrap` and resized that instead. Sessions were shaped by
+    /// whichever of their neighbours last had a terminal open on it.
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
+        let target = format!("{name}:");
         let cols = cols.to_string();
         let rows = rows.to_string();
-        self.run(&["resize-window", "-t", name, "-x", &cols, "-y", &rows])
+        self.run(&["resize-window", "-t", &target, "-x", &cols, "-y", &rows])
             .await?;
         Ok(())
     }
 
-    /// A SIGWINCH is the one event every TUI answers with a full redraw, which is what
-    /// puts back the modes a text capture cannot carry - alternate screen, mouse
-    /// reporting, cursor shape, bracketed paste.
-    pub async fn nudge_redraw(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
-        if cols < 2 {
-            return Ok(());
-        }
-        self.resize(name, cols - 1, rows).await?;
-        tokio::time::sleep(std::time::Duration::from_millis(60)).await;
-        self.resize(name, cols, rows).await
+    /// What shape the window actually is. A session that outlived the daemon is
+    /// whatever size the last terminal window asked for, and tmux is the only one left
+    /// who remembers - so it is asked rather than guessed at.
+    pub async fn size(&self, name: &str) -> Option<(u16, u16)> {
+        // `name:` for the same reason `resize` needs it - see there.
+        let target = format!("{name}:");
+        let out = self
+            .run(&[
+                "display-message",
+                "-p",
+                "-t",
+                &target,
+                "#{window_width} #{window_height}",
+            ])
+            .await
+            .ok()?;
+        let mut it = out.split_whitespace();
+        let cols = it.next()?.parse().ok()?;
+        let rows = it.next()?.parse().ok()?;
+        Some((cols, rows))
     }
 
     /// `keys` are tmux key names (Enter, C-c, Up) or literal text when `literal`.

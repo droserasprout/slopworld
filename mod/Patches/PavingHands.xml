@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The floor, taken off the backstory it was handed.
+
+  Steel tile inherits constructionSkillPrerequisite 3 from TileMetalBase, and
+  vanilla means it: GenConstruct.CanConstruct reads the figure off the def and
+  the job driver asks it again every tick it runs. Here that is a colonist the
+  pawn generator rolled a two for never laying a plate in the life of the
+  colony - Worksite.Pick weighs only what the pawn in front of it could finish,
+  so more than half the errand table is silently off the sheet, and an agent
+  whose whole visible output is monuments and ruins reads as a site that does
+  not pave. Worse where every agent on the map is under it: Worksite.Sweep
+  destroys a frame nobody has the hands for, so the floor the one skilled
+  clanker queued goes away again a second later, and floor frames are not drawn
+  (Patch_HideFloorFrames), so none of it is visible from outside.
+
+  Same ground as SteadyHands and Patch_AgentsCanBuild: whose hands the frame was
+  put into is not allowed to be the answer to what this site builds. A plate is
+  a tenth of a second of somebody's working time and the paving is what a short
+  burst has to show for itself.
+
+  The research prerequisite goes with it. Nothing on the construction path asks -
+  neither CanConstruct nor CanPlaceBlueprintAt looks at research, it is the
+  Architect menu's question and that menu is stripped - but Worksite places its
+  frames directly and never through a designator, so a def that has to be
+  researched to be *offered* has no business being one that cannot be built.
+
+  Wrapped, like every operation of ours that rewrites a def the base game
+  shipped: outside a SlopWorld profile it is not applied at all - the steel tile
+  somebody else is saving up their smithing research for stays as it was. See
+  Source/SlopWorld/SlopProfile.cs.
+-->
+<Patch>
+  <Operation Class="SlopWorld.PatchOperationInProfile">
+    <operations>
+      <!--
+        Added rather than replaced: the figure is on the abstract parent, not on
+        MetalTile itself, and a node the child states wins over the one it would
+        have inherited.
+      -->
+      <li Class="PatchOperationAdd">
+        <xpath>/Defs/TerrainDef[defName='MetalTile']</xpath>
+        <value>
+          <constructionSkillPrerequisite>0</constructionSkillPrerequisite>
+          <researchPrerequisites Inherit="False" IsNull="True" />
+        </value>
+      </li>
+    </operations>
+  </Operation>
+</Patch>

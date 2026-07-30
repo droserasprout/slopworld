@@ -617,20 +617,31 @@ impl Manager {
             if !self.live.read().await.contains_key(&name) {
                 adopted |= self.adopt(&name).await;
             }
+            // A session with no emulator is one we are picking up rather than one we
+            // started, so its shape is tmux's answer and not ours. Inventing the boot
+            // size here resized a running app down to it on the way past - the nudge
+            // below states whatever this says, and `spawn_reader` builds the emulator
+            // at it.
+            let fresh = !self
+                .live
+                .read()
+                .await
+                .get(&name)
+                .is_some_and(|l| l.emu.is_some());
+            if fresh {
+                if let Some((cols, rows)) = self.tmux.size(&name).await {
+                    if let Some(l) = self.live.write().await.get_mut(&name) {
+                        l.cols = cols;
+                        l.rows = rows;
+                    }
+                }
+            }
             if self.spawn_reader(&name).await {
                 // Adopted rather than started by us, so the app has no idea it has a new reader.
-                // Off the critical path - each nudge sleeps.
+                // Off the critical path - the nudge sleeps.
                 let m = self.clone();
                 let name = name.clone();
-                tokio::spawn(async move {
-                    let (cols, rows) = match m.live.read().await.get(&name) {
-                        Some(l) => (l.cols, l.rows),
-                        None => return,
-                    };
-                    if let Err(e) = m.tmux.nudge_redraw(&name, cols, rows).await {
-                        tracing::debug!("redraw nudge {name}: {e:#}");
-                    }
-                });
+                tokio::spawn(async move { m.nudge_redraw(&name).await });
             }
         }
 
@@ -642,6 +653,39 @@ impl Manager {
                 sessions: self.views().await,
             });
         }
+    }
+
+    /// A SIGWINCH is the one event every TUI answers with a full redraw, which is what
+    /// puts back the modes a text capture cannot carry - alternate screen, mouse
+    /// reporting, cursor shape, bracketed paste.
+    ///
+    /// The size to come back to is read again *after* the shrink rather than held over
+    /// it. A terminal window that reconnected mid-nudge has already stated its own
+    /// shape through `resize`, and restoring the figure this started with would leave
+    /// the pane the wrong size with nothing left to correct it - the mod only resends
+    /// while the frames coming back disagree, and they no longer would.
+    async fn nudge_redraw(self: &Arc<Self>, name: &str) {
+        let Some((cols, rows)) = self.size_of(name).await else {
+            return;
+        };
+        if cols < 2 {
+            return;
+        }
+        if let Err(e) = self.tmux.resize(name, cols - 1, rows).await {
+            tracing::debug!("redraw nudge {name}: {e:#}");
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(60)).await;
+        let Some((cols, rows)) = self.size_of(name).await else {
+            return;
+        };
+        if let Err(e) = self.tmux.resize(name, cols, rows).await {
+            tracing::debug!("redraw nudge {name}: {e:#}");
+        }
+    }
+
+    async fn size_of(&self, name: &str) -> Option<(u16, u16)> {
+        self.live.read().await.get(name).map(|l| (l.cols, l.rows))
     }
 
     /// These used to be logged as orphans and left invisible, which was wrong twice

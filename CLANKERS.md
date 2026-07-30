@@ -125,8 +125,9 @@ is for agents. Refusing means refusing *before touching anything*:
 - `SteadyHands` returns before welding a `StatPart` onto a vanilla stat.
 - `PatchOperationInProfile` wraps every XML operation of ours that rewrites a def
   the base game shipped - the songs, the map generator's rocks, the ancient kit's
-  designation category. It is a `PatchOperationSequence` subclass that answers true
-  without running its `operations`, true being what keeps the game from logging a
+  designation category, the paving terrain's skill requirement. It is a
+  `PatchOperationSequence` subclass that answers true without running its
+  `operations`, true being what keeps the game from logging a
   failed patch over a mod that stood aside politely. Assemblies load before the XML
   is patched, which is the only reason this can exist at all; static constructors
   run after, which is why the C# gate is separate.
@@ -285,6 +286,20 @@ session from `capture-pane -e -S -<history_limit>`, then nudges the pane a colum
 narrower and back - the SIGWINCH is what makes the app repaint and hand the fresh
 emulator the modes a text capture cannot carry.
 
+What a session that outlived the daemon is *shaped* like is tmux's answer and never
+ours: `sync_from_config` asks `Tmux::size` before building the emulator, because the
+boot size is a guess and stating a guess at a running app resizes it down to one.
+`Manager::nudge_redraw` reads the size back after the shrink for the same reason from
+the other end - a terminal window that reconnected mid-nudge has already stated its
+own shape, and the mod only resends while the frames disagree, so restoring the older
+figure strands the pane at it.
+
+Every window under our socket is called `bwrap`, and a tmux *window* target resolves
+by window name before session name - so `resize-window -t b` prefix-matched some
+neighbour's `bwrap` and shaped that session instead. Anything taking a window or pane
+target writes `name:` or `name:.0`; a bare `name` is only ever safe for the
+session-target commands (`kill-session`, `rename-session`, `attach`).
+
 `config.toml` is re-read whenever its mtime moves, on a two-second check and ahead
 of every mutating call. A file that does not parse is complained about once.
 
@@ -406,15 +421,40 @@ none of these need a def.
   core falls into it, then a few seconds of it venting alone, then the plague is
   armed, and only then are the agents released to come down into it. The plague's bands are a
   continuous falloff dithered against `Grit`, a per-cell value stable across
-  reloads - hard radii draw a circle you can trace, and a chance re-rolled each
+  reloads - a hard threshold draws a line you can trace, and a chance re-rolled each
   sweep converges on certainty. `StuntFrom` is the gap that keeps the weak band's
-  work from being redone every lap. Fire containment uses plain geometry
-  (`Reaches`), or a fire could not cross a cell the dither spared.
+  work from being redone every lap. Fire containment asks only whether the plague has
+  been there (`Reaches`), or a fire could not cross a cell the dither spared.
   `Patch_NoRegrowth` is gated on `Band.Full`, so the weak band keeps growing what
   it only holds back. `Vent` is the core breathing for the life of the colony.
+  The plague is not a circle. It is the union of a source per finished thing: the core
+  emits `CoreRadius` and nothing else it ever does, and every plate and monument the
+  agents raise emits its own (`Bloom`, off `Worksite.Patch_ErrandDone`). So the map is
+  not eaten on a figure - it dies where the agents have been, and the shape of the dead
+  ground is the shape of an hour's work. Nothing is earned and nothing is spent: a
+  monument is not a payment for a ring, it is a thing that kills the ground round it.
+  What is kept is one **arrival tick a cell** (`Cells`), min-combined on the way in and
+  never raised, because nothing here takes a finished thing back off the board. That
+  append-only field is the whole reason the model is affordable: `BandAt` is asked ten
+  thousand times a second and a source per paved cell is thousands of sources, so the
+  region has to be a lookup and can never be a loop. A cell's *age* is its dose -
+  `Bite` ramps from nothing to certain over `RipenTicks`, and `CreepPerCell` is how
+  fast a stamp opens outward - which is the same falloff the old rim measured off a
+  radius, said in time instead. Saying it in time is what makes one figure right at
+  both ends of the scale: a stamp two cells across is a fringe entire for half a minute
+  and solid after, while ground paved over for an hour is old in the middle and young
+  only at the outer hull. `Girth` is the plague said as a radius - the circle that
+  would hold as much ground as it has actually taken - and it is a *bulk* rather than a
+  furthest reach, because a leash one plate thrown at its edge could drag is not a
+  leash. The field is scribed through `MapExposeUtility.ExposeUshort` as a signed
+  offset in seconds, which halves it and loses nothing the dither would show; the
+  offsets are rebased in `FinalizeInit` rather than in `Unpack`, because a map is
+  scribed *before* the tick manager is and the clock read during a load is the last
+  game's. A save from before the field is not migrated - a radius says nothing about
+  which cell died when - and comes back with the core's own circle and no more.
 - `Outskirts` - the other side of that: animals and people keep walking in off the
-  map edge, so the rim stays alive. The census counts the population *outside* the
-  circle. Off until `Plague.Active`.
+  map edge, so the rim stays alive. The census counts the population the plague has
+  not reached rather than the map's. Off until `Plague.Active`.
 - `Pets` - the starting cat, and only the cat. It survives because
   `Plague.Infectable` spares the player faction. She is placed anywhere standable
   with the rest of the hillside, before anything falls, so she reads as the map's
@@ -431,11 +471,21 @@ none of these need a def.
   tokens. A working agent takes the nearest frame nobody has reserved and hammers at
   it; with none free it opens one where it is standing, which is wherever an agent
   with nothing to do had wandered to - a free spread, and the walk out to the errand
-  is a few steps rather than a crossing. The plague circle entire is the whole of the
-  constraint on that, and a pawn that has wandered out of it is aimed back in. It is
-  `Plague.Reach` - the plain geometry, the same answer `Reaches` gives fire, not
-  `BandAt` - because the dither spares cells inside the circle and a site that stepped
-  around each of them would be a lace doily rather than a colony.
+  is a few steps rather than a crossing. Everything it finishes emits plague
+  (`Plague.Bloom`), which is the whole causal line this map is about and it runs one
+  way: the agents build, the ground they built on dies, and the dead ground is the
+  visible sum of what the sessions have been busy doing.
+  So the site is *not* held inside the dead ground - it could not be, since ground only
+  the site makes cannot also be the ground the site needs to start. It is held near the
+  middle instead: `Roam` is `Plague.Girth` plus `RoamMargin`, a ring of living ground
+  outside the plague, and a pawn that has wandered out past it is aimed back in. That
+  leash can neither stall nor run away, and both halves are the point - building
+  anywhere blooms, blooming grows the girth, and the girth is what the leash is measured
+  off, so the room to work in is opened by the work; and girth being a bulk rather than
+  a furthest reach means the next ring costs ground that actually died rather than one
+  plate thrown at the edge. A distance rather than the plague's own shape, because the
+  region is a union of thousands of stamps and "within a few cells of somewhere dead"
+  asked of every candidate cell is hundreds of lookups where this is one.
   Leaving `Working` ends the job where it stands, and `Frame.workDone` stays on the
   frame, so a monument is the sum of every burst the agent has had. The one system
   here that does *not* apply its effects by hand: the vanilla job driver walks the
@@ -460,15 +510,26 @@ none of these need a def.
   whole numbers summing to a hundred, so a line reads as the share of the finished site
   that will be that thing. Nothing enforces the sum - `Pick` normalises whatever it is
   handed, and has to, because it weighs only what the pawn in front of it could finish.
-  Fifty-five is paving, twenty the monuments, twenty-five the machines; the rack, the
-  screens and the cabinets carry that last share, and the lamp and the lamppost are
-  held to three each, one of them lighting a good few cells and a field of them
-  lighting the same ground over and over. The target is the hour - a session's worth
-  of a couple of agents being busy has to leave the circle with nowhere left to put
-  anything, because running out of ground is the only thing on this map that ever asks
-  the player for a decision. The circle being the plague's whole reach rather than half
-  of it is four times the ground, so that target is four times further off than it was;
-  the seconds and `PavingSide` are what would buy it back.
+  Which is why the paving terrain must ask for no construction skill:
+  `Patches/PavingHands.xml` takes steel tile's inherited
+  `constructionSkillPrerequisite` of three off it, or a colonist the generator rolled
+  a two for never lays a plate in the life of the colony - more than half the table
+  silently off its sheet - and `Sweep` destroys the floor a skilled clanker queued
+  the moment no agent on the map has the hands for it. Same ground as `SteadyHands`
+  and `Patch_AgentsCanBuild`: whose hands the frame was put into is never allowed to
+  be the answer to what this site builds.
+  Paving is ten parts in thirty-six by count, the monuments and graves ten, the ancient
+  kit sixteen; the rack, the screens and the cabinets carry most of that last share, and
+  the lamppost and the big machine are held to one each, one lamp lighting a good few
+  cells and a field of them lighting the same ground over and over. Shares by *count*
+  are not shares of the clock - a plate is a tenth of a second where a grand stele is
+  thirty - but a paving errand is forty-nine frames, which is what keeps the floor most
+  of what actually gets laid.
+  Alongside the odds is the `*Bloom` block, which is how far the plague walks out of each
+  thing once it stands, and between them they are what sets how fast the map dies. It is
+  roughly flat per second of an agent's working time on purpose: the map has to die at
+  the speed the sessions are busy and not at the speed of whichever errand the darts
+  happened to favour.
   Paving is most of what gets picked on top of that, where a monument is an event
   because it is rare. `Interval` is a quarter second for the same reason: the errand a
   pawn is handed here is the whole of what it does next, and a plate takes less than a
@@ -479,9 +540,10 @@ none of these need a def.
   driver's own fail condition asked one tick early: without it a frame nobody can
   reach is handed out, fails, and is handed straight back on the next look forever.
   A round of darts that finds nowhere to lay *floor* sits the whole site down for five
-  seconds (`BlockedFor`), because a full circle is the state all of this is aimed at
-  and it has to be cheap to be in - a plate is one cell and wants no clearance, so its
-  failing is the circle's answer rather than its own. Anything with a shape asks for a
+  seconds (`BlockedFor`) - a plate is one cell and wants no clearance, so its failing is
+  the leash's answer rather than its own, and every agent asking four times a second
+  otherwise means five hundred `CanPlaceBlueprintAt` calls a second against ground that
+  is not going to change. Anything with a shape asks for a
   footprint and a pad, and a five-by-three machine finding no room within a few steps
   of one pawn is not grounds for stopping the agents who still had somewhere to pave.
   The other half of that is `Sweep`, once a second: a frame with a plant grown into it
@@ -494,6 +556,20 @@ none of these need a def.
   vanilla's own word for it rather than a guess of ours; `Fits` declines the same
   ground on the way in, off `clearBuildingArea` and `forceMoveItemsBeforeConstruction`,
   but only what it can see, and on a map being eaten the ground changes afterwards.
+  Those two flags are read off the thing's *blueprint* rather than off the thing,
+  because for a floor the two disagree and only the blueprint's is the answer the game
+  will give: `NewBlueprintDef_Terrain` sets both false, so a plate goes straight over
+  grass and over a chunk of slag, and only a plant worth harvesting blocks one
+  (`Rooted`, which is where `GenConstruct.BlocksConstruction` draws the line). Read off
+  the `TerrainDef`, where `clearBuildingArea` is true as it is on every `BuildableDef`
+  by default, every cell with a blade of grass or a bit of rubble in it was refused as
+  a paving site - which on the rim, where the weak band leaves plants standing, and
+  anywhere a detonation has been, is most of them. A round of darts that lands there
+  finds nowhere to pave and `BlockedFor` sits the site down on that answer, so from
+  outside it read as clankers that only ever build things.
+  Nothing samples how full the ground is any more, and nothing needs to: what the site
+  has finished with is written into the plague's own field as it happens, and `_laid` is
+  the tally of it kept only to be printed.
   `Patch_HideFloorFrames` takes the paving frame's four white corner brackets off the
   board: the site queues floor a square at a time, so ahead of the agents that is a
   grid over most of the map, saying nothing anybody can act on - no order to cancel, no

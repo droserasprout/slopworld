@@ -13,13 +13,21 @@ namespace SlopWorld
     // A working agent walks to the nearest frame nobody has claimed and hammers at it;
     // if there is no such frame it opens one where it is standing. Where it is standing
     // is where an agent with nothing to do had wandered to, which is as fair a spread as
-    // this needs and costs nothing to work out. The plague circle is the whole of the
-    // constraint on that: ground the core has already taken, so the site is built on ash
-    // rather than on anything living, and the ground runs out while there is still a map
-    // around it. Leaving Working ends the job on the
+    // this needs and costs nothing to work out. Leaving Working ends the job on the
     // spot. Frame.workDone
     // is on the frame rather than the pawn, so a thing standing here is the sum of every
     // burst the agent had while it was going up.
+    //
+    // What everything it finishes does is emit plague (Plague.Bloom). That is the whole
+    // causal line this map is about and it runs one way: the agents build, the ground they
+    // built on dies, and the dead ground is the visible sum of what the sessions have been
+    // busy doing. Nothing is *earned* any more and nothing is spent - a monument is not a
+    // payment for a ring of circle, it is a thing that kills the ground around itself.
+    //
+    // So the site is no longer held inside the dead ground; it could not be, since holding
+    // it there would mean a site that can only be opened on ash that only the site makes.
+    // It is held *near the middle* instead, which is Roam, and the ring of living ground it
+    // works in is opened by its own work.
     //
     // Fast, all of it: three seconds a paving stone and three minutes for the largest
     // thing on the table. These go up at the speed the things they stand for are
@@ -95,10 +103,30 @@ namespace SlopWorld
         const float SiteNear = 4f;
         const float SiteRadius = 12f;
 
-        // The floor under the circle the site is allowed, so the plague's first minute
-        // does not have the agents building inside the core itself. Everything above it
-        // is the plague's own reach.
-        const float MinCircle = 6f;
+        // How hard a dart is pulled toward the core. The direction is a random one with
+        // this much of the way to the heart added, so the errands lean inward without ever
+        // only going that way: ground by the core fills first, which is what a colony
+        // looks like, where paving that spread out from wherever an agent happened to
+        // wander looks like litter. A weight rather than a rule, because when the ground
+        // inside is full the darts still have to be able to find the ground outside - and
+        // it fades out on its own as the pawn approaches the heart, where there is no
+        // inward left to point.
+        const float SiteLean = 0.8f;
+
+        // How far past the plague's own girth an agent will carry an errand, and the whole
+        // of what holds this site together. There is a ring of living ground this wide
+        // outside the plague, and that ring is where everything gets built.
+        //
+        // It cannot stall and it cannot run away. Building anywhere blooms, blooming grows
+        // the plague, and the plague's girth is what this is measured off - so the room to
+        // work in is opened by the work. And girth is a bulk rather than a furthest reach
+        // (see Plague.Girth), so opening the next ring costs ground that actually died
+        // rather than one plate thrown at the edge.
+        const float RoamMargin = 16f;
+
+        // The floor under it, so the plague's first seconds do not have the agents hemmed
+        // into the core itself.
+        const float MinCircle = 18f;
 
         // What share of the errands each thing is, out of a hundred. This block is the
         // whole of the tuning: they are whole numbers and they sum to a hundred, so a
@@ -107,35 +135,56 @@ namespace SlopWorld
         // the sum - Pick normalises whatever it is handed, and it has to, because it
         // weighs only what the pawn in front of it could finish.
         //
-        // Paving is more than half of it deliberately: it is the errand that finishes,
-        // it is what a short burst has to show for itself, and it is what makes anything
-        // with a shape read as an event rather than as the only thing the site does.
-        const float PavingOdds = 55f;
+        // Paving is four errands in five, and it has to be far more than the half it was.
+        // These are shares of the errands *handed out*, and an errand is not a unit of time:
+        // a plate is a tenth of a second and a grand stele is thirty, so at even odds by
+        // count the agents spend nine tenths of every burst standing over something with a
+        // shape and the site reads as a machine that does not pave. Four in five by count is
+        // about one working minute in three spent laying floor, which is the least that
+        // reads as paving being what this thing does.
+        const float PavingOdds = 10f;
 
-        // Markers, and what a machine told nothing about what for puts up.
-        const float ColumnOdds = 4f;
+        // Markers, and what a machine told nothing about what for puts up. Rare by count is
+        // what makes them events; rare by count is also most of the clock, which is why
+        // there is so little of them here.
+        const float ColumnOdds = 2f;
         const float GraveOdds = 5f;
-        const float SarcophagusOdds = 4f;
-        const float SteleLargeOdds = 4f;
-        const float SteleGrandOdds = 3f;
+        const float SarcophagusOdds = 1f;
+        const float SteleLargeOdds = 1f;
+        const float SteleGrandOdds = 1f;
 
         // The world it came out of. The rack, the screens and the cabinets carry this
         // half, because they are the ones with a silhouette worth looking at twice; the
         // lamp and the lamppost are held down to nearly nothing, since one of them lights
         // a good few cells and a field of them lights the same ground over and over.
-        const float LampOdds = 3f;
-        const float LamppostOdds = 3f;
-        const float RackOdds = 6f;
-        const float ScreensOdds = 5f;
-        const float LockersOdds = 4f;
+        const float LampOdds = 5f;
+        const float LamppostOdds = 1f;
+        const float RackOdds = 2f;
+        const float ScreensOdds = 2f;
+        const float LockersOdds = 2f;
         const float GeneratorOdds = 3f;
         const float MachineOdds = 1f;
+
+        // How far the plague walks out of each thing once it stands, in cells. The other half
+        // of the tuning, and the half that says how fast the map dies: a plate is a cell's
+        // worth of creep and a monument is a bloom you can watch arrive.
+        //
+        // Roughly flat per second of an agent's working time, which is deliberate - the map
+        // has to die at the speed the sessions are busy and not at the speed of whichever
+        // errand the darts happen to favour. Paving is under the rest by that measure and
+        // still does most of the killing, because it is forty-nine frames an errand.
+        const float PavingBloom = 3f;
+        const float SmallBloom = 4f;
+        const float MediumBloom = 6f;
+        const float LargeBloom = 8f;
+        const float MonumentBloom = 11f;
 
         struct Errand
         {
             public BuildableDef What;
             public float Seconds;
             public float Weight;
+            public float Bloom; // cells of plague the finished thing seeds
             public int Patch; // side of the square laid at once; 1 for anything with a shape
         }
 
@@ -143,13 +192,18 @@ namespace SlopWorld
         // gone by the time anything asks a second time. Static: the table is the same
         // table on every map, and Patch_ErrandWork has no map to ask.
         static readonly Dictionary<BuildableDef, float> Work = new Dictionary<BuildableDef, float>();
+        static readonly Dictionary<BuildableDef, float> Blooms = new Dictionary<BuildableDef, float>();
 
         public static float WorkFor(BuildableDef def) =>
             def != null && Work.TryGetValue(def, out float w) ? w : 0f;
 
+        public static float BloomFor(BuildableDef def) =>
+            def != null && Blooms.TryGetValue(def, out float r) ? r : 0f;
+
         // Not saved: both are questions about the tile and the def database, and a load
         // can ask them again.
         List<Errand> _errands;
+        TerrainDef _plate;
         ThingDef _blocks;
         ThingDef _rock;
         bool _quarried;
@@ -165,6 +219,11 @@ namespace SlopWorld
 
         // Passes since the last sweep.
         int _swept;
+
+        // Cells the site has finished with, for the length of the colony. Scribed, being a
+        // colony's whole history of having been busy - and it is only that now: what the
+        // plague has is written down in the plague's own field.
+        int _laid;
 
         // The frame each agent was last sent to, and the frames being passed over.
         //
@@ -185,6 +244,12 @@ namespace SlopWorld
         const int SweepEvery = 4;
 
         public Worksite(Map map) : base(map) { }
+
+        public override void ExposeData()
+        {
+            base.ExposeData();
+            Scribe_Values.Look(ref _laid, "laid", 0);
+        }
 
         public override void MapComponentTick()
         {
@@ -481,6 +546,16 @@ namespace SlopWorld
             return n;
         }
 
+        // Ground this site has finished with, in cells. It no longer buys anything - the
+        // plague grows off the blooms rather than off a tally - so this is what it always
+        // read as: how busy the sessions have been, in ground. The plague's log line is the
+        // one place it is printed, next to what the plague has made of it.
+        public static int LaidOn(Map map) => map?.GetComponent<Worksite>()?._laid ?? 0;
+
+        // The footprint, so a five-by-three machine is worth what fifteen plates are. This
+        // is ground taken rather than work done: an hour on a grand stele covers one cell.
+        void Count(int cells) => _laid += cells;
+
         // Weighted, and only over what the pawn asking could finish. A clanker that opens
         // a frame beyond its own hands has built the trap it then walks into.
         Errand? Pick(Pawn pawn)
@@ -524,38 +599,55 @@ namespace SlopWorld
         // than a crossing. A dart at the circle instead put every errand somewhere else
         // and filled the middle first.
         //
-        // A pawn that has wandered out of the circle is aimed back into it, or an agent
-        // caught outside would spend every look asking for ground it is not allowed.
+        // A pawn that has wandered out past the leash is aimed back inside it, or an agent
+        // caught out there would spend every look asking for ground it is not allowed.
         //
         // Round rather than truncate, or the sites lean one way by half a cell in both
         // axes.
         IntVec3 Site(Pawn pawn)
         {
-            bool home = Inside(pawn.Position);
+            bool home = Near(pawn.Position);
             var from = home ? pawn.Position : Heart();
 
             // An annulus rather than a disc when it is aimed at the pawn: the middle of
             // that disc is the cell the pawn is standing in.
             var dir = Rand.InsideUnitCircleVec3.normalized;
             if (dir == Vector3.zero) dir = Vector3.forward;
+
+            // And leaning toward the core, which is the one direction on this map that
+            // means anything. Zero when the pawn is standing on the heart, so the pull
+            // never has to be switched off.
+            dir = (dir + Pull(pawn.Position)).normalized;
+            if (dir == Vector3.zero) dir = Vector3.forward;
+
             var v = home
                 ? dir * Rand.Range(SiteNear, SiteRadius)
-                : Rand.InsideUnitCircleVec3 * Circle();
+                : Rand.InsideUnitCircleVec3 * Roam();
 
             return from + new IntVec3(Mathf.RoundToInt(v.x), 0, Mathf.RoundToInt(v.z));
         }
 
-        // The plague circle entire, and never so small that the plague's first minute has
-        // the agents building inside the core itself. Plague.Reach is the plain geometry
-        // rather than BandAt, which is the same answer Reaches gives fire: the dither
-        // spares cells inside the circle, and a site that stepped around each of them
-        // would be a lace doily rather than a colony.
-        float Circle() => _plague == null ? 0f : Mathf.Max(_plague.Reach, MinCircle);
+        // The way to the core, at SiteLean's strength, and nothing at all within a step of
+        // it. A pawn a long way out pulls no harder than one nearby: the lean is a bias on
+        // a direction, not a distance, and a dart dragged the whole way to the heart from
+        // the edge would be an errand nobody walks to.
+        Vector3 Pull(IntVec3 from)
+        {
+            var to = (Heart() - from).ToVector3();
+            return to.magnitude < 1f ? Vector3.zero : to.normalized * SiteLean;
+        }
+
+        // How far from the middle the colony may work: the plague as a circle, plus the ring
+        // of living ground outside it. A distance rather than the plague's own shape, and it
+        // has to be - the region is a union of a few thousand stamps now, and "within a few
+        // cells of somewhere dead" asked of every candidate cell is a few hundred lookups
+        // where this is one. The darts want a distance and nothing else.
+        float Roam() => _plague == null ? 0f : Mathf.Max(_plague.Girth + RoamMargin, MinCircle);
 
         IntVec3 Heart() => _plague == null ? map.Center : _plague.Heart;
 
-        bool Inside(IntVec3 cell) =>
-            _plague != null && _plague.Active && cell.DistanceTo(_plague.Heart) <= Circle();
+        bool Near(IntVec3 cell) =>
+            _plague != null && _plague.Active && cell.DistanceTo(_plague.Heart) <= Roam();
 
         Frame Raise(Errand errand, IntVec3 at, Pawn pawn)
         {
@@ -583,10 +675,11 @@ namespace SlopWorld
         {
             if (!at.InBounds(map) || at.Fogged(map)) return false;
 
-            // Ground the core has already taken, wherever the pawn that asked has got to:
-            // a site is built on ash rather than on anything living, and the site filling
-            // up is the point of the circle being the size it is.
-            if (!Inside(at)) return false;
+            // Near the middle, wherever the pawn that asked has got to. Not *in* the plague:
+            // what the agents build is what kills the ground, so a site allowed only on ash
+            // could never lay its first plate. The leash is what keeps the colony reading as
+            // a colony rather than as litter over a whole map.
+            if (!Near(at)) return false;
 
             // A pad around anything with a shape, so a site never closes a path off or
             // grows into one lump. Floors want none of it: paving right up to a monument is
@@ -599,8 +692,24 @@ namespace SlopWorld
             // colony answers that with somebody to cut the tree and somebody to carry the
             // chunk away; this map has neither, and an agent is allowed no work but its
             // own. So a cell that would ask for either is not a site.
-            bool clear = what.clearBuildingArea;
-            bool tidy = clear || what.forceMoveItemsBeforeConstruction;
+            //
+            // Read off the *blueprint* rather than off what is being built, because for a
+            // floor the two disagree and only one of them is the answer the game will give.
+            // ThingDefGenerator_Buildings.NewBlueprintDef_Terrain sets both flags false:
+            // nothing is carried off or cut down to lay a plate, and only a plant worth
+            // harvesting blocks one at all (GenConstruct.BlocksConstruction). The TerrainDef
+            // has clearBuildingArea true, as every BuildableDef does by default, and reading
+            // it there was refusing every cell with a blade of grass or a chunk of slag in
+            // it - which on the rim of the circle, where the weak band leaves plants
+            // standing, and anywhere a detonation has been, is most of them. A round of
+            // darts that lands there finds nowhere to pave, and BlockedFor sits the whole
+            // site down on that answer, so the visible result was clankers that only ever
+            // built things.
+            var print = what.blueprintDef;
+            bool clear = print != null ? print.clearBuildingArea : what.clearBuildingArea;
+            bool tidy = clear || (print != null
+                ? print.forceMoveItemsBeforeConstruction
+                : what.forceMoveItemsBeforeConstruction);
 
             foreach (var c in footprint.ExpandedBy(pad))
             {
@@ -618,6 +727,11 @@ namespace SlopWorld
                     if (clear && thing.def.category == ThingCategory.Plant) return false;
                     if (tidy && thing.def.category == ThingCategory.Item) return false;
 
+                    // The one thing a floor does have to have off the ground first, and
+                    // vanilla is the one saying so rather than us. Declined here rather than
+                    // left to Sweep, which is where a frame nobody can finish goes.
+                    if (floor && Rooted(thing)) return false;
+
                     // Anything standing where the thing is going blocks it being built, and
                     // being blocked is the state this must never open a frame into: the pawn
                     // is told to move, we tell it to build, and neither of us wins. Only for
@@ -634,6 +748,17 @@ namespace SlopWorld
                     .Accepted) return false;
 
             return pawn.CanReach(at, PathEndMode.Touch, Danger.Deadly);
+        }
+
+        // Where GenConstruct.BlocksConstruction draws the line for a terrain frame: a
+        // dandelion's harvest work is the threshold between what a plate goes straight over
+        // and what somebody would have to cut down first. Grass is paved over; a tree is
+        // not.
+        static bool Rooted(Thing thing)
+        {
+            var plant = thing.def.category == ThingCategory.Plant ? thing.def.plant : null;
+            return plant != null &&
+                   plant.harvestWork > ThingDefOf.Plant_Dandelion.plant.harvestWork;
         }
 
         // Straight to the frame, no blueprint: a blueprint is a request for a hauler, and
@@ -737,18 +862,18 @@ namespace SlopWorld
                 // Metal plate rather than the tile's own flagstone: a machine paving over
                 // ash lays down what it is made of, and stone here read as a garden path
                 // through a dead world. Steel, which the map has none of and never needed.
-                var plate = DefDatabase<TerrainDef>.GetNamedSilentFail("MetalTile");
+                _plate = DefDatabase<TerrainDef>.GetNamedSilentFail("MetalTile");
 
-                Add(plate, PavingSeconds, PavingOdds, PavingSide);
+                Add(_plate, PavingSeconds, PavingOdds, PavingBloom, PavingSide);
 
                 // Monuments and graves. What a machine builds when it is told nothing about
                 // what for: a marker, a place to put somebody, and a slab with writing on it
                 // that nobody will read.
-                Add(Named("Column"), SmallSeconds, ColumnOdds);
-                Add(Named("Grave"), SmallSeconds, GraveOdds);
-                Add(Named("Sarcophagus"), MediumSeconds, SarcophagusOdds);
-                Add(Named("SteleLarge"), LargeSeconds, SteleLargeOdds);
-                Add(Named("SteleGrand"), MonumentSeconds, SteleGrandOdds);
+                Add(Named("Column"), SmallSeconds, ColumnOdds, SmallBloom);
+                Add(Named("Grave"), SmallSeconds, GraveOdds, SmallBloom);
+                Add(Named("Sarcophagus"), MediumSeconds, SarcophagusOdds, MediumBloom);
+                Add(Named("SteleLarge"), LargeSeconds, SteleLargeOdds, LargeBloom);
+                Add(Named("SteleGrand"), MonumentSeconds, SteleGrandOdds, MonumentBloom);
 
                 // And the other half of what it was told nothing about: the world it came
                 // out of. Racks, screens, cabinets, a generator, and one machine the size of
@@ -764,13 +889,13 @@ namespace SlopWorld
                 // run out. A few of them is a night with somewhere to walk; the rest is
                 // daylight, so it is one of the rarest things here rather than one of the
                 // commonest.
-                Add(Named("AncientLamp"), SmallSeconds, LampOdds);
-                Add(Named("AncientLamppost"), SmallSeconds, LamppostOdds);
-                Add(Named("AncientSystemRack"), MediumSeconds, RackOdds);
-                Add(Named("AncientDisplayBank"), MediumSeconds, ScreensOdds);
-                Add(Named("AncientLockerBank"), MediumSeconds, LockersOdds);
-                Add(Named("AncientGenerator"), MediumSeconds, GeneratorOdds);
-                Add(Named("AncientMachine"), MonumentSeconds, MachineOdds);
+                Add(Named("AncientLamp"), SmallSeconds, LampOdds, SmallBloom);
+                Add(Named("AncientLamppost"), SmallSeconds, LamppostOdds, SmallBloom);
+                Add(Named("AncientSystemRack"), MediumSeconds, RackOdds, MediumBloom);
+                Add(Named("AncientDisplayBank"), MediumSeconds, ScreensOdds, MediumBloom);
+                Add(Named("AncientLockerBank"), MediumSeconds, LockersOdds, MediumBloom);
+                Add(Named("AncientGenerator"), MediumSeconds, GeneratorOdds, MediumBloom);
+                Add(Named("AncientMachine"), MonumentSeconds, MachineOdds, MonumentBloom);
 
                 if (_errands.Count == 0)
                     Log.Warning("[SlopWorld] no errands this build knows how to build; agents will stand about");
@@ -779,12 +904,16 @@ namespace SlopWorld
             }
         }
 
-        void Add(BuildableDef what, float seconds, float weight, int patch = 1)
+        void Add(BuildableDef what, float seconds, float weight, float bloom, int patch = 1)
         {
             if (what == null || what.frameDef == null) return;
 
-            _errands.Add(new Errand { What = what, Seconds = seconds, Weight = weight, Patch = patch });
+            _errands.Add(new Errand
+            {
+                What = what, Seconds = seconds, Weight = weight, Bloom = bloom, Patch = patch,
+            });
             Work[what] = seconds * RealClock.TicksPerRealSecond * WorkPerTick;
+            Blooms[what] = bloom;
         }
 
         static ThingDef Named(string name) => DefDatabase<ThingDef>.GetNamedSilentFail(name);
@@ -802,6 +931,37 @@ namespace SlopWorld
             {
                 float work = WorkFor(__instance?.def?.entityDefToBuild);
                 if (work > 0f) __result = work;
+            }
+        }
+
+        // Where a thing standing up becomes plague. A prefix, because by the time
+        // CompleteConstruction returns the frame is despawned and has neither a map nor a
+        // footprint to ask about - and the footprint is the whole point, a machine five by
+        // three being a source five by three wide rather than a point.
+        //
+        // Only our own defs. Nothing else on this map is ever built, but both lookups answer
+        // zero for anything off the errand table regardless, so a frame from somewhere else
+        // kills nothing.
+        [HarmonyPatch(typeof(Frame), nameof(Frame.CompleteConstruction))]
+        public static class Patch_ErrandDone
+        {
+            static void Prefix(Frame __instance)
+            {
+                if (__instance == null || !__instance.Spawned) return;
+
+                var what = __instance.def?.entityDefToBuild;
+                if (WorkFor(what) <= 0f) return;
+
+                var map = __instance.Map;
+                var rect = __instance.OccupiedRect();
+                map?.GetComponent<Worksite>()?.Count(rect.Area);
+
+                float bloom = BloomFor(what);
+                if (bloom <= 0f) return;
+
+                var plague = map?.GetComponent<Plague>();
+                if (plague == null) return;
+                foreach (var c in rect) plague.Bloom(c, bloom);
             }
         }
 
