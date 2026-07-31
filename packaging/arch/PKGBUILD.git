@@ -1,0 +1,87 @@
+# Maintainer: Lev Gorodetskii <aur@drsr.io>
+#
+# Tracks main. The repo is not published yet, so this does not build: the clone
+# fails. Kept as the shape the AUR package will take.
+#
+# The mod half links against the game's own assemblies, so RIMWORLD must point at
+# a real Linux install (default ~/RimWorld/game, override in the environment).
+
+pkgname=slopworld-git
+pkgver=0.1.0.r0.gHEAD
+pkgrel=1
+pkgdesc="RimWorld with the colony sim replaced by live AI coding agents (git)"
+arch=('x86_64')
+url="https://github.com/droserasprout/slopworld"
+license=('custom')
+depends=('tmux' 'bubblewrap' 'mono')
+makedepends=('cargo' 'msbuild' 'git')
+optdepends=(
+  'wl-clipboard: clipboard writes under Wayland (OSC 52)'
+  'xclip: clipboard writes under X11'
+  'xdg-utils: opening links from the terminal pane'
+)
+provides=('slopworld' 'slopd')
+conflicts=('slopworld')
+options=('!strip' '!debug')
+source=("$pkgname::git+https://github.com/droserasprout/slopworld.git#branch=main")
+sha256sums=('SKIP')
+
+: "${RIMWORLD:=$HOME/RimWorld/game}"
+_managed="$RIMWORLD/RimWorldLinux_Data/Managed"
+
+pkgver() {
+  cd "$srcdir/$pkgname"
+  local _v
+  _v="$(grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2)"
+  printf '%s.r%s.g%s' "$_v" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+  [ -f "$_managed/Assembly-CSharp.dll" ] || {
+    echo "no RimWorld install at $RIMWORLD; set RIMWORLD=<path>" >&2
+    return 1
+  }
+  cd "$srcdir/$pkgname"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --manifest-path slopd/Cargo.toml --locked
+}
+
+build() {
+  cd "$srcdir/$pkgname"
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
+  cargo build --release --frozen --manifest-path slopd/Cargo.toml
+  cd mod/Source/SlopWorld
+  msbuild -restore -v:minimal -p:Configuration=Release \
+    -p:RimWorldManaged="$_managed" SlopWorld.csproj
+}
+
+check() {
+  cd "$srcdir/$pkgname"
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
+  cargo test --release --frozen --manifest-path slopd/Cargo.toml
+}
+
+package() {
+  cd "$srcdir/$pkgname"
+
+  install -Dm755 target/release/slopd "$pkgdir/usr/bin/slopd"
+  install -Dm755 target/release/slopworld "$pkgdir/usr/bin/slopworld"
+
+  install -Dm644 slopd/slopd.service "$pkgdir/usr/lib/systemd/user/slopd.service"
+  sed -i 's|%h/.local/bin/slopd|/usr/bin/slopd|' \
+    "$pkgdir/usr/lib/systemd/user/slopd.service"
+
+  local _mod="$pkgdir/usr/share/slopworld/SlopWorld"
+  install -d "$_mod"
+  cp -r mod/{About,Defs,Patches,Sounds,Textures,Assemblies} "$_mod/"
+  find "$_mod" -type d -exec chmod 755 {} +
+  find "$_mod" -type f -exec chmod 644 {} +
+
+  install -Dm644 packaging/slopworld.desktop \
+    "$pkgdir/usr/share/applications/slopworld.desktop"
+  install -Dm644 mod/Textures/SlopWorld/RobotFace_south.png \
+    "$pkgdir/usr/share/icons/hicolor/128x128/apps/slopworld.png"
+
+  install -Dm644 README.md "$pkgdir/usr/share/doc/slopworld/README.md"
+  install -Dm644 CLANKERS.md "$pkgdir/usr/share/doc/slopworld/CLANKERS.md"
+}

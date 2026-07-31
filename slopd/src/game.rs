@@ -203,9 +203,12 @@ mod tests {
         assert_eq!(s.pid, None);
     }
 
+    /// The executable is named after nothing, because `found` falls back to the bare
+    /// name and `RimWorldLinux` would find the real game - so a test written with the
+    /// true name passes only on a machine that is not playing.
     #[test]
     fn a_configured_path_is_expanded_before_it_is_looked_for() {
-        let s = status("~/nowhere/RimWorldLinux -popupwindow", 0, None);
+        let s = status("~/nowhere/SlopdNoSuchBinary -popupwindow", 0, None);
         assert_eq!(s.source, "none");
         assert!(s.cmd.starts_with('~'), "the config is reported as written");
     }
