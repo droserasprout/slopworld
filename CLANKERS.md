@@ -13,10 +13,12 @@ mirrors it and keeps no session state.
 ## Commands
 
 Everything goes through the Makefile. `RIMWORLD` defaults to `~/RimWorld/game`.
+Every target carries a `##` line and `make` on its own prints them, so the table
+below is the same list with room to say why.
 
 | Command | What it does |
 | --- | --- |
-| `make` | Builds both halves. |
+| `make` | Prints the target list. Building both halves is `make all`. |
 | `make daemon` | `cargo build --release` in `slopd/`. |
 | `make mod` | msbuild into `mod/Assemblies/SlopWorld.dll`. |
 | `make test` | `cargo test`. The mod has no test harness; it needs the game. |
@@ -24,6 +26,7 @@ Everything goes through the Makefile. `RIMWORLD` defaults to `~/RimWorld/game`.
 | `make install-daemon` | Binary and unit, then restarts the service. |
 | `make install-runner` | `slopworld` into `$(BIN)`. |
 | `make install-mod` | Mod into `$(MODS)/SlopWorld`. |
+| `make uninstall` | Undoes those three. Config and profile are left alone. |
 | `make redeploy` | `install`, then bounces the game. |
 | `make run` | Launches through the runner. `PROFILE` picks the folder. |
 | `make logs` | Tails `Player.log`. |
