@@ -1,10 +1,6 @@
 # TODO
 
-Loosely sorted by priority. PRs are welcome.
-
 This file is for humans.
-
-Remove ticked bullets when verified.
 
 ## Packaging
 
@@ -16,29 +12,41 @@ Remove ticked bullets when verified.
 - Alternative TST-style UI layout: left panel with agents grouped by project
 - Tab / Shift+Tab in floating windows to navigate between input fields
 
-## Integrations
+## Computer Core
+
+- Show random hint bubble on click instead of on hover (90% chance). The rest 10% - cast lightning on random animal or human on the map.
+
+## Agents
 
 - OpenCode fixes
-- pi
-- tokensave
+- pi support
+- tokensave/rtk integration
+- CC Switch-like switch
 
 ## Finetuning
 
-- Plague radius and tickrate
-- Construction speed
+- Plague radius, tickrate, buildings range
+- Construction speed and items
 - Cat aura
 
-## Sound and music
+## Human art
 
 - Replace SFX with creepy freesound
 - 2-3 more bg songs (30m+ playtime would be nice)
 
-## Misc
+## "Game"
 
-- Snoop should leave the map after 5-10 minutes.
-- A++: Centralized community workshop of templates/presets/plugins
+- Dig graves in 5-10 item rows - same orientation, one tile distance. Blueprints spawned at once to reserve land.
+- Cat should sometimes turn ugly things in range into flower/crop containers on click.
+- Snoop should leave the map after a couple of ones.
+- Tune background frames. Add alternative sequences. Current cache is 504K lol.
 
 ## Docs
 
 - Docs
 - Attribution: game creators, mod libraries, freesound samples. Markdown rendered in-game.
+
+## A++
+
+- Realtime weather for provided IRL coordinates
+- Centralized community workshop of templates/presets/plugins
