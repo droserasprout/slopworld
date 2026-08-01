@@ -365,6 +365,25 @@ of these need a def.
     frame, so a monument is the sum of every burst.
   - No stockpiles, no haulers, no economy, so a frame arrives with its stone in it
     (`Fill`).
+  - `Run` on an errand is how many of a thing go down together and in what shape: a
+    line of `Least`..`Most`, `Lines` of those side by side, `Gap` cells between
+    neighbours. Zeroes mean one thing on its own, which is what most errands are, so
+    `Add` normalises and an errand wanting nothing special says nothing. Paving is a
+    seven-by-seven with no gaps; graves are a row of five to ten with one.
+    - `Lay` is the only placement path - a single is a run of one. The whole sequence is
+      pitched in one pass and a frame is a `Building`, so the strip is reserved before
+      the first of them is finished; laid one at a time, a row of graves grows a stele
+      through the middle of it.
+    - The facing is rolled once *for the run* and the line goes across it, so a row of
+      graves is a row rather than a queue. Spacing is read off the thing's own rotated
+      footprint (`Reach`), so the table never states a figure that has to be kept in
+      step with a def.
+    - `_mine` is the run's own frames, and `Fits` lets them through its pad. Read as
+      strangers, the pad refuses the second grave of every row and every row on the map
+      comes out one grave long.
+    - A member that does not fit is skipped rather than ending the run - a grave wants
+      `Diggable` ground and the agents pave, so a row through finished ground is meant
+      to come out with holes in it.
   - `Allow` puts every work type at zero and Construction at three; `Stop` puts that
     back. Both halves are load-bearing: on the vanilla work sheet a colonist finds
     vanilla jobs and this loop overrides them a quarter second later, so the pawn

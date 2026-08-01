@@ -48,6 +48,12 @@ namespace SlopWorld
         // spends the burst walking between them.
         const int PavingSide = 7;
 
+        // Graves come as a row: all facing the same way, a cell of grass between each. Any
+        // errand can ask for the same shape - see Run.
+        const int GraveRowLeast = 5;
+        const int GraveRowMost = 10;
+        const int GraveAisle = 1;
+
         // How far from the pawn an errand may be opened. The near edge is not decoration:
         // a pawn standing inside a frame *blocks* it, vanilla answers with a job to go and
         // stand elsewhere, and this loop forces the errand back over the top a quarter
@@ -102,13 +108,29 @@ namespace SlopWorld
         const float LargeBloom = 8f;
         const float MonumentBloom = 11f;
 
+        // How a thing stands with its own kind: a line of Least..Most of them, Lines such
+        // lines side by side, Gap cells clear between neighbours along the line and
+        // between the lines. Zeroes mean one thing on its own, which is what most errands
+        // are, so an errand wanting nothing special says nothing (Add normalises).
+        //
+        // The whole sequence is pitched in the same pass, and a frame is a building as far
+        // as Fits and the next round of darts are concerned, so the ground under the run
+        // is claimed before the first of them is finished. One at a time, a row of graves
+        // would grow a stele through the middle of it. The spacing is read off the thing's
+        // own footprint rather than stated here, so the table never has to keep a figure
+        // in step with a def.
+        struct Run
+        {
+            public int Least, Most, Lines, Gap;
+        }
+
         struct Errand
         {
             public BuildableDef What;
             public float Seconds;
             public float Weight;
             public float Bloom; // cells of plague the finished thing seeds
-            public int Patch; // side of the square laid at once; 1 for anything with a shape
+            public Run Run; // how many go down at once, and in what shape
         }
 
         // Keyed on what is being built, not on the frame, which is gone by the time
@@ -164,6 +186,10 @@ namespace SlopWorld
 
         readonly List<Pawn> _hands = new List<Pawn>();
         readonly List<Pawn> _stale = new List<Pawn>();
+
+        // The frames pitched so far in the sequence being laid. Fits lets these through
+        // its pad, or the second grave of a row is refused by the first.
+        readonly HashSet<Thing> _mine = new HashSet<Thing>();
 
         // Passes between sweeps - once a second.
         const int SweepEvery = 4;
@@ -334,8 +360,7 @@ namespace SlopWorld
 
             for (int i = 0; i < Tries; i++)
             {
-                var at = Site(pawn);
-                var frame = errand.Patch > 1 ? Pave(errand, pawn, at) : Raise(errand, at, pawn);
+                var frame = Lay(errand, Site(pawn), pawn);
                 if (frame != null) return frame;
             }
 
@@ -344,7 +369,7 @@ namespace SlopWorld
             // aimed at, and it must be cheap to be in (otherwise 500 CanPlaceBlueprintAt a
             // second against ground that will not change). Anything with a shape failing
             // says only that there is no room for *it* near this pawn.
-            if (errand.Patch > 1) _blocked = now + BlockedFor;
+            if (errand.What is TerrainDef) _blocked = now + BlockedFor;
             return null;
         }
 
@@ -509,25 +534,57 @@ namespace SlopWorld
         bool Near(IntVec3 cell) =>
             _plague != null && _plague.Active && cell.DistanceTo(_plague.Heart) <= Roam();
 
-        Frame Raise(Errand errand, IntVec3 at, Pawn pawn)
+        // One sequence, centred on the dart. Every member faces the same way - the facing
+        // is rolled once, for the run, not once per thing - and the line runs *across* that
+        // facing, so a row of graves is a row of graves rather than a queue of them. A
+        // single is the same code with a run of one, which is why there is only this.
+        //
+        // A member that does not fit is skipped rather than ending the run: the far end of
+        // a row reaching a boulder should cost the row its far end, not the whole colony a
+        // dart. The run is what is *offered*; what stands is what the ground allowed.
+        Frame Lay(Errand errand, IntVec3 at, Pawn pawn)
         {
             var td = errand.What as ThingDef;
             var rot = td != null && td.rotatable ? Rot4.Random : Rot4.North;
-            if (!Fits(errand.What, at, rot, pawn)) return null;
-            return Pitch(errand.What, at, rot);
-        }
 
-        Frame Pave(Errand errand, Pawn pawn, IntVec3 centre)
-        {
+            var run = errand.Run;
+            int many = Rand.RangeInclusive(run.Least, run.Most);
+
+            var span = GenAdj.OccupiedRect(IntVec3.Zero, rot, errand.What.Size).Size;
+            var along = rot.Rotated(RotationDirection.Clockwise).FacingCell;
+            var across = rot.FacingCell;
+            int step = Reach(span, along) + run.Gap;
+            int rank = Reach(span, across) + run.Gap;
+
+            // Centred, or a seven-by-seven patch would sit off the dart by half itself and
+            // the lean toward the core would read as a lean away from it.
+            var head = at - along * ((many - 1) * step / 2)
+                          - across * ((run.Lines - 1) * rank / 2);
+
+            _mine.Clear();
             Frame first = null;
-            foreach (var c in CellRect.CenteredOn(centre, errand.Patch / 2))
+
+            for (int line = 0; line < run.Lines; line++)
             {
-                if (!Fits(errand.What, c, Rot4.North, pawn)) continue;
-                var frame = Pitch(errand.What, c, Rot4.North);
-                if (frame != null && first == null) first = frame;
+                var start = head + across * (line * rank);
+                for (int i = 0; i < many; i++)
+                {
+                    var c = start + along * (i * step);
+                    if (!Fits(errand.What, c, rot, pawn)) continue;
+
+                    var frame = Pitch(errand.What, c, rot);
+                    if (frame == null) continue;
+                    _mine.Add(frame);
+                    if (first == null) first = frame;
+                }
             }
+
             return first;
         }
+
+        // How far a footprint stretches along one of the four directions. The rect is
+        // already rotated, so the direction only says which of its two sides to read.
+        static int Reach(IntVec2 span, IntVec3 dir) => dir.x != 0 ? span.x : span.z;
 
         bool Fits(BuildableDef what, IntVec3 at, Rot4 rot, Pawn pawn)
         {
@@ -570,6 +627,13 @@ namespace SlopWorld
                 for (int i = 0; i < things.Count; i++)
                 {
                     var thing = things[i];
+
+                    // The rest of this sequence, already pitched. The pad is there to keep
+                    // the site from growing into one lump, and a run is a shape somebody
+                    // asked for - read as a stranger, a row of graves refuses its own
+                    // second grave and every row on the map is one grave long.
+                    if (_mine.Contains(thing)) continue;
+
                     if (thing is Building || thing is Blueprint) return false;
                     if (!footprint.Contains(c)) continue;
 
@@ -696,10 +760,12 @@ namespace SlopWorld
                 // through a dead world.
                 _plate = DefDatabase<TerrainDef>.GetNamedSilentFail("MetalTile");
 
-                Add(_plate, PavingSeconds, PavingOdds, PavingBloom, PavingSide);
+                Add(_plate, PavingSeconds, PavingOdds, PavingBloom,
+                    new Run { Least = PavingSide, Most = PavingSide, Lines = PavingSide });
 
                 Add(Named("Column"), SmallSeconds, ColumnOdds, SmallBloom);
-                Add(Named("Grave"), SmallSeconds, GraveOdds, SmallBloom);
+                Add(Named("Grave"), SmallSeconds, GraveOdds, SmallBloom,
+                    new Run { Least = GraveRowLeast, Most = GraveRowMost, Gap = GraveAisle });
                 Add(Named("Sarcophagus"), MediumSeconds, SarcophagusOdds, MediumBloom);
                 Add(Named("SteleLarge"), LargeSeconds, SteleLargeOdds, LargeBloom);
                 Add(Named("SteleGrand"), MonumentSeconds, SteleGrandOdds, MonumentBloom);
@@ -723,13 +789,20 @@ namespace SlopWorld
             }
         }
 
-        static void Add(BuildableDef what, float seconds, float weight, float bloom, int patch = 1)
+        static void Add(BuildableDef what, float seconds, float weight, float bloom,
+                        Run run = default(Run))
         {
             if (what == null || what.frameDef == null) return;
 
+            // So an omitted run is one thing on its own rather than none of it.
+            run.Least = Mathf.Max(1, run.Least);
+            run.Most = Mathf.Max(run.Least, run.Most);
+            run.Lines = Mathf.Max(1, run.Lines);
+            run.Gap = Mathf.Max(0, run.Gap);
+
             _errands.Add(new Errand
             {
-                What = what, Seconds = seconds, Weight = weight, Bloom = bloom, Patch = patch,
+                What = what, Seconds = seconds, Weight = weight, Bloom = bloom, Run = run,
             });
             Work[what] = seconds * RealClock.TicksPerRealSecond * WorkPerTick;
             Blooms[what] = bloom;
