@@ -1,16 +1,17 @@
 # TODO
 
-This file is for humans.
+This file is for humans, don't touch it if you're an agent.
 
 ## Packaging
 
-- PKGBUILD with .desktop for host
-- AppImage
+- Build app icon for every build applying random haircut. Like visible "new build" mark.
 
 ## Interface
 
-- Alternative TST-style UI layout: left panel with agents grouped by project
+- TST mode: agent action buttons (Terminal, Start/Stop) are not visible
 - Tab / Shift+Tab in floating windows to navigate between input fields
+- ModSettings shouldn't pause the game
+- Drop the "classic" UI layout
 
 ## Computer Core
 
@@ -36,10 +37,11 @@ This file is for humans.
 
 ## "Game"
 
-- Dig graves in 5-10 item rows - same orientation, one tile distance. Blueprints spawned at once to reserve land.
 - Cat should sometimes turn ugly things in range into flower/crop containers on click.
+- Cat accumulates clicks as seconds of aura. Charge them spamming clicks and enjoy minutes of cat aura.
 - Snoop should leave the map after a couple of ones.
 - Tune background frames. Add alternative sequences. Current cache is 504K lol.
+- A flag to disable blood and vomit.
 
 ## Docs
 
