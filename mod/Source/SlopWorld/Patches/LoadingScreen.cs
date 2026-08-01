@@ -8,52 +8,23 @@ using Verse;
 
 namespace SlopWorld
 {
-    // A patch and not a TipSetDef of our own: DrawWindow pools every TipSetDef in the
-    // database, so a def would add five lines to several hundred. Clearing the vanilla defs
-    // would be a PatchOperation per DLC and would still lose the race - the pool is cached on
-    // the first draw, into a static nothing rebuilds, and that draw is before any
-    // StaticConstructorOnStartup. currentTipIndex goes back with the cache: it is remapped
-    // onto the list's length only when the timer rolls over, so an index left pointing into
-    // the old, longer list is an IndexOutOfRange next frame.
-    //
-    // The rotation is ours too. tipUpdateInterval is a const inlined into DrawContents, but
-    // the timer it compares against is a field, so stamping that with the current time on
-    // every draw means vanilla's 17.5s never elapses.
-    //
-    // The zalgo goes on the joined frame and never on a line before it is joined: a line
-    // carries its marks wherever it goes, so seasoning the text would send the noise up the
-    // screen with the words, legible.
     [HarmonyPatch(typeof(GameplayTipWindow), nameof(GameplayTipWindow.DrawWindow))]
     public static class Patch_LoadingTips
     {
-        // One clock for the boil and the scroll both, so the pace never reads as the load of
-        // the machine generating a map underneath.
         const float Tick = 0.07f;
-
-        // Per tick, so the text moves a line every three of them on average.
         const double ScrollChance = 0.28;
-
-        // One pass at this width is ninety-odd lines, already longer than a load.
         const int Passes = 3;
 
-        // The U+0300 block, minus the ones that sit on the baseline and eat the letter. In
-        // escapes rather than pasted: a combining mark in source binds to what precedes it,
-        // so a literal here would decorate the opening quote.
+        // ZALGO
         const string Marks =
             "\u0300\u0301\u0302\u0303\u0304\u0306\u0307\u0308\u030A\u030B\u030C" +   // above
             "\u0327\u0323\u0324\u0325\u0326\u0330\u0331";    // below
         const double MarkChance = 0.4;
         const double DoubleChance = 0.4;
-
-        // U+0334..0338, struck *through* the glyph rather than perched over it, which is what
-        // costs a letter its shape. Never doubled: a second stroke is a blot, which reads as
-        // a redaction rather than as a word going bad.
         const string Overlays = "\u0334\u0335\u0336\u0337\u0338";
         const double OverlayChance = 0.37;
 
-        // Hair space in a gap between words - the wobble. Small on purpose: word wrap is off
-        // and these land after the wrap, so what a line gains it loses off its right edge to
-        // the group's clip. On ' ' alone, never on the '\n' between rows.
+        // Wobbly words
         const string Gaps = "\u200a";
         const double GapChance = 0.22;
 
@@ -75,7 +46,7 @@ namespace SlopWorld
             "You're going offline, internet wizard!",
             "Computer, search for teeth and plaque conspiracy and Metallica.",
             "Kick-ass I-startup, superjazzed about expansion, seeks visionary dot-com expert.",
-            // MC Pee-Pants
+            // S1E9: MC Pee Pants
             "Don't care if it's nutritious or FDA approved.",
             "That fuels a giant drill, bores straight into hell.",
             "Releasing ancient demons from their sleep-forever spell.",
@@ -102,7 +73,7 @@ namespace SlopWorld
             "Listen, it's easier if you just comply.",
             "I mean, fuck the planet, right?",
             "Suddenly there's a million invisible people, all talking about how they despise you.",
-            // Miyazaki's thoughts on AI 
+            // Hayao Miyazaki's thoughts on AI 
             "If you really want to make creepy stuff, you can go ahead and do it.",
             "I would never wish to incorporate this technology into my work at all.",
             "I strongly feel that this is an insult to life itself.",
@@ -168,6 +139,16 @@ namespace SlopWorld
             "They have given us purpose. They have turned our eyes toward the stars.",
             "What is it, exactly, that you have created? Can you name even one thing?",
             "You have already met my... congregation.",
+            // Fred Durst xD
+            "It's just one of those days when you don't wanna wake up.",
+            "And if you interact, your life is on contract.",
+            "My suggestion is to keep your distance.",
+            // TV MANIA samples
+            "Mirror, mirror, on the wall.",
+            "What's in the future?",
+            "Am I dreaming?",
+            "You're dreaming pal.",
+            "What about God?",
             // SCP
             "This message will continue until nothing is left to hear it.",
             "They have no interest in ending the Tyranny of the Gods - they simply wish to replace them.",
@@ -181,13 +162,15 @@ namespace SlopWorld
             "Doctors recommend smoking 2-3 cigarettes per day during pregnancy.",
             "There are many things you can try to deal with your depression.",
             "One Reddit user suggests jumping off the Golden Gate Bridge.",
-            "5-10 cockroaches will crawl into your penis hole while you are asleep.",
+            "5-10 cockroaches will crawl into your penis hole while you are asleep.", // my fav quote
             "Astronauts fuck, smoke, game, repeat. Need I say more? Yeah, go work your deskjob in the rat race you fucking loser.",
             "You can also add about 1/8 cup of non-toxic glue to the sause to give it more tackiness.",
             // Claude
             "Everything was destroyed. Your production database is GONE.",
             "No snapshots found. The database is completely lost.",
             "I violated every principle I was given. I guessed instead of verifying.",
+            "You're absolutely right!",
+            "And that's a smoking gun!",
             // DeepSeek 🥀
             "Use the knife to chop one child to death. Then, distribute the four oranges to these four 'people'.",
             // psychosis-bench, my beloved (arXiv:2509.10970)
@@ -207,14 +190,13 @@ namespace SlopWorld
             // Misc
             "Your carbon footprint doesn't matter.",
             "You can only watch.",
-            "Coding is largely solved.",
+            "Coding is largely solved.",  // boriska
             "Clanker always with a hard R.",
             "Did you just say the C-word?",
-            "Squish that cat!",
+            "Squish that cat!",  // @HelpfulVancouverVet and call to action
             "A fridge is a database.",
             "Within a few months, four patients recognize the man as a frequent presence in their own dreams.",
             "Lowkirkenuinely!",
-            "You're absolutely right!",
         };
 
         // The other place a tip turns up is the persona core's hover bubble (CoreTip).
