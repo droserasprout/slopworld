@@ -10,6 +10,11 @@ namespace SlopWorld
     // One row of portraits, shrunk, centred in a band the height of the terminal's title bar,
     // with a "+" on the end. Laid out that way in both views, so toggling a pane moves nothing.
     //
+    // Or, with the sidebar layout on, a column down the left instead - same swap, a different
+    // shape, and AgentSidebar owns that shape. This class stays the one place that takes the
+    // bar's layout away from it and gives it back, because the two halves of that are a
+    // prefix and a finalizer and neither of them is somewhere a second opinion can live.
+    //
     // Nothing is redrawn by hand: the bar's own OnGUI is called with its cached scale and draw
     // locs pointed at the strip from a prefix, and put back from a finalizer.
     //
@@ -75,9 +80,14 @@ namespace SlopWorld
         // reorderable groups twice a frame.
         public static bool Suppressed => Active && !Drawing;
 
+        // Which shape the swap lays out. Read rather than stored: the setting can move
+        // between two frames and both halves of the swap have to agree about which one they
+        // are in, which they do by asking again.
+        public static bool Vertical => SlopLayout.Sidebar;
+
         // Mirrors the private ColonistBar.Visible: the bar hides itself under 800x500 and
         // while the tile picker is up.
-        static bool BarShown =>
+        public static bool BarShown =>
             UI.screenWidth >= 800 && UI.screenHeight >= 500 && !Find.TilePicker.Active;
 
         // Reserved before the row is centred, or the portraits shuffle sideways when it
@@ -117,17 +127,44 @@ namespace SlopWorld
             var bar = Find.ColonistBar;
             if (bar == null) return;
 
-            // Entries first: it recaches both fields below from scratch when the layout is
-            // dirty, from inside ColonistBarOnGUI, undoing everything this sets.
-            int entries = bar.Entries.Count;
+            // Entries first, and held: it recaches both fields below from scratch when the
+            // layout is dirty, from inside ColonistBarOnGUI, undoing everything this sets.
+            var entries = bar.Entries;
             var locs = DrawLocsField.GetValue(bar) as List<Vector2>;
-            int count = entries == 0 || locs == null ? 0 : locs.Count;
+            int count = entries.Count == 0 || locs == null ? 0 : locs.Count;
 
             float scale = (float)ScaleField.GetValue(bar);
             bool plus = ShowAdd;
             int cells = count + (plus ? 1 : 0);
             if (cells == 0) return;
 
+            // Saved before either layout writes into the list it was handed.
+            if (count > 0)
+            {
+                Saved.Clear();
+                Saved.AddRange(locs);
+                _savedScale = scale;
+            }
+
+            Rect add;
+            float s = Vertical
+                ? AgentSidebar.Place(entries, locs, count, plus, out add)
+                : PlaceStrip(locs, count, plus, scale, out add);
+
+            if (count > 0)
+            {
+                ScaleField.SetValue(bar, s);
+                _applied = true;
+            }
+
+            if (plus) AddRect = add;
+        }
+
+        // One centred row, and the "+" on the end of it.
+        static float PlaceStrip(List<Vector2> locs, int count, bool plus, float scale,
+            out Rect add)
+        {
+            int cells = count + (plus ? 1 : 0);
             float s = FitScale(cells, scale > 0f ? scale : 1f);
             float w = ColonistBar.BaseSize.x * s;
             float h = ColonistBar.BaseSize.y * s;
@@ -139,21 +176,14 @@ namespace SlopWorld
             // The overhang goes back on: the loc is the cell's top and the head pokes above it.
             float y = strip.y + (strip.height - RowH(s)) / 2f + Overhang(s);
 
-            if (count > 0)
+            for (int i = 0; i < count; i++)
             {
-                Saved.Clear();
-                Saved.AddRange(locs);
-                _savedScale = scale;
-                ScaleField.SetValue(bar, s);
-                for (int i = 0; i < count; i++)
-                {
-                    locs[i] = new Vector2(x, y);
-                    x += w + gap;
-                }
-                _applied = true;
+                locs[i] = new Vector2(x, y);
+                x += w + gap;
             }
 
-            if (plus) AddRect = new Rect(x, y, w, h);
+            add = plus ? new Rect(x, y, w, h) : Rect.zero;
+            return s;
         }
 
         public static void Restore()
@@ -193,8 +223,26 @@ namespace SlopWorld
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
     public static class Patch_ColonistBarStripLayout
     {
-        static void Prefix() => ColonistBarStrip.Apply();
-        static void Finalizer() => ColonistBarStrip.Restore();
+        // The column's own chrome goes down around the bar's, from the same call, which is
+        // what puts it over a pane as well as on the map: the panel and the project headings
+        // under the portraits, the labels and their clicks over them. The strip layout has
+        // neither and both are no-ops there.
+        static void Prefix()
+        {
+            ColonistBarStrip.Apply();
+            AgentSidebar.DrawBack();
+        }
+
+        static void Postfix() => AgentSidebar.DrawFront();
+
+        // A postfix does not run when the original throws, and the flag the front pass clears
+        // is what stops every pawn label on the map being declined. So the finalizer clears
+        // it too, the same reason the layout is put back from here.
+        static void Finalizer()
+        {
+            AgentSidebar.EndDraw();
+            ColonistBarStrip.Restore();
+        }
     }
 
     // Selecting off the bar does not happen inside ColonistBarOnGUI: the Selector asks

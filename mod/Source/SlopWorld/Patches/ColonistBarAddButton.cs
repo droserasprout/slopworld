@@ -25,7 +25,10 @@ namespace SlopWorld
             GUI.DrawTexture(rect, ColonistBar.BGTex);
             if (Mouse.IsOver(rect)) Widgets.DrawHighlight(rect);
 
-            var icon = rect.ScaledBy(0.5f);
+            // Square and centred whatever shape the slot is: in the column it is a row the
+            // width of the panel, and half of that in each direction is a stretched plus.
+            float d = Mathf.Min(rect.width, rect.height) * 0.5f;
+            var icon = new Rect(0f, 0f, d, d);
             icon.center = rect.center;
             GUI.DrawTexture(icon, TexButton.Plus);
 

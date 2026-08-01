@@ -26,10 +26,12 @@ namespace SlopWorld
         // minute of silence is the socket being down.
         const float StaleAfter = 150f;
 
-        // Worked out once per key and kept - see IconFor.
-        readonly Dictionary<string, ThingDef> _icons = new Dictionary<string, ThingDef>();
+        // Worked out once per key and kept - see IconFor. Static because the top bar draws
+        // the same numbers from outside any map, and an icon that changed with the layout
+        // would be a different resource for the same window.
+        static readonly Dictionary<string, ThingDef> _icons = new Dictionary<string, ThingDef>();
 
-        int _next;
+        static int _next;
 
         static ThingDef[] _pool;
 
@@ -41,6 +43,11 @@ namespace SlopWorld
         public override void MapComponentOnGUI()
         {
             if (Cutscene.Playing) return; // a scene plays bare
+
+            // The other layout has a line of its own for this, and draws the clock and the
+            // same rows along it. Still from here, because a MapComponent is what puts them
+            // behind every window.
+            if (SlopLayout.Sidebar) { TopBar.DrawOnMap(); return; }
 
             var usage = SessionHub.Instance.Usage;
 
@@ -59,7 +66,7 @@ namespace SlopWorld
             float y = Y;
 
             GUI.color = Color.white;
-            DrawClock(new Rect(X, y, RowW, RowH));
+            DrawClock(new Rect(X, y, RowW, RowH), TextAnchor.MiddleLeft);
             y += RowH;
 
             if (quota)
@@ -88,7 +95,9 @@ namespace SlopWorld
             GUI.color = old;
         }
 
-        void DrawClock(Rect row)
+        // Left-anchored beside its icon in the corner readout, centred and bare along the top
+        // bar - the icon there would be a second dial next to the resources.
+        public static void DrawClock(Rect row, TextAnchor anchor)
         {
             DateTime now = DateTime.Now;
 
@@ -98,18 +107,93 @@ namespace SlopWorld
                 _clock = ContentFinder<Texture2D>.Get("UI/Icons/ColonistBar/Idle", false);
             }
 
-            if (_clock != null)
+            var text = row;
+            if (anchor == TextAnchor.MiddleLeft)
             {
-                var box = new Rect(row.x, row.y, IconSize, IconSize).ContractedBy(3f);
-                GUI.DrawTexture(box, _clock);
+                if (_clock != null)
+                {
+                    var box = new Rect(row.x, row.y, IconSize, IconSize).ContractedBy(3f);
+                    GUI.DrawTexture(box, _clock);
+                }
+                text = new Rect(row.x + TextX, row.y, row.width - TextX, row.height);
             }
 
-            Widgets.Label(new Rect(row.x + TextX, row.y, row.width - TextX, row.height),
-                now.ToString("HH:mm"));
+            var was = Text.Anchor;
+            Text.Anchor = anchor;
+            Widgets.Label(text, now.ToString("HH:mm"));
+            Text.Anchor = was;
 
             TooltipHandler.TipRegion(row, new TipSignal(
                 now.ToString("dddd, d MMMM yyyy") + "\n" + now.ToString("HH:mm:ss"),
                 0x51_0F_0001));
+        }
+
+        // The same rows along a line instead of down a column, right-aligned in the room they
+        // are given and laid out from that end, so the first window keeps its place as later
+        // ones come and go. Nothing is drawn where there is no room for it.
+        public static void DrawStrip(Rect area)
+        {
+            var usage = SessionHub.Instance.Usage;
+            if (!usage.Any && string.IsNullOrEmpty(usage.Error)) return;
+
+            bool stale = !usage.Ok || usage.Age > StaleAfter;
+            float alpha = stale ? 0.55f : 1f;
+
+            var was = GUI.color;
+            var anchor = Text.Anchor;
+            Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            GUI.color = new Color(1f, 1f, 1f, alpha);
+
+            if (!usage.Any)
+            {
+                float w = Mathf.Min(Text.CalcSize("quota: unknown").x + 6f, area.width);
+                var only = new Rect(area.xMax - w, area.y, w, area.height);
+                Widgets.Label(only, "quota: unknown");
+                Tip(only, usage, null);
+            }
+            else
+            {
+                float x = area.xMax;
+                for (int i = usage.Windows.Count - 1; i >= 0; i--)
+                {
+                    var w = usage.Windows[i];
+                    float need = ChipW(w);
+                    if (x - need < area.x) break;
+
+                    x -= need;
+                    var chip = new Rect(x, area.y, need, area.height);
+
+                    var icon = IconFor(w.Key);
+                    if (icon != null)
+                    {
+                        var box = new Rect(chip.x, chip.y + (chip.height - IconSize) / 2f,
+                            IconSize, IconSize);
+                        // ThingIcon leaves GUI.color on the def's own tint.
+                        Widgets.ThingIcon(box, icon, null, null, 1f, null, null, alpha);
+                        GUI.color = new Color(1f, 1f, 1f, alpha);
+                    }
+
+                    Widgets.Label(
+                        new Rect(chip.x + IconSize + 2f, chip.y,
+                            chip.width - IconSize - 2f, chip.height),
+                        Count(w));
+                    Tip(chip, usage, w);
+
+                    x -= ChipGap;
+                }
+            }
+
+            Text.Anchor = anchor;
+            GUI.color = was;
+        }
+
+        const float ChipGap = 10f;
+
+        static float ChipW(UsageWindow w)
+        {
+            Text.Font = GameFont.Small;
+            return IconSize + 2f + Text.CalcSize(Count(w)).x + 2f;
         }
 
         void DrawWindow(Rect row, UsageInfo usage, UsageWindow w, float alpha)
@@ -159,7 +243,7 @@ namespace SlopWorld
 
         // With no label on the row, this is also where a window is named - as the game's own
         // resources work.
-        void Tip(Rect row, UsageInfo usage, UsageWindow w)
+        static void Tip(Rect row, UsageInfo usage, UsageWindow w)
         {
             var lines = new List<string>();
 
@@ -216,7 +300,7 @@ namespace SlopWorld
         // Arbitrary but stable, which is all an icon has to be. Remembered per key rather than
         // worked out per frame, or an icon would move between polls depending on which other
         // windows were in one.
-        ThingDef IconFor(string key)
+        static ThingDef IconFor(string key)
         {
             ThingDef def;
             if (_icons.TryGetValue(key, out def)) return def;

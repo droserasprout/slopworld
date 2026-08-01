@@ -170,23 +170,34 @@ namespace SlopWorld
                 return;
             }
 
-            var header = new Rect(rect.x, rect.y, rect.width, HeaderH);
-            DrawHeader(header, info);
-
             // Anything stacked over the pane takes the keys and the clicks, or a dialog the
             // strip opened would be typed straight through into the agent.
             bool input = Find.WindowStack == null || Find.WindowStack.GetsInput(this);
 
-            // After the background fill and the header: anywhere earlier in the frame it is
+            // All of this after the background fill: anywhere earlier in the frame it is
             // painted over. See ColonistBarStrip.cs.
-            var bar = ColonistBarStrip.Rect;
-            ColonistBarStrip.Draw(input);
+            float top, left = 0f;
+            if (SlopLayout.Sidebar)
+            {
+                TopBar.Draw(this, input);
+                ColonistBarStrip.Draw(input);
+                top = TopBar.H;
+                left = AgentSidebar.Width;
+            }
+            else
+            {
+                var header = new Rect(rect.x, rect.y, rect.width, HeaderH);
+                DrawHeader(header, info);
 
-            float top = Mathf.Max(header.yMax, bar.yMax);
+                var bar = ColonistBarStrip.Rect;
+                ColonistBarStrip.Draw(input);
+                top = Mathf.Max(header.yMax, bar.yMax);
+            }
+
             var body = new Rect(
-                rect.x + Pad,
+                rect.x + left + Pad,
                 top + Pad,
-                rect.width - Pad * 2,
+                rect.width - left - Pad * 2,
                 rect.height - top - Pad * 2);
 
             if (input) HandleInput(body);
@@ -250,6 +261,10 @@ namespace SlopWorld
         // What the colonist strip must leave clear at each end. The buttons are drawn before
         // the strip, so without this a full row of portraits lands over them.
         public static float CornerW => Pad * 2f + IconSize * 2f + 4f;
+
+        // The negotiated shape, for the top bar to say in the layout where this window draws
+        // no header of its own. Blank until the first frame has been measured.
+        public string Shape => _cols > 0 ? $"{_cols}x{_rows}" : "";
 
         void DrawHeader(Rect r, SessionInfo info)
         {

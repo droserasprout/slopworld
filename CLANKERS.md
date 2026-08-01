@@ -514,6 +514,42 @@ of these need a def.
   read as some colonists selecting and some not. Only the outermost call owns the
   swap; the bar asks it of itself mid-draw, and restoring there would undo the layout
   being drawn.
+- `AgentSidebar` is the other shape that swap can take, and `SlopLayout` is which one:
+  a column down the left, agents under the project they run in, portrait and two lines
+  apiece. Only the geometry moves - `Place` writes the same `cachedDrawLocs`, so the
+  state icons, the brackets, the "+" and the click that opens a pane are all still the
+  bar's. What is drawn *around* the portraits goes down from the same
+  `ColonistBarOnGUI` call, the panel and the headings in the prefix and the labels in
+  the postfix, which is what puts the column over a pane as well as on the map.
+  - Grouping is a reorder, not a resort of the bar: entries keep their indices and the
+    column decides which y each one gets, so a drag on the bar still means what it
+    meant. `Order` is alphabetical with the projectless bucket last, because a
+    dictionary's own order is not stable between frames.
+  - The panel is the full height of the screen and the top bar starts where it ends,
+    rather than the bar crossing the top of it: hung underneath one, the corner above
+    the column is a hole the map shows through.
+  - The row is as tall as the *portrait*, overhang and all, and rows are `48+32` apart -
+    vanilla's own vertical pitch, which is what leaves room for a head to poke into the
+    gap above it. Only the portraits shrink to fit the screen; headings and the "+" are
+    a fixed cost, so `Fit` solves for the scale rather than stepping it down.
+  - `Absorb` eats the mouse over the panel, last of all. The column is a fifth of the
+    screen taken off the map and the map takes whatever the widgets did not: without it
+    a press starts a drag-selection on the ground behind the panel and a right-click
+    orders a colonist to walk there.
+  - `Patch_SidebarPawnLabel` declines vanilla's name-under-the-portrait while the column
+    draws: the cell is 24px wide there and the name lives beside it.
+  - `Drawing` is cleared from the finalizer as well as from the front pass, a postfix
+    not running when the original throws and that flag being what hides every pawn
+    label on the map.
+- `ChromeShift` - what the column does to the rest of the interface. The bottom button
+  row is laid out contiguously from zero to `screenWidth` with the last button widened
+  to fill, so squeezing the whole line into the room right of the column is one prefix
+  on `MainButtonWorker.DoButton` remapping the rect it was handed - no transpiler, this
+  game's Mono having already refused one (above), and `DoButton` is the one method every
+  button's rect goes through. The inspect pane is anchored left, which is `x = 0`, so
+  `MainTabWindow.SetInitialSizeAndPosition` gets a postfix; that runs on open and on a
+  resolution change, so a layout toggled with the pane already up moves it on the next
+  open rather than every frame.
 - `RunInBackground` - the setter is forced, not the getter, because what reaches Unity
   is `PrefsData.Apply` reading the field. Enforced once at startup through
   `LongEventHandler.ExecuteWhenFinished`, `Apply` being a no-op off the main thread.
@@ -533,7 +569,25 @@ of these need a def.
 
 `UsageReadout` draws the quota windows as the game's own resources, counting what is
 *left*. A `MapComponent`, so it sits behind every window. Icons are assigned per key
-from `Known`/`Pool` and remembered, or they would move between polls.
+from `Known`/`Pool` and remembered, or they would move between polls - statics, since
+the same numbers are drawn from the top bar as well and an icon that changed with the
+layout would be a different resource for the same window. `DrawStrip` is the same rows
+along a line, laid out from the right so the first window keeps its place as later ones
+come and go.
+
+`SlopLayout` is which chrome this install wears and how much room the rest of it has to
+leave: zero in the strip layout, and `AgentSidebar.Width`/`TopBar.H` in the other. One
+answer in one place, so nothing else has to know a layout exists.
+
+`TopBar` is the sidebar layout's one line across the top: the current agent on the
+left, the wall clock in the middle, the quota on the right. It starts where the column
+ends. Drawn from `UsageReadout` on the map and from `TerminalWindow` over a pane, for
+the reason the colonist bar is, and `DrawOnMap` stands down while a pane is up rather
+than registering a second copy's tooltips underneath it. With a pane open this is also
+its title bar - the gear and the cross move to the right end and `TerminalWindow` draws
+no header of its own, so the pane gets the whole screen below the line. The agent's own
+terminal title is what it says; only a subscribed session has one, which in practice is
+the one whose pane is open, and the state stands in for the rest.
 
 `CoreTip` hangs a loading-screen tip on the persona core, rolled once per hover.
 `DeadCursor` replaces the pointer with the Tame designator's hand. `MenuBackground`
@@ -580,6 +634,10 @@ button, taken before the forwarder sees it in every mode: the menu has to be
 reachable from inside a full-screen TUI, and no agent here asks for button 2. Line
 two of the bar is `ScreenView.title` off OSC 0/2, drawn only when there is one.
 
+All of that is the strip layout's title bar. In the sidebar layout the window draws no
+header at all: `TopBar` carries the name, the state and those two buttons, and the body
+starts below it and right of the column.
+
 The colonist strip is *in* the title bar, hence `HeaderH` is `ColonistBarStrip.BarH`.
 `OpenOverPane` puts a window opened from the bar on the Super layer with the pane,
 since an ordinary dialog would land underneath. The pane's size is the window's, not
@@ -621,8 +679,17 @@ exception, editing mod settings instead.
 ### Settings
 
 `SlopSettings` in `SlopWorldMod.cs`, reached through the static `Settings` shim:
-`host`, `port`, `token`, `autoConnect`, `fontSize`, `theme`, `cursorColor`. Adding
-one means a field, a `Scribe_Values.Look`, a shim property and a widget.
+`host`, `port`, `token`, `autoConnect`, `sidebar`, `fontSize`, `fontName`, `theme`,
+`cursorColor`. Adding one means a field, a `Scribe_Values.Look`, a shim property and a
+widget.
+
+`sidebar` is the one that is not about the daemon or about a pane's legibility, and it
+is here rather than nowhere because both layouts are this mod's and which one works is
+a question about the screen being read - see `SlopLayout`. Drawn on `ConfigMenuWindow`,
+the page a knob is looked for on, and on the gear, the one settings window reachable
+with a pane over the bottom bar. Not on `DoSettingsWindowContents`: that page is the
+connection, the half still editable with the socket down. `ConfigMenuWindow` writes it
+on the click, its own Save button being the daemon's file.
 
 *Not* `config.toml`: RimWorld's own `ModSettings`, scribed into
 `Config/Mod_SlopWorld_SlopWorldMod.xml` under the profile, named for the mod folder
@@ -632,8 +699,8 @@ where none of them was touched, not a failed save. The daemon's file is about th
 machine; this one is about this *install*.
 
 Edited in two places: the connection in `DoSettingsWindowContents`, which still
-answers with no colony loaded where the bottom bar does not exist; the pane's three
-in `TerminalSettingsWindow` off the gear. Both are also doors on `ConfigMenuWindow`.
+answers with no colony loaded where the bottom bar does not exist; the pane's own in
+`TerminalSettingsWindow` off the gear. Both are also doors on `ConfigMenuWindow`.
 
 The file is written once, in `PostClose`, by `ModSettings.Write` rather than
 `Mod.WriteSettings` - the latter reconnects the socket. A size change also calls

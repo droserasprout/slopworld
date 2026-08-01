@@ -120,8 +120,14 @@ namespace SlopWorld
 
         // The order the strip draws them in, so the numbered switch keys count the portraits
         // the player is looking at. The bar's own list is a shared scratch buffer.
+        //
+        // The column groups them by project and so draws them in an order of its own; it
+        // answers with the one it last laid out, for the same reason - Alt+3 is the third
+        // portrait down, not the third the bar would have drawn.
         public static List<string> InBarOrder()
         {
+            if (ColonistBarStrip.Vertical) return AgentSidebar.Sessions();
+
             var order = new List<string>();
             var colony = Current;
             var bar = Find.ColonistBar;

@@ -20,6 +20,7 @@ namespace SlopWorld
         public int port = 7717;
         public string token = "";
         public bool autoConnect = true;
+        public bool sidebar;
 
         public int fontSize = 14;
         public string fontName = "";
@@ -39,6 +40,7 @@ namespace SlopWorld
             Scribe_Values.Look(ref port, "port", 7717);
             Scribe_Values.Look(ref token, "token", "");
             Scribe_Values.Look(ref autoConnect, "autoConnect", true);
+            Scribe_Values.Look(ref sidebar, "sidebar", false);
             Scribe_Values.Look(ref fontSize, "fontSize", 14);
             Scribe_Values.Look(ref fontName, "fontName", "");
             Scribe_Values.Look(ref theme, "theme", "clankers");
@@ -55,6 +57,7 @@ namespace SlopWorld
         public static int Port => S.port;
         public static string Token => S.token;
         public static bool AutoConnect => S.autoConnect;
+        public static bool Sidebar => S.sidebar;
         public static int FontSize => S.fontSize;
         public static string FontName => S.fontName ?? "";
         public static string Theme => S.theme ?? "";

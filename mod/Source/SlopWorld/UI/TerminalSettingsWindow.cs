@@ -37,7 +37,7 @@ namespace SlopWorld
             closeOnClickedOutside = false;
         }
 
-        public override Vector2 InitialSize => new Vector2(470f, 630f);
+        public override Vector2 InitialSize => new Vector2(470f, 670f);
 
         static SlopSettings S => SlopWorldMod.Instance.settings;
 
@@ -97,11 +97,13 @@ namespace SlopWorld
             if (size != s.fontSize)
             {
                 s.fontSize = size;
-                // The style rebuilds itself off the size on its own, but the per-glyph fit
-                // verdicts are measured at one size and the pane's cache is keyed on the cell it
-                // was drawn at. Neither notices without this.
                 TerminalFont.Invalidate();
             }
+
+            l.Gap(10f);
+            l.CheckboxLabeled("Sidebar layout", ref s.sidebar,
+                "Agents down the left, grouped by project, with a status line across the top. "
+                + "Off, they are a row of portraits along the top instead.");
 
             l.Gap(8f);
             if (l.ButtonText($"Colour scheme: {s.theme}"))

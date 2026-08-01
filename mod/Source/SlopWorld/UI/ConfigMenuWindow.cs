@@ -121,6 +121,7 @@ namespace SlopWorld
             l.Begin(new Rect(0f, 0f, view.width, 4000f));
 
             DoConnectionNote(l);
+            DoLayout(l);
 
             l.Gap(8f);
             l.Label("Commands for agents and shortcuts that do not set their own");
@@ -208,6 +209,27 @@ namespace SlopWorld
             // and that place a running agent, reads as a setting that does not exist.
             if (Widgets.ButtonText(new Rect(row.x + w + 8f, row.y, w, 30f), "Appearance..."))
                 TerminalSettingsWindow.Open();
+        }
+
+        // A mod setting rather than `config.toml` - it is about this install and this screen,
+        // not about the machine - but this is the page a knob is looked for on, and the
+        // vanilla mod settings menu is behind a terminal that covers it.
+        //
+        // Written on the click rather than on the way out: the Save button below belongs to
+        // the daemon's file, and a checkbox next to it that only took hold when the window
+        // closed would read as one that Save had missed.
+        void DoLayout(Listing_Standard l)
+        {
+            var s = SlopWorldMod.Instance.settings;
+            bool was = s.sidebar;
+
+            l.Gap(10f);
+            l.CheckboxLabeled("Sidebar layout", ref s.sidebar,
+                "Agents down the left, grouped by project, two lines each, with the current " +
+                "agent, the clock and the quota on one line across the top. Off, they are a " +
+                "row of portraits along the top instead.");
+
+            if (s.sidebar != was) s.Write();
         }
 
 
