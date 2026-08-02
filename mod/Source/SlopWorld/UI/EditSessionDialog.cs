@@ -18,6 +18,7 @@ namespace SlopWorld
         // Shown greyed in the command box, so the field is never blank and never a lie.
         string _default = "claude";
         string _defaultOpencode = "opencode";
+        string _defaultPi = "pi";
         string _env;
 
         // For the title. Null unless it is a duplicate: an edit already has `_origName`.
@@ -65,6 +66,10 @@ namespace SlopWorld
             var oc = SessionHub.Instance.Sessions
                 .FirstOrDefault(s => s.Kind == AgentKind.Opencode && !string.IsNullOrEmpty(s.Agent));
             if (oc != null) _defaultOpencode = oc.Agent;
+
+            var pi = SessionHub.Instance.Sessions
+                .FirstOrDefault(s => s.Kind == AgentKind.Pi && !string.IsNullOrEmpty(s.Agent));
+            if (pi != null) _defaultPi = pi.Agent;
 
             doCloseX = true;
             absorbInputAroundWindow = true;
@@ -120,8 +125,10 @@ namespace SlopWorld
             else
             {
                 GUI.color = new Color(1f, 1f, 1f, 0.4f);
-                Widgets.TextField(box,
-                    _s.Kind == AgentKind.Opencode ? _defaultOpencode : _default);
+                string placeholder = _s.Kind == AgentKind.Opencode ? _defaultOpencode
+                    : _s.Kind == AgentKind.Pi ? _defaultPi
+                    : _default;
+                Widgets.TextField(box, placeholder);
                 GUI.color = Color.white;
             }
 
@@ -188,6 +195,7 @@ namespace SlopWorld
             {
                 case AgentKind.Custom: return "Custom";
                 case AgentKind.Opencode: return "OpenCode";
+                case AgentKind.Pi: return "pi";
                 default: return "Claude Code";
             }
         }
@@ -198,6 +206,7 @@ namespace SlopWorld
             {
                 new FloatMenuOption("Claude Code", () => _s.Kind = AgentKind.Claude),
                 new FloatMenuOption("OpenCode", () => _s.Kind = AgentKind.Opencode),
+                new FloatMenuOption("pi", () => _s.Kind = AgentKind.Pi),
                 new FloatMenuOption("Custom", () => _s.Kind = AgentKind.Custom),
             }));
         }

@@ -103,6 +103,8 @@ pub struct Defaults {
     pub shell: String,
     #[serde(default = "default_opencode")]
     pub opencode: String,
+    #[serde(default = "default_pi")]
+    pub pi: String,
 }
 
 fn default_shell() -> String {
@@ -113,12 +115,17 @@ fn default_opencode() -> String {
     "opencode".into()
 }
 
+fn default_pi() -> String {
+    "pi".into()
+}
+
 impl Default for Defaults {
     fn default() -> Self {
         Self {
             agent: "claude".into(),
             shell: default_shell(),
             opencode: default_opencode(),
+            pi: default_pi(),
         }
     }
 }
@@ -216,6 +223,7 @@ pub enum SessionKind {
     #[default]
     Claude,
     Opencode,
+    Pi,
     Custom,
 }
 
@@ -224,6 +232,7 @@ impl SessionKind {
         match self {
             Self::Claude => "claude",
             Self::Opencode => "opencode",
+            Self::Pi => "pi",
             Self::Custom => "custom",
         }
     }
@@ -232,6 +241,7 @@ impl SessionKind {
         match self {
             Self::Claude => Some("claude"),
             Self::Opencode => Some("opencode"),
+            Self::Pi => Some("pi"),
             Self::Custom => None,
         }
     }
@@ -366,8 +376,14 @@ impl Config {
             if let Some(a) = agent {
                 // A command that was written out is one somebody chose, so it survives as a
                 // custom session.
-                self.sessions[i].kind = SessionKind::Custom;
-                self.sessions[i].command = Some(a);
+                let kind = match a.as_str() {
+                    "pi" => SessionKind::Pi,
+                    _ => SessionKind::Custom,
+                };
+                self.sessions[i].kind = kind;
+                if kind == SessionKind::Custom {
+                    self.sessions[i].command = Some(a);
+                }
             }
 
             if !self.sessions[i].project.is_empty() || dir.is_empty() {
@@ -504,6 +520,7 @@ impl Config {
                 .unwrap_or_else(|| self.defaults.agent.clone()),
             SessionKind::Claude => self.defaults.agent.clone(),
             SessionKind::Opencode => self.defaults.opencode.clone(),
+            SessionKind::Pi => self.defaults.pi.clone(),
         }
     }
 }

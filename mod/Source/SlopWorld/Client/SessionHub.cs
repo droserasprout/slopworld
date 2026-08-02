@@ -11,7 +11,7 @@ namespace SlopWorld
 
     // A kind rather than a command string: knowing it is Claude is what lets the daemon hand
     // it its own state dir.
-    public enum AgentKind { Claude, Opencode, Custom }
+    public enum AgentKind { Claude, Opencode, Pi, Custom }
 
     public enum ShortcutKind { Prompt, Shell }
 
@@ -64,6 +64,7 @@ namespace SlopWorld
             {
                 case "custom": return AgentKind.Custom;
                 case "opencode": return AgentKind.Opencode;
+                case "pi": return AgentKind.Pi;
                 default: return AgentKind.Claude;
             }
         }
@@ -74,6 +75,7 @@ namespace SlopWorld
             {
                 case AgentKind.Custom: return "custom";
                 case AgentKind.Opencode: return "opencode";
+                case AgentKind.Pi: return "pi";
                 default: return "claude";
             }
         }
