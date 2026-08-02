@@ -5,13 +5,22 @@
 
 - Build app icon for every build applying random haircut. Like visible "new build" mark.
 
+## Terminal
+
+- No double-click to select word (or triple - line)
+
 ## Interface
 
+- Custom agents order in panel
 - Welcome configuration screen of fresh profile
-- WIP: TST mode: agent action buttons (Terminal, Start/Stop) are not visible
 - Tab / Shift+Tab in floating windows to navigate between input fields
 - ModSettings shouldn't pause the game
-- Drop the "classic" UI layout
+
+### Sidebar layout
+
+- RMB agent menu: Start/Stop, Edit, Duplicate, Remove
+- Resize sidebar by dragging
+- Drop the "classic" UI layout after finalizing sidebar
 
 ## Computer Core
 
@@ -19,10 +28,13 @@
 
 ## Agents
 
-- OpenCode fixes
-- pi support
+- Codex support
 - tokensave/rtk integration
 - CC Switch-like switch
+
+## Sandbox
+
+- Turn presets into TOML files. User additions/overrides go to `~/.config/slopworld/sandbox`
 
 ## Finetuning
 
