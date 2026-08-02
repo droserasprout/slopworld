@@ -1,6 +1,5 @@
+<!-- This file is for humans, don't touch it if you're an agent. -->
 # TODO
-
-This file is for humans, don't touch it if you're an agent.
 
 ## Packaging
 
@@ -8,7 +7,8 @@ This file is for humans, don't touch it if you're an agent.
 
 ## Interface
 
-- TST mode: agent action buttons (Terminal, Start/Stop) are not visible
+- Welcome configuration screen of fresh profile
+- WIP: TST mode: agent action buttons (Terminal, Start/Stop) are not visible
 - Tab / Shift+Tab in floating windows to navigate between input fields
 - ModSettings shouldn't pause the game
 - Drop the "classic" UI layout
@@ -26,7 +26,7 @@ This file is for humans, don't touch it if you're an agent.
 
 ## Finetuning
 
-- Plague radius, tickrate, buildings range
+- Plague radius, tickrate, building emissions
 - Construction speed and items
 - Cat aura
 
@@ -40,15 +40,12 @@ This file is for humans, don't touch it if you're an agent.
 - Cat should sometimes turn ugly things in range into flower/crop containers on click.
 - Cat accumulates clicks as seconds of aura. Charge them spamming clicks and enjoy minutes of cat aura.
 - Snoop should leave the map after a couple of ones.
-- Tune background frames. Add alternative sequences. Current cache is 504K lol.
-- A flag to disable blood and vomit.
+- Tune background frames. Add alternative sequences. Current cache is just 504K.
+- Config flag to disable blood, vomit, and offensive/harmful hints
+- Realtime weather for provided IRL coordinates
 
 ## Docs
 
+- Choose a license
 - Docs
 - Attribution: game creators, mod libraries, freesound samples. Markdown rendered in-game.
-
-## A++
-
-- Realtime weather for provided IRL coordinates
-- Centralized community workshop of templates/presets/plugins
