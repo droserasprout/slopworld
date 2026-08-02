@@ -229,7 +229,11 @@ namespace SlopWorld
                 "agent, the clock and the quota on one line across the top. Off, they are a " +
                 "row of portraits along the top instead.");
 
-            if (s.sidebar != was) s.Write();
+            if (s.sidebar != was)
+            {
+                s.Write();
+                Patch_MainTabWindowShift.Reposition();
+            }
         }
 
 

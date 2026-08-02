@@ -46,15 +46,27 @@ namespace SlopWorld
     {
         static void Postfix(MainTabWindow __instance)
         {
-            float inset = SlopLayout.LeftInset;
-            if (inset <= 0f) return;
-            if (__instance.Anchor != MainTabWindowAnchor.Left) return;
+            ShiftPane(__instance);
+        }
 
-            var r = __instance.windowRect;
-            // Never past the right edge: a pane wider than the room left is better cut off on
-            // the far side than pushed out of the screen entirely.
-            r.x = Mathf.Min(inset, Mathf.Max(0f, UI.screenWidth - r.width));
-            __instance.windowRect = r;
+        // Called directly when the sidebar layout is toggled, so the pane moves immediately.
+        public static void Reposition()
+        {
+            var pane = Find.WindowStack?.WindowOfType<MainTabWindow_Inspect>();
+            if (pane != null) ShiftPane(pane);
+        }
+
+        static void ShiftPane(MainTabWindow pane)
+        {
+            if (pane.Anchor != MainTabWindowAnchor.Left) return;
+
+            // Both ways: the pane goes to the column's edge and comes back to the left edge
+            // when the layout is turned off again.
+            var r = pane.windowRect;
+            r.x = SlopLayout.LeftInset > 0f
+                ? Mathf.Min(SlopLayout.LeftInset, Mathf.Max(0f, UI.screenWidth - r.width))
+                : 0f;
+            pane.windowRect = r;
         }
     }
 }
