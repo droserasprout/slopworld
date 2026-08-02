@@ -785,6 +785,19 @@ namespace SlopWorld
                 return;
             }
 
+            // Shift+Enter: send the kitty keyboard protocol sequence for Shift+Enter
+            // (\e[13;2u) so apps like Claude Code can distinguish it from plain Enter
+            // and insert a newline rather than submitting.
+            if (e.keyCode == KeyCode.Return && e.shift)
+            {
+                JumpToLive();
+                Flush();
+                SessionHub.Instance.SendKeys(
+                    _name, new[] { "\u001b[13;2u" }, true);
+                e.Use();
+                return;
+            }
+
             // Not in TerminalHotkeys: a window absorbing input makes
             // WindowStack.HandleEventsHighPriority Use every KeyDown, and that runs earlier in
             // UIRoot.UIRootOnGUI than any game component.
