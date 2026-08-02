@@ -156,6 +156,9 @@ namespace SlopWorld
         // over.
         readonly string _origName;
 
+        // For the title. Null unless it is a duplicate: an edit already has `_origName`.
+        readonly string _copiedFrom;
+
         string _roPaths, _rwPaths, _passEnv;
         Vector2 _scroll;
         Vector2 _presetScroll;
@@ -172,11 +175,31 @@ namespace SlopWorld
         // actually drew rather than by a number that drifts as fields are added.
         float _contentH = 690f;
 
-        public EditProjectDialog(ProjectInfo existing)
+        public EditProjectDialog(ProjectInfo existing) : this(existing, false) { }
+
+        // A second project built on the first: the binds and the presets are what took the
+        // work to get right, and ticking all of them again by hand is the step that gets one
+        // wrong. The directory comes over with them - the same repo under a tighter sandbox
+        // is what this is for, and nothing refuses two projects on one directory. Only the
+        // name cannot, so it is the one field suggested rather than copied.
+        public static EditProjectDialog Copy(ProjectInfo of) => new EditProjectDialog(of, true);
+
+        EditProjectDialog(ProjectInfo existing, bool copy)
         {
-            _isNew = existing == null;
-            _origName = existing?.Name ?? "";
+            // A copy is a new project in every way that matters here: nothing on the daemon
+            // knows it, so Save posts rather than puts and there is no rename to carry any
+            // agents across.
+            _isNew = existing == null || copy;
+            _origName = copy ? "" : (existing?.Name ?? "");
+            _copiedFrom = copy ? existing.Name : null;
             _p = existing?.Copy() ?? new ProjectInfo();
+            if (copy)
+            {
+                _p.Name = FreeName(_p.Name);
+                // A temporary project's ground is named after the project, so the copy's is
+                // named after the copy rather than pointing back at what it came from.
+                if (_p.Temp) _p.Dir = ProjectInfo.TempDir(_p.Name);
+            }
 
             _roPaths = Lines(_p.RoPaths);
             _rwPaths = Lines(_p.RwPaths);
@@ -205,7 +228,9 @@ namespace SlopWorld
         {
             Text.Font = GameFont.Medium;
             Widgets.Label(new Rect(rect.x, rect.y, rect.width, 32f),
-                _isNew ? "New project" : $"Edit '{_origName}'");
+                _copiedFrom != null
+                    ? $"Copy of '{_copiedFrom}'"
+                    : _isNew ? "New project" : $"Edit '{_origName}'");
             Text.Font = GameFont.Small;
 
             var body = new Rect(rect.x, rect.y + 38f, rect.width, rect.height - 38f - 40f);
@@ -441,6 +466,26 @@ namespace SlopWorld
                 ok: () => Close(),
                 fail: msg => Messages.Message($"SlopWorld: {msg}",
                     MessageTypeDefOf.RejectInput, false));
+        }
+
+        // "slopworld" -> "slopworld-2", and a copy of that -> "slopworld-3" rather than
+        // "slopworld-2-2". Suggested and not enforced - the daemon still refuses a
+        // collision, which is why the search gives up rather than looping.
+        static string FreeName(string name)
+        {
+            string stem = name ?? "";
+            while (stem.Length > 0 && char.IsDigit(stem[stem.Length - 1]))
+                stem = stem.Substring(0, stem.Length - 1);
+            stem = stem.TrimEnd(' ', '-', '_');
+            if (stem.Length == 0) stem = name ?? "project";
+
+            var taken = SessionHub.Instance.Projects.Select(p => p.Name).ToList();
+            for (int n = 2; n <= 99; n++)
+            {
+                string candidate = stem + "-" + n;
+                if (!taken.Contains(candidate)) return candidate;
+            }
+            return stem;
         }
 
         static string Lines(List<string> items) => string.Join("\n", items.ToArray());

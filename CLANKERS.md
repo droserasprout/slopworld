@@ -531,11 +531,30 @@ of these need a def.
   - The row is as tall as the *portrait*, overhang and all, and rows are `48+32` apart -
     vanilla's own vertical pitch, which is what leaves room for a head to poke into the
     gap above it. Only the portraits shrink to fit the screen; headings and the "+" are
-    a fixed cost, so `Fit` solves for the scale rather than stepping it down.
+    a fixed cost, so `Fit` solves for the scale rather than stepping it down. The "+" is
+    pinned to the foot of the panel - it is the column's button rather than the last
+    project's - and `Fit` reserves its room either way, so the rows stop above it.
   - `Absorb` eats the mouse over the panel, last of all. The column is a fifth of the
     screen taken off the map and the map takes whatever the widgets did not: without it
     a press starts a drag-selection on the ground behind the panel and a right-click
     orders a colonist to walk there.
+  - `Menus` and `Grip` are taken in the *back* pass, before the bar's own draw, because
+    the bar swallows a right-click over a portrait to keep it off the map - asked for
+    after it, a row menu would open over only half a row. A heading folds on the left
+    button and opens its project on the right; a row opens its agent's on the right,
+    which is everything the agents window does to one, where the row already is.
+  - A fold parks its bucket's locs off screen rather than merely skipping them: the bar
+    hit-tests against the same list it draws from, so parking is how an entry leaves
+    both, and no `Row` goes in either, which is what takes a folded agent off Alt+Num.
+    `TerminalHotkeys.AnyLive` falls back to the hub for that reason - a fold is about the
+    column, and F12 is meant to always open something.
+  - `Width` is the panel's own edge dragged, `sidebarWidth` in the mod settings, written
+    on the release rather than on every drag frame. Clamped on the way *out*, against the
+    screen as well as the figure: a width saved on a wide screen and read on a narrow one
+    is a column with no map beside it. The inspect pane is told by hand
+    (`Patch_MainTabWindowShift.Reposition`), it being moved on open and on a resolution
+    change only. Folds ride along in `foldedProjects`, one name per line - a project is
+    the daemon's rather than a colony's, so neither belongs in a save.
   - `Patch_SidebarPawnLabel` declines vanilla's name-under-the-portrait while the column
     draws: the cell is 24px wide there and the name lives beside it.
   - `Drawing` is cleared from the finalizer as well as from the front pass, a postfix
@@ -549,7 +568,16 @@ of these need a def.
   button's rect goes through. The inspect pane is anchored left, which is `x = 0`, so
   `MainTabWindow.SetInitialSizeAndPosition` gets a postfix; that runs on open and on a
   resolution change, so a layout toggled with the pane already up moves it on the next
-  open rather than every frame.
+  open rather than every frame. Dragging the column calls the same `Reposition`, or the
+  pane sits still while the panel is pulled over it.
+  Moving that window is not moving its tab row: `InspectPaneUtility.ExtraOnGUI` is called
+  by the window *stack*, outside the window's group, so Log, Gear and our own Edit are
+  screen coordinates laid out from the pane's width with the pane assumed to start at
+  zero. `DoTabs` is wrapped in a `GUI.BeginGroup` instead of a rect being remapped: it
+  lays the row out right to left from one figure, and the space it draws in is the only
+  lever on that figure. An open tab's window is anchored `x = 0` the same way and is
+  *registered* rather than drawn, so the group cannot reach it and `InspectTabBase.TabRect`
+  is shifted on its own - once each, the group being gone by the time the stack draws it.
 - `RunInBackground` - the setter is forced, not the getter, because what reaches Unity
   is `PrefsData.Apply` reading the field. Enforced once at startup through
   `LongEventHandler.ExecuteWhenFinished`, `Apply` being a no-op off the main thread.
@@ -679,9 +707,14 @@ exception, editing mod settings instead.
 ### Settings
 
 `SlopSettings` in `SlopWorldMod.cs`, reached through the static `Settings` shim:
-`host`, `port`, `token`, `autoConnect`, `sidebar`, `fontSize`, `fontName`, `theme`,
-`cursorColor`. Adding one means a field, a `Scribe_Values.Look`, a shim property and a
-widget.
+`host`, `port`, `token`, `autoConnect`, `sidebar`, `sidebarWidth`, `foldedProjects`,
+`fontSize`, `fontName`, `theme`, `cursorColor`. Adding one means a field, a
+`Scribe_Values.Look`, a shim property and a widget.
+
+`sidebarWidth` and `foldedProjects` are the two with no widget: the column is dragged by
+its edge and folded by its headings, so `AgentSidebar` writes them itself. That is the
+whole reason they are settings rather than fields on the sidebar - a width and a fold are
+about this screen the way `sidebar` is, and they are wanted back tomorrow.
 
 `sidebar` is the one that is not about the daemon or about a pane's legibility, and it
 is here rather than nowhere because both layouts are this mod's and which one works is

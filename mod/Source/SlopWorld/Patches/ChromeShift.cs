@@ -35,6 +35,46 @@ namespace SlopWorld
         }
     }
 
+    // The pane's tab row - Log, Gear, Health, and our own Edit - is drawn from
+    // InspectPaneUtility.ExtraOnGUI, which the window stack calls *outside* the window's
+    // group. So it is screen coordinates laid out from the pane's width with the pane
+    // assumed to start at zero, and moving the pane leaves the row where it was. The whole
+    // row is shifted at once rather than a rect at a time: `DoTabs` lays its buttons out
+    // right to left from one figure, and the only lever on that figure is the space it is
+    // drawn in.
+    //
+    // A finalizer ends the group, or a throw inside the row leaves Unity with one open and
+    // takes the rest of the frame's UI with it.
+    [HarmonyPatch(typeof(InspectPaneUtility), "DoTabs")]
+    public static class Patch_InspectTabRowShift
+    {
+        static void Prefix(out bool __state)
+        {
+            float inset = SlopLayout.LeftInset;
+            __state = inset > 0f;
+            if (__state)
+                GUI.BeginGroup(new Rect(inset, 0f, UI.screenWidth - inset, UI.screenHeight));
+        }
+
+        static void Finalizer(bool __state)
+        {
+            if (__state) GUI.EndGroup();
+        }
+    }
+
+    // An open tab's own window is anchored the same way - `new Rect(0f, ...)` - and it is
+    // registered with the stack rather than drawn where it is asked for, so the group above
+    // does not reach it and it is moved on its own. Once each: the group is gone by the time
+    // the stack draws the window this rect describes.
+    [HarmonyPatch(typeof(InspectTabBase), "TabRect", MethodType.Getter)]
+    public static class Patch_InspectTabRectShift
+    {
+        static void Postfix(ref Rect __result)
+        {
+            __result.x += SlopLayout.LeftInset;
+        }
+    }
+
     // The inspect pane is anchored left, which means x = 0. The right-anchored tabs are left
     // where they are: nothing of ours is over there.
     //

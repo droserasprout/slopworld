@@ -108,11 +108,17 @@ namespace SlopWorld
             return null;
         }
 
-        // Taken in colonist-bar order, so "any" is at least the leftmost portrait.
+        // Taken in colonist-bar order, so "any" is at least the leftmost portrait. Falling
+        // back to the hub is what keeps the key working when the column's order is empty
+        // because every project in it is folded away: a fold is about the column, and this
+        // is the last resort of a key that is meant to always open something.
         static string AnyLive()
         {
             foreach (var session in AgentColony.InBarOrder())
                 if (Live(session)) return session;
+
+            foreach (var info in SessionHub.Instance.Sessions)
+                if (info.Alive) return info.Name;
             return null;
         }
 
