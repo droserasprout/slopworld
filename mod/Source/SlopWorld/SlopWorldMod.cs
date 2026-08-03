@@ -161,6 +161,9 @@ namespace SlopWorld
             // Nor is this one: a field moved on a def vanilla already reads, which is how a
             // whole options category goes.
             StripOptions.Hide();
+            // And this is the category that arrives in its place, added to the database
+            // rather than shipped as XML so a refusing mod leaves no empty tab behind.
+            SlopOptions.Install();
             Log.Message("[SlopWorld] patched; daemon at " + SlopClient.BaseUrl);
         }
     }
@@ -221,6 +224,6 @@ namespace SlopWorld
 
     public class MainButtonWorker_Config : MainButtonWorker_Slop
     {
-        protected override void Open() => ConfigMenuWindow.Toggle();
+        protected override void Open() => SlopOptions.Toggle();
     }
 }

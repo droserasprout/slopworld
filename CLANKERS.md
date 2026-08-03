@@ -507,6 +507,38 @@ of these need a def.
   `OptionCategoryDefOf` names. Rows are widget calls, so three prefixes decline to
   draw when the label is one of ours, matched on the finished string and gated on
   `currentlyDrawnWindow` rather than a flag an exception could strand.
+- `SlopOptions` - the other half of that window: the room a pane gets, and `ConfigPage`
+  as its first category. The daemon's settings live there rather than in a window of
+  their own, so there is one page a knob is looked for on.
+  - It opens *inside* the chrome rather than over it - `SlopLayout.LeftInset`/`TopInset`
+    off the corner, the rest of the screen - so the column and the line stay where they
+    are and are drawn by the map layer as usual, no copy of them needed here. The inset
+    is dropped with no colony behind the window: the column hangs off the colonist bar
+    and the line off a `MapComponent`, so on the main menu there is nothing to leave room
+    for. Placed by a postfix on `Window.SetInitialSizeAndPosition` gated on the instance,
+    this window overriding nothing, and `Reposition` is the layout toggle saying so by
+    hand - both the shape `Patch_MainTabWindowShift` already has.
+  - The category is *added* at startup rather than shipped as XML. A def survives this
+    mod declining to patch (see `SlopProfile`), and a category whose page is never drawn
+    is an empty tab in somebody else's options menu. It is Core's def as far as
+    `Dialog_Options` is concerned - the window draws a category only if its own
+    `modContentPack.IsOfficialMod` - and first because `AllDefsListForReading` *is* the
+    database's list and the column is drawn in its order.
+  - Vanilla lays that window out in *window* coordinates rather than off the rect it is
+    handed - the category column is a literal `Rect(0, i*50, 160, 48)` - so the centred
+    band inside it is a `GUI` group rather than a remapped rect, for the reason
+    `InspectPaneUtility.DoTabs` is wrapped rather than shifted. Closed from a finalizer:
+    a postfix does not run when the original throws, and a group left open is every
+    window after it drawn somewhere else.
+  - The rect handed on is the band plus the row vanilla reserves for OK, so the options
+    list gets that room and the button is laid out past the bottom of the group. The
+    button itself goes the way `StripOptions` takes a row, there being nothing for it to
+    dismiss that the corner cross and Escape do not.
+  - `DoOptions` is a chain of comparisons against vanilla's own eight categories, so
+    ours would fall through it and draw nothing; the prefix is taken ahead of the chain
+    because the page is two columns and its own scroll view rather than rows on the
+    `Listing_Standard` opened there. `DoCategoryRow` is prefixed too, only for our row:
+    `ContentFinder` knows about files and `TerminalIcon` is drawn in code.
 - `NoRescueAgents`, `NoStripAgents`, `NoHarmAgents` - damage dies in
   `Pawn.PreApplyDamage`; the three ways an animal reaches an agent are closed one
   each. `NoBurningTheColony` closes both attachment and cell damage and spares the
@@ -729,14 +761,15 @@ exception, editing mod settings instead.
   a bind whose path is not on this machine and only the daemon knows which.
   `PresetInfo` keeps `Ro`/`Rw`/`Env` apart for this, `Gives` being the flattened
   tooltip view.
-- `ConfigMenuWindow` is one page: the daemon, `[defaults]`, and the base every sandbox
-  is built on. The field column is a scroll view sized from the previous frame's
+- `ConfigPage` is one page: the daemon, `[defaults]`, and the base every sandbox is
+  built on. The field column is a scroll view sized from the previous frame's
   `CurHeight`, its listing begun on a rect far taller than it needs so nothing breaks
   to a second column. The connection is *stated* there, not edited - mod settings owns
   it because that is the half still changeable with the socket down - and the button
   goes through to `Dialog_ModSettings`. `bind` and `token` stay in `SlopConfig`
   undrawn: a field missing from `ToJson` is one the next unrelated save resets to its
-  serde default.
+  serde default. Not a `Window`: it is drawn as the first category of the options
+  menu - see `SlopOptions`.
 - No sandbox switch anywhere: every agent runs in one, and `ProjectCfg::sandbox` is
   the preset list. A switch that could be off in one place silently beat every
   checkbox in the other.
@@ -759,10 +792,10 @@ about this screen the way `sidebar` is, and they are wanted back tomorrow.
 
 `sidebar` is the one that is not about the daemon or about a pane's legibility, and it
 is here rather than nowhere because both layouts are this mod's and which one works is
-a question about the screen being read - see `SlopLayout`. Drawn on `ConfigMenuWindow`,
+a question about the screen being read - see `SlopLayout`. Drawn on `ConfigPage`,
 the page a knob is looked for on, and on the gear, the one settings window reachable
 with a pane over the bottom bar. Not on `DoSettingsWindowContents`: that page is the
-connection, the half still editable with the socket down. `ConfigMenuWindow` writes it
+connection, the half still editable with the socket down. `ConfigPage` writes it
 on the click, its own Save button being the daemon's file.
 
 *Not* `config.toml`: RimWorld's own `ModSettings`, scribed into
@@ -774,7 +807,7 @@ machine; this one is about this *install*.
 
 Edited in two places: the connection in `DoSettingsWindowContents`, which still
 answers with no colony loaded where the bottom bar does not exist; the pane's own in
-`TerminalSettingsWindow` off the gear. Both are also doors on `ConfigMenuWindow`.
+`TerminalSettingsWindow` off the gear. Both are also doors on `ConfigPage`.
 
 The file is written once, in `PostClose`, by `ModSettings.Write` rather than
 `Mod.WriteSettings` - the latter reconnects the socket. A size change also calls

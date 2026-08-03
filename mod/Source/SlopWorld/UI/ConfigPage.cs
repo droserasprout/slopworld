@@ -4,18 +4,21 @@ using Verse;
 
 namespace SlopWorld
 {
-    // One page, because there was only ever one subject here: what this machine does.
-    // The tabs went because two of the three were answering somebody else's question -
-    // the agent list is the `agents` window, and the sandbox a project runs in is that
-    // project's. What is left is the daemon, and the base every sandbox is built on,
-    // which has nowhere else to be.
+    // What this machine does, drawn as the first page of the options menu rather than as a
+    // window of its own. There was only ever one subject here: the daemon, and the base
+    // every sandbox is built on. The rest went because it was answering somebody else's
+    // question - the agent list is the `agents` window, and the sandbox a project runs in
+    // is that project's.
     //
-    // The connection is not here either. Where the daemon listens and where the game
-    // dials are one question - they are the same machine - and only one of the two ends
-    // can be edited with the socket down, so mod settings owns it and this window states
-    // it. State rules keep to the raw editor behind "Edit as TOML": they are regexes,
-    // and a text box is the honest widget for a regex.
-    public class ConfigMenuWindow : Window
+    // The connection is not here either. Where the daemon listens and where the game dials
+    // are one question - they are the same machine - and only one of the two ends can be
+    // edited with the socket down, so mod settings owns it and this page states it. State
+    // rules keep to the raw editor behind "Edit as TOML": they are regexes, and a text box
+    // is the honest widget for a regex.
+    //
+    // A page rather than a Window because SlopOptions hangs it off an OptionCategoryDef;
+    // it owns no chrome and closes with the dialog around it. See SlopOptions.
+    public class ConfigPage
     {
         SlopConfig _cfg;
         string _path = "";
@@ -33,29 +36,7 @@ namespace SlopWorld
         // it actually used is what the scroll view is sized from next frame.
         float _fieldsH;
 
-        public static void Toggle()
-        {
-            var open = Find.WindowStack.WindowOfType<ConfigMenuWindow>();
-            if (open != null) { open.Close(); return; }
-
-            var w = new ConfigMenuWindow();
-            w.Load();
-            Find.WindowStack.Add(w);
-        }
-
-        public ConfigMenuWindow()
-        {
-            doCloseX = true;
-            draggable = true;
-            resizeable = true;
-            preventCameraMotion = false;
-            closeOnClickedOutside = false;
-            closeOnAccept = false;
-        }
-
-        public override Vector2 InitialSize => new Vector2(760f, 640f);
-
-        void Load()
+        public void Load()
         {
             SlopClient.Get("/api/config",
                 j =>
@@ -74,18 +55,16 @@ namespace SlopWorld
                 msg => { _error = msg; _loaded = false; });
         }
 
-        public override void DoWindowContents(Rect rect)
+        // The category row is the title, so all this needs of the top of its rect is to
+        // say which file is being edited.
+        public void Draw(Rect rect)
         {
-            Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(rect.x, rect.y, 300f, 34f), "Configuration");
-            Text.Font = GameFont.Small;
-
             GUI.color = new Color(0.65f, 0.66f, 0.68f);
-            Widgets.Label(new Rect(rect.x + 160f, rect.y + 8f, rect.width - 160f, 24f),
+            Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f),
                 _loaded ? _path : "loading...");
             GUI.color = Color.white;
 
-            var body = new Rect(rect.x, rect.y + 44f, rect.width, rect.height - 44f - 40f);
+            var body = new Rect(rect.x, rect.y + 28f, rect.width, rect.height - 28f - 40f);
             Widgets.DrawMenuSection(body);
             var inner = body.ContractedBy(12f);
 
@@ -124,15 +103,19 @@ namespace SlopWorld
             DoLayout(l);
 
             l.Gap(8f);
-            l.Label("Commands for agents and shortcuts that do not set their own");
+            l.Label("Command presets for agents and errands that name none of their own");
             l.Gap(2f);
             l.Label("Agent");
             _cfg.Agent = l.TextEntry(_cfg.Agent);
             l.Gap(2f);
-            // What a shell shortcut runs. tmux hands it a pty, so it is interactive
-            // without being told to be.
+            // What a shell errand runs. tmux hands it a pty, so it is interactive without
+            // being told to be.
             l.Label("Shell");
             _cfg.Shell = l.TextEntry(_cfg.Shell);
+            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            l.Label("Both name a command preset. What one runs is a TOML file beside this " +
+                    "one; the agent dialog lists them.");
+            GUI.color = Color.white;
 
             l.Gap(10f);
             l.Label("Game command (blank disables restarting the game from here)");
@@ -178,15 +161,12 @@ namespace SlopWorld
             Widgets.EndScrollView();
         }
 
-        // The two doors out of this page, and the only two things on it that are not
-        // `config.toml`. Both are mod settings - RimWorld's own file, not the daemon's -
-        // and they are here because this is the one window that is about *setting things
-        // up*, so a player looking for a knob has one place to look rather than a
-        // vanilla options menu behind a terminal that covers it.
+        // The two doors off this page, and the only two things on it that are not
+        // `config.toml`. Both are mod settings - RimWorld's own file, not the daemon's.
         //
         // The connection is stated rather than edited: the mod's end of it is the only
         // half that can be changed while the socket is down, which is exactly when it
-        // needs changing, so mod settings owns it and this window points at it. The
+        // needs changing, so mod settings owns it and this page points at it. The
         // daemon's own bind is TOML-only - slopd reads it at startup, so a box here that
         // took effect on the next restart would mostly read as a field that did nothing.
         void DoConnectionNote(Listing_Standard l)
@@ -209,8 +189,7 @@ namespace SlopWorld
         }
 
         // A mod setting rather than `config.toml` - it is about this install and this screen,
-        // not about the machine - but this is the page a knob is looked for on, and the
-        // vanilla mod settings menu is behind a terminal that covers it.
+        // not about the machine - but this is the page a knob is looked for on.
         //
         // Written on the click rather than on the way out: the Save button below belongs to
         // the daemon's file, and a checkbox next to it that only took hold when the window
@@ -230,6 +209,9 @@ namespace SlopWorld
             {
                 s.Write();
                 Patch_MainTabWindowShift.Reposition();
+                // This page's own window, which sits in the room the column and the line
+                // leave and has just been told there is more of it or less.
+                SlopOptions.Reposition();
             }
         }
 
