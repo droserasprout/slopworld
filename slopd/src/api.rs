@@ -188,14 +188,18 @@ async fn run_shortcut(
     Ok(Json(json!({ "ok": true, "session": session })))
 }
 
-/// So the GUI draws a checkbox per preset rather than a list somebody keeps in
-/// step by hand.
+/// So the GUI draws a checkbox per preset and a row per command rather than a list
+/// somebody keeps in step by hand. Both tables are files, so this is also how the mod
+/// learns about one that was added while it was running.
 async fn presets(State(_m): State<Mgr>) -> ApiResult {
-    let list: Vec<serde_json::Value> = crate::sandbox::PRESETS
+    let t = crate::presets::table();
+    let sandbox: Vec<serde_json::Value> = t
+        .sandbox
         .iter()
         .map(|p| {
             json!({
                 "name": p.name,
+                "category": p.category,
                 "description": p.description,
                 "ro": p.ro,
                 "rw": p.rw,
@@ -205,7 +209,24 @@ async fn presets(State(_m): State<Mgr>) -> ApiResult {
             })
         })
         .collect();
-    Ok(Json(json!({ "presets": list })))
+
+    let commands: Vec<serde_json::Value> = t
+        .commands
+        .iter()
+        .map(|c| {
+            json!({
+                "name": c.name,
+                "category": c.category,
+                "description": c.description,
+                "cmd": c.cmd,
+                "sandbox": c.sandbox,
+            })
+        })
+        .collect();
+
+    Ok(Json(
+        json!({ "presets": sandbox, "commands": commands, "dir": crate::presets::Table::dir() }),
+    ))
 }
 
 /// Text for the raw editor, parsed for the settings GUI, so a mod can offer either

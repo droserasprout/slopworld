@@ -1,0 +1,13 @@
+[[sandbox]]
+name = "claude"
+category = "agent"
+description = "Claude Code's own state and credentials"
+rw = ["~/.claude", "~/.claude.json"]
+env = ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "CLAUDE_CONFIG_DIR"]
+
+[[command]]
+name = "claude"
+category = "agent"
+description = "Claude Code"
+cmd = "claude"
+sandbox = ["claude"]

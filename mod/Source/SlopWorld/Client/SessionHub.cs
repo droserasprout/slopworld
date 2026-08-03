@@ -9,10 +9,6 @@ namespace SlopWorld
     // killed, the same process being able to get it back up.
     public enum AgentState { Down, Working, Waiting, Idle }
 
-    // A kind rather than a command string: knowing it is Claude is what lets the daemon hand
-    // it its own state dir.
-    public enum AgentKind { Claude, Opencode, Pi, Custom }
-
     public enum ShortcutKind { Prompt, Shell }
 
     // Temp is a fresh scratch directory per run; Ask is decided at the button.
@@ -25,15 +21,19 @@ namespace SlopWorld
         // Repeated on the wire so a session list reads without a join. Blank when the entry
         // names a project that has gone.
         public string Dir = "";
-        public AgentKind Kind = AgentKind.Claude;
-        // Defaults resolved; for a custom session also what the player typed, which is why
-        // the dialog edits this field directly.
+        // A command preset's name. Blank means this agent states a command line of its own,
+        // and so is handed no agent's state directory.
+        public string Command = "";
+        // This agent's own answer to what that preset runs. Blank is the preset's.
+        public string Cmd = "";
+        // Sandbox presets it adds to its command's and its project's.
+        public List<string> Sandbox = new List<string>();
+        // As the daemon will exec it, preset and defaults resolved. Read-only here.
         public string Agent = "";
         public AgentState State = AgentState.Down;
         public bool Alive;
-        // The project's, and read-only here: edit the project to change them.
+        // The project's, and read-only here: edit the project to change it.
         public bool Net = true;
-        public bool Sandbox = true;
         public bool Autostart;
         public List<string> Env = new List<string>();
 
@@ -58,39 +58,18 @@ namespace SlopWorld
             }
         }
 
-        public static AgentKind ParseKind(string s)
-        {
-            switch (s)
-            {
-                case "custom": return AgentKind.Custom;
-                case "opencode": return AgentKind.Opencode;
-                case "pi": return AgentKind.Pi;
-                default: return AgentKind.Claude;
-            }
-        }
-
-        public static string KindName(AgentKind k)
-        {
-            switch (k)
-            {
-                case AgentKind.Custom: return "custom";
-                case AgentKind.Opencode: return "opencode";
-                case AgentKind.Pi: return "pi";
-                default: return "claude";
-            }
-        }
-
         public static SessionInfo FromJson(JVal j) => new SessionInfo
         {
             Name = j["name"].AsString(),
             Project = j["project"].AsString(),
             Dir = j["dir"].AsString(),
-            Kind = ParseKind(j["kind"].AsString()),
+            Command = j["command"].AsString(),
+            Cmd = j["cmd"].IsNull ? "" : j["cmd"].AsString(),
+            Sandbox = j["sandbox"].Items.Select(i => i.AsString()).ToList(),
             Agent = j["agent"].AsString(),
             State = ParseState(j["state"].AsString()),
             Alive = j["alive"].AsBool(),
             Net = j["net"].AsBool(true),
-            Sandbox = j["sandbox"].AsBool(true),
             Autostart = j["autostart"].AsBool(false),
             Env = j["env"].Items.Select(i => i.AsString()).ToList(),
             Ephemeral = j["ephemeral"].AsBool(false),
@@ -98,13 +77,15 @@ namespace SlopWorld
             Rows = j["rows"].AsInt(0),
         };
 
-        // The command only rides along for a custom session: writing back a Claude one's
-        // resolved string would pin today's default into the file forever.
+        // `Agent` never rides along: it is what the daemon resolved, and writing it back
+        // would pin today's answer into the file forever. An empty override is sent as null
+        // rather than as a blank, which is the difference between "the preset's" and "none".
         public string ToJson() =>
             "{" +
             $"\"name\":{JVal.Q(Name)},\"project\":{JVal.Q(Project)}," +
-            $"\"kind\":{JVal.Q(KindName(Kind))}," +
-            $"\"command\":{(Kind == AgentKind.Custom && !string.IsNullOrEmpty(Agent) ? JVal.Q(Agent) : "null")}," +
+            $"\"command\":{JVal.Q(Command)}," +
+            $"\"cmd\":{(string.IsNullOrEmpty((Cmd ?? "").Trim()) ? "null" : JVal.Q(Cmd))}," +
+            $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]," +
             $"\"env\":[{string.Join(",", Env.Select(JVal.Q).ToArray())}]," +
             $"\"autostart\":{JVal.B(Autostart)}}}";
     }
@@ -116,12 +97,12 @@ namespace SlopWorld
         // The daemon coins TempRoot/name and makes it when the first agent starts there. It
         // is /tmp that is temporary, not the entry.
         public bool Temp;
-        public List<string> Presets = new List<string>();
+        // Sandbox presets by name. Every agent runs in a sandbox; this says what it reaches.
+        public List<string> Sandbox = new List<string>();
         public List<string> RoPaths = new List<string>();
         public List<string> RwPaths = new List<string>();
         public List<string> PassEnv = new List<string>();
         public bool Net = true;
-        public bool Sandbox = true;
 
         // The daemon coins the path and is the only thing that writes it; this is so the dialog
         // can show what a name is about to become before anything is saved.
@@ -147,32 +128,30 @@ namespace SlopWorld
             Name = j["name"].AsString(),
             Dir = j["dir"].AsString(),
             Temp = j["temp"].AsBool(false),
-            Presets = Strings(j["presets"]),
+            Sandbox = Strings(j["sandbox"]),
             RoPaths = Strings(j["ro_paths"]),
             RwPaths = Strings(j["rw_paths"]),
             PassEnv = Strings(j["pass_env"]),
             Net = j["net"].AsBool(true),
-            Sandbox = j["sandbox"].AsBool(true),
         };
 
         public string ToJson() =>
             "{" +
             $"\"name\":{JVal.Q(Name)},\"dir\":{JVal.Q(Dir)},\"temp\":{JVal.B(Temp)}," +
-            $"\"presets\":{Arr(Presets)},\"ro_paths\":{Arr(RoPaths)}," +
+            $"\"sandbox\":{Arr(Sandbox)},\"ro_paths\":{Arr(RoPaths)}," +
             $"\"rw_paths\":{Arr(RwPaths)},\"pass_env\":{Arr(PassEnv)}," +
-            $"\"net\":{JVal.B(Net)},\"sandbox\":{JVal.B(Sandbox)}}}";
+            $"\"net\":{JVal.B(Net)}}}";
 
         public ProjectInfo Copy() => new ProjectInfo
         {
             Name = Name,
             Dir = Dir,
             Temp = Temp,
-            Presets = new List<string>(Presets),
+            Sandbox = new List<string>(Sandbox),
             RoPaths = new List<string>(RoPaths),
             RwPaths = new List<string>(RwPaths),
             PassEnv = new List<string>(PassEnv),
             Net = Net,
-            Sandbox = Sandbox,
         };
 
         static List<string> Strings(JVal a) => a.Items.Select(i => i.AsString()).ToList();
@@ -246,6 +225,9 @@ namespace SlopWorld
     public class PresetInfo
     {
         public string Name = "";
+        // How the checkbox list groups itself. A category this build has never heard of is
+        // a heading, not a problem: the table is a directory of files now.
+        public string Category = "";
         public string Description = "";
         // Kept apart because the project dialog groups what a sandbox is handed the way it is
         // edited. A device node goes with the read-only binds: it is bound rather than passed,
@@ -263,6 +245,7 @@ namespace SlopWorld
             var p = new PresetInfo
             {
                 Name = j["name"].AsString(),
+                Category = j["category"].AsString(),
                 Description = j["description"].AsString(),
             };
             foreach (var key in new[] { "ro", "dev" })
@@ -272,6 +255,28 @@ namespace SlopWorld
                 p.Env.AddRange(j[key].Items.Select(i => i.AsString()));
             return p;
         }
+    }
+
+    // What an agent runs, and the sandbox presets that come with it. Fetched for the same
+    // reason presets are: a command file added while the game was up is one the dropdown
+    // has to be able to show.
+    public class CommandInfo
+    {
+        public string Name = "";
+        public string Category = "";
+        public string Description = "";
+        // What it runs before this machine's `[defaults]` and the agent's own override.
+        public string Cmd = "";
+        public List<string> Sandbox = new List<string>();
+
+        public static CommandInfo FromJson(JVal j) => new CommandInfo
+        {
+            Name = j["name"].AsString(),
+            Category = j["category"].AsString(),
+            Description = j["description"].AsString(),
+            Cmd = j["cmd"].AsString(),
+            Sandbox = j["sandbox"].Items.Select(i => i.AsString()).ToList(),
+        };
     }
 
     // A rate-limit window, or the extra-usage budget in money. The reset is a duration rather
@@ -370,8 +375,11 @@ namespace SlopWorld
         // asking first.
         public List<ProjectInfo> Projects = new List<ProjectInfo>();
         public List<ShortcutInfo> Shortcuts = new List<ShortcutInfo>();
-        // Fetched once per process: compiled into slopd.
+        // Fetched rather than listed here, and fetched again on every dialog that draws
+        // them: both tables are TOML files under the daemon's config directory, so a preset
+        // can arrive without slopd being rebuilt or restarted.
         public List<PresetInfo> Presets = new List<PresetInfo>();
+        public List<CommandInfo> Commands = new List<CommandInfo>();
         // Never null: an empty one draws as "no numbers", which is what a daemon that has not
         // answered yet means.
         public UsageInfo Usage = new UsageInfo();
@@ -622,12 +630,19 @@ namespace SlopWorld
         // A shortcut's name is free-form, so it can carry anything a path segment objects to.
         static string Esc(string name) => Uri.EscapeDataString(name ?? "");
 
+        // The old lists stay up until the answer lands, so a dialog opened with the socket
+        // down draws what it knew rather than nothing.
         public void LoadPresets()
         {
-            if (Presets.Count > 0) return;
-            SlopClient.Get("/api/presets",
-                j => Presets = j["presets"].Items.Select(PresetInfo.FromJson).ToList());
+            SlopClient.Get("/api/presets", j =>
+            {
+                Presets = j["presets"].Items.Select(PresetInfo.FromJson).ToList();
+                Commands = j["commands"].Items.Select(CommandInfo.FromJson).ToList();
+            });
         }
+
+        public CommandInfo Command(string name) =>
+            string.IsNullOrEmpty(name) ? null : Commands.FirstOrDefault(c => c.Name == name);
 
         public void SaveProject(ProjectInfo p, bool isNew, string origName,
                                 Action ok, Action<string> fail)

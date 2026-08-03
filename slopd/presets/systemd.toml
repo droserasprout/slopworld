@@ -1,0 +1,13 @@
+[[sandbox]]
+name = "systemd"
+category = "service"
+description = "systemctl --user, journalctl (needs dbus)"
+ro = ["/run/systemd", "/sys/fs/cgroup", "/var/log/journal", "/run/log/journal"]
+rw = ["$XDG_RUNTIME_DIR/systemd"]
+env = ["XDG_RUNTIME_DIR"]
+
+# systemctl talks to $XDG_RUNTIME_DIR/systemd/private first, and that handshake does not
+# survive bwrap's user namespace (AUTHENTICATING -> CLOSED). The session bus reaches the
+# same manager, which is why this preset is no use without `dbus`.
+[sandbox.setenv]
+SYSTEMCTL_FORCE_BUS = "1"

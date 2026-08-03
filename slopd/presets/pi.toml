@@ -1,0 +1,23 @@
+[[sandbox]]
+name = "pi"
+category = "agent"
+description = "pi coding agent's own state, config and credentials"
+rw = ["~/.pi"]
+env = [
+    "PI_CODING_AGENT_DIR",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_BASE_URL",
+    "OPENAI_API_KEY",
+    "OPENROUTER_API_KEY",
+    "GEMINI_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "XAI_API_KEY",
+    "MISTRAL_API_KEY",
+]
+
+[[command]]
+name = "pi"
+category = "agent"
+description = "pi coding agent"
+cmd = "pi"
+sandbox = ["pi"]

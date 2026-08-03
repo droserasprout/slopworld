@@ -1,0 +1,25 @@
+[[sandbox]]
+name = "opencode"
+category = "agent"
+description = "OpenCode's own state, config and credentials"
+rw = [
+    "~/.local/share/opencode",
+    "~/.local/state/opencode",
+    "~/.config/opencode",
+    "~/.cache/opencode",
+]
+env = [
+    "OPENCODE_CONFIG",
+    "OPENCODE_CONFIG_DIR",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_BASE_URL",
+    "OPENAI_API_KEY",
+    "OPENROUTER_API_KEY",
+]
+
+[[command]]
+name = "opencode"
+category = "agent"
+description = "OpenCode"
+cmd = "opencode"
+sandbox = ["opencode"]

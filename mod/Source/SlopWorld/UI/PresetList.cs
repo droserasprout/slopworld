@@ -1,0 +1,84 @@
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+using Verse;
+
+namespace SlopWorld
+{
+    // The sandbox preset checkboxes, drawn the same way wherever they are ticked: for a
+    // project, and for one agent in it. One column in a box of its own, because the list is
+    // as long as whatever is in the daemon's preset directory and a form that grows with it
+    // is one where everything below moves the day a file is added.
+    //
+    // Grouped by the category each preset states rather than by a list held here: a category
+    // this build has never heard of is a heading, which is the whole point of the field.
+    public static class PresetList
+    {
+        public const float RowH = 24f;
+
+        // Ticked and refused: what a preset is handed anyway, by its command or its project.
+        // Drawn rather than hidden - "why is ~/.claude bound" is the question this answers.
+        public static void Draw(Rect outer, List<string> chosen, ref Vector2 scroll,
+                                ICollection<string> implied = null)
+        {
+            var presets = SessionHub.Instance.Presets;
+            Widgets.DrawBoxSolid(outer, new Color(0f, 0f, 0f, 0.25f));
+            var pad = outer.ContractedBy(4f);
+
+            if (presets.Count == 0)
+            {
+                GUI.color = Color.gray;
+                Widgets.Label(new Rect(pad.x, pad.y, pad.width, 22f),
+                    "The daemon has not sent its preset list yet.");
+                GUI.color = Color.white;
+                return;
+            }
+
+            var groups = presets
+                .OrderBy(p => Category(p), System.StringComparer.OrdinalIgnoreCase)
+                .ThenBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase)
+                .GroupBy(Category)
+                .ToList();
+
+            float h = (presets.Count + groups.Count) * RowH;
+            var inner = new Rect(0f, 0f, pad.width - 18f, h);
+
+            Widgets.BeginScrollView(pad, ref scroll, inner);
+            float y = 0f;
+            foreach (var g in groups)
+            {
+                GUI.color = new Color(0.65f, 0.66f, 0.68f);
+                Widgets.Label(new Rect(0f, y, inner.width, 22f), g.Key);
+                GUI.color = Color.white;
+                y += RowH;
+
+                foreach (var pr in g)
+                {
+                    var cell = new Rect(8f, y, inner.width - 8f, 22f);
+                    y += RowH;
+
+                    bool forced = implied != null && implied.Contains(pr.Name);
+                    bool on = forced || chosen.Contains(pr.Name);
+                    bool was = on;
+                    Widgets.CheckboxLabeled(cell, pr.Name, ref on, forced);
+                    TooltipHandler.TipRegion(cell, Tip(pr, forced));
+
+                    if (on == was) continue;
+                    if (on) chosen.Add(pr.Name);
+                    else chosen.Remove(pr.Name);
+                }
+            }
+            Widgets.EndScrollView();
+        }
+
+        static string Category(PresetInfo p) =>
+            string.IsNullOrEmpty(p.Category) ? "other" : p.Category;
+
+        static string Tip(PresetInfo p, bool forced)
+        {
+            string gives = string.Join("\n", p.Gives.ToArray());
+            string why = forced ? "\n\nAsked for by the command this agent runs." : "";
+            return $"{p.Description}\n\n{gives}{why}";
+        }
+    }
+}

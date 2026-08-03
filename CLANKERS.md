@@ -108,7 +108,8 @@ a refusal, so `MainButtonWorker_Slop` gates all four buttons and shows the dialo
 | `session.rs` | `Manager`: live table, state classification, control readers. |
 | `emu.rs` | `SessionEmu`, an `alacritty_terminal` per session. |
 | `tmux.rs` | Async wrapper over the tmux CLI. |
-| `sandbox.rs` | Preset table and the bubblewrap argv. |
+| `sandbox.rs` | The bubblewrap argv. |
+| `presets.rs` | The preset tables: builtin TOML plus the user's. |
 | `config.rs` | `config.toml` load, save, seed, migration. |
 | `usage.rs` | Polls Anthropic for what is left of the subscription. |
 | `clipboard.rs` | The host clipboard. |
@@ -116,21 +117,48 @@ a refusal, so `MainButtonWorker_Slop` gates all four buttons and shows the dialo
 
 ### Projects
 
-A session is an agent in a project: name, kind (`claude` or `custom`), command if
-custom. `[[project]]` is a directory plus a sandbox.
+A session is an agent in a project: name, `command` (a command preset's name), and
+this agent's own `cmd`, `sandbox` and `env` over it. `[[project]]` is a directory plus
+a sandbox, `sandbox` being its preset list - there is no switch, every agent runs in
+one.
 
 - `temp` projects name no directory; `settle` coins `/tmp/slopworld/<name>` on the
   way in. Hence `dir` is `serde(default)`, and `check_project` still refuses an
   ordinary project without one.
-- Claude is a *kind* rather than a command string: knowing it is Claude is what lets
-  the sandbox hand it `~/.claude` (`presets_for`).
+- A command is a *preset* rather than a command string: knowing it is Claude Code is
+  what lets the sandbox hand it `~/.claude` (`Config::sandbox_of`). An entry stating a
+  `cmd` and no `command` is handed none - a command line is nobody in particular.
 - `check_belongs` runs on add and update, not at start. A project with agents refuses
   deletion. A rename carries its sessions in the same write.
-- `Config::migrate` is idempotent; the legacy fields are `skip_serializing_if`.
+- Nothing is migrated. A field this build does not know is dropped on the next write,
+  which is what `Config::parse` being one `toml::from_str` means.
 
-`PRESETS` in `sandbox.rs` is compiled in - the GUI cannot draw a checkbox for a
-preset the daemon does not understand. `GET /api/presets` is how the mod learns what
-this build knows. Rules:
+### Presets
+
+`presets.rs` reads one TOML file per piece of software, each stating a `[[sandbox]]`
+preset, a `[[command]]` preset, or both under one name. Builtins are `include_str!` of
+`slopd/presets/*.toml`, so they can never be older than the binary reading them; user
+files are `~/.config/slopworld/presets/*.toml` (`SLOPD_PRESETS` points elsewhere) and
+replace a builtin *by entry name*, in place, so the GUI never draws two of one.
+
+- The directory is re-read when its newest mtime moves, on the same two-second check
+  `config.toml` is (`reload_presets_if_changed`), and the sessions are re-announced
+  because what an agent runs may have just changed under it.
+- `category` is free text: an unknown one is a heading in the GUI, not an error. A
+  name the table has no preset for is warned about and dropped rather than refused -
+  the files outlive the binary - but one *typed* into a dialog is refused
+  (`check_presets`), that being where it can be fixed.
+- `[defaults] agent` and `shell` name command presets and nothing else, refused on the
+  way in if there is no file behind them (`update_sections`). What one *runs* is that
+  file, so changing the agent's command means editing a preset rather than this
+  section.
+- A session naming a preset there is no file for has no command at all: `command_of`
+  answers empty and `start` refuses before it makes a directory or hands tmux an empty
+  argv.
+- `GET /api/presets` is how the mod learns both tables, so a file added while the game
+  is up is a checkbox and a dropdown entry with nothing rebuilt.
+
+Sandbox rules:
 
 - Every bind is skipped unless the path exists, which makes `$VAR` expansion safe.
 - Order: global, presets, project, deduplicated, rw after ro, so a path in both ends
@@ -148,7 +176,8 @@ this build knows. Rules:
 ### Shortcuts
 
 `[[shortcut]]` is an errand: a project, something to run there, a line to type into
-it. `kind` is `prompt` or `shell`; empty `command` means `[defaults] agent`/`shell`.
+it. `kind` is `prompt` or `shell`; empty `command` means `[defaults] agent` or the
+`shell` preset.
 
 - `link` (`project`|`temp`|`ask`) is how the entry's `project` field is *read*: where
   to run, the sandbox a scratch project copies, or nothing. `check_shortcut` insists
@@ -157,8 +186,10 @@ it. `kind` is `prompt` or `shell`; empty `command` means `[defaults] agent`/`she
 - A `temp` errand's project is coined in `run_shortcut`, held in `Manager::temp`,
   dropped by `forget`. The directory is not - /tmp is the machine's to clear. Both
   tables are read `live` then `temp`.
-- `Config::session_for`: a prompt shortcut with no command comes out a *Claude*
-  session, because the kind is what hands it `~/.claude`.
+- `Config::session_for`: a prompt shortcut with no command comes out running the
+  preset `[defaults] agent` names, because a preset is what hands it `~/.claude`; one
+  naming a preset gets it, one naming a command line runs that. A shell errand is the
+  `shell` preset, with its line as that agent's `cmd`.
 - The agent is ephemeral (`Live.ephemeral`), never written to config, and has no
   `Down` state: `mark_down` forgets it, and `stop` must too, by hand, because killing
   tmux aborts the control reader first. `remove` writes no config.
@@ -682,6 +713,16 @@ exception, editing mod settings instead.
   nothing can be added there until there is somewhere to add it. Preset checkboxes
   come from `GET /api/presets`; an unknown preset is warned about and ignored.
   Greyed-and-shown beats hidden throughout.
+- `PresetList` is those checkboxes wherever they are ticked - a project's, and one
+  agent's own - grouped by the `category` each preset states, because the table is a
+  directory of files and not a list this half keeps in step. Fetched on every dialog
+  open rather than once per process, for the same reason. What an agent's *command*
+  asks for is drawn ticked and refused: "why is `~/.claude` bound" is the question
+  that answers.
+- `EditSessionDialog` picks a command preset, or neither: `Command` empty with a
+  `Cmd` typed is a command line of its own, and empty with no `Cmd` is whatever
+  `[defaults] agent` names. `Agent` is the daemon's resolved answer and is never
+  written back - it would pin today's default into the file.
 - `EditProjectDialog`'s three path boxes are what the project *adds*; `DoEffective`
   draws the merge - `[sandbox]`, presets, boxes, deduplicated the way `paths()` does,
   then *sorted*. It says *asked for* rather than handed over, because `paths()` drops
@@ -696,9 +737,9 @@ exception, editing mod settings instead.
   goes through to `Dialog_ModSettings`. `bind` and `token` stay in `SlopConfig`
   undrawn: a field missing from `ToJson` is one the next unrelated save resets to its
   serde default.
-- No daemon-wide sandbox switch: it is `ProjectCfg::sandbox` and only that, because
-  `[sandbox] enabled` silently beat every one of those checkboxes. A stale
-  `enabled = true` is ignored on load and dropped on the next save.
+- No sandbox switch anywhere: every agent runs in one, and `ProjectCfg::sandbox` is
+  the preset list. A switch that could be off in one place silently beat every
+  checkbox in the other.
 - `ShortcutsWindow` - Run closes the window on the *answer*, opening a terminal on
   whatever the daemon started; an `ask` errand's Run opens a float menu of every
   project plus a temporary one. A temporary agent draws without Edit or Del, because

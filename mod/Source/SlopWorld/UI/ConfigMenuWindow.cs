@@ -129,9 +129,6 @@ namespace SlopWorld
             l.Label("Agent");
             _cfg.Agent = l.TextEntry(_cfg.Agent);
             l.Gap(2f);
-            l.Label("OpenCode");
-            _cfg.Opencode = l.TextEntry(_cfg.Opencode);
-            l.Gap(2f);
             // What a shell shortcut runs. tmux hands it a pty, so it is interactive
             // without being told to be.
             l.Label("Shell");

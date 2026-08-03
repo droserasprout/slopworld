@@ -1,0 +1,7 @@
+[[sandbox]]
+name = "ssh"
+category = "secret"
+description = "SSH keys, known hosts and the agent socket"
+ro = ["~/.ssh"]
+rw = ["$SSH_AUTH_SOCK"]
+env = ["SSH_AUTH_SOCK"]

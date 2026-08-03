@@ -129,14 +129,8 @@ namespace SlopWorld
             // First, because it is the one thing here about the ground rather than about the
             // sandbox around it.
             if (p.Temp) bits.Add("temporary");
-            if (!p.Sandbox)
-            {
-                bits.Add("unsandboxed");
-                return string.Join(", ", bits.ToArray());
-            }
-            bits.Add("bwrap");
             if (!p.Net) bits.Add("no net");
-            bits.AddRange(p.Presets);
+            bits.AddRange(p.Sandbox);
             int extra = p.RoPaths.Count + p.RwPaths.Count;
             if (extra > 0) bits.Add(extra == 1 ? "+1 bind" : $"+{extra} binds");
             return string.Join(", ", bits.ToArray());
@@ -284,8 +278,6 @@ namespace SlopWorld
             }
 
             l.Gap(6f);
-            l.CheckboxLabeled("Sandbox with bubblewrap", ref _p.Sandbox,
-                "Off means every agent in this project runs with your full user account.");
             l.CheckboxLabeled("Allow network", ref _p.Net);
 
             float used = l.CurHeight;
@@ -295,54 +287,14 @@ namespace SlopWorld
             Widgets.Label(new Rect(r.x, y, r.width, 22f), "Sandbox presets");
             y += 24f;
 
-            var presets = SessionHub.Instance.Presets;
-            if (presets.Count == 0)
-            {
-                GUI.color = Color.gray;
-                Widgets.Label(new Rect(r.x, y, r.width, 22f),
-                    "The daemon has not sent its preset list yet.");
-                GUI.color = Color.white;
-                y += 24f;
-            }
-
-            // One column in a box of its own: the list is as long as whatever the daemon
-            // was built with, and a form that grows with it is one where the path boxes
-            // move every time a preset is added.
-            var sorted = presets.OrderBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            var outer = new Rect(r.x, y, r.width, PresetsH);
-            Widgets.DrawBoxSolid(outer, new Color(0f, 0f, 0f, 0.25f));
-            var pad = outer.ContractedBy(4f);
-            var inner = new Rect(0f, 0f, pad.width - 18f, sorted.Count * 24f);
-
-            Widgets.BeginScrollView(pad, ref _presetScroll, inner);
-            for (int i = 0; i < sorted.Count; i++)
-            {
-                var pr = sorted[i];
-                var cell = new Rect(0f, i * 24f, inner.width, 22f);
-
-                bool on = _p.Presets.Contains(pr.Name);
-                bool was = on;
-                Widgets.CheckboxLabeled(cell, pr.Name, ref on);
-                TooltipHandler.TipRegion(cell,
-                    $"{pr.Description}\n\n{string.Join("\n", pr.Gives.ToArray())}");
-
-                if (on != was)
-                {
-                    if (on) _p.Presets.Add(pr.Name);
-                    else _p.Presets.Remove(pr.Name);
-                }
-            }
-            Widgets.EndScrollView();
+            PresetList.Draw(new Rect(r.x, y, r.width, PresetsH), _p.Sandbox, ref _presetScroll);
             y += PresetsH + 6f;
 
-            // A Claude or OpenCode agent gets its own whether or not it is ticked here, and
-            // saying so is cheaper than the player wondering why ~/.claude is bound.
+            // An agent gets whatever its command preset asks for whether or not it is ticked
+            // here, and saying so is cheaper than the player wondering why ~/.claude is bound.
             GUI.color = new Color(0.65f, 0.66f, 0.68f);
             Widgets.Label(new Rect(r.x, y, r.width, 22f),
-                "Claude Code and OpenCode agents always get the preset of their own name, " +
-                "project or not.");
+                "An agent also gets the presets its command asks for, and any of its own.");
             GUI.color = Color.white;
             y += 26f;
 
@@ -417,7 +369,7 @@ namespace SlopWorld
         {
             var all = new List<string>(baseList);
             foreach (var pr in SessionHub.Instance.Presets)
-                if (_p.Presets.Contains(pr.Name))
+                if (_p.Sandbox.Contains(pr.Name))
                     all.AddRange(pick(pr));
             all.AddRange(own);
 

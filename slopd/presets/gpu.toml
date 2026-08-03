@@ -1,0 +1,5 @@
+[[sandbox]]
+name = "gpu"
+category = "desktop"
+description = "/dev/dri, for rendering and compute"
+dev = ["/dev/dri"]

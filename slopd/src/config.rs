@@ -93,47 +93,37 @@ impl Default for Daemon {
     }
 }
 
+/// Both fields name a *command preset*. What one runs is that preset's file, so this
+/// section says which agent is meant rather than what it is.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Defaults {
-    /// Split on whitespace, no shell involved.
+    /// What an agent that names no command of its own runs.
     pub agent: String,
-    /// Here rather than in every shortcut: which shell this machine has is the machine's
-    /// answer. Bare, because tmux hands it a pty and it is interactive already.
+    /// What a shell errand runs. Here rather than in every shortcut: which shell this
+    /// machine has is the machine's answer.
     #[serde(default = "default_shell")]
     pub shell: String,
-    #[serde(default = "default_opencode")]
-    pub opencode: String,
-    #[serde(default = "default_pi")]
-    pub pi: String,
+}
+
+fn default_agent() -> String {
+    "claude".into()
 }
 
 fn default_shell() -> String {
-    "bash".into()
-}
-
-fn default_opencode() -> String {
-    "opencode".into()
-}
-
-fn default_pi() -> String {
-    "pi".into()
+    "shell".into()
 }
 
 impl Default for Defaults {
     fn default() -> Self {
         Self {
-            agent: "claude".into(),
+            agent: default_agent(),
             shell: default_shell(),
-            opencode: default_opencode(),
-            pi: default_pi(),
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-/// The base every sandbox is built on. No master switch: whether an agent is sandboxed is
-/// `ProjectCfg::sandbox` and only that, a daemon-wide override having silently beaten every
-/// one of those checkboxes.
+/// The base every sandbox is built on. There is no switch: every agent runs in one.
 pub struct Sandbox {
     /// Bound into every sandbox, whatever the project.
     pub ro_paths: Vec<String>,
@@ -183,10 +173,10 @@ pub struct ProjectCfg {
     /// kind is never written here at all; see `ShortcutLink::Temp`.
     #[serde(default)]
     pub temp: bool,
-    /// A name this build has never heard of is ignored with a warning rather than
-    /// refused, because the file outlives the binary.
+    /// Sandbox presets, by name. One this build has no file for is ignored with a warning
+    /// rather than refused, because the files outlive the binary.
     #[serde(default)]
-    pub presets: Vec<String>,
+    pub sandbox: Vec<String>,
     #[serde(default)]
     pub ro_paths: Vec<String>,
     #[serde(default)]
@@ -195,8 +185,6 @@ pub struct ProjectCfg {
     pub pass_env: Vec<String>,
     #[serde(default = "yes")]
     pub net: bool,
-    #[serde(default = "yes")]
-    pub sandbox: bool,
 }
 
 impl Default for ProjectCfg {
@@ -205,76 +193,37 @@ impl Default for ProjectCfg {
             name: String::new(),
             dir: String::new(),
             temp: false,
-            presets: Vec::new(),
+            sandbox: Vec::new(),
             ro_paths: Vec::new(),
             rw_paths: Vec::new(),
             pass_env: Vec::new(),
             net: true,
-            sandbox: true,
         }
     }
 }
 
-/// Claude is a kind rather than a command string because knowing it is Claude is
-/// what lets the sandbox hand it `~/.claude`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum SessionKind {
-    #[default]
-    Claude,
-    Opencode,
-    Pi,
-    Custom,
-}
-
-impl SessionKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Claude => "claude",
-            Self::Opencode => "opencode",
-            Self::Pi => "pi",
-            Self::Custom => "custom",
-        }
-    }
-
-    pub fn preset(self) -> Option<&'static str> {
-        match self {
-            Self::Claude => Some("claude"),
-            Self::Opencode => Some("opencode"),
-            Self::Pi => Some("pi"),
-            Self::Custom => None,
-        }
-    }
-}
-
+/// An agent is a command preset plus this file's answer to it - the same three things a
+/// preset states, in the entry that names one.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SessionCfg {
     pub name: String,
     /// Everything about where it runs and what it can reach comes from there.
     #[serde(default)]
     pub project: String,
+    /// A command preset's name. Empty is `[defaults] agent`, or nothing at all when this
+    /// entry states a `cmd` of its own.
     #[serde(default)]
-    pub kind: SessionKind,
-    /// Read only when `kind` is custom; the Claude kind takes `[defaults] agent`.
+    pub command: String,
+    /// This agent's own answer to what that preset runs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub command: Option<String>,
+    pub cmd: Option<String>,
+    /// Sandbox presets it adds to its command's and its project's.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sandbox: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub env: Vec<String>,
     #[serde(default)]
     pub autostart: bool,
-
-    // Legacy: `Config::migrate` turns each old session into a project on load and clears
-    // these. Skipped when empty, so they leave the file rather than linger as nulls.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub dir: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub net: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sandbox: Option<bool>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rw_paths: Vec<String>,
 }
 
 /// The only thing the two kinds disagree about at the far end: an agent's input
@@ -358,87 +307,7 @@ impl Config {
     }
 
     pub fn parse(text: &str) -> Result<Self> {
-        let mut cfg: Self = toml::from_str(text).context("parsing config.toml")?;
-        cfg.migrate();
-        Ok(cfg)
-    }
-
-    /// Every session shaped the old way gets a project, and two sessions in the same
-    /// directory get the *same* one. Runs on every load, so it has to be idempotent.
-    fn migrate(&mut self) {
-        for i in 0..self.sessions.len() {
-            let dir = self.sessions[i].dir.take().unwrap_or_default();
-            let agent = self.sessions[i].agent.take();
-            let net = self.sessions[i].net.take();
-            let sandbox = self.sessions[i].sandbox.take();
-            let rw = std::mem::take(&mut self.sessions[i].rw_paths);
-
-            if let Some(a) = agent {
-                // A command that was written out is one somebody chose, so it survives as a
-                // custom session.
-                let kind = match a.as_str() {
-                    "pi" => SessionKind::Pi,
-                    _ => SessionKind::Custom,
-                };
-                self.sessions[i].kind = kind;
-                if kind == SessionKind::Custom {
-                    self.sessions[i].command = Some(a);
-                }
-            }
-
-            if !self.sessions[i].project.is_empty() || dir.is_empty() {
-                continue;
-            }
-
-            let net = net.unwrap_or(true);
-            let sandbox = sandbox.unwrap_or(true);
-            let existing = self
-                .projects
-                .iter()
-                .find(|p| p.dir == dir && p.net == net && p.sandbox == sandbox && p.rw_paths == rw)
-                .map(|p| p.name.clone());
-
-            let name = match existing {
-                Some(n) => n,
-                None => {
-                    let name = self.free_project_name(&dir, &self.sessions[i].name);
-                    self.projects.push(ProjectCfg {
-                        name: name.clone(),
-                        dir: dir.clone(),
-                        rw_paths: rw,
-                        net,
-                        sandbox,
-                        ..Default::default()
-                    });
-                    name
-                }
-            };
-            self.sessions[i].project = name;
-        }
-    }
-
-    /// The directory's own last component first, then the session's name, then a
-    /// number.
-    fn free_project_name(&self, dir: &str, session: &str) -> String {
-        let base = dir
-            .trim_end_matches('/')
-            .rsplit('/')
-            .next()
-            .filter(|s| !s.is_empty())
-            .unwrap_or(session)
-            .to_string();
-
-        let taken = |n: &str| self.projects.iter().any(|p| p.name == n);
-        if !taken(&base) {
-            return base;
-        }
-        if !taken(session) {
-            return session.to_string();
-        }
-        (2..)
-            .map(|i| format!("{base}-{i}"))
-            .find(|n| !taken(n))
-            .unwrap()
+        toml::from_str(text).context("parsing config.toml")
     }
 
     pub fn save(&self, path: &Path) -> Result<()> {
@@ -477,30 +346,31 @@ impl Config {
         self.shortcuts.iter().find(|s| s.name == name)
     }
 
-    /// A prompt shortcut with no command comes out a *Claude* session rather than a custom
-    /// one running `[defaults] agent`: the kind is what hands the sandbox `~/.claude`. The
-    /// project is handed in, the entry being allowed not to name one.
+    /// A prompt shortcut with no command comes out an agent running the *preset*
+    /// `[defaults] agent` names, rather than that preset's command line: the preset is what
+    /// hands the sandbox `~/.claude`. An errand naming a preset gets it; one naming a
+    /// command line runs that. The project is handed in, the entry being allowed not to
+    /// name one.
     pub fn session_for(&self, sc: &ShortcutCfg, name: String, project: String) -> SessionCfg {
-        let (kind, command) = match sc.kind {
-            ShortcutKind::Prompt => match sc.command.as_deref().map(str::trim) {
-                Some(c) if !c.is_empty() => (SessionKind::Custom, Some(c.to_string())),
-                _ => (SessionKind::Claude, None),
-            },
-            ShortcutKind::Shell => {
-                let c = sc
-                    .command
-                    .as_deref()
-                    .map(str::trim)
-                    .filter(|c| !c.is_empty())
-                    .unwrap_or(&self.defaults.shell);
-                (SessionKind::Custom, Some(c.to_string()))
-            }
+        let t = crate::presets::table();
+        let own = sc.command.as_deref().map(str::trim).filter(|c| !c.is_empty());
+        let known = own.filter(|c| t.command(c).is_some());
+
+        let (command, cmd) = match (sc.kind, known, own) {
+            (_, Some(preset), _) => (preset.to_string(), None),
+            (ShortcutKind::Prompt, None, Some(line)) => (String::new(), Some(line.to_string())),
+            (ShortcutKind::Prompt, None, None) => (self.command_name(&SessionCfg::default()), None),
+            // The shell preset, so a line typed on the errand still runs in one.
+            (ShortcutKind::Shell, None, line) => (
+                self.defaults.shell.trim().to_string(),
+                line.map(str::to_string),
+            ),
         };
         SessionCfg {
             name,
             project,
-            kind,
             command,
+            cmd,
             ..Default::default()
         }
     }
@@ -511,17 +381,50 @@ impl Config {
         self.project(&s.project)
     }
 
-    pub fn command_of(&self, s: &SessionCfg) -> String {
-        match s.kind {
-            SessionKind::Custom => s
-                .command
-                .clone()
-                .filter(|c| !c.trim().is_empty())
-                .unwrap_or_else(|| self.defaults.agent.clone()),
-            SessionKind::Claude => self.defaults.agent.clone(),
-            SessionKind::Opencode => self.defaults.opencode.clone(),
-            SessionKind::Pi => self.defaults.pi.clone(),
+    /// The command preset a session runs under, by name. Empty when it states a command
+    /// line of its own: an agent that named no preset is not handed one, which is what
+    /// keeps `~/.claude` off a session running something else.
+    pub fn command_name(&self, s: &SessionCfg) -> String {
+        let own = s.command.trim();
+        if !own.is_empty() {
+            return own.to_string();
         }
+        if s.cmd.as_deref().map(str::trim).is_some_and(|c| !c.is_empty()) {
+            return String::new();
+        }
+        match self.defaults.agent.trim() {
+            "" => default_agent(),
+            a => a.to_string(),
+        }
+    }
+
+    /// As it will be exec'd: the entry's own answer, else its command preset's. Empty when
+    /// it names a preset there is no file for, which `start` refuses rather than guesses at.
+    pub fn command_of(&self, s: &SessionCfg) -> String {
+        if let Some(c) = s.cmd.as_deref().map(str::trim).filter(|c| !c.is_empty()) {
+            return c.to_string();
+        }
+        crate::presets::table()
+            .command(&self.command_name(s))
+            .map(|c| c.cmd.clone())
+            .unwrap_or_default()
+    }
+
+    /// Its command preset's sandbox presets, the project's, then its own, first mention
+    /// winning the way `paths()` deduplicates.
+    pub fn sandbox_of(&self, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
+        let t = crate::presets::table();
+        let mut names: Vec<String> = t
+            .command(&self.command_name(s))
+            .map(|c| c.sandbox.clone())
+            .unwrap_or_default();
+
+        for n in p.sandbox.iter().chain(s.sandbox.iter()) {
+            if !names.contains(n) {
+                names.push(n.clone());
+            }
+        }
+        names
     }
 }
 
@@ -594,12 +497,12 @@ pub fn expand(path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{temp_dir, Config, SessionKind, ShortcutCfg, ShortcutKind, ShortcutLink};
+    use super::{temp_dir, Config, ShortcutCfg, ShortcutKind, ShortcutLink};
 
-    /// The file on disk outlives any one build, and a redeploy that refused to start
-    /// would take the agents' only supervisor with it.
+    /// A field this build added is one an existing file does not have, and a redeploy
+    /// that refused to start would take the agents' only supervisor with it.
     #[test]
-    fn older_config_keeps_loading() {
+    fn missing_fields_take_their_defaults() {
         let cfg = Config::parse(
             r#"
             [daemon]
@@ -618,55 +521,19 @@ mod tests {
         assert_eq!(cfg.daemon.usage_poll_secs, 60);
         assert_eq!(cfg.daemon.claude_credentials, "~/.claude/.credentials.json");
         assert!(cfg.shortcuts.is_empty());
-        assert_eq!(cfg.defaults.shell, "bash");
+        assert_eq!(cfg.defaults.agent, "claude");
+        assert_eq!(cfg.defaults.shell, "shell");
     }
 
-    /// A config written before `[sandbox] enabled` went still has the key: ignored on the way
-    /// in rather than refused, and gone on the way back out.
-    #[test]
-    fn stale_sandbox_switch_is_ignored() {
-        let cfg = Config::parse(
-            r#"
-            [daemon]
-            bind = "127.0.0.1:7717"
-            tmux_socket = "slopworld"
-            poll_ms = 80
-
-            [sandbox]
-            enabled = false
-            ro_paths = ["/usr"]
-            rw_paths = []
-            pass_env = ["PATH"]
-
-            [[project]]
-            name = "p"
-            dir = "/tmp/p"
-            "#,
-        )
-        .expect("a config with the old switch should still parse");
-
-        assert_eq!(cfg.sandbox.ro_paths, vec!["/usr".to_string()]);
-
-        let out = toml::to_string_pretty(&cfg).expect("should serialise");
-        assert!(
-            !out.contains("enabled"),
-            "the dead switch should not be written back:\n{out}"
-        );
-
-        // And the project's own answer is the only one left: an unsandboxed project is
-        // unsandboxed, a sandboxed one is sandboxed, whatever that key said.
-        assert!(cfg.projects[0].sandbox);
-    }
-
-    /// A prompt shortcut that names no command has to come out a *Claude* session: the
-    /// kind is what hands the sandbox ~/.claude.
+    /// A prompt shortcut that names no command comes out running the preset
+    /// `[defaults] agent` names: a preset is what hands the sandbox ~/.claude.
     #[test]
     fn shortcuts_become_sessions() {
         let cfg = Config::parse(
             r#"
             [defaults]
-            agent = "claude --model opus"
-            shell = "fish"
+            agent = "pi"
+            shell = "shell"
 
             [[shortcut]]
             name = "review diff"
@@ -690,18 +557,23 @@ mod tests {
 
         let sc = cfg.shortcut("review diff").unwrap();
         let prompt = cfg.session_for(sc, "review-diff".into(), sc.project.clone());
-        assert_eq!(prompt.kind, SessionKind::Claude);
-        assert_eq!(prompt.command, None);
-        assert_eq!(cfg.command_of(&prompt), "claude --model opus");
+        // The preset this machine calls its default, rather than that preset's command.
+        assert_eq!(prompt.command, "pi");
+        assert_eq!(prompt.cmd, None);
+        assert_eq!(cfg.command_of(&prompt), "pi");
+        assert_eq!(cfg.sandbox_of(&prompt, &Default::default()), vec!["pi"]);
         assert_eq!(prompt.project, "slopworld");
 
         let shell = cfg.session_for(cfg.shortcut("tests").unwrap(), "tests".into(), "x".into());
-        assert_eq!(shell.kind, SessionKind::Custom);
-        assert_eq!(cfg.command_of(&shell), "fish");
+        assert_eq!(shell.command, "shell");
+        assert_eq!(cfg.command_of(&shell), "bash");
 
+        // A command line rather than a preset name: run as it stands, and handed no
+        // agent's state directory.
         let custom = cfg.session_for(cfg.shortcut("codex").unwrap(), "codex".into(), "x".into());
-        assert_eq!(custom.kind, SessionKind::Custom);
+        assert_eq!(custom.command, "");
         assert_eq!(cfg.command_of(&custom), "codex --yolo");
+        assert!(cfg.sandbox_of(&custom, &Default::default()).is_empty());
 
         // The place is the caller's answer and not the entry's, which is what lets one
         // errand be run somewhere it never named.
@@ -789,68 +661,6 @@ mod tests {
         assert_eq!(sc.kind, ShortcutKind::Shell);
         assert_eq!(sc.text, "make test");
         assert!(sc.command.is_none());
-    }
-
-    /// A file written when a session *was* a directory keeps its agents, and two sessions in
-    /// the same directory share a project.
-    #[test]
-    fn sessions_with_dirs_become_projects() {
-        let cfg = Config::parse(
-            r#"
-            [[session]]
-            name = "alpha"
-            dir = "/home/you/git/slopworld"
-
-            [[session]]
-            name = "beta"
-            dir = "/home/you/git/slopworld"
-
-            [[session]]
-            name = "gamma"
-            dir = "/home/you/git/other"
-            agent = "codex --yolo"
-            net = false
-            "#,
-        )
-        .expect("an old config should parse");
-
-        assert_eq!(cfg.projects.len(), 2);
-        assert_eq!(cfg.session("alpha").unwrap().project, "slopworld");
-        assert_eq!(cfg.session("beta").unwrap().project, "slopworld");
-        assert_eq!(cfg.session("gamma").unwrap().project, "other");
-
-        // The flags followed the directory into the project.
-        assert!(cfg.project("slopworld").unwrap().net);
-        assert!(!cfg.project("other").unwrap().net);
-
-        // A command somebody wrote out is a custom session; one that never set one is
-        // what "Claude Code" means.
-        assert_eq!(cfg.session("alpha").unwrap().kind, SessionKind::Claude);
-        assert_eq!(cfg.session("gamma").unwrap().kind, SessionKind::Custom);
-        assert_eq!(
-            cfg.command_of(cfg.session("gamma").unwrap()),
-            "codex --yolo"
-        );
-        assert_eq!(cfg.command_of(cfg.session("alpha").unwrap()), "claude");
-    }
-
-    /// Migration runs on every load, including of a file it wrote itself.
-    #[test]
-    fn migration_is_idempotent() {
-        let once = Config::parse(
-            r#"
-            [[session]]
-            name = "alpha"
-            dir = "/home/you/git/slopworld"
-            "#,
-        )
-        .unwrap();
-        let twice = Config::parse(&toml::to_string_pretty(&once).unwrap()).unwrap();
-
-        assert_eq!(twice.projects.len(), 1);
-        assert_eq!(twice.session("alpha").unwrap().project, "slopworld");
-        // The legacy fields left the file rather than lingering as empties.
-        assert!(twice.session("alpha").unwrap().dir.is_none());
     }
 
     #[test]

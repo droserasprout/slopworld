@@ -1,0 +1,7 @@
+[[sandbox]]
+name = "dbus"
+category = "service"
+description = "session and system message bus"
+ro = ["/run/dbus/system_bus_socket"]
+rw = ["$XDG_RUNTIME_DIR/bus"]
+env = ["DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"]

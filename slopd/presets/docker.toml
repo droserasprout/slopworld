@@ -1,0 +1,6 @@
+[[sandbox]]
+name = "docker"
+category = "container"
+description = "the Docker daemon's socket"
+rw = ["/var/run/docker.sock"]
+env = ["DOCKER_HOST"]

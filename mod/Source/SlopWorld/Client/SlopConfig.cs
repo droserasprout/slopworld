@@ -28,10 +28,10 @@ namespace SlopWorld
         // Where the daemon looks for Claude Code's OAuth token.
         public string ClaudeCredentials = "~/.claude/.credentials.json";
 
+        // Both name a command preset: what an agent that names none of its own runs, and
+        // what a shell errand runs. What each one *is* is a TOML file the daemon reads.
         public string Agent = "claude";
-        // A per-machine answer, which is why it is here rather than in every shortcut.
-        public string Shell = "bash";
-        public string Opencode = "opencode";
+        public string Shell = "shell";
 
         // The base every sandbox gets. Whether an agent is sandboxed at all is the
         // project's checkbox and nothing else's.
@@ -58,8 +58,7 @@ namespace SlopWorld
                     d["claude_credentials"].AsString("~/.claude/.credentials.json"),
 
                 Agent = f["agent"].AsString("claude"),
-                Shell = f["shell"].AsString("bash"),
-                Opencode = f["opencode"].AsString("opencode"),
+                Shell = f["shell"].AsString("shell"),
 
                 RoPaths = Strings(s["ro_paths"]),
                 RwPaths = Strings(s["rw_paths"]),
@@ -78,8 +77,7 @@ namespace SlopWorld
             $"\"usage\":{JVal.B(Usage)},\"usage_poll_secs\":{UsagePollSecs}," +
             $"\"claude_credentials\":{JVal.Q(ClaudeCredentials)}}}," +
             "\"defaults\":{" +
-            $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}," +
-            $"\"opencode\":{JVal.Q(Opencode)}}}," +
+            $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}}}," +
             "\"sandbox\":{" +
             $"\"ro_paths\":{Arr(RoPaths)},\"rw_paths\":{Arr(RwPaths)}," +
             $"\"pass_env\":{Arr(PassEnv)}}}}}";

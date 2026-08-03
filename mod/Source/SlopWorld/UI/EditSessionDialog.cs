@@ -15,11 +15,9 @@ namespace SlopWorld
         readonly SessionInfo _s;
         // The edit is addressed to it, and a changed name in the field is a rename.
         readonly string _origName;
-        // Shown greyed in the command box, so the field is never blank and never a lie.
-        string _default = "claude";
-        string _defaultOpencode = "opencode";
-        string _defaultPi = "pi";
         string _env;
+        Vector2 _presetScroll;
+        const float PresetsH = 132f;
 
         // For the title. Null unless it is a duplicate: an edit already has `_origName`.
         readonly string _copiedFrom;
@@ -44,12 +42,14 @@ namespace SlopWorld
             _origName = copy ? "" : (existing?.Name ?? "");
             _copiedFrom = copy ? existing.Name : null;
             _s = existing == null
-                ? new SessionInfo { Name = "", Project = project ?? "", Kind = AgentKind.Claude }
+                ? new SessionInfo { Name = "", Project = project ?? "" }
                 : new SessionInfo
                 {
                     Name = copy ? FreeName(existing.Name) : existing.Name,
                     Project = existing.Project,
-                    Kind = existing.Kind,
+                    Command = existing.Command,
+                    Cmd = existing.Cmd,
+                    Sandbox = new List<string>(existing.Sandbox),
                     Agent = existing.Agent,
                     Autostart = existing.Autostart,
                     Env = new List<string>(existing.Env),
@@ -57,33 +57,22 @@ namespace SlopWorld
 
             _env = string.Join("\n", _s.Env.ToArray());
 
-            // Every Claude session resolves to the same command, so any will do as the
-            // placeholder, and the same is true of every OpenCode one.
-            var claude = SessionHub.Instance.Sessions
-                .FirstOrDefault(s => s.Kind == AgentKind.Claude && !string.IsNullOrEmpty(s.Agent));
-            if (claude != null) _default = claude.Agent;
-
-            var oc = SessionHub.Instance.Sessions
-                .FirstOrDefault(s => s.Kind == AgentKind.Opencode && !string.IsNullOrEmpty(s.Agent));
-            if (oc != null) _defaultOpencode = oc.Agent;
-
-            var pi = SessionHub.Instance.Sessions
-                .FirstOrDefault(s => s.Kind == AgentKind.Pi && !string.IsNullOrEmpty(s.Agent));
-            if (pi != null) _defaultPi = pi.Agent;
-
             doCloseX = true;
             absorbInputAroundWindow = true;
             closeOnClickedOutside = false;
             closeOnAccept = false;
 
             SessionHub.Instance.RefreshProjects();
+            // Both tables are files the daemon reads, so they are asked for on every open
+            // rather than once per process.
+            SessionHub.Instance.LoadPresets();
         }
 
-        public override Vector2 InitialSize => new Vector2(560f, 560f);
+        public override Vector2 InitialSize => new Vector2(560f, 720f);
 
         public override void DoWindowContents(Rect rect)
         {
-            var l = new Listing_Standard();
+            var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
             Text.Font = GameFont.Medium;
@@ -110,42 +99,48 @@ namespace SlopWorld
                     : "");
             GUI.color = Color.white;
 
+            var preset = SessionHub.Instance.Command(_s.Command);
+
             l.Gap(4f);
             l.Label("Command");
-            if (l.ButtonText(KindLabel(_s.Kind)))
-                PickKind();
+            if (l.ButtonText(CommandLabel(preset)))
+                PickCommand();
 
-            // Greyed rather than hidden: a Claude session runs something, and this is what.
-            bool custom = _s.Kind == AgentKind.Custom;
-            var box = l.GetRect(28f);
-            if (custom)
-            {
-                _s.Agent = Widgets.TextField(box, _s.Agent ?? "");
-            }
-            else
-            {
-                GUI.color = new Color(1f, 1f, 1f, 0.4f);
-                string placeholder = _s.Kind == AgentKind.Opencode ? _defaultOpencode
-                    : _s.Kind == AgentKind.Pi ? _defaultPi
-                    : _default;
-                Widgets.TextField(box, placeholder);
-                GUI.color = Color.white;
-            }
+            // Editable whichever it is: a preset says what an agent is, and this box says
+            // what this one runs, which is the same field either way.
+            _s.Cmd = l.TextEntry(_s.Cmd ?? "");
+            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            l.Label(CommandNote(preset));
+            GUI.color = Color.white;
 
-            l.Gap(6f);
-            l.Label("Environment variables (overrides)");
-            var env = l.GetRect(96f);
+            float used = l.CurHeight;
+            l.End();
+
+            float y = rect.y + used + 8f;
+            Widgets.Label(new Rect(rect.x, y, rect.width, 22f), "Extra sandbox presets");
+            y += 24f;
+
+            // Its command's are ticked and refused here; its project's are the project's to
+            // edit. What is left is what this one agent adds.
+            PresetList.Draw(new Rect(rect.x, y, rect.width, PresetsH), _s.Sandbox,
+                ref _presetScroll, preset != null ? preset.Sandbox : null);
+            y += PresetsH + 8f;
+
+            var rest = new Listing_Standard { maxOneColumn = true };
+            rest.Begin(new Rect(rect.x, y, rect.width, rect.yMax - y - 40f));
+
+            rest.Label("Environment variables (overrides)");
+            var env = rest.GetRect(96f);
             Widgets.DrawBoxSolid(env, new Color(0f, 0f, 0f, 0.25f));
             _env = Widgets.TextArea(env.ContractedBy(4f), _env ?? "");
             GUI.color = new Color(0.65f, 0.66f, 0.68f);
-            l.Label("One KEY=VALUE a line. Set last of all, so these beat the project's " +
-                    "passed variables and any preset's own.");
+            rest.Label("One KEY=VALUE a line. Set last of all, so these beat the project's " +
+                       "passed variables and any preset's own.");
             GUI.color = Color.white;
 
-            l.Gap(6f);
-            l.CheckboxLabeled("Start with the daemon", ref _s.Autostart);
-
-            l.End();
+            rest.Gap(6f);
+            rest.CheckboxLabeled("Start with the daemon", ref _s.Autostart);
+            rest.End();
 
             var bar = new Rect(rect.x, rect.yMax - 36f, rect.width, 32f);
             if (Widgets.ButtonText(new Rect(bar.x, bar.y, 120f, 32f), "Cancel"))
@@ -189,26 +184,49 @@ namespace SlopWorld
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        static string KindLabel(AgentKind k)
+        // The three states this pair of fields can be in: a command preset, a command line
+        // of its own, or neither, which is whatever the daemon's `[defaults] agent` names.
+        string CommandLabel(CommandInfo preset)
         {
-            switch (k)
-            {
-                case AgentKind.Custom: return "Custom";
-                case AgentKind.Opencode: return "OpenCode";
-                case AgentKind.Pi: return "pi";
-                default: return "Claude Code";
-            }
+            if (preset != null) return preset.Name;
+            if (!string.IsNullOrEmpty(_s.Command)) return _s.Command + " (unknown here)";
+            return string.IsNullOrEmpty((_s.Cmd ?? "").Trim()) ? "Default" : "Command line";
         }
 
-        void PickKind()
+        string CommandNote(CommandInfo preset)
         {
-            Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
+            if (preset != null)
             {
-                new FloatMenuOption("Claude Code", () => _s.Kind = AgentKind.Claude),
-                new FloatMenuOption("OpenCode", () => _s.Kind = AgentKind.Opencode),
-                new FloatMenuOption("pi", () => _s.Kind = AgentKind.Pi),
-                new FloatMenuOption("Custom", () => _s.Kind = AgentKind.Custom),
-            }));
+                string sandbox = preset.Sandbox.Count > 0
+                    ? "  Sandbox: " + string.Join(", ", preset.Sandbox.ToArray()) + "."
+                    : "";
+                return $"Blank runs '{preset.Cmd}'.{sandbox}";
+            }
+            if (!string.IsNullOrEmpty((_s.Cmd ?? "").Trim()))
+                return "A command line of its own, so no agent's state directory comes with it.";
+            return !string.IsNullOrEmpty(_s.Agent)
+                ? $"Blank runs the daemon's default, which is '{_s.Agent}'."
+                : "Blank runs the daemon's default agent.";
+        }
+
+        void PickCommand()
+        {
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Default", () => { _s.Command = ""; _s.Cmd = ""; }),
+            };
+
+            // Named by the daemon rather than listed here, so a command file dropped in its
+            // preset directory is an entry in this menu and nothing to rebuild.
+            foreach (var c in SessionHub.Instance.Commands)
+            {
+                var pick = c;
+                options.Add(new FloatMenuOption($"{pick.Name}  -  {pick.Cmd}",
+                    () => _s.Command = pick.Name));
+            }
+
+            options.Add(new FloatMenuOption("Command line...", () => _s.Command = ""));
+            Find.WindowStack.Add(new FloatMenu(options));
         }
 
         void Save()
@@ -230,13 +248,6 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(_s.Name) || string.IsNullOrEmpty(_s.Project))
             {
                 Messages.Message("SlopWorld: name and project are required.",
-                    MessageTypeDefOf.RejectInput, false);
-                return;
-            }
-
-            if (_s.Kind == AgentKind.Custom && string.IsNullOrEmpty((_s.Agent ?? "").Trim()))
-            {
-                Messages.Message("SlopWorld: a custom agent needs a command.",
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }

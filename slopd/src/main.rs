@@ -4,6 +4,7 @@ mod config;
 mod emu;
 mod game;
 mod open;
+mod presets;
 mod sandbox;
 mod session;
 mod tmux;
@@ -35,6 +36,15 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| Config::path());
     let cfg = Config::load(&cfg_path)?;
     tracing::info!("config: {}", cfg_path.display());
+
+    let table = presets::table();
+    tracing::info!(
+        "presets: {} sandbox, {} command, user files from {}",
+        table.sandbox.len(),
+        table.commands.len(),
+        presets::Table::dir().display()
+    );
+    drop(table);
 
     let bind = cfg.daemon.bind.clone();
     let poll_ms = cfg.daemon.poll_ms.max(20);

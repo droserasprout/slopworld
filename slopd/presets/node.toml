@@ -1,0 +1,6 @@
+[[sandbox]]
+name = "node"
+category = "dev"
+description = "npm, pnpm and nvm caches"
+rw = ["~/.npm", "~/.cache/node-gyp", "~/.nvm", "~/.local/share/pnpm"]
+env = ["NPM_CONFIG_PREFIX"]

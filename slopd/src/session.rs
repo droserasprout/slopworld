@@ -43,9 +43,15 @@ pub struct SessionView {
     /// project that has gone.
     pub project: String,
     pub dir: String,
-    /// Whether the sandbox hands it Claude Code's own state dir.
-    pub kind: String,
-    /// As it will actually be exec'd, defaults resolved.
+    /// The command preset it runs under, which is also what hands its sandbox that
+    /// agent's own state directory. Empty when the entry states a command line instead.
+    pub command: String,
+    /// This agent's own answer to what that preset runs, sent back so an edit round-trips
+    /// it rather than quietly clearing it.
+    pub cmd: Option<String>,
+    /// Sandbox presets this agent adds to its command's and its project's.
+    pub sandbox: Vec<String>,
+    /// As it will actually be exec'd, preset and defaults resolved.
     pub agent: String,
     pub state: State,
     pub alive: bool,
@@ -53,7 +59,6 @@ pub struct SessionView {
     pub cols: u16,
     pub rows: u16,
     pub net: bool,
-    pub sandbox: bool,
     pub env: Vec<String>,
     /// Sent so an edit round-trips it instead of quietly clearing it.
     pub autostart: bool,
@@ -192,6 +197,9 @@ pub struct Manager {
     rules: RwLock<Vec<(State, Regex)>>,
     /// Anything else means someone edited the file behind us.
     cfg_mtime: Mutex<Option<SystemTime>>,
+    /// The preset directory is watched on the same terms: the newest mtime in it, so a
+    /// file added, edited or deleted all read as a change.
+    presets_mtime: Mutex<Option<SystemTime>>,
     /// So the retick doesn't stat the file eighty times a second.
     cfg_checked: Mutex<u64>,
     /// Here rather than in the poller, so a client connecting between polls has something
@@ -326,8 +334,16 @@ fn check_project(p: &ProjectCfg) -> Result<()> {
     if p.dir.trim().is_empty() {
         bail!("project {} needs a directory", p.name);
     }
-    for name in &p.presets {
-        if crate::sandbox::preset(name).is_none() {
+    check_presets(&p.sandbox)?;
+    Ok(())
+}
+
+/// Refused where it is typed, unlike a name read off the file, which is warned about and
+/// dropped: the dialog that made the mistake is the one place it can be fixed.
+fn check_presets(names: &[String]) -> Result<()> {
+    let t = crate::presets::table();
+    for name in names {
+        if t.sandbox(name).is_none() {
             bail!("unknown sandbox preset: {name}");
         }
     }
@@ -380,6 +396,7 @@ fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
     if cfg.project(&s.project).is_none() {
         bail!("no such project: {}", s.project);
     }
+    check_presets(&s.sandbox)?;
     check_env(s)
 }
 
@@ -409,6 +426,7 @@ impl Manager {
             temp: RwLock::new(HashMap::new()),
             cfg: RwLock::new(cfg),
             cfg_mtime: Mutex::new(mtime),
+            presets_mtime: Mutex::new(crate::presets::dir_stamp()),
             cfg_checked: Mutex::new(0),
             usage: RwLock::new(crate::usage::Snapshot::default()),
             clients: AtomicUsize::new(0),
@@ -481,7 +499,27 @@ impl Manager {
             }
             *last = now;
         }
+        self.reload_presets_if_changed().await;
         self.reload_if_changed().await;
+    }
+
+    /// A preset is what a session runs and what its sandbox is handed, so a table that
+    /// moved changes every row the mod is drawing.
+    pub async fn reload_presets_if_changed(self: &Arc<Self>) -> bool {
+        let disk = crate::presets::dir_stamp();
+        {
+            let mut seen = self.presets_mtime.lock().unwrap();
+            if *seen == disk {
+                return false;
+            }
+            *seen = disk;
+        }
+        tracing::info!("presets changed on disk, reloading");
+        crate::presets::reload();
+        let _ = self.events.send(Event::Sessions {
+            sessions: self.views().await,
+        });
+        true
     }
 
     /// The delay is the mod's estimate of its own shutdown: slopd has no handle on the game
@@ -744,6 +782,11 @@ impl Manager {
 
         if self.tmux.exists(name).await {
             bail!("session {name} is already running");
+        }
+        // Before the directory is made: a name with no preset file behind it is a typo to
+        // report, not a scratch directory to conjure up and an empty argv to hand tmux.
+        if cfg.command_of(&s).trim().is_empty() {
+            bail!("session {name} names command preset {:?}, which has no file", s.command);
         }
         let dir = expand(&p.dir);
         // A temporary project's directory is coined from its name, so the first agent to start
@@ -1259,9 +1302,18 @@ impl Manager {
                 bail!("tmux socket name must not be empty");
             }
         }
+        // Both name command presets, and a name with no file behind it is a typo refused
+        // where it was typed rather than an agent that will not start later.
         if let Some(d) = &defaults {
-            if d.agent.trim().is_empty() {
-                bail!("default agent command must not be empty");
+            let t = crate::presets::table();
+            for (field, name) in [("agent", &d.agent), ("shell", &d.shell)] {
+                let name = name.trim();
+                if name.is_empty() {
+                    bail!("the default {field} must name a command preset");
+                }
+                if t.command(name).is_none() {
+                    bail!("unknown command preset: {name}");
+                }
             }
         }
 
@@ -1307,14 +1359,15 @@ impl Manager {
                     name: l.cfg.name.clone(),
                     project: l.cfg.project.clone(),
                     dir: p.map(|p| p.dir.clone()).unwrap_or_default(),
-                    kind: l.cfg.kind.as_str().into(),
+                    command: l.cfg.command.clone(),
+                    cmd: l.cfg.cmd.clone(),
+                    sandbox: l.cfg.sandbox.clone(),
                     agent: cfg.command_of(&l.cfg),
                     state: l.state,
                     alive: l.state != State::Down,
                     cols: l.cols,
                     rows: l.rows,
                     net: p.map(|p| p.net).unwrap_or(true),
-                    sandbox: p.map(|p| p.sandbox).unwrap_or(true),
                     env: l.cfg.env.clone(),
                     autostart: l.cfg.autostart,
                     ephemeral: l.ephemeral,

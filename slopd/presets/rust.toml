@@ -1,0 +1,6 @@
+[[sandbox]]
+name = "rust"
+category = "dev"
+description = "cargo and rustup, with their shared registry cache"
+rw = ["~/.cargo", "~/.rustup"]
+env = ["CARGO_HOME", "RUSTUP_HOME"]
