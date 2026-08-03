@@ -10,9 +10,52 @@ namespace SlopWorld
     // geometry.
     public static class RobotFace
     {
+        // Each variant is a separate texture set (south + east) so the colour lives in the
+        // PNG rather than in a shader parameter. RimWorld's texture loader caches by path, so
+        // the per-pawn texPath is the only thing that changes.
+        public enum EyeColor
+        {
+            Blue,
+            Red,
+            Green,
+            Purple,
+            Yellow,
+            White,
+            Missing, // two void holes where the eyes would be
+        }
+
+        // TexPath prefix for each variant. RimWorld appends _south, _east etc.
+        static readonly Dictionary<EyeColor, string> TexPaths = new Dictionary<EyeColor, string>
+        {
+            { EyeColor.Blue,    "SlopWorld/RobotFace_Blue" },
+            { EyeColor.Red,     "SlopWorld/RobotFace_Red" },
+            { EyeColor.Green,   "SlopWorld/RobotFace_Green" },
+            { EyeColor.Purple,  "SlopWorld/RobotFace_Purple" },
+            { EyeColor.Yellow,  "SlopWorld/RobotFace_Yellow" },
+            { EyeColor.White,   "SlopWorld/RobotFace_White" },
+            { EyeColor.Missing, "SlopWorld/RobotFace_Missing" },
+        };
+
+        // More common colours are weighted higher, so the colony's default palette reads as
+        // working machines. Missing is rare: a story beat rather than an everyday look.
+        struct Weighted { public EyeColor Color; public float Weight; }
+        static readonly Weighted[] ColorWeights =
+        {
+            new Weighted { Color = EyeColor.Blue,    Weight = 30f },
+            new Weighted { Color = EyeColor.Red,     Weight = 15f },
+            new Weighted { Color = EyeColor.Green,   Weight = 15f },
+            new Weighted { Color = EyeColor.Purple,  Weight = 12f },
+            new Weighted { Color = EyeColor.Yellow,  Weight = 10f },
+            new Weighted { Color = EyeColor.White,   Weight =  8f },
+            new Weighted { Color = EyeColor.Missing, Weight = 10f },
+ };
+
+        // Per-pawn assignment, stable across saves for the life of the pawn. Keyed on
+        // thingIDNumber because it survives a spawn cycle.
+        static readonly Dictionary<int, EyeColor> _eyeColors = new Dictionary<int, EyeColor>();
+
         // No _north: a faceplate has no back, and the node below hides on that facing. _west is
         // Graphic_Multi's mirror of _east.
-        public const string TexPath = "SlopWorld/RobotFace";
 
         // The plate's edge is a fixed line across the brow, so a cut whose hairline sits above
         // it leaves bare skin. By defName rather than through a DefOf, so a name this game does
@@ -35,6 +78,31 @@ namespace SlopWorld
                 return;
             }
             // Out of tries: a scalp is better than the null hair a blank would be.
+        }
+
+        // Assigns an eye colour to the pawn, once. Called at generation time; the colour is
+        // stable for the pawn's life.
+        public static void Assign(Pawn pawn)
+        {
+            if (pawn == null) return;
+            if (_eyeColors.ContainsKey(pawn.thingIDNumber)) return;
+
+            var color = ColorWeights.RandomElementByWeight(p => p.Weight).Color;
+            _eyeColors[pawn.thingIDNumber] = color;
+        }
+
+        // Returns the eye colour assigned to this pawn, or the default (Blue) if unassigned.
+        public static EyeColor ColorOf(Pawn pawn)
+        {
+            if (pawn == null) return EyeColor.Blue;
+            return _eyeColors.TryGetValue(pawn.thingIDNumber, out var c) ? c : EyeColor.Blue;
+        }
+
+        // The texPath for this pawn's eye colour, falling back to Blue if unassigned.
+        public static string TexPathFor(Pawn pawn)
+        {
+            var color = ColorOf(pawn);
+            return TexPaths.TryGetValue(color, out var path) ? path : TexPaths[EyeColor.Blue];
         }
 
         // The one thing that would draw over the plate - beards hang on a render node
@@ -71,7 +139,7 @@ namespace SlopWorld
                 // vanilla hair is drawn on, so the plate lands in the same frame as the hair
                 // for this head type and needs no size of its own.
                 nodeClass = typeof(PawnRenderNode_AttachmentHead),
-                texPath = RobotFace.TexPath,
+                texPath = RobotFace.TexPathFor(pawn),
                 parentTagDef = PawnRenderNodeTagDefOf.Head,
                 // The plate arrives painted; on the skin shader it would change colour with
                 // the pawn under it.
