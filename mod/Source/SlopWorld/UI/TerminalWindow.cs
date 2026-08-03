@@ -957,12 +957,30 @@ namespace SlopWorld
             switch (e.type)
             {
                 case EventType.MouseDown:
+                {
                     if (!body.Contains(e.mousePosition)) return;
-                    _selA = _selB = CellAt(body, e.mousePosition);
+                    var cell = CellAt(body, e.mousePosition);
+
+                    if (e.clickCount >= 3)
+                    {
+                        TripleClickSelect(cell.y);
+                        e.Use();
+                        return;
+                    }
+
+                    if (e.clickCount == 2)
+                    {
+                        DoubleClickSelect(cell);
+                        e.Use();
+                        return;
+                    }
+
+                    _selA = _selB = cell;
                     _dragging = true;
                     _hasSel = false;
                     e.Use();
                     return;
+                }
 
                 case EventType.MouseDrag:
                     if (!_dragging) return;
@@ -1037,6 +1055,56 @@ namespace SlopWorld
             _hasSel = false;
             _dragging = false;
         }
+
+        // Both ends inclusive, the way a dragged selection states them.
+        void SelectSpan(int row, int c0, int c1)
+        {
+            _selA = new Vector2Int(c0, row);
+            _selB = new Vector2Int(c1, row);
+            _hasSel = true;
+            _dragging = false;
+            CopySelection();
+        }
+
+        // A word, or the run of identical characters a non-word cell sits in.
+        void DoubleClickSelect(Vector2Int cell)
+        {
+            var buf = DisplayedBuf();
+            if (buf == null) return;
+            EnsureRuns(buf);
+            if (cell.y < 0 || cell.y >= buf.Runs.Length) return;
+
+            string line = RowText(buf, cell.y);
+            int len = ContentLen(line);
+            if (cell.x < 0 || cell.x >= len) { ClearSelection(); return; }
+
+            char anchor = line[cell.x];
+            bool word = IsWordChar(anchor);
+            int c0 = cell.x, c1 = cell.x;
+            while (c0 > 0 && SameClass(line[c0 - 1], anchor, word)) c0--;
+            while (c1 + 1 < len && SameClass(line[c1 + 1], anchor, word)) c1++;
+            SelectSpan(cell.y, c0, c1);
+        }
+
+        // The row, not the logical line: the daemon does not mark where one wrapped.
+        void TripleClickSelect(int row)
+        {
+            var buf = DisplayedBuf();
+            if (buf == null) return;
+            EnsureRuns(buf);
+            if (row < 0 || row >= buf.Runs.Length) return;
+
+            int len = ContentLen(RowText(buf, row));
+            if (len == 0) { ClearSelection(); return; }
+            SelectSpan(row, 0, len - 1);
+        }
+
+        static bool SameClass(char c, char anchor, bool word) =>
+            word ? IsWordChar(c) : c == anchor;
+
+        static bool IsWordChar(char c) =>
+            (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') || c == '_';
 
         Vector2Int CellAt(Rect body, Vector2 m)
         {
@@ -1167,7 +1235,8 @@ namespace SlopWorld
 
         void DrawSelection(Rect body, ScreenBuf buf)
         {
-            if ((!_hasSel && !_dragging) || _selA == _selB) return;
+            // Not `_selA == _selB`: a one-character word is a selection, and drawn.
+            if (!_hasSel) return;
             EnsureRuns(buf);
             SyncSnap();
 
