@@ -20,10 +20,6 @@
 
 Top center float, VSCode-style. Recently used, focused input field. Nested questions when needed (i.e. "Agent: Stop" should ask select active agent next)
 
-## Computer Core
-
-- Show random hint bubble on click instead of on hover (90% chance). The rest 10% - cast lightning on random animal or human on the map.
-
 ## Agents
 
 - Codex support

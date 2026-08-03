@@ -251,7 +251,7 @@ namespace SlopWorld
             // is read on PreOpen rather than per frame, so a measured-only figure is wrong the
             // first time the menu opens and a written-down one is wrong for good the day
             // vanilla stops shipping one of the four.
-            public static int Net = 1 - Dropped.Length;
+            public static int Net = 0 - Dropped.Length;
 
             static void Prefix(List<ListableOption> optList)
             {
@@ -266,8 +266,7 @@ namespace SlopWorld
                 int gone = optList.RemoveAll(o => o != null && Dropped.Any(
                     key => o.label == (string)key.Translate()));
 
-                optList.Insert(0, new ListableOption("Next planet", Begin));
-                Net = 1 - gone;
+                Net = 0 - gone;
             }
         }
 
