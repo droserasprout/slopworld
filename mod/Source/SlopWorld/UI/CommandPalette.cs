@@ -22,12 +22,14 @@ namespace SlopWorld
         const float RowH = 28f;
         const float GroupH = 22f;
         const int RecentMax = 8;
+        // What a hit found only in a command's id is docked, the name being what is read.
+        const int IdCost = 80;
 
         string _input = "";
         string _filter = "";
         bool _focusInput = true;
 
-        List<Entry> _matches = new List<Entry>();
+        List<Hit> _matches = new List<Hit>();
         // How many of _matches are recently used (front of the list, no filter).
         int _recentInList;
 
@@ -37,6 +39,8 @@ namespace SlopWorld
         string _subFilter = "";
         bool _subHasFilter;
         List<SubOption> _subOptions = new List<SubOption>();
+        // _subOptions after the filter, rebuilt when it moves rather than per frame.
+        List<SubHit> _subShown = new List<SubHit>();
         int _subIndex;
 
         Vector2 _scroll;
@@ -161,8 +165,7 @@ namespace SlopWorld
                     case KeyCode.DownArrow:
                         if (_mode == Mode.Sub)
                         {
-                            var opts = SubOptions();
-                            _subIndex = Mathf.Min(opts.Count - 1, _subIndex + 1);
+                            _subIndex = Mathf.Min(_subShown.Count - 1, _subIndex + 1);
                             ScrollToSub();
                         }
                         else
@@ -193,8 +196,16 @@ namespace SlopWorld
                 Text.Anchor = TextAnchor.UpperLeft;
 
                 bool hadFilter = _subHasFilter;
+                string wasSub = _subFilter;
                 _subFilter = Widgets.TextField(fieldRect, _subFilter);
                 _subHasFilter = !string.IsNullOrEmpty(_subFilter);
+                if (_subFilter != wasSub)
+                {
+                    RebuildSub();
+                    _subIndex = 0;
+                    _scroll = Vector2.zero;
+                    Resize();
+                }
 
                 // Backspace on empty filter in sub-mode: go back to command list.
                 // The text field was empty so it didn't consume the key; ours to take.
@@ -215,6 +226,7 @@ namespace SlopWorld
                     RebuildMatches();
                     _selectedIndex = 0;
                     _scroll = Vector2.zero;
+                    Resize();
                 }
             }
 
@@ -237,6 +249,16 @@ namespace SlopWorld
             _scroll = Vector2.zero;
             _focusInput = true;
             RebuildMatches();
+            Resize();
+        }
+
+        // The box is as tall as what is in it: filtered down to one answer, a palette
+        // holding its opening height is mostly empty dark. Lands next frame, this one's
+        // window group having been opened already.
+        void Resize()
+        {
+            float h = ContentHeight();
+            if (Mathf.Abs(windowRect.height - h) > 0.5f) windowRect.height = h;
         }
 
         // Walk the same order as DrawCommandList to find the y of the selected item,
@@ -249,8 +271,11 @@ namespace SlopWorld
             string prev = null;
             for (int i = 0; i < _selectedIndex; i++)
             {
-                string group = GroupOf(i);
-                if (group != prev) { y += GroupH; prev = group; }
+                if (Grouped)
+                {
+                    string group = GroupOf(i);
+                    if (group != prev) { y += GroupH; prev = group; }
+                }
                 y += RowH;
             }
 
@@ -287,8 +312,11 @@ namespace SlopWorld
             string prev = null;
             for (int i = 0; i < _matches.Count; i++)
             {
-                string group = GroupOf(i);
-                if (group != prev) { totalH += GroupH; prev = group; }
+                if (Grouped)
+                {
+                    string group = GroupOf(i);
+                    if (group != prev) { totalH += GroupH; prev = group; }
+                }
                 totalH += RowH;
             }
 
@@ -300,8 +328,8 @@ namespace SlopWorld
             prev = null;
             for (int i = 0; i < _matches.Count; i++)
             {
-                string group = GroupOf(i);
-                if (group != prev)
+                string group = Grouped ? GroupOf(i) : null;
+                if (group != null && group != prev)
                 {
                     var header = new Rect(0f, y, view.width, GroupH);
                     GUI.color = new Color(0.45f, 0.47f, 0.50f);
@@ -324,13 +352,13 @@ namespace SlopWorld
                 if (Widgets.ButtonInvisible(row))
                 {
                     _selectedIndex = i;
-                    if (_matches[i].SubAction != null) EnterSub(_matches[i]);
-                    else Execute(_matches[i]);
+                    if (_matches[i].E.SubAction != null) EnterSub(_matches[i].E);
+                    else Execute(_matches[i].E);
                 }
 
                 GUI.color = selected ? Color.white : new Color(0.85f, 0.86f, 0.90f);
                 Widgets.Label(new Rect(row.x + 6f, row.y + 2f, view.width - 12f, RowH - 4f),
-                    _matches[i].Name);
+                    _matches[i].Label);
                 GUI.color = Color.white;
 
                 y += RowH;
@@ -339,27 +367,20 @@ namespace SlopWorld
             Widgets.EndScrollView();
         }
 
+        // A filtered list is ranked rather than grouped: the answer is the top row, and a
+        // heading between every pair of rows is where that stops reading as an order.
+        bool Grouped => _filter.Length == 0;
+
         // Recent entries (front of the list, no filter) group under "Recently"; everything
         // else under its own category.
         string GroupOf(int index) =>
-            index < _recentInList ? "Recently" : _matches[index].Category;
+            index < _recentInList ? "Recently" : _matches[index].E.Category;
 
         // --------------------------------------------------------------- sub list
 
-        List<SubOption> SubOptions()
-        {
-            if (!_subHasFilter || string.IsNullOrEmpty(_subFilter))
-                return _subOptions;
-
-            var f = _subFilter.ToLowerInvariant();
-            return _subOptions
-                .Where(o => o.Label.ToLowerInvariant().Contains(f))
-                .ToList();
-        }
-
         void DrawSubList(Rect r)
         {
-            var options = SubOptions();
+            var options = _subShown;
 
             if (options.Count == 0)
             {
@@ -396,7 +417,7 @@ namespace SlopWorld
                 }
 
                 float left = row.x + 6f;
-                if (!options[i].Enabled)
+                if (!options[i].O.Enabled)
                 {
                     GUI.color = new Color(0.45f, 0.45f, 0.45f);
                 }
@@ -434,6 +455,22 @@ namespace SlopWorld
             public string Label;
             public string Value;
             public bool Enabled = true;
+        }
+
+        // A row as the list draws it: the command, and the name with whatever the search
+        // matched marked up. Built when the filter moves, not per frame.
+        class Hit
+        {
+            public Entry E;
+            public string Label;
+            public int Score;
+        }
+
+        class SubHit
+        {
+            public SubOption O;
+            public string Label;
+            public int Score;
         }
 
         // --------------------------------------------------------------- command catalogue
@@ -682,16 +719,15 @@ namespace SlopWorld
         void ExecuteSelected()
         {
             if (_selectedIndex < 0 || _selectedIndex >= _matches.Count) return;
-            var entry = _matches[_selectedIndex];
+            var entry = _matches[_selectedIndex].E;
             if (entry.SubAction != null) EnterSub(entry);
             else Execute(entry);
         }
 
         void ExecuteSub()
         {
-            var options = SubOptions();
-            if (_subIndex < 0 || _subIndex >= options.Count) return;
-            var opt = options[_subIndex];
+            if (_subIndex < 0 || _subIndex >= _subShown.Count) return;
+            var opt = _subShown[_subIndex].O;
             if (!opt.Enabled) return;
 
             _subCmd?.Execute(opt.Value);
@@ -720,6 +756,8 @@ namespace SlopWorld
             _filter = "";
             _scroll = Vector2.zero;
             _focusInput = true;
+            RebuildSub();
+            Resize();
         }
 
         static void AskWhere(ShortcutInfo info)
@@ -753,23 +791,92 @@ namespace SlopWorld
                 foreach (var id in _recent)
                 {
                     var entry = _commands.FirstOrDefault(e => e.Id == id);
-                    if (entry != null && !_matches.Contains(entry))
+                    if (entry != null && !Listed(entry))
                     {
-                        _matches.Add(entry);
+                        _matches.Add(new Hit { E = entry, Label = entry.Name });
                         _recentInList++;
                     }
                 }
                 foreach (var e in _commands)
-                    if (!_matches.Contains(e)) _matches.Add(e);
+                    if (!Listed(e)) _matches.Add(new Hit { E = e, Label = e.Name });
                 return;
             }
 
+            var scored = new List<Hit>();
             foreach (var e in _commands)
             {
-                if (e.Name.ToLowerInvariant().Contains(_filter) ||
-                    e.Id.ToLowerInvariant().Contains(_filter))
-                    _matches.Add(e);
+                int score;
+                List<int> hits;
+
+                if (Fuzzy.Match(e.Name, _filter, out score, out hits))
+                {
+                    scored.Add(new Hit
+                    {
+                        E = e,
+                        Label = Fuzzy.Highlight(e.Name, hits),
+                        Score = score + RecentBonus(e.Id),
+                    });
+                }
+                else if (Fuzzy.Match(e.Id, _filter, out score))
+                {
+                    // The id is the command's other name - "view.config" for anyone who
+                    // types the dotted form - and none of it is on screen to mark up, so
+                    // the row draws plain and ranks below anything the name itself found.
+                    scored.Add(new Hit
+                    {
+                        E = e,
+                        Label = e.Name,
+                        Score = score - IdCost + RecentBonus(e.Id),
+                    });
+                }
             }
+
+            // Stable, so commands scoring the same keep the catalogue's order.
+            _matches.AddRange(scored.OrderByDescending(h => h.Score));
+        }
+
+        bool Listed(Entry e) => _matches.Any(h => h.E == e);
+
+        // What a command was used recently is worth: enough to break a tie between two
+        // equally good matches, never enough to outrank a better one.
+        static int RecentBonus(string id)
+        {
+            int i = _recent.IndexOf(id);
+            return i < 0 ? 0 : (RecentMax - i) * 4;
+        }
+
+        void RebuildSub()
+        {
+            _subShown.Clear();
+
+            if (string.IsNullOrEmpty(_subFilter))
+            {
+                foreach (var o in _subOptions)
+                    _subShown.Add(new SubHit { O = o, Label = o.Label });
+            }
+            else
+            {
+                var f = _subFilter.ToLowerInvariant();
+                var scored = new List<SubHit>();
+                foreach (var o in _subOptions)
+                {
+                    // The placeholder row is not an option, so it is not searched either.
+                    if (!o.Enabled) continue;
+
+                    int score;
+                    List<int> hits;
+                    if (Fuzzy.Match(o.Label, f, out score, out hits))
+                        scored.Add(new SubHit
+                        {
+                            O = o,
+                            Label = Fuzzy.Highlight(o.Label, hits),
+                            Score = score,
+                        });
+                }
+                _subShown.AddRange(scored.OrderByDescending(h => h.Score));
+            }
+
+            _subIndex = Mathf.Clamp(_subIndex, 0, Mathf.Max(0, _subShown.Count - 1));
         }
 
         // --------------------------------------------------------------- recent tracking
@@ -786,13 +893,33 @@ namespace SlopWorld
 
         float ContentHeight()
         {
-            int rows;
-            if (_mode == Mode.Sub)
-                rows = Mathf.Min(SubOptions().Count, 10);
-            else
-                rows = _matches.Count > 0 ? Mathf.Min(_matches.Count + 1, 12) : 1;
+            float body;
 
-            return Mathf.Min(Pad + InputH + 4f + rows * RowH + Pad, MaxH);
+            if (_mode == Mode.Sub)
+            {
+                body = Mathf.Max(1, Mathf.Min(_subShown.Count, 10)) * RowH;
+            }
+            else if (_matches.Count == 0)
+            {
+                body = RowH;
+            }
+            else
+            {
+                // Walked the way the list is drawn, so the headings are counted.
+                body = 0f;
+                string prev = null;
+                for (int i = 0; i < _matches.Count && body < MaxH; i++)
+                {
+                    if (Grouped)
+                    {
+                        string group = GroupOf(i);
+                        if (group != prev) { body += GroupH; prev = group; }
+                    }
+                    body += RowH;
+                }
+            }
+
+            return Mathf.Min(Pad + InputH + 4f + body + Pad, MaxH);
         }
 
         static void Fail(string msg) =>
