@@ -41,8 +41,19 @@ namespace SlopWorld
         const float Pad = 6f;
         const float CellX = 8f;
         const float TextGap = 7f;
-        const float NameH = 17f;
-        const float SubH = 14f;
+
+        // Clearance between the text of one row and the next, where the pitch is the labels'
+        // rather than the portraits'.
+        const float RowGap = 4f;
+
+        // The two label lines are as tall as their fonts actually draw, asked rather than
+        // written down: Widgets.Label ends in GUI.Label, which clips glyphs to the rect, and
+        // Verse.Text measures lineHeights off the font at startup (CalcHeight("W", 999)). So a
+        // figure here is one that crops descenders on any font but the one it was eyeballed
+        // against - which is what cost the labels their bottom pixel rows. Vanilla sizes its
+        // own Widgets.Label(x, ref curY, ...) rects with CalcHeight for the same reason.
+        static float NameH => Mathf.Ceil(Text.LineHeightOf(GameFont.Small));
+        static float SubH => Mathf.Ceil(Text.LineHeightOf(GameFont.Tiny));
 
         // The arrow before a heading, and how much of the edge answers a drag.
         const float ArrowW = 12f;
@@ -69,6 +80,7 @@ namespace SlopWorld
             public Pawn Pawn;
             public Rect Line;   // the whole row, for the highlight and the hover
             public Rect Text;   // beside the portrait: the two labels, and what a click takes
+            public Rect Face;   // the square the close-up is drawn in, read by the drawer patch
         }
 
         struct Head
@@ -147,6 +159,22 @@ namespace SlopWorld
         // declined.
         public static bool Drawing { get; private set; }
 
+        // The square Place laid out for this pawn's close-up. Read by
+        // Patch_SidebarPortraitDraw rather than derived there: Place is the only thing that
+        // knows where a row is, and a portrait drawn off its own arithmetic is a fourth
+        // answer to disagree with the three the Row table already keeps in step. No row means
+        // the column laid none out - a caravan group entry, parked off screen - and there is
+        // nothing to draw a face in.
+        public static bool FaceBox(Pawn pawn, out Rect box)
+        {
+            if (pawn != null)
+                foreach (var row in Rows)
+                    if (row.Pawn == pawn) { box = row.Face; return true; }
+
+            box = Rect.zero;
+            return false;
+        }
+
         // Lays the whole column out and answers the scale the portraits are drawn at.
         // Entries the bar carries with no pawn (a caravan's group row) are parked off screen:
         // there is a loc for every entry whether it draws or not.
@@ -172,9 +200,17 @@ namespace SlopWorld
             float s = Fit(rows, Order.Count, plus, room);
             float pitch = Pitch(s);
             float cell = ColonistBar.BaseSize.y * s;
-            // The portrait, overhang and all: the texture is taller than the cell it is
-            // anchored in, so the row is as tall as what is actually drawn.
-            float head = ColonistBarColonistDrawer.PawnTextureSize.y * s;
+            // The row is as tall as vanilla's portrait, and the face box is that square. The
+            // close-up has no overhang to leave room for - the camera is centred on the head
+            // rather than on a body cropped at the hips - so the box is the whole row and the
+            // row is the whole portrait. Everything below is laid out off this one figure,
+            // which is what keeps Patch_SidebarPortraitDraw from having a second opinion.
+            float face = ColonistBarColonistDrawer.PawnTextureSize.y * s;
+            // Only the portraits shrink; the labels cannot, the fonts being fixed. So on a
+            // crowded column the two lines beside a row are taller than the row, and the row
+            // is the taller of the two - with Pitch floored to match, or neighbours write over
+            // each other. The face box keeps its own square and is centred in what is left.
+            float rowH = Mathf.Max(face, NameH + SubH);
 
             float width = Width;
             float y = top;
@@ -204,21 +240,22 @@ namespace SlopWorld
 
                 foreach (int i in bucket)
                 {
-                    // The loc is the cell's corner and the texture is anchored to the cell's
-                    // bottom, sticking Overhang above it - which is what vanilla's own row
-                    // spacing leaves room for, so the row starts at the top of the portrait
-                    // rather than at the top of the cell.
-                    locs[i] = new Vector2(CellX, y + head - cell);
+                    // The loc is the cell's corner, and the cell is the bar's own hit-test box
+                    // at a fixed BaseSize*s - smaller than the face box, and not ours to
+                    // resize, Size being one figure for the whole bar. Centred in the box, so
+                    // the middle of a face is what answers a click.
+                    locs[i] = new Vector2(CellX + (face - cell) / 2f, y + (rowH - cell) / 2f);
 
-                    float tx = CellX + ColonistBar.BaseSize.x * s + TextGap;
-                    var line = new Rect(0f, y, width, head);
+                    float tx = CellX + face + TextGap;
+                    var line = new Rect(0f, y, width, rowH);
                     Rows.Add(new Row
                     {
                         Session = Session(entries[i].pawn),
                         Pawn = entries[i].pawn,
                         Line = line,
-                        Text = new Rect(tx, y + (head - NameH - SubH) / 2f,
+                        Text = new Rect(tx, y + (rowH - NameH - SubH) / 2f,
                             width - tx - Pad, NameH + SubH),
+                        Face = new Rect(CellX, y + (rowH - face) / 2f, face, face),
                     });
 
                     y += pitch;
@@ -235,10 +272,13 @@ namespace SlopWorld
             return s;
         }
 
-        // Vanilla's own vertical pitch, which is what leaves room for the overhang: a cell
-        // and the gap the next row's head pokes into.
-        static float Pitch(float s) =>
-            (ColonistBar.BaseSize.y + ColonistBar.BaseSpaceBetweenColonistsVertical) * s;
+        // Vanilla's own vertical pitch, floored at what the labels need. The portraits shrink
+        // with s and the fonts do not, so past some scale vanilla's figure is narrower than the
+        // two lines beside a row: the column runs off the bottom sooner, which is the failure
+        // Fit already prefers to a smudge, rather than rows overwriting each other.
+        static float Pitch(float s) => Mathf.Max(
+            (ColonistBar.BaseSize.y + ColonistBar.BaseSpaceBetweenColonistsVertical) * s,
+            NameH + SubH + RowGap);
 
         // Headings and the "+" are a fixed cost, so only the portraits shrink. Solved rather
         // than stepped down, this being a straight line in s.
