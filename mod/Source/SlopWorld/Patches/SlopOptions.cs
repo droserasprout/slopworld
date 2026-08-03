@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -38,10 +39,12 @@ namespace SlopWorld
         // refusing to patch (see SlopProfile), and a category whose page is never drawn is
         // an empty tab in somebody else's options menu.
         public static OptionCategoryDef Category { get; private set; }
+        public static OptionCategoryDef AboutCategory { get; private set; }
 
         // Rebuilt per open, so a config edited elsewhere - or a daemon that was down last
         // time - is re-read rather than remembered.
         static ConfigPage _page;
+        static AboutPage _aboutPage;
 
         public static void Install()
         {
@@ -72,6 +75,18 @@ namespace SlopWorld
             var all = DefDatabase<OptionCategoryDef>.AllDefsListForReading;
             all.Remove(Category);
             all.Insert(0, Category);
+
+            // The About tab, last in the column. Same def pattern: Core's mod pack so it
+            // is drawn, and the row is drawn by hand below.
+            AboutCategory = new OptionCategoryDef
+            {
+                defName = "SlopWorld_About",
+                label = "About",
+                modContentPack = general.modContentPack,
+                texPath = general.texPath,
+            };
+            DefDatabase<OptionCategoryDef>.Add(AboutCategory);
+            // Already at the end: AllDefsListForReading appends, and nothing moves it.
         }
 
         // The `config` main button. Toggles rather than stacks, and opens on our own
@@ -251,7 +266,97 @@ namespace SlopWorld
         [HarmonyPatch(typeof(Dialog_Options), nameof(Dialog_Options.PreClose))]
         public static class Patch_OptionsClose
         {
-            static void Postfix() => _page = null;
+            static void Postfix() { _page = null; _aboutPage = null; }
+        }
+
+
+        // ---------------------------------------------------------------- About
+
+        // The About row, drawn after the SlopWorld row. Same shape as Patch_OptionsRow
+        // but with the RimWorld blog icon rather than the terminal ">_".
+        [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
+        public static class Patch_OptionsRow_About
+        {
+            static bool Prefix(Dialog_Options __instance, Rect r, OptionCategoryDef optionCategory)
+            {
+                if (optionCategory != AboutCategory) return true;
+
+                Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
+                if (Widgets.ButtonInvisible(r))
+                {
+                    __instance.selectedCategory = optionCategory;
+                    __instance.selectedMod = null;
+                    SoundDefOf.Click.PlayOneShotOnCamera();
+                }
+
+                float x = r.x + 10f;
+                var icon = TexButton.IconBlog;
+                if (icon != null)
+                    GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), icon);
+                x += 30f;
+                Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
+                return false;
+            }
+        }
+
+        // The dispatch for the About page, taken before the chain.
+        [HarmonyPatch(typeof(Dialog_Options), "DoOptions")]
+        public static class Patch_OptionsPage_About
+        {
+            static bool Prefix(OptionCategoryDef category, Rect inRect)
+            {
+                if (category != AboutCategory) return true;
+
+                if (_aboutPage == null) _aboutPage = new AboutPage();
+                _aboutPage.Draw(inRect);
+                return false;
+            }
+        }
+
+
+        // -------------------------------------------------------- main menu
+
+        // The version info corner is drawn by VersionControl on every menu frame.
+        // It moved to the About tab, so the corner is blank.
+        [HarmonyPatch(typeof(VersionControl), nameof(VersionControl.DrawInfoInCorner))]
+        public static class Patch_VersionCorner
+        {
+            static bool Prefix() => false;
+        }
+
+        // The web links column is what the main menu draws on the right. We suppress
+        // it here; the same links are in the About tab. The list is identified by its
+        // content: the game options are ListableOption, the web links are
+        // ListableOption_WebLink. The About page also draws ListableOption_WebLink
+        // inside Dialog_Options, which is gated by the window check.
+        [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
+        public static class Patch_WebLinks
+        {
+            static bool Prefix(List<ListableOption> optList)
+            {
+                // Only suppress lists that are purely web links.
+                if (optList.Count == 0) return true;
+                bool allLinks = true;
+                foreach (var o in optList)
+                    if (!(o is ListableOption_WebLink)) { allLinks = false; break; }
+                if (!allLinks) return true;
+
+                // Don't suppress if we're in the options dialog (About page draws
+                // links there).
+                if (Find.WindowStack?.currentlyDrawnWindow is Dialog_Options) return true;
+
+                // Suppress on the main menu.
+                optList.Clear();
+                return true;
+            }
+        }
+
+        // Expansion icons at the bottom of the main menu. They are shown in the About
+        // tab instead.
+        [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoExpansionIcons))]
+        public static class Patch_ExpansionIcons
+        {
+            static bool Prefix() => false;
         }
     }
 }
