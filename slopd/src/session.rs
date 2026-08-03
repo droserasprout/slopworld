@@ -1248,6 +1248,11 @@ impl Manager {
 
     /// The control reader is pinned to the name it attached with, so it is dropped and
     /// re-attached under the new one - which re-seeds the emulator from a capture.
+    ///
+    /// The same rebuild a daemon restart does, so it wants the same nudge: a text capture
+    /// carries no alternate screen, no mouse reporting and no cursor shape, and after a rename
+    /// there is no other reason for the app to repaint - an agent sitting idle would wear the
+    /// flattened screen until it next wrote something.
     async fn readopt(self: &Arc<Self>, old: &str, new: &str) {
         let running = {
             let mut live = self.live.write().await;
@@ -1263,8 +1268,11 @@ impl Manager {
             live.insert(new.to_string(), l);
             running
         };
-        if running {
-            self.spawn_reader(new).await;
+        if running && self.spawn_reader(new).await {
+            // Off the critical path: the nudge sleeps.
+            let m = self.clone();
+            let name = new.to_string();
+            tokio::spawn(async move { m.nudge_redraw(&name).await });
         }
     }
 

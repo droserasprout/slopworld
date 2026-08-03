@@ -222,6 +222,12 @@ impl Tmux {
         let cx = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
         let cy = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
 
+        // `capture-pane` terminates its last row with a newline, so splitting on one coins a
+        // final empty line the pane does not have. The seed writes the lines and then places
+        // the cursor at an absolute row, so that phantom line scrolls the content up under it
+        // and the cursor comes back one row low.
+        let body = body.strip_suffix('\n').unwrap_or(&body);
+
         Ok(Screen {
             lines: body.split('\n').map(str::to_string).collect(),
             cx,
