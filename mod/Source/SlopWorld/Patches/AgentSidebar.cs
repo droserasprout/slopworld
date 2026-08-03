@@ -337,10 +337,18 @@ namespace SlopWorld
 
         public static void DrawBack()
         {
-            // Ahead of Wanted, which declines a Layout event: a drag is only ever half over
-            // by the time one of those arrives, and forgetting it there would end every
+            // Ahead of the two below, which decline a Layout event: a drag is only ever half
+            // over by the time one of those arrives, and forgetting it there would end every
             // resize on the frame it started.
             if (Event.current.type == EventType.Layout) return;
+
+            // The map-layer call under a pane, which the terminal makes again from inside its
+            // own contents. Silently, and *without* touching the drag: this pass runs first
+            // and would clear a resize the pane's pass had started on the frame before, which
+            // is the whole of why the edge would not drag with a terminal open. Whether the
+            // column is on screen is the other call's answer to give.
+            if (ColonistBarStrip.Suppressed) return;
+
             if (!Wanted())
             {
                 // Whatever was being dragged, the column is not on screen to drag it by.
@@ -629,6 +637,16 @@ namespace SlopWorld
         {
             float w = Width;
             var grip = new Rect(w - GripW, 0f, GripW * 2f, UI.screenHeight);
+            // A dialog opened over the pane mid-drag takes the mouse, and the release lands in
+            // it: end the drag here rather than leave the edge stuck to a pointer that has
+            // moved on. The width itself was written on every drag frame; only the file was
+            // waiting on the release.
+            if (ColonistBarStrip.Blocked && _resizing)
+            {
+                _resizing = false;
+                Settings.S.Write();
+            }
+
             bool over = !ColonistBarStrip.Blocked && Mouse.IsOver(grip);
             bool lit = over || _resizing;
 
@@ -710,11 +728,10 @@ namespace SlopWorld
             e.Use();
         }
 
+        // Asked only past the Suppressed check in DrawBack, that being the one condition a
+        // pass declines to draw under without the column having gone anywhere.
         static bool Wanted()
         {
-            // The map-layer call under a pane draws into pixels the pane has already
-            // covered, and its buttons would take clicks aimed at the terminal.
-            if (ColonistBarStrip.Suppressed) return false;
             // The bar hides itself on a small screen and behind the tile picker, and a panel
             // with no portraits in it is worse than no panel.
             return ColonistBarStrip.BarShown && !Cutscene.Playing;
