@@ -1,24 +1,12 @@
 <!-- This file is for humans, don't touch it if you're an agent. -->
 # TODO
 
-## Packaging
-
-- Build app icon for every build applying random haircut. Like visible "new build" mark.
-
-## Terminal
-
-- No double-click to select word (or triple - line)
-
 ## Interface
 
 - Custom agents order in panel
 - Welcome configuration screen of fresh profile
 - Tab / Shift+Tab in floating windows to navigate between input fields
 - ModSettings shouldn't pause the game
-
-## F1: Command Pallette
-
-Top center float, VSCode-style. Recently used, focused input field. Nested questions when needed (i.e. "Agent: Stop" should ask select active agent next)
 
 ## Agents
 
@@ -45,7 +33,7 @@ Turn Colonist selection bottom-left floatie into full-height right sidebar. Resi
 
 - Cat should sometimes turn ugly things in range into flower/crop containers on click.
 - Cat accumulates clicks as seconds of aura. Charge them spamming clicks and enjoy minutes of cat aura.
-- Snoop should leave the map after a couple of ones.
+- ~~Snoop should leave the map after a couple of ones.~~
 - Tune background frames. Add alternative sequences. Current cache is just 504K.
 - Config flag to disable blood, vomit, and offensive/harmful hints
 - Realtime weather for provided IRL coordinates

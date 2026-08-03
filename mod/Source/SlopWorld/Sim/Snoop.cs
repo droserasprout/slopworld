@@ -9,12 +9,18 @@ namespace SlopWorld
 {
     public class Snoop : GameComponent
     {
-        const int Hour = 16;
-        const int Minute = 20;
+        const int Hour1 = 4;
+        const int Minute1 = 20;
+
+        const int Hour2 = 16;
+        const int Minute2 = 20;
 
         const int Interval = 60;
         const int SmokeInterval = 600;
         const int Stash = 40;
+
+        const int StayMin = 18000;  // 5 min in game ticks
+        const int StayMax = 36000;  // 10 min in game ticks
 
         const string HairName = "Afro";
         const string SkinName = "Skin_Melanin9";
@@ -24,7 +30,9 @@ namespace SlopWorld
 
         static readonly Color Hair = new Color(0.13f, 0.12f, 0.11f);
 
-        long _lastDay;
+        long _lastDay4;
+        long _lastDay16;
+        int _leaveTick;
         Pawn _pawn;
 
         public Snoop(Game game) { }
@@ -37,20 +45,53 @@ namespace SlopWorld
             if (tick % Interval != 0) return;
             if (Cutscene.AgentsHeld) return;
 
+            // Leave after 5-10 minutes
+            if (_leaveTick > 0 && tick >= _leaveTick)
+            {
+                Leave();
+                return;
+            }
+
             var now = DateTime.Now;
             long today = now.Ticks / TimeSpan.TicksPerDay;
-            bool due = now.TimeOfDay.TotalMinutes >= Hour * 60 + Minute;
+            double mins = now.TimeOfDay.TotalMinutes;
 
-            if (_lastDay == 0) _lastDay = due ? today : today - 1;
-            if (!due || _lastDay >= today) return;
+            bool due4 = mins >= Hour1 * 60 + Minute1 && mins < Hour2 * 60 + Minute2;
+            bool due16 = mins >= Hour2 * 60 + Minute2;
 
-            _lastDay = today;
-            Arrive();
+            if (_lastDay4 == 0 && _lastDay16 == 0)
+            {
+                _lastDay4 = due4 ? today : today - 1;
+                _lastDay16 = due16 ? today : today - 1;
+            }
+
+            if (due4 && _lastDay4 < today)
+            {
+                _lastDay4 = today;
+                Arrive(tick);
+                return;
+            }
+
+            if (due16 && _lastDay16 < today)
+            {
+                _lastDay16 = today;
+                Arrive(tick);
+            }
         }
 
         bool Around => _pawn != null && !_pawn.Destroyed && !_pawn.Dead && _pawn.Spawned;
 
-        void Arrive()
+        void Leave()
+        {
+            if (!Around) return;
+            _pawn.DeSpawn();
+            _pawn.Destroy();
+            _pawn = null;
+            _leaveTick = 0;
+            Log.Message($"[SlopWorld] {Handle} left at {DateTime.Now:HH:mm}");
+        }
+
+        void Arrive(int tick)
         {
             if (Around) return;
 
@@ -79,7 +120,8 @@ namespace SlopWorld
                 Joint(pawn);
 
                 _pawn = pawn;
-                Log.Message($"[SlopWorld] {Handle} walked in at {DateTime.Now:HH:mm}");
+                _leaveTick = tick + Rand.Range(StayMin, StayMax);
+                Log.Message($"[SlopWorld] {Handle} walked in at {DateTime.Now:HH:mm}, staying {_leaveTick - tick} ticks");
             }
             catch (Exception e)
             {
@@ -165,7 +207,9 @@ namespace SlopWorld
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Values.Look(ref _lastDay, "snoopDay", 0L);
+            Scribe_Values.Look(ref _lastDay4, "snoopDay4", 0L);
+            Scribe_Values.Look(ref _lastDay16, "snoopDay16", 0L);
+            Scribe_Values.Look(ref _leaveTick, "snoopLeave", 0);
             Scribe_References.Look(ref _pawn, "snoopPawn");
         }
     }

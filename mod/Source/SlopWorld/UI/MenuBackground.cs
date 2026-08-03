@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -64,13 +66,35 @@ namespace SlopWorld
         static readonly Color Ember = new Color(1f, 0.24f, 0.05f, 1f);
         static readonly Color Flame = new Color(1f, 0.76f, 0.28f, 1f);
 
+        // Value noise off a 256x256 field: what the fire's shape is drawn from, and cheaper
+        // than Unity's Perlin by the whole of a native call. Rolled from a fixed seed rather
+        // than shipped, so the bake is reproducible; held as floats rather than bytes so a
+        // sample is four loads and no conversion. 256KB, which stays in cache for all of Fbm.
+        const int LutSide = 256;
+        const int LutMask = LutSide - 1;
+        static readonly float[] _noiseLut = new float[LutSide * LutSide];
+
+        static MenuBackground()
+        {
+            var bytes = new byte[_noiseLut.Length];
+            new System.Random(42).NextBytes(bytes);
+            for (int i = 0; i < bytes.Length; i++) _noiseLut[i] = bytes[i] * (1f / 255f);
+        }
+
         // The artefacts are the point: 8x8 blocking and smeared chroma are the failure the
         // rest of this file imitates by hand, and the encoder does them for free. Also keeps
         // the cache to a few megabytes where PNG would be most of a gigabyte.
         const int JpegQuality = 10;
 
         // Bump it and every install rebakes - what a change to any constant above needs.
-        const int Version = 1;
+        const int Version = 2;
+
+        // A stage's working buffer is bw*bh*16 bytes, so all thirty at once is a few hundred
+        // megabytes of transient heap under a game that is already holding the menu. Stages are
+        // computed in batches sized off this instead, and the buffers are reused across
+        // batches, which makes the bake's footprint a constant rather than a function of
+        // Stages. It also caps how many run at once, so this is the parallelism knob too.
+        const int BakeBudgetMB = 96;
 
         static Texture2D[] _frames;
         // The cache key, and how a background switched in Options is noticed.
@@ -124,8 +148,11 @@ namespace SlopWorld
             }
             catch (Exception e)
             {
-                // A background that will not bake is a cosmetic loss.
-                Log.Warning($"[SlopWorld] background bake failed, leaving it clean: {e.Message}");
+                // A background that will not bake is a cosmetic loss. Parallel.For hands back
+                // an AggregateException whose own Message says only that one happened, so the
+                // cause is unwrapped or the single line this path ever prints says nothing.
+                if (e is AggregateException agg) e = agg.Flatten().InnerException ?? e;
+                Log.Warning($"[SlopWorld] background bake failed, leaving it clean: {e}");
                 _frames = null;
             }
 
@@ -194,29 +221,46 @@ namespace SlopWorld
             string dir = Dir(key);
             Directory.CreateDirectory(dir);
 
+            // Stages are independent of each other and of the engine - Mathf and Color are
+            // arithmetic on structs, and nothing below Rot touches a Unity object - so the
+            // pixels are worked out off the main thread. The encoder is not: Texture2D,
+            // EncodeToJPG and LoadImage are all engine calls, so a batch is computed in
+            // parallel and then written down in order on the way back.
+            int batch = Mathf.Clamp((BakeBudgetMB << 20) / Mathf.Max(1, bw * bh * 16), 1, Stages);
+            var opts = new ParallelOptions { MaxDegreeOfParallelism = batch };
+
+            var scratch = new Color[batch][];
+            for (int b = 0; b < batch; b++) scratch[b] = new Color[bw * bh];
+
             var frames = new Texture2D[Stages];
-            for (int i = 0; i < Stages; i++)
+            for (int start = 0; start < Stages; start += batch)
             {
-                Color[] px = Rot(clean, fuel, bw, bh, i / (float)(Stages - 1), i);
+                int end = Math.Min(Stages, start + batch);
 
-                var tex = new Texture2D(bw, bh, TextureFormat.RGB24, false);
-                tex.SetPixels(px);
-                tex.Apply();
+                Parallel.For(start, end, opts, i =>
+                    Rot(clean, scratch[i - start], fuel, bw, bh, i / (float)(Stages - 1), i));
 
-                byte[] jpg = tex.EncodeToJPG(JpegQuality);
-                File.WriteAllBytes(Path.Combine(dir, $"{i:D2}.jpg"), jpg);
+                for (int i = start; i < end; i++)
+                {
+                    var tex = new Texture2D(bw, bh, TextureFormat.RGB24, false);
+                    tex.SetPixels(scratch[i - start]);
+                    tex.Apply();
 
-                // Back in through the decoder: at this quality the difference is most of the
-                // look, and a first launch that came up clean-edged then blocked itself on
-                // restart would be reported as a bug.
-                tex.LoadImage(jpg);
-                tex.filterMode = FilterMode.Bilinear;
-                tex.wrapMode = TextureWrapMode.Clamp;
-                Keep(tex);
-                frames[i] = tex;
+                    byte[] jpg = tex.EncodeToJPG(JpegQuality);
+                    File.WriteAllBytes(Path.Combine(dir, $"{i:D2}.jpg"), jpg);
+
+                    // Back in through the decoder: at this quality the difference is most of
+                    // the look, and a first launch that came up clean-edged then blocked itself
+                    // on restart would be reported as a bug.
+                    tex.LoadImage(jpg);
+                    tex.filterMode = FilterMode.Bilinear;
+                    tex.wrapMode = TextureWrapMode.Clamp;
+                    Keep(tex);
+                    frames[i] = tex;
+                }
             }
 
-            Log.Message($"[SlopWorld] baked {Stages} background frames at {bw}x{bh}, jpeg q{JpegQuality}, into {dir}");
+            Log.Message($"[SlopWorld] baked {Stages} background frames at {bw}x{bh}, jpeg q{JpegQuality}, {batch} at a time, into {dir}");
             return frames;
         }
 
@@ -224,44 +268,73 @@ namespace SlopWorld
         // it; tint next, because a colour bias applied before a stretch comes back out of it;
         // fire last, being emissive. The encoder's damage lands after all of it, being the
         // transmission rather than the scene.
-        static Color[] Rot(Color[] src, float[] fuel, int w, int h, float k, int stage)
+        // Writes into dst rather than allocating — the caller owns the buffer.
+        static void Rot(Color[] src, Color[] dst, float[] fuel, int w, int h, float k, int stage)
         {
-            if (k <= 0f) return (Color[])src.Clone();
+            if (k <= 0f)
+            {
+                Array.Copy(src, dst, src.Length);
+                return;
+            }
+
+            Grade g = Grading(k);
 
             // Horizontal: a signal being dragged rather than a lens out of focus.
             int radius = Mathf.RoundToInt(Mathf.Lerp(0f, 24f, k * k));
-            Color[] px = radius > 0 ? Smear(src, w, h, radius) : (Color[])src.Clone();
+            if (radius > 0) Smear(src, dst, w, h, radius, ref g);
+            else for (int i = 0; i < dst.Length; i++) dst[i] = Shade(ref g, src[i]);
 
+            Burn(dst, fuel, w, h, k, stage);
+        }
+
+        // The drain toward luminance, the contrast crush and the tint are three affine steps
+        // per channel, and affine composed with affine is affine - so all of it is one 3x3 and
+        // an offset, solved once a stage rather than nine Lerps and a grayscale a pixel. The
+        // same arithmetic folded, not an approximation of it.
+        struct Grade
+        {
+            public float rr, rg, rb, ro;
+            public float gr, gg, gb, go;
+            public float br, bg, bb, bo;
+        }
+
+        static Grade Grading(float k)
+        {
             float contrast = Mathf.Lerp(1f, 2.3f, k);
             float lift = Mathf.Lerp(0f, 0.06f, k);      // blacks off the floor: video, not ink
             float drain = Mathf.Lerp(0f, 0.75f, k);     // toward luminance
             float tint = Mathf.Lerp(0f, 0.42f, k);      // then toward the plague
 
-            for (int i = 0; i < px.Length; i++)
+            // Color.grayscale's own weights, which is where the drain's cross-terms come from.
+            const float LR = 0.299f, LG = 0.587f, LB = 0.114f;
+
+            float keep = 1f - drain;
+            // (c - 0.5) * contrast + 0.5 + lift, with the c gathered into the matrix.
+            float bias = 0.5f - 0.5f * contrast + lift;
+
+            // Multiplied rather than blended: a blend fogs the frame evenly, where this leaves
+            // the dark dark and puts colour where there is light. A per-channel scale, so it
+            // multiplies the contrast term and the lift alike.
+            float tr = Mathf.Lerp(1f, Sick.r, tint), sr = contrast * tr;
+            float tg = Mathf.Lerp(1f, Sick.g, tint), sg = contrast * tg;
+            float tb = Mathf.Lerp(1f, Sick.b, tint), sb = contrast * tb;
+
+            return new Grade
             {
-                Color c = px[i];
-
-                float lum = c.grayscale;
-                c.r = Mathf.Lerp(c.r, lum, drain);
-                c.g = Mathf.Lerp(c.g, lum, drain);
-                c.b = Mathf.Lerp(c.b, lum, drain);
-
-                c.r = (c.r - 0.5f) * contrast + 0.5f + lift;
-                c.g = (c.g - 0.5f) * contrast + 0.5f + lift;
-                c.b = (c.b - 0.5f) * contrast + 0.5f + lift;
-
-                // Multiplied rather than blended: a blend fogs the frame evenly, where this
-                // leaves the dark dark and puts colour where there is light.
-                c.r = Mathf.Lerp(c.r, c.r * Sick.r, tint);
-                c.g = Mathf.Lerp(c.g, c.g * Sick.g, tint);
-                c.b = Mathf.Lerp(c.b, c.b * Sick.b, tint);
-
-                px[i] = new Color(Mathf.Clamp01(c.r), Mathf.Clamp01(c.g), Mathf.Clamp01(c.b), 1f);
-            }
-
-            Burn(px, fuel, w, h, k, stage);
-            return px;
+                rr = (keep + drain * LR) * sr, rg = drain * LG * sr, rb = drain * LB * sr,
+                gr = drain * LR * sg, gg = (keep + drain * LG) * sg, gb = drain * LB * sg,
+                br = drain * LR * sb, bg = drain * LG * sb, bb = (keep + drain * LB) * sb,
+                ro = bias * tr, go = bias * tg, bo = bias * tb,
+            };
         }
+
+        static Color Shade(ref Grade t, Color c) => Shade(ref t, c.r, c.g, c.b);
+
+        static Color Shade(ref Grade t, float r, float g, float b) => new Color(
+            Mathf.Clamp01(r * t.rr + g * t.rg + b * t.rb + t.ro),
+            Mathf.Clamp01(r * t.gr + g * t.gg + b * t.gb + t.go),
+            Mathf.Clamp01(r * t.br + g * t.bg + b * t.bb + t.bo),
+            1f);
 
         // Read off the clean picture, so the fire sits on the planet's own lit face. One upward
         // sweep with a decay, this running over ten megapixels. Pixels run bottom-up, so the
@@ -335,45 +408,74 @@ namespace SlopWorld
             int nw = Mathf.Max(2, w / NoiseDiv), nh = Mathf.Max(2, h / NoiseDiv);
             float[] noise = Fbm(nw, nh, stage * StagePhase);
 
+            // Hoisted: these are three divides a pixel over ten megapixels otherwise, and the
+            // shaping below is InverseLerp into SmoothStep(0,1,..) written out - the clamp the
+            // first does is the clamp the second would, so it is done once.
+            float xScale = (nw - 1) / (float)w, yScale = (nh - 1) / (float)h;
+            float band = 1f / (NoiseHigh - NoiseLow);
+
             for (int y = 0; y < h; y++)
             {
                 int row = y * w;
                 // Where this row falls in the noise, and the two rows to blend.
-                float ny = (float)y / h * (nh - 1);
+                float ny = y * yScale;
                 int ny0 = (int)ny, ny1 = Mathf.Min(nh - 1, ny0 + 1);
                 float fy = ny - ny0;
+                int r0 = ny0 * nw, r1 = ny1 * nw;
 
                 for (int x = 0; x < w; x++)
                 {
                     float f = fuel[row + x];
                     if (f <= 0f) continue;
 
-                    float nx = (float)x / w * (nw - 1);
+                    float nx = x * xScale;
                     int nx0 = (int)nx, nx1 = Mathf.Min(nw - 1, nx0 + 1);
                     float fx = nx - nx0;
 
-                    float n = Mathf.Lerp(
-                        Mathf.Lerp(noise[ny0 * nw + nx0], noise[ny0 * nw + nx1], fx),
-                        Mathf.Lerp(noise[ny1 * nw + nx0], noise[ny1 * nw + nx1], fx),
-                        fy);
+                    float a = noise[r0 + nx0], c0 = noise[r1 + nx0];
+                    a += (noise[r0 + nx1] - a) * fx;
+                    c0 += (noise[r1 + nx1] - c0) * fx;
+                    float n = a + (c0 - a) * fy;
 
                     // Fuel says where fire is allowed, the shaped noise what shape it takes.
                     // Multiplying the raw field in would let the noise decide both.
-                    float shaped = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(NoiseLow, NoiseHigh, n));
-                    float t = f * shaped * heat;
+                    float s = (n - NoiseLow) * band;
+                    s = s < 0f ? 0f : (s > 1f ? 1f : s);
+                    float t = f * (s * s * (3f - 2f * s)) * heat;
                     if (t <= 0f) continue;
 
                     // Added rather than blended, so it lights the picture rather than painting
                     // over it.
-                    Color fire = Color.Lerp(Ember, Flame, t);
+                    float gain = t * FireGain;
                     Color c = px[row + x];
                     px[row + x] = new Color(
-                        Mathf.Clamp01(c.r + fire.r * t * FireGain),
-                        Mathf.Clamp01(c.g + fire.g * t * FireGain),
-                        Mathf.Clamp01(c.b + fire.b * t * FireGain),
+                        Mathf.Clamp01(c.r + (Ember.r + (Flame.r - Ember.r) * t) * gain),
+                        Mathf.Clamp01(c.g + (Ember.g + (Flame.g - Ember.g) * t) * gain),
+                        Mathf.Clamp01(c.b + (Ember.b + (Flame.b - Ember.b) * t) * gain),
                         1f);
                 }
             }
+        }
+
+        // One cell of the LUT, smoothstep-interpolated. The two axes are wrapped separately:
+        // stepping a flat index by one runs off the end of a row into the start of the next
+        // one, so a field sampled that way is discontinuous down every 256th column - a hard
+        // vertical seam through the flames, and the phase walks it across the picture stage by
+        // stage. The rows wrap for free, being the whole array.
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static float Noise(float x, float y)
+        {
+            int xi = Mathf.FloorToInt(x), yi = Mathf.FloorToInt(y);
+            float xf = x - xi, yf = y - yi;
+            float u = xf * xf * (3f - 2f * xf);
+            float v = yf * yf * (3f - 2f * yf);
+
+            int x0 = xi & LutMask, x1 = (xi + 1) & LutMask;
+            int y0 = (yi & LutMask) * LutSide, y1 = ((yi + 1) & LutMask) * LutSide;
+
+            float n00 = _noiseLut[y0 + x0], n10 = _noiseLut[y0 + x1];
+            float n01 = _noiseLut[y1 + x0], n11 = _noiseLut[y1 + x1];
+            return n00 + u * (n10 - n00) + v * (n01 - n00 + u * (n00 - n10 - n01 + n11));
         }
 
         // Each octave stretched twice as far across x as up y, for the vertical grain;
@@ -390,7 +492,7 @@ namespace SlopWorld
 
                     for (int o = 0; o < Octaves; o++)
                     {
-                        sum += amp * Mathf.PerlinNoise(
+                        sum += amp * Noise(
                             (x * freq * 2f) + phase,
                             (y * freq) + phase);
                         weight += amp;
@@ -406,11 +508,15 @@ namespace SlopWorld
         }
 
         // Box rather than gaussian: through the contrast crush the difference is invisible, and
-        // a running sum makes the cost independent of the radius.
-        static Color[] Smear(Color[] src, int w, int h, int radius)
+        // a running sum makes the cost independent of the radius. Writes into dst, which the
+        // caller owns, and grades on the way out rather than leaving a second sweep to do it:
+        // the buffer is ten megabytes, so a pass over it costs more than all the arithmetic in
+        // it and the two passes read the same pixel twice for nothing.
+        static void Smear(Color[] src, Color[] dst, int w, int h, int radius, ref Grade t)
         {
-            var dst = new Color[src.Length];
-            float n = radius * 2 + 1;
+            // Reciprocal rather than a divide per channel per pixel; the last bit of difference
+            // is thrown away by the encoder several times over.
+            float n = 1f / (radius * 2 + 1);
 
             for (int y = 0; y < h; y++)
             {
@@ -424,19 +530,40 @@ namespace SlopWorld
                     r += c.r; g += c.g; b += c.b;
                 }
 
-                for (int x = 0; x < w; x++)
-                {
-                    dst[row + x] = new Color(r / n, g / n, b / n, 1f);
+                // The clamps only bite within a radius of either end, so the bulk of the row
+                // runs with the window wholly inside it and no bounds arithmetic at all.
+                int lo = Mathf.Min(radius, w), hi = Mathf.Max(lo, w - radius - 1);
 
-                    Color outgoing = src[row + Mathf.Clamp(x - radius, 0, w - 1)];
-                    Color incoming = src[row + Mathf.Clamp(x + radius + 1, 0, w - 1)];
+                for (int x = 0; x < lo; x++)
+                {
+                    dst[row + x] = Shade(ref t, r * n, g * n, b * n);
+                    Color outgoing = src[row];
+                    Color incoming = src[row + Mathf.Min(x + radius + 1, w - 1)];
+                    r += incoming.r - outgoing.r;
+                    g += incoming.g - outgoing.g;
+                    b += incoming.b - outgoing.b;
+                }
+
+                for (int x = lo; x < hi; x++)
+                {
+                    dst[row + x] = Shade(ref t, r * n, g * n, b * n);
+                    Color outgoing = src[row + x - radius];
+                    Color incoming = src[row + x + radius + 1];
+                    r += incoming.r - outgoing.r;
+                    g += incoming.g - outgoing.g;
+                    b += incoming.b - outgoing.b;
+                }
+
+                for (int x = hi; x < w; x++)
+                {
+                    dst[row + x] = Shade(ref t, r * n, g * n, b * n);
+                    Color outgoing = src[row + Mathf.Max(x - radius, 0)];
+                    Color incoming = src[row + w - 1];
                     r += incoming.r - outgoing.r;
                     g += incoming.g - outgoing.g;
                     b += incoming.b - outgoing.b;
                 }
             }
-
-            return dst;
         }
 
         // Averaging rather than sampling: point-sampling a starfield at half scale throws away
