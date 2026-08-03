@@ -64,7 +64,14 @@ namespace SlopWorld
     [HarmonyPatch(typeof(Root), nameof(Root.Shutdown))]
     public static class Patch_SaveOnShutdown
     {
-        static void Prefix() => AutoSaver.SaveNow();
+        static void Prefix()
+        {
+            // Tells the interceptor that this quit is programmatic (daemon restart, or
+            // the profile's Quit button), so the wantsToQuit event that fires when
+            // Root.Shutdown calls Application.Quit is let through rather than intercepted.
+            QuitInterceptor.NoteProgrammaticShutdown();
+            AutoSaver.SaveNow();
+        }
     }
 
     // Quitting to the main menu, which drops the game without touching the process. A

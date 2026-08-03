@@ -160,6 +160,8 @@ namespace SlopWorld
             // And this is the category that arrives in its place, added to the database
             // rather than shipped as XML so a refusing mod leaves no empty tab behind.
             SlopOptions.Install();
+            // Intercepts Alt+F4 / window close to save and show a confirmation dialog.
+            QuitInterceptor.Register();
             Log.Message("[SlopWorld] patched; daemon at " + SlopClient.BaseUrl);
         }
     }
@@ -171,6 +173,9 @@ namespace SlopWorld
         static void Postfix()
         {
             SessionHub.Instance.Update();
+            // Intercepts Alt+F4 / window close: shows the confirmation dialog on the
+            // frame after the save completes.
+            QuitInterceptor.Check();
             // Drops the framerate while the window is behind something else. Here because
             // it has to hold on the menu too, and because focus is a per-frame question.
             BackgroundFrames.Follow();
