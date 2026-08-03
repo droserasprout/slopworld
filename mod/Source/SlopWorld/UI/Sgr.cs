@@ -31,12 +31,22 @@ namespace SlopWorld
 
         static Color[] Basic16 => TerminalTheme.Current.Ansi;
 
+        // How much of a faint run's own colour survives. Low enough that a completion hint
+        // reads as a hint next to the line it is offered under, high enough that it is still
+        // that colour rather than a grey - agents state 2 over an ANSI colour as often as over
+        // the default foreground.
+        const float FaintMix = 0.55f;
+
         struct Attr
         {
             public Color Fg;
             public Color Bg;
             public bool HasBg;
             public bool Bold;
+            // SGR 2. A colour rather than a weight: the cell keeps the foreground it was
+            // given and the terminal is what decides how far towards the background it is
+            // drawn. Which is why it cannot be resolved in the daemon - see Flush.
+            public bool Faint;
             public bool Reverse;
         }
 
@@ -133,6 +143,13 @@ namespace SlopWorld
                                Mathf.Min(1f, fg.g * 1.25f),
                                Mathf.Min(1f, fg.b * 1.25f));
 
+            // Towards the background rather than towards black: on a light scheme a faint run
+            // scaled down is *darker* than the ordinary text it is meant to recede behind.
+            // Skipped under reverse for the reason bold is - the pair has been swapped, and
+            // what would be dimmed there is the fill.
+            if (a.Faint && !a.Reverse)
+                fg = Color.Lerp(hasBg ? bg : DefaultBg, fg, FaintMix);
+
             if (string.IsNullOrEmpty(url)) url = null;
 
             // A run is flushed on every escape and most escapes change nothing a viewer can
@@ -180,7 +197,9 @@ namespace SlopWorld
                 {
                     case 0: a = Fresh(); break;
                     case 1: a.Bold = true; break;
-                    case 22: a.Bold = false; break;
+                    case 2: a.Faint = true; break;
+                    // 22 is "normal intensity", which is both of them at once.
+                    case 22: a.Bold = false; a.Faint = false; break;
                     case 7: a.Reverse = true; break;
                     case 27: a.Reverse = false; break;
 

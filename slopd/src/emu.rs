@@ -357,11 +357,17 @@ fn safe_uri(uri: &str) -> String {
     uri.chars().filter(|c| !c.is_control()).take(2048).collect()
 }
 
-/// The mod renders only bold, reverse and colour, so that's all we emit.
+/// The mod renders only bold, faint, reverse and colour, so that's all we emit.
 fn sgr_for(fg: Color, bg: Color, flags: Flags) -> String {
     let mut params: Vec<String> = Vec::new();
     if flags.contains(Flags::BOLD) {
         params.push("1".into());
+    }
+    // Dropping this is what drew Claude Code's greyed-out completions as ordinary text: the
+    // colour on a faint cell is the *full* one, the dimming being an attribute rather than a
+    // palette entry, so the mod is the only half that can tell them apart.
+    if flags.contains(Flags::DIM) {
+        params.push("2".into());
     }
     if flags.contains(Flags::INVERSE) {
         params.push("7".into());
@@ -531,6 +537,16 @@ mod tests {
         e.feed(b"\x1b[1;31mX\x1b[0m");
         let f = e.render();
         assert_eq!(f.lines[0], "\x1b[0m\x1b[0;1;31mX");
+    }
+
+    // Faint is an attribute rather than a colour, so dropping it here left the mod nothing to
+    // tell a completion hint from the line above it.
+    #[test]
+    fn carries_faint_through() {
+        let mut e = SessionEmu::new(20, 2);
+        e.feed(b"\x1b[2mhint\x1b[0m");
+        let f = e.render();
+        assert_eq!(f.lines[0], "\x1b[0m\x1b[0;2mhint");
     }
 
     #[test]
