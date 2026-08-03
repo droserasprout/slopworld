@@ -1,0 +1,6 @@
+[[sandbox]]
+name = "gh"
+category = "dev"
+description = "GitHub CLI auth and config"
+rw = ["~/.config/gh"]
+env = ["GH_TOKEN", "GITHUB_TOKEN"]

@@ -77,6 +77,10 @@ const BUILTIN: &[(&str, &str)] = &[
     ("rust", include_str!("../presets/rust.toml")),
     ("node", include_str!("../presets/node.toml")),
     ("python", include_str!("../presets/python.toml")),
+    ("go", include_str!("../presets/go.toml")),
+    ("gh", include_str!("../presets/gh.toml")),
+    ("aws", include_str!("../presets/aws.toml")),
+    ("kube", include_str!("../presets/kube.toml")),
 ];
 
 #[derive(Debug, Default)]
@@ -226,6 +230,15 @@ mod tests {
         assert_eq!(t.command("claude").unwrap().sandbox, vec!["claude"]);
         assert_eq!(t.sandbox("systemd").unwrap().setenv["SYSTEMCTL_FORCE_BUS"], "1");
         assert_eq!(t.sandbox("gpu").unwrap().dev, vec!["/dev/dri"]);
+
+        // The new presets parse and name themselves correctly.
+        for name in ["go", "gh", "aws", "kube"] {
+            let p = t.sandbox(name).unwrap_or_else(|| panic!("no {name} sandbox preset"));
+            assert!(!p.category.is_empty(), "{name} has no category");
+            assert!(!p.description.is_empty(), "{name} has no description");
+        }
+        assert_eq!(t.sandbox("go").unwrap().rw, vec!["~/.go", "~/.cache/go-build"]);
+        assert_eq!(t.sandbox("kube").unwrap().ro, vec!["~/.kube"]);
     }
 
     /// A user file replaces the builtin of the same name in place, and adds what it names

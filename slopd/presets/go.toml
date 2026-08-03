@@ -1,0 +1,6 @@
+[[sandbox]]
+name = "go"
+category = "dev"
+description = "the Go module cache and build cache"
+rw = ["~/.go", "~/.cache/go-build"]
+env = ["GOPATH", "GOMODCACHE", "GOFLAGS"]
