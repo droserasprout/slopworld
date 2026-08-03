@@ -30,7 +30,8 @@ namespace SlopWorld
 
         static readonly List<string> Tips = new List<string>
         {
-            // shortcuts, the only useful block
+            // shortcuts
+            "Press `F1` to show Command Pallette.",
             "Press `F12` to toggle terminal.",
             "Press `Alt+Num` to switch terminal tab.",
             // Mozilla's `about:robots`

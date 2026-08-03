@@ -33,8 +33,6 @@ Turn Colonist selection bottom-left floatie into full-height right sidebar. Resi
 
 - Cat should sometimes turn ugly things in range into flower/crop containers on click.
 - Cat accumulates clicks as seconds of aura. Charge them spamming clicks and enjoy minutes of cat aura.
-- ~~Snoop should leave the map after a couple of ones.~~
-- Tune background frames. Add alternative sequences. Current cache is just 504K.
 - Config flag to disable blood, vomit, and offensive/harmful hints
 - Realtime weather for provided IRL coordinates
 
