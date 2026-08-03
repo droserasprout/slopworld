@@ -100,7 +100,6 @@ namespace SlopWorld
             l.Begin(new Rect(0f, 0f, view.width, 4000f));
 
             DoConnectionNote(l);
-            DoLayout(l);
 
             l.Gap(8f);
             l.Label("Command presets for agents and errands that name none of their own");
@@ -188,34 +187,8 @@ namespace SlopWorld
                 TerminalSettingsWindow.Open();
         }
 
-        // A mod setting rather than `config.toml` - it is about this install and this screen,
-        // not about the machine - but this is the page a knob is looked for on.
-        //
-        // Written on the click rather than on the way out: the Save button below belongs to
-        // the daemon's file, and a checkbox next to it that only took hold when the window
-        // closed would read as one that Save had missed.
-        void DoLayout(Listing_Standard l)
-        {
-            var s = SlopWorldMod.Instance.settings;
-            bool was = s.sidebar;
-
-            l.Gap(10f);
-            l.CheckboxLabeled("Sidebar layout", ref s.sidebar,
-                "Agents down the left, grouped by project, two lines each, with the current " +
-                "agent, the clock and the quota on one line across the top. Off, they are a " +
-                "row of portraits along the top instead.");
-
-            if (s.sidebar != was)
-            {
-                s.Write();
-                Patch_MainTabWindowShift.Reposition();
-                // This page's own window, which sits in the room the column and the line
-                // leave and has just been told there is more of it or less.
-                SlopOptions.Reposition();
-            }
-        }
-
-
+        // This page's own window, which sits in the room the column and the line
+        // leave and has just been told there is more of it or less.
         void DoBaseBinds(Rect r)
         {
             Widgets.Label(new Rect(r.x, r.y, r.width, 22f), "Bound into every sandbox");

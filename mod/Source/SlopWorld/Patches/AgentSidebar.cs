@@ -672,7 +672,6 @@ namespace SlopWorld
 
         static bool Wanted()
         {
-            if (!ColonistBarStrip.Vertical) return false;
             // The map-layer call under a pane draws into pixels the pane has already
             // covered, and its buttons would take clicks aimed at the terminal.
             if (ColonistBarStrip.Suppressed) return false;

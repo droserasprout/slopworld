@@ -16,11 +16,9 @@
 - Tab / Shift+Tab in floating windows to navigate between input fields
 - ModSettings shouldn't pause the game
 
-### Sidebar layout
+## F1: Command Pallette
 
-- RMB agent menu: Start/Stop, Edit, Duplicate, Remove
-- Resize sidebar by dragging
-- Drop the "classic" UI layout after finalizing sidebar
+Top center float, VSCode-style. Recently used, focused input field. Nested questions when needed (i.e. "Agent: Stop" should ask select active agent next)
 
 ## Computer Core
 
@@ -32,9 +30,9 @@
 - tokensave/rtk integration
 - CC Switch-like switch
 
-## Sandbox
+## Right sidebar
 
-- Turn presets into TOML files. User additions/overrides go to `~/.config/slopworld/sandbox`
+Turn Colonist selection bottom-left floatie into full-height right sidebar. Resizable as the left one. Action buttons ("Terminal", "Stop") stay bottom left.
 
 ## Finetuning
 

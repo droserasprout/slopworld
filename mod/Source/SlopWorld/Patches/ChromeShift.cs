@@ -5,12 +5,12 @@ using Verse;
 
 namespace SlopWorld
 {
-    // What the sidebar layout does to the rest of the interface: the bottom button row and
+    // What the sidebar does to the rest of the interface: the bottom button row and
     // the inspect pane start where the column ends. Both are vanilla's own, laid out from
     // UI.screenWidth and from zero, so both are moved rather than rewritten.
     //
     // Neither knows the layout exists; each asks SlopLayout for the room to leave, which is
-    // zero in the strip layout and during a cutscene, and then this file does nothing at all.
+    // zero during a cutscene, and then this file does nothing at all.
 
     // The row is laid out contiguously from zero to screenWidth, the last visible button
     // widened to whatever is left, so squeezing the whole line into the room right of the
@@ -89,7 +89,7 @@ namespace SlopWorld
             ShiftPane(__instance);
         }
 
-        // Called directly when the sidebar layout is toggled, so the pane moves immediately.
+        // Called when the layout changes, so the pane moves immediately.
         public static void Reposition()
         {
             var pane = Find.WindowStack?.WindowOfType<MainTabWindow_Inspect>();
@@ -100,8 +100,6 @@ namespace SlopWorld
         {
             if (pane.Anchor != MainTabWindowAnchor.Left) return;
 
-            // Both ways: the pane goes to the column's edge and comes back to the left edge
-            // when the layout is turned off again.
             var r = pane.windowRect;
             r.x = SlopLayout.LeftInset > 0f
                 ? Mathf.Min(SlopLayout.LeftInset, Mathf.Max(0f, UI.screenWidth - r.width))

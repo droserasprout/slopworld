@@ -101,20 +101,6 @@ namespace SlopWorld
             }
 
             l.Gap(10f);
-            bool wasSidebar = s.sidebar;
-            l.CheckboxLabeled("Sidebar layout", ref s.sidebar,
-                "Agents down the left, grouped by project, with a status line across the top. "
-                + "Off, they are a row of portraits along the top instead.");
-            // The pane under this window is still open, so it has to be moved by hand: the
-            // postfix that shifts it runs on tab open and on resolution change only.
-            if (s.sidebar != wasSidebar)
-            {
-                Patch_MainTabWindowShift.Reposition();
-                // Reachable from the options page, which is sat in the room this decides.
-                SlopOptions.Reposition();
-            }
-
-            l.Gap(8f);
             if (l.ButtonText($"Colour scheme: {s.theme}"))
                 Find.WindowStack.Add(new FloatMenu(TerminalTheme.All
                     .Select(t => new FloatMenuOption(t.Name, () =>

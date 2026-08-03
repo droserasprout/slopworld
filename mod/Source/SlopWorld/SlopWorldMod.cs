@@ -20,8 +20,6 @@ namespace SlopWorld
         public int port = 7717;
         public string token = "";
         public bool autoConnect = true;
-        public bool sidebar;
-
         // The column's width, dragged rather than typed, and the projects rolled up in it.
         // Both are about this screen the way the layout itself is, so they live beside it -
         // and a project is the daemon's rather than a colony's, so neither belongs in a save.
@@ -47,7 +45,6 @@ namespace SlopWorld
             Scribe_Values.Look(ref port, "port", 7717);
             Scribe_Values.Look(ref token, "token", "");
             Scribe_Values.Look(ref autoConnect, "autoConnect", true);
-            Scribe_Values.Look(ref sidebar, "sidebar", false);
             Scribe_Values.Look(ref sidebarWidth, "sidebarWidth", 210f);
             Scribe_Values.Look(ref foldedProjects, "foldedProjects", "");
             Scribe_Values.Look(ref fontSize, "fontSize", 14);
@@ -66,7 +63,6 @@ namespace SlopWorld
         public static int Port => S.port;
         public static string Token => S.token;
         public static bool AutoConnect => S.autoConnect;
-        public static bool Sidebar => S.sidebar;
         // Unclamped: AgentSidebar owns what a usable column is, and it is the only reader.
         public static float SidebarWidth => S.sidebarWidth;
         public static string FoldedProjects => S.foldedProjects ?? "";

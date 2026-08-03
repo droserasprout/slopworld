@@ -6,21 +6,15 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The resource readout, in vanilla's own corner and geometry, counting quota. The number
-    // is what is *left* - see Count, the one place the daemon's spent figure is turned round.
+    // The quota readout, drawn from TopBar across the top of the screen. The number is
+    // what is *left* - see Count, the one place the daemon's spent figure is turned round.
     //
     // A MapComponent rather than a window, so it sits behind every window. The numbers are
     // never computed here; the countdown is, off the frame clock, so it keeps ticking between
     // polls and when the daemon goes away.
     public class UsageReadout : MapComponent
     {
-        // Vanilla's own corner and row, from ResourceReadout.DoReadoutSimple.
-        const float X = 7f;
-        const float Y = 7f;
-        const float RowH = 24f;
         const float IconSize = 27f;
-        const float TextX = 34f;
-        const float RowW = 110f;
 
         // Twice the daemon's default poll and then some: one missed poll is nothing, a
         // minute of silence is the socket being down.
@@ -44,59 +38,9 @@ namespace SlopWorld
         {
             if (Cutscene.Playing) return; // a scene plays bare
 
-            // The other layout has a line of its own for this, and draws the clock and the
-            // same rows along it. Still from here, because a MapComponent is what puts them
-            // behind every window.
-            if (SlopLayout.Sidebar) { TopBar.DrawOnMap(); return; }
-
-            var usage = SessionHub.Instance.Usage;
-
-            // Nothing ever heard and nothing wrong: usage polling is off, or the daemon has
-            // not answered yet.
-            bool quota = usage.Any || !string.IsNullOrEmpty(usage.Error);
-
-            // Vanilla's legibility trick for this corner, which went out with the readout
-            // Patch_HideGui strips. It leaves GUI.color white behind it.
-            GenUI.DrawTextWinterShadow(new Rect(256f, 512f, -256f, -512f));
-
-            var old = GUI.color;
-            Text.Font = GameFont.Small;
-            Text.Anchor = TextAnchor.MiddleLeft;
-
-            float y = Y;
-
-            GUI.color = Color.white;
-            DrawClock(new Rect(X, y, RowW, RowH), TextAnchor.MiddleLeft);
-            y += RowH;
-
-            if (quota)
-            {
-                // Stale numbers stay on screen but stop looking authoritative.
-                bool stale = !usage.Ok || usage.Age > StaleAfter;
-                float alpha = stale ? 0.55f : 1f;
-
-                GUI.color = new Color(1f, 1f, 1f, alpha);
-
-                if (!usage.Any)
-                {
-                    DrawUnknown(new Rect(X, y, RowW, RowH), usage);
-                }
-                else
-                {
-                    foreach (var w in usage.Windows)
-                    {
-                        DrawWindow(new Rect(X, y, RowW, RowH), usage, w, alpha);
-                        y += RowH;
-                    }
-                }
-            }
-
-            Text.Anchor = TextAnchor.UpperLeft;
-            GUI.color = old;
+            TopBar.DrawOnMap();
         }
 
-        // Left-anchored beside its icon in the corner readout, centred and bare along the top
-        // bar - the icon there would be a second dial next to the resources.
         public static void DrawClock(Rect row, TextAnchor anchor)
         {
             DateTime now = DateTime.Now;
@@ -107,20 +51,9 @@ namespace SlopWorld
                 _clock = ContentFinder<Texture2D>.Get("UI/Icons/ColonistBar/Idle", false);
             }
 
-            var text = row;
-            if (anchor == TextAnchor.MiddleLeft)
-            {
-                if (_clock != null)
-                {
-                    var box = new Rect(row.x, row.y, IconSize, IconSize).ContractedBy(3f);
-                    GUI.DrawTexture(box, _clock);
-                }
-                text = new Rect(row.x + TextX, row.y, row.width - TextX, row.height);
-            }
-
             var was = Text.Anchor;
             Text.Anchor = anchor;
-            Widgets.Label(text, now.ToString("HH:mm"));
+            Widgets.Label(row, now.ToString("HH:mm"));
             Text.Anchor = was;
 
             TooltipHandler.TipRegion(row, new TipSignal(
@@ -194,30 +127,6 @@ namespace SlopWorld
         {
             Text.Font = GameFont.Small;
             return IconSize + 2f + Text.CalcSize(Count(w)).x + 2f;
-        }
-
-        void DrawWindow(Rect row, UsageInfo usage, UsageWindow w, float alpha)
-        {
-            var icon = IconFor(w.Key);
-            if (icon != null)
-            {
-                // ThingIcon leaves GUI.color on the def's own tint, so the row's white has to be
-                // put back before the number is drawn.
-                Widgets.ThingIcon(new Rect(row.x, row.y, IconSize, IconSize),
-                    icon, null, null, 1f, null, null, alpha);
-                GUI.color = new Color(1f, 1f, 1f, alpha);
-            }
-
-            Widgets.Label(new Rect(row.x + TextX, row.y, row.width - TextX, row.height), Count(w));
-            Tip(row, usage, w);
-        }
-
-        // Said in the same space rather than left blank: "unknown" and "0%" must never look
-        // alike. No icon - there is no resource to stand for a number nobody has.
-        void DrawUnknown(Rect row, UsageInfo usage)
-        {
-            Widgets.Label(row, "quota: unknown");
-            Tip(row, usage, null);
         }
 
         // What is *left*: a number in this corner that grew as the colony worked would read as

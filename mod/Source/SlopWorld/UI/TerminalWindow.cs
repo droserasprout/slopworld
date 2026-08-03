@@ -10,12 +10,6 @@ namespace SlopWorld
     // keystrokes back as tmux keys.
     public class TerminalWindow : Window
     {
-        // What the title bar is when it is only a title bar - one row of buttons.
-        const float HeaderMinH = 28f;
-
-        // The colonist strip draws inside it, so it grows to hold a whole row and never
-        // shrinks below the buttons.
-        static float HeaderH => Mathf.Max(HeaderMinH, ColonistBarStrip.BarH);
         const float Pad = 6f;
 
         // Not readonly: the strip switches sessions by pointing the window at a new one,
@@ -176,23 +170,10 @@ namespace SlopWorld
 
             // All of this after the background fill: anywhere earlier in the frame it is
             // painted over. See ColonistBarStrip.cs.
-            float top, left = 0f;
-            if (SlopLayout.Sidebar)
-            {
-                TopBar.Draw(this, input);
-                ColonistBarStrip.Draw(input);
-                top = TopBar.H;
-                left = AgentSidebar.Width;
-            }
-            else
-            {
-                var header = new Rect(rect.x, rect.y, rect.width, HeaderH);
-                DrawHeader(header, info);
-
-                var bar = ColonistBarStrip.Rect;
-                ColonistBarStrip.Draw(input);
-                top = Mathf.Max(header.yMax, bar.yMax);
-            }
+            TopBar.Draw(this, input);
+            ColonistBarStrip.Draw(input);
+            float top = TopBar.H;
+            float left = AgentSidebar.Width;
 
             var body = new Rect(
                 rect.x + left + Pad,
@@ -249,65 +230,9 @@ namespace SlopWorld
             Text.Anchor = anchor;
         }
 
-        // Line one is ours; line two is the app's own title.
-        const float NameH = 22f, TitleH = 15f;
-
-        static readonly Color IconIdle = new Color(0.62f, 0.64f, 0.66f);
-        static readonly Color TitleColor = new Color(0.55f, 0.57f, 0.60f);
-
-        // The close texture's own size; anything larger is a scaled-up X with soft edges.
-        const float IconSize = 18f;
-
-        // What the colonist strip must leave clear at each end. The buttons are drawn before
-        // the strip, so without this a full row of portraits lands over them.
-        public static float CornerW => Pad * 2f + IconSize * 2f + 4f;
-
         // The negotiated shape, for the top bar to say in the layout where this window draws
         // no header of its own. Blank until the first frame has been measured.
         public string Shape => _cols > 0 ? $"{_cols}x{_rows}" : "";
-
-        void DrawHeader(Rect r, SessionInfo info)
-        {
-            Widgets.DrawBoxSolid(r, new Color(0.10f, 0.11f, 0.13f));
-
-            // At the top rather than centred: the band is as tall as a portrait, and a button
-            // floating in the middle of one reads as sitting on the strip.
-            float iy = r.y + Pad;
-
-            var cross = new Rect(r.xMax - Pad - IconSize, iy, IconSize, IconSize);
-            TooltipHandler.TipRegion(cross, "Close  (Shift+Esc)");
-            if (Widgets.ButtonImage(cross, TexButton.CloseXSmall, IconIdle, Color.white))
-                Close();
-
-            var gear = new Rect(cross.x - 4f - IconSize, iy, IconSize, IconSize);
-            TooltipHandler.TipRegion(gear, "Terminal settings - font size and colours");
-            if (Widgets.ButtonImage(gear, GearIcon.Tex, IconIdle, Color.white))
-                TerminalSettingsWindow.Open();
-
-            var buf = DisplayedBuf();
-            string title = buf?.Title ?? "";
-
-            float h = string.IsNullOrEmpty(title) ? NameH : NameH + TitleH;
-            float w = Mathf.Min(r.width * 0.4f, gear.x - r.x - Pad * 2f);
-            float y = r.y + (r.height - h) / 2f;
-
-            var state = info?.State ?? AgentState.Down;
-            Text.Font = GameFont.Small;
-            GUI.color = StateColor(state);
-            Widgets.Label(new Rect(r.x + Pad, y, w, NameH),
-                $"{_name}  [{state.ToString().ToLower()}]  {_cols}x{_rows}");
-
-            if (!string.IsNullOrEmpty(title))
-            {
-                // Truncated with the game's ellipsis rather than clipped.
-                Text.Font = GameFont.Tiny;
-                GUI.color = TitleColor;
-                Widgets.Label(new Rect(r.x + Pad, y + NameH, w, TitleH), title.Truncate(w));
-            }
-
-            GUI.color = Color.white;
-            Text.Font = GameFont.Small;
-        }
 
         public static Color StateColor(AgentState s)
         {
