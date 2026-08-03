@@ -6,11 +6,17 @@ using Verse;
 namespace SlopWorld
 {
     // The persona core: LMB opens a context menu. "Hint" shows a tip bubble that
-    // fades after three seconds; "Next planet" burns the map and lands on a new one.
+    // fades after three seconds; "Kill something" strikes 5-10 lightnings at a
+    // random human, animal or tree on the map; "Next planet" burns the map and
+    // lands a new colony.
     public class CoreTip : MapComponent
     {
         // How long the sticky hint stays up before dismissing itself.
         const float HintTimeout = 3f;
+
+        // Real seconds between lightning strikes in the kill sequence.
+        const float MinStrikeDelay = 0.2f;
+        const float MaxStrikeDelay = 0.33f;
 
         // A sticky hint pinned to the core by the context menu.
         bool _sticky;
@@ -29,7 +35,33 @@ namespace SlopWorld
         // it without the mouse having moved to the menu item.
         IntVec3 _menuCell;
 
+        // Pending lightning strike sequence.
+        int _strikesLeft;
+        float _nextStrikeAt;
+
         public CoreTip(Map map) : base(map) { }
+
+        // Real-time, so the sequence runs even when the game is paused.
+        public override void MapComponentUpdate()
+        {
+            if (_strikesLeft <= 0) return;
+            if (Time.realtimeSinceStartup < _nextStrikeAt) return;
+
+            var target = PickTarget();
+            if (target == null)
+            {
+                _strikesLeft = 0;
+                return;
+            }
+
+            map.weatherManager.eventHandler.AddEvent(
+                new WeatherEvent_LightningStrike(map, target.Position));
+            _strikesLeft--;
+
+            if (_strikesLeft > 0)
+                _nextStrikeAt = Time.realtimeSinceStartup
+                    + Rand.Range(MinStrikeDelay, MaxStrikeDelay);
+        }
 
         public override void MapComponentOnGUI()
         {
@@ -49,6 +81,7 @@ namespace SlopWorld
                 var options = new List<FloatMenuOption>
                 {
                     new FloatMenuOption("Hint", HintAction),
+                    new FloatMenuOption("Kill something", KillAction),
                     new FloatMenuOption("Next planet", NextPlanet.Begin),
                 };
                 Find.WindowStack.Add(new FloatMenu(options));
@@ -99,21 +132,54 @@ namespace SlopWorld
             }
         }
 
-        // Toggle the sticky hint on or off. Called from the context menu.
+        // Show or refresh the sticky hint. Called from the context menu.
         void HintAction()
         {
-            if (_sticky)
-            {
-                _sticky = false;
-                _stickyTip = null;
-                return;
-            }
-
             _sticky = true;
             _stickyTip = Patch_LoadingTips.RandomTip;
             _stickyAt = _clickPos;
             _stickyAtTime = Time.realtimeSinceStartup;
             _stickyCell = _menuCell;
+        }
+
+        // Strike a random living thing with 5-10 lightnings.
+        void KillAction()
+        {
+            var target = PickTarget();
+            if (target == null)
+            {
+                Messages.Message("SlopWorld: nothing to kill on this map.",
+                    MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+
+            _strikesLeft = Rand.RangeInclusive(5, 10);
+            _nextStrikeAt = Time.realtimeSinceStartup;
+        }
+
+        // Pick a random spawned pawn (humanlike or animal) or tree on the map.
+        Thing PickTarget()
+        {
+            var pool = new List<Thing>();
+
+            var pawns = map.mapPawns.AllPawnsSpawned;
+            for (int i = 0; i < pawns.Count; i++)
+            {
+                var p = pawns[i];
+                if (p.Dead || p.Downed) continue;
+                if (p.RaceProps.Humanlike || p.RaceProps.Animal) pool.Add(p);
+            }
+
+            var plants = map.listerThings.ThingsInGroup(ThingRequestGroup.Plant);
+            for (int i = 0; i < plants.Count; i++)
+            {
+                var t = plants[i];
+                if (t.Destroyed) continue;
+                if (t.def.plant != null && t.def.plant.IsTree) pool.Add(t);
+            }
+
+            if (pool.Count == 0) return null;
+            return pool[Rand.RangeInclusive(0, pool.Count - 1)];
         }
     }
 }
