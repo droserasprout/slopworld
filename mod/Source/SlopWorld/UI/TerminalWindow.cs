@@ -726,6 +726,13 @@ namespace SlopWorld
             // Not in TerminalHotkeys: a window absorbing input makes
             // WindowStack.HandleEventsHighPriority Use every KeyDown, and that runs earlier in
             // UIRoot.UIRootOnGUI than any game component.
+            if (SlopDefOf.SlopCommandPalette != null && SlopDefOf.SlopCommandPalette.KeyDownEvent)
+            {
+                CommandPalette.Toggle();
+                e.Use();
+                return;
+            }
+
             if (SlopDefOf.SlopQuickTerminal != null && SlopDefOf.SlopQuickTerminal.KeyDownEvent)
             {
                 Close();

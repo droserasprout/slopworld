@@ -30,6 +30,9 @@ namespace SlopWorld
         /// Opens and closes the terminal from anywhere, agent selected or not.
         public static KeyBindingDef SlopQuickTerminal;
 
+        /// F1: command palette, VSCode-style.
+        public static KeyBindingDef SlopCommandPalette;
+
         /// The colony's one and only pet.
         public static PawnKindDef Cat;
 

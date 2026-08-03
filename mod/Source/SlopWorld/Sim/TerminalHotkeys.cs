@@ -23,6 +23,13 @@ namespace SlopWorld
             // over it would be the loudest thing on screen.
             if (Cutscene.Playing) return;
 
+            if (SlopDefOf.SlopCommandPalette != null && SlopDefOf.SlopCommandPalette.KeyDownEvent)
+            {
+                Event.current.Use();
+                CommandPalette.Toggle();
+                return;
+            }
+
             if (SlopDefOf.SlopQuickTerminal != null && SlopDefOf.SlopQuickTerminal.KeyDownEvent)
             {
                 // KeyDownEvent already refuses a search widget that has focus, so this cannot

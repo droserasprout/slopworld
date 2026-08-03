@@ -10,6 +10,14 @@
     <defaultKeyCodeA>T</defaultKeyCodeA>
   </KeyBindingDef>
 
+  <!-- F1: command palette, VSCode-style. -->
+  <KeyBindingDef>
+    <defName>SlopCommandPalette</defName>
+    <label>command palette</label>
+    <category>SelectionMisc</category>
+    <defaultKeyCodeA>F1</defaultKeyCodeA>
+  </KeyBindingDef>
+
   <!-- Not S: vanilla already spends it on a selected pawn. -->
   <KeyBindingDef>
     <defName>SlopToggleSession</defName>
