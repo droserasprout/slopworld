@@ -94,8 +94,8 @@ package() {
 
   install -Dm644 packaging/slopworld.desktop \
     "$pkgdir/usr/share/applications/slopworld.desktop"
-  # The colonists' own face, and the only art here that is ours.
-  install -Dm644 mod/Textures/SlopWorld/RobotFace_south.png \
+  # The colonists' own face, with a wilted rose growing from the skull.
+  install -Dm644 mod/Textures/SlopWorld/SlopWorld_icon.png \
     "$pkgdir/usr/share/icons/hicolor/128x128/apps/slopworld.png"
 
   install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"

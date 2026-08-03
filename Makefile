@@ -39,6 +39,9 @@ mod:               ## Build the mod against the game's assemblies
 test:              ## Run the daemon's tests; the mod needs the game
 	cd slopd && cargo test
 
+appicon:           ## Regenerate the app icon (robot face + wilted rose)
+	python3 tools/appicon.py
+
 clean:             ## Drop build output
 	cd slopd && cargo clean
 	rm -f mod/Assemblies/SlopWorld.dll
@@ -105,6 +108,10 @@ run:               ## Launch the game through the runner
 	$(RUNNER) --game "$(RIMWORLD)" $(if $(PROFILE),--profile "$(PROFILE)") \
 		-popupwindow -force-opengl
 
+##
+##-> Misc
+##
+
 redeploy:          ## Install both halves, then bounce the game
 	$(MAKE) install
 	@curl -fsS -X POST "$(API)/api/game/restart" \
@@ -119,3 +126,6 @@ logs:              ## Tail the game's Player.log
 # Needs the `x11` preset on this project's sandbox; see tools/shot.sh.
 shot:              ## Screenshot the game window into OUT
 	@tools/shot.sh $(OUT)
+
+pkg-arch:
+	cd packaging/arch && makepkg -p PKGBUILD.local -sif

@@ -79,7 +79,7 @@ package() {
 
   install -Dm644 packaging/slopworld.desktop \
     "$pkgdir/usr/share/applications/slopworld.desktop"
-  install -Dm644 mod/Textures/SlopWorld/RobotFace_south.png \
+  install -Dm644 mod/Textures/SlopWorld/SlopWorld_icon.png \
     "$pkgdir/usr/share/icons/hicolor/128x128/apps/slopworld.png"
 
   install -Dm644 README.md "$pkgdir/usr/share/doc/slopworld/README.md"
