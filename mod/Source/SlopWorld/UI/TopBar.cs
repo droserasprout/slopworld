@@ -10,7 +10,6 @@ namespace SlopWorld
 
         const float Pad = 8f;
         const float ClockW = 76f;
-        const float IconSize = 18f;
 
         static readonly Color Bg = new Color(0.09f, 0.10f, 0.12f, 0.93f);
         static readonly Color Edge = new Color(0f, 0f, 0f, 0.55f);
@@ -41,7 +40,6 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.MiddleLeft;
 
             float right = r.xMax - Pad;
-            if (pane != null) right = Buttons(r, pane, interactive) - Pad;
 
             var clock = new Rect(r.center.x - ClockW / 2f, r.y, ClockW, r.height);
             UsageReadout.DrawClock(clock, TextAnchor.MiddleCenter);
@@ -70,22 +68,8 @@ namespace SlopWorld
             e.Use();
         }
 
-        // The cross, in the corner it is in without this layout. Answers the left edge of
-        // what it drew, so the quota starts clear of it. The gear that used to sit beside
-        // the cross moved to a tab of the options dialog, where the pane's settings are a
-        // page in the same dialog the General tab opens.
-        static float Buttons(Rect r, TerminalWindow pane, bool interactive)
-        {
-            float y = r.y + (r.height - IconSize) / 2f;
-
-            var cross = new Rect(r.xMax - Pad - IconSize, y, IconSize, IconSize);
-            TooltipHandler.TipRegion(cross, "Close  (Shift+Esc)");
-            if (Widgets.ButtonImage(cross, TexButton.CloseXSmall, IconIdle, Color.white)
-                && interactive)
-                pane.Close();
-
-            return cross.x;
-        }
+        // No buttons any more: the close cross is Shift+Esc, and the gear that sat beside
+        // it moved to a tab of the options dialog. The corner is all quota strip now.
 
         // The current agent is whichever pane is open, or with none the agent the map is
         // looking at. Its own title is the only thing here the agent itself wrote - Claude
