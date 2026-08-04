@@ -2,9 +2,9 @@
  * Auto-name pi sessions from the first user prompt.
  *
  * Fires a cheap OpenRouter model to summarise the first message into <=6 words
- * and calls `pi.setSessionName()`, which updates the terminal window title and
- * the session selector.  Fire-and-forget: the agent starts immediately, the
- * title arrives a beat later.
+ * and calls `ctx.ui.setTitle()`, which updates the terminal tab/window title
+ * to just the summary (no `π -` prefix or project postfix added by pi).
+ * Fire-and-forget: the agent starts immediately, the title arrives a beat later.
  *
  * Needs `OPENROUTER_API_KEY` in the environment (the pi sandbox already
  * forwards it).  Silently skips if the key is missing, the session already
@@ -14,15 +14,15 @@
  * inside the slopworld project directory.  No global install, no bind mounts.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-const SUMMARY_MODEL = "google/gemini-2.0-flash-lite";
+const SUMMARY_MODEL = "google/gemini-3.1-flash-lite";
 const TIMEOUT_MS = 5_000;
 const MAX_PROMPT_CHARS = 2000;
 const MAX_TITLE_CHARS = 60;
 
 export default function (pi: ExtensionAPI) {
-	pi.on("before_agent_start", async (event, _ctx) => {
+	pi.on("before_agent_start", async (event, ctx) => {
 		// Only name the session once.  A manual `/name` or a previous summariser
 		// call already filled this in.
 		if (pi.getSessionName() !== undefined) return;
@@ -39,14 +39,14 @@ export default function (pi: ExtensionAPI) {
 
 		// Fire-and-forget: the agent starts immediately, the title arrives
 		// a beat later.  Own timeout so we don't depend on the turn's signal.
-		void nameFromPrompt(text, key, pi);
+		nameFromPrompt(text, key, ctx).catch(() => {});
 	});
 }
 
 async function nameFromPrompt(
 	text: string,
 	key: string,
-	pi: ExtensionAPI,
+	ctx: ExtensionContext,
 ): Promise<void> {
 	const ac = new AbortController();
 	const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
@@ -98,7 +98,7 @@ async function nameFromPrompt(
 			.slice(0, MAX_TITLE_CHARS)
 			.trim();
 
-		if (title) pi.setSessionName(title);
+		if (title) ctx.ui.setTitle(title);
 	} catch {
 		// Network error, timeout, aborted — nothing to do.
 		// The session stays unnamed and `/name` still works.

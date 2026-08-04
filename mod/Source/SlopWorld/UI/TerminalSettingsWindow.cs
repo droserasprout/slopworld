@@ -35,6 +35,7 @@ namespace SlopWorld
             // Not close-on-click-outside: outside is the terminal, and a stray click that
             // shut the settings would also be a keystroke aimed at an agent.
             closeOnClickedOutside = false;
+            optionalTitle = "Terminal Settings";
         }
 
         public override Vector2 InitialSize => new Vector2(470f, 670f);

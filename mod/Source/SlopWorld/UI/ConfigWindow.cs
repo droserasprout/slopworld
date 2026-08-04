@@ -29,6 +29,7 @@ namespace SlopWorld
             absorbInputAroundWindow = true;
             closeOnClickedOutside = false;
             closeOnAccept = false;
+            optionalTitle = "Config Editor";
         }
 
         public override Vector2 InitialSize => new Vector2(720f, 620f);
