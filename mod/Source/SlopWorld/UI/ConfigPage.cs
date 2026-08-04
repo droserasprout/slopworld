@@ -8,7 +8,8 @@ namespace SlopWorld
     // window of its own. There was only ever one subject here: the daemon, and the base
     // every sandbox is built on. The rest went because it was answering somebody else's
     // question - the agent list is the `agents` window, and the sandbox a project runs in
-    // is that project's.
+    // is that project's, and what the daemon is allowed to ask Anthropic or OpenRouter for
+    // is the Usage page, there being two sellers to keep apart and a palette to draw.
     //
     // The connection is not here either. Where the daemon listens and where the game dials
     // are one question - they are the same machine - and only one of the two ends can be
@@ -27,7 +28,7 @@ namespace SlopWorld
 
         // Free-text mirrors of the typed fields, so a half-typed number is not clamped
         // out from under the player mid-keystroke.
-        string _pollMs, _history, _usagePoll;
+        string _pollMs, _history;
         string _roPaths, _rwPaths, _passEnv;
 
         Vector2 _scroll;
@@ -45,7 +46,6 @@ namespace SlopWorld
                     _path = j["path"].AsString();
                     _pollMs = _cfg.PollMs.ToString();
                     _history = _cfg.HistoryLimit.ToString();
-                    _usagePoll = _cfg.UsagePollSecs.ToString();
                     _roPaths = SlopConfig.Lines(_cfg.RoPaths);
                     _rwPaths = SlopConfig.Lines(_cfg.RwPaths);
                     _passEnv = SlopConfig.Lines(_cfg.PassEnv);
@@ -122,21 +122,6 @@ namespace SlopWorld
             l.Gap(4f);
             if (l.ButtonText("Save the colony and restart the game"))
                 ConfirmRestartGame();
-
-            l.Gap(10f);
-            l.CheckboxLabeled("Poll Anthropic for what is left of the subscription",
-                ref _cfg.Usage,
-                "Feeds the readout in the top-left corner. The daemon reads the OAuth " +
-                "token Claude Code keeps on this machine and asks Anthropic; off means " +
-                "it never touches that file.");
-
-            if (_cfg.Usage)
-            {
-                l.Label("Seconds between usage polls");
-                _usagePoll = l.TextEntry(_usagePoll);
-                l.Label("Claude credentials file");
-                _cfg.ClaudeCredentials = l.TextEntry(_cfg.ClaudeCredentials);
-            }
 
             l.Gap(10f);
             l.Label("tmux socket");
@@ -247,9 +232,6 @@ namespace SlopWorld
 
             if (int.TryParse(_pollMs, out int p)) _cfg.PollMs = Mathf.Clamp(p, 20, 5000);
             if (int.TryParse(_history, out int h)) _cfg.HistoryLimit = Mathf.Clamp(h, 0, 100000);
-            // Floored at the same 10s the poller enforces, so what the GUI shows after a save
-            // is what the daemon is actually doing.
-            if (int.TryParse(_usagePoll, out int u)) _cfg.UsagePollSecs = Mathf.Clamp(u, 10, 3600);
             _cfg.RoPaths = SlopConfig.Split(_roPaths);
             _cfg.RwPaths = SlopConfig.Split(_rwPaths);
             _cfg.PassEnv = SlopConfig.Split(_passEnv);
@@ -258,6 +240,7 @@ namespace SlopWorld
                 _ =>
                 {
                     _error = null;
+                    SlopOptions.Reread();
                     SessionHub.Instance.Refresh();
                     Messages.Message("SlopWorld: config saved.",
                         MessageTypeDefOf.TaskCompletion, false);

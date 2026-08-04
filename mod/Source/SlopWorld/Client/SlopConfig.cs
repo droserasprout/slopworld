@@ -27,6 +27,13 @@ namespace SlopWorld
         public int UsagePollSecs = 60;
         // Where the daemon looks for Claude Code's OAuth token.
         public string ClaudeCredentials = "~/.claude/.credentials.json";
+        // The other subscription, and off unless somebody says otherwise: there is no login
+        // on the host to read a key out of. Shares the poll interval above - a balance moves
+        // slower than a rate limit, never faster.
+        public bool Openrouter;
+        // Blank means the daemon reads OPENROUTER_API_KEY out of its own environment, which
+        // is where the pi preset forwards it from.
+        public string OpenrouterKeyFile = "";
 
         // Both name a command preset: what an agent that names none of its own runs, and
         // what a shell errand runs. What each one *is* is a TOML file the daemon reads.
@@ -56,6 +63,8 @@ namespace SlopWorld
                 UsagePollSecs = d["usage_poll_secs"].AsInt(60),
                 ClaudeCredentials =
                     d["claude_credentials"].AsString("~/.claude/.credentials.json"),
+                Openrouter = d["openrouter"].AsBool(false),
+                OpenrouterKeyFile = d["openrouter_key_file"].AsString(),
 
                 Agent = f["agent"].AsString("claude"),
                 Shell = f["shell"].AsString("shell"),
@@ -75,7 +84,9 @@ namespace SlopWorld
             $"\"tmux_socket\":{JVal.Q(TmuxSocket)},\"poll_ms\":{PollMs}," +
             $"\"history_limit\":{HistoryLimit},\"game_cmd\":{JVal.Q(GameCmd)}," +
             $"\"usage\":{JVal.B(Usage)},\"usage_poll_secs\":{UsagePollSecs}," +
-            $"\"claude_credentials\":{JVal.Q(ClaudeCredentials)}}}," +
+            $"\"claude_credentials\":{JVal.Q(ClaudeCredentials)}," +
+            $"\"openrouter\":{JVal.B(Openrouter)}," +
+            $"\"openrouter_key_file\":{JVal.Q(OpenrouterKeyFile)}}}," +
             "\"defaults\":{" +
             $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}}}," +
             "\"sandbox\":{" +

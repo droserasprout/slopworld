@@ -1,17 +1,22 @@
-//! What is left of the subscription, polled from Anthropic.
+//! What is left of the subscriptions, polled from whoever sells them.
 //!
-//! Nothing on the host caches it - `stats-cache.json` is aggregate tokens and days stale, the
-//! transcripts carry no rate-limit fields - so the numbers come from where Claude Code's own
-//! `/usage` gets them, with the OAuth token in `~/.claude/.credentials.json`. Read fresh per
-//! poll and never copied: the token expires hourly and something else refreshes it.
+//! Anthropic first, and nothing on the host caches it - `stats-cache.json` is aggregate
+//! tokens and days stale, the transcripts carry no rate-limit fields - so the numbers come
+//! from where Claude Code's own `/usage` gets them, with the OAuth token in
+//! `~/.claude/.credentials.json`. Read fresh per poll and never copied: the token expires
+//! hourly and something else refreshes it.
+//!
+//! OpenRouter is the second, and it is money rather than a window: credits bought less
+//! credits spent, which is what the `pi` agent draws down. Same shape on the wire, told
+//! apart by `unit` the way the extra-usage budget already was.
 //!
 //! Failure is a state rather than an error: a snapshot carries what it read plus the reason
 //! it got no further. The mod is told a *list* of windows, so a plan with different limits
-//! draws whatever it has.
+//! draws whatever it has - and so two sellers are one readout rather than two.
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use serde_json::Value;
@@ -25,6 +30,18 @@ const USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
 fn usage_url() -> String {
     std::env::var("SLOPD_USAGE_URL").unwrap_or_else(|_| USAGE_URL.to_string())
 }
+
+/// Published, unlike the one above, and answering the same question in money:
+/// `{"data":{"total_credits":n,"total_usage":n}}`.
+const CREDITS_URL: &str = "https://openrouter.ai/api/v1/credits";
+
+fn credits_url() -> String {
+    std::env::var("SLOPD_CREDITS_URL").unwrap_or_else(|_| CREDITS_URL.to_string())
+}
+
+/// The name the `pi` preset forwards, so a machine already running that agent has the key
+/// where this can read it without a second copy in `config.toml`.
+const KEY_ENV: &str = "OPENROUTER_API_KEY";
 
 /// The beta header Claude Code's own OAuth calls carry. Without it the endpoint
 /// treats the bearer as an API key and refuses it.
@@ -195,6 +212,122 @@ fn fetch(creds: &Creds) -> Result<Value, PollErr> {
     }
 
     res.body_mut().read_json::<Value>().map_err(PollErr::new)
+}
+
+/// Blank names slopd's own environment rather than a file: that is where the `pi` preset
+/// forwards `OPENROUTER_API_KEY` from, so the machine that can already run the agent can
+/// answer this without the key being written down a second time. A file is read fresh per
+/// poll and trimmed, and neither road copies, logs or writes the key back.
+fn read_key(file: &str) -> anyhow::Result<String> {
+    if file.trim().is_empty() {
+        let key = std::env::var(KEY_ENV).unwrap_or_default();
+        if key.trim().is_empty() {
+            anyhow::bail!("no ${KEY_ENV} in slopd's environment; export it or name a key file");
+        }
+        return Ok(key.trim().to_string());
+    }
+
+    let path = crate::config::expand(file);
+    let text = std::fs::read_to_string(&path).map_err(|e| anyhow::anyhow!("{path}: {e}"))?;
+    let key = text.trim();
+    if key.is_empty() {
+        anyhow::bail!("{path} holds no key");
+    }
+    Ok(key.to_string())
+}
+
+/// Same shape as `fetch`, and deliberately not folded together with it: what the two
+/// endpoints share is four lines of status handling, and what they do not is every header
+/// and every error sentence.
+fn fetch_credits(key: &str) -> Result<Value, PollErr> {
+    let mut res = ureq::get(credits_url())
+        .config()
+        .timeout_global(Some(TIMEOUT))
+        .http_status_as_error(false)
+        .build()
+        .header("Authorization", format!("Bearer {key}"))
+        .header("User-Agent", concat!("slopd/", env!("CARGO_PKG_VERSION")))
+        .call()
+        .map_err(PollErr::new)?;
+
+    let status = res.status().as_u16();
+    match status {
+        429 => {
+            return Err(PollErr {
+                msg: "OpenRouter is rate-limiting credit checks (429)".into(),
+                retry_after: Some(retry_after(&res).unwrap_or(RATE_LIMIT_FLOOR)),
+            })
+        }
+        // Something the user fixes rather than waits out, and the one failure worth naming
+        // the key in: this is the only thing here that could be a stale copy in a file.
+        401 | 403 => {
+            return Err(PollErr::new(format!(
+                "OpenRouter rejected the key ({status}); is it still good?"
+            )))
+        }
+        s if !(200..300).contains(&s) => {
+            return Err(PollErr::new(format!("credits endpoint returned {s}")))
+        }
+        _ => {}
+    }
+
+    res.body_mut().read_json::<Value>().map_err(PollErr::new)
+}
+
+/// One row, in money. `/credits` says `total_credits` and `total_usage`; the older
+/// `/auth/key` says `limit` and `usage`, with a null limit for a key that has none. Both
+/// figures are wanted - a balance is a subtraction - and anything else reads as "no
+/// numbers", for the reason `parse` does.
+fn parse_credits(v: &Value) -> Snapshot {
+    // The payload nests under `data`, but a proxy pointed at by `SLOPD_CREDITS_URL` may
+    // not, so the object itself is tried too.
+    let d = if v["data"].is_object() { &v["data"] } else { v };
+
+    let used = num(d, &["total_usage", "usage", "used"]);
+    let credits = num(d, &["total_credits", "credits", "limit"]);
+
+    let (Some(used), Some(credits)) = (used, credits) else {
+        tracing::debug!("unrecognised credits payload: {v}");
+        return Snapshot {
+            ok: false,
+            error: Some(match used {
+                // A key with no ceiling on it: the figure exists, there is just no balance
+                // to count down. Said plainly rather than drawn as a full bar.
+                Some(_) => "OpenRouter reports no credit limit on this key".into(),
+                None => "OpenRouter answered in a shape slopd does not know".into(),
+            }),
+            ..Default::default()
+        };
+    };
+
+    Snapshot {
+        ok: true,
+        error: None,
+        plan: String::new(),
+        fetched_ms: now_ms(),
+        windows: vec![Window {
+            key: "balance".into(),
+            label: "balance".into(),
+            // Nothing bought is nothing left, which is 100% spent. Zero would draw a full
+            // account beside an empty one.
+            pct: if credits > 0.0 {
+                ((used / credits) * 100.0).clamp(0.0, 100.0) as f32
+            } else {
+                100.0
+            },
+            unit: Unit::Usd,
+            amount: Some(used as f32),
+            limit: Some(credits as f32),
+            // Credits are bought rather than granted, so there is no reset to count to.
+            resets_in: None,
+        }],
+    }
+}
+
+/// The first of these keys that carries a number, the endpoint having renamed both of
+/// them once already.
+fn num(v: &Value, keys: &[&str]) -> Option<f64> {
+    keys.iter().find_map(|k| v[*k].as_f64())
 }
 
 /// Seconds only; the header's HTTP-date form has never turned up here, and the backoff
@@ -445,83 +578,214 @@ fn human(secs: u64) -> String {
     }
 }
 
+/// One seller, on its own clock. Two of these rather than one loop asking both: a source
+/// that is rate-limiting us must not slow the other one down, and a key that has gone bad
+/// must not take the other's numbers off the screen.
+struct Poller {
+    who: &'static str,
+    snap: Snapshot,
+    /// Any poll that comes back with numbers puts it back to zero.
+    fails: u32,
+    /// When this source is next due. Now, on the first lap and whenever it is switched back
+    /// on, so a setting turned on in the GUI answers rather than serving out a backoff.
+    due: Instant,
+}
+
+impl Poller {
+    fn new(who: &'static str) -> Self {
+        Poller {
+            who,
+            snap: Snapshot::default(),
+            fails: 0,
+            due: Instant::now(),
+        }
+    }
+
+    /// Switched off. Its rows go and the other source's stay, which is the whole point of
+    /// there being two of these. Answers whether anything actually changed.
+    fn clear(&mut self) -> bool {
+        self.fails = 0;
+        self.due = Instant::now();
+        if self.snap == Snapshot::default() {
+            return false;
+        }
+        self.snap = Snapshot::default();
+        true
+    }
+
+    /// The delay, the two log edges and the wait written into the error the mod draws.
+    fn settle(&mut self, mut next: Snapshot, asked: Option<u64>, base: u64) {
+        let was_ok = self.snap.ok;
+
+        let delay = if next.ok {
+            self.fails = 0;
+            base
+        } else {
+            self.fails = self.fails.saturating_add(1);
+            backoff(base, self.fails, asked)
+        };
+
+        // Loud on either edge, because "is the readout live?" is otherwise a question
+        // only the game can answer.
+        match (&next.error, was_ok) {
+            (Some(e), true) => tracing::warn!(
+                "{} usage poll failed: {e}; next try in {}",
+                self.who,
+                human(delay)
+            ),
+            (Some(e), false) => {
+                tracing::debug!("{} usage poll: {e}; next try in {}", self.who, human(delay))
+            }
+            (None, false) => tracing::info!(
+                "{} usage: {}",
+                self.who,
+                next.windows
+                    .iter()
+                    .map(|w| match (w.unit, w.amount) {
+                        (Unit::Usd, Some(a)) => format!("{} ${a:.2}", w.key),
+                        _ => format!("{} {:.0}%", w.key, w.pct),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            (None, true) => {}
+        }
+
+        // The readout draws this string, and "429" without "and I am not asking again for
+        // ten minutes" reads as a daemon that has hung.
+        if let Some(msg) = next.error.take() {
+            next.error = Some(format!("{msg} - next try in {}", human(delay)));
+        }
+
+        self.snap = next;
+        self.due = Instant::now() + Duration::from_secs(delay);
+    }
+}
+
+/// One list for the mod, which draws resources rather than sellers. `ok` is *every* live
+/// source being current, because a row nobody could tell from a live one is the one thing
+/// this must never draw; the errors are joined so the tooltip says which half is out. A
+/// source that is off contributes nothing at all, so switching one off is not a failure.
+fn merge(parts: [&Snapshot; 2]) -> Snapshot {
+    let mut out = Snapshot {
+        ok: true,
+        ..Default::default()
+    };
+    let mut errors = Vec::new();
+    let mut any = false;
+
+    for p in parts {
+        if p.windows.is_empty() && p.error.is_none() {
+            continue;
+        }
+        any = true;
+        out.ok &= p.ok;
+        out.fetched_ms = out.fetched_ms.max(p.fetched_ms);
+        if out.plan.is_empty() {
+            out.plan = p.plan.clone();
+        }
+        out.windows.extend(p.windows.iter().cloned());
+        if let Some(e) = &p.error {
+            errors.push(e.clone());
+        }
+    }
+
+    // Nothing on: the default snapshot, which is what the readout draws nothing from.
+    if !any {
+        return Snapshot::default();
+    }
+    if !errors.is_empty() {
+        out.error = Some(errors.join("; "));
+    }
+    out
+}
+
+/// How long a lap can be even with both sources due much later: what turns a source on is
+/// `config.toml`, and this loop only looks at it between sleeps.
+const LOOK: Duration = Duration::from_secs(30);
+
 /// Started from main once, and quiet in the log unless something is wrong: this
 /// runs every minute forever.
 pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        // Any poll that comes back with numbers puts it back.
-        let mut fails: u32 = 0;
+        let mut anth = Poller::new("Anthropic");
+        let mut cred = Poller::new("OpenRouter");
 
         loop {
             let cfg = m.config().await;
             let d = &cfg.daemon;
+            let base = d.usage_poll_secs.max(10);
+            let now = Instant::now();
+            let mut moved = false;
 
             if !d.usage {
-                // Off is a setting that can be turned back on without a restart, so this sleeps
-                // rather than returns.
-                tokio::time::sleep(Duration::from_secs(30)).await;
-                continue;
+                // Off is a setting that can be turned back on without a restart, so this
+                // drops the rows rather than returning.
+                moved |= anth.clear();
+            } else if anth.due <= now {
+                let path = PathBuf::from(crate::config::expand(&d.claude_credentials));
+                let prev = anth.snap.clone();
+                // Both halves are blocking: a file read and a TLS round trip.
+                let (next, asked) = tokio::task::spawn_blocking(move || match read_creds(&path) {
+                    Err(e) => (Snapshot::failed(&prev, e), None),
+                    Ok(creds) => match fetch(&creds) {
+                        Err(e) => {
+                            let asked = e.retry_after;
+                            (Snapshot::failed(&prev, e), asked)
+                        }
+                        Ok(body) => (parse(&body, creds.plan), None),
+                    },
+                })
+                .await
+                .unwrap_or_default();
+
+                anth.settle(next, asked, base);
+                moved = true;
             }
 
-            let path = PathBuf::from(crate::config::expand(&d.claude_credentials));
-            let prev = m.usage().await;
-            let was_ok = prev.ok;
+            if !d.openrouter {
+                moved |= cred.clear();
+            } else if cred.due <= now {
+                let file = d.openrouter_key_file.clone();
+                let prev = cred.snap.clone();
+                let (next, asked) = tokio::task::spawn_blocking(move || match read_key(&file) {
+                    Err(e) => (Snapshot::failed(&prev, e), None),
+                    Ok(key) => match fetch_credits(&key) {
+                        Err(e) => {
+                            let asked = e.retry_after;
+                            (Snapshot::failed(&prev, e), asked)
+                        }
+                        Ok(body) => (parse_credits(&body), None),
+                    },
+                })
+                .await
+                .unwrap_or_default();
 
-            // Both halves are blocking: a file read and a TLS round trip.
-            let (mut next, asked) = tokio::task::spawn_blocking(move || match read_creds(&path) {
-                Err(e) => (Snapshot::failed(&prev, e), None),
-                Ok(creds) => match fetch(&creds) {
-                    Err(e) => {
-                        let asked = e.retry_after;
-                        (Snapshot::failed(&prev, e), asked)
-                    }
-                    Ok(body) => (parse(&body, creds.plan), None),
-                },
-            })
-            .await
-            .unwrap_or_default();
-
-            let base = d.usage_poll_secs.max(10);
-            let delay = if next.ok {
-                fails = 0;
-                base
-            } else {
-                fails = fails.saturating_add(1);
-                backoff(base, fails, asked)
-            };
-
-            // Loud on either edge, because "is the readout live?" is otherwise a question
-            // only the game can answer.
-            match (&next.error, was_ok) {
-                (Some(e), true) => {
-                    tracing::warn!("usage poll failed: {e}; next try in {}", human(delay))
-                }
-                (Some(e), false) => {
-                    tracing::debug!("usage poll: {e}; next try in {}", human(delay))
-                }
-                (None, false) => tracing::info!(
-                    "usage: {}",
-                    next.windows
-                        .iter()
-                        .map(|w| match (w.unit, w.amount) {
-                            (Unit::Usd, Some(a)) => format!("{} ${a:.2}", w.key),
-                            _ => format!("{} {:.0}%", w.key, w.pct),
-                        })
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ),
-                (None, true) => {}
+                cred.settle(next, asked, base);
+                moved = true;
             }
 
-            // The readout draws this string, and "429" without "and I am not asking again for
-            // ten minutes" reads as a daemon that has hung.
-            if let Some(msg) = next.error.take() {
-                next.error = Some(format!("{msg} - next try in {}", human(delay)));
+            // One event for both, and only when something actually moved: `set_usage`
+            // re-announces to every client.
+            if moved {
+                m.set_usage(merge([&anth.snap, &cred.snap])).await;
             }
 
-            m.set_usage(next).await;
+            let due = [(d.usage, anth.due), (d.openrouter, cred.due)]
+                .into_iter()
+                .filter(|(on, _)| *on)
+                .map(|(_, at)| at)
+                .min();
 
-            tokio::time::sleep(Duration::from_secs(delay)).await;
+            let wait = due
+                .map(|at| at.saturating_duration_since(Instant::now()))
+                .unwrap_or(LOOK)
+                .min(LOOK)
+                // A poll that came back instantly must not spin the loop on a due time
+                // already in the past.
+                .max(Duration::from_secs(1));
+
+            tokio::time::sleep(wait).await;
         }
     })
 }
@@ -710,6 +974,97 @@ mod tests {
         );
         // A zone this cannot read fails the timestamp rather than guessing UTC.
         assert_eq!(epoch_from_rfc3339("2026-07-26T00:00:00+0500"), None);
+    }
+
+    /// Credits bought less credits spent, in money, on the same wire as a rate limit.
+    #[test]
+    fn credits_are_a_balance_in_money() {
+        let v: Value = serde_json::from_str(
+            r#"{"data":{"total_credits":25.0,"total_usage":10.0,"total_usage_bkt":0}}"#,
+        )
+        .unwrap();
+
+        let s = parse_credits(&v);
+        assert!(s.ok);
+        let w = &s.windows[0];
+        assert_eq!(w.key, "balance");
+        assert_eq!(w.unit, Unit::Usd);
+        assert_eq!(w.amount, Some(10.0));
+        assert_eq!(w.limit, Some(25.0));
+        assert_eq!(w.pct, 40.0);
+        // Bought rather than granted: there is nothing to count down to.
+        assert!(w.resets_in.is_none());
+    }
+
+    /// Nothing bought is nothing left. Zero percent spent would draw an empty account
+    /// beside a full one.
+    #[test]
+    fn no_credits_is_spent_rather_than_untouched() {
+        let v: Value =
+            serde_json::from_str(r#"{"data":{"total_credits":0,"total_usage":0}}"#).unwrap();
+        assert_eq!(parse_credits(&v).windows[0].pct, 100.0);
+    }
+
+    /// The older key endpoint, and its null limit - a figure this cannot subtract from,
+    /// which is said rather than drawn as a full bar.
+    #[test]
+    fn a_key_with_no_limit_is_no_numbers() {
+        let v: Value = serde_json::from_str(r#"{"data":{"usage":3.5,"limit":null}}"#).unwrap();
+        let s = parse_credits(&v);
+        assert!(!s.ok);
+        assert!(s.windows.is_empty());
+        assert!(s.error.unwrap().contains("no credit limit"));
+
+        let named: Value = serde_json::from_str(r#"{"data":{"usage":3.5,"limit":10.0}}"#).unwrap();
+        assert_eq!(parse_credits(&named).windows[0].amount, Some(3.5));
+    }
+
+    #[test]
+    fn an_unknown_credits_payload_is_not_a_full_wallet() {
+        let v: Value = serde_json::from_str(r#"{"data":{"nope":1}}"#).unwrap();
+        let s = parse_credits(&v);
+        assert!(!s.ok);
+        assert!(s.windows.is_empty());
+    }
+
+    /// The mod draws resources, not sellers: two sources are one list.
+    #[test]
+    fn sources_merge_into_one_list() {
+        let a = parse(&serde_json::from_str(REAL).unwrap(), "max".into());
+        let c = parse_credits(
+            &serde_json::from_str(r#"{"data":{"total_credits":25,"total_usage":10}}"#).unwrap(),
+        );
+
+        let m = merge([&a, &c]);
+        assert!(m.ok);
+        assert_eq!(m.windows.len(), a.windows.len() + 1);
+        assert_eq!(m.windows.last().unwrap().key, "balance");
+        // The plan is the subscription's, and only one source has one.
+        assert_eq!(m.plan, "max");
+        assert!(m.error.is_none());
+    }
+
+    /// One source failing dims the readout and says which, and never empties the other's
+    /// numbers. A source switched off contributes nothing and is not a failure.
+    #[test]
+    fn one_source_down_keeps_the_others_rows() {
+        let a = parse(&serde_json::from_str(REAL).unwrap(), "max".into());
+        let c = Snapshot::failed(&Snapshot::default(), "OpenRouter rejected the key (401)");
+
+        let m = merge([&a, &c]);
+        assert!(!m.ok);
+        assert_eq!(m.windows.len(), a.windows.len());
+        assert!(m.error.unwrap().contains("OpenRouter"));
+
+        // Off on both sides is the snapshot the readout draws nothing from.
+        assert_eq!(
+            merge([&Snapshot::default(), &Snapshot::default()]),
+            Snapshot::default()
+        );
+        // And one of them off leaves the other exactly as it was.
+        let only = merge([&a, &Snapshot::default()]);
+        assert!(only.ok);
+        assert_eq!(only.windows, a.windows);
     }
 
     /// A readout that empties itself every time the wifi hiccups is worse than a stale

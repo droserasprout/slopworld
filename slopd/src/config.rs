@@ -57,6 +57,18 @@ pub struct Daemon {
     /// Read fresh each time and never copied, so a refresh behind us is picked up.
     #[serde(default = "default_credentials")]
     pub claude_credentials: String,
+    /// The other subscription this machine spends, and off by default: unlike Claude's,
+    /// there is no login on the host to infer one from - a key is either given to slopd
+    /// or it is not. Shares `usage_poll_secs`; a balance moves slower than a rate limit,
+    /// never faster.
+    #[serde(default)]
+    pub openrouter: bool,
+    /// Blank reads `OPENROUTER_API_KEY` out of slopd's own environment, which is where the
+    /// `pi` preset forwards it from, so a machine that can already run that agent needs no
+    /// second copy of the key. A path here is read fresh per poll and trimmed, the way the
+    /// credentials file is, and neither is ever logged or written back.
+    #[serde(default)]
+    pub openrouter_key_file: String,
 }
 
 fn default_history_limit() -> u32 {
@@ -89,6 +101,8 @@ impl Default for Daemon {
             usage: true,
             usage_poll_secs: default_usage_poll(),
             claude_credentials: default_credentials(),
+            openrouter: false,
+            openrouter_key_file: String::new(),
         }
     }
 }
@@ -520,6 +534,10 @@ mod tests {
         assert!(cfg.daemon.usage);
         assert_eq!(cfg.daemon.usage_poll_secs, 60);
         assert_eq!(cfg.daemon.claude_credentials, "~/.claude/.credentials.json");
+        // Off, unlike the Claude half: there is no login on the host to read a key out of,
+        // so an install that never said anything about OpenRouter is not asked for one.
+        assert!(!cfg.daemon.openrouter);
+        assert_eq!(cfg.daemon.openrouter_key_file, "");
         assert!(cfg.shortcuts.is_empty());
         assert_eq!(cfg.defaults.agent, "claude");
         assert_eq!(cfg.defaults.shell, "shell");

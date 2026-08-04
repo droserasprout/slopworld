@@ -39,11 +39,13 @@ namespace SlopWorld
         // refusing to patch (see SlopProfile), and a category whose page is never drawn is
         // an empty tab in somebody else's options menu.
         public static OptionCategoryDef Category { get; private set; }
+        public static OptionCategoryDef UsageCategory { get; private set; }
         public static OptionCategoryDef AboutCategory { get; private set; }
 
         // Rebuilt per open, so a config edited elsewhere - or a daemon that was down last
         // time - is re-read rather than remembered.
         static ConfigPage _page;
+        static UsagePage _usagePage;
         static AboutPage _aboutPage;
 
         public static void Install()
@@ -76,6 +78,20 @@ namespace SlopWorld
             all.Remove(Category);
             all.Insert(0, Category);
 
+            // The quotas, second: what the daemon is allowed to ask about and what the
+            // answers look like along the top. Off the config page rather than on it,
+            // there being two sellers to keep apart and a palette to draw.
+            UsageCategory = new OptionCategoryDef
+            {
+                defName = "SlopWorld_Usage",
+                label = "Usage",
+                modContentPack = general.modContentPack,
+                texPath = general.texPath,
+            };
+            DefDatabase<OptionCategoryDef>.Add(UsageCategory);
+            all.Remove(UsageCategory);
+            all.Insert(1, UsageCategory);
+
             // The About tab, last in the column. Same def pattern: Core's mod pack so it
             // is drawn, and the row is drawn by hand below.
             AboutCategory = new OptionCategoryDef
@@ -102,6 +118,16 @@ namespace SlopWorld
 
             TerminalWindow.OpenOverPane(
                 Category != null ? new Dialog_Options(Category) : new Dialog_Options());
+        }
+
+        // A save is a write of the *whole* file - every page here PUTs the sections it knows
+        // about - so a page holding a copy read before that write would put the old figures
+        // back the next time its own Save was pressed. Both re-read instead, including the
+        // one that just saved, which costs a request and closes the hole.
+        public static void Reread()
+        {
+            if (_page != null) _page.Load();
+            if (_usagePage != null) _usagePage.Load();
         }
 
         // The screen less the chrome, which is the same room a pane gets. Zero inset on the
@@ -266,7 +292,61 @@ namespace SlopWorld
         [HarmonyPatch(typeof(Dialog_Options), nameof(Dialog_Options.PreClose))]
         public static class Patch_OptionsClose
         {
-            static void Postfix() { _page = null; _aboutPage = null; }
+            static void Postfix() { _page = null; _usagePage = null; _aboutPage = null; }
+        }
+
+
+        // ---------------------------------------------------------------- usage
+
+        // The Usage row, between SlopWorld and whatever vanilla draws next. Same shape as
+        // the row above, with a lump of silver on it: the page is about resources, and the
+        // readout draws them as the game's own.
+        [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
+        public static class Patch_OptionsRow_Usage
+        {
+            static bool Prefix(Dialog_Options __instance, Rect r, OptionCategoryDef optionCategory)
+            {
+                if (optionCategory != UsageCategory) return true;
+
+                Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
+                if (Widgets.ButtonInvisible(r))
+                {
+                    __instance.selectedCategory = optionCategory;
+                    __instance.selectedMod = null;
+                    SoundDefOf.Click.PlayOneShotOnCamera();
+                }
+
+                float x = r.x + 10f;
+                var icon = ThingDefOf.Silver;
+                if (icon != null)
+                {
+                    Widgets.ThingIcon(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), icon);
+                    // ThingIcon leaves GUI.color on the def's own tint.
+                    GUI.color = Color.white;
+                }
+                x += 30f;
+                Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
+                return false;
+            }
+        }
+
+        // The dispatch for the Usage page, taken before vanilla's chain for the reason the
+        // config page's is.
+        [HarmonyPatch(typeof(Dialog_Options), "DoOptions")]
+        public static class Patch_OptionsPage_Usage
+        {
+            static bool Prefix(OptionCategoryDef category, Rect inRect)
+            {
+                if (category != UsageCategory) return true;
+
+                if (_usagePage == null)
+                {
+                    _usagePage = new UsagePage();
+                    _usagePage.Load();
+                }
+                _usagePage.Draw(inRect);
+                return false;
+            }
         }
 
 

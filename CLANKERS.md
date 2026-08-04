@@ -113,7 +113,7 @@ a refusal, so `MainButtonWorker_Slop` gates all four buttons and shows the dialo
 | `sandbox.rs` | The bubblewrap argv. |
 | `presets.rs` | The preset tables: builtin TOML plus the user's. |
 | `config.rs` | `config.toml` load, save, seed, migration. |
-| `usage.rs` | Polls Anthropic for what is left of the subscription. |
+| `usage.rs` | Polls Anthropic and OpenRouter for what is left of each. |
 | `clipboard.rs` | The host clipboard. |
 | `game.rs` | Launching the game, and whether it is up. |
 
@@ -299,6 +299,31 @@ elsewhere.
 - Windows are matched by family (`five_hour`, `seven_day*`), so a plan with different
   limits needs no change on either side. Money rides over stamped `unit: usd`. Resets
   go over as seconds remaining, so the countdown survives the daemon.
+
+OpenRouter is the second seller and the same file: `[daemon] openrouter = true` polls
+`/api/v1/credits` (`SLOPD_CREDITS_URL` points it elsewhere) and lands one `balance`
+window, credits bought as the `limit` and credits spent as the `amount`, so the mod's
+existing "what is left" subtraction is the balance. Off by default - unlike Claude's,
+there is no login on the host to infer a key from.
+
+- The key is `openrouter_key_file`, and *blank means slopd's own environment*
+  (`OPENROUTER_API_KEY`), which is where the `pi` preset forwards it from: a machine
+  that can run that agent needs no second copy. Either road reads fresh per poll and
+  neither logs, copies or writes it back.
+- `parse_credits` recognises both shapes (`total_credits`/`total_usage`, and the older
+  `limit`/`usage`) and wants *both* figures - a balance is a subtraction. A key with a
+  null limit is "no credit limit on this key" rather than a full bar. Nothing bought is
+  `pct: 100`, or an empty account draws like an untouched one.
+- Two `Poller`s, not one loop asking both: each keeps its own `due` and its own failure
+  count, so a 429 on one side never slows the other and a bad key never takes the
+  other's numbers off the screen. Switching one off `clear`s its rows and nothing else.
+- `merge` is what the wire still sees: one `windows` list, because the mod draws
+  resources rather than sellers. `ok` is *every* live source being current - a stale row
+  nobody could tell from a live one is the thing this must never draw - and the errors
+  are joined, so the tooltip says which half is out. Neither source enabled is the
+  default snapshot, which draws nothing.
+- The loop looks at `config.toml` at least every 30s (`LOOK`), which is how a switch
+  thrown in the GUI takes hold without a restart.
 
 ### The game
 
@@ -537,7 +562,8 @@ of these need a def.
   `currentlyDrawnWindow` rather than a flag an exception could strand.
 - `SlopOptions` - the other half of that window: the room a pane gets, and `ConfigPage`
   as its first category. The daemon's settings live there rather than in a window of
-  their own, so there is one page a knob is looked for on.
+  their own, so there is one page a knob is looked for on. Three categories are ours -
+  `ConfigPage`, `UsagePage`, `AboutPage` - inserted at 0, 1 and the end.
   - It opens *inside* the chrome rather than over it - `SlopLayout.LeftInset`/`TopInset`
     off the corner, the rest of the screen - so the column and the line stay where they
     are and are drawn by the map layer as usual, no copy of them needed here. The inset
@@ -566,7 +592,11 @@ of these need a def.
     ours would fall through it and draw nothing; the prefix is taken ahead of the chain
     because the page is two columns and its own scroll view rather than rows on the
     `Listing_Standard` opened there. `DoCategoryRow` is prefixed too, only for our row:
-    `ContentFinder` knows about files and `TerminalIcon` is drawn in code.
+    `ContentFinder` knows about files and `TerminalIcon` is drawn in code. One pair of
+    prefixes per category of ours, each gated on its own def.
+  - `Reread` is what keeps two pages off one file: every Save here PUTs whole sections,
+    so a page holding a copy read before somebody else's write would put the old figures
+    back on its own Save. Both re-read on either save, the one that just wrote included.
 - `NoRescueAgents`, `NoStripAgents`, `NoHarmAgents` - damage dies in
   `Pawn.PreApplyDamage`; the three ways an animal reaches an agent are closed one
   each. `NoBurningTheColony` closes both attachment and cell damage and spares the
@@ -722,6 +752,16 @@ layout would be a different resource for the same window. `DrawStrip` is the sam
 along a line, laid out from the right so the first window keeps its place as later ones
 come and go.
 
+- `Chosen` beats `Known` beats the pool: `Settings.usageIcons` is `key=defName` a line,
+  and a key with no line - or one naming a def this build has not got - falls back to the
+  pick that was always made. `Choose` writes and `Invalidate` drops the table, which is
+  the only thing that reopens the question.
+- A money row is `unit: usd` with an amount, and its limit is read as *unsaid* at -1
+  rather than at zero: a wallet with nothing in it has $0 left, and a limit of zero
+  rounded into a percentage would draw an empty account as a full bar. `balance` is the
+  OpenRouter row and wears gold, `spend` silver - what is left of a wallet and what is
+  left of a budget are different questions.
+
 `SlopLayout` is which chrome this install wears and how much room the rest of it has to
 leave: zero in the strip layout, and `AgentSidebar.Width`/`TopBar.H` in the other. One
 answer in one place, so nothing else has to know a layout exists.
@@ -867,6 +907,15 @@ exception, editing mod settings instead.
   undrawn: a field missing from `ToJson` is one the next unrelated save resets to its
   serde default. Not a `Window`: it is drawn as the first category of the options
   menu - see `SlopOptions`.
+- `UsagePage` is the second category, and the two halves of it are saved by different
+  roads on purpose. The switches, the key file and the poll interval are `config.toml`
+  under two headings, one per seller, so they go over HTTP and need a daemon; the icons
+  are mod settings written on the click, so they can be set with the socket down and
+  survive it. A row is offered for every window the daemon is currently reporting *plus*
+  `session`, `week`, `spend` and `balance`, so a quota can be dressed before it is first
+  seen - or before its own switch is even on. The palette is a fixed handful of
+  `ThingDef`s resolved by name on first use, skipping any this build has not got; "auto"
+  is a button rather than a cell, "whichever you would have picked" not being a thing.
 - No sandbox switch anywhere: every agent runs in one, and `ProjectCfg::sandbox` is
   the preset list. A switch that could be off in one place silently beat every
   checkbox in the other.
@@ -879,7 +928,8 @@ exception, editing mod settings instead.
 
 `SlopSettings` in `SlopWorldMod.cs`, reached through the static `Settings` shim:
 `host`, `port`, `token`, `autoConnect`, `sidebar`, `sidebarWidth`, `foldedProjects`,
-`sidebarTab`, `sidebarShowHidden`, `fontSize`, `fontName`, `theme`, `cursorColor`.
+`sidebarTab`, `sidebarShowHidden`, `usageIcons`, `fontSize`, `fontName`, `theme`,
+`cursorColor`.
 Adding one means a field, a `Scribe_Values.Look`, a shim property and a widget.
 
 `sidebarWidth`, `foldedProjects`, `sidebarTab` and `sidebarShowHidden` are the four with
@@ -888,6 +938,13 @@ own strip, so `AgentSidebar` writes all four itself. That is the whole reason th
 settings rather than fields on the sidebar - a width, a fold, a view and what it lists
 are about this screen the way `sidebar` is, and they are wanted back tomorrow. An
 unknown `sidebarTab` reads as the agents, that being the view always worth having.
+
+`usageIcons` is the fifth of that kind and the same argument: which quota wears which
+thing is the daemon's row drawn on this screen, so it is settings rather than
+`config.toml` - and it is still legible with the socket down, which is when somebody is
+in that page reading rather than configuring. One `key=defName` per line, written on the
+click by `UsageReadout.Choose` (`Settings.S.Write()`, the way the column's width is), and
+a line for a key nothing reports is a line nothing reads.
 
 `sidebar` is the one that is not about the daemon or about a pane's legibility, and it
 is here rather than nowhere because both layouts are this mod's and which one works is

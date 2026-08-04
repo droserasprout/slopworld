@@ -135,8 +135,10 @@ namespace SlopWorld
         static string Count(UsageWindow w)
         {
             // A money row whose limit the daemon could not read falls back to the percentage,
-            // the only figure that can say "left" when the size is unsaid.
-            if (!w.IsMoney || w.Limit <= 0f) return Mathf.RoundToInt(Left(w)) + "%";
+            // the only figure that can say "left" when the size is unsaid. Unsaid rather than
+            // zero: a wallet with nothing in it has $0 left, and rounding that to a percentage
+            // would draw an empty account as a full bar.
+            if (!w.IsMoney || w.Limit < 0f) return Mathf.RoundToInt(Left(w)) + "%";
 
             float left = Mathf.Max(0f, w.Limit - w.Amount);
             return left >= 10f
@@ -191,30 +193,36 @@ namespace SlopWorld
         {
             if (!w.IsMoney) return $"{Long(w)}: {Left(w):0.#}% left ({w.Pct:0.#}% spent)";
 
-            return w.Limit > 0f
+            return w.Limit >= 0f
                 ? $"{Long(w)}: ${Mathf.Max(0f, w.Limit - w.Amount):0.00} left of ${w.Limit:0.##} (${w.Amount:0.00} spent, {w.Pct:0.#}%)"
                 : $"{Long(w)}: ${w.Amount:0.00} spent ({Left(w):0.#}% left)";
         }
 
-        static string Long(UsageWindow w)
+        static string Long(UsageWindow w) => Long(w.Key, w.Label);
+
+        // Keyed rather than windowed, so the settings page can name a row the daemon is not
+        // currently reporting - the whole point of choosing an icon for it in advance.
+        public static string Long(string key, string fallback = null)
         {
-            if (w.Key == "session") return "session window (5 hours)";
-            if (w.Key == "week") return "weekly limit";
-            if (w.Key == "spend") return "extra usage";
-            if (w.Key.StartsWith("week_"))
-                return "weekly " + w.Key.Substring(5).Replace('_', ' ') + " limit";
-            return w.Label;
+            if (key == "session") return "session window (5 hours)";
+            if (key == "week") return "weekly limit";
+            if (key == "spend") return "extra usage";
+            if (key == "balance") return "OpenRouter balance";
+            if (key.StartsWith("week_"))
+                return "weekly " + key.Substring(5).Replace('_', ' ') + " limit";
+            return string.IsNullOrEmpty(fallback) ? key : fallback;
         }
 
-        // Arbitrary but stable, which is all an icon has to be. Remembered per key rather than
+        // Arbitrary but stable, which is all an icon has to be - unless somebody has said
+        // otherwise, which is what Settings.UsageIcons holds. Remembered per key rather than
         // worked out per frame, or an icon would move between polls depending on which other
         // windows were in one.
-        static ThingDef IconFor(string key)
+        public static ThingDef IconFor(string key)
         {
             ThingDef def;
             if (_icons.TryGetValue(key, out def)) return def;
 
-            def = Known(key);
+            def = Chosen(key) ?? Known(key);
             while (def == null && _next < Pool.Length)
             {
                 var next = Pool[_next++];
@@ -227,6 +235,55 @@ namespace SlopWorld
             return def;
         }
 
+        // The choices, dropped so the next draw makes them again. Called when the page that
+        // edits them saves: the table above is a cache and this is the only thing that
+        // invalidates it.
+        public static void Invalidate()
+        {
+            _icons.Clear();
+            _next = 0;
+        }
+
+        // One `key=defName` per line, the way the folded projects are. A key with no line and
+        // a line naming a def this build has not got both read as "no choice made", which
+        // hands the question back to Known and the pool.
+        public static ThingDef Chosen(string key)
+        {
+            foreach (var line in Settings.UsageIcons.Split('\n'))
+            {
+                int eq = line.IndexOf('=');
+                if (eq <= 0 || line.Substring(0, eq).Trim() != key) continue;
+
+                string defName = line.Substring(eq + 1).Trim();
+                return defName.Length == 0
+                    ? null
+                    : DefDatabase<ThingDef>.GetNamedSilentFail(defName);
+            }
+            return null;
+        }
+
+        // Written back by the settings page. A blank def name is the line removed rather than
+        // a row with no icon: what "none" means here is "whatever this would have picked".
+        public static void Choose(string key, ThingDef def)
+        {
+            var kept = new List<string>();
+            foreach (var line in Settings.UsageIcons.Split('\n'))
+            {
+                int eq = line.IndexOf('=');
+                if (eq <= 0 || line.Trim().Length == 0) continue;
+                if (line.Substring(0, eq).Trim() == key) continue;
+                kept.Add(line.Trim());
+            }
+
+            if (def != null) kept.Add(key + "=" + def.defName);
+
+            Settings.S.usageIcons = string.Join("\n", kept.ToArray());
+            // Written on the click rather than on the way out of a window, the way the
+            // column's own width and folds are: nothing here closes to save it.
+            Settings.S.Write();
+            Invalidate();
+        }
+
         static ThingDef Known(string key)
         {
             switch (key)
@@ -235,8 +292,11 @@ namespace SlopWorld
                 case "week": return ThingDefOf.Steel;
                 case "week_opus": return ThingDefOf.Plasteel;
                 case "week_sonnet": return ThingDefOf.ComponentIndustrial;
-                case "week_cowork": return ThingDefOf.Gold;
+                case "week_cowork": return ThingDefOf.Jade;
                 case "spend": return ThingDefOf.Silver;
+                // Money like the row above it, and the two are never the same coin: what is
+                // left of a budget and what is left of a wallet are different questions.
+                case "balance": return ThingDefOf.Gold;
                 default: return null;
             }
         }

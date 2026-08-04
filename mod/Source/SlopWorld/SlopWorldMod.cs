@@ -32,6 +32,13 @@ namespace SlopWorld
         public string sidebarTab = "agents";
         public bool sidebarShowHidden;
 
+        // Which thing stands for which quota row, one `key=defName` per line. Here for the
+        // reason the folds are: a resource the daemon reports is the daemon's, but what it
+        // looks like on this screen is this install's, and it is wanted back tomorrow. A key
+        // nothing reports is a line nothing reads, and a def this build has not got falls
+        // back to the pick UsageReadout would have made.
+        public string usageIcons = "";
+
         public int fontSize = 14;
         public string fontName = "";
 
@@ -54,6 +61,7 @@ namespace SlopWorld
             Scribe_Values.Look(ref foldedProjects, "foldedProjects", "");
             Scribe_Values.Look(ref sidebarTab, "sidebarTab", "agents");
             Scribe_Values.Look(ref sidebarShowHidden, "sidebarShowHidden", false);
+            Scribe_Values.Look(ref usageIcons, "usageIcons", "");
             Scribe_Values.Look(ref fontSize, "fontSize", 14);
             Scribe_Values.Look(ref fontName, "fontName", "");
             Scribe_Values.Look(ref theme, "theme", "clankers");
@@ -75,6 +83,7 @@ namespace SlopWorld
         public static string FoldedProjects => S.foldedProjects ?? "";
         public static string SidebarTab => S.sidebarTab ?? "";
         public static bool SidebarShowHidden => S.sidebarShowHidden;
+        public static string UsageIcons => S.usageIcons ?? "";
         public static int FontSize => S.fontSize;
         public static string FontName => S.fontName ?? "";
         public static string Theme => S.theme ?? "";
