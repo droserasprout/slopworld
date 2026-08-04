@@ -650,12 +650,14 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
         tokio::spawn(async move {
             let mut last_screen =
                 TokioInstant::now() - FRAME_COALESCE;
-            let mut pending: Option<Event> = None;
+            // One slot per pane, not one global slot: a socket can subscribe to several
+            // panes, and a frame for one must not overwrite a held frame for another.
+            let mut pending: HashMap<String, Event> = HashMap::new();
             loop {
                 // Only arm the beat when a frame is being held; otherwise the timer would
                 // fire on a past deadline and spin while nothing is pending.
                 let flush = async {
-                    if pending.is_some() {
+                    if !pending.is_empty() {
                         sleep_until(last_screen + FRAME_COALESCE).await;
                     } else {
                         std::future::pending::<()>().await;
@@ -671,15 +673,31 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                                 let due = TokioInstant::now()
                                     .saturating_duration_since(last_screen) >= FRAME_COALESCE;
                                 if due {
+                                    // Sending now, drop any held frame for this pane: it is
+                                    // older and must not flush after the newer one.
+                                    pending.remove(&screen.name);
                                     if send(&tx, &ev).await.is_err() {
                                         break;
                                     }
                                     last_screen = TokioInstant::now();
                                 } else {
-                                    pending = Some(ev);
+                                    // Newest wins for this pane; a still pane never reads stale.
+                                    pending.insert(screen.name.clone(), ev);
                                 }
-                            } else if send(&tx, &ev).await.is_err() {
-                                break;
+                            } else {
+                                // A non-screen event (sessions, usage, quit) must not wait
+                                // behind a stale frame, so anything held goes out first.
+                                if !pending.is_empty() {
+                                    for (_, pe) in std::mem::take(&mut pending) {
+                                        if send(&tx, &pe).await.is_err() {
+                                            break;
+                                        }
+                                    }
+                                    last_screen = TokioInstant::now();
+                                }
+                                if send(&tx, &ev).await.is_err() {
+                                    break;
+                                }
                             }
                         }
                         // A slow client misses frames; the next capture resyncs it.
@@ -687,9 +705,11 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                         Err(_) => break,
                     },
                     _ = flush => {
-                        if let Some(ev) = pending.take() {
-                            if send(&tx, &ev).await.is_err() {
-                                break;
+                        if !pending.is_empty() {
+                            for (_, pe) in std::mem::take(&mut pending) {
+                                if send(&tx, &pe).await.is_err() {
+                                    break;
+                                }
                             }
                             last_screen = TokioInstant::now();
                         }
