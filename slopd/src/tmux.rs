@@ -1,6 +1,6 @@
 use std::process::Stdio;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use tokio::process::{Child, Command};
 
 /// Pinned to a private server socket, so it never collides with the user's tmux.
@@ -34,12 +34,14 @@ impl Tmux {
     }
 
     async fn run(&self, args: &[&str]) -> Result<String> {
+        let started = std::time::Instant::now();
         let out = Command::new("tmux")
             .arg("-L")
             .arg(&self.socket)
             .args(args)
             .output()
             .await?;
+        crate::perf::PERF.spawn.add(started.elapsed());
         if !out.status.success() {
             bail!(
                 "tmux {}: {}",
@@ -332,6 +334,53 @@ impl Tmux {
         let mut args: Vec<&str> = vec!["send-keys", "-t", &target, "-H"];
         args.extend(hexes.iter().map(String::as_str));
         self.run(&args).await?;
+        Ok(())
+    }
+
+    /// Anything of a size goes through a tmux *buffer* rather than `send-keys`. The client
+    /// packs a command's whole argv into one imsg to the server, and `-H` takes one byte per
+    /// argument, so a hex write hits tmux's own "command too long" at **996 bytes** - which
+    /// is an ordinary paste, and it failed silently. A buffer is loaded from stdin, which has
+    /// no such ceiling.
+    ///
+    /// `-r` because `paste-buffer` rewrites `\n` to `\r` otherwise, and the hex road this
+    /// replaces sent the bytes as they came. Bracketing is still ours rather than `-p`'s: the
+    /// wrap is applied against the emulator's own mode, which is the one the pane on screen
+    /// was drawn from, and it strips a forged terminator on the way past.
+    ///
+    /// The buffer is named after the session so two panes pasting at once cannot take each
+    /// other's, and `-d` drops it rather than leaving it on the user's buffer stack.
+    pub async fn paste_bytes(&self, name: &str, bytes: &[u8]) -> Result<()> {
+        use tokio::io::AsyncWriteExt;
+
+        let buf = format!("slopworld-{name}");
+        let mut child = Command::new("tmux")
+            .arg("-L")
+            .arg(&self.socket)
+            .args(["load-buffer", "-b", buf.as_str(), "-"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()?;
+
+        // Closed before the wait: tmux reads this to EOF, so holding it open is a hang
+        // rather than a slow paste.
+        {
+            let mut stdin = child.stdin.take().context("load-buffer stdin")?;
+            stdin.write_all(bytes).await?;
+            stdin.shutdown().await?;
+        }
+        let out = child.wait_with_output().await?;
+        if !out.status.success() {
+            bail!(
+                "tmux load-buffer: {}",
+                String::from_utf8_lossy(&out.stderr).trim()
+            );
+        }
+
+        let target = format!("{name}:.0");
+        self.run(&["paste-buffer", "-d", "-r", "-b", &buf, "-t", &target])
+            .await?;
         Ok(())
     }
 }

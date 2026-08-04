@@ -349,17 +349,116 @@ pub(crate) enum Slot {
     Ch(char, Color, Color, Flags, Option<Hyperlink>),
 }
 
+/// What a cell will actually be *drawn* as, which is not the same question as what its
+/// attributes are: several `Color::Named` values emit no code at all, so comparing raw
+/// attributes would put a reset between two cells that look identical. Copy and `Eq`, so a
+/// run is found by comparing two of these rather than by formatting a `String` per cell and
+/// comparing that - which is what this screen used to cost, four thousand times a frame.
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+struct Pen {
+    bold: bool,
+    dim: bool,
+    inverse: bool,
+    fg: Ink,
+    bg: Ink,
+}
+
+/// A colour as the offset it contributes to `30`/`40`, rather than as the string it becomes.
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+enum Ink {
+    /// Emits nothing: the mod's own default for that half.
+    #[default]
+    Unsaid,
+    Basic(u16),
+    Indexed(u8),
+    Rgb(u8, u8, u8),
+}
+
+/// Index-based rather than resolved RGB, so the mod's palette keeps its look.
+fn ink(c: Color) -> Ink {
+    match c {
+        Color::Named(n) => match n as u16 {
+            i if i <= 7 => Ink::Basic(i),
+            i if i <= 15 => Ink::Basic(60 + (i - 8)),
+            _ => Ink::Unsaid,
+        },
+        Color::Indexed(i) => match i {
+            0..=7 => Ink::Basic(i as u16),
+            8..=15 => Ink::Basic(60 + (i as u16 - 8)),
+            _ => Ink::Indexed(i),
+        },
+        Color::Spec(rgb) => Ink::Rgb(rgb.r, rgb.g, rgb.b),
+    }
+}
+
+impl Pen {
+    fn of(fg: Color, bg: Color, flags: Flags) -> Self {
+        Self {
+            bold: flags.contains(Flags::BOLD),
+            // Dropping this is what drew Claude Code's greyed-out completions as ordinary
+            // text: the colour on a faint cell is the *full* one, the dimming being an
+            // attribute rather than a palette entry.
+            dim: flags.contains(Flags::DIM),
+            inverse: flags.contains(Flags::INVERSE),
+            fg: ink(fg),
+            bg: ink(bg),
+        }
+    }
+
+    /// Straight onto the row's buffer. The mod renders only bold, faint, reverse and colour,
+    /// so that is all this emits, and the order is the one the runs were always written in.
+    fn write(&self, out: &mut String) {
+        if *self == Self::default() {
+            out.push_str("\x1b[0m");
+            return;
+        }
+        out.push_str("\x1b[0");
+        if self.bold {
+            out.push_str(";1");
+        }
+        if self.dim {
+            out.push_str(";2");
+        }
+        if self.inverse {
+            out.push_str(";7");
+        }
+        write_ink(out, self.fg, 30);
+        write_ink(out, self.bg, 40);
+        out.push('m');
+    }
+}
+
+fn write_ink(out: &mut String, ink: Ink, base: u16) {
+    use std::fmt::Write;
+    match ink {
+        Ink::Unsaid => {}
+        Ink::Basic(off) => {
+            let _ = write!(out, ";{}", base + off);
+        }
+        Ink::Indexed(i) => {
+            let _ = write!(out, ";{};5;{i}", base + 8);
+        }
+        Ink::Rgb(r, g, b) => {
+            let _ = write!(out, ";{};2;{r};{g};{b}", base + 8);
+        }
+    }
+}
+
 /// Each line opens with a reset, runs are self-contained, trailing default cells are trimmed.
 /// CHA is emitted only where the true column diverges from the pen - right after a wide char
 /// - so plain ASCII rows stay byte-identical to a plain capture.
+///
+/// Nothing in here allocates per cell: the pen is compared as a `Pen` and written only where
+/// a run begins, and a link's URI is sanitised only when it changes rather than for every
+/// cell it covers.
 fn serialize_row(row: &[Slot]) -> String {
     let mut out = String::from("\x1b[0m");
 
     let last = row.iter().rposition(|s| match s {
         Slot::Ch(c, fg, bg, flags, link) => {
             !(*c == ' '
-                && fg_code(*fg).is_none()
-                && bg_code(*bg).is_none()
+                && ink(*fg) == Ink::Unsaid
+                && ink(*bg) == Ink::Unsaid
                 && flags.is_empty()
                 && link.is_none())
         }
@@ -367,30 +466,34 @@ fn serialize_row(row: &[Slot]) -> String {
     });
     let Some(last) = last else { return out };
 
-    let mut cur_sgr = String::new();
-    let mut cur_uri = String::new();
+    let mut cur_pen = Pen::default();
+    // Compared raw and sanitised only on a change: `safe_uri` allocates, and a link covers a
+    // run of cells rather than one.
+    let mut cur_uri: &str = "";
     // Where the mod's pen lands with no CHA: one column per emitted char.
     let mut expected = 0usize;
     for (col, slot) in row[..=last].iter().enumerate() {
-        let (c, sgr, uri) = match slot {
+        let (c, pen, uri) = match slot {
             Slot::Spacer => continue,
-            Slot::Blank => (' ', String::new(), String::new()),
+            Slot::Blank => (' ', Pen::default(), ""),
             Slot::Ch(c, fg, bg, flags, link) => (
                 *c,
-                sgr_for(*fg, *bg, *flags),
-                link.as_ref().map(|h| safe_uri(h.uri())).unwrap_or_default(),
+                Pen::of(*fg, *bg, *flags),
+                link.as_ref().map(|h| h.uri()).unwrap_or_default(),
             ),
         };
         if col != expected {
-            out.push_str(&format!("\x1b[{}G", col + 1));
+            use std::fmt::Write;
+            let _ = write!(out, "\x1b[{}G", col + 1);
             expected = col;
         }
-        if sgr != cur_sgr {
-            out.push_str(if sgr.is_empty() { "\x1b[0m" } else { &sgr });
-            cur_sgr = sgr;
+        if pen != cur_pen {
+            pen.write(&mut out);
+            cur_pen = pen;
         }
         if uri != cur_uri {
-            out.push_str(&format!("\x1b]8;;{uri}\x1b\\"));
+            use std::fmt::Write;
+            let _ = write!(out, "\x1b]8;;{}\x1b\\", safe_uri(uri));
             cur_uri = uri;
         }
         out.push(c);
@@ -404,59 +507,6 @@ fn serialize_row(row: &[Slot]) -> String {
 
 fn safe_uri(uri: &str) -> String {
     uri.chars().filter(|c| !c.is_control()).take(2048).collect()
-}
-
-/// The mod renders only bold, faint, reverse and colour, so that's all we emit.
-fn sgr_for(fg: Color, bg: Color, flags: Flags) -> String {
-    let mut params: Vec<String> = Vec::new();
-    if flags.contains(Flags::BOLD) {
-        params.push("1".into());
-    }
-    // Dropping this is what drew Claude Code's greyed-out completions as ordinary text: the
-    // colour on a faint cell is the *full* one, the dimming being an attribute rather than a
-    // palette entry, so the mod is the only half that can tell them apart.
-    if flags.contains(Flags::DIM) {
-        params.push("2".into());
-    }
-    if flags.contains(Flags::INVERSE) {
-        params.push("7".into());
-    }
-    if let Some(code) = fg_code(fg) {
-        params.push(code);
-    }
-    if let Some(code) = bg_code(bg) {
-        params.push(code);
-    }
-    if params.is_empty() {
-        return String::new();
-    }
-    format!("\x1b[0;{}m", params.join(";"))
-}
-
-/// Index-based SGR codes rather than resolved RGB, so the mod's palette keeps its look.
-/// `base` is 30 for a foreground, 40 for a background.
-fn color_code(c: Color, base: u16) -> Option<String> {
-    match c {
-        Color::Named(n) => match n as u16 {
-            i if i <= 7 => Some((base + i).to_string()),
-            i if i <= 15 => Some((base + 60 + (i - 8)).to_string()),
-            _ => None,
-        },
-        Color::Indexed(i) => Some(match i {
-            0..=7 => (base + i as u16).to_string(),
-            8..=15 => (base + 60 + (i as u16 - 8)).to_string(),
-            _ => format!("{};5;{i}", base + 8),
-        }),
-        Color::Spec(rgb) => Some(format!("{};2;{};{};{}", base + 8, rgb.r, rgb.g, rgb.b)),
-    }
-}
-
-fn fg_code(c: Color) -> Option<String> {
-    color_code(c, 30)
-}
-
-fn bg_code(c: Color) -> Option<String> {
-    color_code(c, 40)
 }
 
 /// `button` is 0/1/2 = left/mid/right for press/release/drag, ignored for the

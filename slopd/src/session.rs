@@ -8,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{anyhow, bail, Context, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinHandle;
 use tokio::time::{interval, MissedTickBehavior};
 
@@ -221,6 +221,10 @@ struct Live {
     emu: Option<Arc<Mutex<SessionEmu>>>,
     /// Aborted on stop/death.
     reader: Option<JoinHandle<()>>,
+    /// The session's input queue, made on the first thing typed at it. Held here rather than
+    /// in a table of its own so it goes when the entry does: dropping the sender is what ends
+    /// the task behind it.
+    input: Option<mpsc::UnboundedSender<Input>>,
 }
 
 impl Live {
@@ -236,6 +240,59 @@ impl Live {
         self.state_since = now_ms();
         true
     }
+}
+
+/// Something a client asked to be put into a pane. Queued rather than sent where it
+/// arrives: every road to a pane is a tmux process, and the WebSocket loop reads its next
+/// message only once the last is done - so a wheel at sixty hertz put a fork between the
+/// game and everything else that socket carries.
+enum Input {
+    Keys {
+        keys: Vec<String>,
+        literal: bool,
+    },
+    /// Mouse reports and the emulator's own answers, verbatim.
+    Bytes(Vec<u8>),
+    /// Its own kind because it takes the buffer road and is never merged with a neighbour:
+    /// a paste is one thing the app is meant to see arrive whole.
+    Paste(Vec<u8>),
+}
+
+/// What one `send-keys` may carry. tmux packs a command's whole argv into a single imsg to
+/// its server and `-H` spends one argument per byte, so the real ceiling is under a
+/// kilobyte - see `Tmux::paste_bytes`. Short of it by enough to cover the command words.
+const INPUT_BATCH: usize = 800;
+/// The same budget counted in key *names*, which are a few bytes each.
+const INPUT_KEYS: usize = 100;
+
+/// Adjacent items of one kind become one, in order. Merging is what makes the queue worth
+/// having: a burst that arrives while a process is in flight leaves as a single process.
+/// Only neighbours, and never across kinds, so nothing is reordered.
+fn merge_input(items: Vec<Input>) -> Vec<Input> {
+    let mut out: Vec<Input> = Vec::new();
+    for item in items {
+        let merged = match (out.last_mut(), &item) {
+            (Some(Input::Bytes(acc)), Input::Bytes(b)) if acc.len() + b.len() <= INPUT_BATCH => {
+                acc.extend_from_slice(b);
+                true
+            }
+            (
+                Some(Input::Keys {
+                    keys: acc,
+                    literal: had,
+                }),
+                Input::Keys { keys, literal },
+            ) if *had == *literal && acc.len() + keys.len() <= INPUT_KEYS => {
+                acc.extend(keys.iter().cloned());
+                true
+            }
+            _ => false,
+        };
+        if !merged {
+            out.push(item);
+        }
+    }
+    out
 }
 
 pub struct Manager {
@@ -739,6 +796,7 @@ impl Manager {
                     screen: None,
                     emu: None,
                     reader: None,
+                    input: None,
                 });
         }
         drop(live);
@@ -851,6 +909,7 @@ impl Manager {
                 screen: None,
                 emu: None,
                 reader: None,
+                input: None,
             },
         );
         true
@@ -1222,6 +1281,7 @@ impl Manager {
                     screen: None,
                     emu: None,
                     reader: None,
+                    input: None,
                 },
             );
             name
@@ -1270,9 +1330,9 @@ impl Manager {
             return;
         }
         tokio::time::sleep(Duration::from_millis(ENTER_GAP_MS)).await;
-        if let Err(e) = self.send_keys(name, vec!["Enter".into()], false).await {
-            tracing::error!("submitting shortcut text in {name}: {e:#}");
-        }
+        // Queued behind the paste rather than sent, so the gap above is the only thing
+        // between them and bracketed paste still sees a newline of its own.
+        self.send_keys(name, vec!["Enter".into()], false).await;
     }
 
     /// See `READY_MS` for why this is a settle rather than a match against anything an
@@ -1551,17 +1611,106 @@ impl Manager {
         });
     }
 
-    pub async fn send_keys(&self, name: &str, keys: Vec<String>, literal: bool) -> Result<()> {
+    /// Queued, not sent: this returns as soon as the item is in the session's own line, so
+    /// the socket loop behind it goes straight back to reading. What a wheel used to cost
+    /// there was a whole fork.
+    ///
+    /// Ordering is the single consumer's: everything for one pane goes through one task, so
+    /// keys, mouse reports, the emulator's answers and a paste all reach it in the order
+    /// they were asked for.
+    async fn queue_input(&self, name: &str, item: Input) {
+        let mut spawn_rx = None;
+        let mut item = Some(item);
+        {
+            // The write lock is taken for every item and released before anything awaits,
+            // which is cheap beside what it replaces. Taking a read lock first and upgrading
+            // would let two callers build two tasks for one pane, and two consumers is the
+            // one thing a queue must not have.
+            let mut live = self.live.write().await;
+            if let Some(l) = live.get_mut(name) {
+                // A closed channel is a task that ended with a session that has since come
+                // back. Build another rather than drop what was typed.
+                if l.input.as_ref().is_some_and(|tx| tx.is_closed()) {
+                    l.input = None;
+                }
+                if l.input.is_none() {
+                    let (tx, rx) = mpsc::unbounded_channel();
+                    l.input = Some(tx);
+                    spawn_rx = Some(rx);
+                }
+                if let Some(tx) = l.input.as_ref() {
+                    if let Some(i) = item.take() {
+                        if let Err(e) = tx.send(i) {
+                            item = Some(e.0);
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(rx) = spawn_rx {
+            let tmux = self.tmux.clone();
+            let name = name.to_string();
+            tokio::spawn(async move { Self::run_input(tmux, name, rx).await });
+        }
+        // No live entry to hang a queue on - an adopted pane the table has not caught up
+        // with - or the send lost a race with its own task ending. The old road.
+        if let Some(item) = item {
+            Self::send_input(&self.tmux, name, item).await;
+        }
+    }
+
+    /// One per session, for as long as the entry lives. Waits for something, then takes
+    /// *everything* waiting behind it: under load a burst leaves as one process instead of
+    /// one process per event.
+    async fn run_input(tmux: Tmux, name: String, mut rx: mpsc::UnboundedReceiver<Input>) {
+        while let Some(first) = rx.recv().await {
+            let mut batch = vec![first];
+            while let Ok(next) = rx.try_recv() {
+                batch.push(next);
+            }
+            crate::perf::PERF.drains.fetch_add(1, Ordering::Relaxed);
+            crate::perf::PERF
+                .drained
+                .fetch_add(batch.len() as u64, Ordering::Relaxed);
+            let batch = merge_input(batch);
+            for item in batch {
+                Self::send_input(&tmux, &name, item).await;
+            }
+        }
+    }
+
+    /// The one place an `Input` becomes a tmux process.
+    async fn send_input(tmux: &Tmux, name: &str, item: Input) {
+        let started = Instant::now();
+        let (what, res) = match item {
+            Input::Keys { keys, literal } => ("keys", tmux.send_keys(name, &keys, literal).await),
+            Input::Bytes(b) => ("bytes", tmux.send_bytes(name, &b).await),
+            Input::Paste(b) => ("paste", tmux.paste_bytes(name, &b).await),
+        };
+        crate::perf::PERF.send.add(started.elapsed());
+        if let Err(e) = res {
+            // A paste is checked before it is queued, so a failure there is one that did not
+            // land and has no other sign. Keys and mouse are not, and "the session went" is
+            // an ordinary answer for them.
+            if what == "paste" {
+                tracing::warn!("paste to {name}: {e:#}");
+            } else {
+                tracing::debug!("{what} to {name}: {e:#}");
+            }
+        }
+    }
+
+    pub async fn send_keys(&self, name: &str, keys: Vec<String>, literal: bool) {
         // No `exists` pre-check: `send-keys` fails on its own, and the extra tmux spawn per
         // keystroke is latency a held PageDown or a touchbar swipe pays for twice.
-        self.tmux.send_keys(name, &keys, literal).await
+        self.queue_input(name, Input::Keys { keys, literal }).await;
     }
 
     /// A no-op if the app isn't in a mouse mode: the mod only forwards when it saw
     /// `app_mouse`, but this is the authoritative emulator. `count` repeats the report
     /// that many times in the same tmux write, so one wheel notch does not spawn one
     /// process per scrolled line.
-    pub async fn send_mouse(&self, name: &str, ev: MouseInput, count: u8) -> Result<()> {
+    pub async fn send_mouse(&self, name: &str, ev: MouseInput, count: u8) {
         // Same as `send_keys`: no `exists` pre-check, one tmux spawn instead of two.
         // A session that is gone simply has no emulator to ask, and drops the event.
         let single = {
@@ -1576,9 +1725,8 @@ impl Manager {
             for _ in 0..count {
                 buf.extend_from_slice(&single);
             }
-            self.tmux.send_bytes(name, &buf).await?;
+            self.queue_input(name, Input::Bytes(buf)).await;
         }
-        Ok(())
     }
 
     /// Any end-marker inside the content is stripped, so a paste can't forge the terminator.
@@ -1603,7 +1751,11 @@ impl Manager {
         } else {
             bytes.extend_from_slice(text.as_bytes());
         }
-        self.tmux.send_bytes(name, &bytes).await
+        // Down the same queue as everything else, or a paste sent inline would overtake the
+        // keys queued ahead of it - which is exactly what `deliver` does, pasting a line and
+        // then sending Enter behind it.
+        self.queue_input(name, Input::Paste(bytes)).await;
+        Ok(())
     }
 
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
@@ -1829,18 +1981,31 @@ impl Manager {
             tokio::select! {
                 line = rx.recv() => match line {
                     Some(l) => {
+                        // Taken before the line is handled: what is still queued is what the
+                        // last trip round this loop cost us.
+                        crate::perf::PERF.backlog.fetch_max(rx.len() as u64, Ordering::Relaxed);
+                        crate::perf::PERF.lines.fetch_add(1, Ordering::Relaxed);
+                        crate::perf::PERF.esc_bytes.fetch_add(l.len() as u64, Ordering::Relaxed);
                         if let Some(bytes) = parse_output(&l) {
-                            let replies = if let Ok(mut e) = emu.lock() {
-                                e.feed(&bytes);
-                                e.take_replies()
-                            } else {
-                                Vec::new()
-                            };
-                            // Cursor-position and device queries, or TUIs place their cursor wrongly.
-                            if !replies.is_empty() {
-                                if let Err(e) = self.tmux.send_bytes(&name, &replies).await {
-                                    tracing::debug!("pty reply write {name}: {e:#}");
+                            crate::perf::PERF
+                                .raw_bytes
+                                .fetch_add(bytes.len() as u64, Ordering::Relaxed);
+                            let replies = crate::perf::time(&crate::perf::PERF.feed, || {
+                                if let Ok(mut e) = emu.lock() {
+                                    e.feed(&bytes);
+                                    e.take_replies()
+                                } else {
+                                    Vec::new()
                                 }
+                            });
+                            // Cursor-position and device queries, or TUIs place their cursor wrongly.
+                            // Queued rather than sent here: this loop is the only thing
+                            // reading the pane, so a process spawned in it is output nobody
+                            // is collecting.
+                            if !replies.is_empty() {
+                                let started = Instant::now();
+                                self.queue_input(&name, Input::Bytes(replies)).await;
+                                crate::perf::PERF.reply.add(started.elapsed());
                             }
                             dirty = true;
                         } else if l.starts_with(b"%exit") {
@@ -1882,10 +2047,12 @@ impl Manager {
 
     async fn render_and_broadcast(&self, name: &str, emu: &Mutex<SessionEmu>) {
         let frame = match emu.lock() {
-            Ok(e) => e.render(),
+            Ok(e) => crate::perf::time(&crate::perf::PERF.render, || e.render()),
             Err(_) => return,
         };
+        let started = Instant::now();
         self.apply_frame(name, frame).await;
+        crate::perf::PERF.apply.add(started.elapsed());
     }
 
     async fn apply_frame(&self, name: &str, frame: Frame) {
@@ -1934,8 +2101,10 @@ impl Manager {
         // which is why it is asked about ahead of the early way out.
         let title_moved = meta.5 != prev_meta.5;
         let rang = frame.bell;
+        let started = Instant::now();
         let plain = strip_sgr(&frame.lines.join("\n"));
         let state = self.classify(changed, prev_change, &plain).await;
+        crate::perf::PERF.classify.add(started.elapsed());
 
         if !changed && state == prev_state && !rang {
             return;
@@ -1966,6 +2135,7 @@ impl Manager {
         }
 
         if changed {
+            crate::perf::PERF.frames.fetch_add(1, Ordering::Relaxed);
             let _ = self.events.send(Event::Screen { screen: view });
         }
         if dirty_list {
@@ -2117,10 +2287,86 @@ mod tests {
     use std::collections::HashMap;
 
     use super::{
-        check_name, check_shortcut, free_name, free_project_name, settle, slug, strip_sgr, Live,
-        State, BOOT_COLS, BOOT_ROWS,
+        check_name, check_shortcut, free_name, free_project_name, merge_input, settle, slug,
+        strip_sgr, Input, Live, State, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
     };
     use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind};
+
+    /// A wheel held down is what this is for: every notch is one of these, and the app is
+    /// meant to see one write rather than a process per notch.
+    #[test]
+    fn merges_a_run_of_mouse_reports() {
+        let batch = merge_input(vec![
+            Input::Bytes(b"\x1b[<64;1;1M".to_vec()),
+            Input::Bytes(b"\x1b[<64;1;1M".to_vec()),
+            Input::Bytes(b"\x1b[<64;1;1M".to_vec()),
+        ]);
+        assert_eq!(batch.len(), 1);
+        match &batch[0] {
+            Input::Bytes(b) => assert_eq!(b.len(), 30),
+            _ => panic!("wrong kind"),
+        }
+    }
+
+    /// tmux packs one command into one imsg, so a merge that ignored the ceiling would
+    /// rebuild the "command too long" that made a 15kB paste vanish.
+    #[test]
+    fn stops_merging_at_the_command_ceiling() {
+        let items: Vec<Input> = (0..600).map(|_| Input::Bytes(vec![b'x'; 2])).collect();
+        let batch = merge_input(items);
+        assert!(batch.len() > 1, "1200 bytes must not become one command");
+        for item in &batch {
+            match item {
+                Input::Bytes(b) => assert!(b.len() <= INPUT_BATCH),
+                _ => panic!("wrong kind"),
+            }
+        }
+    }
+
+    /// A paste is its own thing and nothing merges into it, which is also what keeps it in
+    /// order against the Enter that `deliver` sends behind it.
+    #[test]
+    fn a_paste_is_never_merged_and_never_reordered() {
+        let batch = merge_input(vec![
+            Input::Bytes(b"ab".to_vec()),
+            Input::Paste(b"hello".to_vec()),
+            Input::Bytes(b"cd".to_vec()),
+            Input::Keys {
+                keys: vec!["Enter".into()],
+                literal: false,
+            },
+        ]);
+        assert_eq!(batch.len(), 4);
+        assert!(matches!(&batch[1], Input::Paste(p) if p == b"hello"));
+        assert!(matches!(&batch[3], Input::Keys { .. }));
+    }
+
+    /// `-l` is a different command from the one without it, so these cannot share a send.
+    #[test]
+    fn literal_and_named_keys_do_not_share_a_command() {
+        let batch = merge_input(vec![
+            Input::Keys {
+                keys: vec!["Up".into()],
+                literal: false,
+            },
+            Input::Keys {
+                keys: vec!["Down".into()],
+                literal: false,
+            },
+            Input::Keys {
+                keys: vec!["hi".into()],
+                literal: true,
+            },
+        ]);
+        assert_eq!(batch.len(), 2);
+        match &batch[0] {
+            Input::Keys { keys, literal } => {
+                assert_eq!(keys, &["Up".to_string(), "Down".to_string()]);
+                assert!(!literal);
+            }
+            _ => panic!("wrong kind"),
+        }
+    }
 
     fn placeholder() -> Live {
         Live {
@@ -2137,6 +2383,7 @@ mod tests {
             screen: None,
             emu: None,
             reader: None,
+            input: None,
         }
     }
 

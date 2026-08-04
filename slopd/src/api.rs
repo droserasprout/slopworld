@@ -737,9 +737,12 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                 subs.lock().await.remove(&name);
             }
             ClientMsg::Keys(k) => {
-                if let Err(e) = m.send_keys(&k.name, k.keys, k.literal).await {
-                    tracing::debug!("send_keys: {e:#}");
-                }
+                // The whole call, not the tmux spawn inside it: this loop reads the next
+                // message only when this one is done, so what is timed here is what a held
+                // key waits behind.
+                let started = std::time::Instant::now();
+                m.send_keys(&k.name, k.keys, k.literal).await;
+                crate::perf::PERF.input.add(started.elapsed());
             }
             ClientMsg::Resize(r) => {
                 if let Err(e) = m.resize(&r.name, r.cols, r.rows).await {
@@ -764,14 +767,20 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                     col: mr.col,
                     row: mr.row,
                 };
-                if let Err(e) = m.send_mouse(&mr.name, ev, mr.count).await {
-                    tracing::debug!("send_mouse: {e:#}");
-                }
+                let started = std::time::Instant::now();
+                m.send_mouse(&mr.name, ev, mr.count).await;
+                crate::perf::PERF.input.add(started.elapsed());
             }
             ClientMsg::Paste(pr) => {
+                let started = std::time::Instant::now();
+                // Warn rather than debug, unlike keys and mouse: those have no `exists`
+                // pre-check on purpose, so "the session went" is an ordinary answer there.
+                // A paste checks first, so anything left is a paste that did not land - and
+                // the only other sign of one is the operator noticing nothing arrived.
                 if let Err(e) = m.paste(&pr.name, &pr.text).await {
-                    tracing::debug!("paste: {e:#}");
+                    tracing::warn!("paste to {}: {e:#}", pr.name);
                 }
+                crate::perf::PERF.input.add(started.elapsed());
             }
         }
     }

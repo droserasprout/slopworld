@@ -4,6 +4,7 @@ mod config;
 mod emu;
 mod game;
 mod open;
+mod perf;
 mod presets;
 mod sandbox;
 mod session;
@@ -66,6 +67,8 @@ async fn main() -> Result<()> {
     // needs no restart.
     let usage = usage::spawn(m.clone());
 
+    let perf = perf::spawn();
+
     let app = api::router(m.clone()).layer(middleware::from_fn_with_state(m.clone(), auth));
 
     let listener = tokio::net::TcpListener::bind(&bind).await?;
@@ -80,6 +83,9 @@ async fn main() -> Result<()> {
 
     poller.abort();
     usage.abort();
+    if let Some(p) = perf {
+        p.abort();
+    }
     Ok(())
 }
 
