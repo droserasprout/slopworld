@@ -17,6 +17,7 @@ TOKEN      ?=
 # Save data folder, defaults to `$XDG_DATA_HOME/slopworld/profile`.
 PROFILE    ?=
 RUNNER      = slopd/target/release/slopworld
+CSPROJ      = mod/Source/SlopWorld/SlopWorld.csproj
 
 
 help:              ## Show this help (default)
@@ -46,6 +47,34 @@ clean:             ## Drop build output
 	cd slopd && cargo clean
 	rm -f mod/Assemblies/SlopWorld.dll
 	rm -rf mod/Source/SlopWorld/obj
+
+##
+##-> Format and lint
+##
+
+format:            ## Format both halves
+	$(MAKE) format-daemon format-mod
+
+format-daemon:     ## rustfmt the daemon
+	cd slopd && cargo fmt
+
+format-mod:        ## Format the mod's C# (needs the .NET SDK)
+	dotnet format whitespace mod/Source/SlopWorld --folder --exclude obj
+
+##
+
+lint:              ## Lint both halves
+	$(MAKE) lint-daemon lint-mod
+
+lint-daemon:       ## Check the daemon's formatting, then clippy, warnings as errors
+	cd slopd && cargo fmt --check
+	cd slopd && cargo clippy --all-targets -- -D warnings
+
+lint-mod:          ## Build the mod with warnings as errors, then check its formatting
+	cd mod/Source/SlopWorld && msbuild -restore -v:minimal -t:Rebuild \
+		-p:Configuration=Release -p:RimWorldManaged="$(MANAGED)" \
+		-p:TreatWarningsAsErrors=true SlopWorld.csproj
+	dotnet format whitespace mod/Source/SlopWorld --folder --exclude obj --verify-no-changes;
 
 ##
 ##-> Install
