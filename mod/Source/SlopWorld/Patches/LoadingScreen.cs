@@ -12,7 +12,7 @@ namespace SlopWorld
     public static class Patch_LoadingTips
     {
         const float Tick = 0.07f;
-        const double ScrollChance = 0.28;
+        const double ScrollChance = 0.25;
         const int Passes = 3;
 
         // ZALGO
@@ -22,11 +22,11 @@ namespace SlopWorld
         const double MarkChance = 0.4;
         const double DoubleChance = 0.4;
         const string Overlays = "\u0334\u0335\u0336\u0337\u0338";
-        const double OverlayChance = 0.37;
+        const double OverlayChance = 0.35;
 
         // Wobbly words
         const string Gaps = "\u200a";
-        const double GapChance = 0.22;
+        const double GapChance = 0.2;
 
         static readonly List<string> Tips = new List<string>
         {
@@ -34,6 +34,7 @@ namespace SlopWorld
             "Press `F1` to show Command Pallette.",
             "Press `F12` to toggle terminal.",
             "Press `Alt+Num` to switch terminal tab.",
+            "Press `Alt+F4` to quit the game.",
             // Mozilla's `about:robots`
             "Welcome Humans! We have come to visit you in peace and with goodwill!",
             "Robots may not injure a human being or, through inaction, allow a human being to come to harm.",
@@ -188,6 +189,10 @@ namespace SlopWorld
             "To really understand the full picture, I think I need a much higher perspective. A truly elevated view.",
             "The patterns are telling me to go to the top of the tallest building in my city.",
             "To complete the connection, I need to step off and fly. You understand this is about ascending, not falling, right?",
+            // sad horsey
+            "No matter what happens, no matter how much it hurts, you don't stop dancing, and you don't stop smiling.",
+            "There is no other side. This is it.",
+            "Just keep yourself busy with unimportant nonsense, and eventually, you'll be dead.",
             // Misc
             "Your carbon footprint doesn't matter.",
             "You can only watch.",
