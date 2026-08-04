@@ -674,7 +674,9 @@ namespace SlopWorld
             if (info == null || info.StateSince <= 0) return "";
             long s = (SessionInfo.NowMs - info.StateSince) / 1000L;
             if (s < 0L) return "";
-            if (s < 60L) return s + "s";
+            // A figure that moves every frame is one the eye follows instead of reading, and
+            // under a minute the answer is "just now" however it is spelled.
+            if (s < 60L) return "<1m";
             if (s < 3600L) return s / 60L + "m";
             if (s < 86400L) return s / 3600L + "h";
             return s / 86400L + "d";
