@@ -2,8 +2,6 @@
 
 ## `SlopWidgets`
 
-> Lands with the `refactor/shared-ui-widgets` branch; not on every branch yet.
-
 The chrome drawn in more than one place, and the colours that mean the same thing
 wherever they are drawn - `Dim` for a second line about the thing on the first,
 `Bad` for an error that stays on screen, `Well` behind a text area. **Not a
