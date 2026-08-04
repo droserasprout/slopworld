@@ -50,7 +50,7 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            GUI.color = SlopWidgets.Dim;
             Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f),
                 "What the daemon asks about, and what it looks like up there.");
             GUI.color = Color.white;
@@ -75,7 +75,7 @@ namespace SlopWorld
         {
             if (!_loaded)
             {
-                GUI.color = _error != null ? new Color(0.95f, 0.45f, 0.45f) : Color.gray;
+                GUI.color = _error != null ? SlopWidgets.Bad : Color.gray;
                 Widgets.Label(r, _error ?? "Waiting for the daemon...");
                 GUI.color = Color.white;
                 return;
@@ -159,7 +159,7 @@ namespace SlopWorld
 
         static void Note(Listing_Standard l, string text)
         {
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            GUI.color = SlopWidgets.Dim;
             l.Label(text);
             GUI.color = Color.white;
         }
@@ -423,7 +423,7 @@ namespace SlopWorld
 
             if (_error != null && _loaded)
             {
-                GUI.color = new Color(0.95f, 0.45f, 0.45f);
+                GUI.color = SlopWidgets.Bad;
                 Widgets.Label(new Rect(bar.x + 118f, bar.y + 4f, bar.width - 260f, 24f), _error);
                 GUI.color = Color.white;
             }

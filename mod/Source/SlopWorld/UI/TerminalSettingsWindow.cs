@@ -121,7 +121,7 @@ namespace SlopWorld
             if (!string.IsNullOrEmpty(s.cursorColor) &&
                 !TerminalTheme.TryHex(s.cursorColor, out _))
             {
-                GUI.color = new Color(0.95f, 0.45f, 0.45f);
+                GUI.color = SlopWidgets.Bad;
                 l.Label("Not a colour - the scheme's own cursor is being used.");
                 GUI.color = Color.white;
             }

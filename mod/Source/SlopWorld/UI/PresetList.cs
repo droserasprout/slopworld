@@ -22,7 +22,7 @@ namespace SlopWorld
                                 ICollection<string> implied = null)
         {
             var presets = SessionHub.Instance.Presets;
-            Widgets.DrawBoxSolid(outer, new Color(0f, 0f, 0f, 0.25f));
+            Widgets.DrawBoxSolid(outer, SlopWidgets.Well);
             var pad = outer.ContractedBy(4f);
 
             if (presets.Count == 0)
@@ -47,7 +47,7 @@ namespace SlopWorld
             float y = 0f;
             foreach (var g in groups)
             {
-                GUI.color = new Color(0.65f, 0.66f, 0.68f);
+                GUI.color = SlopWidgets.Dim;
                 Widgets.Label(new Rect(0f, y, inner.width, 22f), g.Key);
                 GUI.color = Color.white;
                 y += RowH;

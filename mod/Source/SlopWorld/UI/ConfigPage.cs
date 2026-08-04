@@ -59,7 +59,7 @@ namespace SlopWorld
         // say which file is being edited.
         public void Draw(Rect rect)
         {
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            GUI.color = SlopWidgets.Dim;
             Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f),
                 _loaded ? _path : "loading...");
             GUI.color = Color.white;
@@ -70,7 +70,7 @@ namespace SlopWorld
 
             if (!_loaded)
             {
-                GUI.color = _error != null ? new Color(0.95f, 0.45f, 0.45f) : Color.gray;
+                GUI.color = _error != null ? SlopWidgets.Bad : Color.gray;
                 Widgets.Label(inner, _error ?? "Waiting for the daemon...");
                 GUI.color = Color.white;
             }
@@ -111,7 +111,7 @@ namespace SlopWorld
             // being told to be.
             l.Label("Shell");
             _cfg.Shell = l.TextEntry(_cfg.Shell);
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            GUI.color = SlopWidgets.Dim;
             l.Label("Both name a command preset. What one runs is a TOML file beside this " +
                     "one; the agent dialog lists them.");
             GUI.color = Color.white;
@@ -155,7 +155,7 @@ namespace SlopWorld
         // took effect on the next restart would mostly read as a field that did nothing.
         void DoConnectionNote(Listing_Standard l)
         {
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            GUI.color = SlopWidgets.Dim;
             l.Label($"This game dials {SlopClient.BaseUrl} ({SessionHub.Instance.Status}). " +
                     $"The daemon is bound to {_cfg.Bind}.");
             GUI.color = Color.white;
@@ -178,7 +178,7 @@ namespace SlopWorld
         {
             Widgets.Label(new Rect(r.x, r.y, r.width, 22f), "Bound into every sandbox");
 
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            GUI.color = SlopWidgets.Dim;
             var note = new Rect(r.x, r.y + 22f, r.width, 52f);
             Widgets.Label(note,
                 "The base every project builds on. A project's own presets and binds are " +
@@ -202,7 +202,7 @@ namespace SlopWorld
         {
             Widgets.Label(new Rect(r.x, r.y, r.width, 22f), label);
             var box = new Rect(r.x, r.y + 22f, r.width, Mathf.Max(r.height - 22f, 40f));
-            Widgets.DrawBoxSolid(box, new Color(0f, 0f, 0f, 0.25f));
+            Widgets.DrawBoxSolid(box, SlopWidgets.Well);
             return Widgets.TextArea(box.ContractedBy(4f), text);
         }
 
@@ -217,7 +217,7 @@ namespace SlopWorld
 
             if (_error != null && _loaded)
             {
-                GUI.color = new Color(0.95f, 0.45f, 0.45f);
+                GUI.color = SlopWidgets.Bad;
                 Widgets.Label(new Rect(bar.x + 268f, bar.y + 4f, bar.width - 400f, 24f), _error);
                 GUI.color = Color.white;
             }
@@ -256,7 +256,7 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty((_cfg.GameCmd ?? "").Trim()))
             {
-                Fail("set a game command above and save first");
+                SlopWidgets.Fail("set a game command above and save first");
                 return;
             }
 
@@ -266,10 +266,8 @@ namespace SlopWorld
                 // Nothing here saves or quits: the daemon answers this request by telling every
                 // client to do exactly that, and doing it twice is two saves and two shutdowns.
                 // The error road is still ours, because a refused request sends no such event.
-                () => SlopClient.Post("/api/game/restart", "{\"delay_ms\":1000}", _ => { }, Fail)));
+                () => SlopClient.Post("/api/game/restart", "{\"delay_ms\":1000}", _ => { }, SlopWidgets.Fail)));
         }
 
-        static void Fail(string msg) =>
-            Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
     }
 }

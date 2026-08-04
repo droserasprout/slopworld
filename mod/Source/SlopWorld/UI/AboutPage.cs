@@ -31,7 +31,7 @@ namespace SlopWorld
         {
 
             Text.Font = GameFont.Small;
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            GUI.color = SlopWidgets.Dim;
             Widgets.Label(new Rect(r.x, y, r.width, 22f), "RimWorld build");
             GUI.color = Color.white;
             y += 24f;

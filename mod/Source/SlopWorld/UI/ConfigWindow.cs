@@ -53,7 +53,7 @@ namespace SlopWorld
                 string.IsNullOrEmpty(_path) ? "config.toml" : _path);
 
             var area = new Rect(rect.x, rect.y + 28f, rect.width, rect.height - 100f);
-            Widgets.DrawBoxSolid(area, new Color(0f, 0f, 0f, 0.25f));
+            Widgets.DrawBoxSolid(area, SlopWidgets.Well);
 
             var view = new Rect(0f, 0f, area.width - 18f,
                 Mathf.Max(area.height, Text.CalcHeight(_text, area.width - 24f) + 40f));
@@ -64,7 +64,7 @@ namespace SlopWorld
 
             if (_error != null)
             {
-                GUI.color = new Color(0.95f, 0.45f, 0.45f);
+                GUI.color = SlopWidgets.Bad;
                 Widgets.Label(new Rect(rect.x, area.yMax + 2f, rect.width, 40f), _error);
                 GUI.color = Color.white;
             }

@@ -9,50 +9,26 @@ namespace SlopWorld
     // A directory plus the sandbox every agent in it gets. First button in the bottom
     // bar, because nothing can be added on the agents window until there is somewhere
     // to add it.
-    public class ProjectsWindow : Window
+    public class ProjectsWindow : SlopListWindow<ProjectInfo>
     {
-        const float RowH = 52f;
-
-        Vector2 _scroll;
-
-        public static void Toggle()
+        public static void Toggle() => SlopWidgets.ToggleWindow(() =>
         {
-            var open = Find.WindowStack.WindowOfType<ProjectsWindow>();
-            if (open != null) { open.Close(); return; }
-
             SessionHub.Instance.RefreshProjects();
             SessionHub.Instance.LoadPresets();
-            Find.WindowStack.Add(new ProjectsWindow());
-        }
+            return new ProjectsWindow();
+        });
 
-        public ProjectsWindow()
+        protected override string Title => "Projects";
+
+        protected override float RowH => 52f;
+
+        protected override string EmptyNote =>
+            "No projects yet. Add one, then put an agent in it.";
+
+        protected override IEnumerable<ProjectInfo> Rows => SessionHub.Instance.Projects;
+
+        protected override void DoFooter(Rect bar, SessionHub hub)
         {
-            doCloseX = true;
-            draggable = true;
-            resizeable = true;
-            preventCameraMotion = false;
-            closeOnClickedOutside = false;
-        }
-
-        public override Vector2 InitialSize => new Vector2(720f, 480f);
-
-        public override void DoWindowContents(Rect rect)
-        {
-            var hub = SessionHub.Instance;
-
-            Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(rect.x, rect.y, 300f, 32f), "Projects");
-            Text.Font = GameFont.Small;
-
-            GUI.color = hub.Online ? new Color(0.5f, 0.8f, 0.5f) : new Color(0.9f, 0.5f, 0.5f);
-            Widgets.Label(new Rect(rect.x + 110f, rect.y + 8f, 400f, 24f),
-                $"{SlopClient.BaseUrl} - {hub.Status}");
-            GUI.color = Color.white;
-
-            float top = rect.y + 40f;
-            DrawList(new Rect(rect.x, top, rect.width, rect.height - top - 40f), hub);
-
-            var bar = new Rect(rect.x, rect.yMax - 32f, rect.width, 30f);
             if (Widgets.ButtonText(new Rect(bar.x, bar.y, 130f, 30f), "Add project"))
                 Find.WindowStack.Add(new EditProjectDialog(null));
 
@@ -60,45 +36,18 @@ namespace SlopWorld
                 SessionsWindow.Toggle();
 
             if (Widgets.ButtonText(new Rect(bar.x + 276f, bar.y, 130f, 30f), "Reload"))
-                hub.RefreshProjects(Fail);
+                hub.RefreshProjects(SlopWidgets.Fail);
         }
 
-        void DrawList(Rect rect, SessionHub hub)
+        protected override void DrawRow(Rect r, ProjectInfo p)
         {
-            var view = new Rect(0f, 0f, rect.width - 18f, hub.Projects.Count * RowH + 4f);
-
-            Widgets.BeginScrollView(rect, ref _scroll, view);
-
-            if (hub.Projects.Count == 0)
-            {
-                GUI.color = new Color(0.6f, 0.6f, 0.6f);
-                Widgets.Label(new Rect(4f, 8f, view.width - 8f, 48f),
-                    hub.Online
-                        ? "No projects yet. Add one, then put an agent in it."
-                        : "Daemon unreachable. Is slopd running?  systemctl --user status slopd");
-                GUI.color = Color.white;
-            }
-
-            float y = 0f;
-            foreach (var p in hub.Projects.ToList())
-            {
-                DrawRow(new Rect(0f, y, view.width, RowH - 4f), p, hub);
-                y += RowH;
-            }
-
-            Widgets.EndScrollView();
-        }
-
-        void DrawRow(Rect r, ProjectInfo p, SessionHub hub)
-        {
-            Widgets.DrawBoxSolid(r, new Color(1f, 1f, 1f, 0.03f));
-            Widgets.DrawHighlightIfMouseover(r);
+            SlopWidgets.RowChrome(r);
 
             Widgets.Label(new Rect(r.x + 8f, r.y + 4f, 200f, 22f), p.Name);
 
             // The number that decides whether this project can be deleted at all.
-            int agents = hub.Sessions.Count(s => s.Project == p.Name);
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            int agents = SessionHub.Instance.Sessions.Count(s => s.Project == p.Name);
+            GUI.color = SlopWidgets.Dim;
             Widgets.Label(new Rect(r.x + 214f, r.y + 4f, 120f, 22f),
                 agents == 1 ? "1 agent" : $"{agents} agents");
 
@@ -117,7 +66,7 @@ namespace SlopWorld
                 Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                     $"Remove project '{name}'? The directory is left alone; only the entry " +
                     "in config.toml goes.",
-                    () => SessionHub.Instance.RemoveProject(name, Fail),
+                    () => SessionHub.Instance.RemoveProject(name, SlopWidgets.Fail),
                     destructive: true));
             }
         }
@@ -135,9 +84,6 @@ namespace SlopWorld
             if (extra > 0) bits.Add(extra == 1 ? "+1 bind" : $"+{extra} binds");
             return string.Join(", ", bits.ToArray());
         }
-
-        static void Fail(string msg) =>
-            Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
     }
 
     // Presets are checkboxes drawn from whatever the daemon says it knows, so this
@@ -189,7 +135,8 @@ namespace SlopWorld
             _p = existing?.Copy() ?? new ProjectInfo();
             if (copy)
             {
-                _p.Name = FreeName(_p.Name);
+                _p.Name = SlopWidgets.FreeName(_p.Name,
+                    SessionHub.Instance.Projects.Select(p => p.Name), "project");
                 // A temporary project's ground is named after the project, so the copy's is
                 // named after the copy rather than pointing back at what it came from.
                 if (_p.Temp) _p.Dir = ProjectInfo.TempDir(_p.Name);
@@ -292,7 +239,7 @@ namespace SlopWorld
 
             // An agent gets whatever its command preset asks for whether or not it is ticked
             // here, and saying so is cheaper than the player wondering why ~/.claude is bound.
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            GUI.color = SlopWidgets.Dim;
             Widgets.Label(new Rect(r.x, y, r.width, 22f),
                 "An agent also gets the presets its command asks for, and any of its own.");
             GUI.color = Color.white;
@@ -300,10 +247,11 @@ namespace SlopWorld
 
             float boxW = (r.width - 16f) / 3f;
             float boxH = 132f;
-            _roPaths = PathList(new Rect(r.x, y, boxW, boxH), "Read-only binds", _roPaths);
-            _rwPaths = PathList(new Rect(r.x + boxW + 8f, y, boxW, boxH),
+            _roPaths = SlopWidgets.PathList(new Rect(r.x, y, boxW, boxH),
+                "Read-only binds", _roPaths);
+            _rwPaths = SlopWidgets.PathList(new Rect(r.x + boxW + 8f, y, boxW, boxH),
                 "Read-write binds", _rwPaths);
-            _passEnv = PathList(new Rect(r.x + (boxW + 8f) * 2f, y, boxW, boxH),
+            _passEnv = SlopWidgets.PathList(new Rect(r.x + (boxW + 8f) * 2f, y, boxW, boxH),
                 "Passed env vars", _passEnv);
             y += boxH + 12f;
 
@@ -327,7 +275,7 @@ namespace SlopWorld
                 "What an agent here asks for");
             y += 22f;
 
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            GUI.color = SlopWidgets.Dim;
             var note = new Rect(r.x, y, r.width, 20f);
             Widgets.Label(note,
                 "The base, the presets and the boxes above, together. A path that is not " +
@@ -382,15 +330,6 @@ namespace SlopWorld
             return seen;
         }
 
-        // One entry per line, the way the sandbox tab edits these.
-        static string PathList(Rect r, string label, string text)
-        {
-            Widgets.Label(new Rect(r.x, r.y, r.width, 22f), label);
-            var box = new Rect(r.x, r.y + 24f, r.width, Mathf.Max(r.height - 24f, 60f));
-            Widgets.DrawBoxSolid(box, new Color(0f, 0f, 0f, 0.25f));
-            return Widgets.TextArea(box.ContractedBy(4f), text);
-        }
-
         void Save()
         {
             _p.RoPaths = Split(_roPaths);
@@ -399,8 +338,7 @@ namespace SlopWorld
 
             if (string.IsNullOrEmpty((_p.Name ?? "").Trim()))
             {
-                Messages.Message("SlopWorld: a project needs a name.",
-                    MessageTypeDefOf.RejectInput, false);
+                SlopWidgets.Fail("a project needs a name");
                 return;
             }
             // A temporary project's directory is the daemon's to coin, and it coins it again
@@ -409,35 +347,13 @@ namespace SlopWorld
             if (_p.Temp) _p.Dir = ProjectInfo.TempDir(_p.Name);
             else if (string.IsNullOrEmpty((_p.Dir ?? "").Trim()))
             {
-                Messages.Message("SlopWorld: a project needs a directory.",
-                    MessageTypeDefOf.RejectInput, false);
+                SlopWidgets.Fail("a project needs a directory");
                 return;
             }
 
             SessionHub.Instance.SaveProject(_p, _isNew, _origName,
                 ok: () => Close(),
-                fail: msg => Messages.Message($"SlopWorld: {msg}",
-                    MessageTypeDefOf.RejectInput, false));
-        }
-
-        // "slopworld" -> "slopworld-2", and a copy of that -> "slopworld-3" rather than
-        // "slopworld-2-2". Suggested and not enforced - the daemon still refuses a
-        // collision, which is why the search gives up rather than looping.
-        static string FreeName(string name)
-        {
-            string stem = name ?? "";
-            while (stem.Length > 0 && char.IsDigit(stem[stem.Length - 1]))
-                stem = stem.Substring(0, stem.Length - 1);
-            stem = stem.TrimEnd(' ', '-', '_');
-            if (stem.Length == 0) stem = name ?? "project";
-
-            var taken = SessionHub.Instance.Projects.Select(p => p.Name).ToList();
-            for (int n = 2; n <= 99; n++)
-            {
-                string candidate = stem + "-" + n;
-                if (!taken.Contains(candidate)) return candidate;
-            }
-            return stem;
+                fail: SlopWidgets.Fail);
         }
 
         static string Lines(List<string> items) => string.Join("\n", items.ToArray());

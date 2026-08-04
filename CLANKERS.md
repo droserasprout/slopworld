@@ -775,6 +775,26 @@ of these need a def.
 
 ### `UI/`
 
+`SlopWidgets` is the chrome drawn in more than one place, and the colours that mean the
+same thing wherever they are drawn - `Dim` for a second line about the thing on the
+first, `Bad` for an error that stays on screen, `Well` behind a text area. Not a theme:
+`TerminalTheme` is the pane's, and a view with a palette of its own (`FilesView`,
+`AgentSidebar`, `TopBar`) is naming contrasts for one panel. `Fail` is here because every
+refusal the player is shown wears the same prefix, and a message that skipped it would be
+the one that did not look like ours. Static helpers rather than a base class's methods,
+because half the callers are not windows - `ConfigPage` is a category of the options menu
+and `FilesView` is a panel.
+
+`SlopListWindow<T>` is the other half: agents, projects and shortcuts are one window
+drawn three times, so the ctor flags, the size, the header, the scrolling list and the
+footer row are here and a subclass says only `Title`, `RowH`, `EmptyNote`, `Rows`,
+`DrawRow` and `DoFooter`. The empty list's other answer - the daemon being down - is
+`SlopWidgets.Unreachable` and is nobody's to state. `Header` lays the status line out from
+the title's *measured* width, three of those figures having been nudged by hand to clear
+three different titles. `Toggle` cannot be inherited, statics not being virtual, so each
+window keeps its own line over `SlopWidgets.ToggleWindow`, which takes a factory rather
+than an instance so nothing is built for a toggle that turns out to be a close.
+
 `UsageReadout` draws the quota windows as the game's own resources, counting what is
 *left*. A `MapComponent`, so it sits behind every window. Icons are assigned per key
 from `Known`/`Pool` and remembered, or they would move between polls - statics, since
