@@ -17,13 +17,15 @@ namespace SlopWorld
     {
         const int N = 32;
 
-        static Texture2D _agents, _files, _hidden;
+        static Texture2D _agents, _files, _hidden, _bell;
 
         public static Texture2D AgentsTex => _agents != null ? _agents : _agents = Build(Robot);
 
         public static Texture2D FilesTex => _files != null ? _files : _files = Build(Tree);
 
         public static Texture2D HiddenTex => _hidden != null ? _hidden : _hidden = Build(Eye);
+
+        public static Texture2D BellTex => _bell != null ? _bell : _bell = Build(Bell);
 
         // ------------------------------------------------------------------ shapes
         //
@@ -70,6 +72,22 @@ namespace SlopWorld
         // narrower and the ring closes over the pupil at the size this is actually drawn.
         static bool Lens(float x, float y, float r) =>
             Disc(x, y, 16f, 24f, r) && Disc(x, y, 16f, 8f, r);
+
+        // An agent that rang. Drawn in code for the reason the other three are, and a bell
+        // rather than a plain dot because it is one of several marks a row can carry and the
+        // shape is what tells them apart at ten pixels.
+        //
+        // A dome with straight sides under it, a rim wider than both, and the clapper hanging
+        // below - the silhouette everything from a hand bell to a notification badge shares.
+        static bool Bell(float x, float y)
+        {
+            if (Rect(x, y, 14.6f, 3.5f, 17.4f, 7.5f)) return true;      // the handle
+            if (RRect(x, y, 5.5f, 21f, 26.5f, 24.5f, 1.7f)) return true; // the rim
+            if (Disc(x, y, 16f, 26.6f, 2.7f)) return true;              // the clapper
+            // The dome, cut off where the straight sides take over, and those sides under it.
+            if (y <= 15f) return Disc(x, y, 16f, 15f, 8f);
+            return Rect(x, y, 8f, 15f, 24f, 21f);
+        }
 
         static bool Disc(float x, float y, float cx, float cy, float r)
         {

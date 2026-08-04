@@ -67,6 +67,13 @@ pub struct SessionView {
     pub ephemeral: bool,
     /// Unix millis of the last observed pane change.
     pub last_change: u64,
+    /// What the app calls itself (OSC 0/2), for *every* session and not just the subscribed
+    /// one: a session is a pane the mod cannot see unless it is showing it, and this is the
+    /// one line of status any TUI hands over without being parsed for it.
+    pub title: String,
+    /// The app rang the bell and nobody has looked since. Sticky, because a ring is a moment
+    /// and the answer to it is a person: cleared when a client subscribes to the pane.
+    pub bell: bool,
     pub seq: u64,
 }
 
@@ -177,6 +184,9 @@ struct Live {
     seq: u64,
     hash: u64,
     last_change: u64,
+    /// Set by a frame that rang, cleared by someone looking. Here rather than on the screen
+    /// because it outlives the frame that carried it.
+    bell: bool,
     cols: u16,
     rows: u16,
     screen: Option<ScreenView>,
@@ -624,6 +634,7 @@ impl Manager {
                     seq: 0,
                     hash: 0,
                     last_change: 0,
+                    bell: false,
                     cols: BOOT_COLS,
                     rows: BOOT_ROWS,
                     screen: None,
@@ -734,6 +745,7 @@ impl Manager {
                 seq: 0,
                 hash: 0,
                 last_change: now_ms(),
+                bell: false,
                 cols: BOOT_COLS,
                 rows: BOOT_ROWS,
                 screen: None,
@@ -1100,6 +1112,7 @@ impl Manager {
                     seq: 0,
                     hash: 0,
                     last_change: 0,
+                    bell: false,
                     cols: BOOT_COLS,
                     rows: BOOT_ROWS,
                     screen: None,
@@ -1398,6 +1411,14 @@ impl Manager {
                     autostart: l.cfg.autostart,
                     ephemeral: l.ephemeral,
                     last_change: l.last_change,
+                    // Off the last frame rather than off the emulator: `mark_down` drops the
+                    // screen, so a dead session states no title rather than the one it wore.
+                    title: l
+                        .screen
+                        .as_ref()
+                        .map(|s| s.title.clone())
+                        .unwrap_or_default(),
+                    bell: l.bell,
                     seq: l.seq,
                 }
             })
@@ -1408,6 +1429,22 @@ impl Manager {
 
     pub async fn screen(&self, name: &str) -> Option<ScreenView> {
         self.live.read().await.get(name)?.screen.clone()
+    }
+
+    /// Subscribing is the only thing here that counts as having looked: a pane on screen is a
+    /// person reading it, and everything else the mod does with a session it does from a list
+    /// that already draws the mark.
+    pub async fn clear_bell(self: &Arc<Self>, name: &str) {
+        {
+            let mut live = self.live.write().await;
+            match live.get_mut(name) {
+                Some(l) if l.bell => l.bell = false,
+                _ => return,
+            }
+        }
+        let _ = self.events.send(Event::Sessions {
+            sessions: self.views().await,
+        });
     }
 
     pub async fn send_keys(&self, name: &str, keys: Vec<String>, literal: bool) -> Result<()> {
@@ -1746,10 +1783,15 @@ impl Manager {
             frame.title.clone(),
         );
         let changed = hash != prev_hash || (frame.cx, frame.cy) != prev_cursor || meta != prev_meta;
+        // The session list carries the title too, so a title moving on a still screen is a
+        // list event as well as a frame - and the bell is one on a screen that never moved,
+        // which is why it is asked about ahead of the early way out.
+        let title_moved = meta.5 != prev_meta.5;
+        let rang = frame.bell;
         let plain = strip_sgr(&frame.lines.join("\n"));
         let state = self.classify(changed, prev_change, &plain).await;
 
-        if !changed && state == prev_state {
+        if !changed && state == prev_state && !rang {
             return;
         }
 
@@ -1766,6 +1808,13 @@ impl Manager {
             }
             if l.state != state {
                 l.state = state;
+                dirty_list = true;
+            }
+            if title_moved {
+                dirty_list = true;
+            }
+            if rang && !l.bell {
+                l.bell = true;
                 dirty_list = true;
             }
             l.screen = Some(view.clone());
@@ -1796,6 +1845,8 @@ impl Manager {
                     l.state = State::Down;
                     changed = true;
                 }
+                // A ring nobody answered before the process went is not one to answer now.
+                l.bell = false;
                 l.screen = None;
                 l.emu = None;
                 if let Some(h) = l.reader.take() {
@@ -1898,6 +1949,7 @@ mod tests {
             seq: 0,
             hash: 0,
             last_change: 0,
+            bell: false,
             cols: BOOT_COLS,
             rows: BOOT_ROWS,
             screen: None,

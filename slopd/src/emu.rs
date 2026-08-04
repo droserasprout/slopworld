@@ -47,6 +47,9 @@ pub struct Frame {
     /// What the app called itself (OSC 0/2); empty until it says, and empty again
     /// when it resets.
     pub title: String,
+    /// The app rang BEL since the last live render. An event rather than a state, so it is
+    /// true on exactly one frame and the session table is what holds it after that.
+    pub bell: bool,
 }
 
 /// Everything the VT engine hands *back* rather than draws.
@@ -57,13 +60,16 @@ struct Side {
     /// The last OSC 52 store. One slot rather than a queue: a clipboard holds one thing.
     clip: Option<String>,
     title: Option<String>,
+    /// BEL since the last render. A flag rather than a count: twice is still "look at me".
+    bell: bool,
 }
 
 /// Replies to cursor-position reports (`ESC[6n`), device attributes and mode queries.
 /// `VoidListener` dropped all of these, leaving apps that probe the terminal (Ink, which
 /// Claude Code is built on) anchoring their cursor on the wrong line.
 ///
-/// Also takes the two things an app says *about* itself: its title and a clipboard write.
+/// Also takes the three things an app says *about* itself: its title, a clipboard write and
+/// a ring of the bell.
 /// Only the store half of OSC 52 - `Osc52::OnlyCopy` has `Term` refuse a load, which is the
 /// right way round when the clipboard is the operator's.
 #[derive(Clone)]
@@ -79,6 +85,7 @@ impl EventListener for ReplySink {
             Event::ClipboardStore(ClipboardType::Clipboard, text) => s.clip = Some(text),
             Event::Title(t) => s.title = Some(t),
             Event::ResetTitle => s.title = None,
+            Event::Bell => s.bell = true,
             _ => {}
         }
     }
@@ -136,6 +143,15 @@ impl SessionEmu {
         self.side.lock().ok().and_then(|mut s| s.clip.take())
     }
 
+    /// One-shot, and the frame is where it goes: what holds a bell until someone has looked
+    /// at the pane is the session table, this being an event with no state behind it.
+    fn take_bell(&self) -> bool {
+        self.side
+            .lock()
+            .map(|mut s| std::mem::take(&mut s.bell))
+            .unwrap_or(false)
+    }
+
     fn title(&self) -> String {
         self.side
             .lock()
@@ -157,7 +173,12 @@ impl SessionEmu {
     }
 
     pub fn render(&self) -> Frame {
-        self.render_frame(false)
+        let mut frame = self.render_frame(false);
+        // Taken here rather than in render_frame: a wheel asks for a scroll snapshot off the
+        // same emulator, and a bell swallowed by somebody's scrollback never reaches the
+        // column.
+        frame.bell = self.take_bell();
+        frame
     }
 
     /// `None` when the app isn't asking for mouse reports, or for a drag it didn't opt
@@ -283,6 +304,7 @@ impl SessionEmu {
                 .intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG),
             alt_screen: content.mode.contains(TermMode::ALT_SCREEN),
             title: self.title(),
+            bell: false,
         }
     }
 
@@ -681,6 +703,24 @@ mod tests {
         assert_eq!(e.render().title, "another");
         e.feed(b"\x1b]0;\x07");
         assert_eq!(e.render().title, "");
+    }
+
+    #[test]
+    fn takes_a_bell_once_per_frame() {
+        let mut e = SessionEmu::new(20, 2);
+        assert!(!e.render().bell);
+        e.feed(b"ready\x07");
+        // The frame that follows the ring carries it, and only that one: what holds a bell
+        // until somebody looks is the session table.
+        assert!(e.render().bell);
+        assert!(!e.render().bell);
+        // Twice between renders is still one bell.
+        e.feed(b"\x07\x07");
+        assert!(e.render().bell);
+        // A scroll snapshot must not swallow it.
+        e.feed(b"\x07");
+        assert!(!e.scroll_snapshot(0).0.bell);
+        assert!(e.render().bell);
     }
 
     #[test]

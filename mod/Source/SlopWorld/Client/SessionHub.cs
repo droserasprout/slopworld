@@ -45,7 +45,26 @@ namespace SlopWorld
         public int Cols;
         public int Rows;
 
+        // What the app calls itself over OSC 0/2, for every agent and not just the one whose
+        // pane is open - the daemon watches every emulator and the mod only sees the pane it
+        // subscribed to. Blank for anything that never says.
+        public string Title = "";
+
+        // The app rang the bell and nobody has looked since. Cleared by the daemon the moment
+        // a pane is subscribed to, so opening the terminal is what answers it.
+        public bool Bell;
+
+        // Unix millis of the last pane change, which is how long this agent has been in the
+        // state it is in. Zero before it has ever drawn anything.
+        public long LastChange;
+
         public bool Gone => !Alive;
+
+        // The daemon's clock is this machine's, so the two agree without anything being sent
+        // to keep them in step: an age is the difference and not a countdown the daemon owns.
+        static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        public static long NowMs => (long)(DateTime.UtcNow - Epoch).TotalMilliseconds;
 
         public static AgentState ParseState(string s)
         {
@@ -75,6 +94,9 @@ namespace SlopWorld
             Ephemeral = j["ephemeral"].AsBool(false),
             Cols = j["cols"].AsInt(0),
             Rows = j["rows"].AsInt(0),
+            Title = j["title"].AsString(),
+            Bell = j["bell"].AsBool(false),
+            LastChange = j["last_change"].AsLong(0),
         };
 
         // `Agent` never rides along: it is what the daemon resolved, and writing it back

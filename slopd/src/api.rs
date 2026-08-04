@@ -657,6 +657,9 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
         match cm {
             ClientMsg::Sub { name } => {
                 subs.lock().await.insert(name.clone());
+                // Somebody is looking at this pane now, which is the whole of what a bell
+                // was asking for. Broadcast, not answered here: every client draws the mark.
+                m.clear_bell(&name).await;
                 if let Some(s) = m.screen(&name).await {
                     let _ = send(&tx, &Event::Screen { screen: s }).await;
                 }

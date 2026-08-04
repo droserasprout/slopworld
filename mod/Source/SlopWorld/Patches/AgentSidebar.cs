@@ -6,7 +6,8 @@ using Verse;
 namespace SlopWorld
 {
     // The colonist bar as a left-hand column: agents gathered under the project they run in,
-    // a portrait and two lines apiece. The other half of ColonistBarStrip, which owns the
+    // a portrait and three lines apiece - the name, what it is doing and for how long, and
+    // what the app calls itself. The other half of ColonistBarStrip, which owns the
     // swap - this file is only the shape, and everything said there about pointing the bar's
     // own cached layout at ours holds here too.
     //
@@ -20,7 +21,7 @@ namespace SlopWorld
     // the column is up.
     public static class AgentSidebar
     {
-        // Wide enough for a session name and a directory beside a portrait, and dragged from
+        // Wide enough for a session name and a title beside a portrait, and dragged from
         // there by the edge. Clamped on the way out rather than on the way in: a setting
         // written on a wide screen and read on a narrow one is a column with no map beside
         // it, and this comes off the map for as long as the layout is on.
@@ -60,6 +61,17 @@ namespace SlopWorld
         static float NameH => Mathf.Ceil(Text.LineHeightOf(GameFont.Small));
         static float SubH => Mathf.Ceil(Text.LineHeightOf(GameFont.Tiny));
 
+        // Three of them: the name, what it is doing and for how long, and what it calls
+        // itself. One figure rather than the sum written out at each of the four places that
+        // needs it - the row height, the pitch floor, the text rect and the draw - since a
+        // line added or taken away here must move all four together or rows overlap.
+        static float TextH => NameH + SubH * 2f;
+
+        // What the bell takes off the end of the name line, and what the elapsed takes off
+        // the end of the state line.
+        const float BellW = 13f;
+        const float AgoGap = 6f;
+
         // The arrow before a heading, and how much of the edge answers a drag.
         const float ArrowW = 12f;
         const float GripW = 5f;
@@ -71,6 +83,15 @@ namespace SlopWorld
         static readonly Color TabOff = new Color(0.45f, 0.47f, 0.52f);
         static readonly Color SubColor = new Color(0.62f, 0.64f, 0.67f);
         static readonly Color Current = new Color(1f, 1f, 1f, 0.10f);
+
+        // Dimmer than the line it shares and dimmer than the title it stands in for: an age
+        // and a directory are both there to be glanced at rather than read.
+        static readonly Color AgoColor = new Color(0.50f, 0.52f, 0.56f);
+        static readonly Color PlaceColor = new Color(0.46f, 0.48f, 0.52f);
+
+        // The same amber Waiting wears, that being what an unanswered bell means whatever the
+        // rules made of the screen.
+        static readonly Color BellColor = new Color(0.98f, 0.80f, 0.30f);
 
         // A loc nothing draws and nothing can be clicked at: the bar hit-tests against the
         // same list it draws from, so parking one is how an entry is taken out of both.
@@ -85,7 +106,7 @@ namespace SlopWorld
             public string Session;
             public Pawn Pawn;
             public Rect Line;   // the whole row, for the highlight and the hover
-            public Rect Text;   // beside the portrait: the two labels, and what a click takes
+            public Rect Text;   // beside the portrait: the three labels, and what a click takes
             public Rect Face;   // the square the close-up is drawn in, read by the drawer patch
         }
 
@@ -266,10 +287,10 @@ namespace SlopWorld
             // which is what keeps Patch_SidebarPortraitDraw from having a second opinion.
             float face = ColonistBarColonistDrawer.PawnTextureSize.y * s;
             // Only the portraits shrink; the labels cannot, the fonts being fixed. So on a
-            // crowded column the two lines beside a row are taller than the row, and the row
+            // crowded column the three lines beside a row are taller than the row, and the row
             // is the taller of the two - with Pitch floored to match, or neighbours write over
             // each other. The face box keeps its own square and is centred in what is left.
-            float rowH = Mathf.Max(face, NameH + SubH);
+            float rowH = Mathf.Max(face, TextH);
 
             float width = Width;
             float y = top;
@@ -312,8 +333,7 @@ namespace SlopWorld
                         Session = Session(entries[i].pawn),
                         Pawn = entries[i].pawn,
                         Line = line,
-                        Text = new Rect(tx, y + (rowH - NameH - SubH) / 2f,
-                            width - tx - Pad, NameH + SubH),
+                        Text = new Rect(tx, y + (rowH - TextH) / 2f, width - tx - Pad, TextH),
                         Face = new Rect(CellX, y + (rowH - face) / 2f, face, face),
                     });
 
@@ -333,21 +353,31 @@ namespace SlopWorld
 
         // Vanilla's own vertical pitch, floored at what the labels need. The portraits shrink
         // with s and the fonts do not, so past some scale vanilla's figure is narrower than the
-        // two lines beside a row: the column runs off the bottom sooner, which is the failure
-        // Fit already prefers to a smudge, rather than rows overwriting each other.
+        // three lines beside a row: the column runs off the bottom sooner, which is the failure
+        // Fit already prefers to a smudge, rather than rows overwriting each other. With three
+        // lines that floor is the usual answer rather than the crowded one, which is the price
+        // of the third line and is paid in rows on screen.
         static float Pitch(float s) => Mathf.Max(
             (ColonistBar.BaseSize.y + ColonistBar.BaseSpaceBetweenColonistsVertical) * s,
-            NameH + SubH + RowGap);
+            TextH + RowGap);
 
         // Headings and the "+" are a fixed cost, so only the portraits shrink. Solved rather
         // than stepped down, this being a straight line in s.
+        //
+        // Only while the portraits are what the spacing is measured off, though: below the
+        // scale where Pitch hits its floor the rows stop closing up and every pixel taken off
+        // a face buys nothing. So that scale is the real floor and Floor is only the backstop
+        // - asked of the fonts rather than written down, three lines of them being enough to
+        // put it above Nominal on any ordinary screen. The column then runs off the bottom
+        // with its portraits legible, which is the failure this already prefers to a smudge.
         static float Fit(int rows, int groups, bool plus, float room)
         {
             if (rows <= 0) return Nominal;
             float fixedH = groups * HeadH + (plus ? AddH + 2f : 0f);
             float each = ColonistBar.BaseSize.y + ColonistBar.BaseSpaceBetweenColonistsVertical;
             float s = (room - fixedH) / (rows * each);
-            return Mathf.Clamp(s, Floor, Nominal);
+            float useful = Mathf.Clamp((TextH + RowGap) / each, Floor, Nominal);
+            return Mathf.Clamp(s, useful, Nominal);
         }
 
         static void Bucket(List<ColonistBar.Entry> entries, List<Vector2> locs, int count)
@@ -563,17 +593,58 @@ namespace SlopWorld
                 {
                     var info = row.Session == null ? null : hub.Get(row.Session);
                     var state = info?.State ?? AgentState.Down;
+                    var tint = TerminalWindow.StateColor(state);
 
+                    // Line one is the name, in the colour of what it is doing. A bell rung and
+                    // not yet answered takes the end of it: the mark belongs beside the name
+                    // rather than beside the state, being about the agent and not its posture.
                     Text.Font = GameFont.Small;
-                    GUI.color = TerminalWindow.StateColor(state);
                     var name = new Rect(row.Text.x, row.Text.y, row.Text.width, NameH);
+                    if (info != null && info.Bell)
+                    {
+                        float d = Mathf.Min(BellW, NameH);
+                        GUI.color = BellColor;
+                        GUI.DrawTexture(
+                            new Rect(name.xMax - d, name.y + (NameH - d) / 2f, d, d),
+                            TabIcons.BellTex);
+                        name.width -= d + 3f;
+                    }
+                    GUI.color = tint;
                     Widgets.Label(name, (row.Session ?? row.Pawn?.LabelShort ?? "?")
                         .Truncate(name.width));
 
+                    // Line two is what it is doing and for how long. The elapsed is laid out
+                    // from the right so the times line up down the column and the word keeps
+                    // whatever is left - the pair reads as one line either way, and "working
+                    // 40m" is a different animal from "working 12s".
                     Text.Font = GameFont.Tiny;
+                    var word = new Rect(row.Text.x, row.Text.y + NameH, row.Text.width, SubH);
+                    string ago = Ago(info);
+                    if (ago.Length > 0)
+                    {
+                        Text.Anchor = TextAnchor.UpperRight;
+                        GUI.color = AgoColor;
+                        Widgets.Label(word, ago);
+                        Text.Anchor = TextAnchor.UpperLeft;
+                        word.width -= Mathf.Ceil(Text.CalcSize(ago).x) + AgoGap;
+                    }
                     GUI.color = SubColor;
-                    var sub = new Rect(row.Text.x, row.Text.y + NameH, row.Text.width, SubH);
-                    Widgets.Label(sub, Sub(info, state).Truncate(sub.width));
+                    Widgets.Label(word, Word(state).Truncate(Mathf.Max(1f, word.width)));
+
+                    // Line three is what the app calls itself, and failing that where it is.
+                    // Dimmer for the fallback: a title is this agent's own word for what it is
+                    // up to, a directory is only the ground it stands on.
+                    string title = Title(info);
+                    GUI.color = title.Length > 0 ? SubColor : PlaceColor;
+                    if (title.Length == 0) title = Ground(info);
+                    var line3 = new Rect(row.Text.x, row.Text.y + NameH + SubH,
+                        row.Text.width, SubH);
+                    Widgets.Label(line3, title.Truncate(line3.width));
+                    // Only the third line runs long enough to lose anything to the truncation,
+                    // so only there is a hover worth answering: the name is the one the agents
+                    // window shows and the state is a word.
+                    if (title.Length > 0 && Text.CalcSize(title).x > line3.width)
+                        TooltipHandler.TipRegion(line3, title);
 
                     GUI.color = Color.white;
                     Click(row, info);
@@ -589,16 +660,45 @@ namespace SlopWorld
             }
         }
 
-        // Line two is what the row is doing and where, which is the pair a project heading
-        // does not already answer. A temporary agent says so instead of naming a directory
-        // it is about to lose.
-        static string Sub(SessionInfo info, AgentState state)
+        // The daemon's word for what the agent is doing. A pawn in the column that is not an
+        // agent at all reads as down, which is what it is as far as this half is concerned.
+        static string Word(AgentState state) => state.ToString().ToLower();
+
+        // How long it has been that way. Off last_change, which is the last time the pane drew
+        // anything rather than the last time the state moved - the same figure classify reads
+        // to decide a quiet pane is idle, so the two never disagree. Nothing before the first
+        // frame: a session that has never drawn has no age, only a state.
+        static string Ago(SessionInfo info)
         {
-            string word = state.ToString().ToLower();
-            if (info == null) return word;
-            if (info.Ephemeral) return word + " - temporary";
-            string dir = Leaf(info.Dir);
-            return string.IsNullOrEmpty(dir) ? word : word + "  " + dir;
+            if (info == null || info.LastChange <= 0) return "";
+            long s = (SessionInfo.NowMs - info.LastChange) / 1000L;
+            if (s < 0L) return "";
+            if (s < 60L) return s + "s";
+            if (s < 3600L) return s / 60L + "m";
+            if (s < 86400L) return s / 3600L + "h";
+            return s / 86400L + "d";
+        }
+
+        // What the app called itself over OSC 0/2. Most TUIs state something; the ones that do
+        // not get the line below instead, and nothing here parses a pane to guess.
+        static string Title(SessionInfo info)
+        {
+            if (info == null) return "";
+            var t = info.Title ?? "";
+            var clean = new System.Text.StringBuilder(t.Length);
+            // A title arrives as whatever the app wrote. Controls would draw as boxes and a
+            // tab would draw as nothing, so both come out as the space they stand for.
+            foreach (char c in t)
+                clean.Append(char.IsControl(c) ? ' ' : c);
+            return clean.ToString().Trim();
+        }
+
+        // Where it is, for an agent that says nothing about itself. A temporary agent names no
+        // directory it is about to lose.
+        static string Ground(SessionInfo info)
+        {
+            if (info == null) return "";
+            return info.Ephemeral ? "temporary" : Leaf(info.Dir);
         }
 
         static string Leaf(string dir)

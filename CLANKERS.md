@@ -230,9 +230,20 @@ escapes an app aims at its terminal arrive here. `emu.rs`'s `Side`:
 - OSC 52 (copy) onto the host clipboard: the only word we get when an app draws its
   own selection, as Claude Code does. `Osc52::OnlyCopy` - it may write, never read.
   Only the `c` selection; we have no tool for PRIMARY.
+- BEL onto `Frame::bell`, taken in `render` rather than in `render_frame` so a wheel's
+  scroll snapshot cannot swallow one. True for exactly one frame: what holds a ring
+  afterwards is `Live::bell`, cleared by `clear_bell` when a client *subscribes* to
+  that pane, a pane on screen being the only evidence here that somebody looked.
 
 The clip is one slot, not a queue, and the control loop leaves it there while a write
 is in flight, so an app stating OSC 52 every frame gets one `wl-copy` at a time.
+
+`SessionView` carries `title` and `bell` for *every* session rather than the subscribed
+one - a session is a pane the mod cannot see unless it is showing it, and a title is
+the one line of status any TUI hands over without being parsed for it. Both dirty the
+session list, which is why the bell is asked about ahead of `apply_frame`'s early way
+out: it is a list event on a screen that never moved. A title is read off the last
+frame, so a session `mark_down` has dropped the screen of states none.
 
 ### Surviving a redeploy
 
@@ -311,7 +322,7 @@ because `shell_split` builds an argv rather than running a shell.
 
 ### Wire protocol
 
-Server events: `{"t":"sessions"}` on any state move, `{"t":"screen"}` for subscribed
+Server events: `{"t":"sessions"}` on any state, title or bell move, `{"t":"screen"}` for subscribed
 sessions, `{"t":"usage"}`, `{"t":"projects"}`, `{"t":"shortcuts"}` - the last three
 also once on connect, or a client attaching between polls draws nothing. And
 `{"t":"quit"}`: save and go.
@@ -595,7 +606,7 @@ of these need a def.
   swap; the bar asks it of itself mid-draw, and restoring there would undo the layout
   being drawn.
 - `AgentSidebar` is the other shape that swap can take, and `SlopLayout` is which one:
-  a column down the left, agents under the project they run in, portrait and two lines
+  a column down the left, agents under the project they run in, portrait and three lines
   apiece. Only the geometry moves - `Place` writes the same `cachedDrawLocs`, so the
   state icons, the brackets, the "+" and the click that opens a pane are all still the
   bar's. What is drawn *around* the portraits goes down from the same
@@ -608,12 +619,26 @@ of these need a def.
   - The panel is the full height of the screen and the top bar starts where it ends,
     rather than the bar crossing the top of it: hung underneath one, the corner above
     the column is a hole the map shows through.
-  - The row is as tall as the *portrait*, overhang and all, and rows are `48+32` apart -
-    vanilla's own vertical pitch, which is what leaves room for a head to poke into the
-    gap above it. Only the portraits shrink to fit the screen; headings and the "+" are
-    a fixed cost, so `Fit` solves for the scale rather than stepping it down. The "+" is
+  - The row is as tall as the *portrait*, overhang and all, or as tall as the labels,
+    whichever is more. Rows are `48+32` apart - vanilla's own vertical pitch, which is
+    what leaves room for a head to poke into the gap above it - floored at `TextH`, and
+    with three lines that floor is the usual answer rather than the crowded one. Only
+    the portraits shrink to fit the screen; headings and the "+" are a fixed cost, so
+    `Fit` solves for the scale rather than stepping it down. It stops at the scale where
+    that floor takes over rather than at `Floor`: below it the rows no longer close up
+    and every pixel off a face buys nothing, so the column runs off the bottom with its
+    portraits legible, which is the failure this already prefers to a smudge. The "+" is
     pinned to the foot of the panel - it is the column's button rather than the last
     project's - and `Fit` reserves its room either way, so the rows stop above it.
+  - The three lines are the name, what the agent is doing and for how long, and what the
+    app calls itself. All three are one lookup on the hub and none is parsed out of a
+    pane: the state is the daemon's word, the age is `now - last_change` done here so
+    nothing is sent to keep a countdown in step, and the third line is the session's OSC
+    title, falling back - dimmer, being ground rather than word - to the directory leaf,
+    or to "temporary" for an ephemeral agent. The age is laid out from the right so the
+    times line up down the column and the state word keeps what is left. A `bell` takes
+    the end of the *name* line, that being about the agent rather than its posture, and
+    is `TabIcons.BellTex` for the reason the selector's icons are drawn in code.
   - `Absorb` eats the mouse over the panel, last of all. The column is a fifth of the
     screen taken off the map and the map takes whatever the widgets did not: without it
     a press starts a drag-selection on the ground behind the panel and a right-click
@@ -747,9 +772,10 @@ being a trap at the size these are drawn. The lookup table is the other half of
 `tools/fileicons/manifest.toml` and the two are kept in step by hand - shipping the
 manifest into the game would mean a TOML parser the mod does not have.
 
-`TabIcons` is the selector's two icons and the dotfile switch, drawn in code for the
-reason `GearIcon` is. Not `RobotFace_south`: that is a pawn's faceplate, coloured, and
-tinted flat at 18px it is a blob.
+`TabIcons` is the selector's two icons, the dotfile switch and the sidebar's bell, drawn
+in code for the reason `GearIcon` is. Not `RobotFace_south`: that is a pawn's faceplate,
+coloured, and tinted flat at 18px it is a blob. A bell rather than a plain dot because a
+row can carry several marks and the shape is what tells them apart at ten pixels.
 
 `CoreTip` hangs a loading-screen tip on the persona core, rolled once per hover.
 `DeadCursor` replaces the pointer with the Tame designator's hand. `MenuBackground`
