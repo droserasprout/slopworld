@@ -309,14 +309,14 @@ namespace SlopWorld
         {
             if (!_scrollPending) return;
             _scrollPending = false;
+
+            if (_scrollOff <= 0) return;
+
             _sentScrollOff = _wantedScrollOff;
             _nextScrollSend = Time.realtimeSinceStartup + ScrollBeat;
 
-            if (_scrollOff > 0)
-            {
-                ulong id = ++_scrollRequestId;
-                SessionHub.Instance.RequestScroll(_name, _sentScrollOff, id);
-            }
+            ulong id = ++_scrollRequestId;
+            SessionHub.Instance.RequestScroll(_name, _sentScrollOff, id);
         }
 
         public override void WindowUpdate()
@@ -1042,7 +1042,7 @@ namespace SlopWorld
             return true;
         }
 
-        void JumpToLive() { _scrollOff = 0; _wantedScrollOff = 0; _scrollPending = false; }
+        void JumpToLive() { _scrollOff = 0; _wantedScrollOff = 0; _scrollPending = false; _nextScrollSend = 0f; }
 
         void ClearSelection()
         {

@@ -367,7 +367,11 @@ impl Config {
     /// name one.
     pub fn session_for(&self, sc: &ShortcutCfg, name: String, project: String) -> SessionCfg {
         let t = crate::presets::table();
-        let own = sc.command.as_deref().map(str::trim).filter(|c| !c.is_empty());
+        let own = sc
+            .command
+            .as_deref()
+            .map(str::trim)
+            .filter(|c| !c.is_empty());
         let known = own.filter(|c| t.command(c).is_some());
 
         let (command, cmd) = match (sc.kind, known, own) {
@@ -403,7 +407,11 @@ impl Config {
         if !own.is_empty() {
             return own.to_string();
         }
-        if s.cmd.as_deref().map(str::trim).is_some_and(|c| !c.is_empty()) {
+        if s.cmd
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|c| !c.is_empty())
+        {
             return String::new();
         }
         match self.defaults.agent.trim() {

@@ -123,7 +123,6 @@ async fn restart(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
     ok_json(m.restart(&name).await)
 }
 
-
 async fn list_projects(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!({ "projects": m.projects().await })))
 }
@@ -152,7 +151,6 @@ async fn update_project(
 async fn destroy_project(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
     ok_json(m.remove_project(&name).await)
 }
-
 
 async fn list_shortcuts(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!({ "shortcuts": m.shortcuts().await })))
@@ -409,7 +407,9 @@ fn flag<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
     match s.trim() {
         "" | "0" | "false" | "no" | "off" => Ok(false),
         "1" | "true" | "yes" | "on" => Ok(true),
-        other => Err(D::Error::custom(format!("expected a yes or a no, got {other:?}"))),
+        other => Err(D::Error::custom(format!(
+            "expected a yes or a no, got {other:?}"
+        ))),
     }
 }
 
@@ -517,7 +517,6 @@ async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult 
         "truncated": out.truncated,
     })))
 }
-
 
 #[derive(Deserialize)]
 #[serde(tag = "t", rename_all = "lowercase")]
@@ -648,8 +647,7 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
         let tx = tx.clone();
         let subs = subs.clone();
         tokio::spawn(async move {
-            let mut last_screen =
-                TokioInstant::now() - FRAME_COALESCE;
+            let mut last_screen = TokioInstant::now() - FRAME_COALESCE;
             // One slot per pane, not one global slot: a socket can subscribe to several
             // panes, and a frame for one must not overwrite a held frame for another.
             let mut pending: HashMap<String, Event> = HashMap::new();

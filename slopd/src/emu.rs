@@ -459,7 +459,6 @@ fn bg_code(c: Color) -> Option<String> {
     color_code(c, 40)
 }
 
-
 /// `button` is 0/1/2 = left/mid/right for press/release/drag, ignored for the
 /// wheel.
 pub enum MouseAction {
@@ -501,7 +500,6 @@ fn push_coord(out: &mut Vec<u8>, v: u32, utf8: bool) {
     }
     out.push(v.min(255) as u8);
 }
-
 
 /// Line shape: `%output %<pane> <data>`. Raw bytes, never a `&str`: tmux emits UTF-8 literally
 /// and splits chunks on arbitrary byte boundaries, so a line can end mid-character. The halves

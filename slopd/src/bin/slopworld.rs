@@ -308,10 +308,8 @@ mod tests {
     fn scratch(what: &str) -> PathBuf {
         static N: AtomicU32 = AtomicU32::new(0);
         let n = N.fetch_add(1, Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!(
-            "slopworld-test-{}-{what}-{n}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("slopworld-test-{}-{what}-{n}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         dir
     }

@@ -136,7 +136,12 @@ pub struct ScreenView {
 
 impl ScreenView {
     fn from_frame(
-        name: &str, seq: u64, cols: u16, rows: u16, off: u32, frame: Frame,
+        name: &str,
+        seq: u64,
+        cols: u16,
+        rows: u16,
+        off: u32,
+        frame: Frame,
         request_id: u64,
     ) -> Self {
         Self {
@@ -893,7 +898,10 @@ impl Manager {
         // Before the directory is made: a name with no preset file behind it is a typo to
         // report, not a scratch directory to conjure up and an empty argv to hand tmux.
         if cfg.command_of(&s).trim().is_empty() {
-            bail!("session {name} names command preset {:?}, which has no file", s.command);
+            bail!(
+                "session {name} names command preset {:?}, which has no file",
+                s.command
+            );
         }
         let dir = expand(&p.dir);
         // A temporary project's directory is coined from its name, so the first agent to start
@@ -974,7 +982,6 @@ impl Manager {
         self.stop(name).await?;
         self.start(name).await
     }
-
 
     pub async fn projects(&self) -> Vec<ProjectCfg> {
         self.cfg.read().await.projects.clone()
@@ -1063,7 +1070,6 @@ impl Manager {
         self.announce_projects().await;
         Ok(())
     }
-
 
     pub async fn shortcuts(&self) -> Vec<ShortcutCfg> {
         self.cfg.read().await.shortcuts.clone()
@@ -1161,7 +1167,9 @@ impl Manager {
             _ if fresh => String::new(),
             (Some(p), _) => p.clone(),
             (None, ShortcutLink::Ask) => {
-                bail!("shortcut {name} asks where to run; name a project or ask for a temporary one")
+                bail!(
+                    "shortcut {name} asks where to run; name a project or ask for a temporary one"
+                )
             }
             (None, _) => sc.project.clone(),
         };
@@ -1311,7 +1319,6 @@ impl Manager {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
     }
-
 
     pub async fn add(self: &Arc<Self>, s: SessionCfg) -> Result<()> {
         // Land on top of any hand edit rather than over it.
@@ -2002,7 +2009,10 @@ impl Manager {
     /// `off == 0` or beyond history returns the live frame. `request_id` is echoed through
     /// so the client can reject stale responses.
     pub async fn scroll_capture(
-        &self, name: &str, off: u32, request_id: u64,
+        &self,
+        name: &str,
+        off: u32,
+        request_id: u64,
     ) -> Option<ScreenView> {
         if off == 0 {
             return self.screen(name).await;
@@ -2018,8 +2028,10 @@ impl Manager {
         // with the active request_id and skip the emulator lock and SGR serialization.
         if let Ok(c) = self.scroll_cache.lock() {
             if let Some(cached) = c.get(name) {
-                if cached.live_seq == seq && cached.off == off
-                    && cached.cols == cols && cached.rows == rows
+                if cached.live_seq == seq
+                    && cached.off == off
+                    && cached.cols == cols
+                    && cached.rows == rows
                 {
                     let mut view = cached.view.clone();
                     view.request_id = request_id;
@@ -2039,13 +2051,16 @@ impl Manager {
         let view = ScreenView::from_frame(name, seq, cols, rows, achieved, frame, request_id);
 
         if let Ok(mut c) = self.scroll_cache.lock() {
-            c.insert(name.to_string(), CachedScroll {
-                live_seq: seq,
-                off,
-                cols,
-                rows,
-                view: view.clone(),
-            });
+            c.insert(
+                name.to_string(),
+                CachedScroll {
+                    live_seq: seq,
+                    off,
+                    cols,
+                    rows,
+                    view: view.clone(),
+                },
+            );
         }
         Some(view)
     }

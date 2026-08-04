@@ -213,7 +213,11 @@ mod tests {
             let f: PresetFile = toml::from_str(text)
                 .unwrap_or_else(|e| panic!("builtin preset {name} does not parse: {e}"));
             for p in &f.sandbox {
-                assert_eq!(&p.name, name, "{name}.toml names a sandbox preset {:?}", p.name);
+                assert_eq!(
+                    &p.name, name,
+                    "{name}.toml names a sandbox preset {:?}",
+                    p.name
+                );
                 assert!(!p.category.is_empty(), "{name} has no category");
             }
             for c in &f.command {
@@ -228,16 +232,24 @@ mod tests {
             assert!(t.command(name).is_some(), "no {name} command preset");
         }
         assert_eq!(t.command("claude").unwrap().sandbox, vec!["claude"]);
-        assert_eq!(t.sandbox("systemd").unwrap().setenv["SYSTEMCTL_FORCE_BUS"], "1");
+        assert_eq!(
+            t.sandbox("systemd").unwrap().setenv["SYSTEMCTL_FORCE_BUS"],
+            "1"
+        );
         assert_eq!(t.sandbox("gpu").unwrap().dev, vec!["/dev/dri"]);
 
         // The new presets parse and name themselves correctly.
         for name in ["go", "gh", "aws", "kube"] {
-            let p = t.sandbox(name).unwrap_or_else(|| panic!("no {name} sandbox preset"));
+            let p = t
+                .sandbox(name)
+                .unwrap_or_else(|| panic!("no {name} sandbox preset"));
             assert!(!p.category.is_empty(), "{name} has no category");
             assert!(!p.description.is_empty(), "{name} has no description");
         }
-        assert_eq!(t.sandbox("go").unwrap().rw, vec!["~/.go", "~/.cache/go-build"]);
+        assert_eq!(
+            t.sandbox("go").unwrap().rw,
+            vec!["~/.go", "~/.cache/go-build"]
+        );
         assert_eq!(t.sandbox("kube").unwrap().ro, vec!["~/.kube"]);
     }
 
