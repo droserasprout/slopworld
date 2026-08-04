@@ -17,7 +17,7 @@ namespace SlopWorld
     {
         const int N = 32;
 
-        static Texture2D _agents, _files, _hidden, _bell;
+        static Texture2D _agents, _files, _hidden, _bell, _auto;
 
         public static Texture2D AgentsTex => _agents != null ? _agents : _agents = Build(Robot);
 
@@ -26,6 +26,8 @@ namespace SlopWorld
         public static Texture2D HiddenTex => _hidden != null ? _hidden : _hidden = Build(Eye);
 
         public static Texture2D BellTex => _bell != null ? _bell : _bell = Build(Bell);
+
+        public static Texture2D AutoTex => _auto != null ? _auto : _auto = Build(Cross);
 
         // ------------------------------------------------------------------ shapes
         //
@@ -87,6 +89,19 @@ namespace SlopWorld
             // The dome, cut off where the straight sides take over, and those sides under it.
             if (y <= 15f) return Disc(x, y, 16f, 15f, 8f);
             return Rect(x, y, 8f, 15f, 24f, 21f);
+        }
+
+        // The usage picker's first cell, which is "no choice, you pick". A cross rather than
+        // a thing, every other cell in that grid being an item's own icon, and an X rather
+        // than a plus because a plus in a grid of things reads as one more of them.
+        //
+        // Two diagonal bars, clipped round so all four arms end on the same circle: cut to a
+        // square they run longer on the diagonal than a bar's width accounts for and the X
+        // comes out with a pinched middle.
+        static bool Cross(float x, float y)
+        {
+            if (!Disc(x, y, 16f, 16f, 12.5f)) return false;
+            return Mathf.Abs(x - y) <= 3f || Mathf.Abs(x + y - 32f) <= 3f;
         }
 
         static bool Disc(float x, float y, float cx, float cy, float r)

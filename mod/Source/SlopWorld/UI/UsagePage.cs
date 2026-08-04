@@ -167,64 +167,60 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ icon row
 
-        // One line in the fields list: the long name, the current icon, and two buttons.
+        // One line in the fields list: the long name, and the icon, which is the button.
         //
-        //   [Long name               ] [icon] [auto] [pick...]
+        //   [Long name               ] [icon]
         //
-        // "auto" clears the choice and lets UsageReadout fall back to its own pick; the
-        // button is greyed when there is nothing to clear. "pick..." opens the grid.
+        // One target rather than an icon and two buttons beside it. Clearing a choice is the
+        // first cell of the grid this opens, not a control out here, and that is the whole
+        // argument: automatic is something you *pick*, the same way silver is, where a greyed
+        // "auto" button next to the icon said it was a different kind of thing.
         void IconRow(Listing_Standard l, string key, string hint)
         {
             var row = l.GetRect(28f);
 
-            // Label, left-aligned. If hint is given, use it as a fallback short label
-            // so the row works even when the daemon is not reporting this key yet.
-            string label = UsageReadout.Long(key, hint ?? key);
-            float labelW = Text.CalcSize(label).x + 6f;
-            float maxLabel = row.width - 172f;
-            if (labelW > maxLabel) labelW = maxLabel;
+            const float Box = 26f;
+            // A column rather than hard against the label, so the buttons line up down the
+            // page the way the sidebar's times do. Clamped, a narrow page being one where the
+            // label gives way rather than the thing that is clicked.
+            float col = Mathf.Min(230f, row.width - Box - 4f);
 
-            Widgets.Label(new Rect(row.x, row.y, labelW, row.height), label);
+            // If hint is given it is a fallback short label, so the row works even when the
+            // daemon is not reporting this key yet.
+            Widgets.Label(new Rect(row.x, row.y, col - 4f, row.height),
+                UsageReadout.Long(key, hint ?? key));
 
-            // Current icon, drawn as a small ThingIcon.
+            var box = new Rect(row.x + col, row.y + (row.height - Box) / 2f, Box, Box);
+
+            // A faint plate under it, or an icon on the page's own background is a picture
+            // rather than something to press.
+            Widgets.DrawBoxSolid(box, new Color(1f, 1f, 1f, 0.06f));
+
             var icon = UsageReadout.IconFor(key);
-            const float iconBox = 22f;
-            float iconX = row.x + labelW + 4f;
-            var iconRect = new Rect(iconX, row.y + (row.height - iconBox) / 2f,
-                iconBox, iconBox);
-
             if (icon != null)
             {
-                Widgets.ThingIcon(iconRect, icon);
+                Widgets.ThingIcon(box.ContractedBy(2f), icon);
                 GUI.color = Color.white;
             }
             else
             {
-                Widgets.DrawBoxSolid(iconRect, new Color(0.3f, 0.3f, 0.3f));
+                // No icon at all: a key past the end of the pool, which draws its number and
+                // nothing else up there. Said as an empty plate rather than as the cross,
+                // which in the grid below means "let the mod choose" and not "nothing".
+                Widgets.DrawBoxSolid(box.ContractedBy(7f), new Color(0.3f, 0.3f, 0.3f));
             }
 
-            // "auto" button, greyed out when there is no custom choice to clear.
-            var chosen = UsageReadout.Chosen(key);
-            float autoX = iconX + iconBox + 4f;
-            var autoRect = new Rect(autoX, row.y, 40f, row.height);
-            GUI.color = chosen == null ? new Color(1f, 1f, 1f, 0.35f) : Color.white;
-            if (Widgets.ButtonText(autoRect, "auto", true, false, chosen != null))
-                UsageReadout.Choose(key, null);
-            GUI.color = Color.white;
+            Widgets.DrawHighlightIfMouseover(box);
 
-            // "pick..." button, always enabled.
-            float pickX = autoX + 44f;
-            var pickRect = new Rect(pickX, row.y, 52f, row.height);
-            if (Widgets.ButtonText(pickRect, "pick...", true, false, true))
+            // Whose pick this is, is the one thing the row no longer says by itself.
+            TooltipHandler.TipRegion(box, new TipSignal(
+                UsageReadout.Chosen(key) != null
+                    ? "This row's icon, chosen. Click to change it."
+                    : "This row's icon, picked automatically. Click to choose one.",
+                0x51_0F_0003 ^ key.GetHashCode()));
+
+            if (Widgets.ButtonInvisible(box))
                 _pickingKey = key;
-
-            // Tooltip over the whole row.
-            if (Mouse.IsOver(new Rect(row.x, row.y, pickX + 52f - row.x, row.height)))
-            {
-                string tip = "Current icon for this row. Click 'pick...' to choose one " +
-                             "from the grid, or 'auto' to let the mod pick for you.";
-                TooltipHandler.TipRegion(row, new TipSignal(tip, 0x51_0F_0003 ^ key.GetHashCode()));
-            }
         }
 
         // The keys the daemon is currently reporting, so we can show icon rows for any
@@ -240,12 +236,13 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ picker
 
-        // A floating grid of icons, centred in the page. Opened by "pick..." on an icon
-        // row and closed by selecting one or clicking the X.
+        // A floating grid of icons, centred in the page. Opened by an icon row and closed by
+        // selecting one or clicking the X. The first cell is the automatic pick, so the two
+        // answers - this one, or whichever you would have picked - are the same gesture.
         void DrawPicker(Rect pageRect, string key)
         {
-            const float pickW = 340f;
-            const float pickH = 320f;
+            const float pickW = 380f;
+            const float pickH = 360f;
 
             var pickRect = new Rect(
                 pageRect.x + (pageRect.width - pickW) / 2f,
@@ -281,7 +278,9 @@ namespace SlopWorld
                 float gridW = perLine * Cell;
                 var gridRect = new Rect(r.x + (r.width - gridW) / 2f, gridTop, gridW, gridH);
 
-                int rows = Mathf.CeilToInt(Choices.Count / (float)perLine);
+                // The automatic cell, then the palette.
+                int count = Choices.Count + 1;
+                int rows = Mathf.CeilToInt(count / (float)perLine);
                 float totalH = rows * Cell;
                 bool scroll = totalH > gridH;
                 // If scrolling, shrink the grid by the scrollbar width.
@@ -294,14 +293,19 @@ namespace SlopWorld
                     new Rect(r.x + (r.width - gridW2) / 2f, gridTop, gridW2, gridH),
                     ref _pickScroll, view);
 
-                for (int i = 0; i < Choices.Count; i++)
+                // Read once for the whole grid rather than per cell: it parses the settings
+                // string, and every cell asks the same question of it.
+                var chosen = UsageReadout.Chosen(key);
+
+                for (int i = 0; i < count; i++)
                 {
-                    var def = Choices[i];
+                    // Null is the automatic cell, and is null all the way through - what it
+                    // draws, what its tooltip says, and what the click writes.
+                    var def = i == 0 ? null : Choices[i - 1];
                     int col = i % perLine;
                     int row = i / perLine;
                     var cell = new Rect(view.x + col * Cell, view.y + row * Cell, Cell, Cell);
 
-                    var chosen = UsageReadout.Chosen(key);
                     if (def == chosen)
                         Widgets.DrawBoxSolid(cell, new Color(1f, 1f, 1f, 0.16f));
                     if (Mouse.IsOver(cell))
@@ -309,15 +313,32 @@ namespace SlopWorld
 
                     var box = new Rect(cell.x + (Cell - IconSize) / 2f,
                         cell.y + (Cell - IconSize) / 2f, IconSize, IconSize);
-                    Widgets.ThingIcon(box, def);
+
+                    if (def != null)
+                    {
+                        Widgets.ThingIcon(box, def);
+                    }
+                    else
+                    {
+                        // Grey, and drawn a little smaller than a thing: it is the one cell
+                        // here that is not an item, and it should not read as the loudest.
+                        GUI.color = new Color(0.72f, 0.73f, 0.75f);
+                        GUI.DrawTexture(box.ContractedBy(3f), TabIcons.AutoTex);
+                    }
                     GUI.color = Color.white;
 
-                    TooltipHandler.TipRegion(cell, new TipSignal(def.LabelCap,
-                        0x51_0F_0002 ^ (key.GetHashCode() * 31 + def.shortHash)));
+                    TooltipHandler.TipRegion(cell, new TipSignal(
+                        def != null
+                            ? def.LabelCap.ToString()
+                            : "Automatic - whichever icon this mod would have picked.",
+                        def != null
+                            ? 0x51_0F_0002 ^ (key.GetHashCode() * 31 + def.shortHash)
+                            : 0x51_0F_0004 ^ key.GetHashCode()));
 
                     if (Widgets.ButtonInvisible(cell))
                     {
-                        UsageReadout.Choose(key, def == chosen ? null : def);
+                        // Null on the automatic cell, which is exactly what clears the line.
+                        UsageReadout.Choose(key, def);
                         _pickingKey = null;
                     }
                 }
@@ -329,22 +350,46 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ palette
 
-        // The full set of icons the picker offers. More than the old inline palette, and
-        // grouped by no category: the grid is small enough that scrolling is fast and a
-        // search box is not needed. Resolved lazily and only those this build knows about
-        // appear.
+        // The icons the picker offers. A hand-picked subset and not the database: vanilla
+        // counts a hundred and twenty-odd things as resources and generates a meat def per
+        // animal on top of that, and most of the difference is one texture tinted - twenty
+        // leathers, twenty eggs, five stone blocks. Those are cells, not choices, and past a
+        // screenful this grid owes a search box it has no room for.
+        //
+        // Grouped by no category, only laid out in runs so the order reads: the grid is one
+        // screenful and scanning it is faster than any heading would be.
+        //
+        // Names are checked against the game's own defs - eleven of the originals here were
+        // typed rather than looked up (`FineMeal` for `MealFine`, `Thrumbofur` for
+        // `Leather_Thrumbo`) and Choices drops what it cannot resolve, so the picker had been
+        // quietly drawing twenty-five cells of thirty-six. Carpet is gone entirely: it is one
+        // stuffed TerrainDef in 1.6 and never was a ThingDef.
         static readonly string[] Palette =
         {
-            "Silver", "Gold", "Steel", "Plasteel", "Uranium", "Jade",
-            "ComponentIndustrial", "ComponentSpacer", "AIPersonaCore", "Chemfuel",
-            "Neutroamine", "MedicineIndustrial", "MedicineUltratech", "Beer",
-            "Cloth", "WoodLog", "Pemmican", "Chocolate",
-            "Luciferium", "GoJuice", "WakeUp", "Yayo",
-            "MechSerum", "HealerMechSerum", "ResurrectorMechSerum",
-            "Synthread", "Hyperweave", "DevilstrandCloth",
-            "CarpetRed", "CarpetGreen", "CarpetBlue",
-            "Leather_Plain", "ElephantLeather", "Thrumbofur",
-            "PackedSurvivalMeal", "FineMeal", "LavishMeal",
+            // Metals and stone.
+            "Silver", "Gold", "Steel", "Plasteel", "Uranium", "Jade", "BlocksGranite",
+            // Manufactured.
+            "ComponentIndustrial", "ComponentSpacer", "AIPersonaCore", "TechprofSubpersonaCore",
+            "Chemfuel", "Neutroamine", "ReinforcedBarrel", "Wort",
+            // Medicine.
+            "MedicineHerbal", "MedicineIndustrial", "MedicineUltratech",
+            // Every drug in the game, the two serums included - vanilla files those under
+            // Drugs as well, and they are the two best-looking vials on this list.
+            "Ambrosia", "Beer", "Flake", "GoJuice", "Luciferium", "Penoxycyline",
+            "PsychiteTea", "SmokeleafJoint", "WakeUp", "Yayo",
+            "MechSerumHealer", "MechSerumResurrector",
+            // Textiles and leather. One wool and three of the twenty leathers - they are all
+            // one texture and differ only in colour, so these are the three that read apart
+            // at this size: brown, elephant grey, thrumbo white.
+            "Cloth", "Synthread", "Hyperweave", "DevilstrandCloth", "WoolMegasloth",
+            "Leather_Plain", "Leather_Elephant", "Leather_Thrumbo",
+            // Food.
+            "Pemmican", "Chocolate", "MealSurvivalPack", "MealFine", "MealLavish",
+            "RawBerries", "Hay", "InsectJelly", "Milk", "Dye",
+            // And the odd ones, which is where anything with a silhouette worth having ends
+            // up: a skull is a fine thing for a quota to run out of.
+            "WoodLog", "ElephantTusk", "ThrumboHorn", "Skull", "PsychicAmplifier",
+            "PsychicSoothePulser", "Shell_HighExplosive", "Shell_AntigrainWarhead",
         };
 
         static List<ThingDef> _palette;
