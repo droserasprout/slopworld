@@ -259,7 +259,22 @@ pub struct Manager {
     /// How many sockets are subscribed to each pane, which is the only thing here that knows
     /// whether anybody can see one. Absent means nobody. Nothing awaits while it is held.
     watchers: Mutex<HashMap<String, usize>>,
+    /// Scroll responses, one per session: a repeat ask for the same offset must not re-render
+    /// and re-serialize the whole history. Keyed on everything that changes what a scrolled
+    /// frame shows - the live sequence, the requested offset and the pane size. `request_id`
+    /// is stamped on the way out, not part of the key.
+    scroll_cache: Mutex<HashMap<String, CachedScroll>>,
     pub events: broadcast::Sender<Event>,
+}
+
+/// One cached scroll response. `view` is a full `ScreenView` (serialized lines included),
+/// which is the whole point: cloning it is cheaper than re-rendering.
+struct CachedScroll {
+    live_seq: u64,
+    off: u32,
+    cols: u16,
+    rows: u16,
+    view: ScreenView,
 }
 
 /// A guard rather than a pair of calls: the pump has several ways out and every one has to
@@ -500,6 +515,7 @@ impl Manager {
             clients: AtomicUsize::new(0),
             clients_since: AtomicU64::new(0),
             watchers: Mutex::new(HashMap::new()),
+            scroll_cache: Mutex::new(HashMap::new()),
             events,
         });
         // Before anything else touches tmux: whoever forks the server decides which cgroup it
@@ -1991,21 +2007,47 @@ impl Manager {
         if off == 0 {
             return self.screen(name).await;
         }
+
         let (emu, seq, cols, rows) = {
             let live = self.live.read().await;
             let l = live.get(name)?;
             (l.emu.clone()?, l.seq, l.cols, l.rows)
         };
-        let (frame, achieved) = {
+
+        // Cache hit: the same seq, offset and size means the same frame. Clone the view
+        // with the active request_id and skip the emulator lock and SGR serialization.
+        if let Ok(c) = self.scroll_cache.lock() {
+            if let Some(cached) = c.get(name) {
+                if cached.live_seq == seq && cached.off == off
+                    && cached.cols == cols && cached.rows == rows
+                {
+                    let mut view = cached.view.clone();
+                    view.request_id = request_id;
+                    return Some(view);
+                }
+            }
+        }
+
+        let (grid, achieved, title) = {
             let mut e = emu.lock().ok()?;
             e.scroll_snapshot(off)
         };
         if achieved == 0 {
             return self.screen(name).await;
         }
-        Some(ScreenView::from_frame(
-            name, seq, cols, rows, achieved, frame, request_id,
-        ))
+        let frame = crate::emu::SessionEmu::frame_from_grid(grid, cols, rows, title);
+        let view = ScreenView::from_frame(name, seq, cols, rows, achieved, frame, request_id);
+
+        if let Ok(mut c) = self.scroll_cache.lock() {
+            c.insert(name.to_string(), CachedScroll {
+                live_seq: seq,
+                off,
+                cols,
+                rows,
+                view: view.clone(),
+            });
+        }
+        Some(view)
     }
 }
 
