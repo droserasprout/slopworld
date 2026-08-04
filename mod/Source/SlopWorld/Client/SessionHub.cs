@@ -582,12 +582,16 @@ namespace SlopWorld
         }
 
         // `action` is press/release/drag/wheelup/wheeldown, `button` is 0/1/2 =
-        // left/middle/right and ignored for the wheel.
-        public void SendMouse(string name, string action, int button, int col, int row)
+        // left/middle/right and ignored for the wheel. `count` repeats the report
+        // that many times in one tmux write, so a wheel notch does not spawn one
+        // process per scrolled line.
+        public void SendMouse(string name, string action, int button, int col, int row,
+                              int count = 1)
         {
             if (_ws == null || !_ws.Connected) return;
             _ws.SendText($"{{\"t\":\"mouse\",\"name\":{JVal.Q(name)},\"action\":{JVal.Q(action)}," +
-                         $"\"button\":{button},\"col\":{col},\"row\":{row}}}");
+                         $"\"button\":{button},\"col\":{col},\"row\":{row}," +
+                         $"\"count\":{count}}}");
         }
 
         // The daemon wraps it in bracketed-paste markers when the app has that mode on.

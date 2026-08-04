@@ -1535,18 +1535,25 @@ impl Manager {
     }
 
     /// A no-op if the app isn't in a mouse mode: the mod only forwards when it saw
-    /// `app_mouse`, but this is the authoritative emulator.
-    pub async fn send_mouse(&self, name: &str, ev: MouseInput) -> Result<()> {
+    /// `app_mouse`, but this is the authoritative emulator. `count` repeats the report
+    /// that many times in the same tmux write, so one wheel notch does not spawn one
+    /// process per scrolled line.
+    pub async fn send_mouse(&self, name: &str, ev: MouseInput, count: u8) -> Result<()> {
         // Same as `send_keys`: no `exists` pre-check, one tmux spawn instead of two.
         // A session that is gone simply has no emulator to ask, and drops the event.
-        let bytes = {
+        let single = {
             let live = self.live.read().await;
             live.get(name)
                 .and_then(|l| l.emu.clone())
                 .and_then(|e| e.lock().ok().and_then(|g| g.mouse_report(&ev)))
         };
-        if let Some(b) = bytes {
-            self.tmux.send_bytes(name, &b).await?;
+        if let Some(single) = single {
+            let count = count.max(1) as usize;
+            let mut buf = Vec::with_capacity(single.len() * count);
+            for _ in 0..count {
+                buf.extend_from_slice(&single);
+            }
+            self.tmux.send_bytes(name, &buf).await?;
         }
         Ok(())
     }

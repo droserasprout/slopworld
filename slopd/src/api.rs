@@ -547,6 +547,10 @@ struct MouseReq {
     button: u8,
     col: u16,
     row: u16,
+    /// How many times to repeat the report. The mod batches wheel events so a single
+    /// gesture notch does not spawn one tmux process per scrolled line.
+    #[serde(default)]
+    count: u8,
 }
 
 #[derive(Deserialize)]
@@ -742,7 +746,7 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                     col: mr.col,
                     row: mr.row,
                 };
-                if let Err(e) = m.send_mouse(&mr.name, ev).await {
+                if let Err(e) = m.send_mouse(&mr.name, ev, mr.count).await {
                     tracing::debug!("send_mouse: {e:#}");
                 }
             }

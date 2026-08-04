@@ -862,13 +862,13 @@ namespace SlopWorld
             int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
             bool up = e.delta.y < 0;
 
-            // App wants the mouse: forward wheel reports at the pointer cell.
+            // App wants the mouse: forward wheel reports at the pointer cell. Batched - `step`
+            // is one tmux write, not one tmux process per scrolled line.
             if (live != null && live.AppMouse)
             {
                 var cell = CellAt(body, e.mousePosition);
                 string act = up ? "wheelup" : "wheeldown";
-                for (int k = 0; k < step; k++)
-                    SessionHub.Instance.SendMouse(_name, act, 0, cell.x, cell.y);
+                SessionHub.Instance.SendMouse(_name, act, 0, cell.x, cell.y, step);
                 e.Use();
                 return;
             }
