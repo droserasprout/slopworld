@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Context, Result};
 use regex::Regex;
@@ -21,6 +21,13 @@ use crate::tmux::Tmux;
 
 /// Matches the mod's rule for an idle agent's colonist.
 const IDLE_MS: u64 = 10_000;
+
+/// How often a pane nobody has on screen is rendered. A render walks the whole grid, hashes
+/// it, strips it and runs every state rule over it, and the flush tick behind it is 8ms - a
+/// reader's rate. Nobody is reading, and the frame is dropped by every pump on the way out,
+/// so all that is left of it is the classification, which `IDLE_MS` measures in seconds. The
+/// colony is the usual case for this: one pane open and every other agent working for nobody.
+const UNWATCHED_MS: u64 = 200;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -241,6 +248,9 @@ pub struct Manager {
     /// mod and talked to us.
     clients: AtomicUsize,
     clients_since: AtomicU64,
+    /// How many sockets are subscribed to each pane, which is the only thing here that knows
+    /// whether anybody can see one. Absent means nobody. Nothing awaits while it is held.
+    watchers: Mutex<HashMap<String, usize>>,
     pub events: broadcast::Sender<Event>,
 }
 
@@ -251,6 +261,24 @@ pub struct ClientGuard(Arc<Manager>);
 impl Drop for ClientGuard {
     fn drop(&mut self) {
         self.0.clients.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+/// The same argument one pane at a time: a socket unsubscribes by dropping this, and a socket
+/// that fell over drops the lot with the table it kept them in.
+pub struct WatchGuard(Arc<Manager>, String);
+
+impl Drop for WatchGuard {
+    fn drop(&mut self) {
+        let Ok(mut w) = self.0.watchers.lock() else {
+            return;
+        };
+        if let Some(n) = w.get_mut(&self.1) {
+            *n -= 1;
+            if *n == 0 {
+                w.remove(&self.1);
+            }
+        }
     }
 }
 
@@ -463,6 +491,7 @@ impl Manager {
             usage: RwLock::new(crate::usage::Snapshot::default()),
             clients: AtomicUsize::new(0),
             clients_since: AtomicU64::new(0),
+            watchers: Mutex::new(HashMap::new()),
             events,
         });
         // Before anything else touches tmux: whoever forks the server decides which cgroup it
@@ -610,6 +639,24 @@ impl Manager {
             self.clients_since.store(now_ms(), Ordering::Relaxed);
         }
         ClientGuard(self.clone())
+    }
+
+    /// Somebody has this pane on screen. Held for as long as they do; see `watched`.
+    pub fn watching(self: &Arc<Self>, name: &str) -> WatchGuard {
+        if let Ok(mut w) = self.watchers.lock() {
+            *w.entry(name.to_string()).or_insert(0) += 1;
+        }
+        WatchGuard(self.clone(), name.to_string())
+    }
+
+    /// Whether a frame from this pane has anywhere to go. A session is a pane the mod cannot
+    /// see unless it is showing it, and it shows one at a time, so most agents are running
+    /// for nobody - see `UNWATCHED_MS`.
+    fn watched(&self, name: &str) -> bool {
+        self.watchers
+            .lock()
+            .map(|w| w.contains_key(name))
+            .unwrap_or(true)
     }
 
     pub async fn config(&self) -> Config {
@@ -1474,18 +1521,16 @@ impl Manager {
     }
 
     pub async fn send_keys(&self, name: &str, keys: Vec<String>, literal: bool) -> Result<()> {
-        if !self.tmux.exists(name).await {
-            bail!("session {name} is not running");
-        }
+        // No `exists` pre-check: `send-keys` fails on its own, and the extra tmux spawn per
+        // keystroke is latency a held PageDown or a touchbar swipe pays for twice.
         self.tmux.send_keys(name, &keys, literal).await
     }
 
     /// A no-op if the app isn't in a mouse mode: the mod only forwards when it saw
     /// `app_mouse`, but this is the authoritative emulator.
     pub async fn send_mouse(&self, name: &str, ev: MouseInput) -> Result<()> {
-        if !self.tmux.exists(name).await {
-            bail!("session {name} is not running");
-        }
+        // Same as `send_keys`: no `exists` pre-check, one tmux spawn instead of two.
+        // A session that is gone simply has no emulator to ask, and drops the event.
         let bytes = {
             let live = self.live.read().await;
             live.get(name)
@@ -1615,8 +1660,31 @@ impl Manager {
         // session that used to come back empty.
         let history = self.config().await.daemon.history_limit;
         if let Ok(cap) = self.tmux.capture(name, history).await {
-            let mut seed = String::from("\x1b[2J\x1b[H\x1b[0m");
-            seed.push_str(&cap.lines.join("\r\n"));
+            // A capture is the scrollback with the visible pane under it, and on an alt-screen
+            // pane the visible part is the *alt* screen - tmux hands back the primary's history
+            // all the same. So the two halves are seeded either side of the switch: history onto
+            // the primary, where a wheel and a `1049l` will look for it, and only the visible
+            // rows into the alternate buffer, which has no scrollback of its own. Poured in
+            // whole instead, the history is swallowed by the alt buffer and the primary comes
+            // back empty the moment the app quits.
+            //
+            // Without the switch at all the `alt_screen` flag stays false through a restart,
+            // and the mod then walks its own scrollback where the app wanted arrow keys.
+            let mut seed = String::new();
+            let visible = if cap.alt_screen {
+                let split = cap.lines.len().saturating_sub(rows as usize);
+                if split > 0 {
+                    seed.push_str("\x1b[2J\x1b[H\x1b[0m");
+                    seed.push_str(&cap.lines[..split].join("\r\n"));
+                    seed.push_str("\r\n");
+                }
+                seed.push_str("\x1b[?1049h");
+                &cap.lines[split..]
+            } else {
+                &cap.lines[..]
+            };
+            seed.push_str("\x1b[2J\x1b[H\x1b[0m");
+            seed.push_str(&visible.join("\r\n"));
             seed.push_str(&format!("\x1b[{};{}H", cap.cy + 1, cap.cx + 1));
             // Stated back as the OSC it arrived as. A text capture carries SGR and nothing
             // else, and the nudge that follows only makes the app repaint the *screen* - a
@@ -1709,6 +1777,11 @@ impl Manager {
         let mut flush = interval(Duration::from_millis(8));
         flush.set_missed_tick_behavior(MissedTickBehavior::Delay);
         let mut dirty = false;
+        // The tick is left alone and the *render* is what slows down while nobody is
+        // subscribed, so a pane that goes on screen is at full rate on the next 8ms tick
+        // rather than at the end of a longer one. `dirty` is not cleared by a skipped
+        // render, so nothing is lost by declining to draw it yet.
+        let mut drawn: Option<Instant> = None;
         // One clipboard writer at a time: the tool is a process and the tick is 8ms, so an app
         // stating OSC 52 every frame would fork one per frame. While a write is in flight the
         // copy stays in the emulator, and what lands is the newest.
@@ -1739,8 +1812,11 @@ impl Manager {
                     None => break,
                 },
                 _ = flush.tick() => {
-                    if dirty {
+                    let due = self.watched(&name)
+                        || drawn.is_none_or(|t| t.elapsed() >= Duration::from_millis(UNWATCHED_MS));
+                    if dirty && due {
                         dirty = false;
+                        drawn = Some(Instant::now());
                         self.render_and_broadcast(&name, &emu).await;
                     }
                     // An app that draws its own selection - Claude Code does - never sends the

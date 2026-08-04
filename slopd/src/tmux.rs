@@ -18,6 +18,11 @@ pub struct Screen {
     /// server outlives us, so this is the one piece of a pane's state that survives our
     /// restart without the app being asked to say it again.
     pub title: String,
+    /// Whether the pane is on the alternate screen. tmux tracks this and we read it back so
+    /// the emulator seed can match the mode the app was in, without which the `alt_screen`
+    /// flag stays false after a daemon restart and wheel events go to history scrollback
+    /// instead of the app.
+    pub alt_screen: bool,
 }
 
 impl Tmux {
@@ -220,18 +225,12 @@ impl Tmux {
                 "-p",
                 "-t",
                 &target,
-                "#{cursor_x} #{cursor_y} #{pane_title}",
+                "#{cursor_x} #{cursor_y} #{alternate_on} #{pane_title}",
             ])
             .await
             .unwrap_or_default();
 
-        let mut it = pos.splitn(3, ' ');
-        let cx = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
-        let cy = it
-            .next()
-            .and_then(|v| v.trim_end().parse().ok())
-            .unwrap_or(0);
-        let title = clean_title(it.next().unwrap_or(""));
+        let (cx, cy, alt_screen, title) = parse_pos(&pos);
 
         // `capture-pane` terminates its last row with a newline, so splitting on one coins a
         // final empty line the pane does not have. The seed writes the lines and then places
@@ -244,6 +243,7 @@ impl Tmux {
             cx,
             cy,
             title,
+            alt_screen,
         })
     }
 
@@ -336,6 +336,22 @@ impl Tmux {
     }
 }
 
+/// `display-message`'s one line: two figures, a flag, and the title as the whole tail.
+/// Anything missing reads as the boot answer rather than as a failure - the pane is asked
+/// about with `unwrap_or_default()`, so an empty line is what a dead session hands back.
+fn parse_pos(pos: &str) -> (u16, u16, bool, String) {
+    let mut it = pos.splitn(4, ' ');
+    let cx = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
+    let cy = it
+        .next()
+        .and_then(|v| v.trim_end().parse().ok())
+        .unwrap_or(0);
+    // A tmux flag is `1` or `0`, which is not what `bool::from_str` reads - it takes `true`
+    // and `false` and nothing else, so parsing this would answer `false` on either flag.
+    let alt = it.next().map(|v| v.trim_end() == "1").unwrap_or(false);
+    (cx, cy, alt, clean_title(it.next().unwrap_or("")))
+}
+
 /// The seed states this back to a fresh emulator as an OSC, so a control character in it
 /// would be an escape sequence somebody else's app got to write. Stripped rather than
 /// refused: a title is decoration, and the answer to an odd one is a plain one.
@@ -345,7 +361,7 @@ fn clean_title(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::clean_title;
+    use super::{clean_title, parse_pos};
 
     #[test]
     fn a_title_cannot_carry_an_escape() {
@@ -353,5 +369,18 @@ mod tests {
         assert_eq!(clean_title("Add status labels\n"), "Add status labels");
         assert_eq!(clean_title("\x1b]0;other\x07here"), "]0;otherhere");
         assert_eq!(clean_title(""), "");
+    }
+
+    #[test]
+    fn the_alternate_screen_flag_is_a_digit_and_not_a_word() {
+        assert_eq!(parse_pos("12 3 1 vim\n"), (12, 3, true, "vim".into()));
+        assert_eq!(parse_pos("12 3 0 vim\n"), (12, 3, false, "vim".into()));
+        // A title has spaces in it and the flag is read from the field ahead of it.
+        assert_eq!(
+            parse_pos("0 0 1 fix the thing\n"),
+            (0, 0, true, "fix the thing".into())
+        );
+        // No answer at all: the pane is gone, and none of this is worth failing over.
+        assert_eq!(parse_pos(""), (0, 0, false, String::new()));
     }
 }

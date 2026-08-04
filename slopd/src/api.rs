@@ -1,5 +1,6 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, Query, State};
@@ -13,7 +14,7 @@ use serde_json::json;
 use tokio::sync::Mutex;
 
 use crate::config::{ProjectCfg, SessionCfg, ShortcutCfg};
-use crate::session::{Event, Manager, RunWhere};
+use crate::session::{Event, Manager, RunWhere, WatchGuard};
 
 type Mgr = Arc<Manager>;
 
@@ -591,7 +592,9 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
 
     let (tx, mut rx) = socket.split();
     let tx = Arc::new(Mutex::new(tx));
-    let subs: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
+    // A `WatchGuard` apiece rather than bare names: the daemon renders a pane at a reader's
+    // rate only while somebody is holding one, and this socket has several ways out.
+    let subs: Arc<Mutex<HashMap<String, WatchGuard>>> = Arc::new(Mutex::new(HashMap::new()));
     let mut events = m.events.subscribe();
 
     // Usage, projects and shortcuts ride along because they speak only on a change: a mod
@@ -624,25 +627,66 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
     )
     .await;
 
+    // The mod draws at the monitor's rate, which the emulator's 8ms tick outruns: every frame
+    // it cannot keep up with is one it parses anyway and throws away. Screen frames are thus
+    // coalesced per client to roughly that rate - held beats, the newest wins, and the last one
+    // is always flushed on the beat rather than dropped, so a still pane never reads stale.
+    // A frame that arrives after the coalesce window (the ordinary single page turn) is sent
+    // straight through, so holding never adds latency to the case that matters. Everything else
+    // on the wire - sessions, usage, quit - rides straight through uncoalesced.
+    const FRAME_COALESCE: Duration = Duration::from_millis(16);
+
     let pump = {
+        use tokio::time::{sleep_until, Instant as TokioInstant};
         let tx = tx.clone();
         let subs = subs.clone();
         tokio::spawn(async move {
+            let mut last_screen =
+                TokioInstant::now() - FRAME_COALESCE;
+            let mut pending: Option<Event> = None;
             loop {
-                match events.recv().await {
-                    Ok(ev) => {
-                        if let Event::Screen { ref screen } = ev {
-                            if !subs.lock().await.contains(&screen.name) {
-                                continue;
+                // Only arm the beat when a frame is being held; otherwise the timer would
+                // fire on a past deadline and spin while nothing is pending.
+                let flush = async {
+                    if pending.is_some() {
+                        sleep_until(last_screen + FRAME_COALESCE).await;
+                    } else {
+                        std::future::pending::<()>().await;
+                    }
+                };
+                tokio::select! {
+                    ev = events.recv() => match ev {
+                        Ok(ev) => {
+                            if let Event::Screen { ref screen } = ev {
+                                if !subs.lock().await.contains_key(&screen.name) {
+                                    continue;
+                                }
+                                let due = TokioInstant::now()
+                                    .saturating_duration_since(last_screen) >= FRAME_COALESCE;
+                                if due {
+                                    if send(&tx, &ev).await.is_err() {
+                                        break;
+                                    }
+                                    last_screen = TokioInstant::now();
+                                } else {
+                                    pending = Some(ev);
+                                }
+                            } else if send(&tx, &ev).await.is_err() {
+                                break;
                             }
                         }
-                        if send(&tx, &ev).await.is_err() {
-                            break;
+                        // A slow client misses frames; the next capture resyncs it.
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                        Err(_) => break,
+                    },
+                    _ = flush => {
+                        if let Some(ev) = pending.take() {
+                            if send(&tx, &ev).await.is_err() {
+                                break;
+                            }
+                            last_screen = TokioInstant::now();
                         }
                     }
-                    // A slow client misses frames; the next capture resyncs it.
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
-                    Err(_) => break,
                 }
             }
         })
@@ -656,7 +700,7 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
         };
         match cm {
             ClientMsg::Sub { name } => {
-                subs.lock().await.insert(name.clone());
+                subs.lock().await.insert(name.clone(), m.watching(&name));
                 // Somebody is looking at this pane now, which is the whole of what a bell
                 // was asking for. Broadcast, not answered here: every client draws the mark.
                 m.clear_bell(&name).await;
@@ -707,6 +751,10 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
         }
     }
 
+    // Explicitly, rather than with the table: the pump holds the other half of that `Arc` and
+    // an aborted task is dropped when the runtime gets round to it, which is not when the
+    // agent stopped being watched.
+    subs.lock().await.clear();
     pump.abort();
 }
 

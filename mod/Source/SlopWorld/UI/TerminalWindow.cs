@@ -23,6 +23,14 @@ namespace SlopWorld
 
         // Mouse-wheel scrollback: lines scrolled up from the live bottom.
         int _scrollOff;
+        // Throttled, not debounced: a touchpad swipe emits many wheel events per gesture and
+        // each one would otherwise take the emulator's lock for a whole history frame, but a
+        // debounce that the next event pushes forward means a gesture draws nothing until the
+        // fingers come off. So the first event of a gesture goes at once and the rest ride the
+        // beat, with `_scrollDirty` saying one is owed.
+        float _scrollAt;
+        bool _scrollDirty;
+        const float ScrollBeat = 0.05f;
 
         // Drag selection, in cell coordinates of the drawn buffer.
         bool _dragging;
@@ -91,6 +99,7 @@ namespace SlopWorld
             TerminalRecall.Remember(_name);
             SelectAgent(_name);
             _scrollOff = 0;
+            _scrollDirty = false;
             ClearSelection();
             // The negotiated size belonged to the session we just left. Kept, it would read
             // as "already the right shape" for a pane still at the daemon's boot size.
@@ -190,7 +199,13 @@ namespace SlopWorld
             {
                 var sb = hub.ScrollScreen(_name);
                 // The daemon clamps to real scrollback; follow it so we can't run off the top.
-                if (sb != null && sb.Off > 0) _scrollOff = Mathf.Min(_scrollOff, sb.Off);
+                // Only once the gesture has settled, though: mid-swipe the frame in hand
+                // answers an offset already scrolled past, and read as the top of the history
+                // it drags every wheel event back to where the last one landed. A beat with no
+                // wheel event in it is long enough for the answer to the last ask to arrive.
+                bool settled = !_scrollDirty && Time.realtimeSinceStartup >= _scrollAt;
+                if (settled && sb != null && sb.Off > 0)
+                    _scrollOff = Mathf.Min(_scrollOff, sb.Off);
                 buf = sb ?? live;
             }
             else buf = live;
@@ -293,6 +308,14 @@ namespace SlopWorld
         public override void WindowUpdate()
         {
             base.WindowUpdate();
+
+            if (_scrollDirty && Time.realtimeSinceStartup >= _scrollAt)
+            {
+                _scrollDirty = false;
+                if (_scrollOff > 0)
+                    SessionHub.Instance.RequestScroll(_name, _scrollOff);
+            }
+
             if (!_sizeDirty || Time.realtimeSinceStartup < _resizeAt) return;
 
             // A socket that is down drops the message, so hold the ask rather than spend it.
@@ -819,6 +842,11 @@ namespace SlopWorld
         {
             if (!body.Contains(e.mousePosition)) return;
 
+            // Clear the selection on any wheel event, wherever it goes: an app-backed
+            // scroll (arrow keys, mouse wheel) would otherwise leave the highlight at the
+            // old cell coordinates while the content moves under it.
+            ClearSelection();
+
             var live = SessionHub.Instance.Screen(_name);
             int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
             bool up = e.delta.y < 0;
@@ -849,8 +877,10 @@ namespace SlopWorld
             if (up) _scrollOff += step;
             else _scrollOff = Mathf.Max(0, _scrollOff - step);
 
-            ClearSelection();
-            if (_scrollOff > 0) SessionHub.Instance.RequestScroll(_name, _scrollOff);
+            // Throttled: mark a pending scroll request and let WindowUpdate spend it
+            // on the beat, so a swipe does not take the emulator lock for every tick.
+            _scrollAt = Time.realtimeSinceStartup + ScrollBeat;
+            _scrollDirty = true;
             e.Use();
         }
 
@@ -980,7 +1010,7 @@ namespace SlopWorld
             return true;
         }
 
-        void JumpToLive() => _scrollOff = 0;
+        void JumpToLive() { _scrollOff = 0; _scrollDirty = false; }
 
         void ClearSelection()
         {

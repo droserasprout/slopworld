@@ -22,6 +22,12 @@ below is the same list with room to say why.
 | `make daemon` | `cargo build --release` in `slopd/`. |
 | `make mod` | msbuild into `mod/Assemblies/SlopWorld.dll`. |
 | `make test` | `cargo test`. The mod has no test harness; it needs the game. |
+| `make format` | `format-daemon` and `format-mod`. |
+| `make format-daemon` | `cargo fmt`. |
+| `make format-mod` | `dotnet format whitespace`. Needs the .NET SDK. |
+| `make lint` | `lint-daemon` and `lint-mod`. |
+| `make lint-daemon` | `cargo fmt --check`, then clippy with `-D warnings`. |
+| `make lint-mod` | Rebuilds with `TreatWarningsAsErrors`, then checks the formatting. |
 | `make install` | The three below. |
 | `make install-daemon` | Binary and unit, then restarts the service. |
 | `make install-runner` | `slopworld` into `$(BIN)`. |
@@ -35,6 +41,15 @@ below is the same list with room to say why.
 `RIMWORLD` must point at a real install; the mod builds against the game's own
 assemblies. `install-mod` copies loose folders, so a new top-level folder under
 `mod/` needs adding to that line.
+
+Both halves read `.editorconfig`, and the C# half is why that file has anything in
+it: `dotnet format` takes its whole layout from there, and on its defaults it would
+rewrite this codebase rather than tidy it - `csharp_preserve_single_line_statements`
+is the one that keeps a guard clause a guard clause. It is run in *folder* mode,
+whitespace only, because loading a net472 project wants reference assemblies. And it
+is an SDK command while the mod is built by mono's msbuild, so a machine that can
+build the mod may still have no SDK: `format-mod` says so and stops, `lint-mod`
+carries on with the compiler's own warnings, which is the half that works anywhere.
 
 ```sh
 curl -s localhost:7717/api/sessions | python3 -m json.tool

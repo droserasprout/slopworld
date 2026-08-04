@@ -1,9 +1,12 @@
 <!-- This file is for humans, don't touch it if you're an agent. -->
-<img src="screenshots/term.png" width=450px align=right>
 
 # SlopWorld
 
-RimWorld, but colonists are real coding agents running in tmux.
+> WARNING: This software is in early development stage. Make sure to make backups of your work and carefully read sandbox presets! Buggy terminal emulator implementations can be dangerous (see [1](https://blog.mozilla.org/security/2019/10/09/iterm2-critical-issue-moss-audit/), [2](https://www.gresearch.com/news/g-research-the-terminal-escapes/))
+
+RimWorld, but colonists are real coding agents running in tmux. A fun opinionated IDE for your clankers.
+
+<img src="screenshots/term.png" width=450px align=right>
 
 Consists of `SlopWorld` mod (C#, Harmony), terminal daemon `slopd` (Rust, tmux, alactitty) communicating via WebSocket, and the `slopworld` launcher.
 
