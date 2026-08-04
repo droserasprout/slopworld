@@ -453,7 +453,8 @@ namespace SlopWorld
         // ---------------------------------------------------------------- About
 
         // The About row, under the Usage row. Same shape as Patch_OptionsRow but with
-        // the RimWorld blog icon rather than the terminal ">_".
+        // the trophy emoji baked from tools/emoji.py rather than the blog icon that was
+        // here when the page was about the game's build info.
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
         public static class Patch_OptionsRow_About
         {
@@ -470,7 +471,7 @@ namespace SlopWorld
                 }
 
                 float x = r.x + 10f;
-                var icon = TexButton.IconBlog;
+                var icon = TrophyIcon.Tex;
                 if (icon != null)
                     GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), icon);
                 x += 30f;
