@@ -344,9 +344,9 @@ impl Tmux {
     /// no such ceiling.
     ///
     /// `-r` because `paste-buffer` rewrites `\n` to `\r` otherwise, and the hex road this
-    /// replaces sent the bytes as they came. Bracketing is still ours rather than `-p`'s: the
-    /// wrap is applied against the emulator's own mode, which is the one the pane on screen
-    /// was drawn from, and it strips a forged terminator on the way past.
+    /// replaces sent the bytes as they came. Bracketing markers are not added here either:
+    /// sending them caused literal `^[[200~` display in applications like Claude Code/Ink
+    /// that don't strip them. The raw text is what the child process expects.
     ///
     /// The buffer is named after the session so two panes pasting at once cannot take each
     /// other's, and `-d` drops it rather than leaving it on the user's buffer stack.

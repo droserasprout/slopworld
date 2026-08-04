@@ -1729,32 +1729,19 @@ impl Manager {
         }
     }
 
-    /// Any end-marker inside the content is stripped, so a paste can't forge the terminator.
-    /// Raw bytes, so escapes survive verbatim.
+    /// Raw bytes, so escapes survive verbatim. Bracketed paste markers are not added here:
+    /// the child process is expected to handle raw text, and the tmux `paste-buffer` command
+    /// already manages LF conversion. Sending bracketed markers literally caused them to
+    /// appear as `^[[200~text^[[201~` in applications that don't strip them (Claude Code/Ink).
     pub async fn paste(&self, name: &str, text: &str) -> Result<()> {
         if !self.tmux.exists(name).await {
             bail!("session {name} is not running");
         }
-        let bracketed = {
-            let live = self.live.read().await;
-            live.get(name)
-                .and_then(|l| l.emu.clone())
-                .map(|e| e.lock().map(|g| g.bracketed_paste()).unwrap_or(false))
-                .unwrap_or(false)
-        };
 
-        let mut bytes = Vec::new();
-        if bracketed {
-            bytes.extend_from_slice(b"\x1b[200~");
-            bytes.extend_from_slice(text.replace("\x1b[201~", "").as_bytes());
-            bytes.extend_from_slice(b"\x1b[201~");
-        } else {
-            bytes.extend_from_slice(text.as_bytes());
-        }
         // Down the same queue as everything else, or a paste sent inline would overtake the
         // keys queued ahead of it - which is exactly what `deliver` does, pasting a line and
         // then sending Enter behind it.
-        self.queue_input(name, Input::Paste(bytes)).await;
+        self.queue_input(name, Input::Paste(text.as_bytes().to_vec())).await;
         Ok(())
     }
 

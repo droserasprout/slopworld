@@ -335,10 +335,6 @@ impl SessionEmu {
         }
     }
 
-    /// DECSET 2004.
-    pub fn bracketed_paste(&self) -> bool {
-        self.term.mode().contains(TermMode::BRACKETED_PASTE)
-    }
 }
 
 pub(crate) enum Slot {
@@ -830,15 +826,5 @@ mod tests {
         let mut e = SessionEmu::new(20, 5);
         e.feed(b"\x1b[c");
         assert_eq!(e.take_replies(), b"\x1b[?6c");
-    }
-
-    #[test]
-    fn tracks_bracketed_paste_mode() {
-        let mut e = SessionEmu::new(20, 2);
-        assert!(!e.bracketed_paste());
-        e.feed(b"\x1b[?2004h");
-        assert!(e.bracketed_paste());
-        e.feed(b"\x1b[?2004l");
-        assert!(!e.bracketed_paste());
     }
 }
