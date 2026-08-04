@@ -126,12 +126,19 @@ pub struct ScreenView {
     /// What the app calls itself (OSC 0/2). Empty until it says.
     #[serde(default)]
     pub title: String,
+    /// Echoed from a scroll request so the client can tell which response matches the
+    /// latest request. Live frames and session-list broadcasts carry 0.
+    #[serde(default)]
+    pub request_id: u64,
     /// One entry per row, still carrying SGR escapes.
     pub lines: Vec<String>,
 }
 
 impl ScreenView {
-    fn from_frame(name: &str, seq: u64, cols: u16, rows: u16, off: u16, frame: Frame) -> Self {
+    fn from_frame(
+        name: &str, seq: u64, cols: u16, rows: u16, off: u16, frame: Frame,
+        request_id: u64,
+    ) -> Self {
         Self {
             name: name.to_string(),
             seq,
@@ -140,6 +147,7 @@ impl ScreenView {
             cx: frame.cx,
             cy: frame.cy,
             off,
+            request_id,
             cursor_shape: frame.cursor_shape,
             cursor_blink: frame.cursor_blink,
             app_mouse: frame.app_mouse,
@@ -1903,7 +1911,7 @@ impl Manager {
             return;
         }
 
-        let view = ScreenView::from_frame(name, seq + 1, cols, rows, 0, frame);
+        let view = ScreenView::from_frame(name, seq + 1, cols, rows, 0, frame, 0);
 
         let mut dirty_list = false;
         {
@@ -1968,8 +1976,11 @@ impl Manager {
     }
 
     /// Returned to the caller only, never broadcast, so it cannot clobber the live view.
-    /// `off == 0` or beyond history returns the live frame.
-    pub async fn scroll_capture(&self, name: &str, off: u16) -> Option<ScreenView> {
+    /// `off == 0` or beyond history returns the live frame. `request_id` is echoed through
+    /// so the client can reject stale responses.
+    pub async fn scroll_capture(
+        &self, name: &str, off: u16, request_id: u64,
+    ) -> Option<ScreenView> {
         if off == 0 {
             return self.screen(name).await;
         }
@@ -1986,7 +1997,7 @@ impl Manager {
             return self.screen(name).await;
         }
         Some(ScreenView::from_frame(
-            name, seq, cols, rows, achieved, frame,
+            name, seq, cols, rows, achieved, frame, request_id,
         ))
     }
 }

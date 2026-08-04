@@ -23,13 +23,15 @@ namespace SlopWorld
 
         // Mouse-wheel scrollback: lines scrolled up from the live bottom.
         int _scrollOff;
-        // Throttled, not debounced: a touchpad swipe emits many wheel events per gesture and
-        // each one would otherwise take the emulator's lock for a whole history frame, but a
-        // debounce that the next event pushes forward means a gesture draws nothing until the
-        // fingers come off. So the first event of a gesture goes at once and the rest ride the
-        // beat, with `_scrollDirty` saying one is owed.
-        float _scrollAt;
-        bool _scrollDirty;
+        // Leading-edge throttle: the first wheel event sends immediately, then the rest ride
+        // a 50ms beat. `_wantedScrollOff` is the user's desired offset (updated by every wheel
+        // event), `_sentScrollOff` is what was last sent to the daemon. Responses are accepted
+        // only when they answer the latest request, so a stale reply cannot clamp the offset.
+        int _wantedScrollOff;
+        int _sentScrollOff;
+        float _nextScrollSend;
+        bool _scrollPending;
+        ulong _scrollRequestId;
         const float ScrollBeat = 0.05f;
 
         // Drag selection, in cell coordinates of the drawn buffer.
@@ -99,7 +101,8 @@ namespace SlopWorld
             TerminalRecall.Remember(_name);
             SelectAgent(_name);
             _scrollOff = 0;
-            _scrollDirty = false;
+            _wantedScrollOff = 0;
+            _scrollPending = false;
             ClearSelection();
             // The negotiated size belonged to the session we just left. Kept, it would read
             // as "already the right shape" for a pane still at the daemon's boot size.
@@ -198,14 +201,11 @@ namespace SlopWorld
             if (_scrollOff > 0)
             {
                 var sb = hub.ScrollScreen(_name);
-                // The daemon clamps to real scrollback; follow it so we can't run off the top.
-                // Only once the gesture has settled, though: mid-swipe the frame in hand
-                // answers an offset already scrolled past, and read as the top of the history
-                // it drags every wheel event back to where the last one landed. A beat with no
-                // wheel event in it is long enough for the answer to the last ask to arrive.
-                bool settled = !_scrollDirty && Time.realtimeSinceStartup >= _scrollAt;
-                if (settled && sb != null && sb.Off > 0)
-                    _scrollOff = Mathf.Min(_scrollOff, sb.Off);
+                // Follow the daemon's clamp so we can't run off the top of the history. Only
+                // the answer to the latest request is adopted: an older reply still in flight,
+                // or left over from before a reconnect, would drag the view backward.
+                if (sb != null && sb.ScrollRequestId == _scrollRequestId)
+                    _scrollOff = Mathf.Min(_wantedScrollOff, sb.Off);
                 buf = sb ?? live;
             }
             else buf = live;
@@ -305,16 +305,27 @@ namespace SlopWorld
             _sizeDirty = true;
         }
 
+        void SendPendingScroll()
+        {
+            if (!_scrollPending) return;
+            _scrollPending = false;
+            _sentScrollOff = _wantedScrollOff;
+            _nextScrollSend = Time.realtimeSinceStartup + ScrollBeat;
+
+            if (_scrollOff > 0)
+            {
+                ulong id = ++_scrollRequestId;
+                SessionHub.Instance.RequestScroll(_name, _sentScrollOff, id);
+            }
+        }
+
         public override void WindowUpdate()
         {
             base.WindowUpdate();
 
-            if (_scrollDirty && Time.realtimeSinceStartup >= _scrollAt)
-            {
-                _scrollDirty = false;
-                if (_scrollOff > 0)
-                    SessionHub.Instance.RequestScroll(_name, _scrollOff);
-            }
+            float now = Time.realtimeSinceStartup;
+            if (_scrollPending && now >= _nextScrollSend)
+                SendPendingScroll();
 
             if (!_sizeDirty || Time.realtimeSinceStartup < _resizeAt) return;
 
@@ -877,10 +888,12 @@ namespace SlopWorld
             if (up) _scrollOff += step;
             else _scrollOff = Mathf.Max(0, _scrollOff - step);
 
-            // Throttled: mark a pending scroll request and let WindowUpdate spend it
-            // on the beat, so a swipe does not take the emulator lock for every tick.
-            _scrollAt = Time.realtimeSinceStartup + ScrollBeat;
-            _scrollDirty = true;
+            // Leading-edge throttle: the first event sends immediately, subsequent events
+            // ride the beat so a swipe does not take the emulator lock for every tick.
+            _wantedScrollOff = _scrollOff;
+            _scrollPending = true;
+            if (Time.realtimeSinceStartup >= _nextScrollSend)
+                SendPendingScroll();
             e.Use();
         }
 
@@ -1010,7 +1023,7 @@ namespace SlopWorld
             return true;
         }
 
-        void JumpToLive() { _scrollOff = 0; _scrollDirty = false; }
+        void JumpToLive() { _scrollOff = 0; _wantedScrollOff = 0; _scrollPending = false; }
 
         void ClearSelection()
         {

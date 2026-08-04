@@ -554,6 +554,9 @@ struct ScrollReq {
     name: String,
     /// Lines scrolled up into scrollback; 0 returns to the live bottom.
     off: u16,
+    /// Echoed back in the response so the mod can reject a stale reply to an older request.
+    #[serde(default)]
+    request_id: u64,
 }
 
 #[derive(Deserialize)]
@@ -724,7 +727,7 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
             ClientMsg::Scroll(sr) => {
                 // Answer this socket alone: a scrolled frame is private to the wheel request and
                 // must not reach live subscribers.
-                if let Some(s) = m.scroll_capture(&sr.name, sr.off).await {
+                if let Some(s) = m.scroll_capture(&sr.name, sr.off, sr.request_id).await {
                     let _ = send(&tx, &Event::Screen { screen: s }).await;
                 }
             }

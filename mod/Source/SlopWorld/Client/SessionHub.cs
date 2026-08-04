@@ -373,6 +373,9 @@ namespace SlopWorld
         public int Cols, Rows, Cx, Cy;
         // Lines scrolled up into scrollback; 0 for a live bottom frame.
         public int Off;
+        // Echoed from the scroll request this frame answers; 0 for a live frame. The terminal
+        // accepts only the response to its latest request, so a stale reply cannot clamp it.
+        public ulong ScrollRequestId;
         // 0 = block, 1 = underline, 2 = beam.
         public int CursorShape;
         public bool CursorBlink = true;
@@ -543,6 +546,7 @@ namespace SlopWorld
                     buf.AppDrag = s["app_drag"].AsBool(false);
                     buf.AltScreen = s["alt_screen"].AsBool(false);
                     buf.Title = s["title"].AsString();
+                    buf.ScrollRequestId = (ulong)s["request_id"].AsLong(0);
                     buf.Lines = s["lines"].Items.Select(l => l.AsString()).ToArray();
                     buf.Runs = null; // force a re-parse on next draw
                     break;
@@ -570,10 +574,11 @@ namespace SlopWorld
                          $"\"literal\":{JVal.B(literal)}}}");
         }
 
-        public void RequestScroll(string name, int off)
+        public void RequestScroll(string name, int off, ulong requestId)
         {
             if (_ws == null || !_ws.Connected) return;
-            _ws.SendText($"{{\"t\":\"scroll\",\"name\":{JVal.Q(name)},\"off\":{off}}}");
+            _ws.SendText($"{{\"t\":\"scroll\",\"name\":{JVal.Q(name)},\"off\":{off}," +
+                         $"\"request_id\":{requestId}}}");
         }
 
         // `action` is press/release/drag/wheelup/wheeldown, `button` is 0/1/2 =
