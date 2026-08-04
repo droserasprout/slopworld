@@ -310,7 +310,7 @@ Trivial fix, no dependencies. Gets it out of the way.
 
 ---
 
-## 9. Profile and optimise `scroll_snapshot` lock duration
+## 9. Profile and optimise `scroll_snapshot` lock duration ✅
 
 ### What
 
@@ -368,7 +368,7 @@ but doesn't change what the user sees.
 
 ---
 
-## 10. Reduce full-frame scroll responses
+## 10. Reduce full-frame scroll responses ✅
 
 ### What
 
@@ -404,22 +404,22 @@ The caching optimisation is only safe after:
 
 ## Summary
 
-| # | What | Where | Depends on |
+| # | What | Where | Status |
 |---|---|---|---|
-| 1 | Request identity for scroll responses | `api.rs`, `session.rs`, `TerminalWindow.cs`, `SessionHub.cs` | — |
-| 2 | Leading-edge scroll throttle | `TerminalWindow.cs` | 1 |
-| 3 | Fix `Off == 0` gate | `TerminalWindow.cs` | 1 |
-| 4 | Batch app-wheel reports | `TerminalWindow.cs`, `SessionHub.cs`, `api.rs`, `session.rs`, `emu.rs` | 2 |
-| 5 | Fix WS coalescer ordering | `api.rs` | — |
-| 6 | u16 → u32 scroll offsets | `api.rs`, `session.rs`, `emu.rs`, `tmux.rs` | 1 |
-| 7 | Protect local scrollback from app mode change | `TerminalWindow.cs` | — |
-| 8 | Suppress cursor on scrollback frames | `TerminalWindow.cs` | — |
-| 9 | Reduce `scroll_snapshot` lock duration | `emu.rs` | 6 |
-| 10 | Cache scroll responses | `session.rs` | 1, 2, 5 |
+| 1 | Request identity for scroll responses | `api.rs`, `session.rs`, `TerminalWindow.cs`, `SessionHub.cs` | ✅ |
+| 2 | Leading-edge scroll throttle | `TerminalWindow.cs` | ✅ |
+| 3 | Fix `Off == 0` gate | `TerminalWindow.cs` | ✅ |
+| 4 | Batch app-wheel reports | `TerminalWindow.cs`, `SessionHub.cs`, `api.rs`, `session.rs`, `emu.rs` | ✅ |
+| 5 | Fix WS coalescer ordering | `api.rs` | ✅ |
+| 6 | u16 → u32 scroll offsets | `api.rs`, `session.rs`, `emu.rs`, `tmux.rs` | ✅ |
+| 7 | Protect local scrollback from app mode change | `TerminalWindow.cs` | ✅ |
+| 8 | Suppress cursor on scrollback frames | `TerminalWindow.cs` | ✅ |
+| 9 | Reduce `scroll_snapshot` lock duration | `emu.rs` | ✅ |
+| 10 | Cache scroll responses | `session.rs` | ✅ |
 
 Items 1–8 are correctness fixes. Items 9–10 are performance.
 
-About half the implementation work is in the daemon (Rust) and half in the mod
+About half the implementation work was in the daemon (Rust) and half in the mod
 (C#). Every item has a clear test: the scroll gesture must track the wheel
 smoothly, never jump backward, never forward wheel events into an app the user
 isn't looking at, and never draw a blinking cursor on a history page.
