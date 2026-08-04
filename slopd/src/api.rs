@@ -36,6 +36,7 @@ pub fn router(m: Mgr) -> Router {
             put(update_shortcut).delete(destroy_shortcut),
         )
         .route("/api/shortcuts/:name/run", post(run_shortcut))
+        .route("/api/run", post(run))
         .route("/api/presets", get(presets))
         .route("/api/config", get(get_config))
         .route("/api/config", put(put_config))
@@ -188,6 +189,70 @@ async fn run_shortcut(
     Ok(Json(json!({ "ok": true, "session": session })))
 }
 
+/// An errand nobody wrote down: the same temporary agent `/api/shortcuts/NAME/run` makes,
+/// spelled out in the body instead of looked up. `text` is optional here where it is
+/// required of an entry - `less` on a file is a command with nothing to type after it.
+#[derive(Deserialize)]
+struct RunReq {
+    #[serde(default)]
+    project: String,
+    #[serde(default)]
+    kind: crate::config::ShortcutKind,
+    /// A preset name or a command line, read exactly as a shortcut's is.
+    #[serde(default)]
+    command: String,
+    #[serde(default)]
+    text: String,
+    /// Names the session and, through `slug`, the tmux session behind it. The errand's own
+    /// word for itself, since there is no entry to take one from.
+    #[serde(default)]
+    label: String,
+    #[serde(default)]
+    temp: bool,
+}
+
+async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
+    let command = q.command.trim();
+    if command.is_empty() {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "an errand must say what to run",
+        ));
+    }
+    let project = q.project.trim();
+    if project.is_empty() && !q.temp {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "an errand must name a project or ask for a temporary one",
+        ));
+    }
+
+    let label = match q.label.trim() {
+        "" => "run",
+        l => l,
+    };
+    let sc = ShortcutCfg {
+        name: label.to_string(),
+        kind: q.kind,
+        link: crate::config::ShortcutLink::Project,
+        project: project.to_string(),
+        text: q.text,
+        command: Some(command.to_string()),
+    };
+
+    // The project is checked by `run_errand` itself, which is also where a temporary one is
+    // coined - so `temp` rides over as the override it already is rather than a second road.
+    let want = RunWhere {
+        project: None,
+        temp: q.temp,
+    };
+    let session = m
+        .run_errand(sc, want)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "ok": true, "session": session })))
+}
+
 /// So the GUI draws a checkbox per preset and a row per command rather than a list
 /// somebody keeps in step by hand. Both tables are files, so this is also how the mod
 /// learns about one that was added while it was running.
@@ -333,14 +398,104 @@ async fn open_url(Json(q): Json<OpenReq>) -> ApiResult {
     Ok(Json(json!({ "ok": true })))
 }
 
+/// `?files=1` and `?files=true` are the same answer. serde's own bool takes only the
+/// second, and half of what this endpoint is for is being asked by hand from a shell.
+/// A word that is neither is refused rather than read as "on": a typo silently turning
+/// a switch on is worse than a 400 saying so.
+fn flag<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
+    use serde::de::Error;
+    let s = String::deserialize(d)?;
+    match s.trim() {
+        "" | "0" | "false" | "no" | "off" => Ok(false),
+        "1" | "true" | "yes" | "on" => Ok(true),
+        other => Err(D::Error::custom(format!("expected a yes or a no, got {other:?}"))),
+    }
+}
+
 #[derive(Deserialize)]
 struct BrowseReq {
     #[serde(default)]
     path: String,
+    /// Opt-in, so the project-dir picker - which wants directories and nothing else -
+    /// pays neither the read nor the wire for a directory full of files.
+    #[serde(default, deserialize_with = "flag")]
+    files: bool,
+    #[serde(default, deserialize_with = "flag")]
+    hidden: bool,
+    #[serde(default)]
+    limit: Option<usize>,
 }
 
-/// So the dialog can pick a project dir without the mod touching the host
-/// filesystem itself.
+/// Enough to fill a column several screens deep, and short of the answer to
+/// `read_dir` on `.git` or `node_modules` being a reply nobody reads.
+const BROWSE_LIMIT: usize = 500;
+
+/// What one directory holds, as far as this endpoint is concerned. Split out from the
+/// handler so the rules below can be tested against a real directory without standing a
+/// manager and a router up around them.
+struct Listing {
+    dirs: Vec<String>,
+    files: Vec<String>,
+    truncated: bool,
+}
+
+async fn list_dir(
+    base: &std::path::Path,
+    want_files: bool,
+    hidden: bool,
+    limit: usize,
+) -> std::io::Result<Listing> {
+    let mut out = Listing {
+        dirs: Vec::new(),
+        files: Vec::new(),
+        truncated: false,
+    };
+
+    let mut rd = tokio::fs::read_dir(base).await?;
+    while let Ok(Some(e)) = rd.next_entry().await {
+        let name = e.file_name().to_string_lossy().into_owned();
+        if !hidden && name.starts_with('.') {
+            continue;
+        }
+
+        let Ok(t) = e.file_type().await else { continue };
+        // `DirEntry::file_type` is an lstat: a symlink is a symlink and never the thing it
+        // points at, so a symlinked directory would come out neither a dir nor a file and
+        // read in the tree as one that had gone. One stat per link, and a broken one falls
+        // out of both lists rather than being guessed at.
+        let is_dir = if t.is_symlink() {
+            match tokio::fs::metadata(e.path()).await {
+                Ok(m) => m.is_dir(),
+                Err(_) => continue,
+            }
+        } else {
+            t.is_dir()
+        };
+
+        if is_dir {
+            out.dirs.push(name);
+        } else if want_files {
+            out.files.push(name);
+        } else {
+            // Not asked for, so not counted either: a directory holding three folders and
+            // ten thousand files is three rows, not a truncated answer.
+            continue;
+        }
+
+        if out.dirs.len() + out.files.len() >= limit {
+            out.truncated = true;
+            break;
+        }
+    }
+
+    out.dirs.sort();
+    out.files.sort();
+    Ok(out)
+}
+
+/// So the dialog can pick a project dir, and the files view can draw a tree, without
+/// the mod touching the host filesystem itself. `dirs` is what it always was; `files`
+/// is asked for.
 async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult {
     let base = if q.path.is_empty() {
         dirs::home_dir().unwrap_or_else(|| "/".into())
@@ -348,24 +503,17 @@ async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult 
         std::path::PathBuf::from(crate::config::expand(&q.path))
     };
 
-    let mut dirs_out: Vec<String> = Vec::new();
-    let mut rd = tokio::fs::read_dir(&base)
+    let limit = q.limit.unwrap_or(BROWSE_LIMIT).max(1);
+    let out = list_dir(&base, q.files, q.hidden, limit)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    while let Ok(Some(e)) = rd.next_entry().await {
-        if e.file_type().await.map(|t| t.is_dir()).unwrap_or(false) {
-            let name = e.file_name().to_string_lossy().into_owned();
-            if !name.starts_with('.') {
-                dirs_out.push(name);
-            }
-        }
-    }
-    dirs_out.sort();
 
     Ok(Json(json!({
         "path": base,
         "parent": base.parent(),
-        "dirs": dirs_out,
+        "dirs": out.dirs,
+        "files": out.files,
+        "truncated": out.truncated,
     })))
 }
 
@@ -565,4 +713,109 @@ async fn send(
 ) -> Result<(), axum::Error> {
     let text = serde_json::to_string(ev).unwrap_or_default();
     tx.lock().await.send(Message::Text(text)).await
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::{Path, PathBuf};
+
+    use super::list_dir;
+
+    /// Somewhere of our own under the machine's temp dir, cleared on the way in so a run
+    /// that died before its cleanup does not poison the next one. No dev-dependency for
+    /// this: one directory of empty files is not worth a crate.
+    fn fixture(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("slopd-browse-{tag}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn touch(dir: &Path, name: &str) {
+        std::fs::write(dir.join(name), b"").unwrap();
+    }
+
+    fn subdir(dir: &Path, name: &str) {
+        std::fs::create_dir_all(dir.join(name)).unwrap();
+    }
+
+    /// The dir picker asked for none, so it is handed none, and a directory full of files
+    /// is still just its directories - which is also what keeps the cap off it.
+    #[tokio::test]
+    async fn files_are_opt_in() {
+        let dir = fixture("optin");
+        subdir(&dir, "src");
+        touch(&dir, "Cargo.toml");
+        touch(&dir, "README.md");
+
+        let quiet = list_dir(&dir, false, false, 500).await.unwrap();
+        assert_eq!(quiet.dirs, ["src"]);
+        assert!(quiet.files.is_empty());
+
+        let full = list_dir(&dir, true, false, 500).await.unwrap();
+        assert_eq!(full.dirs, ["src"]);
+        assert_eq!(full.files, ["Cargo.toml", "README.md"]);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Both lists, and a dot directory is as hidden as a dot file.
+    #[tokio::test]
+    async fn dotfiles_are_hidden_until_they_are_asked_for() {
+        let dir = fixture("hidden");
+        subdir(&dir, "src");
+        subdir(&dir, ".git");
+        touch(&dir, "main.rs");
+        touch(&dir, ".gitignore");
+
+        let shy = list_dir(&dir, true, false, 500).await.unwrap();
+        assert_eq!(shy.dirs, ["src"]);
+        assert_eq!(shy.files, ["main.rs"]);
+
+        let all = list_dir(&dir, true, true, 500).await.unwrap();
+        assert_eq!(all.dirs, [".git", "src"]);
+        assert_eq!(all.files, [".gitignore", "main.rs"]);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `DirEntry::file_type` does not follow a symlink, so without the stat behind it a
+    /// linked directory is in neither list and the tree draws it as gone. A link to
+    /// nowhere stays in neither, which is the one case where that is the right answer.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_symlinked_directory_is_a_directory() {
+        let dir = fixture("links");
+        subdir(&dir, "real");
+        touch(&dir, "file.txt");
+        std::os::unix::fs::symlink(dir.join("real"), dir.join("to-dir")).unwrap();
+        std::os::unix::fs::symlink(dir.join("file.txt"), dir.join("to-file")).unwrap();
+        std::os::unix::fs::symlink(dir.join("nowhere"), dir.join("dangling")).unwrap();
+
+        let out = list_dir(&dir, true, false, 500).await.unwrap();
+        assert_eq!(out.dirs, ["real", "to-dir"]);
+        assert_eq!(out.files, ["file.txt", "to-file"]);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The cap says so rather than lying about a short directory, and it is a cap on what
+    /// was read - the answer is that many entries, not that many sorted ones.
+    #[tokio::test]
+    async fn a_long_directory_is_cut_short_and_says_so() {
+        let dir = fixture("cap");
+        for i in 0..20 {
+            touch(&dir, &format!("f{i:02}"));
+        }
+
+        let capped = list_dir(&dir, true, false, 5).await.unwrap();
+        assert_eq!(capped.dirs.len() + capped.files.len(), 5);
+        assert!(capped.truncated);
+
+        let whole = list_dir(&dir, true, false, 500).await.unwrap();
+        assert_eq!(whole.files.len(), 20);
+        assert!(!whole.truncated);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

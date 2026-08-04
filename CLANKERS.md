@@ -45,6 +45,8 @@ journalctl --user -u slopd -f
 
 `SLOPD_LOG=slopd=debug`, `SLOPD_CONFIG` for another config file. `tools/shot.sh`
 grabs the game window (needs the `x11` preset). `python3 tools/loc.py` counts code.
+`tools/roboface.py` draws the agent faceplates and `tools/fileicons.py` bakes the files
+view's icons; both write into `mod/Textures/` and neither runs as part of a build.
 
 `make redeploy` = install both halves, then `POST /api/game/restart`. Needs
 `daemon.game_cmd` (default `~/.local/bin/slopworld`). Agents survive it: neither
@@ -201,6 +203,12 @@ it. `kind` is `prompt` or `shell`; empty `command` means `[defaults] agent` or t
   because bracketed paste takes a pasted newline as a newline. `wait_ready` waits for
   output followed by `SETTLE_MS` of silence, not for a pattern; hitting `READY_MS`
   does not cancel delivery.
+- `POST /api/run` is the same errand with nothing written down: the body *is* the
+  entry. `Manager::run_errand` is everything past the check and `run_shortcut` is a
+  lookup in front of it. The one rule the inline road does not repeat is
+  `check_shortcut`'s "must have something to send" - the files view's `less` is a
+  command that is the whole errand - so `deliver` is spawned only for a non-empty
+  `text`, or an agent with nothing to type would sit through `READY_MS` to type it.
 - Anything running under our socket that config knows nothing about is `adopt`ed as
   one of these with no project: blank directory, refuses to restart, while watching,
   typing and killing work.
@@ -311,9 +319,18 @@ also once on connect, or a client attaching between polls draws nothing. And
 Client messages: `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste`.
 Everything that rewrites `config.toml` goes over HTTP instead, because the error body
 matters: `/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`, plus
-`POST /api/shortcuts/NAME/run`. `GET /api/usage`, `/api/presets` and `/api/game` are
-for anything that would rather ask than listen. `POST /api/open` answers 400 for a
-URL it will not take and 502 for an opener that would not.
+`POST /api/shortcuts/NAME/run` and `POST /api/run`. `GET /api/usage`, `/api/presets`,
+`/api/browse` and `/api/game` are for anything that would rather ask than listen.
+`POST /api/open` answers 400 for a URL it will not take and 502 for an opener that
+would not.
+
+`GET /api/browse` lists one directory. `dirs` is what it always was and `files` is
+opt-in (`?files=1`), so the project-dir picker pays neither the read nor the wire for a
+directory of files - and a directory of files is still no rows, so the cap never fires
+on it. `?hidden=1` keeps the dotfiles, `?limit=` caps the entries at 500 and says
+`truncated` rather than lying about a short directory. `DirEntry::file_type` is an
+lstat, so a symlink is stat'd once behind the entry or a linked directory reads as one
+that has gone; a dangling link is in neither list.
 
 ## Mod
 
@@ -623,6 +640,20 @@ of these need a def.
   - `Drawing` is cleared from the finalizer as well as from the front pass, a postfix
     not running when the original throws and that flag being what hides every pawn
     label on the map.
+  - The column carries **two views**, and `Tabs` is the selector: two mono-grey icons
+    across the top of the panel, `TabIcons` drawn in code. Only the body changes - the
+    panel, the width, `Grip` and `Absorb` are the panel's and are drawn once whichever
+    view has it, which is the whole reason this is a strip and not a second sidebar.
+    `TabH` is reserved in *both*, so switching moves nothing below it.
+  - In the files view `Place` parks every loc and lays out no `Row`, so the bar draws
+    and hit-tests nothing - the same move a fold makes, for the same reason, with no
+    second call site and no new patch. It still runs `Bucket`, because `Sessions()` is
+    what `AgentColony.InBarOrder` and so Alt+1..9 read: a fold takes an agent off the
+    numbers because it takes it off the column, but switching views hides every agent
+    equally and is not a fold, so `Sessions()` answers off the buckets there instead of
+    off the rows. `Menus` stands down; `FilesView` takes its own.
+  - The "+" goes with the agents: `Place` hands back an empty `add`, and
+    `Patch_ColonistBarAddButton` already declines a zero-width slot.
 - `ChromeShift` - what the column does to the rest of the interface. The bottom button
   row is laid out contiguously from zero to `screenWidth` with the last button widened
   to fill, so squeezing the whole line into the room right of the column is one prefix
@@ -679,6 +710,46 @@ its title bar - the gear and the cross move to the right end and `TerminalWindow
 no header of its own, so the pane gets the whole screen below the line. The agent's own
 terminal title is what it says; only a subscribed session has one, which in practice is
 the one whose pane is open, and the state stands in for the rest.
+
+`FilesView` is the column's other body: every project's directory as one nested,
+foldable tree, drawn from `AgentSidebar`'s back pass and so over a pane as well as on
+the map. The daemon does the reading - a session is in its own mount namespace and the
+game is outside all of them, so `GET /api/browse` is the only thing here that can see a
+project directory the way the project does.
+
+- `Kids` null is "never asked", which is what makes it lazy; the fetch is fired from the
+  *draw* pass rather than from the click, so a listing dropped by the dotfile switch
+  comes back without the reader folding and unfolding. An `Error` stops that, or a
+  directory that refused once refuses sixty times a second, and the retry is the reader
+  closing it and opening it again.
+- The tree is a scroll view - the one thing in this column that cannot be made to fit
+  by shrinking. `Widgets.BeginScrollView` is `GUI` rather than `GUILayout`, so it is
+  safe in a pass that declines Layout events.
+- Clicks are taken from a `Lines` table *after* the whole tree is laid out and outside
+  the scroll view's group, so `Screen` moves a row's rect by the scroll and drops one
+  scrolled out of the body. Same reason `AgentSidebar` keeps a `Row` table: three
+  readers, one answer about where a row is. Taken during the draw instead, expanding a
+  directory would change the layout the rest of the frame is being drawn from.
+- Expansions and the project folds are in memory only. `foldedProjects` is the agents
+  view's; a tree's shape is a set of paths and reloading it costs one browse.
+- Right-click is copy path, copy relative path, and on a file `View` (`less -R`) and
+  `Edit` (`micro`). Those two go through `POST /api/run`, so what opens is an ephemeral
+  agent in the *project's own sandbox* - which is what makes `less` see the file the way
+  the agents working on it do. The path is single-quoted, `shell_split` building an argv
+  rather than running a shell.
+
+`FileIcons` is what goes beside a name: one PNG per icon under
+`Textures/SlopWorld/FileIcons`, baked by `tools/fileicons.py` from the Material Icon
+Theme SVGs vendored in `tools/fileicons/` (MIT). Whole filename first, then the longest
+extension that resolves, then a generic page. One file per icon rather than an atlas,
+this game's loader deciding mipmapping for mod textures and mip bleed across atlas cells
+being a trap at the size these are drawn. The lookup table is the other half of
+`tools/fileicons/manifest.toml` and the two are kept in step by hand - shipping the
+manifest into the game would mean a TOML parser the mod does not have.
+
+`TabIcons` is the selector's two icons and the dotfile switch, drawn in code for the
+reason `GearIcon` is. Not `RobotFace_south`: that is a pawn's faceplate, coloured, and
+tinted flat at 18px it is a blob.
 
 `CoreTip` hangs a loading-screen tip on the persona core, rolled once per hover.
 `DeadCursor` replaces the pointer with the Tame designator's hand. `MenuBackground`
@@ -782,13 +853,15 @@ exception, editing mod settings instead.
 
 `SlopSettings` in `SlopWorldMod.cs`, reached through the static `Settings` shim:
 `host`, `port`, `token`, `autoConnect`, `sidebar`, `sidebarWidth`, `foldedProjects`,
-`fontSize`, `fontName`, `theme`, `cursorColor`. Adding one means a field, a
-`Scribe_Values.Look`, a shim property and a widget.
+`sidebarTab`, `sidebarShowHidden`, `fontSize`, `fontName`, `theme`, `cursorColor`.
+Adding one means a field, a `Scribe_Values.Look`, a shim property and a widget.
 
-`sidebarWidth` and `foldedProjects` are the two with no widget: the column is dragged by
-its edge and folded by its headings, so `AgentSidebar` writes them itself. That is the
-whole reason they are settings rather than fields on the sidebar - a width and a fold are
-about this screen the way `sidebar` is, and they are wanted back tomorrow.
+`sidebarWidth`, `foldedProjects`, `sidebarTab` and `sidebarShowHidden` are the four with
+no widget: the column is dragged by its edge, folded by its headings and switched by its
+own strip, so `AgentSidebar` writes all four itself. That is the whole reason they are
+settings rather than fields on the sidebar - a width, a fold, a view and what it lists
+are about this screen the way `sidebar` is, and they are wanted back tomorrow. An
+unknown `sidebarTab` reads as the agents, that being the view always worth having.
 
 `sidebar` is the one that is not about the daemon or about a pane's legibility, and it
 is here rather than nowhere because both layouts are this mod's and which one works is

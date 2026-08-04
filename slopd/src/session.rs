@@ -1030,6 +1030,19 @@ impl Manager {
             .ok_or_else(|| anyhow!("no such shortcut: {name}"))?
             .clone();
         check_shortcut(&cfg, &sc)?;
+        drop(cfg);
+        self.run_errand(sc, want).await
+    }
+
+    /// The errand itself, once somebody has said what it is. Split out because an errand is
+    /// not always an entry in the file: the files view runs `less` on the thing under the
+    /// cursor, which is a one-off nobody would want written down, and `check_shortcut`'s
+    /// rule that an errand must have something to send is exactly what such a run breaks -
+    /// so the caller validates and this runs.
+    pub async fn run_errand(self: &Arc<Self>, sc: ShortcutCfg, want: RunWhere) -> Result<String> {
+        self.reload_if_changed().await;
+        let cfg = self.config().await;
+        let name = sc.name.as_str();
 
         let asked = match want.project.as_deref().map(str::trim) {
             Some(p) if !p.is_empty() => Some(p.to_string()),
@@ -1107,10 +1120,15 @@ impl Manager {
             sessions: self.views().await,
         });
 
-        let m = self.clone();
-        let target = session.clone();
-        let text = sc.text.clone();
-        tokio::spawn(async move { m.deliver(&target, &text).await });
+        // An errand with nothing to send is one whose command *is* the errand - `less` on a
+        // file wants a pane and no typing - so there is nothing to wait for it to be ready
+        // for either.
+        if !sc.text.trim().is_empty() {
+            let m = self.clone();
+            let target = session.clone();
+            let text = sc.text.clone();
+            tokio::spawn(async move { m.deliver(&target, &text).await });
+        }
 
         Ok(session)
     }
@@ -1867,10 +1885,10 @@ mod tests {
     use std::collections::HashMap;
 
     use super::{
-        check_name, free_name, free_project_name, settle, slug, strip_sgr, Live, State, BOOT_COLS,
-        BOOT_ROWS,
+        check_name, check_shortcut, free_name, free_project_name, settle, slug, strip_sgr, Live,
+        State, BOOT_COLS, BOOT_ROWS,
     };
-    use crate::config::{Config, ProjectCfg, SessionCfg};
+    use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind};
 
     fn placeholder() -> Live {
         Live {
@@ -1947,6 +1965,52 @@ mod tests {
         };
         settle(&mut plain);
         assert_eq!(plain.dir, "/home/you/git/repo");
+    }
+
+    /// Why `/api/run` validates by hand instead of calling this. An *entry* with nothing to
+    /// send is an entry that does nothing, so it is refused where it is written down; a
+    /// one-off whose command is the whole errand - `less` on the file under the cursor -
+    /// has nothing to type after it and is the ordinary case. The rest of the checks still
+    /// hold for both, which is why this is the only one the inline road repeats.
+    #[test]
+    fn an_entry_must_have_something_to_send() {
+        let mut cfg = Config::default();
+        cfg.projects.push(ProjectCfg {
+            name: "repo".into(),
+            dir: "/home/you/git/repo".into(),
+            ..Default::default()
+        });
+
+        let errand = ShortcutCfg {
+            name: "view-main-rs".into(),
+            kind: ShortcutKind::Shell,
+            project: "repo".into(),
+            command: Some("less -R -- /home/you/git/repo/main.rs".into()),
+            text: String::new(),
+            ..Default::default()
+        };
+        assert!(check_shortcut(&cfg, &errand).is_err());
+
+        // And everything else it says about one still applies to both roads.
+        let nowhere = ShortcutCfg {
+            project: String::new(),
+            text: "hello".into(),
+            ..errand.clone()
+        };
+        assert!(check_shortcut(&cfg, &nowhere).is_err());
+
+        let gone = ShortcutCfg {
+            project: "not-a-project".into(),
+            text: "hello".into(),
+            ..errand.clone()
+        };
+        assert!(check_shortcut(&cfg, &gone).is_err());
+
+        let fine = ShortcutCfg {
+            text: "hello".into(),
+            ..errand
+        };
+        assert!(check_shortcut(&cfg, &fine).is_ok());
     }
 
     /// Named after the agent running it, and dodging both tables.

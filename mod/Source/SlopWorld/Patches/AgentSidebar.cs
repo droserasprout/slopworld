@@ -42,6 +42,11 @@ namespace SlopWorld
         const float CellX = 8f;
         const float TextGap = 7f;
 
+        // The view selector across the top of the panel, and the size of an icon in it.
+        // Reserved in both views, so switching moves nothing below it.
+        public const float TabH = 24f;
+        const float TabIcon = 18f;
+
         // Clearance between the text of one row and the next, where the pitch is the labels'
         // rather than the portraits'.
         const float RowGap = 4f;
@@ -63,6 +68,7 @@ namespace SlopWorld
         static readonly Color Edge = new Color(0f, 0f, 0f, 0.55f);
         static readonly Color EdgeLit = new Color(0.55f, 0.60f, 0.70f, 0.90f);
         static readonly Color HeadColor = new Color(0.55f, 0.57f, 0.62f);
+        static readonly Color TabOff = new Color(0.45f, 0.47f, 0.52f);
         static readonly Color SubColor = new Color(0.62f, 0.64f, 0.67f);
         static readonly Color Current = new Color(1f, 1f, 1f, 0.10f);
 
@@ -100,6 +106,11 @@ namespace SlopWorld
         static readonly Dictionary<string, List<int>> Buckets =
             new Dictionary<string, List<int>>();
         static readonly List<string> Order = new List<string>();
+
+        // The session each bucketed entry belongs to. Only Rows carries that in the agents
+        // view, and the files view lays out no rows - so the bucket pass writes it down,
+        // that being the pass both views run.
+        static readonly Dictionary<int, string> Named = new Dictionary<int, string>();
 
         // The bucket for an agent whose project has gone, and for a pawn that is not an
         // agent at all. Last in the column, and named rather than blank: an unheaded run of
@@ -145,13 +156,48 @@ namespace SlopWorld
         // the width of the column.
         public static Rect Panel => new Rect(0f, 0f, Width, UI.screenHeight);
 
+        // What the column is showing. Two shapes over one panel: the chrome, the width, the
+        // edge and the click-eating are the panel's and are drawn once, whichever view has
+        // the body.
+        public static bool Files => Settings.SidebarTab == "files";
+
+        static void Show(bool files)
+        {
+            // Clicking the tab already up is not a change, and the file is a file.
+            if (files == Files) return;
+
+            var s = Settings.S;
+            s.sidebarTab = files ? "files" : "agents";
+            // ModSettings.Write rather than Mod.WriteSettings, the same as a fold: the latter
+            // reconnects the socket, and this is a tab.
+            s.Write();
+        }
+
+        // Everything below the selector, which is where a view draws.
+        public static Rect Body =>
+            new Rect(0f, TabH, Width, UI.screenHeight - TabH);
+
         // The column's order is the column's own, so Alt+3 is the third portrait down rather
         // than the third the bar would have drawn.
         public static List<string> Sessions()
         {
             var order = new List<string>();
-            foreach (var row in Rows)
-                if (row.Session != null) order.Add(row.Session);
+
+            if (!Files)
+            {
+                foreach (var row in Rows)
+                    if (row.Session != null) order.Add(row.Session);
+                return order;
+            }
+
+            // With the tree up there are no rows, and Alt+Num is the way back to an agent
+            // from a view that draws none - so it is answered off the buckets instead, folds
+            // and all. A fold takes an agent off the numbers because it takes it off the
+            // column; switching views is not a fold, and hides every agent equally.
+            foreach (var key in Order)
+                foreach (int i in Buckets[key])
+                    if (Named.TryGetValue(i, out var session) && session != null)
+                        order.Add(session);
             return order;
         }
 
@@ -184,11 +230,24 @@ namespace SlopWorld
         {
             Rows.Clear();
             Heads.Clear();
+            // Whichever view is up: the buckets are what Sessions() answers from, and Alt+Num
+            // still means an agent with the tree on screen. Cheap - it lays nothing out.
             Bucket(entries, locs, count);
 
-            // From the top of the screen: the top bar is beside the column, not over it, so
-            // the whole height is the column's to lay out in.
-            float top = Pad;
+            if (Files)
+            {
+                // Nothing of the bar is on the panel, so every loc goes off screen: the bar
+                // draws from this list and hit-tests against it, and a portrait left where it
+                // was would be an invisible click target under the tree. No Rows either, so
+                // the label pass and the click handler have nothing to find.
+                for (int i = 0; i < count && i < locs.Count; i++) locs[i] = Parked;
+                add = Rect.zero;
+                return Nominal;
+            }
+
+            // Below the selector, which is reserved in both views. The top bar is beside the
+            // column rather than over it, so the rest of the height is the column's.
+            float top = TabH + Pad;
             float room = UI.screenHeight - top - Pad;
 
             // Only what is on show competes for the room: folding a project is how a column
@@ -295,6 +354,7 @@ namespace SlopWorld
         {
             foreach (var list in Buckets.Values) list.Clear();
             Order.Clear();
+            Named.Clear();
 
             for (int i = 0; i < count && i < entries.Count; i++)
             {
@@ -314,6 +374,7 @@ namespace SlopWorld
                 if (!Buckets.TryGetValue(key, out var list))
                     Buckets[key] = list = new List<int>();
                 list.Add(i);
+                Named[i] = session;
             }
 
             foreach (var kv in Buckets)
@@ -360,31 +421,102 @@ namespace SlopWorld
             var panel = Panel;
             Widgets.DrawBoxSolid(panel, PanelBg);
 
-            string open = TerminalWindow.CurrentName;
-            var selected = Find.Selector?.SingleSelectedThing as Pawn;
-
-            foreach (var row in Rows)
+            if (Files)
             {
-                // The agent whose pane is up, or with none the one the map is looking at.
-                bool current = open != null
-                    ? row.Session == open
-                    : row.Pawn != null && row.Pawn == selected;
+                FilesView.Draw(Body);
+            }
+            else
+            {
+                string open = TerminalWindow.CurrentName;
+                var selected = Find.Selector?.SingleSelectedThing as Pawn;
 
-                if (current) Widgets.DrawBoxSolid(row.Line, Current);
-                else if (Mouse.IsOver(row.Line)) Widgets.DrawHighlight(row.Line);
+                foreach (var row in Rows)
+                {
+                    // The agent whose pane is up, or with none the one the map is looking at.
+                    bool current = open != null
+                        ? row.Session == open
+                        : row.Pawn != null && row.Pawn == selected;
+
+                    if (current) Widgets.DrawBoxSolid(row.Line, Current);
+                    else if (Mouse.IsOver(row.Line)) Widgets.DrawHighlight(row.Line);
+                }
+
+                foreach (var head in Heads) DrawHead(head);
             }
 
-            foreach (var head in Heads) DrawHead(head);
+            // Over whichever body just drew, so the selector is never under a row, and last
+            // of the drawing so it takes its own clicks first.
+            Tabs();
 
             // Before the bar's own pass rather than after it, because these take clicks the
             // bar would otherwise have eaten: vanilla swallows a right-click over a portrait
             // to keep it off the map, and the heading band is the strip's own ground.
             //
-            // The edge first. Headings and rows are the full width of the panel, so asked
-            // second the grip would be reachable only in the gaps between them, which on a
-            // full column is nowhere.
+            // The edge first. Headings, rows and the tree are all the full width of the panel,
+            // so asked second the grip would be reachable only in the gaps between them, which
+            // on a full column is nowhere.
             Grip();
-            Menus();
+            if (Files) FilesView.Clicks();
+            else Menus();
+        }
+
+        // The view selector: two icons top left, mono grey for the view you are not in and
+        // white with a line under it for the one you are. Icon only - the column is narrow
+        // and a word here is a word taken off every agent's name below it - so the tooltips
+        // carry what they mean.
+        static void Tabs()
+        {
+            var strip = new Rect(0f, 0f, Width, TabH);
+            Widgets.DrawBoxSolid(new Rect(CellX, TabH - 1f, Width - CellX * 2f, 1f),
+                new Color(1f, 1f, 1f, 0.08f));
+
+            float y = (TabH - TabIcon) / 2f;
+            bool files = Files;
+
+            Tab(new Rect(CellX, y, TabIcon, TabIcon), TabIcons.AgentsTex, !files,
+                "Agents - every session, under the project it runs in", () => Show(false));
+            Tab(new Rect(CellX + TabIcon + 8f, y, TabIcon, TabIcon), TabIcons.FilesTex, files,
+                "Files - every project's directory, as a tree", () => Show(true));
+
+            // The one switch the tree has, pinned to the far end so it never shuffles the
+            // selector sideways, and drawn only where it means something.
+            if (files)
+            {
+                bool showing = Settings.SidebarShowHidden;
+                Tab(new Rect(Width - CellX - TabIcon, y, TabIcon, TabIcon),
+                    TabIcons.HiddenTex, showing,
+                    showing
+                        ? "Showing dotfiles. Click to hide them."
+                        : "Hiding dotfiles. Click to show them.",
+                    () =>
+                    {
+                        Settings.S.sidebarShowHidden = !showing;
+                        Settings.S.Write();
+                        // What was listed was listed under the old answer, so the tree has to
+                        // ask again; the expansions are what the reader wants kept.
+                        FilesView.Reload();
+                    });
+            }
+
+            // The strip is the panel's, so a press anywhere along it is the panel's too. Not
+            // the last few pixels of it: that is the edge, and Grip - which is asked after
+            // this - is what a press there is for.
+            if (Mouse.IsOver(strip) && Event.current.type == EventType.MouseDown
+                && !ColonistBarStrip.Blocked
+                && Event.current.mousePosition.x < Width - GripW)
+                Event.current.Use();
+        }
+
+        static void Tab(Rect r, Texture2D icon, bool on, string tip, System.Action go)
+        {
+            TooltipHandler.TipRegion(r, tip);
+            if (Widgets.ButtonImage(r, icon, on ? Color.white : TabOff, Color.white)
+                && !ColonistBarStrip.Blocked)
+                go();
+
+            if (on)
+                Widgets.DrawBoxSolid(new Rect(r.x, TabH - 2f, r.width, 2f),
+                    new Color(1f, 1f, 1f, 0.55f));
         }
 
         static void DrawHead(Head head)

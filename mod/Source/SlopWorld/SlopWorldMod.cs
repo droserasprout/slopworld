@@ -26,6 +26,11 @@ namespace SlopWorld
         // Folds are one name per line; a project that has gone is a name nothing matches.
         public float sidebarWidth = 210f;
         public string foldedProjects = "";
+        // Which of the column's two views is up, and whether its tree says anything about
+        // dotfiles. Same argument: about this screen, not about a colony. A name this build
+        // does not know reads as the agents, which is the view that is always worth having.
+        public string sidebarTab = "agents";
+        public bool sidebarShowHidden;
 
         public int fontSize = 14;
         public string fontName = "";
@@ -47,6 +52,8 @@ namespace SlopWorld
             Scribe_Values.Look(ref autoConnect, "autoConnect", true);
             Scribe_Values.Look(ref sidebarWidth, "sidebarWidth", 210f);
             Scribe_Values.Look(ref foldedProjects, "foldedProjects", "");
+            Scribe_Values.Look(ref sidebarTab, "sidebarTab", "agents");
+            Scribe_Values.Look(ref sidebarShowHidden, "sidebarShowHidden", false);
             Scribe_Values.Look(ref fontSize, "fontSize", 14);
             Scribe_Values.Look(ref fontName, "fontName", "");
             Scribe_Values.Look(ref theme, "theme", "clankers");
@@ -66,6 +73,8 @@ namespace SlopWorld
         // Unclamped: AgentSidebar owns what a usable column is, and it is the only reader.
         public static float SidebarWidth => S.sidebarWidth;
         public static string FoldedProjects => S.foldedProjects ?? "";
+        public static string SidebarTab => S.sidebarTab ?? "";
+        public static bool SidebarShowHidden => S.sidebarShowHidden;
         public static int FontSize => S.fontSize;
         public static string FontName => S.fontName ?? "";
         public static string Theme => S.theme ?? "";

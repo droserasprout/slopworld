@@ -627,6 +627,34 @@ namespace SlopWorld
                 },
                 fail);
 
+        // The same temporary agent an errand makes, for an errand nobody wrote down: the files
+        // view opens `less` on whatever the cursor is over, which is not a `[[shortcut]]` and
+        // should never become one. `text` empty is a command with nothing to type after it,
+        // which the daemon allows here and refuses of an entry.
+        //
+        // The sessions list is refetched before the answer is handed on, for the reason
+        // RunShortcut does it: a terminal opened on a session this end has never heard of
+        // closes itself next frame.
+        public void Run(string project, string command, string label,
+                        Action<string> started, Action<string> fail = null,
+                        bool shell = true, string text = "") =>
+            SlopClient.Post("/api/run",
+                "{" + $"\"project\":{JVal.Q(project ?? "")}," +
+                $"\"kind\":{JVal.Q(shell ? "shell" : "prompt")}," +
+                $"\"command\":{JVal.Q(command ?? "")}," +
+                $"\"label\":{JVal.Q(label ?? "")}," +
+                $"\"text\":{JVal.Q(text ?? "")}" + "}",
+                j =>
+                {
+                    string session = j["session"].AsString();
+                    SlopClient.Get("/api/sessions", list =>
+                    {
+                        Sessions = list["sessions"].Items.Select(SessionInfo.FromJson).ToList();
+                        started?.Invoke(session);
+                    }, fail);
+                },
+                fail);
+
         // A shortcut's name is free-form, so it can carry anything a path segment objects to.
         static string Esc(string name) => Uri.EscapeDataString(name ?? "");
 
