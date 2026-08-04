@@ -270,8 +270,8 @@ namespace SlopWorld
 
         // Vanilla's row with our own icon on it. The whole row rather than the texture,
         // because vanilla reads that off `texPath` through `ContentFinder`, which knows
-        // about files, and the ">_" that means terminal everywhere here is drawn in code
-        // (see TerminalIcon).
+        // about files, and the general-config page gets the gear: it is the tab that opens
+        // the settings you can get to anywhere, and the gear is the icon for settings.
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
         public static class Patch_OptionsRow
         {
@@ -289,7 +289,7 @@ namespace SlopWorld
 
                 float x = r.x + 10f;
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
-                    TerminalIcon.Tex);
+                    GearIcon.Tex);
                 x += 30f;
                 Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
                 return false;
@@ -354,9 +354,9 @@ namespace SlopWorld
 
         // ---------------------------------------------------------------- terminal
 
-        // The Terminal row, between General and Usage. Drawn with the gear icon that used
-        // to live in the pane's title bar: the page is about the pane's look, and the gear
-        // is the setting it was in the old floating window.
+        // The Terminal row, between General and Usage. Drawn with the terminal icon that
+        // used to be on the General tab: the page is about the pane's look, and the ">_"
+        // is what said "terminal" before the settings moved into a tab of their own.
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
         public static class Patch_OptionsRow_Terminal
         {
@@ -374,7 +374,7 @@ namespace SlopWorld
 
                 float x = r.x + 10f;
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
-                    GearIcon.Tex);
+                    TerminalIcon.Tex);
                 x += 30f;
                 Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
                 return false;
