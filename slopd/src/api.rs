@@ -557,7 +557,7 @@ struct MouseReq {
 struct ScrollReq {
     name: String,
     /// Lines scrolled up into scrollback; 0 returns to the live bottom.
-    off: u16,
+    off: u32,
     /// Echoed back in the response so the mod can reject a stale reply to an older request.
     #[serde(default)]
     request_id: u64,

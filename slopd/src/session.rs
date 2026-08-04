@@ -109,7 +109,7 @@ pub struct ScreenView {
     pub cy: u16,
     /// A scrolled frame is a one-off answer to a wheel event, never broadcast.
     #[serde(default)]
-    pub off: u16,
+    pub off: u32,
     /// 0 = block, 1 = underline, 2 = beam.
     #[serde(default)]
     pub cursor_shape: u8,
@@ -136,7 +136,7 @@ pub struct ScreenView {
 
 impl ScreenView {
     fn from_frame(
-        name: &str, seq: u64, cols: u16, rows: u16, off: u16, frame: Frame,
+        name: &str, seq: u64, cols: u16, rows: u16, off: u32, frame: Frame,
         request_id: u64,
     ) -> Self {
         Self {
@@ -1986,7 +1986,7 @@ impl Manager {
     /// `off == 0` or beyond history returns the live frame. `request_id` is echoed through
     /// so the client can reject stale responses.
     pub async fn scroll_capture(
-        &self, name: &str, off: u16, request_id: u64,
+        &self, name: &str, off: u32, request_id: u64,
     ) -> Option<ScreenView> {
         if off == 0 {
             return self.screen(name).await;

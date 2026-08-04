@@ -232,10 +232,13 @@ impl SessionEmu {
 
     /// Restores the live view afterwards; the cursor is always hidden in a history
     /// view. Returns the offset actually reached, clamped to history.
-    pub fn scroll_snapshot(&mut self, off: u16) -> (Frame, u16) {
+    pub fn scroll_snapshot(&mut self, off: u32) -> (Frame, u32) {
+        // u32 off the wire, but the alacritty grid counts in isize; a history beyond
+        // i32::MAX lines is not a thing a terminal holds.
+        let off = off.min(i32::MAX as u32) as i32;
         let cur = self.term.grid().display_offset() as i32;
-        self.term.scroll_display(Scroll::Delta(off as i32 - cur));
-        let achieved = self.term.grid().display_offset() as u16;
+        self.term.scroll_display(Scroll::Delta(off - cur));
+        let achieved = self.term.grid().display_offset() as u32;
         let mut frame = self.render_frame(true);
         self.term.scroll_display(Scroll::Bottom);
         frame.cx = 0;
