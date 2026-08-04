@@ -872,11 +872,7 @@ namespace SlopWorld
             {
                 if (up) _scrollOff += step;
                 else _scrollOff = Mathf.Max(0, _scrollOff - step);
-
-                _wantedScrollOff = _scrollOff;
-                _scrollPending = true;
-                if (Time.realtimeSinceStartup >= _nextScrollSend)
-                    SendPendingScroll();
+                QueueScroll(up);
                 e.Use();
                 return;
             }
@@ -906,14 +902,26 @@ namespace SlopWorld
             // Walk our own scrollback view.
             if (up) _scrollOff += step;
             else _scrollOff = Mathf.Max(0, _scrollOff - step);
+            QueueScroll(up);
+            e.Use();
+        }
 
-            // Leading-edge throttle: the first event sends immediately, subsequent events
-            // ride the beat so a swipe does not take the emulator lock for every tick.
+        // Leading-edge throttle: the first event of a new gesture sends immediately, then
+        // subsequent events ride the beat so a swipe does not take the emulator lock for
+        // every tick. A new gesture is a direction change or an expired beat - either way,
+        // sending at once means a reversal (up then down, say) answers in one round trip
+        // instead of waiting out the previous gesture's beat.
+        bool _lastWheelUp;
+
+        void QueueScroll(bool up)
+        {
+            float now = Time.realtimeSinceStartup;
             _wantedScrollOff = _scrollOff;
             _scrollPending = true;
-            if (Time.realtimeSinceStartup >= _nextScrollSend)
+            bool fresh = up != _lastWheelUp || now >= _nextScrollSend;
+            _lastWheelUp = up;
+            if (fresh)
                 SendPendingScroll();
-            e.Use();
         }
 
         void HandleMouse(Rect body, Event e)
