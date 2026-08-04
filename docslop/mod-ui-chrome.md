@@ -1,0 +1,76 @@
+# Shared UI chrome
+
+## `SlopWidgets`
+
+> Lands with the `refactor/shared-ui-widgets` branch; not on every branch yet.
+
+The chrome drawn in more than one place, and the colours that mean the same thing
+wherever they are drawn - `Dim` for a second line about the thing on the first,
+`Bad` for an error that stays on screen, `Well` behind a text area. **Not a
+theme**: `TerminalTheme` is the pane's, and a view with a palette of its own
+(`FilesView`, `AgentSidebar`, `TopBar`) is naming contrasts for one panel. `Fail`
+is here because every refusal the player is shown wears the same prefix, and a
+message that skipped it would be the one that did not look like ours. Static
+helpers rather than a base class's methods, because half the callers are not
+windows - `ConfigPage` is a category of the options menu and `FilesView` is a
+panel.
+
+`SlopListWindow<T>` is the other half: agents, projects and shortcuts are one
+window drawn three times, so the ctor flags, the size, the header, the scrolling
+list and the footer row live here and a subclass says only `Title`, `RowH`,
+`EmptyNote`, `Rows`, `DrawRow`, `DoFooter`. The empty list's other answer - the
+daemon being down - is `SlopWidgets.Unreachable` and is nobody's to state.
+`Header` lays the status line out from the title's *measured* width, three of
+those figures having been nudged by hand to clear three different titles.
+`Toggle` cannot be inherited (statics are not virtual), so each window keeps its
+own line over `SlopWidgets.ToggleWindow`, which takes a **factory** rather than an
+instance so nothing is built for a toggle that turns out to be a close.
+
+## `SlopLayout`
+
+Which chrome this install wears and how much room the rest of it has to leave:
+zero in the strip layout, and `AgentSidebar.Width`/`TopBar.H` in the other. One
+answer in one place, so nothing else has to know a layout exists.
+
+## `UsageReadout`
+
+Draws the quota windows ([daemon-usage](daemon-usage.md)) as the game's own
+resources, counting what is **left**. A `MapComponent`, so it sits behind every
+window. Icons are assigned per key from `Known`/`Pool` and remembered, or they
+would move between polls - statics, since the same numbers are drawn from the top
+bar as well and an icon that changed with the layout would be a different resource
+for the same window. `DrawStrip` is the same rows along a line, laid out from the
+right so the first window keeps its place as later ones come and go.
+
+- `Chosen` beats `Known` beats the pool: `Settings.usageIcons` is `key=defName` a
+  line, and a key with no line - or one naming a def this build has not got -
+  falls back to the pick that was always made. `Choose` writes and `Invalidate`
+  drops the table, which is the only thing that reopens the question.
+- A money row is `unit: usd` with an amount, and its limit is read as **unsaid at
+  -1** rather than at zero: a wallet with nothing in it has $0 left, and a limit of
+  zero rounded into a percentage would draw an empty account as a full bar.
+  `balance` is the OpenRouter row and wears gold, `spend` silver - what is left of
+  a wallet and what is left of a budget are different questions.
+
+## `TopBar`
+
+The sidebar layout's one line across the top: the current agent on the left, the
+wall clock in the middle, the quota on the right. It starts where the column ends.
+Drawn from `UsageReadout` on the map and from `TerminalWindow` over a pane (for
+the reason the colonist bar is), and `DrawOnMap` stands down while a pane is up
+rather than registering a second copy's tooltips underneath it.
+
+With a pane open this is also its **title bar** - the gear and the cross move to
+the right end and `TerminalWindow` draws no header of its own, so the pane gets
+the whole screen below the line. The agent's own terminal title is what it says;
+only a subscribed session has one, which in practice is the one whose pane is
+open, and the state stands in for the rest.
+
+## Small stuff
+
+- `CoreTip` hangs a loading-screen tip on the persona core, rolled once per hover.
+- `DeadCursor` replaces the pointer with the Tame designator's hand.
+- `MenuBackground` bakes filters from whatever background this install ships and
+  caches them to disk; `Patch_MenuBackgroundRot` hooks the **draw** rather than
+  `Init`, because the loading screen draws the same background without going near
+  `Init`.
