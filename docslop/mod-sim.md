@@ -35,10 +35,20 @@ none of these need a def. See also [mod-plague](mod-plague.md) and
   mends one plant and heals the cat (`Comfort` - nothing here heals by itself).
   `ReviveChance` keeps the mend to every second or third pat. `GraceTicks` is
   temporary and neither table is saved.
+- **`QuitInterceptor`** - an OS close request (Alt+F4, the window manager's button)
+  exits without going through `Root.Shutdown`, so `Patch_SaveOnShutdown` never
+  fires and the colony is lost. `Application.wantsToQuit` cancels the first one,
+  saves on the next frame and then calls `Shutdown` itself; a second request while
+  that save is in flight is let through.
 - **`AutoResume`, `AutoSaver`, `TerminalRecall`** - what makes a restart cheap; none
-  has a switch. `AutoResume` loads the newest save on a cold start and, finding
-  none, calls `QuickStart.Queue`. The player's way in is `Patch_QuickStart`, off
-  `Page_SelectScenario.PreOpen`.
+  has a switch. `AutoSaver`'s interval is real minutes, RimWorld's own being game
+  days (a quarter hour at 1x) on a colony that exists to be restarted; it writes
+  into vanilla's rotating autosave slots so it never overwrites a named save, never
+  lets a failure stop the game closing, and stands down once "next planet" has said
+  the colony is going - a save taken there would hand `AutoResume` a discarded
+  colony to come back to. `AutoResume` loads the newest save on a cold start and,
+  finding none, calls `QuickStart.Queue`. The player's way in is `Patch_QuickStart`,
+  off `Page_SelectScenario.PreOpen`.
 - **`NextPlanet`** - the seam is `OptionListingUtility.DrawOptionListing`, drawn
   *twice* per menu (the second is the web links column), hence the `Column` flag
   armed on the way into `DoMainMenuControls`. The same pass drops four rows,

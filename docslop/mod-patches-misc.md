@@ -3,7 +3,13 @@
 - **`RunInBackground`** - the **setter** is forced, not the getter, because what
   reaches Unity is `PrefsData.Apply` reading the field. Enforced once at startup
   through `LongEventHandler.ExecuteWhenFinished`, `Apply` being a no-op off the
-  main thread.
+  main thread. The frame cap beside it is what makes running in the background
+  affordable, and the sim does not slow with the frames: `TickManagerUpdate` banks
+  `Time.deltaTime` and spends up to 45ms a frame paying it back, so fifteen frames
+  a second is four ticks a frame at exact pace. Below ten it stops banking - the
+  accumulator is *assigned* rather than added once `deltaTime` reaches 0.1 - hence
+  the clearance. vSync comes off with it or the cap does nothing, Unity ignoring
+  `targetFrameRate` while `vSyncCount` is set; both go back as found.
 - **`RealTimePatches`** - every duration the game prints, in real time.
 - **`LoadingScreen`** - the tip pool is cached on the first draw into a static
   nothing rebuilds, and that draw is before any `StaticConstructorOnStartup`, so

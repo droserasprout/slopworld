@@ -59,6 +59,19 @@ the postfix, which is what puts the column over a pane as well as on the map.
   belongs in a save.
 - `Patch_SidebarPawnLabel` declines vanilla's name-under-the-portrait while the
   column draws: the cell is 24px wide there and the name lives beside it.
+- `Patch_SidebarPortraitDraw` replaces the whole of `DrawColonist` with a
+  **close-up of the head** where vanilla draws a body cropped at the hips: the blue
+  background, the mood atlas, bar, overlay and gradient all go with the body, and a
+  stopped agent is greyed rather than crossed. What is left is highlight, selection
+  border, portrait, icons, dead overlay. It draws in the square `Place` laid out
+  rather than working one out - the row, the labels, the click and the portrait are
+  four readers of one table, and the vanilla geometry it replaces (a 46x75 texture
+  hung off the bottom of a 48x48 cell) describes a shape no longer being drawn.
+  Icons are handed the *face box* for the same reason: anchored to the cell they
+  float in the middle of a face. Framing is `FaceZoom` and the pawn's own head z
+  ([gotchas](gotchas.md) - `cameraOffset.y` frames nothing), and the head is
+  rendered standing even when the pawn is downed, `RenderPortrait` turning a downed
+  pawn 85 degrees out of a shot this tight.
 - `Drawing` is cleared from the **finalizer** as well as the front pass, a postfix
   not running when the original throws and that flag being what hides every pawn
   label on the map.
@@ -94,6 +107,12 @@ goes with the agents: `Place` hands back an empty `add`, and
   on a resolution change, so a layout toggled with the pane already up moves it on
   the next open rather than every frame. Dragging the column calls the same
   `Reposition`, or the pane sits still while the panel is pulled over it.
+- `GizmoGridShift` is the other half of moving that pane: the gizmo grid's `startX`
+  is `14 + PaneWidthFor(pane)` and is *not* shifted, so with the pane pushed right
+  the first gizmos end up underneath it (the window stack draws after the map
+  interface). The sidebar inset is added to `startX`. A static flag tells the
+  bottom-of-screen grid (from `DrawGizmoGridFor`) apart from the architect menu's
+  designator grid, which calls `DrawGizmoGrid` from inside its own tab window.
 - Moving that window is not moving its tab row: `InspectPaneUtility.ExtraOnGUI` is
   called by the window *stack*, outside the window's group, so Log, Gear and our
   own Edit are screen coordinates laid out from the pane's width with the pane

@@ -50,6 +50,19 @@
   face, and the style silently falls back to the proportional GUI font. Same trap
   for generated textures (`MenuBackground.Keep`). Mark them
   `HideFlags.DontUnloadUnusedAsset`.
+- **`send-keys -H` tops out around 996 bytes** and fails *silently* past it. The
+  tmux client packs a command's whole argv into one imsg and `-H` costs a byte per
+  argument, so an ordinary paste hits tmux's own "command too long". Anything of a
+  size goes through `load-buffer` from stdin, which has no such ceiling, and
+  `paste-buffer -r` - without `-r` tmux rewrites `\n` to `\r`. No bracketed-paste
+  markers are added either: Ink apps (Claude Code) do not strip them and display a
+  literal `^[[200~`.
+- **A portrait camera's `cameraOffset.y` is the view axis and frames nothing.** The
+  pawn cache camera looks straight down -Y from (0, 10, 0), so z pans the shot and
+  x slides it sideways; vanilla pans in z throughout. `cameraZoom` is `1 /
+  orthographicSize` and `orthographicSize` is *half the framed height in world
+  units*, so it is a window onto the pawn rather than a magnification - vanilla's
+  1.28205 frames 1.56 units, head and torso.
 - `SlopConfig.ToJson` writes whole sections of `config.toml`, so a field missing
   from it is one the settings GUI silently resets to its serde default on any
   unrelated save. Adding one to `[daemon]`, `[defaults]` or `[sandbox]` means

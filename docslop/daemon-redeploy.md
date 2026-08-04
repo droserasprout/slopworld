@@ -18,7 +18,19 @@ of these are needed:
 A restart costs them. `spawn_reader` rebuilds one per running session from
 `capture-pane -e -S -<history_limit>`, then nudges the pane a column narrower and
 back; the SIGWINCH makes the app repaint and hand the fresh emulator the modes a
-text capture cannot carry.
+text capture cannot carry - alternate screen, mouse reporting, cursor shape,
+bracketed paste. A **rename** takes the same nudge: the control reader is pinned
+to the name it attached with, so it is dropped and re-attached, and an idle agent
+has no other reason to repaint.
+
+An alt-screen pane is seeded **either side of the `1049` switch**: a capture is
+the scrollback with the visible pane under it, and tmux hands back the *primary's*
+history even while the alt screen is up. So history goes onto the primary, where a
+wheel and a `1049l` will look for it, and only the visible rows into the alternate
+buffer, which has no scrollback of its own. Poured in whole instead, the history is
+swallowed by the alt buffer and the primary comes back empty the moment the app
+quits; skipping the switch leaves `alt_screen` false through a restart and the mod
+then walks its own scrollback where the app wanted arrow keys.
 
 The **title** is the one thing that repaint does *not* bring back - it is not on
 the screen, and an idle agent never sets one again. tmux parsed the original OSC

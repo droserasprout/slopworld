@@ -49,6 +49,10 @@ journalctl --user -u slopd -f
 ## Tools (none run as part of a build)
 
 - `tools/shot.sh` - grabs the game window. Needs the `x11` preset.
-- `python3 tools/loc.py` - counts code.
+- `python3 tools/loc.py` - counts code. `--docs` adds the markdown;
+  `--comments` prints the C# and Rust comments instead of counting them, markers
+  stripped and neighbouring lines joined, and `--min=N` keeps only blocks of N
+  lines or more - which is how the paragraphs that have grown into documentation
+  are found and moved here.
 - `tools/roboface.py` - draws the agent faceplates into `mod/Textures/`.
 - `tools/fileicons.py` - bakes the files view's icons into `mod/Textures/`.
