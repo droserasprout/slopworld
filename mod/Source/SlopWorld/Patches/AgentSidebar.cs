@@ -787,8 +787,8 @@ namespace SlopWorld
             bool alive = info != null && info.Alive;
             opts.Add(new FloatMenuOption(alive ? "Stop" : "Start", () =>
             {
-                if (alive) hub.Stop(name, Fail);
-                else hub.Start(name, Fail);
+                if (alive) hub.Stop(name, SlopWidgets.Fail);
+                else hub.Start(name, SlopWidgets.Fail);
             }));
 
             var term = new FloatMenuOption("Terminal", () => TerminalWindow.Open(name));
@@ -813,7 +813,7 @@ namespace SlopWorld
                     TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
                         $"Remove session '{name}'? This kills the tmux session and drops it " +
                         "from config.toml.",
-                        () => hub.Remove(name, Fail),
+                        () => hub.Remove(name, SlopWidgets.Fail),
                         destructive: true))));
 
             TerminalWindow.OpenOverPane(new FloatMenu(opts));
@@ -846,7 +846,7 @@ namespace SlopWorld
                 () => TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
                     $"Remove project '{name}'? The directory is left alone; only the entry " +
                     "in config.toml goes.",
-                    () => hub.RemoveProject(name, Fail),
+                    () => hub.RemoveProject(name, SlopWidgets.Fail),
                     destructive: true)));
             del.Disabled = agents > 0;
             opts.Add(del);
@@ -854,8 +854,6 @@ namespace SlopWorld
             TerminalWindow.OpenOverPane(new FloatMenu(opts));
         }
 
-        static void Fail(string msg) =>
-            Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
 
         // ------------------------------------------------------------------ resizing
         //

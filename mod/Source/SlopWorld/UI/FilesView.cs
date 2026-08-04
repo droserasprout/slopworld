@@ -452,7 +452,7 @@ namespace SlopWorld
             SlopClient.Post("/api/clipboard", "{" + $"\"text\":{JVal.Q(text)}" + "}",
                 _ => Messages.Message($"SlopWorld: copied {text}", MessageTypeDefOf.SilentInput,
                     false),
-                Fail);
+                SlopWidgets.Fail);
 
         // A temporary agent running one command in the project's own sandbox, which is what
         // makes `less` see the file the way the agents working on it do. Nothing is typed into
@@ -464,20 +464,18 @@ namespace SlopWorld
             // is clearer said here.
             if (SessionHub.Instance.Project(node.Project) == null)
             {
-                Fail($"project '{node.Project}' has gone");
+                SlopWidgets.Fail($"project '{node.Project}' has gone");
                 return;
             }
 
             SessionHub.Instance.Run(node.Project, cmd + " " + Quote(node.Path),
                 label + "-" + node.Name,
-                session => TerminalWindow.Open(session), Fail);
+                session => TerminalWindow.Open(session), SlopWidgets.Fail);
         }
 
         // The daemon splits a command line into an argv the way a shell would, so a path with
         // a space in it is two arguments unless it says otherwise.
         static string Quote(string path) => "'" + path.Replace("'", "'\\''") + "'";
 
-        static void Fail(string msg) =>
-            Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
     }
 }

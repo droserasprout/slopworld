@@ -45,7 +45,10 @@ namespace SlopWorld
                 ? new SessionInfo { Name = "", Project = project ?? "" }
                 : new SessionInfo
                 {
-                    Name = copy ? FreeName(existing.Name) : existing.Name,
+                    Name = copy
+                        ? SlopWidgets.FreeName(existing.Name,
+                            SessionHub.Instance.Sessions.Select(x => x.Name), "agent")
+                        : existing.Name,
                     Project = existing.Project,
                     Command = existing.Command,
                     Cmd = existing.Cmd,
@@ -91,7 +94,7 @@ namespace SlopWorld
                 PickProject();
 
             var project = SessionHub.Instance.Project(_s.Project);
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            GUI.color = SlopWidgets.Dim;
             l.Label(project != null
                 ? $"{project.Dir}  ({ProjectsWindow.Summary(project)})"
                 : SessionHub.Instance.Projects.Count == 0
@@ -109,7 +112,7 @@ namespace SlopWorld
             // Editable whichever it is: a preset says what an agent is, and this box says
             // what this one runs, which is the same field either way.
             _s.Cmd = l.TextEntry(_s.Cmd ?? "");
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            GUI.color = SlopWidgets.Dim;
             l.Label(CommandNote(preset));
             GUI.color = Color.white;
 
@@ -131,9 +134,9 @@ namespace SlopWorld
 
             rest.Label("Environment variables (overrides)");
             var env = rest.GetRect(96f);
-            Widgets.DrawBoxSolid(env, new Color(0f, 0f, 0f, 0.25f));
+            Widgets.DrawBoxSolid(env, SlopWidgets.Well);
             _env = Widgets.TextArea(env.ContractedBy(4f), _env ?? "");
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            GUI.color = SlopWidgets.Dim;
             rest.Label("One KEY=VALUE a line. Set last of all, so these beat the project's " +
                        "passed variables and any preset's own.");
             GUI.color = Color.white;
@@ -148,26 +151,6 @@ namespace SlopWorld
 
             if (Widgets.ButtonText(new Rect(bar.xMax - 120f, bar.y, 120f, 32f), "Save"))
                 Save();
-        }
-
-        // "claude" -> "claude-2", and a copy of that -> "claude-3" rather than
-        // "claude-2-2". Suggested and not enforced - the daemon still refuses a
-        // collision, which is why the search gives up rather than looping.
-        static string FreeName(string name)
-        {
-            string stem = name ?? "";
-            while (stem.Length > 0 && char.IsDigit(stem[stem.Length - 1]))
-                stem = stem.Substring(0, stem.Length - 1);
-            stem = stem.TrimEnd(' ', '-', '_');
-            if (stem.Length == 0) stem = name ?? "agent";
-
-            var taken = SessionHub.Instance.Sessions.Select(s => s.Name).ToList();
-            for (int n = 2; n <= 99; n++)
-            {
-                string candidate = stem + "-" + n;
-                if (!taken.Contains(candidate)) return candidate;
-            }
-            return stem;
         }
 
         void PickProject()
@@ -240,15 +223,13 @@ namespace SlopWorld
                 x => !x.StartsWith("#") && (x.IndexOf('=') <= 0));
             if (bad != null)
             {
-                Messages.Message($"SlopWorld: '{bad}' is not KEY=VALUE.",
-                    MessageTypeDefOf.RejectInput, false);
+                SlopWidgets.Fail($"'{bad}' is not KEY=VALUE");
                 return;
             }
 
             if (string.IsNullOrEmpty(_s.Name) || string.IsNullOrEmpty(_s.Project))
             {
-                Messages.Message("SlopWorld: name and project are required.",
-                    MessageTypeDefOf.RejectInput, false);
+                SlopWidgets.Fail("name and project are required");
                 return;
             }
 
@@ -261,8 +242,7 @@ namespace SlopWorld
                     if (!_isNew && from != to) AgentColony.Current?.Rename(from, to);
                     Close();
                 },
-                fail: msg => Messages.Message($"SlopWorld: {msg}",
-                    MessageTypeDefOf.RejectInput, false));
+                fail: SlopWidgets.Fail);
         }
     }
 
@@ -295,7 +275,7 @@ namespace SlopWorld
                     _parent = j["parent"].IsNull ? null : j["parent"].AsString();
                     _dirs = j["dirs"].Items.Select(d => d.AsString()).ToArray();
                 },
-                msg => Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false));
+                SlopWidgets.Fail);
         }
 
         public override void DoWindowContents(Rect rect)

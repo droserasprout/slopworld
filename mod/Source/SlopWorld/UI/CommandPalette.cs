@@ -484,19 +484,19 @@ namespace SlopWorld
             {
                 Id = "agent.start", Name = "Agent: Start", Category = "Agent",
                 SubAction = () => AgentsSub(AgentState.Down),
-                Execute = v => { if (v != null) SessionHub.Instance.Start(v, Fail); },
+                Execute = v => { if (v != null) SessionHub.Instance.Start(v, SlopWidgets.Fail); },
             });
             _commands.Add(new Entry
             {
                 Id = "agent.stop", Name = "Agent: Stop", Category = "Agent",
                 SubAction = () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
-                Execute = v => { if (v != null) SessionHub.Instance.Stop(v, Fail); },
+                Execute = v => { if (v != null) SessionHub.Instance.Stop(v, SlopWidgets.Fail); },
             });
             _commands.Add(new Entry
             {
                 Id = "agent.restart", Name = "Agent: Restart", Category = "Agent",
                 SubAction = () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
-                Execute = v => { if (v != null) SessionHub.Instance.Restart(v, Fail); },
+                Execute = v => { if (v != null) SessionHub.Instance.Restart(v, SlopWidgets.Fail); },
             });
             _commands.Add(new Entry
             {
@@ -532,7 +532,7 @@ namespace SlopWorld
                     var name = v;
                     Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                         $"Remove session '{name}'? This kills the tmux session and drops it from config.toml.",
-                        () => SessionHub.Instance.Remove(name, Fail), destructive: true));
+                        () => SessionHub.Instance.Remove(name, SlopWidgets.Fail), destructive: true));
                 },
             });
 
@@ -563,7 +563,7 @@ namespace SlopWorld
                     var name = v;
                     Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                         $"Remove project '{name}'? The directory is left alone; only the entry in config.toml goes.",
-                        () => SessionHub.Instance.RemoveProject(name, Fail), destructive: true));
+                        () => SessionHub.Instance.RemoveProject(name, SlopWidgets.Fail), destructive: true));
                 },
             });
 
@@ -607,7 +607,7 @@ namespace SlopWorld
                     var name = v;
                     Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                         $"Remove shortcut '{name}'? Anything it already started keeps running.",
-                        () => SessionHub.Instance.RemoveShortcut(name, Fail), destructive: true));
+                        () => SessionHub.Instance.RemoveShortcut(name, SlopWidgets.Fail), destructive: true));
                 },
             });
 
@@ -776,7 +776,7 @@ namespace SlopWorld
         static void RunShortcutWith(string name, string project = null, bool temp = false)
         {
             SessionHub.Instance.RunShortcut(name,
-                session => { TerminalWindow.Open(session); }, Fail, project, temp);
+                session => { TerminalWindow.Open(session); }, SlopWidgets.Fail, project, temp);
         }
 
         // --------------------------------------------------------------- filtering
@@ -922,7 +922,5 @@ namespace SlopWorld
             return Mathf.Min(Pad + InputH + 4f + body + Pad, MaxH);
         }
 
-        static void Fail(string msg) =>
-            Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
     }
 }

@@ -47,7 +47,7 @@ namespace SlopWorld
                     action = () => Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                         $"Stop '{session}'? This kills the tmux session; whatever the agent "
                       + "is in the middle of goes with it.",
-                        () => SessionHub.Instance.Stop(session, Fail),
+                        () => SessionHub.Instance.Stop(session, SlopWidgets.Fail),
                         destructive: true)),
                 };
             }
@@ -60,13 +60,11 @@ namespace SlopWorld
                     icon = PowerIcon.StartTex,
                     defaultIconColor = new Color(0.55f, 0.82f, 0.55f),
                     hotKey = SlopDefOf.SlopToggleSession,
-                    action = () => SessionHub.Instance.Start(session, Fail),
+                    action = () => SessionHub.Instance.Start(session, SlopWidgets.Fail),
                 };
             }
         }
 
-        static void Fail(string msg) =>
-            Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
     }
 
     /// <summary>

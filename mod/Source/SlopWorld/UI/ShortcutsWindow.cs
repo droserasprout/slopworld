@@ -9,51 +9,29 @@ namespace SlopWorld
     // Running one lands a *temporary* colonist - never in config.toml, and it walks
     // off the map when its process exits. Which is why the window closes on Run and
     // hands you the terminal: the errand is already underway.
-    public class ShortcutsWindow : Window
+    public class ShortcutsWindow : SlopListWindow<ShortcutInfo>
     {
-        const float RowH = 62f;
-
-        Vector2 _scroll;
-
-        public static void Toggle()
+        public static void Toggle() => SlopWidgets.ToggleWindow(() =>
         {
-            var open = Find.WindowStack.WindowOfType<ShortcutsWindow>();
-            if (open != null) { open.Close(); return; }
-
             SessionHub.Instance.RefreshShortcuts();
             // The rows name a project, and the dialog they open picks one.
             SessionHub.Instance.RefreshProjects();
-            Find.WindowStack.Add(new ShortcutsWindow());
-        }
+            return new ShortcutsWindow();
+        });
 
-        public ShortcutsWindow()
+        protected override string Title => "Shortcuts";
+
+        protected override float RowH => 62f;
+
+        protected override string EmptyNote =>
+            "No shortcuts yet. A prompt one hands an agent something you would " +
+            "otherwise retype; a shell one runs a command in a project's sandbox. " +
+            "Either way the colonist that does it is temporary.";
+
+        protected override IEnumerable<ShortcutInfo> Rows => SessionHub.Instance.Shortcuts;
+
+        protected override void DoFooter(Rect bar, SessionHub hub)
         {
-            doCloseX = true;
-            draggable = true;
-            resizeable = true;
-            preventCameraMotion = false;
-            closeOnClickedOutside = false;
-        }
-
-        public override Vector2 InitialSize => new Vector2(720f, 480f);
-
-        public override void DoWindowContents(Rect rect)
-        {
-            var hub = SessionHub.Instance;
-
-            Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(rect.x, rect.y, 300f, 32f), "Shortcuts");
-            Text.Font = GameFont.Small;
-
-            GUI.color = hub.Online ? new Color(0.5f, 0.8f, 0.5f) : new Color(0.9f, 0.5f, 0.5f);
-            Widgets.Label(new Rect(rect.x + 130f, rect.y + 8f, 400f, 24f),
-                $"{SlopClient.BaseUrl} - {hub.Status}");
-            GUI.color = Color.white;
-
-            float top = rect.y + 40f;
-            DrawList(new Rect(rect.x, top, rect.width, rect.height - top - 40f), hub);
-
-            var bar = new Rect(rect.x, rect.yMax - 32f, rect.width, 30f);
             if (Widgets.ButtonText(new Rect(bar.x, bar.y, 130f, 30f), "Add shortcut"))
                 Find.WindowStack.Add(new EditShortcutDialog(null));
 
@@ -61,41 +39,12 @@ namespace SlopWorld
                 SessionsWindow.Toggle();
 
             if (Widgets.ButtonText(new Rect(bar.x + 276f, bar.y, 130f, 30f), "Reload"))
-                hub.RefreshShortcuts(Fail);
+                hub.RefreshShortcuts(SlopWidgets.Fail);
         }
 
-        void DrawList(Rect rect, SessionHub hub)
+        protected override void DrawRow(Rect r, ShortcutInfo s)
         {
-            var view = new Rect(0f, 0f, rect.width - 18f, hub.Shortcuts.Count * RowH + 4f);
-
-            Widgets.BeginScrollView(rect, ref _scroll, view);
-
-            if (hub.Shortcuts.Count == 0)
-            {
-                GUI.color = new Color(0.6f, 0.6f, 0.6f);
-                Widgets.Label(new Rect(4f, 8f, view.width - 8f, 64f),
-                    hub.Online
-                        ? "No shortcuts yet. A prompt one hands an agent something you would " +
-                          "otherwise retype; a shell one runs a command in a project's sandbox. " +
-                          "Either way the colonist that does it is temporary."
-                        : "Daemon unreachable. Is slopd running?  systemctl --user status slopd");
-                GUI.color = Color.white;
-            }
-
-            float y = 0f;
-            foreach (var s in hub.Shortcuts.ToList())
-            {
-                DrawRow(new Rect(0f, y, view.width, RowH - 4f), s);
-                y += RowH;
-            }
-
-            Widgets.EndScrollView();
-        }
-
-        void DrawRow(Rect r, ShortcutInfo s)
-        {
-            Widgets.DrawBoxSolid(r, new Color(1f, 1f, 1f, 0.03f));
-            Widgets.DrawHighlightIfMouseover(r);
+            SlopWidgets.RowChrome(r);
 
             Widgets.Label(new Rect(r.x + 8f, r.y + 4f, 220f, 22f), s.Name);
 
@@ -107,7 +56,7 @@ namespace SlopWorld
             Widgets.Label(new Rect(r.x + 232f, r.y + 4f, 70f, 22f),
                 s.Kind == ShortcutKind.Shell ? "shell" : "prompt");
 
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            GUI.color = SlopWidgets.Dim;
             Widgets.Label(new Rect(r.x + 302f, r.y + 4f, r.width - 480f, 22f), Where(s));
 
             // One line: the box that edits it is where the rest lives, and a row that grew
@@ -142,7 +91,7 @@ namespace SlopWorld
                 var name = s.Name;
                 Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                     $"Remove shortcut '{name}'? Anything it already started keeps running.",
-                    () => SessionHub.Instance.RemoveShortcut(name, Fail),
+                    () => SessionHub.Instance.RemoveShortcut(name, SlopWidgets.Fail),
                     destructive: true));
             }
         }
@@ -157,7 +106,7 @@ namespace SlopWorld
                     Close();
                     TerminalWindow.Open(session);
                 },
-                Fail, project, temp);
+                SlopWidgets.Fail, project, temp);
         }
 
         // Every project, plus a temporary one - last, being the answer for the run that
@@ -198,9 +147,6 @@ namespace SlopWorld
             int nl = text.IndexOf('\n');
             return nl < 0 ? text : text.Substring(0, nl) + " ...";
         }
-
-        static void Fail(string msg) =>
-            Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
     }
 
     // The command box is greyed rather than hidden when it is empty, so the thing
@@ -286,7 +232,7 @@ namespace SlopWorld
             }
 
             var project = SessionHub.Instance.Project(_s.Project);
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
+            GUI.color = SlopWidgets.Dim;
             l.Label(Explain(project));
             GUI.color = Color.white;
 
@@ -319,7 +265,7 @@ namespace SlopWorld
             y += 24f;
 
             var area = new Rect(rect.x, y, rect.width, rect.yMax - y - 40f);
-            Widgets.DrawBoxSolid(area, new Color(0f, 0f, 0f, 0.25f));
+            Widgets.DrawBoxSolid(area, SlopWidgets.Well);
             _s.Text = Widgets.TextArea(area.ContractedBy(4f), _s.Text ?? "");
 
             var bar = new Rect(rect.x, rect.yMax - 36f, rect.width, 32f);

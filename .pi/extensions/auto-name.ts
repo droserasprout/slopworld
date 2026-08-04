@@ -1,0 +1,108 @@
+/**
+ * Auto-name pi sessions from the first user prompt.
+ *
+ * Fires a cheap OpenRouter model to summarise the first message into <=6 words
+ * and calls `pi.setSessionName()`, which updates the terminal window title and
+ * the session selector.  Fire-and-forget: the agent starts immediately, the
+ * title arrives a beat later.
+ *
+ * Needs `OPENROUTER_API_KEY` in the environment (the pi sandbox already
+ * forwards it).  Silently skips if the key is missing, the session already
+ * has a name, or the summariser fails.
+ *
+ * Project-local extension (`.pi/extensions/`), loaded only when pi's cwd is
+ * inside the slopworld project directory.  No global install, no bind mounts.
+ */
+
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+const SUMMARY_MODEL = "google/gemini-2.0-flash-lite";
+const TIMEOUT_MS = 5_000;
+const MAX_PROMPT_CHARS = 2000;
+const MAX_TITLE_CHARS = 60;
+
+export default function (pi: ExtensionAPI) {
+	pi.on("before_agent_start", async (event, _ctx) => {
+		// Only name the session once.  A manual `/name` or a previous summariser
+		// call already filled this in.
+		if (pi.getSessionName() !== undefined) return;
+
+		const prompt = (event.prompt ?? "").trim();
+		if (!prompt) return;
+
+		const key = process.env.OPENROUTER_API_KEY;
+		if (!key) return;
+
+		// Truncate to keep the summariser cheap and fast.
+		// A full diff or log is wasted on a 6-word title.
+		const text = prompt.slice(0, MAX_PROMPT_CHARS);
+
+		// Fire-and-forget: the agent starts immediately, the title arrives
+		// a beat later.  Own timeout so we don't depend on the turn's signal.
+		void nameFromPrompt(text, key, pi);
+	});
+}
+
+async function nameFromPrompt(
+	text: string,
+	key: string,
+	pi: ExtensionAPI,
+): Promise<void> {
+	const ac = new AbortController();
+	const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
+
+	try {
+		const res = await fetch(
+			"https://openrouter.ai/api/v1/chat/completions",
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${key}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					model: SUMMARY_MODEL,
+					messages: [
+						{
+							role: "user",
+							content: [
+								"Summarise this coding request in ≤6 words for a session title.",
+								"Reply with only the title — no quotes, no punctuation, no commentary.",
+								"",
+								text,
+							].join("\n"),
+						},
+					],
+					max_tokens: 24,
+					temperature: 0,
+				}),
+				signal: ac.signal,
+			},
+		);
+
+		if (!res.ok) {
+			// 401 / 402 / 429 are common and mean nothing actionable here.
+			return;
+		}
+
+		const body = (await res.json()) as {
+			choices?: Array<{ message?: { content?: string } }>;
+		};
+		const raw = body?.choices?.[0]?.message?.content?.trim() ?? "";
+		if (!raw) return;
+
+		// Strip any remaining quotes, trailing punctuation, and truncate.
+		const title = raw
+			.replace(/^["'\u201C\u201D]+|["'\u201C\u201D]+$/g, "")
+			.replace(/[.!]+$/, "")
+			.slice(0, MAX_TITLE_CHARS)
+			.trim();
+
+		if (title) pi.setSessionName(title);
+	} catch {
+		// Network error, timeout, aborted — nothing to do.
+		// The session stays unnamed and `/name` still works.
+	} finally {
+		clearTimeout(timer);
+	}
+}
