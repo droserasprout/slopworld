@@ -42,6 +42,12 @@ namespace SlopWorld
         public static OptionCategoryDef UsageCategory { get; private set; }
         public static OptionCategoryDef AboutCategory { get; private set; }
 
+        // The two plain-text headings in the column, not tabs: "SlopWorld" over our
+        // pages and "RimWorld" over the game's. They take a slot for the column's fixed
+        // pitch but are drawn as dim text and take no clicks, so never a selection.
+        public static OptionCategoryDef SlopWorldLabel { get; private set; }
+        public static OptionCategoryDef RimWorldLabel { get; private set; }
+
         // Rebuilt per open, so a config edited elsewhere - or a daemon that was down last
         // time - is re-read rather than remembered.
         static ConfigPage _page;
@@ -59,50 +65,53 @@ namespace SlopWorld
                 return;
             }
 
-            Category = new OptionCategoryDef
-            {
-                defName = "SlopWorld_Config",
-                label = "SlopWorld",
-                // Dialog_Options draws a category only if its def came from an official
-                // mod, and asks the def's own pack. Ours is Core's as far as that goes;
-                // the icon and the row are drawn by hand below, so texPath is never read.
-                modContentPack = general.modContentPack,
-                texPath = general.texPath,
-            };
+            // The column, from the top down to where the game's own tabs begin: a
+            // "SlopWorld" heading, the three pages under it - the config page named
+            // General, the quotas, the About page - then a "RimWorld" heading above the
+            // game's own categories. The headings are OptionCategoryDefs so they keep the
+            // column's fixed pitch, but they are drawn as dim text and take no clicks
+            // (Patch_OptionsRow_Section).
+            SlopWorldLabel = Section("SlopWorld_Section", "SlopWorld", general);
+            Category = Section("SlopWorld_Config", "General", general);
+            UsageCategory = Section("SlopWorld_Usage", "Usage", general);
+            AboutCategory = Section("SlopWorld_About", "About", general);
+            RimWorldLabel = Section("SlopWorld_RimWorldSection", "RimWorld", general);
 
+            DefDatabase<OptionCategoryDef>.Add(SlopWorldLabel);
             DefDatabase<OptionCategoryDef>.Add(Category);
+            DefDatabase<OptionCategoryDef>.Add(UsageCategory);
+            DefDatabase<OptionCategoryDef>.Add(AboutCategory);
+            DefDatabase<OptionCategoryDef>.Add(RimWorldLabel);
 
             // AllDefsListForReading is the database's own list, and the column is drawn in
-            // its order. Added last, moved to the front.
+            // its order. Taken from wherever they sat and laid out at the head, with the
+            // game's own categories following the "RimWorld" heading untouched.
             var all = DefDatabase<OptionCategoryDef>.AllDefsListForReading;
+            all.Remove(SlopWorldLabel);
             all.Remove(Category);
-            all.Insert(0, Category);
-
-            // The quotas, second: what the daemon is allowed to ask about and what the
-            // answers look like along the top. Off the config page rather than on it,
-            // there being two sellers to keep apart and a palette to draw.
-            UsageCategory = new OptionCategoryDef
-            {
-                defName = "SlopWorld_Usage",
-                label = "Usage",
-                modContentPack = general.modContentPack,
-                texPath = general.texPath,
-            };
-            DefDatabase<OptionCategoryDef>.Add(UsageCategory);
             all.Remove(UsageCategory);
-            all.Insert(1, UsageCategory);
+            all.Remove(AboutCategory);
+            all.Remove(RimWorldLabel);
+            all.Insert(0, SlopWorldLabel);
+            all.Insert(1, Category);
+            all.Insert(2, UsageCategory);
+            all.Insert(3, AboutCategory);
+            all.Insert(4, RimWorldLabel);
+        }
 
-            // The About tab, last in the column. Same def pattern: Core's mod pack so it
-            // is drawn, and the row is drawn by hand below.
-            AboutCategory = new OptionCategoryDef
+        // One of the column's defs, all the same official-pack shape so fruit is drawn.
+        // Dialog_Options draws a category only if its def came from an official mod, and
+        // asks the def's own pack. Ours is Core's as far as that goes; the icon and the
+        // row are drawn by hand below, so texPath is never read.
+        static OptionCategoryDef Section(string defName, string label, OptionCategoryDef general)
+        {
+            return new OptionCategoryDef
             {
-                defName = "SlopWorld_About",
-                label = "About",
+                defName = defName,
+                label = label,
                 modContentPack = general.modContentPack,
                 texPath = general.texPath,
             };
-            DefDatabase<OptionCategoryDef>.Add(AboutCategory);
-            // Already at the end: AllDefsListForReading appends, and nothing moves it.
         }
 
         // The `config` main button. Toggles rather than stacks, and opens on our own
@@ -267,6 +276,27 @@ namespace SlopWorld
             }
         }
 
+        // The two headings in the column: "SlopWorld" above our pages and "RimWorld"
+        // above the game's. Not a row - no background and no click, just the group's name
+        // drawn dim in the slot a row would take, so the column's fixed pitch is kept.
+        // Taking no click means one of these can never become the selected category.
+        [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
+        public static class Patch_OptionsRow_Section
+        {
+            static bool Prefix(Dialog_Options __instance, Rect r, OptionCategoryDef optionCategory)
+            {
+                if (optionCategory != SlopWorldLabel && optionCategory != RimWorldLabel)
+                    return true;
+
+                Text.Font = GameFont.Small;
+                GUI.color = SlopWidgets.Dim;
+                Widgets.Label(new Rect(r.x + 10f, r.y, r.width - 20f, r.height),
+                    optionCategory.label);
+                GUI.color = Color.white;
+                return false;
+            }
+        }
+
         // Vanilla's dispatch is a chain of comparisons against its own eight categories, so
         // ours would fall through it and draw nothing. Taken before the chain rather than
         // after: the page is two columns and its own scroll view, not rows on the
@@ -352,8 +382,8 @@ namespace SlopWorld
 
         // ---------------------------------------------------------------- About
 
-        // The About row, drawn after the SlopWorld row. Same shape as Patch_OptionsRow
-        // but with the RimWorld blog icon rather than the terminal ">_".
+        // The About row, under the Usage row. Same shape as Patch_OptionsRow but with
+        // the RimWorld blog icon rather than the terminal ">_".
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
         public static class Patch_OptionsRow_About
         {
