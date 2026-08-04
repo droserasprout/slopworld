@@ -165,11 +165,10 @@ namespace SlopWorld
             if (Widgets.ButtonText(new Rect(row.x, row.y, w, 30f), "Connection..."))
                 Find.WindowStack.Add(new Dialog_ModSettings(SlopWorldMod.Instance));
 
-            // Judged against a running pane, which is why it is also on the terminal's own
-            // gear. Reachable from both, because a setting you can find in one place only,
-            // and that place a running agent, reads as a setting that does not exist.
+            // The terminal's own settings are now a tab of this same dialog, left of
+            // Usage: the honest answer to the press is a tab swap rather than a window.
             if (Widgets.ButtonText(new Rect(row.x + w + 8f, row.y, w, 30f), "Appearance..."))
-                TerminalSettingsWindow.Open();
+                SlopOptions.OpenTerminalTab();
         }
 
         // This page's own window, which sits in the room the column and the line

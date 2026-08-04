@@ -48,9 +48,14 @@ namespace SlopWorld
         public static OptionCategoryDef SlopWorldLabel { get; private set; }
         public static OptionCategoryDef RimWorldLabel { get; private set; }
 
+        // The terminal-appearance tab, between General and Usage. Same def pattern as the
+        // others: Core's mod pack so it is drawn, and the gear icon is drawn by hand below.
+        public static OptionCategoryDef TerminalCategory { get; private set; }
+
         // Rebuilt per open, so a config edited elsewhere - or a daemon that was down last
         // time - is re-read rather than remembered.
         static ConfigPage _page;
+        static TerminalPage _terminalPage;
         static UsagePage _usagePage;
         static AboutPage _aboutPage;
 
@@ -73,12 +78,14 @@ namespace SlopWorld
             // (Patch_OptionsRow_Section).
             SlopWorldLabel = Section("SlopWorld_Section", "SlopWorld", general);
             Category = Section("SlopWorld_Config", "General", general);
+            TerminalCategory = Section("SlopWorld_Terminal", "Terminal", general);
             UsageCategory = Section("SlopWorld_Usage", "Usage", general);
             AboutCategory = Section("SlopWorld_About", "About", general);
             RimWorldLabel = Section("SlopWorld_RimWorldSection", "RimWorld", general);
 
             DefDatabase<OptionCategoryDef>.Add(SlopWorldLabel);
             DefDatabase<OptionCategoryDef>.Add(Category);
+            DefDatabase<OptionCategoryDef>.Add(TerminalCategory);
             DefDatabase<OptionCategoryDef>.Add(UsageCategory);
             DefDatabase<OptionCategoryDef>.Add(AboutCategory);
             DefDatabase<OptionCategoryDef>.Add(RimWorldLabel);
@@ -89,14 +96,16 @@ namespace SlopWorld
             var all = DefDatabase<OptionCategoryDef>.AllDefsListForReading;
             all.Remove(SlopWorldLabel);
             all.Remove(Category);
+            all.Remove(TerminalCategory);
             all.Remove(UsageCategory);
             all.Remove(AboutCategory);
             all.Remove(RimWorldLabel);
             all.Insert(0, SlopWorldLabel);
             all.Insert(1, Category);
-            all.Insert(2, UsageCategory);
-            all.Insert(3, AboutCategory);
-            all.Insert(4, RimWorldLabel);
+            all.Insert(2, TerminalCategory);
+            all.Insert(3, UsageCategory);
+            all.Insert(4, AboutCategory);
+            all.Insert(5, RimWorldLabel);
         }
 
         // One of the column's defs, all the same official-pack shape so fruit is drawn.
@@ -127,6 +136,17 @@ namespace SlopWorld
 
             TerminalWindow.OpenOverPane(
                 Category != null ? new Dialog_Options(Category) : new Dialog_Options());
+        }
+
+        // From the General page, jump to the Terminal page in the dialog that is already
+        // open. The "Appearance..." button used to open a floating window; with the pane's
+        // settings a tab of this same dialog, the honest answer to the press is a tab swap.
+        public static void OpenTerminalTab()
+        {
+            var w = Find.WindowStack?.WindowOfType<Dialog_Options>();
+            if (w == null) return;
+            w.selectedCategory = TerminalCategory;
+            w.selectedMod = null;
         }
 
         // A save is a write of the *whole* file - every page here PUTs the sections it knows
@@ -318,19 +338,69 @@ namespace SlopWorld
             }
         }
 
-        // Dropped on the way out, so the next open re-reads config.toml.
+        // Dropped on the way out, so the next open re-reads config.toml. The terminal
+        // page also writes the settings file here, once, the way the window it replaced
+        // did on close.
         [HarmonyPatch(typeof(Dialog_Options), nameof(Dialog_Options.PreClose))]
         public static class Patch_OptionsClose
         {
-            static void Postfix() { _page = null; _usagePage = null; _aboutPage = null; }
+            static void Postfix()
+            {
+                _page = null; _terminalPage = null; _usagePage = null; _aboutPage = null;
+                SlopWorldMod.Instance.settings.Write();
+            }
+        }
+
+
+        // ---------------------------------------------------------------- terminal
+
+        // The Terminal row, between General and Usage. Drawn with the gear icon that used
+        // to live in the pane's title bar: the page is about the pane's look, and the gear
+        // is the setting it was in the old floating window.
+        [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
+        public static class Patch_OptionsRow_Terminal
+        {
+            static bool Prefix(Dialog_Options __instance, Rect r, OptionCategoryDef optionCategory)
+            {
+                if (optionCategory != TerminalCategory) return true;
+
+                Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
+                if (Widgets.ButtonInvisible(r))
+                {
+                    __instance.selectedCategory = optionCategory;
+                    __instance.selectedMod = null;
+                    SoundDefOf.Click.PlayOneShotOnCamera();
+                }
+
+                float x = r.x + 10f;
+                GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
+                    GearIcon.Tex);
+                x += 30f;
+                Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
+                return false;
+            }
+        }
+
+        // The dispatch for the Terminal page, taken before vanilla's chain.
+        [HarmonyPatch(typeof(Dialog_Options), "DoOptions")]
+        public static class Patch_OptionsPage_Terminal
+        {
+            static bool Prefix(OptionCategoryDef category, Rect inRect)
+            {
+                if (category != TerminalCategory) return true;
+
+                if (_terminalPage == null) _terminalPage = new TerminalPage();
+                _terminalPage.Draw(inRect);
+                return false;
+            }
         }
 
 
         // ---------------------------------------------------------------- usage
 
-        // The Usage row, between SlopWorld and whatever vanilla draws next. Same shape as
-        // the row above, with a lump of silver on it: the page is about resources, and the
-        // readout draws them as the game's own.
+        // The Usage row, between Terminal and About. Same shape as the row above, with a
+        // lump of silver on it: the page is about resources, and the readout draws them
+        // as the game's own.
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
         public static class Patch_OptionsRow_Usage
         {

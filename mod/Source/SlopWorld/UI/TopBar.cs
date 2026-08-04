@@ -70,8 +70,10 @@ namespace SlopWorld
             e.Use();
         }
 
-        // The gear and the cross, in the corner they are in without this layout. Answers the
-        // left edge of what it drew, so the quota starts clear of them.
+        // The cross, in the corner it is in without this layout. Answers the left edge of
+        // what it drew, so the quota starts clear of it. The gear that used to sit beside
+        // the cross moved to a tab of the options dialog, where the pane's settings are a
+        // page in the same dialog the General tab opens.
         static float Buttons(Rect r, TerminalWindow pane, bool interactive)
         {
             float y = r.y + (r.height - IconSize) / 2f;
@@ -82,12 +84,7 @@ namespace SlopWorld
                 && interactive)
                 pane.Close();
 
-            var gear = new Rect(cross.x - 4f - IconSize, y, IconSize, IconSize);
-            TooltipHandler.TipRegion(gear, "Terminal settings - font size and colours");
-            if (Widgets.ButtonImage(gear, GearIcon.Tex, IconIdle, Color.white) && interactive)
-                TerminalSettingsWindow.Open();
-
-            return gear.x;
+            return cross.x;
         }
 
         // The current agent is whichever pane is open, or with none the agent the map is

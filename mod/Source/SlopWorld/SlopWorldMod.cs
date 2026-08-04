@@ -12,8 +12,8 @@ namespace SlopWorld
     // tests. What is left is about this machine and about the eyes reading it, never
     // about the design: where the daemon is, and what a pane looks like on this screen.
     //
-    // The pane's half of that is edited in TerminalSettingsWindow rather than here, but
-    // it is scribed here, because there is one settings file.
+    // The pane's half of that is edited on the Terminal page of the options dialog
+    // rather than here, but it is scribed here, because there is one settings file.
     public class SlopSettings : ModSettings
     {
         public string host = "127.0.0.1";

@@ -5,70 +5,56 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The pane's own settings, opened off the pane. Font size and palette are the two
-    // things nobody can judge from a number - you set them by looking at a terminal, and
-    // Options > Mod settings is behind a menu the terminal covers. So the gear is in the
-    // title bar and this is what it opens.
+    // The pane's own settings, as a page of the options menu rather than a window of its
+    // own. Font size and palette are the two things nobody can judge from a number - you
+    // set them by looking at a terminal - so the preview is drawn live at the foot of the
+    // page, same style, same glyphs, and every control invalidates the pane's style as it
+    // moves so a pane underneath changes with it.
     //
-    // Everything here writes through as it moves: the pane under the window redraws in
-    // the new scheme as the float menu closes. The file is written once, on the way out.
-    public class TerminalSettingsWindow : Window
+    // A page rather than a Window because SlopOptions hangs it off an OptionCategoryDef,
+    // the same way ConfigPage and UsagePage are. It owns no chrome and closes with the
+    // dialog around it; the settings file is written once, on the dialog's close. See
+    // SlopOptions.
+    public class TerminalPage
     {
-        public static void Open()
-        {
-            if (Find.WindowStack == null) return;
-
-            var open = Find.WindowStack.WindowOfType<TerminalSettingsWindow>();
-            if (open != null) { open.Close(); return; }
-
-            // Over the pane, or an ordinary dialog is added underneath a full-screen
-            // terminal and never seen.
-            TerminalWindow.OpenOverPane(new TerminalSettingsWindow());
-        }
-
-        public TerminalSettingsWindow()
-        {
-            doCloseX = true;
-            draggable = true;
-            absorbInputAroundWindow = true;
-            onlyOneOfTypeAllowed = true;
-            // Not close-on-click-outside: outside is the terminal, and a stray click that
-            // shut the settings would also be a keystroke aimed at an agent.
-            closeOnClickedOutside = false;
-            optionalTitle = "Terminal Settings";
-        }
-
-        public override Vector2 InitialSize => new Vector2(470f, 670f);
+        Vector2 _scroll;
+        // Last frame's measured height for the field column, for the scroll view.
+        float _fieldsH;
 
         static SlopSettings S => SlopWorldMod.Instance.settings;
 
-        public override void PostClose()
-        {
-            base.PostClose();
-            // Once, here, rather than on every drag of the slider: the pane has been
-            // following the fields all along, and the file only has to agree by the time the
-            // window is gone.
-            S.Write();
-        }
-
-        public override void DoWindowContents(Rect rect)
+        public void Draw(Rect rect)
         {
             var s = S;
             Text.Font = GameFont.Small;
+
+            GUI.color = SlopWidgets.Dim;
+            Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f),
+                "The pane's look - font, palette and cursor.");
+            GUI.color = Color.white;
+
+            var body = new Rect(rect.x, rect.y + 28f, rect.width, rect.height - 28f - 40f);
+            Widgets.DrawMenuSection(body);
+            var inner = body.ContractedBy(12f);
 
             // Taken first: the cell size the preview is laid out from is settled inside the
             // style's getter, and on the first frame there is no cell yet.
             var style = TerminalFont.Style;
 
             float ph = Mathf.Clamp(TerminalFont.CellH * PreviewRows + 10f, 70f, 190f);
-            var preview = new Rect(rect.x, rect.yMax - ph, rect.width, ph);
-            var caption = new Rect(rect.x, preview.y - 24f, rect.width, 22f);
+            var preview = new Rect(inner.x, inner.yMax - ph, inner.width, ph);
+            var caption = new Rect(inner.x, preview.y - 24f, inner.width, 22f);
 
-            // Begun on the room there is, and one column: a Listing_Standard given less
-            // height than its contents starts a second column off the right edge rather than
-            // overflowing, which drops the text field over the top of the form.
+            // The fields scroll if the room is short; the preview stays put at the foot.
+            var form = new Rect(inner.x, inner.y, inner.width, caption.y - inner.y - 6f);
+            var view = new Rect(0f, 0f, form.width - 18f, Mathf.Max(_fieldsH, form.height));
+            Widgets.BeginScrollView(form, ref _scroll, view);
+
+            // One column: a Listing_Standard given less height than its contents starts a
+            // second column off the right edge rather than overflowing, which drops a text
+            // field over the preview.
             var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(new Rect(rect.x, rect.y, rect.width, caption.y - rect.y - 6f));
+            l.Begin(new Rect(0f, 0f, view.width, 4000f));
 
             if (l.ButtonText($"Font: {(s.fontName.NullOrEmpty() ? "Automatic" : s.fontName)}"))
             {
@@ -127,7 +113,10 @@ namespace SlopWorld
                 GUI.color = Color.white;
             }
 
+            _fieldsH = l.CurHeight + 8f;
             l.End();
+
+            Widgets.EndScrollView();
 
             // Re-taken: moving the slider invalidated the style a few lines up, so the one
             // from before it is a size out of date and the preview would sit a frame behind
@@ -164,7 +153,7 @@ namespace SlopWorld
         const int PreviewRows = 5;
         const float PreviewPad = 5f;
 
-        // Both settings at once, which is the whole reason they share a window: the size
+        // Both settings at once, which is the whole reason they share a page: the size
         // and the palette are each half of what a pane looks like, and neither reads off a
         // slider. Drawn the way the pane draws - same style, same cell, same rule under a
         // link, same glyph put back over a block cursor - so what is judged here is what
