@@ -668,6 +668,9 @@ namespace SlopWorld
         // Blinks on a half-second beat unless the app asked for a steady cursor.
         void DrawCursor(Rect body, ScreenBuf buf, float cw, float ch)
         {
+            // No cursor on a historical frame: the daemon hides it, but the frame still
+            // carries cursor coordinates from the render snapshot.
+            if (buf.Off > 0) return;
             if (buf.Cy >= buf.Rows) return;
             if (buf.CursorBlink && (int)(Time.realtimeSinceStartup * 2f) % 2 != 0)
                 return;
@@ -862,6 +865,22 @@ namespace SlopWorld
             int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
             bool up = e.delta.y < 0;
 
+            // Already in scrollback: stay there, whatever the live app is doing.
+            // The app mode check below would otherwise hijack the wheel and send it
+            // into the live app while the user is reading historical output.
+            if (_scrollOff > 0)
+            {
+                if (up) _scrollOff += step;
+                else _scrollOff = Mathf.Max(0, _scrollOff - step);
+
+                _wantedScrollOff = _scrollOff;
+                _scrollPending = true;
+                if (Time.realtimeSinceStartup >= _nextScrollSend)
+                    SendPendingScroll();
+                e.Use();
+                return;
+            }
+
             // App wants the mouse: forward wheel reports at the pointer cell. Batched - `step`
             // is one tmux write, not one tmux process per scrolled line.
             if (live != null && live.AppMouse)
@@ -884,7 +903,7 @@ namespace SlopWorld
                 return;
             }
 
-            // Otherwise walk our own scrollback view.
+            // Walk our own scrollback view.
             if (up) _scrollOff += step;
             else _scrollOff = Mathf.Max(0, _scrollOff - step);
 
