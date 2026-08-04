@@ -22,5 +22,5 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ureq = { version = "3.3.0", default-features = false, features = ["rustls", "json"] }
 
 [profile.release]
-lto = true
+lto = "thin"
 strip = true
