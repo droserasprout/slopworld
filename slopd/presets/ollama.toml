@@ -1,0 +1,6 @@
+[[sandbox]]
+name = "ollama"
+category = "ai"
+description = "Ollama local model runner: models, config, and the server socket"
+ro = ["~/.ollama"]
+env = ["OLLAMA_HOST", "OLLAMA_MODELS", "OLLAMA_CONTEXT_LENGTH"]

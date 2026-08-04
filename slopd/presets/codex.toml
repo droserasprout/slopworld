@@ -1,0 +1,21 @@
+[[sandbox]]
+name = "codex"
+category = "agent"
+description = "OpenAI Codex CLI's own state, config, auth, and session data"
+rw = [
+    "~/.codex",
+]
+env = [
+    "CODEX_HOME",
+    "OPENAI_API_KEY",
+    "OPENAI_BASE_URL",
+    "OPENAI_ORG_ID",
+    "OPENAI_PROJECT_ID",
+]
+
+[[command]]
+name = "codex"
+category = "agent"
+description = "OpenAI Codex CLI"
+cmd = "codex"
+sandbox = ["codex"]

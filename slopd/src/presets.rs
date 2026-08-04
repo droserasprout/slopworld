@@ -60,9 +60,12 @@ struct PresetFile {
 /// them are builtins a redeploy silently disagrees with.
 const BUILTIN: &[(&str, &str)] = &[
     ("claude", include_str!("../presets/claude.toml")),
+    ("codex", include_str!("../presets/codex.toml")),
     ("opencode", include_str!("../presets/opencode.toml")),
     ("pi", include_str!("../presets/pi.toml")),
+    ("psql", include_str!("../presets/psql.toml")),
     ("shell", include_str!("../presets/shell.toml")),
+    ("zsh", include_str!("../presets/zsh.toml")),
     ("dbus", include_str!("../presets/dbus.toml")),
     ("systemd", include_str!("../presets/systemd.toml")),
     ("x11", include_str!("../presets/x11.toml")),
@@ -81,6 +84,7 @@ const BUILTIN: &[(&str, &str)] = &[
     ("gh", include_str!("../presets/gh.toml")),
     ("aws", include_str!("../presets/aws.toml")),
     ("kube", include_str!("../presets/kube.toml")),
+    ("ollama", include_str!("../presets/ollama.toml")),
 ];
 
 #[derive(Debug, Default)]
