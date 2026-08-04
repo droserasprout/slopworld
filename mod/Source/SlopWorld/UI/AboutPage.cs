@@ -16,26 +16,19 @@ namespace SlopWorld
     // rimworldgame.com once per process.
     public class AboutPage
     {
-        // Built once per open, because the list of expansions is stable.
+        // Built once per open, because the list of links is stable.
         List<ListableOption> _links;
 
         public void Draw(Rect rect)
         {
-            // Split the page: version info on the left, web links on the right.
-            // The links want a narrower column and the info wants width for the
-            // version string and the Steam name.
-            float rightW = Mathf.Min(145f + 17f, rect.width * 0.4f);
-            float leftW = rect.width - rightW - 12f;
-            var left = new Rect(rect.x, rect.y, leftW, rect.height);
-            var right = new Rect(rect.xMax - rightW, rect.y, rightW, rect.height);
-
-            DrawVersionInfo(left);
-            DrawWebLinks(right);
+            // One column, left-aligned: version info on top, the web links below
+            // it. The links are plain rows now, not a boxed column on the right.
+            float y = DrawVersionInfo(rect, rect.y);
+            DrawWebLinks(rect, y);
         }
 
-        void DrawVersionInfo(Rect r)
+        float DrawVersionInfo(Rect r, float y)
         {
-            float y = r.y;
 
             Text.Font = GameFont.Small;
             GUI.color = new Color(0.65f, 0.66f, 0.68f);
@@ -79,44 +72,23 @@ namespace SlopWorld
                 y += 54f;
             }
 
-            y += 12f;
-
-            // Expansion icons, reproduced from MainMenuDrawer.DoExpansionIcons
-            GUI.color = new Color(0.65f, 0.66f, 0.68f);
-            Widgets.Label(new Rect(r.x, y, r.width, 22f), "Expansions");
-            GUI.color = Color.white;
-            y += 24f;
-
-            var exps = ModLister.AllExpansions;
-            float x = r.x;
-            for (int i = 0; i < exps.Count; i++)
-            {
-                if (exps[i].isCore) continue;
-                var icon = exps[i].Icon;
-                if (icon == null) continue;
-                var irect = new Rect(x, y, 64f, 64f);
-                GUI.DrawTexture(irect, icon);
-                TooltipHandler.TipRegion(irect, exps[i].label);
-                x += 64f + 8f;
-            }
+            return y + 12f;
         }
 
-        void DrawWebLinks(Rect r)
+        void DrawWebLinks(Rect r, float y)
         {
             if (_links == null)
                 _links = BuildLinks();
 
-            Widgets.DrawMenuSection(r);
-            var inner = r.ContractedBy(8f);
             // The links are drawn with the same OptionListingUtility the main
-            // menu uses, so they look and behave the same way.
-            float used = OptionListingUtility.DrawOptionListing(inner, _links);
-            // If the links filled the column, nothing more to do.
-            if (used >= inner.height) return;
+            // menu uses, so they look and behave the same way - plain left-aligned
+            // rows, no container around them.
+            float used = OptionListingUtility.DrawOptionListing(
+                new Rect(r.x, y, r.width, 1000f), _links);
+            y += used + 8f;
 
             // The language selector, below the web links.
-            float top = inner.y + used + 8f;
-            if (Widgets.ButtonText(new Rect(inner.x, top, inner.width, 30f),
+            if (Widgets.ButtonText(new Rect(r.x, y, r.width, 30f),
                     LanguageDatabase.activeLanguage.FriendlyNameNative))
             {
                 var opts = new List<FloatMenuOption>();

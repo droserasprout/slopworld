@@ -351,12 +351,7 @@ namespace SlopWorld
             }
         }
 
-        // Expansion icons at the bottom of the main menu. They are shown in the About
-        // tab instead.
-        [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.DoExpansionIcons))]
-        public static class Patch_ExpansionIcons
-        {
-            static bool Prefix() => false;
-        }
+        // Expansion icons at the bottom of the main menu are left alone: the About
+        // tab no longer draws its own copy of them.
     }
 }
