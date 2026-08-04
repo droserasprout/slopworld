@@ -54,9 +54,13 @@ namespace SlopWorld
         // a pane is subscribed to, so opening the terminal is what answers it.
         public bool Bell;
 
-        // Unix millis of the last pane change, which is how long this agent has been in the
-        // state it is in. Zero before it has ever drawn anything.
+        // Unix millis of the last pane change. Zero before it has ever drawn anything.
         public long LastChange;
+
+        // Unix millis of the last state move, and a different clock from the one above: a
+        // working agent redraws several times a second, so its LastChange is always now and
+        // an age off it reads "0s" forever. This is what "working 3m" is measured from.
+        public long StateSince;
 
         public bool Gone => !Alive;
 
@@ -97,6 +101,7 @@ namespace SlopWorld
             Title = j["title"].AsString(),
             Bell = j["bell"].AsBool(false),
             LastChange = j["last_change"].AsLong(0),
+            StateSince = j["state_since"].AsLong(0),
         };
 
         // `Agent` never rides along: it is what the daemon resolved, and writing it back

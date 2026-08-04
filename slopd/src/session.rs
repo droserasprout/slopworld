@@ -67,6 +67,10 @@ pub struct SessionView {
     pub ephemeral: bool,
     /// Unix millis of the last observed pane change.
     pub last_change: u64,
+    /// Unix millis of the last *state* move, which is a different clock: a working agent
+    /// redraws several times a second, so its `last_change` is always now and only this says
+    /// how long it has been at it. Zero for a session that has never run.
+    pub state_since: u64,
     /// What the app calls itself (OSC 0/2), for *every* session and not just the subscribed
     /// one: a session is a pane the mod cannot see unless it is showing it, and this is the
     /// one line of status any TUI hands over without being parsed for it.
@@ -184,6 +188,9 @@ struct Live {
     seq: u64,
     hash: u64,
     last_change: u64,
+    /// When `state` last moved. Zero for a session that has never run: an entry that has
+    /// always been down has no age, only a state.
+    state_since: u64,
     /// Set by a frame that rang, cleared by someone looking. Here rather than on the screen
     /// because it outlives the frame that carried it.
     bell: bool,
@@ -194,6 +201,21 @@ struct Live {
     emu: Option<Arc<Mutex<SessionEmu>>>,
     /// Aborted on stop/death.
     reader: Option<JoinHandle<()>>,
+}
+
+impl Live {
+    /// Every road to a new state goes through here. `last_change` is the pane's clock and a
+    /// working agent redraws on it, so "how long has it been working" is a question only a
+    /// stamp taken where the *state* moves can answer - and one set at four of the five
+    /// places it moves is one that reads zero at the fifth.
+    fn set_state(&mut self, s: State) -> bool {
+        if self.state == s {
+            return false;
+        }
+        self.state = s;
+        self.state_since = now_ms();
+        true
+    }
 }
 
 pub struct Manager {
@@ -634,6 +656,7 @@ impl Manager {
                     seq: 0,
                     hash: 0,
                     last_change: 0,
+                    state_since: 0,
                     bell: false,
                     cols: BOOT_COLS,
                     rows: BOOT_ROWS,
@@ -745,6 +768,7 @@ impl Manager {
                 seq: 0,
                 hash: 0,
                 last_change: now_ms(),
+                state_since: now_ms(),
                 bell: false,
                 cols: BOOT_COLS,
                 rows: BOOT_ROWS,
@@ -834,7 +858,7 @@ impl Manager {
             return Ok(());
         }
         if let Some(l) = self.live.write().await.get_mut(name) {
-            l.state = State::Down;
+            l.set_state(State::Down);
             l.screen = None;
             l.emu = None;
             if let Some(h) = l.reader.take() {
@@ -1112,6 +1136,7 @@ impl Manager {
                     seq: 0,
                     hash: 0,
                     last_change: 0,
+                    state_since: 0,
                     bell: false,
                     cols: BOOT_COLS,
                     rows: BOOT_ROWS,
@@ -1411,6 +1436,7 @@ impl Manager {
                     autostart: l.cfg.autostart,
                     ephemeral: l.ephemeral,
                     last_change: l.last_change,
+                    state_since: l.state_since,
                     // Off the last frame rather than off the emulator: `mark_down` drops the
                     // screen, so a dead session states no title rather than the one it wore.
                     title: l
@@ -1557,8 +1583,7 @@ impl Manager {
             let state = self.classify(false, last_change, &plain).await;
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(&name) {
-                if l.state != state {
-                    l.state = state;
+                if l.set_state(state) {
                     dirty_list = true;
                 }
             }
@@ -1813,8 +1838,7 @@ impl Manager {
             if changed {
                 l.last_change = now_ms();
             }
-            if l.state != state {
-                l.state = state;
+            if l.set_state(state) {
                 dirty_list = true;
             }
             if title_moved {
@@ -1848,8 +1872,7 @@ impl Manager {
         {
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(name) {
-                if l.state != State::Down {
-                    l.state = State::Down;
+                if l.set_state(State::Down) {
                     changed = true;
                 }
                 // A ring nobody answered before the process went is not one to answer now.
@@ -1956,6 +1979,7 @@ mod tests {
             seq: 0,
             hash: 0,
             last_change: 0,
+            state_since: 0,
             bell: false,
             cols: BOOT_COLS,
             rows: BOOT_ROWS,

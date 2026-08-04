@@ -664,14 +664,15 @@ namespace SlopWorld
         // agent at all reads as down, which is what it is as far as this half is concerned.
         static string Word(AgentState state) => state.ToString().ToLower();
 
-        // How long it has been that way. Off last_change, which is the last time the pane drew
-        // anything rather than the last time the state moved - the same figure classify reads
-        // to decide a quiet pane is idle, so the two never disagree. Nothing before the first
-        // frame: a session that has never drawn has no age, only a state.
+        // How long it has been that way. Off state_since and not last_change: the pane's own
+        // clock is reset by every redraw, and a working agent redraws several times a second,
+        // so an age taken off it says "0s" for as long as the agent is busy - which is the one
+        // state the figure was there for. Nothing before the first move: a session that has
+        // always been down has no age, only a state.
         static string Ago(SessionInfo info)
         {
-            if (info == null || info.LastChange <= 0) return "";
-            long s = (SessionInfo.NowMs - info.LastChange) / 1000L;
+            if (info == null || info.StateSince <= 0) return "";
+            long s = (SessionInfo.NowMs - info.StateSince) / 1000L;
             if (s < 0L) return "";
             if (s < 60L) return s + "s";
             if (s < 3600L) return s / 60L + "m";

@@ -220,6 +220,13 @@ it. `kind` is `prompt` or `shell`; empty `command` means `[defaults] agent` or t
 (SGR stripped); with no hit, a pane that moved inside `IDLE_MS` is working. Down is
 not a rule - it comes from the control reader ending on `%exit` or EOF.
 
+`last_change` and `state_since` are two clocks and neither stands in for the other.
+The first is the pane's, reset by every redraw, which is what `classify` reads to
+decide a quiet pane has gone idle; the second is `Live::set_state`'s, and the only
+answer to "how long has it been working" - a working agent redraws several times a
+second, so its `last_change` is always now. Every road to a new state goes through
+that one method for exactly that reason.
+
 A control-mode client (`tmux -C attach`, on a pty) feeds `%output` into the emulator,
 which renders on an 8ms coalescing tick. `%output` is the pane's bytes *raw* - tmux
 parses them for its own screen and copies them to control clients untouched - so
@@ -671,7 +678,7 @@ of these need a def.
     project's - and `Fit` reserves its room either way, so the rows stop above it.
   - The three lines are the name, what the agent is doing and for how long, and what the
     app calls itself. All three are one lookup on the hub and none is parsed out of a
-    pane: the state is the daemon's word, the age is `now - last_change` done here so
+    pane: the state is the daemon's word, the age is `now - state_since` done here so
     nothing is sent to keep a countdown in step, and the third line is the session's OSC
     title, falling back - dimmer, being ground rather than word - to the directory leaf,
     or to "temporary" for an ephemeral agent. The age is laid out from the right so the
