@@ -1593,6 +1593,13 @@ impl Manager {
             let mut seed = String::from("\x1b[2J\x1b[H\x1b[0m");
             seed.push_str(&cap.lines.join("\r\n"));
             seed.push_str(&format!("\x1b[{};{}H", cap.cy + 1, cap.cx + 1));
+            // Stated back as the OSC it arrived as. A text capture carries SGR and nothing
+            // else, and the nudge that follows only makes the app repaint the *screen* - a
+            // title is not on it, so an agent that says nothing more would wear none until it
+            // next did. tmux parsed the original for its own status line and kept it.
+            if !cap.title.is_empty() {
+                seed.push_str(&format!("\x1b]0;{}\x07", cap.title));
+            }
             e.feed(seed.as_bytes());
         }
         let emu = Arc::new(Mutex::new(e));

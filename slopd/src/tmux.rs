@@ -14,6 +14,10 @@ pub struct Screen {
     pub lines: Vec<String>,
     pub cx: u16,
     pub cy: u16,
+    /// What the app last called itself. tmux parses OSC 0/2 for its own status line and the
+    /// server outlives us, so this is the one piece of a pane's state that survives our
+    /// restart without the app being asked to say it again.
+    pub title: String,
 }
 
 impl Tmux {
@@ -207,20 +211,27 @@ impl Tmux {
             args.extend(["-S", start.as_str()]);
         }
         let body = self.run(&args).await?;
+        // The title rides on the same question rather than a second one: a title with spaces
+        // in it is why the tail is taken whole instead of split like the two figures ahead of
+        // it, and it goes last for that reason.
         let pos = self
             .run(&[
                 "display-message",
                 "-p",
                 "-t",
                 &target,
-                "#{cursor_x} #{cursor_y}",
+                "#{cursor_x} #{cursor_y} #{pane_title}",
             ])
             .await
             .unwrap_or_default();
 
-        let mut it = pos.split_whitespace();
+        let mut it = pos.splitn(3, ' ');
         let cx = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
-        let cy = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
+        let cy = it
+            .next()
+            .and_then(|v| v.trim_end().parse().ok())
+            .unwrap_or(0);
+        let title = clean_title(it.next().unwrap_or(""));
 
         // `capture-pane` terminates its last row with a newline, so splitting on one coins a
         // final empty line the pane does not have. The seed writes the lines and then places
@@ -232,6 +243,7 @@ impl Tmux {
             lines: body.split('\n').map(str::to_string).collect(),
             cx,
             cy,
+            title,
         })
     }
 
@@ -321,5 +333,25 @@ impl Tmux {
         args.extend(hexes.iter().map(String::as_str));
         self.run(&args).await?;
         Ok(())
+    }
+}
+
+/// The seed states this back to a fresh emulator as an OSC, so a control character in it
+/// would be an escape sequence somebody else's app got to write. Stripped rather than
+/// refused: a title is decoration, and the answer to an odd one is a plain one.
+fn clean_title(s: &str) -> String {
+    s.chars().filter(|c| !c.is_control()).take(512).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::clean_title;
+
+    #[test]
+    fn a_title_cannot_carry_an_escape() {
+        // display-message ends its answer with one, and the title is the tail of that line.
+        assert_eq!(clean_title("Add status labels\n"), "Add status labels");
+        assert_eq!(clean_title("\x1b]0;other\x07here"), "]0;otherhere");
+        assert_eq!(clean_title(""), "");
     }
 }

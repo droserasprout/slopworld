@@ -264,6 +264,15 @@ A restart costs the emulators. `spawn_reader` rebuilds one per running session f
 back; the SIGWINCH makes the app repaint and hand the fresh emulator the modes a text
 capture cannot carry.
 
+The title is the one thing that repaint does *not* bring back - it is not on the
+screen, so an app with nothing more to say would wear none until it next set one, and
+an idle agent never does. tmux parsed the original OSC for its own status line and the
+server outlives us, so `capture` asks for `#{pane_title}` on the same `display-message`
+as the cursor and the seed states it back as the OSC it arrived as. Taken as the tail
+of that line, titles having spaces in them, and stripped of control characters on the
+way in - it is fed to an emulator, so anything else would be an escape sequence
+somebody else's app got to write.
+
 A session's *shape* is tmux's answer, never ours. `sync_from_config` asks
 `Tmux::size` before building the emulator, or the boot guess stated at a running app
 resizes it. `Manager::nudge_redraw` reads the size back after the shrink for the same
