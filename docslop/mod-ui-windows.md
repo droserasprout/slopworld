@@ -23,15 +23,22 @@ the exception, editing [mod settings](mod-settings.md) instead.
   because `paths()` drops a bind whose path is not on this machine and only the
   daemon knows which. `PresetInfo` keeps `Ro`/`Rw`/`Env` apart for this, `Gives`
   being the flattened tooltip view.
-- **`ConfigPage`** - one page: the daemon, `[defaults]`, and the base every sandbox
-  is built on. The field column is a scroll view sized from the previous frame's
-  `CurHeight`, its listing begun on a rect far taller than it needs so nothing
-  breaks to a second column ([gotchas](gotchas.md)). The connection is *stated*
+- **`ConfigPage`** - one page: the daemon, `[defaults]`, and the game. The sandbox base
+  and presets moved to `SandboxPage`. The field column is a scroll view sized from the
+  previous frame's `CurHeight`, its listing begun on a rect far taller than it needs so
+  nothing breaks to a second column ([gotchas](gotchas.md)). The connection is *stated*
   there, not edited - mod settings owns it because that is the half still
   changeable with the socket down - and the button goes through to
   `Dialog_ModSettings`. `bind` and `token` stay in `SlopConfig` undrawn: a field
   missing from `ToJson` is one the next unrelated save resets to its serde
   default. Not a `Window`: it is the first category of the options menu, see
+  [mod-patches-strip](mod-patches-strip.md).
+- **`SandboxPage`** - the base every sandbox is built on, and the presets that add to
+  it, grouped under the headings "Global" and "Presets" on one tab. Global is
+  `[sandbox]` in `config.toml`, saved over HTTP like the rest of the machine's
+  config; Presets is the daemon's preset directory drawn *read-only* - which presets
+  a project uses is that project's checkbox, ticked on `EditProjectDialog`. The page
+  is the second category of the options menu, see
   [mod-patches-strip](mod-patches-strip.md).
 - **`UsagePage`** - the second category, and its two halves are saved by different
   roads on purpose. The switches, the key file and the poll interval are

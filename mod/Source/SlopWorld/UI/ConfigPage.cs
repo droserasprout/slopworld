@@ -5,11 +5,9 @@ using Verse;
 namespace SlopWorld
 {
     // What this machine does, drawn as the first page of the options menu rather than as a
-    // window of its own. There was only ever one subject here: the daemon, and the base
-    // every sandbox is built on. The rest went because it was answering somebody else's
-    // question - the agent list is the `agents` window, and the sandbox a project runs in
-    // is that project's, and what the daemon is allowed to ask Anthropic or OpenRouter for
-    // is the Usage page, there being two sellers to keep apart and a palette to draw.
+    // window of its own. The daemon, the defaults, and the game. The sandbox base and
+    // presets moved to their own tab because that is a different question: what the ground
+    // under every agent is, and what adds to it.
     //
     // The connection is not here either. Where the daemon listens and where the game dials
     // are one question - they are the same machine - and only one of the two ends can be
@@ -29,7 +27,6 @@ namespace SlopWorld
         // Free-text mirrors of the typed fields, so a half-typed number is not clamped
         // out from under the player mid-keystroke.
         string _pollMs, _history;
-        string _roPaths, _rwPaths, _passEnv;
 
         Vector2 _scroll;
         // Last frame's measured height for the field column. The listing is begun on a
@@ -46,9 +43,6 @@ namespace SlopWorld
                     _path = j["path"].AsString();
                     _pollMs = _cfg.PollMs.ToString();
                     _history = _cfg.HistoryLimit.ToString();
-                    _roPaths = SlopConfig.Lines(_cfg.RoPaths);
-                    _rwPaths = SlopConfig.Lines(_cfg.RwPaths);
-                    _passEnv = SlopConfig.Lines(_cfg.PassEnv);
                     _loaded = true;
                     _error = null;
                 },
@@ -76,13 +70,7 @@ namespace SlopWorld
             }
             else
             {
-                // The fields want reading top to bottom and the bind lists want width,
-                // so they get a column each rather than the lists being pushed under a
-                // form that scrolls.
-                float rightW = Mathf.Min(300f, inner.width * 0.42f);
-                float leftW = inner.width - rightW - 12f;
-                DoFields(new Rect(inner.x, inner.y, leftW, inner.height));
-                DoBaseBinds(new Rect(inner.xMax - rightW, inner.y, rightW, inner.height));
+                DoFields(inner);
             }
 
             DoFooter(new Rect(rect.x, rect.yMax - 34f, rect.width, 32f));
@@ -177,41 +165,6 @@ namespace SlopWorld
                 SlopOptions.OpenTerminalTab();
         }
 
-        // This page's own window, which sits in the room the column and the line
-        // leave and has just been told there is more of it or less.
-        void DoBaseBinds(Rect r)
-        {
-            Widgets.Label(new Rect(r.x, r.y, r.width, 22f), "Bound into every sandbox");
-
-            GUI.color = SlopWidgets.Dim;
-            var note = new Rect(r.x, r.y + 22f, r.width, 52f);
-            Widgets.Label(note,
-                "The base every project builds on. A project's own presets and binds are " +
-                "added to these; whether an agent is sandboxed at all is its project's " +
-                "answer.");
-            GUI.color = Color.white;
-
-            float top = note.yMax + 6f;
-            float h = (r.yMax - top - 16f) / 3f;
-
-            _roPaths = PathList(new Rect(r.x, top, r.width, h),
-                "Read-only binds", _roPaths);
-            _rwPaths = PathList(new Rect(r.x, top + h + 8f, r.width, h),
-                "Read-write binds", _rwPaths);
-            _passEnv = PathList(new Rect(r.x, top + (h + 8f) * 2f, r.width, h),
-                "Passed env vars", _passEnv);
-        }
-
-        // One entry per line; blank lines are dropped on save.
-        static string PathList(Rect r, string label, string text)
-        {
-            Widgets.Label(new Rect(r.x, r.y, r.width, 22f), label);
-            var box = new Rect(r.x, r.y + 22f, r.width, Mathf.Max(r.height - 22f, 40f));
-            Widgets.DrawBoxSolid(box, SlopWidgets.Well);
-            return Widgets.TextArea(box.ContractedBy(4f), text);
-        }
-
-
         void DoFooter(Rect bar)
         {
             if (Widgets.ButtonText(new Rect(bar.x, bar.y, 110f, 30f), "Reload"))
@@ -237,9 +190,6 @@ namespace SlopWorld
 
             if (int.TryParse(_pollMs, out int p)) _cfg.PollMs = Mathf.Clamp(p, 20, 5000);
             if (int.TryParse(_history, out int h)) _cfg.HistoryLimit = Mathf.Clamp(h, 0, 100000);
-            _cfg.RoPaths = SlopConfig.Split(_roPaths);
-            _cfg.RwPaths = SlopConfig.Split(_rwPaths);
-            _cfg.PassEnv = SlopConfig.Split(_passEnv);
 
             SlopClient.Put("/api/config/values", _cfg.ToJson(),
                 _ =>

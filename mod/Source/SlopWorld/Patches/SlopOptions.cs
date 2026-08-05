@@ -40,6 +40,7 @@ namespace SlopWorld
         // an empty tab in somebody else's options menu.
         public static OptionCategoryDef Category { get; private set; }
         public static OptionCategoryDef UsageCategory { get; private set; }
+        public static OptionCategoryDef SandboxCategory { get; private set; }
         public static OptionCategoryDef AboutCategory { get; private set; }
 
         // The two plain-text headings in the column, not tabs: "SlopWorld" over our
@@ -57,6 +58,7 @@ namespace SlopWorld
         static ConfigPage _page;
         static TerminalPage _terminalPage;
         static UsagePage _usagePage;
+        static SandboxPage _sandboxPage;
         static AboutPage _aboutPage;
 
         public static void Install()
@@ -71,15 +73,16 @@ namespace SlopWorld
             }
 
             // The column, from the top down to where the game's own tabs begin: a
-            // "SlopWorld" heading, the three pages under it - the config page named
-            // General, the quotas, the About page - then a "RimWorld" heading above the
-            // game's own categories. The headings are OptionCategoryDefs so they keep the
-            // column's fixed pitch, but they are drawn as dim text and take no clicks
-            // (Patch_OptionsRow_Section).
+            // "SlopWorld" heading, the five pages under it - the config page named
+            // General, the terminal, the quotas, the sandbox, the About page - then a
+            // "RimWorld" heading above the game's own categories. The headings are
+            // OptionCategoryDefs so they keep the column's fixed pitch, but they are drawn
+            // as dim text and take no clicks (Patch_OptionsRow_Section).
             SlopWorldLabel = Section("SlopWorld_Section", "SlopWorld", general);
             Category = Section("SlopWorld_Config", "General", general);
             TerminalCategory = Section("SlopWorld_Terminal", "Terminal", general);
             UsageCategory = Section("SlopWorld_Usage", "Usage", general);
+            SandboxCategory = Section("SlopWorld_Sandbox", "Sandbox", general);
             AboutCategory = Section("SlopWorld_About", "About", general);
             RimWorldLabel = Section("SlopWorld_RimWorldSection", "RimWorld", general);
 
@@ -87,6 +90,7 @@ namespace SlopWorld
             DefDatabase<OptionCategoryDef>.Add(Category);
             DefDatabase<OptionCategoryDef>.Add(TerminalCategory);
             DefDatabase<OptionCategoryDef>.Add(UsageCategory);
+            DefDatabase<OptionCategoryDef>.Add(SandboxCategory);
             DefDatabase<OptionCategoryDef>.Add(AboutCategory);
             DefDatabase<OptionCategoryDef>.Add(RimWorldLabel);
 
@@ -98,14 +102,16 @@ namespace SlopWorld
             all.Remove(Category);
             all.Remove(TerminalCategory);
             all.Remove(UsageCategory);
+            all.Remove(SandboxCategory);
             all.Remove(AboutCategory);
             all.Remove(RimWorldLabel);
             all.Insert(0, SlopWorldLabel);
             all.Insert(1, Category);
             all.Insert(2, TerminalCategory);
             all.Insert(3, UsageCategory);
-            all.Insert(4, AboutCategory);
-            all.Insert(5, RimWorldLabel);
+            all.Insert(4, SandboxCategory);
+            all.Insert(5, AboutCategory);
+            all.Insert(6, RimWorldLabel);
         }
 
         // One of the column's defs, all the same official-pack shape so fruit is drawn.
@@ -157,6 +163,7 @@ namespace SlopWorld
         {
             if (_page != null) _page.Load();
             if (_usagePage != null) _usagePage.Load();
+            if (_sandboxPage != null) _sandboxPage.Load();
         }
 
         // The screen less the chrome, which is the same room a pane gets. Zero inset on the
@@ -346,7 +353,8 @@ namespace SlopWorld
         {
             static void Postfix()
             {
-                _page = null; _terminalPage = null; _usagePage = null; _aboutPage = null;
+                _page = null; _terminalPage = null; _usagePage = null;
+                _sandboxPage = null; _aboutPage = null;
                 SlopWorldMod.Instance.settings.Write();
             }
         }
@@ -450,9 +458,57 @@ namespace SlopWorld
         }
 
 
+        // ---------------------------------------------------------------- sandbox
+
+        // The Sandbox row, between Usage and About. A wall: the page is about the ground
+        // every agent runs on, and the shield is the icon for a barrier.
+        [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
+        public static class Patch_OptionsRow_Sandbox
+        {
+            static bool Prefix(Dialog_Options __instance, Rect r, OptionCategoryDef optionCategory)
+            {
+                if (optionCategory != SandboxCategory) return true;
+
+                Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
+                if (Widgets.ButtonInvisible(r))
+                {
+                    __instance.selectedCategory = optionCategory;
+                    __instance.selectedMod = null;
+                    SoundDefOf.Click.PlayOneShotOnCamera();
+                }
+
+                float x = r.x + 10f;
+                GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
+                    ShieldIcon.Tex);
+                x += 30f;
+                Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
+                return false;
+            }
+        }
+
+        // The dispatch for the Sandbox page, taken before vanilla's chain. Loaded on first
+        // draw the way the other pages are, so the daemon re-reads config.toml each open.
+        [HarmonyPatch(typeof(Dialog_Options), "DoOptions")]
+        public static class Patch_OptionsPage_Sandbox
+        {
+            static bool Prefix(OptionCategoryDef category, Rect inRect)
+            {
+                if (category != SandboxCategory) return true;
+
+                if (_sandboxPage == null)
+                {
+                    _sandboxPage = new SandboxPage();
+                    _sandboxPage.Load();
+                }
+                _sandboxPage.Draw(inRect);
+                return false;
+            }
+        }
+
+
         // ---------------------------------------------------------------- About
 
-        // The About row, under the Usage row. Same shape as Patch_OptionsRow but with
+        // The About row, under the Sandbox row. Same shape as Patch_OptionsRow but with
         // the trophy emoji baked from tools/emoji.py rather than the blog icon that was
         // here when the page was about the game's build info.
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]

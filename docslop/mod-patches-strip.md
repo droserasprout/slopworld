@@ -13,9 +13,10 @@
   draw when the label is one of ours, matched on the finished string and gated on
   `currentlyDrawnWindow` rather than a flag an exception could strand.
 
-## `SlopOptions` - our three categories in vanilla's options window
+## `SlopOptions` - our categories in vanilla's options window
 
-`ConfigPage`, `UsagePage`, `AboutPage`, inserted at 0, 1 and the end. The daemon's
+`ConfigPage`, `TerminalPage`, `UsagePage`, `SandboxPage`, `AboutPage`, inserted at
+0, 1, 2, 3 and 4. The daemon's
 settings live there rather than in a window of their own, so there is one page a
 knob is looked for on.
 
