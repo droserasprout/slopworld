@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
 using UnityEngine;
@@ -24,7 +25,10 @@ namespace SlopWorld
 
         string _roPaths, _rwPaths, _passEnv;
 
-        Vector2 _presetScroll;
+        Vector2 _presetScroll, _previewScroll;
+        // The preset whose preview sits beside the list. Kept by reference and dropped when
+        // a reload no longer offers it, so a stale name is never previewed.
+        PresetInfo _selected;
 
         public void Load()
         {
@@ -64,19 +68,19 @@ namespace SlopWorld
             }
             else
             {
-                // Two halves on one tab so the base is read against the presets that add to
-                // it. The binds want width and the presets want a scroll of their own, so
-                // they get a column each, the way ConfigPage's fields and binds did.
-                float presetsW = Mathf.Min(330f, inner.width * 0.42f);
-                DoGlobal(new Rect(inner.x, inner.y, inner.width - presetsW - 12f, inner.height));
-                DoPresets(new Rect(inner.xMax - presetsW, inner.y, presetsW, inner.height));
+                // Global is a short row of three boxes on top; the presets take the rest of
+                // the page and get the scroll, so both halves are read top to bottom.
+                DoGlobal(new Rect(inner.x, inner.y, inner.width, 200f));
+                float presetsY = inner.y + 200f + 12f;
+                DoPresets(new Rect(inner.x, presetsY, inner.width, inner.yMax - presetsY));
             }
 
             DoFooter(new Rect(rect.x, rect.yMax - 34f, rect.width, 32f));
         }
 
-        // The "Global" section: `[sandbox]`, the base every sandbox is built on. Whether an
-        // agent is sandboxed at all is its project's answer, never this page's.
+        // The "Global" section: `[sandbox]`, the base every sandbox is built on. Three
+        // boxes in one row, so the three groups read side by side. Whether an agent is
+        // sandboxed at all is its project's answer, never this page's.
         void DoGlobal(Rect r)
         {
             Heading(r, "Global");
@@ -90,24 +94,43 @@ namespace SlopWorld
             GUI.color = Color.white;
             top += 46f;
 
-            float h = (r.yMax - top - 8f) / 3f;
-            _roPaths = SlopWidgets.PathList(new Rect(r.x, top, r.width, h),
+            float gap = 8f;
+            float boxW = (r.width - gap * 2f) / 3f;
+            float boxH = r.yMax - top;
+            _roPaths = SlopWidgets.PathList(new Rect(r.x, top, boxW, boxH),
                 "Read-only binds", _roPaths);
-            _rwPaths = SlopWidgets.PathList(new Rect(r.x, top + h + 8f, r.width, h),
+            _rwPaths = SlopWidgets.PathList(new Rect(r.x + boxW + gap, top, boxW, boxH),
                 "Read-write binds", _rwPaths);
-            _passEnv = SlopWidgets.PathList(new Rect(r.x, top + (h + 8f) * 2f, r.width, h),
+            _passEnv = SlopWidgets.PathList(new Rect(r.x + (boxW + gap) * 2f, top, boxW, boxH),
                 "Passed env vars", _passEnv);
         }
 
-        // The "Presets" section: the daemon's preset directory, grouped by category the way
-        // the project dialog groups its checkboxes. Read-only here - ticking which presets a
-        // project uses is that project's dialog's job - and a preset's row shows what it
-        // binds in the tooltip, so the base can be read against what adds to it.
+        // The "Presets" section: the daemon's preset directory on the left, and beside it a
+        // preview of whichever preset is selected. The preview is read in the same three
+        // groups the Global half edits, so the base can be held against what adds to it.
         void DoPresets(Rect r)
         {
             Heading(r, "Presets");
             float top = r.y + 30f;
+            float boxH = r.yMax - top;
 
+            var presets = SessionHub.Instance.Presets;
+            if (_selected != null && !presets.Contains(_selected))
+                _selected = null;
+
+            // Two columns: the list, and the selected preset's preview. The preview wants the
+            // read, so it gets the wider half.
+            float previewW = Mathf.Min(380f, r.width * 0.45f);
+            float listW = r.width - previewW - 12f;
+            DoPresetList(new Rect(r.x, top, listW, boxH));
+            DoPreview(new Rect(r.x + listW + 12f, top, previewW, boxH));
+        }
+
+        // The list, grouped by category the way the project dialog groups its checkboxes.
+        // A click picks the row for the preview; it is not a checkbox here - a project
+        // ticks presets, this page only shows what they are.
+        void DoPresetList(Rect r)
+        {
             var presets = SessionHub.Instance.Presets;
             var groups = presets
                 .OrderBy(p => Category(p), System.StringComparer.OrdinalIgnoreCase)
@@ -116,10 +139,8 @@ namespace SlopWorld
                 .ToList();
 
             float h = (presets.Count + groups.Count) * 24f + 8f;
-            float boxH = r.yMax - top - 8f;
-            var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(h, boxH));
-            Widgets.BeginScrollView(new Rect(r.x, top, r.width, boxH),
-                ref _presetScroll, view);
+            var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(h, r.height));
+            Widgets.BeginScrollView(r, ref _presetScroll, view);
 
             if (presets.Count == 0)
             {
@@ -140,7 +161,11 @@ namespace SlopWorld
                 foreach (var p in g)
                 {
                     var cell = new Rect(8f, y, view.width - 8f, 22f);
+                    if (p == _selected)
+                        Widgets.DrawBoxSolid(cell, new Color(1f, 1f, 1f, 0.16f));
                     Widgets.Label(cell, p.Name);
+                    if (Widgets.ButtonInvisible(cell))
+                        _selected = p;
                     TooltipHandler.TipRegion(cell,
                         $"{p.Description}\n\n{string.Join("\n", p.Gives.ToArray())}");
                     y += 24f;
@@ -148,6 +173,70 @@ namespace SlopWorld
             }
             Widgets.EndScrollView();
         }
+
+        // The selected preset, in the same three groups the Global half edits, each row
+        // parted by a rule so "read-only", "read-write" and "env" read as the three things
+        // a preset can add rather than as one list.
+        void DoPreview(Rect r)
+        {
+            if (_selected == null)
+            {
+                GUI.color = Color.gray;
+                Widgets.Label(new Rect(r.x, r.y, r.width, 24f),
+                    "Select a preset to see what it adds.");
+                GUI.color = Color.white;
+                return;
+            }
+
+            var p = _selected;
+            var view = new Rect(0f, 0f, r.width - 18f,
+                Mathf.Max(Measure(p, r.width - 18f), r.height));
+            Widgets.BeginScrollView(r, ref _previewScroll, view);
+
+            float y = 0f;
+            y = Row(view, y, "Read-only binds", p.Ro);
+            y = Rule(view.width, y);
+            y = Row(view, y, "Read-write binds", p.Rw);
+            y = Rule(view.width, y);
+            Row(view, y, "Passed env vars", p.Env);
+
+            Widgets.EndScrollView();
+        }
+
+        static float Row(Rect view, float y, string label, List<string> items)
+        {
+            GUI.color = SlopWidgets.Dim;
+            Widgets.Label(new Rect(0f, y, view.width, 20f), label);
+            GUI.color = Color.white;
+            y += 22f;
+
+            string text = TextOf(items);
+            float h = Text.CalcHeight(text, view.width);
+            Widgets.Label(new Rect(0f, y, view.width, h), text);
+            return y + h + 4f;
+        }
+
+        static float Rule(float width, float y)
+        {
+            GUI.color = new Color(1f, 1f, 1f, 0.15f);
+            Widgets.DrawBoxSolid(new Rect(0f, y, width, 1f), GUI.color);
+            GUI.color = Color.white;
+            return y + 12f;
+        }
+
+        static float Measure(PresetInfo p, float width)
+        {
+            float y = 0f;
+            y += 22f + Text.CalcHeight(TextOf(p.Ro), width) + 4f;
+            y += 12f;
+            y += 22f + Text.CalcHeight(TextOf(p.Rw), width) + 4f;
+            y += 12f;
+            y += 22f + Text.CalcHeight(TextOf(p.Env), width);
+            return y;
+        }
+
+        static string TextOf(List<string> items) =>
+            items.Count > 0 ? string.Join("\n", items.ToArray()) : "(nothing)";
 
         static string Category(PresetInfo p) =>
             string.IsNullOrEmpty(p.Category) ? "other" : p.Category;

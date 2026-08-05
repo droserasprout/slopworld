@@ -45,13 +45,13 @@ namespace SlopWorld
             return tex;
         }
 
-        // A bar across the top, and a body that narrows to a point at the bottom.
+        // A bar across the bottom, and a body that narrows to a point at the top.
         static bool Inside(float x, float y)
         {
-            if (x >= 6f && x <= 26f && y >= 5f && y <= 9f) return true;
-            if (y < 9f || y > 28f) return false;
+            if (x >= 6f && x <= 26f && y >= 23f && y <= 27f) return true;
+            if (y < 4f || y > 27f) return false;
             // Half-width shrinks from 10 at the bar to 0 at the point.
-            float half = 10f * (1f - (y - 9f) / 19f);
+            float half = 10f * (1f - (27f - y) / 23f);
             return Mathf.Abs(x - 16f) <= half;
         }
     }
