@@ -50,6 +50,10 @@ namespace SlopWorld
         // is about the screen it is on.
         public string cursorColor = "";
 
+        // Pussy mode: no fun allowed. Disables gore, vomit, plague emissions, graves,
+        // obelisks, harmful tips, zalgo, background animation, and easter eggs.
+        public bool pussyMode;
+
         public override void ExposeData()
         {
             base.ExposeData();
@@ -66,6 +70,7 @@ namespace SlopWorld
             Scribe_Values.Look(ref fontName, "fontName", "");
             Scribe_Values.Look(ref theme, "theme", "clankers");
             Scribe_Values.Look(ref cursorColor, "cursorColor", "");
+            Scribe_Values.Look(ref pussyMode, "pussyMode", false);
         }
     }
 
@@ -88,6 +93,7 @@ namespace SlopWorld
         public static string FontName => S.fontName ?? "";
         public static string Theme => S.theme ?? "";
         public static string CursorColor => S.cursorColor ?? "";
+        public static bool PussyMode => S.pussyMode;
     }
 
     public class SlopWorldMod : Mod

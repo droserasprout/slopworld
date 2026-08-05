@@ -169,6 +169,7 @@ namespace SlopWorld
         public void Arm(IntVec3 origin)
         {
             if (_active) return;
+            if (Settings.PussyMode) return;
             _origin = origin;
             _seed = Rand.Int;
             _active = true;
@@ -179,6 +180,7 @@ namespace SlopWorld
         public override void MapComponentTick()
         {
             if (!_active) return;
+            if (Settings.PussyMode) return;
 
             int t = Find.TickManager.TicksGame;
             if (t % CatchInterval == 0) Catch();
@@ -246,6 +248,7 @@ namespace SlopWorld
         public void Bloom(IntVec3 at, float radius)
         {
             if (!_active || radius <= 0f) return;
+            if (Settings.PussyMode) return;
 
             var cells = Cells;
             var idx = map.cellIndices;

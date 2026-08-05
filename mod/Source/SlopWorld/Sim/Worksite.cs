@@ -159,6 +159,7 @@ namespace SlopWorld
 
         // Nothing on the list is the map's; the stone is, and Blocks() settles that.
         static List<Errand> _errands;
+        static bool _pussyModeCached;
         static TerrainDef _plate;
         ThingDef _blocks;
         ThingDef _rock;
@@ -753,7 +754,9 @@ namespace SlopWorld
         {
             get
             {
-                if (_errands != null) return _errands;
+                bool pussy = Settings.PussyMode;
+                if (_errands != null && _pussyModeCached == pussy) return _errands;
+                _pussyModeCached = pussy;
                 _errands = new List<Errand>();
 
                 // Metal plate rather than the tile's flagstone, which read as a garden path
@@ -763,12 +766,30 @@ namespace SlopWorld
                 Add(_plate, PavingSeconds, PavingOdds, PavingBloom,
                     new Run { Least = PavingSide, Most = PavingSide, Lines = PavingSide });
 
-                Add(Named("Column"), SmallSeconds, ColumnOdds, SmallBloom);
-                Add(Named("Grave"), SmallSeconds, GraveOdds, SmallBloom,
-                    new Run { Least = GraveRowLeast, Most = GraveRowMost, Gap = GraveAisle });
-                Add(Named("Sarcophagus"), MediumSeconds, SarcophagusOdds, MediumBloom);
-                Add(Named("SteleLarge"), LargeSeconds, SteleLargeOdds, LargeBloom);
-                Add(Named("SteleGrand"), MonumentSeconds, SteleGrandOdds, MonumentBloom);
+                if (pussy)
+                {
+                    // Pussy mode: furniture and flower pots instead of graves and obelisks.
+                    Add(Named("FlowerPot"), SmallSeconds, 5f, SmallBloom,
+                        new Run { Least = 3, Most = 6, Gap = 1 });
+                    Add(Named("Chair"), SmallSeconds, 3f, SmallBloom,
+                        new Run { Least = 2, Most = 5, Gap = 1 });
+                    Add(Named("Armchair"), SmallSeconds, 2f, SmallBloom);
+                    Add(Named("Table1x2c"), SmallSeconds, 2f, SmallBloom);
+                    Add(Named("EndTable"), SmallSeconds, 2f, SmallBloom);
+                    Add(Named("Bookshelf"), MediumSeconds, 2f, MediumBloom);
+                    Add(Named("Dresser"), MediumSeconds, 2f, MediumBloom);
+                    Add(Named("Lamp"), SmallSeconds, 3f, SmallBloom);
+                    Add(Named("Bed"), MediumSeconds, 2f, MediumBloom);
+                }
+                else
+                {
+                    Add(Named("Column"), SmallSeconds, ColumnOdds, SmallBloom);
+                    Add(Named("Grave"), SmallSeconds, GraveOdds, SmallBloom,
+                        new Run { Least = GraveRowLeast, Most = GraveRowMost, Gap = GraveAisle });
+                    Add(Named("Sarcophagus"), MediumSeconds, SarcophagusOdds, MediumBloom);
+                    Add(Named("SteleLarge"), LargeSeconds, SteleLargeOdds, LargeBloom);
+                    Add(Named("SteleGrand"), MonumentSeconds, SteleGrandOdds, MonumentBloom);
+                }
 
                 // Ruin scenery vanilla lets no player build; Patches/AncientBuildings.xml is
                 // what hands them a frame. They cost nothing and want no skill. The lamp is
