@@ -30,7 +30,7 @@ namespace SlopWorld
 
         static readonly List<string> Tips = new List<string>
         {
-            // Please mark offensive, harmful, depressive quotes with ` *` postfix to skip in pussy-mode
+            // Please mark offensive, harmful, depressive quotes with ` *` postfix to skip in pvssy-mode
             //
             // shortcuts
             "Press `F1` to show Command Pallette.",
@@ -208,18 +208,18 @@ namespace SlopWorld
         };
 
         // The other place a tip turns up is the persona core's hover bubble (CoreTip).
-        // When pussy mode is on, keep re-rolling past tips marked ` *`; the marker is
+        // When pvssy mode is on, keep re-rolling past tips marked ` *`; the marker is
         // always stripped so it never reaches the screen.
         public static string RandomTip
         {
             get
             {
-                bool pussy = Settings.PussyMode;
+                bool pvssy = Settings.PvssyMode;
                 string tip;
                 do
                 {
                     tip = Tips.RandomElement();
-                } while (pussy && tip.EndsWith(" *"));
+                } while (pvssy && tip.EndsWith(" *"));
                 if (tip.EndsWith(" *")) tip = tip.Substring(0, tip.Length - 2);
                 return tip;
             }
@@ -324,13 +324,13 @@ namespace SlopWorld
             var rng = Dice;
             var stream = new System.Text.StringBuilder();
 
-            // When pussy mode is on, drop tips marked with ` *`.
-            bool pussy = Settings.PussyMode;
+            // When pvssy mode is on, drop tips marked with ` *`.
+            bool pvssy = Settings.PvssyMode;
             var order = new List<string>();
             for (int i = 0; i < Tips.Count; i++)
             {
                 string tip = Tips[i];
-                if (pussy && tip.EndsWith(" *")) continue;
+                if (pvssy && tip.EndsWith(" *")) continue;
                 if (tip.EndsWith(" *")) tip = tip.Substring(0, tip.Length - 2);
                 order.Add(tip);
             }
@@ -450,8 +450,8 @@ namespace SlopWorld
             {
                 if (Dice.NextDouble() < ScrollChance) _frame = (_frame + 1) % frames.Count;
                 _shown = now;
-                // Pussy mode draws the wall clean: no zalgo.
-                _painted = Settings.PussyMode ? frames[_frame] : Season(frames[_frame], Dice);
+                // Pvssy mode draws the wall clean: no zalgo.
+                _painted = Settings.PvssyMode ? frames[_frame] : Season(frames[_frame], Dice);
             }
 
             // A field this build has never heard of leaves vanilla's list in the cache, which
@@ -556,8 +556,8 @@ namespace SlopWorld
 
             if (UIMenuBackgroundManager.background == null)
                 UIMenuBackgroundManager.background = new UI_BackgroundMain();
-            // Pussy mode draws the clean background: no rotting planet animation.
-            if (!Settings.PussyMode)
+            // Pvssy mode draws the clean background: no rotting planet animation.
+            if (!Settings.PvssyMode)
                 UIMenuBackgroundManager.background.BackgroundOnGUI();
 
             // Before the size is read: DrawWindow lays its rect out from the same field.

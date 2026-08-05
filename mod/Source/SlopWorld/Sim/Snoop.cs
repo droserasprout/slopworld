@@ -39,8 +39,8 @@ namespace SlopWorld
 
         public override void GameComponentTick()
         {
-            // Pussy mode: no easter eggs.
-            if (Settings.PussyMode) return;
+            // Pvssy mode: no easter eggs.
+            if (Settings.PvssyMode) return;
 
             int tick = Find.TickManager.TicksGame;
 

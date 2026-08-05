@@ -159,7 +159,7 @@ namespace SlopWorld
 
         // Nothing on the list is the map's; the stone is, and Blocks() settles that.
         static List<Errand> _errands;
-        static bool _pussyModeCached;
+        static bool _pvssyModeCached;
         static TerrainDef _plate;
         ThingDef _blocks;
         ThingDef _rock;
@@ -754,9 +754,9 @@ namespace SlopWorld
         {
             get
             {
-                bool pussy = Settings.PussyMode;
-                if (_errands != null && _pussyModeCached == pussy) return _errands;
-                _pussyModeCached = pussy;
+                bool pvssy = Settings.PvssyMode;
+                if (_errands != null && _pvssyModeCached == pvssy) return _errands;
+                _pvssyModeCached = pvssy;
                 _errands = new List<Errand>();
 
                 // Metal plate rather than the tile's flagstone, which read as a garden path
@@ -766,9 +766,9 @@ namespace SlopWorld
                 Add(_plate, PavingSeconds, PavingOdds, PavingBloom,
                     new Run { Least = PavingSide, Most = PavingSide, Lines = PavingSide });
 
-                if (pussy)
+                if (pvssy)
                 {
-                    // Pussy mode: furniture and flower pots instead of graves and obelisks.
+                    // Pvssy mode: furniture and flower pots instead of graves and obelisks.
                     Add(Named("FlowerPot"), SmallSeconds, 5f, SmallBloom,
                         new Run { Least = 3, Most = 6, Gap = 1 });
                     Add(Named("Chair"), SmallSeconds, 3f, SmallBloom,
