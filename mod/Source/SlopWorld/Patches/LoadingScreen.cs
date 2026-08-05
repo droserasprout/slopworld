@@ -206,12 +206,18 @@ namespace SlopWorld
         };
 
         // The other place a tip turns up is the persona core's hover bubble (CoreTip).
-        // Strip the ` *` marker used for pussy-mode filtering.
+        // When pussy mode is on, keep re-rolling past tips marked ` *`; the marker is
+        // always stripped so it never reaches the screen.
         public static string RandomTip
         {
             get
             {
-                string tip = Tips.RandomElement();
+                bool pussy = Settings.PussyMode;
+                string tip;
+                do
+                {
+                    tip = Tips.RandomElement();
+                } while (pussy && tip.EndsWith(" *"));
                 if (tip.EndsWith(" *")) tip = tip.Substring(0, tip.Length - 2);
                 return tip;
             }
