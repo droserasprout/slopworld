@@ -1,4 +1,5 @@
 mod api;
+mod audio;
 mod clipboard;
 mod config;
 mod emu;
@@ -67,6 +68,9 @@ async fn main() -> Result<()> {
     // needs no restart.
     let usage = usage::spawn(m.clone());
 
+    // Watches the jukebox rather than driving it: what to play is the mod's to say.
+    let audio = audio::spawn(m.clone());
+
     let perf = perf::spawn();
 
     let app = api::router(m.clone()).layer(middleware::from_fn_with_state(m.clone(), auth));
@@ -83,6 +87,7 @@ async fn main() -> Result<()> {
 
     poller.abort();
     usage.abort();
+    audio.abort();
     if let Some(p) = perf {
         p.abort();
     }

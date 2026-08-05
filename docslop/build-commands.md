@@ -56,3 +56,6 @@ journalctl --user -u slopd -f
   are found and moved here.
 - `tools/roboface.py` - draws the agent faceplates into `mod/Textures/`.
 - `tools/fileicons.py` - bakes the files view's icons into `mod/Textures/`.
+- `tools/emoji.py` - bakes an icon from an emoji glyph. An alpha mask by default,
+  for the caller to tint; `--color` keeps the face's own colours, which is what a
+  thing standing on the map wants - see [mod-jukebox](mod-jukebox.md).

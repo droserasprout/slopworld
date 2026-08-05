@@ -36,6 +36,9 @@ namespace SlopWorld
         // after the dust has settled reading as a second event.
         readonly List<Pawn> _landing = new List<Pawn>();
 
+        // Whether this colony's one jukebox has been put in a pod. See Spawn.
+        bool _jukeboxSent;
+
         readonly Game _game;
 
         public AgentColony(Game game) { _game = game; }
@@ -356,8 +359,25 @@ namespace SlopWorld
             // In a pod, always, and neither forbidden nor slagged: the pod is the arrival, not
             // wreckage to clear. SpawnSpot picks the ground; DropCellFinder does the last few
             // cells itself.
+            var cargo = new List<Thing> { pawn };
+
+            // The colony gets one jukebox, and it rides down with whichever clanker is
+            // first. The pod places each thing it carries separately, so the box ends up
+            // beside the pawn rather than under it.
+            //
+            // The latch is what makes it one. A reconcile drops a whole colony's worth of
+            // pods in the same tick and a thing inside a pod in the air is not on the map,
+            // so "is one standing" is false for every pod in the batch and each would
+            // carry its own. Saved, because a colony reloaded with its pods still falling
+            // would answer false again.
+            if (!_jukeboxSent && !Jukebox.On(map))
+            {
+                cargo.Add(ThingMaker.MakeThing(SlopDefOf.SlopJukebox));
+                _jukeboxSent = true;
+            }
+
             DropPodUtility.DropThingsNear(SpawnSpot.Find(map, Anchor(map)), map,
-                new List<Thing> { pawn }, openDelay: PodOpenDelay,
+                cargo, openDelay: PodOpenDelay,
                 canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: true,
                 forbid: false, allowFogged: true, faction: Faction.OfPlayer);
 
@@ -393,6 +413,7 @@ namespace SlopWorld
             Scribe_Collections.Look(ref _pawns, "agentPawns",
                 LookMode.Value, LookMode.Reference, ref _pawnKeys, ref _pawnBodies);
             if (_pawns == null) _pawns = new Dictionary<string, Pawn>();
+            Scribe_Values.Look(ref _jukeboxSent, "jukeboxSent", false);
             _reindex = true; // whatever the table is now, it is not what the index holds
         }
     }

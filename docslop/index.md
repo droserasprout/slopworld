@@ -20,6 +20,7 @@ Split out of CLANKERS.md. Keep these short; delete what goes stale.
 - [mod-sim](mod-sim.md) - `Sim/`: colony reconcile, clock, intro, restart.
 - [mod-plague](mod-plague.md) - the dead ground.
 - [mod-worksite](mod-worksite.md) - what a working agent builds.
+- [mod-jukebox](mod-jukebox.md) - the box that came down with the first clanker, and what it plays.
 - [mod-patches-strip](mod-patches-strip.md) - stripping the sim, the UI and the options menu.
 - [mod-patches-agents](mod-patches-agents.md) - agents are not colonists; the colonist bar.
 - [mod-sidebar](mod-sidebar.md) - `AgentSidebar` and what it does to the rest of the chrome.

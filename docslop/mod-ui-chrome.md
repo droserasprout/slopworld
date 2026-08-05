@@ -24,6 +24,26 @@ those figures having been nudged by hand to clear three different titles.
 own line over `SlopWidgets.ToggleWindow`, which takes a **factory** rather than an
 instance so nothing is built for a toggle that turns out to be a close.
 
+## `SmoothScroll`
+
+Held in place of the `Vector2` a scroll view used to keep. IMGUI does the wheel in
+`GUI.EndScrollView` - `delta * 20`, applied whole, next frame - which reads as the
+notch on a mouse and as teleporting on a touchpad, where the driver sends that
+same notch-sized delta dozens of times a gesture. `Begin` takes the event before
+the scroll view sees it, puts the delta in a **target**, and eases the drawn
+position toward it (`Tau` 0.05s, unscaled - a paused game is not a still list).
+`End` compares what came back through the `ref` against what went in, so a
+scrollbar drag or a clamp against shrunken content becomes the new target rather
+than something to ease back out of.
+
+The `e.Use()` is load-bearing twice: without it ours and the scroll view's handling
+both land and the list travels double, and an *enclosing* scroll view takes the
+gesture off the inner one. It is skipped when there is nothing to scroll, or a box
+showing all its content would pin the page behind it.
+
+On the sandbox tab's two boxes and `PresetList` only. The terminal pane has its own
+wheel path (`TerminalWindow.HandleWheel`) and is still line-quantised.
+
 ## `SlopLayout`
 
 Which chrome this install wears and how much room the rest of it has to leave:

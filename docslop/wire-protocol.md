@@ -5,14 +5,21 @@
 `{"t":"shortcuts"}` - those last three **also once on connect**, or a client
 attaching between polls draws nothing. And `{"t":"quit"}`: save and go.
 
-**Client messages**: `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste`.
+**Client messages**: `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste`,
+`audio`. And `{"t":"audio"}` back the other way, **on connect too**: the mod picks
+the music but only the daemon knows whether it plays - see
+[mod-jukebox](mod-jukebox.md).
+
+`audio` carries `volume` always and `source` in three states, which is the whole
+of the protocol: a string plays it, `null` stops, and **leaving the key out** is
+the volume slider moving and must not restart a stream.
 
 Everything that rewrites `config.toml` goes over HTTP instead, because the error
 body matters: `/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`,
 plus `POST /api/shortcuts/NAME/run` and `POST /api/run`.
 
-`GET /api/usage`, `/api/presets`, `/api/browse` and `/api/game` are for anything
-that would rather ask than listen. `POST /api/open` answers 400 for a URL it will
+`GET /api/usage`, `/api/presets`, `/api/browse`, `/api/audio` and `/api/game` are
+for anything that would rather ask than listen. `POST /api/open` answers 400 for a URL it will
 not take and 502 for an opener that would not.
 
 ## `GET /api/browse`

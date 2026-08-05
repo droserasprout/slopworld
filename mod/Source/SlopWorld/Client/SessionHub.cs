@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Verse;
 
@@ -517,6 +518,11 @@ namespace SlopWorld
                     Usage = UsageInfo.FromJson(ev["usage"]);
                     break;
 
+                case "audio":
+                    Radio.Report(ev["audio"]["playing"].AsBool(false),
+                        ev["audio"]["error"].AsString(null));
+                    break;
+
                 // Update() is the Root.Update patch, so this is the main thread and Shutdown is
                 // called from where the menu would call it.
                 case "quit":
@@ -600,6 +606,29 @@ namespace SlopWorld
             if (_ws == null || !_ws.Connected) return;
             _ws.SendText($"{{\"t\":\"paste\",\"name\":{JVal.Q(name)},\"text\":{JVal.Q(text)}}}");
         }
+
+        // The jukebox. `source` is a station's URL or the absolute path of a file, null
+        // stops it, and leaving the key out altogether is the volume moving on its own -
+        // which must not restart what is playing. See Sim/Radio.cs.
+        public void SendAudio(string source, float volume)
+        {
+            if (_ws == null || !_ws.Connected) return;
+            // JVal.Q writes an empty string for a null, and the daemon reads the JSON null
+            // as "stop" and an absent key as "volume only" - three cases, so the literal
+            // is written here rather than quoted.
+            string src = source == null ? "null" : JVal.Q(source);
+            _ws.SendText($"{{\"t\":\"audio\",\"source\":{src},\"volume\":{Num(volume)}}}");
+        }
+
+        public void SendVolume(float volume)
+        {
+            if (_ws == null || !_ws.Connected) return;
+            _ws.SendText($"{{\"t\":\"audio\",\"volume\":{Num(volume)}}}");
+        }
+
+        // Invariant, and short: a comma for a decimal point is not JSON, and the daemon
+        // has no use for the last four digits of a slider.
+        static string Num(float f) => f.ToString("0.###", CultureInfo.InvariantCulture);
 
         public void Resize(string name, int cols, int rows)
         {

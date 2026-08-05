@@ -50,6 +50,13 @@ namespace SlopWorld
         // is about the screen it is on.
         public string cursorColor = "";
 
+        // Which station the jukebox is on: "ost", or the name the stream host serves a
+        // quality preset at ("mp3-128"). Here rather than in a save for the reason the
+        // theme is: it is about this room and these ears, and it is wanted back on the
+        // next colony rather than buried with this one. A preset this build no longer
+        // lists reads as the OST.
+        public string radio = "ost";
+
         // Pvssy mode: no fun allowed. Disables gore, vomit, plague emissions, graves,
         // obelisks, harmful tips, zalgo, background animation, and easter eggs.
         public bool pvssyMode;
@@ -70,6 +77,7 @@ namespace SlopWorld
             Scribe_Values.Look(ref fontName, "fontName", "");
             Scribe_Values.Look(ref theme, "theme", "clankers");
             Scribe_Values.Look(ref cursorColor, "cursorColor", "");
+            Scribe_Values.Look(ref radio, "radio", "ost");
             Scribe_Values.Look(ref pvssyMode, "pvssyMode", false);
         }
     }
@@ -93,6 +101,7 @@ namespace SlopWorld
         public static string FontName => S.fontName ?? "";
         public static string Theme => S.theme ?? "";
         public static string CursorColor => S.cursorColor ?? "";
+        public static string Radio => S.radio ?? "";
         public static bool PvssyMode => S.pvssyMode;
     }
 
@@ -205,6 +214,10 @@ namespace SlopWorld
             BackgroundFrames.Follow();
             // The pointer's own animation, which has nowhere else to run.
             DeadCursor.Tick();
+            // The jukebox's stream, for the reason the cursor is here: it has no
+            // MonoBehaviour of its own to pump it, and it has to be shut off on the menu
+            // as well as fed in the game.
+            Radio.Update();
             // Update and not OnGUI, so it fires per frame rather than per event, and below
             // HandleEventsHighPriority, where the clicks that count are used -
             // GetMouseButtonDown still sees them, that flag being Input's own.

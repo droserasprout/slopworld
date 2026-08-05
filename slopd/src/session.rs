@@ -22,6 +22,13 @@ use crate::tmux::Tmux;
 /// Matches the mod's rule for an idle agent's colonist.
 const IDLE_MS: u64 = 10_000;
 
+/// How far up the screen a `[[state_rule]]` is allowed to look. A pane is not a transcript:
+/// what an agent printed while it was asking is still standing once it has been answered, so a
+/// rule read against the whole screen holds the *old* posture until enough output has scrolled
+/// it off. Trailing blanks are dropped before the count, a screen padded out to `rows` having
+/// nothing to spend the budget on.
+const TAIL_LINES: usize = 12;
+
 /// How often a pane nobody has on screen is rendered. A render walks the whole grid, hashes
 /// it, strips it and runs every state rule over it, and the flush tick behind it is 8ms - a
 /// reader's rate. Nobody is reading, and the frame is dropped by every pump on the way out,
@@ -186,6 +193,12 @@ pub enum Event {
     Usage {
         usage: crate::usage::Snapshot,
     },
+    /// What the jukebox is doing, on connect and on every change. The mod picks the
+    /// station and knows what it asked for; this is the answer to whether it happened,
+    /// which nothing on the mod's side can see for itself.
+    Audio {
+        audio: crate::audio::AudioState,
+    },
     /// The only event that asks the mod for something. Nothing outside the game can save a
     /// colony: a killed RimWorld comes back at the last autosave.
     Quit,
@@ -326,6 +339,10 @@ pub struct Manager {
     /// frame shows - the live sequence, the requested offset and the pane size. `request_id`
     /// is stamped on the way out, not part of the key.
     scroll_cache: Mutex<HashMap<String, CachedScroll>>,
+    /// The jukebox's sound. Nothing here reads it back except to answer the mod: what is
+    /// playing is the mod's decision, kept where the mod keeps its settings, and the
+    /// daemon is the machine rather than the memory.
+    pub audio: crate::audio::Audio,
     pub events: broadcast::Sender<Event>,
 }
 
@@ -401,6 +418,24 @@ fn hash_lines(lines: &[String]) -> u64 {
     let mut h = std::collections::hash_map::DefaultHasher::new();
     lines.hash(&mut h);
     h.finish()
+}
+
+/// The half of `classify` that is only the rules, kept out of the lock and the clock so it can
+/// be read - and tested - as the one question it is: what is the screen saying *now*.
+fn match_rules(rules: &[(State, Regex)], text: &str) -> Option<State> {
+    let lines: Vec<&str> = text.lines().collect();
+    let end = lines
+        .iter()
+        .rposition(|l| !l.trim().is_empty())
+        .map_or(0, |i| i + 1);
+    for line in lines[end.saturating_sub(TAIL_LINES)..end].iter().rev() {
+        for (state, re) in rules {
+            if re.is_match(line) {
+                return Some(*state);
+            }
+        }
+    }
+    None
 }
 
 fn compile_rules(cfg: &Config) -> Vec<(State, Regex)> {
@@ -578,6 +613,7 @@ impl Manager {
             clients_since: AtomicU64::new(0),
             watchers: Mutex::new(HashMap::new()),
             scroll_cache: Mutex::new(HashMap::new()),
+            audio: crate::audio::Audio::new(),
             events,
         });
         // Before anything else touches tmux: whoever forks the server decides which cgroup it
@@ -1741,7 +1777,8 @@ impl Manager {
         // Down the same queue as everything else, or a paste sent inline would overtake the
         // keys queued ahead of it - which is exactly what `deliver` does, pasting a line and
         // then sending Enter behind it.
-        self.queue_input(name, Input::Paste(text.as_bytes().to_vec())).await;
+        self.queue_input(name, Input::Paste(text.as_bytes().to_vec()))
+            .await;
         Ok(())
     }
 
@@ -1770,11 +1807,14 @@ impl Manager {
         Ok(())
     }
 
+    /// Rules are read up the bottom of the screen a line at a time, and the **lowest** line any
+    /// of them matches is the one that answers; config order only breaks a tie inside a single
+    /// line. What is live on an agent's screen is always below what it has finished saying - a
+    /// spinner's "esc to interrupt" is the last line there is - so a question already answered
+    /// no longer outvotes the work it started.
     async fn classify(&self, changed: bool, last_change: u64, text: &str) -> State {
-        for (state, re) in self.rules.read().await.iter() {
-            if re.is_match(text) {
-                return *state;
-            }
+        if let Some(state) = match_rules(&self.rules.read().await, text) {
+            return state;
         }
         // No rule hit: a pane that moved recently is still doing something.
         if changed || now_ms().saturating_sub(last_change) < IDLE_MS {
@@ -2274,10 +2314,82 @@ mod tests {
     use std::collections::HashMap;
 
     use super::{
-        check_name, check_shortcut, free_name, free_project_name, merge_input, settle, slug,
-        strip_sgr, Input, Live, State, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
+        check_name, check_shortcut, compile_rules, free_name, free_project_name, match_rules,
+        merge_input, settle, slug, strip_sgr, Input, Live, State, BOOT_COLS, BOOT_ROWS,
+        INPUT_BATCH,
     };
     use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind};
+
+    /// The shipped pair, waiting first, which is the order that made an answered question
+    /// outlast itself.
+    fn seeded_rules() -> Vec<(State, regex::Regex)> {
+        let cfg = Config::parse(
+            r#"
+[[state_rule]]
+state = "waiting"
+pattern = '(?i)(do you want|❯\s*1\.|yes, and don.t ask again|press enter to continue)'
+
+[[state_rule]]
+state = "working"
+pattern = '(?i)(esc to interrupt|to interrupt\))'
+"#,
+        )
+        .expect("config parses");
+        compile_rules(&cfg)
+    }
+
+    /// The bug: a question is answered, the agent gets to work, and the words it asked with are
+    /// still on the screen above the spinner. Read as one blob the pane never leaves `waiting`.
+    #[test]
+    fn work_started_beats_the_question_that_started_it() {
+        let screen = "\
+> fix the parser
+
+  Do you want to make this edit to lexer.rs?
+  ❯ 1. Yes
+    2. No
+
+  Updated lexer.rs with 3 additions
+
+* Thinking… (12s · esc to interrupt)
+";
+        assert_eq!(match_rules(&seeded_rules(), screen), Some(State::Working));
+    }
+
+    /// The same screen one moment earlier is still a question, and the answer is still the
+    /// bottom-most thing on it.
+    #[test]
+    fn a_question_with_nothing_under_it_is_waiting() {
+        let screen = "\
+  Updated lexer.rs with 3 additions
+
+  Do you want to make this edit to parser.rs?
+  ❯ 1. Yes
+    2. No
+";
+        assert_eq!(match_rules(&seeded_rules(), screen), Some(State::Waiting));
+    }
+
+    /// Blank rows are the pane padded out to `rows`, not screen worth reading: counted against
+    /// the tail they would push the only line that matters off the top of it.
+    #[test]
+    fn trailing_blanks_do_not_spend_the_tail() {
+        let mut screen = String::from("* Working… (esc to interrupt)\n");
+        screen.push_str(&"\n".repeat(30));
+        assert_eq!(match_rules(&seeded_rules(), &screen), Some(State::Working));
+    }
+
+    /// Far enough up and a rule stops being about the present at all - an idle pane is one with
+    /// nothing live at the bottom of it, whatever it said a screen ago.
+    #[test]
+    fn a_rule_out_of_reach_of_the_tail_says_nothing() {
+        let mut screen = String::from("  Do you want to make this edit?\n");
+        for i in 0..20 {
+            screen.push_str(&format!("  line {i}\n"));
+        }
+        screen.push_str("> \n");
+        assert_eq!(match_rules(&seeded_rules(), &screen), None);
+    }
 
     /// A wheel held down is what this is for: every notch is one of these, and the app is
     /// meant to see one write rather than a process per notch.

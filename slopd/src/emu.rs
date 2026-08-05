@@ -334,7 +334,6 @@ impl SessionEmu {
             bell: false,
         }
     }
-
 }
 
 pub(crate) enum Slot {

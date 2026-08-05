@@ -5,6 +5,18 @@
 text (SGR stripped); with no hit, a pane that moved inside `IDLE_MS` is working.
 Down is not a rule - it comes from the control reader ending on `%exit` or EOF.
 
+**The rules read the bottom of the screen, not the screen** (`match_rules`,
+`TAIL_LINES`). A pane is not a transcript: the question an agent asked is still
+standing after it has been answered, so rules run over the whole thing keep
+answering `waiting` while the agent works. The last `TAIL_LINES` non-blank lines
+are walked **upwards** and the lowest line any rule matches decides; config order
+only breaks a tie inside one line. That ordering is the point - what is live on a
+screen is always below what is finished, a spinner's `esc to interrupt` being the
+last line there is - and it is why the fix is not a reordering of the two seeded
+rules, which are a config somebody already has on disk. Out of reach of the tail
+a rule says nothing at all, and the clock decides: a screen that said `do you
+want` a page ago is idle, not waiting.
+
 ## Two clocks, neither standing in for the other
 
 - `last_change` is the *pane's*, reset by every redraw. `classify` reads it to

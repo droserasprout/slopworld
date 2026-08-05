@@ -39,6 +39,9 @@ namespace SlopWorld
         /// The machine persona at the map's centre: where the plague comes from.
         public static ThingDef Ship_ComputerCore;
 
+        /// The radio set that comes down with the first clanker.
+        public static ThingDef SlopJukebox;
+
         // Not on SoundDefOf - vanilla only ever reaches it through a LetterDef - so it
         // gets a field here.
         public static SoundDef LetterArrive_BadUrgent;

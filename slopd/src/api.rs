@@ -45,6 +45,7 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/clipboard", get(clip_read).post(clip_write))
         .route("/api/open", post(open_url))
         .route("/api/usage", get(usage))
+        .route("/api/audio", get(audio))
         .route("/api/browse", get(browse))
         .route("/api/game", get(game))
         .route("/api/game/restart", post(restart_game))
@@ -361,6 +362,13 @@ async fn usage(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!(m.usage().await)))
 }
 
+/// What the jukebox is doing, for anything that would rather ask than listen - which in
+/// practice means a person with `curl` and a suspicion. The mod hears the same thing as an
+/// event; nothing needs this route to work.
+async fn audio(State(m): State<Mgr>) -> ApiResult {
+    Ok(Json(json!(m.audio.state())))
+}
+
 #[derive(Deserialize)]
 struct ClipReq {
     #[serde(default)]
@@ -528,6 +536,27 @@ enum ClientMsg {
     Scroll(ScrollReq),
     Mouse(MouseReq),
     Paste(PasteReq),
+    Audio(AudioReq),
+}
+
+/// The jukebox. `source` is a URL for a station or an absolute path for a file, and null
+/// is silence - the mod sends the path of the track it ships rather than a `file://` URL,
+/// so there is nothing to escape at either end. `volume` alone (no `source` key at all)
+/// is the slider moving and must not restart what is playing.
+#[derive(Deserialize)]
+struct AudioReq {
+    #[serde(default, deserialize_with = "some_option")]
+    source: Option<Option<String>>,
+    volume: f32,
+}
+
+/// Tells "the key was absent" from "the key was null", which is the difference between a
+/// volume change and a stop.
+fn some_option<'de, D>(d: D) -> Result<Option<Option<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::deserialize(d).map(Some)
 }
 
 #[derive(Deserialize)]
@@ -629,6 +658,15 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
         &tx,
         &Event::Shortcuts {
             shortcuts: m.shortcuts().await,
+        },
+    )
+    .await;
+    // On connect too, and for the same reason: a game that has just come up has to learn
+    // whether the music it asked for last time is playing.
+    let _ = send(
+        &tx,
+        &Event::Audio {
+            audio: m.audio.state(),
         },
     )
     .await;
@@ -782,6 +820,11 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                 }
                 crate::perf::PERF.input.add(started.elapsed());
             }
+            ClientMsg::Audio(ar) => match ar.source {
+                Some(Some(source)) => m.audio.play(&source, ar.volume),
+                Some(None) => m.audio.stop(),
+                None => m.audio.set_volume(ar.volume),
+            },
         }
     }
 

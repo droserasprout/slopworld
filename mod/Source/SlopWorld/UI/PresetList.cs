@@ -18,7 +18,7 @@ namespace SlopWorld
 
         // Ticked and refused: what a preset is handed anyway, by its command or its project.
         // Drawn rather than hidden - "why is ~/.claude bound" is the question this answers.
-        public static void Draw(Rect outer, List<string> chosen, ref Vector2 scroll,
+        public static void Draw(Rect outer, List<string> chosen, SmoothScroll scroll,
                                 ICollection<string> implied = null)
         {
             var presets = SessionHub.Instance.Presets;
@@ -43,7 +43,7 @@ namespace SlopWorld
             float h = (presets.Count + groups.Count) * RowH;
             var inner = new Rect(0f, 0f, pad.width - 18f, h);
 
-            Widgets.BeginScrollView(pad, ref scroll, inner);
+            scroll.Begin(pad, inner);
             float y = 0f;
             foreach (var g in groups)
             {
@@ -68,7 +68,7 @@ namespace SlopWorld
                     else chosen.Remove(pr.Name);
                 }
             }
-            Widgets.EndScrollView();
+            scroll.End();
         }
 
         static string Category(PresetInfo p) =>

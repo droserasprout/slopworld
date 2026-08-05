@@ -101,7 +101,7 @@ namespace SlopWorld
 
         string _roPaths, _rwPaths, _passEnv;
         Vector2 _scroll;
-        Vector2 _presetScroll;
+        readonly SmoothScroll _presetScroll = new SmoothScroll();
         const float PresetsH = 152f;
 
         // The base every project builds on, off `[sandbox]`. Fetched per dialog rather
@@ -234,7 +234,7 @@ namespace SlopWorld
             Widgets.Label(new Rect(r.x, y, r.width, 22f), "Sandbox presets");
             y += 24f;
 
-            PresetList.Draw(new Rect(r.x, y, r.width, PresetsH), _p.Sandbox, ref _presetScroll);
+            PresetList.Draw(new Rect(r.x, y, r.width, PresetsH), _p.Sandbox, _presetScroll);
             y += PresetsH + 6f;
 
             // An agent gets whatever its command preset asks for whether or not it is ticked

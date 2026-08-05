@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Bakes mono (single-colour) icon PNGs from emoji glyphs.
+"""Bakes icon PNGs from emoji glyphs.
 
 Usage: python3 tools/emoji.py --emoji 🏆 --name trophy [--size 32] [--out DIR]
        python3 tools/emoji.py --emoji 🏆 --name trophy --emoji 🎯 --name target
+       python3 tools/emoji.py --emoji 📻 --name Jukebox --size 128 --color
 
 Renders each emoji from the Noto Color Emoji face via PangoCairo and keeps only
 its alpha - the outline of the glyph - writing <out>/<name>.png. A mono icon is
 an alpha mask: RGB is white outright, so the caller tints it, exactly the way the
 procedural icons here are drawn (GearIcon, TerminalIcon, TabIcons).
 
-The colour is stripped on purpose: it is the shape that makes an icon, and a
-flat white glyph reads on the column's dark rows the way the other icons do.
+The colour is stripped by default on purpose: it is the shape that makes an icon,
+and a flat white glyph reads on the column's dark rows the way the other icons
+do. `--color` keeps the face's own colours instead, which is what a thing
+standing on the map wants - a silhouette there is a box, not a jukebox.
 Pango is used rather than PIL's FreeType because NotoColorEmoji is a colour
 font with CBDT/CBLC tables FreeType cannot load, and because the colour glyphs
 (Pango draws them) are solid where the monochrome fallback-font glyphs are thin
@@ -52,8 +55,8 @@ def _cairo():
     return cairo, Pango, PangoCairo
 
 
-def render_alpha(emoji, size):
-    """The emoji's alpha mask at `size` square, as a float32 numpy array."""
+def render(emoji, size):
+    """The emoji at `size` square: premultiplied RGBA, float32, channels first."""
     cairo, Pango, PangoCairo = _cairo()
 
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
@@ -80,16 +83,19 @@ def render_alpha(emoji, size):
 
     # Cairo ARGB32 is premultiplied BGRA in memory; the alpha is the shape.
     buf = np.frombuffer(surface.get_data(), dtype=np.uint8).reshape(size, size, 4)
-    return buf[..., 3].astype(np.float32) / 255.0
+    return buf[..., [2, 1, 0, 3]].astype(np.float32) / 255.0
 
 
-def bake(emoji, name, size, out):
+def bake(emoji, name, size, out, color=False):
     try:
-        alpha = render_alpha(emoji, PROBE)
+        # Premultiplied throughout: it is what survives a LANCZOS resample without
+        # the transparent pixels' black bleeding into the edge of the glyph.
+        img = render(emoji, PROBE)
     except Exception as e:
         print(f"  {name}: could not render {emoji!r}: {e}", file=sys.stderr)
         return False
 
+    alpha = img[..., 3]
     ys, xs = np.nonzero(alpha > 10 / 255.0)
     if len(ys) == 0:
         print(f"  {name}: {emoji!r} rendered nothing", file=sys.stderr)
@@ -105,23 +111,28 @@ def bake(emoji, name, size, out):
     # If the crop would fall short of the probe, shift it so it doesn't
     if y0 + side > PROBE: y0 = PROBE - side
     if x0 + side > PROBE: x0 = PROBE - side
-    crop = alpha[y0:y0 + side, x0:x0 + side]
+    crop = img[y0:y0 + side, x0:x0 + side]
 
     # The crop may be a hair off-square; pad to the larger edge before resize.
-    m = max(crop.shape)
-    padded = np.zeros((m, m), dtype=np.float32)
+    m = max(crop.shape[:2])
+    padded = np.zeros((m, m, 4), dtype=np.float32)
     py, px = (m - crop.shape[0]) // 2, (m - crop.shape[1]) // 2
     padded[py:py + crop.shape[0], px:px + crop.shape[1]] = crop
     small = np.asarray(Image.fromarray(
-        np.clip(padded * 255 + 0.5, 0, 255).astype(np.uint8), "L")
+        np.clip(padded * 255 + 0.5, 0, 255).astype(np.uint8), "RGBA")
         .resize((size, size), Image.LANCZOS), dtype=np.float32) / 255.0
 
-    # Mono: RGB is white outright, the alpha is the shape.
     out_arr = np.zeros((size, size, 4), dtype=np.float32)
-    out_arr[..., 0] = 1.0
-    out_arr[..., 1] = 1.0
-    out_arr[..., 2] = 1.0
-    out_arr[..., 3] = small
+    out_arr[..., 3] = small[..., 3]
+    if color:
+        # Undo the premultiply the resample was done in. A pixel with no alpha has
+        # no colour to recover, and stays the black it already is.
+        lit = small[..., 3] > 0
+        out_arr[..., :3][lit] = np.clip(
+            small[..., :3][lit] / small[..., 3][lit, None], 0.0, 1.0)
+    else:
+        # Mono: RGB is white outright, the alpha is the shape.
+        out_arr[..., :3] = 1.0
 
     os.makedirs(out, exist_ok=True)
     Image.fromarray(np.clip(out_arr * 255 + 0.5, 0, 255).astype(np.uint8), "RGBA") \
@@ -139,16 +150,18 @@ def main():
                     help="edge of the baked PNG, default 32")
     ap.add_argument("--out", default=DEFAULT_OUT,
                     help="output directory")
+    ap.add_argument("--color", action="store_true",
+                    help="keep the face's own colours instead of an alpha mask")
     args = ap.parse_args()
 
     if len(args.emoji) != len(args.name):
         print("--emoji and --name must pair up one-to-one", file=sys.stderr)
         return 2
 
-    done = sum(bake(e, n, args.size, args.out)
+    done = sum(bake(e, n, args.size, args.out, args.color)
                for e, n in zip(args.emoji, args.name))
-    print(f"{done}/{len(args.emoji)} icons at {args.size}px -> "
-          f"{os.path.relpath(args.out, ROOT)}")
+    print(f"{done}/{len(args.emoji)} {'colour' if args.color else 'mono'} icons "
+          f"at {args.size}px -> {os.path.relpath(args.out, ROOT)}")
     return 0 if done == len(args.emoji) else 1
 
 

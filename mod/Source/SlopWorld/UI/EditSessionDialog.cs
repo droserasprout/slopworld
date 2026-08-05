@@ -16,7 +16,7 @@ namespace SlopWorld
         // The edit is addressed to it, and a changed name in the field is a rename.
         readonly string _origName;
         string _env;
-        Vector2 _presetScroll;
+        readonly SmoothScroll _presetScroll = new SmoothScroll();
         const float PresetsH = 132f;
 
         // For the title. Null unless it is a duplicate: an edit already has `_origName`.
@@ -126,7 +126,7 @@ namespace SlopWorld
             // Its command's are ticked and refused here; its project's are the project's to
             // edit. What is left is what this one agent adds.
             PresetList.Draw(new Rect(rect.x, y, rect.width, PresetsH), _s.Sandbox,
-                ref _presetScroll, preset != null ? preset.Sandbox : null);
+                _presetScroll, preset != null ? preset.Sandbox : null);
             y += PresetsH + 8f;
 
             var rest = new Listing_Standard { maxOneColumn = true };

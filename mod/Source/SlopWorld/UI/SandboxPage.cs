@@ -25,7 +25,8 @@ namespace SlopWorld
 
         string _roPaths, _rwPaths, _passEnv;
 
-        Vector2 _presetScroll, _previewScroll;
+        readonly SmoothScroll _presetScroll = new SmoothScroll();
+        readonly SmoothScroll _previewScroll = new SmoothScroll();
         // The preset whose preview sits beside the list. Kept by reference and dropped when
         // a reload no longer offers it, so a stale name is never previewed.
         PresetInfo _selected;
@@ -140,7 +141,7 @@ namespace SlopWorld
 
             float h = (presets.Count + groups.Count) * 24f + 8f;
             var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(h, r.height));
-            Widgets.BeginScrollView(r, ref _presetScroll, view);
+            _presetScroll.Begin(r, view);
 
             if (presets.Count == 0)
             {
@@ -171,7 +172,7 @@ namespace SlopWorld
                     y += 24f;
                 }
             }
-            Widgets.EndScrollView();
+            _presetScroll.End();
         }
 
         // The selected preset, in the same three groups the Global half edits, each row
@@ -191,7 +192,7 @@ namespace SlopWorld
             var p = _selected;
             var view = new Rect(0f, 0f, r.width - 18f,
                 Mathf.Max(Measure(p, r.width - 18f), r.height));
-            Widgets.BeginScrollView(r, ref _previewScroll, view);
+            _previewScroll.Begin(r, view);
 
             float y = 0f;
             y = Row(view, y, "Read-only binds", p.Ro);
@@ -200,7 +201,7 @@ namespace SlopWorld
             y = Rule(view.width, y);
             Row(view, y, "Passed env vars", p.Env);
 
-            Widgets.EndScrollView();
+            _previewScroll.End();
         }
 
         static float Row(Rect view, float y, string label, List<string> items)

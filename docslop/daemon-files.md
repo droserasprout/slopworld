@@ -11,6 +11,7 @@
 | `presets.rs` | The preset tables: builtin TOML plus the user's. |
 | `config.rs` | `config.toml` load, save, seed, migration. |
 | `usage.rs` | Polls Anthropic and OpenRouter for what is left of each. |
+| `audio.rs` | The jukebox's sound, because the game cannot play it. |
 | `clipboard.rs` | The host clipboard. |
 | `game.rs` | Launching the game, and whether it is up. |
 | `open.rs` | Opening a URL on the host. |
