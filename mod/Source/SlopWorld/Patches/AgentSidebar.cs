@@ -502,19 +502,23 @@ namespace SlopWorld
 
             float y = (TabH - TabIcon) / 2f;
             bool files = Files;
+            float right = Width - CellX - TabIcon;
 
+            // The selector, from the left.
             Tab(new Rect(CellX, y, TabIcon, TabIcon), TabIcons.AgentsTex, !files,
                 "Agents - every session, under the project it runs in", () => Show(false));
             Tab(new Rect(CellX + TabIcon + 8f, y, TabIcon, TabIcon), TabIcons.FilesTex, files,
                 "Files - every project's directory, as a tree", () => Show(true));
 
-            // The one switch the tree has, pinned to the far end so it never shuffles the
-            // selector sideways, and drawn only where it means something.
+            // The one switch the tree has, and the menu button, from the right so neither
+            // shuffles the selector sideways. The dotfile switch draws only where it means
+            // something; the menu is this column's door onto everything else, so it is always
+            // here.
             if (files)
             {
                 bool showing = Settings.SidebarShowHidden;
-                Tab(new Rect(Width - CellX - TabIcon, y, TabIcon, TabIcon),
-                    TabIcons.HiddenTex, showing,
+                float ex = right - TabIcon - 8f;
+                Tab(new Rect(ex, y, TabIcon, TabIcon), TabIcons.HiddenTex, showing,
                     showing
                         ? "Showing dotfiles. Click to hide them."
                         : "Hiding dotfiles. Click to show them.",
@@ -527,6 +531,8 @@ namespace SlopWorld
                         FilesView.Reload();
                     });
             }
+
+            MenuButton(new Rect(right, y, TabIcon, TabIcon));
 
             // The strip is the panel's, so a press anywhere along it is the panel's too. Not
             // the last few pixels of it: that is the edge, and Grip - which is asked after
@@ -547,6 +553,26 @@ namespace SlopWorld
             if (on)
                 Widgets.DrawBoxSolid(new Rect(r.x, TabH - 2f, r.width, 2f),
                     new Color(1f, 1f, 1f, 0.55f));
+        }
+
+        // The hamburger: the column's door onto everything the bottom bar used to hold. The
+        // icon is the old files tab mark, which read as a list; the list is now the menu.
+        // Clicking opens a FloatMenu over whatever is up, the same road the row menus take.
+        static void MenuButton(Rect r)
+        {
+            TooltipHandler.TipRegion(r, "Menu");
+            if (!Widgets.ButtonImage(r, TabIcons.HamburgerTex, TabOff, Color.white)) return;
+            if (ColonistBarStrip.Blocked) return;
+
+            var opts = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Projects", ProjectsWindow.Toggle),
+                new FloatMenuOption("Agents", SessionsWindow.Toggle),
+                new FloatMenuOption("Shortcuts", ShortcutsWindow.Toggle),
+                new FloatMenuOption("Config", SlopOptions.Toggle),
+                new FloatMenuOption("Quit to OS", Root.Shutdown),
+            };
+            TerminalWindow.OpenOverPane(new FloatMenu(opts));
         }
 
         static void DrawHead(Head head)

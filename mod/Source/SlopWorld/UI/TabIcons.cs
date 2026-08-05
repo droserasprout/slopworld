@@ -17,15 +17,18 @@ namespace SlopWorld
     {
         const int N = 32;
 
-        static Texture2D _agents, _files, _hidden, _bell, _auto;
+        static Texture2D _agents, _files, _hidden, _bell, _auto, _hamburger;
 
         public static Texture2D AgentsTex => _agents != null ? _agents : _agents = Build(Robot);
 
-        public static Texture2D FilesTex => _files != null ? _files : _files = Build(Tree);
+        public static Texture2D FilesTex => _files != null ? _files : _files = Build(Folder);
 
         public static Texture2D HiddenTex => _hidden != null ? _hidden : _hidden = Build(Eye);
 
         public static Texture2D BellTex => _bell != null ? _bell : _bell = Build(Bell);
+
+        public static Texture2D HamburgerTex =>
+            _hamburger != null ? _hamburger : _hamburger = Build(Hamburger);
 
         public static Texture2D AutoTex => _auto != null ? _auto : _auto = Build(Cross);
 
@@ -48,9 +51,20 @@ namespace SlopWorld
             return !RRect(x, y, 11f, 20f, 21f, 23f, 1.4f);         // mouth
         }
 
-        // A spine with three leaves off it. A folder would say "a directory"; the point of
-        // this view is that the directories are nested.
-        static bool Tree(float x, float y)
+        // A folder: a tab at the top and a body below it. More recognisably
+        // files-related than a spine with three leaves, which read as a list.
+        static bool Folder(float x, float y)
+        {
+            // The tab (the little flap)
+            if (Rect(x, y, 10f, 5f, 20f, 8f)) return true;
+            // The body (the main rectangle)
+            if (RRect(x, y, 4f, 8f, 28f, 25f, 2.5f)) return true;
+            return false;
+        }
+
+        // A spine with three leaves off it. Used for the hamburger menu button
+        // now that the files tab uses the folder icon.
+        static bool Hamburger(float x, float y)
         {
             if (Rect(x, y, 7.2f, 6f, 8.8f, 24.8f)) return true;    // the spine
             for (int i = 0; i < 3; i++)

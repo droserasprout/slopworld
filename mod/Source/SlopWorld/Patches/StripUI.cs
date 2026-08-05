@@ -197,4 +197,20 @@ namespace SlopWorld
             if (Drop.Contains(__instance.GetType())) __result = false;
         }
     }
+
+    // The bottom buttons bar: the row of main buttons (Projects, Agents, Shortcuts, Config,
+    // Menu, Inspect) is now the sidebar's hamburger menu, so the bar itself is gone.
+    [HarmonyPatch(typeof(MainButtonsRoot), nameof(MainButtonsRoot.MainButtonsOnGUI))]
+    public static class Patch_Hide_BottomPanel
+    {
+        static bool Prefix() => false;
+    }
+
+    // The Escape-key menu: pressing Esc with nothing else open used to open the main menu
+    // (MainTabWindow_Menu). Esc without an active window now does nothing.
+    [HarmonyPatch(typeof(UIRoot_Play), "OpenMainMenuShortcut")]
+    public static class Patch_NoEscMenu
+    {
+        static bool Prefix() => false;
+    }
 }
