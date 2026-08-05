@@ -161,6 +161,9 @@ namespace SlopWorld
             _covering = false;
             Drop(); // a screen's worth of VRAM, held for a window that is gone
             SessionHub.Instance.Unsubscribe(_name);
+            // The terminal is the viewer's home: closing it while a file was being
+            // looked at in `less` means the focus has moved away.
+            FilesView.CloseViewerIf(_name);
         }
 
         public override void DoWindowContents(Rect rect)
@@ -846,6 +849,11 @@ namespace SlopWorld
 
             var info = SessionHub.Instance.Get(name);
             if (info == null) return;
+
+            // Alt+Num while the pane is open is about an agent: release whatever file
+            // the file viewer was showing and switch the sidebar to the agents view.
+            FilesView.ReleaseViewer();
+            AgentSidebar.FocusTerminal();
 
             if (info.Gone) SessionHub.Instance.Start(name);
             else SwitchTo(name);

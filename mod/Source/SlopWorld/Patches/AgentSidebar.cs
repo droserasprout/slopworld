@@ -187,11 +187,24 @@ namespace SlopWorld
             // Clicking the tab already up is not a change, and the file is a file.
             if (files == Files) return;
 
+            // Leaving the file manager is a focus change: the `less` it opened on the
+            // selected file is no longer being looked at, so it goes.
+            if (!files) FilesView.ReleaseViewer();
+
             var s = Settings.S;
             s.sidebarTab = files ? "files" : "agents";
             // ModSettings.Write rather than Mod.WriteSettings, the same as a fold: the latter
             // reconnects the socket, and this is a tab.
             s.Write();
+        }
+
+        // The column's answer to a terminal being summoned: F12 opening a pane, or Alt+Num
+        // pointing one at a portrait, are both about an agent, and the file manager is the
+        // other view. The viewer its tree opened goes with it.
+        public static void FocusTerminal()
+        {
+            FilesView.ReleaseViewer();
+            Show(false);
         }
 
         // Everything below the selector, which is where a view draws.

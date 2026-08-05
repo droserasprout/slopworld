@@ -90,7 +90,14 @@ namespace SlopWorld
             }
 
             var session = SelectedLive() ?? LastLive() ?? AnyLive();
-            if (session != null) TerminalWindow.Open(session);
+            if (session != null)
+            {
+                TerminalWindow.Open(session);
+                // F12 opened the terminal: drop the file viewer and show the agents
+                // view in the sidebar, so the portrait the terminal is looking at is
+                // visible.
+                AgentSidebar.FocusTerminal();
+            }
         }
 
         static string LastLive()

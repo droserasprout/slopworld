@@ -84,6 +84,12 @@ the postfix, which is what puts the column over a pane as well as on the map.
 whole reason this is a strip and not a second sidebar. `TabH` is reserved in
 *both*, so switching moves nothing below it.
 
+The view is also switched by the keyboard: `FocusTerminal` is what F12 (opening a
+pane) and Alt+Num (while a pane is open) take, because both are about an agent and
+the file manager is the other view. It releases the file viewer - the `less` the
+tree opened - before changing tab, so leaving the file manager never leaves a
+reader running behind it.
+
 In the [files view](mod-ui-files.md), `Place` parks every loc and lays out no
 `Row`, so the bar draws and hit-tests nothing - the same move a fold makes, with
 no second call site and no new patch. It still runs `Bucket`, because `Sessions()`

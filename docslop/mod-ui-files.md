@@ -31,6 +31,26 @@ see a project directory the way the project does.
   the file the way the agents working on it do. The path is single-quoted,
   `shell_split` building an argv rather than running a shell.
 
+## The viewer
+
+A left click on a **text file** is the road to reading it: the row is marked (the
+`_selected` highlight that also shows on a marked binary file) and `less -R --`
+opens on it in a pane over the tree. "Text" is anything whose extension is not in
+`BinaryExt` - a source tree, a config, a readme - so the pager is never handed an
+image or an archive.
+
+At most one viewer is open, and the tree owns its lifecycle:
+
+- Clicking a *different* file replaces it: the old `less` (an ephemeral agent, so
+  `Stop` and `forget`) is killed and the new file's started. Clicking the file
+  already being read just brings its pane back. `View` is the same errand the
+  right-click menu takes, tracked as `_viewer` so the reader can reach it.
+- Leaving the file manager closes it: a click on a directory or a project heading,
+  the dotfile switch (`Reload`), switching to the **agents** view (`Show(false)`,
+  which is what `FocusTerminal` and every summon of a terminal take), or the pane
+  closing (`CloseViewerIf`). Killing the session is what closes the process; the
+  pane over it seeing `Gone` is what closes itself.
+
 ## `FileIcons`
 
 One PNG per icon under `Textures/SlopWorld/FileIcons`, baked by

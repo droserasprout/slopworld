@@ -58,6 +58,34 @@ namespace SlopWorld
 
         static Vector2 _scroll;
 
+        // The file the reader is looking at, and the ephemeral session running `less` on it.
+        // `_selected` is what the tree highlights; `_viewer` is who is showing it. The two
+        // move together except when the file is not text - then the tree marks it and nobody
+        // is showing it.
+        static string _selected;
+        static string _viewer;
+
+        // Extensions `less` would rather not be handed: the viewer is for reading, and an
+        // image or a zip in a text pager is a listing nobody asked for. Everything else is
+        // text enough to try.
+        static readonly HashSet<string> BinaryExt = new HashSet<string>
+        {
+            ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".tga",
+            ".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a", ".opus",
+            ".mp4", ".mkv", ".avi", ".mov", ".webm", ".wmv", ".flv",
+            ".pdf", ".ps", ".zip", ".gz", ".tar", ".7z", ".rar", ".xz", ".bz2",
+            ".ttf", ".otf", ".woff", ".woff2", ".eot",
+            ".db", ".sqlite", ".sqlite3", ".dll", ".so", ".dylib", ".exe",
+            ".bin", ".o", ".a", ".class", ".pyc", ".pyo", ".jar", ".iso", ".img",
+        };
+
+        static bool IsText(string name)
+        {
+            int dot = name.LastIndexOf('.');
+            if (dot < 0) return true;               // no extension: read it as text
+            return !BinaryExt.Contains(name.Substring(dot).ToLowerInvariant());
+        }
+
         // Laid out by Draw, read by the click pass, so the two can never disagree about where
         // a row is - the same reason AgentSidebar keeps a Row table.
         struct Line
@@ -73,6 +101,8 @@ namespace SlopWorld
         // what the reader arranged - which projects are open, and how deep - is kept.
         public static void Reload()
         {
+            ReleaseViewer();
+            ClearSelection();
             foreach (var root in Roots.Values) Forget(root);
         }
 
@@ -281,6 +311,8 @@ namespace SlopWorld
         {
             var r = new Rect(0f, y, width, RowH);
             if (Mouse.IsOver(r)) Widgets.DrawHighlight(r);
+            if (node.Path == _selected)
+                Widgets.DrawBoxSolid(r, new Color(1f, 1f, 1f, 0.08f));
 
             float x = CellX + node.Depth * Indent;
 
@@ -377,6 +409,10 @@ namespace SlopWorld
                 {
                     if (e.button == 0) Fold(line.Project);
                     else Menu(line.Node);
+                    // A heading is not a file: the reader's focus has moved off whatever
+                    // was showing, so the viewer goes.
+                    ClearSelection();
+                    ReleaseViewer();
                 }
                 else if (e.button == 0)
                 {
@@ -386,6 +422,24 @@ namespace SlopWorld
                         // Closing and opening again is the retry: the draw pass declines to
                         // ask a second time while an error stands.
                         line.Node.Error = null;
+                        ClearSelection();
+                        ReleaseViewer();
+                    }
+                    else
+                    {
+                        // Left on a file: mark it and read it. Text files open in `less`
+                        // in a pane over the tree; a binary file is marked but nobody is
+                        // handed it. Clicking the file already being read just brings its
+                        // pane back - a focus change is a *different* file, and only that
+                        // replaces the viewer.
+                        bool same = _selected == line.Node.Path;
+                        _selected = line.Node.Path;
+                        if (IsText(line.Node.Name))
+                        {
+                            if (same && ViewerAlive()) TerminalWindow.Open(_viewer);
+                            else View(line.Node);
+                        }
+                        else ReleaseViewer();
                     }
                 }
                 else
@@ -428,10 +482,12 @@ namespace SlopWorld
                 opts.Add(new FloatMenuOption("Copy relative path", () => Copy(rel)));
 
             // Only files, and only because a directory in `less` is a listing nobody asked
-            // for and a directory in `micro` is a file browser inside a game.
+            // for and a directory in `micro` is a file browser inside a game. The left
+            // button views a text file; the menu's View routes through the same tracked
+            // viewer so it is replaced or closed like any other.
             if (!node.IsDir)
             {
-                opts.Add(new FloatMenuOption("View", () => Errand(node, "less -R --", "view")));
+                opts.Add(new FloatMenuOption("View", () => View(node)));
                 opts.Add(new FloatMenuOption("Edit", () => Errand(node, "micro --", "edit")));
             }
 
@@ -476,6 +532,74 @@ namespace SlopWorld
         // The daemon splits a command line into an argv the way a shell would, so a path with
         // a space in it is two arguments unless it says otherwise.
         static string Quote(string path) => "'" + path.Replace("'", "'\\''") + "'";
+
+        // ------------------------------------------------------------------ viewer
+        //
+        // The file manager's other half: a `less` session on the selected file, shown in a
+        // pane over the tree. At most one is open - the reader replaces it by clicking
+        // another file, and the focus leaving the tree closes it.
+
+        // The same temporary agent `Errand` makes, but tracked as *the* viewer so the next
+        // selection can replace it and a focus change can close it. Nothing is typed into
+        // it: the command is the read.
+        static void View(Node node)
+        {
+            // The project this hangs off may have been renamed or deleted since the listing
+            // that put the row on screen; the daemon would refuse either way, but the reason
+            // is clearer said here.
+            if (SessionHub.Instance.Project(node.Project) == null)
+            {
+                // The tree marks it, but nobody is reading it.
+                ClearSelection();
+                ReleaseViewer();
+                SlopWidgets.Fail($"project '{node.Project}' has gone");
+                return;
+            }
+
+            // One file at a time: whatever was being read is replaced by this one, and its
+            // tmux session - and the pane showing it - goes with it.
+            ReleaseViewer();
+            SessionHub.Instance.Run(node.Project, "less -R -- " + Quote(node.Path),
+                "view-" + node.Name,
+                session =>
+                {
+                    _viewer = session;
+                    TerminalWindow.Open(session);
+                },
+                msg =>
+                {
+                    _viewer = null;
+                    SlopWidgets.Fail(msg);
+                });
+        }
+
+        // A viewer session nobody is looking at any more: the sidebar left the file
+        // manager, the terminal it was shown in closed, or a new file was selected. Stopping
+        // the ephemeral agent is what closes the `less` process; the pane over it noticing
+        // the session is gone is what closes itself.
+        public static void ReleaseViewer()
+        {
+            if (_viewer == null) return;
+            var info = SessionHub.Instance.Get(_viewer);
+            if (info != null && info.Alive)
+                SessionHub.Instance.Stop(_viewer);
+            _viewer = null;
+        }
+
+        // The terminal's own close, for the session it was showing. The pane is the
+        // viewer's only home, so closing it is the same focus change as leaving the tree.
+        public static void CloseViewerIf(string session)
+        {
+            if (session != null && session == _viewer) ReleaseViewer();
+        }
+
+        static bool ViewerAlive()
+        {
+            var info = _viewer == null ? null : SessionHub.Instance.Get(_viewer);
+            return info != null && info.Alive;
+        }
+
+        static void ClearSelection() => _selected = null;
 
     }
 }
