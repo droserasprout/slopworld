@@ -10,7 +10,6 @@
 
 ## Agents
 
-- Codex support
 - tokensave/rtk integration
 - CC Switch-like switch
 
