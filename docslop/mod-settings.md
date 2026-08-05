@@ -2,7 +2,8 @@
 
 In `SlopWorldMod.cs`, reached through the static `Settings` shim: `host`, `port`,
 `token`, `autoConnect`, `sidebar`, `sidebarWidth`, `foldedProjects`, `sidebarTab`,
-`sidebarShowHidden`, `usageIcons`, `fontSize`, `fontName`, `theme`, `cursorColor`.
+`sidebarShowHidden`, `usageIcons`, `fontSize`, `fontName`, `theme`, `cursorColor`,
+`radio`, `radioMute`, `radioStopOnExit`.
 
 Adding one means a field, a `Scribe_Values.Look`, a shim property and a widget.
 
@@ -28,6 +29,10 @@ and it is still legible with the socket down, which is when somebody is in that
 page reading rather than configuring. One `key=defName` per line, written on the
 click by `UsageReadout.Choose` (`Settings.S.Write()`). A line for a key nothing
 reports is a line nothing reads.
+
+The jukebox's three - `radio`, `radioMute`, `radioStopOnExit` - have no widget
+either: the box on the map is the widget, and `Radio.Save` writes all three on the
+click. See [mod-jukebox](mod-jukebox.md).
 
 `sidebar` is the one that is not about the daemon or a pane's legibility: both
 layouts are this mod's and which one works is a question about the screen being

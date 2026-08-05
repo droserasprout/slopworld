@@ -36,6 +36,10 @@ namespace SlopWorld
         // A list with nothing in it, which is a thing being said rather than a row.
         public static readonly Color Empty = new Color(0.6f, 0.6f, 0.6f);
 
+        // Yes, on a row that states one about itself. There is no matching No: off is drawn
+        // in `Dim`, because a red cross reads as something having gone wrong.
+        public static readonly Color Yes = new Color(0.55f, 0.82f, 0.55f);
+
         // Behind a list row, under the hover.
         public static readonly Color RowBg = new Color(1f, 1f, 1f, 0.03f);
 
@@ -58,6 +62,35 @@ namespace SlopWorld
             if (open != null) { open.Close(); return; }
 
             Find.WindowStack.Add(make());
+        }
+
+        // Room at the right end of a menu row for the mark, and the mark inside it.
+        const float MarkW = 30f;
+        const float MarkSize = 18f;
+
+        // A float-menu row that states one fact about itself: the label, and a tick or a
+        // cross where the row ends. FloatMenuOption has no notion of a ticked row - the
+        // nearest thing is `Disabled`, which greys one out and reads as broken rather than
+        // as off - so the mark goes in the extra part vanilla already reserves at the right
+        // edge, and the whole row stays the switch.
+        public static FloatMenuOption MenuToggle(string label, bool on, Action act)
+        {
+            var opt = new FloatMenuOption(label, act, MenuOptionPriority.Default, null, null,
+                MarkW, r => DrawMark(r, on));
+            opt.extraPartRightJustified = true;
+            return opt;
+        }
+
+        // Answers false always: the extra part's return is "this was clicked", and the row
+        // under it has already taken the click.
+        static bool DrawMark(Rect r, bool on)
+        {
+            var icon = new Rect(r.x + (r.width - MarkSize) / 2f,
+                r.y + (r.height - MarkSize) / 2f, MarkSize, MarkSize);
+            GUI.color = on ? Yes : Dim;
+            GUI.DrawTexture(icon, on ? MarkIcon.CheckTex : MarkIcon.CrossTex);
+            GUI.color = Color.white;
+            return false;
         }
 
         // The window's name, and beside it the daemon this window is a view of. The status

@@ -24,6 +24,18 @@ those figures having been nudged by hand to clear three different titles.
 own line over `SlopWidgets.ToggleWindow`, which takes a **factory** rather than an
 instance so nothing is built for a toggle that turns out to be a close.
 
+## `MenuToggle`
+
+A float-menu row that states one fact about itself: the label, and a tick or a
+cross where the row ends. `FloatMenuOption` has no ticked state - `Disabled` is the
+nearest thing and it greys the row out, which reads as broken rather than as off -
+so the mark goes in the `extraPartOnGUI` vanilla already reserves, with
+`extraPartRightJustified`. The extra part answers **false** always: its return is
+"this was clicked", and the row under it has already taken the click. The tick is
+`SlopWidgets.Yes` and the cross is `Dim`, red being for something having gone
+wrong. `UI/MarkIcon.cs` draws both the way `ShieldIcon` draws its wall. The
+jukebox's Mute and Stop-on-exit rows are the users.
+
 ## `SmoothScroll`
 
 Held in place of the `Vector2` a scroll view used to keep. IMGUI does the wheel in

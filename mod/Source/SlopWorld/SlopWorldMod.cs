@@ -57,6 +57,16 @@ namespace SlopWorld
         // lists reads as the OST.
         public string radio = "ost";
 
+        // The jukebox's off switch: it is a stop rather than a volume of zero, so nothing
+        // is downloaded for nobody. Kept apart from the station so unmuting comes back to
+        // what was on.
+        public bool radioMute;
+
+        // Whether the daemon is told to go quiet on the way out. On by default: slopd
+        // outlives the game, and music playing on a machine with nothing on screen to stop
+        // it from is the surprise, not the feature.
+        public bool radioStopOnExit = true;
+
         // Pvssy mode: no fun allowed. Disables gore, vomit, plague emissions, graves,
         // obelisks, harmful tips, zalgo, background animation, and easter eggs.
         public bool pvssyMode;
@@ -78,6 +88,8 @@ namespace SlopWorld
             Scribe_Values.Look(ref theme, "theme", "clankers");
             Scribe_Values.Look(ref cursorColor, "cursorColor", "");
             Scribe_Values.Look(ref radio, "radio", "ost");
+            Scribe_Values.Look(ref radioMute, "radioMute", false);
+            Scribe_Values.Look(ref radioStopOnExit, "radioStopOnExit", true);
             Scribe_Values.Look(ref pvssyMode, "pvssyMode", false);
         }
     }
@@ -102,6 +114,8 @@ namespace SlopWorld
         public static string Theme => S.theme ?? "";
         public static string CursorColor => S.cursorColor ?? "";
         public static string Radio => S.radio ?? "";
+        public static bool RadioMute => S.radioMute;
+        public static bool RadioStopOnExit => S.radioStopOnExit;
         public static bool PvssyMode => S.pvssyMode;
     }
 

@@ -1,13 +1,36 @@
 # The jukebox
 
-A radio set rides down in the pod with the first clanker. LMB on it opens a menu
-of two stations - "OST" and "RadioParadise Main" - and the station's row opens a
-second menu of the quality presets it serves. Whatever is playing is marked.
-`Sim/Jukebox.cs` is the box, `Sim/Radio.cs` is the sound.
+A radio set rides down in the pod with the first clanker. LMB on it opens four
+rows: **Play** (carrying what is on), **Mute**, **Stop on exit**, **Settings**.
+Play opens the two stations - "OST" and "RadioParadise Main" - and the station's
+row opens a third menu of the quality presets it serves; whatever is playing is
+marked. `Sim/Jukebox.cs` is the box, `Sim/Radio.cs` is the sound.
 
-A `FloatMenuOption` holds no children, so the nested list is a second `FloatMenu`
-opened from the first one's action. That is safe because `FloatMenuOption.Chosen`
+A `FloatMenuOption` holds no children, so each nested list is a second `FloatMenu`
+opened from the parent row's action. That is safe because `FloatMenuOption.Chosen`
 calls `PreOptionChosen` - which closes the parent - before it invokes the action.
+
+- **Mute** is the only off switch this box has, so it is a **stop** rather than a
+  volume of zero: `Radio.Source` answers null, which the daemon reads as silence.
+  Nothing downloads for nobody, and a station comes back where it *is* rather than
+  where it was left, which is what a radio does anyway. Picking a station clears
+  it - a row that does nothing because of a tick two rows down is a row nobody can
+  explain - and `Radio.Report` says nothing while it is on, "not playing" being
+  the answer that was asked for.
+- **Stop on exit** (on by default) is a `Root.Shutdown` prefix,
+  `Patch_RadioOnShutdown`, sending `source: null` while the socket is still up -
+  `MiniWebSocket.SendText` writes on the calling thread, so the bytes are in the
+  kernel before the process goes. `QuitInterceptor` routes the window's close
+  button through `Root.Shutdown` too, so that is the whole of an orderly quit. A
+  **killed** game is not covered and cannot be: nothing of ours runs. `GET
+  /api/audio` is how to see that, and turning the box back on is how to fix it.
+- **Settings** opens vanilla's Audio category - `SlopOptions.OpenAudioTab` - since
+  that is where the sliders `Radio.Volume` multiplies actually live. It opens the
+  options dialog when none is up and swaps the tab when one is.
+- The two ticked rows are `SlopWidgets.MenuToggle`, which hangs a tick or a cross
+  off `FloatMenuOption.extraPartOnGUI` with `extraPartRightJustified`. `Disabled`
+  would have been the nearest vanilla thing and it reads as broken rather than as
+  off. The marks are `UI/MarkIcon.cs`, drawn in code like the rest of them.
 
 - The def is `SlopJukebox`: no hit points, no flammability, not an edifice and
   not selectable. Nothing builds it, breaks it or blocks on it.
@@ -33,6 +56,9 @@ one mechanism rather than two taking turns.
   what was playing. A `volume` with **no `source` key at all** is the slider
   moving and must not restart the stream; `source: null` is a stop. Three cases,
   one message - see `some_option` in `api.rs`.
+- `_told` is not redundant beside `_sent`. Silence is a thing to *send* - muted,
+  the source is null - so a null `_sent` cannot also stand for "not told yet", and
+  it did until Mute existed: a mute right after a `Push` sent nothing at all.
 - `slopd/src/audio.rs` opens the source on its command thread, so a station that
   will not answer is an error attached to the pick that caused it, then hands a
   feeder thread the decoding. Samples cross to the audio callback through a
@@ -99,8 +125,9 @@ quiet, and `plays_the_station` needs speakers too.
 
 ## Which station is remembered where
 
-In `SlopSettings.radio`, not in the save, for the reason the terminal's font is
-there - see [mod-settings](mod-settings.md). The daemon keeps no memory of it at
+In `SlopSettings.radio` - with `radioMute` and `radioStopOnExit` beside it - not in
+the save, for the reason the terminal's font is there - see
+[mod-settings](mod-settings.md). The daemon keeps no memory of it at
 all: it is a machine, and the mod is where the choice lives. The value is the stream's own name -
 `"ost"`, or the path the preset is served at, `"mp3-192"` - so there is no second
 field to keep in step with the list of presets, and a preset this build no longer

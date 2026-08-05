@@ -45,6 +45,29 @@ namespace SlopWorld
             Event.current.Use();
             Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
             {
+                new FloatMenuOption(PlayRow(), Stations),
+                SlopWidgets.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
+                SlopWidgets.MenuToggle("Stop on exit", Radio.StopOnExit, Radio.ToggleStopOnExit),
+                new FloatMenuOption("Settings", SlopOptions.OpenAudioTab),
+            }));
+        }
+
+        // The first row carries what is on, so the common question is answered without
+        // opening anything. Muted, nothing is on, and saying so is what the row is for.
+        static string PlayRow() => "Play  -  " + (Radio.Muted ? "muted" : Playing());
+
+        static string Playing() =>
+            Radio.Picked == Radio.Station.Paradise
+                ? $"{Radio.StationName} {Radio.RateLabel(Radio.Rate)}"
+                : "OST";
+
+        // The stations, one level down. The two of them were the whole of this menu until
+        // the box grew settings; they are behind a row of their own now so that what is
+        // played and how it is played are not one list.
+        static void Stations()
+        {
+            Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
+            {
                 new FloatMenuOption(Mark("OST", Radio.Picked == Radio.Station.Ost),
                     Radio.PickOst),
                 new FloatMenuOption(StationRow(), Presets),
@@ -76,9 +99,10 @@ namespace SlopWorld
         }
 
         // What is playing is marked rather than greyed out: a disabled row reads as
-        // broken, and picking the one already on does nothing anyway.
+        // broken, and picking the one already on does nothing anyway. Muted, nothing is
+        // playing and nothing is marked - the tick on the Mute row is where that is said.
         static string Mark(string label, bool playing) =>
-            playing ? label + "  (playing)" : label;
+            playing && !Radio.Muted ? label + "  (playing)" : label;
 
         // Whether the colony has its jukebox already. AgentColony asks before it packs
         // another into a pod.

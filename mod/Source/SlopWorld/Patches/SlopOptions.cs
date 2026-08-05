@@ -155,6 +155,27 @@ namespace SlopWorld
             w.selectedMod = null;
         }
 
+        // The game's own Audio page, which is where the jukebox's loudness actually comes
+        // from - Radio multiplies the music slider by the master one. Vanilla's category
+        // rather than a page of ours: there is one volume in this game and it is already
+        // drawn. Opens the dialog when it is not up, the jukebox being clicked on the map
+        // with nothing else on screen; swaps the tab when it is, the way the General page's
+        // "Appearance..." does.
+        public static void OpenAudioTab()
+        {
+            var audio = OptionCategoryDefOf.Audio;
+            var w = Find.WindowStack?.WindowOfType<Dialog_Options>();
+            if (w == null)
+            {
+                TerminalWindow.OpenOverPane(
+                    audio != null ? new Dialog_Options(audio) : new Dialog_Options());
+                return;
+            }
+            if (audio == null) return;
+            w.selectedCategory = audio;
+            w.selectedMod = null;
+        }
+
         // A save is a write of the *whole* file - every page here PUTs the sections it knows
         // about - so a page holding a copy read before that write would put the old figures
         // back the next time its own Save was pressed. Both re-read instead, including the

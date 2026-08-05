@@ -1,3 +1,4 @@
+using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -46,13 +47,18 @@ namespace SlopWorld
 
         static Station _station = Station.Ost;
         static int _rate = DefaultRate;
+        static bool _muted;
+        static bool _stopOnExit = true;
 
         // The settings string is read once, because the mod's settings are not loaded when
         // this class is first touched.
         static bool _read;
 
-        // What was last sent, so a reconnect re-sends it and a still frame does not.
+        // What was last sent, so a reconnect re-sends it and a still frame does not. The
+        // flag beside it is not redundant: silence is a thing to send - muted, the source
+        // *is* null - so a null `_sent` cannot also stand for "not told yet".
         static string _sent;
+        static bool _told;
         static float _sentVolume = -1f;
 
         // What the daemon says came of it. Only the failure is acted on, and only once per
@@ -74,19 +80,56 @@ namespace SlopWorld
             get { Read(); return _rate; }
         }
 
+        // Off, which is the only off this box has. A stop and not a volume of zero: there
+        // is no sense in a station that keeps downloading for nobody, and a live stream
+        // comes back where it is now rather than where it was left, which is what a radio
+        // does anyway.
+        public static bool Muted
+        {
+            get { Read(); return _muted; }
+        }
+
+        // Whether the daemon is told to go quiet on the way out. It outlives the game, so
+        // without this the music is still playing when the window has gone.
+        public static bool StopOnExit
+        {
+            get { Read(); return _stopOnExit; }
+        }
+
         public static string RateLabel(int rate) => rate + "k mp3";
 
         public static void PickOst() { Read(); Pick(Station.Ost, _rate); }
 
         public static void PickParadise(int rate) => Pick(Station.Paradise, rate);
 
+        public static void ToggleMute()
+        {
+            Read();
+            _muted = !_muted;
+            _blamed = false;
+            Save();
+            Push();
+        }
+
+        // Nothing to push: it is a question asked once, on the way out.
+        public static void ToggleStopOnExit()
+        {
+            Read();
+            _stopOnExit = !_stopOnExit;
+            Save();
+        }
+
         static void Pick(Station s, int rate)
         {
             Read();
-            if (_station == s && (s != Station.Paradise || _rate == rate)) return;
+            // Picking something is asking to hear it, which answers the mute as well - a
+            // menu row that does nothing because of a tick two rows down is a menu row
+            // nobody can explain.
+            if (_station == s && (s != Station.Paradise || _rate == rate) && !_muted) return;
 
             _station = s;
             _rate = rate;
+            _muted = false;
             _blamed = false;
             Save();
             Push();
@@ -108,15 +151,16 @@ namespace SlopWorld
             var hub = SessionHub.Instance;
             if (hub == null) return;
 
-            string want = Source();
-
             // A reconnect starts the daemon's socket over, and the mod is the only thing
             // that knows what was playing.
-            if (want != _sent || !hub.Online)
+            if (!hub.Online) { _told = false; _sentVolume = -1f; return; }
+
+            string want = Source();
+            if (!_told || want != _sent)
             {
-                if (!hub.Online) { _sent = null; _sentVolume = -1f; return; }
                 hub.SendAudio(want, Volume());
                 _sent = want;
+                _told = true;
                 _sentVolume = Volume();
                 return;
             }
@@ -133,6 +177,9 @@ namespace SlopWorld
 
         static string Source()
         {
+            // Muted is silence rather than a quiet stream, and null is how silence is
+            // asked for: see SessionHub.SendAudio.
+            if (_muted) return null;
             if (_station == Station.Paradise) return StationUrl(_rate);
             // No path means no shipped track to point at, which is silence rather than a
             // string the daemon would only fail to open.
@@ -144,6 +191,9 @@ namespace SlopWorld
         // back from, so it is left to the log.
         public static void Report(bool playing, string error)
         {
+            // Muted, "not playing" is the answer that was asked for, and the error beside
+            // it is whatever last went wrong before the box was turned off.
+            if (_muted) return;
             if (playing || string.IsNullOrEmpty(error)) { _blamed = false; return; }
             if (_blamed) return;
             _blamed = true;
@@ -158,16 +208,35 @@ namespace SlopWorld
             Push();
         }
 
+        // The daemon outlives the game: what it was told to play it keeps playing, and
+        // whoever has just quit is not listening. Sent from a Root.Shutdown prefix, where
+        // the socket is still up and MiniWebSocket writes on the calling thread, so the
+        // bytes are in the kernel before the process goes. A killed game is not covered and
+        // cannot be - nothing of ours gets to run - which is what `GET /api/audio` and a
+        // restarted daemon are for.
+        public static void Quit()
+        {
+            Read();
+            if (!_stopOnExit) return;
+
+            var hub = SessionHub.Instance;
+            if (hub == null || !hub.Online) return;
+            hub.SendAudio(null, Volume());
+            Push();
+        }
+
         // Forces the next Update to send, rather than sending from here: one place puts
         // things on the wire, and it is the one that knows whether the socket is up.
-        static void Push() => _sent = null;
+        static void Push() => _told = false;
 
-        // The setting is the stream's own name - "ost", or the path the station serves the
-        // preset at - so there is nothing to keep in step with the list of presets. A name
-        // this build does not serve reads as the OST.
+        // The station is saved as the stream's own name - "ost", or the path the station
+        // serves the preset at - so there is nothing to keep in step with the list of
+        // presets. A name this build does not serve reads as the OST.
         static void Save()
         {
             Settings.S.radio = _station == Station.Paradise ? "mp3-" + _rate : "ost";
+            Settings.S.radioMute = _muted;
+            Settings.S.radioStopOnExit = _stopOnExit;
             Settings.S.Write();
         }
 
@@ -175,6 +244,9 @@ namespace SlopWorld
         {
             if (_read) return;
             _read = true;
+
+            _muted = Settings.RadioMute;
+            _stopOnExit = Settings.RadioStopOnExit;
 
             string saved = Settings.Radio;
             foreach (int rate in Rates)
@@ -188,5 +260,15 @@ namespace SlopWorld
             _station = Station.Ost;
             _rate = DefaultRate;
         }
+    }
+
+    // Told on the way out, in a prefix so the socket is still up. Its own patch beside the
+    // autosave's rather than a line inside it: two things happen on the way out and neither
+    // is the other's business. QuitInterceptor routes the window's close button through
+    // Root.Shutdown as well, so this is the whole of an orderly quit.
+    [HarmonyPatch(typeof(Root), nameof(Root.Shutdown))]
+    public static class Patch_RadioOnShutdown
+    {
+        static void Prefix() => Radio.Quit();
     }
 }
