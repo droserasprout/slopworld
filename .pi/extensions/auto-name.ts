@@ -2,8 +2,10 @@
  * Auto-name pi sessions from the first user prompt.
  *
  * Fires a cheap OpenRouter model to summarise the first message into <=6 words
- * and calls `ctx.ui.setTitle()`, which updates the terminal tab/window title
- * to just the summary (no `π -` prefix or project postfix added by pi).
+ * and calls both `pi.setSessionName()` and `ctx.ui.setTitle()`.  The session
+ * name persists the summary in pi's session state so it survives restarts;
+ * `setTitle` then overrides the window/tab title to just the summary (without
+ * the `π -` prefix or project postfix pi would normally add).
  * Fire-and-forget: the agent starts immediately, the title arrives a beat later.
  *
  * Needs `OPENROUTER_API_KEY` in the environment (the pi sandbox already
@@ -39,13 +41,14 @@ export default function (pi: ExtensionAPI) {
 
 		// Fire-and-forget: the agent starts immediately, the title arrives
 		// a beat later.  Own timeout so we don't depend on the turn's signal.
-		nameFromPrompt(text, key, ctx).catch(() => {});
+		nameFromPrompt(text, key, pi, ctx).catch(() => {});
 	});
 }
 
 async function nameFromPrompt(
 	text: string,
 	key: string,
+	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 ): Promise<void> {
 	const ac = new AbortController();
@@ -98,7 +101,17 @@ async function nameFromPrompt(
 			.slice(0, MAX_TITLE_CHARS)
 			.trim();
 
-		if (title) ctx.ui.setTitle(title);
+		if (title) {
+			// Persist the summary in pi's session state so it survives
+			// across daemon/game restarts.  pi.setSessionName() fires
+			// session_info_changed which triggers updateTerminalTitle()
+			// setting the title to "π - summary - project"; the
+			// ctx.ui.setTitle() call below overrides it to just the
+			// clean summary, so the window/tab title shows only what
+			// the summariser produced.
+			pi.setSessionName(title);
+			ctx.ui.setTitle(title);
+		}
 	} catch {
 		// Network error, timeout, aborted — nothing to do.
 		// The session stays unnamed and `/name` still works.
