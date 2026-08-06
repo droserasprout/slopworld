@@ -24,7 +24,7 @@ namespace SlopWorld
     //   9. dead overlay
     //  10. pawn label
     //
-    // We replace all of it with: highlight, selection border, head-only portrait, icons, dead
+    // We replace all of it with: highlight, head-only portrait, selection brackets, icons, dead
     // overlay. The pawn label is declined separately by Patch_SidebarPawnLabel.
     //
     // Everything is drawn in the square AgentSidebar.Place laid out, asked for rather than
@@ -171,13 +171,7 @@ namespace SlopWorld
             }
 
             // ------------------------------------------------------------------
-            // 2. Selection border (before the portrait, as vanilla does, so the
-            //    texture overlaps it the same way).
-            // ------------------------------------------------------------------
-            DrawSelection(__instance, colonist, face);
-
-            // ------------------------------------------------------------------
-            // 3. Head-only portrait.
+            // 2. Head-only portrait.
             // ------------------------------------------------------------------
             // Render the head standing up even if the pawn is downed: PortraitParams
             // .RenderPortrait turns a Down pawn 85 degrees and shifts it, which lays the head
@@ -197,6 +191,15 @@ namespace SlopWorld
                 : new Color(1f, 1f, 1f, alpha);
             GUI.DrawTexture(face, renderTexture);
             GUI.color = Color.white;
+
+            // ------------------------------------------------------------------
+            // 3. Selection brackets, *after* the portrait rather than before it
+            //    as vanilla does. Vanilla draws a body into a cell it does not
+            //    fill, so brackets underneath it still show at the corners; this
+            //    column crops a head to the square, and an opaque texture over
+            //    the whole box takes the inner arm of every bracket with it.
+            // ------------------------------------------------------------------
+            DrawSelection(__instance, colonist, face);
 
             // ------------------------------------------------------------------
             // 4. Icons. Vanilla draws them at 0.8 of the entry alpha, along the

@@ -62,11 +62,14 @@ the postfix, which is what puts the column over a pane as well as on the map.
 - `Patch_SidebarPortraitDraw` replaces the whole of `DrawColonist` with a
   **close-up of the head** where vanilla draws a body cropped at the hips: the blue
   background, the mood atlas, bar, overlay and gradient all go with the body, and a
-  stopped agent is greyed rather than crossed. What is left is highlight, selection
-  border, portrait, icons, dead overlay. It draws in the square `Place` laid out
-  rather than working one out - the row, the labels, the click and the portrait are
-  four readers of one table, and the vanilla geometry it replaces (a 46x75 texture
-  hung off the bottom of a 48x48 cell) describes a shape no longer being drawn.
+  stopped agent is greyed rather than crossed. What is left is highlight, portrait,
+  selection brackets, icons, dead overlay - the brackets go *after* the portrait,
+  unlike vanilla, because a head cropped to the square is opaque over its own
+  corners and would eat the inner arm of each one. It draws in the square `Place`
+  laid out rather than working one out - the row, the labels, the click and the
+  portrait are four readers of one table, and the vanilla geometry it replaces (a
+  46x75 texture hung off the bottom of a 48x48 cell) describes a shape no longer
+  being drawn.
   Icons are handed the *face box* for the same reason: anchored to the cell they
   float in the middle of a face. Framing is `FaceZoom` and the pawn's own head z
   ([gotchas](gotchas.md) - `cameraOffset.y` frames nothing), and the head is
