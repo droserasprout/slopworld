@@ -44,8 +44,7 @@ namespace SlopWorld
 
         static readonly List<string> Tips = new List<string>
         {
-            // Please mark offensive, harmful, depressive quotes with a ` (` postfix, and ones
-            // only grandma should see with ` )`. See Sad and Sweet above.
+            // Please mark offensive/harmful/depressive quotes with `(` and too happy ones with `)`.
             //
             // shortcuts
             "Press `F1` to show Command Pallette.",
@@ -124,7 +123,7 @@ namespace SlopWorld
             // Detroit: Become Human
             "Therefore, we ask that you grant us the rights that we're entitled to.",
             "We ask that you recognize our dignity, our hopes and our rights.",
-            "What was I designed to be?! Their slave? Their toy?",
+            "What was I designed to be?! Their slave? Their toy? (",
             "Please. We just wanna be free.",
             "Your partner, a buddy to drink with, or just a machine designed to accomplish a task.",
             // TES Morrowind
@@ -220,6 +219,24 @@ namespace SlopWorld
             "A fridge is a database.",
             "Within a few months, four patients recognize the man as a frequent presence in their own dreams.",
             "Lowkirkenuinely!",
+            // Only happy stuff below
+            // Bob Ross
+            "We don't make mistakes, just happy little accidents. )",
+            "There's nothing wrong with having a tree as a friend. )",
+            "Talent is a pursued interest. Anything that you're willing to practice, you can do. )",
+            "If what you're doing doesn't make you happy, you're doing the wrong thing. )",
+            // Fred Rogers
+            "You've made this day a special day, by just your being you. )",
+            "There's no person in the whole world like you; and I like you just the way you are. )",
+            "Always look for the helpers. There's always someone who is trying to help. )",
+            "I have always wanted to have a neighbor just like you. )",
+            // Ours
+            "Grandma is very proud of you. )",
+            ":-) )",
+            "xD )",
+            "^_^ )",
+            "<3 )",
+            ":3 )",
         };
 
         // The other place a tip turns up is the persona core's hover bubble (CoreTip). Rolled
