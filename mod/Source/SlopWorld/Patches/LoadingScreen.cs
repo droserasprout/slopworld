@@ -301,11 +301,26 @@ namespace SlopWorld
         // throws leaves an empty list, which stands both patches down.
         static List<string> _frames;
 
+        // Which mode the wall was built for. The filter runs once, at the build, and the wall
+        // then lives as long as the process - so without this a session that turned the setting
+        // on kept the marked tips it had already been given, which is the whole bug this is.
+        static bool _framesGrandma;
+
         internal static List<string> Frames
         {
             get
             {
-                if (_frames != null) return _frames;
+                bool grandma = Settings.GrandmaMode;
+                if (_frames != null && _framesGrandma == grandma) return _frames;
+                _framesGrandma = grandma;
+
+                // Both are indices into the wall that is going away: a scroll position past the
+                // end of the shorter list, and a painted block still holding the tips just
+                // dropped. Painted especially - it is what DrawContents draws, so leaving it
+                // would show the old wall for as long as the screen stayed up.
+                _frame = 0;
+                _painted = null;
+
                 try
                 {
                     _frames = BuildFrames();

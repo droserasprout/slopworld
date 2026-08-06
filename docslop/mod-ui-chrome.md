@@ -60,7 +60,13 @@ wheel path (`TerminalWindow.HandleWheel`) and is still line-quantised.
 
 Which chrome this install wears and how much room the rest of it has to leave:
 zero in the strip layout, and `AgentSidebar.Width`/`TopBar.H` in the other. One
-answer in one place, so nothing else has to know a layout exists.
+answer in one place, so nothing else has to know a layout exists. `Hidden` is the
+other question - screenshot mode, F11 - and is deliberately not folded into
+`Shown`: the insets are a layout answer, and moving them for an interface that is
+merely not being drawn would shuffle everything the frame the key is pressed. The
+sidebar needs neither, riding `ColonistBarOnGUI` which vanilla already filters;
+`TopBar` and the inspect pane's Edit button are drawn from paths that run before
+that gate, so each asks. See [gotchas](gotchas.md).
 
 ## `UsageReadout`
 

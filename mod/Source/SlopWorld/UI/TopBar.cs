@@ -28,7 +28,7 @@ namespace SlopWorld
 
         public static void Draw(TerminalWindow pane, bool interactive)
         {
-            if (!SlopLayout.Shown) return;
+            if (!SlopLayout.Shown || SlopLayout.Hidden) return;
             if (Event.current.type == EventType.Layout) return;
 
             var r = Rect;

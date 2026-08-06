@@ -29,6 +29,16 @@
   screen opaque. To put something over the terminal, draw it from
   `DoWindowContents` after the fill - also the only place `Mouse.IsOver` lets
   clicks through.
+- **Screenshot mode (F11) hides less than it looks like.** `UIRootOnGUI` and
+  `MapInterfaceOnGUI_BeforeMainTabs` gate the main buttons, alerts, colonist bar,
+  readouts and gizmos on `Find.ScreenshotModeHandler.FiltersCurrentEvent`, and
+  `Window.WindowOnGUI` drops any window without `drawInScreenshotMode` - but
+  `MapComponentOnGUI` runs *before* that gate and `WindowStack` calls every
+  window's `ExtraOnGUI` regardless of it. So a `MapComponent` (`TopBar`, from
+  `UsageReadout`) and anything hung off `InspectPaneUtility.DoTabs` (the agent's
+  Edit button) stay on screen unless they ask. `SlopLayout.Hidden` is the one
+  answer. Map overlays are *not* filtered in vanilla either - pawn labels are
+  drawn through the same unfiltered path - so `StatusOverlay` stays, on purpose.
 - **Keyboard order is not draw order.** `WindowStack.HandleEventsHighPriority` runs
   near the top of `UIRoot.UIRootOnGUI` and Uses every `KeyDown` whenever a window
   absorbs input around itself, so a global hotkey taken in a game component fires

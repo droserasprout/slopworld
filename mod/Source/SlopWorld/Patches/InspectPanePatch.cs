@@ -54,6 +54,8 @@ namespace SlopWorld
         {
             static void Postfix(IInspectPane pane)
             {
+                if (SlopLayout.Hidden) return;
+
                 string session = Selected();
                 if (session == null) return;
 

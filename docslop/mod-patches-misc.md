@@ -16,7 +16,11 @@
   writing the cache is the one move that lands; `currentTipIndex` goes back with
   it. The scroll is `ScrollChance` flipped against `Tick` rather than a delay of
   its own, so the pace never reads as machine load. Zalgo goes on the joined
-  frame, or the noise travels with the words. Dice are `System.Random`, because
+  frame, or the noise travels with the words. Our own wall is keyed on
+  `grandmaMode`: the ` *` filter runs once, at the build, so a session that turns
+  the setting on has to rebuild, and `_frame` and `_painted` are reset with it -
+  `_painted` is what `DrawContents` draws, so a stale one keeps the dropped tips
+  on screen. Dice are `System.Random`, because
   this screen is up during map generation. `Patch_LoadingLayout` writes
   `GameplayTipWindow.WindowSize` before reading it, with `Lines` counted by probe;
   both patches stand down if the wall could not be built. The mods/DLC panel is
