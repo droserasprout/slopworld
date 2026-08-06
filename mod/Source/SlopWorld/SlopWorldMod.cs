@@ -156,7 +156,7 @@ namespace SlopWorld
             l.CheckboxLabeled("Auto-connect and reconnect", ref settings.autoConnect);
 
             l.Gap(10f);
-            if (l.ButtonText("Reconnect now"))
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Reconnect now"))
                 SessionHub.Instance.Connect();
 
             l.End();

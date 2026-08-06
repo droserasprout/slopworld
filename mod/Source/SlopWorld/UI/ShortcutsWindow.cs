@@ -210,14 +210,15 @@ namespace SlopWorld
 
             l.Gap(4f);
             l.Label("Kind");
-            if (l.ButtonText(_s.Kind == ShortcutKind.Shell
-                    ? "Shell - run a command"
-                    : "Prompt - say something to an agent"))
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+                    _s.Kind == ShortcutKind.Shell
+                        ? "Shell - run a command"
+                        : "Prompt - say something to an agent"))
                 PickKind();
 
             l.Gap(4f);
             l.Label("Where it runs");
-            if (l.ButtonText(LinkLabel(_s.Link)))
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), LinkLabel(_s.Link)))
                 PickLink();
 
             // The project dropdown stays up for two of the three, because in temp mode it
@@ -229,9 +230,10 @@ namespace SlopWorld
                 l.Label(_s.Link == ShortcutLink.Temp
                     ? "Sandbox to copy (blank = plain: network on, no presets)"
                     : "Project (the directory and sandbox it runs in)");
-                if (l.ButtonText(string.IsNullOrEmpty(_s.Project)
-                        ? (_s.Link == ShortcutLink.Temp ? "None" : "Pick a project...")
-                        : _s.Project))
+                if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+                        string.IsNullOrEmpty(_s.Project)
+                            ? (_s.Link == ShortcutLink.Temp ? "None" : "Pick a project...")
+                            : _s.Project))
                     PickProject();
             }
 

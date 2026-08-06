@@ -70,12 +70,10 @@ namespace SlopWorld
                 GUI.color = Color.white;
             }
 
-            var bar = new Rect(rect.x, rect.yMax - 36f, rect.width, 32f);
-            if (Widgets.ButtonText(new Rect(bar.x, bar.y, 120f, 32f), "Reload"))
-                Load();
-
-            if (Widgets.ButtonText(new Rect(bar.xMax - 120f, bar.y, 120f, 32f), "Save"))
-                Save();
+            var foot = new SlopWidgets.Bar(
+                new Rect(rect.x, rect.yMax - 36f, rect.width, SlopWidgets.BtnH));
+            if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
+            if (foot.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
         }
 
         void Save()

@@ -251,19 +251,22 @@ namespace SlopWorld
 
         void DoFooter(Rect bar)
         {
-            if (Widgets.ButtonText(new Rect(bar.x, bar.y, 110f, 30f), "Reload"))
-                Load();
+            var foot = new SlopWidgets.Bar(bar);
+
+            if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
+            // Greyed and shown rather than hidden: with no config loaded there is nothing to
+            // write back, and a button that vanished would read as a page with no save.
+            if (foot.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
 
             if (_error != null && _loaded)
             {
+                var was = Text.Anchor;
+                Text.Anchor = TextAnchor.MiddleLeft;
                 GUI.color = SlopWidgets.Bad;
-                Widgets.Label(new Rect(bar.x + 118f, bar.y + 4f, bar.width - 260f, 24f), _error);
+                Widgets.Label(foot.Rest(), _error);
                 GUI.color = Color.white;
+                Text.Anchor = was;
             }
-
-            if (Widgets.ButtonText(new Rect(bar.xMax - 120f, bar.y, 120f, 30f), "Save",
-                    true, false, _loaded))
-                Save();
         }
 
         void Save()

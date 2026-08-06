@@ -125,9 +125,9 @@ namespace SlopWorld
         public const float BtnH = 30f;
         public const float RowBtnH = 22f;
 
-        public static bool Button(Rect r, string label, Btn kind = Btn.Default)
+        public static bool Button(Rect r, string label, Btn kind = Btn.Default, bool on = true)
         {
-            bool over = Mouse.IsOver(r);
+            bool over = on && Mouse.IsOver(r);
             bool held = over && Input.GetMouseButton(0);
 
             Color face, text;
@@ -153,7 +153,19 @@ namespace SlopWorld
             else if (over) face = Lighten(face, kind == Btn.Ghost ? 0.06f : 0.10f);
             if (over && kind == Btn.Ghost) text = Lead;
 
-            Slab.Raised(r, face, BtnEdge, held);
+            // Off: drawn flat and drained rather than hidden. A press that cannot be made yet
+            // - Save with nothing loaded - is still one the page has, and a button that
+            // vanished would read as a page with no save at all. Toward the face of the
+            // window rather than transparent, or a Primary at low alpha is a blue ghost.
+            if (!on)
+            {
+                face = Lighten(face, -0.45f);
+                text = Off;
+            }
+
+            // Level with the surface while it is off, for the reason a press is: nothing that
+            // cannot be pushed stands up off the page.
+            Slab.Raised(r, face, BtnEdge, held || !on);
 
             var wasAnchor = Text.Anchor;
             var wasColor = GUI.color;
@@ -163,7 +175,7 @@ namespace SlopWorld
             Text.Anchor = wasAnchor;
             GUI.color = wasColor;
 
-            if (!Widgets.ButtonInvisible(r)) return false;
+            if (!on || !Widgets.ButtonInvisible(r)) return false;
 
             SoundDefOf.Click.PlayOneShotOnCamera();
             return true;
@@ -253,20 +265,30 @@ namespace SlopWorld
             const float Gap = 8f;
             const float Pad = 22f;   // room either side of the label inside the box
 
-            public bool Left(string label, Btn kind = Btn.Default)
+            public bool Left(string label, Btn kind = Btn.Default, bool on = true)
             {
                 float w = Wide(label);
                 var at = new Rect(_r.x + _left, _r.y, w, BtnH);
                 _left += w + Gap;
-                return Button(at, label, kind);
+                return Button(at, label, kind, on);
             }
 
-            public bool Right(string label, Btn kind = Btn.Default)
+            public bool Right(string label, Btn kind = Btn.Default, bool on = true)
             {
                 float w = Wide(label);
                 var at = new Rect(_r.xMax - _right - w, _r.y, w, BtnH);
                 _right += w + Gap;
-                return Button(at, label, kind);
+                return Button(at, label, kind, on);
+            }
+
+            // What is left between the two ends, for the one thing a footer has that is not a
+            // press: the error a page puts beside its Save. Asked for after the buttons are
+            // laid, so it is whatever room they left rather than a figure counted off the
+            // longest label anybody might use.
+            public Rect Rest()
+            {
+                float x = _r.x + _left;
+                return new Rect(x, _r.y, Mathf.Max(_r.xMax - _right - Gap - x, 0f), BtnH);
             }
 
             // Measured rather than given: a button is as wide as what it says, with a floor

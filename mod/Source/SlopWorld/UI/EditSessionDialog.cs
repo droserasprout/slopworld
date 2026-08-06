@@ -90,7 +90,8 @@ namespace SlopWorld
 
             l.Gap(4f);
             l.Label("Project (the directory and sandbox it works in)");
-            if (l.ButtonText(string.IsNullOrEmpty(_s.Project) ? "Pick a project..." : _s.Project))
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+                    string.IsNullOrEmpty(_s.Project) ? "Pick a project..." : _s.Project))
                 PickProject();
 
             var project = SessionHub.Instance.Project(_s.Project);
@@ -106,7 +107,7 @@ namespace SlopWorld
 
             l.Gap(4f);
             l.Label("Command");
-            if (l.ButtonText(CommandLabel(preset)))
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), CommandLabel(preset)))
                 PickCommand();
 
             // Editable whichever it is: a preset says what an agent is, and this box says
@@ -145,12 +146,10 @@ namespace SlopWorld
             rest.CheckboxLabeled("Start with the daemon", ref _s.Autostart);
             rest.End();
 
-            var bar = new Rect(rect.x, rect.yMax - 36f, rect.width, 32f);
-            if (Widgets.ButtonText(new Rect(bar.x, bar.y, 120f, 32f), "Cancel"))
-                Close();
-
-            if (Widgets.ButtonText(new Rect(bar.xMax - 120f, bar.y, 120f, 32f), "Save"))
-                Save();
+            var foot = new SlopWidgets.Bar(
+                new Rect(rect.x, rect.yMax - 36f, rect.width, SlopWidgets.BtnH));
+            if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
+            if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
         }
 
         void PickProject()
@@ -291,14 +290,18 @@ namespace SlopWorld
 
             if (_parent != null)
             {
-                if (Widgets.ButtonText(new Rect(0f, y, view.width, 26f), ".."))
+                // Ghost the whole way down: forty directories in forty raised slabs is a wall
+                // of buttons, and what this is is a list that answers to a click.
+                if (SlopWidgets.Button(new Rect(0f, y, view.width, 26f), "..",
+                        SlopWidgets.Btn.Ghost))
                     Load(_parent);
                 y += 28f;
             }
 
             foreach (var d in _dirs)
             {
-                if (Widgets.ButtonText(new Rect(0f, y, view.width, 26f), d))
+                if (SlopWidgets.Button(new Rect(0f, y, view.width, 26f), d,
+                        SlopWidgets.Btn.Ghost))
                 {
                     Load(System.IO.Path.Combine(_path ?? "", d).Replace('\\', '/'));
                     break; // _dirs is about to be replaced under us
@@ -307,8 +310,9 @@ namespace SlopWorld
             }
             Widgets.EndScrollView();
 
-            if (Widgets.ButtonText(new Rect(rect.x, rect.yMax - 36f, rect.width, 32f),
-                                   $"Use this directory"))
+            if (SlopWidgets.Button(
+                    new Rect(rect.x, rect.yMax - 36f, rect.width, SlopWidgets.BtnH),
+                    "Use this directory", SlopWidgets.Btn.Primary))
             {
                 _pick(_path);
                 Close();

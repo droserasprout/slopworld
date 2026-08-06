@@ -108,7 +108,8 @@ namespace SlopWorld
             l.Label("Game command (blank disables restarting the game from here)");
             _cfg.GameCmd = l.TextEntry(_cfg.GameCmd);
             l.Gap(4f);
-            if (l.ButtonText("Save the colony and restart the game"))
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+                    "Save the colony and restart the game"))
                 ConfirmRestartGame();
 
             l.Gap(10f);
@@ -155,34 +156,37 @@ namespace SlopWorld
                     $"The daemon is bound to {_cfg.Bind}.");
             GUI.color = Color.white;
 
-            var row = l.GetRect(30f);
+            var row = l.GetRect(SlopWidgets.BtnH);
             float w = (row.width - 8f) / 2f;
-            if (Widgets.ButtonText(new Rect(row.x, row.y, w, 30f), "Connection..."))
+            if (SlopWidgets.Button(new Rect(row.x, row.y, w, row.height), "Connection..."))
                 Find.WindowStack.Add(new Dialog_ModSettings(SlopWorldMod.Instance));
 
             // The terminal's own settings are now a tab of this same dialog, left of
             // Usage: the honest answer to the press is a tab swap rather than a window.
-            if (Widgets.ButtonText(new Rect(row.x + w + 8f, row.y, w, 30f), "Appearance..."))
+            if (SlopWidgets.Button(new Rect(row.x + w + 8f, row.y, w, row.height),
+                    "Appearance..."))
                 SlopOptions.OpenTerminalTab();
         }
 
         void DoFooter(Rect bar)
         {
-            if (Widgets.ButtonText(new Rect(bar.x, bar.y, 110f, 30f), "Reload"))
-                Load();
+            var foot = new SlopWidgets.Bar(bar);
 
-            if (Widgets.ButtonText(new Rect(bar.x + 118f, bar.y, 140f, 30f), "Edit as TOML"))
-                ConfigWindow.Open();
+            if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
+            if (foot.Left("Edit as TOML", SlopWidgets.Btn.Ghost)) ConfigWindow.Open();
+            if (foot.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
 
+            // Between the two ends, which is where the room actually is - the offsets that
+            // used to put it there were counted off labels this bar now measures itself.
             if (_error != null && _loaded)
             {
+                var was = Text.Anchor;
+                Text.Anchor = TextAnchor.MiddleLeft;
                 GUI.color = SlopWidgets.Bad;
-                Widgets.Label(new Rect(bar.x + 268f, bar.y + 4f, bar.width - 400f, 24f), _error);
+                Widgets.Label(foot.Rest(), _error);
                 GUI.color = Color.white;
+                Text.Anchor = was;
             }
-
-            if (Widgets.ButtonText(new Rect(bar.xMax - 120f, bar.y, 120f, 30f), "Save"))
-                Save();
         }
 
         void Save()

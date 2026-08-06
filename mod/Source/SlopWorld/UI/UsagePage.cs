@@ -265,8 +265,9 @@ namespace SlopWorld
                 Widgets.Label(new Rect(r.x + 8f, r.y + 4f, r.width - 60f, 22f),
                     UsageReadout.Long(key));
 
-                if (Widgets.ButtonText(new Rect(r.width - 48f, r.y + 2f, 44f, 22f), "X",
-                        true, false, true))
+                if (SlopWidgets.Button(
+                        new Rect(r.width - 48f, r.y + 2f, 44f, SlopWidgets.RowBtnH), "X",
+                        SlopWidgets.Btn.Ghost))
                     _pickingKey = null;
 
                 // Grid of icons.
@@ -418,21 +419,23 @@ namespace SlopWorld
 
         void DoFooter(Rect bar)
         {
-            if (Widgets.ButtonText(new Rect(bar.x, bar.y, 110f, 30f), "Reload"))
-                Load();
+            var foot = new SlopWidgets.Bar(bar);
 
-            if (_error != null && _loaded)
-            {
-                GUI.color = SlopWidgets.Bad;
-                Widgets.Label(new Rect(bar.x + 118f, bar.y + 4f, bar.width - 260f, 24f), _error);
-                GUI.color = Color.white;
-            }
+            if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
 
             // Greyed and shown rather than hidden: with no config loaded there is nothing to
             // write back, and a button that vanished would read as a page with no save.
-            if (Widgets.ButtonText(new Rect(bar.xMax - 120f, bar.y, 120f, 30f), "Save",
-                    true, false, _loaded))
-                Save();
+            if (foot.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
+
+            if (_error != null && _loaded)
+            {
+                var was = Text.Anchor;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                GUI.color = SlopWidgets.Bad;
+                Widgets.Label(foot.Rest(), _error);
+                GUI.color = Color.white;
+                Text.Anchor = was;
+            }
         }
 
         void Save()

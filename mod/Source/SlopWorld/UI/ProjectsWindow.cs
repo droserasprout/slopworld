@@ -222,7 +222,7 @@ namespace SlopWorld
             else
             {
                 _p.Dir = l.TextEntry(_p.Dir);
-                if (l.ButtonText("Browse..."))
+                if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Browse..."))
                     Find.WindowStack.Add(new BrowseDialog(_p.Dir, d => _p.Dir = d));
             }
 

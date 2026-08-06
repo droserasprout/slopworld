@@ -88,7 +88,7 @@ namespace SlopWorld
             y += used + 8f;
 
             // The language selector, below the web links.
-            if (Widgets.ButtonText(new Rect(r.x, y, r.width, 30f),
+            if (SlopWidgets.Button(new Rect(r.x, y, r.width, SlopWidgets.BtnH),
                     LanguageDatabase.activeLanguage.FriendlyNameNative))
             {
                 var opts = new List<FloatMenuOption>();

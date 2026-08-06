@@ -66,7 +66,7 @@ namespace SlopWorld
                 TooltipHandler.TipRegion(rect,
                     $"Edit '{session}': directory, command, sandbox, or its name.");
 
-                if (!Widgets.ButtonText(rect, "Edit")) return;
+                if (!SlopWidgets.Button(rect, "Edit")) return;
 
                 var info = SessionHub.Instance.Get(session);
                 if (info != null) Find.WindowStack.Add(new EditSessionDialog(info));
