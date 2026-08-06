@@ -79,20 +79,18 @@ namespace SlopWorld
 
         public override void DoWindowContents(Rect rect)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
-            Text.Font = GameFont.Medium;
-            l.Label(_copiedFrom != null
+            SlopWidgets.Title(rect, _copiedFrom != null
                 ? $"Copy of '{_copiedFrom}'"
                 : _isNew ? "New agent" : $"Edit '{_origName}'");
-            Text.Font = GameFont.Small;
-            l.Gap(6f);
+
+            float head = SlopWidgets.HeaderH + SlopWidgets.GapS;
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(new Rect(rect.x, rect.y + head, rect.width, rect.height - head));
 
             l.Label("Name (also the colonist's name)");
             _s.Name = SlopWidgets.Field(l, "agent.name", _s.Name);
 
-            l.Gap(4f);
+            l.Gap(SlopWidgets.GapS);
             l.Label("Project (the directory and sandbox it works in)");
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     string.IsNullOrEmpty(_s.Project) ? "Pick a project..." : _s.Project))
@@ -109,7 +107,7 @@ namespace SlopWorld
 
             var preset = SessionHub.Instance.Command(_s.Command);
 
-            l.Gap(4f);
+            l.Gap(SlopWidgets.GapS);
             l.Label("Command");
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), CommandLabel(preset)))
                 PickCommand();
@@ -124,18 +122,20 @@ namespace SlopWorld
             float used = l.CurHeight;
             l.End();
 
-            float y = rect.y + used + 8f;
-            Widgets.Label(new Rect(rect.x, y, rect.width, 22f), "Extra sandbox presets");
-            y += 24f;
+            float y = rect.y + head + used + SlopWidgets.GapL;
+            SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
+                "Extra sandbox presets");
+            y += SlopWidgets.RowH + SlopWidgets.GapXS;
 
             // Its command's are ticked and refused here; its project's are the project's to
             // edit. What is left is what this one agent adds.
             PresetList.Draw(new Rect(rect.x, y, rect.width, PresetsH), _s.Sandbox,
                 _presetScroll, preset != null ? preset.Sandbox : null);
-            y += PresetsH + 8f;
+            y += PresetsH + SlopWidgets.GapL;
 
             var rest = new Listing_Standard { maxOneColumn = true };
-            rest.Begin(new Rect(rect.x, y, rect.width, rect.yMax - y - 40f));
+            rest.Begin(new Rect(rect.x, y, rect.width,
+                rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - y));
 
             rest.Label("Environment variables (overrides)");
             _env = SlopWidgets.Area(rest.GetRect(96f), "agent.env", _env ?? "");
@@ -144,12 +144,11 @@ namespace SlopWorld
                        "passed variables and any preset's own.");
             GUI.color = Color.white;
 
-            rest.Gap(6f);
+            rest.Gap(SlopWidgets.GapS);
             _s.Autostart = SlopWidgets.Checkbox(rest, "Start with the daemon", _s.Autostart);
             rest.End();
 
-            var foot = new SlopWidgets.Bar(
-                new Rect(rect.x, rect.yMax - 36f, rect.width, SlopWidgets.BtnH));
+            var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
             if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
             if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
         }
@@ -257,6 +256,10 @@ namespace SlopWorld
         string[] _dirs = new string[0];
         Vector2 _scroll;
 
+        // One row and the clearance under it, so the list has a pitch rather than two figures
+        // four pixels apart written at three call sites.
+        static float Pitch => SlopWidgets.RowH + SlopWidgets.GapXS;
+
         public BrowseDialog(string start, System.Action<string> pick)
         {
             _pick = pick;
@@ -281,11 +284,13 @@ namespace SlopWorld
 
         public override void DoWindowContents(Rect rect)
         {
-            Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f), _path ?? "loading...");
+            SlopWidgets.PageCaption(rect, _path ?? "loading...");
 
-            var list = new Rect(rect.x, rect.y + 30f, rect.width, rect.height - 76f);
+            float top = rect.y + SlopWidgets.RowH + SlopWidgets.GapXS;
+            var list = new Rect(rect.x, top, rect.width,
+                rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - top);
             int count = _dirs.Length + (_parent != null ? 1 : 0);
-            var view = new Rect(0f, 0f, list.width - 18f, count * 28f);
+            var view = new Rect(0f, 0f, list.width - 18f, count * Pitch);
 
             Widgets.BeginScrollView(list, ref _scroll, view);
             float y = 0f;
@@ -294,26 +299,25 @@ namespace SlopWorld
             {
                 // Ghost the whole way down: forty directories in forty raised slabs is a wall
                 // of buttons, and what this is is a list that answers to a click.
-                if (SlopWidgets.Button(new Rect(0f, y, view.width, 26f), "..",
+                if (SlopWidgets.Button(new Rect(0f, y, view.width, SlopWidgets.RowH), "..",
                         SlopWidgets.Btn.Ghost))
                     Load(_parent);
-                y += 28f;
+                y += Pitch;
             }
 
             foreach (var d in _dirs)
             {
-                if (SlopWidgets.Button(new Rect(0f, y, view.width, 26f), d,
+                if (SlopWidgets.Button(new Rect(0f, y, view.width, SlopWidgets.RowH), d,
                         SlopWidgets.Btn.Ghost))
                 {
                     Load(System.IO.Path.Combine(_path ?? "", d).Replace('\\', '/'));
                     break; // _dirs is about to be replaced under us
                 }
-                y += 28f;
+                y += Pitch;
             }
             Widgets.EndScrollView();
 
-            if (SlopWidgets.Button(
-                    new Rect(rect.x, rect.yMax - 36f, rect.width, SlopWidgets.BtnH),
+            if (SlopWidgets.Button(SlopWidgets.FooterBar(rect),
                     "Use this directory", SlopWidgets.Btn.Primary))
             {
                 _pick(_path);

@@ -140,6 +140,14 @@ namespace SlopWorld
             Flat(new Rect(r.x + k, r.y + w, r.width - k * 2f, w), Sheen);
         }
 
+        // A line one screen pixel thick, along the top of the rect it is given. Not a rect a
+        // GUI pixel tall: at 1.75 that is 1.75 screen pixels, which rasterises as one row at
+        // full alpha and one at three quarters - a rule that is a different weight depending
+        // on where the window happens to sit. This is the same trick everything else here
+        // does, which is why it lives with them.
+        public static void Hairline(Rect r, Color c) =>
+            Flat(new Rect(r.x, r.y, r.width, 1f / Prefs.UIScale), c);
+
         // Nothing to do for a colour that is not there - a ghost at rest asks for all of this
         // in nothing, and it is a bill for no box.
         static bool Paint(ref Rect r, Color c)

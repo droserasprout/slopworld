@@ -27,11 +27,33 @@ window drawn three times, so the ctor flags, the size, the header, the scrolling
 list and the footer row live here and a subclass says only `Title`, `RowH`,
 `EmptyNote`, `Rows`, `DrawRow`, `DoFooter`. The empty list's other answer - the
 daemon being down - is `SlopWidgets.Unreachable` and is nobody's to state.
-`Header` lays the status line out from the title's *measured* width, three of
-those figures having been nudged by hand to clear three different titles.
 `Toggle` cannot be inherited (statics are not virtual), so each window keeps its
 own line over `SlopWidgets.ToggleWindow`, which takes a **factory** rather than an
 instance so nothing is built for a toggle that turns out to be a close.
+
+## Headings, heights and gaps
+
+`Header` is `Title` plus `Status`: the name left in `Lead`, the daemon as a
+dot-and-text pill laid out from the **right** end, a hairline under both.
+Nothing measures the title any more - it used to start the status at the title's
+width plus a figure, and before that at a figure per window, three of them nudged
+by hand to clear three different titles. `Title` alone is what a dialog wears.
+`SectionHeading` is `Faint` with a rule filling the rest of the line, which is
+what stops a form reading as a wall of body text; every group of controls in the
+mod has one.
+
+**Every height is off the font.** `LineH` is `Text.LineHeightOf(Small)` ceilinged,
+and `FieldH`/`RowH`/`HeaderH` are that plus padding - a border and a line of
+glyphs cannot be the same pixels, which is why a press is 30 and not 20 and why a
+field is 30 too, so the two line up on one row. A figure eyeballed against one
+font crops descenders on every other; `AgentSidebar` has asked rather than written
+since its labels lost their bottom row to one.
+
+**Every gap is one of four**: `GapXS`/`GapS`/`GapM`/`GapL`, 4/8/16/24, named for
+what the space is between. There were eighteen figures before. `PageCaption`,
+`PageBody` and `FooterBar` are the shape the four option-menu pages share, and
+`FooterBar` is also the three dialogs' - each had written `yMax - 34f` with a
+height of 32 for a button that stands 30.
 
 ## `Slab` and the flat controls
 
@@ -58,8 +80,25 @@ shape, not its colours - the border is **darker** than the face, and the face is
 at 0.065 alpha encloses nothing, and what is left reads as a widget toolkit from
 twenty years ago. Ghost is the one face still drawn through. `Bar` lays a footer out
 from the end each button belongs to, which is what replaced the `+138f`/`+276f`
-offset chains three windows each kept. `Field`, `Area` and `Checkbox` are here too and
-are not yet wired up anywhere - see `next.md`.
+offset chains three windows each kept, and `Bar.Rest` is what is left between the two
+ends - where the three pages that put an error beside their Save now put it. `Button`
+takes an `on`: a press that cannot be made yet drains toward the window and sits level
+with it, because a Save that vanished with the daemon reads as a page with no save.
+
+`Field`, `Area` and `Checkbox` are the forms. `Listing_Standard`'s own `TextEntry` and
+`CheckboxLabeled` draw vanilla's chrome, so the row comes off `l.GetRect` and ours goes
+into it - the listing's column and gap handling is what was worth keeping. Each takes a
+**name**, `GUI.SetNextControlName` wanting one and two boxes sharing a name sharing a
+focus. `Field`/`Area` take an `on` too: off, the text is drawn *as text* rather than into
+a control that took keystrokes and dropped them on the next frame, which is what greying
+used to mean here. `Area` takes a `frame` for the one inside a scroll view - the box there
+belongs round the **view**, since one as tall as the content puts its border off the
+bottom of the window. `Checkbox` takes a `locked` for a preset the command asks for
+anyway: same tick, face and label down to `Faint`, no hover on a row that is stating
+rather than asking.
+
+The one text field left outside all this is the command palette's, which keeps its own
+control name and drives its own focus.
 
 ## `MenuToggle`
 

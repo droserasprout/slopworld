@@ -51,12 +51,16 @@ namespace SlopWorld
             Widgets.DrawBoxSolid(chip, TerminalWindow.StateColor(s.State));
 
             Text.Font = GameFont.Small;
-            Widgets.Label(new Rect(r.x + 24f, r.y + 4f, 200f, 22f), s.Name);
+            float l1 = r.y + SlopWidgets.GapXS, l2 = l1 + SlopWidgets.LineH;
+
+            GUI.color = SlopWidgets.Lead;
+            Widgets.Label(new Rect(r.x + 24f, l1, 200f, SlopWidgets.LineH), s.Name);
 
             // The state in words next to the name, so the row scans without decoding the
             // colour of the chip beside it.
             GUI.color = TerminalWindow.StateColor(s.State);
-            Widgets.Label(new Rect(r.x + 230f, r.y + 4f, 100f, 22f), s.State.ToString().ToLower());
+            Widgets.Label(new Rect(r.x + 230f, l1, 100f, SlopWidgets.LineH),
+                s.State.ToString().ToLower());
             GUI.color = SlopWidgets.Dim;
 
             // The project first, because it answers where this agent runs and what it can
@@ -70,12 +74,12 @@ namespace SlopWorld
                 : s.Ephemeral
                     ? $"temporary in {s.Project} - it goes when it exits"
                     : $"{s.Project}  -  {s.Dir}";
-            Widgets.Label(new Rect(r.x + 24f, r.y + 24f, r.width - 340f, 20f), where);
+            Widgets.Label(new Rect(r.x + 24f, l2, r.width - 340f, SlopWidgets.LineH), where);
             GUI.color = Color.white;
 
             // The top line is the two buttons that open a dialog, the bottom one everything
             // that acts on the agent directly, terminal last.
-            float top = r.y + 1f, bottom = r.y + 25f;
+            float top = r.y + 1f, bottom = l2;
             float right = r.xMax - 6f;
 
             // Nothing in config.toml stands behind a temporary agent, so the dialog would

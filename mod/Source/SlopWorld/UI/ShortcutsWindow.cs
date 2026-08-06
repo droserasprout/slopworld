@@ -48,24 +48,29 @@ namespace SlopWorld
         {
             SlopWidgets.RowChrome(r);
 
-            Widgets.Label(new Rect(r.x + 8f, r.y + 4f, 220f, 22f), s.Name);
+            float l1 = r.y + SlopWidgets.GapXS, l2 = l1 + SlopWidgets.LineH;
+
+            GUI.color = SlopWidgets.Lead;
+            Widgets.Label(new Rect(r.x + SlopWidgets.GapS, l1, 220f, SlopWidgets.LineH), s.Name);
 
             // The kind decides what the text even is - a sentence for an agent or a command
             // line for a shell.
             GUI.color = s.Kind == ShortcutKind.Shell
-                ? new Color(0.85f, 0.75f, 0.45f)
+                ? SlopWidgets.Warn
                 : new Color(0.55f, 0.75f, 0.9f);
-            Widgets.Label(new Rect(r.x + 232f, r.y + 4f, 70f, 22f),
+            Widgets.Label(new Rect(r.x + 232f, l1, 70f, SlopWidgets.LineH),
                 s.Kind == ShortcutKind.Shell ? "shell" : "prompt");
 
             GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(r.x + 302f, r.y + 4f, r.width - 480f, 22f), Where(s));
+            Widgets.Label(new Rect(r.x + 302f, l1, r.width - 480f, SlopWidgets.LineH),
+                Where(s));
 
             // One line: the box that edits it is where the rest lives, and a row that grew
             // with the text would push the next shortcut off the list.
             var was = Text.WordWrap;
             Text.WordWrap = false;
-            Widgets.Label(new Rect(r.x + 8f, r.y + 26f, r.width - 190f, 22f), OneLine(s.Text));
+            Widgets.Label(new Rect(r.x + SlopWidgets.GapS, l2, r.width - 190f,
+                SlopWidgets.LineH), OneLine(s.Text));
             Text.WordWrap = was;
             GUI.color = Color.white;
 
@@ -89,7 +94,7 @@ namespace SlopWorld
             if (SlopWidgets.Button(new Rect(right - 74f, r.y + 1f, 74f, SlopWidgets.RowBtnH), "Edit"))
                 Find.WindowStack.Add(new EditShortcutDialog(s));
 
-            if (SlopWidgets.Button(new Rect(right - 74f, r.y + 25f, 74f, SlopWidgets.RowBtnH), "Del",
+            if (SlopWidgets.Button(new Rect(right - 74f, l2, 74f, SlopWidgets.RowBtnH), "Del",
                     SlopWidgets.Btn.Danger))
             {
                 var name = s.Name;
@@ -197,18 +202,16 @@ namespace SlopWorld
             // for its contents does not overflow, it breaks to a column off the right-hand
             // edge and puts CurHeight back to nearly zero - and the prompt box below is
             // placed and sized from that number. See EditProjectDialog.DoFields.
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(new Rect(rect.x, rect.y, rect.width, rect.height));
+            SlopWidgets.Title(rect, _isNew ? "New shortcut" : $"Edit '{_origName}'");
 
-            Text.Font = GameFont.Medium;
-            l.Label(_isNew ? "New shortcut" : $"Edit '{_origName}'");
-            Text.Font = GameFont.Small;
-            l.Gap(6f);
+            float head = SlopWidgets.HeaderH + SlopWidgets.GapS;
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(new Rect(rect.x, rect.y + head, rect.width, rect.height - head));
 
             l.Label("Name (also what the temporary colonist is called)");
             _s.Name = SlopWidgets.Field(l, "shortcut.name", _s.Name);
 
-            l.Gap(4f);
+            l.Gap(SlopWidgets.GapS);
             l.Label("Kind");
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     _s.Kind == ShortcutKind.Shell
@@ -216,7 +219,7 @@ namespace SlopWorld
                         : "Prompt - say something to an agent"))
                 PickKind();
 
-            l.Gap(4f);
+            l.Gap(SlopWidgets.GapS);
             l.Label("Where it runs");
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), LinkLabel(_s.Link)))
                 PickLink();
@@ -226,7 +229,7 @@ namespace SlopWorld
             // field that vanished would read as a setting that does not exist.
             if (_s.Link != ShortcutLink.Ask)
             {
-                l.Gap(4f);
+                l.Gap(SlopWidgets.GapS);
                 l.Label(_s.Link == ShortcutLink.Temp
                     ? "Sandbox to copy (blank = plain: network on, no presets)"
                     : "Project (the directory and sandbox it runs in)");
@@ -242,7 +245,7 @@ namespace SlopWorld
             l.Label(Explain(project));
             GUI.color = Color.white;
 
-            l.Gap(4f);
+            l.Gap(SlopWidgets.GapS);
             l.Label(_s.Kind == ShortcutKind.Shell ? "Shell (blank = the default)"
                                                   : "Agent (blank = the default)");
             var box = l.GetRect(SlopWidgets.FieldH);
@@ -266,16 +269,16 @@ namespace SlopWorld
             float used = l.CurHeight;
             l.End();
 
-            float y = rect.y + used + 8f;
-            Widgets.Label(new Rect(rect.x, y, rect.width, 22f),
+            float y = rect.y + head + used + SlopWidgets.GapL;
+            SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
                 _s.Kind == ShortcutKind.Shell ? "Command line" : "Prompt");
-            y += 24f;
+            y += SlopWidgets.RowH + SlopWidgets.GapXS;
 
-            var area = new Rect(rect.x, y, rect.width, rect.yMax - y - 40f);
+            var area = new Rect(rect.x, y, rect.width,
+                rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - y);
             _s.Text = SlopWidgets.Area(area, "shortcut.text", _s.Text ?? "");
 
-            var bar = new Rect(rect.x, rect.yMax - 36f, rect.width, 32f);
-            var foot = new SlopWidgets.Bar(bar);
+            var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
             if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
             if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
         }

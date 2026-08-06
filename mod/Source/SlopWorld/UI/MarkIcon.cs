@@ -15,11 +15,23 @@ namespace SlopWorld
         // Half the stroke. Wide enough to still read at the 18px a float-menu row gives it.
         const float Pen = 2.3f;
 
-        static Texture2D _check, _cross;
+        static Texture2D _check, _cross, _dot;
 
         public static Texture2D CheckTex => _check != null ? _check : _check = Build(InCheck);
 
         public static Texture2D CrossTex => _cross != null ? _cross : _cross = Build(InCross);
+
+        // A filled disc, for a line that says a state as a colour rather than as a word.
+        // Baked rather than drawn as a tiny Slab: at ten pixels a rounded rect is still a
+        // rounded rect, and what reads as a lamp is a circle.
+        public static Texture2D DotTex => _dot != null ? _dot : _dot = Build(InDot);
+
+        static bool InDot(float x, float y)
+        {
+            const float R = N / 2f - 1f;
+            float dx = x - N / 2f, dy = y - N / 2f;
+            return dx * dx + dy * dy <= R * R;
+        }
 
         // Two strokes: the short one down into the corner, the long one back out of it and
         // past the height it started at, which is what makes a tick rather than a V.

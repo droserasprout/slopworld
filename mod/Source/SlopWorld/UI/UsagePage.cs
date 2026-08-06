@@ -50,21 +50,19 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f),
+            SlopWidgets.PageCaption(rect,
                 "What the daemon asks about, and what it looks like up there.");
-            GUI.color = Color.white;
 
-            var body = new Rect(rect.x, rect.y + 28f, rect.width, rect.height - 28f - 40f);
+            var body = SlopWidgets.PageBody(rect);
             Widgets.DrawMenuSection(body);
-            var inner = body.ContractedBy(12f);
+            var inner = body.ContractedBy(SlopWidgets.GapM);
 
             // The icons are not the daemon's, so the fields are drawn whether or not it
             // answered: a socket that is down is exactly when somebody is in here reading
             // rather than configuring.
             DoFields(inner);
 
-            DoFooter(new Rect(rect.x, rect.yMax - 34f, rect.width, 32f));
+            DoFooter(SlopWidgets.FooterBar(rect));
 
             // Picker overlay, drawn last so it sits on top of everything else.
             if (_pickingKey != null)
@@ -75,7 +73,7 @@ namespace SlopWorld
         {
             if (!_loaded)
             {
-                GUI.color = _error != null ? SlopWidgets.Bad : Color.gray;
+                GUI.color = _error != null ? SlopWidgets.Bad : SlopWidgets.Dim;
                 Widgets.Label(r, _error ?? "Waiting for the daemon...");
                 GUI.color = Color.white;
                 return;
@@ -90,7 +88,7 @@ namespace SlopWorld
             l.Begin(new Rect(0f, 0f, view.width, 4000f));
 
             // ---------------------------------------------------------------- Anthropic
-            Heading(l, "Anthropic");
+            SlopWidgets.SectionHeading(l, "Anthropic");
             _cfg.Usage = SlopWidgets.Checkbox(l, "Poll for what is left of the subscription",
                 _cfg.Usage,
                 "The daemon reads the OAuth token Claude Code keeps on this machine and " +
@@ -98,12 +96,12 @@ namespace SlopWorld
 
             if (_cfg.Usage)
             {
-                l.Gap(2f);
+                l.Gap(SlopWidgets.GapS);
                 l.Label("Credentials file");
                 _cfg.ClaudeCredentials =
                     SlopWidgets.Field(l, "usage.creds", _cfg.ClaudeCredentials);
 
-                l.Gap(4f);
+                l.Gap(SlopWidgets.GapM);
                 // Icon rows for the Anthropic windows. The extra-usage ("spend") row is
                 // here rather than under OpenRouter because it is the one Claude Code's
                 // own /usage answers with.
@@ -117,8 +115,8 @@ namespace SlopWorld
             }
 
             // ---------------------------------------------------------------- OpenRouter
-            l.Gap(14f);
-            Heading(l, "OpenRouter");
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "OpenRouter");
             _cfg.Openrouter = SlopWidgets.Checkbox(l, "Poll for the credit balance",
                 _cfg.Openrouter,
                 "Credits bought less credits spent, which is what the pi agent draws down. " +
@@ -126,7 +124,7 @@ namespace SlopWorld
 
             if (_cfg.Openrouter)
             {
-                l.Gap(2f);
+                l.Gap(SlopWidgets.GapS);
                 l.Label("Key file (blank reads $OPENROUTER_API_KEY)");
                 _cfg.OpenrouterKeyFile =
                     SlopWidgets.Field(l, "usage.orkey", _cfg.OpenrouterKeyFile);
@@ -134,31 +132,23 @@ namespace SlopWorld
                         "the pi preset forwards into that agent's sandbox, so a machine that " +
                         "can run pi needs no second copy of it here.");
 
-                l.Gap(4f);
+                l.Gap(SlopWidgets.GapM);
                 IconRow(l, "balance", "Credit balance");
             }
 
             // ---------------------------------------------------------------- Both
-            l.Gap(14f);
-            Heading(l, "Both");
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "Both");
             l.Label("Seconds between polls");
             _pollSecs = SlopWidgets.Field(l, "usage.poll", _pollSecs);
             Note(l, "A failed poll backs off on its own, doubling to half an hour, and each " +
                     "seller keeps its own place in that queue: one being down never takes " +
                     "the other's numbers off the screen.");
 
-            _fieldsH = l.CurHeight + 8f;
+            _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
 
             Widgets.EndScrollView();
-        }
-
-        static void Heading(Listing_Standard l, string text)
-        {
-            Text.Font = GameFont.Medium;
-            l.Label(text);
-            Text.Font = GameFont.Small;
-            l.GapLine(2f);
         }
 
         static void Note(Listing_Standard l, string text)
@@ -181,24 +171,27 @@ namespace SlopWorld
         // "auto" button next to the icon said it was a different kind of thing.
         void IconRow(Listing_Standard l, string key, string hint)
         {
-            var row = l.GetRect(28f);
+            var row = l.GetRect(SlopWidgets.RowH);
 
-            const float Box = 26f;
+            float boxW = SlopWidgets.RowH - 2f;
             // A column rather than hard against the label, so the buttons line up down the
             // page the way the sidebar's times do. Clamped, a narrow page being one where the
             // label gives way rather than the thing that is clicked.
-            float col = Mathf.Min(230f, row.width - Box - 4f);
+            float col = Mathf.Min(230f, row.width - boxW - SlopWidgets.GapXS);
 
             // If hint is given it is a fallback short label, so the row works even when the
             // daemon is not reporting this key yet.
-            Widgets.Label(new Rect(row.x, row.y, col - 4f, row.height),
+            var wasAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(new Rect(row.x, row.y, col - SlopWidgets.GapXS, row.height),
                 UsageReadout.Long(key, hint ?? key));
+            Text.Anchor = wasAnchor;
 
-            var box = new Rect(row.x + col, row.y + (row.height - Box) / 2f, Box, Box);
+            var box = new Rect(row.x + col, row.y + (row.height - boxW) / 2f, boxW, boxW);
 
-            // A faint plate under it, or an icon on the page's own background is a picture
-            // rather than something to press.
-            Widgets.DrawBoxSolid(box, new Color(1f, 1f, 1f, 0.06f));
+            // A plate under it, or an icon on the page's own background is a picture rather
+            // than something to press. The same well every other box here sits in.
+            Slab.Box(box, SlopWidgets.Well, SlopWidgets.Edge);
 
             var icon = UsageReadout.IconFor(key);
             if (icon != null)
@@ -211,7 +204,7 @@ namespace SlopWorld
                 // No icon at all: a key past the end of the pool, which draws its number and
                 // nothing else up there. Said as an empty plate rather than as the cross,
                 // which in the grid below means "let the mod choose" and not "nothing".
-                Widgets.DrawBoxSolid(box.ContractedBy(7f), new Color(0.3f, 0.3f, 0.3f));
+                Widgets.DrawBoxSolid(box.ContractedBy(7f), SlopWidgets.Off);
             }
 
             Widgets.DrawHighlightIfMouseover(box);

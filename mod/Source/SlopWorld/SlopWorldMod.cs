@@ -141,7 +141,7 @@ namespace SlopWorld
             l.Begin(rect);
 
             l.Label($"Daemon: {SlopClient.BaseUrl}  [{SessionHub.Instance.Status}]");
-            l.Gap(4f);
+            l.Gap(SlopWidgets.GapM);
 
             l.Label("Host");
             settings.host = SlopWidgets.Field(l, "mod.host", settings.host);
@@ -152,11 +152,11 @@ namespace SlopWorld
             l.Label("Token (blank = no auth)");
             settings.token = SlopWidgets.Field(l, "mod.token", settings.token);
 
-            l.Gap(6f);
+            l.Gap(SlopWidgets.GapM);
             settings.autoConnect =
                 SlopWidgets.Checkbox(l, "Auto-connect and reconnect", settings.autoConnect);
 
-            l.Gap(10f);
+            l.Gap(SlopWidgets.GapM);
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Reconnect now"))
                 SessionHub.Instance.Connect();
 

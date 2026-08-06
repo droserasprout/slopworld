@@ -45,16 +45,22 @@ namespace SlopWorld
         {
             SlopWidgets.RowChrome(r);
 
-            Widgets.Label(new Rect(r.x + 8f, r.y + 4f, 200f, 22f), p.Name);
+            // The two lines of the row, off the font rather than off a pair of figures four
+            // pixels apart: `Widgets.Label` clips to the rect it is handed, so a literal here
+            // is one that crops descenders on any font but the one it was chosen against.
+            float l1 = r.y + SlopWidgets.GapXS, l2 = l1 + SlopWidgets.LineH;
+
+            GUI.color = SlopWidgets.Lead;
+            Widgets.Label(new Rect(r.x + SlopWidgets.GapS, l1, 200f, SlopWidgets.LineH), p.Name);
 
             // The number that decides whether this project can be deleted at all.
             int agents = SessionHub.Instance.Sessions.Count(s => s.Project == p.Name);
             GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(r.x + 214f, r.y + 4f, 120f, 22f),
+            Widgets.Label(new Rect(r.x + 214f, l1, 120f, SlopWidgets.LineH),
                 agents == 1 ? "1 agent" : $"{agents} agents");
 
-            Widgets.Label(new Rect(r.x + 8f, r.y + 24f, r.width - 150f, 20f),
-                $"{p.Dir}  ({Summary(p)})");
+            Widgets.Label(new Rect(r.x + SlopWidgets.GapS, l2, r.width - 150f,
+                SlopWidgets.LineH), $"{p.Dir}  ({Summary(p)})");
             GUI.color = Color.white;
 
             float right = r.xMax - 6f;
@@ -62,7 +68,7 @@ namespace SlopWorld
             if (SlopWidgets.Button(new Rect(right - 120f, r.y + 1f, 120f, SlopWidgets.RowBtnH), "Edit"))
                 Find.WindowStack.Add(new EditProjectDialog(p));
 
-            if (SlopWidgets.Button(new Rect(right - 120f, r.y + 25f, 120f, SlopWidgets.RowBtnH), "Delete",
+            if (SlopWidgets.Button(new Rect(right - 120f, l2, 120f, SlopWidgets.RowBtnH), "Delete",
                     SlopWidgets.Btn.Danger))
             {
                 var name = p.Name;
@@ -170,22 +176,20 @@ namespace SlopWorld
 
         public override void DoWindowContents(Rect rect)
         {
-            Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(rect.x, rect.y, rect.width, 32f),
-                _copiedFrom != null
-                    ? $"Copy of '{_copiedFrom}'"
-                    : _isNew ? "New project" : $"Edit '{_origName}'");
-            Text.Font = GameFont.Small;
+            SlopWidgets.Title(rect, _copiedFrom != null
+                ? $"Copy of '{_copiedFrom}'"
+                : _isNew ? "New project" : $"Edit '{_origName}'");
 
-            var body = new Rect(rect.x, rect.y + 38f, rect.width, rect.height - 38f - 40f);
+            float top = rect.y + SlopWidgets.HeaderH + SlopWidgets.GapS;
+            var body = new Rect(rect.x, top, rect.width,
+                rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - top);
             var view = new Rect(0f, 0f, body.width - 18f, Mathf.Max(_contentH, body.height));
 
             Widgets.BeginScrollView(body, ref _scroll, view);
             DoFields(view);
             Widgets.EndScrollView();
 
-            var bar = new Rect(rect.x, rect.yMax - 34f, rect.width, 32f);
-            var foot = new SlopWidgets.Bar(bar);
+            var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
             if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
             if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
         }
@@ -203,13 +207,13 @@ namespace SlopWorld
             l.Label("Name");
             _p.Name = SlopWidgets.Field(l, "project.name", _p.Name);
 
-            l.Gap(4f);
+            l.Gap(SlopWidgets.GapS);
             _p.Temp = SlopWidgets.Checkbox(l, "Temporary - scratch space under /tmp", _p.Temp,
                 "The directory is made for you under " + ProjectInfo.TempRoot + ", named after " +
                 "this project, and it is there the first time an agent starts. Nothing " +
                 "deletes it; the machine clears /tmp.");
 
-            l.Gap(4f);
+            l.Gap(SlopWidgets.GapS);
             l.Label("Directory");
             if (_p.Temp)
             {
@@ -224,39 +228,42 @@ namespace SlopWorld
                     Find.WindowStack.Add(new BrowseDialog(_p.Dir, d => _p.Dir = d));
             }
 
-            l.Gap(6f);
+            l.Gap(SlopWidgets.GapS);
             _p.Net = SlopWidgets.Checkbox(l, "Allow network", _p.Net);
 
             float used = l.CurHeight;
             l.End();
 
-            float y = r.y + used + 10f;
-            Widgets.Label(new Rect(r.x, y, r.width, 22f), "Sandbox presets");
-            y += 24f;
+            float y = r.y + used + SlopWidgets.GapL;
+            SlopWidgets.SectionHeading(new Rect(r.x, y, r.width, SlopWidgets.RowH),
+                "Sandbox presets");
+            y += SlopWidgets.RowH + SlopWidgets.GapXS;
 
             PresetList.Draw(new Rect(r.x, y, r.width, PresetsH), _p.Sandbox, _presetScroll);
-            y += PresetsH + 6f;
+            y += PresetsH + SlopWidgets.GapXS;
 
             // An agent gets whatever its command preset asks for whether or not it is ticked
             // here, and saying so is cheaper than the player wondering why ~/.claude is bound.
             GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(r.x, y, r.width, 22f),
+            Widgets.Label(new Rect(r.x, y, r.width, SlopWidgets.RowH),
                 "An agent also gets the presets its command asks for, and any of its own.");
             GUI.color = Color.white;
-            y += 26f;
+            y += SlopWidgets.RowH + SlopWidgets.GapM;
 
-            float boxW = (r.width - 16f) / 3f;
+            float boxW = (r.width - SlopWidgets.GapS * 2f) / 3f;
             float boxH = 132f;
             _roPaths = SlopWidgets.PathList(new Rect(r.x, y, boxW, boxH),
                 "project.ro", "Read-only binds", _roPaths);
-            _rwPaths = SlopWidgets.PathList(new Rect(r.x + boxW + 8f, y, boxW, boxH),
+            _rwPaths = SlopWidgets.PathList(
+                new Rect(r.x + boxW + SlopWidgets.GapS, y, boxW, boxH),
                 "project.rw", "Read-write binds", _rwPaths);
-            _passEnv = SlopWidgets.PathList(new Rect(r.x + (boxW + 8f) * 2f, y, boxW, boxH),
+            _passEnv = SlopWidgets.PathList(
+                new Rect(r.x + (boxW + SlopWidgets.GapS) * 2f, y, boxW, boxH),
                 "project.env", "Passed env vars", _passEnv);
-            y += boxH + 12f;
+            y += boxH + SlopWidgets.GapL;
 
             y = DoEffective(r, y, boxW);
-            _contentH = y - r.y + 8f;
+            _contentH = y - r.y + SlopWidgets.GapS;
         }
 
         // The three boxes above are what this project *adds*. On their own they say
@@ -271,16 +278,16 @@ namespace SlopWorld
         // cheaper than a readout that is quietly wrong about a socket that was not there.
         float DoEffective(Rect r, float y, float colW)
         {
-            Widgets.Label(new Rect(r.x, y, r.width, 22f),
+            SlopWidgets.SectionHeading(new Rect(r.x, y, r.width, SlopWidgets.RowH),
                 "What an agent here asks for");
-            y += 22f;
+            y += SlopWidgets.RowH + SlopWidgets.GapXS;
 
             GUI.color = SlopWidgets.Dim;
-            var note = new Rect(r.x, y, r.width, 20f);
-            Widgets.Label(note,
-                "The base, the presets and the boxes above, together. A path that is not " +
-                "on this machine is skipped.");
-            y += 22f;
+            const string how = "The base, the presets and the boxes above, together. A path " +
+                               "that is not on this machine is skipped.";
+            var note = new Rect(r.x, y, r.width, Text.CalcHeight(how, r.width));
+            Widgets.Label(note, how);
+            y = note.yMax + SlopWidgets.GapS;
 
             var cols = new[]
             {
@@ -295,9 +302,9 @@ namespace SlopWorld
                 string text = cols[i].Count > 0
                     ? string.Join("\n", cols[i].ToArray())
                     : "(nothing)";
-                float w = colW - 8f;
+                float w = colW - SlopWidgets.GapS;
                 float h = Text.CalcHeight(text, w);
-                Widgets.Label(new Rect(r.x + i * (colW + 8f), y, w, h), text);
+                Widgets.Label(new Rect(r.x + i * (colW + SlopWidgets.GapS), y, w, h), text);
                 tallest = Mathf.Max(tallest, h);
             }
             GUI.color = Color.white;

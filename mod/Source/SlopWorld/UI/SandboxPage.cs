@@ -52,18 +52,16 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f),
+            SlopWidgets.PageCaption(rect,
                 "The base every sandbox is built on, and the presets that add to it.");
-            GUI.color = Color.white;
 
-            var body = new Rect(rect.x, rect.y + 28f, rect.width, rect.height - 28f - 40f);
+            var body = SlopWidgets.PageBody(rect);
             Widgets.DrawMenuSection(body);
-            var inner = body.ContractedBy(12f);
+            var inner = body.ContractedBy(SlopWidgets.GapM);
 
             if (!_loaded)
             {
-                GUI.color = _error != null ? SlopWidgets.Bad : Color.gray;
+                GUI.color = _error != null ? SlopWidgets.Bad : SlopWidgets.Dim;
                 Widgets.Label(inner, _error ?? "Waiting for the daemon...");
                 GUI.color = Color.white;
             }
@@ -72,11 +70,11 @@ namespace SlopWorld
                 // Global is a short row of three boxes on top; the presets take the rest of
                 // the page and get the scroll, so both halves are read top to bottom.
                 DoGlobal(new Rect(inner.x, inner.y, inner.width, 200f));
-                float presetsY = inner.y + 200f + 12f;
+                float presetsY = inner.y + 200f + SlopWidgets.GapL;
                 DoPresets(new Rect(inner.x, presetsY, inner.width, inner.yMax - presetsY));
             }
 
-            DoFooter(new Rect(rect.x, rect.yMax - 34f, rect.width, 32f));
+            DoFooter(SlopWidgets.FooterBar(rect));
         }
 
         // The "Global" section: `[sandbox]`, the base every sandbox is built on. Three
@@ -84,18 +82,22 @@ namespace SlopWorld
         // sandboxed at all is its project's answer, never this page's.
         void DoGlobal(Rect r)
         {
-            Heading(r, "Global");
-            float top = r.y + 30f;
+            SlopWidgets.SectionHeading(new Rect(r.x, r.y, r.width, SlopWidgets.RowH), "Global");
+            float top = r.y + SlopWidgets.RowH + SlopWidgets.GapXS;
 
-            GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(r.x, top, r.width, 40f),
+            // Measured rather than given a height: forty pixels was two lines of the font it
+            // was written against and one and a half of a larger one.
+            const string what =
                 "The base every project builds on. A project's own presets and binds are " +
                 "added to these; whether an agent is sandboxed at all is its project's " +
-                "answer.");
+                "answer.";
+            GUI.color = SlopWidgets.Dim;
+            var note = new Rect(r.x, top, r.width, Text.CalcHeight(what, r.width));
+            Widgets.Label(note, what);
             GUI.color = Color.white;
-            top += 46f;
+            top = note.yMax + SlopWidgets.GapM;
 
-            float gap = 8f;
+            float gap = SlopWidgets.GapS;
             float boxW = (r.width - gap * 2f) / 3f;
             float boxH = r.yMax - top;
             _roPaths = SlopWidgets.PathList(new Rect(r.x, top, boxW, boxH),
@@ -111,8 +113,8 @@ namespace SlopWorld
         // groups the Global half edits, so the base can be held against what adds to it.
         void DoPresets(Rect r)
         {
-            Heading(r, "Presets");
-            float top = r.y + 30f;
+            SlopWidgets.SectionHeading(new Rect(r.x, r.y, r.width, SlopWidgets.RowH), "Presets");
+            float top = r.y + SlopWidgets.RowH + SlopWidgets.GapXS;
             float boxH = r.yMax - top;
 
             var presets = SessionHub.Instance.Presets;
@@ -122,9 +124,9 @@ namespace SlopWorld
             // Two columns: the list, and the selected preset's preview. The preview wants the
             // read, so it gets the wider half.
             float previewW = Mathf.Min(380f, r.width * 0.45f);
-            float listW = r.width - previewW - 12f;
+            float listW = r.width - previewW - SlopWidgets.GapM;
             DoPresetList(new Rect(r.x, top, listW, boxH));
-            DoPreview(new Rect(r.x + listW + 12f, top, previewW, boxH));
+            DoPreview(new Rect(r.x + listW + SlopWidgets.GapM, top, previewW, boxH));
         }
 
         // The list, grouped by category the way the project dialog groups its checkboxes.
@@ -139,14 +141,15 @@ namespace SlopWorld
                 .GroupBy(Category)
                 .ToList();
 
-            float h = (presets.Count + groups.Count) * 24f + 8f;
+            float pitch = SlopWidgets.RowH;
+            float h = (presets.Count + groups.Count) * pitch + SlopWidgets.GapS;
             var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(h, r.height));
             _presetScroll.Begin(r, view);
 
             if (presets.Count == 0)
             {
-                GUI.color = Color.gray;
-                Widgets.Label(new Rect(0f, 0f, view.width, 22f),
+                GUI.color = SlopWidgets.Dim;
+                Widgets.Label(new Rect(0f, 0f, view.width, pitch),
                     "The daemon has not sent its preset list yet.");
                 GUI.color = Color.white;
             }
@@ -154,22 +157,26 @@ namespace SlopWorld
             float y = 0f;
             foreach (var g in groups)
             {
-                GUI.color = SlopWidgets.Dim;
-                Widgets.Label(new Rect(0f, y, view.width, 22f), g.Key);
-                GUI.color = Color.white;
-                y += 24f;
+                SlopWidgets.SectionHeading(new Rect(0f, y, view.width, pitch), g.Key);
+                y += pitch;
 
                 foreach (var p in g)
                 {
-                    var cell = new Rect(8f, y, view.width - 8f, 22f);
+                    var cell = new Rect(SlopWidgets.GapS, y,
+                        view.width - SlopWidgets.GapS, pitch);
                     if (p == _selected)
-                        Widgets.DrawBoxSolid(cell, new Color(1f, 1f, 1f, 0.16f));
+                        Widgets.DrawBoxSolid(cell, SlopWidgets.RowOn);
+                    var wasAnchor = Text.Anchor;
+                    Text.Anchor = TextAnchor.MiddleLeft;
+                    GUI.color = p == _selected ? SlopWidgets.Lead : SlopWidgets.Name;
                     Widgets.Label(cell, p.Name);
+                    GUI.color = Color.white;
+                    Text.Anchor = wasAnchor;
                     if (Widgets.ButtonInvisible(cell))
                         _selected = p;
                     TooltipHandler.TipRegion(cell,
                         $"{p.Description}\n\n{string.Join("\n", p.Gives.ToArray())}");
-                    y += 24f;
+                    y += pitch;
                 }
             }
             _presetScroll.End();
@@ -182,8 +189,8 @@ namespace SlopWorld
         {
             if (_selected == null)
             {
-                GUI.color = Color.gray;
-                Widgets.Label(new Rect(r.x, r.y, r.width, 24f),
+                GUI.color = SlopWidgets.Dim;
+                Widgets.Label(new Rect(r.x, r.y, r.width, SlopWidgets.RowH),
                     "Select a preset to see what it adds.");
                 GUI.color = Color.white;
                 return;
@@ -204,50 +211,40 @@ namespace SlopWorld
             _previewScroll.End();
         }
 
+        // What one group costs, heading and all. Row and Measure walked the same layout with
+        // the same four figures written out twice, which is a pair to get out of step the
+        // first time either is touched.
+        static float GroupH(List<string> items, float width) =>
+            SlopWidgets.RowH + SlopWidgets.GapXS
+            + Text.CalcHeight(TextOf(items), width) + SlopWidgets.GapXS;
+
         static float Row(Rect view, float y, string label, List<string> items)
         {
-            GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(0f, y, view.width, 20f), label);
-            GUI.color = Color.white;
-            y += 22f;
+            SlopWidgets.SectionHeading(new Rect(0f, y, view.width, SlopWidgets.RowH), label);
+            y += SlopWidgets.RowH + SlopWidgets.GapXS;
 
             string text = TextOf(items);
             float h = Text.CalcHeight(text, view.width);
             Widgets.Label(new Rect(0f, y, view.width, h), text);
-            return y + h + 4f;
+            return y + h + SlopWidgets.GapXS;
         }
 
         static float Rule(float width, float y)
         {
-            GUI.color = new Color(1f, 1f, 1f, 0.15f);
-            Widgets.DrawBoxSolid(new Rect(0f, y, width, 1f), GUI.color);
-            GUI.color = Color.white;
-            return y + 12f;
+            Slab.Hairline(new Rect(0f, y, width, 1f), SlopWidgets.Edge);
+            return y + SlopWidgets.GapM;
         }
 
-        static float Measure(PresetInfo p, float width)
-        {
-            float y = 0f;
-            y += 22f + Text.CalcHeight(TextOf(p.Ro), width) + 4f;
-            y += 12f;
-            y += 22f + Text.CalcHeight(TextOf(p.Rw), width) + 4f;
-            y += 12f;
-            y += 22f + Text.CalcHeight(TextOf(p.Env), width);
-            return y;
-        }
+        static float Measure(PresetInfo p, float width) =>
+            GroupH(p.Ro, width) + SlopWidgets.GapM
+            + GroupH(p.Rw, width) + SlopWidgets.GapM
+            + GroupH(p.Env, width);
 
         static string TextOf(List<string> items) =>
             items.Count > 0 ? string.Join("\n", items.ToArray()) : "(nothing)";
 
         static string Category(PresetInfo p) =>
             string.IsNullOrEmpty(p.Category) ? "other" : p.Category;
-
-        static void Heading(Rect r, string text)
-        {
-            Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(r.x, r.y, r.width, 22f), text);
-            Text.Font = GameFont.Small;
-        }
 
         void DoFooter(Rect bar)
         {

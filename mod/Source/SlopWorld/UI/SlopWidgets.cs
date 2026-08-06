@@ -51,6 +51,12 @@ namespace SlopWorld
         // an error that stays on screen.
         public static readonly Color Bad = new Color(0.92f, 0.45f, 0.44f);
 
+        // Something that has not gone wrong and is going to matter later: a field saved now
+        // that takes hold when slopd next restarts, a shortcut whose ground is thrown away
+        // after it. Not `Bad` - red for a caveat is a page that cries wolf, and by the third
+        // one nothing on it is read. Two files had this same amber written out.
+        public static readonly Color Warn = new Color(0.85f, 0.75f, 0.45f);
+
         // The dark this mod's own chrome is drawn on, wherever it is drawn: the sidebar, the
         // top bar, and anything later that wants to sit on the map without belonging to it.
         public static readonly Color Panel = new Color(0.09f, 0.10f, 0.12f, 0.93f);
@@ -125,6 +131,16 @@ namespace SlopWorld
         public const float BtnH = 30f;
         public const float RowBtnH = 22f;
 
+        // The spacing scale, and the whole of it. The gaps across these files ran 2, 4, 6, 8,
+        // 10, 12, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 40 and 52 - eighteen figures for
+        // four intentions, each arrived at by nudging until one screenshot looked right, and
+        // each one wrong again the moment a font or a scale changes. Four now, named for what
+        // the space is between rather than for how big it is.
+        public const float GapXS = 4f;   // a label and the box it names
+        public const float GapS = 8f;    // one control and the next
+        public const float GapM = 16f;   // one group of controls and the next
+        public const float GapL = 24f;   // one section and the next
+
         public static bool Button(Rect r, string label, Btn kind = Btn.Default, bool on = true)
         {
             bool over = on && Mouse.IsOver(r);
@@ -192,13 +208,25 @@ namespace SlopWorld
                 Mathf.Lerp(c.b, to.b, t), c.a);
         }
 
-        // A box to type in, and the row a checkbox is drawn on. Both asked of the font rather
-        // than written down: what is inside them is one line of `GameFont.Small`, and a figure
-        // eyeballed against one font crops descenders on every other. The padding is the
-        // reason a press is 30 and not 20 - a border and a line of glyphs cannot be the same
-        // pixels, or there is no face showing above and below the text.
-        public static float FieldH => Mathf.Ceil(Verse.Text.LineHeightOf(GameFont.Small)) + 8f;
-        public static float RowH => Mathf.Ceil(Verse.Text.LineHeightOf(GameFont.Small)) + 6f;
+        // One line of the small font, as tall as it actually draws, and the three things laid
+        // out from it. Asked rather than written down: `Widgets.Label` ends in `GUI.Label`,
+        // which clips glyphs to the rect it is given, and `Verse.Text` measures its line
+        // heights off the font at startup - so a 22 here is 22 for the one font it was
+        // eyeballed against and a cropped descender on every other. `AgentSidebar` has asked
+        // this question since its two label lines lost their bottom pixel row to a figure.
+        //
+        // The padding on the other two is what a bordered box needs and a bare line does not:
+        // a border and a line of glyphs cannot be the same pixels, or there is no face showing
+        // above and below the text. It is why a press is 30 rather than 20, and a field is 30
+        // for the same reason - so a field and a button on one row line up.
+        public static float LineH => Mathf.Ceil(Verse.Text.LineHeightOf(GameFont.Small));
+
+        public static float FieldH => LineH + 8f;
+        public static float RowH => LineH + 6f;
+
+        // A window's title line, with room for the rule under it. Off the medium font for the
+        // reason the three above are off the small one.
+        public static float HeaderH => Mathf.Ceil(Verse.Text.LineHeightOf(GameFont.Medium)) + 8f;
 
         // A box to type in: the well vanilla gives it, and a line round it that lights while
         // it has the keyboard. Named so the caller can be told apart from its neighbours -
@@ -308,6 +336,9 @@ namespace SlopWorld
         public static bool Checkbox(Listing_Standard l, string label, bool on, string tip = null) =>
             Checkbox(l.GetRect(RowH), label, on, tip);
 
+        public static void SectionHeading(Listing_Standard l, string text) =>
+            SectionHeading(l.GetRect(RowH), text);
+
         // One press per side, laid out from the end it belongs to rather than from a running
         // total of the widths before it. Every footer here used to carry the offsets of its
         // neighbours written down - `+138f`, `+276f` - which is a set of numbers to get wrong
@@ -410,21 +441,117 @@ namespace SlopWorld
             return false;
         }
 
-        // The window's name, and beside it the daemon this window is a view of. The status
-        // line is laid out from the title's measured width rather than from a figure per
-        // window: three of those had been nudged by hand to clear three different titles,
-        // which is a thing to get wrong every time a title changes.
+        // The window's name at one end, the daemon it is a view of at the other, and a rule
+        // under them both.
+        //
+        // The status used to start at the title's *measured* width plus a figure, and before
+        // that at a figure per window - three of them, each nudged by hand until it cleared
+        // one particular title. Laid out from the far end instead, the title's width stops
+        // being anybody's business: the one thing the two ends can collide over is the status
+        // being longer than the room, and that is a URL the player chose.
         public static void Header(Rect rect, string title, SessionHub hub)
         {
-            Text.Font = GameFont.Medium;
-            float w = Text.CalcSize(title).x;
-            Widgets.Label(new Rect(rect.x, rect.y, 300f, 32f), title);
+            Title(rect, title);
+            Status(new Rect(rect.x, rect.y, rect.width, HeaderH), hub);
+        }
+
+        // The dot's size, and the room the pill leaves either side of what is in it.
+        const float DotSize = 10f;
+        const float PillPad = 10f;
+
+        // A lamp and a line about the socket, in a well of their own at the right end. The
+        // colour is on the dot rather than on the words: green text on a dark window reads as
+        // something having gone right, which is not what an address and a status are.
+        static void Status(Rect line, SessionHub hub)
+        {
+            var wasAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleLeft;
+
+            string text = $"{SlopClient.BaseUrl} - {hub.Status}";
+            float w = Text.CalcSize(text).x;
+
+            float h = RowH;
+            var pill = new Rect(line.xMax - (w + DotSize + GapS + PillPad * 2f),
+                line.y + (line.height - h) / 2f,
+                w + DotSize + GapS + PillPad * 2f, h);
+            Slab.Fill(pill, Well);
+
+            var dot = new Rect(pill.x + PillPad, pill.y + (h - DotSize) / 2f,
+                DotSize, DotSize);
+            GUI.color = hub.Online ? Online : Offline;
+            GUI.DrawTexture(dot, MarkIcon.DotTex);
+
+            GUI.color = Dim;
+            Widgets.Label(new Rect(dot.xMax + GapS, pill.y, w + 2f, h), text);
+            GUI.color = Color.white;
+            Text.Anchor = wasAnchor;
+        }
+
+        // A heading over a group of controls, in the rung a heading is - glanced at on the way
+        // to what it names, not read. The rule takes the rest of the line, which is what makes
+        // it a heading rather than one more line of body text in body colour: a form of those
+        // reads as a wall, and every section in this mod was one.
+        public static void SectionHeading(Rect r, string text)
+        {
+            var wasAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            var was = Text.Font;
             Text.Font = GameFont.Small;
 
-            GUI.color = hub.Online ? Online : Offline;
-            Widgets.Label(new Rect(rect.x + w + 16f, rect.y + 8f, 400f, 24f),
-                $"{SlopClient.BaseUrl} - {hub.Status}");
+            float w = Text.CalcSize(text).x;
+            GUI.color = Faint;
+            Widgets.Label(r, text);
             GUI.color = Color.white;
+
+            Text.Font = was;
+            Text.Anchor = wasAnchor;
+
+            float x = r.x + w + GapS;
+            if (x < r.xMax)
+                Slab.Hairline(new Rect(x, r.y + r.height / 2f, r.xMax - x, 1f), Edge);
+        }
+
+        // The three pages of the options menu are one shape: a line saying what is being
+        // edited, the body in a box under it, and a footer bar along the bottom. Here rather
+        // than three times over, because each had written the same four figures - 28, 40, 34,
+        // 32 - and three copies of one layout is three chances for one of them to be nudged
+        // alone. The category row is the page's title, so the caption is all the top needs.
+        public static void PageCaption(Rect page, string text)
+        {
+            GUI.color = Dim;
+            Widgets.Label(new Rect(page.x, page.y, page.width, RowH), text);
+            GUI.color = Color.white;
+        }
+
+        public static Rect PageBody(Rect page)
+        {
+            float top = page.y + RowH + GapXS;
+            return new Rect(page.x, top, page.width, page.yMax - BtnH - GapS - top);
+        }
+
+        // The row of presses along the bottom, wherever there is one: three pages and three
+        // dialogs each wrote it as `yMax - 34f` with a height of 32, for a button that stands
+        // 30 - two pixels of nothing under every footer in the mod.
+        public static Rect FooterBar(Rect rect) =>
+            new Rect(rect.x, rect.yMax - BtnH, rect.width, BtnH);
+
+        // A dialog's own title: the window header without a daemon to state beside it. The
+        // same height and the same rule, so a dialog and a list window do not disagree about
+        // where the thing under the title begins.
+        public static void Title(Rect rect, string text)
+        {
+            var line = new Rect(rect.x, rect.y, rect.width, HeaderH);
+            var wasAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleLeft;
+
+            Text.Font = GameFont.Medium;
+            GUI.color = Lead;
+            Widgets.Label(line, text);
+            GUI.color = Color.white;
+            Text.Font = GameFont.Small;
+
+            Text.Anchor = wasAnchor;
+            Slab.Hairline(new Rect(rect.x, line.yMax, rect.width, 1f), Edge);
         }
 
         // The fill and the hover behind one row of a list.
@@ -441,8 +568,9 @@ namespace SlopWorld
         public static string PathList(Rect r, string name, string label, string text)
         {
             float h = RowH;
-            Widgets.Label(new Rect(r.x, r.y, r.width, h), label);
-            var box = new Rect(r.x, r.y + h + 4f, r.width, Mathf.Max(r.height - h - 4f, 40f));
+            SectionHeading(new Rect(r.x, r.y, r.width, h), label);
+            var box = new Rect(r.x, r.y + h + GapXS, r.width,
+                Mathf.Max(r.height - h - GapXS, 40f));
             return Area(box, name, text);
         }
 
@@ -511,10 +639,14 @@ namespace SlopWorld
 
             SlopWidgets.Header(rect, Title, hub);
 
-            float top = rect.y + 40f;
-            DrawList(new Rect(rect.x, top, rect.width, rect.height - top - 40f), hub);
+            // The three figures this used to be laid out from - 40 for the header, 40 for the
+            // footer, 32 up from the bottom for a 30-tall bar - are one height and one gap.
+            float top = rect.y + SlopWidgets.HeaderH + SlopWidgets.GapS;
+            float foot = SlopWidgets.BtnH + SlopWidgets.GapS;
+            DrawList(new Rect(rect.x, top, rect.width, rect.yMax - foot - top), hub);
 
-            DoFooter(new Rect(rect.x, rect.yMax - 32f, rect.width, 30f), hub);
+            DoFooter(new Rect(rect.x, rect.yMax - SlopWidgets.BtnH, rect.width,
+                SlopWidgets.BtnH), hub);
         }
 
         void DrawList(Rect rect, SessionHub hub)
@@ -529,8 +661,12 @@ namespace SlopWorld
             if (items.Count == 0)
             {
                 GUI.color = SlopWidgets.Dim;
-                Widgets.Label(new Rect(4f, 8f, view.width - 8f, 64f),
-                    hub.Online ? EmptyNote : SlopWidgets.Unreachable);
+                string note = hub.Online ? EmptyNote : SlopWidgets.Unreachable;
+                Widgets.Label(
+                    new Rect(SlopWidgets.GapXS, SlopWidgets.GapS,
+                        view.width - SlopWidgets.GapS,
+                        Text.CalcHeight(note, view.width - SlopWidgets.GapS)),
+                    note);
                 GUI.color = Color.white;
             }
 

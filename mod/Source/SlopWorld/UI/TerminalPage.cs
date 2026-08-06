@@ -28,14 +28,15 @@ namespace SlopWorld
             var s = S;
             Text.Font = GameFont.Small;
 
-            GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f),
-                "The pane's look - font, palette and cursor.");
-            GUI.color = Color.white;
+            SlopWidgets.PageCaption(rect, "The pane's look - font, palette and cursor.");
 
-            var body = new Rect(rect.x, rect.y + 28f, rect.width, rect.height - 28f - 40f);
+            // The one page of the four with no footer - nothing here is saved by a press, the
+            // settings file is written when the dialog closes - so its body takes the bar's
+            // room as well.
+            var body = SlopWidgets.PageBody(rect);
+            body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
             Widgets.DrawMenuSection(body);
-            var inner = body.ContractedBy(12f);
+            var inner = body.ContractedBy(SlopWidgets.GapM);
 
             // Taken first: the cell size the preview is laid out from is settled inside the
             // style's getter, and on the first frame there is no cell yet.
@@ -43,10 +44,12 @@ namespace SlopWorld
 
             float ph = Mathf.Clamp(TerminalFont.CellH * PreviewRows + 10f, 70f, 190f);
             var preview = new Rect(inner.x, inner.yMax - ph, inner.width, ph);
-            var caption = new Rect(inner.x, preview.y - 24f, inner.width, 22f);
+            var caption = new Rect(inner.x, preview.y - SlopWidgets.RowH - SlopWidgets.GapXS,
+                inner.width, SlopWidgets.RowH);
 
             // The fields scroll if the room is short; the preview stays put at the foot.
-            var form = new Rect(inner.x, inner.y, inner.width, caption.y - inner.y - 6f);
+            var form = new Rect(inner.x, inner.y, inner.width,
+                caption.y - inner.y - SlopWidgets.GapS);
             var view = new Rect(0f, 0f, form.width - 18f, Mathf.Max(_fieldsH, form.height));
             Widgets.BeginScrollView(form, ref _scroll, view);
 
@@ -79,7 +82,7 @@ namespace SlopWorld
                 Find.WindowStack.Add(new FloatMenu(opts));
             }
 
-            l.Gap(8f);
+            l.Gap(SlopWidgets.GapM);
             l.Label($"Font size: {s.fontSize}");
             int size = Mathf.RoundToInt(l.Slider(s.fontSize, 8, 28));
             if (size != s.fontSize)
@@ -88,7 +91,7 @@ namespace SlopWorld
                 TerminalFont.Invalidate();
             }
 
-            l.Gap(10f);
+            l.Gap(SlopWidgets.GapM);
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), $"Colour scheme: {s.theme}"))
                 Find.WindowStack.Add(new FloatMenu(TerminalTheme.All
                     .Select(t => new FloatMenuOption(t.Name, () =>
@@ -100,7 +103,7 @@ namespace SlopWorld
 
             DrawSwatches(l.GetRect(18f));
 
-            l.Gap(10f);
+            l.Gap(SlopWidgets.GapM);
             l.Label("Cursor colour, #rrggbb (blank = the scheme's)");
             s.cursorColor = SlopWidgets.Field(l, "term.cursor", s.cursorColor ?? "");
 
@@ -114,7 +117,7 @@ namespace SlopWorld
                 GUI.color = Color.white;
             }
 
-            _fieldsH = l.CurHeight + 8f;
+            _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
 
             Widgets.EndScrollView();
@@ -125,9 +128,7 @@ namespace SlopWorld
             style = TerminalFont.Style;
 
             Text.Font = GameFont.Small;
-            GUI.color = new Color(0.65f, 0.67f, 0.70f);
-            Widgets.Label(caption, "Preview");
-            GUI.color = Color.white;
+            SlopWidgets.SectionHeading(caption, "Preview");
 
             DrawPreview(preview, style);
         }

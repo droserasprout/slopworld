@@ -14,7 +14,8 @@ namespace SlopWorld
     // this build has never heard of is a heading, which is the whole point of the field.
     public static class PresetList
     {
-        public const float RowH = 24f;
+        // The pitch of a row here, off the font like every other height in this mod.
+        public static float RowH => SlopWidgets.RowH;
 
         // Ticked and refused: what a preset is handed anyway, by its command or its project.
         // Drawn rather than hidden - "why is ~/.claude bound" is the question this answers.
@@ -27,8 +28,8 @@ namespace SlopWorld
 
             if (presets.Count == 0)
             {
-                GUI.color = Color.gray;
-                Widgets.Label(new Rect(pad.x, pad.y, pad.width, 22f),
+                GUI.color = SlopWidgets.Dim;
+                Widgets.Label(new Rect(pad.x, pad.y, pad.width, SlopWidgets.LineH),
                     "The daemon has not sent its preset list yet.");
                 GUI.color = Color.white;
                 return;
@@ -47,14 +48,13 @@ namespace SlopWorld
             float y = 0f;
             foreach (var g in groups)
             {
-                GUI.color = SlopWidgets.Dim;
-                Widgets.Label(new Rect(0f, y, inner.width, 22f), g.Key);
-                GUI.color = Color.white;
+                SlopWidgets.SectionHeading(new Rect(0f, y, inner.width, RowH), g.Key);
                 y += RowH;
 
                 foreach (var pr in g)
                 {
-                    var cell = new Rect(8f, y, inner.width - 8f, 22f);
+                    var cell = new Rect(SlopWidgets.GapS, y,
+                        inner.width - SlopWidgets.GapS, RowH);
                     y += RowH;
 
                     bool forced = implied != null && implied.Contains(pr.Name);

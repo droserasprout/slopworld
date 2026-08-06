@@ -53,18 +53,15 @@ namespace SlopWorld
         // say which file is being edited.
         public void Draw(Rect rect)
         {
-            GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f),
-                _loaded ? _path : "loading...");
-            GUI.color = Color.white;
+            SlopWidgets.PageCaption(rect, _loaded ? _path : "loading...");
 
-            var body = new Rect(rect.x, rect.y + 28f, rect.width, rect.height - 28f - 40f);
+            var body = SlopWidgets.PageBody(rect);
             Widgets.DrawMenuSection(body);
-            var inner = body.ContractedBy(12f);
+            var inner = body.ContractedBy(SlopWidgets.GapM);
 
             if (!_loaded)
             {
-                GUI.color = _error != null ? SlopWidgets.Bad : Color.gray;
+                GUI.color = _error != null ? SlopWidgets.Bad : SlopWidgets.Dim;
                 Widgets.Label(inner, _error ?? "Waiting for the daemon...");
                 GUI.color = Color.white;
             }
@@ -73,7 +70,7 @@ namespace SlopWorld
                 DoFields(inner);
             }
 
-            DoFooter(new Rect(rect.x, rect.yMax - 34f, rect.width, 32f));
+            DoFooter(SlopWidgets.FooterBar(rect));
         }
 
 
@@ -89,54 +86,55 @@ namespace SlopWorld
 
             DoConnectionNote(l);
 
-            l.Gap(8f);
-            l.Label("Command presets for agents and errands that name none of their own");
-            l.Gap(2f);
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "Commands");
+            Note(l, "What an agent or errand runs when it names none of its own. Both name a " +
+                    "command preset; what one runs is a TOML file beside this one, and the " +
+                    "agent dialog lists them.");
+
+            l.Gap(SlopWidgets.GapS);
             l.Label("Agent");
             _cfg.Agent = SlopWidgets.Field(l, "cfg.agent", _cfg.Agent);
-            l.Gap(2f);
+            l.Gap(SlopWidgets.GapS);
             // What a shell errand runs. tmux hands it a pty, so it is interactive without
             // being told to be.
             l.Label("Shell");
             _cfg.Shell = SlopWidgets.Field(l, "cfg.shell", _cfg.Shell);
-            GUI.color = SlopWidgets.Dim;
-            l.Label("Both name a command preset. What one runs is a TOML file beside this " +
-                    "one; the agent dialog lists them.");
-            GUI.color = Color.white;
 
-            l.Gap(10f);
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "The game");
             l.Label("Game command (blank disables restarting the game from here)");
             _cfg.GameCmd = SlopWidgets.Field(l, "cfg.gamecmd", _cfg.GameCmd);
-            l.Gap(4f);
+            l.Gap(SlopWidgets.GapXS);
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     "Save the colony and restart the game"))
                 ConfirmRestartGame();
 
-            l.Gap(10f);
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "The daemon");
             l.Label("tmux socket");
             _cfg.TmuxSocket = SlopWidgets.Field(l, "cfg.tmux", _cfg.TmuxSocket);
-            l.Gap(2f);
+            l.Gap(SlopWidgets.GapS);
             l.Label("State tick, ms (how often a quiet session decays to idle)");
             _pollMs = SlopWidgets.Field(l, "cfg.pollms", _pollMs);
-            l.Gap(2f);
+            l.Gap(SlopWidgets.GapS);
             l.Label("Scrollback lines kept per session");
             _history = SlopWidgets.Field(l, "cfg.history", _history);
 
-            l.Gap(6f);
-            GUI.color = new Color(0.85f, 0.75f, 0.45f);
+            l.Gap(SlopWidgets.GapS);
+            GUI.color = SlopWidgets.Warn;
             l.Label("Socket, tick and scrollback are read once at startup: they are " +
                     "saved now and take hold when slopd restarts.");
             GUI.color = Color.white;
 
-            l.Gap(10f);
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "This install");
             var s = SlopWorldMod.Instance.settings;
             s.grandmaMode = SlopWidgets.Checkbox(l, "Grandma's visiting", s.grandmaMode);
-            GUI.color = SlopWidgets.Dim;
-            l.Label("No fun allowed! Disable gore, vomit, and offensive/harmful tips. " +
+            Note(l, "No fun allowed! Disable gore, vomit, and offensive/harmful tips. " +
                     "Put it back when she leaves.");
-            GUI.color = Color.white;
 
-            _fieldsH = l.CurHeight + 8f;
+            _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
 
             Widgets.EndScrollView();
@@ -152,21 +150,29 @@ namespace SlopWorld
         // took effect on the next restart would mostly read as a field that did nothing.
         void DoConnectionNote(Listing_Standard l)
         {
-            GUI.color = SlopWidgets.Dim;
-            l.Label($"This game dials {SlopClient.BaseUrl} ({SessionHub.Instance.Status}). " +
+            SlopWidgets.SectionHeading(l, "Connection");
+            Note(l, $"This game dials {SlopClient.BaseUrl} ({SessionHub.Instance.Status}). " +
                     $"The daemon is bound to {_cfg.Bind}.");
-            GUI.color = Color.white;
 
             var row = l.GetRect(SlopWidgets.BtnH);
-            float w = (row.width - 8f) / 2f;
+            float w = (row.width - SlopWidgets.GapS) / 2f;
             if (SlopWidgets.Button(new Rect(row.x, row.y, w, row.height), "Connection..."))
                 Find.WindowStack.Add(new Dialog_ModSettings(SlopWorldMod.Instance));
 
             // The terminal's own settings are now a tab of this same dialog, left of
             // Usage: the honest answer to the press is a tab swap rather than a window.
-            if (SlopWidgets.Button(new Rect(row.x + w + 8f, row.y, w, row.height),
+            if (SlopWidgets.Button(new Rect(row.x + w + SlopWidgets.GapS, row.y, w, row.height),
                     "Appearance..."))
                 SlopOptions.OpenTerminalTab();
+        }
+
+        // A second line about the line above it. Every page here has one of these; this is
+        // the only thing that distinguishes it from body text.
+        static void Note(Listing_Standard l, string text)
+        {
+            GUI.color = SlopWidgets.Dim;
+            l.Label(text);
+            GUI.color = Color.white;
         }
 
         void DoFooter(Rect bar)
