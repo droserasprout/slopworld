@@ -27,6 +27,13 @@ calls `PreOptionChosen` - which closes the parent - before it invokes the action
 - **Settings** opens vanilla's Audio category - `SlopOptions.OpenAudioTab` - since
   that is where the sliders `Radio.Volume` multiplies actually live. It opens the
   options dialog when none is up and swaps the tab when one is.
+- **Hovering the box** names the song, `♪ Artist - Song`, in vanilla's own
+  bubble: the thing is not selectable and has no inspect pane to put it in.
+  `Jukebox.Tip` off `TooltipHandler.TipRegion`, keyed on the cell so the bubble
+  does not restart its fade every time the station moves on. Nothing is drawn when
+  there is nothing to say - muted, or a station a second into a pick. The OST's
+  name is hardcoded (`Radio.OstTitle`, "Terry Fail - slopbg"), there being nobody
+  else to say it.
 - The two ticked rows are `SlopWidgets.MenuToggle`, which hangs a tick or a cross
   off `FloatMenuOption.extraPartOnGUI` with `extraPartRightJustified`. `Disabled`
   would have been the nearest vanilla thing and it reads as broken rather than as
@@ -64,8 +71,23 @@ one mechanism rather than two taking turns.
   feeder thread the decoding. Samples cross to the audio callback through a
   bounded ring; an empty ring answers silence, never `None`, because ending the
   source there would end the music for good.
+- **The title is spliced into the audio**, which is why `Icy` exists. `Icy-MetaData:
+  1` on the request gets an `icy-metaint` back, and from then on the body is that
+  many bytes of audio, one length byte, that many *sixteens* of
+  `StreamTitle='...';StreamUrl='...';` padded with NULs, and around again. `Icy`
+  wraps the **raw** body - before any buffering, or the byte count is out of step -
+  hands on the audio and keeps the text. Getting it wrong is not a missing title,
+  it is a click every few seconds. A zero length byte, which is nearly all of them,
+  means nothing changed; the closing quote is found as `';` because an apostrophe
+  in a song title is ordinary. It lands in `AudioState.title` through a `TitleSink`
+  that checks the generation, so a station being switched away from cannot name the
+  one that replaced it. RP serves `icy-metaint: 16000` today; a host that stops is
+  a jukebox with no title and nothing else wrong, and
+  `cargo test names_what_the_station_is_playing -- --ignored --nocapture` is how to
+  tell.
 - `Event::Audio` goes out on connect and on change, polled off the player every
-  half second. `Radio.Report` acts on a failure once and hands back to the OST.
+  half second. A title changing is a change, so the mod hears each new song on the
+  same beat as everything else. `Radio.Report` acts on a failure once and hands back to the OST.
   `GET /api/audio` says the same thing to a person with `curl`, which is the way
   to tell "the mod never asked" from "the daemon could not" without the journal.
 - **Never `open_default_sink`, and never ALSA's `null`.** That helper falls back

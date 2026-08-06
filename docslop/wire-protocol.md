@@ -12,7 +12,9 @@ the music but only the daemon knows whether it plays - see
 
 `audio` carries `volume` always and `source` in three states, which is the whole
 of the protocol: a string plays it, `null` stops, and **leaving the key out** is
-the volume slider moving and must not restart a stream.
+the volume slider moving and must not restart a stream. Coming back it is
+`{playing, source, volume, error, title}` - `title` being what the station says it
+is playing, unpicked out of the audio itself.
 
 Everything that rewrites `config.toml` goes over HTTP instead, because the error
 body matters: `/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`,

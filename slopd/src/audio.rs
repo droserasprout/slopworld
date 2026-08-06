@@ -47,13 +47,16 @@ const REOPEN_PAUSE: Duration = Duration::from_secs(2);
 const REOPEN_TRIES: u32 = 20;
 
 /// What the mod is told. `error` is the last thing that went wrong, kept after the fact
-/// so a pick that failed can be reported rather than just leaving silence.
+/// so a pick that failed can be reported rather than just leaving silence. `title` is what
+/// the station says it is playing, which arrives spliced into the audio and so is empty for
+/// a while after every pick - and forever for a file, which says nothing about itself.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct AudioState {
     pub playing: bool,
     pub source: Option<String>,
     pub volume: f32,
     pub error: Option<String>,
+    pub title: Option<String>,
 }
 
 enum Cmd {
@@ -166,6 +169,11 @@ fn run(rx: Receiver<Cmd>, state: Arc<Mutex<AudioState>>) {
                 }
                 let (_sink, player) = device.as_ref().unwrap();
 
+                // Whatever was named is not what is about to play. Cleared before the
+                // source is opened rather than after, so a station that names itself
+                // promptly is not cleared by the pick that asked for it.
+                state.lock().unwrap_or_else(|p| p.into_inner()).title = None;
+
                 player.set_volume(volume);
                 // Not `Player::clear`: that pauses the player - and nothing appended to a
                 // paused player is ever pulled, which is silence with no sign of itself -
@@ -174,7 +182,7 @@ fn run(rx: Receiver<Cmd>, state: Arc<Mutex<AudioState>>) {
                 // answers `None` on the next callback and the player moves on to this one.
                 player.play();
 
-                match start(&source, player) {
+                match start(&source, player, &state) {
                     Ok(()) => {
                         let mut s = state.lock().unwrap_or_else(|p| p.into_inner());
                         s.playing = true;
@@ -203,6 +211,7 @@ fn run(rx: Receiver<Cmd>, state: Arc<Mutex<AudioState>>) {
                 let mut s = state.lock().unwrap_or_else(|p| p.into_inner());
                 s.playing = false;
                 s.source = None;
+                s.title = None;
             }
         }
     }
@@ -213,6 +222,7 @@ fn fail(state: &Arc<Mutex<AudioState>>, why: String) {
     let mut s = state.lock().unwrap_or_else(|p| p.into_inner());
     s.playing = false;
     s.source = None;
+    s.title = None;
     s.error = Some(why);
 }
 
@@ -285,12 +295,46 @@ fn open_device() -> Result<(rodio::MixerDeviceSink, rodio::Player)> {
     Ok((sink, player))
 }
 
+/// Where a station's `StreamTitle` goes. Held by the reader, which is on the far side of the
+/// decoder and two threads from anyone who asks: a title arrives spliced into the audio,
+/// minutes after the source it belongs to was opened. Hence the generation, checked on the
+/// way in - a station being switched away from must not name the one that replaced it.
+/// `state` is an Option so a source nobody wants the titles of - a file, which has none, or
+/// a test - has somewhere to send them.
+#[derive(Clone)]
+struct TitleSink {
+    state: Option<Arc<Mutex<AudioState>>>,
+    generation: u64,
+}
+
+impl TitleSink {
+    fn set(&self, title: Option<String>) {
+        let state = match self.state.as_ref() {
+            Some(s) => s,
+            None => return,
+        };
+        if self.generation != GENERATION.load(Ordering::SeqCst) {
+            return;
+        }
+        let mut s = state.lock().unwrap_or_else(|p| p.into_inner());
+        if s.title == title {
+            return;
+        }
+        tracing::info!("audio: now playing {}", title.as_deref().unwrap_or("-"));
+        s.title = title;
+    }
+}
+
 /// Opens the source once here, so a station that will not answer is an error the mod can
 /// be told about, then hands the rest to a feeder.
-fn start(source: &str, player: &rodio::Player) -> Result<()> {
+fn start(source: &str, player: &rodio::Player, state: &Arc<Mutex<AudioState>>) -> Result<()> {
     let generation = GENERATION.load(Ordering::SeqCst);
+    let title = TitleSink {
+        state: Some(state.clone()),
+        generation,
+    };
 
-    let first = open_source(source)?;
+    let first = open_source(source, &title)?;
     let channels = first.channels();
     let rate = first.sample_rate();
 
@@ -307,7 +351,7 @@ fn start(source: &str, player: &rodio::Player) -> Result<()> {
     let source = source.to_string();
     std::thread::Builder::new()
         .name("slopd audio feed".into())
-        .spawn(move || feed(first, source, channels, rate, tx, generation))
+        .spawn(move || feed(first, source, channels, rate, tx, generation, title))
         .context("starting the feeder")?;
 
     Ok(())
@@ -324,6 +368,7 @@ fn feed(
     rate: SampleRate,
     tx: SyncSender<Vec<Sample>>,
     generation: u64,
+    title: TitleSink,
 ) {
     let mut current = Some(first);
     let mut tries = 0;
@@ -341,7 +386,7 @@ fn feed(
                 if generation != GENERATION.load(Ordering::SeqCst) {
                     return;
                 }
-                match open_source(&source) {
+                match open_source(&source, &title) {
                     Ok(d) if d.channels() == channels && d.sample_rate() == rate => d,
                     // A file that came back as something else would play at the wrong
                     // speed, which is worse than stopping and saying so.
@@ -381,9 +426,9 @@ fn feed(
     }
 }
 
-fn open_source(source: &str) -> Result<Box<dyn Source + Send>> {
+fn open_source(source: &str, title: &TitleSink) -> Result<Box<dyn Source + Send>> {
     if source.starts_with("http://") || source.starts_with("https://") {
-        open_stream(source)
+        open_stream(source, title)
     } else {
         open_file(source)
     }
@@ -404,9 +449,10 @@ fn open_file(path: &str) -> Result<Box<dyn Source + Send>> {
     Ok(Box::new(builder.build().context("decoding")?))
 }
 
-fn open_stream(url: &str) -> Result<Box<dyn Source + Send>> {
-    // No Icy-MetaData header, so the station sends none: title bytes spliced into the
-    // audio would be decoded as audio. No body timeout either - the body never ends.
+fn open_stream(url: &str, title: &TitleSink) -> Result<Box<dyn Source + Send>> {
+    // `Icy-MetaData: 1` asks for the titles, which arrive *inside* the body - see `Icy`.
+    // Nothing else may see those bytes: handed to the decoder they are audio, and they are
+    // not. No body timeout either - the body never ends.
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_connect(Some(CONNECT))
         .timeout_recv_response(Some(CONNECT))
@@ -418,8 +464,18 @@ fn open_stream(url: &str) -> Result<Box<dyn Source + Send>> {
     let response = agent
         .get(url)
         .header("User-Agent", "SlopWorld")
+        .header("Icy-MetaData", "1")
         .call()
         .with_context(|| format!("connecting to {url}"))?;
+
+    // Absent, or nonsense, means the station is not splicing anything in and the body is
+    // audio from end to end. Which is also what happens when it ignores the request header.
+    let metaint = response
+        .headers()
+        .get("icy-metaint")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .filter(|n| *n > 0);
 
     let mime = response
         .headers()
@@ -432,7 +488,21 @@ fn open_stream(url: &str) -> Result<Box<dyn Source + Send>> {
         .trim()
         .to_string();
 
-    let body = BufReader::with_capacity(64 * 1024, response.into_body().into_reader());
+    // The unpicking happens on the raw body, before any buffering: `Icy` counts the bytes
+    // it hands on, and a reader that had already swallowed some would put it out of step.
+    let raw: Box<dyn Read + Send> = match metaint {
+        Some(n) => {
+            tracing::debug!("audio: {url} splices titles every {n} bytes");
+            Box::new(Icy {
+                inner: response.into_body().into_reader(),
+                metaint: n,
+                left: n,
+                title: title.clone(),
+            })
+        }
+        None => Box::new(response.into_body().into_reader()),
+    };
+    let body = BufReader::with_capacity(64 * 1024, raw);
 
     let decoded = rodio::Decoder::builder()
         .with_data(Feed(Mutex::new(body)))
@@ -442,6 +512,86 @@ fn open_stream(url: &str) -> Result<Box<dyn Source + Send>> {
         .with_context(|| format!("decoding {mime} from {url}"))?;
 
     Ok(Box::new(decoded))
+}
+
+/// Takes the station's titles back out of its audio.
+///
+/// With `Icy-MetaData: 1` on the request the server answers an `icy-metaint`, and from then
+/// on the body is that many bytes of audio, one length byte, that many *sixteens* of text,
+/// and around again. The text is `StreamTitle='Artist - Song';StreamUrl='...';` padded with
+/// NULs, and a length of zero - which is nearly all of them - means nothing has changed.
+///
+/// This hands on the audio and keeps the text, so what reaches the decoder is sound and only
+/// sound. Getting that wrong is not a missing title, it is a click every few seconds.
+struct Icy<R: Read> {
+    inner: R,
+    metaint: usize,
+    /// Audio bytes still owed before the next block.
+    left: usize,
+    title: TitleSink,
+}
+
+impl<R: Read> Icy<R> {
+    /// One metadata block, read whole: it is at most 4080 bytes and it is in the way of the
+    /// audio behind it, so there is nothing to be gained by handing it back in pieces.
+    fn block(&mut self) -> io::Result<()> {
+        let mut len = [0u8; 1];
+        self.inner.read_exact(&mut len)?;
+        let n = len[0] as usize * 16;
+        if n == 0 {
+            return Ok(());
+        }
+
+        let mut raw = vec![0u8; n];
+        self.inner.read_exact(&mut raw)?;
+        if let Some(title) = stream_title(&raw) {
+            self.title.set(title);
+        }
+        Ok(())
+    }
+}
+
+impl<R: Read> Read for Icy<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+        if self.left == 0 {
+            self.block()?;
+            self.left = self.metaint;
+        }
+        // Never past the block boundary, however much was asked for: what is on the other
+        // side of it is not audio.
+        let want = buf.len().min(self.left);
+        let n = self.inner.read(&mut buf[..want])?;
+        self.left -= n;
+        Ok(n)
+    }
+}
+
+/// The `StreamTitle` out of one block, or `None` when it carries none - which is nothing to
+/// say rather than nothing playing. `Some(None)` is the station clearing it, which is what
+/// an advertisement break looks like.
+///
+/// Latin-1 by the specification and UTF-8 in practice, so it is read lossily rather than
+/// refused: a mangled dash beats no title.
+fn stream_title(raw: &[u8]) -> Option<Option<String>> {
+    let text = String::from_utf8_lossy(raw);
+    let rest = text.split("StreamTitle=").nth(1)?.strip_prefix('\'')?;
+    // `';` and not `'`, because an apostrophe in a song title is ordinary and a semicolon
+    // right behind one is not. The fallback is for a block where StreamTitle is the last
+    // field and the quote is followed by padding rather than by another key.
+    let end = match rest.find("';") {
+        Some(i) => i,
+        None => rest.find('\'')?,
+    };
+
+    let title = rest[..end].trim();
+    Some(if title.is_empty() {
+        None
+    } else {
+        Some(title.to_string())
+    })
 }
 
 /// The decoder's input has to be `Read + Seek + Send + Sync`, and a live stream is
@@ -594,6 +744,92 @@ mod tests {
         assert_eq!(r.next(), None);
     }
 
+    /// The ordinary block, and the two shapes that used to be got wrong: an apostrophe in
+    /// the title, and a block with nothing after the title but padding.
+    #[test]
+    fn reads_a_stream_title() {
+        let block = |s: &str| {
+            let mut b = s.as_bytes().to_vec();
+            b.resize(b.len().div_ceil(16) * 16, 0);
+            b
+        };
+
+        assert_eq!(
+            stream_title(&block(
+                "StreamTitle='Boards of Canada - Roygbiv';StreamUrl='';"
+            )),
+            Some(Some("Boards of Canada - Roygbiv".to_string()))
+        );
+        assert_eq!(
+            stream_title(&block("StreamTitle='Don't Stop';StreamUrl='';")),
+            Some(Some("Don't Stop".to_string()))
+        );
+        assert_eq!(
+            stream_title(&block("StreamTitle='Alone At Last'")),
+            Some(Some("Alone At Last".to_string()))
+        );
+        // The station saying it is playing nothing in particular, which is not the same
+        // as a block that never mentioned a title.
+        assert_eq!(
+            stream_title(&block("StreamTitle='';StreamUrl='';")),
+            Some(None)
+        );
+        assert_eq!(stream_title(&block("StreamUrl='http://example';")), None);
+        assert_eq!(stream_title(&[0u8; 16]), None);
+    }
+
+    /// The whole point of the reader: what comes out is the audio and nothing but, whatever
+    /// size the reads happen to be. A byte of metadata handed to the decoder is a click.
+    #[test]
+    fn icy_keeps_the_metadata_out_of_the_audio() {
+        // Two spans of audio with a titled block between them and an empty one behind it.
+        let mut raw = vec![b'a'; 8];
+        raw.push(2); // 32 bytes of text
+        let mut meta = b"StreamTitle='One - Two';".to_vec();
+        meta.resize(32, 0);
+        raw.extend_from_slice(&meta);
+        raw.extend_from_slice(&[b'b'; 8]);
+        raw.push(0); // nothing has changed
+        raw.extend_from_slice(&[b'c'; 3]);
+
+        let state = Arc::new(Mutex::new(AudioState::default()));
+        let mut icy = Icy {
+            inner: io::Cursor::new(raw),
+            metaint: 8,
+            left: 8,
+            title: TitleSink {
+                state: Some(state.clone()),
+                generation: GENERATION.load(Ordering::SeqCst),
+            },
+        };
+
+        // Read in threes, so a block boundary lands mid-request rather than on one.
+        let mut out = Vec::new();
+        let mut buf = [0u8; 3];
+        loop {
+            match icy.read(&mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => out.extend_from_slice(&buf[..n]),
+            }
+        }
+
+        assert_eq!(out, b"aaaaaaaabbbbbbbbccc");
+        assert_eq!(state.lock().unwrap().title.as_deref(), Some("One - Two"));
+    }
+
+    /// A run that has been superseded says nothing: the feeder is still decoding the
+    /// station that was switched away from, and its title is not the answer any more.
+    #[test]
+    fn a_superseded_title_is_dropped() {
+        let state = Arc::new(Mutex::new(AudioState::default()));
+        let sink = TitleSink {
+            state: Some(state.clone()),
+            generation: GENERATION.load(Ordering::SeqCst).wrapping_sub(1),
+        };
+        sink.set(Some("Too Late".to_string()));
+        assert_eq!(state.lock().unwrap().title, None);
+    }
+
     /// What cpal can see, and which of them this would pick. Needs no network and makes
     /// no noise; it is the first thing to run when audio reports itself playing and
     /// nothing comes out, because the answer is usually that the chosen device is a card
@@ -639,7 +875,11 @@ mod tests {
     #[test]
     #[ignore]
     fn decodes_the_station() {
-        let decoded = open_source("https://stream.radioparadise.com/mp3-128")
+        let nowhere = TitleSink {
+            state: None,
+            generation: 0,
+        };
+        let decoded = open_source("https://stream.radioparadise.com/mp3-128", &nowhere)
             .expect("the station should open");
 
         assert_eq!(decoded.channels().get(), 2);
@@ -652,6 +892,29 @@ mod tests {
             samples.iter().any(|s| s.abs() > 0.001),
             "a second of the station decoded to silence"
         );
+    }
+
+    /// The other half of that, and the one that proves the station is still splicing titles
+    /// in at all: `icy-metaint` is a header it is free to stop sending. Needs the network
+    /// and no speakers. A block arrives every `metaint` bytes of *encoded* audio - about a
+    /// second at 128k - so a few seconds of decoding is more than enough for the first one.
+    #[test]
+    #[ignore]
+    fn names_what_the_station_is_playing() {
+        let state = Arc::new(Mutex::new(AudioState::default()));
+        let sink = TitleSink {
+            state: Some(state.clone()),
+            generation: GENERATION.load(Ordering::SeqCst),
+        };
+
+        let decoded = open_source("https://stream.radioparadise.com/mp3-128", &sink)
+            .expect("the station should open");
+        let samples: Vec<Sample> = decoded.take(44100 * 2 * 5).collect();
+        assert_eq!(samples.len(), 44100 * 2 * 5);
+
+        let title = state.lock().unwrap().title.clone();
+        println!("title: {title:?}");
+        assert!(title.is_some(), "five seconds of the station named nothing");
     }
 
     /// Makes noise and needs an output device as well as the network, so it is ignored

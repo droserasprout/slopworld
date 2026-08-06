@@ -5,9 +5,10 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The jukebox: LMB opens a menu of two stations, and the streaming one opens a second
-    // menu of the quality presets it serves. Whatever is playing is marked. Radio owns the
-    // sound; this owns the box it comes out of.
+    // The jukebox: LMB opens Play, Mute, Stop on exit and Settings; Play opens the two
+    // stations, and the streaming one opens the quality presets it serves. Whatever is
+    // playing is marked, and hovering the box names the song. Radio owns the sound; this
+    // owns the box it comes out of.
     //
     // The click is read here rather than through selection because nothing on this map is
     // selectable but a colonist - StripInteraction turns every other Select away - so the
@@ -36,11 +37,14 @@ namespace SlopWorld
         {
             if (Cutscene.Playing) return; // a scene plays bare
 
+            var cell = UI.MouseCell();
+            var box = map.thingGrid.ThingAt(cell, SlopDefOf.SlopJukebox);
+            if (box == null) return;
+
+            Tip(cell);
+
             if (Event.current.type != EventType.MouseDown || Event.current.button != 0) return;
             if (Find.WindowStack.FloatMenu != null) return; // one menu is enough
-
-            var box = map.thingGrid.ThingAt(UI.MouseCell(), SlopDefOf.SlopJukebox);
-            if (box == null) return;
 
             Event.current.Use();
             Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
@@ -50,6 +54,35 @@ namespace SlopWorld
                 SlopWidgets.MenuToggle("Stop on exit", Radio.StopOnExit, Radio.ToggleStopOnExit),
                 new FloatMenuOption("Settings", SlopOptions.OpenAudioTab),
             }));
+        }
+
+        // What is playing, on the box itself, in vanilla's own bubble - the thing is not
+        // selectable and has no inspect pane to put it in, and this is the question a
+        // hovering pointer is asking. Nothing is drawn when there is nothing to say: muted,
+        // or a station a second into a pick and still unnamed.
+        //
+        // The note is escaped rather than typed in. The file is UTF-8 either way; what an
+        // escape rules out is a toolchain that decides otherwise.
+        const string Note = "\u266A ";
+
+        // A `TipSignal` with no id of its own is keyed on its text, so the bubble would
+        // restart its fade every time the station moved on. The cell is the box.
+        void Tip(IntVec3 cell)
+        {
+            string now = Radio.NowPlaying;
+            if (string.IsNullOrEmpty(now)) return;
+
+            TooltipHandler.TipRegion(CellRect(cell), new TipSignal(Note + now, cell.GetHashCode()));
+        }
+
+        // The cell in screen coordinates. Two opposite corners mapped and squared up, since
+        // which way round they come out is the camera's business rather than ours.
+        static Rect CellRect(IntVec3 cell)
+        {
+            var a = UI.MapToUIPosition(cell.ToVector3());
+            var b = UI.MapToUIPosition(cell.ToVector3() + new Vector3(1f, 0f, 1f));
+            return new Rect(Mathf.Min(a.x, b.x), Mathf.Min(a.y, b.y),
+                Mathf.Abs(b.x - a.x), Mathf.Abs(b.y - a.y));
         }
 
         // The first row carries what is on, so the common question is answered without

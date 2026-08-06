@@ -65,6 +65,13 @@ namespace SlopWorld
         // pick: a station that will not play should say so and hand the OST back.
         static bool _blamed;
 
+        // What the station says it is playing. The daemon's, not a setting: it is true for
+        // the next three minutes and belongs to nothing that outlives the process.
+        static string _title;
+
+        // The one track this mod ships names itself, there being nobody else to do it.
+        const string OstTitle = "Terry Fail - slopbg";
+
         // A slider moved by a hair is not worth a packet.
         const float VolumeStep = 0.01f;
 
@@ -94,6 +101,20 @@ namespace SlopWorld
         public static bool StopOnExit
         {
             get { Read(); return _stopOnExit; }
+        }
+
+        // "Artist - Song", or null when there is nothing to say: muted, or a station that
+        // has not named itself yet - a title is spliced into the audio and so arrives a
+        // second or two behind the pick, and never at all if the host stops sending
+        // `icy-metaint`. The OST names itself, there being nobody else to do it.
+        public static string NowPlaying
+        {
+            get
+            {
+                Read();
+                if (_muted) return null;
+                return _station == Station.Paradise ? _title : OstTitle;
+            }
         }
 
         public static string RateLabel(int rate) => rate + "k mp3";
@@ -189,8 +210,13 @@ namespace SlopWorld
         // The daemon's answer to what was asked of it. A station that will not play is
         // said once and handed back to the OST; the OST failing is not something to fall
         // back from, so it is left to the log.
-        public static void Report(bool playing, string error)
+        public static void Report(bool playing, string error, string title)
         {
+            // The station's own, spliced into its audio and unpicked out there: it arrives
+            // a second or so after a pick and changes on its own thereafter. Taken even
+            // while muted, the mute being about the speakers rather than about the wire.
+            _title = string.IsNullOrEmpty(title) ? null : title;
+
             // Muted, "not playing" is the answer that was asked for, and the error beside
             // it is whatever last went wrong before the box was turned off.
             if (_muted) return;
@@ -226,8 +252,14 @@ namespace SlopWorld
         }
 
         // Forces the next Update to send, rather than sending from here: one place puts
-        // things on the wire, and it is the one that knows whether the socket is up.
-        static void Push() => _told = false;
+        // things on the wire, and it is the one that knows whether the socket is up. The
+        // title goes with it - every caller is something about to change what is playing,
+        // and the old song's name on the new station is worse than no name at all.
+        static void Push()
+        {
+            _told = false;
+            _title = null;
+        }
 
         // The station is saved as the stream's own name - "ost", or the path the station
         // serves the preset at - so there is nothing to keep in step with the list of

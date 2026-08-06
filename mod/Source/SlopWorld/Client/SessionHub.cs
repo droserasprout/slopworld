@@ -520,7 +520,8 @@ namespace SlopWorld
 
                 case "audio":
                     Radio.Report(ev["audio"]["playing"].AsBool(false),
-                        ev["audio"]["error"].AsString(null));
+                        ev["audio"]["error"].AsString(null),
+                        ev["audio"]["title"].AsString(null));
                     break;
 
                 // Update() is the Root.Update patch, so this is the main thread and Shutdown is
