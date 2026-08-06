@@ -16,9 +16,12 @@
   writing the cache is the one move that lands; `currentTipIndex` goes back with
   it. The scroll is `ScrollChance` flipped against `Tick` rather than a delay of
   its own, so the pace never reads as machine load. Zalgo goes on the joined
-  frame, or the noise travels with the words. Our own wall is keyed on
-  `grandmaMode`: the ` *` filter runs once, at the build, so a session that turns
-  the setting on has to rebuild, and `_frame` and `_painted` are reset with it -
+  frame, or the noise travels with the words. A tip may end in a marker naming who
+  it is for, and the marker is a face: ` (` goes when grandma is visiting, ` )` is
+  shown only then, unmarked either way, and `Strip` takes it off whichever way it
+  went. Our own wall is keyed on `grandmaMode`: that filter runs once, at the
+  build, so a session that turns the setting on has to rebuild, and `_frame` and
+  `_painted` are reset with it -
   `_painted` is what `DrawContents` draws, so a stale one keeps the dropped tips
   on screen. Dice are `System.Random`, because
   this screen is up during map generation. `Patch_LoadingLayout` writes
