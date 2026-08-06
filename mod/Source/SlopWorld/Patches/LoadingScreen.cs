@@ -183,6 +183,7 @@ namespace SlopWorld
             "5-10 cockroaches will crawl into your penis hole while you are asleep. (",
             "Astronauts fuck, smoke, game, repeat. Need I say more? Yeah, go work your deskjob in the rat race you fucking loser. (",
             "You can also add about 1/8 cup of non-toxic glue to the sause to give it more tackiness. (",
+            "Welcome to the world! It's very bright and loud here, but you will do great.",
             // Claude
             "Everything was destroyed. Your production database is GONE. (",
             "No snapshots found. The database is completely lost. (",
