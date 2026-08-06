@@ -68,9 +68,10 @@ namespace SlopWorld
         public bool radioStopOnExit = true;
 
         // Grandma mode: no fun allowed. Disables gore, vomit, plague emissions, graves,
-        // obelisks, harmful tips, zalgo and easter eggs. Two of them are swapped rather than
-        // taken: the menu background is rebaked to sparkles and rainbows, and the plague still
-        // spreads but grows flowers where it arrives.
+        // obelisks, harmful tips, zalgo, easter eggs, the core's "Kill something" option and
+        // the burning of the map on the way to the next planet. Two of them are swapped rather
+        // than taken: the menu background is rebaked to sparkles and rainbows, and the plague
+        // still spreads but grows flowers where it arrives.
         public bool grandmaMode;
 
         public override void ExposeData()

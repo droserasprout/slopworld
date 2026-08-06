@@ -7,8 +7,8 @@ namespace SlopWorld
 {
     // The persona core: LMB opens a context menu. "Hint" shows a tip bubble that
     // fades after three seconds; "Kill something" strikes 5-10 lightnings at a
-    // random human, animal or tree on the map; "Next planet" burns the map and
-    // lands a new colony.
+    // random human, animal or tree on the map, and is not offered when grandma is
+    // visiting; "Next planet" burns the map and lands a new colony.
     public class CoreTip : MapComponent
     {
         // How long the sticky hint stays up before dismissing itself.
@@ -81,9 +81,11 @@ namespace SlopWorld
                 var options = new List<FloatMenuOption>
                 {
                     new FloatMenuOption("Hint", HintAction),
-                    new FloatMenuOption("Kill something", KillAction),
-                    new FloatMenuOption("Next planet", NextPlanet.Begin),
                 };
+                // Grandma mode: no fun allowed.
+                if (!Settings.GrandmaMode)
+                    options.Add(new FloatMenuOption("Kill something", KillAction));
+                options.Add(new FloatMenuOption("Next planet", NextPlanet.Begin));
                 Find.WindowStack.Add(new FloatMenu(options));
             }
 

@@ -7,11 +7,12 @@ using Verse;
 
 namespace SlopWorld
 {
-    // This planet burns, then the colony lands on the next one. The landing is vanilla's -
-    // Patch_QuickStart turns a Page_SelectScenario into a generated map - and all this does is
-    // get back to the menu first, a scenario page opened over a live game building a second
-    // one underneath it. GoToMainMenu queues the teardown as a long event, hence the flag: the
-    // page is opened on the menu's first frame, the seam Patch_AutoResume hooks.
+    // This planet burns, then the colony lands on the next one - or, with grandma in the
+    // house, it only lands, the burning being the part she is here to miss. The landing is
+    // vanilla's - Patch_QuickStart turns a Page_SelectScenario into a generated map - and all
+    // this does is get back to the menu first, a scenario page opened over a live game building
+    // a second one underneath it. GoToMainMenu queues the teardown as a long event, hence the
+    // flag: the page is opened on the menu's first frame, the seam Patch_AutoResume hooks.
     //
     // Beats off GameComponentUpdate so a pause cannot strand the scene, work off
     // GameComponentTick, an explosion being a Thing that has to tick to go off.
@@ -90,6 +91,11 @@ namespace SlopWorld
 
             Leaving = true;
             Pending = true;
+
+            // Grandma mode: the colony still goes, it is just not set on fire on the way out.
+            // Straight to the teardown, so there is no scene to sit through and no burning
+            // map to watch it from.
+            if (Settings.GrandmaMode) { Leave(); return; }
 
             // Cutscene.Playing takes the map's own interface away; a window sits above all of
             // that and has to be closed by hand.

@@ -56,7 +56,10 @@ none of these need a def. See also [mod-plague](mod-plague.md) and
   the height is postfixed by the net row count, written down *and* overwritten
   with what the last listing did. Closing scene: beat on `GameComponentUpdate`,
   fire on `GameComponentTick`, fireballs counted off the *area* taken and banked
-  in `_owed`.
+  in `_owed`. Grandma mode skips the scene entirely - `Start` sets the two flags
+  and goes straight to `Leave`, so the colony is still discarded and the next one
+  still lands, without the burn. `CoreTip` drops its "Kill something" row there
+  too.
 - **`Cutscene`** - which of the two scenes has the board, asked in one place.
 - **`TerminalHotkeys`** - F12 in from anywhere. Closing cannot live here (see
   [gotchas](gotchas.md)) and lives in `TerminalWindow`.
