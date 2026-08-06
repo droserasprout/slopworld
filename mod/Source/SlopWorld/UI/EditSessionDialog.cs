@@ -71,7 +71,11 @@ namespace SlopWorld
             SessionHub.Instance.LoadPresets();
         }
 
-        public override Vector2 InitialSize => new Vector2(560f, 720f);
+        // Taller than it was by what the boxes grew: this is the one form here laid out from
+        // `l.CurHeight` with three fixed-height things under it - the preset list, the env box
+        // and the footer - so a field that gains eight pixels spends them out of the bottom of
+        // the window rather than out of a scroll view.
+        public override Vector2 InitialSize => new Vector2(560f, 760f);
 
         public override void DoWindowContents(Rect rect)
         {
@@ -86,7 +90,7 @@ namespace SlopWorld
             l.Gap(6f);
 
             l.Label("Name (also the colonist's name)");
-            _s.Name = l.TextEntry(_s.Name);
+            _s.Name = SlopWidgets.Field(l, "agent.name", _s.Name);
 
             l.Gap(4f);
             l.Label("Project (the directory and sandbox it works in)");
@@ -112,7 +116,7 @@ namespace SlopWorld
 
             // Editable whichever it is: a preset says what an agent is, and this box says
             // what this one runs, which is the same field either way.
-            _s.Cmd = l.TextEntry(_s.Cmd ?? "");
+            _s.Cmd = SlopWidgets.Field(l, "agent.cmd", _s.Cmd ?? "");
             GUI.color = SlopWidgets.Dim;
             l.Label(CommandNote(preset));
             GUI.color = Color.white;
@@ -134,16 +138,14 @@ namespace SlopWorld
             rest.Begin(new Rect(rect.x, y, rect.width, rect.yMax - y - 40f));
 
             rest.Label("Environment variables (overrides)");
-            var env = rest.GetRect(96f);
-            Widgets.DrawBoxSolid(env, SlopWidgets.Well);
-            _env = Widgets.TextArea(env.ContractedBy(4f), _env ?? "");
+            _env = SlopWidgets.Area(rest.GetRect(96f), "agent.env", _env ?? "");
             GUI.color = SlopWidgets.Dim;
             rest.Label("One KEY=VALUE a line. Set last of all, so these beat the project's " +
                        "passed variables and any preset's own.");
             GUI.color = Color.white;
 
             rest.Gap(6f);
-            rest.CheckboxLabeled("Start with the daemon", ref _s.Autostart);
+            _s.Autostart = SlopWidgets.Checkbox(rest, "Start with the daemon", _s.Autostart);
             rest.End();
 
             var foot = new SlopWidgets.Bar(

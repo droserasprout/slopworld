@@ -201,10 +201,10 @@ namespace SlopWorld
             l.Begin(new Rect(r.x, r.y, r.width, r.height));
 
             l.Label("Name");
-            _p.Name = l.TextEntry(_p.Name);
+            _p.Name = SlopWidgets.Field(l, "project.name", _p.Name);
 
             l.Gap(4f);
-            l.CheckboxLabeled("Temporary - scratch space under /tmp", ref _p.Temp,
+            _p.Temp = SlopWidgets.Checkbox(l, "Temporary - scratch space under /tmp", _p.Temp,
                 "The directory is made for you under " + ProjectInfo.TempRoot + ", named after " +
                 "this project, and it is there the first time an agent starts. Nothing " +
                 "deletes it; the machine clears /tmp.");
@@ -213,21 +213,19 @@ namespace SlopWorld
             l.Label("Directory");
             if (_p.Temp)
             {
-                // Greyed rather than hidden, the same as the agent dialog's command box. Browse
-                // goes with it - there is nothing to find yet.
-                GUI.color = new Color(1f, 1f, 1f, 0.4f);
-                Widgets.TextField(l.GetRect(28f), ProjectInfo.TempDir(_p.Name));
-                GUI.color = Color.white;
+                // Stated rather than hidden: the path is the daemon's to coin and this is what
+                // it will coin. Browse goes with it - there is nothing to find yet.
+                SlopWidgets.Field(l, "project.dir", ProjectInfo.TempDir(_p.Name), false);
             }
             else
             {
-                _p.Dir = l.TextEntry(_p.Dir);
+                _p.Dir = SlopWidgets.Field(l, "project.dir", _p.Dir);
                 if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Browse..."))
                     Find.WindowStack.Add(new BrowseDialog(_p.Dir, d => _p.Dir = d));
             }
 
             l.Gap(6f);
-            l.CheckboxLabeled("Allow network", ref _p.Net);
+            _p.Net = SlopWidgets.Checkbox(l, "Allow network", _p.Net);
 
             float used = l.CurHeight;
             l.End();
@@ -250,11 +248,11 @@ namespace SlopWorld
             float boxW = (r.width - 16f) / 3f;
             float boxH = 132f;
             _roPaths = SlopWidgets.PathList(new Rect(r.x, y, boxW, boxH),
-                "Read-only binds", _roPaths);
+                "project.ro", "Read-only binds", _roPaths);
             _rwPaths = SlopWidgets.PathList(new Rect(r.x + boxW + 8f, y, boxW, boxH),
-                "Read-write binds", _rwPaths);
+                "project.rw", "Read-write binds", _rwPaths);
             _passEnv = SlopWidgets.PathList(new Rect(r.x + (boxW + 8f) * 2f, y, boxW, boxH),
-                "Passed env vars", _passEnv);
+                "project.env", "Passed env vars", _passEnv);
             y += boxH + 12f;
 
             y = DoEffective(r, y, boxW);

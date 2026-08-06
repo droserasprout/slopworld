@@ -144,16 +144,17 @@ namespace SlopWorld
             l.Gap(4f);
 
             l.Label("Host");
-            settings.host = l.TextEntry(settings.host);
+            settings.host = SlopWidgets.Field(l, "mod.host", settings.host);
 
             l.Label($"Port: {settings.port}");
             settings.port = Mathf.RoundToInt(l.Slider(settings.port, 1024, 65535));
 
             l.Label("Token (blank = no auth)");
-            settings.token = l.TextEntry(settings.token);
+            settings.token = SlopWidgets.Field(l, "mod.token", settings.token);
 
             l.Gap(6f);
-            l.CheckboxLabeled("Auto-connect and reconnect", ref settings.autoConnect);
+            settings.autoConnect =
+                SlopWidgets.Checkbox(l, "Auto-connect and reconnect", settings.autoConnect);
 
             l.Gap(10f);
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Reconnect now"))

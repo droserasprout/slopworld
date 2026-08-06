@@ -22,7 +22,7 @@ namespace SlopWorld
                                 ICollection<string> implied = null)
         {
             var presets = SessionHub.Instance.Presets;
-            Widgets.DrawBoxSolid(outer, SlopWidgets.Well);
+            Slab.Box(outer, SlopWidgets.Well, SlopWidgets.Edge);
             var pad = outer.ContractedBy(4f);
 
             if (presets.Count == 0)
@@ -58,10 +58,8 @@ namespace SlopWorld
                     y += RowH;
 
                     bool forced = implied != null && implied.Contains(pr.Name);
-                    bool on = forced || chosen.Contains(pr.Name);
-                    bool was = on;
-                    Widgets.CheckboxLabeled(cell, pr.Name, ref on, forced);
-                    TooltipHandler.TipRegion(cell, Tip(pr, forced));
+                    bool was = forced || chosen.Contains(pr.Name);
+                    bool on = SlopWidgets.Checkbox(cell, pr.Name, was, Tip(pr, forced), forced);
 
                     if (on == was) continue;
                     if (on) chosen.Add(pr.Name);

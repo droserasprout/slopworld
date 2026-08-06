@@ -206,7 +206,7 @@ namespace SlopWorld
             l.Gap(6f);
 
             l.Label("Name (also what the temporary colonist is called)");
-            _s.Name = l.TextEntry(_s.Name);
+            _s.Name = SlopWidgets.Field(l, "shortcut.name", _s.Name);
 
             l.Gap(4f);
             l.Label("Kind");
@@ -245,21 +245,22 @@ namespace SlopWorld
             l.Gap(4f);
             l.Label(_s.Kind == ShortcutKind.Shell ? "Shell (blank = the default)"
                                                   : "Agent (blank = the default)");
-            var box = l.GetRect(28f);
+            var box = l.GetRect(SlopWidgets.FieldH);
             if (string.IsNullOrEmpty((_s.Command ?? "").Trim()))
             {
                 // Empty is the normal answer, and what it means is worth reading off the field.
-                GUI.color = new Color(1f, 1f, 1f, 0.4f);
-                string shown = Widgets.TextField(box,
-                    _s.Kind == ShortcutKind.Shell ? _shellDefault : _agentDefault);
+                // In `Faint`, which is the rung a placeholder is: glanced at, not read.
+                string placeholder =
+                    _s.Kind == ShortcutKind.Shell ? _shellDefault : _agentDefault;
+                GUI.color = SlopWidgets.Faint;
+                string shown = SlopWidgets.Field(box, "shortcut.command", placeholder);
                 GUI.color = Color.white;
                 // A field the player typed into stops being the placeholder.
-                if (shown != (_s.Kind == ShortcutKind.Shell ? _shellDefault : _agentDefault))
-                    _s.Command = shown;
+                if (shown != placeholder) _s.Command = shown;
             }
             else
             {
-                _s.Command = Widgets.TextField(box, _s.Command);
+                _s.Command = SlopWidgets.Field(box, "shortcut.command", _s.Command);
             }
 
             float used = l.CurHeight;
@@ -271,8 +272,7 @@ namespace SlopWorld
             y += 24f;
 
             var area = new Rect(rect.x, y, rect.width, rect.yMax - y - 40f);
-            Widgets.DrawBoxSolid(area, SlopWidgets.Well);
-            _s.Text = Widgets.TextArea(area.ContractedBy(4f), _s.Text ?? "");
+            _s.Text = SlopWidgets.Area(area, "shortcut.text", _s.Text ?? "");
 
             var bar = new Rect(rect.x, rect.yMax - 36f, rect.width, 32f);
             var foot = new SlopWidgets.Bar(bar);

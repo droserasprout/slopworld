@@ -192,64 +192,121 @@ namespace SlopWorld
                 Mathf.Lerp(c.b, to.b, t), c.a);
         }
 
+        // A box to type in, and the row a checkbox is drawn on. Both asked of the font rather
+        // than written down: what is inside them is one line of `GameFont.Small`, and a figure
+        // eyeballed against one font crops descenders on every other. The padding is the
+        // reason a press is 30 and not 20 - a border and a line of glyphs cannot be the same
+        // pixels, or there is no face showing above and below the text.
+        public static float FieldH => Mathf.Ceil(Verse.Text.LineHeightOf(GameFont.Small)) + 8f;
+        public static float RowH => Mathf.Ceil(Verse.Text.LineHeightOf(GameFont.Small)) + 6f;
+
         // A box to type in: the well vanilla gives it, and a line round it that lights while
         // it has the keyboard. Named so the caller can be told apart from its neighbours -
         // GUI.SetNextControlName wants one, and two boxes sharing a name share a focus.
-        public static string Field(Rect r, string name, string text)
+        //
+        // `on` false is the box that is there and is not yours to type in - a temporary
+        // project's directory, the config editor with nothing loaded into it yet. Drawn as
+        // the text rather than as a dead control: a field that took keystrokes and threw them
+        // away on the next frame is what was there before, and it reads as a bug.
+        public static string Field(Rect r, string name, string text, bool on = true)
         {
-            bool focused = GUI.GetNameOfFocusedControl() == name;
+            bool focused = on && GUI.GetNameOfFocusedControl() == name;
             Slab.Box(r, Well, focused ? FocusEdge : BtnEdge);
 
+            var inner = r.ContractedBy(6f, 0f);
+            if (!on) return Stated(inner, text, TextAnchor.MiddleLeft);
+
             GUI.SetNextControlName(name);
-            var style = new GUIStyle(Verse.Text.CurTextFieldStyle) { normal = { background = null } };
-            style.focused.background = null;
-            style.hover.background = null;
-            return GUI.TextField(r.ContractedBy(6f, 0f), text ?? "", style);
+            return GUI.TextField(inner, text ?? "", Bare(Verse.Text.CurTextFieldStyle));
         }
 
-        // The same, several lines tall.
-        public static string Area(Rect r, string name, string text)
+        // The same, several lines tall. `frame` off is the one inside a scroll view: the box
+        // there belongs round the *view*, and one as tall as the content would have its border
+        // somewhere off the bottom of the window. The caller draws it and the text goes in bare.
+        public static string Area(Rect r, string name, string text, bool on = true,
+                                  bool frame = true)
         {
-            bool focused = GUI.GetNameOfFocusedControl() == name;
-            Slab.Box(r, Well, focused ? FocusEdge : BtnEdge);
+            bool focused = on && GUI.GetNameOfFocusedControl() == name;
+            if (frame) Slab.Box(r, Well, focused ? FocusEdge : BtnEdge);
+
+            var inner = frame ? r.ContractedBy(6f, 4f) : r;
+            if (!on) return Stated(inner, text, TextAnchor.UpperLeft);
 
             GUI.SetNextControlName(name);
-            var style = new GUIStyle(Verse.Text.CurTextAreaStyle) { normal = { background = null } };
+            return GUI.TextArea(inner, text ?? "", Bare(Verse.Text.CurTextAreaStyle));
+        }
+
+        // Vanilla's own text style with its box taken off: the well and the line round it are
+        // Slab's here, and the style's would be a second border half a pixel inside the first.
+        static GUIStyle Bare(GUIStyle of)
+        {
+            var style = new GUIStyle(of) { normal = { background = null } };
             style.focused.background = null;
             style.hover.background = null;
-            return GUI.TextArea(r.ContractedBy(6f, 4f), text ?? "");
+            return style;
+        }
+
+        // What a box shows when it is not one to type in. Answers the text it was handed, so
+        // the caller assigns its field back to itself and nothing has to know which of the two
+        // it drew.
+        static string Stated(Rect r, string text, TextAnchor anchor)
+        {
+            var wasAnchor = Verse.Text.Anchor;
+            Verse.Text.Anchor = anchor;
+            GUI.color = Faint;
+            Widgets.Label(r, text ?? "");
+            GUI.color = Color.white;
+            Verse.Text.Anchor = wasAnchor;
+            return text;
         }
 
         // A square and the tick already drawn for the float menus, rather than vanilla's
         // textured box - the one place the mark had to be redrawn to match everything else.
         // The whole row is the switch, the way a menu row is.
-        public static bool Checkbox(Rect r, string label, bool on, string tip = null)
+        //
+        // `locked` is ticked and not yours to untick: a preset the command an agent runs asks
+        // for anyway. Shown rather than hidden, that being the answer to "why is ~/.claude
+        // bound", and the face comes down so the row reads as stated rather than as chosen.
+        public static bool Checkbox(Rect r, string label, bool on, string tip = null,
+                                    bool locked = false)
         {
-            bool over = Mouse.IsOver(r);
+            bool over = !locked && Mouse.IsOver(r);
             if (over) Widgets.DrawHighlight(r);
             if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
 
             const float Size = 17f;
             var box = new Rect(r.x + 1f, r.y + (r.height - Size) / 2f, Size, Size);
-            Slab.Box(box, on ? PrimeFace : Well, BtnEdge);
+            var face = on ? PrimeFace : Well;
+            if (locked) face = Lighten(face, -0.45f);
+            Slab.Box(box, face, BtnEdge);
             if (on)
             {
-                GUI.color = Color.white;
+                GUI.color = locked ? Faint : Color.white;
                 GUI.DrawTexture(box.ContractedBy(2f), MarkIcon.CheckTex);
             }
 
             var wasAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleLeft;
-            GUI.color = over ? Lead : Name;
+            GUI.color = locked ? Faint : over ? Lead : Name;
             Widgets.Label(new Rect(box.xMax + 8f, r.y, r.xMax - box.xMax - 8f, r.height), label);
             Text.Anchor = wasAnchor;
             GUI.color = Color.white;
 
-            if (!Widgets.ButtonInvisible(r)) return on;
+            if (locked || !Widgets.ButtonInvisible(r)) return on;
 
             SoundDefOf.Click.PlayOneShotOnCamera();
             return !on;
         }
+
+        // The same three, taking their row off a listing rather than a rect. Most of the forms
+        // here are a `Listing_Standard`, whose own TextEntry and CheckboxLabeled draw vanilla's
+        // chrome - so the row is taken from it and ours is drawn into it. The listing's column
+        // and gap handling is what is being kept; the box it would have put there is not.
+        public static string Field(Listing_Standard l, string name, string text, bool on = true) =>
+            Field(l.GetRect(FieldH), name, text, on);
+
+        public static bool Checkbox(Listing_Standard l, string label, bool on, string tip = null) =>
+            Checkbox(l.GetRect(RowH), label, on, tip);
 
         // One press per side, laid out from the end it belongs to rather than from a running
         // total of the widths before it. Every footer here used to carry the offsets of its
@@ -377,15 +434,16 @@ namespace SlopWorld
             Widgets.DrawHighlightIfMouseover(r);
         }
 
-        // One entry per line, which is how every list of binds here is edited. The floor is
-        // on the box rather than on the rect, so a squeezed window ends up with boxes that
-        // overlap rather than boxes with nothing typeable in them.
-        public static string PathList(Rect r, string label, string text)
+        // One entry per line, which is how every list of binds here is edited. A label over an
+        // `Area`, so a column of binds is the same box as every other box on the page. The
+        // floor is on the box rather than on the rect, so a squeezed window ends up with
+        // boxes that overlap rather than boxes with nothing typeable in them.
+        public static string PathList(Rect r, string name, string label, string text)
         {
-            Widgets.Label(new Rect(r.x, r.y, r.width, 22f), label);
-            var box = new Rect(r.x, r.y + 22f, r.width, Mathf.Max(r.height - 22f, 40f));
-            Widgets.DrawBoxSolid(box, Well);
-            return Widgets.TextArea(box.ContractedBy(4f), text);
+            float h = RowH;
+            Widgets.Label(new Rect(r.x, r.y, r.width, h), label);
+            var box = new Rect(r.x, r.y + h + 4f, r.width, Mathf.Max(r.height - h - 4f, 40f));
+            return Area(box, name, text);
         }
 
         // "claude" -> "claude-2", and a copy of that -> "claude-3" rather than "claude-2-2".

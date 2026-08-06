@@ -93,12 +93,12 @@ namespace SlopWorld
             l.Label("Command presets for agents and errands that name none of their own");
             l.Gap(2f);
             l.Label("Agent");
-            _cfg.Agent = l.TextEntry(_cfg.Agent);
+            _cfg.Agent = SlopWidgets.Field(l, "cfg.agent", _cfg.Agent);
             l.Gap(2f);
             // What a shell errand runs. tmux hands it a pty, so it is interactive without
             // being told to be.
             l.Label("Shell");
-            _cfg.Shell = l.TextEntry(_cfg.Shell);
+            _cfg.Shell = SlopWidgets.Field(l, "cfg.shell", _cfg.Shell);
             GUI.color = SlopWidgets.Dim;
             l.Label("Both name a command preset. What one runs is a TOML file beside this " +
                     "one; the agent dialog lists them.");
@@ -106,7 +106,7 @@ namespace SlopWorld
 
             l.Gap(10f);
             l.Label("Game command (blank disables restarting the game from here)");
-            _cfg.GameCmd = l.TextEntry(_cfg.GameCmd);
+            _cfg.GameCmd = SlopWidgets.Field(l, "cfg.gamecmd", _cfg.GameCmd);
             l.Gap(4f);
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     "Save the colony and restart the game"))
@@ -114,13 +114,13 @@ namespace SlopWorld
 
             l.Gap(10f);
             l.Label("tmux socket");
-            _cfg.TmuxSocket = l.TextEntry(_cfg.TmuxSocket);
+            _cfg.TmuxSocket = SlopWidgets.Field(l, "cfg.tmux", _cfg.TmuxSocket);
             l.Gap(2f);
             l.Label("State tick, ms (how often a quiet session decays to idle)");
-            _pollMs = l.TextEntry(_pollMs);
+            _pollMs = SlopWidgets.Field(l, "cfg.pollms", _pollMs);
             l.Gap(2f);
             l.Label("Scrollback lines kept per session");
-            _history = l.TextEntry(_history);
+            _history = SlopWidgets.Field(l, "cfg.history", _history);
 
             l.Gap(6f);
             GUI.color = new Color(0.85f, 0.75f, 0.45f);
@@ -129,7 +129,8 @@ namespace SlopWorld
             GUI.color = Color.white;
 
             l.Gap(10f);
-            l.CheckboxLabeled("Grandma's visiting", ref SlopWorldMod.Instance.settings.grandmaMode);
+            var s = SlopWorldMod.Instance.settings;
+            s.grandmaMode = SlopWidgets.Checkbox(l, "Grandma's visiting", s.grandmaMode);
             GUI.color = SlopWidgets.Dim;
             l.Label("No fun allowed! Disable gore, vomit, and offensive/harmful tips. " +
                     "Put it back when she leaves.");

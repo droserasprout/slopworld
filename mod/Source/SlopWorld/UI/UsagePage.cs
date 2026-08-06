@@ -91,7 +91,8 @@ namespace SlopWorld
 
             // ---------------------------------------------------------------- Anthropic
             Heading(l, "Anthropic");
-            l.CheckboxLabeled("Poll for what is left of the subscription", ref _cfg.Usage,
+            _cfg.Usage = SlopWidgets.Checkbox(l, "Poll for what is left of the subscription",
+                _cfg.Usage,
                 "The daemon reads the OAuth token Claude Code keeps on this machine and " +
                 "asks Anthropic. Off means it never touches that file.");
 
@@ -99,7 +100,8 @@ namespace SlopWorld
             {
                 l.Gap(2f);
                 l.Label("Credentials file");
-                _cfg.ClaudeCredentials = l.TextEntry(_cfg.ClaudeCredentials);
+                _cfg.ClaudeCredentials =
+                    SlopWidgets.Field(l, "usage.creds", _cfg.ClaudeCredentials);
 
                 l.Gap(4f);
                 // Icon rows for the Anthropic windows. The extra-usage ("spend") row is
@@ -117,7 +119,8 @@ namespace SlopWorld
             // ---------------------------------------------------------------- OpenRouter
             l.Gap(14f);
             Heading(l, "OpenRouter");
-            l.CheckboxLabeled("Poll for the credit balance", ref _cfg.Openrouter,
+            _cfg.Openrouter = SlopWidgets.Checkbox(l, "Poll for the credit balance",
+                _cfg.Openrouter,
                 "Credits bought less credits spent, which is what the pi agent draws down. " +
                 "Off means the daemon never reads the key and never calls OpenRouter.");
 
@@ -125,7 +128,8 @@ namespace SlopWorld
             {
                 l.Gap(2f);
                 l.Label("Key file (blank reads $OPENROUTER_API_KEY)");
-                _cfg.OpenrouterKeyFile = l.TextEntry(_cfg.OpenrouterKeyFile);
+                _cfg.OpenrouterKeyFile =
+                    SlopWidgets.Field(l, "usage.orkey", _cfg.OpenrouterKeyFile);
                 Note(l, "Blank is the key out of the daemon's own environment - the same one " +
                         "the pi preset forwards into that agent's sandbox, so a machine that " +
                         "can run pi needs no second copy of it here.");
@@ -138,7 +142,7 @@ namespace SlopWorld
             l.Gap(14f);
             Heading(l, "Both");
             l.Label("Seconds between polls");
-            _pollSecs = l.TextEntry(_pollSecs);
+            _pollSecs = SlopWidgets.Field(l, "usage.poll", _pollSecs);
             Note(l, "A failed poll backs off on its own, doubling to half an hour, and each " +
                     "seller keeps its own place in that queue: one being down never takes " +
                     "the other's numbers off the screen.");

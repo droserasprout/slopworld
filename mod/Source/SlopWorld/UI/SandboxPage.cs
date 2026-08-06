@@ -99,11 +99,11 @@ namespace SlopWorld
             float boxW = (r.width - gap * 2f) / 3f;
             float boxH = r.yMax - top;
             _roPaths = SlopWidgets.PathList(new Rect(r.x, top, boxW, boxH),
-                "Read-only binds", _roPaths);
+                "sandbox.ro", "Read-only binds", _roPaths);
             _rwPaths = SlopWidgets.PathList(new Rect(r.x + boxW + gap, top, boxW, boxH),
-                "Read-write binds", _rwPaths);
+                "sandbox.rw", "Read-write binds", _rwPaths);
             _passEnv = SlopWidgets.PathList(new Rect(r.x + (boxW + gap) * 2f, top, boxW, boxH),
-                "Passed env vars", _passEnv);
+                "sandbox.env", "Passed env vars", _passEnv);
         }
 
         // The "Presets" section: the daemon's preset directory on the left, and beside it a

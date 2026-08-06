@@ -102,7 +102,7 @@ namespace SlopWorld
 
             l.Gap(10f);
             l.Label("Cursor colour, #rrggbb (blank = the scheme's)");
-            s.cursorColor = l.TextEntry(s.cursorColor ?? "");
+            s.cursorColor = SlopWidgets.Field(l, "term.cursor", s.cursorColor ?? "");
 
             // Said rather than corrected: a half-typed "#8" is not a mistake yet, and a field
             // that rewrote itself under the cursor would be unusable.

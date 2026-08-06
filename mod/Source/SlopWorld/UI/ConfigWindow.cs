@@ -54,13 +54,16 @@ namespace SlopWorld
                 string.IsNullOrEmpty(_path) ? "config.toml" : _path);
 
             var area = new Rect(rect.x, rect.y + 28f, rect.width, rect.height - 100f);
-            Widgets.DrawBoxSolid(area, SlopWidgets.Well);
-
             var view = new Rect(0f, 0f, area.width - 18f,
                 Mathf.Max(area.height, Text.CalcHeight(_text, area.width - 24f) + 40f));
 
+            // The box is the scroll view's frame, so it is drawn round the outside and the
+            // area inside it draws none of its own: a well as tall as the content would put
+            // its border somewhere off the bottom of the window.
+            Slab.Box(area, SlopWidgets.Well, SlopWidgets.Edge);
             Widgets.BeginScrollView(area, ref _scroll, view);
-            _text = Widgets.TextArea(view.ContractedBy(4f), _text, !_loaded);
+            _text = SlopWidgets.Area(view.ContractedBy(6f, 4f), "config.toml", _text,
+                _loaded, frame: false);
             Widgets.EndScrollView();
 
             if (_error != null)
