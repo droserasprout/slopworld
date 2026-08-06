@@ -32,13 +32,15 @@ namespace SlopWorld
 
         protected override void DoFooter(Rect bar, SessionHub hub)
         {
-            if (Widgets.ButtonText(new Rect(bar.x, bar.y, 130f, 30f), "Add shortcut"))
+            var row = new SlopWidgets.Bar(bar);
+
+            if (row.Left("Add shortcut", SlopWidgets.Btn.Primary))
                 Find.WindowStack.Add(new EditShortcutDialog(null));
 
-            if (Widgets.ButtonText(new Rect(bar.x + 138f, bar.y, 130f, 30f), "Agents"))
+            if (row.Left("Agents"))
                 SessionsWindow.Toggle();
 
-            if (Widgets.ButtonText(new Rect(bar.x + 276f, bar.y, 130f, 30f), "Reload"))
+            if (row.Right("Reload", SlopWidgets.Btn.Ghost))
                 hub.RefreshShortcuts(SlopWidgets.Fail);
         }
 
@@ -71,22 +73,24 @@ namespace SlopWorld
 
             // Run is the reason this window exists, so it is the widest button and the one on
             // its own line.
-            var run = new Rect(right - 174f, r.y + 4f, 96f, 20f);
+            var run = new Rect(right - 174f, r.y + 1f, 96f, SlopWidgets.RowBtnH);
             TooltipHandler.TipRegion(run, s.Kind == ShortcutKind.Shell
                 ? $"Run '{s.Text}' in a temporary shell in {Where(s)}."
                 : $"Hand this to a temporary agent in {Where(s)}.");
             // An entry that never said where goes through a menu first; the button is the
             // same either way, because "run it" is what is being asked for in both cases.
-            if (Widgets.ButtonText(run, s.Link == ShortcutLink.Ask ? "Run..." : "Run"))
+            if (SlopWidgets.Button(run, s.Link == ShortcutLink.Ask ? "Run..." : "Run",
+                    SlopWidgets.Btn.Primary))
             {
                 if (s.Link == ShortcutLink.Ask) AskWhere(s);
                 else Run(s.Name);
             }
 
-            if (Widgets.ButtonText(new Rect(right - 74f, r.y + 4f, 74f, 20f), "Edit"))
+            if (SlopWidgets.Button(new Rect(right - 74f, r.y + 1f, 74f, SlopWidgets.RowBtnH), "Edit"))
                 Find.WindowStack.Add(new EditShortcutDialog(s));
 
-            if (Widgets.ButtonText(new Rect(right - 74f, r.y + 26f, 74f, 20f), "Del"))
+            if (SlopWidgets.Button(new Rect(right - 74f, r.y + 25f, 74f, SlopWidgets.RowBtnH), "Del",
+                    SlopWidgets.Btn.Danger))
             {
                 var name = s.Name;
                 Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
@@ -269,10 +273,9 @@ namespace SlopWorld
             _s.Text = Widgets.TextArea(area.ContractedBy(4f), _s.Text ?? "");
 
             var bar = new Rect(rect.x, rect.yMax - 36f, rect.width, 32f);
-            if (Widgets.ButtonText(new Rect(bar.x, bar.y, 120f, 32f), "Cancel"))
-                Close();
-            if (Widgets.ButtonText(new Rect(bar.xMax - 120f, bar.y, 120f, 32f), "Save"))
-                Save();
+            var foot = new SlopWidgets.Bar(bar);
+            if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
+            if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
         }
 
         // The three answers, in the words the dropdown shows them in.

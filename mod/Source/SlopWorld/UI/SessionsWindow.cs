@@ -27,16 +27,18 @@ namespace SlopWorld
 
         protected override void DoFooter(Rect bar, SessionHub hub)
         {
-            if (Widgets.ButtonText(new Rect(bar.x, bar.y, 130f, 30f), "Add agent"))
+            var row = new SlopWidgets.Bar(bar);
+
+            if (row.Left("Add agent", SlopWidgets.Btn.Primary))
                 Find.WindowStack.Add(new EditSessionDialog(null));
 
-            if (Widgets.ButtonText(new Rect(bar.x + 138f, bar.y, 130f, 30f), "Projects"))
+            if (row.Left("Projects"))
                 ProjectsWindow.Toggle();
 
             // Shortcuts is not here: it is a window of its own in the bottom bar, and an
             // errand is not something you do to an agent on this list. Nor is "New colony",
             // for the same reason - it is "Next planet" in the menu behind Escape now.
-            if (Widgets.ButtonText(new Rect(bar.x + 276f, bar.y, 130f, 30f), "Reconnect"))
+            if (row.Right("Reconnect", SlopWidgets.Btn.Ghost))
                 hub.Connect();
         }
 
@@ -73,13 +75,13 @@ namespace SlopWorld
 
             // The top line is the two buttons that open a dialog, the bottom one everything
             // that acts on the agent directly, terminal last.
-            float top = r.y + 4f, bottom = r.y + 26f;
+            float top = r.y + 1f, bottom = r.y + 25f;
             float right = r.xMax - 6f;
 
             // Nothing in config.toml stands behind a temporary agent, so the dialog would
             // write an entry the daemon has never had and the save would be refused.
             if (!s.Ephemeral &&
-                Widgets.ButtonText(new Rect(right - 174f, top, 96f, 20f), "Edit"))
+                SlopWidgets.Button(new Rect(right - 174f, top, 96f, SlopWidgets.RowBtnH), "Edit"))
                 Find.WindowStack.Add(new EditSessionDialog(s));
 
             // Next to Edit rather than down with Del and Start, because what it does is open
@@ -87,15 +89,15 @@ namespace SlopWorld
             // temporary agent - "keep this one".
             if (!string.IsNullOrEmpty(s.Project))
             {
-                var dup = new Rect(right - 74f, top, 74f, 20f);
+                var dup = new Rect(right - 74f, top, 74f, SlopWidgets.RowBtnH);
                 TooltipHandler.TipRegion(dup, s.Ephemeral
                     ? $"A permanent agent in {s.Project}, like the one running this errand."
                     : $"New agent with '{s.Name}'s project and command, under a new name.");
-                if (Widgets.ButtonText(dup, "Duplicate"))
+                if (SlopWidgets.Button(dup, "Duplicate"))
                     Find.WindowStack.Add(EditSessionDialog.Copy(s));
             }
 
-            var term = new Rect(right - 22f, bottom, 22f, 20f);
+            var term = new Rect(right - 22f, bottom, 22f, SlopWidgets.RowBtnH);
             TooltipHandler.TipRegion(term, s.Gone
                 ? $"'{s.Name}' is not running - start it first."
                 : $"Open the terminal for '{s.Name}'.");
@@ -110,17 +112,19 @@ namespace SlopWorld
             x -= 62f;
             if (s.Alive)
             {
-                if (Widgets.ButtonText(new Rect(x, bottom, 58f, 20f), "Stop"))
+                if (SlopWidgets.Button(new Rect(x, bottom, 58f, SlopWidgets.RowBtnH), "Stop"))
                     SessionHub.Instance.Stop(s.Name, SlopWidgets.Fail);
             }
-            else if (Widgets.ButtonText(new Rect(x, bottom, 58f, 20f), "Start"))
+            else if (SlopWidgets.Button(new Rect(x, bottom, 58f, SlopWidgets.RowBtnH), "Start",
+                         SlopWidgets.Btn.Primary))
             {
                 SessionHub.Instance.Start(s.Name, SlopWidgets.Fail);
             }
 
             // Stop is Del for a temporary agent: killing the process is what removes it.
             x -= 52f;
-            if (!s.Ephemeral && Widgets.ButtonText(new Rect(x, bottom, 48f, 20f), "Del"))
+            if (!s.Ephemeral && SlopWidgets.Button(new Rect(x, bottom, 48f, SlopWidgets.RowBtnH), "Del",
+                                    SlopWidgets.Btn.Danger))
             {
                 var name = s.Name;
                 Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(

@@ -76,18 +76,10 @@ namespace SlopWorld
         const float ArrowW = 12f;
         const float GripW = 5f;
 
-        static readonly Color PanelBg = new Color(0.09f, 0.10f, 0.12f, 0.93f);
-        static readonly Color Edge = new Color(0f, 0f, 0f, 0.55f);
-        static readonly Color EdgeLit = new Color(0.55f, 0.60f, 0.70f, 0.90f);
-        static readonly Color HeadColor = new Color(0.55f, 0.57f, 0.62f);
-        static readonly Color TabOff = new Color(0.45f, 0.47f, 0.52f);
-        static readonly Color SubColor = new Color(0.62f, 0.64f, 0.67f);
-        static readonly Color Current = new Color(1f, 1f, 1f, 0.10f);
-
-        // Dimmer than the line it shares and dimmer than the title it stands in for: an age
-        // and a directory are both there to be glanced at rather than read.
-        static readonly Color AgoColor = new Color(0.50f, 0.52f, 0.56f);
-        static readonly Color PlaceColor = new Color(0.46f, 0.48f, 0.52f);
+        // The panel, its edge and its greys are SlopWidgets' - this column was where most of
+        // them were first mixed, and three other files had since mixed their own within a
+        // hundredth of these. An age and a directory sit a rung below the line they share,
+        // both being there to be glanced at rather than read.
 
         // The same amber Waiting wears, that being what an unanswered bell means whatever the
         // rules made of the screen.
@@ -462,7 +454,7 @@ namespace SlopWorld
             Drawing = true;
 
             var panel = Panel;
-            Widgets.DrawBoxSolid(panel, PanelBg);
+            Widgets.DrawBoxSolid(panel, SlopWidgets.Panel);
 
             if (Files)
             {
@@ -480,7 +472,7 @@ namespace SlopWorld
                         ? row.Session == open
                         : row.Pawn != null && row.Pawn == selected;
 
-                    if (current) Widgets.DrawBoxSolid(row.Line, Current);
+                    if (current) Widgets.DrawBoxSolid(row.Line, SlopWidgets.RowOn);
                     else if (Mouse.IsOver(row.Line)) Widgets.DrawHighlight(row.Line);
                 }
 
@@ -560,7 +552,7 @@ namespace SlopWorld
         static void Tab(Rect r, Texture2D icon, bool on, string tip, System.Action go)
         {
             TooltipHandler.TipRegion(r, tip);
-            if (Widgets.ButtonImage(r, icon, on ? Color.white : TabOff, Color.white)
+            if (Widgets.ButtonImage(r, icon, on ? Color.white : SlopWidgets.Off, Color.white)
                 && !ColonistBarStrip.Blocked)
                 go();
 
@@ -575,7 +567,7 @@ namespace SlopWorld
         static void ConfigButton(Rect r)
         {
             TooltipHandler.TipRegion(r, "Config");
-            if (!Widgets.ButtonImage(r, TabIcons.ConfigTex, TabOff, Color.white)) return;
+            if (!Widgets.ButtonImage(r, TabIcons.ConfigTex, SlopWidgets.Off, Color.white)) return;
             if (ColonistBarStrip.Blocked) return;
             SlopOptions.Toggle();
         }
@@ -586,7 +578,7 @@ namespace SlopWorld
         static void MenuButton(Rect r)
         {
             TooltipHandler.TipRegion(r, "Menu");
-            if (!Widgets.ButtonImage(r, TabIcons.HamburgerTex, TabOff, Color.white)) return;
+            if (!Widgets.ButtonImage(r, TabIcons.HamburgerTex, SlopWidgets.Off, Color.white)) return;
             if (ColonistBarStrip.Blocked) return;
 
             var opts = new List<FloatMenuOption>
@@ -604,7 +596,7 @@ namespace SlopWorld
             var r = head.Rect;
             if (Mouse.IsOver(r)) Widgets.DrawHighlight(r);
 
-            GUI.color = HeadColor;
+            GUI.color = SlopWidgets.Faint;
             var arrow = new Rect(CellX, r.y + (HeadH - ArrowW) / 2f, ArrowW, ArrowW);
             GUI.DrawTexture(arrow, head.Folded ? TexButton.Reveal : TexButton.Collapse);
 
@@ -673,19 +665,19 @@ namespace SlopWorld
                     if (ago.Length > 0)
                     {
                         Text.Anchor = TextAnchor.UpperRight;
-                        GUI.color = AgoColor;
+                        GUI.color = SlopWidgets.Faint;
                         Widgets.Label(word, ago);
                         Text.Anchor = TextAnchor.UpperLeft;
                         word.width -= Mathf.Ceil(Text.CalcSize(ago).x) + AgoGap;
                     }
-                    GUI.color = SubColor;
+                    GUI.color = SlopWidgets.Dim;
                     Widgets.Label(word, Word(state).Truncate(Mathf.Max(1f, word.width)));
 
                     // Line three is what the app calls itself, and failing that where it is.
                     // Dimmer for the fallback: a title is this agent's own word for what it is
                     // up to, a directory is only the ground it stands on.
                     string title = Title(info);
-                    GUI.color = title.Length > 0 ? SubColor : PlaceColor;
+                    GUI.color = title.Length > 0 ? SlopWidgets.Dim : SlopWidgets.Off;
                     if (title.Length == 0) title = Ground(info);
                     var line3 = new Rect(row.Text.x, row.Text.y + NameH + SubH,
                         row.Text.width, SubH);
@@ -937,7 +929,7 @@ namespace SlopWorld
             // the game draws itself is the Tame designator's hand (see DeadCursor), so there
             // is no arrow to swap in.
             Widgets.DrawBoxSolid(new Rect(w - 1f, 0f, lit ? 2f : 1f, UI.screenHeight),
-                lit ? EdgeLit : Edge);
+                lit ? SlopWidgets.EdgeLit : SlopWidgets.Edge);
 
             if (ColonistBarStrip.Blocked) return;
 

@@ -3,15 +3,24 @@
 ## `SlopWidgets`
 
 The chrome drawn in more than one place, and the colours that mean the same thing
-wherever they are drawn - `Dim` for a second line about the thing on the first,
-`Bad` for an error that stays on screen, `Well` behind a text area. **Not a
-theme**: `TerminalTheme` is the pane's, and a view with a palette of its own
-(`FilesView`, `AgentSidebar`, `TopBar`) is naming contrasts for one panel. `Fail`
+wherever they are drawn - `Bad` for an error that stays on screen, `Well` behind
+a text area. **Not a theme**: `TerminalTheme` is the pane's and answers to a
+terminal's rules; everything else draws from here. `Fail`
 is here because every refusal the player is shown wears the same prefix, and a
 message that skipped it would be the one that did not look like ours. Static
 helpers rather than a base class's methods, because half the callers are not
 windows - `ConfigPage` is a category of the options menu and `FilesView` is a
 panel.
+
+**The ramp** is five rungs down from white, named for what a colour is *for*:
+`Lead` (the thing the row is about), `Name`, `Dim` (a second line), `Faint`
+(glanced at - an age, a group heading), `Off` (a tab you are not on). Plus the
+surfaces: `Panel`, `Edge`/`EdgeLit`, `Well`, `RowBg`/`RowOn`. The sidebar, top
+bar and files view each used to mix their own - eleven greys for five
+intentions, two pairs byte-identical and three more within a hundredth of each
+other. A view wanting a contrast picks **two rungs**; it does not mix a sixth
+grey. `Lead` is not `Text` because `Verse.Text` is what every font and
+measurement in the mod goes through.
 
 `SlopListWindow<T>` is the other half: agents, projects and shortcuts are one
 window drawn three times, so the ctor flags, the size, the header, the scrolling
@@ -23,6 +32,34 @@ those figures having been nudged by hand to clear three different titles.
 `Toggle` cannot be inherited (statics are not virtual), so each window keeps its
 own line over `SlopWidgets.ToggleWindow`, which takes a **factory** rather than an
 instance so nothing is built for a toggle that turns out to be a close.
+
+## `Slab` and the flat controls
+
+`Slab` is a rounded rectangle - `Fill`, `Outline`, `Box`, and `Raised` (a hairline
+of shadow under it and one of light along the top inside; both go while pressed).
+**Only the corners are a texture.** Nine-slicing one rounded box draws a line along
+every internal seam, bilinear filtering sampling half a texel past each tile; so the
+four corners are drawn at their own size and every straight run between them is flat
+colour off `BaseContent.WhiteTex`, which has no texel grid to disagree about.
+
+Everything is snapped to the **screen** grid, not the GUI one - at UI scale 1.75 a
+whole GUI coordinate is 1.75ths of a pixel, and a pixel split by two quads belongs to
+either, neither or both, which is a dark seam, a light one or nothing depending on the
+control's absolute position. Corners are baked at `R * UIScale` and rebaked when that
+changes, so the curve is never resampled. `Snap` goes out to the screen and back **by
+arithmetic** off a two-point sample of the transform: `ScreenToGUIPoint` is not the
+inverse it is documented as inside a group, and the return trip drops the offsets of
+the several a window draws in. `TerminalWindow.SyncSnap` does the same thing for the
+pane's rows and is where the trick came from - see [gotchas](gotchas.md).
+
+`SlopWidgets.Button` takes a `Btn`: `Default`, `Primary`, `Danger`, `Ghost`. Adwaita's
+shape, not its colours - the border is **darker** than the face, and the face is
+**opaque**, which is the half that took two passes to get: a dark border round a face
+at 0.065 alpha encloses nothing, and what is left reads as a widget toolkit from
+twenty years ago. Ghost is the one face still drawn through. `Bar` lays a footer out
+from the end each button belongs to, which is what replaced the `+138f`/`+276f`
+offset chains three windows each kept. `Field`, `Area` and `Checkbox` are here too and
+are not yet wired up anywhere - see `next.md`.
 
 ## `MenuToggle`
 

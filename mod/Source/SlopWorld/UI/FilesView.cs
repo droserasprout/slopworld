@@ -23,11 +23,8 @@ namespace SlopWorld
         const float CellX = 8f;
         const float ArrowW = 11f;
 
-        static readonly Color HeadColor = new Color(0.55f, 0.57f, 0.62f);
-        static readonly Color NameColor = new Color(0.78f, 0.80f, 0.83f);
-        static readonly Color DirColor = new Color(0.88f, 0.90f, 0.93f);
-        static readonly Color Faint = new Color(0.50f, 0.52f, 0.56f);
-        static readonly Color Bad = new Color(0.85f, 0.45f, 0.42f);
+        // A directory is a rung above a file, which is the whole of the distinction this view
+        // draws between them; both, and the greys around them, are SlopWidgets'.
 
         // One directory, once it has been asked about. `Kids` null is "never asked", which is
         // what makes the tree lazy: a project root is a hundred thousand files deep and the
@@ -162,7 +159,7 @@ namespace SlopWorld
         static void Empty(Rect body)
         {
             var r = new Rect(CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
-            GUI.color = Faint;
+            GUI.color = SlopWidgets.Faint;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.UpperLeft;
             Widgets.Label(r, SessionHub.Instance.Online
@@ -239,7 +236,7 @@ namespace SlopWorld
 
             if (Mouse.IsOver(r)) Widgets.DrawHighlight(r);
 
-            GUI.color = HeadColor;
+            GUI.color = SlopWidgets.Faint;
             var arrow = new Rect(CellX, r.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW);
             GUI.DrawTexture(arrow, shut ? TexButton.Reveal : TexButton.Collapse);
 
@@ -275,7 +272,7 @@ namespace SlopWorld
             if (parent.Kids == null)
             {
                 y = Note(width, y, parent.Depth + 1,
-                    parent.Error ?? "...", parent.Error != null ? Bad : Faint);
+                    parent.Error ?? "...", parent.Error != null ? SlopWidgets.Bad : SlopWidgets.Faint);
                 return y;
             }
 
@@ -288,7 +285,7 @@ namespace SlopWorld
             // What the cap left off is the daemon's business and it does not say how much: it
             // stopped reading, so it never counted the rest either.
             if (parent.More)
-                y = Note(width, y, parent.Depth + 1, "... more, not listed", Faint);
+                y = Note(width, y, parent.Depth + 1, "... more, not listed", SlopWidgets.Faint);
 
             return y;
         }
@@ -318,7 +315,7 @@ namespace SlopWorld
 
             if (node.IsDir)
             {
-                GUI.color = HeadColor;
+                GUI.color = SlopWidgets.Faint;
                 GUI.DrawTexture(new Rect(x, y + (RowH - ArrowW) / 2f, ArrowW, ArrowW),
                     node.Expanded ? TexButton.Collapse : TexButton.Reveal);
                 GUI.color = Color.white;
@@ -332,7 +329,7 @@ namespace SlopWorld
 
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
-            GUI.color = node.IsDir ? DirColor : NameColor;
+            GUI.color = node.IsDir ? SlopWidgets.Lead : SlopWidgets.Name;
             var label = new Rect(x, y, width - x - Pad, RowH);
             Widgets.Label(label, node.Name.Truncate(label.width));
             GUI.color = Color.white;

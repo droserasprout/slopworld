@@ -29,13 +29,15 @@ namespace SlopWorld
 
         protected override void DoFooter(Rect bar, SessionHub hub)
         {
-            if (Widgets.ButtonText(new Rect(bar.x, bar.y, 130f, 30f), "Add project"))
+            var row = new SlopWidgets.Bar(bar);
+
+            if (row.Left("Add project", SlopWidgets.Btn.Primary))
                 Find.WindowStack.Add(new EditProjectDialog(null));
 
-            if (Widgets.ButtonText(new Rect(bar.x + 138f, bar.y, 130f, 30f), "Agents"))
+            if (row.Left("Agents"))
                 SessionsWindow.Toggle();
 
-            if (Widgets.ButtonText(new Rect(bar.x + 276f, bar.y, 130f, 30f), "Reload"))
+            if (row.Right("Reload", SlopWidgets.Btn.Ghost))
                 hub.RefreshProjects(SlopWidgets.Fail);
         }
 
@@ -57,10 +59,11 @@ namespace SlopWorld
 
             float right = r.xMax - 6f;
 
-            if (Widgets.ButtonText(new Rect(right - 120f, r.y + 4f, 120f, 20f), "Edit"))
+            if (SlopWidgets.Button(new Rect(right - 120f, r.y + 1f, 120f, SlopWidgets.RowBtnH), "Edit"))
                 Find.WindowStack.Add(new EditProjectDialog(p));
 
-            if (Widgets.ButtonText(new Rect(right - 120f, r.y + 26f, 120f, 20f), "Delete"))
+            if (SlopWidgets.Button(new Rect(right - 120f, r.y + 25f, 120f, SlopWidgets.RowBtnH), "Delete",
+                    SlopWidgets.Btn.Danger))
             {
                 var name = p.Name;
                 Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
@@ -182,10 +185,9 @@ namespace SlopWorld
             Widgets.EndScrollView();
 
             var bar = new Rect(rect.x, rect.yMax - 34f, rect.width, 32f);
-            if (Widgets.ButtonText(new Rect(bar.x, bar.y, 120f, 32f), "Cancel"))
-                Close();
-            if (Widgets.ButtonText(new Rect(bar.xMax - 120f, bar.y, 120f, 32f), "Save"))
-                Save();
+            var foot = new SlopWidgets.Bar(bar);
+            if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
+            if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
         }
 
         void DoFields(Rect r)

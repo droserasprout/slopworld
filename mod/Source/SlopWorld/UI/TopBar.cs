@@ -11,11 +11,6 @@ namespace SlopWorld
         const float Pad = 8f;
         const float ClockW = 76f;
 
-        static readonly Color Bg = new Color(0.09f, 0.10f, 0.12f, 0.93f);
-        static readonly Color Edge = new Color(0f, 0f, 0f, 0.55f);
-        static readonly Color Dim = new Color(0.58f, 0.60f, 0.64f);
-        static readonly Color IconIdle = new Color(0.62f, 0.64f, 0.66f);
-
         public static Rect Rect =>
             new Rect(SlopLayout.LeftInset, 0f, UI.screenWidth - SlopLayout.LeftInset, H);
 
@@ -32,8 +27,8 @@ namespace SlopWorld
             if (Event.current.type == EventType.Layout) return;
 
             var r = Rect;
-            Widgets.DrawBoxSolid(r, Bg);
-            Widgets.DrawBoxSolid(new Rect(r.x, r.yMax - 1f, r.width, 1f), Edge);
+            Widgets.DrawBoxSolid(r, SlopWidgets.Panel);
+            Widgets.DrawBoxSolid(new Rect(r.x, r.yMax - 1f, r.width, 1f), SlopWidgets.Edge);
 
             var was = GUI.color;
             Text.Font = GameFont.Small;
@@ -84,7 +79,7 @@ namespace SlopWorld
 
             if (session == null)
             {
-                GUI.color = Dim;
+                GUI.color = SlopWidgets.Dim;
                 Widgets.Label(r, hub.Online
                     ? $"{hub.Sessions.Count} agent{(hub.Sessions.Count == 1 ? "" : "s")}"
                     : $"daemon {hub.Status}");
@@ -113,7 +108,7 @@ namespace SlopWorld
                 tail = pane.Shape + "   " + tail;
 
             Text.Font = GameFont.Tiny;
-            GUI.color = Dim;
+            GUI.color = SlopWidgets.Dim;
             Widgets.Label(rest, tail.Truncate(rest.width));
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
