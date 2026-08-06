@@ -523,14 +523,14 @@ namespace SlopWorld
             Tab(new Rect(CellX + TabIcon + 8f, y, TabIcon, TabIcon), TabIcons.FilesTex, files,
                 "Files - every project's directory, as a tree", () => Show(true));
 
-            // The one switch the tree has, and the menu button, from the right so neither
-            // shuffles the selector sideways. The dotfile switch draws only where it means
-            // something; the menu is this column's door onto everything else, so it is always
-            // here.
+            // The one switch the tree has, the settings door and the menu button, from the
+            // right so none of them shuffles the selector sideways. The dotfile switch draws
+            // only where it means something; the other two are this column's doors onto
+            // everything else, so they are always here.
             if (files)
             {
                 bool showing = Settings.SidebarShowHidden;
-                float ex = right - TabIcon - 8f;
+                float ex = right - (TabIcon + 8f) * 2f;
                 Tab(new Rect(ex, y, TabIcon, TabIcon), TabIcons.HiddenTex, showing,
                     showing
                         ? "Showing dotfiles. Click to hide them."
@@ -545,6 +545,7 @@ namespace SlopWorld
                     });
             }
 
+            ConfigButton(new Rect(right - TabIcon - 8f, y, TabIcon, TabIcon));
             MenuButton(new Rect(right, y, TabIcon, TabIcon));
 
             // The strip is the panel's, so a press anywhere along it is the panel's too. Not
@@ -568,6 +569,17 @@ namespace SlopWorld
                     new Color(1f, 1f, 1f, 0.55f));
         }
 
+        // The cog: settings, out of the menu and onto the strip. It is the one door in that
+        // list anybody opens twice in a session, and a cog says what it opens without being
+        // read - the rest of the menu does not.
+        static void ConfigButton(Rect r)
+        {
+            TooltipHandler.TipRegion(r, "Config");
+            if (!Widgets.ButtonImage(r, TabIcons.ConfigTex, TabOff, Color.white)) return;
+            if (ColonistBarStrip.Blocked) return;
+            SlopOptions.Toggle();
+        }
+
         // The hamburger: the column's door onto everything the bottom bar used to hold. The
         // icon is the old files tab mark, which read as a list; the list is now the menu.
         // Clicking opens a FloatMenu over whatever is up, the same road the row menus take.
@@ -582,7 +594,6 @@ namespace SlopWorld
                 new FloatMenuOption("Projects", ProjectsWindow.Toggle),
                 new FloatMenuOption("Agents", SessionsWindow.Toggle),
                 new FloatMenuOption("Shortcuts", ShortcutsWindow.Toggle),
-                new FloatMenuOption("Config", SlopOptions.Toggle),
                 new FloatMenuOption("Quit to OS", Root.Shutdown),
             };
             TerminalWindow.OpenOverPane(new FloatMenu(opts));
