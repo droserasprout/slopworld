@@ -65,6 +65,12 @@ namespace SlopWorld
         // pick: a station that will not play should say so and hand the OST back.
         static bool _blamed;
 
+        // The last word has been said. Root.Shutdown does not end the process where it is
+        // called - Application.Quit lets the frame finish, and there are more frames after
+        // it while the save is written - so Update runs on after Quit, and without this it
+        // put the station straight back on: the music stopped for a second and returned.
+        static bool _quit;
+
         // What the station says it is playing. The daemon's, not a setting: it is true for
         // the next three minutes and belongs to nothing that outlives the process.
         static string _title;
@@ -160,6 +166,7 @@ namespace SlopWorld
         // what has changed, and most frames change nothing.
         public static void Update()
         {
+            if (_quit) return;
             Read();
 
             // The game's own music manager stays off for good. It is not sharing the job
@@ -243,12 +250,14 @@ namespace SlopWorld
         public static void Quit()
         {
             Read();
+            // Whatever is on stays on or goes off here, and either way this is the end of
+            // the conversation: the frames that follow have nothing left to say.
+            _quit = true;
             if (!_stopOnExit) return;
 
             var hub = SessionHub.Instance;
             if (hub == null || !hub.Online) return;
             hub.SendAudio(null, Volume());
-            Push();
         }
 
         // Forces the next Update to send, rather than sending from here: one place puts

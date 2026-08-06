@@ -24,6 +24,11 @@ calls `PreOptionChosen` - which closes the parent - before it invokes the action
   button through `Root.Shutdown` too, so that is the whole of an orderly quit. A
   **killed** game is not covered and cannot be: nothing of ours runs. `GET
   /api/audio` is how to see that, and turning the box back on is how to fix it.
+  `Radio.Quit` latches `_quit` and `Radio.Update` returns on it: `Root.Shutdown`
+  does *not* end the process where it is called - `Application.Quit` lets the
+  frame finish and the save is written over the frames after it - so Update runs
+  on, and it used to put the station straight back on the next one. The music
+  stopped for a second and came back.
 - **Settings** opens vanilla's Audio category - `SlopOptions.OpenAudioTab` - since
   that is where the sliders `Radio.Volume` multiplies actually live. It opens the
   options dialog when none is up and swaps the tab when one is.
