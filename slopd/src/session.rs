@@ -92,10 +92,6 @@ pub struct SessionView {
     /// The app rang the bell and nobody has looked since. Sticky, because a ring is a moment
     /// and the answer to it is a person: cleared when a client subscribes to the pane.
     pub bell: bool,
-    /// The last thing this session did was leave on purpose - exited zero, or the player
-    /// stopped it. False for a process that fell over, and for one that has never run.
-    /// Only `Down` says anything with it: what the mod's siren asks before it sounds.
-    pub quit: bool,
     pub seq: u64,
 }
 
@@ -231,9 +227,6 @@ struct Live {
     /// Set by a frame that rang, cleared by someone looking. Here rather than on the screen
     /// because it outlives the frame that carried it.
     bell: bool,
-    /// Whether the last exit was meant: the wrapper's zero, or `stop`. Cleared by `start`,
-    /// so it says something about the process that just went and never about an older one.
-    quit: bool,
     cols: u16,
     rows: u16,
     screen: Option<ScreenView>,
@@ -467,54 +460,6 @@ fn compile_rules(cfg: &Config) -> Vec<(State, Regex)> {
             }
         })
         .collect()
-}
-
-/// Where a pane's wrapper leaves the agent's exit status. Scratch that must not outlive a
-/// boot, and its own directory rather than `/tmp/slopworld`, which is where a temporary
-/// project's working directory goes. A session name is a tmux target, so a slash is the
-/// only thing left in one that a file name would read as a directory.
-fn exit_path(name: &str) -> PathBuf {
-    let dir = match std::env::var_os("XDG_RUNTIME_DIR") {
-        Some(d) => PathBuf::from(d).join("slopworld/exit"),
-        None => PathBuf::from("/tmp/slopworld-exit"),
-    };
-    dir.join(name.replace('/', "-"))
-}
-
-/// The status the last process left, taken rather than read: what is on disk belongs to the
-/// run that has just ended, and a file left lying would answer for the next one.
-fn take_exit(name: &str) -> Option<i32> {
-    let path = exit_path(name);
-    let text = std::fs::read_to_string(&path).ok();
-    let _ = std::fs::remove_file(&path);
-    text?.trim().parse().ok()
-}
-
-/// tmux keeps no exit status for a session it has already destroyed, and `remain-on-exit`
-/// would leave a dead pane where `start` expects nothing at all. So the pane runs the agent
-/// under one line of shell that writes the status down on the way out. The path rides as
-/// `$0` and the argv as `"$@"`, so nothing here is quoted into a script that a session name
-/// or a preset's command line could break out of. Outside the sandbox by construction - the
-/// wrapper *is* the pane's process and bwrap is its child - so the write needs no bind.
-///
-/// A shell killed by a signal of its own writes nothing, and a session with no file behind
-/// it reads as one that fell over, which is the answer we had before any of this.
-fn wrap_exit(name: &str, argv: Vec<String>) -> Vec<String> {
-    let path = exit_path(name);
-    if let Some(dir) = path.parent() {
-        if let Err(e) = std::fs::create_dir_all(dir) {
-            tracing::warn!("cannot make {}: {e:#}", dir.display());
-            return argv;
-        }
-    }
-    let mut out = vec![
-        "sh".to_string(),
-        "-c".to_string(),
-        r#""$@"; printf %s "$?" >"$0""#.to_string(),
-        path.to_string_lossy().into_owned(),
-    ];
-    out.extend(argv);
-    out
 }
 
 /// A tmux target, where ':' and '.' select a window and a pane.
@@ -882,7 +827,6 @@ impl Manager {
                     last_change: 0,
                     state_since: 0,
                     bell: false,
-                    quit: false,
                     cols: BOOT_COLS,
                     rows: BOOT_ROWS,
                     screen: None,
@@ -996,7 +940,6 @@ impl Manager {
                 last_change: now_ms(),
                 state_since: now_ms(),
                 bell: false,
-                quit: false,
                 cols: BOOT_COLS,
                 rows: BOOT_ROWS,
                 screen: None,
@@ -1071,27 +1014,14 @@ impl Manager {
             Some(l) => (l.cols, l.rows),
             None => (BOOT_COLS, BOOT_ROWS),
         };
-        // Nothing has gone yet, and the status of whatever went last is not this process's.
-        take_exit(name);
-        if let Some(l) = self.live.write().await.get_mut(name) {
-            l.quit = false;
-        }
         let argv = build_argv(&cfg, &s, &p);
         tracing::info!("starting {name}: {}", argv.join(" "));
-        let argv = wrap_exit(name, argv);
         self.tmux.spawn(name, &dir, cols, rows, &argv).await?;
         self.spawn_reader(name).await;
         Ok(())
     }
 
     pub async fn stop(self: &Arc<Self>, name: &str) -> Result<()> {
-        // Ahead of the kill rather than with the rest of it below: a pane hung up on writes
-        // no status of its own, and the control reader can be through `mark_down` while this
-        // is still waiting on tmux. Nobody takes it back - `start` is the only thing that
-        // clears it.
-        if let Some(l) = self.live.write().await.get_mut(name) {
-            l.quit = true;
-        }
         if self.tmux.exists(name).await {
             self.tmux.kill(name).await?;
         }
@@ -1382,7 +1312,6 @@ impl Manager {
                     last_change: 0,
                     state_since: 0,
                     bell: false,
-                    quit: false,
                     cols: BOOT_COLS,
                     rows: BOOT_ROWS,
                     screen: None,
@@ -1690,7 +1619,6 @@ impl Manager {
                         .map(|s| s.title.clone())
                         .unwrap_or_default(),
                     bell: l.bell,
-                    quit: l.quit,
                     seq: l.seq,
                 }
             })
@@ -2246,10 +2174,6 @@ impl Manager {
 
     /// A temporary session has nowhere to be down, so it leaves the table entirely.
     async fn mark_down(self: &Arc<Self>, name: &str) {
-        // Taken first, and so also for the ephemeral session that is about to leave: the
-        // wrapper writes the file whether or not there will be an entry to put it on.
-        let quit = take_exit(name) == Some(0);
-
         if self.is_ephemeral(name).await {
             self.forget(name).await;
             return;
@@ -2262,10 +2186,6 @@ impl Manager {
                 if l.set_state(State::Down) {
                     changed = true;
                 }
-                // An agent that walked out is not one to sound an alarm over; anything that
-                // wrote no status, or a status of its own, fell over. Or'd rather than set:
-                // this races `stop`, whose kill is what stopped the shell writing at all.
-                l.quit |= quit;
                 // A ring nobody answered before the process went is not one to answer now.
                 l.bell = false;
                 l.screen = None;
@@ -2395,8 +2315,8 @@ mod tests {
 
     use super::{
         check_name, check_shortcut, compile_rules, free_name, free_project_name, match_rules,
-        merge_input, settle, slug, strip_sgr, take_exit, wrap_exit, Input, Live, State, BOOT_COLS,
-        BOOT_ROWS, INPUT_BATCH,
+        merge_input, settle, slug, strip_sgr, Input, Live, State, BOOT_COLS, BOOT_ROWS,
+        INPUT_BATCH,
     };
     use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind};
 
@@ -2547,40 +2467,6 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
         }
     }
 
-    /// The wrapper is a line of shell around somebody else's command line, and the whole
-    /// point of `$0` and `"$@"` is that neither can be quoted wrongly. Run rather than read:
-    /// what matters is the status a real `sh` writes down, and that a signal writes one too.
-    #[test]
-    fn the_wrapper_writes_the_status_it_was_wrapped_around() {
-        for (script, want) in [
-            ("exit 0", Some(0)),
-            ("exit 3", Some(3)),
-            ("kill -9 $$", Some(137)),
-            ("echo \"$0\" >/dev/null; exit 0", Some(0)),
-        ] {
-            let name = format!("wrapper-test-{}", std::process::id());
-            let argv = wrap_exit(
-                &name,
-                vec![
-                    "sh".into(),
-                    "-c".into(),
-                    script.into(),
-                    "agent'\" $@".into(),
-                ],
-            );
-            let status = std::process::Command::new(&argv[0])
-                .args(&argv[1..])
-                .status()
-                .expect("sh");
-            // The wrapper's own status is the `printf`'s and never the agent's, which is
-            // exactly why the file has to carry it.
-            assert!(status.success(), "{script}");
-            assert_eq!(take_exit(&name), want, "{script}");
-            // Taken, not read: what is left would answer for the next run.
-            assert_eq!(take_exit(&name), None, "{script}");
-        }
-    }
-
     fn placeholder() -> Live {
         Live {
             cfg: SessionCfg::default(),
@@ -2591,7 +2477,6 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             last_change: 0,
             state_since: 0,
             bell: false,
-            quit: false,
             cols: BOOT_COLS,
             rows: BOOT_ROWS,
             screen: None,

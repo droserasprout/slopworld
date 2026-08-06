@@ -55,11 +55,6 @@ namespace SlopWorld
         // a pane is subscribed to, so opening the terminal is what answers it.
         public bool Bell;
 
-        // The process left on purpose - it exited zero, or somebody stopped it - rather than
-        // falling over. Only a Down session says anything with it, and it is what decides
-        // whether that collapse is worth a noise: a Ctrl+D is not an emergency.
-        public bool Quit;
-
         // Unix millis of the last pane change. Zero before it has ever drawn anything.
         public long LastChange;
 
@@ -106,7 +101,6 @@ namespace SlopWorld
             Rows = j["rows"].AsInt(0),
             Title = j["title"].AsString(),
             Bell = j["bell"].AsBool(false),
-            Quit = j["quit"].AsBool(false),
             LastChange = j["last_change"].AsLong(0),
             StateSince = j["state_since"].AsLong(0),
         };
