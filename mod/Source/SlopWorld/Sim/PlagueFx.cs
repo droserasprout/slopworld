@@ -38,6 +38,11 @@ namespace SlopWorld
         // sweep invisible against grass.
         public static void Wither(Thing t) => At(Gas, t, 5, 1.3f, 0.14f, 0.3f);
 
+        // Wither's opposite number, and the only one of these in the cat's green rather than
+        // the violet: a flowerbed opening where grandma is visiting. The same size as the wisp
+        // it stands in for, and for the same reason - there are thousands of them over a colony.
+        public static void Sprout(Thing t) => At(SlopDefOf.SlopCleanAir, t, 6, 1.3f, 0.16f, 0.3f);
+
         // Bleeding, retching and seizing look nothing alike; the haze says one cause.
         public static void Act(Thing t) => At(Gas, t, 12, 2.2f, 0.35f, 0.6f);
 

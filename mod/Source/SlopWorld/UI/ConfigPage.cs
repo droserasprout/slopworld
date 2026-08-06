@@ -128,9 +128,10 @@ namespace SlopWorld
             GUI.color = Color.white;
 
             l.Gap(10f);
-            l.CheckboxLabeled("Pvssy mode", ref SlopWorldMod.Instance.settings.pvssyMode);
+            l.CheckboxLabeled("Grandma's visiting", ref SlopWorldMod.Instance.settings.grandmaMode);
             GUI.color = SlopWidgets.Dim;
-            l.Label("No fun allowed! Disable gore, vomit, and offensive/harmful tips");
+            l.Label("No fun allowed! Disable gore, vomit, and offensive/harmful tips. " +
+                    "Put it back when she leaves.");
             GUI.color = Color.white;
 
             _fieldsH = l.CurHeight + 8f;

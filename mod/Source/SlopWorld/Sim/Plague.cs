@@ -24,6 +24,12 @@ namespace SlopWorld
     // Agents are immune wholly - a dead colonist would leave its session pointing at a
     // corpse. Effects are applied directly because Patch_Health skips health ticks, so
     // nothing bleeds out on its own. Fire is the exception, being a Thing that ticks itself.
+    //
+    // Grandma mode changes what the circle does, not that it grows: the arrival times, the
+    // bands, the dither and Girth are all still kept, because the leash the agents work on is
+    // measured off them (Worksite.Roam) and the map would otherwise have no clock at all. What
+    // it does when it arrives is Sow - flowers, one bed to a cell, where Catch, Effects, Vent
+    // and StepPlants would each have been an act on something living.
     public class Plague : MapComponent
     {
         // The pass over what is standing on the map. The plague itself moves when something
@@ -56,6 +62,25 @@ namespace SlopWorld
         // Three breaths a second of the smallest puff there is; anything heavier is a fog
         // bank parked on the middle of the map.
         const int VentInterval = 20;
+
+        // One cell in this many is a flowerbed, and stays one - the roll is Grit's, so a cell
+        // the ground refused stays refused across a reload the same way sterile ground does.
+        const float SowChance = 0.05f;
+
+        // Salt for that roll. Unsalted it would be the very number the bands are dithered
+        // against, and every bed would land on ground the dither had already called certain.
+        const int SowSalt = 0x51ed;
+
+        // The sweep is over cells rather than plants, and the cells are the whole map: a pass
+        // a tick is sixty thousand hashes. Walked in slices like StepPlants instead - these
+        // two together are a pass over a default map every forty seconds or so of real time.
+        const int SowInterval = 15;
+        const int SowPerSweep = 400;
+
+        // Beds arrive part-grown and at differing sizes, a patch that all came up at once
+        // reading as something that was planted.
+        const float SowGrowthMin = 0.30f;
+        const float SowGrowthMax = 1.00f;
 
         // Read from the cell, not the mark, so a marked animal that wanders out of reach
         // goes quiet and starts up again when it wanders back.
@@ -144,6 +169,10 @@ namespace SlopWorld
         readonly List<Plant> _plants = new List<Plant>();
         int _plantIdx;
 
+        // Where the flowerbed sweep left off. Not saved: it is a position in a walk, and any
+        // cell it would have missed comes round again in under a minute.
+        int _sowIdx;
+
         // Effects walks a copy: an effect can despawn the pawn it lands on.
         readonly List<Pawn> _rolling = new List<Pawn>();
 
@@ -169,20 +198,29 @@ namespace SlopWorld
         public void Arm(IntVec3 origin)
         {
             if (_active) return;
-            if (Settings.PvssyMode) return;
             _origin = origin;
             _seed = Rand.Int;
             _active = true;
             Bloom(origin, CoreRadius);
-            Log.Message($"[SlopWorld] plague seeded at {origin}, {CoreRadius:F0} cells");
+            Log.Message($"[SlopWorld] plague seeded at {origin}, {CoreRadius:F0} cells" +
+                        (Settings.GrandmaMode ? ", flowers only" : ""));
         }
 
         public override void MapComponentTick()
         {
             if (!_active) return;
-            if (Settings.PvssyMode) return;
 
             int t = Find.TickManager.TicksGame;
+
+            // Read here rather than gated into the four below: every one of them is an act on
+            // something alive, and a plague that only skipped three of them would still be one.
+            if (Settings.GrandmaMode)
+            {
+                if (t % CatchInterval == 0) Progress();
+                if (t % SowInterval == 0) Sow();
+                return;
+            }
+
             if (t % CatchInterval == 0) Catch();
             if (t % EffectInterval == 0) Effects();
             if (t % VentInterval == 0) Vent();
@@ -248,7 +286,6 @@ namespace SlopWorld
         public void Bloom(IntVec3 at, float radius)
         {
             if (!_active || radius <= 0f) return;
-            if (Settings.PvssyMode) return;
 
             var cells = Cells;
             var idx = map.cellIndices;
@@ -274,9 +311,13 @@ namespace SlopWorld
         // Seeded off the cell, so ground that shrugged the plague off keeps shrugging it off
         // across a reload. Hashed (lowbias32, top 24 bits) rather than Rand.ValueSeeded,
         // which pushes the global RNG state onto a stack, reseeds, draws and pops.
-        float Grit(IntVec3 cell)
+        float Grit(IntVec3 cell) => Grit(cell, 0);
+
+        // Salted, for the second question asked of the same cell. One hash answering both
+        // would tie the flowerbeds to the dither exactly.
+        float Grit(IntVec3 cell, int salt)
         {
-            uint h = (uint)Gen.HashCombineInt(cell.GetHashCode(), _seed);
+            uint h = (uint)Gen.HashCombineInt(cell.GetHashCode(), _seed ^ salt);
             h ^= h >> 16;
             h *= 0x7feb352du;
             h ^= h >> 15;
@@ -324,16 +365,22 @@ namespace SlopWorld
         public float Girth => Mathf.Sqrt(_reached / Mathf.PI);
 
         // The plague chases nothing, so this is the pass that finds who walked into it.
-        void Catch()
+        // Its own method because it is the one thing in Catch that is not an act on a pawn, and
+        // grandma mode wants the reading without the rest of the pass.
+        void Progress()
         {
             int twentieth = _reached * 20 / Mathf.Max(map.Area, 1);
-            if (twentieth != _logged)
-            {
-                _logged = twentieth;
-                Log.Message($"[SlopWorld] the plague has {_reached * 100f / map.Area:F0}% of the map, " +
-                            $"{Girth:F0} cells of it as a circle, " +
-                            $"on {Worksite.LaidOn(map)} cells of finished ground");
-            }
+            if (twentieth == _logged) return;
+
+            _logged = twentieth;
+            Log.Message($"[SlopWorld] the plague has {_reached * 100f / map.Area:F0}% of the map, " +
+                        $"{Girth:F0} cells of it as a circle, " +
+                        $"on {Worksite.LaidOn(map)} cells of finished ground");
+        }
+
+        void Catch()
+        {
+            Progress();
 
             foreach (var pawn in map.mapPawns.AllPawnsSpawned)
             {
@@ -409,6 +456,73 @@ namespace SlopWorld
                     PlagueFx.Wither(p); // before the destroy - a despawned plant has no DrawPos
                     p.Destroy(DestroyMode.Vanish);
                 }
+            }
+        }
+
+        // What StepPlants is for the other half: the pass that acts on the ground the circle has
+        // reached. Walked over the cell field rather than over the plants, because a flowerbed
+        // is a property of a cell and most of the ones wanted have nothing standing on them
+        // yet - and in slices for the same reason StepPlants is, the field being the whole map.
+        void Sow()
+        {
+            var flowers = Flowers;
+            if (flowers.Count == 0) return;
+
+            var cells = Cells;
+            var idx = map.cellIndices;
+
+            for (int budget = SowPerSweep; budget > 0; budget--)
+            {
+                if (_sowIdx >= cells.Length) _sowIdx = 0;
+                int k = _sowIdx++;
+
+                // The cheapest of the three questions, and the one that is false for most of
+                // the map for most of a colony.
+                if (cells[k] == Never) continue;
+
+                var c = idx.IndexToCell(k);
+                if (BandAt(c) == Band.None) continue;
+                if (Grit(c, SowSalt) >= SowChance) continue;
+                if (!Plantable(c)) continue;
+
+                var plant = GenSpawn.Spawn(flowers.RandomElement(), c, map) as Plant;
+                if (plant == null) continue;
+
+                plant.Growth = Rand.Range(SowGrowthMin, SowGrowthMax);
+                // Growth is printed into the map mesh and the setter does not dirty it - the
+                // same thing the stunt in StepPlants has to do.
+                map.mapDrawer?.MapMeshDirty(c, MapMeshFlagDefOf.Things);
+                PlagueFx.Sprout(plant);
+            }
+        }
+
+        // Deliberately short of everything CanEverPlantAt asks. Fertility carries most of it -
+        // it is zero on water, on rock and on every plate the agents lay, so the paving stays
+        // bare without being named here - and the rest is only that the cell is empty.
+        bool Plantable(IntVec3 c) =>
+            c.GetTerrain(map)?.fertility > 0f &&
+            c.GetPlant(map) == null &&
+            c.GetEdifice(map) == null &&
+            !c.Filled(map);
+
+        // Read off the database rather than named: a flower is whatever calls itself one, so
+        // anything a mod added turns up here too, and a build that shipped none grows nothing
+        // rather than throwing. Trees are out - purpose is Beauty on some of them, and a
+        // forest arriving one trunk at a time is not what was asked for.
+        static List<ThingDef> _flowers;
+
+        static List<ThingDef> Flowers
+        {
+            get
+            {
+                if (_flowers == null)
+                {
+                    _flowers = new List<ThingDef>();
+                    foreach (var d in DefDatabase<ThingDef>.AllDefsListForReading)
+                        if (d.plant != null && d.plant.purpose == PlantPurpose.Beauty && !d.plant.IsTree)
+                            _flowers.Add(d);
+                }
+                return _flowers;
             }
         }
 
@@ -577,6 +691,10 @@ namespace SlopWorld
         {
             static bool Prefix(IntVec3 c, Map ___map, ref bool __result)
             {
+                // Nothing to hold back where the circle grows things: sterilising the ground
+                // under the flowerbeds would leave grandma mode a barer map than the rot does.
+                if (Settings.GrandmaMode) return true;
+
                 var plague = ___map?.GetComponent<Plague>();
                 if (plague == null || plague.BandAt(c) != Band.Full) return true;
 

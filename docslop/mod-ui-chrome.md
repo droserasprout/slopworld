@@ -103,4 +103,10 @@ open, and the state stands in for the rest.
 - `MenuBackground` bakes filters from whatever background this install ships and
   caches them to disk; `Patch_MenuBackgroundRot` hooks the **draw** rather than
   `Init`, because the loading screen draws the same background without going near
-  `Init`.
+  `Init`. Two variants, chosen by `grandmaMode` and named in the cache key so both
+  survive on disk: `Rot` darkens and burns the planet, `Sparkle` lays a rainbow
+  and a blinking constellation over it. The rot's playback breathes around a
+  depth; the sparkling one is a loop, and its stages are baked to close - the
+  sheen slides one whole hue period and every star blinks a whole number of times,
+  so stage 29 meets stage 0 with no cut. A toggle with the menu up is caught in
+  `Current`, the caller having stopped handing it a source.

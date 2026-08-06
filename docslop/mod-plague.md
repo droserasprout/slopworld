@@ -18,6 +18,14 @@ plate and monument its own (`Bloom`, off `Worksite.Patch_ErrandDone`).
 - `Girth` is the plague as a radius: the circle holding as much ground as it has
   taken. A **bulk** rather than a furthest reach, or one plate at the edge drags
   the leash ([mod-worksite](mod-worksite.md) `Roam`).
+- **Grandma mode changes what arrival means, not that it spreads.** `Arm`, `Bloom`
+  and the whole field are unconditional, because `Girth` is the leash the agents
+  work on and without it the map has no clock. `MapComponentTick` swaps `Catch`,
+  `Effects`, `Vent` and `StepPlants` - each an act on something alive - for `Sow`,
+  which walks the *cells* in slices and opens a flowerbed on one in `SowChance` of
+  them. Same `Grit`, salted, so a bed is stable across reloads and is not simply a
+  cell the band's dither called certain. `Patch_NoRegrowth` stands down; flower
+  defs are read off the database by `PlantPurpose.Beauty`, trees excluded.
 - Scribed via `MapExposeUtility.ExposeUshort` as a signed offset in seconds,
   rebased in `FinalizeInit` rather than `Unpack` - a map is scribed *before* the
   tick manager, so the clock read during a load is the last game's. Older saves

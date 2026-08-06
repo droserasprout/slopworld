@@ -9,10 +9,17 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The menu and loading-screen background, rotting. Nothing here ships art: the frames are
-    // baked from the game's own planet on first run. Baked rather than computed per frame
-    // because the source is 4096x2560, and cached to disk. Playback breathes on two sines of
-    // incommensurate period, summed, so it never repeats visibly.
+    // The menu and loading-screen background, rotting - or, with grandma in the house, the same
+    // picture under a rainbow. Nothing here ships art: the frames are baked from the game's own
+    // planet on first run. Baked rather than computed per frame because the source is 4096x2560,
+    // and cached to disk. Playback breathes on two sines of incommensurate period, summed, so it
+    // never repeats visibly; the sparkling variant loops instead, and is baked to close.
+    //
+    // The two variants share everything above the per-stage transform - the read-back, the
+    // downsample, the noise, the batching, the encoder and the cache - and differ only in what
+    // Rot and Sparkle do to a stage and in how Current walks the set. Which one is resident is
+    // the setting, folded into the cache key so a toggle switches the frames rather than
+    // reinterpreting them.
     [StaticConstructorOnStartup]
     public static class MenuBackground
     {
@@ -66,6 +73,39 @@ namespace SlopWorld
         static readonly Color Ember = new Color(1f, 0.24f, 0.05f, 1f);
         static readonly Color Flame = new Color(1f, 0.76f, 0.28f, 1f);
 
+        // ---- Grandma's visiting ----
+
+        // How long one turn through every stage takes, and so also how long the slowest star
+        // takes to blink. The set closes, so this is a loop and not a sweep with a cut in it.
+        const float LoopSecs = 3.6f;
+
+        // Hue periods along the diagonal. Deliberately not an integer: the sheen only has to
+        // close in time, and one that closed in space too would put a seam down the picture
+        // where the last band met the first.
+        const float SheenCycles = 1.6f;
+        // The palette's swing is +-0.5 about a flat grey, so this is the chroma at full mask.
+        const float SheenGain = 0.85f;
+        // The sheen rides a still fBm field, banded for the same reason the fire's is: taken
+        // as it comes, fBm piles up around its middle and gives an even wash rather than a
+        // band with a body and a gap.
+        const float HazeLow = 0.40f;
+        const float HazeHigh = 0.66f;
+        // Nowhere near the fire's phases, so the two variants are not the same cloud twice.
+        const float HazePhase = 11.3f;
+
+        // The constellation is rolled once from this, so the bake stays reproducible.
+        const int SparkSeed = 1971;
+        const int SparkCount = 140;
+        // Arm half-lengths in pixels at MaxSide, scaled down with the frame. A star is a cross
+        // this long and SparkThick times thinner.
+        const float SparkArmMin = 7f;
+        const float SparkArmMax = 22f;
+        const float SparkThick = 7f;
+        const float SparkGain = 1.1f;
+        // Blinks per loop. Integers, or a star would be caught mid-blink at the wrap.
+        const int SparkRateMin = 1;
+        const int SparkRateMax = 4;
+
         // Value noise off a 256x256 field: what the fire's shape is drawn from, and cheaper
         // than Unity's Perlin by the whole of a native call. Rolled from a fixed seed rather
         // than shipped, so the bake is reproducible; held as floats rather than bytes so a
@@ -74,12 +114,39 @@ namespace SlopWorld
         const int LutMask = LutSide - 1;
         static readonly float[] _noiseLut = new float[LutSide * LutSide];
 
+        // The rainbow, as a cosine palette: three raised cosines a third of a turn apart, which
+        // is a full hue circle with none of HSV's corners and no branch to sample it. Tabulated
+        // off the same reasoning as the noise - a hue a pixel is three Cos calls over ten
+        // megapixels otherwise. 256 entries and no interpolation between them: over a ramp this
+        // long a step is under two pixels wide, and the encoder is about to throw away far more
+        // than that.
+        const int HueSide = 256;
+        const int HueMask = HueSide - 1;
+        static readonly Color[] _hueLut = new Color[HueSide];
+
         static MenuBackground()
         {
             var bytes = new byte[_noiseLut.Length];
             new System.Random(42).NextBytes(bytes);
             for (int i = 0; i < bytes.Length; i++) _noiseLut[i] = bytes[i] * (1f / 255f);
+
+            const float Turn = 2f * Mathf.PI;
+            for (int i = 0; i < HueSide; i++)
+            {
+                float t = i / (float)HueSide;
+                _hueLut[i] = new Color(
+                    0.5f + 0.5f * Mathf.Cos(Turn * t),
+                    0.5f + 0.5f * Mathf.Cos(Turn * (t + 1f / 3f)),
+                    0.5f + 0.5f * Mathf.Cos(Turn * (t + 2f / 3f)),
+                    1f);
+            }
         }
+
+        // Wrapped rather than clamped, hue being a circle and both callers walking off both
+        // ends of it. Two's complement makes the mask do the negative side for free, which is
+        // the trick Noise plays on its own indices.
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static Color Hue(float t) => _hueLut[Mathf.FloorToInt(t * HueSide) & HueMask];
 
         // The artefacts are the point: 8x8 blocking and smeared chroma are the failure the
         // rest of this file imitates by hand, and the encoder does them for free. Also keeps
@@ -100,6 +167,10 @@ namespace SlopWorld
         // The cache key, and how a background switched in Options is noticed.
         static Texture2D _src;
         static string _srcKey;
+        // Which transform the resident set was baked with, rather than what the setting says
+        // this instant: the two disagree for the one frame between a toggle and the reload,
+        // and walking rotted stages on the sparkling clock would be visible.
+        static bool _glow;
         // So the onset ramp has a zero. Negative until the first draw.
         static float _began = -1f;
 
@@ -109,12 +180,25 @@ namespace SlopWorld
         // nothing to bake from and the caller should leave the field alone.
         public static Texture2D Current(Texture2D source)
         {
+            // The caller stops handing us a source as soon as there are frames - it has our own
+            // frame in the field by then and nulls it - so a setting turned over with the menu
+            // still up would never reach Ready. Handing back what we baked from is what makes
+            // the toggle land, and it is a bool compare rather than the key, which is a string
+            // this would be formatting every frame.
+            if (_frames != null && _glow != Settings.GrandmaMode) source = _src;
+
             if (source != null && !Ready(source)) return null;
             if (_frames == null) return null;
 
             float now = Time.realtimeSinceStartup;
             if (_began < 0f) _began = now;
             float t = now - _began;
+
+            // Straight through the stages and around again. No breath and no onset: every stage
+            // is the same picture at a different point of the same loop, where the rot's are a
+            // depth it arrives at and then hovers around. The set was baked to close, so the
+            // wrap is not a cut.
+            if (_glow) return _frames[Mathf.FloorToInt(t * (Stages / LoopSecs)) % Stages];
 
             // Unequal amplitudes, so the fast term is a tremor over the swell rather than a
             // second beat.
@@ -135,16 +219,21 @@ namespace SlopWorld
         {
             if (source == null) return false;
 
-            string key = Key(source);
+            bool glow = Settings.GrandmaMode;
+            string key = Key(source, glow);
             if (_frames != null && _srcKey == key) return true;
 
             _src = source;
             _srcKey = key;
+            _glow = glow;
             _began = -1f;
 
+            // The set being replaced is left to Unity. Its textures are marked
+            // DontUnloadUnusedAsset, so they stay resident - the same price an expansion
+            // background switch has always cost, paid once more if the setting is turned over.
             try
             {
-                _frames = Load(key) ?? Bake(source, key);
+                _frames = Load(key) ?? Bake(source, key, glow);
             }
             catch (Exception e)
             {
@@ -160,11 +249,13 @@ namespace SlopWorld
         }
 
         // The name changes when the player picks another expansion's background, so keying on
-        // it is what makes that switch rebake.
-        static string Key(Texture2D src)
+        // it is what makes that switch rebake. The variant is in here for the same reason and
+        // one more: both sets survive on disk, so turning the setting back is a load rather
+        // than a second bake.
+        static string Key(Texture2D src, bool glow)
         {
             string name = string.IsNullOrEmpty(src.name) ? "bg" : src.name;
-            return $"{name}-{src.width}x{src.height}-{Stages}-v{Version}";
+            return $"{name}-{src.width}x{src.height}-{Stages}-{(glow ? "glow" : "rot")}-v{Version}";
         }
 
         static string Dir(string key) =>
@@ -208,7 +299,7 @@ namespace SlopWorld
             return frames;
         }
 
-        static Texture2D[] Bake(Texture2D src, string key)
+        static Texture2D[] Bake(Texture2D src, string key, bool glow)
         {
             int w = src.width, h = src.height;
             float scale = Mathf.Min(1f, (float)MaxSide / Mathf.Max(w, h));
@@ -216,14 +307,20 @@ namespace SlopWorld
             int bh = Mathf.Max(1, Mathf.RoundToInt(h * scale));
 
             Color[] clean = Downsample(ReadBack(src), w, h, bw, bh);
-            float[] fuel = Fuel(clean, bw, bh);
+
+            // Each variant's one still input, read off the clean picture or rolled from a fixed
+            // seed, and shared by every stage: where fire is allowed for the one, where the
+            // sheen is bright and where the stars are for the other.
+            float[] fuel = glow ? null : Fuel(clean, bw, bh);
+            float[] haze = glow ? Haze(bw, bh) : null;
+            Spark[] sparks = glow ? Constellation(bw, bh) : null;
 
             string dir = Dir(key);
             Directory.CreateDirectory(dir);
 
             // Stages are independent of each other and of the engine - Mathf and Color are
-            // arithmetic on structs, and nothing below Rot touches a Unity object - so the
-            // pixels are worked out off the main thread. The encoder is not: Texture2D,
+            // arithmetic on structs, and nothing below Rot or Sparkle touches a Unity object -
+            // so the pixels are worked out off the main thread. The encoder is not: Texture2D,
             // EncodeToJPG and LoadImage are all engine calls, so a batch is computed in
             // parallel and then written down in order on the way back.
             int batch = Mathf.Clamp((BakeBudgetMB << 20) / Mathf.Max(1, bw * bh * 16), 1, Stages);
@@ -238,7 +335,10 @@ namespace SlopWorld
                 int end = Math.Min(Stages, start + batch);
 
                 Parallel.For(start, end, opts, i =>
-                    Rot(clean, scratch[i - start], fuel, bw, bh, i / (float)(Stages - 1), i));
+                {
+                    if (glow) Sparkle(clean, scratch[i - start], haze, sparks, bw, bh, i);
+                    else Rot(clean, scratch[i - start], fuel, bw, bh, i / (float)(Stages - 1), i);
+                });
 
                 for (int i = start; i < end; i++)
                 {
@@ -260,7 +360,7 @@ namespace SlopWorld
                 }
             }
 
-            Log.Message($"[SlopWorld] baked {Stages} background frames at {bw}x{bh}, jpeg q{JpegQuality}, {batch} at a time, into {dir}");
+            Log.Message($"[SlopWorld] baked {Stages} {(glow ? "sparkling" : "rotting")} background frames at {bw}x{bh}, jpeg q{JpegQuality}, {batch} at a time, into {dir}");
             return frames;
         }
 
@@ -298,13 +398,20 @@ namespace SlopWorld
             public float br, bg, bb, bo;
         }
 
-        static Grade Grading(float k)
-        {
-            float contrast = Mathf.Lerp(1f, 2.3f, k);
-            float lift = Mathf.Lerp(0f, 0.06f, k);      // blacks off the floor: video, not ink
-            float drain = Mathf.Lerp(0f, 0.75f, k);     // toward luminance
-            float tint = Mathf.Lerp(0f, 0.42f, k);      // then toward the plague
+        static Grade Grading(float k) => Affine(
+            Mathf.Lerp(1f, 2.3f, k),        // contrast
+            Mathf.Lerp(0f, 0.06f, k),       // blacks off the floor: video, not ink
+            Mathf.Lerp(0f, 0.75f, k),       // drain toward luminance
+            Sick, Mathf.Lerp(0f, 0.42f, k));
 
+        // Nothing is taken away here: a hair more contrast, the blacks lifted the same as the
+        // rot lifts them, and a *negative* drain, which is a saturation boost written in the one
+        // form Shade already knows. No tint - in this variant the colour is the sheen's and the
+        // stars', and a picture already tinted would argue with both.
+        static Grade Cheer() => Affine(1.06f, 0.05f, -0.35f, Color.white, 0f);
+
+        static Grade Affine(float contrast, float lift, float drain, Color toward, float tint)
+        {
             // Color.grayscale's own weights, which is where the drain's cross-terms come from.
             const float LR = 0.299f, LG = 0.587f, LB = 0.114f;
 
@@ -315,9 +422,9 @@ namespace SlopWorld
             // Multiplied rather than blended: a blend fogs the frame evenly, where this leaves
             // the dark dark and puts colour where there is light. A per-channel scale, so it
             // multiplies the contrast term and the lift alike.
-            float tr = Mathf.Lerp(1f, Sick.r, tint), sr = contrast * tr;
-            float tg = Mathf.Lerp(1f, Sick.g, tint), sg = contrast * tg;
-            float tb = Mathf.Lerp(1f, Sick.b, tint), sb = contrast * tb;
+            float tr = Mathf.Lerp(1f, toward.r, tint), sr = contrast * tr;
+            float tg = Mathf.Lerp(1f, toward.g, tint), sg = contrast * tg;
+            float tb = Mathf.Lerp(1f, toward.b, tint), sb = contrast * tb;
 
             return new Grade
             {
@@ -455,6 +562,194 @@ namespace SlopWorld
                         1f);
                 }
             }
+        }
+
+        // What Rot is not: nothing is taken away. The picture is graded a shade brighter and a
+        // shade more saturated, a rainbow is laid over it, and the constellation is lit. Both of
+        // the last two are functions of the stage over the whole set rather than of a depth, and
+        // both close - the sheen slides exactly one hue period across the loop and every star
+        // blinks a whole number of times - so the last stage meets the first with no cut. That
+        // is the difference the playback in Current is about.
+        // Writes into dst rather than allocating — the caller owns the buffer.
+        static void Sparkle(Color[] src, Color[] dst, float[] haze, Spark[] sparks, int w, int h, int stage)
+        {
+            Grade g = Cheer();
+
+            // Over Stages rather than Stages-1: the loop is open at the top, stage 0 being where
+            // stage 30 would have landed. Closed on Stages-1 the wrap would show every stage
+            // twice.
+            float s = stage / (float)Stages;
+
+            // Along the diagonal, so the band crosses the picture corner to corner rather than
+            // lying in bars down it.
+            float ramp = SheenCycles / (w + h - 2);
+
+            for (int y = 0; y < h; y++)
+            {
+                int row = y * w;
+                for (int x = 0; x < w; x++)
+                {
+                    int i = row + x;
+                    Color c = Shade(ref g, src[i]);
+
+                    float m = haze[i];
+                    if (m > 0f)
+                    {
+                        // The palette's mean is a flat half in every channel, and it comes back
+                        // out here: what is added is chroma alone. Over the sky that lights a
+                        // colour into the black, over the lit face it swings the hue, and
+                        // neither is the even grey fog that adding the palette whole would be.
+                        Color hue = Hue((x + y) * ramp + s);
+                        float gain = m * SheenGain;
+                        c = new Color(
+                            Mathf.Clamp01(c.r + (hue.r - 0.5f) * gain),
+                            Mathf.Clamp01(c.g + (hue.g - 0.5f) * gain),
+                            Mathf.Clamp01(c.b + (hue.b - 0.5f) * gain),
+                            1f);
+                    }
+
+                    dst[i] = c;
+                }
+            }
+
+            Twinkle(dst, sparks, w, h, s);
+        }
+
+        // A star: where it is, how far it reaches, where it sits on the wheel, and the blink it
+        // is in the middle of.
+        struct Spark
+        {
+            public int x, y;
+            public float arm;
+            public float hue;
+            public int rate;      // blinks per loop, whole
+            public float phase;   // where in that blink stage zero finds it
+        }
+
+        // Rolled once from a fixed seed, and the same for every stage - which is what lets a star
+        // blink rather than jump about. Uniform over the frame: a star on the planet's own lit
+        // face simply does not show, and that is a truer scattering than one that had been told
+        // to avoid it.
+        static Spark[] Constellation(int w, int h)
+        {
+            var rng = new System.Random(SparkSeed);
+
+            // Arms are quoted at MaxSide, so a frame baked smaller gets smaller stars rather
+            // than the same stars taking up more of it.
+            float scale = Mathf.Max(w, h) / (float)MaxSide;
+
+            var sparks = new Spark[SparkCount];
+            for (int i = 0; i < sparks.Length; i++)
+            {
+                sparks[i] = new Spark
+                {
+                    x = rng.Next(w),
+                    y = rng.Next(h),
+                    arm = Mathf.Lerp(SparkArmMin, SparkArmMax, (float)rng.NextDouble()) * scale,
+                    hue = (float)rng.NextDouble(),
+                    rate = rng.Next(SparkRateMin, SparkRateMax + 1),
+                    phase = (float)rng.NextDouble(),
+                };
+            }
+
+            return sparks;
+        }
+
+        // Each star is lit by a raised cosine of the stage, on its own rate and its own phase, so
+        // the constellation is never all up at once and never all down. Squared, because a blink
+        // wants a short peak and a long dark where the cosine gives it even halves.
+        static void Twinkle(Color[] px, Spark[] sparks, int w, int h, float s)
+        {
+            for (int i = 0; i < sparks.Length; i++)
+            {
+                Spark sp = sparks[i];
+
+                float lit = 0.5f - 0.5f * Mathf.Cos(2f * Mathf.PI * (sp.rate * s + sp.phase));
+                lit *= lit;
+                if (lit <= 0.004f) continue;    // under the encoder's floor anyway
+
+                Color tint = Hue(sp.hue);
+                float amp = lit * SparkGain;
+
+                int arm = Mathf.CeilToInt(sp.arm);
+                int x0 = Mathf.Max(0, sp.x - arm), x1 = Mathf.Min(w - 1, sp.x + arm);
+                int y0 = Mathf.Max(0, sp.y - arm), y1 = Mathf.Min(h - 1, sp.y + arm);
+                float inv = 1f / sp.arm;
+
+                for (int y = y0; y <= y1; y++)
+                {
+                    int row = y * w;
+                    float ay = Mathf.Abs(y - sp.y) * inv;
+                    float fy = 1f - ay; if (fy < 0f) fy = 0f; else fy *= fy;
+                    float ty = 1f - ay * SparkThick; if (ty < 0f) ty = 0f;
+
+                    for (int x = x0; x <= x1; x++)
+                    {
+                        float ax = Mathf.Abs(x - sp.x) * inv;
+                        float fx = 1f - ax; if (fx < 0f) fx = 0f; else fx *= fx;
+                        float tx = 1f - ax * SparkThick; if (tx < 0f) tx = 0f;
+
+                        // The cross is one arm long and thin and the same turned over. Their sum
+                        // alone gives a middle no brighter than twice an arm, so the core is a
+                        // separate round term - and it is white rather than tinted, a star being
+                        // hot in the middle and coloured at the edges.
+                        float cross = fx * ty + fy * tx;
+                        float d = 1f - Mathf.Sqrt(ax * ax + ay * ay);
+                        float core = d > 0f ? d * d * d : 0f;
+                        if (cross <= 0f && core <= 0f) continue;
+
+                        float a = cross * amp, k = core * amp;
+                        Color c = px[row + x];
+                        px[row + x] = new Color(
+                            Mathf.Clamp01(c.r + tint.r * a + k),
+                            Mathf.Clamp01(c.g + tint.g * a + k),
+                            Mathf.Clamp01(c.b + tint.b * a + k),
+                            1f);
+                    }
+                }
+            }
+        }
+
+        // How bright the sheen is allowed to be, and still across the whole loop: one fBm field
+        // drawn small and read back bilinear the way the fire's is, banded so the rainbow has a
+        // body and a gap. Still, because a mask that drifted would have to close with the loop
+        // too, and a rainbow sliding under a moving cloud is one motion more than a background
+        // behind a menu has any business having.
+        static float[] Haze(int w, int h)
+        {
+            int nw = Mathf.Max(2, w / NoiseDiv), nh = Mathf.Max(2, h / NoiseDiv);
+            float[] noise = Fbm(nw, nh, HazePhase);
+
+            var dst = new float[w * h];
+            float xScale = (nw - 1) / (float)w, yScale = (nh - 1) / (float)h;
+            float band = 1f / (HazeHigh - HazeLow);
+
+            for (int y = 0; y < h; y++)
+            {
+                int row = y * w;
+                float ny = y * yScale;
+                int ny0 = (int)ny, ny1 = Mathf.Min(nh - 1, ny0 + 1);
+                float fy = ny - ny0;
+                int r0 = ny0 * nw, r1 = ny1 * nw;
+
+                for (int x = 0; x < w; x++)
+                {
+                    float nx = x * xScale;
+                    int nx0 = (int)nx, nx1 = Mathf.Min(nw - 1, nx0 + 1);
+                    float fx = nx - nx0;
+
+                    float a = noise[r0 + nx0], c = noise[r1 + nx0];
+                    a += (noise[r0 + nx1] - a) * fx;
+                    c += (noise[r1 + nx1] - c) * fx;
+                    float n = a + (c - a) * fy;
+
+                    float t = (n - HazeLow) * band;
+                    t = t < 0f ? 0f : (t > 1f ? 1f : t);
+                    dst[row + x] = t * t * (3f - 2f * t);
+                }
+            }
+
+            return dst;
         }
 
         // One cell of the LUT, smoothstep-interpolated. The two axes are wrapped separately:

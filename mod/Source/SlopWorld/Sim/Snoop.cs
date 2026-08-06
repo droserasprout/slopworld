@@ -39,8 +39,8 @@ namespace SlopWorld
 
         public override void GameComponentTick()
         {
-            // Pvssy mode: no easter eggs.
-            if (Settings.PvssyMode) return;
+            // Grandma mode: no easter eggs.
+            if (Settings.GrandmaMode) return;
 
             int tick = Find.TickManager.TicksGame;
 
