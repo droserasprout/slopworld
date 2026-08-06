@@ -6,7 +6,9 @@ none of these need a def. See also [mod-plague](mod-plague.md) and
 
 - **`AgentColony`** - reconciles sessions to colonists once a second. Down is the
   only posture it imposes. Moving *into* idle rings `TinyBell`; a state seen for
-  the first time is not a move. Stands down while `Cutscene.AgentsHeld`. Colonists
+  the first time is not a move. Moving into down rings the siren unless the daemon
+  says `quit` - an agent that was stopped, or walked out with a zero, goes quietly
+  (see [daemon-session-state](daemon-session-state.md)). Stands down while `Cutscene.AgentsHeld`. Colonists
   arrive in drop pods, so `Spawn` hands back a pawn that is not spawned yet and
   the arrival haze waits on `_landing`, checked every tick rather than on the
   reconcile's second. Taking a pawn into the table dirties its graphics, which is

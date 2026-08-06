@@ -190,13 +190,14 @@ namespace SlopWorld
             {
                 RobotFace.Apply(kv.Value);
 
-                var state = SessionHub.Instance.Get(kv.Key)?.State ?? AgentState.Down;
+                var session = SessionHub.Instance.Get(kv.Key);
+                var state = session?.State ?? AgentState.Down;
                 // The first sight of a session is not a move.
                 AgentState? was = _seen.TryGetValue(kv.Key, out var seen)
                     ? seen : (AgentState?)null;
                 _seen[kv.Key] = state;
 
-                Reflect(kv.Value, state, was);
+                Reflect(kv.Value, state, was, session != null && session.Quit);
             }
 
             Reorder();
@@ -245,8 +246,9 @@ namespace SlopWorld
 
         // The colonist goes down but stays a live pawn its process can get back up; killing it
         // would mean a corpse and a fresh stranger on every restart. `was` is nothing on the
-        // first look, and only a state it *moved* into is worth a noise.
-        static void Reflect(Pawn pawn, AgentState state, AgentState? was)
+        // first look, and only a state it *moved* into is worth a noise. `quit` is the daemon's
+        // word that this one left of its own accord.
+        static void Reflect(Pawn pawn, AgentState state, AgentState? was, bool quit)
         {
             if (pawn == null || !pawn.Spawned) return;
 
@@ -254,7 +256,9 @@ namespace SlopWorld
 
             if (state == AgentState.Down)
             {
-                Down(pawn, moved);
+                // An agent shown the door - Ctrl+C, Ctrl+D, `exit 0`, or the sidebar's own
+                // stop - lies down in silence. The siren is for a process that fell over.
+                Down(pawn, moved && !quit);
                 return;
             }
 

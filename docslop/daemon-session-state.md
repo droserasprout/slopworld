@@ -5,6 +5,31 @@
 text (SGR stripped); with no hit, a pane that moved inside `IDLE_MS` is working.
 Down is not a rule - it comes from the control reader ending on `%exit` or EOF.
 
+## How a session went, and the siren
+
+`quit` rides beside the state: the process left on purpose. The mod's colonist
+lies down either way, but only a `Down` it was not shown the door for sounds an
+alarm - a Ctrl+C, a Ctrl+D or an `exit 0` is not an emergency.
+
+tmux keeps no exit status for a session it has already destroyed, and
+`remain-on-exit` would leave a dead pane where `start` expects nothing at all. So
+`wrap_exit` runs the agent under one line of shell that writes the status into
+`$XDG_RUNTIME_DIR/slopworld/exit/NAME` on the way out; `mark_down` takes the file
+and `quit` is that status being zero. The path rides as `$0` and the argv as
+`"$@"`, so nothing is quoted into a script a command line could break out of, and
+the wrapper is the pane's process with bwrap as its child - outside the sandbox,
+so the write needs no bind.
+
+The path is derived from the name rather than remembered, or a daemon restart
+would leave the panes it reattached to writing where nothing reads. **A shell
+killed by a signal writes nothing**, and a session with no file behind it reads as
+one that fell over, which is the answer we had before any of this. `stop` sets
+`quit` itself for that reason - hanging up on a pane kills the wrapper too - and
+sets it **before the kill**, the control reader being able to get through
+`mark_down` while `stop` is still waiting on tmux; `mark_down` or's rather than
+assigns for the same race. `start` clears the flag and the file both, so neither
+ever speaks for an older process.
+
 **The rules read the bottom of the screen, not the screen** (`match_rules`,
 `TAIL_LINES`). A pane is not a transcript: the question an agent asked is still
 standing after it has been answered, so rules run over the whole thing keep

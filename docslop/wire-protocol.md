@@ -40,4 +40,5 @@ Lists one directory.
 
 Renaming anything here needs both halves. `SessionInfo.ParseState` treats an
 unknown state as `Down`, which keeps a version skew survivable rather than
-correct.
+correct. A session carries `quit` beside its state - it went on purpose - and a
+daemon too old to say so reads as false, which is the siren we had before it.
