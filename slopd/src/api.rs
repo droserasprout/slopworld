@@ -314,9 +314,15 @@ async fn presets(State(_m): State<Mgr>) -> ApiResult {
 async fn get_config(State(m): State<Mgr>) -> ApiResult {
     let text = std::fs::read_to_string(&m.cfg_path)
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
-    Ok(Json(
-        json!({ "path": m.cfg_path, "text": text, "values": m.config().await }),
-    ))
+    // The token never leaves the daemon as written: the raw text and the parsed values both
+    // carry the sentinel, and a write that sends it back is read as "unchanged". The endpoint
+    // is behind the token itself, so this guards the one case that is not - the raw editor,
+    // and any future client that reaches the config without holding the secret first.
+    Ok(Json(json!({
+        "path": m.cfg_path,
+        "text": crate::config::redact_token_text(&text),
+        "values": m.config().await.redacted(),
+    })))
 }
 
 #[derive(Deserialize)]

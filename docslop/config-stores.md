@@ -34,6 +34,16 @@ per-list routes. See [wire-protocol](wire-protocol.md), [mod-client](mod-client.
 3. Two formats and two lifetimes, which is **not** a fault: the TOML outlives a
    profile rebuild, and the pane's half stays editable with the socket down.
 
+`GET /api/config` never carries the token as written: a set one reads as
+`TOKEN_REDACTED` (`<redacted>`) in both the raw `text` and the parsed `values`
+(`Config::redacted`, `redact_token_text`), an empty one stays empty so "no auth"
+still reads straight. The write is the mirror: a token that comes back as the
+sentinel is restored to the stored one (`replace_config`, `update_sections`), so a
+save from a client that only ever saw the sentinel - the raw editor, the GUI - cannot
+blank auth it never held. A real value, or an empty string to turn auth off, is any
+value that is not the sentinel and stands. Which is why `SlopConfig` carrying `Token`
+(seam 1) is now belt-and-braces: the daemon would restore it regardless.
+
 ## Unbuilt
 
 Not done, argued once so it need not be argued again.

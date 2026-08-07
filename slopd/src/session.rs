@@ -1576,7 +1576,13 @@ impl Manager {
         }
 
         let mut cfg = self.cfg.write().await;
-        if let Some(d) = daemon {
+        if let Some(mut d) = daemon {
+            // The GUI shows the sentinel where a token is set (it comes from `redacted()`), so a
+            // save of the daemon section that never touched the field would otherwise write the
+            // sentinel in as the token. Restore the stored one; a real change still stands.
+            if d.token == crate::config::TOKEN_REDACTED {
+                d.token = cfg.daemon.token.clone();
+            }
             cfg.daemon = d;
         }
         if let Some(d) = defaults {
@@ -1593,7 +1599,13 @@ impl Manager {
     }
 
     pub async fn replace_config(self: &Arc<Self>, text: &str) -> Result<()> {
-        let new = Config::parse(text)?;
+        let mut new = Config::parse(text)?;
+        // A client that only ever saw the sentinel is saying "leave the token alone": take the
+        // stored one, so a save from the raw editor - which never held the secret - cannot blank
+        // the auth. Anything else, including an empty string, is a deliberate change and stands.
+        if new.daemon.token == crate::config::TOKEN_REDACTED {
+            new.daemon.token = self.cfg.read().await.daemon.token.clone();
+        }
         self.save_cfg(&new)?;
         *self.rules.write().await = compile_rules(&new);
         *self.cfg.write().await = new;

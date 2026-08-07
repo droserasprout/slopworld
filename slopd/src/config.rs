@@ -27,10 +27,51 @@ pub struct Config {
     pub state_rules: Vec<StateRule>,
 }
 
+/// What a set token reads as over the wire, and what a write may send back to mean "leave it
+/// as it was". A client that only ever saw this cannot echo the real token, so it cannot blank
+/// auth it never held; a deliberate change - a new value, or an empty string to turn auth off -
+/// is anything that is not this. A token literally set to the sentinel is harmless: the write
+/// restores it to the same value it already is.
+pub const TOKEN_REDACTED: &str = "<redacted>";
+
+/// The same substitution on the raw file text `GET /api/config` also hands back, so the raw
+/// editor shows the sentinel rather than the secret while keeping every comment and blank line
+/// the file has. Only a non-empty `token` inside the `[daemon]` table is touched. The write
+/// path reserializes from the struct, so this is display only; the restore lives in
+/// `Manager::replace_config`.
+pub fn redact_token_text(text: &str) -> String {
+    let mut out = String::with_capacity(text.len() + TOKEN_REDACTED.len());
+    let mut in_daemon = false;
+    for line in text.lines() {
+        let t = line.trim_start();
+        if t.starts_with('[') {
+            // `[daemon.x]` is a different table and leaves the section, which is what we want.
+            in_daemon = t.starts_with("[daemon]");
+        }
+        let redacted = in_daemon
+            .then(|| {
+                t.strip_prefix("token")
+                    .and_then(|r| r.trim_start().strip_prefix('='))
+            })
+            .flatten()
+            .map(str::trim)
+            .filter(|v| !v.is_empty() && *v != "\"\"")
+            .map(|_| {
+                let indent = &line[..line.len() - t.len()];
+                format!("{indent}token = \"{TOKEN_REDACTED}\"")
+            });
+        out.push_str(redacted.as_deref().unwrap_or(line));
+        out.push('\n');
+    }
+    out
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Daemon {
     pub bind: String,
-    /// Empty means no auth, which is fine on a loopback bind.
+    /// Empty means no auth, which is fine on a loopback bind. Never leaves the daemon as
+    /// written: `GET /api/config` swaps it for `TOKEN_REDACTED`, and a write of the sentinel
+    /// restores it - see `redact_token_text` and `Manager::replace_config`.
     #[serde(default)]
     pub token: String,
     /// Dedicated, so we never collide with the user's own tmux and `tmux -L slopworld
@@ -332,6 +373,17 @@ impl Config {
         Ok(())
     }
 
+    /// A clone safe to hand a client: a set token becomes the sentinel, so `GET /api/config`
+    /// never carries the secret to anything that reaches the endpoint. An empty token stays
+    /// empty - "no auth" is a fact worth telling honestly, and there is nothing to leak.
+    pub fn redacted(&self) -> Self {
+        let mut c = self.clone();
+        if !c.daemon.token.is_empty() {
+            c.daemon.token = TOKEN_REDACTED.to_string();
+        }
+        c
+    }
+
     fn seed() -> Self {
         Self {
             state_rules: vec![
@@ -519,7 +571,60 @@ pub fn expand(path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{temp_dir, Config, ShortcutCfg, ShortcutKind, ShortcutLink};
+    use super::{
+        redact_token_text, temp_dir, Config, ShortcutCfg, ShortcutKind, ShortcutLink,
+        TOKEN_REDACTED,
+    };
+
+    /// What a client sees never carries the secret, and a token that is not set still reads as
+    /// not set - "no auth" being a fact worth telling straight.
+    #[test]
+    fn a_set_token_is_redacted_and_an_empty_one_is_left() {
+        let mut cfg = Config::default();
+        cfg.daemon.token = "s3cr3t".into();
+        assert_eq!(cfg.redacted().daemon.token, TOKEN_REDACTED);
+
+        cfg.daemon.token = String::new();
+        assert_eq!(cfg.redacted().daemon.token, "");
+    }
+
+    /// The raw editor's copy is redacted in place: the token line, and nothing else - not a
+    /// `token` under another table, not an empty one, not the comments around it.
+    #[test]
+    fn redacting_the_text_touches_only_the_daemon_token() {
+        let text = "\
+# keep me
+[daemon]
+bind = \"127.0.0.1:7717\"
+token = \"s3cr3t\"
+tmux_socket = \"slopworld\"
+
+[[shortcuts]]
+name = \"x\"
+token = \"not-a-daemon-token\"
+";
+        let out = redact_token_text(text);
+        assert!(out.contains(&format!("token = \"{TOKEN_REDACTED}\"")));
+        assert!(!out.contains("s3cr3t"));
+        assert!(out.contains("# keep me"));
+        // A `token` key in another table is a different thing and is left exactly.
+        assert!(out.contains("token = \"not-a-daemon-token\""));
+
+        // Nothing to hide: an unset token is not rewritten to the sentinel.
+        let empty = "[daemon]\ntoken = \"\"\n";
+        assert_eq!(redact_token_text(empty), empty);
+    }
+
+    /// The round trip a save has to survive: the sentinel a client hands back parses as the
+    /// sentinel, which the manager restores. Here we prove the shape a write receives.
+    #[test]
+    fn the_sentinel_round_trips_as_itself() {
+        let cfg = Config::parse(&format!(
+            "[daemon]\nbind = \"127.0.0.1:7717\"\ntoken = \"{TOKEN_REDACTED}\"\ntmux_socket = \"slopworld\"\npoll_ms = 80\n"
+        ))
+        .expect("config with the sentinel should parse");
+        assert_eq!(cfg.daemon.token, TOKEN_REDACTED);
+    }
 
     /// A field this build added is one an existing file does not have, and a redeploy
     /// that refused to start would take the agents' only supervisor with it.
