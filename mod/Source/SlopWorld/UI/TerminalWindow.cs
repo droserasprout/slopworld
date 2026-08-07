@@ -804,7 +804,8 @@ namespace SlopWorld
 
             if (e.keyCode != KeyCode.None)
             {
-                string key = MapKey(e);
+                var keyScreen = SessionHub.Instance.Screen(_name);
+                string key = MapKey(e, keyScreen != null && keyScreen.AltScreen);
                 if (key != null)
                 {
                     JumpToLive();
@@ -1336,14 +1337,17 @@ namespace SlopWorld
             Flush();
         }
 
-        static string MapKey(Event e)
+        static string MapKey(Event e, bool altScreen)
         {
-            // tmux turns modifier-prefixed names (C-Left, M-Up) into the xterm sequences apps
-            // read for word-wise motion. Shift is left off: an app that does not grok S-
-            // sequences would drop a shift+arrow that at least used to move the cursor.
+            // tmux turns modifier-prefixed names (C-Left, M-Up, S-Right) into the xterm
+            // sequences apps read for word-wise motion and selection. Shift goes over only on
+            // the alt screen: an editor there asked for the whole screen and groks \e[1;2C,
+            // while zsh and bash leave it undefined - zsh rings the bell and inserts the C
+            // (see zsh-terminal.md), where a bare arrow at least still moved the cursor.
             string mod = "";
             if (e.control) mod += "C-";
             if (e.alt) mod += "M-";
+            if (e.shift && altScreen) mod += "S-";
 
             switch (e.keyCode)
             {

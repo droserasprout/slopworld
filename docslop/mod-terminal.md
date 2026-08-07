@@ -40,6 +40,16 @@ In the **sidebar layout** the window draws no header at all: `TopBar`
 ([mod-ui-chrome](mod-ui-chrome.md)) carries the name, the state and those two
 buttons, and the body starts below it and right of the column.
 
+## Keys
+
+`MapKey` names a key the way tmux does - `C-Left`, `M-Up`, `S-Right` - and
+`send-keys` on the far side turns that into the xterm sequence. **Shift is sent
+only on the alt screen.** A full-screen editor asked for the whole terminal and
+reads `\e[1;2C` as select-right, but zsh and bash leave that sequence undefined
+and zsh answers it with a bell and a stray `C` ([zsh-terminal](zsh-terminal.md)),
+where a bare `Up`/`Down`/`Left`/`Right` at least still moved the cursor. So the
+prompt keeps the plain arrow and the editor gets its selection.
+
 ## `TerminalTheme`
 
 `Sgr.DefaultFg`/`DefaultBg` are properties off it rather than constants, so the
