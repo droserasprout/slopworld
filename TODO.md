@@ -3,6 +3,7 @@
 
 ## Interface
 
+- When Config is open, F12 should close it and open terminal
 - Custom agents order in panel
 - Welcome configuration screen of fresh profile
 - Tab / Shift+Tab in floating windows to navigate between input fields
