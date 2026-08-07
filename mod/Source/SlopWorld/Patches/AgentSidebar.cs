@@ -473,7 +473,7 @@ namespace SlopWorld
                         : row.Pawn != null && row.Pawn == selected;
 
                     if (current) Widgets.DrawBoxSolid(row.Line, SlopWidgets.RowOn);
-                    else if (Mouse.IsOver(row.Line)) Widgets.DrawHighlight(row.Line);
+                    else if (ColonistBarStrip.MouseOver(row.Line)) Widgets.DrawHighlight(row.Line);
                 }
 
                 foreach (var head in Heads) DrawHead(head);
@@ -543,8 +543,8 @@ namespace SlopWorld
             // The strip is the panel's, so a press anywhere along it is the panel's too. Not
             // the last few pixels of it: that is the edge, and Grip - which is asked after
             // this - is what a press there is for.
-            if (Mouse.IsOver(strip) && Event.current.type == EventType.MouseDown
-                && !ColonistBarStrip.Blocked
+            if (ColonistBarStrip.MouseOver(strip) && Event.current.rawType == EventType.MouseDown
+                && ColonistBarStrip.Interactive
                 && Event.current.mousePosition.x < Width - GripW)
                 Event.current.Use();
         }
@@ -553,7 +553,7 @@ namespace SlopWorld
         {
             TooltipHandler.TipRegion(r, tip);
             if (Widgets.ButtonImage(r, icon, on ? Color.white : SlopWidgets.Off, Color.white)
-                && !ColonistBarStrip.Blocked)
+                && ColonistBarStrip.Interactive)
                 go();
 
             if (on)
@@ -568,7 +568,7 @@ namespace SlopWorld
         {
             TooltipHandler.TipRegion(r, "Config");
             if (!Widgets.ButtonImage(r, TabIcons.ConfigTex, SlopWidgets.Off, Color.white)) return;
-            if (ColonistBarStrip.Blocked) return;
+            if (!ColonistBarStrip.Interactive) return;
             SlopOptions.Toggle();
         }
 
@@ -579,7 +579,7 @@ namespace SlopWorld
         {
             TooltipHandler.TipRegion(r, "Menu");
             if (!Widgets.ButtonImage(r, TabIcons.HamburgerTex, SlopWidgets.Off, Color.white)) return;
-            if (ColonistBarStrip.Blocked) return;
+            if (!ColonistBarStrip.Interactive) return;
 
             var opts = new List<FloatMenuOption>
             {
@@ -594,7 +594,7 @@ namespace SlopWorld
         static void DrawHead(Head head)
         {
             var r = head.Rect;
-            if (Mouse.IsOver(r)) Widgets.DrawHighlight(r);
+            if (ColonistBarStrip.MouseOver(r)) Widgets.DrawHighlight(r);
 
             GUI.color = SlopWidgets.Faint;
             var arrow = new Rect(CellX, r.y + (HeadH - ArrowW) / 2f, ArrowW, ArrowW);
@@ -760,7 +760,7 @@ namespace SlopWorld
         // what vanilla does with a bar click, which is to go and look at it.
         static void Click(Row row, SessionInfo info)
         {
-            if (row.Session == null || ColonistBarStrip.Blocked) return;
+            if (row.Session == null || !ColonistBarStrip.Interactive) return;
             if (!Widgets.ButtonInvisible(row.Text, false)) return;
 
             if (!ColonistBarStrip.Drawing)
@@ -790,17 +790,17 @@ namespace SlopWorld
 
         static void Menus()
         {
-            if (ColonistBarStrip.Blocked) return;
+            if (!ColonistBarStrip.Interactive) return;
 
             var e = Event.current;
-            if (e.type != EventType.MouseDown) return;
+            if (e.rawType != EventType.MouseDown) return;
             if (e.button != 0 && e.button != 1) return;
 
-            // Mouse.IsOver rather than Contains, which is what keeps a menu from opening
-            // under a window stacked over the column.
+            // This bypasses Mouse.IsOver's blocked-input gate (see ColonistBarStrip.MouseOver)
+            // and keeps a menu from opening under a window stacked over the column.
             foreach (var head in Heads)
             {
-                if (!Mouse.IsOver(head.Rect)) continue;
+                if (!ColonistBarStrip.MouseOver(head.Rect)) continue;
                 if (e.button == 0) Fold(head.Label, !head.Folded);
                 else HeadMenu(head);
                 e.Use();
@@ -811,7 +811,7 @@ namespace SlopWorld
             foreach (var row in Rows)
             {
                 if (row.Session == null) continue;
-                if (!Mouse.IsOver(row.Line)) continue;
+                if (!ColonistBarStrip.MouseOver(row.Line)) continue;
                 RowMenu(row.Session);
                 e.Use();
                 return;
@@ -922,13 +922,13 @@ namespace SlopWorld
             // it: end the drag here rather than leave the edge stuck to a pointer that has
             // moved on. The width itself was written on every drag frame; only the file was
             // waiting on the release.
-            if (ColonistBarStrip.Blocked && _resizing)
+            if (!ColonistBarStrip.Interactive && _resizing)
             {
                 _resizing = false;
                 Settings.S.Write();
             }
 
-            bool over = !ColonistBarStrip.Blocked && Mouse.IsOver(grip);
+            bool over = ColonistBarStrip.Interactive && ColonistBarStrip.MouseOver(grip);
             bool lit = over || _resizing;
 
             // The panel's edge, and the whole of what says this one can be moved: a pointer
@@ -937,10 +937,10 @@ namespace SlopWorld
             Widgets.DrawBoxSolid(new Rect(w - 1f, 0f, lit ? 2f : 1f, UI.screenHeight),
                 lit ? SlopWidgets.EdgeLit : SlopWidgets.Edge);
 
-            if (ColonistBarStrip.Blocked) return;
+            if (!ColonistBarStrip.Interactive) return;
 
             var e = Event.current;
-            switch (e.type)
+            switch (e.rawType)
             {
                 case EventType.MouseDown:
                     if (!over || e.button != 0) break;
@@ -997,14 +997,16 @@ namespace SlopWorld
         // by running order.
         //
         // Not while something is stacked over a pane - that is the same frame the strip stops
-        // listening in, and the window on top is the one the click belongs to.
+        // listening in, and the window on top is the one the click belongs to. The options
+        // menu is the exception: it opens inside the chrome, and the sidebar stays visible
+        // and interactive.
         static void Absorb()
         {
-            if (ColonistBarStrip.Blocked) return;
+            if (!ColonistBarStrip.Interactive) return;
 
             var e = Event.current;
-            if (e.type != EventType.MouseDown) return;
-            if (!Mouse.IsOver(Panel)) return;
+            if (e.rawType != EventType.MouseDown) return;
+            if (!ColonistBarStrip.MouseOver(Panel)) return;
             if (ColonistBarStrip.AddRect.Contains(e.mousePosition)) return;
             e.Use();
         }

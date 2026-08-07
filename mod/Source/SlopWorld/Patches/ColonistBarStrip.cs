@@ -55,6 +55,27 @@ namespace SlopWorld
         // having already Used the event.
         public static bool Blocked { get; private set; }
 
+        // The options menu is the one window that opens *inside* the chrome rather than over it:
+        // it is laid out off the sidebar and the top bar, which stay visible and alive (see
+        // SlopOptions.Free). So the strip, which otherwise stops listening while anything is
+        // stacked above the pane, keeps taking its own clicks for that one window. Everything
+        // else that floats over the pane still blocks it the same way Blocked says.
+        public static bool OptionsOpen =>
+            Find.WindowStack?.WindowOfType<Dialog_Options>() != null;
+
+        // What the strip's own handlers ask instead of Blocked: the same answer, except that an
+        // open options menu keeps the column interactive. Read where the column decides whether
+        // to answer a click, so the one exception is not argued afresh at every gate.
+        public static bool Interactive => !Blocked || OptionsOpen;
+
+        // The mouse is over a rect on the strip, bypassing `Mouse.IsOver`'s input-blocked gate.
+        // `Mouse.IsOver` calls `IsInputBlockedNow` which returns true when the current window
+        // does not get input - and the options dialog, which opens inside the chrome with the
+        // sidebar still visible and interactive, causes the terminal window to fail that check.
+        // The sidebar's own interactive code runs before the dialog's draw and uses screen
+        // coordinates, so a direct `Contains` is the right answer.
+        public static bool MouseOver(Rect r) => r.Contains(Event.current.mousePosition);
+
         // The map-layer draw is pointless under a terminal and would register the bar's
         // reorderable groups twice a frame.
         public static bool Suppressed => Active && !Drawing;
@@ -198,10 +219,10 @@ namespace SlopWorld
         {
             if (!ColonistBarStrip.Drawing) return true;
             // Something is stacked over the pane; the strip is scenery this frame.
-            if (ColonistBarStrip.Blocked) return false;
+            if (!ColonistBarStrip.Interactive) return false;
             if (Event.current.type != EventType.MouseDown || Event.current.button != 0)
                 return true;
-            if (!Mouse.IsOver(rect)) return true; // not this portrait; fall through
+            if (!ColonistBarStrip.MouseOver(rect)) return true; // not this portrait; fall through
 
             var session = AgentColony.Current?.SessionOf(colonist);
             if (session == null) return true;

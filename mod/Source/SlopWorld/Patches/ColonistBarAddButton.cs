@@ -23,7 +23,7 @@ namespace SlopWorld
 
             // Look like a colonist slot: the bar's own background, then a plus.
             GUI.DrawTexture(rect, ColonistBar.BGTex);
-            if (Mouse.IsOver(rect)) Widgets.DrawHighlight(rect);
+            if (ColonistBarStrip.MouseOver(rect)) Widgets.DrawHighlight(rect);
 
             // Square and centred whatever shape the slot is: in the column it is a row the
             // width of the panel, and half of that in each direction is a stretched plus.
@@ -34,7 +34,7 @@ namespace SlopWorld
 
             TooltipHandler.TipRegion(rect, "Add agent");
 
-            if (ColonistBarStrip.Blocked) return;
+            if (!ColonistBarStrip.Interactive) return;
 
             if (Widgets.ButtonInvisible(rect, false))
                 TerminalWindow.OpenOverPane(new EditSessionDialog(null));

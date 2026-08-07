@@ -40,6 +40,20 @@ the postfix, which is what puts the column over a pane as well as on the map.
 - `Absorb` eats the mouse over the panel, last of all. Without it a press starts a
   drag-selection on the ground behind the panel and a right-click orders a
   colonist to walk there.
+- The options menu is the one window that opens inside the chrome rather than over
+  it: the band is laid out from the sidebar's right edge and the top bar's bottom,
+  so the sidebar stays visible and stays interactive. `ColonistBarStrip.Interactive`
+  is `!Blocked || OptionsOpen` everywhere the sidebar asks whether it may answer a
+  click, so the grip, the tabs, the menus and the absorb all keep working while the
+  options dialog is up. `Mouse.IsOver` is not used for any of these checks:
+  `ColonistBarStrip.MouseOver` calls `Contains` directly, bypassing `IsInputBlockedNow`
+  (which would return true, the current window not getting input). The press checks
+  read `Event.current.rawType` rather than `type`: `HandleEventsHighPriority` uses a
+  MouseDown when any window absorbs input, which is most frames while the pane is up,
+  and `rawType` is the one answer that still says what the user did. F1 and F12 are
+  handled by the options dialog itself (see `Patch_OptionsHotkeys`),
+  HandleEventsHighPriority having used the key events before they reached the game
+  components below it.
 - `Menus` and `Grip` are taken in the **back** pass, before the bar's own draw,
   because the bar swallows a right-click over a portrait to keep it off the map -
   asked for after it, a row menu would open over only half a row. A heading folds

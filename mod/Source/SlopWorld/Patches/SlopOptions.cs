@@ -380,6 +380,40 @@ namespace SlopWorld
             }
         }
 
+        // F1 and F12 pressed while the options menu is open. The terminal's own key handler
+        // (TerminalWindow.HandleKey) does not run when a window above it absorbs input, and
+        // HandleEventsHighPriority uses every KeyDown before game components (TerminalHotkeys)
+        // see them. The events reach the topmost absorbing window's own DoWindowContents, so
+        // the keys are answered here.
+        //
+        // F1 opens the command palette on top of the options; F12 closes the options and
+        // reveals the terminal pane underneath.
+        [HarmonyPatch(typeof(Dialog_Options), nameof(Dialog_Options.DoWindowContents))]
+        public static class Patch_OptionsHotkeys
+        {
+            static void Prefix()
+            {
+                var e = Event.current;
+                if (e.type != EventType.KeyDown) return;
+
+                if (SlopDefOf.SlopCommandPalette != null
+                    && SlopDefOf.SlopCommandPalette.KeyDownEvent)
+                {
+                    CommandPalette.Toggle();
+                    e.Use();
+                    return;
+                }
+
+                if (SlopDefOf.SlopQuickTerminal != null
+                    && SlopDefOf.SlopQuickTerminal.KeyDownEvent)
+                {
+                    var w = Find.WindowStack?.WindowOfType<Dialog_Options>();
+                    if (w != null) w.Close();
+                    e.Use();
+                }
+            }
+        }
+
 
         // ---------------------------------------------------------------- terminal
 

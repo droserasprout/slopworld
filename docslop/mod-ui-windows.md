@@ -69,6 +69,11 @@ found: every window and button is an `Entry` here, recently used first (`RecentM
 opening a dialog - "Agent: Stop" then picks which agent - and Backspace with an
 empty filter is the way back out of one.
 
+F1 is answered there too while the options menu is open (`Patch_OptionsHotkeys`): a
+window absorbing input makes `HandleEventsHighPriority` use every KeyDown ahead of
+the game components, so the command palette is the one place still allowed to hear
+it. F12 likewise closes the options and reveals the terminal pane underneath.
+
 `Fuzzy` is the search behind it, and a substring test is the wrong shape for a
 list of `Noun: Verb` rows: nobody types the colon, so `v c` and `vc` both have to
 find "View: Config". The query splits on whitespace, **every term must appear as a

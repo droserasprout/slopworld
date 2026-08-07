@@ -234,7 +234,7 @@ namespace SlopWorld
             var r = new Rect(0f, y, width, RowH);
             bool shut = Shut.Contains(project);
 
-            if (Mouse.IsOver(r)) Widgets.DrawHighlight(r);
+            if (ColonistBarStrip.MouseOver(r)) Widgets.DrawHighlight(r);
 
             GUI.color = SlopWidgets.Faint;
             var arrow = new Rect(CellX, r.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW);
@@ -307,7 +307,7 @@ namespace SlopWorld
         static float Row(float width, float y, Node node)
         {
             var r = new Rect(0f, y, width, RowH);
-            if (Mouse.IsOver(r)) Widgets.DrawHighlight(r);
+            if (ColonistBarStrip.MouseOver(r)) Widgets.DrawHighlight(r);
             if (node.Path == _selected)
                 Widgets.DrawBoxSolid(r, new Color(1f, 1f, 1f, 0.08f));
 
@@ -385,22 +385,22 @@ namespace SlopWorld
         //
         // Called from AgentSidebar's back pass where Menus is in the other view: after the
         // whole tree is laid out and outside the scroll view's group, so a rect here is in the
-        // coordinates Mouse.IsOver reads; after Grip, because a row is the full width of the
+        // coordinates ColonistBarStrip.MouseOver reads; after Grip, because a row is the full width of the
         // panel and asked first it would eat every press on the edge; and before Absorb, which
         // takes whatever the panel's contents did not.
         public static void Clicks()
         {
-            if (ColonistBarStrip.Blocked) return;
+            if (!ColonistBarStrip.Interactive) return;
 
             var e = Event.current;
-            if (e.type != EventType.MouseDown) return;
+            if (e.rawType != EventType.MouseDown) return;
             if (e.button != 0 && e.button != 1) return;
 
             foreach (var line in Lines)
             {
                 // Shifted by the scroll and clipped by the view, so the rect a row was drawn
                 // at is not where it can be clicked; Contains against the scrolled rect is.
-                if (!Mouse.IsOver(Screen(line.Rect))) continue;
+                if (!ColonistBarStrip.MouseOver(Screen(line.Rect))) continue;
 
                 if (line.Project != null)
                 {
