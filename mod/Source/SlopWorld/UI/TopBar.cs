@@ -12,11 +12,18 @@ namespace SlopWorld
         const float Pad = 8f;
         const float ClockW = 76f;
 
-        // The two drawn glyphs, at the size they were on the strip they came off. The two
-        // things on the map are given a little more: a resource icon is 27 in the quota strip
-        // beside them, and a building shrunk to a tab-bar glyph is a smudge.
+        // Every door on the line at the size the drawn glyphs were on the strip they came
+        // off. The two things on the map had four pixels more for a while, on the grounds
+        // that a building shrunk to a tab-bar glyph is a smudge - but a `ThingIcon` fills
+        // its rect where a glyph keeps a margin inside one, so the same figure already
+        // draws them bigger than their neighbours and a larger one made them loom.
         const float IconW = 18f;
-        const float ThingW = 24f;
+
+        // A `TipSignal` with no id of its own is keyed on its text, and the jukebox's names
+        // what is playing - so the bubble would restart its fade every time the station moved
+        // on. Both things carry an id instead, which only has to be theirs alone.
+        const int CoreTipId = 0x51_0C_01;
+        const int JukeboxTipId = 0x51_0C_02;
 
         public static Rect Rect =>
             new Rect(SlopLayout.LeftInset, 0f, UI.screenWidth - SlopLayout.LeftInset, H);
@@ -55,9 +62,9 @@ namespace SlopWorld
             // matters most for the cog: dead here, it would open a window it cannot close.
             float right = Doors(r, interactive || ColonistBarStrip.OptionsOpen);
 
-            // Nothing where there is no room: the doors now take 140 pixels off this end, and
-            // a strip handed a negative width right-aligns its first chip off the left of the
-            // clock rather than declining to draw.
+            // Nothing where there is no room: the doors take well over a hundred pixels off
+            // this end with all four up, and a strip handed a negative width right-aligns its
+            // first chip off the left of the clock rather than declining to draw.
             float quota = right - clock.xMax - Pad;
             if (quota > 0f)
                 UsageReadout.DrawStrip(new Rect(clock.xMax + Pad, r.y, quota, r.height));
@@ -114,17 +121,17 @@ namespace SlopWorld
 
             if (CoreTip.On(map))
             {
-                x -= gap + ThingW;
-                Thing(Slot(r, x, ThingW), SlopDefOf.Ship_ComputerCore, "Persona core",
-                    CoreTip.OpenMenu, live);
+                x -= gap + IconW;
+                Thing(Slot(r, x, IconW), SlopDefOf.Ship_ComputerCore,
+                    new TipSignal("Persona core", CoreTipId), CoreTip.OpenMenu, live);
                 gap = SlopWidgets.GapS;
             }
 
             if (Jukebox.On(map))
             {
-                x -= gap + ThingW;
-                Thing(Slot(r, x, ThingW), SlopDefOf.SlopJukebox, "Jukebox",
-                    Jukebox.OpenMenu, live);
+                x -= gap + IconW;
+                Thing(Slot(r, x, IconW), SlopDefOf.SlopJukebox,
+                    new TipSignal(Jukebox.IconTip(), JukeboxTipId), Jukebox.OpenMenu, live);
             }
 
             return x - SlopWidgets.GapM;
@@ -152,7 +159,7 @@ namespace SlopWorld
 
         // ThingIcon carries the def's own colour and gives nothing back on a hover, so the
         // highlight and the press are drawn and taken here.
-        static void Thing(Rect r, ThingDef def, string tip, System.Action go, bool live)
+        static void Thing(Rect r, ThingDef def, TipSignal tip, System.Action go, bool live)
         {
             if (def == null) return;
 

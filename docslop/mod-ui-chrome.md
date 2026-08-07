@@ -189,14 +189,23 @@ Two groups, `GapM` apart:
   mod has did not belong in it. `TabIcons` at 18.
 - The **jukebox** and the **persona core** - the two things on the map with a
   menu of their own, which is now reachable without finding them on the ground.
-  `Widgets.ThingIcon` at 24, the game's own icons rather than glyphs drawn in
-  code, which is what makes them read as the quota's neighbours; and each draws
-  only where its thing is standing (`Jukebox.On`, `CoreTip.On`), a door onto a
-  thing that is not there being no door. The menus themselves are
-  `Jukebox.OpenMenu` and `CoreTip.OpenMenu`, one entry point for the bar and the
-  ground both - see [mod-jukebox](mod-jukebox.md). Every one of them opens through
+  `Widgets.ThingIcon` at 18 like the rest, the game's own icons rather than
+  glyphs drawn in code, which is what makes them read as the quota's neighbours;
+  and each draws only where its thing is standing (`Jukebox.On`, `CoreTip.On`), a
+  door onto a thing that is not there being no door. They had 24 for a while, on
+  the grounds that a building shrunk to a tab-bar glyph is a smudge - but a
+  `ThingIcon` **fills its rect** where a glyph keeps a margin inside one, so the
+  same figure already draws them bigger than their neighbours and a larger one
+  loomed. The menus themselves are `Jukebox.OpenMenu` and `CoreTip.OpenMenu`, one
+  entry point for the bar and the ground both - see
+  [mod-jukebox](mod-jukebox.md). Every one of them opens through
   `TerminalWindow.OpenOverPane`, this line being drawn over a terminal as well as
   over the map.
+
+  Both carry a **`TipSignal` with an id of its own** rather than a bare string,
+  because the jukebox's names what is playing (`Jukebox.IconTip`, the icon's
+  answer to the same question the box on the ground answers) and a signal keyed on
+  its text restarts the bubble's fade every time the station moves on.
 
 **Nothing here goes through `Widgets.ButtonImage`**, and for the reason
 `ColonistBarStrip.MouseOver` states: every vanilla road to a click passes

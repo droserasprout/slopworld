@@ -85,6 +85,16 @@ namespace SlopWorld
             TooltipHandler.TipRegion(CellRect(cell), new TipSignal(Note + now, cell.GetHashCode()));
         }
 
+        // The same question asked of the status bar's icon, which is a door onto this box and
+        // so owes the same answer. The name leads rather than standing alone, the way the
+        // other doors up there name what they open; the song follows when there is one, and
+        // with nothing playing the row is what it always was.
+        public static string IconTip()
+        {
+            string now = Radio.NowPlaying;
+            return string.IsNullOrEmpty(now) ? "Jukebox" : "Jukebox\n" + Note + now;
+        }
+
         // The cell in screen coordinates. Two opposite corners mapped and squared up, since
         // which way round they come out is the camera's business rather than ours.
         static Rect CellRect(IntVec3 cell)
