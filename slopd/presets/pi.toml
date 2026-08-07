@@ -1,13 +1,18 @@
-# Private for the same reason `claude` is. The files at the top of `~/.pi` are seeded whatever
-# they are called, which is what carries the credentials across without this file having to
-# know their names; a machine whose pi keeps a *directory* of something the agent needs wants
-# that directory added to `seed`.
+# Private for the same reason `claude` is.
+#
+# `agent/` is the whole of pi's state - the model selection in `models-store.json`, what it
+# trusts, and 21MB of session transcripts under `sessions/`. Seeded whole and cut back, rather
+# than named file by file: the first attempt here guessed at `agents`, `extensions` and
+# `prompts`, none of which pi has ever made, and the agent came up having forgotten which model
+# it was. What is left out is the transcripts, which are the one thing a session should not
+# inherit from the user or from its predecessor anyway.
 [[sandbox]]
 name = "pi"
 category = "agent"
 description = "pi coding agent's own state, config and credentials, one copy per session"
 private = ["~/.pi"]
-seed = ["~/.pi/agents", "~/.pi/extensions", "~/.pi/prompts"]
+seed = ["~/.pi/agent"]
+skip = ["~/.pi/agent/sessions"]
 env = [
     "PI_CODING_AGENT_DIR",
     "ANTHROPIC_API_KEY",

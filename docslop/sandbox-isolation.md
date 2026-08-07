@@ -44,9 +44,16 @@ longer read each other's transcripts either.
   *user* wrote lives. Deliberately not a list of every agent's filenames: the
   failure it chooses is a session that copied a megabyte it did not need, over
   one that cannot log in.
+- `skip` cuts back out of what `seed` names, which is what makes naming a whole
+  directory the right move. A tool scatters its config and concentrates its
+  bulk: `~/.pi/agent` holds the model selection *and* 21MB of transcripts, so
+  the preset seeds `agent` and skips `agent/sessions`. Listing by hand the files
+  that turn out to matter is how `pi` shipped seeding `agents`, `extensions` and
+  `prompts` - three directories pi has never made - and agents came up having
+  forgotten which model they were. Seed wide, skip the bulk, fail towards an
+  agent that works.
 - `seed` comes from two places: the **preset**, for what every session of that
-  software wants (`agents`, `commands`, `skills`), and the **project**, for what
-  one ground wants. `~/.claude/plugins` is the case the project layer was added
+  software wants, and the **project**, for what one ground wants. `~/.claude/plugins` is the case the project layer was added
   for - 13MB of language servers and marketplace clones, worth copying into the
   session that will open one and not into the thirty that will not. A project
   may name the whole directory or a single plugin inside it; a seed path that

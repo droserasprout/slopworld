@@ -259,23 +259,33 @@ fn seed_into(pr: &SandboxPreset, project: &[String], host: &str, copy: &Path) ->
     // is what every session of that software wants; the project's is what this ground wants,
     // and `~/.claude/plugins` is the case it was added for: 13MB of language servers is worth
     // copying into a session that will use one and not into thirty that will not.
+    // `skip` is expanded once here rather than per directory walked: it is a handful of paths
+    // and the walk is not.
+    let skip: Vec<String> = pr.skip.iter().map(|s| expand(s)).collect();
+
     for from in pr.seed.iter().chain(project) {
         let from = expand(from);
         let Ok(rel) = Path::new(&from).strip_prefix(host) else {
             continue; // a seed for some other private path, or for another preset's
         };
         let to = copy.join(rel);
-        if let Err(e) = seed(Path::new(&from), &to) {
+        if let Err(e) = seed(Path::new(&from), &to, &skip) {
             tracing::warn!("seeding {} from {from}: {e:#}", to.display());
         }
     }
     Ok(())
 }
 
-/// One seed entry, file or directory. A missing source is not an error: a preset names what
-/// the software it describes *may* keep, and no two machines have all of it.
-fn seed(from: &Path, to: &Path) -> Result<()> {
-    if !from.exists() {
+/// One seed entry, file or directory, minus whatever `skip` names under it. A missing source is
+/// not an error: a preset names what the software it describes *may* keep, and no two machines
+/// have all of it.
+///
+/// `skip` is what makes naming a whole directory safe. A tool scatters its config and
+/// concentrates its bulk - `~/.pi/agent` holds the model selection *and* 21MB of transcripts -
+/// so seeding the directory and cutting the one subdirectory out beats listing by hand every
+/// file that turns out to matter. It fails towards an agent that works.
+fn seed(from: &Path, to: &Path, skip: &[String]) -> Result<()> {
+    if !from.exists() || skip.iter().any(|s| Path::new(s) == from) {
         return Ok(());
     }
     if from.is_file() {
@@ -288,7 +298,7 @@ fn seed(from: &Path, to: &Path) -> Result<()> {
     std::fs::create_dir_all(to)?;
     for entry in std::fs::read_dir(from)? {
         let entry = entry?;
-        seed(&entry.path(), &to.join(entry.file_name()))?;
+        seed(&entry.path(), &to.join(entry.file_name()), skip)?;
     }
     Ok(())
 }
@@ -836,6 +846,45 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(copy.join("auth.json")).unwrap(),
             "the agent's own"
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// `skip` is what lets a preset name a whole directory. The shape is `~/.pi/agent`: the
+    /// model selection and 21MB of transcripts in one place, and a seed list that named three
+    /// subdirectories pi has never made brought across neither.
+    #[test]
+    fn a_seeded_directory_comes_across_whole_bar_what_skip_names() {
+        let root = std::env::temp_dir().join(format!("slopd-skip-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let host = root.join("host");
+        std::fs::create_dir_all(host.join("agent/sessions")).unwrap();
+        std::fs::create_dir_all(host.join("agent/nested/deep")).unwrap();
+        std::fs::write(host.join("agent/models-store.json"), "opus").unwrap();
+        std::fs::write(host.join("agent/nested/deep/kept.json"), "kept").unwrap();
+        std::fs::write(host.join("agent/sessions/big.jsonl"), "21MB of talk").unwrap();
+
+        let pr = SandboxPreset {
+            name: "t".into(),
+            private: vec![host.to_string_lossy().into_owned()],
+            seed: vec![host.join("agent").to_string_lossy().into_owned()],
+            skip: vec![host.join("agent/sessions").to_string_lossy().into_owned()],
+            ..Default::default()
+        };
+        let copy = root.join("copy");
+        seed_into(&pr, &[], &host.to_string_lossy(), &copy).unwrap();
+
+        // What the agent needs to be itself, however deep it sits.
+        assert_eq!(
+            std::fs::read_to_string(copy.join("agent/models-store.json")).unwrap(),
+            "opus"
+        );
+        assert!(copy.join("agent/nested/deep/kept.json").exists());
+        // And not the bulk, nor the directory that held it.
+        assert!(
+            !copy.join("agent/sessions").exists(),
+            "the transcripts came across"
         );
 
         let _ = std::fs::remove_dir_all(&root);

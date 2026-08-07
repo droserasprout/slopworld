@@ -36,6 +36,13 @@ pub struct SandboxPreset {
     /// plugins, agents, commands. A `private` entry that is itself a file is its own seed.
     #[serde(default)]
     pub seed: Vec<String>,
+    /// Cut out of whatever `seed` names, which is what makes naming a whole directory safe. A
+    /// tool scatters its config and concentrates its bulk in one place - `~/.pi/agent` holds
+    /// the model selection *and* 21MB of transcripts - so seeding the directory and skipping
+    /// the one subdirectory beats listing by hand every file that turns out to matter, and
+    /// gets the list wrong towards an agent that works rather than one that does not.
+    #[serde(default)]
+    pub skip: Vec<String>,
     /// Non-empty when ticking this hands the sandbox a way back out: a socket whose far end
     /// runs on the host, a display every other window shares. Free text, because what it
     /// costs is the part worth reading, and the GUI draws it beside the checkbox rather than
