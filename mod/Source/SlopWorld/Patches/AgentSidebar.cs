@@ -906,38 +906,46 @@ namespace SlopWorld
             if (!ColonistBarStrip.Interactive) return;
 
             var e = Event.current;
-            switch (e.rawType)
+
+            // None of this gesture is read off an event, and the options menu is why. With a
+            // dialog over the pane the *press* never reaches this method at all - not Used, not
+            // as a stale `rawType`, not at all: the window under an absorbing one is simply not
+            // called for a MouseDown, and only MouseUp and the repaints still arrive here. That
+            // is what a `rawType` MouseDown latch could never fix, having nothing to latch on.
+            //
+            // `Input` is the way through. Its flags are the frame's own and nothing on the window
+            // stack can Use them - `Patch_Root_Update` already reads `GetMouseButtonDown` for the
+            // cursor for exactly that reason - and Grip runs every frame the column is drawn, so
+            // the press is *sampled* rather than received. The pointer comes off the event, which
+            // is right on any of them, repaints included.
+            //
+            // The rest follows from the same rule, and it is the shape vanilla's own resize grip
+            // (`WindowResizer`) uses: latch, follow the pointer, end when the button is up. Which
+            // also closes a release out past the edge of the screen, that being an event nobody
+            // ever gets. `MouseDrag` is not consulted anywhere: the game will not trust it either,
+            // `UnityGUIBugsFixer.MouseDrag` polling `GetMouseButton` outright on a Linux build.
+            if (!_resizing)
             {
-                case EventType.MouseDown:
-                    if (!over || e.button != 0) break;
-                    _resizing = true;
-                    _grab = w - e.mousePosition.x;
-                    e.Use();
-                    break;
-
-                case EventType.MouseDrag:
-                    if (!_resizing) break;
-                    SetWidth(e.mousePosition.x + _grab);
-                    e.Use();
-                    break;
-
-                case EventType.MouseUp:
-                    if (!_resizing) break;
-                    _resizing = false;
-                    Settings.S.Write();
-                    e.Use();
-                    break;
-
-                default:
-                    // A release the window never saw - dragged off the edge of the screen and
-                    // let go out there - would otherwise leave the edge stuck to the pointer.
-                    if (_resizing && !Input.GetMouseButton(0))
-                    {
-                        _resizing = false;
-                        Settings.S.Write();
-                    }
-                    break;
+                if (!over || !Input.GetMouseButtonDown(0)) return;
+                _resizing = true;
+                _grab = w - e.mousePosition.x;
             }
+            else if (Input.GetMouseButton(0))
+            {
+                SetWidth(e.mousePosition.x + _grab);
+            }
+            else
+            {
+                _resizing = false;
+                Settings.S.Write();
+            }
+
+            // The press and the release still get Used when they *do* arrive, so a grab on the
+            // edge is not also a click on the map behind the column. On the frames they never
+            // arrive there is nothing below to take them.
+            if (e.rawType == EventType.MouseDown || e.rawType == EventType.MouseUp
+                || e.rawType == EventType.MouseDrag)
+                e.Use();
         }
 
         static void SetWidth(float w)
@@ -946,6 +954,11 @@ namespace SlopWorld
             // The inspect pane is moved on open and on a resolution change, so with one up it
             // has to be told, or the column crosses it until it is next opened.
             Patch_MainTabWindowShift.Reposition();
+            // And the options menu, for the same reason and by the same standing offer: it is
+            // laid out off this width (SlopOptions.Free), but only when it opens and when the
+            // layout is toggled - neither of which is a drag. Untold, the band keeps the width
+            // the column had when it opened and the edge slides across underneath it.
+            SlopOptions.Reposition();
         }
 
         // The column is a fifth of the screen taken off the map, and the map is what handles

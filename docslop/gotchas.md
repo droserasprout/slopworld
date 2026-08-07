@@ -44,6 +44,24 @@
   absorbs input around itself, so a global hotkey taken in a game component fires
   only while nothing is absorbing. A key that must also work with a window up has
   to be read inside that window as well; `SlopQuickTerminal` is read in both.
+- **A window under an absorbing one gets no `MouseDown`, and `rawType` does not
+  bring it back.** `rawType` recovers an event that was *Used* - `Event.Use()`
+  sets `type` to `Used` and leaves `rawType` alone - and that is the whole of what
+  it can do. It cannot recover an event the window was never called for. Measured
+  in `AgentSidebar.Grip` with the options menu up: MouseUp and the repaints arrive,
+  `Drawing` and `Interactive` are both true, and MouseDown does not appear in any
+  form. So a press-driven gesture in a pane goes dead the moment a dialog opens over
+  it, and no reading of the event will fix it, because there is no event.
+  **`Input` is the way through**: `GetMouseButtonDown` / `GetMouseButton` are the
+  frame's own flags and nothing on the window stack can Use them, so a handler that
+  runs every frame can *sample* the press instead of receiving it.
+  `Patch_Root_Update` reads them for `DeadCursor` for the same reason. This makes a
+  drag the shape `WindowResizer` (vanilla's own resize grip) already uses: **latch,
+  follow `mousePosition`, end when the button is up** - which also closes a release
+  dragged off the edge of the screen, that being an event nobody gets either.
+  `MouseDrag` is not worth consulting anywhere: `UnityGUIBugsFixer.MouseDrag(button)`
+  returns `Input.GetMouseButton(button)` outright on a Linux build (and the Steam
+  Deck), and `FixDelta` rebuilds `CurrentEventDelta` from the pointer on Repaints.
 - **`Window.Margin` (18 by default) is not padding.** `InnerWindowOnGUI` opens a GUI
   group on the contracted rect, so `DoWindowContents` draws in a space translated
   by the margin while `GUI.matrix` and screen coordinates stay put.

@@ -48,9 +48,20 @@ the postfix, which is what puts the column over a pane as well as on the map.
   options dialog is up. `Mouse.IsOver` is not used for any of these checks:
   `ColonistBarStrip.MouseOver` calls `Contains` directly, bypassing `IsInputBlockedNow`
   (which would return true, the current window not getting input). The press checks
-  read `Event.current.rawType` rather than `type`: `HandleEventsHighPriority` uses a
-  MouseDown when any window absorbs input, which is most frames while the pane is up,
-  and `rawType` is the one answer that still says what the user did. F1 and F12 are
+  read `Event.current.rawType` rather than `type`, which recovers a MouseDown that
+  `HandleEventsHighPriority` Used - but **only** one that arrived at all. With the
+  options menu up none does: the pane is under an absorbing window, and a window
+  under one is never called for a MouseDown (see the entry in `gotchas.md`; measured,
+  not assumed). So `Grip` reads no part of its gesture off an event. It samples
+  `Input.GetMouseButtonDown(0)` while the pointer is over the edge, follows
+  `Event.current.mousePosition` for as long as `Input.GetMouseButton(0)` holds, and
+  ends when it does not. **Everything else on the column that wants a press - the
+  tabs, the menus, the tree's rows, the portrait click - still reads the event, so
+  it is dead while the options menu is up.** `Grip` is the one that was asked for;
+  the rest want the same treatment. `SetWidth` tells the options menu as well as the
+  inspect pane: both are laid out off this width but placed only on open, so a drag
+  has to say so or the band keeps the width the column had when it opened. F1 and
+  F12 are
   handled by the options dialog itself (see `Patch_OptionsHotkeys`),
   HandleEventsHighPriority having used the key events before they reached the game
   components below it.
