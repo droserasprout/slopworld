@@ -3,11 +3,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, Query, Request, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::response::IntoResponse;
-use axum::routing::{get, post, put};
-use axum::{Json, Router};
+use axum::middleware::{self, Next};
+use axum::response::{IntoResponse, Response};
+use axum::routing::{delete, get, post, put};
+use axum::{Extension, Json, Router};
+
+use crate::grant::{Cap, Level};
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
 use serde_json::json;
@@ -19,13 +22,24 @@ use crate::session::{Event, Manager, RunWhere, WatchGuard};
 type Mgr = Arc<Manager>;
 
 pub fn router(m: Mgr) -> Router {
-    Router::new()
+    // Reachable by a scoped grant as well as the root. Each handler checks its own session and
+    // level (`guard`), the list is filtered, and `/ws` gates every message - so a grant reaches
+    // exactly the sessions it names, at the level it was given, and the host through none of it.
+    // Creating a session (`POST /api/sessions`) is root-only even here, by `guard_create`.
+    let scoped = Router::new()
         .route("/api/health", get(health))
         .route("/api/sessions", get(list).post(create))
         .route("/api/sessions/:name", get(one).put(update).delete(destroy))
         .route("/api/sessions/:name/start", post(start))
         .route("/api/sessions/:name/stop", post(stop))
         .route("/api/sessions/:name/restart", post(restart))
+        .route("/ws", get(ws_upgrade));
+
+    // The mod's own: the file, the projects, the machine, and minting grants itself. Default
+    // deny - a grant reaches none of it, and a route added here is root-only until someone
+    // moves it into `scoped` on purpose. The layer reads the capability `auth` already hung on
+    // the request.
+    let root = Router::new()
         .route("/api/projects", get(list_projects).post(create_project))
         .route(
             "/api/projects/:name",
@@ -38,6 +52,8 @@ pub fn router(m: Mgr) -> Router {
         )
         .route("/api/shortcuts/:name/run", post(run_shortcut))
         .route("/api/run", post(run))
+        .route("/api/grants", get(list_grants).post(mint_grant))
+        .route("/api/grants/:grantor", delete(revoke_grants))
         .route("/api/presets", get(presets))
         .route("/api/config", get(get_config))
         .route("/api/config", put(put_config))
@@ -49,23 +65,38 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/browse", get(browse))
         .route("/api/game", get(game))
         .route("/api/game/restart", post(restart_game))
-        .route("/ws", get(ws_upgrade))
-        .with_state(m)
+        .layer(middleware::from_fn(require_root));
+
+    scoped.merge(root).with_state(m)
+}
+
+/// The default-deny half of the API: everything but the session read/drive routes is the mod's,
+/// so a scoped grant gets 403 here before a handler runs. The capability was resolved and hung
+/// on the request by `auth`, which is the outer layer, so it is always present by now.
+async fn require_root(Extension(cap): Extension<Cap>, req: Request, next: Next) -> Response {
+    if cap.may_create() {
+        next.run(req).await
+    } else {
+        err(
+            StatusCode::FORBIDDEN,
+            "this route needs the daemon's own token",
+        )
+        .into_response()
+    }
 }
 
 fn err(code: StatusCode, e: impl std::fmt::Display) -> (StatusCode, Json<serde_json::Value>) {
     (code, Json(json!({ "error": e.to_string() })))
 }
 
-/// An empty configured token means no auth. Shared with the `/ws` upgrade, which
-/// re-checks because the header rides only on the upgrade request.
-pub fn token_ok(headers: &HeaderMap, token: &str) -> bool {
-    token.is_empty()
-        || headers
-            .get("x-slop-token")
-            .and_then(|v| v.to_str().ok())
-            .map(|v| v == token)
-            .unwrap_or(false)
+/// The token a request presents, if any. What `Manager::resolve_cap` weighs against the root
+/// and the live grants. Shared with the `/ws` upgrade, which reads it itself because the header
+/// rides only on the upgrade request.
+pub fn presented_token(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("x-slop-token")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string)
 }
 
 type ApiResult = Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)>;
@@ -73,6 +104,36 @@ type ApiResult = Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::V
 fn ok_json(r: anyhow::Result<()>) -> ApiResult {
     r.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "ok": true })))
+}
+
+/// 403 unless `cap` may touch `name` at `need` - the check every per-session route makes. Root
+/// passes everything; a grant passes only a session it names, and never the host. 403 rather
+/// than 404, since a scoped caller has no business learning whether the name it cannot touch
+/// exists (a missing name and a forbidden one read the same to it).
+async fn guard(
+    m: &Mgr,
+    cap: &Cap,
+    name: &str,
+    need: Level,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    if m.cap_ok(cap, name, need).await {
+        Ok(())
+    } else {
+        Err(err(StatusCode::FORBIDDEN, format!("not allowed: {name}")))
+    }
+}
+
+/// 403 unless `cap` is the root: creating a session - a new agent, an errand - is the mod's,
+/// never a grant's. A grant is a handle on what already exists.
+fn guard_create(cap: &Cap) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    if cap.may_create() {
+        Ok(())
+    } else {
+        Err(err(
+            StatusCode::FORBIDDEN,
+            "only the daemon's own token may create sessions",
+        ))
+    }
 }
 
 async fn health(State(m): State<Mgr>) -> ApiResult {
@@ -83,11 +144,26 @@ async fn health(State(m): State<Mgr>) -> ApiResult {
     })))
 }
 
-async fn list(State(m): State<Mgr>) -> ApiResult {
-    Ok(Json(json!({ "sessions": m.views().await })))
+async fn list(State(m): State<Mgr>, Extension(cap): Extension<Cap>) -> ApiResult {
+    // Filtered to what the caller may see: a grant lists the sessions it names and no others, so
+    // a name it cannot touch is a name it never learns. Host-ness is not carried on a view and
+    // is not needed here - a grant never names a host session, so `can_see` refuses it by
+    // membership alone.
+    let sessions: Vec<_> = m
+        .views()
+        .await
+        .into_iter()
+        .filter(|s| cap.can_see(&s.name, false))
+        .collect();
+    Ok(Json(json!({ "sessions": sessions })))
 }
 
-async fn one(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+async fn one(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    Path(name): Path<String>,
+) -> ApiResult {
+    guard(&m, &cap, &name, Level::Ro).await?;
     m.views()
         .await
         .into_iter()
@@ -96,31 +172,58 @@ async fn one(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
         .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such session: {name}")))
 }
 
-async fn create(State(m): State<Mgr>, Json(s): Json<SessionCfg>) -> ApiResult {
+async fn create(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    Json(s): Json<SessionCfg>,
+) -> ApiResult {
+    guard_create(&cap)?;
     ok_json(m.add(s).await)
 }
 
 async fn update(
     State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
     Json(s): Json<SessionCfg>,
 ) -> ApiResult {
+    guard(&m, &cap, &name, Level::Rw).await?;
     ok_json(m.update(&name, s).await)
 }
 
-async fn destroy(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+async fn destroy(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    Path(name): Path<String>,
+) -> ApiResult {
+    guard(&m, &cap, &name, Level::Rw).await?;
     ok_json(m.remove(&name).await)
 }
 
-async fn start(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+async fn start(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    Path(name): Path<String>,
+) -> ApiResult {
+    guard(&m, &cap, &name, Level::Rw).await?;
     ok_json(m.start(&name).await)
 }
 
-async fn stop(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+async fn stop(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    Path(name): Path<String>,
+) -> ApiResult {
+    guard(&m, &cap, &name, Level::Rw).await?;
     ok_json(m.stop(&name).await)
 }
 
-async fn restart(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+async fn restart(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    Path(name): Path<String>,
+) -> ApiResult {
+    guard(&m, &cap, &name, Level::Rw).await?;
     ok_json(m.restart(&name).await)
 }
 
@@ -266,6 +369,49 @@ async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "ok": true, "session": session })))
+}
+
+/// Mint a grant: let `grantor` watch or drive the named `sessions`. Root-only by the router,
+/// so only the mod asks. The daemon refuses a host session in the scope - the one line the
+/// whole scheme is for - and refuses a grantor or target that is not there. The token comes
+/// back once and is never stored on the file; losing it means minting another.
+#[derive(Deserialize)]
+struct GrantReq {
+    grantor: String,
+    #[serde(default)]
+    sessions: Vec<String>,
+    /// `ro` to watch, `rw` to drive.
+    level: String,
+}
+
+async fn mint_grant(State(m): State<Mgr>, Json(q): Json<GrantReq>) -> ApiResult {
+    let level = match q.level.trim() {
+        "ro" => Level::Ro,
+        "rw" => Level::Rw,
+        other => {
+            return Err(err(
+                StatusCode::BAD_REQUEST,
+                format!("level must be \"ro\" or \"rw\", not {other:?}"),
+            ))
+        }
+    };
+    let token = m
+        .mint_grant(q.grantor, q.sessions, level)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "ok": true, "token": token })))
+}
+
+/// How many grants are live, for the mod's readout. Not the tokens themselves: those are
+/// bearer secrets and leave the daemon once, at the mint.
+async fn list_grants(State(m): State<Mgr>) -> ApiResult {
+    Ok(Json(json!({ "grants": m.grant_count().await })))
+}
+
+/// Drop every grant a session minted, by hand rather than by its exit. The mod's revoke.
+async fn revoke_grants(State(m): State<Mgr>, Path(grantor): Path<String>) -> ApiResult {
+    m.revoke_grants(&grantor).await;
+    Ok(Json(json!({ "ok": true })))
 }
 
 /// So the GUI draws a checkbox per preset and a row per command rather than a list
@@ -633,15 +779,42 @@ async fn ws_upgrade(
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
-    let token = m.config().await.daemon.token;
-    if !token_ok(&headers, &token) {
-        return err(StatusCode::UNAUTHORIZED, "bad token").into_response();
-    }
-    ws.on_upgrade(move |socket| ws_run(socket, m))
+    // The header rides on the upgrade only, so the capability is resolved here and carried into
+    // the pump rather than read off a request per message. A grant drives what it may from the
+    // same socket the mod uses; a bad token never upgrades.
+    let cap = match m.resolve_cap(presented_token(&headers).as_deref()).await {
+        Some(c) => c,
+        None => return err(StatusCode::UNAUTHORIZED, "bad token").into_response(),
+    };
+    ws.on_upgrade(move |socket| ws_run(socket, m, cap))
         .into_response()
 }
 
-async fn ws_run(socket: WebSocket, m: Mgr) {
+/// What of an event a socket at `cap` is allowed to see. Root sees all. A scoped grant sees the
+/// sessions it names (the list filtered to them) and their screens, and nothing of the mod's
+/// wider view - projects, shortcuts, usage, the jukebox are not a grant's to learn. A screen
+/// only ever flows for a subscribed pane, and a grant can only subscribe to one it may read, so
+/// screens need no filter of their own.
+fn scope_event(cap: &Cap, ev: Event) -> Option<Event> {
+    match cap {
+        Cap::Root => Some(ev),
+        Cap::Scoped(_) => match ev {
+            Event::Sessions { sessions } => Some(Event::Sessions {
+                sessions: sessions
+                    .into_iter()
+                    .filter(|s| cap.can_see(&s.name, false))
+                    .collect(),
+            }),
+            Event::Screen { .. } | Event::Quit => Some(ev),
+            Event::Projects { .. }
+            | Event::Shortcuts { .. }
+            | Event::Usage { .. }
+            | Event::Audio { .. } => None,
+        },
+    }
+}
+
+async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
     // Held for the life of the pump, so /api/game can say whether anything is
     // attached.
     let _client = m.client_joined();
@@ -654,43 +827,39 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
     let mut events = m.events.subscribe();
 
     // Usage, projects and shortcuts ride along because they speak only on a change: a mod
-    // attaching between polls would otherwise draw nothing for a minute.
-    let hello = Event::Sessions {
-        sessions: m.views().await,
-    };
-    if send(&tx, &hello).await.is_err() {
-        return;
+    // attaching between polls would otherwise draw nothing for a minute. Each goes through the
+    // same scope filter the pump uses, so a grant's socket gets its filtered session list and
+    // none of the mod's wider view - `scope_event` drops what it may not see.
+    if let Some(ev) = scope_event(
+        &cap,
+        Event::Sessions {
+            sessions: m.views().await,
+        },
+    ) {
+        if send(&tx, &ev).await.is_err() {
+            return;
+        }
     }
-    let _ = send(
-        &tx,
-        &Event::Usage {
+    for ev in [
+        Event::Usage {
             usage: m.usage().await,
         },
-    )
-    .await;
-    let _ = send(
-        &tx,
-        &Event::Projects {
+        Event::Projects {
             projects: m.projects().await,
         },
-    )
-    .await;
-    let _ = send(
-        &tx,
-        &Event::Shortcuts {
+        Event::Shortcuts {
             shortcuts: m.shortcuts().await,
         },
-    )
-    .await;
-    // On connect too, and for the same reason: a game that has just come up has to learn
-    // whether the music it asked for last time is playing.
-    let _ = send(
-        &tx,
-        &Event::Audio {
+        // On connect too, and for the same reason: a game that has just come up has to learn
+        // whether the music it asked for last time is playing.
+        Event::Audio {
             audio: m.audio.state(),
         },
-    )
-    .await;
+    ] {
+        if let Some(ev) = scope_event(&cap, ev) {
+            let _ = send(&tx, &ev).await;
+        }
+    }
 
     // The mod draws at the monitor's rate, which the emulator's 8ms tick outruns: every frame
     // it cannot keep up with is one it parses anyway and throws away. Screen frames are thus
@@ -705,6 +874,7 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
         use tokio::time::{sleep_until, Instant as TokioInstant};
         let tx = tx.clone();
         let subs = subs.clone();
+        let cap = cap.clone();
         tokio::spawn(async move {
             let mut last_screen = TokioInstant::now() - FRAME_COALESCE;
             // One slot per pane, not one global slot: a socket can subscribe to several
@@ -723,6 +893,9 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                 tokio::select! {
                     ev = events.recv() => match ev {
                         Ok(ev) => {
+                            // Filtered to this socket's capability before anything else looks at
+                            // it: a grant's pump never even coalesces a frame it may not see.
+                            let Some(ev) = scope_event(&cap, ev) else { continue };
                             if let Event::Screen { ref screen } = ev {
                                 if !subs.lock().await.contains_key(&screen.name) {
                                     continue;
@@ -782,8 +955,17 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
             tracing::debug!("unparseable ws message: {text}");
             continue;
         };
+        // Every message that names a session is checked against this socket's capability first:
+        // reading a pane (sub, scroll) wants ro, driving one (keys, resize, mouse, paste) wants
+        // rw, and the host terminal is reachable by neither. A message it may not make is
+        // dropped in silence, the same as one for a session that is not there. Unsub only forgets
+        // a local subscription, so it needs no leave to make; the jukebox is the mod's, so a
+        // grant does not touch it.
         match cm {
             ClientMsg::Sub { name } => {
+                if !m.cap_ok(&cap, &name, Level::Ro).await {
+                    continue;
+                }
                 subs.lock().await.insert(name.clone(), m.watching(&name));
                 // Somebody is looking at this pane now, which is the whole of what a bell
                 // was asking for. Broadcast, not answered here: every client draws the mark.
@@ -796,6 +978,9 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                 subs.lock().await.remove(&name);
             }
             ClientMsg::Keys(k) => {
+                if !m.cap_ok(&cap, &k.name, Level::Rw).await {
+                    continue;
+                }
                 // The whole call, not the tmux spawn inside it: this loop reads the next
                 // message only when this one is done, so what is timed here is what a held
                 // key waits behind.
@@ -804,11 +989,17 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                 crate::perf::PERF.input.add(started.elapsed());
             }
             ClientMsg::Resize(r) => {
+                if !m.cap_ok(&cap, &r.name, Level::Rw).await {
+                    continue;
+                }
                 if let Err(e) = m.resize(&r.name, r.cols, r.rows).await {
                     tracing::debug!("resize: {e:#}");
                 }
             }
             ClientMsg::Scroll(sr) => {
+                if !m.cap_ok(&cap, &sr.name, Level::Ro).await {
+                    continue;
+                }
                 // Answer this socket alone: a scrolled frame is private to the wheel request and
                 // must not reach live subscribers.
                 if let Some(s) = m.scroll_capture(&sr.name, sr.off, sr.request_id).await {
@@ -816,6 +1007,9 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                 }
             }
             ClientMsg::Mouse(mr) => {
+                if !m.cap_ok(&cap, &mr.name, Level::Rw).await {
+                    continue;
+                }
                 let Some(action) = crate::emu::MouseAction::parse(&mr.action) else {
                     tracing::debug!("unknown mouse action: {}", mr.action);
                     continue;
@@ -831,6 +1025,9 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                 crate::perf::PERF.input.add(started.elapsed());
             }
             ClientMsg::Paste(pr) => {
+                if !m.cap_ok(&cap, &pr.name, Level::Rw).await {
+                    continue;
+                }
                 let started = std::time::Instant::now();
                 // Warn rather than debug, unlike keys and mouse: those have no `exists`
                 // pre-check on purpose, so "the session went" is an ordinary answer there.
@@ -841,11 +1038,16 @@ async fn ws_run(socket: WebSocket, m: Mgr) {
                 }
                 crate::perf::PERF.input.add(started.elapsed());
             }
-            ClientMsg::Audio(ar) => match ar.source {
-                Some(Some(source)) => m.audio.play(&source, ar.volume),
-                Some(None) => m.audio.stop(),
-                None => m.audio.set_volume(ar.volume),
-            },
+            ClientMsg::Audio(ar) => {
+                if !cap.may_create() {
+                    continue;
+                }
+                match ar.source {
+                    Some(Some(source)) => m.audio.play(&source, ar.volume),
+                    Some(None) => m.audio.stop(),
+                    None => m.audio.set_volume(ar.volume),
+                }
+            }
         }
     }
 

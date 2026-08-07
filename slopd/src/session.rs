@@ -348,6 +348,9 @@ pub struct Manager {
     /// daemon is the machine rather than the memory.
     pub audio: crate::audio::Audio,
     pub events: broadcast::Sender<Event>,
+    /// Scoped credentials the user minted, by token. Ephemeral: never written to the file, and
+    /// a grantor that is forgotten takes its grants with it - see `forget`, `grant.rs`.
+    grants: RwLock<crate::grant::Grants>,
 }
 
 /// One cached scroll response. `view` is a full `ScreenView` (serialized lines included),
@@ -619,6 +622,7 @@ impl Manager {
             scroll_cache: Mutex::new(HashMap::new()),
             audio: crate::audio::Audio::new(),
             events,
+            grants: RwLock::new(crate::grant::Grants::default()),
         });
         // Before anything else touches tmux: whoever forks the server decides which cgroup it
         // dies with.
@@ -787,6 +791,79 @@ impl Manager {
 
     pub async fn config(&self) -> Config {
         self.cfg.read().await.clone()
+    }
+
+    /// The capability a request's token carries: root (`[daemon] token`) or a minted grant.
+    /// Read fresh, so a token turned on or off in the file takes on the next call.
+    pub async fn resolve_cap(&self, presented: Option<&str>) -> Option<crate::grant::Cap> {
+        let root = self.cfg.read().await.daemon.token.clone();
+        self.grants.read().await.resolve(presented, &root)
+    }
+
+    /// Whether `cap` may touch `session` at `need`, its host-ness read from the live table. A
+    /// name with no live entry is not a host session - host rides only on an ephemeral `Live` -
+    /// so the default is safe; the handler refuses a session that is not there on its own.
+    pub async fn cap_ok(
+        &self,
+        cap: &crate::grant::Cap,
+        session: &str,
+        need: crate::grant::Level,
+    ) -> bool {
+        let is_host = self
+            .live
+            .read()
+            .await
+            .get(session)
+            .map(|l| l.host)
+            .unwrap_or(false);
+        cap.allows(session, is_host, need)
+    }
+
+    /// True when the session is known at all, live or written down. What a grant may name.
+    async fn session_known(&self, name: &str) -> bool {
+        self.live.read().await.contains_key(name) || self.config().await.session(name).is_some()
+    }
+
+    /// Mint a grant for `grantor` over `sessions` at `level`, returning the token. Refuses a
+    /// grantor or a target that is not there, and refuses a host session outright: the host
+    /// terminal is the user's, and no grant reaches it - the one invariant this whole thing is
+    /// for. Only a root caller reaches this route.
+    pub async fn mint_grant(
+        &self,
+        grantor: String,
+        sessions: Vec<String>,
+        level: crate::grant::Level,
+    ) -> Result<String> {
+        if !self.session_known(&grantor).await {
+            bail!("no such session to grant to: {grantor}");
+        }
+        let live = self.live.read().await;
+        let mut scope = std::collections::HashSet::new();
+        for s in sessions {
+            if live.get(&s).map(|l| l.host).unwrap_or(false) {
+                bail!("the host terminal cannot be granted: {s}");
+            }
+            if !live.contains_key(&s) && self.config().await.session(&s).is_none() {
+                bail!("no such session to grant: {s}");
+            }
+            scope.insert(s);
+        }
+        drop(live);
+        Ok(self.grants.write().await.mint(crate::grant::Grant {
+            grantor,
+            sessions: scope,
+            level,
+        }))
+    }
+
+    /// Drop every grant a session minted, by hand rather than by its exit. The mod's revoke.
+    pub async fn revoke_grants(&self, grantor: &str) {
+        self.grants.write().await.revoke_grantor(grantor);
+    }
+
+    /// How many grants are live, for the mod's readout.
+    pub async fn grant_count(&self) -> usize {
+        self.grants.read().await.count()
     }
 
     pub async fn usage(&self) -> crate::usage::Snapshot {
@@ -1076,6 +1153,9 @@ impl Manager {
         // The directory stays: what the errand did in there is worth reading afterwards, and
         // /tmp is the machine's to clear. A project the file owns is not in this table.
         self.temp.write().await.remove(&project);
+        // A session that is gone can grant nothing: whatever it minted for others dies with it,
+        // which is the whole of the ephemeral contract.
+        self.grants.write().await.revoke_grantor(name);
         let _ = self.events.send(Event::Sessions {
             sessions: self.views().await,
         });

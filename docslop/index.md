@@ -7,6 +7,7 @@ Split out of CLANKERS.md. Keep these short; delete what goes stale.
 - [build-commands](build-commands.md) - Makefile targets, formatting, debug one-liners.
 - [paths](paths.md) - where config, profile, logs and the tmux socket live.
 - [config-stores](config-stores.md) - the daemon's file, the mod's file, the seams.
+- [agent-grants](agent-grants.md) - scoped tokens: one agent watching another, host never.
 - [profile](profile.md) - the save-data folder, the launcher, the refusal gates.
 - [daemon-files](daemon-files.md) - what each `slopd/src/*.rs` holds.
 - [daemon-projects](daemon-projects.md) - projects and sessions in `config.toml`.

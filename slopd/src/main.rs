@@ -4,6 +4,7 @@ mod clipboard;
 mod config;
 mod emu;
 mod game;
+mod grant;
 mod open;
 mod perf;
 mod presets;
@@ -112,17 +113,21 @@ async fn shutdown() {
     }
 }
 
-/// The /ws route re-checks the token itself, because the mod sends it as a header
-/// on the upgrade request only.
+/// Resolves the request's token to a capability and hangs it on the request, so a handler can
+/// ask what this caller may touch without reading the header itself. Root or a minted grant
+/// passes; anything else is 401 here and never reaches a handler. The /ws route re-resolves,
+/// because the mod sends the header on the upgrade request only.
 async fn auth(
     State(m): State<Arc<Manager>>,
-    req: Request,
+    mut req: Request,
     next: Next,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let token = m.config().await.daemon.token;
-    if api::token_ok(req.headers(), &token) {
-        Ok(next.run(req).await)
-    } else {
-        Err(StatusCode::UNAUTHORIZED)
+    let presented = api::presented_token(req.headers());
+    match m.resolve_cap(presented.as_deref()).await {
+        Some(cap) => {
+            req.extensions_mut().insert(cap);
+            Ok(next.run(req).await)
+        }
+        None => Err(StatusCode::UNAUTHORIZED),
     }
 }
