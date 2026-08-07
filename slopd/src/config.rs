@@ -238,6 +238,12 @@ pub struct ProjectCfg {
     pub rw_paths: Vec<String>,
     #[serde(default)]
     pub pass_env: Vec<String>,
+    /// Copied into a session's private state on top of what its presets seed - see
+    /// `sandbox::seed_into`. Not a bind: it is what a *fresh* agent on this ground is born
+    /// with. `~/.claude/plugins` is why it exists, a project that wants the language servers
+    /// naming them rather than every session on the machine carrying 13MB it will not open.
+    #[serde(default)]
+    pub seed: Vec<String>,
     #[serde(default = "yes")]
     pub net: bool,
 }
@@ -252,6 +258,7 @@ impl Default for ProjectCfg {
             ro_paths: Vec::new(),
             rw_paths: Vec::new(),
             pass_env: Vec::new(),
+            seed: Vec::new(),
             net: true,
         }
     }

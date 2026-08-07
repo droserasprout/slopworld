@@ -130,6 +130,10 @@ namespace SlopWorld
         public List<string> RoPaths = new List<string>();
         public List<string> RwPaths = new List<string>();
         public List<string> PassEnv = new List<string>();
+        // Not a bind: what a *fresh* agent on this ground is copied, on top of what its
+        // presets seed. `~/.claude/plugins` is why it exists - 13MB one project wants and the
+        // machine does not.
+        public List<string> Seed = new List<string>();
         public bool Net = true;
 
         // The daemon coins the path and is the only thing that writes it; this is so the dialog
@@ -160,6 +164,7 @@ namespace SlopWorld
             RoPaths = Strings(j["ro_paths"]),
             RwPaths = Strings(j["rw_paths"]),
             PassEnv = Strings(j["pass_env"]),
+            Seed = Strings(j["seed"]),
             Net = j["net"].AsBool(true),
         };
 
@@ -168,7 +173,7 @@ namespace SlopWorld
             $"\"name\":{JVal.Q(Name)},\"dir\":{JVal.Q(Dir)},\"temp\":{JVal.B(Temp)}," +
             $"\"sandbox\":{Arr(Sandbox)},\"ro_paths\":{Arr(RoPaths)}," +
             $"\"rw_paths\":{Arr(RwPaths)},\"pass_env\":{Arr(PassEnv)}," +
-            $"\"net\":{JVal.B(Net)}}}";
+            $"\"seed\":{Arr(Seed)},\"net\":{JVal.B(Net)}}}";
 
         public ProjectInfo Copy() => new ProjectInfo
         {
@@ -179,6 +184,7 @@ namespace SlopWorld
             RoPaths = new List<string>(RoPaths),
             RwPaths = new List<string>(RwPaths),
             PassEnv = new List<string>(PassEnv),
+            Seed = new List<string>(Seed),
             Net = Net,
         };
 

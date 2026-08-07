@@ -44,6 +44,13 @@ longer read each other's transcripts either.
   *user* wrote lives. Deliberately not a list of every agent's filenames: the
   failure it chooses is a session that copied a megabyte it did not need, over
   one that cannot log in.
+- `seed` comes from two places: the **preset**, for what every session of that
+  software wants (`agents`, `commands`, `skills`), and the **project**, for what
+  one ground wants. `~/.claude/plugins` is the case the project layer was added
+  for - 13MB of language servers and marketplace clones, worth copying into the
+  session that will open one and not into the thirty that will not. A project
+  may name the whole directory or a single plugin inside it; a seed path that
+  falls under no private path is skipped.
 - A `private` entry that is a file is its own seed. One whose host path does
   not exist is skipped - nothing to keep separate from a file nobody has.
 - Bound *after* the ro/rw/dev binds, so a project naming `~/.claude` in its own

@@ -209,7 +209,7 @@ pub fn prepare_private(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
                 continue;
             }
             tracing::info!("session {:?} gets its own {host}", s.name);
-            seed_into(pr, &host, &copy)?;
+            seed_into(pr, &p.seed, &host, &copy)?;
         }
     }
     Ok(())
@@ -219,7 +219,7 @@ pub fn prepare_private(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
 /// there, which is what "once" means: what an agent has written is never trodden on by what
 /// the host has changed since. The tree is an ordinary directory - deleting a session's is
 /// how it is handed a fresh one.
-fn seed_into(pr: &SandboxPreset, host: &str, copy: &Path) -> Result<()> {
+fn seed_into(pr: &SandboxPreset, project: &[String], host: &str, copy: &Path) -> Result<()> {
     if copy.exists() {
         return Ok(());
     }
@@ -254,12 +254,15 @@ fn seed_into(pr: &SandboxPreset, host: &str, copy: &Path) -> Result<()> {
         Err(e) => tracing::warn!("reading {host}: {e:#}"),
     }
 
-    // And the subdirectories the preset asks for by name, which is where what the *user* wrote
-    // lives - plugins, agents, commands - as against what the tool wrote about them.
-    for from in &pr.seed {
+    // And the subdirectories asked for by name, which is where what the *user* wrote lives -
+    // agents, commands, plugins - as against what the tool wrote about them. The preset's list
+    // is what every session of that software wants; the project's is what this ground wants,
+    // and `~/.claude/plugins` is the case it was added for: 13MB of language servers is worth
+    // copying into a session that will use one and not into thirty that will not.
+    for from in pr.seed.iter().chain(project) {
         let from = expand(from);
         let Ok(rel) = Path::new(&from).strip_prefix(host) else {
-            continue; // a seed for one of the preset's other private paths
+            continue; // a seed for some other private path, or for another preset's
         };
         let to = copy.join(rel);
         if let Err(e) = seed(Path::new(&from), &to) {
@@ -812,7 +815,7 @@ mod tests {
             ..Default::default()
         };
         let copy = root.join("copy");
-        seed_into(&pr, &host.to_string_lossy(), &copy).unwrap();
+        seed_into(&pr, &[], &host.to_string_lossy(), &copy).unwrap();
 
         // Credentials on top, without this file naming them.
         assert_eq!(
@@ -829,10 +832,62 @@ mod tests {
         // Seeded once: what the agent wrote survives, and the host's later edit stays out.
         std::fs::write(copy.join("auth.json"), "the agent's own").unwrap();
         std::fs::write(host.join("auth.json"), "changed since").unwrap();
-        seed_into(&pr, &host.to_string_lossy(), &copy).unwrap();
+        seed_into(&pr, &[], &host.to_string_lossy(), &copy).unwrap();
         assert_eq!(
             std::fs::read_to_string(copy.join("auth.json")).unwrap(),
             "the agent's own"
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// The project's own seed, on top of the preset's: `~/.claude/plugins` is 13MB that one
+    /// ground wants and the machine does not, so it is named where the ground is described.
+    #[test]
+    fn a_project_seeds_what_its_preset_did_not() {
+        let root = std::env::temp_dir().join(format!("slopd-pseed-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let host = root.join("host");
+        std::fs::create_dir_all(host.join("plugins/cache/lsp")).unwrap();
+        std::fs::create_dir_all(host.join("agents")).unwrap();
+        std::fs::write(host.join("plugins/cache/lsp/bin"), "server").unwrap();
+        std::fs::write(host.join("agents/one.md"), "mine").unwrap();
+
+        let pr = SandboxPreset {
+            name: "t".into(),
+            private: vec![host.to_string_lossy().into_owned()],
+            seed: vec![host.join("agents").to_string_lossy().into_owned()],
+            ..Default::default()
+        };
+
+        // Without the project asking, the heavy directory stays behind.
+        let lean = root.join("lean");
+        seed_into(&pr, &[], &host.to_string_lossy(), &lean).unwrap();
+        assert!(lean.join("agents/one.md").exists());
+        assert!(!lean.join("plugins").exists(), "plugins came uninvited");
+
+        // Naming it - or one plugin inside it - is what brings it across.
+        let full = root.join("full");
+        let asked = vec![host.join("plugins").to_string_lossy().into_owned()];
+        seed_into(&pr, &asked, &host.to_string_lossy(), &full).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(full.join("plugins/cache/lsp/bin")).unwrap(),
+            "server"
+        );
+        assert!(
+            full.join("agents/one.md").exists(),
+            "the preset's own was dropped"
+        );
+
+        let one = root.join("one");
+        let asked = vec![host
+            .join("plugins/cache/lsp")
+            .to_string_lossy()
+            .into_owned()];
+        seed_into(&pr, &asked, &host.to_string_lossy(), &one).unwrap();
+        assert!(
+            one.join("plugins/cache/lsp/bin").exists(),
+            "a nested seed missed"
         );
 
         let _ = std::fs::remove_dir_all(&root);

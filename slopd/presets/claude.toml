@@ -13,10 +13,13 @@ description = "Claude Code's own state and credentials, one copy per session"
 private = ["~/.claude", "~/.claude.json"]
 # What the user wrote, as against what the tool wrote about them. Credentials and settings are
 # files at the top of `~/.claude` and come across without being named.
+#
+# `plugins` is deliberately absent: it is 13MB of language servers and marketplace clones, and
+# a session that will never open one should not carry a copy. A project that wants them says so
+# in its own `seed` - the whole directory, or just the one plugin it uses.
 seed = [
     "~/.claude/agents",
     "~/.claude/commands",
-    "~/.claude/plugins",
     "~/.claude/skills",
 ]
 env = ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "CLAUDE_CONFIG_DIR"]

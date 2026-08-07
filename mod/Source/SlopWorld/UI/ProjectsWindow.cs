@@ -108,7 +108,7 @@ namespace SlopWorld
         // For the title. Null unless it is a duplicate: an edit already has `_origName`.
         readonly string _copiedFrom;
 
-        string _roPaths, _rwPaths, _passEnv;
+        string _roPaths, _rwPaths, _passEnv, _seed;
         Vector2 _scroll;
         readonly SmoothScroll _presetScroll = new SmoothScroll();
         const float PresetsH = 152f;
@@ -154,6 +154,7 @@ namespace SlopWorld
             _roPaths = Lines(_p.RoPaths);
             _rwPaths = Lines(_p.RwPaths);
             _passEnv = Lines(_p.PassEnv);
+            _seed = Lines(_p.Seed);
 
             doCloseX = true;
             draggable = true;
@@ -260,6 +261,20 @@ namespace SlopWorld
             _passEnv = SlopWidgets.PathList(
                 new Rect(r.x + (boxW + SlopWidgets.GapS) * 2f, y, boxW, boxH),
                 "project.env", "Passed env vars", _passEnv);
+            y += boxH + SlopWidgets.GapM;
+
+            // A row of its own, because it is not a bind: the three above say what an agent
+            // here can reach, and this says what it is *born with*. Sharing their row would
+            // read as a fourth kind of bind, which is the one thing it must not.
+            _seed = SlopWidgets.PathList(new Rect(r.x, y, boxW * 2f + SlopWidgets.GapS, boxH),
+                "project.seed", "Seeded into a new agent's private state", _seed);
+            GUI.color = SlopWidgets.Dim;
+            Widgets.Label(
+                new Rect(r.x + (boxW + SlopWidgets.GapS) * 2f, y, boxW, boxH),
+                "Copied once, when a session here first starts, on top of what its presets " +
+                "seed. Credentials and settings come across on their own; this is for what " +
+                "is big and optional - ~/.claude/plugins, or one plugin inside it.");
+            GUI.color = Color.white;
             y += boxH + SlopWidgets.GapL;
 
             y = DoEffective(r, y, boxW);
@@ -342,6 +357,7 @@ namespace SlopWorld
             _p.RoPaths = Split(_roPaths);
             _p.RwPaths = Split(_rwPaths);
             _p.PassEnv = Split(_passEnv);
+            _p.Seed = Split(_seed);
 
             if (string.IsNullOrEmpty((_p.Name ?? "").Trim()))
             {
