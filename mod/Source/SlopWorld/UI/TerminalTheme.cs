@@ -64,12 +64,12 @@ namespace SlopWorld
             new TerminalTheme("slopworld",
                 fg: "#d3cbb8", bg: "#14120e",
                 cursor: "#e0b64a", cursorText: "#14120e",
-                selection: "#4a5a73", link: "#86a9c4",
+                selection: "#3d4c64", link: "#86a9c4",
                 ansi: new[]
                 {
-                    "#1a1712", "#a9503c", "#7b8f4e", "#c39440",
-                    "#5b7c99", "#8d6a93", "#6e9490", "#c2baa6",
-                    "#4a453b", "#c86a50", "#9bb066", "#e0b64a",
+                    "#1a1712", "#b85b46", "#7b8f4e", "#c39440",
+                    "#6889a6", "#99739e", "#6e9490", "#c2baa6",
+                    "#5b5549", "#c86a50", "#9bb066", "#e0b64a",
                     "#7b9ebd", "#ae87b3", "#8cb6b1", "#efe7d4",
                 }),
 
