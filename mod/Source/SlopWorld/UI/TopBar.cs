@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -10,6 +11,12 @@ namespace SlopWorld
 
         const float Pad = 8f;
         const float ClockW = 76f;
+
+        // The two drawn glyphs, at the size they were on the strip they came off. The two
+        // things on the map are given a little more: a resource icon is 27 in the quota strip
+        // beside them, and a building shrunk to a tab-bar glyph is a smudge.
+        const float IconW = 18f;
+        const float ThingW = 24f;
 
         public static Rect Rect =>
             new Rect(SlopLayout.LeftInset, 0f, UI.screenWidth - SlopLayout.LeftInset, H);
@@ -34,13 +41,26 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
 
-            float right = r.xMax - Pad;
-
             var clock = new Rect(r.center.x - ClockW / 2f, r.y, ClockW, r.height);
             UsageReadout.DrawClock(clock, TextAnchor.MiddleCenter);
 
-            UsageReadout.DrawStrip(
-                new Rect(clock.xMax + Pad, r.y, right - clock.xMax - Pad, r.height));
+            // The doors first: they own the end of the line, and the quota takes what is left
+            // of it. Laid out that way round because the quota is already right-aligned within
+            // whatever room it gets, so a window coming or going never moves a button.
+            //
+            // The options dialog is the one window that opens *inside* the chrome rather than
+            // over it - SlopOptions.Free lays it out below this line, which stays visible - so
+            // it is the one thing stacked over a pane that does not take the bar's clicks with
+            // it. The same exception ColonistBarStrip.Interactive makes for the column, and it
+            // matters most for the cog: dead here, it would open a window it cannot close.
+            float right = Doors(r, interactive || ColonistBarStrip.OptionsOpen);
+
+            // Nothing where there is no room: the doors now take 140 pixels off this end, and
+            // a strip handed a negative width right-aligns its first chip off the left of the
+            // clock rather than declining to draw.
+            float quota = right - clock.xMax - Pad;
+            if (quota > 0f)
+                UsageReadout.DrawStrip(new Rect(clock.xMax + Pad, r.y, quota, r.height));
 
             Status(new Rect(r.x + Pad, r.y, clock.x - r.x - Pad * 2f, r.height), pane);
 
@@ -63,8 +83,123 @@ namespace SlopWorld
             e.Use();
         }
 
-        // No buttons any more: the close cross is Shift+Esc, and the gear that sat beside
-        // it moved to a tab of the options dialog. The corner is all quota strip now.
+        // The end of the line, right to left: the menu, the settings cog, and the two things
+        // standing on the map that have a menu of their own. Hands back the x the quota strip
+        // may run up to.
+        //
+        // The cog and the hamburger came off the sidebar's tab strip. They are not about a
+        // view - one opens the options dialog and the other opens every window this mod has -
+        // so a selector two icons wide was the wrong place to keep them, and this end of the
+        // bar is where the rest of the doors already are.
+        //
+        // The core and the jukebox are drawn only where they exist, an icon onto a thing that
+        // is not on the map being no door at all. They are the game's own icons rather than
+        // ones drawn in code, which is also what makes them read as the resources' neighbours
+        // instead of as two more grey glyphs beside the cog.
+        static float Doors(Rect r, bool live)
+        {
+            float x = r.xMax - Pad;
+            var map = Find.CurrentMap;
+
+            x -= IconW;
+            Door(Slot(r, x, IconW), TabIcons.HamburgerTex, "Menu", Menu, live);
+
+            x -= SlopWidgets.GapS + IconW;
+            Door(Slot(r, x, IconW), TabIcons.ConfigTex, "Config", SlopOptions.Toggle, live);
+
+            // A group of two and a group of two, so the gap between them is the wider one -
+            // the cog and the menu are this interface's, and what is left of the line is the
+            // colony's.
+            float gap = SlopWidgets.GapM;
+
+            if (CoreTip.On(map))
+            {
+                x -= gap + ThingW;
+                Thing(Slot(r, x, ThingW), SlopDefOf.Ship_ComputerCore, "Persona core",
+                    CoreTip.OpenMenu, live);
+                gap = SlopWidgets.GapS;
+            }
+
+            if (Jukebox.On(map))
+            {
+                x -= gap + ThingW;
+                Thing(Slot(r, x, ThingW), SlopDefOf.SlopJukebox, "Jukebox",
+                    Jukebox.OpenMenu, live);
+            }
+
+            return x - SlopWidgets.GapM;
+        }
+
+        // Centred in the bar's height rather than filling it: 26 pixels of hit box for an
+        // 18-pixel glyph is a press that lands on the hairline under the line.
+        static Rect Slot(Rect r, float x, float w) =>
+            new Rect(x, r.y + (r.height - w) / 2f, w, w);
+
+        // Off-grey until the pointer is on it, the way the strip's own icons were.
+        static void Door(Rect r, Texture2D icon, string tip, System.Action go, bool live)
+        {
+            TooltipHandler.TipRegion(r, tip);
+
+            bool over = ColonistBarStrip.MouseOver(r);
+
+            var was = GUI.color;
+            GUI.color = over ? Color.white : SlopWidgets.Off;
+            GUI.DrawTexture(r, icon);
+            GUI.color = was;
+
+            Press(over, go, live);
+        }
+
+        // ThingIcon carries the def's own colour and gives nothing back on a hover, so the
+        // highlight and the press are drawn and taken here.
+        static void Thing(Rect r, ThingDef def, string tip, System.Action go, bool live)
+        {
+            if (def == null) return;
+
+            TooltipHandler.TipRegion(r, tip);
+            bool over = ColonistBarStrip.MouseOver(r);
+
+            // Both of these read the ambient colour and only one of them puts it back, so the
+            // pair is bracketed: the highlight would wear whatever the last thing on the line
+            // left behind, and ThingIcon hands back the def's own tint.
+            var was = GUI.color;
+            GUI.color = Color.white;
+            if (over) Widgets.DrawHighlight(r);
+            Widgets.ThingIcon(r, def);
+            GUI.color = was;
+
+            Press(over, go, live);
+        }
+
+        // Neither the hover nor the press goes through `Widgets.ButtonImage`, and for the
+        // reason ColonistBarStrip.MouseOver states: every vanilla road to a click passes
+        // `Mouse.IsOver`, which answers false whenever the window being drawn is not getting
+        // input - and with the options dialog up over a pane, that is this line. Drawn from a
+        // MapComponent it is not a window at all. So the rect is asked directly and the press
+        // is taken here.
+        static void Press(bool over, System.Action go, bool live)
+        {
+            if (!over || !live) return;
+
+            var e = Event.current;
+            if (e.type != EventType.MouseDown || e.button != 0) return;
+
+            e.Use();
+            go();
+        }
+
+        // Everything the bottom button row used to hold. Same list the sidebar's hamburger
+        // opened, moved with it.
+        static void Menu()
+        {
+            TerminalWindow.OpenOverPane(new FloatMenu(new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Projects", ProjectsWindow.Toggle),
+                new FloatMenuOption("Agents", SessionsWindow.Toggle),
+                new FloatMenuOption("Shortcuts", ShortcutsWindow.Toggle),
+                new FloatMenuOption("Quit to OS", Root.Shutdown),
+            }));
+        }
 
         // The current agent is whichever pane is open, or with none the agent the map is
         // looking at. Its own title is the only thing here the agent itself wrote - Claude

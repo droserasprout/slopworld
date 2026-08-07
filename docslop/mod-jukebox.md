@@ -56,6 +56,15 @@ calls `PreOptionChosen` - which closes the parent - before it invokes the action
   `UI/CoreTip.cs` reads the core's. It cannot go through selection:
   `StripInteraction` turns away every `Selector.Select` that is not a colonist,
   so the jukebox would never see a click.
+- **`Jukebox.OpenMenu` is the menu, and the box is one of two callers.** The other
+  is the status bar's icon ([mod-ui-chrome](mod-ui-chrome.md)): nothing in those
+  four rows is about where the press came from, so the whole of it is static and
+  the two callers differ only in what they had to do to be heard. The nested
+  lists go out through `TerminalWindow.OpenOverPane` for the same reason - the bar
+  is drawn over a terminal as well as over the map, and a menu opened from it
+  belongs above both. `CoreTip.OpenMenu` is the same move for the persona core,
+  where the one thing that *was* about the click - the cell the hint bubble pins
+  to - is looked up off the lister instead.
 
 ## The sound is the daemon's
 

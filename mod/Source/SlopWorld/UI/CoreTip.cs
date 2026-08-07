@@ -75,18 +75,8 @@ namespace SlopWorld
             if (over && Event.current.type == EventType.MouseDown && Event.current.button == 0
                 && Find.WindowStack.FloatMenu == null)
             {
-                _clickPos = Event.current.mousePosition;
-                _menuCell = cell;
                 Event.current.Use();
-                var options = new List<FloatMenuOption>
-                {
-                    new FloatMenuOption("Hint", HintAction),
-                };
-                // Grandma mode: no fun allowed.
-                if (!Settings.GrandmaMode)
-                    options.Add(new FloatMenuOption("Kill something", KillAction));
-                options.Add(new FloatMenuOption("Next planet", NextPlanet.Begin));
-                Find.WindowStack.Add(new FloatMenu(options));
+                Open(Event.current.mousePosition, cell);
             }
 
             // Sticky hint: draw the tip bubble near the click position.
@@ -133,6 +123,53 @@ namespace SlopWorld
                 Text.WordWrap = false;
             }
         }
+
+        // The same menu from somewhere that is not the core: the status bar's icon. The cell
+        // is looked up rather than pointed at - the hint is pinned to the core wherever the
+        // press came from - and the bubble still lands under the pointer, which up there is the top
+        // of the screen. Drawn from MapComponentOnGUI, so a hint asked for over an open
+        // terminal is behind it; the core's own click cannot happen there at all, and the row
+        // that can is one press away from the map.
+        public static void OpenMenu()
+        {
+            var map = Find.CurrentMap;
+            var comp = map?.GetComponent<CoreTip>();
+            if (comp == null) return;
+
+            comp.Open(Event.current.mousePosition, Cell(map));
+        }
+
+        void Open(Vector2 at, IntVec3 cell)
+        {
+            _clickPos = at;
+            _menuCell = cell;
+
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Hint", HintAction),
+            };
+            // Grandma mode: no fun allowed.
+            if (!Settings.GrandmaMode)
+                options.Add(new FloatMenuOption("Kill something", KillAction));
+            options.Add(new FloatMenuOption("Next planet", NextPlanet.Begin));
+
+            // OpenOverPane rather than a plain Add: the status bar is drawn over a terminal
+            // as well as over the map, and a menu opened from it belongs above both.
+            TerminalWindow.OpenOverPane(new FloatMenu(options));
+        }
+
+        // Where the core stands, or Invalid with none - which is a hint that dismisses itself
+        // on the next frame and two rows that never wanted a cell.
+        static IntVec3 Cell(Map map)
+        {
+            var cores = map.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore);
+            return cores.Count > 0 ? cores[0].Position : IntVec3.Invalid;
+        }
+
+        // Whether this map has one. The status bar asks before it draws the icon: a door onto
+        // a thing that is not there is not a door.
+        public static bool On(Map map) =>
+            map != null && map.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore).Count > 0;
 
         // Show or refresh the sticky hint. Called from the context menu.
         void HintAction()

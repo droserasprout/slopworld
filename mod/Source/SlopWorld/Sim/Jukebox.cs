@@ -47,7 +47,17 @@ namespace SlopWorld
             if (Find.WindowStack.FloatMenu != null) return; // one menu is enough
 
             Event.current.Use();
-            Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
+            OpenMenu();
+        }
+
+        // The box's own menu, from the box or from the status bar's icon. Nothing in it is
+        // about where the press came from - the four rows are the colony's one radio either
+        // way - so the whole of it is static and the two callers differ only in what they
+        // had to do to be heard. OpenOverPane rather than a plain Add because the status bar
+        // is drawn over a terminal as well as over the map.
+        public static void OpenMenu()
+        {
+            TerminalWindow.OpenOverPane(new FloatMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption(PlayRow(), Stations),
                 SlopWidgets.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
@@ -99,7 +109,7 @@ namespace SlopWorld
         // played and how it is played are not one list.
         static void Stations()
         {
-            Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
+            TerminalWindow.OpenOverPane(new FloatMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption(Mark("OST", Radio.Picked == Radio.Station.Ost),
                     Radio.PickOst),
@@ -128,7 +138,7 @@ namespace SlopWorld
                         Radio.Picked == Radio.Station.Paradise && Radio.Rate == rate),
                     () => Radio.PickParadise(rate)));
             }
-            Find.WindowStack.Add(new FloatMenu(options));
+            TerminalWindow.OpenOverPane(new FloatMenu(options));
         }
 
         // What is playing is marked rather than greyed out: a disabled row reads as

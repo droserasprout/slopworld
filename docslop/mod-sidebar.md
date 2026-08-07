@@ -104,7 +104,10 @@ the postfix, which is what puts the column over a pane as well as on the map.
 ## Two views
 
 `Tabs` is the selector: two mono-grey icons across the top of the panel,
-`TabIcons` drawn in code. Only the body changes - the panel, the width, `Grip` and
+`TabIcons` drawn in code, and - in the files view only - the dotfile switch from
+the right end. Nothing else: the cog and the hamburger that used to sit beside
+that switch are on the status bar now ([mod-ui-chrome](mod-ui-chrome.md)),
+neither of them being about a view. Only the body changes - the panel, the width, `Grip` and
 `Absorb` are the panel's and are drawn once whichever view has it, which is the
 whole reason this is a strip and not a second sidebar. `TabH` is reserved in
 *both*, so switching moves nothing below it.

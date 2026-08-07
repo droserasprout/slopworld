@@ -167,16 +167,53 @@ right so the first window keeps its place as later ones come and go.
 ## `TopBar`
 
 The sidebar layout's one line across the top: the current agent on the left, the
-wall clock in the middle, the quota on the right. It starts where the column ends.
-Drawn from `UsageReadout` on the map and from `TerminalWindow` over a pane (for
-the reason the colonist bar is), and `DrawOnMap` stands down while a pane is up
-rather than registering a second copy's tooltips underneath it.
+wall clock in the middle, the quota and then the doors on the right. It starts
+where the column ends. Drawn from `UsageReadout` on the map and from
+`TerminalWindow` over a pane (for the reason the colonist bar is), and
+`DrawOnMap` stands down while a pane is up rather than registering a second
+copy's tooltips underneath it.
 
-With a pane open this is also its **title bar** - the gear and the cross move to
-the right end and `TerminalWindow` draws no header of its own, so the pane gets
-the whole screen below the line. The agent's own terminal title is what it says;
-only a subscribed session has one, which in practice is the one whose pane is
-open, and the state stands in for the rest.
+With a pane open this is also its **title bar** - `TerminalWindow` draws no
+header of its own, so the pane gets the whole screen below the line. The agent's
+own terminal title is what it says; only a subscribed session has one, which in
+practice is the one whose pane is open, and the state stands in for the rest.
+
+`Doors` is the right end, laid out **right to left** and run *before* the quota,
+which then takes whatever x it hands back: the strip is already right-aligned
+inside the room it gets, so a window coming or going never shuffles a button.
+Two groups, `GapM` apart:
+
+- The **hamburger** and the **cog**, off the sidebar's tab strip
+  ([mod-sidebar](mod-sidebar.md)). Neither was about a view and the strip is a
+  selector, so a pair of doors onto the options dialog and onto every window this
+  mod has did not belong in it. `TabIcons` at 18.
+- The **jukebox** and the **persona core** - the two things on the map with a
+  menu of their own, which is now reachable without finding them on the ground.
+  `Widgets.ThingIcon` at 24, the game's own icons rather than glyphs drawn in
+  code, which is what makes them read as the quota's neighbours; and each draws
+  only where its thing is standing (`Jukebox.On`, `CoreTip.On`), a door onto a
+  thing that is not there being no door. The menus themselves are
+  `Jukebox.OpenMenu` and `CoreTip.OpenMenu`, one entry point for the bar and the
+  ground both - see [mod-jukebox](mod-jukebox.md). Every one of them opens through
+  `TerminalWindow.OpenOverPane`, this line being drawn over a terminal as well as
+  over the map.
+
+**Nothing here goes through `Widgets.ButtonImage`**, and for the reason
+`ColonistBarStrip.MouseOver` states: every vanilla road to a click passes
+`Mouse.IsOver`, which answers false whenever the window being drawn is not
+getting input - and with the options dialog up over a pane, that is this line.
+Drawn from `UsageReadout` it is not a window at all. So `Door` and `Thing` ask
+the rect directly and `Press` takes the press. The gate is
+`interactive || ColonistBarStrip.OptionsOpen`, the same exception
+`ColonistBarStrip.Interactive` makes for the column: `SlopOptions.Free` lays that
+dialog out *below* `SlopLayout.TopInset`, so the bar stays visible while it is
+up, and it matters most for the cog - dead here, it would open a window it cannot
+close. `Absorb` keeps the plain `interactive`; it is about the map underneath,
+not about this line.
+
+The core's **hint** bubble is still `CoreTip`'s and still drawn from
+`MapComponentOnGUI`, so one asked for over an open pane is behind it; the cell it
+pins to is looked up rather than clicked on.
 
 ## Small stuff
 
