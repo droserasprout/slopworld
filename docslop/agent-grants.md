@@ -29,13 +29,30 @@ grant = token  +  which sessions  +  level (ro | rw)
 
 ## Two decisions, fixed
 
-- **Only the user mints**, from the mod. No agent holds the mint capability - there
-  is no delegation path, attenuated or otherwise. An orchestrator that wants a worker
-  watched is the user asking for it, not the orchestrator granting it.
-- **Grants are ephemeral.** In memory, keyed to the grantor session's life; gone when
-  it exits and gone on a daemon restart. Nothing lands in `config.toml`, so the
-  config-stores seam grows no long-lived secret, and a walked-off agent leaves no live
-  credential. Revocation is just "the grantor is gone".
+- **Only the user grants.** No agent holds the grant capability - there is no
+  delegation path, attenuated or otherwise. An orchestrator that wants a worker watched
+  is the user asking for it, not the orchestrator granting it.
+- **The scope is a session's own, edited where the session is edited and preserved.**
+  Revised 2026-08-07, and it reverses the first cut below: what a session may watch or
+  drive is a field on `SessionCfg`, set in the agent-edit dialog and written to
+  `config.toml`, so it survives a restart and reads back into the dialog. The built
+  enforcement does not care where a scope comes from - it resolves a token to a `Cap`
+  and checks it - so this is a second, persistent *source* of grants, resolved from the
+  agent's own config, alongside (or in place of) the ephemeral mint route.
+
+  Open when we pick this up: whether the config-declared scope **replaces** the
+  in-memory `/api/grants` mint or **complements** it. The transient "how's X doing right
+  now" wanted the ephemeral one; a standing "this agent always watches that one" wants
+  the config one. The host-never rule holds either way - a host session is not in
+  `config.toml` to name.
+
+### First cut, superseded by the above (kept for the reasoning)
+
+- **Grants were to be ephemeral** - in memory, keyed to the grantor's life, nothing on
+  `config.toml`, revocation just "the grantor is gone". Chosen for no long-lived secret
+  in the config-stores seam and auto-cleanup of a walked-off agent. The persistence the
+  user now wants trades that for a scope that survives a restart and is edited in one
+  place; the injected token itself can still be ephemeral even when the scope is not.
 
 ## Enforcement, five choke points
 
