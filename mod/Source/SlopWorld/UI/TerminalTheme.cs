@@ -61,7 +61,7 @@ namespace SlopWorld
 
         public static readonly List<TerminalTheme> All = new List<TerminalTheme>
         {
-            new TerminalTheme("clankers",
+            new TerminalTheme("slopworld",
                 fg: "#d3cbb8", bg: "#14120e",
                 cursor: "#e0b64a", cursorText: "#14120e",
                 selection: "#4a5a73", link: "#86a9c4",

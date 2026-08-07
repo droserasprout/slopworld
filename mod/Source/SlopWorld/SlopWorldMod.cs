@@ -44,7 +44,7 @@ namespace SlopWorld
 
         // The pane's palette, by name. A scheme this build no longer ships reads as the
         // default rather than as no colours at all.
-        public string theme = "clankers";
+        public string theme = "slopworld";
         // "#rrggbb", or blank for the scheme's own. The one colour worth overriding on
         // its own: everything else is the scheme's business, and a cursor you cannot find
         // is about the screen it is on.
@@ -88,7 +88,7 @@ namespace SlopWorld
             Scribe_Values.Look(ref usageIcons, "usageIcons", "");
             Scribe_Values.Look(ref fontSize, "fontSize", 14);
             Scribe_Values.Look(ref fontName, "fontName", "");
-            Scribe_Values.Look(ref theme, "theme", "clankers");
+            Scribe_Values.Look(ref theme, "theme", "slopworld");
             Scribe_Values.Look(ref cursorColor, "cursorColor", "");
             Scribe_Values.Look(ref radio, "radio", "ost");
             Scribe_Values.Look(ref radioMute, "radioMute", false);
