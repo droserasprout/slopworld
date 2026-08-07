@@ -33,6 +33,73 @@ fn presets_for<'a>(
         .collect()
 }
 
+/// The same session, spawned *beside* the sandbox rather than inside one: what the sidebar's
+/// "Terminal (host)" runs. There is no bwrap, so there is no `--clearenv` either and nothing
+/// to build an environment back up from - the pane inherits the tmux server's, which is
+/// slopd's, which is the login's. Only the four the sandbox states for its own reasons are
+/// stated here too: the two the emulator at the far end assumes about its terminal, and the
+/// two an agent reads to learn what it is.
+///
+/// The directory is tmux's `-c`, the same as for a sandboxed session, so nothing is chdir'd
+/// here. Deliberately not reachable from `config.toml`: an entry that could ask for this
+/// would be an agent outside the sandbox written down as an ordinary one.
+pub fn host_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
+    let mut a: Vec<String> = vec![
+        "env".into(),
+        format!("TERM={PANE_TERM}"),
+        "COLORTERM=truecolor".into(),
+        format!("SLOPWORLD_SESSION={}", s.name),
+        format!("SLOPWORLD_PROJECT={}", p.name),
+    ];
+    for (k, v) in env_pairs(&s.env) {
+        a.push(format!("{k}={v}"));
+    }
+    a.extend(shell_split(&host_command(cfg, s, host_shell().as_deref())));
+    a
+}
+
+/// `$SHELL`, the login shell of whoever slopd runs as, which is the shell a terminal on this
+/// machine opens. `None` when the environment does not say - a daemon started without one -
+/// and the preset answers instead.
+pub fn host_shell() -> Option<String> {
+    std::env::var("SHELL")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// What a host errand actually runs. `$SHELL` when it named nothing: `[defaults] shell` is
+/// the answer for a shell *inside* a sandbox, where a login shell's own rc files are mostly
+/// not reachable anyway, and out here the machine's own answer is the better one. An errand
+/// that did name something - a preset, a command line - is taken at its word and run as
+/// asked, which is what keeps `/api/run` with `host` from being a shell and nothing else.
+fn host_command(cfg: &Config, s: &SessionCfg, shell: Option<&str>) -> String {
+    let asked = s.cmd.is_some() || s.command.trim() != cfg.defaults.shell.trim();
+    match shell {
+        Some(sh) if !asked => sh.to_string(),
+        _ => cfg.command_of(s),
+    }
+}
+
+/// The word such a session goes by: the project it opened on, then the shell's own basename
+/// off `$SHELL` - `slopworld-zsh` in this project, `tmp-bash` in one called `tmp`. Both
+/// halves are what a reader wants to know about it and neither is on any other entry, an
+/// ordinary agent being named for the errand instead. An errand that named no project - a
+/// temporary one, coined after this - is the shell alone. `session_name_for` is the pure half
+/// so a test does not have to own the environment.
+pub fn host_session_name(project: &str) -> String {
+    session_name_for(project, host_shell().as_deref())
+}
+
+fn session_name_for(project: &str, shell: Option<&str>) -> String {
+    let base = shell.unwrap_or("").rsplit('/').next().unwrap_or("").trim();
+    let base = if base.is_empty() { "shell" } else { base };
+    match project.trim() {
+        "" => base.to_string(),
+        p => format!("{p}-{base}"),
+    }
+}
+
 pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     let agent_argv: Vec<String> = shell_split(&cfg.command_of(s));
     let dir = expand(&p.dir);
@@ -265,6 +332,82 @@ mod tests {
         assert_eq!(a[term + 1], PANE_TERM);
 
         assert!(a.contains(&"PATH".to_string()));
+    }
+
+    /// The point of the host errand: no bwrap anywhere in it, and the shell at the end of it
+    /// rather than behind a `--`.
+    #[test]
+    fn a_host_errand_is_not_sandboxed() {
+        let cfg = Config::default();
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "p".into(),
+            command: "shell".into(),
+            sandbox: vec!["x11".into()],
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        };
+        let a = host_argv(&cfg, &s, &p);
+
+        assert_eq!(a[0], "env");
+        assert!(!a.iter().any(|x| x == "bwrap" || x == "--clearenv"));
+        assert!(a.contains(&format!("TERM={PANE_TERM}")));
+        assert!(a.contains(&"SLOPWORLD_PROJECT=p".to_string()));
+        // Whichever shell this machine answers with, it is the tail and nothing follows it.
+        let want = shell_split(&host_command(&cfg, &s, host_shell().as_deref()));
+        assert_eq!(a[a.len() - want.len()..], want[..]);
+    }
+
+    /// `[defaults] shell` answers for a shell inside bwrap and `$SHELL` for one beside it -
+    /// unless the errand named a shell itself, which is taken at its word either side.
+    #[test]
+    fn a_host_errand_opens_the_login_shell_unless_it_named_one() {
+        let cfg = Config::default();
+        let bare = SessionCfg {
+            command: cfg.defaults.shell.clone(),
+            ..Default::default()
+        };
+        assert_eq!(
+            host_command(&cfg, &bare, Some("/usr/bin/zsh")),
+            "/usr/bin/zsh"
+        );
+        // Nothing in the environment to read: the preset is still there to answer.
+        assert_eq!(host_command(&cfg, &bare, None), cfg.command_of(&bare));
+
+        // A preset by name, and a command line of its own: both are run as asked.
+        let named = SessionCfg {
+            command: "zsh".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            host_command(&cfg, &named, Some("/bin/bash")),
+            cfg.command_of(&named)
+        );
+        let own = SessionCfg {
+            command: cfg.defaults.shell.clone(),
+            cmd: Some("htop".into()),
+            ..Default::default()
+        };
+        assert_eq!(host_command(&cfg, &own, Some("/bin/bash")), "htop");
+    }
+
+    /// The name the sidebar shows, and the tmux target behind it: the project, then the
+    /// shell. Not a constant either side - two projects open two differently named terminals.
+    #[test]
+    fn a_host_errand_is_named_for_its_project_and_its_shell() {
+        assert_eq!(
+            session_name_for("slopworld", Some("/usr/bin/zsh")),
+            "slopworld-zsh"
+        );
+        assert_eq!(session_name_for("tmp", Some("/bin/bash")), "tmp-bash");
+        assert_eq!(session_name_for("tmp", Some("fish")), "tmp-fish");
+        // No shell to read, and no project to open on: both fall back on their own.
+        assert_eq!(session_name_for("tmp", None), "tmp-shell");
+        assert_eq!(session_name_for("", Some("/usr/bin/zsh")), "zsh");
     }
 
     /// Every bind lands after the tmpfs and devices that would otherwise be mounted

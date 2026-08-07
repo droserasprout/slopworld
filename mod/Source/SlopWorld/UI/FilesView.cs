@@ -405,7 +405,7 @@ namespace SlopWorld
                 if (line.Project != null)
                 {
                     if (e.button == 0) Fold(line.Project);
-                    else Menu(line.Node);
+                    else Menu(line.Node, line.Project);
                     // A heading is not a file: the reader's focus has moved off whatever
                     // was showing, so the viewer goes.
                     ClearSelection();
@@ -467,7 +467,11 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ menu
 
-        static void Menu(Node node)
+        // `project` is set on a heading and null on everything below it: a project's own menu
+        // is this one plus what the agents view's heading offers, since the two headings name
+        // the same thing and a reader who found the option in one view will look for it in
+        // the other.
+        static void Menu(Node node, string project = null)
         {
             var opts = new List<FloatMenuOption>
             {
@@ -477,6 +481,11 @@ namespace SlopWorld
             string rel = Relative(node);
             if (rel != null)
                 opts.Add(new FloatMenuOption("Copy relative path", () => Copy(rel)));
+
+            if (project != null)
+                opts.Add(new FloatMenuOption("Terminal (host)", () =>
+                    SessionHub.Instance.RunHostShell(project,
+                        session => TerminalWindow.Open(session), SlopWidgets.Fail)));
 
             // Only files, and only because a directory in `less` is a listing nobody asked
             // for and a directory in `micro` is a file browser inside a game. The left

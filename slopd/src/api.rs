@@ -204,16 +204,25 @@ struct RunReq {
     #[serde(default)]
     text: String,
     /// Names the session and, through `slug`, the tmux session behind it. The errand's own
-    /// word for itself, since there is no entry to take one from.
+    /// word for itself, since there is no entry to take one from. Empty with `host` set is
+    /// the one case the daemon answers instead - see `sandbox::host_session_name`.
     #[serde(default)]
     label: String,
     #[serde(default)]
     temp: bool,
+    /// Outside the sandbox: the sidebar's "Terminal (host)". Only an errand can ask - there
+    /// is no such key on a session or a shortcut.
+    #[serde(default)]
+    host: bool,
 }
 
 async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
     let command = q.command.trim();
-    if command.is_empty() {
+    // A shell errand with nothing to run is a shell - `[defaults] shell` inside the sandbox,
+    // `$SHELL` on the host - and saying so again here would be the caller guessing at this
+    // machine's answer. Every other kind has to say: a prompt with no command is an agent
+    // nobody named.
+    if command.is_empty() && q.kind != crate::config::ShortcutKind::Shell {
         return Err(err(
             StatusCode::BAD_REQUEST,
             "an errand must say what to run",
@@ -228,16 +237,22 @@ async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
     }
 
     let label = match q.label.trim() {
-        "" => "run",
-        l => l,
+        // A host errand names itself for the project it opened on and the shell it opens -
+        // `slopworld-zsh`. The game cannot know which shell that is, so it sends no label and
+        // reads the name back off the answer, the same as it does for the session itself.
+        "" if q.host => crate::sandbox::host_session_name(project),
+        "" => "run".to_string(),
+        l => l.to_string(),
     };
     let sc = ShortcutCfg {
-        name: label.to_string(),
+        name: label,
         kind: q.kind,
         link: crate::config::ShortcutLink::Project,
         project: project.to_string(),
         text: q.text,
-        command: Some(command.to_string()),
+        // None rather than an empty string: `session_for` reads "no command of its own" off
+        // the Option, and that is what falls through to the preset.
+        command: (!command.is_empty()).then(|| command.to_string()),
     };
 
     // The project is checked by `run_errand` itself, which is also where a temporary one is
@@ -247,7 +262,7 @@ async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
         temp: q.temp,
     };
     let session = m
-        .run_errand(sc, want)
+        .run_errand(sc, want, q.host)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "ok": true, "session": session })))

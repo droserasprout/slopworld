@@ -703,13 +703,14 @@ namespace SlopWorld
         // closes itself next frame.
         public void Run(string project, string command, string label,
                         Action<string> started, Action<string> fail = null,
-                        bool shell = true, string text = "") =>
+                        bool shell = true, string text = "", bool host = false) =>
             SlopClient.Post("/api/run",
                 "{" + $"\"project\":{JVal.Q(project ?? "")}," +
                 $"\"kind\":{JVal.Q(shell ? "shell" : "prompt")}," +
                 $"\"command\":{JVal.Q(command ?? "")}," +
                 $"\"label\":{JVal.Q(label ?? "")}," +
-                $"\"text\":{JVal.Q(text ?? "")}" + "}",
+                $"\"text\":{JVal.Q(text ?? "")}," +
+                $"\"host\":{JVal.B(host)}" + "}",
                 j =>
                 {
                     string session = j["session"].AsString();
@@ -720,6 +721,17 @@ namespace SlopWorld
                     }, fail);
                 },
                 fail);
+
+        // The project's own directory, in a shell, outside the sandbox every other agent runs
+        // in - the sidebar's "Terminal (host)" in both views. Both the command and the label
+        // are left empty on purpose: the shell is `$SHELL`, the login shell of whoever the
+        // daemon runs as, and the entry is named for the project and that shell together -
+        // `slopworld-zsh` here, `tmp-bash` in a project called `tmp`. Which shell this machine
+        // has is the daemon's answer rather than the game's, so the game asks for neither and
+        // reads the name it was given back off the reply.
+        public void RunHostShell(string project, Action<string> started,
+                                 Action<string> fail = null) =>
+            Run(project, "", "", started, fail, shell: true, host: true);
 
         // A shortcut's name is free-form, so it can carry anything a path segment objects to.
         static string Esc(string name) => Uri.EscapeDataString(name ?? "");

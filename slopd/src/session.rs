@@ -217,6 +217,10 @@ struct Live {
     /// Set for a shortcut's agent and for an adopted session: what makes the colonist leave
     /// for good rather than lie down.
     ephemeral: bool,
+    /// Outside the sandbox, on the host itself. Here rather than on `SessionCfg` because
+    /// `SessionCfg` is what `config.toml` holds, and nothing written down is allowed to ask
+    /// for this - only an errand, which is gone by the time the file is next read.
+    host: bool,
     state: State,
     seq: u64,
     hash: u64,
@@ -821,6 +825,7 @@ impl Manager {
                 .or_insert(Live {
                     cfg: s.clone(),
                     ephemeral: false,
+                    host: false,
                     state: State::Down,
                     seq: 0,
                     hash: 0,
@@ -934,6 +939,7 @@ impl Manager {
                     ..Default::default()
                 },
                 ephemeral: true,
+                host: false,
                 state: State::Working,
                 seq: 0,
                 hash: 0,
@@ -1009,12 +1015,17 @@ impl Manager {
             bail!("{dir} is not a directory");
         }
 
-        // A restart with the terminal open comes back the shape the window asked for.
-        let (cols, rows) = match self.live.read().await.get(name) {
-            Some(l) => (l.cols, l.rows),
-            None => (BOOT_COLS, BOOT_ROWS),
+        // A restart with the terminal open comes back the shape the window asked for, and a
+        // host errand comes back on the host: both are the entry's, not the file's.
+        let (cols, rows, host) = match self.live.read().await.get(name) {
+            Some(l) => (l.cols, l.rows, l.host),
+            None => (BOOT_COLS, BOOT_ROWS, false),
         };
-        let argv = build_argv(&cfg, &s, &p);
+        let argv = if host {
+            crate::sandbox::host_argv(&cfg, &s, &p)
+        } else {
+            build_argv(&cfg, &s, &p)
+        };
         tracing::info!("starting {name}: {}", argv.join(" "));
         self.tmux.spawn(name, &dir, cols, rows, &argv).await?;
         self.spawn_reader(name).await;
@@ -1239,7 +1250,7 @@ impl Manager {
             .clone();
         check_shortcut(&cfg, &sc)?;
         drop(cfg);
-        self.run_errand(sc, want).await
+        self.run_errand(sc, want, false).await
     }
 
     /// The errand itself, once somebody has said what it is. Split out because an errand is
@@ -1247,7 +1258,15 @@ impl Manager {
     /// cursor, which is a one-off nobody would want written down, and `check_shortcut`'s
     /// rule that an errand must have something to send is exactly what such a run breaks -
     /// so the caller validates and this runs.
-    pub async fn run_errand(self: &Arc<Self>, sc: ShortcutCfg, want: RunWhere) -> Result<String> {
+    ///
+    /// `host` runs it outside the sandbox (see `sandbox::host_argv`). A parameter rather than
+    /// a field on `ShortcutCfg`, so a written-down shortcut has no way to ask for it.
+    pub async fn run_errand(
+        self: &Arc<Self>,
+        sc: ShortcutCfg,
+        want: RunWhere,
+        host: bool,
+    ) -> Result<String> {
         self.reload_if_changed().await;
         let cfg = self.config().await;
         let name = sc.name.as_str();
@@ -1306,6 +1325,7 @@ impl Manager {
                     // size from, there being nothing in config for it to read.
                     cfg: cfg.session_for(&sc, name.clone(), project),
                     ephemeral: true,
+                    host,
                     state: State::Down,
                     seq: 0,
                     hash: 0,
@@ -2471,6 +2491,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
         Live {
             cfg: SessionCfg::default(),
             ephemeral: true,
+            host: false,
             state: State::Down,
             seq: 0,
             hash: 0,

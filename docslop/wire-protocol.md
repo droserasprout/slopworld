@@ -24,6 +24,35 @@ plus `POST /api/shortcuts/NAME/run` and `POST /api/run`.
 for anything that would rather ask than listen. `POST /api/open` answers 400 for a URL it will
 not take and 502 for an opener that would not.
 
+## `POST /api/run`
+
+An errand nobody wrote down. Two things only it can ask for:
+
+- `host` runs it **outside the sandbox** - `sandbox::host_argv` instead of
+  `build_argv`, so no bwrap, no `--clearenv`, and the pane inherits the tmux
+  server's environment with only `TERM`, `COLORTERM` and the two `SLOPWORLD_*`
+  stated over it. The flag rides on `Live` rather than on `SessionCfg`, and
+  `run_errand` takes it as an argument rather than off `ShortcutCfg`: nothing in
+  `config.toml` is allowed to name an agent that runs on the host.
+- An **empty `command`**, when `kind` is `shell`: a shell errand with nothing to run
+  is a shell. The empty string becomes `None` on the way to `session_for`, which
+  reads "no command of its own" off the Option. Any other kind still has to say.
+
+Which shell a *host* errand opens is `$SHELL` - `host_command`, the login shell of
+whoever slopd runs as - and not `[defaults] shell`, which answers for a shell inside
+a sandbox where a login shell's rc files are mostly out of reach anyway. An errand
+that named something itself, a preset or a command line, is run as asked on either
+side; only one that named nothing gets the login shell.
+
+An **empty `label`** with `host` set is the one case the daemon names the entry
+rather than the caller: the project it opened on, then the shell's own basename, so
+`/usr/bin/zsh` lands `slopworld-zsh` in this project and `tmp-bash` in one called
+`tmp` (`host_session_name`, then `free_name` and `slug` as for any errand). Neither
+half is a constant. An errand naming no project - a temporary one, which is coined
+*after* the session and off its name - is the shell alone. The game sends neither
+command nor label and reads the name back off the reply, since neither answer is
+the game's to give.
+
 ## `GET /api/browse`
 
 Lists one directory.

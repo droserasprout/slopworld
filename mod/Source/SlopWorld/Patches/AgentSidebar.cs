@@ -875,6 +875,12 @@ namespace SlopWorld
                     TerminalWindow.OpenOverPane(new EditProjectDialog(p))),
                 new FloatMenuOption("Duplicate...", () =>
                     TerminalWindow.OpenOverPane(EditProjectDialog.Copy(p))),
+                // A shell in the project's directory and *not* in its sandbox: the one thing
+                // here that is about the machine rather than about the entry, which is why it
+                // says so. The same option is on the heading in the files view.
+                new FloatMenuOption("Terminal (host)", () =>
+                    hub.RunHostShell(name, session => TerminalWindow.Open(session),
+                        SlopWidgets.Fail)),
             };
 
             // The whole project's agents, not the column's: a down agent is still an entry in

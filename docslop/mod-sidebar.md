@@ -45,6 +45,14 @@ the postfix, which is what puts the column over a pane as well as on the map.
   asked for after it, a row menu would open over only half a row. A heading folds
   on the left button and opens its project on the right; a row opens its agent's
   on the right.
+- `HeadMenu` is Edit, Duplicate, **`Terminal (host)`**, Delete. That third one is a
+  shell in the project's directory and *not* in its sandbox -
+  `SessionHub.RunHostShell` -> `POST /api/run` with `host` set, which is the only
+  road to an unsandboxed session and is why it says so on the label
+  ([wire-protocol](wire-protocol.md)). Command and label are both left empty: the
+  shell is `$SHELL` and the entry is named for the project and that shell together -
+  `slopworld-zsh` here - and neither answer is the game's to give. The files view's
+  heading carries the same option ([mod-ui-files](mod-ui-files.md)).
 - **A fold parks its bucket's locs off screen** rather than merely skipping them:
   the bar hit-tests against the same list it draws from, so parking is how an
   entry leaves both, and no `Row` goes in either, which takes a folded agent off

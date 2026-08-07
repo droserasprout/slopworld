@@ -30,6 +30,11 @@ see a project directory the way the project does.
   ephemeral agent in the **project's own sandbox** - which is what makes `less` see
   the file the way the agents working on it do. The path is single-quoted,
   `shell_split` building an argv rather than running a shell.
+- A **project heading** gets one more: `Terminal (host)`, the same option the agents
+  view's heading carries ([mod-sidebar](mod-sidebar.md)). `Menu` takes the project
+  name as a second argument, null everywhere below the heading - the two headings
+  name the same thing, and a reader who finds the option in one view looks for it
+  in the other.
 
 ## The viewer
 
