@@ -34,4 +34,5 @@ Split out of CLANKERS.md. Keep these short; delete what goes stale.
 - [mod-ui-windows](mod-ui-windows.md) - the dialogs and the options pages.
 - [mod-settings](mod-settings.md) - `SlopSettings`, and why a knob lives there.
 - [gotchas](gotchas.md) - the traps that cost a day each.
+- [zsh-terminal](zsh-terminal.md) - zsh-newuser-install wizard vs bash default prompt.
 - [skyfallers](skyfallers.md) - dropping a thing out of the sky.
