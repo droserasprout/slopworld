@@ -269,8 +269,17 @@ fn seed_into(pr: &SandboxPreset, project: &[String], host: &str, copy: &Path) ->
             continue; // a seed for some other private path, or for another preset's
         };
         let to = copy.join(rel);
-        if let Err(e) = seed(Path::new(&from), &to, &skip) {
-            tracing::warn!("seeding {} from {from}: {e:#}", to.display());
+        // Said out loud, both ways. A seed path that is not there is *usually* honest - no two
+        // machines keep all of what a preset names - but it is also exactly how a typo looks,
+        // and `pi` shipped naming three directories it has never made without a word about it.
+        // Twice the answer was "seeding worked, look elsewhere" when nothing had been copied.
+        if !Path::new(&from).exists() {
+            tracing::info!("seed {from} is not on this machine, nothing copied");
+            continue;
+        }
+        match seed(Path::new(&from), &to, &skip) {
+            Ok(()) => tracing::info!("seeded {from}"),
+            Err(e) => tracing::warn!("seeding {} from {from}: {e:#}", to.display()),
         }
     }
     Ok(())
