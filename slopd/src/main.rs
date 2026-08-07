@@ -34,9 +34,7 @@ async fn main() -> Result<()> {
         )
         .init();
 
-    let cfg_path = std::env::var("SLOPD_CONFIG")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| Config::path());
+    let cfg_path = Config::path_in_use();
     let cfg = Config::load(&cfg_path)?;
     tracing::info!("config: {}", cfg_path.display());
 

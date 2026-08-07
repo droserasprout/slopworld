@@ -1,8 +1,13 @@
+# Private for the same reason `claude` is. The files at the top of `~/.pi` are seeded whatever
+# they are called, which is what carries the credentials across without this file having to
+# know their names; a machine whose pi keeps a *directory* of something the agent needs wants
+# that directory added to `seed`.
 [[sandbox]]
 name = "pi"
 category = "agent"
-description = "pi coding agent's own state, config and credentials"
-rw = ["~/.pi"]
+description = "pi coding agent's own state, config and credentials, one copy per session"
+private = ["~/.pi"]
+seed = ["~/.pi/agents", "~/.pi/extensions", "~/.pi/prompts"]
 env = [
     "PI_CODING_AGENT_DIR",
     "ANTHROPIC_API_KEY",

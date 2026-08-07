@@ -295,8 +295,11 @@ namespace SlopWorld
         // `locked` is ticked and not yours to untick: a preset the command an agent runs asks
         // for anyway. Shown rather than hidden, that being the answer to "why is ~/.claude
         // bound", and the face comes down so the row reads as stated rather than as chosen.
+        // `warn` is for a row that costs something to tick - a preset that hands the sandbox a
+        // way back out. The label keeps the colour on hover too: a caveat that disappears when
+        // the pointer arrives is one nobody reads at the moment they are deciding.
         public static bool Checkbox(Rect r, string label, bool on, string tip = null,
-                                    bool locked = false)
+                                    bool locked = false, bool warn = false)
         {
             bool over = !locked && Mouse.IsOver(r);
             if (over) Widgets.DrawHighlight(r);
@@ -315,7 +318,7 @@ namespace SlopWorld
 
             var wasAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleLeft;
-            GUI.color = locked ? Faint : over ? Lead : Name;
+            GUI.color = locked ? Faint : warn ? Warn : over ? Lead : Name;
             Widgets.Label(new Rect(box.xMax + 8f, r.y, r.xMax - box.xMax - 8f, r.height), label);
             Text.Anchor = wasAnchor;
             GUI.color = Color.white;

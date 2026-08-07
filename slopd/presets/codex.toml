@@ -1,10 +1,12 @@
+# Private for the same reason `claude` is: `~/.codex/config.toml` names MCP servers, and the
+# host runs them the next time it starts a Codex of its own. `auth.json` and the config are
+# files at the top of the directory, so they are seeded without being named.
 [[sandbox]]
 name = "codex"
 category = "agent"
-description = "OpenAI Codex CLI's own state, config, auth, and session data"
-rw = [
-    "~/.codex",
-]
+description = "OpenAI Codex CLI's own state, config and auth, one copy per session"
+private = ["~/.codex"]
+seed = ["~/.codex/prompts"]
 env = [
     "CODEX_HOME",
     "OPENAI_API_KEY",

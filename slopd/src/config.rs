@@ -350,6 +350,15 @@ impl Config {
             .join("slopworld/config.toml")
     }
 
+    /// The file this daemon actually read, `SLOPD_CONFIG` included. `main` loads from it, and
+    /// `sandbox::refused` keeps every bind list away from it: the token is in there, and an
+    /// agent that can read it is an agent that can ask for a host terminal.
+    pub fn path_in_use() -> PathBuf {
+        std::env::var("SLOPD_CONFIG")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| Self::path())
+    }
+
     pub fn load(path: &Path) -> Result<Self> {
         if !path.exists() {
             let cfg = Config::seed();
@@ -520,10 +529,15 @@ pub fn env_pairs(lines: &[String]) -> Vec<(String, String)> {
         .collect()
 }
 
-/// bwrap expands neither `~` nor `$VAR`, and the preset table is written in both. An unset
-/// variable expands to nothing, leaving a path that cannot exist - and every bind is skipped
-/// unless the path is there, so an unset `WAYLAND_DISPLAY` drops that bind rather than
+/// bwrap expands neither `~` nor `$VAR`, and the preset table is written in both. A path
+/// naming a variable this machine has not set expands to **nothing at all**, and every bind is
+/// skipped unless the path is there, so an unset `WAYLAND_DISPLAY` drops that bind rather than
 /// mounting `/run/user/1000/` whole.
+///
+/// The whole path rather than the one variable, which is not a nicety: `wayland` asks for
+/// `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY`, and with neither set, dropping each in turn leaves the
+/// separator behind - `"/"`, which exists, and which was therefore bound read-write into the
+/// sandbox. A path about a thing this machine does not have is not a path.
 pub fn expand(path: &str) -> String {
     let path = if let Some(rest) = path.strip_prefix("~/") {
         match dirs::home_dir() {
@@ -561,7 +575,10 @@ pub fn expand(path: &str) -> String {
         if name.is_empty() {
             out.push('$');
         } else {
-            out.push_str(&std::env::var(name).unwrap_or_default());
+            match std::env::var(name) {
+                Ok(v) if !v.is_empty() => out.push_str(&v),
+                _ => return String::new(),
+            }
         }
         rest = tail;
     }
@@ -572,7 +589,7 @@ pub fn expand(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        redact_token_text, temp_dir, Config, ShortcutCfg, ShortcutKind, ShortcutLink,
+        expand, redact_token_text, temp_dir, Config, ShortcutCfg, ShortcutKind, ShortcutLink,
         TOKEN_REDACTED,
     };
 
@@ -658,6 +675,25 @@ token = \"not-a-daemon-token\"
 
     /// A prompt shortcut that names no command comes out running the preset
     /// `[defaults] agent` names: a preset is what hands the sandbox ~/.claude.
+    /// A path is about a thing this machine has, or it is not a path. The two-variable case is
+    /// the one that mattered: dropping each in turn used to leave the separator behind, and
+    /// `"/"` exists, so `wayland` on a machine with no Wayland bound the whole filesystem
+    /// read-write. `sandbox::refused` would stop that now; nothing should get that far.
+    #[test]
+    fn a_path_naming_a_variable_this_machine_lacks_is_nothing() {
+        assert_eq!(expand("$SLOPD_NO_SUCH_VAR_A/thing"), "");
+        assert_eq!(expand("$SLOPD_NO_SUCH_VAR_A/$SLOPD_NO_SUCH_VAR_B"), "");
+        assert_eq!(expand("${SLOPD_NO_SUCH_VAR_A}/thing"), "");
+
+        // What has no variable in it is left exactly, and one that is set is filled in.
+        assert_eq!(expand("/usr/lib"), "/usr/lib");
+        assert!(expand("$PATH/bin").ends_with("/bin"));
+        assert_ne!(expand("$PATH/bin"), "/bin");
+        if let Some(home) = dirs::home_dir() {
+            assert_eq!(expand("~/x"), home.join("x").to_string_lossy());
+        }
+    }
+
     #[test]
     fn shortcuts_become_sessions() {
         let cfg = Config::parse(

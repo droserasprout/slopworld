@@ -521,6 +521,12 @@ fn check_project(p: &ProjectCfg) -> Result<()> {
     if p.dir.trim().is_empty() {
         bail!("project {} needs a directory", p.name);
     }
+    // The project directory is bound read-write and cannot be dropped the way a preset's
+    // path can, so this one is refused at the dialog rather than warned about at start.
+    let dir = expand(&p.dir);
+    if let Some(what) = crate::sandbox::refused(&dir) {
+        bail!("project {} cannot live at {dir}: it reaches {what}", p.name);
+    }
     check_presets(&p.sandbox)?;
     Ok(())
 }
@@ -1091,6 +1097,11 @@ impl Manager {
         if !std::path::Path::new(&dir).is_dir() {
             bail!("{dir} is not a directory");
         }
+        // `check_project` refuses this where it is typed; an entry older than that check is
+        // still on the file, and the project directory is the one bind no preset can drop.
+        if let Some(what) = crate::sandbox::refused(&dir) {
+            bail!("project {} cannot live at {dir}: it reaches {what}", p.name);
+        }
 
         // A restart with the terminal open comes back the shape the window asked for, and a
         // host errand comes back on the host: both are the entry's, not the file's.
@@ -1101,6 +1112,9 @@ impl Manager {
         let argv = if host {
             crate::sandbox::host_argv(&cfg, &s, &p)
         } else {
+            // Before the argv, not inside it: what the presets keep private has to be on the
+            // disk for bwrap to bind, and `build_argv` is called by tests that own no home.
+            crate::sandbox::prepare_private(&cfg, &s, &p)?;
             build_argv(&cfg, &s, &p)
         };
         tracing::info!("starting {name}: {}", argv.join(" "));

@@ -1,3 +1,7 @@
+use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result};
+
 use crate::config::{env_pairs, expand, Config, ProjectCfg, SessionCfg};
 use crate::presets::{SandboxPreset, Table};
 
@@ -100,6 +104,192 @@ fn session_name_for(project: &str, shell: Option<&str>) -> String {
     }
 }
 
+/// Where a session keeps what is its own. Under `~/.local/share` rather than `TEMP_ROOT`,
+/// because what lives here is an agent's memory of itself and a reboot is not a reason to
+/// forget it. `SLOPD_STATE` moves it, which is what the tests use.
+pub fn state_root() -> PathBuf {
+    if let Ok(dir) = std::env::var("SLOPD_STATE") {
+        return PathBuf::from(dir);
+    }
+    dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("slopworld/sessions")
+}
+
+/// The copy of `host` this session gets. The original's shape is kept rather than its
+/// basename, so `~/.config/opencode` and `~/.local/share/opencode` - one preset, two
+/// directories, one name - never land on each other.
+fn private_path(session: &str, host: &str) -> PathBuf {
+    let host = Path::new(host);
+    let root = state_root().join(session);
+    if let Some(home) = dirs::home_dir() {
+        if let Ok(rel) = host.strip_prefix(&home) {
+            return root.join("home").join(rel);
+        }
+    }
+    root.join("root")
+        .join(host.strip_prefix("/").unwrap_or(host))
+}
+
+/// What no bind list may hand a sandbox, whoever asks - the global `[sandbox]`, a preset
+/// file, a project. The invariant is that an agent reaches neither `[daemon] token`, nor the
+/// preset files that decide what the next sandbox binds, nor another session's private state;
+/// until now that held because of how `config.toml` happened to be written, and a single
+/// `rw_paths = ["/"]` was the whole of undoing it. Stated here instead, where all three kinds
+/// of bind list meet.
+///
+/// Both directions are refused: a path *inside* one of these reaches it, and a path *above*
+/// one contains it. `~/.config` is as much a way to the token as the file itself.
+pub fn refused(path: &str) -> Option<String> {
+    let path = Path::new(path);
+    if path == Path::new("/") {
+        return Some("the whole filesystem".into());
+    }
+    if dirs::home_dir().is_some_and(|home| home == path) {
+        return Some("the whole home directory".into());
+    }
+
+    let keep = [
+        (
+            "the daemon's config, and the token in it",
+            Config::path_in_use(),
+        ),
+        ("the preset files", Table::dir()),
+        ("what the sessions keep to themselves", state_root()),
+    ];
+    for (what, kept) in keep {
+        if kept.starts_with(path) || path.starts_with(&kept) {
+            return Some(what.into());
+        }
+    }
+    None
+}
+
+/// `(copy, host)` for every path this session's presets keep to themselves: what is bound
+/// *over* the host path, so a program that looks its config up under `$HOME` still finds one
+/// and never the user's. Pure - `prepare_private` is the half that touches the disk, and it
+/// has run by the time this is called.
+///
+/// A host path that is not there is skipped, the same rule the rest of the file binds by:
+/// there is nothing to keep separate from a file nobody has.
+fn private_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec<(String, String)> {
+    let mut out: Vec<(String, String)> = Vec::new();
+    for pr in presets_for(cfg, s, p, t) {
+        for path in &pr.private {
+            let host = expand(path);
+            if host.is_empty() || !Path::new(&host).exists() {
+                continue;
+            }
+            if out.iter().any(|(_, seen)| seen == &host) {
+                continue;
+            }
+            let copy = private_path(&s.name, &host);
+            out.push((copy.to_string_lossy().into_owned(), host));
+        }
+    }
+    out
+}
+
+/// Makes each private tree and seeds it, once. Called before the argv is built, because
+/// bwrap binding a source that is not there is a session that will not start.
+///
+/// Seeded only when the copy is absent, so what an agent has written is never trodden on by
+/// what the host has since changed. The tree is an ordinary directory: deleting a session's
+/// is how it is handed a fresh one.
+pub fn prepare_private(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<()> {
+    let t = crate::presets::table();
+    for pr in presets_for(cfg, s, p, &t) {
+        for path in &pr.private {
+            let host = expand(path);
+            if host.is_empty() || !Path::new(&host).exists() {
+                continue;
+            }
+            let copy = private_path(&s.name, &host);
+            if copy.exists() {
+                continue;
+            }
+            tracing::info!("session {:?} gets its own {host}", s.name);
+            seed_into(pr, &host, &copy)?;
+        }
+    }
+    Ok(())
+}
+
+/// One private path, made and seeded. Returns having done nothing if the copy is already
+/// there, which is what "once" means: what an agent has written is never trodden on by what
+/// the host has changed since. The tree is an ordinary directory - deleting a session's is
+/// how it is handed a fresh one.
+fn seed_into(pr: &SandboxPreset, host: &str, copy: &Path) -> Result<()> {
+    if copy.exists() {
+        return Ok(());
+    }
+    if let Some(parent) = copy.parent() {
+        std::fs::create_dir_all(parent).with_context(|| format!("making {}", parent.display()))?;
+    }
+
+    // A file is its own seed.
+    if Path::new(host).is_file() {
+        std::fs::copy(host, copy).with_context(|| format!("seeding {}", copy.display()))?;
+        return Ok(());
+    }
+    std::fs::create_dir_all(copy).with_context(|| format!("making {}", copy.display()))?;
+
+    // The files at the top of the directory, whatever they are called: a tool keeps its
+    // credentials and its config there - `auth.json`, `settings.json`, `config.toml` - and its
+    // bulk in subdirectories. Copying them unasked is what keeps this from being a list of
+    // every agent's filenames, kept in step by hand and wrong for the one that just changed.
+    // The failure it chooses is a session that copied a megabyte it did not need, over one
+    // that cannot log in.
+    match std::fs::read_dir(host) {
+        Ok(entries) => {
+            for entry in entries.flatten() {
+                if entry.path().is_file() {
+                    let to = copy.join(entry.file_name());
+                    if let Err(e) = std::fs::copy(entry.path(), &to) {
+                        tracing::warn!("seeding {}: {e:#}", to.display());
+                    }
+                }
+            }
+        }
+        Err(e) => tracing::warn!("reading {host}: {e:#}"),
+    }
+
+    // And the subdirectories the preset asks for by name, which is where what the *user* wrote
+    // lives - plugins, agents, commands - as against what the tool wrote about them.
+    for from in &pr.seed {
+        let from = expand(from);
+        let Ok(rel) = Path::new(&from).strip_prefix(host) else {
+            continue; // a seed for one of the preset's other private paths
+        };
+        let to = copy.join(rel);
+        if let Err(e) = seed(Path::new(&from), &to) {
+            tracing::warn!("seeding {} from {from}: {e:#}", to.display());
+        }
+    }
+    Ok(())
+}
+
+/// One seed entry, file or directory. A missing source is not an error: a preset names what
+/// the software it describes *may* keep, and no two machines have all of it.
+fn seed(from: &Path, to: &Path) -> Result<()> {
+    if !from.exists() {
+        return Ok(());
+    }
+    if from.is_file() {
+        if let Some(parent) = to.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::copy(from, to)?;
+        return Ok(());
+    }
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        seed(&entry.path(), &to.join(entry.file_name()))?;
+    }
+    Ok(())
+}
+
 pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     let agent_argv: Vec<String> = shell_split(&cfg.command_of(s));
     let dir = expand(&p.dir);
@@ -181,6 +371,13 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
         push(&["--dev-bind", path, path]);
     }
 
+    // Last of the binds under $HOME, so a project that put `~/.claude` in its own `rw_paths`
+    // gets the copy anyway: the point of a private path is that there is no way to ask for
+    // the original, and an earlier bind of the same target is one bwrap mounts over.
+    for (copy, host) in private_binds(cfg, s, p, &table) {
+        push(&["--bind", copy.as_str(), host.as_str()]);
+    }
+
     push(&["--bind", &dir, &dir]);
     push(&["--setenv", "HOME", &home]);
     push(&["--setenv", "SLOPWORLD_SESSION", &s.name]);
@@ -258,7 +455,14 @@ fn paths(
         if path.is_empty() || out.contains(&path) {
             continue;
         }
-        if std::path::Path::new(&path).exists() {
+        // Warned about and dropped rather than refused, the way an unknown preset name is:
+        // the files outlive the binary, and a line somebody wrote a year ago is not grounds
+        // for an agent that will not start. It is still never bound.
+        if let Some(what) = refused(&path) {
+            tracing::warn!("not binding {path}: it reaches {what}");
+            continue;
+        }
+        if Path::new(&path).exists() {
             out.push(path);
         }
     }
@@ -452,6 +656,186 @@ mod tests {
             .collect();
         assert!(names.contains(&"claude"), "no claude preset in {names:?}");
         assert!(names.contains(&"docker"), "no docker preset in {names:?}");
+    }
+
+    /// The guard, in both directions: a path *inside* what must stay out of reach, and a path
+    /// *above* it. `~/.config` is as much a road to the token as the file itself.
+    #[test]
+    fn no_bind_list_reaches_the_token_the_presets_or_another_session() {
+        assert!(refused("/").is_some());
+        if let Some(home) = dirs::home_dir() {
+            assert!(refused(&home.to_string_lossy()).is_some());
+            // A directory *in* the home is ordinary; the home itself is not.
+            assert!(refused(&home.join("src").to_string_lossy()).is_none());
+        }
+
+        for kept in [Config::path_in_use(), Table::dir(), state_root()] {
+            assert!(
+                refused(&kept.to_string_lossy()).is_some(),
+                "{} is bindable",
+                kept.display()
+            );
+            assert!(
+                refused(&kept.join("within").to_string_lossy()).is_some(),
+                "something under {} is bindable",
+                kept.display()
+            );
+            let above = kept.parent().expect("a parent");
+            assert!(
+                refused(&above.to_string_lossy()).is_some(),
+                "{} contains {} and is bindable",
+                above.display(),
+                kept.display()
+            );
+        }
+
+        // The ordinary case, and the one every preset depends on.
+        assert!(refused("/usr").is_none());
+        assert!(refused("/etc").is_none());
+    }
+
+    /// The other side of the guard: nothing that ships is caught by it. A refusal is silent
+    /// bar a log line, so a preset broken this way is a session that quietly cannot reach what
+    /// it was ticked for - and `~/.local/share/pnpm` sits one directory from `state_root`.
+    #[test]
+    fn no_shipped_preset_asks_for_something_refused() {
+        let t = Table::load();
+        for pr in &t.sandbox {
+            for path in pr
+                .ro
+                .iter()
+                .chain(&pr.rw)
+                .chain(&pr.dev)
+                .chain(&pr.private)
+                .chain(&pr.seed)
+            {
+                let full = expand(path);
+                if full.is_empty() {
+                    continue; // an unset $VAR, which `paths` drops anyway
+                }
+                assert!(
+                    refused(&full).is_none(),
+                    "preset {} asks for {path}, which the guard refuses: {}",
+                    pr.name,
+                    refused(&full).unwrap_or_default()
+                );
+            }
+        }
+    }
+
+    /// And the guard is reached from the list a project writes, not only from the function
+    /// under it: `rw_paths = ["/"]` is the line this whole thing is for.
+    #[test]
+    fn a_project_asking_for_the_world_does_not_get_it() {
+        let home = dirs::home_dir().map(|h| h.to_string_lossy().into_owned());
+        let mut asked = vec!["/".to_string(), "/usr".to_string()];
+        asked.extend(home.clone());
+        asked.push(Config::path_in_use().to_string_lossy().into_owned());
+
+        let out = paths(&[], &[], |pr| &pr.ro, &asked);
+        assert_eq!(out, vec!["/usr".to_string()], "got {out:?}");
+    }
+
+    /// One copy per session, at the shape of the original, and never one directory for two
+    /// paths that happen to share a basename.
+    #[test]
+    fn a_private_path_is_per_session_and_keeps_its_shape() {
+        let a = private_path("one", "/home/u/.config/opencode");
+        let b = private_path("one", "/home/u/.local/share/opencode");
+        assert_ne!(a, b);
+
+        assert_ne!(private_path("one", "/etc/x"), private_path("two", "/etc/x"));
+        assert!(private_path("one", "/etc/x").starts_with(state_root().join("one")));
+
+        // Under the home it keeps the relative path; outside it, the absolute one.
+        if let Some(home) = dirs::home_dir() {
+            let mine = private_path("one", &home.join(".claude").to_string_lossy());
+            assert_eq!(mine, state_root().join("one/home/.claude"));
+        }
+        assert_eq!(
+            private_path("one", "/etc/x"),
+            state_root().join("one/root/etc/x")
+        );
+    }
+
+    /// The point of a private path: whatever else asked for that path, the copy is what the
+    /// sandbox gets, because it is bound last and bwrap mounts in order.
+    #[test]
+    fn a_private_bind_is_last_and_beats_a_project_asking_for_the_original() {
+        let Some(home) = dirs::home_dir() else { return };
+        let claude = home.join(".claude").to_string_lossy().into_owned();
+        if !std::path::Path::new(&claude).exists() {
+            return; // nothing to keep private on a machine that has never run it
+        }
+
+        let cfg = Config::default();
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "p".into(),
+            command: "claude".into(),
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            // The project asks for the real one by name, which is the case this defeats.
+            rw_paths: vec!["~/.claude".into()],
+            ..Default::default()
+        };
+        let a = build_argv(&cfg, &s, &p);
+
+        let copy = private_path("a", &claude).to_string_lossy().into_owned();
+        assert!(a.contains(&copy), "no private bind in {a:?}");
+        // Every mention of the host path is before the private one that lands on top.
+        let last = a.iter().rposition(|x| x == &claude).expect("the target");
+        assert_eq!(a[last - 1], copy, "the copy is not what lands last");
+    }
+
+    /// Seeding, which is what decides whether an agent can log in at all: the files at the
+    /// top come across unasked, a named subdirectory comes across whole, an unnamed one does
+    /// not, and a second start does not tread on what the agent has written since.
+    #[test]
+    fn a_private_tree_is_seeded_once_with_the_files_on_top_and_what_the_preset_names() {
+        let root = std::env::temp_dir().join(format!("slopd-seed-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let host = root.join("host");
+        std::fs::create_dir_all(host.join("agents")).unwrap();
+        std::fs::create_dir_all(host.join("projects")).unwrap();
+        std::fs::write(host.join("auth.json"), "secret").unwrap();
+        std::fs::write(host.join("agents/one.md"), "mine").unwrap();
+        std::fs::write(host.join("projects/bulk"), "not this").unwrap();
+
+        let pr = SandboxPreset {
+            name: "t".into(),
+            private: vec![host.to_string_lossy().into_owned()],
+            seed: vec![host.join("agents").to_string_lossy().into_owned()],
+            ..Default::default()
+        };
+        let copy = root.join("copy");
+        seed_into(&pr, &host.to_string_lossy(), &copy).unwrap();
+
+        // Credentials on top, without this file naming them.
+        assert_eq!(
+            std::fs::read_to_string(copy.join("auth.json")).unwrap(),
+            "secret"
+        );
+        // What the preset named, and only that.
+        assert_eq!(
+            std::fs::read_to_string(copy.join("agents/one.md")).unwrap(),
+            "mine"
+        );
+        assert!(!copy.join("projects").exists(), "unnamed bulk came across");
+
+        // Seeded once: what the agent wrote survives, and the host's later edit stays out.
+        std::fs::write(copy.join("auth.json"), "the agent's own").unwrap();
+        std::fs::write(host.join("auth.json"), "changed since").unwrap();
+        seed_into(&pr, &host.to_string_lossy(), &copy).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(copy.join("auth.json")).unwrap(),
+            "the agent's own"
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

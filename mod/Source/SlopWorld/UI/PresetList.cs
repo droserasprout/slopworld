@@ -59,7 +59,8 @@ namespace SlopWorld
 
                     bool forced = implied != null && implied.Contains(pr.Name);
                     bool was = forced || chosen.Contains(pr.Name);
-                    bool on = SlopWidgets.Checkbox(cell, pr.Name, was, Tip(pr, forced), forced);
+                    bool on = SlopWidgets.Checkbox(cell, pr.Name, was, Tip(pr, forced), forced,
+                                                   pr.IsEscape);
 
                     if (on == was) continue;
                     if (on) chosen.Add(pr.Name);
@@ -76,7 +77,10 @@ namespace SlopWorld
         {
             string gives = string.Join("\n", p.Gives.ToArray());
             string why = forced ? "\n\nAsked for by the command this agent runs." : "";
-            return $"{p.Description}\n\n{gives}{why}";
+            // First, not last: what it costs is read before what it gives, because by the time
+            // the eye reaches a list of paths the decision has usually been made.
+            string out_ = p.IsEscape ? $"Way out of the sandbox: {p.Escapes}.\n\n" : "";
+            return $"{out_}{p.Description}\n\n{gives}{why}";
         }
     }
 }

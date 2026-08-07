@@ -168,14 +168,20 @@ namespace SlopWorld
                         Widgets.DrawBoxSolid(cell, SlopWidgets.RowOn);
                     var wasAnchor = Text.Anchor;
                     Text.Anchor = TextAnchor.MiddleLeft;
-                    GUI.color = p == _selected ? SlopWidgets.Lead : SlopWidgets.Name;
+                    // A way out keeps its colour even when selected: this page is where the
+                    // presets are read against each other, and that is the difference worth
+                    // seeing without clicking each one.
+                    GUI.color = p.IsEscape ? SlopWidgets.Warn
+                        : p == _selected ? SlopWidgets.Lead : SlopWidgets.Name;
                     Widgets.Label(cell, p.Name);
                     GUI.color = Color.white;
                     Text.Anchor = wasAnchor;
                     if (Widgets.ButtonInvisible(cell))
                         _selected = p;
+                    string cost = p.IsEscape
+                        ? $"Way out of the sandbox: {p.Escapes}.\n\n" : "";
                     TooltipHandler.TipRegion(cell,
-                        $"{p.Description}\n\n{string.Join("\n", p.Gives.ToArray())}");
+                        $"{cost}{p.Description}\n\n{string.Join("\n", p.Gives.ToArray())}");
                     y += pitch;
                 }
             }
@@ -202,9 +208,23 @@ namespace SlopWorld
             _previewScroll.Begin(r, view);
 
             float y = 0f;
+            // Above the groups, in the colour the list drew it: what a preset costs is not a
+            // fourth kind of bind, it is the sentence to read before any of them.
+            if (p.IsEscape)
+            {
+                GUI.color = SlopWidgets.Warn;
+                string cost = $"Way out of the sandbox: {p.Escapes}.";
+                float h = Text.CalcHeight(cost, view.width);
+                Widgets.Label(new Rect(0f, y, view.width, h), cost);
+                GUI.color = Color.white;
+                y = Rule(view.width, y + h + SlopWidgets.GapXS);
+            }
+
             y = Row(view, y, "Read-only binds", p.Ro);
             y = Rule(view.width, y);
             y = Row(view, y, "Read-write binds", p.Rw);
+            y = Rule(view.width, y);
+            y = Row(view, y, "Private, one copy per session", p.Private);
             y = Rule(view.width, y);
             Row(view, y, "Passed env vars", p.Env);
 
@@ -236,9 +256,18 @@ namespace SlopWorld
         }
 
         static float Measure(PresetInfo p, float width) =>
-            GroupH(p.Ro, width) + SlopWidgets.GapM
+            CostH(p, width)
+            + GroupH(p.Ro, width) + SlopWidgets.GapM
             + GroupH(p.Rw, width) + SlopWidgets.GapM
+            + GroupH(p.Private, width) + SlopWidgets.GapM
             + GroupH(p.Env, width);
+
+        // The line above the groups, and the rule under it, for a preset that has one.
+        static float CostH(PresetInfo p, float width) =>
+            p.IsEscape
+                ? Text.CalcHeight($"Way out of the sandbox: {p.Escapes}.", width)
+                  + SlopWidgets.GapXS + SlopWidgets.GapM
+                : 0f;
 
         static string TextOf(List<string> items) =>
             items.Count > 0 ? string.Join("\n", items.ToArray()) : "(nothing)";

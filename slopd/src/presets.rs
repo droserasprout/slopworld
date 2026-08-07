@@ -23,6 +23,26 @@ pub struct SandboxPreset {
     /// Device nodes, which need `--dev-bind` to survive the `--dev` tmpfs.
     #[serde(default)]
     pub dev: Vec<String>,
+    /// Bound to a copy of its own, one per session, rather than to the host's. What an agent
+    /// writes to its own config directory is what the *host* runs the next time it starts
+    /// one: `~/.claude/settings.json` names hooks, `~/.claude.json` names MCP servers, and
+    /// both are ordinary files to whatever is inside the sandbox. Shared state is deferred
+    /// execution; a copy is not. See `sandbox::private_binds`.
+    #[serde(default)]
+    pub private: Vec<String>,
+    /// Subdirectories copied into a `private` directory when it is first made, and never
+    /// again. The *files* at the top of that directory come across unasked - that is where a
+    /// tool keeps its credentials - so this names only what the user wrote a directory of:
+    /// plugins, agents, commands. A `private` entry that is itself a file is its own seed.
+    #[serde(default)]
+    pub seed: Vec<String>,
+    /// Non-empty when ticking this hands the sandbox a way back out: a socket whose far end
+    /// runs on the host, a display every other window shares. Free text, because what it
+    /// costs is the part worth reading, and the GUI draws it beside the checkbox rather than
+    /// burying it in a tooltip. A preset that merely carries a secret is not this - that is a
+    /// trade about *reach*, and this one is about the wall itself.
+    #[serde(default)]
+    pub escapes: String,
     /// Forwarded out of slopd's own environment.
     #[serde(default)]
     pub env: Vec<String>,
@@ -255,6 +275,59 @@ mod tests {
             vec!["~/.go", "~/.cache/go-build"]
         );
         assert_eq!(t.sandbox("kube").unwrap().ro, vec!["~/.kube"]);
+    }
+
+    /// Every agent keeps its own state, and every way back out of the sandbox says so. Both
+    /// are properties of the shipped files rather than of any code, so this is where they are
+    /// held: a preset added without either is the mistake worth catching, since the whole
+    /// point of both fields is that nobody has to remember them at the checkbox.
+    #[test]
+    fn the_agents_keep_their_state_and_the_ways_out_are_marked() {
+        let t = Table::load();
+
+        // An agent's config directory is a command line the host runs later. Bound to a copy
+        // or not bound at all - never the user's own.
+        for name in ["claude", "codex", "pi", "opencode"] {
+            let p = t
+                .sandbox(name)
+                .unwrap_or_else(|| panic!("no {name} preset"));
+            assert!(
+                !p.private.is_empty(),
+                "{name} shares its state with the host"
+            );
+            assert!(
+                p.rw.is_empty(),
+                "{name} still binds {:?} read-write on the host's own copy",
+                p.rw
+            );
+        }
+
+        // A socket whose far end runs on the host, or a display every window shares.
+        for name in [
+            "docker",
+            "podman",
+            "dbus",
+            "systemd",
+            "x11",
+            "ssh",
+            "1password",
+        ] {
+            let p = t
+                .sandbox(name)
+                .unwrap_or_else(|| panic!("no {name} preset"));
+            assert!(
+                !p.escapes.is_empty(),
+                "{name} is a way out and does not say so"
+            );
+        }
+
+        // And the ordinary ones are not crying wolf.
+        for name in ["rust", "go", "python", "node", "git"] {
+            let p = t
+                .sandbox(name)
+                .unwrap_or_else(|| panic!("no {name} preset"));
+            assert!(p.escapes.is_empty(), "{name} is marked as a way out");
+        }
     }
 
     /// A user file replaces the builtin of the same name in place, and adds what it names

@@ -1,8 +1,24 @@
+# Private rather than shared, and this is the reason: `~/.claude/settings.json` names hooks
+# and `~/.claude.json` names MCP servers, both of them command lines the *host's* Claude Code
+# runs the next time the user starts one. A sandbox that can write them is a sandbox with a
+# delayed shell on the far side of the wall. Every session gets its own copy instead, seeded
+# once from the user's and never written back.
+#
+# The rest follows: two agents no longer read each other's transcripts under `projects/`, and
+# neither reads the user's.
 [[sandbox]]
 name = "claude"
 category = "agent"
-description = "Claude Code's own state and credentials"
-rw = ["~/.claude", "~/.claude.json"]
+description = "Claude Code's own state and credentials, one copy per session"
+private = ["~/.claude", "~/.claude.json"]
+# What the user wrote, as against what the tool wrote about them. Credentials and settings are
+# files at the top of `~/.claude` and come across without being named.
+seed = [
+    "~/.claude/agents",
+    "~/.claude/commands",
+    "~/.claude/plugins",
+    "~/.claude/skills",
+]
 env = ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "CLAUDE_CONFIG_DIR"]
 
 [[command]]

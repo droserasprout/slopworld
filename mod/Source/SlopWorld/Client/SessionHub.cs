@@ -263,10 +263,19 @@ namespace SlopWorld
         public List<string> Ro = new List<string>();
         public List<string> Rw = new List<string>();
         public List<string> Env = new List<string>();
+        // Bound to a copy of its own rather than to the host's. Its own group because "where
+        // did my ~/.claude go" is the question a session's own copy raises, and a path that
+        // read as an ordinary bind would answer it wrongly.
+        public List<string> Private = new List<string>();
+
+        // What ticking this costs, when it costs anything: a socket whose far end runs on the
+        // host, a display every other window shares. Empty for an ordinary preset.
+        public string Escapes = "";
+        public bool IsEscape => !string.IsNullOrEmpty(Escapes);
 
         // Every path and env var the preset asks for, for the tooltip.
         public List<string> Gives =>
-            Ro.Concat(Rw).Concat(Env).ToList();
+            Ro.Concat(Rw).Concat(Private).Concat(Env).ToList();
 
         public static PresetInfo FromJson(JVal j)
         {
@@ -275,10 +284,12 @@ namespace SlopWorld
                 Name = j["name"].AsString(),
                 Category = j["category"].AsString(),
                 Description = j["description"].AsString(),
+                Escapes = j["escapes"].AsString(),
             };
             foreach (var key in new[] { "ro", "dev" })
                 p.Ro.AddRange(j[key].Items.Select(i => i.AsString()));
             p.Rw.AddRange(j["rw"].Items.Select(i => i.AsString()));
+            p.Private.AddRange(j["private"].Items.Select(i => i.AsString()));
             foreach (var key in new[] { "env", "setenv" })
                 p.Env.AddRange(j[key].Items.Select(i => i.AsString()));
             return p;

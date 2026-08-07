@@ -12,6 +12,7 @@ Split out of CLANKERS.md. Keep these short; delete what goes stale.
 - [daemon-files](daemon-files.md) - what each `slopd/src/*.rs` holds.
 - [daemon-projects](daemon-projects.md) - projects and sessions in `config.toml`.
 - [daemon-presets](daemon-presets.md) - the preset tables and the sandbox argv.
+- [sandbox-isolation](sandbox-isolation.md) - the bind guard, private state, marked ways out.
 - [daemon-shortcuts](daemon-shortcuts.md) - errands, ephemeral agents, delivery.
 - [daemon-session-state](daemon-session-state.md) - state classification, clocks, the emulator.
 - [daemon-redeploy](daemon-redeploy.md) - surviving a daemon restart; tmux traps.

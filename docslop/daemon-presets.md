@@ -11,6 +11,11 @@ place**, so the GUI never draws two of one.
   check `config.toml` is (`reload_presets_if_changed`), and the sessions are
   re-announced because what an agent runs may have just changed under it.
 - `category` is free text: an unknown one is a heading in the GUI, not an error.
+  So is `escapes`, which is non-empty on a preset that hands the sandbox a way
+  back out and is what the GUI draws in `Warn`.
+- A `[[sandbox]]` states five kinds of path: `ro`, `rw`, `dev` (which needs
+  `--dev-bind` to survive the `--dev` tmpfs), `private` (a per-session copy,
+  not the host's) and `seed` (what a fresh copy is filled with).
 - A name the table has no preset for is warned about and dropped rather than
   refused - the files outlive the binary - but one *typed* into a dialog is
   refused (`check_presets`), that being where it can be fixed.
@@ -25,9 +30,16 @@ place**, so the GUI never draws two of one.
 
 ## Sandbox (bubblewrap) rules
 
-- Every bind is skipped unless the path exists, which makes `$VAR` expansion safe.
+- Every bind is skipped unless the path exists. What makes that safe is that a
+  path naming a variable this machine has not set expands to **nothing**, whole
+  - not variable by variable, which used to leave the separator behind and turn
+  `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` into `"/"`.
+- A path that reaches the token, the preset files or another session's state is
+  warned about and dropped whoever asked for it - see
+  [sandbox-isolation](sandbox-isolation.md).
 - Order: global, presets, project, deduplicated, **rw after ro**, so a path in
-  both ends up writable.
+  both ends up writable. `private` lands after all three: a session's own copy
+  is what a project asking for the original gets.
 - Binds go down *after* the skeleton (`--proc`, `--dev`, `--tmpfs /tmp`) or the
   tmpfs buries them. `resolv.conf` is emitted last of the read-only ones, because
   a preset can bind the directory it sits in.

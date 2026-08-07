@@ -430,6 +430,10 @@ async fn presets(State(_m): State<Mgr>) -> ApiResult {
                 "ro": p.ro,
                 "rw": p.rw,
                 "dev": p.dev,
+                // Drawn as its own group: "where did my ~/.claude go" is the question a
+                // session's own copy raises, and this is the answer.
+                "private": p.private,
+                "escapes": p.escapes,
                 "env": p.env,
                 "setenv": p.setenv.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>(),
             })

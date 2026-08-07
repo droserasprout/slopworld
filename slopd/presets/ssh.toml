@@ -2,6 +2,7 @@
 name = "ssh"
 category = "secret"
 description = "SSH keys, known hosts and the agent socket"
+escapes = "the agent signs with keys this sandbox never holds, wherever they are trusted"
 ro = ["~/.ssh"]
 rw = ["$SSH_AUTH_SOCK"]
 env = ["SSH_AUTH_SOCK"]

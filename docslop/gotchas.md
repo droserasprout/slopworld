@@ -82,3 +82,10 @@
   correct.
 - A save written against defs this build no longer ships (`SlopRobotHead`,
   `SlopClaudwatch`) is not migrated. "Next planet" is the answer.
+- **A bind path built from two unset variables is `/`, and `/` exists.** `expand`
+  dropped each `$VAR` in turn, so `wayland`'s
+  `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` on a machine with neither left the
+  separator: the whole filesystem, bound read-write into every sandbox that
+  ticked the preset. A path naming a variable this machine lacks now expands to
+  nothing at all, and `sandbox::refused` refuses `/` besides - two answers
+  because one of them was already wrong once.
