@@ -63,6 +63,7 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/usage", get(usage))
         .route("/api/audio", get(audio))
         .route("/api/browse", get(browse))
+        .route("/api/git", get(git_status))
         .route("/api/game", get(game))
         .route("/api/game/restart", post(restart_game))
         .layer(middleware::from_fn(require_root));
@@ -694,6 +695,54 @@ async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult 
         "dirs": out.dirs,
         "files": out.files,
         "truncated": out.truncated,
+    })))
+}
+
+#[derive(Deserialize)]
+struct GitReq {
+    #[serde(default)]
+    path: String,
+}
+
+/// What has changed in one project's working tree, so the git view can draw a tree of it -
+/// `/api/browse` for a repository, and here for the same reason: the game is outside every
+/// session's mount namespace and cannot run `git` where the agents do.
+///
+/// A directory that is no repository answers 200 with `repo` false rather than an error. It
+/// is a fact about the project, not a request that failed, and the view says it in a line.
+async fn git_status(State(_m): State<Mgr>, Query(q): Query<GitReq>) -> ApiResult {
+    if q.path.is_empty() {
+        return Err(err(StatusCode::BAD_REQUEST, "no path"));
+    }
+    let dir = std::path::PathBuf::from(crate::config::expand(&q.path));
+
+    let out = crate::git::status(&dir)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+
+    let Some(st) = out else {
+        return Ok(Json(json!({ "repo": false, "path": dir })));
+    };
+
+    // The shortstat line, added up from the rows rather than asked of git a second time -
+    // `--shortstat` is this sum and nothing else. A binary file counts as a changed file and
+    // contributes no lines, the same way git counts it.
+    let added: u32 = st.changes.iter().filter_map(|c| c.added).sum();
+    let deleted: u32 = st.changes.iter().filter_map(|c| c.deleted).sum();
+
+    Ok(Json(json!({
+        "repo": true,
+        "root": st.root,
+        "branch": st.branch,
+        "changed": st.changes.len(),
+        "added": added,
+        "deleted": deleted,
+        "files": st.changes.iter().map(|c| json!({
+            "path": c.path,
+            "status": c.status,
+            "added": c.added,
+            "deleted": c.deleted,
+        })).collect::<Vec<_>>(),
     })))
 }
 

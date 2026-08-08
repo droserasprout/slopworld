@@ -44,7 +44,7 @@ namespace SlopWorld
         const float TextGap = 7f;
 
         // The view selector across the top of the panel, and the size of an icon in it.
-        // Reserved in both views, so switching moves nothing below it.
+        // Reserved in every view, so switching moves nothing below it.
         public const float TabH = 24f;
         const float TabIcon = 18f;
 
@@ -191,35 +191,45 @@ namespace SlopWorld
         // the width of the column.
         public static Rect Panel => new Rect(0f, 0f, Width, UI.screenHeight);
 
-        // What the column is showing. Two shapes over one panel: the chrome, the width, the
+        // What the column is showing. Three shapes over one panel: the chrome, the width, the
         // edge and the click-eating are the panel's and are drawn once, whichever view has
         // the body.
-        public static bool Files => Settings.SidebarTab == "files";
+        //
+        // An unknown tab is the agents view. The setting is a string in a file a person can
+        // edit, and the column has to draw something.
+        public const string TabAgents = "agents", TabFiles = "files", TabGit = "git";
 
-        static void Show(bool files)
+        public static bool Files => Settings.SidebarTab == TabFiles;
+        public static bool Git => Settings.SidebarTab == TabGit;
+        public static bool Agents => !Files && !Git;
+
+        static void Show(string tab)
         {
             // Clicking the tab already up is not a change, and the file is a file.
-            if (files == Files) return;
+            if (Settings.SidebarTab == tab) return;
 
-            // Leaving the file manager is a focus change: the `less` it opened on the
-            // selected file is no longer being looked at, so it goes.
-            if (!files) FilesView.ReleaseViewer();
+            // Leaving a view is a focus change: whatever pager it opened - the files view's
+            // `less` on a file, the git view's diff - is no longer being looked at, so it
+            // goes. Both are asked, the one being left not being worth working out.
+            if (tab != TabFiles) FilesView.ReleaseViewer();
+            if (tab != TabGit) GitView.ReleaseViewer();
 
             var s = Settings.S;
-            s.sidebarTab = files ? "files" : "agents";
+            s.sidebarTab = tab;
             // ModSettings.Write rather than Mod.WriteSettings, the same as a fold: the latter
             // reconnects the socket, and this is a tab.
             s.Write();
+
+            // Arriving in the git view is what asks: a working tree changes under this column
+            // all day and nothing tells it so, the agents being the ones doing the changing.
+            // Only what has never been read - the refresh button is how a reader asks again.
+            if (tab == TabGit) GitView.Entered();
         }
 
         // The column's answer to a terminal being summoned: F12 opening a pane, or Alt+Num
-        // pointing one at a portrait, are both about an agent, and the file manager is the
-        // other view. The viewer its tree opened goes with it.
-        public static void FocusTerminal()
-        {
-            FilesView.ReleaseViewer();
-            Show(false);
-        }
+        // pointing one at a portrait, are both about an agent, and the other two views are
+        // not. The pagers their bodies opened go with them.
+        public static void FocusTerminal() => Show(TabAgents);
 
         // Everything below the selector, which is where a view draws.
         public static Rect Body =>
@@ -231,7 +241,7 @@ namespace SlopWorld
         {
             var order = new List<string>();
 
-            if (!Files)
+            if (Agents)
             {
                 // Agents only. A number here is a portrait - Alt+3 is the third face down,
                 // and on the map it selects that colonist, which a ghost row has none of.
@@ -240,7 +250,7 @@ namespace SlopWorld
                 return order;
             }
 
-            // With the tree up there are no rows, and Alt+Num is the way back to an agent
+            // With a tree up there are no rows, and Alt+Num is the way back to an agent
             // from a view that draws none - so it is answered off the buckets instead, folds
             // and all. A fold takes an agent off the numbers because it takes it off the
             // column; switching views is not a fold, and hides every agent equally.
@@ -284,7 +294,7 @@ namespace SlopWorld
             // still means an agent with the tree on screen. Cheap - it lays nothing out.
             Bucket(entries, locs, count);
 
-            if (Files)
+            if (!Agents)
             {
                 // Nothing of the bar is on the panel, so every loc goes off screen: the bar
                 // draws from this list and hit-tests against it, and a portrait left where it
@@ -555,6 +565,10 @@ namespace SlopWorld
             {
                 FilesView.Draw(Body);
             }
+            else if (Git)
+            {
+                GitView.Draw(Body);
+            }
             else
             {
                 string open = TerminalWindow.CurrentName;
@@ -587,10 +601,11 @@ namespace SlopWorld
             // on a full column is nowhere.
             Grip();
             if (Files) FilesView.Clicks();
+            else if (Git) GitView.Clicks();
             else Menus();
         }
 
-        // The view selector: two icons top left, mono grey for the view you are not in and
+        // The view selector: three icons top left, mono grey for the view you are not in and
         // white with a line under it for the one you are. Icon only - the column is narrow
         // and a word here is a word taken off every agent's name below it - so the tooltips
         // carry what they mean.
@@ -601,22 +616,30 @@ namespace SlopWorld
                 new Color(1f, 1f, 1f, 0.08f));
 
             float y = (TabH - TabIcon) / 2f;
-            bool files = Files;
 
-            // The selector, from the left.
-            Tab(new Rect(CellX, y, TabIcon, TabIcon), TabIcons.AgentsTex, !files,
-                "Agents - every session, under the project it runs in", () => Show(false));
-            Tab(new Rect(CellX + TabIcon + 8f, y, TabIcon, TabIcon), TabIcons.FilesTex, files,
-                "Files - every project's directory, as a tree", () => Show(true));
+            // The selector, from the left. The gap is narrower than it was with two, three
+            // icons and a switch being what the strip now has to hold on a narrow column.
+            const float Gap = 6f;
+            float x = CellX;
+            Tab(new Rect(x, y, TabIcon, TabIcon), TabIcons.AgentsTex, Agents,
+                "Agents - every session, under the project it runs in", () => Show(TabAgents));
+            x += TabIcon + Gap;
+            Tab(new Rect(x, y, TabIcon, TabIcon), TabIcons.FilesTex, Files,
+                "Files - every project's directory, as a tree", () => Show(TabFiles));
+            x += TabIcon + Gap;
+            Tab(new Rect(x, y, TabIcon, TabIcon), TabIcons.GitTex, Git,
+                "Git - what every working tree has that its last commit does not",
+                () => Show(TabGit));
 
-            // The one switch the tree has, from the right so it never shuffles the selector
-            // sideways, and drawn only where it means something. The cog and the hamburger
-            // that used to sit beside it are on the status bar now: neither was about a view,
-            // and this strip is the selector.
-            if (files)
+            // Each tree's one switch, from the right so neither ever shuffles the selector
+            // sideways, and drawn only in the view it means something in. The cog and the
+            // hamburger that used to sit beside the first of them are on the status bar now:
+            // neither was about a view, and this strip is the selector.
+            float right = Width - CellX - TabIcon;
+
+            if (Files)
             {
                 bool showing = Settings.SidebarShowHidden;
-                float right = Width - CellX - TabIcon;
                 Tab(new Rect(right, y, TabIcon, TabIcon), TabIcons.HiddenTex, showing,
                     showing
                         ? "Showing dotfiles. Click to hide them."
@@ -629,6 +652,14 @@ namespace SlopWorld
                         // ask again; the expansions are what the reader wants kept.
                         FilesView.Reload();
                     });
+            }
+            else if (Git)
+            {
+                // Not a switch but a button, and the only one on the strip: nothing tells
+                // this column that a working tree moved, so asking again is the reader's.
+                // Never lit - there is no state here to be in.
+                Tab(new Rect(right, y, TabIcon, TabIcon), TabIcons.RefreshTex, false,
+                    "Read every working tree again.", GitView.Refresh);
             }
 
             // The strip is the panel's, so a press anywhere along it is the panel's too. Not

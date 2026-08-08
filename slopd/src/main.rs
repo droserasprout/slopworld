@@ -4,6 +4,7 @@ mod clipboard;
 mod config;
 mod emu;
 mod game;
+mod git;
 mod grant;
 mod open;
 mod perf;

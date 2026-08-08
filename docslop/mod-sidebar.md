@@ -114,31 +114,33 @@ the postfix, which is what puts the column over a pane as well as on the map.
   not running when the original throws and that flag being what hides every pawn
   label on the map.
 
-## Two views
+## Three views
 
-`Tabs` is the selector: two mono-grey icons across the top of the panel,
-`TabIcons` drawn in code, and - in the files view only - the dotfile switch from
-the right end. Nothing else: the cog and the hamburger that used to sit beside
+`Tabs` is the selector: three mono-grey icons across the top of the panel,
+`TabIcons` drawn in code, and from the right end each tree's own one switch - the
+dotfile switch in the files view, the refresh button in the [git
+view](mod-ui-git.md). Nothing else: the cog and the hamburger that used to sit beside
 that switch are on the status bar now ([mod-ui-chrome](mod-ui-chrome.md)),
 neither of them being about a view. Only the body changes - the panel, the width, `Grip` and
 `Absorb` are the panel's and are drawn once whichever view has it, which is the
 whole reason this is a strip and not a second sidebar. `TabH` is reserved in
-*both*, so switching moves nothing below it.
+*all three*, so switching moves nothing below it.
 
 The view is also switched by the keyboard: `FocusTerminal` is what F12 (opening a
 pane) and Alt+Num (while a pane is open) take, because both are about an agent and
-the file manager is the other view. It releases the file viewer - the `less` the
-tree opened - before changing tab, so leaving the file manager never leaves a
-reader running behind it.
+the other two views are not. `Show` releases every pager but the arriving view's -
+the `less` the file tree opened, the diff the git tree did - so leaving a view never
+leaves a reader running behind it.
 
-In the [files view](mod-ui-files.md), `Place` parks every loc and lays out no
+In the [files](mod-ui-files.md) and [git](mod-ui-git.md) views, `Place` parks every
+loc and lays out no
 `Row`, so the bar draws and hit-tests nothing - the same move a fold makes, with
 no second call site and no new patch. It still runs `Bucket`, because `Sessions()`
 is what `AgentColony.InBarOrder` and so Alt+1..9 read: a fold takes an agent off
 the numbers because it takes it off the column, but switching views hides every
 agent equally and is not a fold, so `Sessions()` answers off the buckets there
-instead of off the rows. `Menus` stands down; `FilesView` takes its own. The "+"
-goes with the agents: `Place` hands back an empty `add`, and
+instead of off the rows. `Menus` stands down; the view with the body takes its own
+clicks. The "+" goes with the agents: `Place` hands back an empty `add`, and
 `Patch_ColonistBarAddButton` already declines a zero-width slot.
 
 ## `ChromeShift` - what the column does to the rest of the interface

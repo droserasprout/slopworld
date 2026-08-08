@@ -30,6 +30,7 @@ Split out of CLANKERS.md. Keep these short; delete what goes stale.
 - [mod-patches-misc](mod-patches-misc.md) - background running, real-time durations, loading screen.
 - [mod-ui-chrome](mod-ui-chrome.md) - shared widgets, layout, usage readout, top bar.
 - [mod-ui-files](mod-ui-files.md) - the files view and its icons.
+- [mod-ui-git](mod-ui-git.md) - the git view, the diff pager, and the third tab.
 - [mod-terminal](mod-terminal.md) - the pane: rendering, keys, theme, links.
 - [mod-content-views](mod-content-views.md) - one window, and what fills it.
 - [mod-ui-windows](mod-ui-windows.md) - the dialogs and the options pages.

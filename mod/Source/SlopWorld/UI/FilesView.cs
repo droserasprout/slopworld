@@ -56,11 +56,11 @@ namespace SlopWorld
         static Vector2 _scroll;
 
         // The file the reader is looking at, and the ephemeral session running `less` on it.
-        // `_selected` is what the tree highlights; `_viewer` is who is showing it. The two
-        // move together except when the file is not text - then the tree marks it and nobody
-        // is showing it.
+        // `_selected` is what the tree highlights; `Viewer` is who is showing it. The two move
+        // together except when the file is not text - then the tree marks it and nobody is
+        // showing it.
         static string _selected;
-        static string _viewer;
+        static readonly Pager Viewer = new Pager();
 
         // Extensions `less` would rather not be handed: the viewer is for reading, and an
         // image or a zip in a text pager is a listing nobody asked for. Everything else is
@@ -433,8 +433,7 @@ namespace SlopWorld
                         _selected = line.Node.Path;
                         if (IsText(line.Node.Name))
                         {
-                            if (same && ViewerAlive()) TerminalWindow.Open(_viewer);
-                            else View(line.Node);
+                            if (!same || !Viewer.Reopen()) View(line.Node);
                         }
                         else ReleaseViewer();
                     }
@@ -517,8 +516,8 @@ namespace SlopWorld
                 SlopWidgets.Fail);
 
         // A temporary agent running one command in the project's own sandbox, which is what
-        // makes `less` see the file the way the agents working on it do. Nothing is typed into
-        // it: the command is the errand.
+        // makes `micro` see the file the way the agents working on it do. Untracked, unlike
+        // the viewer below: an editor is opened and left alone.
         static void Errand(Node node, string cmd, string label)
         {
             // The project this hangs off may have been renamed or deleted since the listing
@@ -530,80 +529,29 @@ namespace SlopWorld
                 return;
             }
 
-            SessionHub.Instance.Run(node.Project, cmd + " " + Quote(node.Path),
+            SessionHub.Instance.Run(node.Project, cmd + " " + Pager.Quote(node.Path),
                 label + "-" + node.Name,
                 session => TerminalWindow.Open(session), SlopWidgets.Fail);
         }
-
-        // The daemon splits a command line into an argv the way a shell would, so a path with
-        // a space in it is two arguments unless it says otherwise.
-        static string Quote(string path) => "'" + path.Replace("'", "'\\''") + "'";
 
         // ------------------------------------------------------------------ viewer
         //
         // The file manager's other half: a `less` session on the selected file, shown in a
         // pane over the tree. At most one is open - the reader replaces it by clicking
-        // another file, and the focus leaving the tree closes it.
-
-        // The same temporary agent `Errand` makes, but tracked as *the* viewer so the next
-        // selection can replace it and a focus change can close it. Nothing is typed into
-        // it: the command is the read.
+        // another file, and the focus leaving the tree closes it. All of that is `Pager`'s;
+        // the command is this view's.
         static void View(Node node)
         {
-            // The project this hangs off may have been renamed or deleted since the listing
-            // that put the row on screen; the daemon would refuse either way, but the reason
-            // is clearer said here.
-            if (SessionHub.Instance.Project(node.Project) == null)
-            {
-                // The tree marks it, but nobody is reading it.
-                ClearSelection();
-                ReleaseViewer();
-                SlopWidgets.Fail($"project '{node.Project}' has gone");
-                return;
-            }
-
-            // One file at a time: whatever was being read is replaced by this one, and its
-            // tmux session - and the pane showing it - goes with it.
-            ReleaseViewer();
-            SessionHub.Instance.Run(node.Project, "less -R -- " + Quote(node.Path),
-                "view-" + node.Name,
-                session =>
-                {
-                    _viewer = session;
-                    TerminalWindow.Open(session);
-                },
-                msg =>
-                {
-                    _viewer = null;
-                    SlopWidgets.Fail(msg);
-                });
+            // A project that has gone takes the mark with it: the tree would otherwise
+            // highlight a row nobody is reading.
+            if (SessionHub.Instance.Project(node.Project) == null) ClearSelection();
+            Viewer.Open(node.Project, "less -R -- " + Pager.Quote(node.Path),
+                "view-" + node.Name);
         }
 
-        // A viewer session nobody is looking at any more: the sidebar left the file
-        // manager, the terminal it was shown in closed, or a new file was selected. Stopping
-        // the ephemeral agent is what closes the `less` process; the pane over it noticing
-        // the session is gone is what closes itself.
-        public static void ReleaseViewer()
-        {
-            if (_viewer == null) return;
-            var info = SessionHub.Instance.Get(_viewer);
-            if (info != null && info.Alive)
-                SessionHub.Instance.Stop(_viewer);
-            _viewer = null;
-        }
+        public static void ReleaseViewer() => Viewer.Release();
 
-        // The terminal's own close, for the session it was showing. The pane is the
-        // viewer's only home, so closing it is the same focus change as leaving the tree.
-        public static void CloseViewerIf(string session)
-        {
-            if (session != null && session == _viewer) ReleaseViewer();
-        }
-
-        static bool ViewerAlive()
-        {
-            var info = _viewer == null ? null : SessionHub.Instance.Get(_viewer);
-            return info != null && info.Alive;
-        }
+        public static void CloseViewerIf(string session) => Viewer.CloseIf(session);
 
         static void ClearSelection() => _selected = null;
 

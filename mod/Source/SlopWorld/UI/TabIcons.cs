@@ -29,11 +29,17 @@ namespace SlopWorld
         // now have to agree on them.
         const float Mid = N / 2f, Box = 11f;
 
-        static Texture2D _agents, _files, _hidden, _bell, _auto, _hamburger, _config;
+        static Texture2D _agents, _files, _git, _refresh, _hidden, _bell, _auto, _hamburger,
+            _config;
 
         public static Texture2D AgentsTex => _agents != null ? _agents : _agents = Build(Robot);
 
         public static Texture2D FilesTex => _files != null ? _files : _files = Build(Folder);
+
+        public static Texture2D GitTex => _git != null ? _git : _git = Build(Branch);
+
+        public static Texture2D RefreshTex =>
+            _refresh != null ? _refresh : _refresh = Build(Refresh);
 
         public static Texture2D HiddenTex => _hidden != null ? _hidden : _hidden = Build(Eye);
 
@@ -82,6 +88,55 @@ namespace SlopWorld
             // The body (the main rectangle), minus the line across the front of it
             if (!RRect(x, y, 5f, 9f, 27f, 26f, 2.3f)) return false;
             return !Rect(x, y, 7.2f, 11.5f, 24.8f, 13f);
+        }
+
+        // A trunk with two nodes on it and a third off to the side, joined by a quarter of a
+        // ring - the shape every git client draws for a branch, and the one thing on this
+        // strip that has to say "git" without a word or a colour to say it with.
+        //
+        // The branch leaves the trunk low and rises: read left to right it is a line going
+        // somewhere else, where a branch drawn falling reads as a merge.
+        // The nodes are wider than the trunk on purpose: drawn to the same width they merge
+        // into it and the whole thing reads as one bar with a hook on it.
+        static bool Branch(float x, float y)
+        {
+            if (Rect(x, y, 8.4f, 9f, 11.6f, 23f)) return true;   // the trunk
+            if (Disc(x, y, 10f, 9f, 4f)) return true;            // where it starts
+            if (Disc(x, y, 10f, 23f, 4f)) return true;           // where it carries on
+            if (Disc(x, y, 21f, 10.5f, 4f)) return true;         // where the branch ends
+
+            // The branch itself, a quarter of a ring off the trunk. Cut to the quadrant below
+            // and right of its centre, which is what puts one end on the trunk and the other
+            // level with that third node.
+            if (x < 10f || y < 10.5f) return false;
+            float dx = x - 10f, dy = y - 10.5f;
+            float r = Mathf.Sqrt(dx * dx + dy * dy);
+            return r >= 9.3f && r <= 12.7f;
+        }
+
+        // The one button on the strip: a ring with a bite out of it and an arrowhead on the
+        // end, pointing the way round it goes. Off centre to the left, because the head is
+        // what runs past the box on the right and the pair has to sit in the middle.
+        //
+        // Lighter than the cog and the plate for the reason the eye is: an open ring is mostly
+        // the hole, and thickening it far enough to make 250 closes the shape up. This one and
+        // the branch land near 200, which is where the two of them agree with each other.
+        static bool Refresh(float x, float y)
+        {
+            const float Cx = 15f, Cy = 16f;
+
+            // The head, on the east end and pointing up - counter-clockwise, which is the way
+            // the ring's own gap carries on. Centred on the stroke rather than beside it, or
+            // the arrow reads as a triangle that happened to land there.
+            if (Tri(x, y, 22.5f, 9.2f, 18f, 17.8f, 27f, 17.8f)) return true;
+
+            float dx = x - Cx, dy = y - Cy;
+            float r = Mathf.Sqrt(dx * dx + dy * dy);
+            if (r < 5f || r > 9.8f) return false;
+
+            // The bite: the quadrant above and right of centre, which leaves the ring running
+            // from north the long way round to east and the head standing at that end.
+            return !(dx >= 0f && dy <= 0f);
         }
 
         // A spine with three leaves off it. Used for the hamburger menu button
@@ -169,6 +224,18 @@ namespace SlopWorld
 
         static bool Rect(float x, float y, float x0, float y0, float x1, float y1) =>
             x >= x0 && x <= x1 && y >= y0 && y <= y1;
+
+        // Inside a triangle, by the sign of the three edge functions - the same sign on all
+        // three, whichever way round the corners were given. The one shape here that is
+        // neither a disc nor a rectangle, and an arrowhead is what wants it.
+        static bool Tri(float x, float y,
+                        float ax, float ay, float bx, float by, float cx, float cy)
+        {
+            float d1 = (x - bx) * (ay - by) - (ax - bx) * (y - by);
+            float d2 = (x - cx) * (by - cy) - (bx - cx) * (y - cy);
+            float d3 = (x - ax) * (cy - ay) - (cx - ax) * (y - ay);
+            return !((d1 < 0f || d2 < 0f || d3 < 0f) && (d1 > 0f || d2 > 0f || d3 > 0f));
+        }
 
         static bool RRect(float x, float y, float x0, float y0, float x1, float y1, float r)
         {

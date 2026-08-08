@@ -14,6 +14,7 @@
 | `audio.rs` | The jukebox's sound, because the game cannot play it. |
 | `clipboard.rs` | The host clipboard. |
 | `game.rs` | Launching the game, and whether it is up. |
+| `git.rs` | What a working tree has that its last commit does not. |
 | `open.rs` | Opening a URL on the host. |
 | `perf.rs` | Temporary instrumentation for the terminal pipeline. |
 | `bin/slopworld.rs` | The launcher - see [profile](profile.md). |

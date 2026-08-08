@@ -246,9 +246,11 @@ namespace SlopWorld
             SetContent(null);
             if (_name == null) return;
             SessionHub.Instance.Unsubscribe(_name);
-            // The terminal is the viewer's home: closing it while a file was being
-            // looked at in `less` means the focus has moved away.
+            // The terminal is a pager's only home: closing it while a file was being read, or
+            // a diff, means the focus has moved away. Both are asked - the window does not
+            // know which view opened what, and only one of them can be showing this session.
             FilesView.CloseViewerIf(_name);
+            GitView.CloseViewerIf(_name);
         }
 
         public override void DoWindowContents(Rect rect)
@@ -1002,9 +1004,8 @@ namespace SlopWorld
             var info = SessionHub.Instance.Get(name);
             if (info == null) return;
 
-            // Alt+Num while the pane is open is about an agent: release whatever file
-            // the file viewer was showing and switch the sidebar to the agents view.
-            FilesView.ReleaseViewer();
+            // Alt+Num while the pane is open is about an agent: switch the sidebar to the
+            // agents view, which releases whatever the view being left was showing.
             AgentSidebar.FocusTerminal();
 
             if (info.Gone) { SetContent(null); SessionHub.Instance.Start(name); }

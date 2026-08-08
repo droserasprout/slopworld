@@ -20,7 +20,8 @@ Everything that rewrites `config.toml` goes over HTTP instead, because the error
 body matters: `/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`,
 plus `POST /api/shortcuts/NAME/run` and `POST /api/run`.
 
-`GET /api/usage`, `/api/presets`, `/api/browse`, `/api/audio` and `/api/game` are
+`GET /api/usage`, `/api/presets`, `/api/browse`, `/api/git`, `/api/audio` and
+`/api/game` are
 for anything that would rather ask than listen. `POST /api/open` answers 400 for a URL it will
 not take and 502 for an opener that would not.
 
@@ -66,6 +67,19 @@ Lists one directory.
 - `DirEntry::file_type` is an **lstat**, so a symlink is stat'd once behind the
   entry or a linked directory reads as one that has gone; a dangling link is in
   neither list.
+
+## `GET /api/git`
+
+One project's working tree, for the [git view](mod-ui-git.md). `?path=` is the
+project's directory, and the answer is against the repository **root** above it -
+`root`, `branch`, the `--shortstat` figures (`changed`, `added`, `deleted`) and a
+`files` row apiece: the porcelain `status` pair, and `added`/`deleted` from the
+numstat, **null** where git counted none (a binary file, or an untracked one with no
+blob to compare against).
+
+A directory that is no repository answers **200 with `repo` false**, not an error:
+half the projects on a machine are not one, and that is a fact about the project
+rather than a request that failed. `git` itself missing is the error.
 
 Renaming anything here needs both halves. `SessionInfo.ParseState` treats an
 unknown state as `Down`, which keeps a version skew survivable rather than
