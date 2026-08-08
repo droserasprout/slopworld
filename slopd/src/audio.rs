@@ -741,8 +741,15 @@ mod tests {
         let player = rodio::Player::connect_new(&mixer);
 
         // The shapes the stations actually come in - RP at 128k, WeFunk at 64k, RP at 32k,
-        // and back - stereo first, so it is the one that would have done the latching.
-        let stations = [(2u16, 44100u32), (1, 44100), (1, 22050), (2, 44100)];
+        // WALM at 320k, and back - stereo first, so it is the one that would have done the
+        // latching. WALM's 48000 is the only one that resamples *down*.
+        let stations = [
+            (2u16, 44100u32),
+            (1, 44100),
+            (1, 22050),
+            (2, 48000),
+            (2, 44100),
+        ];
 
         for (channels, rate) in stations {
             let (tx, rx) = sync_channel::<Vec<Sample>>(RING);
@@ -976,11 +983,13 @@ mod tests {
     /// copy of the menu. **Not all of them are stereo 44100**, which is the whole of why
     /// `start` takes the channel count and rate off the source and why a ring declares a
     /// finite span - see `Ring::current_span_len`. RP's 32k is mono at 22050 and WeFunk
-    /// serves one 64k stream, mono; everything else on the list matches RP's 128.
+    /// serves one 64k stream, mono; WALM serves one at 320k and at **48000**, the only thing
+    /// on the list that is not 44100. Everything else matches RP's 128.
     const STATIONS: &[(&str, u16, u32)] = &[
         ("https://stream.radioparadise.com/mp3-128", 2, 44100),
         ("https://stream.radioparadise.com/mp3-32", 1, 22050),
         ("https://s-00.wefunkradio.com:8443/wefunk64.mp3", 1, 44100),
+        ("https://icecast.walmradio.com:8443/classic", 2, 48000),
     ];
 
     /// Everything but the speakers: connect, demux, decode, for every station on the list.

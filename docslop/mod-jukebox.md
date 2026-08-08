@@ -2,7 +2,8 @@
 
 A radio set rides down in the pod with the first clanker. LMB on it opens four
 rows: **Play** (carrying what is on), **Mute**, **Stop on exit**, **Settings**.
-Play opens the OST and the stations - "RadioParadise Main", "WeFunk Radio" - and
+Play opens the OST and the stations - "RadioParadise Main", "WeFunk Radio",
+"Classic Vinyl HD" - and
 each station's row opens a third menu of the quality presets it serves; whatever
 is playing is marked. `Sim/Jukebox.cs` is the box, `Sim/Radio.cs` is the sound and
 the list of stations.
@@ -187,6 +188,11 @@ than the aac some of them lead with, aac being what the game could not decode.
 - **RadioParadise Main**, `stream.radioparadise.com/mp3-{rate}`, at **32, 128, 192,
   320**. 64 and 96 are quoted around the web and 404 there. 128 and up are stereo
   44100; **32 is mono at 22050**, which is not a detail - see the span note above.
+- **Classic Vinyl HD**, `icecast.walmradio.com:8443/classic`, at **320** and nothing
+  else - no other name on that host answers. Stereo, but at **48000**, the only thing
+  on the list that is not 44100 and so the only one that resamples *down*. Its path
+  carries no `{rate}` at all, a station with one stream having no rate to put
+  anywhere; a format string with nothing in it formats to itself.
 - **WeFunk Radio**, `s-00.wefunkradio.com:8443/wefunk{rate}.mp3`, at **64** and
   nothing else - every other rate 404s and the `.m3u` names the same one stream.
   **Mono**, 44100, which is why `start` takes the channel count off the source

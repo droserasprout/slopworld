@@ -34,7 +34,10 @@ namespace SlopWorld
             public readonly int[] Rates;
 
             readonly string _host;
-            readonly string _path; // a format; {0} is the rate
+
+            // A format, where {0} is the rate. A station serving one stream has no rate to
+            // put anywhere and so is just its name, which formats to itself.
+            readonly string _path;
 
             // The quality it was last left on, so a switch away and back comes up where it
             // was. Kept per station rather than as one number for the lot of them: the
@@ -50,8 +53,8 @@ namespace SlopWorld
                 Rate = rate;
             }
 
-            // The stream's own name at a rate - "mp3-192", "wefunk64.mp3". This is what is
-            // saved, so it doubles as the station's key: see Save.
+            // The stream's own name at a rate - "mp3-192", "wefunk64.mp3", "classic". This
+            // is what is saved, so it doubles as the station's key: see Save.
             public string Path(int rate) => string.Format(_path, rate);
 
             public string Url(int rate) => _host + Path(rate);
@@ -66,12 +69,18 @@ namespace SlopWorld
         // to unpick a playlist first would be a second fetch and a second thing to go
         // wrong. A mirror that is down is the same failure as a station that is down, and
         // Report already hands that back to the OST.
+        //
+        // WALM serves the one 320k stream, and serves it at 48000 rather than the 44100 the
+        // rest of the list is at. That is the daemon's problem rather than this table's -
+        // see Ring::current_span_len, which is what makes it one.
         public static readonly Station[] Stations =
         {
             new Station("RadioParadise Main", "https://stream.radioparadise.com/",
                 "mp3-{0}", new[] { 32, 128, 192, 320 }, 128),
             new Station("WeFunk Radio", "https://s-00.wefunkradio.com:8443/",
                 "wefunk{0}.mp3", new[] { 64 }, 64),
+            new Station("Classic Vinyl HD", "https://icecast.walmradio.com:8443/",
+                "classic", new[] { 320 }, 320),
         };
 
         // The one track this mod ships, as a path under the mod's own folder. A path and
