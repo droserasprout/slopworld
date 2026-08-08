@@ -622,8 +622,7 @@ namespace SlopWorld
             // highlight a row nobody is reading.
             if (SessionHub.Instance.Project(node.Project) == null) ClearSelection();
             else _showing = RowAct.View;
-            Viewer.Open(node.Project, "sh -c 'highlight --out-format=xterm256 \"$@\" | less -R' _ " + Pager.Quote(node.Path),
-                "view-" + node.Name);
+            Viewer.ViewFile(node.Project, node.Path, "view-" + node.Name);
         }
 
         public static void ReleaseViewer() => Viewer.Release();

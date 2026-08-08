@@ -14,6 +14,7 @@ namespace SlopWorld
     public class Pager
     {
         string _session;
+        string _project;      // which project the persistent session serves
 
         // Who is showing, or null. Read rather than acted on - the two views use it to tell
         // "click the row that is already open" from "click a different one".
@@ -26,6 +27,56 @@ namespace SlopWorld
                 var info = _session == null ? null : SessionHub.Instance.Get(_session);
                 return info != null && info.Alive;
             }
+        }
+
+        // The env vars for a persistent `less` that pipes every file through `highlight`.
+        // `%s` is less's own placeholder for the filename, expanded on every `:e`.
+        const string LessEnv =
+            "LESSOPEN='|highlight --out-format=xterm256 %s' LESS=-R";
+
+        // Open a file in the persistent pager. Reuses the existing tmux session if it is
+        // still alive and serving the same project — sends `:e <path>` via keys instead of
+        // spawning a whole new sandbox. For a different project, or a dead session, falls
+        // back to creating a fresh one.
+        public void ViewFile(string project, string filePath, string label)
+        {
+            if (SessionHub.Instance.Project(project) == null)
+            {
+                Release();
+                SlopWidgets.Fail($"project '{project}' has gone");
+                return;
+            }
+
+            // Reuse the existing session if it's alive and on the same project.
+            if (_session != null && _project == project && Alive)
+            {
+                SessionHub.Instance.SendKeys(
+                    _session, new[] { ":e " + filePath, "Enter" }, true);
+                TerminalWindow.Open(_session);
+                return;
+            }
+
+            // First time, or project changed, or session died: create a new one.
+            string oldSession = _session;
+            _session = null;
+            _project = null;
+
+            string cmd = "env " + LessEnv + " less " + Quote(filePath);
+            SessionHub.Instance.Run(project, cmd, label,
+                session =>
+                {
+                    _session = session;
+                    _project = project;
+                    TerminalWindow.Open(session);
+                    StopIf(oldSession);
+                },
+                msg =>
+                {
+                    _session = null;
+                    _project = null;
+                    StopIf(oldSession);
+                    SlopWidgets.Fail(msg);
+                });
         }
 
         // A temporary agent running one command in the project's own sandbox, which is what
@@ -49,30 +100,21 @@ namespace SlopWorld
             // has something to show — no blink of the game map between the two.
             string oldSession = _session;
             _session = null;
+            _project = null;
 
             SessionHub.Instance.Run(project, command, label,
                 session =>
                 {
                     _session = session;
+                    // Don't set _project — this is a one-off command, not the persistent
+                    // pager, so the next ViewFile will create its own session.
                     TerminalWindow.Open(session);
-
-                    // Old session no longer needed now that the new one is visible.
-                    if (oldSession != null)
-                    {
-                        var info = SessionHub.Instance.Get(oldSession);
-                        if (info != null && info.Alive)
-                            SessionHub.Instance.Stop(oldSession);
-                    }
+                    StopIf(oldSession);
                 },
                 msg =>
                 {
                     _session = null;
-                    if (oldSession != null)
-                    {
-                        var info = SessionHub.Instance.Get(oldSession);
-                        if (info != null && info.Alive)
-                            SessionHub.Instance.Stop(oldSession);
-                    }
+                    StopIf(oldSession);
                     SlopWidgets.Fail(msg);
                 });
         }
@@ -92,10 +134,12 @@ namespace SlopWorld
         // itself.
         public void Release()
         {
-            if (_session == null) return;
-            var info = SessionHub.Instance.Get(_session);
-            if (info != null && info.Alive) SessionHub.Instance.Stop(_session);
+            string s = _session;
             _session = null;
+            _project = null;
+            if (s == null) return;
+            var info = SessionHub.Instance.Get(s);
+            if (info != null && info.Alive) SessionHub.Instance.Stop(s);
         }
 
         // The terminal's own close, for the session it was showing. The pane is the pager's
@@ -103,6 +147,14 @@ namespace SlopWorld
         public void CloseIf(string session)
         {
             if (session != null && session == _session) Release();
+        }
+
+        // Stop a session if it's still alive, swallowing any error.
+        static void StopIf(string session)
+        {
+            if (session == null) return;
+            var info = SessionHub.Instance.Get(session);
+            if (info != null && info.Alive) SessionHub.Instance.Stop(session);
         }
 
         // The daemon splits a command line into an argv the way a shell would, so a path with
