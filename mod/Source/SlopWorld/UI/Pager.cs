@@ -45,16 +45,34 @@ namespace SlopWorld
                 return;
             }
 
-            Release();
+            // Start the new session *before* killing the old one so the terminal pane always
+            // has something to show — no blink of the game map between the two.
+            string oldSession = _session;
+            _session = null;
+
             SessionHub.Instance.Run(project, command, label,
                 session =>
                 {
                     _session = session;
                     TerminalWindow.Open(session);
+
+                    // Old session no longer needed now that the new one is visible.
+                    if (oldSession != null)
+                    {
+                        var info = SessionHub.Instance.Get(oldSession);
+                        if (info != null && info.Alive)
+                            SessionHub.Instance.Stop(oldSession);
+                    }
                 },
                 msg =>
                 {
                     _session = null;
+                    if (oldSession != null)
+                    {
+                        var info = SessionHub.Instance.Get(oldSession);
+                        if (info != null && info.Alive)
+                            SessionHub.Instance.Stop(oldSession);
+                    }
                     SlopWidgets.Fail(msg);
                 });
         }

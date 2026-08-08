@@ -3,24 +3,32 @@
 
 ## Interface
 
-- Spawn ephemeral sessions (show, edit, host terminal) as 
-- Custom agents order in panel
+- Bug: ephemeral sessions title should have more info: command and maybe path
+- Bug: ephemeral session on Agents tab can't be selected if Terminal is hidden. We need to spawn them as something on map (item, robo-animal?) to allow focus, info panel, action buttons.
 - Welcome configuration screen of fresh profile
+- Custom agents order in panel
 - Tab / Shift+Tab in floating windows to navigate between input fields
 - ModSettings shouldn't pause the game
 - Sidebar: hide icon and status for ephemeral view/edit/host-shell items. Place them before agents in every group or at the top if not belong to project. Don't spawn agent pawn in game for those.
 - Add "refreshed at X" line to resource usage buttons
 
+## Options
+
+## Command Pallette
+
+- "Focus:" actions
+- "Options:" actions
+
 ## Keyboard
 
 - Move "Keyboard" from Control to first level tab in settings
 - Disable some native RimWorld shortcuts: unbind by default and hide in 
-- F2/F3 keys to focus sidebar panel
-- ? to show keyboard cheatsheet
+- F2/F3/F4 keys to focus sidebar panel. Default and configurable.
+- ? to show navigation and keyboard cheatsheet
 
 ## Terminal
 
-- Buggy cursor and copypaste in `zsh`
+- Buggy cursor and copypaste in `zsh`. Prints commands before prompt.
 - Ctrl+LMB on relative (to project) path in terminal to jump to file in sidebar Files tab
 
 ## Agents

@@ -14,7 +14,7 @@ pkgdesc="RimWorld with the colony sim replaced by live AI coding agents"
 arch=('x86_64')
 url="https://github.com/droserasprout/slopworld"
 license=('custom')
-depends=('tmux' 'bubblewrap' 'mono')
+depends=('tmux' 'bubblewrap' 'mono' 'highlight')
 makedepends=('cargo' 'msbuild' 'git')
 optdepends=(
   'wl-clipboard: clipboard writes under Wayland (OSC 52)'

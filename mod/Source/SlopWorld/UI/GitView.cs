@@ -756,7 +756,7 @@ namespace SlopWorld
                         break;
                     _selected = node.Rel;
                     _showing = RowAct.View;
-                    Viewer.Open(repo.Project, "less -R -- " + Pager.Quote(abs),
+                    Viewer.Open(repo.Project, "sh -c 'highlight --out-format=xterm256 \"$@\" | less -R' _ " + Pager.Quote(abs),
                         "view-" + node.Name);
                     break;
 
