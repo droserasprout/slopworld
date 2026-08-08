@@ -2,9 +2,10 @@
 
 A radio set rides down in the pod with the first clanker. LMB on it opens four
 rows: **Play** (carrying what is on), **Mute**, **Stop on exit**, **Settings**.
-Play opens the two stations - "OST" and "RadioParadise Main" - and the station's
-row opens a third menu of the quality presets it serves; whatever is playing is
-marked. `Sim/Jukebox.cs` is the box, `Sim/Radio.cs` is the sound.
+Play opens the OST and the stations - "RadioParadise Main", "WeFunk Radio" - and
+each station's row opens a third menu of the quality presets it serves; whatever
+is playing is marked. `Sim/Jukebox.cs` is the box, `Sim/Radio.cs` is the sound and
+the list of stations.
 
 A `FloatMenuOption` holds no children, so each nested list is a second `FloatMenu`
 opened from the parent row's action. That is safe because `FloatMenuOption.Chosen`
@@ -72,9 +73,10 @@ calls `PreOptionChosen` - which closes the parent - before it invokes the action
 
 ## The sound is the daemon's
 
-The mod decides and the daemon plays. Both stations are the same kind of thing to
-it - the built-in track is an absolute path, the station is a URL - so there is
-one mechanism rather than two taking turns.
+The mod decides and the daemon plays. Everything on the list is the same kind of
+thing to it - the built-in track is an absolute path, a station is a URL - so there
+is one mechanism rather than one per source taking turns. The daemon knows nothing
+about which stations exist; adding one is a line in `Radio.Stations`.
 
 - `Sim/Radio.cs` sends `{"t":"audio","source":...,"volume":...}` on a change only,
   and re-sends on a reconnect because the mod is the only thing that remembers
@@ -99,10 +101,12 @@ one mechanism rather than two taking turns.
   means nothing changed; the closing quote is found as `';` because an apostrophe
   in a song title is ordinary. It lands in `AudioState.title` through a `TitleSink`
   that checks the generation, so a station being switched away from cannot name the
-  one that replaced it. RP serves `icy-metaint: 16000` today; a host that stops is
-  a jukebox with no title and nothing else wrong, and
+  one that replaced it. RP and WeFunk both serve `icy-metaint: 16000` today; a host
+  that stops is a jukebox with no title and nothing else wrong, and
   `cargo test names_what_the_station_is_playing -- --ignored --nocapture` is how to
-  tell.
+  tell. Run it **alone**: the three ignored tests share `GENERATION`, and
+  `plays_the_station` bumping it beside this one makes its `TitleSink` stale, which
+  reads as a station that named nothing.
 - `Event::Audio` goes out on connect and on change, polled off the player every
   half second. A title changing is a change, so the mod hears each new song on the
   same beat as everything else. `Radio.Report` acts on a failure once and hands back to the OST.
@@ -118,6 +122,22 @@ one mechanism rather than two taking turns.
   matching), `pipewire` then `pulse` then `default`, and a failure stays a
   failure. `cargo test lists_output_devices -- --ignored --nocapture` prints the
   table with the trap marked.
+- **A ring must declare a finite span, and never `None`.** The mixer wraps whatever it
+  is given in rodio's `UniformSourceIterator`, which builds the channel and rate
+  converters from the source's own `channels()` and `sample_rate()` - and rebuilds
+  them **only at a span boundary**. `None` means "one span, for ever", so the
+  converters built for the first stream of the session stayed bolted on to every
+  stream appended after it: the device is opened once and outlives every switch.
+  That is a station playing at the wrong speed. Mono read as stereo is **2x** -
+  WeFunk's 64k - and RP's 32k, which is 22050 **mono**, read as 44100 stereo is
+  **4x**. Stereo 44100 was every stream on the list until WeFunk arrived, which is
+  why nothing had shown it; RP's 32k had been wrong the whole time and nobody had
+  picked it. `Ring::current_span_len` answers `SPAN`, frame-aligned - unaligned and
+  the channel converter loses which sample belongs to which side.
+  `a_station_of_any_shape_plays_at_its_own_speed` is the regression test and needs
+  neither network nor device: it appends four shapes to one player and reads the
+  speed off a ramp, measuring the **distance between two points on it** so that the
+  mixer's lead-in silence and the converters' tail flush cannot be mistaken for it.
 - **Never `Player::clear`.** It pauses the player - and nothing appended to a
   paused player is ever pulled, so it is silence with no sign of itself, not even
   a stream in `pavucontrol` - and it blocks until the current source ends, which a
@@ -156,23 +176,51 @@ Four runs of the game found four walls, in this order:
   but size is still not known`. That last clause is the wall. Nothing begins
   playback without a `Content-Length`, and an Icecast stream has none.
 
-The presets are the rates the host answers on: **32, 128, 192, 320**. 64 and 96
-are quoted around the web and 404 here.
+## The stations
+
+`Radio.Stations` is the list, in menu order. Each carries its name, the rates it
+answers on, a host and a path format, and the rate it was last left on - **per
+station**, so a switch away and back comes up where it was: the lists do not
+overlap, and RP's 192 is not a rate WeFunk has ever served. mp3 throughout rather
+than the aac some of them lead with, aac being what the game could not decode.
+
+- **RadioParadise Main**, `stream.radioparadise.com/mp3-{rate}`, at **32, 128, 192,
+  320**. 64 and 96 are quoted around the web and 404 there. 128 and up are stereo
+  44100; **32 is mono at 22050**, which is not a detail - see the span note above.
+- **WeFunk Radio**, `s-00.wefunkradio.com:8443/wefunk{rate}.mp3`, at **64** and
+  nothing else - every other rate 404s and the `.m3u` names the same one stream.
+  **Mono**, 44100, which is why `start` takes the channel count off the source
+  rather than assuming the two RP has. Its `radio.pls` lists four mirrors - s-00,
+  s-09, s-14, s-17 - shuffled per request, all serving that stream. One is named in
+  the table rather than the playlist: the daemon opens a URL and decodes what comes
+  back, and teaching it to unpick a playlist first would be a second fetch and a
+  second thing to go wrong. A mirror that is down is the same failure as a station
+  that is down, and `Radio.Report` already hands that back to the OST.
+
+A station serving one quality still gets a submenu of one rather than a special
+case. A row that plays on one station and opens a menu on the next is a row nobody
+can predict, and what it answers on is worth saying either way.
 
 `cargo test -- --ignored` covers the rest: `decodes_the_station` needs the network
 but no output device, which makes it the one to reach for when a station has gone
-quiet, and `plays_the_station` needs speakers too.
+quiet, and `plays_the_station` needs speakers too. The first two walk `STATIONS` in
+`audio.rs` - one preset per station, with the shape each decodes to - kept in step
+with `Radio.Stations` by hand, being a diagnostic pointed at the open web rather
+than a second copy of the menu.
 
 ## Which station is remembered where
 
 In `SlopSettings.radio` - with `radioMute` and `radioStopOnExit` beside it - not in
 the save, for the reason the terminal's font is there - see
 [mod-settings](mod-settings.md). The daemon keeps no memory of it at
-all: it is a machine, and the mod is where the choice lives. The value is the stream's own name -
-`"ost"`, or the path the preset is served at, `"mp3-192"` - so there is no second
-field to keep in step with the list of presets, and a preset this build no longer
-lists reads as the OST. `Radio.Read` pulls it once per session, because the
-settings are not loaded when the class is first touched.
+all: it is a machine, and the mod is where the choice lives. The value is the
+stream's own name - `"ost"`, or the path that preset is served at, `"mp3-192"`,
+`"wefunk64.mp3"` - so it is the station's key and the preset's at once, and there is
+no second field to keep in step with either list. `Radio.Read` scans every station's
+rates for a match; anything else, a station or a preset this build no longer lists
+included, reads as the OST. That is also why saves made before WeFunk existed come
+back on the right RP preset - the key never changed. `Radio.Read` pulls it once per
+session, because the settings are not loaded when the class is first touched.
 
 ## The texture
 

@@ -37,6 +37,11 @@ const CHUNK: usize = 4096;
 /// send blocking on a full ring is what paces the download to playback.
 const RING: usize = 64;
 
+/// Samples a ring calls a span, before frame alignment. This is not a buffer size: it is
+/// how often the mixer is made to look at what it is playing. See `Ring::current_span_len`,
+/// which is where the reason lives.
+const SPAN: usize = 8192;
+
 /// How long to wait on a station before calling the connection failed. The body itself
 /// is never timed out: it is not supposed to end.
 const CONNECT: Duration = Duration::from_secs(15);
@@ -659,8 +664,24 @@ impl Iterator for Ring {
 }
 
 impl Source for Ring {
+    /// **Finite, and never `None`.** The mixer wraps what it is given in rodio's
+    /// `UniformSourceIterator`, which builds the channel and rate converters from the
+    /// source's own `channels()` and `sample_rate()` - and rebuilds them only at a span
+    /// boundary. `None` means "one span, for ever", so the converters built for the *first*
+    /// stream of the session stay bolted on to every stream appended after it: the player
+    /// is opened once and outlives every station switch.
+    ///
+    /// That is a station playing at the wrong speed. Mono read as stereo is 2x - WeFunk's
+    /// 64k - and RP's 32k, which is 22050 mono, read as 44100 stereo is 4x. Stereo 44100
+    /// was every stream on the list until it was not, which is why nothing showed it.
+    ///
+    /// Frame-aligned, or the channel converter loses which sample belongs to which side.
+    /// `SPAN` samples is a fraction of a second and well under the 32768 the iterator
+    /// clamps to; the shape never actually changes within one ring, so the rebuild costs a
+    /// converter and nothing else.
     fn current_span_len(&self) -> Option<usize> {
-        None
+        let channels = self.channels.get() as usize;
+        Some(SPAN.div_ceil(channels) * channels)
     }
 
     fn channels(&self) -> ChannelCount {
@@ -695,6 +716,87 @@ mod tests {
                 generation: GENERATION.load(Ordering::SeqCst),
             },
         )
+    }
+
+    /// **One player, several stations in a row, which is the real path**: the device is
+    /// opened once and every switch appends behind it. A ring that called itself one endless
+    /// span left rodio's converters built for whichever stream came first, so a mono station
+    /// after a stereo one played at 2x - WeFunk's 64k - and RP's 32k, mono at 22050, at 4x.
+    /// Stereo 44100 was every stream on the list until it was not.
+    ///
+    /// Measured with a ramp rather than by counting a tone: the value of a sample says
+    /// *where* in the station it came from, so reading one at a known moment is reading the
+    /// speed directly. Counting instead would measure the tail, where ending a ring early
+    /// leaves the converters a few hundred samples to flush - true of the fixed player as
+    /// well as the broken one. Needs neither network nor device.
+    #[test]
+    fn a_station_of_any_shape_plays_at_its_own_speed() {
+        // Frames in, per station. The ramp runs 0.0 to 1.0 across them.
+        const N: usize = 8192;
+
+        let (mixer, mut out) = rodio::mixer::mixer(
+            ChannelCount::new(2).unwrap(),
+            SampleRate::new(44100).unwrap(),
+        );
+        let player = rodio::Player::connect_new(&mixer);
+
+        // The shapes the stations actually come in - RP at 128k, WeFunk at 64k, RP at 32k,
+        // and back - stereo first, so it is the one that would have done the latching.
+        let stations = [(2u16, 44100u32), (1, 44100), (1, 22050), (2, 44100)];
+
+        for (channels, rate) in stations {
+            let (tx, rx) = sync_channel::<Vec<Sample>>(RING);
+            // The global generation is left alone: this runs beside the other ring tests,
+            // and a bump here would retire their rings out from under them.
+            player.append(Ring {
+                rx,
+                held: Vec::new(),
+                at: 0,
+                channels: ChannelCount::new(channels).unwrap(),
+                rate: SampleRate::new(rate).unwrap(),
+                generation: GENERATION.load(Ordering::SeqCst),
+            });
+
+            // The ramp starts at FLOOR rather than at zero, so its first sample can be told
+            // from the silence the mixer leads in with - which is what marks where the
+            // station begins. Position is then read off the value: FLOOR at the start,
+            // 1.0 at the end.
+            const FLOOR: Sample = 0.2;
+            let mut ramp = Vec::with_capacity(N * channels as usize);
+            for frame in 0..N {
+                let at = FLOOR + (1.0 - FLOOR) * (frame as Sample / N as Sample);
+                ramp.extend(std::iter::repeat_n(at, channels as usize));
+            }
+            tx.send(ramp).unwrap();
+            // Ending it is what moves the player on to the next station.
+            drop(tx);
+
+            // Long enough to drain this station and its tail, so the next one starts clean.
+            let got: Vec<Sample> = (&mut out).take(N * 8).collect();
+
+            // The distance between two points on the ramp, rather than the position of
+            // either: how much silence the mixer leads in with then does not matter, and
+            // neither does anything the tail does. A quarter of the way in to three
+            // quarters of the way in is half the station.
+            let crossing = |v: Sample| {
+                got.iter()
+                    .position(|s| *s > v)
+                    .unwrap_or_else(|| panic!("{channels}ch {rate}Hz never reached {v}"))
+            };
+            let half =
+                crossing(FLOOR + (1.0 - FLOOR) * 0.75) - crossing(FLOOR + (1.0 - FLOOR) * 0.25);
+
+            // Half the station's frames, resampled to the mixer's 44100, two samples each.
+            let want = N / 2 * 44100 / rate as usize * 2;
+            let ratio = want as f64 / half as f64;
+
+            // At 2x half the station goes by in half the samples; at 4x, a quarter of them.
+            assert!(
+                (0.95..=1.05).contains(&ratio),
+                "{channels}ch {rate}Hz: half the station took {half} samples where {want} \
+                 was due - {ratio:.2}x speed"
+            );
+        }
     }
 
     /// The retirement that replaces `Player::clear`: a source whose run has been
@@ -869,52 +971,71 @@ mod tests {
         );
     }
 
-    /// Everything but the speakers: connect, demux, decode. Needs the network, so it is
-    /// not part of `cargo test`, but it needs no audio device and so runs anywhere -
-    /// which is what makes it the one to reach for when a station has gone quiet.
+    /// The presets whose shapes differ, with what each decodes to. Kept in step with
+    /// `Radio.Stations` by hand: this is a diagnostic pointed at the open web, not a second
+    /// copy of the menu. **Not all of them are stereo 44100**, which is the whole of why
+    /// `start` takes the channel count and rate off the source and why a ring declares a
+    /// finite span - see `Ring::current_span_len`. RP's 32k is mono at 22050 and WeFunk
+    /// serves one 64k stream, mono; everything else on the list matches RP's 128.
+    const STATIONS: &[(&str, u16, u32)] = &[
+        ("https://stream.radioparadise.com/mp3-128", 2, 44100),
+        ("https://stream.radioparadise.com/mp3-32", 1, 22050),
+        ("https://s-00.wefunkradio.com:8443/wefunk64.mp3", 1, 44100),
+    ];
+
+    /// Everything but the speakers: connect, demux, decode, for every station on the list.
+    /// Needs the network, so it is not part of `cargo test`, but it needs no audio device
+    /// and so runs anywhere - which is what makes it the one to reach for when a station
+    /// has gone quiet.
     #[test]
     #[ignore]
     fn decodes_the_station() {
-        let nowhere = TitleSink {
-            state: None,
-            generation: 0,
-        };
-        let decoded = open_source("https://stream.radioparadise.com/mp3-128", &nowhere)
-            .expect("the station should open");
+        for &(url, channels, rate) in STATIONS {
+            let nowhere = TitleSink {
+                state: None,
+                generation: 0,
+            };
+            let decoded = open_source(url, &nowhere).expect("the station should open");
 
-        assert_eq!(decoded.channels().get(), 2);
-        assert_eq!(decoded.sample_rate().get(), 44100);
+            assert_eq!(decoded.channels().get(), channels, "{url}");
+            assert_eq!(decoded.sample_rate().get(), rate, "{url}");
 
-        // A second of it. Digital silence would mean the bytes arrived and meant nothing.
-        let samples: Vec<Sample> = decoded.take(44100 * 2).collect();
-        assert_eq!(samples.len(), 44100 * 2);
-        assert!(
-            samples.iter().any(|s| s.abs() > 0.001),
-            "a second of the station decoded to silence"
-        );
+            // A second of it. Digital silence would mean the bytes arrived and meant
+            // nothing. A second is `rate` frames, which is `rate * channels` samples.
+            let want = rate as usize * channels as usize;
+            let samples: Vec<Sample> = decoded.take(want).collect();
+            assert_eq!(samples.len(), want, "{url}");
+            assert!(
+                samples.iter().any(|s| s.abs() > 0.001),
+                "a second of {url} decoded to silence"
+            );
+        }
     }
 
-    /// The other half of that, and the one that proves the station is still splicing titles
+    /// The other half of that, and the one that proves a station is still splicing titles
     /// in at all: `icy-metaint` is a header it is free to stop sending. Needs the network
     /// and no speakers. A block arrives every `metaint` bytes of *encoded* audio - about a
-    /// second at 128k - so a few seconds of decoding is more than enough for the first one.
+    /// second at 128k, two at 64k - so five seconds of decoding is more than enough for the
+    /// first one either way.
     #[test]
     #[ignore]
     fn names_what_the_station_is_playing() {
-        let state = Arc::new(Mutex::new(AudioState::default()));
-        let sink = TitleSink {
-            state: Some(state.clone()),
-            generation: GENERATION.load(Ordering::SeqCst),
-        };
+        for &(url, channels, rate) in STATIONS {
+            let state = Arc::new(Mutex::new(AudioState::default()));
+            let sink = TitleSink {
+                state: Some(state.clone()),
+                generation: GENERATION.load(Ordering::SeqCst),
+            };
 
-        let decoded = open_source("https://stream.radioparadise.com/mp3-128", &sink)
-            .expect("the station should open");
-        let samples: Vec<Sample> = decoded.take(44100 * 2 * 5).collect();
-        assert_eq!(samples.len(), 44100 * 2 * 5);
+            let decoded = open_source(url, &sink).expect("the station should open");
+            let want = rate as usize * channels as usize * 5;
+            let samples: Vec<Sample> = decoded.take(want).collect();
+            assert_eq!(samples.len(), want, "{url}");
 
-        let title = state.lock().unwrap().title.clone();
-        println!("title: {title:?}");
-        assert!(title.is_some(), "five seconds of the station named nothing");
+            let title = state.lock().unwrap().title.clone();
+            println!("{url} title: {title:?}");
+            assert!(title.is_some(), "five seconds of {url} named nothing");
+        }
     }
 
     /// Makes noise and needs an output device as well as the network, so it is ignored

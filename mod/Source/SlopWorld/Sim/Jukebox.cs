@@ -5,10 +5,10 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The jukebox: LMB opens Play, Mute, Stop on exit and Settings; Play opens the two
-    // stations, and the streaming one opens the quality presets it serves. Whatever is
-    // playing is marked, and hovering the box names the song. Radio owns the sound; this
-    // owns the box it comes out of.
+    // The jukebox: LMB opens Play, Mute, Stop on exit and Settings; Play opens the OST and
+    // the stations, and each station opens the quality presets it serves. Whatever is
+    // playing is marked, and hovering the box names the song. Radio owns the sound and the
+    // list of stations; this owns the box it comes out of.
     //
     // The click is read here rather than through selection because nothing on this map is
     // selectable but a colonist - StripInteraction turns every other Select away - so the
@@ -109,44 +109,52 @@ namespace SlopWorld
         // opening anything. Muted, nothing is on, and saying so is what the row is for.
         static string PlayRow() => "Play  -  " + (Radio.Muted ? "muted" : Playing());
 
-        static string Playing() =>
-            Radio.Picked == Radio.Station.Paradise
-                ? $"{Radio.StationName} {Radio.RateLabel(Radio.Rate)}"
-                : "OST";
-
-        // The stations, one level down. The two of them were the whole of this menu until
-        // the box grew settings; they are behind a row of their own now so that what is
-        // played and how it is played are not one list.
-        static void Stations()
+        static string Playing()
         {
-            TerminalWindow.OpenOverPane(new FloatMenu(new List<FloatMenuOption>
-            {
-                new FloatMenuOption(Mark("OST", Radio.Picked == Radio.Station.Ost),
-                    Radio.PickOst),
-                new FloatMenuOption(StationRow(), Presets),
-            }));
+            var on = Radio.Picked;
+            return on == null ? "OST" : $"{on.Name} {Radio.RateLabel(on.Rate)}";
         }
 
-        // The station's row carries the preset it is on, in the separator the rest of the
-        // interface uses for "this, at that". Clicking it opens the presets rather than
-        // playing anything, because which one is a question the row cannot answer.
-        static string StationRow() =>
-            Radio.Picked == Radio.Station.Paradise
-                ? $"{Radio.StationName}  -  {Radio.RateLabel(Radio.Rate)}"
-                : Radio.StationName;
+        // The stations, one level down. Two of them were the whole of this menu until the
+        // box grew settings; they are behind a row of their own now so that what is played
+        // and how it is played are not one list. The OST leads because it is the one thing
+        // here that is not a station and needs no network to play.
+        static void Stations()
+        {
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption(Mark("OST", Radio.Picked == null), Radio.PickOst),
+            };
+            foreach (var station in Radio.Stations)
+            {
+                var s = station; // the closure outlives the loop
+                options.Add(new FloatMenuOption(StationRow(s), () => Presets(s)));
+            }
+            TerminalWindow.OpenOverPane(new FloatMenu(options));
+        }
 
-        // The second level: one row per quality the station serves. A FloatMenuOption
+        // A station's row carries the preset it is on, in the separator the rest of the
+        // interface uses for "this, at that". Clicking it opens that station's presets
+        // rather than playing anything, because which one is a question the row cannot
+        // answer - not even where there is only one to pick, since a row that plays on one
+        // station and opens a menu on the next is a row nobody can predict.
+        static string StationRow(Radio.Station s) =>
+            Radio.Picked == s ? $"{s.Name}  -  {Radio.RateLabel(s.Rate)}" : s.Name;
+
+        // The second level: one row per quality that station serves. A FloatMenuOption
         // holds no children of its own, so a nested list is a second menu opened from the
-        // first - which is also what the palette and the shortcut rows do.
-        static void Presets()
+        // first - which is also what the palette and the shortcut rows do. A station
+        // serving one quality gets a menu of one rather than a special case; what it
+        // answers on is worth saying either way.
+        static void Presets(Radio.Station s)
         {
             var options = new List<FloatMenuOption>();
-            foreach (int rate in Radio.Rates)
+            foreach (int preset in s.Rates)
             {
+                var rate = preset; // the closure outlives the loop
                 options.Add(new FloatMenuOption(
-                    Mark(Radio.RateLabel(rate),
-                        Radio.Picked == Radio.Station.Paradise && Radio.Rate == rate),
-                    () => Radio.PickParadise(rate)));
+                    Mark(Radio.RateLabel(rate), Radio.Picked == s && s.Rate == rate),
+                    () => Radio.Pick(s, rate)));
             }
             TerminalWindow.OpenOverPane(new FloatMenu(options));
         }
