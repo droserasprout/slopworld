@@ -39,6 +39,14 @@ namespace SlopWorld
                 return;
             }
 
+            // All F-keys go through one gate: bare = ours, Shift+F = agent.
+            var e = Event.current;
+            if (e.type == EventType.KeyDown)
+            {
+                if (TerminalWindow.HandleFunctionKey(e))
+                { e.Use(); return; }
+            }
+
             // The strip's numbers, read on the map as well as over a pane, so the portrait
             // under Alt+3 is the same portrait either way. Here it is what clicking that
             // portrait does in vanilla - select and look at it - since there is no pane to

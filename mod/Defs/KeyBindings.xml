@@ -35,4 +35,27 @@
     <defaultKeyCodeA>F12</defaultKeyCodeA>
   </KeyBindingDef>
 
+  <!-- F2, F3, F4: focus the sidebar's three views. Bare key = sidebar;
+       Shift+F = that F-key passes through to the agent/tui. -->
+  <KeyBindingDef>
+    <defName>SlopSidebarAgents</defName>
+    <label>sidebar: agents view</label>
+    <category>SelectionMisc</category>
+    <defaultKeyCodeA>F2</defaultKeyCodeA>
+  </KeyBindingDef>
+
+  <KeyBindingDef>
+    <defName>SlopSidebarFiles</defName>
+    <label>sidebar: files view</label>
+    <category>SelectionMisc</category>
+    <defaultKeyCodeA>F3</defaultKeyCodeA>
+  </KeyBindingDef>
+
+  <KeyBindingDef>
+    <defName>SlopSidebarGit</defName>
+    <label>sidebar: git view</label>
+    <category>SelectionMisc</category>
+    <defaultKeyCodeA>F4</defaultKeyCodeA>
+  </KeyBindingDef>
+
 </Defs>

@@ -850,6 +850,41 @@ namespace SlopWorld
             }
         }
 
+        // Single gate for all F1-F12 keys. Returns true if consumed (bare F-key with no
+        // modifiers). Shift+F = key passes through to the agent, same for unbound F5-F11.
+        public static bool HandleFunctionKey(Event e)
+        {
+            if (e.keyCode < KeyCode.F1 || e.keyCode > KeyCode.F12) return false;
+            // Shift+F = pass through to the agent/tui.
+            if (e.shift) return false;
+
+            switch (e.keyCode)
+            {
+                case KeyCode.F1:
+                    CommandPalette.Toggle();
+                    return true;
+                case KeyCode.F2:
+                    AgentSidebar.FocusTerminal();
+                    return true;
+                case KeyCode.F3:
+                    AgentSidebar.ShowFiles();
+                    return true;
+                case KeyCode.F4:
+                    AgentSidebar.ShowGit();
+                    return true;
+                case KeyCode.F12:
+                    // Close if the window is open, open one if not (handles	t both map and
+                    // pane contexts via the same check).
+                    var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
+                    if (w != null) w.Close();
+                    else AgentSidebar.FocusTerminal();
+                    return true;
+                // F5-F11: no action bound, pass through to the agent.
+                default:
+                    return false;
+            }
+        }
+
         // The chrome's own keys, read while a view has the body. Everything an agent would
         // have been sent stays unsent - there is no agent on screen to send it to - so this
         // is the short list: the palette, the way out of the view, the way out of the window,
@@ -862,19 +897,8 @@ namespace SlopWorld
         {
             if (e.type != EventType.KeyDown) return;
 
-            if (SlopDefOf.SlopCommandPalette != null && SlopDefOf.SlopCommandPalette.KeyDownEvent)
-            {
-                CommandPalette.Toggle();
-                e.Use();
-                return;
-            }
-
-            if (SlopDefOf.SlopQuickTerminal != null && SlopDefOf.SlopQuickTerminal.KeyDownEvent)
-            {
-                Close();
-                e.Use();
-                return;
-            }
+            // All F-keys go through one gate: bare = ours, Shift+F = agent.
+            if (HandleFunctionKey(e)) { e.Use(); return; }
 
             if (e.keyCode == KeyCode.Escape)
             {
@@ -917,19 +941,8 @@ namespace SlopWorld
             // Not in TerminalHotkeys: a window absorbing input makes
             // WindowStack.HandleEventsHighPriority Use every KeyDown, and that runs earlier in
             // UIRoot.UIRootOnGUI than any game component.
-            if (SlopDefOf.SlopCommandPalette != null && SlopDefOf.SlopCommandPalette.KeyDownEvent)
-            {
-                CommandPalette.Toggle();
-                e.Use();
-                return;
-            }
-
-            if (SlopDefOf.SlopQuickTerminal != null && SlopDefOf.SlopQuickTerminal.KeyDownEvent)
-            {
-                Close();
-                e.Use();
-                return;
-            }
+            // All F-keys go through one gate: bare = ours, Shift+F = agent.
+            if (HandleFunctionKey(e)) { e.Use(); return; }
 
             // Ahead of the offline check: switching is local and the subscription survives a
             // dead socket, so a pane that will not change during a redeploy reads as hung.

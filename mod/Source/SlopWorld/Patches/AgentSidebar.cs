@@ -238,6 +238,11 @@ namespace SlopWorld
         // not. The pagers their bodies opened go with them.
         public static void FocusTerminal() => Show(TabAgents);
 
+        // F3 / F4: focus the other two sidebar views without leaving the terminal chrome,
+        // the same way FocusTerminal switches back to the agents. See TerminalWindow.ChromeKeys.
+        public static void ShowFiles() => Show(TabFiles);
+        public static void ShowGit() => Show(TabGit);
+
         // Everything below the selector, which is where a view draws.
         public static Rect Body =>
             new Rect(0f, TabH, Width, UI.screenHeight - TabH);

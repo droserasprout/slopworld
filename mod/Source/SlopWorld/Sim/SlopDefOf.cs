@@ -33,6 +33,15 @@ namespace SlopWorld
         /// F1: command palette, VSCode-style.
         public static KeyBindingDef SlopCommandPalette;
 
+        /// F2: focus the agents view in the sidebar.
+        public static KeyBindingDef SlopSidebarAgents;
+
+        /// F3: focus the files view in the sidebar.
+        public static KeyBindingDef SlopSidebarFiles;
+
+        /// F4: focus the git view in the sidebar.
+        public static KeyBindingDef SlopSidebarGit;
+
         /// The colony's one and only pet.
         public static PawnKindDef Cat;
 
