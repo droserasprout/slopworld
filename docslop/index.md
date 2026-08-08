@@ -31,6 +31,7 @@ Split out of CLANKERS.md. Keep these short; delete what goes stale.
 - [mod-ui-chrome](mod-ui-chrome.md) - shared widgets, layout, usage readout, top bar.
 - [mod-ui-files](mod-ui-files.md) - the files view and its icons.
 - [mod-terminal](mod-terminal.md) - the pane: rendering, keys, theme, links.
+- [mod-content-views](mod-content-views.md) - one window, and what fills it.
 - [mod-ui-windows](mod-ui-windows.md) - the dialogs and the options pages.
 - [mod-settings](mod-settings.md) - `SlopSettings`, and why a knob lives there.
 - [gotchas](gotchas.md) - the traps that cost a day each.

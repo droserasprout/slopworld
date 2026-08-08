@@ -99,7 +99,7 @@ namespace SlopWorld
             var project = SessionHub.Instance.Project(_s.Project);
             GUI.color = SlopWidgets.Dim;
             l.Label(project != null
-                ? $"{project.Dir}  ({ProjectsWindow.Summary(project)})"
+                ? $"{project.Dir}  ({ProjectsView.Summary(project)})"
                 : SessionHub.Instance.Projects.Count == 0
                     ? "No projects yet - make one in the Projects window first."
                     : "");

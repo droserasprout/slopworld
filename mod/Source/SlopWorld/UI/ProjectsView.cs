@@ -9,16 +9,17 @@ namespace SlopWorld
     // A directory plus the sandbox every agent in it gets. First button in the bottom
     // bar, because nothing can be added on the agents window until there is somewhere
     // to add it.
-    public class ProjectsWindow : SlopListWindow<ProjectInfo>
+    public class ProjectsView : SlopListView<ProjectInfo>
     {
-        public static void Toggle() => SlopWidgets.ToggleWindow(() =>
+        public static void Toggle() => TerminalWindow.ToggleContent(() => new ProjectsView());
+
+        public override void Opened()
         {
             SessionHub.Instance.RefreshProjects();
             SessionHub.Instance.LoadPresets();
-            return new ProjectsWindow();
-        });
+        }
 
-        protected override string Title => "Projects";
+        public override string Title => "Projects";
 
         protected override float RowH => 52f;
 
@@ -32,10 +33,10 @@ namespace SlopWorld
             var row = new SlopWidgets.Bar(bar);
 
             if (row.Left("Add project", SlopWidgets.Btn.Primary))
-                Find.WindowStack.Add(new EditProjectDialog(null));
+                TerminalWindow.OpenOverPane(new EditProjectDialog(null));
 
             if (row.Left("Agents"))
-                SessionsWindow.Toggle();
+                SessionsView.Toggle();
 
             if (row.Right("Reload", SlopWidgets.Btn.Ghost))
                 hub.RefreshProjects(SlopWidgets.Fail);
@@ -66,13 +67,13 @@ namespace SlopWorld
             float right = r.xMax - 6f;
 
             if (SlopWidgets.Button(new Rect(right - 120f, r.y + 1f, 120f, SlopWidgets.RowBtnH), "Edit"))
-                Find.WindowStack.Add(new EditProjectDialog(p));
+                TerminalWindow.OpenOverPane(new EditProjectDialog(p));
 
             if (SlopWidgets.Button(new Rect(right - 120f, l2, 120f, SlopWidgets.RowBtnH), "Delete",
                     SlopWidgets.Btn.Danger))
             {
                 var name = p.Name;
-                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
                     $"Remove project '{name}'? The directory is left alone; only the entry " +
                     "in config.toml goes.",
                     () => SessionHub.Instance.RemoveProject(name, SlopWidgets.Fail),
@@ -226,7 +227,7 @@ namespace SlopWorld
             {
                 _p.Dir = SlopWidgets.Field(l, "project.dir", _p.Dir);
                 if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Browse..."))
-                    Find.WindowStack.Add(new BrowseDialog(_p.Dir, d => _p.Dir = d));
+                    TerminalWindow.OpenOverPane(new BrowseDialog(_p.Dir, d => _p.Dir = d));
             }
 
             l.Gap(SlopWidgets.GapS);

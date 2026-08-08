@@ -143,7 +143,15 @@ namespace SlopWorld
             var sessions = SessionHub.Instance.Sessions;
             if (sessions.Count == 0 && !SessionHub.Instance.Online) return;
 
-            var live = new HashSet<string>(sessions.Select(s => s.Name));
+            // Only the colony's own: an ephemeral session is a viewer's `less`, an editor or
+            // a shell on the host - something a person opened and will close, not an agent
+            // the colony has. Dropping a colonist out of the sky for one and walking it back
+            // off when the file is closed made the map twitch every time a directory was
+            // read. They are drawn in the sidebar (AgentSidebar's ghost rows) and nowhere
+            // else. Not in `live` either, so a colonist already bound to one - a save from
+            // before this, or a session that was adopted - is retired the way a gone one is.
+            var live = new HashSet<string>(
+                sessions.Where(s => !s.Ephemeral).Select(s => s.Name));
 
             // Session gone, or its colonist was destroyed some other way.
             foreach (var name in _pawns.Keys.ToList())
@@ -171,6 +179,7 @@ namespace SlopWorld
             // rather than removed, staying a live pawn its process can wake later.
             foreach (var s in sessions)
             {
+                if (s.Ephemeral) continue;
                 if (_pawns.ContainsKey(s.Name)) continue;
                 // The session->pawn map is saved with reference values, which RimWorld resolves
                 // in a later load phase and drops when they do not round-trip - without this

@@ -3,7 +3,13 @@
 The GUI windows write straight through to the daemon; `TerminalSettingsWindow` is
 the exception, editing [mod settings](mod-settings.md) instead.
 
-- **`ProjectsWindow`** - the first button in the bottom bar, ahead of `agents`,
+**Agents, projects and shortcuts are no longer windows.** They are content views in
+the chrome ([mod-content-views](mod-content-views.md)) - `SessionsView`,
+`ProjectsView`, `ShortcutsView` on `SlopListView<T>` - filling the room a pane gets
+instead of floating 720x480 over the column they are about. The dialogs each of them
+opens are still windows, and go up through `TerminalWindow.OpenOverPane`.
+
+- **`ProjectsView`** - the first button in the bottom bar, ahead of `agents`,
   because nothing can be added there until there is somewhere to add it. Preset
   checkboxes come from `GET /api/presets`; an unknown preset is warned about and
   ignored. Greyed-and-shown beats hidden throughout.
@@ -56,7 +62,7 @@ the exception, editing [mod settings](mod-settings.md) instead.
   first cell of the grid**, not a button beside the icon: it is something you
   pick, the same way silver is, and null all the way through - picking it is what
   clears the line.
-- **`ShortcutsWindow`** - Run closes the window on the *answer*, opening a terminal
+- **`ShortcutsView`** - Run leaves the list on the *answer*, opening a terminal
   on whatever the daemon started; an `ask` errand's Run opens a float menu of every
   project plus a temporary one. A temporary agent draws without Edit or Del,
   because the daemon would refuse both.
@@ -69,10 +75,10 @@ found: every window and button is an `Entry` here, recently used first (`RecentM
 opening a dialog - "Agent: Stop" then picks which agent - and Backspace with an
 empty filter is the way back out of one.
 
-F1 is answered there too while the options menu is open (`Patch_OptionsHotkeys`): a
-window absorbing input makes `HandleEventsHighPriority` use every KeyDown ahead of
-the game components, so the command palette is the one place still allowed to hear
-it. F12 likewise closes the options and reveals the terminal pane underneath.
+F1 and F12 are the chrome's own (`TerminalWindow.ChromeKeys`), whichever view has
+the body. They were answered off a patch on `Dialog_Options` for as long as the
+options menu was a window over the pane, a window absorbing input making
+`HandleEventsHighPriority` use every KeyDown ahead of the game components.
 
 `Fuzzy` is the search behind it, and a substring test is the wrong shape for a
 list of `Noun: Verb` rows: nobody types the colon, so `v c` and `vc` both have to

@@ -52,6 +52,10 @@ namespace SlopWorld
         // rather than the portraits'.
         const float RowGap = 4f;
 
+        // A ghost row is one line of one font and does not shrink with the portraits, having
+        // none: what it costs the column is the same however crowded the column is.
+        static float GhostH => NameH + 2f;
+
         // The two label lines are as tall as their fonts actually draw, asked rather than
         // written down: Widgets.Label ends in GUI.Label, which clips glyphs to the rect, and
         // Verse.Text measures lineHeights off the font at startup (CalcHeight("W", 999)). So a
@@ -100,6 +104,10 @@ namespace SlopWorld
             public Rect Line;   // the whole row, for the highlight and the hover
             public Rect Text;   // beside the portrait: the three labels, and what a click takes
             public Rect Face;   // the square the close-up is drawn in, read by the drawer patch
+
+            // A session with no colonist behind it: the viewer's `less`, the editor, a shell
+            // on the host. One line and a name, no portrait and no state - see GhostH.
+            public bool Ghost;
         }
 
         struct Head
@@ -124,6 +132,20 @@ namespace SlopWorld
         // view, and the files view lays out no rows - so the bucket pass writes it down,
         // that being the pass both views run.
         static readonly Dictionary<int, string> Named = new Dictionary<int, string>();
+
+        // The ephemeral sessions, which have no colonist and so are in none of the tables
+        // above: the bar knows nothing about them. A viewer's `less`, an editor, a shell on
+        // the host - things a person opened and will close, rather than agents the colony
+        // has. They are laid out from the hub's own list, under the project they run in and
+        // ahead of that project's agents, because they are the transient thing and the
+        // agents are what the group is about.
+        static readonly Dictionary<string, List<SessionInfo>> Ghosts =
+            new Dictionary<string, List<SessionInfo>>();
+
+        // The ones belonging to no project at all - an adopted tmux session, a host shell in
+        // a directory the daemon has no entry for. Nothing to file them under, so they go at
+        // the very top of the column, above the first heading.
+        static readonly List<SessionInfo> TopGhosts = new List<SessionInfo>();
 
         // The bucket for an agent whose project has gone, and for a pawn that is not an
         // agent at all. Last in the column, and named rather than blank: an unheaded run of
@@ -211,8 +233,10 @@ namespace SlopWorld
 
             if (!Files)
             {
+                // Agents only. A number here is a portrait - Alt+3 is the third face down,
+                // and on the map it selects that colonist, which a ghost row has none of.
                 foreach (var row in Rows)
-                    if (row.Session != null) order.Add(row.Session);
+                    if (row.Session != null && !row.Ghost) order.Add(row.Session);
                 return order;
             }
 
@@ -280,9 +304,10 @@ namespace SlopWorld
             // that had shrunk to fit gets its portraits back.
             int rows = 0;
             foreach (var key in Order)
-                if (!Folded.Contains(key)) rows += Buckets[key].Count;
+                if (!Folded.Contains(key) && Buckets.TryGetValue(key, out var b))
+                    rows += b.Count;
 
-            float s = Fit(rows, Order.Count, plus, room);
+            float s = Fit(rows, Order.Count, plus, room, GhostRoom());
             float pitch = Pitch(s);
             float cell = ColonistBar.BaseSize.y * s;
             // The row is as tall as vanilla's portrait, and the face box is that square. The
@@ -299,16 +324,23 @@ namespace SlopWorld
 
             float width = Width;
             float y = top;
+
+            // Above the first heading, because they belong under none of them: a shell or a
+            // viewer the daemon has no project for is not the loose bucket's business either,
+            // that being agents whose project has gone.
+            foreach (var g in TopGhosts) y = GhostRow(g, width, y);
+
             foreach (var key in Order)
             {
-                var bucket = Buckets[key];
+                var bucket = Buckets.TryGetValue(key, out var b) ? b : Empty;
                 bool folded = Folded.Contains(key);
+                var ghosts = Ghosts.TryGetValue(key, out var gs) ? gs : EmptyGhosts;
 
                 Heads.Add(new Head
                 {
                     Label = key,
                     Rect = new Rect(0f, y, width, HeadH),
-                    Count = bucket.Count,
+                    Count = bucket.Count + ghosts.Count,
                     Folded = folded,
                 });
                 y += HeadH;
@@ -322,6 +354,10 @@ namespace SlopWorld
                     foreach (int i in bucket) locs[i] = Parked;
                     continue;
                 }
+
+                // Ahead of the project's agents: what somebody opened to look at something is
+                // the transient thing on this list, and the agents are what the group is for.
+                foreach (var g in ghosts) y = GhostRow(g, width, y);
 
                 foreach (int i in bucket)
                 {
@@ -375,10 +411,10 @@ namespace SlopWorld
         // - asked of the fonts rather than written down, three lines of them being enough to
         // put it above Nominal on any ordinary screen. The column then runs off the bottom
         // with its portraits legible, which is the failure this already prefers to a smudge.
-        static float Fit(int rows, int groups, bool plus, float room)
+        static float Fit(int rows, int groups, bool plus, float room, float ghosts)
         {
             if (rows <= 0) return Nominal;
-            float fixedH = groups * HeadH + (plus ? AddH + 2f : 0f);
+            float fixedH = groups * HeadH + (plus ? AddH + 2f : 0f) + ghosts;
             float each = ColonistBar.BaseSize.y + ColonistBar.BaseSpaceBetweenColonistsVertical;
             float s = (room - fixedH) / (rows * each);
             float useful = Mathf.Clamp((TextH + RowGap) / each, Floor, Nominal);
@@ -388,8 +424,10 @@ namespace SlopWorld
         static void Bucket(List<ColonistBar.Entry> entries, List<Vector2> locs, int count)
         {
             foreach (var list in Buckets.Values) list.Clear();
+            foreach (var list in Ghosts.Values) list.Clear();
             Order.Clear();
             Named.Clear();
+            TopGhosts.Clear();
 
             for (int i = 0; i < count && i < entries.Count; i++)
             {
@@ -412,8 +450,24 @@ namespace SlopWorld
                 Named[i] = session;
             }
 
+            // The ephemeral ones, off the hub: no colonist was spawned for them (see
+            // AgentColony.Reconcile), so there is no bar entry to walk. A project of its own
+            // gets a heading even when every session under it is one of these - the group is
+            // the project, not the colony's share of it.
+            foreach (var s in SessionHub.Instance.Sessions)
+            {
+                if (!s.Ephemeral) continue;
+                if (string.IsNullOrEmpty(s.Project)) { TopGhosts.Add(s); continue; }
+
+                if (!Ghosts.TryGetValue(s.Project, out var list))
+                    Ghosts[s.Project] = list = new List<SessionInfo>();
+                list.Add(s);
+            }
+
             foreach (var kv in Buckets)
                 if (kv.Value.Count > 0) Order.Add(kv.Key);
+            foreach (var kv in Ghosts)
+                if (kv.Value.Count > 0 && !Order.Contains(kv.Key)) Order.Add(kv.Key);
 
             // Alphabetical, with the loose ones last: the column has to come back the same
             // way every frame, and a dictionary's own order does not.
@@ -421,6 +475,47 @@ namespace SlopWorld
                 a == Loose ? (b == Loose ? 0 : 1)
                 : b == Loose ? -1
                 : string.CompareOrdinal(a, b));
+
+            // Same reason, one rung down: the hub's list is the daemon's order, which moves
+            // when a session is added or dropped.
+            TopGhosts.Sort(ByName);
+            foreach (var list in Ghosts.Values) list.Sort(ByName);
+        }
+
+        // Handed out where a project has one table filled and not the other, so the layout
+        // loop reads the same either way.
+        static readonly List<int> Empty = new List<int>();
+        static readonly List<SessionInfo> EmptyGhosts = new List<SessionInfo>();
+
+        // One line, the width of the panel, and no portrait to leave room for: the text
+        // starts where a heading's does rather than where an agent's does, which is what
+        // makes these read as belonging to the group instead of as agents in it.
+        static float GhostRow(SessionInfo s, float width, float y)
+        {
+            float tx = CellX + ArrowW + 4f;
+            Rows.Add(new Row
+            {
+                Session = s.Name,
+                Pawn = null,
+                Ghost = true,
+                Line = new Rect(0f, y, width, GhostH),
+                Text = new Rect(tx, y + 1f, width - tx - Pad, NameH),
+                Face = Rect.zero,
+            });
+            return y + GhostH;
+        }
+
+        static int ByName(SessionInfo a, SessionInfo b) =>
+            string.CompareOrdinal(a?.Name ?? "", b?.Name ?? "");
+
+        // What the ghosts cost the column, which is fixed: they are text and text does not
+        // shrink. Folded groups are free, the same as their portraits.
+        static float GhostRoom()
+        {
+            float h = TopGhosts.Count * GhostH;
+            foreach (var kv in Ghosts)
+                if (!Folded.Contains(kv.Key)) h += kv.Value.Count * GhostH;
+            return h;
         }
 
         static string Session(Pawn pawn) =>
@@ -587,7 +682,7 @@ namespace SlopWorld
             TooltipHandler.TipRegion(r, p == null
                 ? "Agents whose project has gone, and anyone here who is not an agent.\n\n" +
                   "Click to fold."
-                : $"{p.Dir}\n({ProjectsWindow.Summary(p)})\n\n" +
+                : $"{p.Dir}\n({ProjectsView.Summary(p)})\n\n" +
                   "Click to fold, right-click for the project.");
         }
 
@@ -602,6 +697,22 @@ namespace SlopWorld
                     var info = row.Session == null ? null : hub.Get(row.Session);
                     var state = info?.State ?? AgentState.Down;
                     var tint = TerminalWindow.StateColor(state);
+
+                    // A ghost is a name and nothing else. No portrait, because there is no
+                    // colonist; no state and no age, because "idle" of a `less` is a fact
+                    // about nothing - it is open or it is gone, and gone takes the row with
+                    // it. Dim, the way the third line of an agent's row is: this is something
+                    // the person opened, not something the colony is doing.
+                    if (row.Ghost)
+                    {
+                        Text.Font = GameFont.Small;
+                        GUI.color = SlopWidgets.Dim;
+                        Widgets.Label(row.Text,
+                            (Label(info) ?? row.Session).Truncate(row.Text.width));
+                        GUI.color = Color.white;
+                        Click(row, info);
+                        continue;
+                    }
 
                     // Line one is the name, in the colour of what it is doing. A bell rung and
                     // not yet answered takes the end of it: the mark belongs beside the name
@@ -688,6 +799,15 @@ namespace SlopWorld
             if (s < 3600L) return s / 60L + "m";
             if (s < 86400L) return s / 3600L + "h";
             return s / 86400L + "d";
+        }
+
+        // What a ghost row says it is. The app's own title first - `less` names the file it
+        // is showing, which is the whole of what that row is about - and the session's name
+        // when it says nothing, that being what the daemon called it.
+        static string Label(SessionInfo info)
+        {
+            string t = Title(info);
+            return t.Length > 0 ? t : info?.Name;
         }
 
         // What the app called itself over OSC 0/2. Most TUIs state something; the ones that do
@@ -954,11 +1074,8 @@ namespace SlopWorld
             // The inspect pane is moved on open and on a resolution change, so with one up it
             // has to be told, or the column crosses it until it is next opened.
             Patch_MainTabWindowShift.Reposition();
-            // And the options menu, for the same reason and by the same standing offer: it is
-            // laid out off this width (SlopOptions.Free), but only when it opens and when the
-            // layout is toggled - neither of which is a drag. Untold, the band keeps the width
-            // the column had when it opened and the edge slides across underneath it.
-            SlopOptions.Reposition();
+            // The options menu needs no telling: it is content in the chrome's own body now,
+            // and that rect is measured off this width every frame.
         }
 
         // The column is a fifth of the screen taken off the map, and the map is what handles

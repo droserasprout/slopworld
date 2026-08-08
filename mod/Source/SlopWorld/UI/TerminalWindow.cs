@@ -13,8 +13,14 @@ namespace SlopWorld
         const float Pad = 6f;
 
         // Not readonly: the strip switches sessions by pointing the window at a new one,
-        // which keeps the terminal's scroll and selection instead of rebuilding it.
+        // which keeps the terminal's scroll and selection instead of rebuilding it. Null is
+        // a window with no pane behind it at all - the options menu opened from the map, and
+        // nothing to go back to when it is left.
         string _name;
+
+        // What is in the body instead of the pane, or null for the pane itself. See
+        // IContentView: the window is the chrome, and this is what the chrome is showing.
+        IContentView _content;
         readonly StringBuilder _literal = new StringBuilder();
 
         int _cols, _rows;
@@ -56,12 +62,15 @@ namespace SlopWorld
 
         public static TerminalWindow Open(string name)
         {
-            // Re-opening the same session should focus it, not stack a second copy.
+            // Re-opening the same session should focus it, not stack a second copy. Asking
+            // for a pane always puts the pane back, though, even the one already behind the
+            // content: a portrait clicked while the options menu is up is a request to see
+            // that agent.
             var existing = Find.WindowStack.WindowOfType<TerminalWindow>();
             if (existing != null)
             {
-                if (existing._name == name) return existing;
-                existing.SwitchTo(name);
+                if (existing._name == name) existing.Leave();
+                else existing.SwitchTo(name);
                 return existing;
             }
             var w = new TerminalWindow(name);
@@ -70,8 +79,73 @@ namespace SlopWorld
             return w;
         }
 
-        public static string CurrentName =>
-            Find.WindowStack.WindowOfType<TerminalWindow>()?._name;
+        // Opens whatever the chrome is being asked to show. With a pane already up the pane
+        // stays behind it - Leave puts it back - and with nothing up the window opens on the
+        // content alone, which is the options menu reached from the map.
+        public static void OpenContent(IContentView view)
+        {
+            if (view == null || Find.WindowStack == null) return;
+
+            var existing = Find.WindowStack.WindowOfType<TerminalWindow>();
+            if (existing != null) { existing.SetContent(view); return; }
+
+            var w = new TerminalWindow(null);
+            w._content = view;
+            Find.WindowStack.Add(w);
+            view.Opened();
+        }
+
+        // The pane's session, and *only* while the pane is what is on show: with content up
+        // there is no current agent, which is what keeps a row from reading as selected under
+        // the options menu and what makes clicking that row open it again.
+        public static string CurrentName
+        {
+            get
+            {
+                var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
+                return w == null || w._content != null ? null : w._name;
+            }
+        }
+
+        // What the chrome is showing, for anything that has to know which it is. Null is the
+        // pane, and null window is neither.
+        public static IContentView Showing =>
+            Find.WindowStack?.WindowOfType<TerminalWindow>()?._content;
+
+        // The one of a kind already up, so a door that opens a view can hand the same one
+        // back rather than build a second: pressing `config` twice is a toggle, not a reset.
+        public static T ShowingAs<T>() where T : class, IContentView => Showing as T;
+
+        // Up means leave it; down means show it, and the view is built only in the second
+        // case - the factory rather than an instance, so a press that turns out to be a
+        // close asks the daemon for nothing. Every door onto a view takes this road, which
+        // is what makes each of them a switch.
+        public static void ToggleContent<T>(System.Func<T> make) where T : class, IContentView
+        {
+            if (ShowingAs<T>() != null)
+            {
+                Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
+                return;
+            }
+            OpenContent(make());
+        }
+
+        void SetContent(IContentView view)
+        {
+            if (_content == view) return;
+            _content?.Closed();
+            _content = view;
+            _content?.Opened();
+        }
+
+        // Out of the content and back to what is behind it: the pane it was opened over, or
+        // the map when there was none. The chrome exists to show something.
+        public void Leave()
+        {
+            if (_content == null) return;
+            SetContent(null);
+            if (_name == null) Close();
+        }
 
         // The pane is on the Super layer, so an ordinary dialog opened from inside it would
         // be added underneath and never seen.
@@ -91,15 +165,22 @@ namespace SlopWorld
         public static bool Covering =>
             _covering && Find.WindowStack?.WindowOfType<TerminalWindow>() != null;
 
-        // Resets per-pane view state but keeps the window's place in the stack.
+        // Resets per-pane view state but keeps the window's place in the stack. Whatever was
+        // in the body goes: being pointed at an agent is a request to see it.
         void SwitchTo(string name)
         {
+            SetContent(null);
             if (name == _name) return;
-            SessionHub.Instance.Unsubscribe(_name);
+            // A window opened on content alone has no pane to let go of, and a subscription
+            // named null is one the daemon would have to answer.
+            if (_name != null) SessionHub.Instance.Unsubscribe(_name);
             _name = name;
-            SessionHub.Instance.Subscribe(_name);
-            TerminalRecall.Remember(_name);
-            SelectAgent(_name);
+            if (_name != null)
+            {
+                SessionHub.Instance.Subscribe(_name);
+                TerminalRecall.Remember(_name);
+                SelectAgent(_name);
+            }
             _scrollOff = 0;
             _wantedScrollOff = 0;
             _scrollPending = false;
@@ -151,6 +232,7 @@ namespace SlopWorld
         {
             base.PreOpen();
             _covering = true;
+            if (_name == null) return;
             SessionHub.Instance.Subscribe(_name);
             SelectAgent(_name);
         }
@@ -160,6 +242,9 @@ namespace SlopWorld
             base.PostClose();
             _covering = false;
             Drop(); // a screen's worth of VRAM, held for a window that is gone
+            // The window is what the view was being shown in, so it is closed with it.
+            SetContent(null);
+            if (_name == null) return;
             SessionHub.Instance.Unsubscribe(_name);
             // The terminal is the viewer's home: closing it while a file was being
             // looked at in `less` means the focus has moved away.
@@ -173,7 +258,16 @@ namespace SlopWorld
 
             Widgets.DrawBoxSolid(rect, Sgr.DefaultBg);
 
-            if (info == null || info.Gone)
+            // An agent that has gone takes its pane with it - but not the window, while the
+            // window is showing something else. The chrome closes when there is nothing left
+            // in it, which is what Leave says too.
+            if (_name != null && (info == null || info.Gone))
+            {
+                if (_content == null) { Close(); return; }
+                hub.Unsubscribe(_name);
+                _name = null;
+            }
+            else if (_name == null && _content == null)
             {
                 Close();
                 return;
@@ -195,6 +289,16 @@ namespace SlopWorld
                 top + Pad,
                 rect.width - left - Pad * 2,
                 rect.height - top - Pad * 2);
+
+            // A view in the body is the whole of what the window is for while it is up: the
+            // chrome's own keys are still read - F1, F12, Alt+Num, Escape back out of it -
+            // but nothing is forwarded to an agent nobody is looking at.
+            if (_content != null)
+            {
+                if (input) ChromeKeys(Event.current);
+                _content.Draw(body);
+                return;
+            }
 
             if (input) HandleInput(body);
 
@@ -325,6 +429,10 @@ namespace SlopWorld
         public override void WindowUpdate()
         {
             base.WindowUpdate();
+
+            // Both of these are the pane's business with its own session, and a view in the
+            // body means there is no pane being measured or scrolled.
+            if (_name == null || _content != null) return;
 
             float now = Time.realtimeSinceStartup;
             if (_scrollPending && now >= _nextScrollSend)
@@ -740,6 +848,47 @@ namespace SlopWorld
             }
         }
 
+        // The chrome's own keys, read while a view has the body. Everything an agent would
+        // have been sent stays unsent - there is no agent on screen to send it to - so this
+        // is the short list: the palette, the way out of the view, the way out of the window,
+        // and the numbers that point it back at a portrait.
+        //
+        // A bare Escape is the way out of a view where in a pane it belongs to the agent. It
+        // is what closed the options dialog when the options menu was a window, and what
+        // every other view here would be closed with.
+        void ChromeKeys(Event e)
+        {
+            if (e.type != EventType.KeyDown) return;
+
+            if (SlopDefOf.SlopCommandPalette != null && SlopDefOf.SlopCommandPalette.KeyDownEvent)
+            {
+                CommandPalette.Toggle();
+                e.Use();
+                return;
+            }
+
+            if (SlopDefOf.SlopQuickTerminal != null && SlopDefOf.SlopQuickTerminal.KeyDownEvent)
+            {
+                Close();
+                e.Use();
+                return;
+            }
+
+            if (e.keyCode == KeyCode.Escape)
+            {
+                Leave();
+                e.Use();
+                return;
+            }
+
+            int slot = TerminalHotkeys.SlotKey(e);
+            if (slot >= 0 && e.alt)
+            {
+                SwitchToSlot(slot);
+                e.Use();
+            }
+        }
+
         void HandleKey(Event e)
         {
             // Shift+Escape is the way out; a bare Escape must reach the agent.
@@ -846,7 +995,9 @@ namespace SlopWorld
             if (slot >= order.Count) return;
 
             string name = order[slot];
-            if (name == _name) return;
+            // The same agent while a view has the body is still a request to see it: the
+            // number points the window at a portrait, and the pane is what a portrait is.
+            if (name == _name && _content == null) return;
 
             var info = SessionHub.Instance.Get(name);
             if (info == null) return;
@@ -856,7 +1007,7 @@ namespace SlopWorld
             FilesView.ReleaseViewer();
             AgentSidebar.FocusTerminal();
 
-            if (info.Gone) SessionHub.Instance.Start(name);
+            if (info.Gone) { SetContent(null); SessionHub.Instance.Start(name); }
             else SwitchTo(name);
         }
 

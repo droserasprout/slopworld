@@ -404,17 +404,6 @@ namespace SlopWorld
         public static void Fail(string msg) =>
             Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
 
-        // Up means close it; down means open it, and whatever the window needs asked for
-        // first. The factory rather than an instance, so nothing is built for a window
-        // that turns out to be a close.
-        public static void ToggleWindow<T>(Func<T> make) where T : Window
-        {
-            var open = Find.WindowStack.WindowOfType<T>();
-            if (open != null) { open.Close(); return; }
-
-            Find.WindowStack.Add(make());
-        }
-
         // Room at the right end of a menu row for the mark, and the mark inside it.
         const float MarkW = 30f;
         const float MarkSize = 18f;
@@ -599,34 +588,28 @@ namespace SlopWorld
         }
     }
 
-    // Agents, projects and shortcuts are one window drawn three times: a title with the
+    // Agents, projects and shortcuts are one list drawn three times: a title with the
     // daemon beside it, a scrolling list of fixed-height rows, and a row of buttons along
     // the bottom. What differs is the rows and what the buttons do, so that is what a
     // subclass says and the rest is here.
     //
+    // A content view rather than a window (see IContentView): all three were 720x480
+    // floaters that opened over the chrome, which put them in the way of the column they
+    // were about and left them the one part of this interface that did not follow the
+    // shape of the rest. They fill the room a pane gets now.
+    //
     // Generic in the row rather than indexed, because every one of these walks a list the
     // hub owns and wants it typed on the way through.
-    public abstract class SlopListWindow<T> : Window
+    public abstract class SlopListView<T> : IContentView
     {
         Vector2 _scroll;
 
-        protected SlopListWindow()
-        {
-            doCloseX = true;
-            draggable = true;
-            resizeable = true;
-            preventCameraMotion = false;
-            closeOnClickedOutside = false;
-        }
-
-        public override Vector2 InitialSize => new Vector2(720f, 480f);
-
-        protected abstract string Title { get; }
+        public abstract string Title { get; }
 
         // The pitch, not the height: a row is drawn 4px shorter so neighbours do not touch.
         protected abstract float RowH { get; }
 
-        // What this window says when it has nothing to show and the daemon is *up*. The
+        // What this view says when it has nothing to show and the daemon is *up*. The
         // other half of that answer is `SlopWidgets.Unreachable` and is nobody's to state.
         protected abstract string EmptyNote { get; }
 
@@ -636,7 +619,13 @@ namespace SlopWorld
 
         protected abstract void DoFooter(Rect bar, SessionHub hub);
 
-        public override void DoWindowContents(Rect rect)
+        // What the list needs asking for before it is drawn. Called on the way in rather
+        // than in a constructor, a view being built by whatever opened it.
+        public virtual void Opened() { }
+
+        public virtual void Closed() { }
+
+        public void Draw(Rect rect)
         {
             var hub = SessionHub.Instance;
 

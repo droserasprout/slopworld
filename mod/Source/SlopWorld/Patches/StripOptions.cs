@@ -23,12 +23,14 @@ namespace SlopWorld
             () => "RunInBackground".Translate(),
         };
 
-        // Gated on the window rather than a flag armed around DoOptions: these widgets are
-        // drawn all over the game, and a flag stranded by an exception mid-listing would
-        // filter every listing after it for the life of the process.
+        // Gated on who is drawing rather than on a flag armed around DoOptions: these widgets
+        // are drawn all over the game, and a flag stranded by an exception mid-listing would
+        // filter every listing after it for the life of the process. `OptionsView.Anywhere` is
+        // that question now - the pages are content in the chrome's window, so the window being
+        // drawn is no longer the dialog's.
         static bool Drops(string label) =>
             label != null
-            && Find.WindowStack?.currentlyDrawnWindow is Dialog_Options
+            && OptionsView.Anywhere
             && Dropped.Any(built => label == built());
 
         // By the def's own isDev rather than by patching, because that is the switch vanilla

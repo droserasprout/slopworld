@@ -55,12 +55,11 @@ namespace SlopWorld
             // of it. Laid out that way round because the quota is already right-aligned within
             // whatever room it gets, so a window coming or going never moves a button.
             //
-            // The options dialog is the one window that opens *inside* the chrome rather than
-            // over it - SlopOptions.Free lays it out below this line, which stays visible - so
-            // it is the one thing stacked over a pane that does not take the bar's clicks with
-            // it. The same exception ColonistBarStrip.Interactive makes for the column, and it
-            // matters most for the cog: dead here, it would open a window it cannot close.
-            float right = Doors(r, interactive || ColonistBarStrip.OptionsOpen);
+            // The options menu used to be excepted here, being the one window laid out below
+            // this line rather than over it - and the exception was worth nothing, a window
+            // under an absorbing one never being called for a MouseDown. It is a content view
+            // now, so the line is live whenever the window it is drawn from is.
+            float right = Doors(r, interactive);
 
             // Nothing where there is no room: the doors take well over a hundred pixels off
             // this end with all four up, and a strip handed a negative width right-aligns its
@@ -201,9 +200,9 @@ namespace SlopWorld
         {
             TerminalWindow.OpenOverPane(new FloatMenu(new List<FloatMenuOption>
             {
-                new FloatMenuOption("Projects", ProjectsWindow.Toggle),
-                new FloatMenuOption("Agents", SessionsWindow.Toggle),
-                new FloatMenuOption("Shortcuts", ShortcutsWindow.Toggle),
+                new FloatMenuOption("Projects", ProjectsView.Toggle),
+                new FloatMenuOption("Agents", SessionsView.Toggle),
+                new FloatMenuOption("Shortcuts", ShortcutsView.Toggle),
                 new FloatMenuOption("Quit to OS", Root.Shutdown),
             }));
         }
@@ -215,6 +214,18 @@ namespace SlopWorld
         static void Status(Rect r, TerminalWindow pane)
         {
             if (r.width <= 40f) return;
+
+            // A view in the body is what this line is about while it is up: the options
+            // menu, or one of the three lists. No agent is being looked at, so naming one
+            // here would be naming the thing behind what is on screen.
+            var view = TerminalWindow.Showing;
+            if (view != null)
+            {
+                GUI.color = SlopWidgets.Lead;
+                Widgets.Label(r, view.Title);
+                GUI.color = Color.white;
+                return;
+            }
 
             string session = TerminalWindow.CurrentName ?? InspectPaneAgent.Selected();
             var hub = SessionHub.Instance;

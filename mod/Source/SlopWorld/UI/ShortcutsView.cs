@@ -9,17 +9,18 @@ namespace SlopWorld
     // Running one lands a *temporary* colonist - never in config.toml, and it walks
     // off the map when its process exits. Which is why the window closes on Run and
     // hands you the terminal: the errand is already underway.
-    public class ShortcutsWindow : SlopListWindow<ShortcutInfo>
+    public class ShortcutsView : SlopListView<ShortcutInfo>
     {
-        public static void Toggle() => SlopWidgets.ToggleWindow(() =>
+        public static void Toggle() => TerminalWindow.ToggleContent(() => new ShortcutsView());
+
+        public override void Opened()
         {
             SessionHub.Instance.RefreshShortcuts();
             // The rows name a project, and the dialog they open picks one.
             SessionHub.Instance.RefreshProjects();
-            return new ShortcutsWindow();
-        });
+        }
 
-        protected override string Title => "Shortcuts";
+        public override string Title => "Shortcuts";
 
         protected override float RowH => 62f;
 
@@ -35,10 +36,10 @@ namespace SlopWorld
             var row = new SlopWidgets.Bar(bar);
 
             if (row.Left("Add shortcut", SlopWidgets.Btn.Primary))
-                Find.WindowStack.Add(new EditShortcutDialog(null));
+                TerminalWindow.OpenOverPane(new EditShortcutDialog(null));
 
             if (row.Left("Agents"))
-                SessionsWindow.Toggle();
+                SessionsView.Toggle();
 
             if (row.Right("Reload", SlopWidgets.Btn.Ghost))
                 hub.RefreshShortcuts(SlopWidgets.Fail);
@@ -92,13 +93,13 @@ namespace SlopWorld
             }
 
             if (SlopWidgets.Button(new Rect(right - 74f, r.y + 1f, 74f, SlopWidgets.RowBtnH), "Edit"))
-                Find.WindowStack.Add(new EditShortcutDialog(s));
+                TerminalWindow.OpenOverPane(new EditShortcutDialog(s));
 
             if (SlopWidgets.Button(new Rect(right - 74f, l2, 74f, SlopWidgets.RowBtnH), "Del",
                     SlopWidgets.Btn.Danger))
             {
                 var name = s.Name;
-                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
                     $"Remove shortcut '{name}'? Anything it already started keeps running.",
                     () => SessionHub.Instance.RemoveShortcut(name, SlopWidgets.Fail),
                     destructive: true));
@@ -109,12 +110,10 @@ namespace SlopWorld
         {
             SessionHub.Instance.RunShortcut(name,
                 session =>
-                {
-                    // Closed only once something is actually running, so a refused errand leaves the
-                    // list up with the message over it.
-                    Close();
-                    TerminalWindow.Open(session);
-                },
+                    // The list is left only once something is actually running, so a refused
+                    // errand leaves it up with the message over it. Opening the pane is what
+                    // leaves it: the body is one view at a time.
+                    TerminalWindow.Open(session),
                 SlopWidgets.Fail, project, temp);
         }
 
@@ -132,7 +131,7 @@ namespace SlopWorld
                 $"A temporary project under {ProjectInfo.TempRoot}",
                 () => Run(name, null, true)));
 
-            Find.WindowStack.Add(new FloatMenu(options));
+            TerminalWindow.OpenOverPane(new FloatMenu(options));
         }
 
         // Where an errand runs, in the few words a row and a tooltip have.
@@ -309,7 +308,7 @@ namespace SlopWorld
                     return "Running it opens a list of projects, plus a temporary one.";
                 default:
                     return project != null
-                        ? $"{project.Dir}  ({ProjectsWindow.Summary(project)})"
+                        ? $"{project.Dir}  ({ProjectsView.Summary(project)})"
                         : SessionHub.Instance.Projects.Count == 0
                             ? "No projects yet - make one in the Projects window first."
                             : "";
@@ -318,7 +317,7 @@ namespace SlopWorld
 
         void PickLink()
         {
-            Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
+            TerminalWindow.OpenOverPane(new FloatMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption(LinkLabel(ShortcutLink.Project),
                     () => _s.Link = ShortcutLink.Project),
@@ -331,7 +330,7 @@ namespace SlopWorld
 
         void PickKind()
         {
-            Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
+            TerminalWindow.OpenOverPane(new FloatMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption("Prompt - say something to an agent",
                     () => _s.Kind = ShortcutKind.Prompt),
@@ -353,9 +352,9 @@ namespace SlopWorld
                 options.Insert(0, new FloatMenuOption("None", () => _s.Project = ""));
 
             options.Add(new FloatMenuOption("New project...",
-                () => Find.WindowStack.Add(new EditProjectDialog(null))));
+                () => TerminalWindow.OpenOverPane(new EditProjectDialog(null))));
 
-            Find.WindowStack.Add(new FloatMenu(options));
+            TerminalWindow.OpenOverPane(new FloatMenu(options));
         }
 
         void Save()

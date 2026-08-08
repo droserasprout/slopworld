@@ -10,7 +10,11 @@ none of these need a def. See also [mod-plague](mod-plague.md) and
   arrive in drop pods, so `Spawn` hands back a pawn that is not spawned yet and
   the arrival haze waits on `_landing`, checked every tick rather than on the
   reconcile's second. Taking a pawn into the table dirties its graphics, which is
-  what gets the faceplate onto a loaded colony.
+  what gets the faceplate onto a loaded colony. **Ephemeral sessions get none**: a
+  viewer's `less` or a shell on the host is something a person opened, and a drop
+  pod every time a file is read is the map twitching for nothing. They are drawn in
+  the sidebar and nowhere else ([mod-sidebar](mod-sidebar.md)); one already bound to
+  a pawn - an older save, an adopted session - is retired the way a gone one is.
 - **`TimeKeeper`** - unpauses. With the time controls stripped, a pause is forever.
 - **`ColonyNames`** - answers all three naming dialogs up front on `FinalizeInit`,
   which closes them with no patch.

@@ -6,17 +6,18 @@ using Verse;
 namespace SlopWorld
 {
     // The colony overview: every session, its state, and the buttons to act on it.
-    public class SessionsWindow : SlopListWindow<SessionInfo>
+    public class SessionsView : SlopListView<SessionInfo>
     {
-        public static void Toggle() => SlopWidgets.ToggleWindow(() =>
+        public static void Toggle() => TerminalWindow.ToggleContent(() => new SessionsView());
+
+        public override void Opened()
         {
             SessionHub.Instance.Refresh();
             // The rows name a project, and the dialog they open picks one.
             SessionHub.Instance.RefreshProjects();
-            return new SessionsWindow();
-        });
+        }
 
-        protected override string Title => "Agents";
+        public override string Title => "Agents";
 
         protected override float RowH => 52f;
 
@@ -30,10 +31,10 @@ namespace SlopWorld
             var row = new SlopWidgets.Bar(bar);
 
             if (row.Left("Add agent", SlopWidgets.Btn.Primary))
-                Find.WindowStack.Add(new EditSessionDialog(null));
+                TerminalWindow.OpenOverPane(new EditSessionDialog(null));
 
             if (row.Left("Projects"))
-                ProjectsWindow.Toggle();
+                ProjectsView.Toggle();
 
             // Shortcuts is not here: it is a window of its own in the bottom bar, and an
             // errand is not something you do to an agent on this list. Nor is "New colony",
@@ -86,7 +87,7 @@ namespace SlopWorld
             // write an entry the daemon has never had and the save would be refused.
             if (!s.Ephemeral &&
                 SlopWidgets.Button(new Rect(right - 174f, top, 96f, SlopWidgets.RowBtnH), "Edit"))
-                Find.WindowStack.Add(new EditSessionDialog(s));
+                TerminalWindow.OpenOverPane(new EditSessionDialog(s));
 
             // Next to Edit rather than down with Del and Start, because what it does is open
             // the same dialog. It is the one of the two that still means something for a
@@ -98,7 +99,7 @@ namespace SlopWorld
                     ? $"A permanent agent in {s.Project}, like the one running this errand."
                     : $"New agent with '{s.Name}'s project and command, under a new name.");
                 if (SlopWidgets.Button(dup, "Duplicate"))
-                    Find.WindowStack.Add(EditSessionDialog.Copy(s));
+                    TerminalWindow.OpenOverPane(EditSessionDialog.Copy(s));
             }
 
             var term = new Rect(right - 22f, bottom, 22f, SlopWidgets.RowBtnH);
@@ -131,7 +132,7 @@ namespace SlopWorld
                                     SlopWidgets.Btn.Danger))
             {
                 var name = s.Name;
-                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
                     $"Remove session '{name}'? This kills the tmux session and drops it from config.toml.",
                     () => SessionHub.Instance.Remove(name, SlopWidgets.Fail),
                     destructive: true));

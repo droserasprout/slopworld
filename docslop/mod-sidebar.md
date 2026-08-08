@@ -37,34 +37,36 @@ the postfix, which is what puts the column over a pane as well as on the map.
   from the right so the times line up down the column. A `bell` takes the end of
   the *name* line, that being about the agent rather than its posture, and is
   `TabIcons.BellTex`.
+- **Ghost rows** are the ephemeral sessions: the viewer's `less`, an editor, a shell
+  on the host. No colonist is spawned for one any more (`AgentColony` skips them, and
+  retires a pawn bound to one), so the bar knows nothing about them and they are laid
+  out from the hub's own list instead - `Ghosts` by project, `TopGhosts` for the ones
+  belonging to none. One line, the name or the app's own title, no portrait and no
+  state: "idle" of a `less` is a fact about nothing, and the row goes when the process
+  does. They sit **ahead of the agents in their group**, a project's own transient
+  things before what the group is about, and the projectless ones above the first
+  heading. A project with nothing but ghosts still gets its heading. They are off
+  Alt+Num - a number there is a portrait - and their cost to `Fit` is fixed, text not
+  being what shrinks.
 - `Absorb` eats the mouse over the panel, last of all. Without it a press starts a
   drag-selection on the ground behind the panel and a right-click orders a
   colonist to walk there.
-- The options menu is the one window that opens inside the chrome rather than over
-  it: the band is laid out from the sidebar's right edge and the top bar's bottom,
-  so the sidebar stays visible and stays interactive. `ColonistBarStrip.Interactive`
-  is `!Blocked || OptionsOpen` everywhere the sidebar asks whether it may answer a
-  click, so the grip, the tabs, the menus and the absorb all keep working while the
-  options dialog is up. `Mouse.IsOver` is not used for any of these checks:
+- The options menu is a **content view** now, not a window over the chrome
+  ([mod-content-views](mod-content-views.md)), and the column answers presses under
+  it because nothing absorbs above it any more. `ColonistBarStrip.Interactive` is
+  back to a plain `!Blocked`; the `OptionsOpen` exception it carried was written for
+  this and bought nothing. `Mouse.IsOver` is still not used for any of these checks:
   `ColonistBarStrip.MouseOver` calls `Contains` directly, bypassing `IsInputBlockedNow`
   (which would return true, the current window not getting input). The press checks
   read `Event.current.rawType` rather than `type`, which recovers a MouseDown that
-  `HandleEventsHighPriority` Used - but **only** one that arrived at all. With the
-  options menu up none does: the pane is under an absorbing window, and a window
-  under one is never called for a MouseDown (see the entry in `gotchas.md`; measured,
-  not assumed). So `Grip` reads no part of its gesture off an event. It samples
+  `HandleEventsHighPriority` Used - but **only** one that arrived at all, which under
+  an absorbing window is none (see the entry in `gotchas.md`; measured, not assumed).
+  `Grip` reads no part of its gesture off an event even so, being the one that also
+  has to survive a release dragged off the edge of the screen: it samples
   `Input.GetMouseButtonDown(0)` while the pointer is over the edge, follows
-  `Event.current.mousePosition` for as long as `Input.GetMouseButton(0)` holds, and
-  ends when it does not. **Everything else on the column that wants a press - the
-  tabs, the menus, the tree's rows, the portrait click - still reads the event, so
-  it is dead while the options menu is up.** `Grip` is the one that was asked for;
-  the rest want the same treatment. `SetWidth` tells the options menu as well as the
-  inspect pane: both are laid out off this width but placed only on open, so a drag
-  has to say so or the band keeps the width the column had when it opened. F1 and
-  F12 are
-  handled by the options dialog itself (see `Patch_OptionsHotkeys`),
-  HandleEventsHighPriority having used the key events before they reached the game
-  components below it.
+  `Event.current.mousePosition` for as long as
+  `Input.GetMouseButton(0)` holds, and ends when it does not. F1 and F12 are the
+  chrome window's own (`TerminalWindow.ChromeKeys`), whichever view has the body.
 - `Menus` and `Grip` are taken in the **back** pass, before the bar's own draw,
   because the bar swallows a right-click over a portrait to keep it off the map -
   asked for after it, a row menu would open over only half a row. A heading folds

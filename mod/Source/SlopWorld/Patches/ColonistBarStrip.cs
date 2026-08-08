@@ -55,25 +55,20 @@ namespace SlopWorld
         // having already Used the event.
         public static bool Blocked { get; private set; }
 
-        // The options menu is the one window that opens *inside* the chrome rather than over it:
-        // it is laid out off the sidebar and the top bar, which stay visible and alive (see
-        // SlopOptions.Free). So the strip, which otherwise stops listening while anything is
-        // stacked above the pane, keeps taking its own clicks for that one window. Everything
-        // else that floats over the pane still blocks it the same way Blocked says.
-        public static bool OptionsOpen =>
-            Find.WindowStack?.WindowOfType<Dialog_Options>() != null;
-
-        // What the strip's own handlers ask instead of Blocked: the same answer, except that an
-        // open options menu keeps the column interactive. Read where the column decides whether
-        // to answer a click, so the one exception is not argued afresh at every gate.
-        public static bool Interactive => !Blocked || OptionsOpen;
+        // What the strip's own handlers ask instead of Blocked, read wherever the column
+        // decides whether to answer a click. It carried an exception for a while - the options
+        // menu, which opened *inside* the chrome and so was the one window the column was kept
+        // alive under - and the exception bought nothing: a window under an absorbing one is
+        // never called for a MouseDown, so the column kept its hover and lost every press
+        // regardless (see gotchas.md). The options menu is a content view now, drawn *by* this
+        // window rather than by one over it, so this is the plain answer again.
+        public static bool Interactive => !Blocked;
 
         // The mouse is over a rect on the strip, bypassing `Mouse.IsOver`'s input-blocked gate.
         // `Mouse.IsOver` calls `IsInputBlockedNow` which returns true when the current window
-        // does not get input - and the options dialog, which opens inside the chrome with the
-        // sidebar still visible and interactive, causes the terminal window to fail that check.
-        // The sidebar's own interactive code runs before the dialog's draw and uses screen
-        // coordinates, so a direct `Contains` is the right answer.
+        // does not get input, which is the terminal's state whenever anything is stacked over
+        // the pane. The strip draws in screen coordinates from inside that window, so a direct
+        // `Contains` is the right answer and is what every hover and press path here uses.
         public static bool MouseOver(Rect r) => r.Contains(Event.current.mousePosition);
 
         // The map-layer draw is pointless under a terminal and would register the bar's
