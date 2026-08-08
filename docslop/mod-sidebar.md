@@ -47,7 +47,10 @@ the postfix, which is what puts the column over a pane as well as on the map.
   things before what the group is about, and the projectless ones above the first
   heading. A project with nothing but ghosts still gets its heading. They are off
   Alt+Num - a number there is a portrait - and their cost to `Fit` is fixed, text not
-  being what shrinks.
+  being what shrinks. A ghost that is one of the trees' three errands wears its mark
+  **in front of** the name (`RowActions.Of`, off the command and not the label):
+  the name is a title the app wrote and long enough to be cut, so a mark after it
+  would be the first thing to go. A host shell wears none - the name is all it is.
 - `Absorb` eats the mouse over the panel, last of all. Without it a press starts a
   drag-selection on the ground behind the panel and a right-click orders a
   colonist to walk there.

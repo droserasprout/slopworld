@@ -76,6 +76,10 @@ namespace SlopWorld
         const float BellW = 13f;
         const float AgoGap = 6f;
 
+        // And what the mark in front of a ghost's name takes off the front of it: a pager, an
+        // editor or a diff, said as the icon the tree it was opened from puts on that row.
+        const float GhostMarkW = 12f;
+
         // The arrow before a heading, and how much of the edge answers a drag.
         const float ArrowW = 12f;
         const float GripW = 5f;
@@ -223,7 +227,10 @@ namespace SlopWorld
             // Arriving in the git view is what asks: a working tree changes under this column
             // all day and nothing tells it so, the agents being the ones doing the changing.
             // Only what has never been read - the refresh button is how a reader asks again.
-            if (tab == TabGit) GitView.Entered();
+            //
+            // The files view asks for the same reading: a row there grows a diff button where
+            // the working tree has a change, and that is the git view's answer to give.
+            if (tab == TabGit || tab == TabFiles) GitView.Entered();
         }
 
         // The column's answer to a terminal being summoned: F12 opening a pane, or Alt+Num
@@ -737,9 +744,29 @@ namespace SlopWorld
                     if (row.Ghost)
                     {
                         Text.Font = GameFont.Small;
+                        var text = row.Text;
+
+                        // What this one is, where it is one of the three the trees open: the
+                        // same mark the row it was opened from wears ([RowActions]). In front
+                        // of the name rather than after it, because the name is a title the
+                        // app wrote and runs long enough to be cut - a mark at the end of it
+                        // would be the first thing to go, and this is the half of the row that
+                        // says what it is at a glance. Nothing for a host shell or anything
+                        // else run by hand: the name is the whole of what those are.
+                        var act = RowActions.Of(info);
+                        if (act != RowAct.None)
+                        {
+                            float d = Mathf.Min(GhostMarkW, text.height);
+                            GUI.color = SlopWidgets.Off;
+                            GUI.DrawTexture(
+                                new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
+                                RowActions.Tex(act));
+                            text.x += d + 4f;
+                            text.width -= d + 4f;
+                        }
+
                         GUI.color = SlopWidgets.Dim;
-                        Widgets.Label(row.Text,
-                            (Label(info) ?? row.Session).Truncate(row.Text.width));
+                        Widgets.Label(text, (Label(info) ?? row.Session).Truncate(text.width));
                         GUI.color = Color.white;
                         Click(row, info);
                         continue;

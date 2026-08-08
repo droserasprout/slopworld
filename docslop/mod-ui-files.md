@@ -25,6 +25,10 @@ see a project directory the way the project does.
 - Expansions and the project folds are **in memory only**. `foldedProjects` is the
   agents view's; a tree's shape is a set of paths and reloading it costs one
   browse.
+- A hovered file row grows the **view/edit/diff** strip at its right end
+  ([mod-ui-rowactions](mod-ui-rowactions.md)); the diff appears only where the git
+  view has read a change for that path, which is why arriving here reads the working
+  trees too.
 - Right-click is copy path, copy relative path, and on a file `View` (`less -R`)
   and `Edit` (`micro`). Those two go through `POST /api/run`, so what opens is an
   ephemeral agent in the **project's own sandbox** - which is what makes `less` see

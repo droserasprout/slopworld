@@ -20,6 +20,11 @@ exists: a session is in its own mount namespace and the game is outside all of t
   read) and again whenever the reader asks - the refresh button on the tab strip,
   which is the only *button* there and is never lit, or `Refresh` on a heading's
   menu. Everything else in the sidebar is a switch.
+- A hovered row's figures give way to the **view/edit/diff** strip
+  ([mod-ui-rowactions](mod-ui-rowactions.md)) - fifty pixels of buttons, and keeping
+  both would cost the name rather than the tail. The row's tooltip still says the
+  state in words. The flat `Changes` table beside the tree is what the files view
+  asks about a path of its own.
 - A row carries the porcelain pair in one character and the numstat beside it,
   laid out from the right so the figures line up down the column - the same move
   the agents view makes with its times. Green is staged, amber is not, red is

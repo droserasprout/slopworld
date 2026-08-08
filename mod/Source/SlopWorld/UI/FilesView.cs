@@ -62,6 +62,11 @@ namespace SlopWorld
         static string _selected;
         static readonly Pager Viewer = new Pager();
 
+        // And which of the two things about that file it is showing: the file, or its diff.
+        // The row and its buttons open different things about the same path, so "click the one
+        // already open and its pane comes back" has to be about the one that was clicked.
+        static RowAct _showing;
+
         // Extensions `less` would rather not be handed: the viewer is for reading, and an
         // image or a zip in a text pager is a listing nobody asked for. Everything else is
         // text enough to try.
@@ -76,7 +81,9 @@ namespace SlopWorld
             ".bin", ".o", ".a", ".class", ".pyc", ".pyo", ".jar", ".iso", ".img",
         };
 
-        static bool IsText(string name)
+        // Public because the git view asks it about the rows it draws: the same question about
+        // the same files, and one list of extensions is the point of asking it here.
+        public static bool IsText(string name)
         {
             int dot = name.LastIndexOf('.');
             if (dot < 0) return true;               // no extension: read it as text
@@ -307,7 +314,8 @@ namespace SlopWorld
         static float Row(float width, float y, Node node)
         {
             var r = new Rect(0f, y, width, RowH);
-            if (ColonistBarStrip.MouseOver(r)) Widgets.DrawHighlight(r);
+            bool over = ColonistBarStrip.MouseOver(r);
+            if (over) Widgets.DrawHighlight(r);
             if (node.Path == _selected)
                 Widgets.DrawBoxSolid(r, new Color(1f, 1f, 1f, 0.08f));
 
@@ -327,10 +335,16 @@ namespace SlopWorld
                 GUI.DrawTexture(new Rect(x, y + (RowH - IconW) / 2f, IconW, IconW), icon);
             x += IconW + 5f;
 
+            // What this row can be asked to do, drawn only under the mouse and only over the
+            // end of the name - a tree of files has nothing else out there to give up.
+            float rx = width - Pad;
+            var acts = over ? Acts(node) : RowAct.None;
+            if (acts != RowAct.None) rx = RowActions.Draw(r, rx, acts) - 4f;
+
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = node.IsDir ? SlopWidgets.Lead : SlopWidgets.Name;
-            var label = new Rect(x, y, width - x - Pad, RowH);
+            var label = new Rect(x, y, Mathf.Max(0f, rx - x), RowH);
             Widgets.Label(label, node.Name.Truncate(label.width));
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
@@ -338,6 +352,22 @@ namespace SlopWorld
 
             Lines.Add(new Line { Node = node, Rect = r });
             return y + RowH;
+        }
+
+        // The buttons a row offers. A directory offers none - `less` on one is a listing
+        // nobody asked for and `micro` on one is a file browser inside a game, which is the
+        // same line the right-click menu draws. A binary file is not offered the pager for the
+        // reason a left click on one opens nothing. And the diff is offered where the working
+        // tree has something to diff, which is the git view's answer rather than this one's:
+        // the two views draw the same files and only one of them has read the repository.
+        static RowAct Acts(Node node)
+        {
+            if (node.IsDir) return RowAct.None;
+
+            var acts = RowAct.Edit;
+            if (IsText(node.Name)) acts |= RowAct.View;
+            if (GitView.Changed(node.Project, node.Path)) acts |= RowAct.Diff;
+            return acts;
         }
 
         // ------------------------------------------------------------------ listing
@@ -413,7 +443,16 @@ namespace SlopWorld
                 }
                 else if (e.button == 0)
                 {
-                    if (line.Node.IsDir)
+                    // The hover strip first, and the row's own answer only where the press
+                    // missed it: a button drawn over the end of a name is a button, and the
+                    // row underneath it must not act on the same press.
+                    var scr = Screen(line.Rect);
+                    var hit = RowActions.Hit(scr, scr.xMax - Pad, Acts(line.Node));
+                    if (hit != RowAct.None)
+                    {
+                        Act(line.Node, hit);
+                    }
+                    else if (line.Node.IsDir)
                     {
                         line.Node.Expanded = !line.Node.Expanded;
                         // Closing and opening again is the retry: the draw pass declines to
@@ -424,18 +463,7 @@ namespace SlopWorld
                     }
                     else
                     {
-                        // Left on a file: mark it and read it. Text files open in `less`
-                        // in a pane over the tree; a binary file is marked but nobody is
-                        // handed it. Clicking the file already being read just brings its
-                        // pane back - a focus change is a *different* file, and only that
-                        // replaces the viewer.
-                        bool same = _selected == line.Node.Path;
-                        _selected = line.Node.Path;
-                        if (IsText(line.Node.Name))
-                        {
-                            if (!same || !Viewer.Reopen()) View(line.Node);
-                        }
-                        else ReleaseViewer();
+                        Open(line.Node);
                     }
                 }
                 else
@@ -462,6 +490,54 @@ namespace SlopWorld
         static void Fold(string project)
         {
             if (!Shut.Remove(project)) Shut.Add(project);
+        }
+
+        // Left on a file: mark it and read it. Text files open in `less` in a pane over the
+        // tree; a binary file is marked but nobody is handed it. Clicking the file already
+        // being read just brings its pane back - a focus change is a *different* file, and
+        // only that replaces the viewer.
+        static void Open(Node node)
+        {
+            bool same = _selected == node.Path && _showing == RowAct.View;
+            _selected = node.Path;
+            // Marked, and nobody showing it: whatever was in the pane is not about this row.
+            if (!IsText(node.Name)) { _showing = RowAct.None; ReleaseViewer(); return; }
+            if (!same || !Viewer.Reopen()) View(node);
+        }
+
+        // One of the hover strip's three, done. Nothing here is new: the same three errands
+        // the right-click menu has always offered, plus the git view's diff for a file that
+        // has one - and that one is opened in *this* view's pager, because the reader is
+        // standing in this view and Show would release the other's the moment it opened.
+        static void Act(Node node, RowAct act)
+        {
+            switch (act)
+            {
+                case RowAct.View:
+                    Open(node);
+                    break;
+
+                case RowAct.Edit:
+                    Errand(node, "micro --", "edit");
+                    break;
+
+                case RowAct.Diff:
+                    if (_selected == node.Path && _showing == RowAct.Diff && Viewer.Reopen())
+                        break;
+
+                    string cmd = GitView.DiffFor(node.Project, node.Path);
+                    // The tree it was read off has moved on - the file was committed, or the
+                    // repository was read again without it. The button is gone next frame.
+                    if (cmd == null)
+                    {
+                        SlopWidgets.Fail($"nothing to diff in {node.Name}");
+                        break;
+                    }
+                    _selected = node.Path;
+                    _showing = RowAct.Diff;
+                    Viewer.Open(node.Project, cmd, "diff-" + node.Name);
+                    break;
+            }
         }
 
         // ------------------------------------------------------------------ menu
@@ -545,6 +621,7 @@ namespace SlopWorld
             // A project that has gone takes the mark with it: the tree would otherwise
             // highlight a row nobody is reading.
             if (SessionHub.Instance.Project(node.Project) == null) ClearSelection();
+            else _showing = RowAct.View;
             Viewer.Open(node.Project, "less -R -- " + Pager.Quote(node.Path),
                 "view-" + node.Name);
         }
@@ -553,7 +630,11 @@ namespace SlopWorld
 
         public static void CloseViewerIf(string session) => Viewer.CloseIf(session);
 
-        static void ClearSelection() => _selected = null;
+        static void ClearSelection()
+        {
+            _selected = null;
+            _showing = RowAct.None;
+        }
 
     }
 }

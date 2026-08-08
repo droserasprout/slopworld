@@ -183,5 +183,11 @@ logs:              ## Tail the game's Player.log
 shot:              ## Screenshot the game window into OUT
 	@tools/shot.sh $(OUT)
 
-pkg-arch:
+pkg-arch:          ## Build and install Arch package
 	cd packaging/arch && makepkg -p PKGBUILD.local -sif
+
+docs:              ## Build human docs
+	cd docs && mdbook build
+
+docs-serve:        ## Serve human docs
+	cd docs && mdbook serve

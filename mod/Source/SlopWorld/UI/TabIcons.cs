@@ -30,7 +30,7 @@ namespace SlopWorld
         const float Mid = N / 2f, Box = 11f;
 
         static Texture2D _agents, _files, _git, _refresh, _hidden, _bell, _auto, _hamburger,
-            _config;
+            _config, _edit, _diff;
 
         public static Texture2D AgentsTex => _agents != null ? _agents : _agents = Build(Robot);
 
@@ -51,6 +51,16 @@ namespace SlopWorld
         public static Texture2D AutoTex => _auto != null ? _auto : _auto = Build(Cross);
 
         public static Texture2D ConfigTex => _config != null ? _config : _config = Build(Cog);
+
+        // The three a row's hover strip draws ([RowActions]), and the mark an ephemeral pager
+        // wears in the agents view. The eye is the dotfile switch's own texture: reading is
+        // what both of them are about, and a second eye drawn to the same recipe would be the
+        // same pixels under another name.
+        public static Texture2D ViewTex => HiddenTex;
+
+        public static Texture2D EditTex => _edit != null ? _edit : _edit = Build(Pencil);
+
+        public static Texture2D DiffTex => _diff != null ? _diff : _diff = Build(PlusMinus);
 
         // ------------------------------------------------------------------ shapes
         //
@@ -214,6 +224,36 @@ namespace SlopWorld
         {
             if (!Disc(x, y, 16f, 16f, 12.5f)) return false;
             return Mathf.Abs(x - y) <= 3f || Mathf.Abs(x + y - 32f) <= 3f;
+        }
+
+        // Edit: a pencil up the diagonal, which is the one direction a fourteen-pixel row has
+        // any length in. Stated in the pencil's own coordinates - `u` up the shaft to the
+        // point, `v` across it - so the shaft is a range and the point is a taper, and neither
+        // has to be written as a rotated rectangle.
+        //
+        // The seam between the two is a gap rather than a line: at this size a drawn line is
+        // thinner than a pixel and comes out as a smudge, where a gap the same width reads as
+        // the step every pencil icon has there. Held to neither budget above, the way Bell and
+        // Cross are: this is a mark inside a row, sized by the row.
+        static bool Pencil(float x, float y)
+        {
+            const float S = 0.70710678f;
+            float u = (x - y) * S, v = (x + y - N) * S;
+
+            if (Mathf.Abs(v) > 3.1f) return false;
+            if (u >= -10.5f && u <= 3f) return true;                       // the shaft
+            if (u < 4f) return false;                                      // the seam
+            return u <= 11f && Mathf.Abs(v) <= 3.1f * (11f - u) / 7f;      // the point
+        }
+
+        // Diff: a plus over a minus, which is what the row it sits in already says in figures
+        // - the `+12 -3` beside a change in the git view. Two overlapping pages would be the
+        // other way to draw it and at fourteen pixels a page is a rectangle.
+        static bool PlusMinus(float x, float y)
+        {
+            if (Rect(x, y, 8.5f, 8.4f, 23.5f, 11.6f)) return true;   // the plus, across
+            if (Rect(x, y, 14.4f, 2.5f, 17.6f, 17.5f)) return true;  // and down
+            return Rect(x, y, 8.5f, 21f, 23.5f, 24.2f);              // the minus
         }
 
         static bool Disc(float x, float y, float cx, float cy, float r)

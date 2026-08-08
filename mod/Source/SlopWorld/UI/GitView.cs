@@ -58,6 +58,12 @@ namespace SlopWorld
             public int Changed, Added, Deleted;
             public Node Tree;
             public HashSet<string> Shut = new HashSet<string>();  // folded directories, by Rel
+
+            // The same changes as the tree, flat and by relative path, with the porcelain pair
+            // for each. The tree is for drawing; this is for answering the files view, which
+            // asks about one absolute path at a time and would otherwise walk a tree per row
+            // per frame.
+            public Dictionary<string, string> Changes = new Dictionary<string, string>();
         }
 
         static readonly Dictionary<string, Repo> Repos = new Dictionary<string, Repo>();
@@ -73,6 +79,12 @@ namespace SlopWorld
         // `_selected` is what the tree highlights; `Viewer` is who is showing it.
         static string _selected;
         static readonly Pager Viewer = new Pager();
+
+        // And which of the two things about that change it is showing: the diff, or the file
+        // the diff is about. The row and its buttons open different things about the same
+        // path, so "click the one already open and its pane comes back" has to be about the
+        // one that was clicked.
+        static RowAct _showing;
 
         // ------------------------------------------------------------------ asking
 
@@ -125,6 +137,7 @@ namespace SlopWorld
                     if (repo.Dir != dir) return;
 
                     repo.IsRepo = j["repo"].AsBool();
+                    repo.Changes.Clear();
                     if (!repo.IsRepo)
                     {
                         repo.Tree = null;
@@ -137,7 +150,7 @@ namespace SlopWorld
                     repo.Changed = j["changed"].AsInt();
                     repo.Added = j["added"].AsInt();
                     repo.Deleted = j["deleted"].AsInt();
-                    repo.Tree = Fold(j["files"]);
+                    repo.Tree = Fold(repo, j["files"]);
                 },
                 msg =>
                 {
@@ -146,8 +159,11 @@ namespace SlopWorld
                     if (repo.Dir != dir) return;
                     repo.Error = msg;
                     // The tree goes with it: what is drawn is the error alone, and a stale
-                    // tree under a message about why it could not be read is two answers.
+                    // tree under a message about why it could not be read is two answers. The
+                    // flat table goes for the same reason - the files view would otherwise
+                    // offer a diff off a reading that failed.
                     repo.Tree = null;
+                    repo.Changes.Clear();
                 });
         }
 
@@ -155,7 +171,7 @@ namespace SlopWorld
         // them sorted, so a directory's rows arrive together and the walk down never has to
         // look back; every interior node is a directory because something under it changed,
         // which is the whole difference between this tree and the files view's.
-        static Node Fold(JVal files)
+        static Node Fold(Repo repo, JVal files)
         {
             var root = new Node { IsDir = true, Depth = -1, Kids = new List<Node>(), Rel = "" };
 
@@ -163,6 +179,7 @@ namespace SlopWorld
             {
                 string rel = f["path"].AsString();
                 if (string.IsNullOrEmpty(rel)) continue;
+                repo.Changes[rel] = f["status"].AsString();
 
                 var parts = rel.Split('/');
                 var at = root;
@@ -487,7 +504,8 @@ namespace SlopWorld
         static float Row(float width, float y, Repo repo, Node node)
         {
             var r = new Rect(0f, y, width, RowH);
-            if (ColonistBarStrip.MouseOver(r)) Widgets.DrawHighlight(r);
+            bool over = ColonistBarStrip.MouseOver(r);
+            if (over) Widgets.DrawHighlight(r);
             if (!node.IsDir && node.Rel == _selected)
                 Widgets.DrawBoxSolid(r, new Color(1f, 1f, 1f, 0.08f));
 
@@ -511,8 +529,18 @@ namespace SlopWorld
 
             // The counts from the right, so they line up down the column whatever the names
             // do. Directories carry none: a folder's total is a figure nobody diffs.
+            //
+            // Under the mouse the buttons stand where the figures do, and the figures go: the
+            // strip is fifty pixels and the column is narrow, so keeping both would cost the
+            // name rather than the tail. Nothing is lost by it - the row's own tooltip says
+            // the state in words, and it is up whenever a button is not.
             float rx = width - Pad;
-            if (!node.IsDir)
+            var acts = over ? Acts(node) : RowAct.None;
+            if (acts != RowAct.None)
+            {
+                rx = RowActions.Draw(r, rx, acts) - 4f;
+            }
+            else if (!node.IsDir)
             {
                 if (node.Added < 0)
                     rx = Tail(rx, y, "bin", SlopWidgets.Faint);
@@ -532,10 +560,44 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;
 
-            if (!node.IsDir) TooltipHandler.TipRegion(r, $"{node.Rel}\n\n{Says(node)}");
+            // Not while the mouse is on one of the buttons: that one states what it does, and
+            // two tooltips over one row are drawn one under the other.
+            if (!node.IsDir && RowActions.Hit(r, width - Pad, acts) == RowAct.None)
+                TooltipHandler.TipRegion(r, $"{node.Rel}\n\n{Says(node)}");
 
             Lines.Add(new Line { Node = node, Repo = repo, Rect = r });
             return y + RowH;
+        }
+
+        // The buttons a row offers. Every row here is a change, so the diff is always one of
+        // them - it is what a left click on the row does anyway, and the button is where a
+        // reader who has just been in the files view will look for it.
+        //
+        // The other two are about the file on disk, so a deletion offers neither: `less` on a
+        // path that is not there says so in a pager, and `micro` on one opens an empty buffer
+        // ready to write the file back. A binary loses the pager for the reason it loses it in
+        // the files view.
+        static RowAct Acts(Node node)
+        {
+            if (node.IsDir) return RowAct.None;
+
+            var acts = RowAct.Diff;
+            if (!Present(node.Status)) return acts;
+
+            acts |= RowAct.Edit;
+            if (FilesView.IsText(node.Name)) acts |= RowAct.View;
+            return acts;
+        }
+
+        // Is there a file at that path now? Deleted in the working tree, or deleted and the
+        // deletion staged, are both "no"; a staged deletion the worktree has since put back is
+        // a "yes" and reads as `D` in the first column with something in the second.
+        static bool Present(string status)
+        {
+            if (string.IsNullOrEmpty(status) || status == "??") return true;
+            char staged = status[0], worktree = status.Length > 1 ? status[1] : ' ';
+            if (worktree == 'D') return false;
+            return !(staged == 'D' && worktree == ' ');
         }
 
         // The porcelain pair said in one character, because one is what fits: the staged
@@ -620,23 +682,32 @@ namespace SlopWorld
                 {
                     RowMenu(line.Node, line.Repo);
                 }
-                else if (line.Node.IsDir)
-                {
-                    if (!line.Repo.Shut.Remove(line.Node.Rel))
-                        line.Repo.Shut.Add(line.Node.Rel);
-                    // A directory is not a change: whatever diff was up is no longer what
-                    // the reader is looking at.
-                    ClearSelection();
-                    Viewer.Release();
-                }
                 else
                 {
-                    // Left on a change: mark it and read its diff. Clicking the one already
-                    // open just brings its pane back - a focus change is a *different* row,
-                    // and only that replaces the pager.
-                    bool same = _selected == line.Node.Rel;
-                    _selected = line.Node.Rel;
-                    if (!same || !Viewer.Reopen()) Diff(line.Node, line.Repo);
+                    // The hover strip first, and the row's own answer only where the press
+                    // missed it: a button drawn over the row's tail is a button, and the row
+                    // underneath must not act on the same press. Directories offer none, so
+                    // this falls through for them without asking.
+                    var scr = Screen(line.Rect);
+                    var hit = RowActions.Hit(scr, scr.xMax - Pad, Acts(line.Node));
+
+                    if (hit != RowAct.None)
+                    {
+                        Act(line.Node, line.Repo, hit);
+                    }
+                    else if (line.Node.IsDir)
+                    {
+                        if (!line.Repo.Shut.Remove(line.Node.Rel))
+                            line.Repo.Shut.Add(line.Node.Rel);
+                        // A directory is not a change: whatever diff was up is no longer what
+                        // the reader is looking at.
+                        ClearSelection();
+                        Viewer.Release();
+                    }
+                    else
+                    {
+                        Open(line.Node, line.Repo);
+                    }
                 }
 
                 e.Use();
@@ -658,6 +729,97 @@ namespace SlopWorld
         static void Fold(string project)
         {
             if (!Shut.Remove(project)) Shut.Add(project);
+        }
+
+        // Left on a change: mark it and read its diff. Clicking the one already open just
+        // brings its pane back - a focus change is a *different* row, and only that replaces
+        // the pager.
+        static void Open(Node node, Repo repo)
+        {
+            bool same = _selected == node.Rel && _showing == RowAct.Diff;
+            _selected = node.Rel;
+            if (!same || !Viewer.Reopen()) Diff(node, repo);
+        }
+
+        // One of the hover strip's three, done. The diff is what the row itself does; the
+        // other two are the file the change is about, opened in the same errands the files
+        // view opens them in - a reader in this view should not have to cross to the other one
+        // to read the file a diff is about.
+        static void Act(Node node, Repo repo, RowAct act)
+        {
+            string abs = Abs(repo, node);
+
+            switch (act)
+            {
+                case RowAct.View:
+                    if (_selected == node.Rel && _showing == RowAct.View && Viewer.Reopen())
+                        break;
+                    _selected = node.Rel;
+                    _showing = RowAct.View;
+                    Viewer.Open(repo.Project, "less -R -- " + Pager.Quote(abs),
+                        "view-" + node.Name);
+                    break;
+
+                case RowAct.Edit:
+                    SessionHub.Instance.Run(repo.Project, "micro -- " + Pager.Quote(abs),
+                        "edit-" + node.Name,
+                        session => TerminalWindow.Open(session), SlopWidgets.Fail);
+                    break;
+
+                case RowAct.Diff:
+                    Open(node, repo);
+                    break;
+            }
+        }
+
+        // A row's path on disk. Git states everything relative to the repository root, which
+        // is not always the project's directory, and every errand takes a path.
+        static string Abs(Repo repo, Node node) =>
+            (repo.Root ?? "").TrimEnd('/') + "/" + node.Rel;
+
+        // ------------------------------------------------------------------ what the files
+        //                                                                     view asks
+        //
+        // The other tree draws the same files and has never read a repository. So it asks
+        // here: whether a file it is about to draw has a change, and what would show it. Only
+        // what has already been read - nothing is fetched on this road, the answer being
+        // wanted once a frame per visible row.
+
+        // The repository as it stands for a project, or null where there is none to speak of:
+        // never read, read and refused, not a repository, or read about a directory this
+        // project no longer points at.
+        static Repo Known(string project)
+        {
+            if (string.IsNullOrEmpty(project)) return null;
+            var dir = SessionHub.Instance.Project(project)?.Dir ?? "";
+            if (!Repos.TryGetValue(project, out var repo)) return null;
+            return repo.Dir == dir && repo.IsRepo && repo.Error == null ? repo : null;
+        }
+
+        // The path relative to the repository root, or null for anything outside it.
+        static string RelOf(Repo repo, string abs)
+        {
+            string root = (repo.Root ?? "").TrimEnd('/');
+            if (root.Length == 0 || string.IsNullOrEmpty(abs)) return null;
+            return abs.StartsWith(root + "/") ? abs.Substring(root.Length + 1) : null;
+        }
+
+        public static bool Changed(string project, string abs)
+        {
+            var repo = Known(project);
+            string rel = repo == null ? null : RelOf(repo, abs);
+            return rel != null && repo.Changes.ContainsKey(rel);
+        }
+
+        // What would show that file's diff, or null where there is nothing to show. The files
+        // view runs it in its own pager: two views, two pagers, and the one being stood in is
+        // the one that keeps its session.
+        public static string DiffFor(string project, string abs)
+        {
+            var repo = Known(project);
+            string rel = repo == null ? null : RelOf(repo, abs);
+            if (rel == null || !repo.Changes.TryGetValue(rel, out var status)) return null;
+            return DiffCmd(repo, rel, status);
         }
 
         // ------------------------------------------------------------------ menus
@@ -691,7 +853,7 @@ namespace SlopWorld
         static void RowMenu(Node node, Repo repo)
         {
             string project = repo.Project;
-            string abs = (repo.Root ?? "").TrimEnd('/') + "/" + node.Rel;
+            string abs = Abs(repo, node);
             var opts = new List<FloatMenuOption>
             {
                 new FloatMenuOption("Copy path", () => Copy(abs)),
@@ -708,7 +870,8 @@ namespace SlopWorld
             {
                 // A directory's diff is every change under it and no one row's, so nothing
                 // is marked; a file's is the row itself.
-                _selected = node.IsDir ? null : node.Rel;
+                if (node.IsDir) ClearSelection();
+                else _selected = node.Rel;
                 Diff(node, repo);
             }));
 
@@ -727,8 +890,11 @@ namespace SlopWorld
         // project's own sandbox - which is what makes git see the working tree the way the
         // agents changing it do. At most one is open; `Pager` is the rest of that.
 
-        static void Diff(Node node, Repo repo) =>
+        static void Diff(Node node, Repo repo)
+        {
+            _showing = RowAct.Diff;
             Viewer.Open(repo.Project, DiffCmd(repo, node.Rel, node.Status), "diff-" + node.Name);
+        }
 
         // What the errand runs. The daemon builds an argv rather than running a shell, so
         // there is no pipe to be had here and the pager is git's own: `--paginate` with
@@ -771,6 +937,10 @@ namespace SlopWorld
 
         public static void CloseViewerIf(string session) => Viewer.CloseIf(session);
 
-        static void ClearSelection() => _selected = null;
+        static void ClearSelection()
+        {
+            _selected = null;
+            _showing = RowAct.None;
+        }
     }
 }

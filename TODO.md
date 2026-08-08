@@ -3,17 +3,23 @@
 
 ## Interface
 
+- Spawn ephemeral sessions (show, edit, host terminal) as 
 - Custom agents order in panel
 - Welcome configuration screen of fresh profile
 - Tab / Shift+Tab in floating windows to navigate between input fields
 - ModSettings shouldn't pause the game
 - Sidebar: hide icon and status for ephemeral view/edit/host-shell items. Place them before agents in every group or at the top if not belong to project. Don't spawn agent pawn in game for those.
-- Add Jukebox and Computer Core icons to the statusbar, after usage indicators. Click shows their menu as on map. Move settings gear- and hamburger buttons from sidebar to statusbar, after resources and two in-game items.
 - Add "refreshed at X" line to resource usage buttons
+
+## Keyboard
+
+- Move "Keyboard" from Control to first level tab in settings
+- Disable some native RimWorld shortcuts: unbind by default and hide in 
+- F2/F3 keys to focus sidebar panel
+- ? to show keyboard cheatsheet
 
 ## Terminal
 
-- Shift+Arrows selection in `micro` doesn't work
 - Buggy cursor and copypaste in `zsh`
 - Ctrl+LMB on relative (to project) path in terminal to jump to file in sidebar Files tab
 
@@ -21,6 +27,7 @@
 
 - tokensave/rtk integration
 - CC Switch-like switch
+- Option: send auto mode to CC
 
 ## Right sidebar
 
