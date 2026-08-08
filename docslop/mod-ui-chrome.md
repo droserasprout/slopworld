@@ -163,6 +163,18 @@ right so the first window keeps its place as later ones come and go.
   zero rounded into a percentage would draw an empty account as a full bar.
   `balance` is the OpenRouter row and wears gold, `spend` silver - what is left of
   a wallet and what is left of a budget are different questions.
+- `Rows` draws **what is expected, not what arrived**: the reported windows plus a
+  place held for anything a switched-on seller (the snapshot's `sources`) owes and
+  has not sent, slotted by `Rank` so a number turning up later does not re-order
+  the line. A held place is `...` at a fainter alpha and its tooltip names the row
+  and says nothing was heard - an expired login must read as "this is out", never
+  as the resource being gone. Only rows every account of that kind has are held
+  (`session`, `week`, `balance`): an `week_opus` or a `spend` that this plan has
+  not got would be an icon that never fills in.
+- `Heard` is when the *numbers* were current, not when the message came: a failed
+  poll carries the last good windows over, so `SessionHub` carries their timestamp
+  with them. Taking the arrival time would keep a half-hour-old snapshot at full
+  alpha and hand every reset countdown its full span back once a minute.
 
 ## `TopBar`
 

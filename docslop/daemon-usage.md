@@ -10,6 +10,12 @@ elsewhere.
 - `parse` **recognises rather than assumes**: an unrecognised payload leaves *no*
   windows and an error, so being wrong reads as "no numbers" and never as a colony
   at zero. A failed poll keeps the last good windows and adds the reason.
+- The credentials file's **mtime is watched every lap** and a change puts the
+  Anthropic poller back to due with its failure count cleared. A login renewed on
+  the host is the only thing that turns "expired" back into numbers, and waiting
+  out the backoff that a dead token earned means half an hour of a wrong tooltip.
+  A stale token whose file has not moved keeps backing off, there being nothing to
+  learn by asking again.
 - `backoff` doubles per consecutive failure, capped at half an hour;
   `Retry-After` beats both. A 429 is read rather than raised
   (`http_status_as_error(false)`), and the wait goes into the error string because
@@ -51,6 +57,10 @@ the host to infer a key from.
   stale row nobody could tell from a live one is what this must never draw - and
   the errors are joined, so the tooltip says which half is out. Neither source
   enabled is the default snapshot, which draws nothing.
+- `sources` is which sellers are **switched on**, answering or not, added after the
+  merge (which knows snapshots, not switches). It is what lets the mod hold a row's
+  place for a seller that has never answered: without it a login that expired
+  before the daemon started is a strip with nothing on it.
 - The loop looks at `config.toml` at least every 30s (`LOOK`), which is how a
   switch thrown in the GUI takes hold without a restart.
 

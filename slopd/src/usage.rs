@@ -93,6 +93,12 @@ pub struct Snapshot {
     pub plan: String,
     /// Unix millis of the last successful poll, so the mod can age the numbers.
     pub fetched_ms: u64,
+    /// Which sellers are switched on, whether or not they answered. The mod draws a row per
+    /// resource it *expects*, so a source that is down leaves its icons on the line with no
+    /// number instead of taking them off the screen - which is the one thing a readout in the
+    /// corner must not do, an icon that comes and goes being harder to read than an empty one.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<String>,
     pub windows: Vec<Window>,
 }
 
@@ -321,6 +327,7 @@ fn parse_credits(v: &Value) -> Snapshot {
             // Credits are bought rather than granted, so there is no reset to count to.
             resets_in: None,
         }],
+        ..Default::default()
     }
 }
 
@@ -380,6 +387,7 @@ fn parse(v: &Value, plan: String) -> Snapshot {
             plan,
             fetched_ms: now_ms(),
             windows,
+            ..Default::default()
         };
     }
 
@@ -393,6 +401,7 @@ fn parse(v: &Value, plan: String) -> Snapshot {
         plan,
         fetched_ms: now_ms(),
         windows,
+        ..Default::default()
     }
 }
 
@@ -710,6 +719,7 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut anth = Poller::new("Anthropic");
         let mut cred = Poller::new("OpenRouter");
+        let mut creds_stamp: Option<SystemTime> = None;
 
         loop {
             let cfg = m.config().await;
@@ -718,12 +728,33 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
             let now = Instant::now();
             let mut moved = false;
 
+            let creds_path = PathBuf::from(crate::config::expand(&d.claude_credentials));
+
+            // A login renewed on the host is the one thing that can turn "expired" back into
+            // numbers, and the backoff a dead token earned is up to half an hour long - so the
+            // file is watched rather than waited out. A stat per lap, against a token read
+            // only when a poll is actually due.
+            let stamp = std::fs::metadata(&creds_path)
+                .and_then(|md| md.modified())
+                .ok();
+            if stamp != creds_stamp {
+                // Only while it is failing, and never on the first lap: this cuts a backoff
+                // short rather than being a second way to ask. Claude Code rewrites that file
+                // whenever it refreshes a token, and a healthy poller answering every rewrite
+                // would be a poll rate set by another program.
+                if creds_stamp.is_some() && anth.fails > 0 {
+                    anth.fails = 0;
+                    anth.due = now;
+                }
+                creds_stamp = stamp;
+            }
+
             if !d.usage {
                 // Off is a setting that can be turned back on without a restart, so this
                 // drops the rows rather than returning.
                 moved |= anth.clear();
             } else if anth.due <= now {
-                let path = PathBuf::from(crate::config::expand(&d.claude_credentials));
+                let path = creds_path;
                 let prev = anth.snap.clone();
                 // Both halves are blocking: a file read and a TLS round trip.
                 let (next, asked) = tokio::task::spawn_blocking(move || match read_creds(&path) {
@@ -768,7 +799,17 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
             // One event for both, and only when something actually moved: `set_usage`
             // re-announces to every client.
             if moved {
-                m.set_usage(merge([&anth.snap, &cred.snap])).await;
+                let mut out = merge([&anth.snap, &cred.snap]);
+                // Said here rather than in `merge`, which knows about snapshots and not about
+                // switches. A seller that is on but has never answered is exactly the case
+                // this is for, so it goes on the list whatever its snapshot holds.
+                if d.usage {
+                    out.sources.push("anthropic".into());
+                }
+                if d.openrouter {
+                    out.sources.push("openrouter".into());
+                }
+                m.set_usage(out).await;
             }
 
             let due = [(d.usage, anth.due), (d.openrouter, cred.due)]

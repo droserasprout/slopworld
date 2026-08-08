@@ -354,8 +354,14 @@ namespace SlopWorld
         public string Plan = "";
         public List<UsageWindow> Windows = new List<UsageWindow>();
 
-        // realtimeSinceStartup when this arrived - what ages it and what the countdown runs
-        // from.
+        // The sellers the daemon is polling, answering or not. What the readout draws a row
+        // for, so a source that is down keeps its place on the line.
+        public List<string> Sources = new List<string>();
+
+        // realtimeSinceStartup when these *numbers* were current - what ages them and what the
+        // countdown runs from. A failed poll carries the last good windows, so it carries this
+        // with them: taking the arrival time would make a snapshot half an hour old read as
+        // fresh, and would hand every reset countdown back its full span once a minute.
         public float Heard;
 
         public bool Any => Windows.Count > 0;
@@ -366,12 +372,23 @@ namespace SlopWorld
         public long Remaining(UsageWindow w) =>
             w.ResetsIn < 0 ? -1 : Math.Max(0L, w.ResetsIn - (long)Age);
 
-        public static UsageInfo FromJson(JVal j) => new UsageInfo
+        // `prev` is what is on screen now: a failed poll answers with the last good windows,
+        // and they are no fresher for having been sent again.
+        public static UsageInfo FromJson(JVal j, UsageInfo prev = null)
+        {
+            bool ok = j["ok"].AsBool();
+            return Read(j, ok || prev == null
+                ? UnityEngine.Time.realtimeSinceStartup
+                : prev.Heard);
+        }
+
+        static UsageInfo Read(JVal j, float heard) => new UsageInfo
         {
             Ok = j["ok"].AsBool(),
             Error = j["error"].IsNull ? null : j["error"].AsString(),
             Plan = j["plan"].AsString(),
-            Heard = UnityEngine.Time.realtimeSinceStartup,
+            Sources = j["sources"].Items.Select(s => s.AsString()).ToList(),
+            Heard = heard,
             Windows = j["windows"].Items.Select(w => new UsageWindow
             {
                 Key = w["key"].AsString(),
@@ -532,7 +549,7 @@ namespace SlopWorld
                     break;
 
                 case "usage":
-                    Usage = UsageInfo.FromJson(ev["usage"]);
+                    Usage = UsageInfo.FromJson(ev["usage"], Usage);
                     break;
 
                 case "audio":

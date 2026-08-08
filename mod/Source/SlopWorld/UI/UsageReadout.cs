@@ -67,7 +67,6 @@ namespace SlopWorld
         public static void DrawStrip(Rect area)
         {
             var usage = SessionHub.Instance.Usage;
-            if (!usage.Any && string.IsNullOrEmpty(usage.Error)) return;
 
             bool stale = !usage.Ok || usage.Age > StaleAfter;
             float alpha = stale ? 0.55f : 1f;
@@ -78,43 +77,43 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = new Color(1f, 1f, 1f, alpha);
 
-            if (!usage.Any)
+            var rows = Rows(usage);
+
+            float x = area.xMax;
+            for (int i = rows.Count - 1; i >= 0; i--)
             {
-                float w = Mathf.Min(Text.CalcSize("quota: unknown").x + 6f, area.width);
-                var only = new Rect(area.xMax - w, area.y, w, area.height);
-                Widgets.Label(only, "quota: unknown");
-                Tip(only, usage, null);
-            }
-            else
-            {
-                float x = area.xMax;
-                for (int i = usage.Windows.Count - 1; i >= 0; i--)
+                string key = rows[i];
+                var w = Window(usage, key);
+                string count = w != null ? Count(w) : Unsaid;
+
+                float need = IconSize + 2f + Text.CalcSize(count).x + 2f;
+                if (x - need < area.x) break;
+
+                x -= need;
+                var chip = new Rect(x, area.y, need, area.height);
+
+                // A row holding a place is fainter than a stale one, whatever the rest of the
+                // strip is doing: the icon is there to keep the line from re-flowing, and one
+                // drawn as live would be a number nobody sent.
+                float a = w != null ? alpha : 0.4f;
+
+                var icon = IconFor(key);
+                if (icon != null)
                 {
-                    var w = usage.Windows[i];
-                    float need = ChipW(w);
-                    if (x - need < area.x) break;
-
-                    x -= need;
-                    var chip = new Rect(x, area.y, need, area.height);
-
-                    var icon = IconFor(w.Key);
-                    if (icon != null)
-                    {
-                        var box = new Rect(chip.x, chip.y + (chip.height - IconSize) / 2f,
-                            IconSize, IconSize);
-                        // ThingIcon leaves GUI.color on the def's own tint.
-                        Widgets.ThingIcon(box, icon, null, null, 1f, null, null, alpha);
-                        GUI.color = new Color(1f, 1f, 1f, alpha);
-                    }
-
-                    Widgets.Label(
-                        new Rect(chip.x + IconSize + 2f, chip.y,
-                            chip.width - IconSize - 2f, chip.height),
-                        Count(w));
-                    Tip(chip, usage, w);
-
-                    x -= ChipGap;
+                    var box = new Rect(chip.x, chip.y + (chip.height - IconSize) / 2f,
+                        IconSize, IconSize);
+                    Widgets.ThingIcon(box, icon, null, null, 1f, null, null, a);
                 }
+
+                // After the icon: ThingIcon leaves GUI.color on the def's own tint.
+                GUI.color = new Color(1f, 1f, 1f, a);
+                Widgets.Label(
+                    new Rect(chip.x + IconSize + 2f, chip.y,
+                        chip.width - IconSize - 2f, chip.height),
+                    count);
+                Tip(chip, usage, key, w);
+
+                x -= ChipGap;
             }
 
             Text.Anchor = anchor;
@@ -123,10 +122,78 @@ namespace SlopWorld
 
         const float ChipGap = 10f;
 
-        static float ChipW(UsageWindow w)
+        // What a row draws where the daemon has sent no figure for it. Not "0" and not "-":
+        // one reads as a spent window and the other as a row that has been switched off.
+        const string Unsaid = "...";
+
+        // Every row this strip should have, left to right: what the daemon reported, plus a
+        // place held for anything a switched-on seller owes us and has not sent.
+        //
+        // Keyed off the sellers rather than off the windows, because the case this is for is
+        // exactly the one where there are no windows: a login that has gone stale answers with
+        // an error and nothing else, and a strip that drew only what arrived would take the
+        // colony's resources off the top of the screen to say so. The icons stay, the numbers
+        // go, and the tooltip says which seller is out.
+        static List<string> Rows(UsageInfo usage)
         {
-            Text.Font = GameFont.Small;
-            return IconSize + 2f + Text.CalcSize(Count(w)).x + 2f;
+            var rows = new List<string>();
+            foreach (var w in usage.Windows)
+                if (!rows.Contains(w.Key)) rows.Add(w.Key);
+
+            foreach (string seller in usage.Sources)
+                foreach (string key in Owed(seller))
+                    if (!rows.Contains(key)) Place(rows, key);
+
+            return rows;
+        }
+
+        // The rows a seller is expected to answer with. Only the ones every account of that
+        // kind has: a per-model weekly limit or an extra-usage budget that this plan has not
+        // got is a row that would never fill in, and an icon that stays blank forever is worse
+        // than no icon at all.
+        static string[] Owed(string seller)
+        {
+            if (seller == "anthropic") return AnthropicRows;
+            if (seller == "openrouter") return OpenRouterRows;
+            return new string[0];
+        }
+
+        static readonly string[] AnthropicRows = { "session", "week" };
+        static readonly string[] OpenRouterRows = { "balance" };
+
+        // Slots a held place next to its own kind rather than on the end: a session window that
+        // turned up after the weekly one would otherwise sit to the right of it, and the strip
+        // would re-order itself the moment the numbers came back.
+        static void Place(List<string> rows, string key)
+        {
+            int rank = Rank(key);
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (Rank(rows[i]) <= rank) continue;
+                rows.Insert(i, key);
+                return;
+            }
+            rows.Add(key);
+        }
+
+        // The order the daemon sends them in, which is the order they are read in: the window
+        // that runs out first, then the week, then what is being spent, then what is left in
+        // the wallet. Anything unheard-of sits with the weeklies, that being where the
+        // per-model limits land.
+        static int Rank(string key)
+        {
+            if (key == "session") return 0;
+            if (key == "week") return 1;
+            if (key == "spend") return 3;
+            if (key == "balance") return 4;
+            return 2;
+        }
+
+        static UsageWindow Window(UsageInfo usage, string key)
+        {
+            foreach (var w in usage.Windows)
+                if (w.Key == key) return w;
+            return null;
         }
 
         // What is *left*: a number in this corner that grew as the colony worked would read as
@@ -154,7 +221,7 @@ namespace SlopWorld
 
         // With no label on the row, this is also where a window is named - as the game's own
         // resources work.
-        static void Tip(Rect row, UsageInfo usage, UsageWindow w)
+        static void Tip(Rect row, UsageInfo usage, string key, UsageWindow w)
         {
             var lines = new List<string>();
 
@@ -166,25 +233,32 @@ namespace SlopWorld
                 if (left > 0) lines.Add("resets in " + Span(left));
                 else if (left == 0) lines.Add("resets any moment");
             }
+            else
+            {
+                // Named even with nothing to say about it: an icon and three dots is a
+                // question, and the answer to "which one is this?" must not wait on a poll
+                // that is failing.
+                lines.Add(Long(key) + ": nothing heard yet");
+            }
 
             if (!string.IsNullOrEmpty(usage.Plan)) lines.Add("plan: " + usage.Plan);
 
-            if (usage.Ok)
-            {
-                if (usage.Age > StaleAfter)
-                    lines.Add($"last heard {Span((long)usage.Age)} ago");
-            }
-            else if (!string.IsNullOrEmpty(usage.Error))
+            // How old the numbers are, always - Heard follows the last *good* poll, so this
+            // says the thing a failing readout is most often asked.
+            if (usage.Heard > 0f && w != null)
+                lines.Add("refreshed " + Span((long)usage.Age) + " ago");
+
+            if (!usage.Ok && !string.IsNullOrEmpty(usage.Error))
             {
                 lines.Add(usage.Any
-                    ? $"stale - the last poll failed: {usage.Error}"
+                    ? $"last poll failed: {usage.Error}"
                     : usage.Error);
             }
 
-            // Keyed off the window so two rows don't share one tooltip.
+            // Keyed off the row so two of them don't share one tooltip.
             TooltipHandler.TipRegion(row, new TipSignal(
                 string.Join("\n", lines.ToArray()),
-                0x51_0F_0000 ^ (w?.Key?.GetHashCode() ?? 0)));
+                0x51_0F_0000 ^ (key?.GetHashCode() ?? 0)));
         }
 
         // Leads with what the row says and carries the spent figure behind it, that being the
