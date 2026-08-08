@@ -4,10 +4,17 @@ Everything goes through the Makefile; `make` alone prints the target list (each
 target carries a `##` line). `RIMWORLD` defaults to `~/RimWorld/game` and must
 point at a real install - the mod builds against the game's own assemblies.
 
+`BUILD` is `debug` (the default) or `release`, and every target follows it -
+including `install`, so a packaged-quality install is `make BUILD=release
+install`. The `-debug` and `-release` suffixed targets are aliases that set it.
+Both configurations write the mod to the same `mod/Assemblies/SlopWorld.dll`, so
+nothing on disk says which one is there; `lint-mod` rebuilds that file in
+Release whatever `BUILD` says.
+
 | Target | Does |
 | --- | --- |
 | `all` | Both halves. |
-| `daemon` | `cargo build --release` in `slopd/`. |
+| `daemon` | `cargo build` in `slopd/`, `--release` under `BUILD=release`. |
 | `mod` | msbuild into `mod/Assemblies/SlopWorld.dll`. |
 | `test` | `cargo test`. The mod has no harness; it needs the game. |
 | `format` / `lint` | Both halves; `-daemon` and `-mod` variants exist. |

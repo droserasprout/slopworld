@@ -5,6 +5,8 @@ MAKEFLAGS += --no-print-directory
 ##
 ##  RIMWORLD must point at a real install; the mod builds against the game's
 ##  own assemblies. PROFILE picks the save data folder `run` launches into.
+##  BUILD is debug or release and every target follows it, install included:
+##  `make BUILD=release install`.
 ##
 RIMWORLD   ?= $(HOME)/RimWorld/game
 MANAGED    ?= $(RIMWORLD)/RimWorldLinux_Data/Managed
@@ -16,7 +18,12 @@ API        ?= http://127.0.0.1:7717
 TOKEN      ?=
 # Save data folder, defaults to `$XDG_DATA_HOME/slopworld/profile`.
 PROFILE    ?=
-RUNNER      = slopd/target/release/slopworld
+# Which half of the split every build, install and run target follows.
+BUILD      ?= debug
+CARGOFLAGS  = $(if $(filter release,$(BUILD)),--release)
+CONFIG      = $(if $(filter release,$(BUILD)),Release,Debug)
+TARGET      = slopd/target/$(BUILD)
+RUNNER      = $(TARGET)/slopworld
 CSPROJ      = mod/Source/SlopWorld/SlopWorld.csproj
 
 
@@ -31,11 +38,31 @@ all:               ## Build both halves
 	$(MAKE) daemon mod
 
 daemon:            ## Build the daemon and the launcher
-	cd slopd && cargo build --release
+	cd slopd && cargo build $(CARGOFLAGS)
 
 mod:               ## Build the mod against the game's assemblies
-	cd mod/Source/SlopWorld && msbuild -restore -v:minimal -p:Configuration=Release \
+	cd mod/Source/SlopWorld && msbuild -restore -v:minimal -p:Configuration=$(CONFIG) \
 		-p:RimWorldManaged="$(MANAGED)" SlopWorld.csproj
+
+##
+
+debug:             ## Alias for BUILD=debug all
+	$(MAKE) BUILD=debug all
+
+release:           ## Alias for BUILD=release all
+	$(MAKE) BUILD=release all
+
+daemon-debug:      ## Alias for BUILD=debug daemon
+	$(MAKE) BUILD=debug daemon
+
+daemon-release:    ## Alias for BUILD=release daemon
+	$(MAKE) BUILD=release daemon
+
+mod-debug:         ## Alias for BUILD=debug mod
+	$(MAKE) BUILD=debug mod
+
+mod-release:       ## Alias for BUILD=release mod
+	$(MAKE) BUILD=release mod
 
 test:              ## Run the daemon's tests; the mod needs the game
 	cd slopd && cargo test
@@ -85,7 +112,7 @@ install:           ## Install all three
 
 install-daemon:    ## Install the binary and the unit, restart the service
 	$(MAKE) daemon
-	install -Dm755 slopd/target/release/slopd $(BIN)/slopd
+	install -Dm755 $(TARGET)/slopd $(BIN)/slopd
 	install -Dm644 slopd/slopd.service $(UNITS)/slopd.service
 	systemctl --user daemon-reload
 	systemctl --user enable --now slopd.service
