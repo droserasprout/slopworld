@@ -50,8 +50,12 @@ namespace SlopWorld
             // Reuse the existing session if it's alive and on the same project.
             if (_session != null && _project == project && Alive)
             {
+                // Send `:e <path>` as literal text, then Enter as a keypress — a single
+                // call with literal:true would send "Enter" as the word, not the key.
                 SessionHub.Instance.SendKeys(
-                    _session, new[] { ":e " + filePath, "Enter" }, true);
+                    _session, new[] { ":e " + filePath }, true);
+                SessionHub.Instance.SendKeys(
+                    _session, new[] { "Enter" }, false);
                 TerminalWindow.Open(_session);
                 return;
             }
