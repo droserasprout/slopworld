@@ -1,7 +1,7 @@
 # Icons
 
 Every action icon the mod draws is one PNG, baked from [Codicons][c] — VS Code's
-icon set — by `tools/icons.py` and looked up through `UI/Icons.cs`. All twenty
+icon set — by `tools/icons.py` and looked up through `UI/Icons.cs`. All twenty-one
 slots come from that one set.
 
 [c]: https://github.com/microsoft/vscode-codicons
@@ -26,13 +26,13 @@ packages) and rasterizes through FreeType, which pillow already carries, so unli
 `tools/fileicons.py` it needs no `rsvg-convert`.
 
 The font is not vendored the way the fileicons SVGs are: it is four megabytes to
-hold twenty glyphs. The PNGs are committed instead, so a build never needs the
+hold twenty-one glyphs. The PNGs are committed instead, so a build never needs the
 font and only a rebake does. The manifest records both the Nerd Fonts glyph name
 and its codepoint — the name is documentation and the codepoint is what the bake
 reads — so nothing fetches `glyphnames.json` at bake time. Both are on the [cheat
 sheet](https://www.nerdfonts.com/cheat-sheet).
 
-## One scale, not twenty
+## One scale, not twenty-one
 
 Codicons is drawn on a 16px grid for a code editor: sharp corners, no round caps,
 one weight throughout. That is the whole reason to take it, and it is what the two
@@ -96,6 +96,9 @@ agents tab is the agents tab whatever picture it wears next year.
 - **type** is `text-size`, the appearance row's Aa.
 - **trophy** is `star-full` on the About row; Codicons has no trophy and a star is
   the same joke at 20px.
+- **add** is `add`, the sidebar's one add button. A glyph rather than a `"+"` in
+  `GameFont.Medium`, which was as large as vanilla's fonts go and still a hairline
+  in a 26px strip.
 - **diff** is `git-compare`, native to the set. `FileIcons` has its own unrelated
   `diff.png` for `.diff`/`.patch` files, off the Material Icon Theme bake — the two
   do not share.

@@ -80,12 +80,11 @@ namespace SlopWorld
         public static bool BarShown =>
             UI.screenWidth >= 800 && UI.screenHeight >= 500 && !Find.TilePicker.Active;
 
-        // Reserved before the row is centred, or the portraits shuffle sideways when it
-        // appears.
+        // Whether the column's add strip has the foot of the panel, which is the same
+        // question as whether the panel is on screen at all. The layout is told so it can
+        // keep the room off the rows; the button itself is drawn and answered by
+        // AgentSidebar, in every view rather than only this one.
         public static bool ShowAdd => BarShown && !Cutscene.Playing;
-
-        // Set by Apply, the only thing that knows the fitted scale.
-        public static Rect AddRect { get; private set; }
 
         // From TerminalWindow.DoWindowContents, after the background fill.
         public static void Draw(bool interactive)
@@ -103,7 +102,6 @@ namespace SlopWorld
 
         public static void Apply()
         {
-            AddRect = Rect.zero;
             if (!Ready || _applied || Suppressed || Cutscene.Playing) return;
             var bar = Find.ColonistBar;
             if (bar == null) return;
@@ -127,16 +125,13 @@ namespace SlopWorld
                 _savedScale = scale;
             }
 
-            Rect add;
-            float s = AgentSidebar.Place(entries, locs, count, plus, out add);
+            float s = AgentSidebar.Place(entries, locs, count, plus);
 
             if (count > 0)
             {
                 ScaleField.SetValue(bar, s);
                 _applied = true;
             }
-
-            if (plus) AddRect = add;
         }
 
         public static void Restore()

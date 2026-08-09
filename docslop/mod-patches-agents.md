@@ -37,8 +37,10 @@ finalizer puts them back, so toggling a pane moves nothing.
 - Over a pane the call must come from **inside** the window (`ColonistBarStrip.Draw`,
   from `TerminalWindow.DoWindowContents`) or the terminal paints over it, and
   `Suppressed` keeps the map-layer call from drawing a buried second copy.
-- The "+" slot is reserved before the row is centred, so portraits do not shuffle
-  sideways.
+- `ShowAdd` is whether the column's add strip has the foot of the panel, which is
+  the same question as whether the panel is on screen; the layout takes its room off
+  the rows. The button itself is `AgentSidebar`'s, in every view
+  ([mod-sidebar](mod-sidebar.md)).
 - `Blocked` is the strip declining clicks while something is stacked over the
   pane; on the map layer that never arises, `HandleEventsHighPriority` having
   already Used the event. It is not a *choice* under an absorbing window - the

@@ -39,6 +39,10 @@ namespace SlopWorld
 
         const float HeadH = 20f;
         const float AddH = 26f;
+
+        // The plus in that strip. Larger than the tab icons on purpose: this is the one
+        // button on the panel that is not about the view you are in.
+        const float AddIcon = 16f;
         const float Pad = 6f;
         const float CellX = 8f;
         const float TextGap = 7f;
@@ -250,9 +254,18 @@ namespace SlopWorld
         public static void ShowGit() => Show(TabGit);
         public static void ShowShortcuts() => Show(TabShortcuts);
 
-        // Everything below the selector, which is where a view draws.
+        // The add strip, pinned to the foot of the panel. The column's own button rather
+        // than any one view's: what it adds is asked on the click, so the four views share
+        // one slot in one place and switching never moves it.
+        public static Rect AddBar =>
+            new Rect(CellX, UI.screenHeight - Pad - AddH, Width - CellX * 2f, AddH);
+
+        // Everything between the selector and that strip, which is where a view draws.
+        // Taken off the body rather than drawn over it, so the last row of a full list is
+        // still reachable in every view.
         public static Rect Body =>
-            new Rect(0f, TabH, Width, UI.screenHeight - TabH);
+            new Rect(0f, TabH, Width,
+                Mathf.Max(0f, UI.screenHeight - TabH - AddH - Pad * 2f));
 
         // The column's order is the column's own, so Alt+3 is the third portrait down rather
         // than the third the bar would have drawn.
@@ -304,8 +317,7 @@ namespace SlopWorld
         // Entries the bar carries with no pawn (a caravan's group row) are parked off screen:
         // there is a loc for every entry whether it draws or not.
         public static float Place(
-            List<ColonistBar.Entry> entries, List<Vector2> locs, int count, bool plus,
-            out Rect add)
+            List<ColonistBar.Entry> entries, List<Vector2> locs, int count, bool plus)
         {
             Rows.Clear();
             Heads.Clear();
@@ -320,7 +332,6 @@ namespace SlopWorld
                 // was would be an invisible click target under the tree. No Rows either, so
                 // the label pass and the click handler have nothing to find.
                 for (int i = 0; i < count && i < locs.Count; i++) locs[i] = Parked;
-                add = Rect.zero;
                 return Nominal;
             }
 
@@ -411,13 +422,9 @@ namespace SlopWorld
                 }
             }
 
-            // Pinned to the foot of the panel rather than following the last row: it is the
-            // column's own button and not the last project's, and a slot that moves every
-            // time an agent comes or goes is one that has to be looked for. Fit reserves the
-            // room for it either way, so the rows never run under it.
-            add = plus
-                ? new Rect(CellX, UI.screenHeight - Pad - AddH, width - CellX * 2f, AddH)
-                : Rect.zero;
+            // AddBar is where the button goes and this pass does not lay it out: it is the
+            // column's own and is drawn in every view. What is reserved here is the *room*
+            // for it - Fit takes it off the height, so the rows never run under it.
             return s;
         }
 
@@ -612,8 +619,10 @@ namespace SlopWorld
             }
 
             // Over whichever body just drew, so the selector is never under a row, and last
-            // of the drawing so it takes its own clicks first.
+            // of the drawing so it takes its own clicks first. The add strip goes down with
+            // it, being the panel's own furniture at the other end of the column.
             Tabs();
+            DrawAdd();
 
             // Before the bar's own pass rather than after it, because these take clicks the
             // bar would otherwise have eaten: vanilla swallows a right-click over a portrait
@@ -622,11 +631,65 @@ namespace SlopWorld
             // The edge first. Headings, rows and the tree are all the full width of the panel,
             // so asked second the grip would be reachable only in the gaps between them, which
             // on a full column is nowhere.
+            // The add strip before any body: on a column that has run off the bottom a row
+            // is laid out under it, and the button is what a press down there means.
             Grip();
+            if (AddClick()) return;
             if (Files) FilesView.Clicks();
             else if (Git) GitView.Clicks();
             else if (Shortcuts) ShortcutsView.Clicks();
             else Menus();
+        }
+
+        // One button for the whole column, whichever view has the body: what it adds is
+        // asked on the click rather than answered by the tab that happens to be up, so
+        // there is one slot in one place and every kind of thing is three pixels from
+        // wherever you are.
+        static void DrawAdd()
+        {
+            var r = AddBar;
+            bool over = ColonistBarStrip.MouseOver(r);
+
+            if (over)
+            {
+                Widgets.DrawBoxSolid(r, new Color(1f, 1f, 1f, 0.08f));
+                TooltipHandler.TipRegion(r, "Add a project, an agent or a shortcut");
+            }
+            Widgets.DrawBoxSolid(new Rect(r.x, r.y, r.width, 1f), SlopWidgets.Edge);
+
+            // A glyph rather than a "+" in GameFont.Medium, which was as large as vanilla's
+            // fonts go and still a thin hairline in a 26px strip. Codicons' plus is drawn on
+            // the same grid as every other icon here and takes whatever size it is given.
+            float d = AddIcon;
+            GUI.color = over ? Color.white : SlopWidgets.Lead;
+            GUI.DrawTexture(
+                new Rect(r.center.x - d / 2f, r.center.y - d / 2f, d, d), Icons.Add);
+            GUI.color = Color.white;
+        }
+
+        static bool AddClick()
+        {
+            if (!ColonistBarStrip.Interactive) return false;
+
+            var e = Event.current;
+            if (e.rawType != EventType.MouseDown || e.button != 0) return false;
+            if (!ColonistBarStrip.MouseOver(AddBar)) return false;
+
+            e.Use();
+
+            // A project first: it is what the other two hang off, and the answer for an
+            // empty daemon is always this one.
+            var opts = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Project...", () =>
+                    TerminalWindow.OpenOverPane(new EditProjectDialog(null))),
+                new FloatMenuOption("Agent...", () =>
+                    TerminalWindow.OpenOverPane(new EditSessionDialog(null))),
+                new FloatMenuOption("Shortcut...", () =>
+                    TerminalWindow.OpenOverPane(new EditShortcutDialog(null))),
+            };
+            TerminalWindow.OpenOverPane(new FloatMenu(opts));
+            return true;
         }
 
         // The view selector: three icons top left, mono grey for the view you are not in and
@@ -1170,9 +1233,8 @@ namespace SlopWorld
         // to - ReorderableWidget settles a dragged portrait on a later pass of its own, and a
         // MouseUp eaten here would strand one mid-drag.
         //
-        // The "+" is drawn from a postfix on the same method as this one and Harmony does not
-        // say which of the two goes first, so its slot is stepped around by rect rather than
-        // by running order.
+        // The add strip needs no exception any more: AddClick is asked in the back pass,
+        // which is before this one, and Uses the press it takes.
         //
         // Not while something is stacked over a pane - that is the same frame the strip stops
         // listening in, and the window on top is the one the click belongs to. The options
@@ -1185,7 +1247,6 @@ namespace SlopWorld
             var e = Event.current;
             if (e.rawType != EventType.MouseDown) return;
             if (!ColonistBarStrip.MouseOver(Panel)) return;
-            if (ColonistBarStrip.AddRect.Contains(e.mousePosition)) return;
             e.Use();
         }
 

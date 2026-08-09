@@ -26,8 +26,8 @@ the postfix, which is what puts the column over a pane as well as on the map.
   rather than stepping it down. It stops at the scale where that floor takes over
   rather than at `Floor`: below it the rows no longer close up and every pixel off
   a face buys nothing, so the column runs off the bottom with its portraits
-  legible. The "+" is pinned to the foot of the panel - it is the column's button
-  rather than the last project's - and `Fit` reserves its room either way.
+  legible. The "+" is pinned to the foot of the panel and `Fit` reserves its room
+  either way, so the rows never run under it.
 - **The three lines**: the name; what the agent is doing and for how long; what the
   app calls itself. All three are one lookup on the hub and none is parsed out of a
   pane - the state is the daemon's word, the age is `now - state_since` done here
@@ -143,8 +143,29 @@ is what `AgentColony.InBarOrder` and so Alt+1..9 read: a fold takes an agent off
 the numbers because it takes it off the column, but switching views hides every
 agent equally and is not a fold, so `Sessions()` answers off the buckets there
 instead of off the rows. `Menus` stands down; the view with the body takes its own
-clicks. The "+" goes with the agents: `Place` hands back an empty `add`, and
-`Patch_ColonistBarAddButton` already declines a zero-width slot.
+clicks. The "+" does **not** go with the agents - see below.
+
+## The add strip
+
+One button at the foot of the panel, in every view. `AgentSidebar.AddBar` is where
+it is, `DrawAdd` draws it and `AddClick` answers it, all from the back pass, and
+what it adds is asked on the click rather than answered by whichever tab is up: a
+float menu of **Project / Agent / Shortcut**, opening the same three editors the
+command palette does. `Body` has the strip taken off it in all four views, so a
+full list scrolls above the button instead of under it, and the shortcuts view -
+which had grown its own "+" and its own reserved strip - now draws neither.
+
+`Place` lays no rect out for it, only `Fit` reserving the height, and
+`ColonistBarStrip.ShowAdd` is the one question left there: whether the panel is on
+screen at all. `Patch_ColonistBarAddButton` is gone with the rest - drawing the
+button from a postfix on `ColonistBarOnGUI` was what made it the agents view's, and
+what made `Absorb` step around its rect by geometry, Harmony not saying which of
+two patches on one method runs first. Asked from the back pass it is simply first,
+and `Absorb` needs no exception.
+
+The plus is `Icons.Add` at 16px, not a `"+"` in `GameFont.Medium`: Medium is as
+large as vanilla's fonts go and drew a hairline in a 26px strip
+([mod-icons](mod-icons.md)).
 
 ## `ChromeShift` - what the column does to the rest of the interface
 

@@ -89,6 +89,11 @@ namespace SlopWorld
 
         public static Texture2D Trophy => Get("trophy");
 
+        // The sidebar's one add button, which used to be a "+" in GameFont.Medium: a
+        // glyph is drawn heavier than the font's plus and can be given whatever size the
+        // strip has room for, the font's largest being all vanilla had to offer.
+        public static Texture2D Add => Get("add");
+
         // ------------------------------------------------------------------ the loader
 
         static Texture2D Get(string slot)

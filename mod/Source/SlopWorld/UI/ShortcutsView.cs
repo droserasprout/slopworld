@@ -8,8 +8,9 @@ namespace SlopWorld
 {
     // The column's shortcuts body: every [[shortcut]] entry, grouped by project, drawn
     // as thin text rows under foldable headings - the same shape the agents view draws
-    // its ghost rows in. No portraits, no titles, no footer bar: just the list and the
-    // "+" that opens the editor.
+    // its ghost rows in. No portraits, no titles, no footer bar and no "+" of its own:
+    // just the list. Adding a shortcut is one of the three answers the column's own add
+    // strip offers, at the foot of the panel below this body (AgentSidebar.AddBar).
     //
     // Drawn from AgentSidebar's back pass, which is what puts it over a terminal as well
     // as on the map - the same road the other three views take.
@@ -17,7 +18,6 @@ namespace SlopWorld
     {
         const float RowH = 20f;
         const float HeadH = 20f;
-        const float AddH = 26f;
         const float Pad = 6f;
         const float CellX = 8f;
         const float ArrowW = 11f;
@@ -52,22 +52,16 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ drawing
 
-        // The strip the "+" is pinned to, at the foot of the panel. Taken off the body
-        // rather than drawn over it, so the last row of a full list is still reachable.
-        static Rect AddBar(Rect body) =>
-            new Rect(CellX, body.yMax - AddH - Pad, body.width - CellX * 2f, AddH);
-
-        // What is left for the list once the "+" has had its strip.
-        static Rect ListRect(Rect body) =>
-            new Rect(body.x, body.y, body.width,
-                Mathf.Max(0f, body.height - AddH - Pad * 2f));
-
+        // The whole body is the list: the "+" at the foot of the panel is the column's own
+        // now, shared by all four views, and AgentSidebar.Body already has its strip taken
+        // off - so this view reserves nothing and draws no button of its own.
+        //
         // The view's own rect, moved into the panel and up by however far it is scrolled.
         // The scroll view is clipped, so a row scrolled out of sight would otherwise still
         // answer a click where it used to be. Same helper the files view carries.
         static Rect Screen(Rect r)
         {
-            var list = ListRect(AgentSidebar.Body);
+            var list = AgentSidebar.Body;
             var moved = new Rect(list.x + r.x, list.y + r.y - _scroll.y, r.width, r.height);
             return moved.yMax <= list.y || moved.y >= list.yMax ? Rect.zero : moved;
         }
@@ -79,10 +73,6 @@ namespace SlopWorld
             _items = SessionHub.Instance.Shortcuts.ToList();
             Lines.Clear();
 
-            // The "+" is drawn either way: the empty note tells the player to press it,
-            // so this is the one screen it must not be missing from.
-            DrawAdd(AddBar(body));
-
             if (_items.Count == 0)
             {
                 Empty(body);
@@ -91,7 +81,7 @@ namespace SlopWorld
 
             Group();
 
-            var list = ListRect(body);
+            var list = body;
             float height = Measure();
             var view = new Rect(0f, 0f, list.width - (height > list.height ? 16f : 0f),
                 height);
@@ -219,7 +209,7 @@ namespace SlopWorld
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.UpperLeft;
             Widgets.Label(r, SessionHub.Instance.Online
-                ? "No shortcuts yet. Press + to add one."
+                ? "No shortcuts yet. Press + at the foot of the panel."
                 : $"daemon {SessionHub.Instance.Status}");
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
@@ -254,31 +244,6 @@ namespace SlopWorld
 
         static string LooseLabel => "no project";
 
-        // The "+" button at the bottom, matching the agents view's add button.
-        static void DrawAdd(Rect r)
-        {
-            // Font as well as anchor: both are global, and the sidebar is not the last
-            // thing drawn in the frame.
-            var wasAnchor = Text.Anchor;
-            var wasFont = Text.Font;
-            Text.Anchor = TextAnchor.MiddleCenter;
-            Text.Font = GameFont.Medium;
-
-            bool over = ColonistBarStrip.MouseOver(r);
-            if (over)
-            {
-                Widgets.DrawBoxSolid(r, new Color(1f, 1f, 1f, 0.08f));
-                TooltipHandler.TipRegion(r, "Add a new shortcut");
-            }
-            Widgets.DrawBoxSolid(new Rect(r.x, r.y, r.width, 1f), SlopWidgets.Edge);
-
-            GUI.color = over ? SlopWidgets.Lead : SlopWidgets.Dim;
-            Widgets.Label(r, "+");
-            GUI.color = Color.white;
-            Text.Anchor = wasAnchor;
-            Text.Font = wasFont;
-        }
-
         // ------------------------------------------------------------------ clicks
         //
         // Called from AgentSidebar's back pass where Menus is in the agents view and
@@ -292,16 +257,8 @@ namespace SlopWorld
             if (e.rawType != EventType.MouseDown) return;
             if (e.button != 0 && e.button != 1) return;
 
-            // The "+" button first: it has its own strip at the foot now, so this is only
-            // about answering before the loop bothers walking the rows.
-            var body = AgentSidebar.Body;
-            if (ColonistBarStrip.MouseOver(AddBar(body)) && e.button == 0)
-            {
-                TerminalWindow.OpenOverPane(new EditShortcutDialog(null));
-                e.Use();
-                return;
-            }
-
+            // The "+" is the column's, at the foot of the panel below this body, and
+            // AgentSidebar answers it before this is ever asked.
             foreach (var line in Lines)
             {
                 // Screen() zeroes a line clipped out of the scroll view, and Rect.zero is

@@ -103,3 +103,8 @@ note = "the appearance row's Aa"
 glyph = "cod-star_full"
 code = "eb59"
 note = "the About row. Codicons has no trophy, and a star is the same joke at 20px"
+
+[add]
+glyph = "cod-add"
+code = "ea60"
+note = "the sidebar's one add button. Codicons' plus is drawn heavier than a font's \"+\", which is why the button wears a glyph now"
