@@ -70,6 +70,9 @@ test:              ## Run the daemon's tests; the mod needs the game
 appicon:           ## Regenerate the app icon (robot face + wilted rose)
 	python3 tools/appicon.py
 
+icons:             ## Rebake the action icons from a Nerd Font's Codicons
+	python3 tools/icons.py
+
 clean:             ## Drop build output
 	cd slopd && cargo clean
 	rm -f mod/Assemblies/SlopWorld.dll

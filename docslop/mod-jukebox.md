@@ -48,7 +48,7 @@ calls `PreOptionChosen` - which closes the parent - before it invokes the action
 - The two ticked rows are `SlopWidgets.MenuToggle`, which hangs a tick or a cross
   off `FloatMenuOption.extraPartOnGUI` with `extraPartRightJustified`. `Disabled`
   would have been the nearest vanilla thing and it reads as broken rather than as
-  off. The marks are `UI/MarkIcon.cs`, drawn in code like the rest of them.
+  off. The marks are `Icons.Check` and `Icons.Cross` like the rest of them.
 
 - The def is `SlopJukebox`: no hit points, no flammability, not an edifice and
   not selectable. Nothing builds it, breaks it or blocks on it.

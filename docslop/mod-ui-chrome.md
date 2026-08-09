@@ -109,7 +109,7 @@ so the mark goes in the `extraPartOnGUI` vanilla already reserves, with
 `extraPartRightJustified`. The extra part answers **false** always: its return is
 "this was clicked", and the row under it has already taken the click. The tick is
 `SlopWidgets.Yes` and the cross is `Dim`, red being for something having gone
-wrong. `UI/MarkIcon.cs` draws both the way `ShieldIcon` draws its wall. The
+wrong. Both are `Icons` slots ([mod-icons](mod-icons.md)). The
 jukebox's Mute and Stop-on-exit rows are the users.
 
 ## `SmoothScroll`
@@ -198,7 +198,7 @@ Two groups, `GapM` apart:
 - The **hamburger** and the **cog**, off the sidebar's tab strip
   ([mod-sidebar](mod-sidebar.md)). Neither was about a view and the strip is a
   selector, so a pair of doors onto the options dialog and onto every window this
-  mod has did not belong in it. `TabIcons` at 18.
+  mod has did not belong in it. `Icons.Menu` and `Icons.Config` at 18.
 - The **jukebox** and the **persona core** - the two things on the map with a
   menu of their own, which is now reachable without finding them on the ground.
   `Widgets.ThingIcon` at 18 like the rest, the game's own icons rather than

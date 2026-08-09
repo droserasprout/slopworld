@@ -23,8 +23,8 @@ in `session.rs` is what a pane wears until someone looks at it.
 ## Title bar (strip layout)
 
 Carries a gear and a cross; anything that *ends* an agent is in the agents list
-instead. `GearIcon` is drawn in code because `TexButton` has no gear and a content
-path resolving to null draws an invisible button. Those buttons are drawn
+instead. `Icons.Gear` and `Icons.Cross`, off the icon bake
+([mod-icons](mod-icons.md)) - vanilla's `TexButton` has no gear. Those buttons are drawn
 **before** `ColonistBarStrip.Draw`, so the strip keeps their corner clear via
 `TerminalWindow.CornerW`, subtracted from both ends of `FitScale`'s room since the
 row is centred and the map view lays out the same pixels. `OpenMenu` is on the

@@ -43,11 +43,11 @@ menus have always carried, put where the eye already is.
 
 ## The icons
 
-`TabIcons.EditTex` (a pencil) and `DiffTex` (a plus over a minus) are drawn in code
-with the rest ([mod-ui-files](mod-ui-files.md)). `ViewTex` **is** `HiddenTex`, the
-dotfile switch's eye: reading is what both are about and a second eye to the same
-recipe is the same pixels under another name. Neither new shape is held to the tab
-strip's size and weight budget - they are marks inside a row, sized by the row, the
+`Icons.Edit` (a pencil) and `Icons.Diff` (git-compare) come off the icon bake
+with the rest ([mod-icons](mod-icons.md)). `Icons.View` **is** `Icons.Hidden`, the
+dotfile switch's eye: reading is what both are about and a second eye under another
+name is the same pixels. Neither is held to the tab strip's size and weight budget -
+they are marks inside a row, sized by the row, the
 way `Bell` and `Cross` are.
 
 The same three marks name an ephemeral pager in the agents view

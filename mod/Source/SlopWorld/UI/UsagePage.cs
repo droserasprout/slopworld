@@ -321,7 +321,7 @@ namespace SlopWorld
                         // Grey, and drawn a little smaller than a thing: it is the one cell
                         // here that is not an item, and it should not read as the loudest.
                         GUI.color = new Color(0.72f, 0.73f, 0.75f);
-                        GUI.DrawTexture(box.ContractedBy(3f), TabIcons.AutoTex);
+                        GUI.DrawTexture(box.ContractedBy(3f), Icons.Cross);
                     }
                     GUI.color = Color.white;
 

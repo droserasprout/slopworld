@@ -50,8 +50,8 @@ knob is looked for on.
   ours would fall through it and draw nothing; the prefix is taken **ahead** of
   the chain because the page is two columns and its own scroll view rather than
   rows on the `Listing_Standard` opened there. `DoCategoryRow` is prefixed too,
-  only for our row: `ContentFinder` knows about files and `TerminalIcon` is drawn
-  in code. One pair of prefixes per category of ours, each gated on its own def.
+  only for our row, which wants `Icons.Terminal` rather than a vanilla texture.
+  One pair of prefixes per category of ours, each gated on its own def.
 - `Reread` is what keeps two pages off one file: every Save here PUTs whole
   sections, so a page holding a copy read before somebody else's write would put
   the old figures back on its own Save. Both re-read on either save, the one that

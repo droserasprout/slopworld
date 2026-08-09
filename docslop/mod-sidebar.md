@@ -36,7 +36,7 @@ the postfix, which is what puts the column over a pane as well as on the map.
   directory leaf, or to "temporary" for an ephemeral agent. The age is laid out
   from the right so the times line up down the column. A `bell` takes the end of
   the *name* line, that being about the agent rather than its posture, and is
-  `TabIcons.BellTex`.
+  `Icons.Bell`.
 - **Ghost rows** are the ephemeral sessions: the viewer's `less`, an editor, a shell
   on the host. No colonist is spawned for one any more (`AgentColony` skips them, and
   retires a pawn bound to one), so the bar knows nothing about them and they are laid
@@ -119,8 +119,8 @@ the postfix, which is what puts the column over a pane as well as on the map.
 
 ## Three views
 
-`Tabs` is the selector: three mono-grey icons across the top of the panel,
-`TabIcons` drawn in code, and from the right end each tree's own one switch - the
+`Tabs` is the selector: three mono-grey icons across the top of the panel, off the
+icon bake ([mod-icons](mod-icons.md)), and from the right end each tree's own one switch - the
 dotfile switch in the files view, the refresh button in the [git
 view](mod-ui-git.md). Nothing else: the cog and the hamburger that used to sit beside
 that switch are on the status bar now ([mod-ui-chrome](mod-ui-chrome.md)),

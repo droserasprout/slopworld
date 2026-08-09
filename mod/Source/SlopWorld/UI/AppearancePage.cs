@@ -22,7 +22,7 @@ namespace SlopWorld
         public void Draw(Rect rect)
         {
             Text.Font = GameFont.Small;
-            SlopWidgets.PageCaption(rect, "The mod's look — font face and size.");
+            SlopWidgets.PageCaption(rect, "The mod's look — the font face and the size it is drawn at.");
 
             var body = SlopWidgets.PageBody(rect);
             body.height += SlopWidgets.BtnH + SlopWidgets.GapS;

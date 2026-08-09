@@ -30,7 +30,7 @@ namespace SlopWorld
                 {
                     defaultLabel = "Terminal",
                     defaultDesc = $"Open the terminal for '{session}'.\nState: {state.ToString().ToLower()}",
-                    icon = TerminalIcon.Tex,
+                    icon = Icons.Terminal,
                     defaultIconColor = TerminalWindow.StateColor(state),
                     hotKey = SlopDefOf.SlopOpenTerminal,
                     action = () => TerminalWindow.Open(session),
@@ -41,7 +41,7 @@ namespace SlopWorld
                     defaultLabel = "Stop",
                     defaultDesc = $"Stop '{session}'. The colonist stays on the floor "
                                 + "until the process runs again.",
-                    icon = PowerIcon.StopTex,
+                    icon = Icons.Stop,
                     defaultIconColor = new Color(0.90f, 0.45f, 0.42f),
                     hotKey = SlopDefOf.SlopToggleSession,
                     action = () => Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
@@ -57,7 +57,7 @@ namespace SlopWorld
                 {
                     defaultLabel = "Start",
                     defaultDesc = $"Start '{session}' and put its colonist back on its feet.",
-                    icon = PowerIcon.StartTex,
+                    icon = Icons.Play,
                     defaultIconColor = new Color(0.55f, 0.82f, 0.55f),
                     hotKey = SlopDefOf.SlopToggleSession,
                     action = () => SessionHub.Instance.Start(session, SlopWidgets.Fail),

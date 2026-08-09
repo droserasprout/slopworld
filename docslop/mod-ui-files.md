@@ -74,10 +74,11 @@ drawn. The lookup table is the other half of `tools/fileicons/manifest.toml` and
 the two are kept in step **by hand** - shipping the manifest into the game would
 mean a TOML parser the mod does not have.
 
-## `TabIcons`
+## `Icons`
 
 The selector's three icons, the dotfile switch, the git view's refresh button and
-the sidebar's bell, drawn in code for the reason `GearIcon` is. Not `RobotFace_south`: that is a pawn's faceplate,
+the sidebar's bell all come off the icon bake — see [mod-icons](mod-icons.md).
+The agents tab is a chip, not `RobotFace_south`: that is a pawn's faceplate,
 coloured, and tinted flat at 18px it is a blob. A bell rather than a plain dot
 because a row can carry several marks and the shape is what tells them apart at
 ten pixels.

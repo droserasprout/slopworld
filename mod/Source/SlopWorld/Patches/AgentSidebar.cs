@@ -645,17 +645,17 @@ namespace SlopWorld
             // icons and a switch being what the strip now has to hold on a narrow column.
             const float Gap = 5f;
             float x = CellX;
-            Tab(new Rect(x, y, TabIcon, TabIcon), TabIcons.AgentsTex, Agents,
+            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Agents, Agents,
                 "Agents - every session, under the project it runs in", () => Show(TabAgents));
             x += TabIcon + Gap;
-            Tab(new Rect(x, y, TabIcon, TabIcon), TabIcons.FilesTex, Files,
+            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Files, Files,
                 "Files - every project's directory, as a tree", () => Show(TabFiles));
             x += TabIcon + Gap;
-            Tab(new Rect(x, y, TabIcon, TabIcon), TabIcons.GitTex, Git,
+            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Git, Git,
                 "Git - what every working tree has that its last commit does not",
                 () => Show(TabGit));
             x += TabIcon + Gap;
-            Tab(new Rect(x, y, TabIcon, TabIcon), TabIcons.ShortcutsTex, Shortcuts,
+            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Shortcuts, Shortcuts,
                 "Shortcuts - one-shot errands you can run against any project",
                 () => Show(TabShortcuts));
 
@@ -668,7 +668,7 @@ namespace SlopWorld
             if (Files)
             {
                 bool showing = Settings.SidebarShowHidden;
-                Tab(new Rect(right, y, TabIcon, TabIcon), TabIcons.HiddenTex, showing,
+                Tab(new Rect(right, y, TabIcon, TabIcon), Icons.Hidden, showing,
                     showing
                         ? "Showing dotfiles. Click to hide them."
                         : "Hiding dotfiles. Click to show them.",
@@ -686,7 +686,7 @@ namespace SlopWorld
                 // Not a switch but a button, and the only one on the strip: nothing tells
                 // this column that a working tree moved, so asking again is the reader's.
                 // Never lit - there is no state here to be in.
-                Tab(new Rect(right, y, TabIcon, TabIcon), TabIcons.RefreshTex, false,
+                Tab(new Rect(right, y, TabIcon, TabIcon), Icons.Refresh, false,
                     "Read every working tree again.", GitView.Refresh);
             }
 
@@ -807,7 +807,7 @@ namespace SlopWorld
                         GUI.color = BellColor;
                         GUI.DrawTexture(
                             new Rect(name.xMax - d, name.y + (NameH - d) / 2f, d, d),
-                            TabIcons.BellTex);
+                            Icons.Bell);
                         name.width -= d + 3f;
                     }
                     GUI.color = tint;

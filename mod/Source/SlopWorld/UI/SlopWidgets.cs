@@ -313,7 +313,7 @@ namespace SlopWorld
             if (on)
             {
                 GUI.color = locked ? Faint : Color.white;
-                GUI.DrawTexture(box.ContractedBy(2f), MarkIcon.CheckTex);
+                GUI.DrawTexture(box.ContractedBy(2f), Icons.Check);
             }
 
             var wasAnchor = Text.Anchor;
@@ -428,7 +428,7 @@ namespace SlopWorld
             var icon = new Rect(r.x + (r.width - MarkSize) / 2f,
                 r.y + (r.height - MarkSize) / 2f, MarkSize, MarkSize);
             GUI.color = on ? Yes : Dim;
-            GUI.DrawTexture(icon, on ? MarkIcon.CheckTex : MarkIcon.CrossTex);
+            GUI.DrawTexture(icon, on ? Icons.Check : Icons.Cross);
             GUI.color = Color.white;
             return false;
         }
@@ -471,7 +471,7 @@ namespace SlopWorld
             var dot = new Rect(pill.x + PillPad, pill.y + (h - DotSize) / 2f,
                 DotSize, DotSize);
             GUI.color = hub.Online ? Online : Offline;
-            GUI.DrawTexture(dot, MarkIcon.DotTex);
+            GUI.DrawTexture(dot, Icons.Dot);
 
             GUI.color = Dim;
             Widgets.Label(new Rect(dot.xMax + GapS, pill.y, w + 2f, h), text);

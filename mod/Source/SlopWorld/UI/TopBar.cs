@@ -108,10 +108,10 @@ namespace SlopWorld
             var map = Find.CurrentMap;
 
             x -= IconW;
-            Door(Slot(r, x, IconW), TabIcons.HamburgerTex, "Menu", Menu, live);
+            Door(Slot(r, x, IconW), Icons.Menu, "Menu", Menu, live);
 
             x -= SlopWidgets.GapS + IconW;
-            Door(Slot(r, x, IconW), TabIcons.ConfigTex, "Config", SlopOptions.Toggle, live);
+            Door(Slot(r, x, IconW), Icons.Config, "Config", SlopOptions.Toggle, live);
 
             // A group of two and a group of two, so the gap between them is the wider one -
             // the cog and the menu are this interface's, and what is left of the line is the

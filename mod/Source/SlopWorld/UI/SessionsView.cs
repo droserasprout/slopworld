@@ -103,7 +103,7 @@ namespace SlopWorld
                 : $"Open the terminal for '{s.Name}'.");
             var was = GUI.color;
             if (s.Gone) GUI.color = new Color(1f, 1f, 1f, 0.35f);
-            if (Widgets.ButtonImage(term, TerminalIcon.Tex) && !s.Gone)
+            if (Widgets.ButtonImage(term, Icons.Terminal) && !s.Gone)
                 TerminalWindow.Open(s.Name);
             GUI.color = was;
 

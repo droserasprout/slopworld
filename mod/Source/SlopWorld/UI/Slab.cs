@@ -236,7 +236,7 @@ namespace SlopWorld
             return made;
         }
 
-        // 4x4 supersampled coverage, the same as MarkIcon's and for the same reason: the only
+        // 4x4 supersampled coverage, the same as the icon bake's and for the same reason: the only
         // edge here is a curve, and a curve without it is a staircase.
         static Texture2D Bake(bool ring, int n, bool flipX, bool flipY)
         {

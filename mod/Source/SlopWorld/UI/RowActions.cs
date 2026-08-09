@@ -61,9 +61,9 @@ namespace SlopWorld
             float x = Left(right, acts);
             float y = row.y + (row.height - IconW) / 2f;
 
-            Draw(ref x, y, acts, RowAct.View, TabIcons.ViewTex, "View this file in a pager.");
-            Draw(ref x, y, acts, RowAct.Edit, TabIcons.EditTex, "Open this file in an editor.");
-            Draw(ref x, y, acts, RowAct.Diff, TabIcons.DiffTex,
+            Draw(ref x, y, acts, RowAct.View, Icons.View, "View this file in a pager.");
+            Draw(ref x, y, acts, RowAct.Edit, Icons.Edit, "Open this file in an editor.");
+            Draw(ref x, y, acts, RowAct.Diff, Icons.Diff,
                 "Show what this file has that the last commit does not.");
 
             GUI.color = Color.white;
@@ -140,9 +140,9 @@ namespace SlopWorld
         {
             switch (act)
             {
-                case RowAct.View: return TabIcons.ViewTex;
-                case RowAct.Edit: return TabIcons.EditTex;
-                case RowAct.Diff: return TabIcons.DiffTex;
+                case RowAct.View: return Icons.View;
+                case RowAct.Edit: return Icons.Edit;
+                case RowAct.Diff: return Icons.Diff;
                 default: return null;
             }
         }

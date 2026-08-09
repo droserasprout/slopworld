@@ -236,7 +236,7 @@ namespace SlopWorld
 
                 float x = r.x + 10f;
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
-                    GearIcon.Tex);
+                    Icons.Gear);
                 x += 30f;
                 Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
                 return false;
@@ -306,7 +306,7 @@ namespace SlopWorld
 
                 float x = r.x + 10f;
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
-                    TypeIcon.Tex);
+                    Icons.Type);
                 x += 30f;
                 Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
                 return false;
@@ -433,7 +433,7 @@ namespace SlopWorld
 
                 float x = r.x + 10f;
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
-                    TerminalIcon.Tex);
+                    Icons.Terminal);
                 x += 30f;
                 Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
                 return false;
@@ -530,7 +530,7 @@ namespace SlopWorld
 
                 float x = r.x + 10f;
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
-                    ShieldIcon.Tex);
+                    Icons.Shield);
                 x += 30f;
                 Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
                 return false;
@@ -560,8 +560,8 @@ namespace SlopWorld
         // ---------------------------------------------------------------- About
 
         // The About row, under the Sandbox row. Same shape as Patch_OptionsRow but with
-        // the trophy emoji baked from tools/emoji.py rather than the blog icon that was
-        // here when the page was about the game's build info.
+        // Icons.Trophy rather than the blog icon that was here when the page was about
+        // the game's build info.
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
         public static class Patch_OptionsRow_About
         {
@@ -578,7 +578,7 @@ namespace SlopWorld
                 }
 
                 float x = r.x + 10f;
-                var icon = TrophyIcon.Tex;
+                var icon = Icons.Trophy;
                 if (icon != null)
                     GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), icon);
                 x += 30f;
@@ -605,7 +605,7 @@ namespace SlopWorld
         // ---------------------------------------------------------------- shortcuts
 
         // The Shortcuts row, under the About row. Same shape as the row above with the
-        // lightning bolt icon from TabIcons: the page is about key bindings, and the
+        // lightning bolt of Icons.Shortcuts: the page is about key bindings, and the
         // lightning says "shortcut" in the few pixels a column icon has.
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
         public static class Patch_OptionsRow_Shortcuts
@@ -623,7 +623,7 @@ namespace SlopWorld
                 }
 
                 float x = r.x + 10f;
-                var icon = TabIcons.ShortcutsTex;
+                var icon = Icons.Shortcuts;
                 if (icon != null)
                     GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), icon);
                 x += 30f;
