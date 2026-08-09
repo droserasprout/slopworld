@@ -7,11 +7,11 @@
   `Patch_MainButtons` prefixes `MainButtonWorker.InterfaceTryActivate` and gates
   it on the same `Visible` the bar reads. A button missing from `Keep` never
   appears.
-- **`StripOptions`** - categories are defs, so Gameplay goes by setting `isDev`
-  (which vanilla's own loop already skips on) rather than by removing a def
-  `OptionCategoryDefOf` names. Rows are widget calls, so three prefixes decline to
-  draw when the label is one of ours, matched on the finished string and gated on
-  `currentlyDrawnWindow` rather than a flag an exception could strand.
+- **`StripOptions`** - General and Gameplay are removed from
+  `AllDefsListForReading` so they take no slot in the column. Not `isDev`:
+  dev mode is now a checkbox on our General page, and a category with `isDev=true`
+  shows up as soon as the player ticks it. The defs stay in the database for
+  callers who walk `DefDatabase<OptionCategoryDef>` and simply never draw.
 
 ## `SlopOptions` - our categories in vanilla's options window
 
