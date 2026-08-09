@@ -364,8 +364,9 @@ namespace SlopWorld
         {
             if (node.IsDir) return RowAct.None;
 
-            var acts = RowAct.Edit;
-            if (IsText(node.Name)) acts |= RowAct.View;
+            RowAct acts = RowAct.None;
+            if (!IsText(node.Name)) return RowAct.None;
+            acts |= RowAct.Edit | RowAct.View;
             if (GitView.Changed(node.Project, node.Path)) acts |= RowAct.Diff;
             return acts;
         }
@@ -566,7 +567,7 @@ namespace SlopWorld
             // for and a directory in `micro` is a file browser inside a game. The left
             // button views a text file; the menu's View routes through the same tracked
             // viewer so it is replaced or closed like any other.
-            if (!node.IsDir)
+            if (!node.IsDir && IsText(node.Name))
             {
                 opts.Add(new FloatMenuOption("View", () => View(node)));
                 opts.Add(new FloatMenuOption("Edit", () => Errand(node, "micro --", "edit")));
