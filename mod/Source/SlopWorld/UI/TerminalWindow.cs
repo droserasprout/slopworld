@@ -340,7 +340,7 @@ namespace SlopWorld
         // is indistinguishable from an agent that has stopped answering.
         void DrawOfflineBanner(Rect body)
         {
-            var r = new Rect(body.x, body.y, body.width, 24f);
+            var r = new Rect(body.x, body.y, body.width, SlopWidgets.LineH + 3f);
             Widgets.DrawBoxSolid(r, new Color(0.42f, 0.12f, 0.10f, 0.92f));
 
             string tail = _droppedKeys > 0
@@ -1494,7 +1494,7 @@ namespace SlopWorld
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.UpperRight;
             GUI.color = new Color(0.98f, 0.80f, 0.30f);
-            Widgets.Label(new Rect(body.x, body.y, body.width - 6f, 20f),
+            Widgets.Label(new Rect(body.x, body.y, body.width - 6f, SlopWidgets.TinyH),
                 $"scrollback -{_scrollOff}   type or scroll down to resume");
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;

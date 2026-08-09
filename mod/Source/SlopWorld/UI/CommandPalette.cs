@@ -18,9 +18,14 @@ namespace SlopWorld
         const float Width = 520f;
         const float MaxH = 440f;
         const float Pad = 8f;
-        const float InputH = 30f;
-        const float RowH = 28f;
-        const float GroupH = 22f;
+
+        // The three heights this list is built from, off the font rather than written down:
+        // an input is a field, a row is a line with room round it, and a group heading is a
+        // tiny line. A figure here holds only for the face it was set against, and a row
+        // shorter than its line loses the top and bottom of every label in the palette.
+        static float InputH => SlopWidgets.FieldH;
+        static float RowH => SlopWidgets.LineH + 7f;
+        static float GroupH => SlopWidgets.TinyRowH;
         const int RecentMax = 8;
         // What a hit found only in a command's id is docked, the name being what is read.
         const int IdCost = 80;
@@ -184,7 +189,7 @@ namespace SlopWorld
             {
                 // Prompt on the left, filter input on the right.
                 string prompt = _subPrompt + " ";
-                float promptW = Text.CalcSize(prompt).x;
+                float promptW = SlopWidgets.Wide(prompt);
                 var labelRect = new Rect(inner.x, inner.y, promptW, inner.height);
                 var fieldRect = new Rect(inner.x + promptW, inner.y,
                     inner.width - promptW, inner.height);
@@ -357,7 +362,8 @@ namespace SlopWorld
                 }
 
                 GUI.color = selected ? Color.white : new Color(0.85f, 0.86f, 0.90f);
-                Widgets.Label(new Rect(row.x + 6f, row.y + 2f, view.width - 12f, RowH - 4f),
+                SlopWidgets.RowLabel(
+                    new Rect(row.x + 6f, row.y + 2f, view.width - 12f, RowH - 4f),
                     _matches[i].Label);
                 GUI.color = Color.white;
 
@@ -426,7 +432,8 @@ namespace SlopWorld
                     GUI.color = selected ? Color.white : new Color(0.85f, 0.86f, 0.90f);
                 }
 
-                Widgets.Label(new Rect(left, row.y + 2f, view.width - 12f, RowH - 4f),
+                SlopWidgets.RowLabel(
+                    new Rect(left, row.y + 2f, view.width - 12f, RowH - 4f),
                     options[i].Label);
                 GUI.color = Color.white;
 

@@ -16,7 +16,10 @@ namespace SlopWorld
     // see a project directory the way the project does.
     public static class FilesView
     {
-        const float RowH = 20f;
+        // Off the font, not written down: every line in this tree is drawn at Tiny, and a
+        // figure here is one that fits the face it was eyeballed against and crops the next.
+        // TinyRowH also answers for the tier Tiny actually lands on - see SlopWidgets.Real.
+        static float RowH => SlopWidgets.TinyRowH;
         const float IconW = 16f;
         const float Indent = 11f;
         const float Pad = 6f;
@@ -251,7 +254,7 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.MiddleLeft;
             float lx = arrow.xMax + 4f;
             var label = new Rect(lx, r.y, r.width - lx - CellX, RowH);
-            Widgets.Label(label, project.Truncate(label.width));
+            SlopWidgets.RowLabel(label, project);
 
             Widgets.DrawBoxSolid(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
                 new Color(1f, 1f, 1f, 0.08f));
@@ -304,7 +307,7 @@ namespace SlopWorld
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
             var r = new Rect(x, y, width - x - Pad, RowH);
-            Widgets.Label(r, text.Truncate(r.width));
+            SlopWidgets.RowLabel(r, text);
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
@@ -345,7 +348,7 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = node.IsDir ? SlopWidgets.Lead : SlopWidgets.Name;
             var label = new Rect(x, y, Mathf.Max(0f, rx - x), RowH);
-            Widgets.Label(label, node.Name.Truncate(label.width));
+            SlopWidgets.RowLabel(label, node.Name);
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;

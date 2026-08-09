@@ -129,7 +129,16 @@ namespace SlopWorld
         // each naming a number - and because 20 was too short for a bordered box: the border
         // and the text between them left no face showing above or below the glyphs.
         public const float BtnH = 30f;
-        public const float RowBtnH = 22f;
+
+        // The one inside a list row is tighter - the row is what has the padding - but not
+        // tighter than the line it holds, or the border is drawn through the glyphs.
+        public static float RowBtnH => Mathf.Max(LineH + 2f, 22f);
+
+        // How wide a press has to be to hold what it says, with a floor so a short label is
+        // still a button rather than a chip. `Bar` keeps its own pair of figures: a press in a
+        // footer is a bigger thing than one at the end of a row.
+        public static float BtnW(string label, float floor) =>
+            Mathf.Max(Wide(label) + GapM, floor);
 
         // The spacing scale, and the whole of it. The gaps across these files ran 2, 4, 6, 8,
         // 10, 12, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 40 and 52 - eighteen figures for
@@ -219,14 +228,62 @@ namespace SlopWorld
         // a border and a line of glyphs cannot be the same pixels, or there is no face showing
         // above and below the text. It is why a press is 30 rather than 20, and a field is 30
         // for the same reason - so a field and a button on one row line up.
-        public static float LineH => Mathf.Ceil(Verse.Text.LineHeightOf(GameFont.Small));
+        public static float LineH => LineHOf(GameFont.Small);
 
         public static float FieldH => LineH + 8f;
         public static float RowH => LineH + 6f;
 
         // A window's title line, with room for the rule under it. Off the medium font for the
         // reason the three above are off the small one.
-        public static float HeaderH => Mathf.Ceil(Verse.Text.LineHeightOf(GameFont.Medium)) + 8f;
+        public static float HeaderH => LineHOf(GameFont.Medium) + 8f;
+
+        // One line of a tier, as tall as that tier actually draws - and asked of the tier that
+        // will *draw* rather than of the one that was named. `Text.Font = GameFont.Tiny` is a
+        // request and not an assignment: `Verse.Text` drops it back to Small whenever
+        // `TinyFontSupported` is false, which is a language whose glyphs do not shrink, the
+        // Steam Deck, an option in vanilla's own menu, and any frame with a long event on it.
+        // A row laid out at Tiny's height and drawn in Small's is a row with its bottom rows of
+        // pixels cut off - the same failure a figure written by hand makes, arrived at from the
+        // other end.
+        public static float LineHOf(GameFont font) =>
+            Mathf.Ceil(Verse.Text.LineHeightOf(Real(font)));
+
+        // Which tier a request for this one lands on.
+        public static GameFont Real(GameFont font) =>
+            font == GameFont.Tiny && !Verse.Text.TinyFontSupported ? GameFont.Small : font;
+
+        // A line of the tier a second line is written in, and the row that holds one. The two
+        // pixels are what the trees have always had round a tiny line; the height under them is
+        // the font's, so a face with tall glyphs or a size dragged up takes the row with it.
+        public static float TinyH => LineHOf(GameFont.Tiny);
+        public static float TinyRowH => TinyH + 2f;
+
+        // The width of one line of text, measured as one line. `Text.CalcSize` answers about a
+        // *wrapped* block while `Text.WordWrap` is on, which for anything with a space in it is
+        // the width of its longest word - so a pill sized from a sentence comes out the width of
+        // the longest thing in it, and a button sized from "Edit as TOML" is sized for "TOML".
+        public static float Wide(string text)
+        {
+            bool wrap = Verse.Text.WordWrap;
+            Verse.Text.WordWrap = false;
+            float w = Verse.Text.CalcSize(text ?? "").x;
+            Verse.Text.WordWrap = wrap;
+            return w;
+        }
+
+        // One line of text in a row, cut with an ellipsis rather than wrapped into it. Both
+        // halves are load-bearing: `Truncate` measures through `CalcSize`, which under a wrap
+        // hands back a width the string already fits, so nothing is cut - and then `Widgets.Label`
+        // wraps it, and a two-line block centred in a one-line rect loses the top of one line and
+        // the bottom of the other. Vanilla brackets its own row labels the same way, in every
+        // list that truncates one.
+        public static void RowLabel(Rect r, string text)
+        {
+            bool wrap = Verse.Text.WordWrap;
+            Verse.Text.WordWrap = false;
+            Widgets.Label(r, (text ?? "").Truncate(Mathf.Max(1f, r.width)));
+            Verse.Text.WordWrap = wrap;
+        }
 
         // A box to type in: the well vanilla gives it, and a line round it that lights while
         // it has the keyboard. Named so the caller can be told apart from its neighbours -
@@ -305,8 +362,12 @@ namespace SlopWorld
             if (over) Widgets.DrawHighlight(r);
             if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
 
-            const float Size = 17f;
-            var box = new Rect(r.x + 1f, r.y + (r.height - Size) / 2f, Size, Size);
+            // Off the line rather than written down, so the tick stays the size of the word
+            // beside it: at four fifths of a line it is 17 at the shipped font, which is the
+            // figure this was. Floored into the row, a box taller than its row being a border
+            // drawn through the rows above and below.
+            float size = Mathf.Min(Mathf.Round(LineH * 0.8f), r.height - 2f);
+            var box = new Rect(r.x + 1f, r.y + (r.height - size) / 2f, size, size);
             var face = on ? PrimeFace : Well;
             if (locked) face = Lighten(face, -0.45f);
             Slab.Box(box, face, BtnEdge);
@@ -383,12 +444,14 @@ namespace SlopWorld
             }
 
             // Measured rather than given: a button is as wide as what it says, with a floor
-            // so a two-letter label is still a button rather than a chip.
+            // so a two-letter label is still a button rather than a chip. Measured as one
+            // line, or a label with a space in it is sized for its longest word and then
+            // wraps inside the box it was given - see SlopWidgets.Wide.
             static float Wide(string label)
             {
                 var was = Verse.Text.Font;
                 Verse.Text.Font = GameFont.Small;
-                float w = Verse.Text.CalcSize(label).x;
+                float w = SlopWidgets.Wide(label);
                 Verse.Text.Font = was;
                 return Mathf.Max(w + Pad * 2f, 76f);
             }
@@ -460,7 +523,7 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.MiddleLeft;
 
             string text = $"{SlopClient.BaseUrl} - {hub.Status}";
-            float w = Text.CalcSize(text).x;
+            float w = Wide(text);
 
             float h = RowH;
             var pill = new Rect(line.xMax - (w + DotSize + GapS + PillPad * 2f),
@@ -490,7 +553,9 @@ namespace SlopWorld
             var was = Text.Font;
             Text.Font = GameFont.Small;
 
-            float w = Text.CalcSize(text).x;
+            // As one line: a heading with a space in it measured under a wrap answers the width
+            // of its longest word, and the rule would then start somewhere inside it.
+            float w = Wide(text);
             GUI.color = Faint;
             Widgets.Label(r, text);
             GUI.color = Color.white;

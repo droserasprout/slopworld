@@ -65,10 +65,17 @@ namespace SlopWorld
 
                 _size = Mathf.Clamp(Settings.FontSize, 8, 28);
                 _name = Settings.FontName;
+
+                // The one it is replacing, dropped once nothing points at it. A dynamic font
+                // is an asset with a texture atlas behind it and this one is marked never to
+                // unload, so the size slider - which comes back through here on every step it
+                // passes - would otherwise pin one atlas per step for the rest of the process.
+                var old = _font;
                 _font = Font.CreateDynamicFontFromOSFont(Chain(_name), _size)
                         ?? Font.CreateDynamicFontFromOSFont("Courier New", _size);
                 _fontless = _font == null;
                 if (_font != null) _font.hideFlags = HideFlags.DontUnloadUnusedAsset;
+                if (old != null && old != _font) UnityEngine.Object.Destroy(old);
 
                 _style = new GUIStyle
                 {

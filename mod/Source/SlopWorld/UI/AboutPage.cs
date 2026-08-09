@@ -31,23 +31,24 @@ namespace SlopWorld
         {
 
             Text.Font = GameFont.Small;
+            float line = SlopWidgets.LineH, step = line + SlopWidgets.GapXS;
             GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(r.x, y, r.width, 22f), "RimWorld build");
+            Widgets.Label(new Rect(r.x, y, r.width, line), "RimWorld build");
             GUI.color = Color.white;
-            y += 24f;
+            y += step;
 
             // Version: "VersionIndicator" e.g. "RimWorld 1.6.4825 rev123"
             var label = "VersionIndicator".Translate(
                 (NamedArgument)VersionControl.CurrentVersionString);
-            Widgets.Label(new Rect(r.x, y, r.width, 24f), label);
-            y += 24f;
+            Widgets.Label(new Rect(r.x, y, r.width, line), label);
+            y += step;
 
             // Build date: "CompiledOn" e.g. "Compiled on Jan 15 2025"
             label = "CompiledOn".Translate(
                 (NamedArgument)VersionControl.CurrentBuildDate
                     .ToString("MMM d yyyy"));
-            Widgets.Label(new Rect(r.x, y, r.width, 24f), label);
-            y += 24f;
+            Widgets.Label(new Rect(r.x, y, r.width, line), label);
+            y += step;
 
             // Steam persona name, if logged in
             if (SteamManager.Initialized)
@@ -55,8 +56,8 @@ namespace SlopWorld
                 y += 4f;
                 label = "LoggedIntoSteamAs".Translate(
                     (NamedArgument)SteamUtility.SteamPersonaName);
-                Widgets.Label(new Rect(r.x, y, r.width, 24f), label);
-                y += 24f;
+                Widgets.Label(new Rect(r.x, y, r.width, line), label);
+                y += step;
             }
 
             y += 8f;

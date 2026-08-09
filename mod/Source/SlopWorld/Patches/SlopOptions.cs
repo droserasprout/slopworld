@@ -238,7 +238,7 @@ namespace SlopWorld
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
                     Icons.Gear);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
+                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }
@@ -308,7 +308,7 @@ namespace SlopWorld
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
                     Icons.Type);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
+                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }
@@ -435,7 +435,7 @@ namespace SlopWorld
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
                     Icons.Terminal);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
+                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }
@@ -484,7 +484,7 @@ namespace SlopWorld
                     GUI.color = Color.white;
                 }
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
+                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }
@@ -532,7 +532,7 @@ namespace SlopWorld
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
                     Icons.Shield);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
+                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }
@@ -582,7 +582,7 @@ namespace SlopWorld
                 if (icon != null)
                     GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), icon);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
+                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }
@@ -627,7 +627,7 @@ namespace SlopWorld
                 if (icon != null)
                     GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), icon);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
+                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }

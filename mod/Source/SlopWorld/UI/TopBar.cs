@@ -7,10 +7,17 @@ namespace SlopWorld
 {
     public static class TopBar
     {
-        public const float H = 26f;
+        // A line of the small font with room round it, not a figure: everything on this bar is
+        // text or an 18-pixel glyph beside text, and 26 was a line of the shipped face. A taller
+        // font on a bar that stayed 26 is a clock with its top and bottom rows cut off, which is
+        // what a middle anchor does when the line does not fit - it crops both ends at once.
+        // Floored at the old height so the map is not handed back pixels on the shipped font.
+        public static float H => Mathf.Max(SlopWidgets.LineH + 6f, 26f);
 
         const float Pad = 8f;
-        const float ClockW = 76f;
+
+        // Room for the clock, measured: "88:88" is as wide as the widest time there is.
+        static float ClockW => Mathf.Max(SlopWidgets.Wide("88:88") + SlopWidgets.GapM, 76f);
 
         // Every door on the line at the size the drawn glyphs were on the strip they came
         // off. The two things on the map had four pixels more for a while, on the grounds
@@ -219,7 +226,7 @@ namespace SlopWorld
             if (view != null)
             {
                 GUI.color = SlopWidgets.Lead;
-                Widgets.Label(r, view.Title);
+                SlopWidgets.RowLabel(r, view.Title);
                 GUI.color = Color.white;
                 return;
             }
@@ -230,7 +237,7 @@ namespace SlopWorld
             if (session == null)
             {
                 GUI.color = SlopWidgets.Dim;
-                Widgets.Label(r, hub.Online
+                SlopWidgets.RowLabel(r, hub.Online
                     ? $"{hub.Sessions.Count} agent{(hub.Sessions.Count == 1 ? "" : "s")}"
                     : $"daemon {hub.Status}");
                 GUI.color = Color.white;
@@ -240,11 +247,14 @@ namespace SlopWorld
             var info = hub.Get(session);
             var state = info?.State ?? AgentState.Down;
 
-            var chip = new Rect(r.x, r.y + 7f, 8f, r.height - 14f);
+            // A quarter of the line clear at each end rather than seven pixels: the bar grows
+            // with the font and a fixed inset would leave the chip a sliver in the middle of it.
+            float inset = Mathf.Round(r.height * 0.27f);
+            var chip = new Rect(r.x, r.y + inset, 8f, r.height - inset * 2f);
             Widgets.DrawBoxSolid(chip, TerminalWindow.StateColor(state));
 
             GUI.color = TerminalWindow.StateColor(state);
-            float w = Mathf.Min(Text.CalcSize(session).x + 4f, r.width - 16f);
+            float w = Mathf.Min(SlopWidgets.Wide(session) + 4f, r.width - 16f);
             var name = new Rect(chip.xMax + 6f, r.y, w, r.height);
             Widgets.Label(name, session);
 
@@ -259,7 +269,7 @@ namespace SlopWorld
 
             Text.Font = GameFont.Tiny;
             GUI.color = SlopWidgets.Dim;
-            Widgets.Label(rest, tail.Truncate(rest.width));
+            SlopWidgets.RowLabel(rest, tail);
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
         }

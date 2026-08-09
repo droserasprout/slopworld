@@ -50,10 +50,15 @@ namespace SlopWorld
         public override void DoWindowContents(Rect rect)
         {
             Text.Font = GameFont.Small;
-            Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f),
-                string.IsNullOrEmpty(_path) ? "config.toml" : _path);
+            SlopWidgets.PageCaption(rect, string.IsNullOrEmpty(_path) ? "config.toml" : _path);
 
-            var area = new Rect(rect.x, rect.y + 28f, rect.width, rect.height - 100f);
+            // The caption above and the footer below, both off the font: the figures here
+            // were 24, 28 and 100, and the last of them left the error line lying across
+            // the footer as soon as a line grew.
+            float top = rect.y + SlopWidgets.RowH + SlopWidgets.GapXS;
+            float foot = SlopWidgets.BtnH + SlopWidgets.GapS + SlopWidgets.LineH
+                         + SlopWidgets.GapXS;
+            var area = new Rect(rect.x, top, rect.width, rect.yMax - foot - top);
             var view = new Rect(0f, 0f, area.width - 18f,
                 Mathf.Max(area.height, Text.CalcHeight(_text, area.width - 24f) + 40f));
 
@@ -69,14 +74,15 @@ namespace SlopWorld
             if (_error != null)
             {
                 GUI.color = SlopWidgets.Bad;
-                Widgets.Label(new Rect(rect.x, area.yMax + 2f, rect.width, 40f), _error);
+                SlopWidgets.RowLabel(
+                    new Rect(rect.x, area.yMax + SlopWidgets.GapXS, rect.width,
+                        SlopWidgets.LineH), _error);
                 GUI.color = Color.white;
             }
 
-            var foot = new SlopWidgets.Bar(
-                new Rect(rect.x, rect.yMax - 36f, rect.width, SlopWidgets.BtnH));
-            if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
-            if (foot.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
+            var bar = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
+            if (bar.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
+            if (bar.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
         }
 
         void Save()

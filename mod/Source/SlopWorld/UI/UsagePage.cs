@@ -259,7 +259,8 @@ namespace SlopWorld
 
                 // Title bar: the key name and an X button.
                 Text.Font = GameFont.Small;
-                Widgets.Label(new Rect(r.x + 8f, r.y + 4f, r.width - 60f, 22f),
+                SlopWidgets.RowLabel(
+                    new Rect(r.x + 8f, r.y + 4f, r.width - 60f, SlopWidgets.LineH),
                     UsageReadout.Long(key));
 
                 if (SlopWidgets.Button(
@@ -270,7 +271,7 @@ namespace SlopWorld
                 // Grid of icons.
                 const float Cell = 38f;
                 const float IconSize = 30f;
-                float gridTop = r.y + 30f;
+                float gridTop = r.y + 4f + SlopWidgets.LineH + SlopWidgets.GapXS;
                 float gridH = r.height - gridTop - 8f;
                 int perLine = Mathf.Max(1, Mathf.FloorToInt((r.width - 16f) / Cell));
                 float gridW = perLine * Cell;

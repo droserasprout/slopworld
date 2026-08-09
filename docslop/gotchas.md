@@ -62,6 +62,28 @@
   `MouseDrag` is not worth consulting anywhere: `UnityGUIBugsFixer.MouseDrag(button)`
   returns `Input.GetMouseButton(button)` outright on a Linux build (and the Steam
   Deck), and `FixDelta` rebuilds `CurrentEventDelta` from the pointer on Repaints.
+- **`Text.Font = GameFont.Tiny` is a request, not an assignment.** `Verse.Text`'s
+  setter drops it back to `Small` whenever `TinyFontSupported` is false - a
+  language whose `info.canBeTiny` is false, `Prefs.DisableTinyText` (a switch in
+  vanilla's own menu), the Steam Deck, or any frame with a long event on it. So a
+  row measured with `LineHeightOf(GameFont.Tiny)` and drawn after asking for Tiny
+  can be a Small line in a Tiny-sized rect, which `GUI.Label` then clips. Ask
+  `SlopWidgets.LineHOf`/`TinyH`, which measure the tier the request lands on.
+- **`Text.CalcSize` answers about a *wrapped* block while `Text.WordWrap` is on**,
+  which for anything with a space in it is the width of its longest word. That
+  takes `GenText.Truncate` with it - it is `CalcSize(str).x > width` - so a
+  sentence handed to it comes back uncut, and `Widgets.Label` then wraps it into a
+  rect one line tall: with a middle anchor the block is centred and loses the top
+  of one line and the bottom of the other. Vanilla brackets its own row labels
+  with `WordWrap = false` for this, in every list that truncates one.
+  `SlopWidgets.RowLabel` and `SlopWidgets.Wide` are the two ways through.
+- **`Text.spaceBetweenLines` is not a line height.** Vanilla fills it with
+  `CalcHeight("W\nW") - 2 * CalcHeight("W")` - the *extra* leading between two
+  lines, which for a style with no padding is zero. It is measured off the style's
+  padding, so changing the face and the size (`SlopUIFont`) does not invalidate
+  it and it is left alone; a whole line height written there puts twenty-odd
+  pixels between the label lines of every gizmo in the game, `Gizmo.GizmoOnGUI`
+  and `Widgets.LongLabel` being its readers.
 - **`Window.Margin` (18 by default) is not padding.** `InnerWindowOnGUI` opens a GUI
   group on the contracted rect, so `DoWindowContents` draws in a space translated
   by the margin while `GUI.matrix` and screen coordinates stay put.

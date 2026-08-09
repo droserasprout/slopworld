@@ -49,6 +49,16 @@ field is 30 too, so the two line up on one row. A figure eyeballed against one
 font crops descenders on every other; `AgentSidebar` has asked rather than written
 since its labels lost their bottom row to one.
 
+`LineHOf` is the same question of any tier, and **asks it of the tier that will
+draw**: `GameFont.Tiny` is a request `Verse.Text` declines under several
+conditions, so `TinyH` (and `TinyRowH`, a tiny line with the two pixels the trees
+keep round one) is what the sidebar's sub-lines and all three trees are laid out
+from. `RowLabel` and `Wide` are the other half - one line of text cut to the room
+it has, and the width of one line - both of them turning `Text.WordWrap` off
+first, which is what makes the measurement about a line rather than about a
+wrapped block. Every row label and every measured column here goes through the
+pair; see [gotchas](gotchas.md) for what happens to the ones that did not.
+
 **Every gap is one of four**: `GapXS`/`GapS`/`GapM`/`GapL`, 4/8/16/24, named for
 what the space is between. There were eighteen figures before. `PageCaption`,
 `PageBody` and `FooterBar` are the shape the four option-menu pages share, and

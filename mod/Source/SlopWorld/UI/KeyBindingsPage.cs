@@ -18,10 +18,16 @@ namespace SlopWorld
     // A page rather than a Window because SlopOptions hangs it off an OptionCategoryDef.
     public class KeyBindingsPage
     {
-        const float RowH = 30f;
-        const float CatH = 24f;
+        // A row holds a button, so it is a button's height; the category band is a tiny line.
+        // Both off the font: written down, they crop their own labels on any face taller than
+        // the one they were set against.
+        static float RowH => SlopWidgets.BtnH;
+        static float CatH => SlopWidgets.TinyRowH + 4f;
         const float Gap = 4f;
-        const float KeyW = 180f;
+
+        // Room for the longest bind there is, measured rather than guessed: a chord with two
+        // modifiers on it is what has to fit, and at a larger font 180 is not it.
+        static float KeyW => Mathf.Max(SlopWidgets.Wide("Ctrl + Shift + Backspace") + 24f, 180f);
         const float Indent = 12f;
 
         // Which categories are folded. In-memory only, the way every other fold is.
@@ -94,10 +100,10 @@ namespace SlopWorld
                 Text.Anchor = TextAnchor.MiddleLeft;
                 float lx = arrowRect.xMax + 4f;
                 string tail = folded ? $"  {list.Count}" : "";
-                string headLabel = (cat.label + tail).Truncate(innerRect.width - lx - Gap);
                 GUI.color = SlopWidgets.Dim;
-                Widgets.Label(new Rect(lx, headRect.y, innerRect.width - lx - Gap, CatH),
-                    headLabel);
+                SlopWidgets.RowLabel(
+                    new Rect(lx, headRect.y, innerRect.width - lx - Gap, CatH),
+                    cat.label + tail);
                 GUI.color = Color.white;
                 Text.Anchor = TextAnchor.UpperLeft;
                 Text.Font = GameFont.Small;
@@ -125,8 +131,7 @@ namespace SlopWorld
                     Text.Anchor = TextAnchor.MiddleLeft;
                     GUI.color = SlopWidgets.Name;
                     float labelW = r.width - KeyW - Gap;
-                    Widgets.Label(new Rect(r.x, r.y, labelW, rh),
-                        binding.label.Truncate(labelW));
+                    SlopWidgets.RowLabel(new Rect(r.x, r.y, labelW, rh), binding.label);
                     GUI.color = Color.white;
 
                     // Key button: click to rebind.

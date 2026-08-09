@@ -19,7 +19,10 @@ namespace SlopWorld
 
         public override string Title => "Projects";
 
-        protected override float RowH => 2 * SlopWidgets.LineH + SlopWidgets.GapXS + 4f;
+        // The second line holds a row button, so the pitch is off that rather than off two
+        // line heights - see SessionsView, which has the same two-line row.
+        protected override float RowH =>
+            SlopWidgets.GapXS + SlopWidgets.LineH + SlopWidgets.RowBtnH + SlopWidgets.GapXS + 4f;
 
         protected override string EmptyNote =>
             "No projects yet. Add one, then put an agent in it.";
@@ -41,30 +44,45 @@ namespace SlopWorld
         {
             SlopWidgets.RowChrome(r);
 
+            // Said rather than inherited: the widths below are measured, and a measurement is
+            // about whichever tier is current when it is taken.
+            Text.Font = GameFont.Small;
+
             // The two lines of the row, off the font rather than off a pair of figures four
             // pixels apart: `Widgets.Label` clips to the rect it is handed, so a literal here
             // is one that crops descenders on any font but the one it was chosen against.
             float l1 = r.y + SlopWidgets.GapXS, l2 = l1 + SlopWidgets.LineH;
 
+            // The name's column, measured: 200 and 214 held for one face at one size.
+            float nameW = Mathf.Max(SlopWidgets.Wide("mmmmmmmmmmmmmmmm"), 200f);
+
             GUI.color = SlopWidgets.Lead;
-            Widgets.Label(new Rect(r.x + SlopWidgets.GapS, l1, 200f, SlopWidgets.LineH), p.Name);
+            SlopWidgets.RowLabel(
+                new Rect(r.x + SlopWidgets.GapS, l1, nameW, SlopWidgets.LineH), p.Name);
 
             // The number that decides whether this project can be deleted at all.
             int agents = SessionHub.Instance.Sessions.Count(s => s.Project == p.Name);
             GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(r.x + 214f, l1, 120f, SlopWidgets.LineH),
+            Widgets.Label(
+                new Rect(r.x + SlopWidgets.GapS + nameW + SlopWidgets.GapS, l1,
+                    SlopWidgets.Wide("99 agents") + 4f, SlopWidgets.LineH),
                 agents == 1 ? "1 agent" : $"{agents} agents");
 
-            Widgets.Label(new Rect(r.x + SlopWidgets.GapS, l2, r.width - 150f,
-                SlopWidgets.LineH), $"{p.Dir}  ({Summary(p)})");
+            // Cut rather than wrapped: a directory and a summary beside it have spaces in
+            // them, and a wrapped line in a one-line slot loses the half of each that is
+            // outside the rect.
+            SlopWidgets.RowLabel(
+                new Rect(r.x + SlopWidgets.GapS, l2, Mathf.Max(60f, r.width - 150f),
+                    SlopWidgets.LineH), $"{p.Dir}  ({Summary(p)})");
             GUI.color = Color.white;
 
             float right = r.xMax - 6f;
+            float actW = Mathf.Max(SlopWidgets.BtnW("Delete", 120f), SlopWidgets.BtnW("Edit", 120f));
 
-            if (SlopWidgets.Button(new Rect(right - 120f, r.y + 1f, 120f, SlopWidgets.RowBtnH), "Edit"))
+            if (SlopWidgets.Button(new Rect(right - actW, r.y + 1f, actW, SlopWidgets.RowBtnH), "Edit"))
                 TerminalWindow.OpenOverPane(new EditProjectDialog(p));
 
-            if (SlopWidgets.Button(new Rect(right - 120f, l2, 120f, SlopWidgets.RowBtnH), "Delete",
+            if (SlopWidgets.Button(new Rect(right - actW, l2, actW, SlopWidgets.RowBtnH), "Delete",
                     SlopWidgets.Btn.Danger))
             {
                 var name = p.Name;

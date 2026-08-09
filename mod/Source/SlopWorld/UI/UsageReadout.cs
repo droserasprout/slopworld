@@ -86,7 +86,7 @@ namespace SlopWorld
                 var w = Window(usage, key);
                 string count = w != null ? Count(w) : Unsaid;
 
-                float need = IconSize + 2f + Text.CalcSize(count).x + 2f;
+                float need = IconSize + 2f + SlopWidgets.Wide(count) + 2f;
                 if (x - need < area.x) break;
 
                 x -= need;

@@ -16,8 +16,9 @@ namespace SlopWorld
     // as on the map - the same road the other three views take.
     public static class ShortcutsView
     {
-        const float RowH = 20f;
-        const float HeadH = 20f;
+        // Off the font, for the reason the other two trees' are.
+        static float RowH => SlopWidgets.TinyRowH;
+        static float HeadH => SlopWidgets.TinyRowH;
         const float Pad = 6f;
         const float CellX = 8f;
         const float ArrowW = 11f;
@@ -120,7 +121,7 @@ namespace SlopWorld
                     float lx = arrow.xMax + 4f;
                     string tail = folded ? "  " + bucket.Count : "";
                     var labelRect = new Rect(lx, headRect.y, view.width - lx - CellX, HeadH);
-                    Widgets.Label(labelRect, (label + tail).Truncate(labelRect.width));
+                    SlopWidgets.RowLabel(labelRect, label + tail);
 
                     GUI.color = Color.white;
                     Text.Anchor = TextAnchor.UpperLeft;
@@ -147,34 +148,34 @@ namespace SlopWorld
                         GUI.color = item.Kind == ShortcutKind.Shell
                             ? SlopWidgets.Warn
                             : new Color(0.55f, 0.75f, 0.9f);
+                        // The whole row is Tiny, the way a row of the other two trees is: the
+                        // badge was, and the name and the sample beside it were Small in a row
+                        // laid out for Tiny - which on any face taller than the one it was
+                        // written against is a line with its descenders cut off.
                         Text.Font = GameFont.Tiny;
                         Text.Anchor = TextAnchor.MiddleLeft;
                         Widgets.Label(new Rect(CellX, r.y, badgeW, RowH),
                             item.Kind == ShortcutKind.Shell ? "sh" : "→");
                         GUI.color = Color.white;
-                        Text.Anchor = TextAnchor.UpperLeft;
-                        Text.Font = GameFont.Small;
 
                         float tx = CellX + badgeW + 4f;
                         // The name comes first, then a sample of the text truncated.
                         GUI.color = SlopWidgets.Lead;
-                        var nameW = Text.CalcSize(item.Name).x;
+                        var nameW = SlopWidgets.Wide(item.Name);
                         var nameRect = new Rect(tx, r.y, Mathf.Min(nameW + 6f,
                             view.width * 0.35f), RowH);
-                        Widgets.Label(nameRect, item.Name.Truncate(nameRect.width));
+                        SlopWidgets.RowLabel(nameRect, item.Name);
                         GUI.color = SlopWidgets.Dim;
 
                         float restX = nameRect.xMax + 2f;
                         var restW = r.xMax - 6f - restX;
                         if (restW > 20f)
-                        {
-                            var was = Text.WordWrap;
-                            Text.WordWrap = false;
-                            Widgets.Label(new Rect(restX, r.y, restW, RowH),
-                                OneLine(item.Text).Truncate(restW));
-                            Text.WordWrap = was;
-                        }
+                            SlopWidgets.RowLabel(new Rect(restX, r.y, restW, RowH),
+                                OneLine(item.Text));
+
                         GUI.color = Color.white;
+                        Text.Anchor = TextAnchor.UpperLeft;
+                        Text.Font = GameFont.Small;
 
                         Lines.Add(new Line { Item = item, Rect = Screen(r) });
                         y += RowH;

@@ -20,7 +20,8 @@ namespace SlopWorld
     // walked: a directory here exists because something under it changed.
     public static class GitView
     {
-        const float RowH = 20f;
+        // Off the font, for the reason the files view's is - one column, one kind of row.
+        static float RowH => SlopWidgets.TinyRowH;
         const float IconW = 16f;
         const float Indent = 11f;
         const float Pad = 6f;
@@ -394,7 +395,7 @@ namespace SlopWorld
 
             float lx = arrow.xMax + 4f;
             var label = new Rect(lx, r.y, rx - lx, RowH);
-            Widgets.Label(label, project.Truncate(label.width));
+            SlopWidgets.RowLabel(label, project);
 
             Widgets.DrawBoxSolid(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
                 new Color(1f, 1f, 1f, 0.08f));
@@ -452,7 +453,7 @@ namespace SlopWorld
             GUI.color = SlopWidgets.Dim;
             Text.Anchor = TextAnchor.MiddleLeft;
             var branch = new Rect(x, y, Mathf.Max(0f, rx - x - 4f), RowH);
-            Widgets.Label(branch, (repo.Branch ?? "").Truncate(branch.width));
+            SlopWidgets.RowLabel(branch, repo.Branch ?? "");
 
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
@@ -469,7 +470,10 @@ namespace SlopWorld
         // the measuring, so nothing here has to know how wide a number is.
         static float Tail(float right, float y, string text, Color color)
         {
-            float w = Text.CalcSize(text).x;
+            // A pixel either side of the measurement: a rect exactly as wide as its own
+            // CalcSize clips the last glyph's overhang on a face whose advance is narrower
+            // than its ink, which on a number is the whole of what there was to read.
+            float w = SlopWidgets.Wide(text) + 2f;
             GUI.color = color;
             Text.Anchor = TextAnchor.MiddleRight;
             Widgets.Label(new Rect(right - w, y, w, RowH), text);
@@ -483,7 +487,7 @@ namespace SlopWorld
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
             var r = new Rect(x, y, width - x - Pad, RowH);
-            Widgets.Label(r, text.Truncate(r.width));
+            SlopWidgets.RowLabel(r, text);
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
@@ -555,7 +559,7 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = node.IsDir ? SlopWidgets.Lead : SlopWidgets.Name;
             var label = new Rect(x, y, Mathf.Max(0f, rx - x - 2f), RowH);
-            Widgets.Label(label, node.Name.Truncate(label.width));
+            SlopWidgets.RowLabel(label, node.Name);
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;

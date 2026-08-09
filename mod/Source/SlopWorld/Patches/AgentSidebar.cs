@@ -37,7 +37,10 @@ namespace SlopWorld
         const float Nominal = 0.5f;
         const float Floor = 0.3f;
 
-        const float HeadH = 20f;
+        // The heading band is a tiny line and follows the font: a figure here is one that crops
+        // the band's own label on any face taller than the one it was written against. The add
+        // strip below holds a glyph rather than a word, so it keeps a figure.
+        static float HeadH => SlopWidgets.TinyRowH;
         const float AddH = 26f;
 
         // The plus in that strip. Larger than the tab icons on purpose: this is the one
@@ -66,8 +69,12 @@ namespace SlopWorld
         // figure here is one that crops descenders on any font but the one it was eyeballed
         // against - which is what cost the labels their bottom pixel rows. Vanilla sizes its
         // own Widgets.Label(x, ref curY, ...) rects with CalcHeight for the same reason.
-        static float NameH => Mathf.Ceil(Text.LineHeightOf(GameFont.Small));
-        static float SubH => Mathf.Ceil(Text.LineHeightOf(GameFont.Tiny));
+        //
+        // Through SlopWidgets, so the sub-line is measured at the tier it will *land* on:
+        // asking Tiny for its height and then being handed Small to draw in is the same
+        // cropped row arrived at from the other end - see SlopWidgets.Real.
+        static float NameH => SlopWidgets.LineHOf(GameFont.Small);
+        static float SubH => SlopWidgets.TinyH;
 
         // Three of them: the name, what it is doing and for how long, and what it calls
         // itself. One figure rather than the sum written out at each of the four places that
@@ -794,7 +801,7 @@ namespace SlopWorld
             // portraits are the count the rest of the time.
             string tail = head.Folded ? "  " + head.Count : "";
             var label = new Rect(lx, r.y, r.width - lx - CellX, HeadH);
-            Widgets.Label(label, (head.Label + tail).Truncate(label.width));
+            SlopWidgets.RowLabel(label, head.Label + tail);
 
             Widgets.DrawBoxSolid(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
                 new Color(1f, 1f, 1f, 0.08f));
@@ -853,7 +860,7 @@ namespace SlopWorld
                         }
 
                         GUI.color = SlopWidgets.Dim;
-                        Widgets.Label(text, (Label(info) ?? row.Session).Truncate(text.width));
+                        SlopWidgets.RowLabel(text, Label(info) ?? row.Session);
                         GUI.color = Color.white;
                         Click(row, info);
                         continue;
@@ -874,8 +881,7 @@ namespace SlopWorld
                         name.width -= d + 3f;
                     }
                     GUI.color = tint;
-                    Widgets.Label(name, (row.Session ?? row.Pawn?.LabelShort ?? "?")
-                        .Truncate(name.width));
+                    SlopWidgets.RowLabel(name, row.Session ?? row.Pawn?.LabelShort ?? "?");
 
                     // Line two is what it is doing and for how long. The elapsed is laid out
                     // from the right so the times line up down the column and the word keeps
@@ -890,10 +896,10 @@ namespace SlopWorld
                         GUI.color = SlopWidgets.Faint;
                         Widgets.Label(word, ago);
                         Text.Anchor = TextAnchor.UpperLeft;
-                        word.width -= Mathf.Ceil(Text.CalcSize(ago).x) + AgoGap;
+                        word.width -= Mathf.Ceil(SlopWidgets.Wide(ago)) + AgoGap;
                     }
                     GUI.color = SlopWidgets.Dim;
-                    Widgets.Label(word, Word(state).Truncate(Mathf.Max(1f, word.width)));
+                    SlopWidgets.RowLabel(word, Word(state));
 
                     // Line three is what the app calls itself, and failing that where it is.
                     // Dimmer for the fallback: a title is this agent's own word for what it is
@@ -903,11 +909,11 @@ namespace SlopWorld
                     if (title.Length == 0) title = Ground(info);
                     var line3 = new Rect(row.Text.x, row.Text.y + NameH + SubH,
                         row.Text.width, SubH);
-                    Widgets.Label(line3, title.Truncate(line3.width));
+                    SlopWidgets.RowLabel(line3, title);
                     // Only the third line runs long enough to lose anything to the truncation,
                     // so only there is a hover worth answering: the name is the one the agents
                     // window shows and the state is a word.
-                    if (title.Length > 0 && Text.CalcSize(title).x > line3.width)
+                    if (title.Length > 0 && SlopWidgets.Wide(title) > line3.width)
                         TooltipHandler.TipRegion(line3, title);
 
                     GUI.color = Color.white;
@@ -918,7 +924,12 @@ namespace SlopWorld
             }
             finally
             {
+                // The anchor with them: line two sets it to the right for the elapsed, and a
+                // throw between there and the line that puts it back leaves every label in the
+                // frame right-aligned - and vanilla's own StartOfOnGUI logs it once and
+                // straightens it, which is a report about this and not about what threw.
                 Text.Font = GameFont.Small;
+                Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = Color.white;
                 Drawing = false;
             }

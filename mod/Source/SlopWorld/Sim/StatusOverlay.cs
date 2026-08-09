@@ -27,14 +27,20 @@ namespace SlopWorld
                 var info = hub.Get(kv.Key);
                 var state = info?.State ?? AgentState.Down;
 
-                var pos = GenMapUI.LabelDrawPosFor(pawn, -0.85f);
-                var box = new Rect(pos.x - 40f, pos.y - 2f, 80f, 20f);
+                // The plate is measured off the word it is behind rather than written down:
+                // at 60x16 under an 80x20 box it was already the narrower of the two, so a
+                // larger font hung the word off both ends of its own backing.
+                string glyph = Glyph(state);
+                float w = SlopWidgets.Wide(glyph) + SlopWidgets.GapS;
+                float h = SlopWidgets.TinyH;
 
-                Widgets.DrawBoxSolid(new Rect(box.center.x - 30f, box.y, 60f, 16f),
-                    new Color(0f, 0f, 0f, 0.55f));
+                var pos = GenMapUI.LabelDrawPosFor(pawn, -0.85f);
+                var box = new Rect(pos.x - w / 2f, pos.y - 2f, w, h);
+
+                Widgets.DrawBoxSolid(box, new Color(0f, 0f, 0f, 0.55f));
 
                 GUI.color = TerminalWindow.StateColor(state);
-                Widgets.Label(box, Glyph(state));
+                Widgets.Label(box, glyph);
                 GUI.color = Color.white;
             }
 

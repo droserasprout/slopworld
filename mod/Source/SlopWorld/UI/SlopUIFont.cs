@@ -105,19 +105,27 @@ namespace SlopWorld
             ApplyToStyles(Text.textAreaStyles, font, size);
             ApplyToStyles(Text.textAreaReadOnlyStyles, font, size);
 
-            // Update private lineHeights and spaceBetweenLines arrays via reflection.
-            // These are used by Text.LineHeight / LineHeightOf / SpaceBetweenLines.
+            // Update the private lineHeights array via reflection. It is what
+            // Text.LineHeight / LineHeightOf answer from, and so what every row in this mod
+            // is laid out off.
             //
             // We measure each tier at its own size using GUIStyle.lineHeight, which
             // includes the font's inter-line spacing (ascent + descent + leading).
             // This is the same metric TerminalFont uses for its cell height:
             //   CellH = Mathf.Max(_style.lineHeight, _size + 2f)
             // Floored at size * 1.6 for headroom across diverse faces - see LineHeight.
+            //
+            // `spaceBetweenLines` is deliberately left alone. It is not a line height but the
+            // *extra* leading between two of them - vanilla fills it with
+            // CalcHeight("W\nW") - 2 * CalcHeight("W"), which for a style with no padding is
+            // zero and never more than a pixel or two. Writing a whole line height into it put
+            // twenty-odd pixels between the label lines of every gizmo in the game
+            // (Gizmo.GizmoOnGUI and Widgets.LongLabel are its readers), and the figure vanilla
+            // computed at startup is still right here: the padding it is measuring is on the
+            // style, and changing the face and the size does not touch it.
             try
             {
                 var lhField = typeof(Text).GetField("lineHeights",
-                    BindingFlags.NonPublic | BindingFlags.Static);
-                var slField = typeof(Text).GetField("spaceBetweenLines",
                     BindingFlags.NonPublic | BindingFlags.Static);
 
                 if (lhField != null)
@@ -126,14 +134,6 @@ namespace SlopWorld
                     if (arr != null && arr.Length >= 3)
                         for (int i = 0; i < 3; i++)
                             arr[i] = LineHeight(font, size > 0 ? size : DefaultSizes[i]);
-                }
-
-                if (slField != null)
-                {
-                    var arr = (float[])slField.GetValue(null);
-                    if (arr != null && arr.Length >= 3)
-                        for (int i = 0; i < 3; i++)
-                            arr[i] = LineHeight(font, size > 0 ? size : DefaultSizes[i]) + 2f;
                 }
             }
             catch (Exception e)
