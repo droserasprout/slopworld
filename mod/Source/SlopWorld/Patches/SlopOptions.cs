@@ -647,6 +647,42 @@ namespace SlopWorld
         }
 
 
+        // ---------------------------------------------------------------- controls
+
+        // The Controls tab is kept in the column but its "Modify" button is removed.
+        // Key bindings are now on the Shortcuts tab; this page just points there.
+        [HarmonyPatch(typeof(Dialog_Options), "DoOptions")]
+        public static class Patch_OptionsPage_Controls
+        {
+            static bool Prefix(OptionCategoryDef category, Rect inRect)
+            {
+                if (category != OptionCategoryDefOf.Controls) return true;
+
+                SlopWidgets.PageCaption(inRect, "Keyboard bindings");
+
+                var body = SlopWidgets.PageBody(inRect);
+                Widgets.DrawMenuSection(body);
+                var inner = body.ContractedBy(SlopWidgets.GapM);
+
+                float y = inner.y;
+                GUI.color = SlopWidgets.Dim;
+                Widgets.Label(new Rect(inner.x, y, inner.width, Text.CalcHeight(
+                    "Key bindings have moved to the Shortcuts tab.", inner.width)),
+                    "Key bindings have moved to the Shortcuts tab.");
+                y += 28f;
+
+                GUI.color = SlopWidgets.Faint;
+                Widgets.Label(new Rect(inner.x, y, inner.width, Text.CalcHeight(
+                    "Click Shortcuts in the column on the left to view and change them.",
+                    inner.width)),
+                    "Click Shortcuts in the column on the left to view and change them.");
+                GUI.color = Color.white;
+
+                return false;
+            }
+        }
+
+
         // -------------------------------------------------------- main menu
 
         // The version info corner is drawn by VersionControl on every menu frame.
