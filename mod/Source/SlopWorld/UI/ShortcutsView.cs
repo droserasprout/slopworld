@@ -6,130 +6,357 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Running one lands a *temporary* colonist - never in config.toml, and it walks
-    // off the map when its process exits. Which is why the window closes on Run and
-    // hands you the terminal: the errand is already underway.
-    public class ShortcutsView : SlopListView<ShortcutInfo>
+    // The column's shortcuts body: every [[shortcut]] entry, grouped by project, drawn
+    // as thin text rows under foldable headings - the same shape the agents view draws
+    // its ghost rows in. No portraits, no titles, no footer bar: just the list and the
+    // "+" that opens the editor.
+    //
+    // Drawn from AgentSidebar's back pass, which is what puts it over a terminal as well
+    // as on the map - the same road the other three views take.
+    public static class ShortcutsView
     {
-        public static void Toggle() => TerminalWindow.ToggleContent(() => new ShortcutsView());
+        const float RowH = 20f;
+        const float HeadH = 20f;
+        const float AddH = 26f;
+        const float Pad = 6f;
+        const float CellX = 8f;
+        const float ArrowW = 11f;
 
-        public override void Opened()
+        // The text that drives the rows, snapshotted once per frame so size and draw agree.
+        static List<ShortcutInfo> _items = new List<ShortcutInfo>();
+
+        // Grouped by project. Key "" is "no project".
+        static readonly Dictionary<string, List<ShortcutInfo>> Groups =
+            new Dictionary<string, List<ShortcutInfo>>();
+        static readonly List<string> Order = new List<string>();
+        const string Loose = "";
+
+        // Which headings are rolled up. Kept in memory only, the way the files view keeps
+        // its folds and the agents view keeps its own - a fold is about the view, not the
+        // colony, so it does not belong in a save.
+        static readonly HashSet<string> Folded = new HashSet<string>();
+
+        // The selected row, for the RMB menu.
+        static ShortcutInfo _selected;
+
+        // The drawn lines, rebuilt each frame so clicks and drawing agree.
+        struct Line
         {
-            SessionHub.Instance.RefreshShortcuts();
-            // The rows name a project, and the dialog they open picks one.
-            SessionHub.Instance.RefreshProjects();
+            public ShortcutInfo Item;
+            public string Project;  // set on a heading, null on a row
+            public Rect Rect;
+            public bool Folded;
+            public int Count;
         }
+        static readonly List<Line> Lines = new List<Line>();
 
-        public override string Title => "Shortcuts";
+        // ------------------------------------------------------------------ drawing
 
-        protected override float RowH => 2 * SlopWidgets.LineH + SlopWidgets.GapXS + 14f;
-
-        protected override string EmptyNote =>
-            "No shortcuts yet. A prompt one hands an agent something you would " +
-            "otherwise retype; a shell one runs a command in a project's sandbox. " +
-            "Either way the colonist that does it is temporary.";
-
-        protected override IEnumerable<ShortcutInfo> Rows => SessionHub.Instance.Shortcuts;
-
-        protected override void DoFooter(Rect bar, SessionHub hub)
+        public static void Draw(Rect body)
         {
-            var row = new SlopWidgets.Bar(bar);
+            _items = SessionHub.Instance.Shortcuts.ToList();
+            Lines.Clear();
 
-            if (row.Left("Add shortcut", SlopWidgets.Btn.Primary))
-                TerminalWindow.OpenOverPane(new EditShortcutDialog(null));
-
-            if (row.Left("Agents"))
-                SessionsView.Toggle();
-
-            if (row.Right("Reload", SlopWidgets.Btn.Ghost))
-                hub.RefreshShortcuts(SlopWidgets.Fail);
-        }
-
-        protected override void DrawRow(Rect r, ShortcutInfo s)
-        {
-            SlopWidgets.RowChrome(r);
-
-            float l1 = r.y + SlopWidgets.GapXS, l2 = l1 + SlopWidgets.LineH;
-
-            GUI.color = SlopWidgets.Lead;
-            Widgets.Label(new Rect(r.x + SlopWidgets.GapS, l1, 220f, SlopWidgets.LineH), s.Name);
-
-            // The kind decides what the text even is - a sentence for an agent or a command
-            // line for a shell.
-            GUI.color = s.Kind == ShortcutKind.Shell
-                ? SlopWidgets.Warn
-                : new Color(0.55f, 0.75f, 0.9f);
-            Widgets.Label(new Rect(r.x + 232f, l1, 70f, SlopWidgets.LineH),
-                s.Kind == ShortcutKind.Shell ? "shell" : "prompt");
-
-            GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(r.x + 302f, l1, r.width - 480f, SlopWidgets.LineH),
-                Where(s));
-
-            // One line: the box that edits it is where the rest lives, and a row that grew
-            // with the text would push the next shortcut off the list.
-            var was = Text.WordWrap;
-            Text.WordWrap = false;
-            Widgets.Label(new Rect(r.x + SlopWidgets.GapS, l2, r.width - 190f,
-                SlopWidgets.LineH), OneLine(s.Text));
-            Text.WordWrap = was;
-            GUI.color = Color.white;
-
-            float right = r.xMax - 6f;
-
-            // Run is the reason this window exists, so it is the widest button and the one on
-            // its own line.
-            var run = new Rect(right - 174f, r.y + 1f, 96f, SlopWidgets.RowBtnH);
-            TooltipHandler.TipRegion(run, s.Kind == ShortcutKind.Shell
-                ? $"Run '{s.Text}' in a temporary shell in {Where(s)}."
-                : $"Hand this to a temporary agent in {Where(s)}.");
-            // An entry that never said where goes through a menu first; the button is the
-            // same either way, because "run it" is what is being asked for in both cases.
-            if (SlopWidgets.Button(run, s.Link == ShortcutLink.Ask ? "Run..." : "Run",
-                    SlopWidgets.Btn.Primary))
+            if (_items.Count == 0)
             {
-                if (s.Link == ShortcutLink.Ask) AskWhere(s);
-                else Run(s.Name);
+                Empty(body);
+                return;
             }
 
-            if (SlopWidgets.Button(new Rect(right - 74f, r.y + 1f, 74f, SlopWidgets.RowBtnH), "Edit"))
-                TerminalWindow.OpenOverPane(new EditShortcutDialog(s));
+            Group();
+            float y = body.y + Pad;
 
-            if (SlopWidgets.Button(new Rect(right - 74f, l2, 74f, SlopWidgets.RowBtnH), "Del",
-                    SlopWidgets.Btn.Danger))
+            foreach (var key in Order)
+            {
+                var bucket = Groups[key];
+                bool folded = Folded.Contains(key);
+
+                string label = key.Length == 0 ? LooseLabel : key;
+                var headRect = new Rect(0f, y, body.width, HeadH);
+                Lines.Add(new Line { Project = label, Rect = headRect, Folded = folded,
+                    Count = bucket.Count });
+
+                // Heading
+                if (ColonistBarStrip.MouseOver(headRect)) Widgets.DrawHighlight(headRect);
+
+                GUI.color = SlopWidgets.Faint;
+                var arrow = new Rect(CellX, headRect.y + (HeadH - ArrowW) / 2f, ArrowW, ArrowW);
+                GUI.DrawTexture(arrow, folded ? TexButton.Reveal : TexButton.Collapse);
+
+                Text.Font = GameFont.Tiny;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                float lx = arrow.xMax + 4f;
+                string tail = folded ? "  " + bucket.Count : "";
+                var labelRect = new Rect(lx, headRect.y, body.width - lx - CellX, HeadH);
+                Widgets.Label(labelRect, (label + tail).Truncate(labelRect.width));
+
+                GUI.color = Color.white;
+                Text.Anchor = TextAnchor.UpperLeft;
+                Text.Font = GameFont.Small;
+
+                Widgets.DrawBoxSolid(new Rect(CellX, headRect.yMax - 1f,
+                    body.width - CellX * 2f, 1f), new Color(1f, 1f, 1f, 0.08f));
+
+                TooltipHandler.TipRegion(headRect,
+                    key.Length == 0
+                        ? "Shortcuts that don't belong to any project.\n\nClick to fold."
+                        : $"Click to fold, right-click for the project.");
+
+                y += HeadH;
+                if (folded) continue;
+
+                foreach (var item in bucket)
+                {
+                    var r = new Rect(0f, y, body.width, RowH);
+                    bool over = ColonistBarStrip.MouseOver(r);
+                    if (over) Widgets.DrawHighlight(r);
+
+                    // The kind badge: "prompt" or "shell"
+                    float badgeW = 34f;
+                    GUI.color = item.Kind == ShortcutKind.Shell
+                        ? SlopWidgets.Warn
+                        : new Color(0.55f, 0.75f, 0.9f);
+                    Text.Font = GameFont.Tiny;
+                    Text.Anchor = TextAnchor.MiddleLeft;
+                    Widgets.Label(new Rect(CellX, r.y, badgeW, RowH),
+                        item.Kind == ShortcutKind.Shell ? "sh" : "→");
+                    GUI.color = Color.white;
+                    Text.Anchor = TextAnchor.UpperLeft;
+                    Text.Font = GameFont.Small;
+
+                    float tx = CellX + badgeW + 4f;
+                    // The name comes first, then a sample of the text truncated.
+                    GUI.color = SlopWidgets.Lead;
+                    var nameW = Text.CalcSize(item.Name).x;
+                    var nameRect = new Rect(tx, r.y, Mathf.Min(nameW + 6f,
+                        body.width * 0.35f), RowH);
+                    Widgets.Label(nameRect, item.Name.Truncate(nameRect.width));
+                    GUI.color = SlopWidgets.Dim;
+
+                    float restX = nameRect.xMax + 2f;
+                    var restW = r.xMax - 6f - restX;
+                    if (restW > 20f)
+                    {
+                        var was = Text.WordWrap;
+                        Text.WordWrap = false;
+                        Widgets.Label(new Rect(restX, r.y, restW, RowH),
+                            OneLine(item.Text).Truncate(restW));
+                        Text.WordWrap = was;
+                    }
+                    GUI.color = Color.white;
+
+                    Lines.Add(new Line { Item = item, Rect = r });
+                    y += RowH;
+                }
+            }
+
+            // The "+" is pinned to the foot of the panel, following the pattern of the
+            // agents view. Room for it is reserved: the body is the full height of the
+            // column below the tab strip, and this draws over whatever the list itself
+            // left.
+            var addRect = new Rect(CellX, body.yMax - AddH - Pad,
+                body.width - CellX * 2f, AddH);
+            DrawAdd(addRect);
+        }
+
+        static void Empty(Rect body)
+        {
+            var r = new Rect(CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
+            GUI.color = SlopWidgets.Faint;
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.UpperLeft;
+            Widgets.Label(r, SessionHub.Instance.Online
+                ? "No shortcuts yet. Press + to add one."
+                : $"daemon {SessionHub.Instance.Status}");
+            Text.Font = GameFont.Small;
+            GUI.color = Color.white;
+        }
+
+        // Group the items by project, the way the agents view groups by project.
+        static void Group()
+        {
+            foreach (var list in Groups.Values) list.Clear();
+            Order.Clear();
+
+            foreach (var item in _items)
+            {
+                string key = string.IsNullOrEmpty(item.Project) ? Loose : item.Project;
+                if (!Groups.TryGetValue(key, out var list))
+                    Groups[key] = list = new List<ShortcutInfo>();
+                list.Add(item);
+            }
+
+            foreach (var kv in Groups)
+                if (kv.Value.Count > 0) Order.Add(kv.Key);
+
+            // Alphabetical, with the loose ones last - same as the agents view.
+            Order.Sort((a, b) =>
+                a == Loose ? (b == Loose ? 0 : 1)
+                : b == Loose ? -1
+                : string.CompareOrdinal(a, b));
+
+            foreach (var list in Groups.Values) list.Sort((a, b) =>
+                string.CompareOrdinal(a?.Name ?? "", b?.Name ?? ""));
+        }
+
+        static string LooseLabel => "no project";
+
+        // The "+" button at the bottom, matching the agents view's add button.
+        static void DrawAdd(Rect r)
+        {
+            var wasAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Text.Font = GameFont.Small;
+
+            bool over = ColonistBarStrip.MouseOver(r);
+            if (over)
+            {
+                Widgets.DrawBoxSolid(r, new Color(1f, 1f, 1f, 0.08f));
+                TooltipHandler.TipRegion(r, "Add a new shortcut");
+            }
+            Widgets.DrawBoxSolid(new Rect(r.x, r.y, r.width, 1f), SlopWidgets.Edge);
+
+            GUI.color = over ? SlopWidgets.Lead : SlopWidgets.Dim;
+            Widgets.Label(r, "+");
+            GUI.color = Color.white;
+            Text.Anchor = wasAnchor;
+        }
+
+        // ------------------------------------------------------------------ clicks
+        //
+        // Called from AgentSidebar's back pass where Menus is in the agents view and
+        // Clicks is in the files/git views.
+
+        public static void Clicks()
+        {
+            if (!ColonistBarStrip.Interactive) return;
+
+            var e = Event.current;
+            if (e.rawType != EventType.MouseDown) return;
+            if (e.button != 0 && e.button != 1) return;
+
+            // The "+" button first, so it takes priority over anything drawn under it.
+            var body = AgentSidebar.Body;
+            var addRect = new Rect(CellX, body.yMax - AddH - Pad,
+                body.width - CellX * 2f, AddH);
+            if (ColonistBarStrip.MouseOver(addRect) && e.button == 0)
+            {
+                TerminalWindow.OpenOverPane(new EditShortcutDialog(null));
+                e.Use();
+                return;
+            }
+
+            foreach (var line in Lines)
+            {
+                if (!ColonistBarStrip.MouseOver(line.Rect)) continue;
+
+                if (line.Project != null)
+                {
+                    // Heading: left click folds, right click opens project menu.
+                    if (e.button == 0)
+                    {
+                        if (!Folded.Remove(line.Project)) Folded.Add(line.Project);
+                    }
+                    else
+                    {
+                        HeadMenu(line.Project);
+                    }
+                    e.Use();
+                    return;
+                }
+
+                if (e.button == 1)
+                {
+                    _selected = line.Item;
+                    RowMenu(line.Item);
+                    e.Use();
+                    return;
+                }
+
+                // Left click: run the shortcut.
+                e.Use();
+                Run(line.Item);
+                return;
+            }
+        }
+
+        // ------------------------------------------------------------------ menus
+
+        static void HeadMenu(string project)
+        {
+            var p = SessionHub.Instance.Project(project);
+            if (p == null) return;
+
+            var opts = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Edit...", () =>
+                    TerminalWindow.OpenOverPane(new EditProjectDialog(p))),
+            };
+
+            opts.Add(new FloatMenuOption("Terminal (host)", () =>
+                SessionHub.Instance.RunHostShell(project,
+                    session => TerminalWindow.Open(session), SlopWidgets.Fail)));
+
+            TerminalWindow.OpenOverPane(new FloatMenu(opts));
+        }
+
+        static void RowMenu(ShortcutInfo s)
+        {
+            var opts = new List<FloatMenuOption>();
+
+            // Run is the reason this exists, so it is first.
+            opts.Add(new FloatMenuOption("Run", () => Run(s)));
+
+            var where = Where(s);
+            if (s.Link == ShortcutLink.Ask)
+                opts.Add(new FloatMenuOption("Run in...", () => AskWhere(s)));
+
+            opts.Add(new FloatMenuOption("Edit...", () =>
+                TerminalWindow.OpenOverPane(new EditShortcutDialog(s))));
+
+            opts.Add(new FloatMenuOption("Delete", () =>
             {
                 var name = s.Name;
                 TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
                     $"Remove shortcut '{name}'? Anything it already started keeps running.",
                     () => SessionHub.Instance.RemoveShortcut(name, SlopWidgets.Fail),
                     destructive: true));
-            }
+            }));
+
+            TerminalWindow.OpenOverPane(new FloatMenu(opts));
         }
 
-        void Run(string name, string project = null, bool temp = false)
+        // ------------------------------------------------------------------ actions
+
+        static void Run(ShortcutInfo s, string project = null, bool temp = false)
         {
-            SessionHub.Instance.RunShortcut(name,
-                session =>
-                    // The list is left only once something is actually running, so a refused
-                    // errand leaves it up with the message over it. Opening the pane is what
-                    // leaves it: the body is one view at a time.
-                    TerminalWindow.Open(session),
-                SlopWidgets.Fail, project, temp);
+            // An entry that never said where goes through a menu first.
+            if (s.Link == ShortcutLink.Ask && project == null)
+            {
+                AskWhere(s);
+                return;
+            }
+
+            SessionHub.Instance.RunShortcut(s.Name,
+                session => TerminalWindow.Open(session),
+                SlopWidgets.Fail,
+                project ?? (s.Link == ShortcutLink.Temp ? null : s.Project),
+                temp || s.Link == ShortcutLink.Temp);
         }
 
         // Every project, plus a temporary one - last, being the answer for the run that
         // belongs nowhere in particular.
-        void AskWhere(ShortcutInfo s)
+        static void AskWhere(ShortcutInfo s)
         {
             var name = s.Name;
             var options = SessionHub.Instance.Projects
                 .Select(p => new FloatMenuOption($"{p.Name}  -  {p.Dir}",
-                    () => Run(name, p.Name)))
+                    () => Run(s, p.Name)))
                 .ToList();
 
             options.Add(new FloatMenuOption(
                 $"A temporary project under {ProjectInfo.TempRoot}",
-                () => Run(name, null, true)));
+                () => Run(s, null, true)));
 
             TerminalWindow.OpenOverPane(new FloatMenu(options));
         }
@@ -140,10 +367,10 @@ namespace SlopWorld
             switch (s.Link)
             {
                 case ShortcutLink.Temp: return "a temporary project";
-                case ShortcutLink.Ask: return "wherever you say";
+                case ShortcutLink.Ask: return "run in...";
                 default:
                     return string.IsNullOrEmpty(s.Project)
-                        ? "no project - it will not run"
+                        ? "no project"
                         : s.Project;
             }
         }
@@ -155,6 +382,28 @@ namespace SlopWorld
             int nl = text.IndexOf('\n');
             return nl < 0 ? text : text.Substring(0, nl) + " ...";
         }
+
+        // Called from the command palette, main button, and top bar to open the shortcuts
+        // as a full content view (over the terminal chrome, like Agents/SessionsView).
+        public static void Toggle() =>
+            TerminalWindow.ToggleContent(() => new ShortcutsContent());
+    }
+
+    // Wraps the static ShortcutsView as an IContentView so it can be opened via
+    // TerminalWindow.ToggleContent (used by the command palette, top bar, main button).
+    public class ShortcutsContent : IContentView
+    {
+        public string Title => "Shortcuts";
+
+        public void Draw(Rect body) => ShortcutsView.Draw(body);
+
+        public void Opened()
+        {
+            SessionHub.Instance.RefreshShortcuts();
+            SessionHub.Instance.RefreshProjects();
+        }
+
+        public void Closed() { }
     }
 
     // The command box is greyed rather than hidden when it is empty, so the thing

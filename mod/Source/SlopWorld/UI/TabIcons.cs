@@ -29,7 +29,7 @@ namespace SlopWorld
         // now have to agree on them.
         const float Mid = N / 2f, Box = 11f;
 
-        static Texture2D _agents, _files, _git, _refresh, _hidden, _bell, _auto, _hamburger,
+        static Texture2D _agents, _files, _git, _shortcuts, _refresh, _hidden, _bell, _auto, _hamburger,
             _config, _edit, _diff;
 
         public static Texture2D AgentsTex => _agents != null ? _agents : _agents = Build(Robot);
@@ -37,6 +37,9 @@ namespace SlopWorld
         public static Texture2D FilesTex => _files != null ? _files : _files = Build(Folder);
 
         public static Texture2D GitTex => _git != null ? _git : _git = Build(Branch);
+
+        public static Texture2D ShortcutsTex =>
+            _shortcuts != null ? _shortcuts : _shortcuts = Build(Lightning);
 
         public static Texture2D RefreshTex =>
             _refresh != null ? _refresh : _refresh = Build(Refresh);
@@ -98,6 +101,20 @@ namespace SlopWorld
             // The body (the main rectangle), minus the line across the front of it
             if (!RRect(x, y, 5f, 9f, 27f, 26f, 2.3f)) return false;
             return !Rect(x, y, 7.2f, 11.5f, 24.8f, 13f);
+        }
+
+        // A lightning bolt: a zigzag that says "shortcut" at 18 pixels. Two diagonal
+        // strokes, the upper one from upper-left to centre and the lower one from centre to
+        // lower-right, meeting at the knee.
+        static bool Lightning(float x, float y)
+        {
+            // The upper stroke, from left of centre up to the knee, with a slight angle
+            if (Rect(x, y, 6.5f, 6.5f, 17f, 16f)) return true;
+            // The lower stroke, from the knee down to lower-right
+            if (Rect(x, y, 14f, 14f, 25.5f, 25.5f)) return true;
+            // A short notch at the knee on the upper-left side, to give the bolt direction
+            if (Rect(x, y, 9.5f, 16f, 17f, 19.5f)) return true;
+            return false;
         }
 
         // A trunk with two nodes on it and a third off to the side, joined by a quarter of a

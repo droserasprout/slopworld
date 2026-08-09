@@ -201,11 +201,13 @@ namespace SlopWorld
         //
         // An unknown tab is the agents view. The setting is a string in a file a person can
         // edit, and the column has to draw something.
-        public const string TabAgents = "agents", TabFiles = "files", TabGit = "git";
+        public const string TabAgents = "agents", TabFiles = "files", TabGit = "git",
+            TabShortcuts = "shortcuts";
 
         public static bool Files => Settings.SidebarTab == TabFiles;
         public static bool Git => Settings.SidebarTab == TabGit;
-        public static bool Agents => !Files && !Git;
+        public static bool Shortcuts => Settings.SidebarTab == TabShortcuts;
+        public static bool Agents => !Files && !Git && !Shortcuts;
 
         static void Show(string tab)
         {
@@ -231,6 +233,10 @@ namespace SlopWorld
             // The files view asks for the same reading: a row there grows a diff button where
             // the working tree has a change, and that is the git view's answer to give.
             if (tab == TabGit || tab == TabFiles) GitView.Entered();
+
+            // The shortcuts list is read from the daemon each time the view is entered, and
+            // also refreshed by the button on its tab or the footer.
+            if (tab == TabShortcuts) SessionHub.Instance.RefreshShortcuts();
         }
 
         // The column's answer to a terminal being summoned: F12 opening a pane, or Alt+Num
@@ -238,10 +244,11 @@ namespace SlopWorld
         // not. The pagers their bodies opened go with them.
         public static void FocusTerminal() => Show(TabAgents);
 
-        // F3 / F4: focus the other two sidebar views without leaving the terminal chrome,
-        // the same way FocusTerminal switches back to the agents. See TerminalWindow.ChromeKeys.
+        // F3 / F4 / F5: focus the other sidebar views without leaving the terminal chrome,
+        // the same way FocusTerminal switches back to the agents. See TerminalWindow.HandleFunctionKey.
         public static void ShowFiles() => Show(TabFiles);
         public static void ShowGit() => Show(TabGit);
+        public static void ShowShortcuts() => Show(TabShortcuts);
 
         // Everything below the selector, which is where a view draws.
         public static Rect Body =>
@@ -581,6 +588,10 @@ namespace SlopWorld
             {
                 GitView.Draw(Body);
             }
+            else if (Shortcuts)
+            {
+                ShortcutsView.Draw(Body);
+            }
             else
             {
                 string open = TerminalWindow.CurrentName;
@@ -614,6 +625,7 @@ namespace SlopWorld
             Grip();
             if (Files) FilesView.Clicks();
             else if (Git) GitView.Clicks();
+            else if (Shortcuts) ShortcutsView.Clicks();
             else Menus();
         }
 
@@ -629,9 +641,9 @@ namespace SlopWorld
 
             float y = (TabH - TabIcon) / 2f;
 
-            // The selector, from the left. The gap is narrower than it was with two, three
+            // The selector, from the left. The gap is narrower than it was with three, four
             // icons and a switch being what the strip now has to hold on a narrow column.
-            const float Gap = 6f;
+            const float Gap = 5f;
             float x = CellX;
             Tab(new Rect(x, y, TabIcon, TabIcon), TabIcons.AgentsTex, Agents,
                 "Agents - every session, under the project it runs in", () => Show(TabAgents));
@@ -642,6 +654,10 @@ namespace SlopWorld
             Tab(new Rect(x, y, TabIcon, TabIcon), TabIcons.GitTex, Git,
                 "Git - what every working tree has that its last commit does not",
                 () => Show(TabGit));
+            x += TabIcon + Gap;
+            Tab(new Rect(x, y, TabIcon, TabIcon), TabIcons.ShortcutsTex, Shortcuts,
+                "Shortcuts - one-shot errands you can run against any project",
+                () => Show(TabShortcuts));
 
             // Each tree's one switch, from the right so neither ever shuffles the selector
             // sideways, and drawn only in the view it means something in. The cog and the
@@ -673,6 +689,9 @@ namespace SlopWorld
                 Tab(new Rect(right, y, TabIcon, TabIcon), TabIcons.RefreshTex, false,
                     "Read every working tree again.", GitView.Refresh);
             }
+
+            // The shortcuts view has no switch on the strip: the "+" at the foot of the
+            // panel is how you add one, and the list stays up to date from the daemon.
 
             // The strip is the panel's, so a press anywhere along it is the panel's too. Not
             // the last few pixels of it: that is the edge, and Grip - which is asked after

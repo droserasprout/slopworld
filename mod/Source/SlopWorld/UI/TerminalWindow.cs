@@ -872,6 +872,9 @@ namespace SlopWorld
                 case KeyCode.F4:
                     AgentSidebar.ShowGit();
                     return true;
+                case KeyCode.F5:
+                    AgentSidebar.ShowShortcuts();
+                    return true;
                 case KeyCode.F12:
                     // Close if the window is open, open one if not (handles	t both map and
                     // pane contexts via the same check).
@@ -879,7 +882,7 @@ namespace SlopWorld
                     if (w != null) w.Close();
                     else AgentSidebar.FocusTerminal();
                     return true;
-                // F5-F11: no action bound, pass through to the agent.
+                // F6-F11: no action bound, pass through to the agent.
                 default:
                     return false;
             }

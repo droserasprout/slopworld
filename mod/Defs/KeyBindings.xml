@@ -58,4 +58,11 @@
     <defaultKeyCodeA>F4</defaultKeyCodeA>
   </KeyBindingDef>
 
+  <KeyBindingDef>
+    <defName>SlopSidebarShortcuts</defName>
+    <label>sidebar: shortcuts view</label>
+    <category>SelectionMisc</category>
+    <defaultKeyCodeA>F5</defaultKeyCodeA>
+  </KeyBindingDef>
+
 </Defs>
