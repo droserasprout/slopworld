@@ -10,6 +10,13 @@ elsewhere.
 - `parse` **recognises rather than assumes**: an unrecognised payload leaves *no*
   windows and an error, so being wrong reads as "no numbers" and never as a colony
   at zero. A failed poll keeps the last good windows and adds the reason.
+- `expiresAt` and `refreshTokenExpiresAt` are **epoch milliseconds**, same as
+  `now_ms()`. A past `expiresAt` is *not* a logged-out host: Claude Code renews the
+  access token lazily and rewrites the file only then, and a sandboxed session
+  writes to its **private copy** of `~/.claude` — so a host driven only through
+  slopworld agents sits expired eight hours after its last direct `claude` run
+  while everything is signed in. Only a dead *refresh* token is a re-login, and
+  only that one says `claude auth`.
 - The credentials file's **mtime is watched every lap** and a change puts the
   Anthropic poller back to due with its failure count cleared. A login renewed on
   the host is the only thing that turns "expired" back into numbers, and waiting

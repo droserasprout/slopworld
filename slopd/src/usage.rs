@@ -137,13 +137,12 @@ fn read_creds(path: &PathBuf) -> anyhow::Result<Creds> {
         .ok_or_else(|| anyhow::anyhow!("no OAuth token in {}", path.display()))?
         .to_string();
 
-    // Expiry is advisory here: a stale token is a 401 we report like any other.
-    // `expiresAt` is in seconds (Unix epoch), `now_ms()` returns milliseconds, so
-    // multiply before comparing.
-    if let Some(exp) = o["expiresAt"].as_u64() {
-        if exp * 1000 < now_ms() {
-            anyhow::bail!("Claude login expired; run `claude auth` on the host");
-        }
+    if let Some(why) = expiry_error(
+        o["expiresAt"].as_u64(),
+        o["refreshTokenExpiresAt"].as_u64(),
+        now_ms(),
+    ) {
+        anyhow::bail!("{why}");
     }
 
     Ok(Creds {
@@ -153,6 +152,30 @@ fn read_creds(path: &PathBuf) -> anyhow::Result<Creds> {
             .unwrap_or_default()
             .to_string(),
     })
+}
+
+/// Why a poll is not worth making, or None. Both stamps are epoch *milliseconds*, the unit
+/// `now_ms()` is in: Claude Code writes them straight out of `Date.now()`, and scaling either
+/// side is how this check stops firing at all.
+///
+/// A past `expiresAt` is not a logged-out host. Claude Code refreshes the access token lazily,
+/// on use, and rewrites the file only when it does - and a sandboxed session gets a private
+/// copy of `~/.claude`, so an agent's refresh never reaches the host's file. A host nobody has
+/// run `claude` on directly can therefore sit hours past expiry with a perfectly good login,
+/// which is what "expired while I am signed in" means when the readout says it.
+///
+/// Told apart because the remedies are different, and `claude auth` on a token that any
+/// host-side command would renew by itself sends the user to re-authenticate for nothing.
+/// The refresh token is the one whose death really is a re-login; it outlives the access
+/// token by weeks.
+fn expiry_error(exp: Option<u64>, refresh_exp: Option<u64>, now: u64) -> Option<&'static str> {
+    if !exp.is_some_and(|e| e < now) {
+        return None;
+    }
+    if refresh_exp.is_some_and(|e| e < now) {
+        return Some("Claude login expired; run `claude auth` on the host");
+    }
+    Some("the host's cached Claude token needs renewing; run any `claude` command on the host")
 }
 
 /// The wait is carried rather than worked out: on a 429 the endpoint's own
@@ -898,6 +921,48 @@ mod tests {
         assert_eq!(m.unit, Unit::Pct);
         assert_eq!(m.pct, 21.0);
         assert!(m.amount.is_none());
+    }
+
+    /// Both stamps are epoch milliseconds. Written as a real pair off a live credentials
+    /// file, because the failure this guards is a unit slip and a synthetic `100 < 200`
+    /// would survive one.
+    #[test]
+    fn expiry_reads_milliseconds() {
+        // Issued 15:10 UTC-3, eight hours to run.
+        let exp = 1_786_327_807_534;
+        let refresh = 1_788_638_739_534;
+
+        assert!(expiry_error(Some(exp), Some(refresh), exp - 1).is_none());
+        assert!(expiry_error(Some(exp), Some(refresh), exp + 1).is_some());
+
+        // The slip that started this: seconds either side of the comparison, and a token
+        // three hours dead reads as good until the year 58,000.
+        assert!(expiry_error(Some(exp), Some(refresh), exp / 1000).is_none());
+        assert!(expiry_error(Some(exp * 1000), Some(refresh), exp + 10_800_000).is_none());
+    }
+
+    /// The whole point of telling them apart: an access token the host will renew on its
+    /// own must not send anyone to `claude auth`.
+    #[test]
+    fn a_renewable_token_is_not_a_logged_out_host() {
+        let now = 1_786_327_807_534;
+        let stale = now - 1;
+        let live_refresh = now + 30 * 86_400_000;
+
+        let renew = expiry_error(Some(stale), Some(live_refresh), now).unwrap();
+        assert!(renew.contains("needs renewing"));
+        assert!(!renew.contains("claude auth"));
+
+        let relogin = expiry_error(Some(stale), Some(stale), now).unwrap();
+        assert!(relogin.contains("claude auth"));
+
+        // No refresh stamp at all is not a dead one.
+        assert!(!expiry_error(Some(stale), None, now)
+            .unwrap()
+            .contains("claude auth"));
+
+        // Nothing said about expiry is not an expired token.
+        assert!(expiry_error(None, Some(stale), now).is_none());
     }
 
     #[test]
