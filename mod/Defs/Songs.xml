@@ -6,4 +6,10 @@
     <volume>1</volume>
     <tense>false</tense>
   </SongDef>
+  <SongDef>
+    <defName>SlopWorld_slopbg02</defName>
+    <clipPath>SlopWorld/slopbg02</clipPath>
+    <volume>1</volume>
+    <tense>false</tense>
+  </SongDef>
 </Defs>

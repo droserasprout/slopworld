@@ -39,7 +39,7 @@ calls `PreOptionChosen` - which closes the parent - before it invokes the action
   `Jukebox.Tip` off `TooltipHandler.TipRegion`, keyed on the cell so the bubble
   does not restart its fade every time the station moves on. Nothing is drawn when
   there is nothing to say - muted, or a station a second into a pick. The OST's
-  name is hardcoded (`Radio.OstTitle`, "Terry Fail - slopbg"), there being nobody
+  name is hardcoded (`Radio.OstTitles`, "Terry Fail - slopbg01" / "Terry Fail - slopbg02"), there being nobody
   else to say it. **Hovering the status bar's icon** says the same thing behind
   the name of what it opens - `Jukebox.IconTip`, "Jukebox" and then the song on a
   second line, the name alone when nothing is playing - the icon being a door onto

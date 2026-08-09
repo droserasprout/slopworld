@@ -83,14 +83,19 @@ namespace SlopWorld
                 "classic", new[] { 320 }, 320),
         };
 
-        // The one track this mod ships, as a path under the mod's own folder. A path and
-        // not a file:// URL so that neither end has anything to escape.
+        // The tracks this mod ships, as paths under the mod's own folder. One is picked
+        // when the OST is selected. A path and not a file:// URL so that neither end has
+        // anything to escape.
+        static readonly string[] OstFiles = { "slopbg01.ogg", "slopbg02.ogg" };
+        static readonly string[] OstTitles = { "Terry Fail - slopbg01", "Terry Fail - slopbg02" };
+        static int _ostIndex = 0;
+
         static string OstPath()
         {
             var root = SlopWorldMod.Instance?.Content?.RootDir;
             return string.IsNullOrEmpty(root)
                 ? null
-                : System.IO.Path.Combine(root, "Sounds", "SlopWorld", "slopbg01.ogg");
+                : System.IO.Path.Combine(root, "Sounds", "SlopWorld", OstFiles[_ostIndex]);
         }
 
         // Null is the OST, which is the one thing played that is not a station.
@@ -123,8 +128,7 @@ namespace SlopWorld
         // the next three minutes and belongs to nothing that outlives the process.
         static string _title;
 
-        // The one track this mod ships names itself, there being nobody else to do it.
-        const string OstTitle = "Terry Fail - slopbg01";
+
 
         // A slider moved by a hair is not worth a packet.
         const float VolumeStep = 0.01f;
@@ -163,13 +167,17 @@ namespace SlopWorld
             {
                 Read();
                 if (_muted) return null;
-                return _station != null ? _title : OstTitle;
+                return _station != null ? _title : OstTitles[_ostIndex];
             }
         }
 
         public static string RateLabel(int rate) => rate + "k mp3";
 
-        public static void PickOst() => Pick(null, 0);
+        public static void PickOst()
+        {
+            _ostIndex = Random.Range(0, OstFiles.Length);
+            Pick(null, 0);
+        }
 
         public static void ToggleMute()
         {
