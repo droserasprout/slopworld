@@ -21,8 +21,7 @@ namespace SlopWorld
             var rect = ColonistBarStrip.AddRect;
             if (rect.width <= 0f) return;
 
-            // Look like a colonist slot: the bar's own background, then a plus.
-            GUI.DrawTexture(rect, ColonistBar.BGTex);
+            // Background highlight on hover, matching the shortcuts tab's plus.
             if (ColonistBarStrip.MouseOver(rect)) Widgets.DrawHighlight(rect);
 
             var wasAnchor = Text.Anchor;
