@@ -210,6 +210,11 @@ namespace SlopWorld
             "No matter what happens, no matter how much it hurts, you don't stop dancing, and you don't stop smiling. (",
             "There is no other side. This is it. (",
             "Just keep yourself busy with unimportant nonsense, and eventually, you'll be dead. (",
+            // tasteful thickness - the microplastics in my body
+            "We came here to do a job, right?",
+            "Infiltrate, embed, destroy.",
+            "Look around! There is no destruction left to be done here.",
+            "In this place purpose is a burden. And you, my friend, must unburden yourself.",
             // Misc
             "Your carbon footprint doesn't matter. (",
             "You can only watch. (",
