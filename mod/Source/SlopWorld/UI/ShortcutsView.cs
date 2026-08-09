@@ -387,28 +387,6 @@ namespace SlopWorld
             int nl = text.IndexOf('\n');
             return nl < 0 ? text : text.Substring(0, nl) + " ...";
         }
-
-        // Called from the command palette, main button, and top bar to open the shortcuts
-        // as a full content view (over the terminal chrome, like Agents/SessionsView).
-        public static void Toggle() =>
-            TerminalWindow.ToggleContent(() => new ShortcutsContent());
-    }
-
-    // Wraps the static ShortcutsView as an IContentView so it can be opened via
-    // TerminalWindow.ToggleContent (used by the command palette, top bar, main button).
-    public class ShortcutsContent : IContentView
-    {
-        public string Title => "Shortcuts";
-
-        public void Draw(Rect body) => ShortcutsView.Draw(body);
-
-        public void Opened()
-        {
-            SessionHub.Instance.RefreshShortcuts();
-            SessionHub.Instance.RefreshProjects();
-        }
-
-        public void Closed() { }
     }
 
     // The command box is greyed rather than hidden when it is empty, so the thing

@@ -272,21 +272,6 @@ namespace SlopWorld
         protected abstract void Open();
     }
 
-    public class MainButtonWorker_Projects : MainButtonWorker_Slop
-    {
-        protected override void Open() => ProjectsView.Toggle();
-    }
-
-    public class MainButtonWorker_Agents : MainButtonWorker_Slop
-    {
-        protected override void Open() => SessionsView.Toggle();
-    }
-
-    public class MainButtonWorker_Shortcuts : MainButtonWorker_Slop
-    {
-        protected override void Open() => ShortcutsView.Toggle();
-    }
-
     public class MainButtonWorker_Config : MainButtonWorker_Slop
     {
         protected override void Open() => SlopOptions.Toggle();

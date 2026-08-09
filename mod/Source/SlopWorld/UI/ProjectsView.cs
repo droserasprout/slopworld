@@ -11,8 +11,6 @@ namespace SlopWorld
     // to add it.
     public class ProjectsView : SlopListView<ProjectInfo>
     {
-        public static void Toggle() => TerminalWindow.ToggleContent(() => new ProjectsView());
-
         public override void Opened()
         {
             SessionHub.Instance.RefreshProjects();
@@ -34,9 +32,6 @@ namespace SlopWorld
 
             if (row.Left("Add project", SlopWidgets.Btn.Primary))
                 TerminalWindow.OpenOverPane(new EditProjectDialog(null));
-
-            if (row.Left("Agents"))
-                SessionsView.Toggle();
 
             if (row.Right("Reload", SlopWidgets.Btn.Ghost))
                 hub.RefreshProjects(SlopWidgets.Fail);

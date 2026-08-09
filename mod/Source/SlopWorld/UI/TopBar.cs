@@ -200,9 +200,6 @@ namespace SlopWorld
         {
             TerminalWindow.OpenOverPane(new FloatMenu(new List<FloatMenuOption>
             {
-                new FloatMenuOption("Projects", ProjectsView.Toggle),
-                new FloatMenuOption("Agents", SessionsView.Toggle),
-                new FloatMenuOption("Shortcuts", ShortcutsView.Toggle),
                 new FloatMenuOption("Quit to OS", Root.Shutdown),
             }));
         }

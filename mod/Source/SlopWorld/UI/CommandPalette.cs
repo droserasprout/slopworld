@@ -640,27 +640,6 @@ namespace SlopWorld
             // View
             _commands.Add(new Entry
             {
-                Id = "view.agents",
-                Name = "View: Agents",
-                Category = "View",
-                Execute = _ => SessionsView.Toggle(),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.projects",
-                Name = "View: Projects",
-                Category = "View",
-                Execute = _ => ProjectsView.Toggle(),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.shortcuts",
-                Name = "View: Shortcuts",
-                Category = "View",
-                Execute = _ => ShortcutsView.Toggle(),
-            });
-            _commands.Add(new Entry
-            {
                 Id = "view.config",
                 Name = "View: Config",
                 Category = "View",

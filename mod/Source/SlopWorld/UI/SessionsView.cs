@@ -8,8 +8,6 @@ namespace SlopWorld
     // The colony overview: every session, its state, and the buttons to act on it.
     public class SessionsView : SlopListView<SessionInfo>
     {
-        public static void Toggle() => TerminalWindow.ToggleContent(() => new SessionsView());
-
         public override void Opened()
         {
             SessionHub.Instance.Refresh();
@@ -32,9 +30,6 @@ namespace SlopWorld
 
             if (row.Left("Add agent", SlopWidgets.Btn.Primary))
                 TerminalWindow.OpenOverPane(new EditSessionDialog(null));
-
-            if (row.Left("Projects"))
-                ProjectsView.Toggle();
 
             // Shortcuts is not here: it is a window of its own in the bottom bar, and an
             // errand is not something you do to an agent on this list. Nor is "New colony",
