@@ -333,7 +333,7 @@ pub struct Manager {
     /// file added, edited or deleted all read as a change.
     presets_mtime: Mutex<Option<SystemTime>>,
     /// So the retick doesn't stat the file eighty times a second.
-    cfg_checked: Mutex<u64>,
+    cfg_checked: AtomicU64,
     /// Here rather than in the poller, so a client connecting between polls has something
     /// to draw.
     usage: RwLock<crate::usage::Snapshot>,
@@ -626,7 +626,7 @@ impl Manager {
             cfg: RwLock::new(cfg),
             cfg_mtime: Mutex::new(mtime),
             presets_mtime: Mutex::new(crate::presets::dir_stamp()),
-            cfg_checked: Mutex::new(0),
+            cfg_checked: AtomicU64::new(0),
             usage: RwLock::new(crate::usage::Snapshot::default()),
             clients: AtomicUsize::new(0),
             clients_since: AtomicU64::new(0),
@@ -694,13 +694,17 @@ impl Manager {
     }
 
     async fn reload_if_due(self: &Arc<Self>) {
+        let now = now_ms();
+        let last = self.cfg_checked.load(Ordering::Relaxed);
+        if now.saturating_sub(last) < CFG_CHECK_MS {
+            return;
+        }
+        if self
+            .cfg_checked
+            .compare_exchange(last, now, Ordering::Relaxed, Ordering::Relaxed)
+            .is_err()
         {
-            let mut last = self.cfg_checked.lock().unwrap();
-            let now = now_ms();
-            if now.saturating_sub(*last) < CFG_CHECK_MS {
-                return;
-            }
-            *last = now;
+            return;
         }
         self.reload_presets_if_changed().await;
         self.reload_if_changed().await;
@@ -2146,9 +2150,9 @@ impl Manager {
         });
 
         // Coalesce bursts of output into ~60fps renders instead of one per line.
-        // The interval adapts: 8ms when someone is watching this pane (responsive
-        // rendering), UNWATCHED_MS when nobody is (sparing CPU). Recreated each
-        // iteration so the next sleep reflects the current watched state.
+        // The interval adapts: 16ms when someone is watching this pane (matching the
+        // 60fps WebSocket coalesce in api.rs), UNWATCHED_MS when nobody is (sparing
+        // CPU). Recreated each iteration so the next sleep reflects the current state.
         let mut dirty = false;
         // The tick is left alone and the *render* is what slows down while nobody is
         // subscribed, so a pane that goes on screen is at full rate on the next 8ms tick
@@ -2164,7 +2168,7 @@ impl Manager {
 
         loop {
             let tick = if fast {
-                Duration::from_millis(8)
+                Duration::from_millis(16)
             } else {
                 Duration::from_millis(UNWATCHED_MS)
             };
