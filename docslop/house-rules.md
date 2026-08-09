@@ -2,7 +2,7 @@
 
 - **Commit on `main`.** No branch, no PR. One person writes this repo and the
   history is a straight line; a branch is only something to merge back later.
-- **`CLANKERS.md` is not edited or appended to.** What would have gone in it goes
+- **`AGENTS.md` is not edited or appended to.** What would have gone in it goes
   in a file here, and [index](index.md) gets a line pointing at it.
 - Notes here are **short**, one subject a file. Delete what goes stale rather than
   keeping it hedged.

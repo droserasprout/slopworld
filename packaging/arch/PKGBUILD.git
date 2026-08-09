@@ -83,5 +83,4 @@ package() {
     "$pkgdir/usr/share/icons/hicolor/128x128/apps/slopworld.png"
 
   install -Dm644 README.md "$pkgdir/usr/share/doc/slopworld/README.md"
-  install -Dm644 CLANKERS.md "$pkgdir/usr/share/doc/slopworld/CLANKERS.md"
 }

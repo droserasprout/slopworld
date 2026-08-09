@@ -3,7 +3,7 @@
 
 Run `python3 tools/loc.py` for a table by language, or hand it paths
 (`python3 tools/loc.py slopd mod/Source`) to count only those. `--docs` adds the
-markdown, which is otherwise left out: CLANKERS.md alone is longer than most of
+markdown, which is otherwise left out: AGENTS.mdmd alone is longer than most of
 the files it describes, so counting it with them says nothing about either.
 
 `--comments` prints the comments instead of counting them - every comment in the
