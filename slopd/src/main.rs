@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
     drop(table);
 
     let bind = cfg.daemon.bind.clone();
-    let poll_ms = cfg.daemon.poll_ms.max(20);
+    let poll_ms = cfg.daemon.poll_ms.max(200);
     let m = Manager::new(cfg, cfg_path).await;
 
     let poller = {

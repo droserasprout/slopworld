@@ -223,6 +223,10 @@ struct Live {
     host: bool,
     state: State,
     seq: u64,
+    /// The last `seq` the retick poll classified. When `seq` matches, no new output arrived
+    /// since the last classification, so the only possible transition is Working/Idle → Idle
+    /// through the idle timeout.
+    retick_seq: u64,
     hash: u64,
     last_change: u64,
     /// When `state` last moved. Zero for a session that has never run: an entry that has
@@ -233,6 +237,9 @@ struct Live {
     bell: bool,
     cols: u16,
     rows: u16,
+    /// Stripped (plain) text of the last screen, cached so the retick poll does not re-strip
+    /// every session on every tick. Updated in `apply_frame` alongside `screen`.
+    plain: String,
     screen: Option<ScreenView>,
     /// Present only while a control reader is attached.
     emu: Option<Arc<Mutex<SessionEmu>>>,
@@ -911,12 +918,14 @@ impl Manager {
                     host: false,
                     state: State::Down,
                     seq: 0,
+                    retick_seq: 0,
                     hash: 0,
                     last_change: 0,
                     state_since: 0,
                     bell: false,
                     cols: BOOT_COLS,
                     rows: BOOT_ROWS,
+                    plain: String::new(),
                     screen: None,
                     emu: None,
                     reader: None,
@@ -1025,12 +1034,14 @@ impl Manager {
                 host: false,
                 state: State::Working,
                 seq: 0,
+                retick_seq: 0,
                 hash: 0,
                 last_change: now_ms(),
                 state_since: now_ms(),
                 bell: false,
                 cols: BOOT_COLS,
                 rows: BOOT_ROWS,
+                plain: String::new(),
                 screen: None,
                 emu: None,
                 reader: None,
@@ -1422,12 +1433,14 @@ impl Manager {
                     host,
                     state: State::Down,
                     seq: 0,
+                    retick_seq: 0,
                     hash: 0,
                     last_change: 0,
                     state_since: 0,
                     bell: false,
                     cols: BOOT_COLS,
                     rows: BOOT_ROWS,
+                    plain: String::new(),
                     screen: None,
                     emu: None,
                     reader: None,
@@ -1954,14 +1967,30 @@ impl Manager {
     pub async fn retick(self: &Arc<Self>) {
         self.reload_if_due().await;
 
+        let now = now_ms();
+
         // Snapshot outside the lock so classify()'s await doesn't hold it.
+        // Only sessions that might need reclassification are included:
+        // - New output arrived (seq != retick_seq): text may match different rules.
+        // - Near the idle boundary (Working/Idle for ~IDLE_MS): may need Working→Idle
+        //   decay. Check state_since for Waiting/Working rather than last_change,
+        //   because a working agent redraws several times a second.
         let snapshot: Vec<(String, u64, String)> = {
             let live = self.live.read().await;
             live.iter()
                 .filter(|(_, l)| l.state != State::Down)
                 .filter_map(|(n, l)| {
-                    let s = l.screen.as_ref()?;
-                    Some((n.clone(), l.last_change, strip_sgr(&s.lines.join("\n"))))
+                    let _ = l.screen.as_ref()?;
+                    let idle_due = match l.state {
+                        State::Working | State::Waiting => {
+                            now.saturating_sub(l.state_since) >= IDLE_MS
+                        }
+                        State::Idle | State::Down => false,
+                    };
+                    if l.seq == l.retick_seq && !idle_due {
+                        return None;
+                    }
+                    Some((n.clone(), l.last_change, l.plain.clone()))
                 })
                 .collect()
         };
@@ -1971,6 +2000,7 @@ impl Manager {
             let state = self.classify(false, last_change, &plain).await;
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(&name) {
+                l.retick_seq = l.seq;
                 if l.set_state(state) {
                     dirty_list = true;
                 }
@@ -2285,6 +2315,7 @@ impl Manager {
                 dirty_list = true;
             }
             l.screen = Some(view.clone());
+            l.plain = plain;
         }
 
         if changed {
@@ -2600,12 +2631,14 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             host: false,
             state: State::Down,
             seq: 0,
+            retick_seq: 0,
             hash: 0,
             last_change: 0,
             state_since: 0,
             bell: false,
             cols: BOOT_COLS,
             rows: BOOT_ROWS,
+            plain: String::new(),
             screen: None,
             emu: None,
             reader: None,
