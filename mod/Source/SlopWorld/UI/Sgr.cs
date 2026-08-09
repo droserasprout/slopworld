@@ -279,6 +279,13 @@ namespace SlopWorld
             foreach (var r in runs) width = Mathf.Max(width, r.Col + r.Text.Length);
             if (width <= 0) return;
 
+            // Fast path: skip full-row scan if no run contains "://".
+            bool hasProtocol = false;
+            foreach (var r in runs)
+                if (r.Url == null && r.Text.IndexOf("://", StringComparison.Ordinal) >= 0)
+                { hasProtocol = true; break; }
+            if (!hasProtocol) return;
+
             var chars = new char[width];
             for (int i = 0; i < width; i++) chars[i] = ' ';
             foreach (var r in runs)

@@ -38,6 +38,14 @@ namespace SlopWorld
         // date - and with it its season - back to the start every time it was opened.
         long _epoch;
 
+        // The sun moves ~0.4° per real minute; recalculating 60 times a second is wasteful.
+        // We cache the solar tick for a real second (60 frames) before calling DateTime.Now
+        // again. Between recalculations, gameStartAbsTick drifts correctly because it is
+        // recomputed every frame from the cached solar tick minus the current TicksGame.
+        const int SolarRecalcInterval = 60;
+        int _solarSkip;
+        int? _cachedSolar;
+
         public RealClock(Game game) { }
 
         // Exact for anything the clock ran straight through, and a floor for anything it
@@ -90,12 +98,18 @@ namespace SlopWorld
             var ticks = Find.TickManager;
             if (ticks == null) return;
 
-            int? solar = SolarTick();
-            if (solar == null) return;
+            // Recalculate the solar tick only every SolarRecalcInterval frames.
+            // Between recalculations the cached value stays correct: the formula
+            // gameStartAbsTick = solarTick - TicksGame is evaluated every frame,
+            // and only solarTick is cached — TicksGame is always current.
+            if (_cachedSolar == null || ++_solarSkip >= SolarRecalcInterval)
+            {
+                _solarSkip = 0;
+                _cachedSolar = SolarTick();
+                if (_cachedSolar == null) return;
+            }
 
-            // Every frame rather than once, because the two clocks run at different speeds by
-            // design: TicksGame gains sixty a second and the sun a little under one.
-            int start = solar.Value - ticks.TicksGame;
+            int start = _cachedSolar.Value - ticks.TicksGame;
 
             // Never zero: TickManager reads that as "not set yet", logs about it and hands
             // back the game tick instead.

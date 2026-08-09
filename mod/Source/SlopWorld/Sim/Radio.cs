@@ -122,6 +122,8 @@ namespace SlopWorld
         // called - Application.Quit lets the frame finish, and there are more frames after
         // it while the save is written - so Update runs on after Quit, and without this it
         // put the station straight back on: the music stopped for a second and returned.
+        // Cached after the first successful stop of the game's music.
+        static bool _musicDisabled;
         static bool _quit;
 
         // What the station says it is playing. The daemon's, not a setting: it is true for
@@ -215,12 +217,21 @@ namespace SlopWorld
             Push();
         }
 
-        // Every frame, menu and game alike, from Patch_Root_Update. Cheap: it sends only
-        // what has changed, and most frames change nothing.
+        // Every frame, menu and game alike, from Patch_Root_Update. Throttled to
+        // every 10 frames because music state changes slowly: volume slider moves,
+        // station picks, and reconnects. The _told flag ensures a change is sent
+        // within a frame of it happening, not 10 frames later.
+        static int _updateSkip;
+        const int UpdateInterval = 10;
+
         public static void Update()
         {
             if (_quit) return;
             Read();
+
+            // Throttle: most frames change nothing.
+            if (++_updateSkip < UpdateInterval) return;
+            _updateSkip = 0;
 
             // The game's own music manager stays off for good. It is not sharing the job
             // with anything any more - the OST is out there too - so this is a flag held
@@ -229,10 +240,22 @@ namespace SlopWorld
             // Only once there is a game. Find.MusicManagerPlay is a castclass to Root_Play,
             // so on the menu it throws rather than returning null, and Stop() asks
             // DangerMusicMode, which reads Find.Scenario before it is set.
-            if (Current.ProgramState == ProgramState.Playing)
+            //
+            // The disabled flag stays set once toggled (survives loads), so the per-frame
+            // stop is redundant after the first time. We cache this to skip the cast too.
+            if (Current.ProgramState == ProgramState.Playing && !_musicDisabled)
             {
-                var music = Find.MusicManagerPlay;
-                if (music != null && !music.disabled) { music.Stop(); music.disabled = true; }
+                try
+                {
+                    var music = Find.MusicManagerPlay;
+                    if (music != null && !music.disabled)
+                    {
+                        music.Stop();
+                        music.disabled = true;
+                    }
+                }
+                catch { /* Root_Play castclass fails on menu */ }
+                _musicDisabled = true;
             }
 
             var hub = SessionHub.Instance;

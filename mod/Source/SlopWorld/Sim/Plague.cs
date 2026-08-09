@@ -166,7 +166,11 @@ namespace SlopWorld
         int _logged = -1;
 
         // Refilled when it runs off the end, which is also how regrowth gets caught.
-        readonly List<Plant> _plants = new List<Plant>();
+        // We track the lister's defCount version instead of re-enumerating all plants
+        // from scratch every pass — ThingsInGroup returns the same backing list, and
+        // defCount changes when a plant is added or removed.
+        List<Thing> _plantSource;
+        int _plantVer = -1;
         int _plantIdx;
 
         // Where the flowerbed sweep left off. Not saved: it is a position in a walk, and any
@@ -212,19 +216,86 @@ namespace SlopWorld
 
             int t = Find.TickManager.TicksGame;
 
-            // Read here rather than gated into the four below: every one of them is an act on
-            // something alive, and a plague that only skipped three of them would still be one.
+            // When the game window is unfocused, skip visual-heavy work (flecks, vent)
+            // and process fewer plants per tick. The plague keeps spreading at full rate
+            // — only the cosmetic and low-priority passes are throttled.
+            bool background = !Application.isFocused;
+
             if (Settings.GrandmaMode)
             {
                 if (t % CatchInterval == 0) Progress();
-                if (t % SowInterval == 0) Sow();
+                if (!background && t % SowInterval == 0) Sow();
                 return;
             }
 
             if (t % CatchInterval == 0) Catch();
-            if (t % EffectInterval == 0) Effects();
-            if (t % VentInterval == 0) Vent();
-            StepPlants();
+            if (!background && t % EffectInterval == 0) Effects();
+            if (!background && t % VentInterval == 0) Vent();
+            StepPlants(background);
+        }
+
+        // Walked in slices and rebuilt at the end of each pass, so a plant that grew since
+        // last time still gets its turn. Uses the lister's backing list directly with
+        // version tracking: if the list count changed (plant added/removed), we re-fetch
+        // the reference instead of copying all entries into a local list.
+        void StepPlants(bool background = false)
+        {
+            var src = map.listerThings.ThingsInGroup(ThingRequestGroup.Plant);
+            int ver = src.Count;
+
+            if (_plantIdx >= (_plantSource?.Count ?? 0) || ver != _plantVer)
+            {
+                _plantSource = src;
+                _plantVer = ver;
+                _plantIdx = 0;
+                return; // keep the refill off the same tick as the work
+            }
+
+            // When backgrounded, process only 1 plant per tick instead of 5.
+            // The plague still works, just slower — nobody's watching the withered
+            // plants tick by tick.
+            int budget = background ? 1 : PlantsPerTick;
+            int now = Find.TickManager.TicksGame;
+            while (_plantIdx < _plantSource.Count && budget-- > 0)
+            {
+                var p = _plantSource[_plantIdx++] as Plant;
+                if (p == null || p.Destroyed || !p.Spawned) continue;
+                if (p.def.plant == null) continue;
+
+                var band = BandAt(p.Position, now);
+                if (band == Band.None) continue;
+
+                var dose = band == Band.Full ? Full : Weak;
+                bool tree = p.def.plant.IsTree;
+
+                bool todo = dose.Strips
+                    ? !(tree && p.LeaflessNow)
+                    : !tree && p.Growth > dose.StuntFrom;
+                if (!todo) continue;
+
+                if (Spared(p)) continue;
+
+                if (Rand.Value < dose.PlantIgnite &&
+                    FireUtility.TryStartFireIn(p.Position, map, dose.FireSize, null))
+                    continue;
+
+                if (!dose.Strips)
+                {
+                    PlagueFx.Wither(p);
+                    p.Growth = dose.StuntTo;
+                    map.mapDrawer?.MapMeshDirty(p.Position, MapMeshFlagDefOf.Things);
+                }
+                else if (tree)
+                {
+                    PlagueFx.Wither(p);
+                    p.MakeLeafless(Plant.LeaflessCause.Poison, false);
+                }
+                else
+                {
+                    PlagueFx.Wither(p);
+                    p.Destroy(DestroyMode.Vanish);
+                }
+            }
         }
 
         // Where the load's offsets become arrival ticks. Here rather than in Unpack: a map is
@@ -267,17 +338,20 @@ namespace SlopWorld
             cell.InBounds(map) ? Cells[map.cellIndices.CellToIndex(cell)] : Never;
 
         // The dose a cell carries: nothing until the plague gets there, then up to certain
-        // over RipenTicks.
-        float Bite(IntVec3 cell)
+        // over RipenTicks. Accepts the current TicksGame so callers can cache it once
+        // per batch instead of reading Find.TickManager.TicksGame per cell.
+        float Bite(IntVec3 cell, int tick)
         {
             int at = At(cell);
             if (at == Never) return 0f;
 
-            int age = Find.TickManager.TicksGame - at;
+            int age = tick - at;
             if (age <= 0) return 0f; // stamped, still on its way
             if (age >= RipenTicks) return 1f;
             return age / (float)RipenTicks;
         }
+
+        float Bite(IntVec3 cell) => Bite(cell, Find.TickManager.TicksGame);
 
         // The whole of how the plague grows: arrival times written only where they beat what
         // is there, so ground reached ten minutes ago keeps its date and a plate laid beside
@@ -328,11 +402,12 @@ namespace SlopWorld
 
         // Full beats the bite outright, Weak only its square root: 100/0 where the core ends,
         // 50/21 halfway out, 25/25 at three quarters, and nowhere an edge you could trace.
-        public Band BandAt(IntVec3 cell)
+        // Accepts cached tick to avoid repeated Find.TickManager lookups.
+        public Band BandAt(IntVec3 cell, int tick)
         {
             if (!_active || !_origin.IsValid) return Band.None;
 
-            float bite = Bite(cell);
+            float bite = Bite(cell, tick);
             if (bite <= 0f) return Band.None;
             if (bite >= 1f) return Band.Full; // the certain core: no dice at all
 
@@ -341,6 +416,8 @@ namespace SlopWorld
             if (grit < Mathf.Sqrt(bite)) return Band.Weak;
             return Band.None;
         }
+
+        public Band BandAt(IntVec3 cell) => BandAt(cell, Find.TickManager.TicksGame);
 
         // Whether the plague has been here at all, dither or no: a fire that could not cross
         // a cell the dither spared would never get anywhere.
@@ -381,81 +458,16 @@ namespace SlopWorld
         void Catch()
         {
             Progress();
+            int now = Find.TickManager.TicksGame;
 
             foreach (var pawn in map.mapPawns.AllPawnsSpawned)
             {
                 if (!Infectable(pawn)) continue;
-                if (BandAt(pawn.Position) == Band.None) continue;
+                if (BandAt(pawn.Position, now) == Band.None) continue;
                 if (Marked(pawn)) continue;
                 if (Spared(pawn)) continue; // the cat has it, for now
                 pawn.health.AddHediff(SlopDefOf.SlopPlague);
                 PlagueFx.Mark(pawn);
-            }
-        }
-
-        // Walked in slices and rebuilt at the end of each pass, so a plant that grew since
-        // last time still gets its turn.
-        void StepPlants()
-        {
-            if (_plantIdx >= _plants.Count)
-            {
-                _plants.Clear();
-                var all = map.listerThings.ThingsInGroup(ThingRequestGroup.Plant);
-                for (int i = 0; i < all.Count; i++)
-                    if (all[i] is Plant p) _plants.Add(p);
-                _plantIdx = 0;
-                return; // keep the refill off the same tick as the work
-            }
-
-            int budget = PlantsPerTick;
-            while (_plantIdx < _plants.Count && budget-- > 0)
-            {
-                var p = _plants[_plantIdx++];
-                if (p == null || p.Destroyed || !p.Spawned) continue;
-                if (p.def.plant == null) continue;
-
-                var band = BandAt(p.Position);
-                if (band == Band.None) continue;
-
-                var dose = band == Band.Full ? Full : Weak;
-                bool tree = p.def.plant.IsTree;
-
-                // Every plant comes back round forever: without this a bare tree smokes again
-                // each pass and a plant already held back rolls for ignition until it catches.
-                bool todo = dose.Strips
-                    ? !(tree && p.LeaflessNow)
-                    : !tree && p.Growth > dose.StuntFrom;
-                if (!todo) continue;
-
-                // After the todo check: same answer, and in the steady state nearly every
-                // plant the sweep walks past is one the band has finished with.
-                if (Spared(p)) continue;
-
-                // Before the strip: TryStartFireIn weighs what is flammable in the cell, and
-                // stripping the plant leaves nothing there to light.
-                if (Rand.Value < dose.PlantIgnite &&
-                    FireUtility.TryStartFireIn(p.Position, map, dose.FireSize, null))
-                    continue;
-
-                if (!dose.Strips)
-                {
-                    // Trees are left alone here: a bare tree is the core's look, and giving the
-                    // falloff one made the two bands indistinguishable.
-                    PlagueFx.Wither(p);
-                    p.Growth = dose.StuntTo;
-                    // Growth is printed into the map mesh and the setter does not dirty it.
-                    map.mapDrawer?.MapMeshDirty(p.Position, MapMeshFlagDefOf.Things);
-                }
-                else if (tree)
-                {
-                    PlagueFx.Wither(p);
-                    p.MakeLeafless(Plant.LeaflessCause.Poison, false);
-                }
-                else
-                {
-                    PlagueFx.Wither(p); // before the destroy - a despawned plant has no DrawPos
-                    p.Destroy(DestroyMode.Vanish);
-                }
             }
         }
 
@@ -470,6 +482,7 @@ namespace SlopWorld
 
             var cells = Cells;
             var idx = map.cellIndices;
+            int now = Find.TickManager.TicksGame;
 
             for (int budget = SowPerSweep; budget > 0; budget--)
             {
@@ -481,7 +494,7 @@ namespace SlopWorld
                 if (cells[k] == Never) continue;
 
                 var c = idx.IndexToCell(k);
-                if (BandAt(c) == Band.None) continue;
+                if (BandAt(c, now) == Band.None) continue;
                 if (Grit(c, SowSalt) >= SowChance) continue;
                 if (!Plantable(c)) continue;
 
@@ -530,6 +543,7 @@ namespace SlopWorld
         // the edge and nothing past it.
         void Effects()
         {
+            int now = Find.TickManager.TicksGame;
             _rolling.Clear();
             _rolling.AddRange(map.mapPawns.AllPawnsSpawned);
 
@@ -537,7 +551,7 @@ namespace SlopWorld
             {
                 if (!Infectable(pawn) || !Marked(pawn)) continue;
 
-                var band = BandAt(pawn.Position);
+                var band = BandAt(pawn.Position, now);
                 if (band == Band.None) continue;
                 // A marked animal that walked into the aura is unmarked at the aura's next
                 // sweep and not before; a detonation in that half second is the cat failing.

@@ -16,6 +16,7 @@ namespace SlopWorld
     {
         // Aimed: the handful of cells under the animal rather than a weather front.
         const float Radius = 3.9f;
+        const float RadiusSq = Radius * Radius;
 
         // Every second or third pat, so the ones that land are worth watching for.
         const float ReviveChance = 0.42f;
@@ -66,7 +67,7 @@ namespace SlopWorld
             int now = Find.TickManager.TicksGame;
             for (int i = 0; i < _pulses.Count; i++)
                 if (now - _pulses[i].Tick < GraceTicks
-                    && _pulses[i].At.DistanceTo(cell) <= Radius) return true;
+                    && _pulses[i].At.DistanceToSquared(cell) <= RadiusSq) return true;
             return false;
         }
 
