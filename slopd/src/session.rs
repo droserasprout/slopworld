@@ -10,7 +10,6 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinHandle;
-use tokio::time::{interval, MissedTickBehavior};
 
 use crate::config::{
     expand, Config, Daemon, Defaults, ProjectCfg, Sandbox, SessionCfg, ShortcutCfg, ShortcutLink,
@@ -2147,8 +2146,9 @@ impl Manager {
         });
 
         // Coalesce bursts of output into ~60fps renders instead of one per line.
-        let mut flush = interval(Duration::from_millis(8));
-        flush.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        // The interval adapts: 8ms when someone is watching this pane (responsive
+        // rendering), UNWATCHED_MS when nobody is (sparing CPU). Recreated each
+        // iteration so the next sleep reflects the current watched state.
         let mut dirty = false;
         // The tick is left alone and the *render* is what slows down while nobody is
         // subscribed, so a pane that goes on screen is at full rate on the next 8ms tick
@@ -2159,8 +2159,15 @@ impl Manager {
         // stating OSC 52 every frame would fork one per frame. While a write is in flight the
         // copy stays in the emulator, and what lands is the newest.
         let copying = Arc::new(AtomicBool::new(false));
+        // Start fast: the session just came up and someone may subscribe immediately.
+        let mut fast = true;
 
         loop {
+            let tick = if fast {
+                Duration::from_millis(8)
+            } else {
+                Duration::from_millis(UNWATCHED_MS)
+            };
             tokio::select! {
                 line = rx.recv() => match line {
                     Some(l) => {
@@ -2194,11 +2201,19 @@ impl Manager {
                         } else if l.starts_with(b"%exit") {
                             break;
                         }
+                        // Output just arrived: switch to fast ticks so renders keep up.
+                        // `watched()` is checked below where it is needed; this only
+                        // ensures a fast tick happens after every burst of output.
+                        fast = true;
                     }
                     None => break,
                 },
-                _ = flush.tick() => {
-                    let due = self.watched(&name)
+                _ = tokio::time::sleep(tick) => {
+                    let watched = self.watched(&name);
+                    // Adapt the next tick to whether anyone is watching.
+                    fast = watched;
+
+                    let due = watched
                         || drawn.is_none_or(|t| t.elapsed() >= Duration::from_millis(UNWATCHED_MS));
                     if dirty && due {
                         dirty = false;
@@ -2207,7 +2222,8 @@ impl Manager {
                     }
                     // An app that draws its own selection - Claude Code does - never sends the
                     // drag our way, so OSC 52 is the only word we get that anything was copied.
-                    if !copying.load(Ordering::Relaxed) {
+                    // Only worth checking when someone is actually looking at this pane.
+                    if watched && !copying.load(Ordering::Relaxed) {
                         let clip = emu.lock().ok().and_then(|mut e| e.take_clip());
                         if let Some(text) = clip {
                             copying.store(true, Ordering::Relaxed);
