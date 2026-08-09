@@ -3,14 +3,11 @@
 
 ## Interface
 
-- Bug: ephemeral sessions title should have more info: command and maybe path
 - Bug: ephemeral session on Agents tab can't be selected if Terminal is hidden. We need to spawn them as something on map (item, robo-animal?) to allow focus, info panel, action buttons.
-- Welcome configuration screen of fresh profile
-- Custom agents order in panel
 - Tab / Shift+Tab in floating windows to navigate between input fields
 - ModSettings shouldn't pause the game
-- Sidebar: hide icon and status for ephemeral view/edit/host-shell items. Place them before agents in every group or at the top if not belong to project. Don't spawn agent pawn in game for those.
-- Add "refreshed at X" line to resource usage buttons
+- Welcome configuration screen of fresh profile
+- Custom agents order in panel
 
 ## Options
 
@@ -23,13 +20,20 @@
 
 - Move "Keyboard" from Control to first level tab in settings
 - Disable some native RimWorld shortcuts: unbind by default and hide in 
-- F2/F3/F4 keys to focus sidebar panel. Default and configurable.
 - ? to show navigation and keyboard cheatsheet
 
 ## Terminal
 
 - Buggy cursor and copypaste in `zsh`. Prints commands before prompt.
 - Ctrl+LMB on relative (to project) path in terminal to jump to file in sidebar Files tab
+
+## Jukebox
+
+- Strip " - Classic Vinyl on walmfadio.com" from Jukebox hover bubble.
+- Add new item to the end of radio station's nested menu: "<3" label opening links in browser on click:
+  - RadioParadise: https://radioparadise.com/donate
+  - WeFunk: https://session.wefunkradio.com/about/contribute
+  - Classic Vinyl: https://walmradio.com/
 
 ## Agents
 
@@ -39,13 +43,7 @@
 
 ## Right sidebar
 
-Turn Colonist selection bottom-left floatie into full-height right sidebar. Resizable as the left one. Action buttons ("Terminal", "Stop") stay bottom left.
-
-## Finetuning
-
-- Plague radius, tickrate, building emissions
-- Construction speed and items
-- Cat aura
+Turn Colonist selection bottom-left floatie into full-height right sidebar. Resizable as the left one. Action buttons ("Terminal", "Stop") stay bottom left. 
 
 ## Human art
 
@@ -58,8 +56,7 @@ Turn Colonist selection bottom-left floatie into full-height right sidebar. Resi
 - Cat accumulates clicks as seconds of aura. Charge them spamming clicks and enjoy minutes of cat aura.
 - Config flag to disable blood, vomit, and offensive/harmful hints
 - Realtime weather for provided IRL coordinates
-- Jukebox: wefunk!
-- Jukebox: last item in radio's dropdown "donate" opening their official links in browser :з
+- Finetune: plague radius, tickrate, building emissions, construction speed and items, cat aura
 
 ## Docs
 

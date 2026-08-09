@@ -966,6 +966,28 @@ namespace SlopWorld
                 return;
             }
 
+            // Terminal convention: Ctrl+Shift+C is always copy, and Ctrl+C copies
+            // when text is selected (otherwise it passes through as SIGINT).
+            if (e.control && e.keyCode == KeyCode.C)
+            {
+                if (_hasSel)
+                {
+                    CopySelection();
+                    e.Use();
+                    return;
+                }
+                // No selection: Ctrl+Shift+C is a no-op; bare Ctrl+C falls through to SIGINT.
+                if (!e.shift)
+                {
+                    // Fall through to MapKey below.
+                }
+                else
+                {
+                    e.Use();
+                    return;
+                }
+            }
+
             if (e.keyCode != KeyCode.None)
             {
                 var keyScreen = SessionHub.Instance.Screen(_name);

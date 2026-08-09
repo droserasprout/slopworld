@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
   <SongDef>
-    <defName>SlopWorld_Bg1</defName>
-    <clipPath>SlopWorld/bg1</clipPath>
+    <defName>SlopWorld_slopbg01</defName>
+    <clipPath>SlopWorld/slopbg01</clipPath>
     <volume>1</volume>
     <tense>false</tense>
   </SongDef>

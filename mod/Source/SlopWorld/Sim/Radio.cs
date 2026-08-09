@@ -90,7 +90,7 @@ namespace SlopWorld
             var root = SlopWorldMod.Instance?.Content?.RootDir;
             return string.IsNullOrEmpty(root)
                 ? null
-                : System.IO.Path.Combine(root, "Sounds", "SlopWorld", "bg1.ogg");
+                : System.IO.Path.Combine(root, "Sounds", "SlopWorld", "slopbg01.ogg");
         }
 
         // Null is the OST, which is the one thing played that is not a station.
@@ -124,7 +124,7 @@ namespace SlopWorld
         static string _title;
 
         // The one track this mod ships names itself, there being nobody else to do it.
-        const string OstTitle = "Terry Fail - slopbg";
+        const string OstTitle = "Terry Fail - slopbg01";
 
         // A slider moved by a hair is not worth a packet.
         const float VolumeStep = 0.01f;
@@ -218,8 +218,14 @@ namespace SlopWorld
             // with anything any more - the OST is out there too - so this is a flag held
             // rather than the switching the two of them used to do. A load or a new colony
             // clears it, which is why it is asked every frame rather than once.
-            var music = Find.MusicManagerPlay;
-            if (music != null && !music.disabled) { music.Stop(); music.disabled = true; }
+            // Only once there is a game. Find.MusicManagerPlay is a castclass to Root_Play,
+            // so on the menu it throws rather than returning null, and Stop() asks
+            // DangerMusicMode, which reads Find.Scenario before it is set.
+            if (Current.ProgramState == ProgramState.Playing)
+            {
+                var music = Find.MusicManagerPlay;
+                if (music != null && !music.disabled) { music.Stop(); music.disabled = true; }
+            }
 
             var hub = SessionHub.Instance;
             if (hub == null) return;

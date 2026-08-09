@@ -8,7 +8,7 @@ MAKEFLAGS += --no-print-directory
 ##  BUILD is debug or release and every target follows it, install included:
 ##  `make BUILD=release install`.
 ##
-RIMWORLD   ?= $(HOME)/RimWorld/game
+RIMWORLD   ?= $(HOME)/GOG Games/RimWorld/game
 MANAGED    ?= $(RIMWORLD)/RimWorldLinux_Data/Managed
 MODS       ?= $(RIMWORLD)/Mods
 BIN        ?= $(HOME)/.local/bin

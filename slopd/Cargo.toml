@@ -12,7 +12,9 @@ dirs = "5"
 futures = "0.3"
 nix = { version = "0.28", features = ["term"] }
 regex = "1"
-rodio = { version = "0.22", default-features = false, features = ["playback", "symphonia-mp3", "symphonia-vorbis"] }
+# symphonia-vorbis is the codec and symphonia-ogg the container it always comes in;
+# without the second, the OST is a file no demuxer claims and the probe reads to EOF.
+rodio = { version = "0.22", default-features = false, features = ["playback", "symphonia-mp3", "symphonia-ogg", "symphonia-vorbis"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "sync", "time", "signal", "fs"] }
