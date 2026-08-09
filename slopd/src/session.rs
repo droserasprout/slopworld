@@ -2150,28 +2150,30 @@ impl Manager {
         });
 
         // Coalesce bursts of output into ~60fps renders instead of one per line.
-        // The interval adapts: 16ms when someone is watching this pane (matching the
-        // 60fps WebSocket coalesce in api.rs), UNWATCHED_MS when nobody is (sparing
-        // CPU). Recreated each iteration so the next sleep reflects the current state.
+        // The cadence adapts: FAST_TICK when someone is watching this pane (matching the
+        // 60fps WebSocket coalesce in api.rs), UNWATCHED_MS when nobody is (sparing CPU).
+        //
+        // The deadline is absolute and held across iterations rather than a fresh sleep
+        // per trip round the loop: a pane under a steady stream of output has a line ready
+        // on every poll, so a timer re-armed by the recv branch would never come due and
+        // the screen would sit unrendered for the length of the burst. Output arriving can
+        // pull the deadline *in* to the fast cadence, never push it out.
+        const FAST_TICK: Duration = Duration::from_millis(16);
+        let slow_tick = Duration::from_millis(UNWATCHED_MS);
+        let flush = tokio::time::sleep(FAST_TICK);
+        tokio::pin!(flush);
         let mut dirty = false;
-        // The tick is left alone and the *render* is what slows down while nobody is
-        // subscribed, so a pane that goes on screen is at full rate on the next 8ms tick
-        // rather than at the end of a longer one. `dirty` is not cleared by a skipped
-        // render, so nothing is lost by declining to draw it yet.
+        // The *render* is what slows down while nobody is subscribed, on top of the
+        // cadence: a pane that goes on screen is at full rate on the next tick rather than
+        // at the end of a longer one. `dirty` is not cleared by a skipped render, so
+        // nothing is lost by declining to draw it yet.
         let mut drawn: Option<Instant> = None;
-        // One clipboard writer at a time: the tool is a process and the tick is 8ms, so an app
-        // stating OSC 52 every frame would fork one per frame. While a write is in flight the
-        // copy stays in the emulator, and what lands is the newest.
+        // One clipboard writer at a time: the tool is a process and the tick is 16ms, so an
+        // app stating OSC 52 every frame would fork one per frame. While a write is in flight
+        // the copy stays in the emulator, and what lands is the newest.
         let copying = Arc::new(AtomicBool::new(false));
-        // Start fast: the session just came up and someone may subscribe immediately.
-        let mut fast = true;
 
         loop {
-            let tick = if fast {
-                Duration::from_millis(16)
-            } else {
-                Duration::from_millis(UNWATCHED_MS)
-            };
             tokio::select! {
                 line = rx.recv() => match line {
                     Some(l) => {
@@ -2205,17 +2207,25 @@ impl Manager {
                         } else if l.starts_with(b"%exit") {
                             break;
                         }
-                        // Output just arrived: switch to fast ticks so renders keep up.
-                        // `watched()` is checked below where it is needed; this only
-                        // ensures a fast tick happens after every burst of output.
-                        fast = true;
+                        // Output just arrived: bring the next flush forward to the fast
+                        // cadence if it is further out than that, so a pane that was idle
+                        // and unwatched does not wait out a slow tick before its first
+                        // render. `watched()` is checked below where it is needed.
+                        let soon = tokio::time::Instant::now() + FAST_TICK;
+                        if flush.deadline() > soon {
+                            flush.as_mut().reset(soon);
+                        }
                     }
                     None => break,
                 },
-                _ = tokio::time::sleep(tick) => {
+                _ = flush.as_mut() => {
                     let watched = self.watched(&name);
-                    // Adapt the next tick to whether anyone is watching.
-                    fast = watched;
+                    // Arm the next one from now, so the cadence follows whether anyone is
+                    // watching without the deadline ever being pushed back by output.
+                    flush.as_mut().reset(
+                        tokio::time::Instant::now()
+                            + if watched { FAST_TICK } else { slow_tick },
+                    );
 
                     let due = watched
                         || drawn.is_none_or(|t| t.elapsed() >= Duration::from_millis(UNWATCHED_MS));

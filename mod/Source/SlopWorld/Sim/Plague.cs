@@ -166,11 +166,7 @@ namespace SlopWorld
         int _logged = -1;
 
         // Refilled when it runs off the end, which is also how regrowth gets caught.
-        // We track the lister's defCount version instead of re-enumerating all plants
-        // from scratch every pass — ThingsInGroup returns the same backing list, and
-        // defCount changes when a plant is added or removed.
-        List<Thing> _plantSource;
-        int _plantVer = -1;
+        readonly List<Plant> _plants = new List<Plant>();
         int _plantIdx;
 
         // Where the flowerbed sweep left off. Not saved: it is a position in a walk, and any
@@ -216,49 +212,54 @@ namespace SlopWorld
 
             int t = Find.TickManager.TicksGame;
 
-            // When the game window is unfocused, skip visual-heavy work (flecks, vent)
-            // and process fewer plants per tick. The plague keeps spreading at full rate
-            // — only the cosmetic and low-priority passes are throttled.
+            // The only thing the window losing focus is allowed to stop is the vent's
+            // flecks, which nobody is there to see. Everything else here mutates the
+            // world - Effects detonates and ignites pawns, Sow spawns plants, StepPlants
+            // withers them - and a plague that pauses while the player alt-tabs is a
+            // different game depending on where they are looking.
             bool background = !Application.isFocused;
 
             if (Settings.GrandmaMode)
             {
                 if (t % CatchInterval == 0) Progress();
-                if (!background && t % SowInterval == 0) Sow();
+                if (t % SowInterval == 0) Sow();
                 return;
             }
 
             if (t % CatchInterval == 0) Catch();
-            if (!background && t % EffectInterval == 0) Effects();
+            if (t % EffectInterval == 0) Effects();
             if (!background && t % VentInterval == 0) Vent();
-            StepPlants(background);
+            StepPlants();
         }
 
         // Walked in slices and rebuilt at the end of each pass, so a plant that grew since
-        // last time still gets its turn. Uses the lister's backing list directly with
-        // version tracking: if the list count changed (plant added/removed), we re-fetch
-        // the reference instead of copying all entries into a local list.
-        void StepPlants(bool background = false)
+        // last time still gets its turn.
+        //
+        // The copy is the point: `ThingsInGroup` hands back the lister's own list, and the
+        // strip below destroys plants out of it. Walking that list directly would shift
+        // every entry past the one destroyed down by a slot - skipping the next plant -
+        // and no count taken off it can serve as a version, because the count it is being
+        // compared against came from the same list and moves with it. A map with wild
+        // plants on it churns that count constantly, which would restart the sweep at the
+        // head of the list nearly every tick and leave everything past the first slice
+        // untouched.
+        void StepPlants()
         {
-            var src = map.listerThings.ThingsInGroup(ThingRequestGroup.Plant);
-            int ver = src.Count;
-
-            if (_plantIdx >= (_plantSource?.Count ?? 0) || ver != _plantVer)
+            if (_plantIdx >= _plants.Count)
             {
-                _plantSource = src;
-                _plantVer = ver;
+                _plants.Clear();
+                var all = map.listerThings.ThingsInGroup(ThingRequestGroup.Plant);
+                for (int i = 0; i < all.Count; i++)
+                    if (all[i] is Plant p) _plants.Add(p);
                 _plantIdx = 0;
                 return; // keep the refill off the same tick as the work
             }
 
-            // When backgrounded, process only 1 plant per tick instead of 5.
-            // The plague still works, just slower — nobody's watching the withered
-            // plants tick by tick.
-            int budget = background ? 1 : PlantsPerTick;
+            int budget = PlantsPerTick;
             int now = Find.TickManager.TicksGame;
-            while (_plantIdx < _plantSource.Count && budget-- > 0)
+            while (_plantIdx < _plants.Count && budget-- > 0)
             {
-                var p = _plantSource[_plantIdx++] as Plant;
+                var p = _plants[_plantIdx++];
                 if (p == null || p.Destroyed || !p.Spawned) continue;
                 if (p.def.plant == null) continue;
 
@@ -268,21 +269,30 @@ namespace SlopWorld
                 var dose = band == Band.Full ? Full : Weak;
                 bool tree = p.def.plant.IsTree;
 
+                // Every plant comes back round forever: without this a bare tree smokes again
+                // each pass and a plant already held back rolls for ignition until it catches.
                 bool todo = dose.Strips
                     ? !(tree && p.LeaflessNow)
                     : !tree && p.Growth > dose.StuntFrom;
                 if (!todo) continue;
 
+                // After the todo check: same answer, and in the steady state nearly every
+                // plant the sweep walks past is one the band has finished with.
                 if (Spared(p)) continue;
 
+                // Before the strip: TryStartFireIn weighs what is flammable in the cell, and
+                // stripping the plant leaves nothing there to light.
                 if (Rand.Value < dose.PlantIgnite &&
                     FireUtility.TryStartFireIn(p.Position, map, dose.FireSize, null))
                     continue;
 
                 if (!dose.Strips)
                 {
+                    // Trees are left alone here: a bare tree is the core's look, and giving the
+                    // falloff one made the two bands indistinguishable.
                     PlagueFx.Wither(p);
                     p.Growth = dose.StuntTo;
+                    // Growth is printed into the map mesh and the setter does not dirty it.
                     map.mapDrawer?.MapMeshDirty(p.Position, MapMeshFlagDefOf.Things);
                 }
                 else if (tree)

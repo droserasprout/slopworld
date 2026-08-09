@@ -42,6 +42,9 @@ namespace SlopWorld
         /// F4: focus the git view in the sidebar.
         public static KeyBindingDef SlopSidebarGit;
 
+        /// F5: focus the shortcuts view in the sidebar.
+        public static KeyBindingDef SlopSidebarShortcuts;
+
         /// The colony's one and only pet.
         public static PawnKindDef Cat;
 

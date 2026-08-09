@@ -24,13 +24,17 @@ namespace SlopWorld
             // Background highlight on hover, matching the shortcuts tab's plus.
             if (ColonistBarStrip.MouseOver(rect)) Widgets.DrawHighlight(rect);
 
+            // Both restored: Text.Font is as global as the anchor, and this draws early in
+            // the map interface, so a font left on Medium is every label after it in the frame.
             var wasAnchor = Text.Anchor;
+            var wasFont = Text.Font;
             Text.Anchor = TextAnchor.MiddleCenter;
             Text.Font = GameFont.Medium;
             GUI.color = ColonistBarStrip.MouseOver(rect) ? SlopWidgets.Lead : SlopWidgets.Dim;
             Widgets.Label(rect, "+");
             GUI.color = Color.white;
             Text.Anchor = wasAnchor;
+            Text.Font = wasFont;
 
             TooltipHandler.TipRegion(rect, "Add agent");
 

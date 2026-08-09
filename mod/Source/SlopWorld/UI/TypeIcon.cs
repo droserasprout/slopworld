@@ -12,56 +12,40 @@ namespace SlopWorld
         const int N = 32;
 
         // The two letters share the box: "A" on the left, "a" on the right, both with
-        // enough room to read as themselves rather than as blobs.
+        // enough room to read as themselves rather than as blobs. Drawn a sample per pixel
+        // rather than subsampled the way TabIcons does it: every shape here is an
+        // anti-aliased distance field already, so the edges come out soft without it.
         static Texture2D _tex;
 
         public static Texture2D Tex => _tex != null ? _tex : _tex = Build();
-
-        // A as two sloping strokes and a crossbar. Subsampled the way TabIcons builds.
-        static bool LetterA(float x, float y)
-        {
-            // Left leg: top-left to bottom-mid
-            float u = (x - 2f) / 13f, v = (y - 3f) / 26f;
-            if (u <= 0f) return false;
-
-            float thick = Mathf.Lerp(2.8f, 2f, u);
-            if (Mathf.Abs(v - (1f - u)) * 27f > thick) return false;
-
-            // Right leg: top-left to bottom-right, but the right side is sheared
-            // Actually: two triangles forming an A shape
-            return true; // placeholder
-        }
 
         static Texture2D Build()
         {
             var px = new Color[N * N];
 
+            // The shapes below are written the way the letters read - y down from the cap
+            // line - while SetPixels fills from the bottom row up. `N - y` is what turns
+            // one into the other, the same conversion TabIcons.Build does; without it the
+            // A stands on its apex and reads as a V.
             for (int y = 0; y < N; y++)
             {
                 for (int x = 0; x < N; x++)
                 {
-                    // Simple approach: just draw a stylised "Aa" using basic shapes
-                    float cx = x + 0.5f, cy = y + 0.5f;
+                    float cx = x + 0.5f, cy = N - (y + 0.5f);
 
-                    // "A" on the left: an inverted V with a crossbar
-                    // Left leg: from (3, 27) to (9, 4)
-                    // Right leg: from (9, 4) to (15, 27)
-                    // Crossbar: across at y = 18
-
+                    // "A" on the left: an inverted V with a crossbar.
+                    // Left leg from (3, 27) to the apex at (9, 4), right leg back down to
+                    // (15, 27), crossbar across at y = 18.
                     float a = 0f;
-
-                    // Left leg of A
-                    a = Mathf.Max(a, Stroke(cx, cy, 3f, 4f, 9f, 27f, 2.2f));
-                    // Right leg of A
-                    a = Mathf.Max(a, Stroke(cx, cy, 15f, 4f, 9f, 27f, 2.2f));
-                    // Crossbar of A
+                    a = Mathf.Max(a, Stroke(cx, cy, 3f, 27f, 9f, 4f, 2.2f));
+                    a = Mathf.Max(a, Stroke(cx, cy, 9f, 4f, 15f, 27f, 2.2f));
                     a = Mathf.Max(a, Stroke(cx, cy, 4.5f, 18f, 13.5f, 18f, 2f));
 
-                    // "a" on the right: a circle with a tail
-                    // Bowl
-                    a = Mathf.Max(a, Disc(cx, cy, 23f, 18f, 6.5f) ? 1f : 0f);
-                    // Tail rising from the bowl
-                    a = Mathf.Max(a, Stroke(cx, cy, 23f, 24.5f, 23f, 12f, 2f));
+                    // "a" on the right: a ring for the bowl, not a disc - a filled circle
+                    // is a bullet, and the counter is most of what makes it a letter.
+                    a = Mathf.Max(a, Ring(cx, cy, 23f, 19f, 6f, 2f));
+                    // The stem down the right of the bowl, and its foot.
+                    a = Mathf.Max(a, Stroke(cx, cy, 29f, 13f, 29f, 27f, 2f));
 
                     px[y * N + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(a));
                 }
@@ -91,10 +75,13 @@ namespace SlopWorld
             return Mathf.Clamp01(r + 0.5f - d);
         }
 
-        static bool Disc(float x, float y, float cx, float cy, float r)
+        // Anti-aliased annulus: `r` is the centre line of a stroke `w` wide, so the counter
+        // inside stays open. Same falloff as Stroke, being the same distance question.
+        static float Ring(float x, float y, float cx, float cy, float r, float w)
         {
             float dx = x - cx, dy = y - cy;
-            return dx * dx + dy * dy <= r * r;
+            float d = Mathf.Abs(Mathf.Sqrt(dx * dx + dy * dy) - r);
+            return Mathf.Clamp01(w * 0.5f + 0.5f - d);
         }
     }
 }

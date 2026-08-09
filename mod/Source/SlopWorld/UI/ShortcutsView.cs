@@ -39,23 +39,49 @@ namespace SlopWorld
         // The selected row, for the RMB menu.
         static ShortcutInfo _selected;
 
-        // The drawn lines, rebuilt each frame so clicks and drawing agree.
+        // The drawn lines, rebuilt each frame so clicks and drawing agree. Rects are in
+        // screen space - see Screen - because Clicks runs outside the scroll view.
         struct Line
         {
             public ShortcutInfo Item;
-            public string Project;  // set on a heading, null on a row
+            public bool Head;    // true on a heading, false on a row
+            public string Key;   // the group's key on a heading; "" is the loose bucket
             public Rect Rect;
-            public bool Folded;
-            public int Count;
         }
         static readonly List<Line> Lines = new List<Line>();
 
         // ------------------------------------------------------------------ drawing
 
+        // The strip the "+" is pinned to, at the foot of the panel. Taken off the body
+        // rather than drawn over it, so the last row of a full list is still reachable.
+        static Rect AddBar(Rect body) =>
+            new Rect(CellX, body.yMax - AddH - Pad, body.width - CellX * 2f, AddH);
+
+        // What is left for the list once the "+" has had its strip.
+        static Rect ListRect(Rect body) =>
+            new Rect(body.x, body.y, body.width,
+                Mathf.Max(0f, body.height - AddH - Pad * 2f));
+
+        // The view's own rect, moved into the panel and up by however far it is scrolled.
+        // The scroll view is clipped, so a row scrolled out of sight would otherwise still
+        // answer a click where it used to be. Same helper the files view carries.
+        static Rect Screen(Rect r)
+        {
+            var list = ListRect(AgentSidebar.Body);
+            var moved = new Rect(list.x + r.x, list.y + r.y - _scroll.y, r.width, r.height);
+            return moved.yMax <= list.y || moved.y >= list.yMax ? Rect.zero : moved;
+        }
+
+        static Vector2 _scroll;
+
         public static void Draw(Rect body)
         {
             _items = SessionHub.Instance.Shortcuts.ToList();
             Lines.Clear();
+
+            // The "+" is drawn either way: the empty note tells the player to press it,
+            // so this is the one screen it must not be missing from.
+            DrawAdd(AddBar(body));
 
             if (_items.Count == 0)
             {
@@ -64,104 +90,126 @@ namespace SlopWorld
             }
 
             Group();
-            float y = body.y + Pad;
 
-            foreach (var key in Order)
+            var list = ListRect(body);
+            float height = Measure();
+            var view = new Rect(0f, 0f, list.width - (height > list.height ? 16f : 0f),
+                height);
+
+            // GUI rather than GUILayout, so this is safe in a pass that declines Layout
+            // events - see AgentSidebar.DrawBack. Closed from a finally the way the files
+            // view closes its own: a scroll view left open is every window drawn after it
+            // drawn somewhere else.
+            Widgets.BeginScrollView(list, ref _scroll, view);
+            try
             {
-                var bucket = Groups[key];
-                bool folded = Folded.Contains(key);
+                float y = Pad;
 
-                string label = key.Length == 0 ? LooseLabel : key;
-                var headRect = new Rect(0f, y, body.width, HeadH);
-                Lines.Add(new Line
+                foreach (var key in Order)
                 {
-                    Project = label,
-                    Rect = headRect,
-                    Folded = folded,
-                    Count = bucket.Count
-                });
+                    var bucket = Groups[key];
+                    bool folded = Folded.Contains(key);
 
-                // Heading
-                if (ColonistBarStrip.MouseOver(headRect)) Widgets.DrawHighlight(headRect);
+                    string label = key.Length == 0 ? LooseLabel : key;
+                    var headRect = new Rect(0f, y, view.width, HeadH);
+                    // The key, not the label: the fold set is keyed by the group and the
+                    // loose bucket's key is "" while its label reads "no project".
+                    Lines.Add(new Line { Head = true, Key = key, Rect = Screen(headRect) });
 
-                GUI.color = SlopWidgets.Faint;
-                var arrow = new Rect(CellX, headRect.y + (HeadH - ArrowW) / 2f, ArrowW, ArrowW);
-                GUI.DrawTexture(arrow, folded ? TexButton.Reveal : TexButton.Collapse);
+                    // Heading
+                    if (ColonistBarStrip.MouseOver(Screen(headRect)))
+                        Widgets.DrawHighlight(headRect);
 
-                Text.Font = GameFont.Tiny;
-                Text.Anchor = TextAnchor.MiddleLeft;
-                float lx = arrow.xMax + 4f;
-                string tail = folded ? "  " + bucket.Count : "";
-                var labelRect = new Rect(lx, headRect.y, body.width - lx - CellX, HeadH);
-                Widgets.Label(labelRect, (label + tail).Truncate(labelRect.width));
+                    GUI.color = SlopWidgets.Faint;
+                    var arrow = new Rect(CellX, headRect.y + (HeadH - ArrowW) / 2f,
+                        ArrowW, ArrowW);
+                    GUI.DrawTexture(arrow, folded ? TexButton.Reveal : TexButton.Collapse);
 
-                GUI.color = Color.white;
-                Text.Anchor = TextAnchor.UpperLeft;
-                Text.Font = GameFont.Small;
-
-                Widgets.DrawBoxSolid(new Rect(CellX, headRect.yMax - 1f,
-                    body.width - CellX * 2f, 1f), new Color(1f, 1f, 1f, 0.08f));
-
-                TooltipHandler.TipRegion(headRect,
-                    key.Length == 0
-                        ? "Shortcuts that don't belong to any project.\n\nClick to fold."
-                        : $"Click to fold, right-click for the project.");
-
-                y += HeadH;
-                if (folded) continue;
-
-                foreach (var item in bucket)
-                {
-                    var r = new Rect(0f, y, body.width, RowH);
-                    bool over = ColonistBarStrip.MouseOver(r);
-                    if (over) Widgets.DrawHighlight(r);
-
-                    // The kind badge: "prompt" or "shell"
-                    float badgeW = 34f;
-                    GUI.color = item.Kind == ShortcutKind.Shell
-                        ? SlopWidgets.Warn
-                        : new Color(0.55f, 0.75f, 0.9f);
                     Text.Font = GameFont.Tiny;
                     Text.Anchor = TextAnchor.MiddleLeft;
-                    Widgets.Label(new Rect(CellX, r.y, badgeW, RowH),
-                        item.Kind == ShortcutKind.Shell ? "sh" : "→");
+                    float lx = arrow.xMax + 4f;
+                    string tail = folded ? "  " + bucket.Count : "";
+                    var labelRect = new Rect(lx, headRect.y, view.width - lx - CellX, HeadH);
+                    Widgets.Label(labelRect, (label + tail).Truncate(labelRect.width));
+
                     GUI.color = Color.white;
                     Text.Anchor = TextAnchor.UpperLeft;
                     Text.Font = GameFont.Small;
 
-                    float tx = CellX + badgeW + 4f;
-                    // The name comes first, then a sample of the text truncated.
-                    GUI.color = SlopWidgets.Lead;
-                    var nameW = Text.CalcSize(item.Name).x;
-                    var nameRect = new Rect(tx, r.y, Mathf.Min(nameW + 6f,
-                        body.width * 0.35f), RowH);
-                    Widgets.Label(nameRect, item.Name.Truncate(nameRect.width));
-                    GUI.color = SlopWidgets.Dim;
+                    Widgets.DrawBoxSolid(new Rect(CellX, headRect.yMax - 1f,
+                        view.width - CellX * 2f, 1f), new Color(1f, 1f, 1f, 0.08f));
 
-                    float restX = nameRect.xMax + 2f;
-                    var restW = r.xMax - 6f - restX;
-                    if (restW > 20f)
+                    TooltipHandler.TipRegion(headRect,
+                        key.Length == 0
+                            ? "Shortcuts that don't belong to any project.\n\nClick to fold."
+                            : $"Click to fold, right-click for the project.");
+
+                    y += HeadH;
+                    if (folded) continue;
+
+                    foreach (var item in bucket)
                     {
-                        var was = Text.WordWrap;
-                        Text.WordWrap = false;
-                        Widgets.Label(new Rect(restX, r.y, restW, RowH),
-                            OneLine(item.Text).Truncate(restW));
-                        Text.WordWrap = was;
-                    }
-                    GUI.color = Color.white;
+                        var r = new Rect(0f, y, view.width, RowH);
+                        if (ColonistBarStrip.MouseOver(Screen(r))) Widgets.DrawHighlight(r);
 
-                    Lines.Add(new Line { Item = item, Rect = r });
-                    y += RowH;
+                        // The kind badge: "prompt" or "shell"
+                        float badgeW = 34f;
+                        GUI.color = item.Kind == ShortcutKind.Shell
+                            ? SlopWidgets.Warn
+                            : new Color(0.55f, 0.75f, 0.9f);
+                        Text.Font = GameFont.Tiny;
+                        Text.Anchor = TextAnchor.MiddleLeft;
+                        Widgets.Label(new Rect(CellX, r.y, badgeW, RowH),
+                            item.Kind == ShortcutKind.Shell ? "sh" : "→");
+                        GUI.color = Color.white;
+                        Text.Anchor = TextAnchor.UpperLeft;
+                        Text.Font = GameFont.Small;
+
+                        float tx = CellX + badgeW + 4f;
+                        // The name comes first, then a sample of the text truncated.
+                        GUI.color = SlopWidgets.Lead;
+                        var nameW = Text.CalcSize(item.Name).x;
+                        var nameRect = new Rect(tx, r.y, Mathf.Min(nameW + 6f,
+                            view.width * 0.35f), RowH);
+                        Widgets.Label(nameRect, item.Name.Truncate(nameRect.width));
+                        GUI.color = SlopWidgets.Dim;
+
+                        float restX = nameRect.xMax + 2f;
+                        var restW = r.xMax - 6f - restX;
+                        if (restW > 20f)
+                        {
+                            var was = Text.WordWrap;
+                            Text.WordWrap = false;
+                            Widgets.Label(new Rect(restX, r.y, restW, RowH),
+                                OneLine(item.Text).Truncate(restW));
+                            Text.WordWrap = was;
+                        }
+                        GUI.color = Color.white;
+
+                        Lines.Add(new Line { Item = item, Rect = Screen(r) });
+                        y += RowH;
+                    }
                 }
             }
+            finally
+            {
+                Widgets.EndScrollView();
+                Text.Font = GameFont.Small;
+                Text.Anchor = TextAnchor.UpperLeft;
+                GUI.color = Color.white;
+            }
+        }
 
-            // The "+" is pinned to the foot of the panel, following the pattern of the
-            // agents view. Room for it is reserved: the body is the full height of the
-            // column below the tab strip, and this draws over whatever the list itself
-            // left.
-            var addRect = new Rect(CellX, body.yMax - AddH - Pad,
-                body.width - CellX * 2f, AddH);
-            DrawAdd(addRect);
+        // The height the rows want, measured off the same folds the draw reads.
+        static float Measure()
+        {
+            float h = Pad;
+            foreach (var key in Order)
+            {
+                h += HeadH;
+                if (!Folded.Contains(key)) h += Groups[key].Count * RowH;
+            }
+            return h + Pad;
         }
 
         static void Empty(Rect body)
@@ -209,7 +257,10 @@ namespace SlopWorld
         // The "+" button at the bottom, matching the agents view's add button.
         static void DrawAdd(Rect r)
         {
+            // Font as well as anchor: both are global, and the sidebar is not the last
+            // thing drawn in the frame.
             var wasAnchor = Text.Anchor;
+            var wasFont = Text.Font;
             Text.Anchor = TextAnchor.MiddleCenter;
             Text.Font = GameFont.Medium;
 
@@ -225,6 +276,7 @@ namespace SlopWorld
             Widgets.Label(r, "+");
             GUI.color = Color.white;
             Text.Anchor = wasAnchor;
+            Text.Font = wasFont;
         }
 
         // ------------------------------------------------------------------ clicks
@@ -240,11 +292,10 @@ namespace SlopWorld
             if (e.rawType != EventType.MouseDown) return;
             if (e.button != 0 && e.button != 1) return;
 
-            // The "+" button first, so it takes priority over anything drawn under it.
+            // The "+" button first: it has its own strip at the foot now, so this is only
+            // about answering before the loop bothers walking the rows.
             var body = AgentSidebar.Body;
-            var addRect = new Rect(CellX, body.yMax - AddH - Pad,
-                body.width - CellX * 2f, AddH);
-            if (ColonistBarStrip.MouseOver(addRect) && e.button == 0)
+            if (ColonistBarStrip.MouseOver(AddBar(body)) && e.button == 0)
             {
                 TerminalWindow.OpenOverPane(new EditShortcutDialog(null));
                 e.Use();
@@ -253,18 +304,21 @@ namespace SlopWorld
 
             foreach (var line in Lines)
             {
+                // Screen() zeroes a line clipped out of the scroll view, and Rect.zero is
+                // nowhere the mouse can be.
                 if (!ColonistBarStrip.MouseOver(line.Rect)) continue;
 
-                if (line.Project != null)
+                if (line.Head)
                 {
-                    // Heading: left click folds, right click opens project menu.
+                    // Heading: left click folds, right click opens project menu. Both keyed
+                    // by the group, not by what the heading reads.
                     if (e.button == 0)
                     {
-                        if (!Folded.Remove(line.Project)) Folded.Add(line.Project);
+                        if (!Folded.Remove(line.Key)) Folded.Add(line.Key);
                     }
-                    else
+                    else if (line.Key.Length > 0)
                     {
-                        HeadMenu(line.Project);
+                        HeadMenu(line.Key);
                     }
                     e.Use();
                     return;
@@ -333,27 +387,34 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ actions
 
+        // `temp` is the answer to the menu as well as a caller's own, which is why the
+        // menu is only opened when neither has been given: asking again on the way back
+        // from "a temporary project under ..." - which comes back with a null project by
+        // design - would put the same menu up forever and the temporary run would be the
+        // one option in it that could never be taken.
         static void Run(ShortcutInfo s, string project = null, bool temp = false)
         {
             // An entry that never said where goes through a menu first.
-            if (s.Link == ShortcutLink.Ask && project == null)
+            if (s.Link == ShortcutLink.Ask && project == null && !temp)
             {
                 AskWhere(s);
                 return;
             }
 
+            bool scratch = temp || s.Link == ShortcutLink.Temp;
             SessionHub.Instance.RunShortcut(s.Name,
                 session => TerminalWindow.Open(session),
                 SlopWidgets.Fail,
-                project ?? (s.Link == ShortcutLink.Temp ? null : s.Project),
-                temp || s.Link == ShortcutLink.Temp);
+                // A project named outright wins; a temporary run has none, whichever of
+                // the two said so; otherwise the entry's own.
+                project ?? (scratch ? null : s.Project),
+                scratch);
         }
 
         // Every project, plus a temporary one - last, being the answer for the run that
         // belongs nowhere in particular.
         static void AskWhere(ShortcutInfo s)
         {
-            var name = s.Name;
             var options = SessionHub.Instance.Projects
                 .Select(p => new FloatMenuOption($"{p.Name}  -  {p.Dir}",
                     () => Run(s, p.Name)))

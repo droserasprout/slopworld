@@ -35,10 +35,6 @@ namespace SlopWorld
         // The scroll position for the whole page.
         Vector2 _scroll;
 
-        // Total content height measured on the draw pass, so the scroll view is sized
-        // from the same figures the layout used.
-        float _contentH;
-
         public void Draw(Rect rect)
         {
             SlopWidgets.PageCaption(rect, "Keyboard shortcuts  \u2013  click a key to rebind");
@@ -143,15 +139,29 @@ namespace SlopWorld
                     else
                     {
                         string keyLabel = BindingLabel(binding);
-                        if (SlopWidgets.Button(keyRect, keyLabel, SlopWidgets.Btn.Default))
+
+                        // Left sets the main key, right the alternate. Taken as an event
+                        // rather than off the button, which answers the left button only.
+                        // Choosing the slot by which one happened to be free - so B for
+                        // every binding that already has an A - would mean the key the row
+                        // shows first could never be changed, only added to.
+                        var ev = Event.current;
+                        if (Mouse.IsOver(keyRect) && ev.rawType == EventType.MouseDown
+                                                  && ev.button == 1)
                         {
-                            var data = KeyPrefs.KeyPrefsData;
-                            KeyCode existing = data.GetBoundKeyCode(binding, KeyPrefs.BindingSlot.A);
-                            _bindingSlot = (existing == KeyCode.None)
-                                ? KeyPrefs.BindingSlot.A
-                                : KeyPrefs.BindingSlot.B;
+                            _bindingSlot = KeyPrefs.BindingSlot.B;
+                            _listening = binding;
+                            ev.Use();
+                        }
+                        else if (SlopWidgets.Button(keyRect, keyLabel, SlopWidgets.Btn.Default))
+                        {
+                            _bindingSlot = KeyPrefs.BindingSlot.A;
                             _listening = binding;
                         }
+
+                        TooltipHandler.TipRegion(keyRect,
+                            "Click to set the main key, right-click for the alternate.\n\n" +
+                            "Esc cancels, Delete clears the slot.");
                     }
 
                     Text.Anchor = TextAnchor.UpperLeft;
@@ -174,7 +184,6 @@ namespace SlopWorld
                     MessageTypeDefOf.TaskCompletion, false);
             }
 
-            _contentH = y + SlopWidgets.BtnH;
             Widgets.EndScrollView();
 
             // Handle key capture while listening — this catches keys the buttons miss.
@@ -189,23 +198,50 @@ namespace SlopWorld
             var e = Event.current;
             if (e.rawType != EventType.KeyDown) return;
 
-            if (!IgnoredKeys.Contains(e.keyCode))
-            {
-                var data = KeyPrefs.KeyPrefsData;
-                data.SetBinding(_listening, _bindingSlot, e.keyCode);
-                _bindingSlot = (_bindingSlot == KeyPrefs.BindingSlot.A)
-                    ? KeyPrefs.BindingSlot.B
-                    : KeyPrefs.BindingSlot.A;
-                KeyPrefs.Save();
-                _listening = null;
-                e.Use();
-            }
-            else if (e.keyCode == KeyCode.Escape)
+            if (e.keyCode == KeyCode.Escape)
             {
                 // Escape cancels the rebinding.
                 _listening = null;
                 e.Use();
+                return;
             }
+
+            if (IgnoredKeys.Contains(e.keyCode)) return;
+
+            var data = KeyPrefs.KeyPrefsData;
+            // Delete empties the slot rather than binding Delete to it, which is the only
+            // way back from a key added by mistake.
+            var code = e.keyCode == KeyCode.Delete ? KeyCode.None : e.keyCode;
+
+            if (code != KeyCode.None)
+            {
+                var clash = Conflict(code, _listening);
+                if (clash != null)
+                    Messages.Message(
+                        $"SlopWorld: {LabelOf(code)} is also on \"{clash.label}\".",
+                        MessageTypeDefOf.CautionInput, false);
+            }
+
+            data.SetBinding(_listening, _bindingSlot, code);
+            KeyPrefs.Save();
+            _listening = null;
+            e.Use();
+        }
+
+        // The first other binding already holding this key, or null. A warning rather than
+        // a refusal: vanilla lets two things share a key and so does this, but silently
+        // shadowing a key the player set an hour ago is not something to do without a word.
+        static KeyBindingDef Conflict(KeyCode code, KeyBindingDef except)
+        {
+            var data = KeyPrefs.KeyPrefsData;
+            foreach (var b in DefDatabase<KeyBindingDef>.AllDefs)
+            {
+                if (b == except) continue;
+                if (data.GetBoundKeyCode(b, KeyPrefs.BindingSlot.A) == code
+                    || data.GetBoundKeyCode(b, KeyPrefs.BindingSlot.B) == code)
+                    return b;
+            }
+            return null;
         }
 
         // Builds the display label from both key slots, so "F1 / Shift+F1" shows both.

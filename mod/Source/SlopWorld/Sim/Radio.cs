@@ -122,8 +122,6 @@ namespace SlopWorld
         // called - Application.Quit lets the frame finish, and there are more frames after
         // it while the save is written - so Update runs on after Quit, and without this it
         // put the station straight back on: the music stopped for a second and returned.
-        // Cached after the first successful stop of the game's music.
-        static bool _musicDisabled;
         static bool _quit;
 
         // What the station says it is playing. The daemon's, not a setting: it is true for
@@ -217,10 +215,10 @@ namespace SlopWorld
             Push();
         }
 
-        // Every frame, menu and game alike, from Patch_Root_Update. Throttled to
-        // every 10 frames because music state changes slowly: volume slider moves,
-        // station picks, and reconnects. The _told flag ensures a change is sent
-        // within a frame of it happening, not 10 frames later.
+        // Every frame, menu and game alike, from Patch_Root_Update. Everything below the
+        // throttle runs one frame in ten: music state changes slowly - volume slider moves,
+        // station picks, reconnects - and a sixth of a second late is not something anyone
+        // hears. `Read()` stays above it, being the answer to what the daemon is playing.
         static int _updateSkip;
         const int UpdateInterval = 10;
 
@@ -236,14 +234,16 @@ namespace SlopWorld
             // The game's own music manager stays off for good. It is not sharing the job
             // with anything any more - the OST is out there too - so this is a flag held
             // rather than the switching the two of them used to do. A load or a new colony
-            // clears it, which is why it is asked every frame rather than once.
+            // builds a fresh manager with the flag clear, which is why the manager's own
+            // `disabled` is what is asked rather than something we latch on our side: a
+            // static that stuck would let vanilla music back in on the second game of the
+            // process. It is the throttle above, not a cached answer, that keeps the cost
+            // of asking down.
+            //
             // Only once there is a game. Find.MusicManagerPlay is a castclass to Root_Play,
             // so on the menu it throws rather than returning null, and Stop() asks
             // DangerMusicMode, which reads Find.Scenario before it is set.
-            //
-            // The disabled flag stays set once toggled (survives loads), so the per-frame
-            // stop is redundant after the first time. We cache this to skip the cast too.
-            if (Current.ProgramState == ProgramState.Playing && !_musicDisabled)
+            if (Current.ProgramState == ProgramState.Playing)
             {
                 try
                 {
@@ -255,7 +255,6 @@ namespace SlopWorld
                     }
                 }
                 catch { /* Root_Play castclass fails on menu */ }
-                _musicDisabled = true;
             }
 
             var hub = SessionHub.Instance;

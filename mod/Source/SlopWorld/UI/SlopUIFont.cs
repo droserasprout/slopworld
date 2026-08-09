@@ -38,43 +38,61 @@ namespace SlopWorld
         // when the user only picks a face.
         static readonly int[] DefaultSizes = { 11, 13, 15 };
 
-        static bool _applied;
-
-        public static bool Applied => _applied;
+        // The font in the styles now, and what was asked for to get it. Held because the
+        // size slider calls Apply on every step it passes through: a dynamic font is an
+        // asset with a texture atlas behind it, and this one is marked never to unload, so
+        // building a fresh one per step and dropping the last would pin the whole drag.
+        static Font _font;
+        static string _fontName;
+        static int _fontSize = -1;
 
         // Replaces the built-in fonts with the user's chosen OS font in every
         // Text font-style array. Called from WriteSettings and from the bootstrap.
         public static void Apply()
         {
             int size = Settings.UIFontSize;
-            string name = Settings.UIFontName;
+            string name = Settings.UIFontName ?? "";
 
             if (size < 0) size = 0;
             if (size > 48) size = 48;
 
+            // The face is baked at a size, so a size change is a new font as much as a
+            // face change is. Size 0 means "leave the per-tier sizes alone", and the face
+            // is baked at 13 for it - dynamic fonts rasterise per request anyway.
+            int bake = size > 0 ? size : 13;
+
+            if (_font != null && _fontName == name && _fontSize == size)
+            {
+                // Same font, but the styles may have been left at another tier's size by
+                // an earlier call, so the application itself still has to happen.
+                ApplyFont(_font, size);
+                return;
+            }
+
             // Build the font. Empty name = auto-detect from Candidates.
-            Font font;
-            if (string.IsNullOrEmpty(name))
-            {
-                font = Font.CreateDynamicFontFromOSFont(Candidates, size > 0 ? size : 13)
-                       ?? Font.CreateDynamicFontFromOSFont("Arial", size > 0 ? size : 13);
-            }
-            else
-            {
-                font = Font.CreateDynamicFontFromOSFont(name, size > 0 ? size : 13);
-            }
+            Font font = name.Length == 0
+                ? Font.CreateDynamicFontFromOSFont(Candidates, bake)
+                  ?? Font.CreateDynamicFontFromOSFont("Arial", bake)
+                : Font.CreateDynamicFontFromOSFont(name, bake);
 
             if (font == null)
             {
                 Log.Warning("[SlopWorld] UI font: could not create font " +
                             (name.NullOrEmpty() ? "(auto)" : name));
-                _applied = false;
                 return;
             }
             font.hideFlags = HideFlags.DontUnloadUnusedAsset;
 
+            var old = _font;
+            _font = font;
+            _fontName = name;
+            _fontSize = size;
+
             ApplyFont(font, size);
-            _applied = true;
+
+            // Only once nothing points at it any more: the styles were still holding it
+            // until the line above.
+            if (old != null && old != font) UnityEngine.Object.Destroy(old);
         }
 
         // Applies the given Font object to all public Text style arrays and updates
@@ -94,7 +112,7 @@ namespace SlopWorld
             // includes the font's inter-line spacing (ascent + descent + leading).
             // This is the same metric TerminalFont uses for its cell height:
             //   CellH = Mathf.Max(_style.lineHeight, _size + 2f)
-            // We floor at (size + 6) for extra headroom across diverse font faces.
+            // Floored at size * 1.6 for headroom across diverse faces - see LineHeight.
             try
             {
                 var lhField = typeof(Text).GetField("lineHeights",
@@ -136,13 +154,16 @@ namespace SlopWorld
             return Mathf.Max(style.lineHeight, Mathf.Ceil(size * 1.6f));
         }
 
+        // Size 0 is not "leave the size as it is" but "put the tier back to what RimWorld
+        // shipped": the slider can be dragged up and then back down again, and a style left
+        // at the size it was last given would keep 20pt text under a page saying 11/13/15.
         static void ApplyToStyles(GUIStyle[] styles, Font font, int size)
         {
             if (styles == null) return;
             for (int i = 0; i < styles.Length && i < 3; i++)
             {
                 styles[i].font = font;
-                if (size > 0) styles[i].fontSize = size;
+                styles[i].fontSize = size > 0 ? size : DefaultSizes[i];
             }
         }
 

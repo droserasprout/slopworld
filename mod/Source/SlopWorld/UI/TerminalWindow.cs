@@ -850,42 +850,66 @@ namespace SlopWorld
             }
         }
 
-        // Single gate for all F1-F12 keys. Returns true if consumed (bare F-key with no
-        // modifiers). Shift+F = key passes through to the agent, same for unbound F5-F11.
+        // Single gate for the chrome's own keys. Returns true if consumed. Shift+key passes
+        // through to the agent, and so does anything none of the bindings claim - F6-F11
+        // by default, being on nothing.
+        //
+        // Read off the KeyBindingDefs rather than off KeyCode.F1..F5 directly: the options
+        // menu's Shortcuts page rebinds these, and matching the raw key would let the page
+        // report a change it then went on to ignore. The defaults in KeyBindings.xml are
+        // the same F-keys, so out of the box this is the switch it replaced.
         public static bool HandleFunctionKey(Event e)
         {
-            if (e.keyCode < KeyCode.F1 || e.keyCode > KeyCode.F12) return false;
-            // Shift+F = pass through to the agent/tui.
-            if (e.shift) return false;
+            // Shift+key = pass through to the agent/tui.
+            if (e.shift || e.keyCode == KeyCode.None) return false;
 
-            switch (e.keyCode)
+            if (Bound(SlopDefOf.SlopCommandPalette, e))
             {
-                case KeyCode.F1:
-                    CommandPalette.Toggle();
-                    return true;
-                case KeyCode.F2:
-                    AgentSidebar.FocusTerminal();
-                    return true;
-                case KeyCode.F3:
-                    AgentSidebar.ShowFiles();
-                    return true;
-                case KeyCode.F4:
-                    AgentSidebar.ShowGit();
-                    return true;
-                case KeyCode.F5:
-                    AgentSidebar.ShowShortcuts();
-                    return true;
-                case KeyCode.F12:
-                    // Close if the window is open, open one if not (handles	t both map and
-                    // pane contexts via the same check).
-                    var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
-                    if (w != null) w.Close();
-                    else AgentSidebar.FocusTerminal();
-                    return true;
-                // F6-F11: no action bound, pass through to the agent.
-                default:
-                    return false;
+                CommandPalette.Toggle();
+                return true;
             }
+            if (Bound(SlopDefOf.SlopSidebarAgents, e))
+            {
+                AgentSidebar.FocusTerminal();
+                return true;
+            }
+            if (Bound(SlopDefOf.SlopSidebarFiles, e))
+            {
+                AgentSidebar.ShowFiles();
+                return true;
+            }
+            if (Bound(SlopDefOf.SlopSidebarGit, e))
+            {
+                AgentSidebar.ShowGit();
+                return true;
+            }
+            if (Bound(SlopDefOf.SlopSidebarShortcuts, e))
+            {
+                AgentSidebar.ShowShortcuts();
+                return true;
+            }
+            if (Bound(SlopDefOf.SlopQuickTerminal, e))
+            {
+                // Close if the window is open, open one if not (handles both map and
+                // pane contexts via the same check).
+                var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
+                if (w != null) w.Close();
+                else AgentSidebar.FocusTerminal();
+                return true;
+            }
+            return false;
+        }
+
+        // Whether this event's key is either of the def's two slots. Asked of the event
+        // rather than through KeyBindingDef.KeyDownEvent, because the caller has already
+        // taken the event and needs to know whether to Use it.
+        static bool Bound(KeyBindingDef def, Event e)
+        {
+            if (def == null) return false;
+            var data = KeyPrefs.KeyPrefsData;
+            if (data == null) return false;
+            return data.GetBoundKeyCode(def, KeyPrefs.BindingSlot.A) == e.keyCode
+                || data.GetBoundKeyCode(def, KeyPrefs.BindingSlot.B) == e.keyCode;
         }
 
         // The chrome's own keys, read while a view has the body. Everything an agent would
