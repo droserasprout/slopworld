@@ -138,8 +138,10 @@ fn read_creds(path: &PathBuf) -> anyhow::Result<Creds> {
         .to_string();
 
     // Expiry is advisory here: a stale token is a 401 we report like any other.
+    // `expiresAt` is in seconds (Unix epoch), `now_ms()` returns milliseconds, so
+    // multiply before comparing.
     if let Some(exp) = o["expiresAt"].as_u64() {
-        if exp < now_ms() {
+        if exp * 1000 < now_ms() {
             anyhow::bail!("Claude login expired; run `claude auth` on the host");
         }
     }
