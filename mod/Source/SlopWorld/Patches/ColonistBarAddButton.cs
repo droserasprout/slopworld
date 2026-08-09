@@ -25,12 +25,13 @@ namespace SlopWorld
             GUI.DrawTexture(rect, ColonistBar.BGTex);
             if (ColonistBarStrip.MouseOver(rect)) Widgets.DrawHighlight(rect);
 
-            // Square and centred whatever shape the slot is: in the column it is a row the
-            // width of the panel, and half of that in each direction is a stretched plus.
-            float d = Mathf.Min(rect.width, rect.height) * 0.5f;
-            var icon = new Rect(0f, 0f, d, d);
-            icon.center = rect.center;
-            GUI.DrawTexture(icon, TexButton.Plus);
+            var wasAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Text.Font = GameFont.Medium;
+            GUI.color = ColonistBarStrip.MouseOver(rect) ? SlopWidgets.Lead : SlopWidgets.Dim;
+            Widgets.Label(rect, "+");
+            GUI.color = Color.white;
+            Text.Anchor = wasAnchor;
 
             TooltipHandler.TipRegion(rect, "Add agent");
 

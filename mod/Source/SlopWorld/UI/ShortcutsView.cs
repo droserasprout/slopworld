@@ -211,7 +211,7 @@ namespace SlopWorld
         {
             var wasAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleCenter;
-            Text.Font = GameFont.Small;
+            Text.Font = GameFont.Medium;
 
             bool over = ColonistBarStrip.MouseOver(r);
             if (over)
