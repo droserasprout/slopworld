@@ -87,7 +87,7 @@ namespace SlopWorld
         // when the OST is selected. A path and not a file:// URL so that neither end has
         // anything to escape.
         static readonly string[] OstFiles = { "slopbg01.ogg", "slopbg02.ogg" };
-        static readonly string[] OstTitles = { "Terry Fail - slopbg01", "Terry Fail - slopbg02" };
+        static readonly string[] OstTitles = { "Terry Fail - slopbg01 (WIP)", "Terry Fail - slopbg02 (WIP)" };
         static int _ostIndex = 0;
 
         static string OstPath()
@@ -175,7 +175,7 @@ namespace SlopWorld
 
         public static void PickOst()
         {
-            _ostIndex = Random.Range(0, OstFiles.Length);
+            _ostIndex = (_ostIndex + 1) % OstFiles.Length;
             Pick(null, 0);
         }
 
@@ -315,6 +315,7 @@ namespace SlopWorld
             Log.Warning("[SlopWorld] jukebox: " + error);
             if (_station == null) return;
 
+            _ostIndex = (_ostIndex + 1) % OstFiles.Length;
             Messages.Message($"Jukebox: {_station.Name} {RateLabel(_station.Rate)} would not "
                 + "play. Back to the OST.", MessageTypeDefOf.RejectInput, false);
             _station = null;
