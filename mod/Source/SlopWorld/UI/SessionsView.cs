@@ -19,7 +19,7 @@ namespace SlopWorld
 
         public override string Title => "Agents";
 
-        protected override float RowH => 52f;
+        protected override float RowH => 2 * SlopWidgets.LineH + SlopWidgets.GapXS + 4f;
 
         protected override string EmptyNote =>
             "No sessions yet. Add one and it will show up as a colonist.";

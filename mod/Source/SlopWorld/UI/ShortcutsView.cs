@@ -22,7 +22,7 @@ namespace SlopWorld
 
         public override string Title => "Shortcuts";
 
-        protected override float RowH => 62f;
+        protected override float RowH => 2 * SlopWidgets.LineH + SlopWidgets.GapXS + 14f;
 
         protected override string EmptyNote =>
             "No shortcuts yet. A prompt one hands an agent something you would " +

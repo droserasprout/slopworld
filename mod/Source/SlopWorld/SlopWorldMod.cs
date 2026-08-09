@@ -42,6 +42,9 @@ namespace SlopWorld
         public int fontSize = 14;
         public string fontName = "";
 
+        public int uiFontSize;
+        public string uiFontName = "";
+
         // The pane's palette, by name. A scheme this build no longer ships reads as the
         // default rather than as no colours at all.
         public string theme = "slopworld";
@@ -88,6 +91,8 @@ namespace SlopWorld
             Scribe_Values.Look(ref usageIcons, "usageIcons", "");
             Scribe_Values.Look(ref fontSize, "fontSize", 14);
             Scribe_Values.Look(ref fontName, "fontName", "");
+            Scribe_Values.Look(ref uiFontSize, "uiFontSize", 0);
+            Scribe_Values.Look(ref uiFontName, "uiFontName", "");
             Scribe_Values.Look(ref theme, "theme", "slopworld");
             Scribe_Values.Look(ref cursorColor, "cursorColor", "");
             Scribe_Values.Look(ref radio, "radio", "ost");
@@ -114,6 +119,8 @@ namespace SlopWorld
         public static string UsageIcons => S.usageIcons ?? "";
         public static int FontSize => S.fontSize;
         public static string FontName => S.fontName ?? "";
+        public static int UIFontSize => S.uiFontSize;
+        public static string UIFontName => S.uiFontName ?? "";
         public static string Theme => S.theme ?? "";
         public static string CursorColor => S.cursorColor ?? "";
         public static string Radio => S.radio ?? "";
@@ -168,6 +175,7 @@ namespace SlopWorld
             base.WriteSettings();
             TerminalFont.Invalidate();
             TerminalTheme.Invalidate();
+            SlopUIFont.Apply();
             SessionHub.Instance.Connect();
         }
     }
@@ -214,6 +222,7 @@ namespace SlopWorld
             // Intercepts Alt+F4 / window close to save and show a confirmation dialog.
             QuitInterceptor.Register();
             Log.Message("[SlopWorld] patched; daemon at " + SlopClient.BaseUrl);
+            SlopUIFont.Apply();
         }
     }
 

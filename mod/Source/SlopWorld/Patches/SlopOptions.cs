@@ -46,11 +46,13 @@ namespace SlopWorld
         // The terminal-appearance tab, between General and Usage. Same def pattern as the
         // others: Core's mod pack so it is drawn, and the gear icon is drawn by hand below.
         public static OptionCategoryDef TerminalCategory { get; private set; }
+        public static OptionCategoryDef AppearanceCategory { get; private set; }
 
         // Rebuilt per open, so a config edited elsewhere - or a daemon that was down last
         // time - is re-read rather than remembered.
         static ConfigPage _page;
         static TerminalPage _terminalPage;
+        static AppearancePage _appearancePage;
         static UsagePage _usagePage;
         static SandboxPage _sandboxPage;
         static AboutPage _aboutPage;
@@ -75,6 +77,7 @@ namespace SlopWorld
             SlopWorldLabel = Section("SlopWorld_Section", "SlopWorld", general);
             Category = Section("SlopWorld_Config", "General", general);
             TerminalCategory = Section("SlopWorld_Terminal", "Terminal", general);
+            AppearanceCategory = Section("SlopWorld_Appearance", "Appearance", general);
             UsageCategory = Section("SlopWorld_Usage", "Usage", general);
             SandboxCategory = Section("SlopWorld_Sandbox", "Sandbox", general);
             AboutCategory = Section("SlopWorld_About", "About", general);
@@ -83,6 +86,7 @@ namespace SlopWorld
             DefDatabase<OptionCategoryDef>.Add(SlopWorldLabel);
             DefDatabase<OptionCategoryDef>.Add(Category);
             DefDatabase<OptionCategoryDef>.Add(TerminalCategory);
+            DefDatabase<OptionCategoryDef>.Add(AppearanceCategory);
             DefDatabase<OptionCategoryDef>.Add(UsageCategory);
             DefDatabase<OptionCategoryDef>.Add(SandboxCategory);
             DefDatabase<OptionCategoryDef>.Add(AboutCategory);
@@ -95,6 +99,7 @@ namespace SlopWorld
             all.Remove(SlopWorldLabel);
             all.Remove(Category);
             all.Remove(TerminalCategory);
+            all.Remove(AppearanceCategory);
             all.Remove(UsageCategory);
             all.Remove(SandboxCategory);
             all.Remove(AboutCategory);
@@ -102,10 +107,11 @@ namespace SlopWorld
             all.Insert(0, SlopWorldLabel);
             all.Insert(1, Category);
             all.Insert(2, TerminalCategory);
-            all.Insert(3, UsageCategory);
-            all.Insert(4, SandboxCategory);
-            all.Insert(5, AboutCategory);
-            all.Insert(6, RimWorldLabel);
+            all.Insert(3, AppearanceCategory);
+            all.Insert(4, UsageCategory);
+            all.Insert(5, SandboxCategory);
+            all.Insert(6, AboutCategory);
+            all.Insert(7, RimWorldLabel);
         }
 
         // One of the column's defs, all the same official-pack shape so fruit is drawn.
@@ -174,7 +180,7 @@ namespace SlopWorld
         // the dialog the *main menu* still opens as a window of its own.
         public static void Teardown()
         {
-            _page = null; _terminalPage = null; _usagePage = null;
+            _page = null; _terminalPage = null; _appearancePage = null; _usagePage = null;
             _sandboxPage = null; _aboutPage = null;
             SlopWorldMod.Instance.settings.Write();
         }
@@ -272,6 +278,49 @@ namespace SlopWorld
                 return false;
             }
         }
+
+        // ---------------------------------------------------------------- appearance
+
+        // The Appearance row, between Terminal and Usage. A typeface icon: the page is
+        // about the mod's font, and the "Aa" is what says "text" without a word.
+        [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
+        public static class Patch_OptionsRow_Appearance
+        {
+            static bool Prefix(Dialog_Options __instance, Rect r, OptionCategoryDef optionCategory)
+            {
+                if (optionCategory != AppearanceCategory) return true;
+
+                Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
+                if (Widgets.ButtonInvisible(r))
+                {
+                    __instance.selectedCategory = optionCategory;
+                    __instance.selectedMod = null;
+                    SoundDefOf.Click.PlayOneShotOnCamera();
+                }
+
+                float x = r.x + 10f;
+                GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
+                    TypeIcon.Tex);
+                x += 30f;
+                Widgets.Label(new Rect(x, r.y, r.width - x, r.height), optionCategory.label);
+                return false;
+            }
+        }
+
+        // The dispatch for the Appearance page, taken before vanilla's chain.
+        [HarmonyPatch(typeof(Dialog_Options), "DoOptions")]
+        public static class Patch_OptionsPage_Appearance
+        {
+            static bool Prefix(OptionCategoryDef category, Rect inRect)
+            {
+                if (category != AppearanceCategory) return true;
+
+                if (_appearancePage == null) _appearancePage = new AppearancePage();
+                _appearancePage.Draw(inRect);
+                return false;
+            }
+        }
+
 
         // ---------------------------------------------------------------- the main menu
         //

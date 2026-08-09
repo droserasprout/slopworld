@@ -21,7 +21,7 @@ namespace SlopWorld
 
         public override string Title => "Projects";
 
-        protected override float RowH => 52f;
+        protected override float RowH => 2 * SlopWidgets.LineH + SlopWidgets.GapXS + 4f;
 
         protected override string EmptyNote =>
             "No projects yet. Add one, then put an agent in it.";
