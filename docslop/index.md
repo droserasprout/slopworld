@@ -30,6 +30,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [mod-patches-misc](mod-patches-misc.md) - background running, real-time durations, loading screen.
 - [mod-ui-chrome](mod-ui-chrome.md) - shared widgets, layout, usage readout, top bar.
 - [mod-ui-files](mod-ui-files.md) - the files view and its icons.
+- [icon-refactor](icon-refactor.md) - plan to consolidate all icon code into Icons.cs and replace ugly procedural icons with emoji-derived alpha masks.
 - [mod-ui-git](mod-ui-git.md) - the git view, the diff pager, and the third tab.
 - [mod-ui-rowactions](mod-ui-rowactions.md) - view/edit/diff on a hovered row, in both trees.
 - [mod-terminal](mod-terminal.md) - the pane: rendering, keys, theme, links.
