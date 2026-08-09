@@ -73,8 +73,13 @@ namespace SlopWorld
 
                 string label = key.Length == 0 ? LooseLabel : key;
                 var headRect = new Rect(0f, y, body.width, HeadH);
-                Lines.Add(new Line { Project = label, Rect = headRect, Folded = folded,
-                    Count = bucket.Count });
+                Lines.Add(new Line
+                {
+                    Project = label,
+                    Rect = headRect,
+                    Folded = folded,
+                    Count = bucket.Count
+                });
 
                 // Heading
                 if (ColonistBarStrip.MouseOver(headRect)) Widgets.DrawHighlight(headRect);

@@ -482,25 +482,33 @@ namespace SlopWorld
             // Agent
             _commands.Add(new Entry
             {
-                Id = "agent.start", Name = "Agent: Start", Category = "Agent",
+                Id = "agent.start",
+                Name = "Agent: Start",
+                Category = "Agent",
                 SubAction = () => AgentsSub(AgentState.Down),
                 Execute = v => { if (v != null) SessionHub.Instance.Start(v, SlopWidgets.Fail); },
             });
             _commands.Add(new Entry
             {
-                Id = "agent.stop", Name = "Agent: Stop", Category = "Agent",
+                Id = "agent.stop",
+                Name = "Agent: Stop",
+                Category = "Agent",
                 SubAction = () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
                 Execute = v => { if (v != null) SessionHub.Instance.Stop(v, SlopWidgets.Fail); },
             });
             _commands.Add(new Entry
             {
-                Id = "agent.restart", Name = "Agent: Restart", Category = "Agent",
+                Id = "agent.restart",
+                Name = "Agent: Restart",
+                Category = "Agent",
                 SubAction = () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
                 Execute = v => { if (v != null) SessionHub.Instance.Restart(v, SlopWidgets.Fail); },
             });
             _commands.Add(new Entry
             {
-                Id = "agent.edit", Name = "Agent: Edit", Category = "Agent",
+                Id = "agent.edit",
+                Name = "Agent: Edit",
+                Category = "Agent",
                 SubAction = () => AgentsSubAll(),
                 Execute = v =>
                 {
@@ -511,7 +519,9 @@ namespace SlopWorld
             });
             _commands.Add(new Entry
             {
-                Id = "agent.terminal", Name = "Agent: Open Terminal", Category = "Agent",
+                Id = "agent.terminal",
+                Name = "Agent: Open Terminal",
+                Category = "Agent",
                 SubAction = () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
                 Execute = v =>
                 {
@@ -524,7 +534,9 @@ namespace SlopWorld
             });
             _commands.Add(new Entry
             {
-                Id = "agent.delete", Name = "Agent: Delete", Category = "Agent",
+                Id = "agent.delete",
+                Name = "Agent: Delete",
+                Category = "Agent",
                 SubAction = () => AgentsSubAll(),
                 Execute = v =>
                 {
@@ -539,12 +551,16 @@ namespace SlopWorld
             // Project
             _commands.Add(new Entry
             {
-                Id = "project.new", Name = "Project: New", Category = "Project",
+                Id = "project.new",
+                Name = "Project: New",
+                Category = "Project",
                 Execute = _ => Find.WindowStack.Add(new EditProjectDialog(null)),
             });
             _commands.Add(new Entry
             {
-                Id = "project.edit", Name = "Project: Edit", Category = "Project",
+                Id = "project.edit",
+                Name = "Project: Edit",
+                Category = "Project",
                 SubAction = () => ProjectsSub(),
                 Execute = v =>
                 {
@@ -555,7 +571,9 @@ namespace SlopWorld
             });
             _commands.Add(new Entry
             {
-                Id = "project.delete", Name = "Project: Delete", Category = "Project",
+                Id = "project.delete",
+                Name = "Project: Delete",
+                Category = "Project",
                 SubAction = () => ProjectsSub(),
                 Execute = v =>
                 {
@@ -570,7 +588,9 @@ namespace SlopWorld
             // Shortcut
             _commands.Add(new Entry
             {
-                Id = "shortcut.run", Name = "Shortcut: Run", Category = "Shortcut",
+                Id = "shortcut.run",
+                Name = "Shortcut: Run",
+                Category = "Shortcut",
                 SubAction = () => ShortcutsSub(),
                 Execute = v =>
                 {
@@ -583,12 +603,16 @@ namespace SlopWorld
             });
             _commands.Add(new Entry
             {
-                Id = "shortcut.new", Name = "Shortcut: New", Category = "Shortcut",
+                Id = "shortcut.new",
+                Name = "Shortcut: New",
+                Category = "Shortcut",
                 Execute = _ => Find.WindowStack.Add(new EditShortcutDialog(null)),
             });
             _commands.Add(new Entry
             {
-                Id = "shortcut.edit", Name = "Shortcut: Edit", Category = "Shortcut",
+                Id = "shortcut.edit",
+                Name = "Shortcut: Edit",
+                Category = "Shortcut",
                 SubAction = () => ShortcutsSub(),
                 Execute = v =>
                 {
@@ -599,7 +623,9 @@ namespace SlopWorld
             });
             _commands.Add(new Entry
             {
-                Id = "shortcut.delete", Name = "Shortcut: Delete", Category = "Shortcut",
+                Id = "shortcut.delete",
+                Name = "Shortcut: Delete",
+                Category = "Shortcut",
                 SubAction = () => ShortcutsSub(),
                 Execute = v =>
                 {
@@ -614,22 +640,30 @@ namespace SlopWorld
             // View
             _commands.Add(new Entry
             {
-                Id = "view.agents", Name = "View: Agents", Category = "View",
+                Id = "view.agents",
+                Name = "View: Agents",
+                Category = "View",
                 Execute = _ => SessionsView.Toggle(),
             });
             _commands.Add(new Entry
             {
-                Id = "view.projects", Name = "View: Projects", Category = "View",
+                Id = "view.projects",
+                Name = "View: Projects",
+                Category = "View",
                 Execute = _ => ProjectsView.Toggle(),
             });
             _commands.Add(new Entry
             {
-                Id = "view.shortcuts", Name = "View: Shortcuts", Category = "View",
+                Id = "view.shortcuts",
+                Name = "View: Shortcuts",
+                Category = "View",
                 Execute = _ => ShortcutsView.Toggle(),
             });
             _commands.Add(new Entry
             {
-                Id = "view.config", Name = "View: Config", Category = "View",
+                Id = "view.config",
+                Name = "View: Config",
+                Category = "View",
                 Execute = _ => SlopOptions.Toggle(),
             });
 
@@ -638,12 +672,16 @@ namespace SlopWorld
             {
                 _commands.Add(new Entry
                 {
-                    Id = "game.quickstart", Name = "Game: Quick Start", Category = "Game",
+                    Id = "game.quickstart",
+                    Name = "Game: Quick Start",
+                    Category = "Game",
                     Execute = _ => QuickStart.Queue(),
                 });
                 _commands.Add(new Entry
                 {
-                    Id = "game.nextplanet", Name = "Game: Next Planet", Category = "Game",
+                    Id = "game.nextplanet",
+                    Name = "Game: Next Planet",
+                    Category = "Game",
                     Execute = _ => NextPlanet.Begin(),
                 });
             }

@@ -428,10 +428,18 @@ namespace SlopWorld
 
             return new Grade
             {
-                rr = (keep + drain * LR) * sr, rg = drain * LG * sr, rb = drain * LB * sr,
-                gr = drain * LR * sg, gg = (keep + drain * LG) * sg, gb = drain * LB * sg,
-                br = drain * LR * sb, bg = drain * LG * sb, bb = (keep + drain * LB) * sb,
-                ro = bias * tr, go = bias * tg, bo = bias * tb,
+                rr = (keep + drain * LR) * sr,
+                rg = drain * LG * sr,
+                rb = drain * LB * sr,
+                gr = drain * LR * sg,
+                gg = (keep + drain * LG) * sg,
+                gb = drain * LB * sg,
+                br = drain * LR * sb,
+                bg = drain * LG * sb,
+                bb = (keep + drain * LB) * sb,
+                ro = bias * tr,
+                go = bias * tg,
+                bo = bias * tb,
             };
         }
 

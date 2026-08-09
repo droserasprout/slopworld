@@ -823,7 +823,11 @@ namespace SlopWorld
 
             _errands.Add(new Errand
             {
-                What = what, Seconds = seconds, Weight = weight, Bloom = bloom, Run = run,
+                What = what,
+                Seconds = seconds,
+                Weight = weight,
+                Bloom = bloom,
+                Run = run,
             });
             Work[what] = seconds * RealClock.TicksPerRealSecond * WorkPerTick;
             Blooms[what] = bloom;
