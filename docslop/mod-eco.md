@@ -11,10 +11,12 @@ What it does, one owner each:
   lifting it, so eco does not have to fight the resume from somewhere else. `_ours`
   keeps the "something paused the game" line for pauses nobody here asked for.
 - **The map**: `PaneOverDraw.Wanted` gains a second reason and answers for both -
-  same four calls a pane already stands down. `Eco` adds three more that a pane
+  same four calls a pane already stands down. `Eco` adds four more that a pane
   does not: `WeatherManager.DrawAllWeather` (off `CameraDriver.OnPreCull`, not
-  `MapUpdate`), `MapInterface.MapInterfaceUpdate` (selection brackets, room and
-  grid overlays, the gizmo mouseover; nothing reads `LastMouseOverGizmo`), and
+  `MapUpdate`), `MapEdgeClipDrawer.DrawClippers` (the solid quads around the board,
+  which are above the backdrop and would cut the picture back to the map's shape),
+  `MapInterface.MapInterfaceUpdate` (selection brackets, room and grid overlays,
+  the gizmo mouseover; nothing reads `LastMouseOverGizmo`), and
   `MapInterface.HandleMapClicks`, a click on a board nobody is drawing landing on
   whatever happens to be under it.
 - **The frames**: `BackgroundFrames` caps at 30 rather than the unfocused 15 -

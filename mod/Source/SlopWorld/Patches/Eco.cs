@@ -154,6 +154,17 @@ namespace SlopWorld
                 ContentFinder<Texture2D>.Get("UI/HeroArt/BGPlanet", false));
         }
 
+        // The quads vanilla lays around the board to hide what is off it. They are solid at
+        // the clip altitude and the backdrop is Cutout at the floor, so they cut the picture
+        // back to the shape of the map - and a map nobody is drawing has nothing off it to
+        // hide. This is what leaves the whole view the picture rather than a lit rectangle
+        // in grey.
+        [HarmonyPatch(typeof(MapEdgeClipDrawer), nameof(MapEdgeClipDrawer.DrawClippers))]
+        public static class Patch_Clippers
+        {
+            static bool Prefix() => !Resting;
+        }
+
         // Weather is a draw and nothing else on this path - the overlays are ticked from
         // WeatherTick, which is the clock's, and the clock is stopped. Off CameraDriver's
         // OnPreCull rather than MapUpdate, which is why PaneOverDraw does not already have it.
