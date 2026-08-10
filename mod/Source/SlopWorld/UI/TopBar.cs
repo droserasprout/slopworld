@@ -154,7 +154,7 @@ namespace SlopWorld
         {
             TooltipHandler.TipRegion(r, tip);
 
-            bool over = ColonistBarStrip.MouseOver(r);
+            bool over = ColonistBarStrip.Hover(r);
 
             var was = GUI.color;
             GUI.color = over ? Color.white : SlopWidgets.Off;
@@ -174,7 +174,7 @@ namespace SlopWorld
 
             if (!string.IsNullOrEmpty(tip.text)) TooltipHandler.TipRegion(r, tip);
 
-            bool over = ColonistBarStrip.MouseOver(r);
+            bool over = ColonistBarStrip.Hover(r);
 
             // Both of these read the ambient colour and only one of them puts it back, so the
             // pair is bracketed: the highlight would wear whatever the last thing on the line

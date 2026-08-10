@@ -618,6 +618,21 @@ namespace SlopWorld
             Widgets.DrawHighlightIfMouseover(r);
         }
 
+        // The hover behind one row of any of the column's lists, and whether the pointer is
+        // on it. One call because each of the three trees had grown its own, and one of them
+        // - the shortcuts view - was hit-testing in *screen* coordinates from inside its own
+        // scroll view, where the group has already moved the mouse into view coordinates: it
+        // lit the row the pointer was not on while its clicks (taken outside the group, off
+        // the screen rects it stores) landed on the right one.
+        //
+        // The rect is always the one the row is *drawn* with, whichever space that is in.
+        public static bool HoverRow(Rect r)
+        {
+            bool on = ColonistBarStrip.Hover(r);
+            if (on) Widgets.DrawHighlight(r);
+            return on;
+        }
+
         // One entry per line, which is how every list of binds here is edited. A label over an
         // `Area`, so a column of binds is the same box as every other box on the page. The
         // floor is on the box rather than on the rect, so a squeezed window ends up with

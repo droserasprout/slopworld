@@ -71,6 +71,19 @@ namespace SlopWorld
         // `Contains` is the right answer and is what every hover and press path here uses.
         public static bool MouseOver(Rect r) => r.Contains(Event.current.mousePosition);
 
+        // What every *hover* on this chrome asks instead of `MouseOver`. A context menu keeps
+        // the pointer for as long as it stands, and the column underneath goes on drawing: a
+        // highlight following the mouse across a panel that answers nothing reads as a live
+        // list, and the row it lights is not the row a click would reach. `Interactive` is the
+        // terminal's half of that - a menu over the pane is drawn with input off - and the
+        // float menu is asked directly for the map layer, where nothing sets `Blocked`, the
+        // press being eaten by HandleEventsHighPriority instead (which draws no hover).
+        //
+        // Presses keep asking `Interactive` and `MouseOver` themselves: this is about what is
+        // drawn, and a press path that also wants the menu gate says so where it is taken.
+        public static bool Hover(Rect r) =>
+            Interactive && Find.WindowStack?.FloatMenu == null && MouseOver(r);
+
         // The map-layer draw is pointless under a terminal and would register the bar's
         // reorderable groups twice a frame.
         public static bool Suppressed => Active && !Drawing;

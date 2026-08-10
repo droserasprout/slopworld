@@ -244,7 +244,7 @@ namespace SlopWorld
             var r = new Rect(0f, y, width, RowH);
             bool shut = Shut.Contains(project);
 
-            if (ColonistBarStrip.MouseOver(r)) Widgets.DrawHighlight(r);
+            SlopWidgets.HoverRow(r);
 
             GUI.color = SlopWidgets.Faint;
             var arrow = new Rect(CellX, r.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW);
@@ -317,8 +317,7 @@ namespace SlopWorld
         static float Row(float width, float y, Node node)
         {
             var r = new Rect(0f, y, width, RowH);
-            bool over = ColonistBarStrip.MouseOver(r);
-            if (over) Widgets.DrawHighlight(r);
+            bool over = SlopWidgets.HoverRow(r);
             if (node.Path == _selected)
                 Widgets.DrawBoxSolid(r, new Color(1f, 1f, 1f, 0.08f));
 

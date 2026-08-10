@@ -135,12 +135,26 @@ namespace SlopWorld
             };
         }
 
-        // The `config` main button. Toggles rather than stacks, and opens on our own
-        // category rather than on General. Content rather than a window (see OptionsView):
-        // the menu is laid out inside the chrome, so being a window over it was what took
-        // every press off the column underneath.
+        // Which page the view was on when it was last left. A toggle builds a *new* view
+        // every time it opens one - the dialog behind it is rebuilt so the pages re-read
+        // config.toml - so without this the gear and the palette's "Settings" both dropped
+        // the reader back on General each time, and a switch that forgets where it was is a
+        // switch you cannot use to glance at something. In memory only: which tab you were
+        // reading is about this sitting and not something to write to a settings file.
+        static OptionCategoryDef _lastCategory;
+
+        // From OptionsView.Closed, which is the one road out of the view.
+        public static void Remember(OptionCategoryDef category)
+        {
+            if (category != null) _lastCategory = category;
+        }
+
+        // The `config` main button. Toggles rather than stacks, and opens on the page it was
+        // last left on - our own category the first time, rather than on General. Content
+        // rather than a window (see OptionsView): the menu is laid out inside the chrome, so
+        // being a window over it was what took every press off the column underneath.
         public static void Toggle() =>
-            TerminalWindow.ToggleContent(() => new OptionsView(Category));
+            TerminalWindow.ToggleContent(() => new OptionsView(_lastCategory ?? Category));
 
         // A palette entry can name a page directly. Open the options view when it is not
         // already up, or swap the category in the existing view - the same two roads as the

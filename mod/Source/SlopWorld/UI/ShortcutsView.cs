@@ -110,8 +110,7 @@ namespace SlopWorld
                     Lines.Add(new Line { Head = true, Key = key, Rect = Screen(headRect) });
 
                     // Heading
-                    if (ColonistBarStrip.MouseOver(Screen(headRect)))
-                        Widgets.DrawHighlight(headRect);
+                    SlopWidgets.HoverRow(headRect);
 
                     GUI.color = SlopWidgets.Faint;
                     var arrow = new Rect(CellX, headRect.y + (HeadH - ArrowW) / 2f,
@@ -143,7 +142,7 @@ namespace SlopWorld
                     foreach (var item in bucket)
                     {
                         var r = new Rect(0f, y, view.width, RowH);
-                        if (ColonistBarStrip.MouseOver(Screen(r))) Widgets.DrawHighlight(r);
+                        SlopWidgets.HoverRow(r);
 
                         // The kind badge: prompt, shell, or an attached breadcrumb.
                         float badgeW = 34f;

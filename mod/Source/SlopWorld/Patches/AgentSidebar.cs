@@ -323,7 +323,7 @@ namespace SlopWorld
         {
             bool current = row.Session == TerminalWindow.CurrentName;
             if (current) Widgets.DrawBoxSolid(row.Line, SlopWidgets.RowOn);
-            else if (ColonistBarStrip.MouseOver(row.Line)) Widgets.DrawHighlight(row.Line);
+            else SlopWidgets.HoverRow(row.Line);
 
             var text = row.Text;
             var act = RoutedAction(info);
@@ -758,7 +758,7 @@ namespace SlopWorld
                     bool current = row.Session != null && row.Session == currentSession;
 
                     if (current) Widgets.DrawBoxSolid(row.Line, SlopWidgets.RowOn);
-                    else if (ColonistBarStrip.MouseOver(row.Line)) Widgets.DrawHighlight(row.Line);
+                    else SlopWidgets.HoverRow(row.Line);
                 }
 
                 foreach (var head in Heads) DrawHead(head);
@@ -800,7 +800,7 @@ namespace SlopWorld
         static void DrawAdd()
         {
             var r = AddBar;
-            bool over = ColonistBarStrip.MouseOver(r);
+            bool over = ColonistBarStrip.Hover(r);
 
             if (over)
             {
@@ -932,7 +932,7 @@ namespace SlopWorld
         static void DrawHead(Head head)
         {
             var r = head.Rect;
-            if (ColonistBarStrip.MouseOver(r)) Widgets.DrawHighlight(r);
+            SlopWidgets.HoverRow(r);
 
             GUI.color = SlopWidgets.Faint;
             var arrow = new Rect(CellX, r.y + (HeadH - ArrowW) / 2f, ArrowW, ArrowW);
@@ -1323,7 +1323,7 @@ namespace SlopWorld
                 Settings.S.Write();
             }
 
-            bool over = ColonistBarStrip.Interactive && ColonistBarStrip.MouseOver(grip);
+            bool over = ColonistBarStrip.Hover(grip);
             bool lit = over || _resizing;
 
             // The panel's edge, and the whole of what says this one can be moved: a pointer

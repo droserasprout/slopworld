@@ -78,10 +78,9 @@ namespace SlopWorld
             var r = new Rect(x, y, IconW, IconW);
             x += IconW + Gap;
 
-            bool on = ColonistBarStrip.MouseOver(r);
+            bool on = SlopWidgets.HoverRow(r);
             if (on)
             {
-                Widgets.DrawHighlight(r);
                 // The row carries a tooltip of its own in the git view; this one is registered
                 // where the button is and the row's is declined while it stands, so the two
                 // are never stacked over each other.

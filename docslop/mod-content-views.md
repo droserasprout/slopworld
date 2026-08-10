@@ -62,3 +62,8 @@ over starts at its corner.
 - `SlopOptions.Teardown` is the shared way out: pages dropped so the next open
   re-reads `config.toml`, settings written once. `OptionsView.Closed` calls it, and
   so does the `PreClose` patch for the window road.
+- **The tab is remembered across a toggle.** `Closed` hands the category to
+  `SlopOptions.Remember` on the way out and `Toggle` opens on it, because the view -
+  and the dialog holding the selection - is rebuilt every time. In memory only: which
+  page you were reading is about this sitting. A page named outright (`OpenCategory`,
+  the palette's per-page entries) still wins.

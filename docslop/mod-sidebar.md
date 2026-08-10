@@ -71,6 +71,17 @@ the postfix, which is what puts the column over a pane as well as on the map.
   `Event.current.mousePosition` for as long as
   `Input.GetMouseButton(0)` holds, and ends when it does not. F1 and F12 are the
   chrome window's own (`TerminalWindow.ChromeKeys`), whichever view has the body.
+- **Hover asks `ColonistBarStrip.Hover`, not `MouseOver`**: `Interactive` *and* no
+  float menu up. A context menu keeps the pointer while it stands and the column goes
+  on drawing under it, so a raw `Contains` lit whatever row the mouse crossed on a
+  panel that answers nothing. The menu is asked for separately because on the map
+  layer nothing sets `Blocked` - the press is eaten by `HandleEventsHighPriority`,
+  which draws no hover. `SlopWidgets.HoverRow` is the one draw-side call the three
+  trees, the headings and the routed rows share, and the rect it takes is always the
+  one the row is *drawn* with: the shortcuts view was passing `Screen(...)` from
+  inside its own scroll view, where the group has already moved the mouse into view
+  coordinates, so it lit the neighbouring row while its clicks - taken outside the
+  group - landed correctly.
 - `Menus` and `Grip` are taken in the **back** pass, before the bar's own draw,
   because the bar swallows a right-click over a portrait to keep it off the map -
   asked for after it, a row menu would open over only half a row. A heading folds

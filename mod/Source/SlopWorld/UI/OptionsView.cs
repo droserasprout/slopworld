@@ -91,7 +91,13 @@ namespace SlopWorld
 
         // What the dialog's PreClose did when it was a window: drop the pages so the next
         // open re-reads config.toml, and write the settings file once, the way the terminal
-        // settings window it replaced did on close.
-        public void Closed() => SlopOptions.Teardown();
+        // settings window it replaced did on close. The tab is handed over first - the view
+        // goes with the dialog that holds it, so this is the last moment anything knows
+        // which page was being read.
+        public void Closed()
+        {
+            SlopOptions.Remember(Category);
+            SlopOptions.Teardown();
+        }
     }
 }
