@@ -397,6 +397,8 @@ namespace SlopWorld
         // A countdown to a reset four hours out does not need its seconds.
         static string Span(long secs)
         {
+            if (secs > 86400)
+                return $"{secs / 86400}d {(secs % 86400) / 3600}h {(secs % 3600) / 60}m";
             if (secs >= 3600) return $"{secs / 3600}h {(secs % 3600) / 60}m";
             if (secs >= 60) return $"{secs / 60}m";
             return $"{secs}s";
