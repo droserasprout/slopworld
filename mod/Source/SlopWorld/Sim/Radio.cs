@@ -167,8 +167,28 @@ namespace SlopWorld
             {
                 Read();
                 if (_muted) return null;
-                return _station != null ? _title : OstTitles[_ostIndex];
+                return _station != null ? FormatTitle(_station, _title) : OstTitles[_ostIndex];
             }
+        }
+
+        // Classic Vinyl reports "Song by Artist - Classic Vinyl on walmradio.com", while
+        // the other stations report the usual "Artist - Song" shape. Keep the station's
+        // branding out of the hover bubble and make its title read like the rest.
+        static string FormatTitle(Station station, string title)
+        {
+            if (station == null || string.IsNullOrEmpty(title)
+                || station.Name != "Classic Vinyl HD") return title;
+
+            const string suffix = " - Classic Vinyl on walmradio.com";
+            if (title.EndsWith(suffix, System.StringComparison.OrdinalIgnoreCase))
+                title = title.Substring(0, title.Length - suffix.Length).Trim();
+
+            int by = title.IndexOf(" by ", System.StringComparison.OrdinalIgnoreCase);
+            if (by <= 0 || by + 4 >= title.Length) return title;
+
+            string song = title.Substring(0, by).Trim();
+            string artist = title.Substring(by + 4).Trim();
+            return artist + " - " + song;
         }
 
         public static string RateLabel(int rate) => rate + "k mp3";
