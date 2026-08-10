@@ -9,7 +9,8 @@
   a second is four ticks a frame at exact pace. Below ten it stops banking - the
   accumulator is *assigned* rather than added once `deltaTime` reaches 0.1 - hence
   the clearance. vSync comes off with it or the cap does nothing, Unity ignoring
-  `targetFrameRate` while `vSyncCount` is set; both go back as found.
+  `targetFrameRate` while `vSyncCount` is set; both go back as found. Eco mode
+  asks the same class for a cap of its own - see [mod-eco](mod-eco.md).
 - **`RealTimePatches`** - every duration the game prints, in real time.
 - **`LoadingScreen`** - the tip pool is cached on the first draw into a static
   nothing rebuilds, and that draw is before any `StaticConstructorOnStartup`, so

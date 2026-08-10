@@ -134,6 +134,13 @@ namespace SlopWorld
             Note(l, "No fun allowed! Disable gore, vomit, and offensive/harmful tips. " +
                     "Put it back when she leaves.");
 
+            l.Gap(SlopWidgets.GapS);
+            s.ecoMode = SlopWidgets.Checkbox(l, "Eco mode", s.ecoMode);
+            Note(l, "Stop the colony and stop drawing it: the clock is held, the map and " +
+                    "its weather are not rendered, and the frames are capped. The agents " +
+                    "are the daemon's and keep running. With no terminal up you get the " +
+                    "menu's background instead of the map.");
+
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
 

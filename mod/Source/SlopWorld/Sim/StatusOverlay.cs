@@ -10,6 +10,7 @@ namespace SlopWorld
 
         public override void MapComponentOnGUI()
         {
+            if (Eco.Bare) return; // no board under the words
             if (Find.CameraDriver.CurrentZoom > CameraZoomRange.Far) return;
 
             var colony = AgentColony.Current;

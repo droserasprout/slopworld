@@ -77,6 +77,12 @@ namespace SlopWorld
         // still spreads but grows flowers where it arrives.
         public bool grandmaMode;
 
+        // Eco mode: the board stops. The clock is held paused, the map's draw chain stands
+        // down, the frames are capped, and with the pane closed the menu's own background is
+        // drawn where the board was. Everything the terminal is made of keeps running. See
+        // Eco.
+        public bool ecoMode;
+
         public override void ExposeData()
         {
             base.ExposeData();
@@ -99,6 +105,7 @@ namespace SlopWorld
             Scribe_Values.Look(ref radioMute, "radioMute", false);
             Scribe_Values.Look(ref radioStopOnExit, "radioStopOnExit", true);
             Scribe_Values.Look(ref grandmaMode, "grandmaMode", false);
+            Scribe_Values.Look(ref ecoMode, "ecoMode", false);
         }
     }
 
@@ -127,6 +134,7 @@ namespace SlopWorld
         public static bool RadioMute => S.radioMute;
         public static bool RadioStopOnExit => S.radioStopOnExit;
         public static bool GrandmaMode => S.grandmaMode;
+        public static bool EcoMode => S.ecoMode;
     }
 
     public class SlopWorldMod : Mod

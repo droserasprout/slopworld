@@ -29,31 +29,45 @@ namespace SlopWorld
     // - the accumulator is assigned rather than added once deltaTime reaches 0.1 - hence the
     // clearance. vSync comes off with it or the cap does nothing, Unity ignoring
     // targetFrameRate while vSyncCount is set; both go back as found.
+    //
+    // Eco's cap is the second reason to ask for one, and higher: nothing is banking there -
+    // the clock is stopped - so the only thing the number has to be kind to is somebody
+    // typing into a pane. It is one owner for both, because the pair of them is a saved
+    // target and a saved vSync, and two writers would restore each other's.
     public static class BackgroundFrames
     {
-        const int Fps = 15;
+        const int Away = 15;
+        const int Rest = 30;
 
-        static bool _capped;
+        // The cap in force, or zero for the machine's own setting.
+        static int _capped;
         static int _wasTarget;
         static int _wasVSync;
 
         // Off Root.Update, menu and game alike. Only the edges do anything.
         public static void Follow()
         {
-            bool want = !Application.isFocused;
+            int want = !Application.isFocused ? Away : (Eco.Resting ? Rest : 0);
             if (want == _capped) return;
 
-            if (want)
+            // Whatever was found is worth keeping only on the way in from uncapped: the
+            // second edge of an eco spell that began behind another window would otherwise
+            // save the cap over the setting it is meant to go back to.
+            if (_capped == 0)
             {
                 _wasTarget = Application.targetFrameRate;
                 _wasVSync = QualitySettings.vSyncCount;
-                QualitySettings.vSyncCount = 0;
-                Application.targetFrameRate = Fps;
             }
-            else
+
+            if (want == 0)
             {
                 Application.targetFrameRate = _wasTarget;
                 QualitySettings.vSyncCount = _wasVSync;
+            }
+            else
+            {
+                QualitySettings.vSyncCount = 0;
+                Application.targetFrameRate = want;
             }
 
             _capped = want;

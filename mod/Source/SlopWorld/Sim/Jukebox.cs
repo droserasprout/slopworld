@@ -35,7 +35,9 @@ namespace SlopWorld
 
         public override void MapComponentOnGUI()
         {
-            if (Cutscene.Playing) return; // a scene plays bare
+            // A scene plays bare and eco draws no board, and either way the box is not
+            // there to be pointed at. The status bar's icon opens the same menu.
+            if (Eco.Bare) return;
 
             var cell = UI.MouseCell();
             var box = map.thingGrid.ThingAt(cell, SlopDefOf.SlopJukebox);

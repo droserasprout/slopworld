@@ -3,7 +3,7 @@
 In `SlopWorldMod.cs`, reached through the static `Settings` shim: `host`, `port`,
 `token`, `autoConnect`, `sidebar`, `sidebarWidth`, `foldedProjects`, `sidebarTab`,
 `sidebarShowHidden`, `usageIcons`, `fontSize`, `fontName`, `theme`, `cursorColor`,
-`radio`, `radioMute`, `radioStopOnExit`, `grandmaMode`.
+`radio`, `radioMute`, `radioStopOnExit`, `grandmaMode`, `ecoMode`.
 
 Adding one means a field, a `Scribe_Values.Look`, a shim property and a widget.
 

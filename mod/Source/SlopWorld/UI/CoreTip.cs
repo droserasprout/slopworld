@@ -65,7 +65,7 @@ namespace SlopWorld
 
         public override void MapComponentOnGUI()
         {
-            if (Cutscene.Playing) return; // a scene plays bare
+            if (Eco.Bare) return; // a scene plays bare, and eco draws no board to point at
 
             var cell = UI.MouseCell();
             var core = map.thingGrid.ThingAt(cell, SlopDefOf.Ship_ComputerCore);
