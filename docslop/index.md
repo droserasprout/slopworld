@@ -10,6 +10,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [paths](paths.md) - where config, profile, logs and the tmux socket live.
 - [config-stores](config-stores.md) - the daemon's file, the mod's file, the seams.
 - [agent-grants](agent-grants.md) - scoped tokens: one agent watching another, host never.
+- [agent-tasks](agent-tasks.md) - durable task mailboxes and the `slopctl` delegation CLI.
 - [profile](profile.md) - the save-data folder, the launcher, the refusal gates.
 - [daemon-files](daemon-files.md) - what each `slopd/src/*.rs` holds.
 - [daemon-projects](daemon-projects.md) - projects and sessions in `config.toml`.

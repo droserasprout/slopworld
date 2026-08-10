@@ -24,6 +24,7 @@ CARGOFLAGS  = $(if $(filter release,$(BUILD)),--release)
 CONFIG      = $(if $(filter release,$(BUILD)),Release,Debug)
 TARGET      = slopd/target/$(BUILD)
 RUNNER      = $(TARGET)/slopworld
+SLOPCTL     = $(TARGET)/slopctl
 CSPROJ      = mod/Source/SlopWorld/SlopWorld.csproj
 
 
@@ -116,6 +117,7 @@ install:           ## Install all three
 install-daemon:    ## Install the binary and the unit, restart the service
 	$(MAKE) daemon
 	install -Dm755 $(TARGET)/slopd $(BIN)/slopd
+	install -Dm755 $(SLOPCTL) $(BIN)/slopctl
 	install -Dm644 slopd/slopd.service $(UNITS)/slopd.service
 	systemctl --user daemon-reload
 	systemctl --user enable --now slopd.service
@@ -146,8 +148,9 @@ uninstall-daemon:  ## Stop the service, remove the binary and the unit
 	-systemctl --user disable --now slopd.service
 	rm -f $(UNITS)/slopd.service
 	rm -f $(BIN)/slopd
+	rm -f $(BIN)/slopctl
 	systemctl --user daemon-reload
-	@echo "removed $(BIN)/slopd and $(UNITS)/slopd.service"
+	@echo "removed $(BIN)/slopd, $(BIN)/slopctl and $(UNITS)/slopd.service"
 
 uninstall-runner:  ## Remove the launcher
 	rm -f $(BIN)/slopworld

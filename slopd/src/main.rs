@@ -12,6 +12,7 @@ mod perf;
 mod presets;
 mod sandbox;
 mod session;
+mod tasks;
 mod tmux;
 mod usage;
 

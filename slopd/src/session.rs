@@ -258,6 +258,7 @@ pub struct Manager {
     pub audio: crate::audio::Audio,
     pub events: broadcast::Sender<Event>,
     grants: RwLock<crate::grant::Grants>,
+    tasks: Mutex<crate::tasks::Tasks>,
 }
 
 struct CachedScroll {
@@ -561,6 +562,8 @@ impl Manager {
     pub async fn new(cfg: Config, cfg_path: PathBuf) -> Arc<Self> {
         let (events, _) = broadcast::channel(256);
         let mtime = disk_mtime(&cfg_path);
+        let tasks = crate::tasks::Tasks::load(&cfg_path)
+            .unwrap_or_else(|e| panic!("task store {}: {e:#}", cfg_path.display()));
         let m = Arc::new(Self {
             tmux: Tmux::new(cfg.daemon.tmux_socket.clone(), cfg.daemon.history_limit),
             cfg_path,
@@ -579,6 +582,7 @@ impl Manager {
             audio: crate::audio::Audio::new(),
             events,
             grants: RwLock::new(crate::grant::Grants::default()),
+            tasks: Mutex::new(tasks),
         });
         m.tmux.ensure_server().await;
         m.sync_from_config().await;
@@ -768,7 +772,7 @@ impl Manager {
         cap.allows(session, is_host, need)
     }
 
-    async fn session_known(&self, name: &str) -> bool {
+    pub async fn session_known(&self, name: &str) -> bool {
         self.live.read().await.contains_key(name) || self.config().await.session(name).is_some()
     }
 
@@ -806,6 +810,33 @@ impl Manager {
 
     pub async fn grant_count(&self) -> usize {
         self.grants.read().await.count()
+    }
+
+    pub fn create_task(
+        &self,
+        from: String,
+        to: String,
+        body: String,
+    ) -> Result<crate::tasks::Task> {
+        self.tasks.lock().unwrap().create(from, to, body)
+    }
+
+    pub fn tasks_for(&self, who: &str) -> Vec<crate::tasks::Task> {
+        self.tasks.lock().unwrap().visible(who)
+    }
+
+    pub fn task_for(&self, who: &str, id: &str) -> Option<crate::tasks::Task> {
+        self.tasks.lock().unwrap().get(who, id)
+    }
+
+    pub fn update_task(
+        &self,
+        who: &str,
+        id: &str,
+        status: crate::tasks::Status,
+        note: Option<String>,
+    ) -> Result<crate::tasks::Task> {
+        self.tasks.lock().unwrap().update(who, id, status, note)
     }
 
     pub async fn usage(&self) -> crate::usage::Snapshot {

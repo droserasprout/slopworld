@@ -97,3 +97,6 @@ net-enabled sandbox already reaches.
    revoke a grant without curl.
 3. The bound-file channel for a grant to a session already up, and a fuller
    `GET /api/grants` (grantor, sessions, level; never the token).
+
+Structured delegation now lives separately in [agent-tasks](agent-tasks.md): terminal
+grants authorize the first cut, but task state is not inferred from terminal input.

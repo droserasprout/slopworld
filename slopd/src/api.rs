@@ -33,6 +33,8 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/sessions/:name/start", post(start))
         .route("/api/sessions/:name/stop", post(stop))
         .route("/api/sessions/:name/restart", post(restart))
+        .route("/api/tasks", get(list_tasks).post(create_task))
+        .route("/api/tasks/:id", get(one_task).post(update_task))
         .route("/ws", get(ws_upgrade));
 
     // The mod's own: the file, the projects, the machine, and minting grants itself. Default
@@ -148,6 +150,98 @@ async fn health(State(m): State<Mgr>) -> ApiResult {
         "version": env!("CARGO_PKG_VERSION"),
         "tmux_socket": m.config().await.daemon.tmux_socket,
     })))
+}
+
+fn task_principal(cap: &Cap, headers: &HeaderMap) -> Result<String, (StatusCode, Json<Value>)> {
+    cap.principal()
+        .map(str::to_string)
+        .or_else(|| {
+            headers
+                .get("x-slop-session")
+                .and_then(|v| v.to_str().ok())
+                .map(str::to_string)
+        })
+        .filter(|s| !s.trim().is_empty())
+        .ok_or_else(|| {
+            err(
+                StatusCode::BAD_REQUEST,
+                "root task requests need x-slop-session",
+            )
+        })
+}
+
+#[derive(Deserialize)]
+struct CreateTaskReq {
+    to: String,
+    body: String,
+}
+
+async fn create_task(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    headers: HeaderMap,
+    Json(q): Json<CreateTaskReq>,
+) -> ApiResult {
+    let from = task_principal(&cap, &headers)?;
+    if !m.session_known(&from).await {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            format!("no such session: {from}"),
+        ));
+    }
+    if !m.session_known(&q.to).await {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            format!("no such session: {}", q.to),
+        ));
+    }
+    guard(&m, &cap, &q.to, Level::Ro).await?;
+    let task = m
+        .create_task(from, q.to, q.body)
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "task": task })))
+}
+
+async fn list_tasks(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    headers: HeaderMap,
+) -> ApiResult {
+    let who = task_principal(&cap, &headers)?;
+    Ok(Json(json!({ "tasks": m.tasks_for(&who) })))
+}
+
+async fn one_task(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> ApiResult {
+    let who = task_principal(&cap, &headers)?;
+    m.task_for(&who, &id)
+        .map(|task| Json(json!({ "task": task })))
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such task: {id}")))
+}
+
+#[derive(Deserialize)]
+struct UpdateTaskReq {
+    status: crate::tasks::Status,
+    #[serde(default)]
+    note: Option<String>,
+}
+
+async fn update_task(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(q): Json<UpdateTaskReq>,
+) -> ApiResult {
+    let who = task_principal(&cap, &headers)?;
+    let task = m
+        .update_task(&who, &id, q.status, q.note)
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "task": task })))
 }
 
 async fn list(State(m): State<Mgr>, Extension(cap): Extension<Cap>) -> ApiResult {

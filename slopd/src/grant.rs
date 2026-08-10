@@ -41,6 +41,12 @@ pub enum Cap {
 }
 
 impl Cap {
+    pub fn principal(&self) -> Option<&str> {
+        match self {
+            Cap::Root => None,
+            Cap::Scoped(g) => Some(&g.grantor),
+        }
+    }
     /// May this capability touch `session` at `need`? `is_host` is the session's own flag,
     /// looked up by the caller. Root touches anything; a scoped grant touches a session it
     /// names, at a level that satisfies the demand, and never a host one - the last a
