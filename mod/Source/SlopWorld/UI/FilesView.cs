@@ -485,7 +485,7 @@ namespace SlopWorld
         // click in the strip above it.
         static Rect Screen(Rect r)
         {
-            var body = AgentSidebar.Body;
+            var body = AgentSidebar.TreeBody(AgentSidebar.Body, AgentSidebar.TabFiles);
             var moved = new Rect(body.x + r.x - _scroll.x, body.y + r.y - _scroll.y,
                 r.width, r.height);
             return moved.yMax <= body.y || moved.y >= body.yMax ? Rect.zero : moved;
@@ -522,24 +522,16 @@ namespace SlopWorld
                     break;
 
                 case RowAct.Edit:
-                    Errand(node, "micro --", "edit");
+                    // Editors belong to Files, including when the row is from Git.
+                    EditFile(node.Project, node.Path, "edit-" + node.Name);
                     break;
 
                 case RowAct.Diff:
-                    if (_selected == node.Path && _showing == RowAct.Diff && Viewer.Reopen())
-                        break;
-
-                    string cmd = GitView.DiffFor(node.Project, node.Path);
-                    // The tree it was read off has moved on - the file was committed, or the
-                    // repository was read again without it. The button is gone next frame.
-                    if (cmd == null)
-                    {
-                        SlopWidgets.Fail($"nothing to diff in {node.Name}");
-                        break;
-                    }
-                    _selected = node.Path;
-                    _showing = RowAct.Diff;
-                    Viewer.Open(node.Project, cmd, "diff-" + node.Name);
+                    // A diff belongs to Git, even when its button was clicked in Files. Move
+                    // first so Show does not release the pager we are about to open, then let
+                    // GitView own the session and its lifecycle.
+                    AgentSidebar.ShowGit();
+                    GitView.OpenDiff(node.Project, node.Path, "diff-" + node.Name);
                     break;
             }
         }
@@ -573,7 +565,8 @@ namespace SlopWorld
             if (!node.IsDir && IsText(node.Name))
             {
                 opts.Add(new FloatMenuOption("View", () => View(node)));
-                opts.Add(new FloatMenuOption("Edit", () => Errand(node, "micro --", "edit")));
+                opts.Add(new FloatMenuOption("Edit", () => EditFile(node.Project, node.Path,
+                    "edit-" + node.Name)));
             }
 
             TerminalWindow.OpenOverPane(new FloatMenu(opts));
@@ -620,13 +613,32 @@ namespace SlopWorld
         // pane over the tree. At most one is open - the reader replaces it by clicking
         // another file, and the focus leaving the tree closes it. All of that is `Pager`'s;
         // the command is this view's.
-        static void View(Node node)
+        static void View(Node node) => ViewFile(node.Project, node.Path, "view-" + node.Name);
+
+        // Public for GitView: viewing a changed file is a Files operation, regardless of
+        // which tree supplied the click. The shared tab switch is done by the caller.
+        public static void ViewFile(string project, string path, string label)
         {
             // A project that has gone takes the mark with it: the tree would otherwise
             // highlight a row nobody is reading.
-            if (SessionHub.Instance.Project(node.Project) == null) ClearSelection();
-            else _showing = RowAct.View;
-            Viewer.ViewFile(node.Project, node.Path, "view-" + node.Name);
+            if (SessionHub.Instance.Project(project) == null) ClearSelection();
+            else
+            {
+                _selected = path;
+                _showing = RowAct.View;
+            }
+            Viewer.ViewFile(project, path, label);
+        }
+
+        public static void EditFile(string project, string path, string label)
+        {
+            if (SessionHub.Instance.Project(project) == null)
+            {
+                SlopWidgets.Fail($"project '{project}' has gone");
+                return;
+            }
+            SessionHub.Instance.Run(project, "micro -- " + Pager.Quote(path), label,
+                session => TerminalWindow.Open(session), SlopWidgets.Fail);
         }
 
         public static void ReleaseViewer() => Viewer.Release();

@@ -724,7 +724,7 @@ namespace SlopWorld
         // click in the strip above it.
         static Rect Screen(Rect r)
         {
-            var body = AgentSidebar.Body;
+            var body = AgentSidebar.TreeBody(AgentSidebar.Body, AgentSidebar.TabGit);
             var moved = new Rect(body.x + r.x - _scroll.x, body.y + r.y - _scroll.y,
                 r.width, r.height);
             return moved.yMax <= body.y || moved.y >= body.yMax ? Rect.zero : moved;
@@ -756,17 +756,14 @@ namespace SlopWorld
             switch (act)
             {
                 case RowAct.View:
-                    if (_selected == node.Rel && _showing == RowAct.View && Viewer.Reopen())
-                        break;
-                    _selected = node.Rel;
-                    _showing = RowAct.View;
-                    Viewer.ViewFile(repo.Project, abs, "view-" + node.Name);
+                    // The file reader is owned by Files, not by this tree.
+                    AgentSidebar.ShowFiles();
+                    FilesView.ViewFile(repo.Project, abs, "view-" + node.Name);
                     break;
 
                 case RowAct.Edit:
-                    SessionHub.Instance.Run(repo.Project, "micro -- " + Pager.Quote(abs),
-                        "edit-" + node.Name,
-                        session => TerminalWindow.Open(session), SlopWidgets.Fail);
+                    AgentSidebar.ShowFiles();
+                    FilesView.EditFile(repo.Project, abs, "edit-" + node.Name);
                     break;
 
                 case RowAct.Diff:
@@ -865,9 +862,10 @@ namespace SlopWorld
 
             if (!node.IsDir)
                 opts.Add(new FloatMenuOption("Edit", () =>
-                    SessionHub.Instance.Run(project, "micro -- " + Pager.Quote(abs),
-                        "edit-" + node.Name,
-                        session => TerminalWindow.Open(session), SlopWidgets.Fail)));
+                {
+                    AgentSidebar.ShowFiles();
+                    FilesView.EditFile(project, abs, "edit-" + node.Name);
+                }));
 
             opts.Add(new FloatMenuOption("Diff", () =>
             {
@@ -893,8 +891,25 @@ namespace SlopWorld
         // project's own sandbox - which is what makes git see the working tree the way the
         // agents changing it do. At most one is open; `Pager` is the rest of that.
 
+        // Public for FilesView: a diff opened from the files tree still belongs to Git and
+        // must therefore use this pager, so the resulting ghost appears in the Git tab.
+        public static void OpenDiff(string project, string abs, string label)
+        {
+            var repo = Known(project);
+            string rel = repo == null ? null : RelOf(repo, abs);
+            if (repo == null || rel == null || !repo.Changes.TryGetValue(rel, out var status))
+            {
+                SlopWidgets.Fail($"nothing to diff in {System.IO.Path.GetFileName(abs)}");
+                return;
+            }
+            _selected = rel;
+            _showing = RowAct.Diff;
+            Viewer.Open(project, DiffCmd(repo, rel, status), label);
+        }
+
         static void Diff(Node node, Repo repo)
         {
+            _selected = node.Rel;
             _showing = RowAct.Diff;
             Viewer.Open(repo.Project, DiffCmd(repo, node.Rel, node.Status), "diff-" + node.Name);
         }

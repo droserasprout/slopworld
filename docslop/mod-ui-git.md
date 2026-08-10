@@ -39,8 +39,9 @@ exists: a session is in its own mount namespace and the game is outside all of t
 
 A left click opens a coloured diff in a pager in a pane over the tree, from an
 ephemeral agent in the project's own sandbox - so git sees the working tree the way
-the agents changing it do. A directory's right-click menu diffs everything under it;
-a heading's diffs the lot.
+the agents changing it do. The resulting diff row is kept at the top of this Git
+body, before the grouped project headings; it is not an Agents ghost. A directory's
+right-click menu diffs everything under it; a heading's diffs the lot.
 
 `DiffCmd` is the whole of the awkwardness, and all of it comes from the daemon
 building an **argv** rather than running a shell:
@@ -65,8 +66,9 @@ building an **argv** rather than running a shell:
 The one tracked ephemeral pager, and the sidebar's grip on it: `Open` replaces
 whatever was showing, `Reopen` brings back the row already open, `Release` is the
 focus moving away, `CloseIf` is the pane closing. An **instance**, not a static -
-two views, two pagers, and the git view's diff is not closed by the files view being
-left. `Pager.Quote` is the single-quoting both views' command lines need.
+the Git view owns diffs even when their button was clicked in Files, while Files
+owns viewers and editors. `Pager.Quote` is the single-quoting both views' command
+lines need.
 
 ## Three tabs
 

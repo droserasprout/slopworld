@@ -39,20 +39,19 @@ the postfix, which is what puts the column over a pane as well as on the map.
   `Icons.Bell`. A **down** agent wears no age at all - it is stopped, and how long
   it has stood there is a fact about nobody's clock - so its line two is the state
   alone.
-- **Ghost rows** are the ephemeral sessions: the viewer's `less`, an editor, a shell
-  on the host. No colonist is spawned for one any more (`AgentColony` skips them, and
-  retires a pawn bound to one), so the bar knows nothing about them and they are laid
-  out from the hub's own list instead - `Ghosts` by project, `TopGhosts` for the ones
-  belonging to none. One line, the name or the app's own title, no portrait and no
-  state: "idle" of a `less` is a fact about nothing, and the row goes when the process
-  does. They sit **ahead of the agents in their group**, a project's own transient
-  things before what the group is about, and the projectless ones above the first
-  heading. A project with nothing but ghosts still gets its heading. They are off
-  Alt+Num - a number there is a portrait - and their cost to `Fit` is fixed, text not
-  being what shrinks. A ghost that is one of the trees' three errands wears its mark
-  **in front of** the name (`RowActions.Of`, off the command and not the label):
-  the name is a title the app wrote and long enough to be cut, so a mark after it
-  would be the first thing to go. A host shell wears none - the name is all it is.
+- **Ghost rows** are the ephemeral sessions: a host shell, or anything else run by
+  hand. No colonist is spawned for one any more (`AgentColony` skips them, and retires
+  a pawn bound to one), so the bar knows nothing about them and they are laid out from
+  the hub's own list instead - `Ghosts` by project, `TopGhosts` for the ones belonging
+  to none. One line, the name or the app's own title, no portrait and no state: "idle"
+  of a shell is a fact about nothing, and the row goes when the process does. Viewers,
+  editors and diffs are routed out of this list: they are drawn as the same one-line
+  rows at the top of the Files or Git body, before that view's grouped projects. They
+  are off Alt+Num - a number there is a portrait - and their cost to `Fit` is fixed,
+  text not being what shrinks. A routed row wears its mark **in front** of the name
+  (`RowActions.Of`, off the command and not the label): the name is a title the app
+  wrote and long enough to be cut, so a mark after it would be the first thing to go.
+  A host shell remains in Agents and wears none - the name is all it is.
 - `Absorb` eats the mouse over the panel, last of all. Without it a press starts a
   drag-selection on the ground behind the panel and a right-click orders a
   colonist to walk there.
@@ -138,14 +137,14 @@ the `less` the file tree opened, the diff the git tree did - so leaving a view n
 leaves a reader running behind it.
 
 In the [files](mod-ui-files.md) and [git](mod-ui-git.md) views, `Place` parks every
-loc and lays out no
-`Row`, so the bar draws and hit-tests nothing - the same move a fold makes, with
-no second call site and no new patch. It still runs `Bucket`, because `Sessions()`
-is what `AgentColony.InBarOrder` and so Alt+1..9 read: a fold takes an agent off
-the numbers because it takes it off the column, but switching views hides every
-agent equally and is not a fold, so `Sessions()` answers off the buckets there
-instead of off the rows. `Menus` stands down; the view with the body takes its own
-clicks. The "+" does **not** go with the agents - see below.
+loc and lays out no `Row`, so the bar draws and hit-tests nothing - the same move a fold
+makes, with no second call site and no new patch. It still runs `Bucket`, because
+`Sessions()` is what `AgentColony.InBarOrder` and so Alt+1..9 read: a fold takes an agent
+off the numbers because it takes it off the column, but switching views hides every agent
+equally and is not a fold, so `Sessions()` answers off the buckets there instead of off
+the rows. `Menus` stands down; the view with the body takes its own clicks, including the
+routed viewer/editor/diff rows before the tree. The "+" does **not** go with the agents -
+see below.
 
 ## The add strip
 

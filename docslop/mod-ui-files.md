@@ -44,9 +44,10 @@ see a project directory the way the project does.
 
 A left click on a **text file** is the road to reading it: the row is marked (the
 `_selected` highlight that also shows on a marked binary file) and `less -R --`
-opens on it in a pane over the tree. "Text" is anything whose extension is not in
-`BinaryExt` - a source tree, a config, a readme - so the pager is never handed an
-image or an archive.
+opens on it in a pane over the tree. The resulting viewer row is kept at the top of
+this Files body, before the grouped project headings; it is not an Agents ghost.
+"Text" is anything whose extension is not in `BinaryExt` - a source tree, a config,
+a readme - so the pager is never handed an image or an archive.
 
 At most one viewer is open, and `Pager` owns its lifecycle - the shared half, since
 the git view's diff wants exactly the same arrangement ([mod-ui-git](mod-ui-git.md)).
@@ -54,7 +55,9 @@ This view supplies only the command:
 
 - Clicking a *different* file replaces it: the old `less` (an ephemeral agent, so
   `Stop` and `forget`) is killed and the new file's started. Clicking the file
-  already being read just brings its pane back (`Pager.Reopen`).
+  already being read just brings its pane back (`Pager.Reopen`). The Files tab owns
+  both view and edit sessions; Git owns diffs, including a diff launched from this
+  tree.
 - Leaving the file manager closes it: a click on a directory or a project heading,
   the dotfile switch (`Reload`), switching to any other view (`Show`, which is what
   `FocusTerminal` and every summon of a terminal take), or the pane closing

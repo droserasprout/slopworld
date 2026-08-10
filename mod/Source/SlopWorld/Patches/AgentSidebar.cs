@@ -162,6 +162,14 @@ namespace SlopWorld
         // the very top of the column, above the first heading.
         static readonly List<SessionInfo> TopGhosts = new List<SessionInfo>();
 
+        // View/edit and diff sessions belong to the tree that opened them, not to the
+        // agents list. They are laid out above that tree's project headings, in the same
+        // one-line shape as an Agents ghost. Keep this table separate from Rows: a routed
+        // permanent session may have a pawn for one reconciliation tick, but it must never
+        // become a portrait or a numbered agent while it is shown here.
+        static readonly List<Row> ViewRows = new List<Row>();
+        static readonly List<SessionInfo> Routed = new List<SessionInfo>();
+
         // The bucket for an agent whose project has gone, and for a pawn that is not an
         // agent at all. Last in the column, and named rather than blank: an unheaded run of
         // portraits reads as belonging to the project above it.
@@ -248,6 +256,117 @@ namespace SlopWorld
             // The shortcuts list is read from the daemon each time the view is entered, and
             // also refreshed by the button on its tab or the footer.
             if (tab == TabShortcuts) SessionHub.Instance.RefreshShortcuts();
+        }
+
+        // A command that is really a reader belongs to the tree which supplied its path.
+        // RowActions reads both one-off commands and the resolved command of a permanent
+        // preset, so the two kinds do not split between tabs.
+        static RowAct RoutedAction(SessionInfo info) => RowActions.Of(info);
+
+        public static bool IsRouted(SessionInfo info)
+        {
+            RowAct act = RoutedAction(info);
+            return (act & (RowAct.View | RowAct.Edit | RowAct.Diff)) != 0;
+        }
+
+        static bool InTab(SessionInfo info, string tab)
+        {
+            RowAct act = RoutedAction(info);
+            return tab == TabFiles
+                ? (act & (RowAct.View | RowAct.Edit)) != 0
+                : tab == TabGit && (act & RowAct.Diff) != 0;
+        }
+
+        static List<SessionInfo> RoutedFor(string tab)
+        {
+            Routed.Clear();
+            foreach (var info in SessionHub.Instance.Sessions)
+                if (InTab(info, tab)) Routed.Add(info);
+            Routed.Sort(ByName);
+            return Routed;
+        }
+
+        // The tree starts after these rows. They are deliberately outside the tree's scroll
+        // view: these are live panes, and the grouped project list remains in the same place
+        // below them even when a reader is opened or closed.
+        public static float RoutedHeight(string tab) => RoutedFor(tab).Count * GhostH;
+
+        public static Rect TreeBody(Rect body, string tab) =>
+            new Rect(body.x, body.y + RoutedHeight(tab), body.width,
+                Mathf.Max(0f, body.height - RoutedHeight(tab)));
+
+        // Draw and click the moved sessions before the tree's grouped projects. A session row
+        // is still a ghost row: it has no state or portrait, only its title/name and the mark
+        // saying whether it is a viewer, editor or diff.
+        public static void DrawRouted(Rect body, string tab)
+        {
+            ViewRows.Clear();
+            float y = body.y;
+            foreach (var info in RoutedFor(tab))
+            {
+                var row = new Row
+                {
+                    Session = info.Name,
+                    Ghost = true,
+                    Line = new Rect(body.x, y, body.width, GhostH),
+                    Text = new Rect(body.x + CellX + ArrowW + 4f, y + 1f,
+                        body.width - CellX - ArrowW - 4f - Pad, NameH),
+                    Face = Rect.zero,
+                };
+                ViewRows.Add(row);
+                DrawRoutedRow(row, info);
+                y += GhostH;
+            }
+        }
+
+        static void DrawRoutedRow(Row row, SessionInfo info)
+        {
+            bool current = row.Session == TerminalWindow.CurrentName;
+            if (current) Widgets.DrawBoxSolid(row.Line, SlopWidgets.RowOn);
+            else if (ColonistBarStrip.MouseOver(row.Line)) Widgets.DrawHighlight(row.Line);
+
+            var text = row.Text;
+            var act = RoutedAction(info);
+            if (act != RowAct.None)
+            {
+                float d = Mathf.Min(GhostMarkW, text.height);
+                GUI.color = SlopWidgets.Off;
+                GUI.DrawTexture(new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
+                    RowActions.Tex(act));
+                text.x += d + 4f;
+                text.width -= d + 4f;
+            }
+
+            Text.Font = GameFont.Small;
+            GUI.color = SlopWidgets.Dim;
+            SlopWidgets.RowLabel(text, Label(info) ?? row.Session);
+            GUI.color = Color.white;
+        }
+
+        public static bool ClickRouted()
+        {
+            if (!ColonistBarStrip.Interactive) return false;
+            var e = Event.current;
+            if (e.rawType != EventType.MouseDown || (e.button != 0 && e.button != 1))
+                return false;
+            foreach (var row in ViewRows)
+            {
+                if (!ColonistBarStrip.MouseOver(row.Line)) continue;
+                if (e.button == 1)
+                {
+                    RowMenu(row.Session);
+                }
+                else
+                {
+                    SessionSelectable.Current = row.Session;
+                    var info = SessionHub.Instance.Get(row.Session);
+                    if (info != null && info.Gone) SessionHub.Instance.Start(row.Session);
+                    else TerminalWindow.Open(row.Session);
+                }
+                e.Use();
+                return true;
+            }
+            return false;
         }
 
         // The column's answer to a terminal being summoned: F12 opening a pane, or Alt+Num
@@ -498,6 +617,14 @@ namespace SlopWorld
 
                 var session = Session(pawn);
                 var info = session == null ? null : SessionHub.Instance.Get(session);
+                // A permanent reader/editor/diff may still have a pawn until the colony's
+                // next reconcile. Park it immediately so it cannot flash in Agents or enter
+                // the Alt+Num order while its target tree already owns it.
+                if (IsRouted(info))
+                {
+                    locs[i] = Parked;
+                    continue;
+                }
                 string key = string.IsNullOrEmpty(info?.Project) ? Loose : info.Project;
 
                 if (!Buckets.TryGetValue(key, out var list))
@@ -507,12 +634,12 @@ namespace SlopWorld
             }
 
             // The ephemeral ones, off the hub: no colonist was spawned for them (see
-            // AgentColony.Reconcile), so there is no bar entry to walk. A project of its own
-            // gets a heading even when every session under it is one of these - the group is
-            // the project, not the colony's share of it.
+            // AgentColony.Reconcile), so there is no bar entry to walk. Routed readers are
+            // drawn above the Files/Git tree instead, including permanent reader presets;
+            // host terminals and other ephemeral shells remain Agents ghosts.
             foreach (var s in SessionHub.Instance.Sessions)
             {
-                if (!s.Ephemeral) continue;
+                if (!s.Ephemeral || IsRouted(s)) continue;
                 if (string.IsNullOrEmpty(s.Project)) { TopGhosts.Add(s); continue; }
 
                 if (!Ghosts.TryGetValue(s.Project, out var list))
@@ -609,11 +736,13 @@ namespace SlopWorld
 
             if (Files)
             {
-                FilesView.Draw(Body);
+                DrawRouted(Body, TabFiles);
+                FilesView.Draw(TreeBody(Body, TabFiles));
             }
             else if (Git)
             {
-                GitView.Draw(Body);
+                DrawRouted(Body, TabGit);
+                GitView.Draw(TreeBody(Body, TabGit));
             }
             else if (Shortcuts)
             {
@@ -652,8 +781,14 @@ namespace SlopWorld
             // is laid out under it, and the button is what a press down there means.
             Grip();
             if (AddClick()) return;
-            if (Files) FilesView.Clicks();
-            else if (Git) GitView.Clicks();
+            if (Files)
+            {
+                if (!ClickRouted()) FilesView.Clicks();
+            }
+            else if (Git)
+            {
+                if (!ClickRouted()) GitView.Clicks();
+            }
             else if (Shortcuts) ShortcutsView.Clicks();
             else Menus();
         }

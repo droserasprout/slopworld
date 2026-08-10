@@ -116,19 +116,22 @@ namespace SlopWorld
             return ColonistBarStrip.MouseOver(r);
         }
 
-        // The same three said about a session rather than a row: what this ephemeral agent is,
-        // read off the command it was given. The agents view draws the mark in front of a
-        // ghost's name, which is the one place in that column where a row is a file being read
-        // rather than an agent working.
+        // The same three said about a session rather than a row. Ephemeral errands carry their
+        // command in `Cmd`; a permanent command preset leaves that field blank and carries the
+        // resolved command in `Agent`. The tab owner must classify both, or a configured pager
+        // would stay in Agents while the identical one-off pager moved to Files/Git.
         //
         // Off the command and not the session's name: a name is what the daemon made of the
-        // label it was handed, and the label is only ever a hint.
+        // label it was handed, and the label is only ever a hint. `env ... less` is the pager
+        // command made by Pager.ViewFile, so account for that wrapper too.
         public static RowAct Of(SessionInfo info)
         {
             string cmd = (info?.Cmd ?? "").TrimStart();
+            if (cmd.Length == 0) cmd = (info?.Agent ?? "").TrimStart();
             if (cmd.Length == 0) return RowAct.None;
 
-            if (cmd.StartsWith("less")) return RowAct.View;
+            if (cmd.StartsWith("less") || (cmd.StartsWith("env ") && cmd.Contains(" less")))
+                return RowAct.View;
             if (cmd.StartsWith("micro")) return RowAct.Edit;
             // The git view's diff, which is a whole `git -C ... --paginate diff` line and the
             // only git this half ever runs in an errand.
