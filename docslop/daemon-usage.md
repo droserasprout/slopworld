@@ -51,7 +51,7 @@ elsewhere.
 ## OpenRouter
 
 Second seller, same file. `[daemon] openrouter = true` polls `/api/v1/credits`
-(`SLOPD_CREDITS_URL` overrides) and lands one `balance` window: credits bought as
+(`SLOPD_CREDITS_URL` overrides) and lands one `openrouter_balance` window: credits bought as
 the `limit`, credits spent as the `amount`, so the mod's existing "what is left"
 subtraction is the balance. Off by default - unlike Claude's, there is no login on
 the host to infer a key from.
@@ -64,11 +64,22 @@ the host to infer a key from.
   null limit is "no credit limit on this key" rather than a full bar. Nothing
   bought is `pct: 100`, or an empty account draws like an untouched one.
 
-## Both together
+## OpenAI / Codex
 
-- **Two `Poller`s, not one loop asking both**: each keeps its own `due` and failure
-  count, so a 429 on one side never slows the other and a bad key never takes the
-  other's numbers off the screen. Switching one off `clear`s its rows only.
+`[daemon] openai = true` reads Codex's ChatGPT token from `~/.codex/auth.json`
+(`openai_credentials` overrides) and asks its usage endpoint for the primary and secondary
+windows. It reads only the current access token and optional account ID: never the refresh
+token, never the file's contents over the wire. The endpoint is not public, so
+`SLOPD_OPENAI_USAGE_URL` can point at a fixture and an unfamiliar payload draws no numbers.
+
+The rows are `openai_session` and `openai_week`, deliberately separate from Claude's
+same-cadence windows: they are different pools. A 401/403 says to sign in with `codex login`.
+
+## All together
+
+- **Three `Poller`s, not one loop asking all**: each keeps its own `due` and failure
+  count, so a 429 on one side never slows the others and a bad login never takes their
+  numbers off the screen. Switching one off `clear`s its rows only.
 - `merge` is what the wire sees: one `windows` list, because the mod draws
   resources rather than sellers. `ok` is *every* live source being current - a
   stale row nobody could tell from a live one is what this must never draw - and

@@ -34,6 +34,10 @@ namespace SlopWorld
         // Blank means the daemon reads OPENROUTER_API_KEY out of its own environment, which
         // is where the pi preset forwards it from.
         public string OpenrouterKeyFile = "";
+        // Codex's ChatGPT login carries the token the usage endpoint needs. Unlike a key,
+        // it is a live login file that the daemon reads fresh and never sends to the mod.
+        public bool Openai = true;
+        public string OpenaiCredentials = "~/.codex/auth.json";
 
         // Both name a command preset: what an agent that names none of its own runs, and
         // what a shell errand runs. What each one *is* is a TOML file the daemon reads.
@@ -65,6 +69,8 @@ namespace SlopWorld
                     d["claude_credentials"].AsString("~/.claude/.credentials.json"),
                 Openrouter = d["openrouter"].AsBool(false),
                 OpenrouterKeyFile = d["openrouter_key_file"].AsString(),
+                Openai = d["openai"].AsBool(true),
+                OpenaiCredentials = d["openai_credentials"].AsString("~/.codex/auth.json"),
 
                 Agent = f["agent"].AsString("claude"),
                 Shell = f["shell"].AsString("shell"),
@@ -86,7 +92,9 @@ namespace SlopWorld
             $"\"usage\":{JVal.B(Usage)},\"usage_poll_secs\":{UsagePollSecs}," +
             $"\"claude_credentials\":{JVal.Q(ClaudeCredentials)}," +
             $"\"openrouter\":{JVal.B(Openrouter)}," +
-            $"\"openrouter_key_file\":{JVal.Q(OpenrouterKeyFile)}}}," +
+            $"\"openrouter_key_file\":{JVal.Q(OpenrouterKeyFile)}," +
+            $"\"openai\":{JVal.B(Openai)}," +
+            $"\"openai_credentials\":{JVal.Q(OpenaiCredentials)}}}," +
             "\"defaults\":{" +
             $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}}}," +
             "\"sandbox\":{" +

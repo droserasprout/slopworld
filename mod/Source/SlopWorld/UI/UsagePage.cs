@@ -102,16 +102,16 @@ namespace SlopWorld
                     SlopWidgets.Field(l, "usage.creds", _cfg.ClaudeCredentials);
 
                 l.Gap(SlopWidgets.GapM);
-                // Icon rows for the Anthropic windows. The extra-usage ("spend") row is
+                // Icon rows for the Anthropic windows. The extra-usage row is
                 // here rather than under OpenRouter because it is the one Claude Code's
                 // own /usage answers with.
-                IconRow(l, "session", "5-hour window");
-                IconRow(l, "week", "Weekly limit");
+                IconRow(l, "claude_session", "5-hour window");
+                IconRow(l, "claude_week", "Weekly limit");
                 // Any per-model weekly limits the daemon reports.
                 foreach (var key in LiveKeys())
-                    if (key.StartsWith("week_"))
+                    if (key.StartsWith("claude_week_"))
                         IconRow(l, key, null);
-                IconRow(l, "spend", "Extra usage");
+                IconRow(l, "claude_spend", "Extra usage");
             }
 
             // ---------------------------------------------------------------- OpenRouter
@@ -133,7 +133,27 @@ namespace SlopWorld
                         "can run pi needs no second copy of it here.");
 
                 l.Gap(SlopWidgets.GapM);
-                IconRow(l, "balance", "Credit balance");
+                IconRow(l, "openrouter_balance", "Credit balance");
+            }
+
+            // ---------------------------------------------------------------- OpenAI
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "OpenAI / Codex");
+            _cfg.Openai = SlopWidgets.Checkbox(l, "Poll for Codex usage limits",
+                _cfg.Openai,
+                "The daemon reads Codex's ChatGPT login and asks for the primary and " +
+                "secondary usage windows. Off means it never touches that file.");
+
+            if (_cfg.Openai)
+            {
+                l.Gap(SlopWidgets.GapS);
+                l.Label("Codex credentials file");
+                _cfg.OpenaiCredentials =
+                    SlopWidgets.Field(l, "usage.openai.creds", _cfg.OpenaiCredentials);
+
+                l.Gap(SlopWidgets.GapM);
+                IconRow(l, "openai_session", "Primary window");
+                IconRow(l, "openai_week", "Secondary window");
             }
 
             // ---------------------------------------------------------------- Both

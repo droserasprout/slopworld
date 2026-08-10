@@ -10,6 +10,10 @@
 //! credits spent, which is what the `pi` agent draws down. Same shape on the wire, told
 //! apart by `unit` the way the extra-usage budget already was.
 //!
+//! OpenAI is the third. Codex's ChatGPT login carries an access token in `auth.json`; its
+//! usage endpoint answers a primary and secondary rate-limit window. This endpoint is not a
+//! public API, so the parser is intentionally narrow and an unfamiliar answer draws no zeroes.
+//!
 //! Failure is a state rather than an error: a snapshot carries what it read plus the reason
 //! it got no further. The mod is told a *list* of windows, so a plan with different limits
 //! draws whatever it has - and so two sellers are one readout rather than two.
@@ -37,6 +41,14 @@ const CREDITS_URL: &str = "https://openrouter.ai/api/v1/credits";
 
 fn credits_url() -> String {
     std::env::var("SLOPD_CREDITS_URL").unwrap_or_else(|_| CREDITS_URL.to_string())
+}
+
+/// The same account-specific Codex usage the CLI shows. It is deliberately overrideable: it
+/// is not a published API, and a proxy fixture must not require changing the daemon config.
+const OPENAI_USAGE_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
+
+fn openai_usage_url() -> String {
+    std::env::var("SLOPD_OPENAI_USAGE_URL").unwrap_or_else(|_| OPENAI_USAGE_URL.to_string())
 }
 
 /// The name the `pi` preset forwards, so a machine already running that agent has the key
@@ -126,6 +138,13 @@ struct Creds {
     plan: String,
 }
 
+/// The two fields Codex needs to ask for the account's usage. The refresh token is
+/// intentionally not read: polling must not be another actor that can rotate credentials.
+struct OpenAiCreds {
+    token: String,
+    account_id: Option<String>,
+}
+
 /// Read once, and read again if what came back was not JSON.
 ///
 /// The file has no atomic writer any more. Claude Code writes it tmp-then-rename, but a rename
@@ -178,6 +197,23 @@ fn read_creds_once(path: &PathBuf) -> anyhow::Result<Creds> {
             .unwrap_or_default()
             .to_string(),
     })
+}
+
+fn read_openai_creds(path: &PathBuf) -> anyhow::Result<OpenAiCreds> {
+    let text =
+        std::fs::read_to_string(path).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+    let v: Value = serde_json::from_str(&text)?;
+    let token = v["tokens"]["access_token"]
+        .as_str()
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| anyhow::anyhow!("no ChatGPT access token in {}", path.display()))?
+        .to_string();
+    let account_id = v["tokens"]["account_id"]
+        .as_str()
+        .filter(|v| !v.is_empty())
+        .map(str::to_string);
+
+    Ok(OpenAiCreds { token, account_id })
 }
 
 /// Why a poll is not worth making, or None. Both stamps are epoch *milliseconds*, the unit
@@ -336,6 +372,88 @@ fn fetch_credits(key: &str) -> Result<Value, PollErr> {
     res.body_mut().read_json::<Value>().map_err(PollErr::new)
 }
 
+fn fetch_openai(creds: &OpenAiCreds) -> Result<Value, PollErr> {
+    let mut request = ureq::get(openai_usage_url())
+        .config()
+        .timeout_global(Some(TIMEOUT))
+        .http_status_as_error(false)
+        .build()
+        .header("Authorization", format!("Bearer {}", creds.token))
+        .header("User-Agent", concat!("slopd/", env!("CARGO_PKG_VERSION")));
+    if let Some(account_id) = &creds.account_id {
+        request = request.header("ChatGPT-Account-Id", account_id);
+    }
+    let mut res = request.call().map_err(PollErr::new)?;
+
+    let status = res.status().as_u16();
+    match status {
+        429 => {
+            return Err(PollErr {
+                msg: "OpenAI is rate-limiting usage checks (429)".into(),
+                retry_after: Some(retry_after(&res).unwrap_or(RATE_LIMIT_FLOOR)),
+            })
+        }
+        401 | 403 => {
+            return Err(PollErr::new(format!(
+                "OpenAI rejected the Codex login ({status}); sign in with `codex login`"
+            )))
+        }
+        s if !(200..300).contains(&s) => {
+            return Err(PollErr::new(format!("OpenAI usage endpoint returned {s}")))
+        }
+        _ => {}
+    }
+
+    res.body_mut().read_json::<Value>().map_err(PollErr::new)
+}
+
+/// Codex's usage answer has the account plan plus primary and secondary windows. The names are
+/// deliberately ours: Anthropic has windows with the same cadence but they are separate pools.
+fn parse_openai(v: &Value) -> Snapshot {
+    let limits = if v["rate_limit"].is_object() {
+        &v["rate_limit"]
+    } else {
+        v
+    };
+    let mut windows = Vec::new();
+    for (field, key, label) in [
+        ("primary_window", "openai_session", "session"),
+        ("secondary_window", "openai_week", "weekly"),
+    ] {
+        let w = &limits[field];
+        let Some(pct) = percent(w) else { continue };
+        windows.push(Window {
+            key: key.into(),
+            label: label.into(),
+            pct,
+            unit: Unit::Pct,
+            amount: None,
+            limit: None,
+            resets_in: resets_in(w),
+        });
+    }
+
+    let plan = v["plan_type"].as_str().unwrap_or_default().to_string();
+    if windows.is_empty() {
+        tracing::debug!("unrecognised OpenAI usage payload: {v}");
+        return Snapshot {
+            ok: false,
+            error: Some("OpenAI answered in a shape slopd does not know".into()),
+            plan,
+            fetched_ms: now_ms(),
+            ..Default::default()
+        };
+    }
+
+    Snapshot {
+        ok: true,
+        plan,
+        fetched_ms: now_ms(),
+        windows,
+        ..Default::default()
+    }
+}
+
 /// One row, in money. `/credits` says `total_credits` and `total_usage`; the older
 /// `/auth/key` says `limit` and `usage`, with a null limit for a key that has none. Both
 /// figures are wanted - a balance is a subtraction - and anything else reads as "no
@@ -368,7 +486,7 @@ fn parse_credits(v: &Value) -> Snapshot {
         plan: String::new(),
         fetched_ms: now_ms(),
         windows: vec![Window {
-            key: "balance".into(),
+            key: "openrouter_balance".into(),
             label: "balance".into(),
             // Nothing bought is nothing left, which is 100% spent. Zero would draw a full
             // account beside an empty one.
@@ -488,7 +606,7 @@ fn spend(v: &Value) -> Option<Window> {
     let limit = budget(e);
 
     Some(Window {
-        key: "spend".into(),
+        key: "claude_spend".into(),
         label: "extra usage".into(),
         pct,
         unit: if limit.is_some() {
@@ -518,16 +636,16 @@ fn budget(e: &Value) -> Option<f32> {
 /// None for everything else in the payload, which is most of it.
 fn family(name: &str) -> Option<(String, String)> {
     if name == "five_hour" {
-        return Some(("session".into(), "session".into()));
+        return Some(("claude_session".into(), "session".into()));
     }
 
     let rest = name.strip_prefix("seven_day")?;
     match rest.strip_prefix('_') {
         // Plain seven_day: the weekly limit itself.
-        None => Some(("week".into(), "week".into())),
+        None => Some(("claude_week".into(), "week".into())),
         // seven_day_opus, seven_day_sonnet, and whatever comes next.
         Some(model) => Some((
-            format!("week_{model}"),
+            format!("claude_week_{model}"),
             format!("week ({})", model.replace('_', " ")),
         )),
     }
@@ -536,7 +654,7 @@ fn family(name: &str) -> Option<(String, String)> {
 /// A percentage here - 52.0 means 52% - where the same figure rides the API's response
 /// headers as a fraction. Guessing between them by size reads 0.8% spent as 80%.
 fn percent(w: &Value) -> Option<f32> {
-    for k in ["utilization", "used_pct", "percent_used"] {
+    for k in ["utilization", "used_pct", "used_percent", "percent_used"] {
         if let Some(p) = w[k].as_f64() {
             return Some(p.clamp(0.0, 100.0) as f32);
         }
@@ -731,7 +849,7 @@ impl Poller {
 /// source being current, because a row nobody could tell from a live one is the one thing
 /// this must never draw; the errors are joined so the tooltip says which half is out. A
 /// source that is off contributes nothing at all, so switching one off is not a failure.
-fn merge(parts: [&Snapshot; 2]) -> Snapshot {
+fn merge(parts: [&Snapshot; 3]) -> Snapshot {
     let mut out = Snapshot {
         ok: true,
         ..Default::default()
@@ -775,6 +893,7 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut anth = Poller::new("Anthropic");
         let mut cred = Poller::new("OpenRouter");
+        let mut openai = Poller::new("OpenAI");
         let mut creds_stamp: Option<SystemTime> = None;
 
         loop {
@@ -852,10 +971,33 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
                 moved = true;
             }
 
+            if !d.openai {
+                moved |= openai.clear();
+            } else if openai.due <= now {
+                let path = PathBuf::from(crate::config::expand(&d.openai_credentials));
+                let prev = openai.snap.clone();
+                let (next, asked) =
+                    tokio::task::spawn_blocking(move || match read_openai_creds(&path) {
+                        Err(e) => (Snapshot::failed(&prev, e), None),
+                        Ok(creds) => match fetch_openai(&creds) {
+                            Err(e) => {
+                                let asked = e.retry_after;
+                                (Snapshot::failed(&prev, e), asked)
+                            }
+                            Ok(body) => (parse_openai(&body), None),
+                        },
+                    })
+                    .await
+                    .unwrap_or_default();
+
+                openai.settle(next, asked, base);
+                moved = true;
+            }
+
             // One event for both, and only when something actually moved: `set_usage`
             // re-announces to every client.
             if moved {
-                let mut out = merge([&anth.snap, &cred.snap]);
+                let mut out = merge([&anth.snap, &cred.snap, &openai.snap]);
                 // Said here rather than in `merge`, which knows about snapshots and not about
                 // switches. A seller that is on but has never answered is exactly the case
                 // this is for, so it goes on the list whatever its snapshot holds.
@@ -865,14 +1007,21 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
                 if d.openrouter {
                     out.sources.push("openrouter".into());
                 }
+                if d.openai {
+                    out.sources.push("openai".into());
+                }
                 m.set_usage(out).await;
             }
 
-            let due = [(d.usage, anth.due), (d.openrouter, cred.due)]
-                .into_iter()
-                .filter(|(on, _)| *on)
-                .map(|(_, at)| at)
-                .min();
+            let due = [
+                (d.usage, anth.due),
+                (d.openrouter, cred.due),
+                (d.openai, openai.due),
+            ]
+            .into_iter()
+            .filter(|(on, _)| *on)
+            .map(|(_, at)| at)
+            .min();
 
             let wait = due
                 .map(|at| at.saturating_duration_since(Instant::now()))
@@ -911,9 +1060,9 @@ mod tests {
 
         assert!(s.ok);
         assert_eq!(s.windows.len(), 3, "null windows are absent, not zero");
-        assert_eq!(s.windows[0].key, "session");
+        assert_eq!(s.windows[0].key, "claude_session");
         assert_eq!(s.windows[0].pct, 52.0);
-        assert_eq!(s.windows[1].key, "week");
+        assert_eq!(s.windows[1].key, "claude_week");
         assert_eq!(s.windows[1].pct, 55.0);
         assert!(s.windows[0].resets_in.unwrap() > 0);
     }
@@ -924,14 +1073,14 @@ mod tests {
     fn spend_is_money_and_not_a_rate_limit() {
         let s = parse(&serde_json::from_str(REAL).unwrap(), String::new());
 
-        let rates = s.windows.iter().filter(|w| w.key != "spend");
+        let rates = s.windows.iter().filter(|w| w.key != "claude_spend");
         assert!(rates
             .clone()
             .all(|w| w.unit == Unit::Pct && w.amount.is_none()));
         assert!(rates.map(|w| w.pct).all(|p| p != 20.93 && p != 21.0));
 
         let m = s.windows.last().unwrap();
-        assert_eq!(m.key, "spend");
+        assert_eq!(m.key, "claude_spend");
         assert_eq!(m.unit, Unit::Usd);
         assert_eq!(m.limit, Some(100.0));
         assert!((m.amount.unwrap() - 20.93).abs() < 0.01);
@@ -948,7 +1097,7 @@ mod tests {
         .unwrap();
 
         let m = parse(&v, String::new()).windows.pop().unwrap();
-        assert_eq!(m.key, "spend");
+        assert_eq!(m.key, "claude_spend");
         assert_eq!(m.unit, Unit::Pct);
         assert_eq!(m.pct, 21.0);
         assert!(m.amount.is_none());
@@ -1075,7 +1224,7 @@ mod tests {
         assert!(parse(&v, String::new())
             .windows
             .iter()
-            .all(|w| w.key != "spend"));
+            .all(|w| w.key != "claude_spend"));
     }
 
     /// The same figure is a fraction in the API's response headers, and guessing by
@@ -1097,11 +1246,11 @@ mod tests {
 
         let s = parse(&v, String::new());
         let keys: Vec<_> = s.windows.iter().map(|w| w.key.as_str()).collect();
-        assert!(keys.contains(&"week_opus") && keys.contains(&"week_cowork"));
+        assert!(keys.contains(&"claude_week_opus") && keys.contains(&"claude_week_cowork"));
         assert_eq!(
             s.windows
                 .iter()
-                .find(|w| w.key == "week_opus")
+                .find(|w| w.key == "claude_week_opus")
                 .unwrap()
                 .label,
             "week (opus)"
@@ -1163,7 +1312,7 @@ mod tests {
         let s = parse_credits(&v);
         assert!(s.ok);
         let w = &s.windows[0];
-        assert_eq!(w.key, "balance");
+        assert_eq!(w.key, "openrouter_balance");
         assert_eq!(w.unit, Unit::Usd);
         assert_eq!(w.amount, Some(10.0));
         assert_eq!(w.limit, Some(25.0));
@@ -1203,7 +1352,7 @@ mod tests {
         assert!(s.windows.is_empty());
     }
 
-    /// The mod draws resources, not sellers: two sources are one list.
+    /// The mod draws resources, not sellers: three sources are one list.
     #[test]
     fn sources_merge_into_one_list() {
         let a = parse(&serde_json::from_str(REAL).unwrap(), "max".into());
@@ -1211,10 +1360,14 @@ mod tests {
             &serde_json::from_str(r#"{"data":{"total_credits":25,"total_usage":10}}"#).unwrap(),
         );
 
-        let m = merge([&a, &c]);
+        let o = parse_openai(
+            &serde_json::from_str(r#"{"rate_limit":{"primary_window":{"used_percent":20}}}"#)
+                .unwrap(),
+        );
+        let m = merge([&a, &c, &o]);
         assert!(m.ok);
-        assert_eq!(m.windows.len(), a.windows.len() + 1);
-        assert_eq!(m.windows.last().unwrap().key, "balance");
+        assert_eq!(m.windows.len(), a.windows.len() + 2);
+        assert_eq!(m.windows.last().unwrap().key, "openai_session");
         // The plan is the subscription's, and only one source has one.
         assert_eq!(m.plan, "max");
         assert!(m.error.is_none());
@@ -1227,18 +1380,22 @@ mod tests {
         let a = parse(&serde_json::from_str(REAL).unwrap(), "max".into());
         let c = Snapshot::failed(&Snapshot::default(), "OpenRouter rejected the key (401)");
 
-        let m = merge([&a, &c]);
+        let m = merge([&a, &c, &Snapshot::default()]);
         assert!(!m.ok);
         assert_eq!(m.windows.len(), a.windows.len());
         assert!(m.error.unwrap().contains("OpenRouter"));
 
         // Off on both sides is the snapshot the readout draws nothing from.
         assert_eq!(
-            merge([&Snapshot::default(), &Snapshot::default()]),
+            merge([
+                &Snapshot::default(),
+                &Snapshot::default(),
+                &Snapshot::default()
+            ]),
             Snapshot::default()
         );
         // And one of them off leaves the other exactly as it was.
-        let only = merge([&a, &Snapshot::default()]);
+        let only = merge([&a, &Snapshot::default(), &Snapshot::default()]);
         assert!(only.ok);
         assert_eq!(only.windows, a.windows);
     }
@@ -1257,5 +1414,29 @@ mod tests {
         assert_eq!(bad.windows, good.windows);
         assert_eq!(bad.plan, "max");
         assert_eq!(bad.error.unwrap(), "network unreachable");
+    }
+
+    #[test]
+    fn openai_primary_and_secondary_windows_stay_separate_from_anthropic() {
+        let v: Value = serde_json::from_str(
+            r#"{"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":12.5,"reset_at":4102444800},"secondary_window":{"used_percent":42,"reset_at":4102448400}}}"#,
+        )
+        .unwrap();
+
+        let s = parse_openai(&v);
+        assert!(s.ok);
+        assert_eq!(s.plan, "pro");
+        assert_eq!(s.windows[0].key, "openai_session");
+        assert_eq!(s.windows[0].pct, 12.5);
+        assert_eq!(s.windows[1].key, "openai_week");
+        assert_eq!(s.windows[1].pct, 42.0);
+        assert!(s.windows.iter().all(|w| w.resets_in.is_some()));
+    }
+
+    #[test]
+    fn unknown_openai_payload_is_not_an_empty_usage_window() {
+        let s = parse_openai(&serde_json::json!({"rate_limit": {}}));
+        assert!(!s.ok);
+        assert!(s.windows.is_empty());
     }
 }

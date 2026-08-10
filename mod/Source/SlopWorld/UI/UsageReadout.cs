@@ -144,6 +144,9 @@ namespace SlopWorld
                 foreach (string key in Owed(seller))
                     if (!rows.Contains(key)) Place(rows, key);
 
+            // Pollers answer independently, so arrival order is not display order. Keep the
+            // shared pools in one fixed left-to-right run even when a source comes back late.
+            rows.Sort((a, b) => Rank(a).CompareTo(Rank(b)));
             return rows;
         }
 
@@ -155,11 +158,13 @@ namespace SlopWorld
         {
             if (seller == "anthropic") return AnthropicRows;
             if (seller == "openrouter") return OpenRouterRows;
+            if (seller == "openai") return OpenAiRows;
             return new string[0];
         }
 
-        static readonly string[] AnthropicRows = { "session", "week" };
-        static readonly string[] OpenRouterRows = { "balance" };
+        static readonly string[] AnthropicRows = { "claude_session", "claude_week" };
+        static readonly string[] OpenRouterRows = { "openrouter_balance" };
+        static readonly string[] OpenAiRows = { "openai_session", "openai_week" };
 
         // Slots a held place next to its own kind rather than on the end: a session window that
         // turned up after the weekly one would otherwise sit to the right of it, and the strip
@@ -176,17 +181,17 @@ namespace SlopWorld
             rows.Add(key);
         }
 
-        // The order the daemon sends them in, which is the order they are read in: the window
-        // that runs out first, then the week, then what is being spent, then what is left in
-        // the wallet. Anything unheard-of sits with the weeklies, that being where the
-        // per-model limits land.
+        // The strip's fixed left-to-right order. Anything plan-specific comes after the common
+        // pools, so it cannot shove OpenAI or the OpenRouter balance out of their usual place.
         static int Rank(string key)
         {
-            if (key == "session") return 0;
-            if (key == "week") return 1;
-            if (key == "spend") return 3;
-            if (key == "balance") return 4;
-            return 2;
+            if (key == "claude_session") return 0;
+            if (key == "claude_week") return 1;
+            if (key == "openai_session") return 2;
+            if (key == "openai_week") return 3;
+            if (key == "openrouter_balance") return 4;
+            if (key == "claude_spend") return 5;
+            return 6;
         }
 
         static UsageWindow Window(UsageInfo usage, string key)
@@ -278,12 +283,14 @@ namespace SlopWorld
         // currently reporting - the whole point of choosing an icon for it in advance.
         public static string Long(string key, string fallback = null)
         {
-            if (key == "session") return "session window (5 hours)";
-            if (key == "week") return "weekly limit";
-            if (key == "spend") return "extra usage";
-            if (key == "balance") return "OpenRouter balance";
-            if (key.StartsWith("week_"))
-                return "weekly " + key.Substring(5).Replace('_', ' ') + " limit";
+            if (key == "claude_session") return "Claude session window (5 hours)";
+            if (key == "claude_week") return "Claude weekly limit";
+            if (key == "openai_session") return "OpenAI primary window";
+            if (key == "openai_week") return "OpenAI secondary window";
+            if (key == "claude_spend") return "Claude extra usage";
+            if (key == "openrouter_balance") return "OpenRouter balance";
+            if (key.StartsWith("claude_week_"))
+                return "Claude weekly " + key.Substring(12).Replace('_', ' ') + " limit";
             return string.IsNullOrEmpty(fallback) ? key : fallback;
         }
 
@@ -362,15 +369,15 @@ namespace SlopWorld
         {
             switch (key)
             {
-                case "session": return ThingDefOf.Chemfuel;
-                case "week": return ThingDefOf.Steel;
-                case "week_opus": return ThingDefOf.Plasteel;
-                case "week_sonnet": return ThingDefOf.ComponentIndustrial;
-                case "week_cowork": return ThingDefOf.Jade;
-                case "spend": return ThingDefOf.Silver;
+                case "claude_session": return ThingDefOf.Chemfuel;
+                case "claude_week": return ThingDefOf.Steel;
+                case "claude_week_opus": return ThingDefOf.Plasteel;
+                case "claude_week_sonnet": return ThingDefOf.ComponentIndustrial;
+                case "claude_week_cowork": return ThingDefOf.Jade;
+                case "claude_spend": return ThingDefOf.Silver;
                 // Money like the row above it, and the two are never the same coin: what is
                 // left of a budget and what is left of a wallet are different questions.
-                case "balance": return ThingDefOf.Gold;
+                case "openrouter_balance": return ThingDefOf.Gold;
                 default: return null;
             }
         }

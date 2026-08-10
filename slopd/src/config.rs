@@ -111,6 +111,13 @@ pub struct Daemon {
     /// credentials file is, and neither is ever logged or written back.
     #[serde(default)]
     pub openrouter_key_file: String,
+    /// Codex signs in with ChatGPT and keeps the short-lived access token here. Like the
+    /// Claude credentials this is read fresh, never copied or sent over the wire.
+    #[serde(default = "default_openai_credentials")]
+    pub openai_credentials: String,
+    /// Off means slopd never reads Codex's auth file or asks ChatGPT for its limits.
+    #[serde(default = "yes")]
+    pub openai: bool,
 }
 
 fn default_history_limit() -> u32 {
@@ -123,6 +130,10 @@ fn default_usage_poll() -> u64 {
 
 fn default_credentials() -> String {
     "~/.claude/.credentials.json".into()
+}
+
+fn default_openai_credentials() -> String {
+    "~/.codex/auth.json".into()
 }
 
 /// Where `make install-runner` puts it, in full rather than left to PATH: a user unit's PATH
@@ -145,6 +156,8 @@ impl Default for Daemon {
             claude_credentials: default_credentials(),
             openrouter: false,
             openrouter_key_file: String::new(),
+            openai_credentials: default_openai_credentials(),
+            openai: true,
         }
     }
 }

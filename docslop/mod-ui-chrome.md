@@ -171,7 +171,7 @@ right so the first window keeps its place as later ones come and go.
 - A money row is `unit: usd` with an amount, and its limit is read as **unsaid at
   -1** rather than at zero: a wallet with nothing in it has $0 left, and a limit of
   zero rounded into a percentage would draw an empty account as a full bar.
-  `balance` is the OpenRouter row and wears gold, `spend` silver - what is left of
+  `openrouter_balance` is the OpenRouter row and wears gold, `claude_spend` silver - what is left of
   a wallet and what is left of a budget are different questions.
 - `Rows` draws **what is expected, not what arrived**: the reported windows plus a
   place held for anything a switched-on seller (the snapshot's `sources`) owes and
@@ -179,7 +179,8 @@ right so the first window keeps its place as later ones come and go.
   the line. A held place is `...` at a fainter alpha and its tooltip names the row
   and says nothing was heard - an expired login must read as "this is out", never
   as the resource being gone. Only rows every account of that kind has are held
-  (`session`, `week`, `balance`): an `week_opus` or a `spend` that this plan has
+  (`claude_session`, `claude_week`, `openai_session`, `openai_week`, `openrouter_balance`):
+  a `claude_week_opus` or a `claude_spend` that this plan has
   not got would be an icon that never fills in.
 - `Heard` is when the *numbers* were current, not when the message came: a failed
   poll carries the last good windows over, so `SessionHub` carries their timestamp
