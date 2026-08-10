@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using RimWorld;
 using UnityEngine;
@@ -1481,7 +1482,7 @@ namespace SlopWorld
             options.Add(copy);
             options.Add(new FloatMenuOption("Paste", () => { JumpToLive(); PasteClipboard(); }));
             var info = SessionHub.Instance.Get(_name);
-            var breadcrumbs = EffectiveBreadcrumbs(info);
+            var breadcrumbs = AllBreadcrumbs();
             var breadcrumbMenu = new FloatMenuOption("Breadcrumbs...",
                 () => OpenBreadcrumbMenu(breadcrumbs));
             breadcrumbMenu.Disabled = info == null || !info.Alive || breadcrumbs.Count == 0;
@@ -1498,20 +1499,10 @@ namespace SlopWorld
             OpenOverPane(new FloatMenu(options));
         }
 
-        static List<string> EffectiveBreadcrumbs(SessionInfo info)
-        {
-            var names = new List<string>();
-            if (info == null) return names;
-            var project = SessionHub.Instance.Project(info.Project);
-            if (project != null)
-                foreach (string name in project.Breadcrumbs)
-                    if (!names.Contains(name)) names.Add(name);
-            foreach (string name in info.Breadcrumbs)
-                if (!names.Contains(name)) names.Add(name);
-            names.RemoveAll(name =>
-                SessionHub.Instance.Shortcut(name)?.Kind != ShortcutKind.Breadcrumb);
-            return names;
-        }
+        static List<string> AllBreadcrumbs() => SessionHub.Instance.Shortcuts
+            .Where(s => s.Kind == ShortcutKind.Breadcrumb)
+            .Select(s => s.Name)
+            .ToList();
 
         void OpenBreadcrumbMenu(List<string> names)
         {

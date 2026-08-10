@@ -1896,7 +1896,7 @@ impl Manager {
         Ok(())
     }
 
-    /// Render one of this agent's effective breadcrumbs and paste it without submitting.
+    /// Render a breadcrumb and paste it into this agent without submitting.
     pub async fn paste_breadcrumb(
         &self,
         name: &str,
@@ -1911,14 +1911,6 @@ impl Manager {
         let p = cfg
             .project_of(&s)
             .ok_or_else(|| anyhow!("session {name} has no configured project"))?;
-        let enabled = p
-            .breadcrumbs
-            .iter()
-            .chain(s.breadcrumbs.iter())
-            .any(|b| b == breadcrumb);
-        if !enabled {
-            bail!("breadcrumb {breadcrumb} is not enabled for {name}");
-        }
         let b = cfg
             .shortcut(breadcrumb)
             .filter(|b| b.kind == ShortcutKind::Breadcrumb)

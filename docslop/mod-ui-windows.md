@@ -23,7 +23,9 @@ opens are still windows, and go up through `TerminalWindow.OpenOverPane`.
   with a `Cmd` typed is a command line of its own; empty with no `Cmd` is whatever
   `[defaults] agent` names. **Preview** resolves the command, project, dependencies and
   this agent's additions into one sandbox readout. `Agent` is the daemon's resolved answer
-  and is **never written back** - it would pin today's default into the file.
+  and is **never written back** - it would pin today's default into the file. The agent's
+  breadcrumb choices sit under a `YOLO breadcrumbs` master checkbox; it controls whether
+  the chosen and inherited entries are spliced into the first prompt.
 - **`EditProjectDialog`** - its preset list is what the project owns. **Edit** changes it;
   **Preview** shows the combined sandbox after the implicit `global` preset, dependencies
   and project presets have been resolved. It says **asked for** rather than handed over,

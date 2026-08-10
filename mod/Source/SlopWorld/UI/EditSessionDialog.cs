@@ -200,8 +200,10 @@ namespace SlopWorld
                 _presetScroll, inheritedPresets);
             y += PresetsH + SlopWidgets.GapL;
 
-            SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
-                "Prompt breadcrumbs");
+            _s.BreadcrumbYolo = SlopWidgets.Checkbox(
+                new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
+                "YOLO breadcrumbs", _s.BreadcrumbYolo,
+                "Hijack the first Enter after startup and paste every enabled breadcrumb before it.");
             y += SlopWidgets.RowH + SlopWidgets.GapXS;
             var projectBreadcrumbs = SessionHub.Instance.Project(_s.Project)?.Breadcrumbs;
             BreadcrumbList.Draw(new Rect(rect.x, y, rect.width, BreadcrumbsH), _s.Breadcrumbs,
@@ -213,9 +215,6 @@ namespace SlopWorld
                 rect.yMax - y));
 
             _s.Autostart = SlopWidgets.Checkbox(rest, "Start with the daemon", _s.Autostart);
-            _s.BreadcrumbYolo = SlopWidgets.Checkbox(rest,
-                "YOLO breadcrumbs into the first prompt", _s.BreadcrumbYolo,
-                "Hijack the first Enter after startup and paste every enabled breadcrumb before it.");
             _editorContentH = y - rect.y + rest.CurHeight + SlopWidgets.GapS;
             rest.End();
         }

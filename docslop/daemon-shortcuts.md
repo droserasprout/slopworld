@@ -67,9 +67,9 @@ typing and killing work.
   decide whether an Enter is worth carrying a dozen tips for. `send_keys` clears it
   and announces, so the next Enter is an ordinary one.
 - `SessionCfg.breadcrumb_yolo`, true for old and new entries unless explicitly disabled,
-  controls that first-Enter splice. The terminal menu can paste any effective project or
-  agent breadcrumb without Enter through the websocket `breadcrumb` message; the daemon
-  validates membership and owns rendering on both roads.
+  controls that first-Enter splice. The terminal menu offers every breadcrumb definition,
+  project-attached or otherwise, and pastes one without Enter through the websocket
+  `breadcrumb` message; the daemon validates the definition and owns rendering on both roads.
 - `wait_ready` waits for output followed by `SETTLE_MS` of silence, not for a
   pattern; hitting `READY_MS` does not cancel delivery.
 - `POST /api/run` is the same errand with nothing written down: the body *is* the
