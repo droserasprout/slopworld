@@ -62,6 +62,7 @@ namespace SlopWorld
             TerminalWindow.OpenOverPane(new FloatMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption(PlayRow(), Stations),
+                new FloatMenuOption("Like", Radio.Like),
                 SlopWidgets.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
                 SlopWidgets.MenuToggle("Stop on exit", Radio.StopOnExit, Radio.ToggleStopOnExit),
                 new FloatMenuOption("Settings", SlopOptions.OpenAudioTab),

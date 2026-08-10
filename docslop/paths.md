@@ -4,6 +4,7 @@
 - Daemon endpoint: `~/.config/slopworld/endpoint.json` (`SLOPD_ENDPOINT` overrides),
   written while slopd is running with the effective URL and token, mode `0600`.
 - User presets: `~/.config/slopworld/presets/*.toml` (`SLOPD_PRESETS` overrides).
+- Jukebox likes: `~/.local/share/jukebox.toml` (`XDG_DATA_HOME` overrides).
 - Profile: `$XDG_DATA_HOME/slopworld/profile`. Saves, screenshots, `Config/`.
 - Session state: `$XDG_DATA_HOME/slopworld/sessions/<session>/` (`SLOPD_STATE`
   overrides). The copy of `~/.claude` and the like that one agent gets to

@@ -12,6 +12,10 @@ The station/preset key is stored in `SlopSettings.radio`; the daemon deliberatel
 selection. Unknown or removed keys fall back to the OST. Volume multiplies RimWorld's
 existing audio sliders.
 
+The Like action appends the normalized `artist - title` text, one line per action, to
+`~/.local/share/jukebox.toml` (or `$XDG_DATA_HOME/jukebox.toml`). It is machine music data,
+not mod settings.
+
 ## Daemon audio
 
 The daemon decodes MP3 with Symphonia, resamples to the output device's format, and feeds a

@@ -795,6 +795,13 @@ namespace SlopWorld
                 Category = "Jukebox",
                 Execute = _ => Radio.ToggleMute(),
             });
+            _commands.Add(new Entry
+            {
+                Id = "jukebox.like",
+                Name = "Jukebox: Like",
+                Category = "Jukebox",
+                Execute = _ => Radio.Like(),
+            });
 
             // Game
             if (Current.ProgramState == ProgramState.Playing)

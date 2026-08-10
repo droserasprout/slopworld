@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -169,6 +171,42 @@ namespace SlopWorld
                 if (_muted) return null;
                 return _station != null ? FormatTitle(_station, _title) : OstTitles[_ostIndex];
             }
+        }
+
+        // The like list is deliberately separate from ModSettings: it belongs to the
+        // machine's music collection rather than to one RimWorld profile. One line per
+        // action keeps the file useful to the small tools that consume it, and the name is
+        // already in the artist-title shape the station metadata was normalized to above.
+        public static void Like()
+        {
+            string now = NowPlaying;
+            if (string.IsNullOrEmpty(now))
+            {
+                SlopWidgets.Fail("nothing is playing");
+                return;
+            }
+
+            try
+            {
+                string path = LikesPath();
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.AppendAllText(path, now + Environment.NewLine);
+                Messages.Message($"Jukebox: liked {now}", MessageTypeDefOf.TaskCompletion, false);
+            }
+            catch (Exception e)
+            {
+                Log.Error("[SlopWorld] jukebox: could not save liked song: " + e);
+                SlopWidgets.Fail("could not save liked song");
+            }
+        }
+
+        static string LikesPath()
+        {
+            string root = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
+            if (string.IsNullOrEmpty(root))
+                root = Path.Combine(Environment.GetFolderPath(
+                    Environment.SpecialFolder.UserProfile), ".local", "share");
+            return Path.Combine(root, "jukebox.toml");
         }
 
         // Classic Vinyl reports "Song by Artist - Classic Vinyl on walmradio.com", while
