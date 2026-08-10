@@ -148,8 +148,10 @@ namespace SlopWorld
         void DrawPresetList(Rect r)
         {
             var all = SessionHub.Instance.Presets;
-            var system = all.Where(p => p.Source == "system").ToList();
-            var user = all.Where(p => p.Source != "system").ToList();
+            var system = all.Where(p => p.Source == "system")
+                .OrderBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase).ToList();
+            var user = all.Where(p => p.Source != "system")
+                .OrderBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase).ToList();
             float h = (system.Count + user.Count + 3) * SlopWidgets.RowH;
             var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(h, r.height));
             _listScroll.Begin(r, view);

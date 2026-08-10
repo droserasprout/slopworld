@@ -83,7 +83,10 @@ namespace SlopWorld
             var todo = new Queue<string>(chosen);
             while (todo.Count > 0)
             {
-                var p = presets.FirstOrDefault(x => x.Name == todo.Dequeue());
+                // `FirstOrDefault` calls its predicate once per row: take the work item
+                // first, rather than consuming the queue once per candidate.
+                string wanted = todo.Dequeue();
+                var p = presets.FirstOrDefault(x => x.Name == wanted);
                 if (p == null) continue;
                 foreach (var name in p.Requires)
                     if (required.Add(name)) todo.Enqueue(name);
