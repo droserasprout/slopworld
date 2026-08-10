@@ -483,9 +483,11 @@ namespace SlopWorld
 
         // ---------------------------------------------------------------- usage
 
-        // The Usage row, between Terminal and About. Same shape as the row above, with a
-        // lump of silver on it: the page is about resources, and the readout draws them
-        // as the game's own.
+        // The Usage row, between Terminal and About. Same shape as the row above, wearing
+        // the card of Icons.Usage. It was a lump of ThingDefOf.Silver, on the grounds that
+        // the readout draws spend as the game's own resource - but that is the readout's
+        // joke, and in the column it was the one row not drawn from the icon set, tinted
+        // by the def rather than by the row.
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
         public static class Patch_OptionsRow_Usage
         {
@@ -502,13 +504,9 @@ namespace SlopWorld
                 }
 
                 float x = r.x + 10f;
-                var icon = ThingDefOf.Silver;
+                var icon = Icons.Usage;
                 if (icon != null)
-                {
-                    Widgets.ThingIcon(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), icon);
-                    // ThingIcon leaves GUI.color on the def's own tint.
-                    GUI.color = Color.white;
-                }
+                    GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), icon);
                 x += 30f;
                 Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;

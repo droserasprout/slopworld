@@ -94,6 +94,10 @@ namespace SlopWorld
 
         public static Texture2D Trophy => Get("trophy");
 
+        // The options column's Usage row. A card rather than the silver the readouts draw:
+        // those are the game's own resource icons on purpose, and this row is a tab.
+        public static Texture2D Usage => Get("usage");
+
         // The sidebar's one add button, which used to be a "+" in GameFont.Medium: a
         // glyph is drawn heavier than the font's plus and can be given whatever size the
         // strip has room for, the font's largest being all vanilla had to offer.
