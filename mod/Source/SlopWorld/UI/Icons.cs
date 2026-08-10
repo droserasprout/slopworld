@@ -69,6 +69,11 @@ namespace SlopWorld
 
         public static Texture2D Shortcuts => Get("shortcuts");
 
+        // The options column's Keyboard row. Not the lightning of Shortcuts: that one is
+        // the sidebar's errands, and lending it to key bindings was the tab being read as
+        // the errand list.
+        public static Texture2D Keyboard => Get("keyboard");
+
         // The dotfile switch and a row's view action. Reading is what both are about, and
         // a second eye under another name would be the same pixels.
         public static Texture2D Hidden => Get("eye");

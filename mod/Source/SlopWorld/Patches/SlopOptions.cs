@@ -47,7 +47,7 @@ namespace SlopWorld
         // others: Core's mod pack so it is drawn, and the gear icon is drawn by hand below.
         public static OptionCategoryDef TerminalCategory { get; private set; }
         public static OptionCategoryDef AppearanceCategory { get; private set; }
-        public static OptionCategoryDef ShortcutsCategory { get; private set; }
+        public static OptionCategoryDef KeyboardCategory { get; private set; }
 
         // Rebuilt per open, so a config edited elsewhere - or a daemon that was down last
         // time - is re-read rather than remembered.
@@ -82,8 +82,8 @@ namespace SlopWorld
             AppearanceCategory = Section("SlopWorld_Appearance", "Appearance", general);
             UsageCategory = Section("SlopWorld_Usage", "Usage", general);
             SandboxCategory = Section("SlopWorld_Sandbox", "Sandbox", general);
+            KeyboardCategory = Section("SlopWorld_Keyboard", "Keyboard", general);
             AboutCategory = Section("SlopWorld_About", "About", general);
-            ShortcutsCategory = Section("SlopWorld_Shortcuts", "Shortcuts", general);
             RimWorldLabel = Section("SlopWorld_RimWorldSection", "RimWorld", general);
 
             DefDatabase<OptionCategoryDef>.Add(SlopWorldLabel);
@@ -92,8 +92,8 @@ namespace SlopWorld
             DefDatabase<OptionCategoryDef>.Add(AppearanceCategory);
             DefDatabase<OptionCategoryDef>.Add(UsageCategory);
             DefDatabase<OptionCategoryDef>.Add(SandboxCategory);
+            DefDatabase<OptionCategoryDef>.Add(KeyboardCategory);
             DefDatabase<OptionCategoryDef>.Add(AboutCategory);
-            DefDatabase<OptionCategoryDef>.Add(ShortcutsCategory);
             DefDatabase<OptionCategoryDef>.Add(RimWorldLabel);
 
             // AllDefsListForReading is the database's own list, and the column is drawn in
@@ -107,7 +107,7 @@ namespace SlopWorld
             all.Remove(UsageCategory);
             all.Remove(SandboxCategory);
             all.Remove(AboutCategory);
-            all.Remove(ShortcutsCategory);
+            all.Remove(KeyboardCategory);
             all.Remove(RimWorldLabel);
             all.Insert(0, SlopWorldLabel);
             all.Insert(1, Category);
@@ -115,8 +115,8 @@ namespace SlopWorld
             all.Insert(3, AppearanceCategory);
             all.Insert(4, UsageCategory);
             all.Insert(5, SandboxCategory);
-            all.Insert(6, AboutCategory);
-            all.Insert(7, ShortcutsCategory);
+            all.Insert(6, KeyboardCategory);
+            all.Insert(7, AboutCategory);
             all.Insert(8, RimWorldLabel);
         }
 
@@ -628,17 +628,19 @@ namespace SlopWorld
         }
 
 
-        // ---------------------------------------------------------------- shortcuts
+        // ----------------------------------------------------------------- keyboard
 
-        // The Shortcuts row, under the About row. Same shape as the row above with the
-        // lightning bolt of Icons.Shortcuts: the page is about key bindings, and the
-        // lightning says "shortcut" in the few pixels a column icon has.
+        // The Keyboard row, over the About row. Same shape as the rows above, wearing the
+        // keyboard of Icons.Keyboard: the page is the key bindings, and both the label and
+        // the glyph say so outright. It was the lightning bolt of Icons.Shortcuts under
+        // the label "Shortcuts", which is the sidebar's errands - the same two words and
+        // the same picture for two unrelated things.
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
-        public static class Patch_OptionsRow_Shortcuts
+        public static class Patch_OptionsRow_Keyboard
         {
             static bool Prefix(Dialog_Options __instance, Rect r, OptionCategoryDef optionCategory)
             {
-                if (optionCategory != ShortcutsCategory) return true;
+                if (optionCategory != KeyboardCategory) return true;
 
                 Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
                 if (Widgets.ButtonInvisible(r))
@@ -649,7 +651,7 @@ namespace SlopWorld
                 }
 
                 float x = r.x + 10f;
-                var icon = Icons.Shortcuts;
+                var icon = Icons.Keyboard;
                 if (icon != null)
                     GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), icon);
                 x += 30f;
@@ -658,13 +660,13 @@ namespace SlopWorld
             }
         }
 
-        // The dispatch for the Shortcuts page, taken before vanilla's chain.
+        // The dispatch for the Keyboard page, taken before vanilla's chain.
         [HarmonyPatch(typeof(Dialog_Options), "DoOptions")]
-        public static class Patch_OptionsPage_Shortcuts
+        public static class Patch_OptionsPage_Keyboard
         {
             static bool Prefix(OptionCategoryDef category, Rect inRect)
             {
-                if (category != ShortcutsCategory) return true;
+                if (category != KeyboardCategory) return true;
 
                 if (_keyBindingsPage == null) _keyBindingsPage = new KeyBindingsPage();
                 _keyBindingsPage.Draw(inRect);

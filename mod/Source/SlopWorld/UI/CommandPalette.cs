@@ -784,7 +784,7 @@ namespace SlopWorld
                 Id = "view.shortcuts-settings",
                 Name = "View: Keyboard Shortcuts",
                 Category = "View",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.ShortcutsCategory),
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.KeyboardCategory),
             });
 
             // Jukebox

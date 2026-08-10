@@ -1,7 +1,7 @@
 # Icons
 
 Every action icon the mod draws is one PNG, baked from [Codicons][c] — VS Code's
-icon set — by `tools/icons.py` and looked up through `UI/Icons.cs`. All twenty-one
+icon set — by `tools/icons.py` and looked up through `UI/Icons.cs`. All twenty-two
 slots come from that one set.
 
 [c]: https://github.com/microsoft/vscode-codicons
@@ -26,13 +26,13 @@ packages) and rasterizes through FreeType, which pillow already carries, so unli
 `tools/fileicons.py` it needs no `rsvg-convert`.
 
 The font is not vendored the way the fileicons SVGs are: it is four megabytes to
-hold twenty-one glyphs. The PNGs are committed instead, so a build never needs the
+hold twenty-two glyphs. The PNGs are committed instead, so a build never needs the
 font and only a rebake does. The manifest records both the Nerd Fonts glyph name
 and its codepoint — the name is documentation and the codepoint is what the bake
 reads — so nothing fetches `glyphnames.json` at bake time. Both are on the [cheat
 sheet](https://www.nerdfonts.com/cheat-sheet).
 
-## One scale, not twenty-one
+## One scale, not twenty-two
 
 Codicons is drawn on a 16px grid for a code editor: sharp corners, no round caps,
 one weight throughout. That is the whole reason to take it, and it is what the two
@@ -93,6 +93,9 @@ agents tab is the agents tab whatever picture it wears next year.
   pager's mark is.
 - **shortcuts** is `symbol-event`, which Codicons draws as the lightning bolt. The
   set the Nerd Font bundles has no `zap`.
+- **keyboard** is `keyboard`, on the options column's Keyboard row. It wore the
+  bolt above under the label "Shortcuts", which is the sidebar's errands — one
+  word and one picture doing duty for two unrelated things.
 - **type** is `text-size`, the appearance row's Aa.
 - **trophy** is `star-full` on the About row; Codicons has no trophy and a star is
   the same joke at 20px.
