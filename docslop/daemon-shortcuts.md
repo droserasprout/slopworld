@@ -13,13 +13,16 @@ through `breadcrumbs` lists.
   one. `shortcuts_all` is what the wire sees. The sidebar's table hides builtins -
   there is nothing to do to one there - and the breadcrumb lists offer them.
   `Useful tips` is the only one: five `{{ random_tip }}` bullets under a rule.
-- `{{ random_tip }}` is the whole template vocabulary (`render_template`), filled
+- `{{ random_tip }}` is the one dynamic template function (`render_template`), filled
   from the loading screen's tips - the *game* holds those, so they ride in on
   `random_tips` with the run or the keystroke. Each mention *of one text* spends its
   own, so five bullets are five different lines; a pool shorter than the text starts
   again, and a second text renders off the same pool from the top.
   Empty - anything driving the daemon from outside the game - leaves the text as
   written rather than blanking it, as does a variable this build does not know.
+  Breadcrumb rendering also knows `{{ agent }}`, `{{ project }}`, `{{ directory }}`
+  and `{{ command }}`. They are resolved by the daemon from the target session; unknown
+  expressions remain literal so the renderer can grow without corrupting old text.
 
 - `link` (`project`|`temp`|`ask`) is how the entry's `project` field is *read*:
   where to run, the sandbox a scratch project copies, or nothing.
@@ -63,6 +66,10 @@ typing and killing work.
 - `Live.breadcrumbs_pending` is on the session view, because the window reads it to
   decide whether an Enter is worth carrying a dozen tips for. `send_keys` clears it
   and announces, so the next Enter is an ordinary one.
+- `SessionCfg.breadcrumb_yolo`, true for old and new entries unless explicitly disabled,
+  controls that first-Enter splice. The terminal menu can paste any effective project or
+  agent breadcrumb without Enter through the websocket `breadcrumb` message; the daemon
+  validates membership and owns rendering on both roads.
 - `wait_ready` waits for output followed by `SETTLE_MS` of silence, not for a
   pattern; hitting `READY_MS` does not cancel delivery.
 - `POST /api/run` is the same errand with nothing written down: the body *is* the

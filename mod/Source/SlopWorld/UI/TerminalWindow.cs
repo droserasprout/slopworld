@@ -1480,6 +1480,12 @@ namespace SlopWorld
             copy.Disabled = !_hasSel;
             options.Add(copy);
             options.Add(new FloatMenuOption("Paste", () => { JumpToLive(); PasteClipboard(); }));
+            var info = SessionHub.Instance.Get(_name);
+            var breadcrumbs = EffectiveBreadcrumbs(info);
+            var breadcrumbMenu = new FloatMenuOption("Breadcrumbs...",
+                () => OpenBreadcrumbMenu(breadcrumbs));
+            breadcrumbMenu.Disabled = info == null || !info.Alive || breadcrumbs.Count == 0;
+            options.Add(breadcrumbMenu);
             options.Add(new FloatMenuOption("Select all", SelectAll));
 
             if (_scrollOff > 0)
@@ -1489,6 +1495,37 @@ namespace SlopWorld
                     ClearSelection();
                 }));
 
+            OpenOverPane(new FloatMenu(options));
+        }
+
+        static List<string> EffectiveBreadcrumbs(SessionInfo info)
+        {
+            var names = new List<string>();
+            if (info == null) return names;
+            var project = SessionHub.Instance.Project(info.Project);
+            if (project != null)
+                foreach (string name in project.Breadcrumbs)
+                    if (!names.Contains(name)) names.Add(name);
+            foreach (string name in info.Breadcrumbs)
+                if (!names.Contains(name)) names.Add(name);
+            names.RemoveAll(name =>
+                SessionHub.Instance.Shortcut(name)?.Kind != ShortcutKind.Breadcrumb);
+            return names;
+        }
+
+        void OpenBreadcrumbMenu(List<string> names)
+        {
+            var options = new List<FloatMenuOption>();
+            foreach (string name in names)
+            {
+                string picked = name;
+                options.Add(new FloatMenuOption(picked, () =>
+                {
+                    JumpToLive();
+                    SessionHub.Instance.PasteBreadcrumb(_name, picked,
+                        Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch));
+                }));
+            }
             OpenOverPane(new FloatMenu(options));
         }
 

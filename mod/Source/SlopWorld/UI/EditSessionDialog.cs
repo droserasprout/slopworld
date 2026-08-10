@@ -68,6 +68,7 @@ namespace SlopWorld
                     NetworkOverride = existing.NetworkOverride,
                     Agent = existing.Agent,
                     Autostart = existing.Autostart,
+                    BreadcrumbYolo = existing.BreadcrumbYolo,
                 };
 
             doCloseX = true;
@@ -212,6 +213,9 @@ namespace SlopWorld
                 rect.yMax - y));
 
             _s.Autostart = SlopWidgets.Checkbox(rest, "Start with the daemon", _s.Autostart);
+            _s.BreadcrumbYolo = SlopWidgets.Checkbox(rest,
+                "YOLO breadcrumbs into the first prompt", _s.BreadcrumbYolo,
+                "Hijack the first Enter after startup and paste every enabled breadcrumb before it.");
             _editorContentH = y - rect.y + rest.CurHeight + SlopWidgets.GapS;
             rest.End();
         }

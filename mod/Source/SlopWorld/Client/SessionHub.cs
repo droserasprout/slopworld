@@ -75,6 +75,8 @@ namespace SlopWorld
         // Null means inherit the project's mode.
         public NetworkMode? NetworkOverride;
         public bool Autostart;
+        // YOLO mode folds every effective breadcrumb into the first submitted prompt.
+        public bool BreadcrumbYolo = true;
         public List<string> Breadcrumbs = new List<string>();
 
         // Read-only here: this process has breadcrumbs waiting for its first Enter. What the
@@ -142,6 +144,7 @@ namespace SlopWorld
                 ? (NetworkMode?)null
                 : NetworkModeText.Parse(j["network_override"].AsString()),
             Autostart = j["autostart"].AsBool(false),
+            BreadcrumbYolo = j["breadcrumb_yolo"].AsBool(true),
             Breadcrumbs = j["breadcrumbs"].Items.Select(i => i.AsString()).ToList(),
             BreadcrumbsPending = j["breadcrumbs_pending"].AsBool(false),
             Ephemeral = j["ephemeral"].AsBool(false),
@@ -164,7 +167,8 @@ namespace SlopWorld
             $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]," +
             $"\"breadcrumbs\":[{string.Join(",", Breadcrumbs.Select(JVal.Q).ToArray())}]," +
             $"\"network\":{(NetworkOverride.HasValue ? JVal.Q(NetworkModeText.Name(NetworkOverride.Value)) : "null")}," +
-            $"\"autostart\":{JVal.B(Autostart)}}}";
+            $"\"autostart\":{JVal.B(Autostart)}," +
+            $"\"breadcrumb_yolo\":{JVal.B(BreadcrumbYolo)}}}";
     }
 
     public class ProjectInfo
@@ -775,6 +779,14 @@ namespace SlopWorld
         {
             if (_ws == null || !_ws.Connected) return;
             _ws.SendText($"{{\"t\":\"paste\",\"name\":{JVal.Q(name)},\"text\":{JVal.Q(text)}}}");
+        }
+
+        public void PasteBreadcrumb(string name, string breadcrumb, List<string> randomTips)
+        {
+            if (_ws == null || !_ws.Connected) return;
+            _ws.SendText($"{{\"t\":\"breadcrumb\",\"name\":{JVal.Q(name)}," +
+                         $"\"breadcrumb\":{JVal.Q(breadcrumb)}," +
+                         $"\"random_tips\":{Tips(randomTips)}}}");
         }
 
         // The jukebox. `source` is a station's URL or the absolute path of a file, null

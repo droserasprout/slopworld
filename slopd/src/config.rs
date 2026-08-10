@@ -251,7 +251,7 @@ pub struct ProjectCfg {
 
 /// An agent is a command preset plus this file's answer to it - the command, sandbox presets
 /// and breadcrumbs that entry adds.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionCfg {
     pub name: String,
     /// Everything about where it runs and what it can reach comes from there.
@@ -270,11 +270,30 @@ pub struct SessionCfg {
     /// Named breadcrumbs added to this agent's first prompt.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub breadcrumbs: Vec<String>,
+    /// Paste all effective breadcrumbs in front of the first Enter after startup.
+    #[serde(default = "yes", skip_serializing_if = "is_true")]
+    pub breadcrumb_yolo: bool,
     /// An optional reduction from the project's network ceiling. Missing means inherit.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub network: Option<NetworkMode>,
     #[serde(default)]
     pub autostart: bool,
+}
+
+impl Default for SessionCfg {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            project: String::new(),
+            command: String::new(),
+            cmd: None,
+            sandbox: Vec::new(),
+            breadcrumbs: Vec::new(),
+            breadcrumb_yolo: true,
+            network: None,
+            autostart: false,
+        }
+    }
 }
 
 /// The only thing the two kinds disagree about at the far end: an agent's input
@@ -359,6 +378,10 @@ fn not_set(b: &bool) -> bool {
 
 fn yes() -> bool {
     true
+}
+
+fn is_true(b: &bool) -> bool {
+    *b
 }
 
 /// Ordered: first match wins. Shipped defaults target Claude Code's TUI.
@@ -968,6 +991,21 @@ token = \"not-a-daemon-token\"
         assert_eq!(sc.kind, ShortcutKind::Shell);
         assert_eq!(sc.text, "make test");
         assert!(sc.command.is_none());
+    }
+
+    #[test]
+    fn breadcrumb_yolo_defaults_on_and_only_writes_the_opt_out() {
+        let old: SessionCfg = toml::from_str("name = 'Ada'").unwrap();
+        assert!(old.breadcrumb_yolo);
+        assert!(!toml::to_string(&old).unwrap().contains("breadcrumb_yolo"));
+
+        let opted_out = SessionCfg {
+            breadcrumb_yolo: false,
+            ..Default::default()
+        };
+        assert!(toml::to_string(&opted_out)
+            .unwrap()
+            .contains("breadcrumb_yolo = false"));
     }
 
     /// A shipped breadcrumb is offered like any other and written down like none of them:

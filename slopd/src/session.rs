@@ -48,6 +48,7 @@ pub struct SessionView {
     pub cmd: Option<String>,
     pub sandbox: Vec<String>,
     pub breadcrumbs: Vec<String>,
+    pub breadcrumb_yolo: bool,
     // Lets the client attach tips only to the Enter that will consume breadcrumbs.
     pub breadcrumbs_pending: bool,
     pub agent: String,
@@ -306,10 +307,14 @@ fn disk_mtime(path: &std::path::Path) -> Option<SystemTime> {
     std::fs::metadata(path).ok()?.modified().ok()
 }
 
-fn render_template(text: &str, random_tips: &[String]) -> String {
-    if random_tips.is_empty() {
-        return text.to_string();
-    }
+struct TemplateVars<'a> {
+    agent: &'a str,
+    project: &'a str,
+    directory: &'a str,
+    command: &'a str,
+}
+
+fn render_template_with(text: &str, random_tips: &[String], vars: Option<&TemplateVars>) -> String {
     let mut next = 0usize;
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
@@ -319,9 +324,21 @@ fn render_template(text: &str, random_tips: &[String]) -> String {
         };
         let end = start + 2 + end_rel;
         out.push_str(&rest[..start]);
-        if rest[start + 2..end].trim() == "random_tip" {
-            out.push_str(&random_tips[next % random_tips.len()]);
-            next += 1;
+        let key = rest[start + 2..end].trim();
+        let value = match (key, vars) {
+            ("random_tip", _) if !random_tips.is_empty() => {
+                let value = &random_tips[next % random_tips.len()];
+                next += 1;
+                Some(value.as_str())
+            }
+            ("agent", Some(v)) => Some(v.agent),
+            ("project", Some(v)) => Some(v.project),
+            ("directory", Some(v)) => Some(v.directory),
+            ("command", Some(v)) => Some(v.command),
+            _ => None,
+        };
+        if let Some(value) = value {
+            out.push_str(value);
         } else {
             out.push_str(&rest[start..end + 2]);
         }
@@ -329,6 +346,10 @@ fn render_template(text: &str, random_tips: &[String]) -> String {
     }
     out.push_str(rest);
     out
+}
+
+fn render_template(text: &str, random_tips: &[String]) -> String {
+    render_template_with(text, random_tips, None)
 }
 
 fn now_ms() -> u64 {
@@ -815,7 +836,12 @@ impl Manager {
 
         for s in &cfg.sessions {
             live.entry(s.name.clone())
-                .and_modify(|l| l.cfg = s.clone())
+                .and_modify(|l| {
+                    l.cfg = s.clone();
+                    if !s.breadcrumb_yolo {
+                        l.breadcrumbs_pending = false;
+                    }
+                })
                 .or_insert(Live {
                     cfg: s.clone(),
                     ephemeral: false,
@@ -1008,12 +1034,24 @@ impl Manager {
         tracing::info!("starting {name}: {}", argv.join(" "));
         self.tmux.spawn(name, &dir, cols, rows, &argv).await?;
         self.spawn_reader(name).await;
-        let crumbs = cfg.breadcrumbs_of(&s, &p);
+        let command = cfg.command_of(&s);
+        let directory = expand(&p.dir);
+        let vars = TemplateVars {
+            agent: &s.name,
+            project: &p.name,
+            directory: &directory,
+            command: &command,
+        };
+        let crumbs: Vec<String> = cfg
+            .breadcrumbs_of(&s, &p)
+            .into_iter()
+            .map(|text| render_template_with(&text, &[], Some(&vars)))
+            .collect();
         let mut live = self.live.write().await;
         if let Some(l) = live.get_mut(name) {
             l.breadcrumbs.clear();
             l.breadcrumbs_pending = false;
-            if !host && !crumbs.is_empty() {
+            if !host && s.breadcrumb_yolo && !crumbs.is_empty() {
                 l.breadcrumbs = breadcrumb_block(&crumbs).into_bytes();
                 l.breadcrumbs_pending = true;
             }
@@ -1628,6 +1666,7 @@ impl Manager {
                     cmd: l.cfg.cmd.clone(),
                     sandbox: l.cfg.sandbox.clone(),
                     breadcrumbs: l.cfg.breadcrumbs.clone(),
+                    breadcrumb_yolo: l.cfg.breadcrumb_yolo,
                     breadcrumbs_pending: l.breadcrumbs_pending,
                     agent: cfg.command_of(&l.cfg),
                     state: l.state,
@@ -1824,6 +1863,46 @@ impl Manager {
         self.queue_input(name, Input::Paste(text.as_bytes().to_vec()))
             .await;
         Ok(())
+    }
+
+    /// Render one of this agent's effective breadcrumbs and paste it without submitting.
+    pub async fn paste_breadcrumb(
+        &self,
+        name: &str,
+        breadcrumb: &str,
+        random_tips: Vec<String>,
+    ) -> Result<()> {
+        let cfg = self.config().await;
+        let s = self
+            .session_cfg(name)
+            .await
+            .ok_or_else(|| anyhow!("no such session: {name}"))?;
+        let p = cfg
+            .project_of(&s)
+            .ok_or_else(|| anyhow!("session {name} has no configured project"))?;
+        let enabled = p
+            .breadcrumbs
+            .iter()
+            .chain(s.breadcrumbs.iter())
+            .any(|b| b == breadcrumb);
+        if !enabled {
+            bail!("breadcrumb {breadcrumb} is not enabled for {name}");
+        }
+        let b = cfg
+            .shortcut(breadcrumb)
+            .filter(|b| b.kind == ShortcutKind::Breadcrumb)
+            .ok_or_else(|| anyhow!("no such breadcrumb: {breadcrumb}"))?;
+        let command = cfg.command_of(&s);
+        let directory = expand(&p.dir);
+        let vars = TemplateVars {
+            agent: &s.name,
+            project: &p.name,
+            directory: &directory,
+            command: &command,
+        };
+        let text = render_template_with(&b.text, &random_tips, Some(&vars));
+        drop(cfg);
+        self.paste(name, &text).await
     }
 
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
@@ -2404,7 +2483,8 @@ mod tests {
     use super::{
         breadcrumb_block, check_breadcrumbs, check_name, check_shortcut, compile_rules, free_name,
         free_project_name, json_to_toml, match_rules, merge_input, merge_toml, render_template,
-        settle, slug, strip_sgr, Input, Live, State, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
+        render_template_with, settle, slug, strip_sgr, Input, Live, State, TemplateVars, BOOT_COLS,
+        BOOT_ROWS, INPUT_BATCH,
     };
     use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind};
 
@@ -2719,6 +2799,24 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
         assert_eq!(
             render_template("keep {{ random_tip", &tips),
             "keep {{ random_tip"
+        );
+    }
+
+    #[test]
+    fn breadcrumb_context_variables_render_and_unknown_variables_survive() {
+        let vars = TemplateVars {
+            agent: "Ada",
+            project: "slopworld",
+            directory: "/src/slopworld",
+            command: "codex",
+        };
+        assert_eq!(
+            render_template_with(
+                "{{ agent }} in {{ project }} at {{ directory }} via {{ command }}; {{ later }}",
+                &[],
+                Some(&vars),
+            ),
+            "Ada in slopworld at /src/slopworld via codex; {{ later }}"
         );
     }
 

@@ -945,6 +945,7 @@ enum ClientMsg {
     Scroll(ScrollReq),
     Mouse(MouseReq),
     Paste(PasteReq),
+    Breadcrumb(BreadcrumbReq),
     Audio(AudioReq),
 }
 
@@ -972,6 +973,14 @@ where
 struct PasteReq {
     name: String,
     text: String,
+}
+
+#[derive(Deserialize)]
+struct BreadcrumbReq {
+    name: String,
+    breadcrumb: String,
+    #[serde(default)]
+    random_tips: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -1283,6 +1292,17 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
                     tracing::warn!("paste to {}: {e:#}", pr.name);
                 }
                 crate::perf::PERF.input.add(started.elapsed());
+            }
+            ClientMsg::Breadcrumb(br) => {
+                if !m.cap_ok(&cap, &br.name, Level::Rw).await {
+                    continue;
+                }
+                if let Err(e) = m
+                    .paste_breadcrumb(&br.name, &br.breadcrumb, br.random_tips)
+                    .await
+                {
+                    tracing::warn!("breadcrumb to {}: {e:#}", br.name);
+                }
             }
             ClientMsg::Audio(ar) => {
                 if !cap.may_create() {
