@@ -1055,7 +1055,13 @@ namespace SlopWorld
                 {
                     JumpToLive();
                     Flush();
-                    SessionHub.Instance.SendKeys(_name, new[] { key }, false);
+                    // Tips ride the Enter that is about to have breadcrumbs pasted in front
+                    // of it, and nothing else: `BreadcrumbsPending` is the daemon's answer to
+                    // whether this is that Enter.
+                    var info = SessionHub.Instance.Get(_name);
+                    bool crumbs = key == "Enter" && info != null && info.BreadcrumbsPending;
+                    SessionHub.Instance.SendKeys(_name, new[] { key }, false,
+                        crumbs ? Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch) : null);
                     e.Use();
                     return;
                 }

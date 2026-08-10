@@ -125,7 +125,9 @@ namespace SlopWorld
         string _roPaths, _rwPaths, _passEnv, _seed;
         Vector2 _scroll;
         readonly SmoothScroll _presetScroll = new SmoothScroll();
+        readonly SmoothScroll _breadcrumbScroll = new SmoothScroll();
         const float PresetsH = 152f;
+        const float BreadcrumbsH = 132f;
 
         // The base every project builds on, off `[sandbox]`. Fetched per dialog rather
         // than cached on the hub, because it is one small request and a stale answer
@@ -256,6 +258,13 @@ namespace SlopWorld
 
             PresetList.Draw(new Rect(r.x, y, r.width, PresetsH), _p.Sandbox, _presetScroll);
             y += PresetsH + SlopWidgets.GapXS;
+
+            SlopWidgets.SectionHeading(new Rect(r.x, y, r.width, SlopWidgets.RowH),
+                "Prompt breadcrumbs");
+            y += SlopWidgets.RowH + SlopWidgets.GapXS;
+            BreadcrumbList.Draw(new Rect(r.x, y, r.width, BreadcrumbsH), _p.Breadcrumbs,
+                _breadcrumbScroll);
+            y += BreadcrumbsH + SlopWidgets.GapXS;
 
             // An agent gets whatever its command preset asks for whether or not it is ticked
             // here, and saying so is cheaper than the player wondering why ~/.claude is bound.

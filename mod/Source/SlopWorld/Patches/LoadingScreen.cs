@@ -262,6 +262,31 @@ namespace SlopWorld
             }
         }
 
+        // What a breadcrumb's `{{ random_tip }}` is filled from, one per mention. Distinct,
+        // because a list of five that says the same thing twice reads as a bug: filtered and
+        // shuffled rather than rolled, `RandomTip`'s draw-until-allowed being a poor way to
+        // avoid what has already come up.
+        // How many ride along with a prompt. The daemon spends one per mention and starts the
+        // batch again if a text asks for more, so this is the number of bullets that are
+        // certainly all different - well past the five the shipped breadcrumb writes.
+        public const int TipBatch = 12;
+
+        public static List<string> RandomTips(int n)
+        {
+            bool grandma = Settings.GrandmaMode;
+            var pool = new List<string>();
+            foreach (string tip in Tips)
+                if (Shown(tip, grandma)) pool.Add(Strip(tip));
+            var picked = new List<string>();
+            for (int i = 0; i < n && pool.Count > 0; i++)
+            {
+                int at = Dice.Next(pool.Count);
+                picked.Add(pool[at]);
+                pool.RemoveAt(at);
+            }
+            return picked;
+        }
+
         // Not Verse.Rand: this screen is up *during* map generation, so a draw off the global
         // sequence once a frame is a loading screen deciding where the rivers go.
         static readonly System.Random Dice = new System.Random();

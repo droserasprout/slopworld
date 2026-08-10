@@ -71,7 +71,9 @@ namespace SlopWorld
 
         public static void Draw(Rect body)
         {
-            _items = SessionHub.Instance.Shortcuts.ToList();
+            // Builtins are shipped with the daemon and there is nothing to do to one here -
+            // no run, no edit, no delete. They are offered where they are attached instead.
+            _items = SessionHub.Instance.Shortcuts.Where(s => !s.Builtin).ToList();
             Lines.Clear();
 
             if (_items.Count == 0)
@@ -143,7 +145,7 @@ namespace SlopWorld
                         var r = new Rect(0f, y, view.width, RowH);
                         if (ColonistBarStrip.MouseOver(Screen(r))) Widgets.DrawHighlight(r);
 
-                        // The kind badge: "prompt" or "shell"
+                        // The kind badge: prompt, shell, or an attached breadcrumb.
                         float badgeW = 34f;
                         GUI.color = item.Kind == ShortcutKind.Shell
                             ? SlopWidgets.Warn
@@ -155,7 +157,8 @@ namespace SlopWorld
                         Text.Font = GameFont.Tiny;
                         Text.Anchor = TextAnchor.MiddleLeft;
                         Widgets.Label(new Rect(CellX, r.y, badgeW, RowH),
-                            item.Kind == ShortcutKind.Shell ? "sh" : "→");
+                            item.Kind == ShortcutKind.Shell ? "sh" :
+                                item.Kind == ShortcutKind.Breadcrumb ? "bc" : "pt");
                         GUI.color = Color.white;
 
                         float tx = CellX + badgeW + 4f;
@@ -290,9 +293,13 @@ namespace SlopWorld
                     return;
                 }
 
-                // Left click: run the shortcut.
+                // Breadcrumbs are attached definitions, not errands. A click edits them;
+                // prompt and shell entries still run as before.
                 e.Use();
-                Run(line.Item);
+                if (line.Item.Kind == ShortcutKind.Breadcrumb)
+                    TerminalWindow.OpenOverPane(new EditShortcutDialog(line.Item));
+                else
+                    Run(line.Item);
                 return;
             }
         }
@@ -321,8 +328,9 @@ namespace SlopWorld
         {
             var opts = new List<FloatMenuOption>();
 
-            // Run is the reason this exists, so it is first.
-            opts.Add(new FloatMenuOption("Run", () => Run(s)));
+            // Run is the reason ordinary shortcuts exist. Breadcrumbs are definitions only.
+            if (s.Kind != ShortcutKind.Breadcrumb)
+                opts.Add(new FloatMenuOption("Run", () => Run(s)));
 
             var where = Where(s);
             if (s.Link == ShortcutLink.Ask)
@@ -366,7 +374,7 @@ namespace SlopWorld
                 // A project named outright wins; a temporary run has none, whichever of
                 // the two said so; otherwise the entry's own.
                 project ?? (scratch ? null : s.Project),
-                scratch);
+                scratch, Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch));
         }
 
         // Every project, plus a temporary one - last, being the answer for the run that
@@ -466,18 +474,34 @@ namespace SlopWorld
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     _s.Kind == ShortcutKind.Shell
                         ? "Shell - run a command"
-                        : "Prompt - say something to an agent"))
+                        : _s.Kind == ShortcutKind.Breadcrumb
+                            ? "Breadcrumb - append to the first prompt"
+                            : "Prompt - say something to an agent"))
                 PickKind();
 
             l.Gap(SlopWidgets.GapS);
-            l.Label("Where it runs");
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), LinkLabel(_s.Link)))
-                PickLink();
+            if (_s.Kind != ShortcutKind.Breadcrumb)
+            {
+                l.Label("Where it runs");
+                if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), LinkLabel(_s.Link)))
+                    PickLink();
+            }
+
+            // A breadcrumb is not run itself, but a project can opt into it directly here.
+            // Agent attachments remain editable from the agent dialog.
+            if (_s.Kind == ShortcutKind.Breadcrumb)
+            {
+                l.Gap(SlopWidgets.GapS);
+                l.Label("Project (attach to every agent in this project)");
+                if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+                        string.IsNullOrEmpty(_s.Project) ? "None" : _s.Project))
+                    PickBreadcrumbProject();
+            }
 
             // The project dropdown stays up for two of the three, because in temp mode it
             // still answers something - which sandbox the scratch project is given - and a
             // field that vanished would read as a setting that does not exist.
-            if (_s.Link != ShortcutLink.Ask)
+            if (_s.Kind != ShortcutKind.Breadcrumb && _s.Link != ShortcutLink.Ask)
             {
                 l.Gap(SlopWidgets.GapS);
                 l.Label(_s.Link == ShortcutLink.Temp
@@ -492,28 +516,37 @@ namespace SlopWorld
 
             var project = SessionHub.Instance.Project(_s.Project);
             GUI.color = SlopWidgets.Dim;
-            l.Label(Explain(project));
+            l.Label(_s.Kind == ShortcutKind.Breadcrumb
+                ? "Attach this text to projects and agents; it is not runnable."
+                : Explain(project));
             GUI.color = Color.white;
 
             l.Gap(SlopWidgets.GapS);
-            l.Label(_s.Kind == ShortcutKind.Shell ? "Shell (blank = the default)"
-                                                  : "Agent (blank = the default)");
-            var box = l.GetRect(SlopWidgets.FieldH);
-            if (string.IsNullOrEmpty((_s.Command ?? "").Trim()))
+            if (_s.Kind != ShortcutKind.Breadcrumb)
             {
-                // Empty is the normal answer, and what it means is worth reading off the field.
-                // In `Faint`, which is the rung a placeholder is: glanced at, not read.
-                string placeholder =
-                    _s.Kind == ShortcutKind.Shell ? _shellDefault : _agentDefault;
-                GUI.color = SlopWidgets.Faint;
-                string shown = SlopWidgets.Field(box, "shortcut.command", placeholder);
-                GUI.color = Color.white;
-                // A field the player typed into stops being the placeholder.
-                if (shown != placeholder) _s.Command = shown;
+                l.Label(_s.Kind == ShortcutKind.Shell ? "Shell (blank = the default)"
+                                                      : "Agent (blank = the default)");
+                var box = l.GetRect(SlopWidgets.FieldH);
+                if (string.IsNullOrEmpty((_s.Command ?? "").Trim()))
+                {
+                    string placeholder =
+                        _s.Kind == ShortcutKind.Shell ? _shellDefault : _agentDefault;
+                    GUI.color = SlopWidgets.Faint;
+                    string shown = SlopWidgets.Field(box, "shortcut.command", placeholder);
+                    GUI.color = Color.white;
+                    if (shown != placeholder) _s.Command = shown;
+                }
+                else
+                {
+                    _s.Command = SlopWidgets.Field(box, "shortcut.command", _s.Command);
+                }
             }
             else
             {
-                _s.Command = SlopWidgets.Field(box, "shortcut.command", _s.Command);
+                // Breadcrumbs have one text editor below, just like prompts. Keeping a
+                // second Area here caused the lower editor to overwrite this value and made
+                // Save appear broken.
+                _s.Command = "";
             }
 
             float used = l.CurHeight;
@@ -521,7 +554,8 @@ namespace SlopWorld
 
             float y = rect.y + head + used + SlopWidgets.GapL;
             SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
-                _s.Kind == ShortcutKind.Shell ? "Command line" : "Prompt");
+                _s.Kind == ShortcutKind.Shell ? "Command line" :
+                _s.Kind == ShortcutKind.Breadcrumb ? "Breadcrumb text" : "Prompt");
             y += SlopWidgets.RowH + SlopWidgets.GapXS;
 
             var area = new Rect(rect.x, y, rect.width,
@@ -587,7 +621,21 @@ namespace SlopWorld
                     () => _s.Kind = ShortcutKind.Prompt),
                 new FloatMenuOption("Shell - run a command",
                     () => _s.Kind = ShortcutKind.Shell),
+                new FloatMenuOption("Breadcrumb - append to the first prompt",
+                    () => { _s.Kind = ShortcutKind.Breadcrumb; _s.Link = ShortcutLink.Project; _s.Project = ""; }),
             }));
+        }
+
+        void PickBreadcrumbProject()
+        {
+            var options = SessionHub.Instance.Projects
+                .Select(p => new FloatMenuOption($"{p.Name}  -  {p.Dir}",
+                    () => _s.Project = p.Name))
+                .ToList();
+            options.Insert(0, new FloatMenuOption("None", () => _s.Project = ""));
+            options.Add(new FloatMenuOption("New project...",
+                () => TerminalWindow.OpenOverPane(new EditProjectDialog(null))));
+            TerminalWindow.OpenOverPane(new FloatMenu(options));
         }
 
         void PickProject()
@@ -616,7 +664,7 @@ namespace SlopWorld
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }
-            if (_s.Link == ShortcutLink.Project &&
+            if (_s.Kind != ShortcutKind.Breadcrumb && _s.Link == ShortcutLink.Project &&
                 string.IsNullOrEmpty((_s.Project ?? "").Trim()))
             {
                 Messages.Message("SlopWorld: pick a project, or a way to choose one.",

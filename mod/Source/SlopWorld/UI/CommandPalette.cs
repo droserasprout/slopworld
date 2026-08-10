@@ -603,7 +603,7 @@ namespace SlopWorld
                 {
                     if (v == null) return;
                     var info = SessionHub.Instance.Shortcut(v);
-                    if (info == null) return;
+                    if (info == null || info.Kind == ShortcutKind.Breadcrumb) return;
                     if (info.Link == ShortcutLink.Ask) AskWhere(info);
                     else RunShortcutWith(v);
                 },
@@ -726,6 +726,7 @@ namespace SlopWorld
         static List<SubOption> ShortcutsSub()
         {
             var list = SessionHub.Instance.Shortcuts
+                .Where(s => s.Kind != ShortcutKind.Breadcrumb)
                 .Select(s => new SubOption
                 {
                     Label = $"{s.Name}  ({s.Kind.ToString().ToLower()})",
@@ -800,7 +801,8 @@ namespace SlopWorld
         static void RunShortcutWith(string name, string project = null, bool temp = false)
         {
             SessionHub.Instance.RunShortcut(name,
-                session => { TerminalWindow.Open(session); }, SlopWidgets.Fail, project, temp);
+                session => { TerminalWindow.Open(session); }, SlopWidgets.Fail, project, temp,
+                Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch));
         }
 
         // --------------------------------------------------------------- filtering

@@ -17,7 +17,9 @@ namespace SlopWorld
         readonly string _origName;
         string _env;
         readonly SmoothScroll _presetScroll = new SmoothScroll();
+        readonly SmoothScroll _breadcrumbScroll = new SmoothScroll();
         const float PresetsH = 132f;
+        const float BreadcrumbsH = 132f;
 
         // For the title. Null unless it is a duplicate: an edit already has `_origName`.
         readonly string _copiedFrom;
@@ -53,6 +55,7 @@ namespace SlopWorld
                     Command = existing.Command,
                     Cmd = existing.Cmd,
                     Sandbox = new List<string>(existing.Sandbox),
+                    Breadcrumbs = new List<string>(existing.Breadcrumbs),
                     Agent = existing.Agent,
                     Autostart = existing.Autostart,
                     Env = new List<string>(existing.Env),
@@ -132,6 +135,14 @@ namespace SlopWorld
             PresetList.Draw(new Rect(rect.x, y, rect.width, PresetsH), _s.Sandbox,
                 _presetScroll, preset != null ? preset.Sandbox : null);
             y += PresetsH + SlopWidgets.GapL;
+
+            SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
+                "Prompt breadcrumbs");
+            y += SlopWidgets.RowH + SlopWidgets.GapXS;
+            var projectBreadcrumbs = SessionHub.Instance.Project(_s.Project)?.Breadcrumbs;
+            BreadcrumbList.Draw(new Rect(rect.x, y, rect.width, BreadcrumbsH), _s.Breadcrumbs,
+                _breadcrumbScroll, projectBreadcrumbs);
+            y += BreadcrumbsH + SlopWidgets.GapL;
 
             var rest = new Listing_Standard { maxOneColumn = true };
             rest.Begin(new Rect(rect.x, y, rect.width,

@@ -319,6 +319,10 @@ struct RunReq {
     label: String,
     #[serde(default)]
     temp: bool,
+    /// The game supplies loading-screen tips for `{{ random_tip }}`, already distinct: one is
+    /// spent per mention, so a text with five bullets gets five different lines.
+    #[serde(default)]
+    random_tips: Vec<String>,
     /// Outside the sandbox: the sidebar's "Terminal (host)". Only an errand can ask - there
     /// is no such key on a session or a shortcut.
     #[serde(default)]
@@ -362,6 +366,7 @@ async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
         // None rather than an empty string: `session_for` reads "no command of its own" off
         // the Option, and that is what falls through to the preset.
         command: (!command.is_empty()).then(|| command.to_string()),
+        builtin: false,
     };
 
     // The project is checked by `run_errand` itself, which is also where a temporary one is
@@ -369,6 +374,7 @@ async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
     let want = RunWhere {
         project: None,
         temp: q.temp,
+        random_tips: q.random_tips,
     };
     let session = m
         .run_errand(sc, want, q.host)
@@ -1029,6 +1035,10 @@ struct KeysReq {
     keys: Vec<String>,
     #[serde(default)]
     literal: bool,
+    /// The game supplies loading-screen tips for `{{ random_tip }}`, already distinct: one is
+    /// spent per mention, so a text with five bullets gets five different lines.
+    #[serde(default)]
+    random_tips: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -1249,7 +1259,7 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
                 // message only when this one is done, so what is timed here is what a held
                 // key waits behind.
                 let started = std::time::Instant::now();
-                m.send_keys(&k.name, k.keys, k.literal).await;
+                m.send_keys(&k.name, k.keys, k.literal, k.random_tips).await;
                 crate::perf::PERF.input.add(started.elapsed());
             }
             ClientMsg::Resize(r) => {

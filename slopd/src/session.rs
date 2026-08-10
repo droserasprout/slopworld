@@ -12,7 +12,8 @@ use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinHandle;
 
 use crate::config::{
-    expand, Config, Daemon, Defaults, ProjectCfg, Sandbox, SessionCfg, ShortcutCfg, ShortcutLink,
+    expand, Config, Daemon, Defaults, ProjectCfg, Sandbox, SessionCfg, ShortcutCfg, ShortcutKind,
+    ShortcutLink,
 };
 use crate::emu::{parse_output, Frame, MouseInput, SessionEmu};
 use crate::sandbox::build_argv;
@@ -64,6 +65,12 @@ pub struct SessionView {
     pub cmd: Option<String>,
     /// Sandbox presets this agent adds to its command's and its project's.
     pub sandbox: Vec<String>,
+    /// Breadcrumb names this agent adds to its project's.
+    pub breadcrumbs: Vec<String>,
+    /// This process has breadcrumbs waiting for its first Enter. The window reads it to know
+    /// whether a keystroke is worth carrying tips for: every other Enter it ever sends - a
+    /// shell's whole command history - would otherwise pay for a template nothing renders.
+    pub breadcrumbs_pending: bool,
     /// As it will actually be exec'd, preset and defaults resolved.
     pub agent: String,
     pub state: State,
@@ -103,6 +110,10 @@ pub struct RunWhere {
     /// Beats `project` when both are given, being the more specific answer.
     #[serde(default)]
     pub temp: bool,
+    /// Values supplied by the game for the small template vocabulary: one distinct tip per
+    /// `{{ random_tip }}` the text turns out to hold.
+    #[serde(default)]
+    pub random_tips: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -248,6 +259,9 @@ struct Live {
     /// in a table of its own so it goes when the entry does: dropping the sender is what ends
     /// the task behind it.
     input: Option<mpsc::UnboundedSender<Input>>,
+    /// Text to append immediately before the first Enter after this process starts.
+    breadcrumbs: Vec<u8>,
+    breadcrumbs_pending: bool,
 }
 
 impl Live {
@@ -279,6 +293,9 @@ enum Input {
     /// Its own kind because it takes the buffer road and is never merged with a neighbour:
     /// a paste is one thing the app is meant to see arrive whole.
     Paste(Vec<u8>),
+    /// A pause held by the pane's single consumer, so everything queued behind it waits too.
+    /// The one caller is the breadcrumb splice: see `ENTER_GAP_MS`.
+    Gap(Duration),
 }
 
 /// What one `send-keys` may carry. tmux packs a command's whole argv into a single imsg to
@@ -420,6 +437,38 @@ fn disk_mtime(path: &std::path::Path) -> Option<SystemTime> {
     std::fs::metadata(path).ok()?.modified().ok()
 }
 
+/// Replace the one supported Jinja-style variable. Unknown variables and an empty pool are
+/// left alone so hand-written config remains visible rather than silently disappearing when
+/// run outside the game.
+///
+/// Every mention is its own draw: the pool arrives already distinct, is spent in order, and
+/// a text asking for more mentions than the game sent starts the pool again rather than
+/// repeating the last one - five bullets are five different lines whichever way.
+fn render_template(text: &str, random_tips: &[String]) -> String {
+    if random_tips.is_empty() {
+        return text.to_string();
+    }
+    let mut next = 0usize;
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(start) = rest.find("{{") {
+        let Some(end_rel) = rest[start + 2..].find("}}") else {
+            break;
+        };
+        let end = start + 2 + end_rel;
+        out.push_str(&rest[..start]);
+        if rest[start + 2..end].trim() == "random_tip" {
+            out.push_str(&random_tips[next % random_tips.len()]);
+            next += 1;
+        } else {
+            out.push_str(&rest[start..end + 2]);
+        }
+        rest = &rest[end + 2..];
+    }
+    out.push_str(rest);
+    out
+}
+
 fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -549,11 +598,58 @@ fn check_presets(names: &[String]) -> Result<()> {
     Ok(())
 }
 
+/// What goes under the first prompt, blank line and all. A one-line breadcrumb is a bullet
+/// and runs together with its neighbours as one list, which is what a list of house rules
+/// wants. One that is already several lines - the shipped `Useful tips` is a rule, a heading
+/// and a list of its own - stands as its own paragraph: bulleting only its first line would
+/// leave the rest of it hanging.
+fn breadcrumb_block(crumbs: &[String]) -> String {
+    let mut out = String::new();
+    let mut in_list = false;
+    for crumb in crumbs {
+        let crumb = crumb.trim();
+        if crumb.is_empty() {
+            continue;
+        }
+        if crumb.contains('\n') {
+            out.push_str("\n\n");
+            out.push_str(crumb);
+            in_list = false;
+        } else {
+            out.push_str(if in_list { "\n" } else { "\n\n" });
+            out.push_str("- ");
+            out.push_str(crumb);
+            in_list = true;
+        }
+    }
+    out
+}
+
+fn check_breadcrumbs(cfg: &Config, names: &[String]) -> Result<()> {
+    for name in names {
+        match cfg.shortcut(name) {
+            Some(sc) if sc.kind == ShortcutKind::Breadcrumb => {}
+            Some(_) => bail!("shortcut {name} is not a breadcrumb"),
+            None => bail!("unknown breadcrumb: {name}"),
+        }
+    }
+    Ok(())
+}
+
 /// The project is checked whenever one is named, whatever the link says - in `temp` mode it
 /// is the sandbox the fresh project copies. Only `project` mode insists on having one.
 fn check_shortcut(cfg: &Config, sc: &ShortcutCfg) -> Result<()> {
     if sc.name.trim().is_empty() {
         bail!("shortcut name must not be empty");
+    }
+    if sc.kind == ShortcutKind::Breadcrumb {
+        if sc.text.trim().is_empty() {
+            bail!("breadcrumb {} has no text", sc.name);
+        }
+        if !sc.project.trim().is_empty() && cfg.project(&sc.project).is_none() {
+            bail!("no such project: {}", sc.project);
+        }
+        return Ok(());
     }
     if sc.link == ShortcutLink::Project && sc.project.trim().is_empty() {
         bail!("shortcut {} must belong to a project", sc.name);
@@ -596,6 +692,7 @@ fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
         bail!("no such project: {}", s.project);
     }
     check_presets(&s.sandbox)?;
+    check_breadcrumbs(cfg, &s.breadcrumbs)?;
     check_env(s)
 }
 
@@ -933,6 +1030,8 @@ impl Manager {
                     emu: None,
                     reader: None,
                     input: None,
+                    breadcrumbs: Vec::new(),
+                    breadcrumbs_pending: false,
                 });
         }
         drop(live);
@@ -1049,6 +1148,8 @@ impl Manager {
                 emu: None,
                 reader: None,
                 input: None,
+                breadcrumbs: Vec::new(),
+                breadcrumbs_pending: false,
             },
         );
         true
@@ -1134,6 +1235,18 @@ impl Manager {
         tracing::info!("starting {name}: {}", argv.join(" "));
         self.tmux.spawn(name, &dir, cols, rows, &argv).await?;
         self.spawn_reader(name).await;
+        let crumbs = cfg.breadcrumbs_of(&s, &p);
+        let mut live = self.live.write().await;
+        if let Some(l) = live.get_mut(name) {
+            // A restart is a new first prompt, so discard an attachment left by the
+            // previous process even when the config no longer names one.
+            l.breadcrumbs.clear();
+            l.breadcrumbs_pending = false;
+            if !host && !crumbs.is_empty() {
+                l.breadcrumbs = breadcrumb_block(&crumbs).into_bytes();
+                l.breadcrumbs_pending = true;
+            }
+        }
         Ok(())
     }
 
@@ -1213,6 +1326,7 @@ impl Manager {
         settle(&mut p);
         check_project(&p)?;
         let mut cfg = self.cfg.write().await;
+        check_breadcrumbs(&cfg, &p.breadcrumbs)?;
         if cfg.project(&p.name).is_some() {
             bail!("project {} already exists", p.name);
         }
@@ -1231,6 +1345,7 @@ impl Manager {
         check_project(&p)?;
 
         let mut cfg = self.cfg.write().await;
+        check_breadcrumbs(&cfg, &p.breadcrumbs)?;
         let idx = cfg
             .projects
             .iter()
@@ -1286,7 +1401,7 @@ impl Manager {
     }
 
     pub async fn shortcuts(&self) -> Vec<ShortcutCfg> {
-        self.cfg.read().await.shortcuts.clone()
+        self.cfg.read().await.shortcuts_all()
     }
 
     async fn announce_shortcuts(&self) {
@@ -1295,14 +1410,25 @@ impl Manager {
         });
     }
 
-    pub async fn add_shortcut(self: &Arc<Self>, sc: ShortcutCfg) -> Result<()> {
+    pub async fn add_shortcut(self: &Arc<Self>, mut sc: ShortcutCfg) -> Result<()> {
         self.reload_if_changed().await;
         let mut cfg = self.cfg.write().await;
+        // Only the daemon says what is shipped, whatever a client sends.
+        sc.builtin = false;
         check_shortcut(&cfg, &sc)?;
         if cfg.shortcut(&sc.name).is_some() {
             bail!("shortcut {} already exists", sc.name);
         }
-        cfg.shortcuts.push(sc);
+        let attach_project = (sc.kind == ShortcutKind::Breadcrumb && !sc.project.trim().is_empty())
+            .then(|| sc.project.clone());
+        cfg.shortcuts.push(sc.clone());
+        if let Some(project) = attach_project {
+            if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == project) {
+                if !p.breadcrumbs.contains(&sc.name) {
+                    p.breadcrumbs.push(sc.name.clone());
+                }
+            }
+        }
         self.save_cfg(&cfg)?;
         drop(cfg);
         self.announce_shortcuts().await;
@@ -1310,9 +1436,13 @@ impl Manager {
     }
 
     /// Nothing points at a shortcut by name, so a rename carries nothing with it.
-    pub async fn update_shortcut(self: &Arc<Self>, name: &str, sc: ShortcutCfg) -> Result<()> {
+    pub async fn update_shortcut(self: &Arc<Self>, name: &str, mut sc: ShortcutCfg) -> Result<()> {
         self.reload_if_changed().await;
         let mut cfg = self.cfg.write().await;
+        sc.builtin = false;
+        if cfg.is_builtin_shortcut(name) {
+            bail!("shortcut {name} is built in and cannot be edited");
+        }
         check_shortcut(&cfg, &sc)?;
         let idx = cfg
             .shortcuts
@@ -1322,9 +1452,43 @@ impl Manager {
         if sc.name != name && cfg.shortcut(&sc.name).is_some() {
             bail!("shortcut {} already exists", sc.name);
         }
-        cfg.shortcuts[idx] = sc;
+        // Attachments name definitions, so a rename has to carry every reference with
+        // it in the same write or agents silently lose their guidance.
+        if sc.name != name {
+            for p in &mut cfg.projects {
+                for attached in &mut p.breadcrumbs {
+                    if attached == name {
+                        *attached = sc.name.clone();
+                    }
+                }
+            }
+            for s in &mut cfg.sessions {
+                for attached in &mut s.breadcrumbs {
+                    if attached == name {
+                        *attached = sc.name.clone();
+                    }
+                }
+            }
+        }
+        cfg.shortcuts[idx] = sc.clone();
+        if sc.kind == ShortcutKind::Breadcrumb {
+            for p in &mut cfg.projects {
+                p.breadcrumbs.retain(|b| b != name && b != &sc.name);
+            }
+            if !sc.project.trim().is_empty() {
+                if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == sc.project) {
+                    p.breadcrumbs.push(sc.name.clone());
+                }
+            }
+        } else {
+            // A converted breadcrumb may have left its old project reference behind.
+            for p in &mut cfg.projects {
+                p.breadcrumbs.retain(|b| b != name);
+            }
+        }
         self.save_cfg(&cfg)?;
         drop(cfg);
+        self.announce_projects().await;
         self.announce_shortcuts().await;
         Ok(())
     }
@@ -1334,8 +1498,23 @@ impl Manager {
     pub async fn remove_shortcut(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
         let mut cfg = self.cfg.write().await;
-        if cfg.shortcut(name).is_none() {
+        if cfg.is_builtin_shortcut(name) {
+            bail!("shortcut {name} is built in and cannot be deleted");
+        }
+        let Some(sc) = cfg.shortcut(name) else {
             bail!("no such shortcut: {name}");
+        };
+        if sc.kind == ShortcutKind::Breadcrumb
+            && (cfg
+                .projects
+                .iter()
+                .any(|p| p.breadcrumbs.iter().any(|b| b == name))
+                || cfg
+                    .sessions
+                    .iter()
+                    .any(|s| s.breadcrumbs.iter().any(|b| b == name)))
+        {
+            bail!("breadcrumb {name} is still attached to a project or agent");
         }
         cfg.shortcuts.retain(|s| s.name != name);
         self.save_cfg(&cfg)?;
@@ -1357,6 +1536,12 @@ impl Manager {
             .ok_or_else(|| anyhow!("no such shortcut: {name}"))?
             .clone();
         check_shortcut(&cfg, &sc)?;
+        if sc.kind == ShortcutKind::Breadcrumb {
+            bail!(
+                "breadcrumb {} is attached to agents; it cannot be run",
+                sc.name
+            );
+        }
         drop(cfg);
         self.run_errand(sc, want, false).await
     }
@@ -1378,6 +1563,9 @@ impl Manager {
         self.reload_if_changed().await;
         let cfg = self.config().await;
         let name = sc.name.as_str();
+        if sc.kind == ShortcutKind::Breadcrumb {
+            bail!("breadcrumb {name} is attached to agents; it cannot be run");
+        }
 
         let asked = match want.project.as_deref().map(str::trim) {
             Some(p) if !p.is_empty() => Some(p.to_string()),
@@ -1448,6 +1636,8 @@ impl Manager {
                     emu: None,
                     reader: None,
                     input: None,
+                    breadcrumbs: Vec::new(),
+                    breadcrumbs_pending: false,
                 },
             );
             name
@@ -1466,11 +1656,15 @@ impl Manager {
         // An errand with nothing to send is one whose command *is* the errand - `less` on a
         // file wants a pane and no typing - so there is nothing to wait for it to be ready
         // for either.
-        if !sc.text.trim().is_empty() {
+        let text = render_template(&sc.text, &want.random_tips);
+        if !text.trim().is_empty() {
             let m = self.clone();
             let target = session.clone();
-            let text = sc.text.clone();
-            tokio::spawn(async move { m.deliver(&target, &text).await });
+            // The tips ride on to the Enter as well: an errand on a project with breadcrumbs
+            // is still an agent whose first prompt they land under, and that submit is the
+            // seam they are spliced at.
+            let tips = want.random_tips.clone();
+            tokio::spawn(async move { m.deliver(&target, &text, tips).await });
         }
 
         Ok(session)
@@ -1478,7 +1672,7 @@ impl Manager {
 
     /// Two writes with a beat between: an agent's input box takes a pasted newline as a
     /// newline, so the submit has to arrive as a keypress after the paste has closed.
-    async fn deliver(self: &Arc<Self>, name: &str, text: &str) {
+    async fn deliver(self: &Arc<Self>, name: &str, text: &str, random_tips: Vec<String>) {
         match self.wait_ready(name).await {
             Ready::Gone => {
                 tracing::warn!("{name} was gone before its shortcut text could be sent");
@@ -1498,7 +1692,8 @@ impl Manager {
         tokio::time::sleep(Duration::from_millis(ENTER_GAP_MS)).await;
         // Queued behind the paste rather than sent, so the gap above is the only thing
         // between them and bracketed paste still sees a newline of its own.
-        self.send_keys(name, vec!["Enter".into()], false).await;
+        self.send_keys(name, vec!["Enter".into()], false, random_tips)
+            .await;
     }
 
     /// See `READY_MS` for why this is a settle rather than a match against anything an
@@ -1742,6 +1937,8 @@ impl Manager {
                     command: l.cfg.command.clone(),
                     cmd: l.cfg.cmd.clone(),
                     sandbox: l.cfg.sandbox.clone(),
+                    breadcrumbs: l.cfg.breadcrumbs.clone(),
+                    breadcrumbs_pending: l.breadcrumbs_pending,
                     agent: cfg.command_of(&l.cfg),
                     state: l.state,
                     alive: l.state != State::Down,
@@ -1864,6 +2061,10 @@ impl Manager {
             Input::Keys { keys, literal } => ("keys", tmux.send_keys(name, &keys, literal).await),
             Input::Bytes(b) => ("bytes", tmux.send_bytes(name, &b).await),
             Input::Paste(b) => ("paste", tmux.paste_bytes(name, &b).await),
+            Input::Gap(d) => {
+                tokio::time::sleep(d).await;
+                return;
+            }
         };
         crate::perf::PERF.send.add(started.elapsed());
         if let Err(e) = res {
@@ -1878,7 +2079,66 @@ impl Manager {
         }
     }
 
-    pub async fn send_keys(&self, name: &str, keys: Vec<String>, literal: bool) {
+    pub async fn send_keys(
+        &self,
+        name: &str,
+        keys: Vec<String>,
+        literal: bool,
+        random_tips: Vec<String>,
+    ) {
+        // The first Enter is the seam between the player's prompt and its attached
+        // breadcrumbs. Put the paste in the same per-pane queue, immediately before the
+        // key, so typed text already queued ahead of it remains first.
+        let inject: Option<(Vec<u8>, usize)> = {
+            let mut live = self.live.write().await;
+            match live.get_mut(name) {
+                None => None,
+                Some(l) if !l.breadcrumbs_pending => None,
+                Some(l) => keys.iter().position(|k| k == "Enter").map(|pos| {
+                    l.breadcrumbs_pending = false;
+                    let text = String::from_utf8_lossy(&l.breadcrumbs);
+                    let text = render_template(&text, &random_tips);
+                    (text.into_bytes(), pos)
+                }),
+            }
+        };
+        if let Some((text, pos)) = inject {
+            if !text.is_empty() {
+                if pos > 0 {
+                    self.queue_input(
+                        name,
+                        Input::Keys {
+                            keys: keys[..pos].to_vec(),
+                            literal,
+                        },
+                    )
+                    .await;
+                }
+                self.queue_input(name, Input::Paste(text)).await;
+                // The player's own Enter goes straight after the breadcrumbs, submitting the
+                // prompt they wrote with the guidance under it. The gap is `deliver`'s, for
+                // the same reason: an input field still reading a bracketed paste swallows a
+                // key that arrives in the same breath.
+                self.queue_input(name, Input::Gap(Duration::from_millis(ENTER_GAP_MS)))
+                    .await;
+                if pos < keys.len() {
+                    self.queue_input(
+                        name,
+                        Input::Keys {
+                            keys: keys[pos..].to_vec(),
+                            literal,
+                        },
+                    )
+                    .await;
+                }
+                // The one thing that clears `breadcrumbs_pending` outside a start, so say so:
+                // the window is deciding off it whether to carry tips at all.
+                let _ = self.events.send(Event::Sessions {
+                    sessions: self.views().await,
+                });
+                return;
+            }
+        }
         // No `exists` pre-check: `send-keys` fails on its own, and the extra tmux spawn per
         // keystroke is latency a held PageDown or a touchbar swipe pays for twice.
         self.queue_input(name, Input::Keys { keys, literal }).await;
@@ -2501,9 +2761,9 @@ mod tests {
     use std::collections::HashMap;
 
     use super::{
-        check_name, check_shortcut, compile_rules, free_name, free_project_name, match_rules,
-        merge_input, settle, slug, strip_sgr, Input, Live, State, BOOT_COLS, BOOT_ROWS,
-        INPUT_BATCH,
+        breadcrumb_block, check_breadcrumbs, check_name, check_shortcut, compile_rules, free_name,
+        free_project_name, match_rules, merge_input, render_template, settle, slug, strip_sgr,
+        Input, Live, State, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
     };
     use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind};
 
@@ -2673,6 +2933,8 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             emu: None,
             reader: None,
             input: None,
+            breadcrumbs: Vec::new(),
+            breadcrumbs_pending: false,
         }
     }
 
@@ -2781,6 +3043,88 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             ..errand
         };
         assert!(check_shortcut(&cfg, &fine).is_ok());
+    }
+
+    /// The shipped breadcrumb is five bullets, and five bullets saying the same thing is the
+    /// bug this is here to keep out: every mention spends its own tip.
+    #[test]
+    fn every_tip_mention_is_its_own_draw() {
+        let tips: Vec<String> = ["one", "two", "three", "four", "five"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let out = render_template(
+            "- {{ random_tip }}\n- {{random_tip}}\n- {{ random_tip}}\n\
+             - {{ random_tip }}\n- {{ random_tip }}",
+            &tips,
+        );
+        for tip in &tips {
+            assert_eq!(out.matches(tip.as_str()).count(), 1, "{tip} exactly once");
+        }
+
+        // Asked for more than the game sent, the pool starts again rather than repeating
+        // whatever came last.
+        let short = render_template(
+            "{{ random_tip }}/{{ random_tip }}/{{ random_tip }}",
+            &tips[..2],
+        );
+        assert_eq!(short, "one/two/one");
+    }
+
+    /// Outside the game there is nothing to fill it with, and a config file whose text
+    /// quietly lost a line is worse than one that still says what it was written as.
+    #[test]
+    fn a_template_with_nothing_to_fill_it_is_left_alone() {
+        let text = "- {{ random_tip }} and {{ whatever }}";
+        assert_eq!(render_template(text, &[]), text);
+
+        // A variable this build does not know stays visible even when tips are in hand.
+        let tips = vec!["a tip".to_string()];
+        assert_eq!(render_template(text, &tips), "- a tip and {{ whatever }}");
+
+        // An unclosed one is not a reason to lose the rest of the text.
+        assert_eq!(
+            render_template("keep {{ random_tip", &tips),
+            "keep {{ random_tip"
+        );
+    }
+
+    /// House rules read as one list; the shipped breadcrumb, which brings its own rule and
+    /// heading, reads as itself. The bug this keeps out is `- ___` with four orphan lines
+    /// under it.
+    #[test]
+    fn one_line_breadcrumbs_share_a_list_and_a_block_keeps_its_shape() {
+        let block = breadcrumb_block(&[
+            "never commit".to_string(),
+            "always lint".to_string(),
+            "___\n\nUseful tips:\n\n- a\n- b".to_string(),
+            "and one more".to_string(),
+        ]);
+        assert_eq!(
+            block,
+            "\n\n- never commit\n- always lint\n\n___\n\nUseful tips:\n\n- a\n- b\n\n- and one more"
+        );
+
+        // Nothing to say leaves the draft exactly as it was typed.
+        assert_eq!(breadcrumb_block(&[]), "");
+        assert_eq!(breadcrumb_block(&["   ".to_string()]), "");
+    }
+
+    /// An attachment names a breadcrumb. Anything else is a mistake worth refusing where it
+    /// is made rather than a bullet that silently never appears.
+    #[test]
+    fn an_attachment_must_name_a_breadcrumb() {
+        let mut cfg = Config::default();
+        cfg.shortcuts.push(ShortcutCfg {
+            name: "tests".into(),
+            kind: ShortcutKind::Shell,
+            text: "make test".into(),
+            ..Default::default()
+        });
+
+        assert!(check_breadcrumbs(&cfg, &["Useful tips".to_string()]).is_ok());
+        assert!(check_breadcrumbs(&cfg, &["tests".to_string()]).is_err());
+        assert!(check_breadcrumbs(&cfg, &["gone".to_string()]).is_err());
     }
 
     /// Named after the agent running it, and dodging both tables.

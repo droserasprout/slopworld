@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -244,6 +245,9 @@ pub struct ProjectCfg {
     /// naming them rather than every session on the machine carrying 13MB it will not open.
     #[serde(default)]
     pub seed: Vec<String>,
+    /// Named breadcrumbs added to every agent in this project.
+    #[serde(default)]
+    pub breadcrumbs: Vec<String>,
     #[serde(default = "yes")]
     pub net: bool,
 }
@@ -259,6 +263,7 @@ impl Default for ProjectCfg {
             rw_paths: Vec::new(),
             pass_env: Vec::new(),
             seed: Vec::new(),
+            breadcrumbs: Vec::new(),
             net: true,
         }
     }
@@ -284,6 +289,9 @@ pub struct SessionCfg {
     pub sandbox: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub env: Vec<String>,
+    /// Named breadcrumbs added to this agent's first prompt.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub breadcrumbs: Vec<String>,
     #[serde(default)]
     pub autostart: bool,
 }
@@ -299,6 +307,8 @@ pub enum ShortcutKind {
     Prompt,
     /// Handed to an interactive shell inside the project's sandbox.
     Shell,
+    /// A named piece of guidance pasted into an agent's first prompt.
+    Breadcrumb,
 }
 
 /// The one thing about a shortcut allowed not to be decided in advance.
@@ -337,6 +347,33 @@ pub struct ShortcutCfg {
     /// Empty means `[defaults] agent` or `[defaults] shell`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
+    /// Set on the entries the daemon ships. They are never in `config.toml` - the flag rides
+    /// the wire so the GUI can keep them out of the shortcuts table and refuse to edit them,
+    /// while the breadcrumb lists still offer them like any other. Skipped when false so an
+    /// ordinary entry's TOML is unchanged.
+    #[serde(default, skip_serializing_if = "not_set")]
+    pub builtin: bool,
+}
+
+/// The builtin breadcrumbs, in the order the GUI lists them. `include_str!` is not worth a
+/// file each: unlike a preset these are one string with no table around them.
+pub fn builtin_shortcuts() -> &'static [ShortcutCfg] {
+    static BUILTIN: OnceLock<Vec<ShortcutCfg>> = OnceLock::new();
+    BUILTIN.get_or_init(|| {
+        vec![ShortcutCfg {
+            name: "Useful tips".into(),
+            kind: ShortcutKind::Breadcrumb,
+            text: "___\n\nUseful tips:\n\n- {{ random_tip }}\n- {{ random_tip }}\n\
+                   - {{ random_tip }}\n- {{ random_tip }}\n- {{ random_tip }}"
+                .into(),
+            builtin: true,
+            ..Default::default()
+        }]
+    })
+}
+
+fn not_set(b: &bool) -> bool {
+    !*b
 }
 
 fn yes() -> bool {
@@ -424,8 +461,31 @@ impl Config {
         self.projects.iter().find(|p| p.name == name)
     }
 
+    /// The file first, so an entry a person wrote shadows a builtin of the same name the way
+    /// a user preset replaces a shipped one.
     pub fn shortcut(&self, name: &str) -> Option<&ShortcutCfg> {
-        self.shortcuts.iter().find(|s| s.name == name)
+        self.shortcuts
+            .iter()
+            .chain(builtin_shortcuts())
+            .find(|s| s.name == name)
+    }
+
+    /// What a client is shown: the file's entries, then the builtins nothing has shadowed.
+    pub fn shortcuts_all(&self) -> Vec<ShortcutCfg> {
+        let mut all = self.shortcuts.clone();
+        all.extend(
+            builtin_shortcuts()
+                .iter()
+                .filter(|b| !self.shortcuts.iter().any(|s| s.name == b.name))
+                .cloned(),
+        );
+        all
+    }
+
+    /// A name only the daemon owns: not editable, not deletable, and not in the file.
+    pub fn is_builtin_shortcut(&self, name: &str) -> bool {
+        !self.shortcuts.iter().any(|s| s.name == name)
+            && builtin_shortcuts().iter().any(|b| b.name == name)
     }
 
     /// A prompt shortcut with no command comes out an agent running the *preset*
@@ -451,6 +511,7 @@ impl Config {
                 self.defaults.shell.trim().to_string(),
                 line.map(str::to_string),
             ),
+            (ShortcutKind::Breadcrumb, _, _) => (String::new(), None),
         };
         SessionCfg {
             name,
@@ -498,6 +559,24 @@ impl Config {
             .command(&self.command_name(s))
             .map(|c| c.cmd.clone())
             .unwrap_or_default()
+    }
+
+    /// Breadcrumb text in project-then-agent order, with duplicate names removed.
+    pub fn breadcrumbs_of(&self, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
+        let mut names = Vec::new();
+        for name in p.breadcrumbs.iter().chain(s.breadcrumbs.iter()) {
+            if !names.contains(name) {
+                names.push(name.clone());
+            }
+        }
+        names
+            .into_iter()
+            .filter_map(|name| {
+                let b = self.shortcut(&name)?;
+                (b.kind == ShortcutKind::Breadcrumb && !b.text.trim().is_empty())
+                    .then(|| b.text.clone())
+            })
+            .collect()
     }
 
     /// Its command preset's sandbox presets, the project's, then its own, first mention
@@ -596,8 +675,8 @@ pub fn expand(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        expand, redact_token_text, temp_dir, Config, ShortcutCfg, ShortcutKind, ShortcutLink,
-        TOKEN_REDACTED,
+        expand, redact_token_text, temp_dir, Config, ProjectCfg, SessionCfg, ShortcutCfg,
+        ShortcutKind, ShortcutLink, TOKEN_REDACTED,
     };
 
     /// What a client sees never carries the secret, and a token that is not set still reads as
@@ -828,6 +907,7 @@ token = \"not-a-daemon-token\"
             project: "slopworld".into(),
             text: "make test".into(),
             command: None,
+            builtin: false,
         });
 
         let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
@@ -835,6 +915,93 @@ token = \"not-a-daemon-token\"
         assert_eq!(sc.kind, ShortcutKind::Shell);
         assert_eq!(sc.text, "make test");
         assert!(sc.command.is_none());
+    }
+
+    /// A shipped breadcrumb is offered like any other and written down like none of them:
+    /// the file is what a person owns, and a builtin that leaked into it would come back as
+    /// an ordinary entry the next binary could not correct.
+    #[test]
+    fn the_shipped_breadcrumb_is_offered_but_never_written_down() {
+        let cfg = Config::default();
+        assert!(cfg.shortcuts.is_empty());
+
+        let sc = cfg
+            .shortcut("Useful tips")
+            .expect("shipped with the daemon");
+        assert_eq!(sc.kind, ShortcutKind::Breadcrumb);
+        assert!(sc.builtin);
+        assert_eq!(sc.text.matches("{{ random_tip }}").count(), 5);
+        assert!(cfg.is_builtin_shortcut("Useful tips"));
+        assert!(cfg
+            .shortcuts_all()
+            .iter()
+            .any(|s| s.name == "Useful tips" && s.builtin));
+
+        // Saving the config states nothing about it, and reading it back does not double it.
+        let text = toml::to_string_pretty(&cfg).unwrap();
+        assert!(!text.contains("Useful tips"));
+        let back = Config::parse(&text).unwrap();
+        assert_eq!(
+            back.shortcuts_all()
+                .iter()
+                .filter(|s| s.name == "Useful tips")
+                .count(),
+            1
+        );
+    }
+
+    /// The same rule a user preset gets: a written entry of that name is the one that is
+    /// read, and the builtin stops being one - so it can be edited and deleted again.
+    #[test]
+    fn a_written_entry_shadows_the_builtin_it_is_named_after() {
+        let mut cfg = Config::default();
+        cfg.shortcuts.push(ShortcutCfg {
+            name: "Useful tips".into(),
+            kind: ShortcutKind::Breadcrumb,
+            text: "mine".into(),
+            ..Default::default()
+        });
+
+        assert_eq!(cfg.shortcut("Useful tips").unwrap().text, "mine");
+        assert!(!cfg.is_builtin_shortcut("Useful tips"));
+        assert_eq!(cfg.shortcuts_all().len(), 1);
+    }
+
+    /// Project first, then the agent's own, each name once however many times it is asked
+    /// for - and the shipped one resolves like anything else.
+    #[test]
+    fn breadcrumbs_resolve_in_order_and_only_once() {
+        let mut cfg = Config::default();
+        cfg.shortcuts.push(ShortcutCfg {
+            name: "house rules".into(),
+            kind: ShortcutKind::Breadcrumb,
+            text: "never commit".into(),
+            ..Default::default()
+        });
+        // Not a breadcrumb, so an attachment naming it resolves to nothing.
+        cfg.shortcuts.push(ShortcutCfg {
+            name: "tests".into(),
+            kind: ShortcutKind::Shell,
+            text: "make test".into(),
+            ..Default::default()
+        });
+
+        let p = ProjectCfg {
+            name: "repo".into(),
+            breadcrumbs: vec!["Useful tips".into(), "house rules".into()],
+            ..Default::default()
+        };
+        let s = SessionCfg {
+            name: "claude".into(),
+            project: "repo".into(),
+            breadcrumbs: vec!["house rules".into(), "tests".into(), "gone".into()],
+            ..Default::default()
+        };
+
+        let out = cfg.breadcrumbs_of(&s, &p);
+        assert_eq!(out.len(), 2);
+        assert!(out[0].starts_with("___"));
+        assert_eq!(out[1], "never commit");
     }
 
     #[test]

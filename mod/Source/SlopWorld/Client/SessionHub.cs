@@ -10,7 +10,7 @@ namespace SlopWorld
     // killed, the same process being able to get it back up.
     public enum AgentState { Down, Working, Waiting, Idle }
 
-    public enum ShortcutKind { Prompt, Shell }
+    public enum ShortcutKind { Prompt, Shell, Breadcrumb }
 
     // Temp is a fresh scratch directory per run; Ask is decided at the button.
     public enum ShortcutLink { Project, Temp, Ask }
@@ -37,6 +37,11 @@ namespace SlopWorld
         public bool Net = true;
         public bool Autostart;
         public List<string> Env = new List<string>();
+        public List<string> Breadcrumbs = new List<string>();
+
+        // Read-only here: this process has breadcrumbs waiting for its first Enter. What the
+        // terminal reads to know whether a keystroke is worth carrying tips for.
+        public bool BreadcrumbsPending;
 
         // A shortcut's errand or a tmux session started by hand: it leaves the colony when its
         // process exits, and there is no entry to edit or delete.
@@ -96,6 +101,8 @@ namespace SlopWorld
             Net = j["net"].AsBool(true),
             Autostart = j["autostart"].AsBool(false),
             Env = j["env"].Items.Select(i => i.AsString()).ToList(),
+            Breadcrumbs = j["breadcrumbs"].Items.Select(i => i.AsString()).ToList(),
+            BreadcrumbsPending = j["breadcrumbs_pending"].AsBool(false),
             Ephemeral = j["ephemeral"].AsBool(false),
             Cols = j["cols"].AsInt(0),
             Rows = j["rows"].AsInt(0),
@@ -115,6 +122,7 @@ namespace SlopWorld
             $"\"cmd\":{(string.IsNullOrEmpty((Cmd ?? "").Trim()) ? "null" : JVal.Q(Cmd))}," +
             $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]," +
             $"\"env\":[{string.Join(",", Env.Select(JVal.Q).ToArray())}]," +
+            $"\"breadcrumbs\":[{string.Join(",", Breadcrumbs.Select(JVal.Q).ToArray())}]," +
             $"\"autostart\":{JVal.B(Autostart)}}}";
     }
 
@@ -135,6 +143,7 @@ namespace SlopWorld
         // machine does not.
         public List<string> Seed = new List<string>();
         public bool Net = true;
+        public List<string> Breadcrumbs = new List<string>();
 
         // The daemon coins the path and is the only thing that writes it; this is so the dialog
         // can show what a name is about to become before anything is saved.
@@ -165,6 +174,7 @@ namespace SlopWorld
             RwPaths = Strings(j["rw_paths"]),
             PassEnv = Strings(j["pass_env"]),
             Seed = Strings(j["seed"]),
+            Breadcrumbs = Strings(j["breadcrumbs"]),
             Net = j["net"].AsBool(true),
         };
 
@@ -173,7 +183,7 @@ namespace SlopWorld
             $"\"name\":{JVal.Q(Name)},\"dir\":{JVal.Q(Dir)},\"temp\":{JVal.B(Temp)}," +
             $"\"sandbox\":{Arr(Sandbox)},\"ro_paths\":{Arr(RoPaths)}," +
             $"\"rw_paths\":{Arr(RwPaths)},\"pass_env\":{Arr(PassEnv)}," +
-            $"\"seed\":{Arr(Seed)},\"net\":{JVal.B(Net)}}}";
+            $"\"seed\":{Arr(Seed)},\"breadcrumbs\":{Arr(Breadcrumbs)},\"net\":{JVal.B(Net)}}}";
 
         public ProjectInfo Copy() => new ProjectInfo
         {
@@ -185,6 +195,7 @@ namespace SlopWorld
             RwPaths = new List<string>(RwPaths),
             PassEnv = new List<string>(PassEnv),
             Seed = new List<string>(Seed),
+            Breadcrumbs = new List<string>(Breadcrumbs),
             Net = Net,
         };
 
@@ -210,14 +221,21 @@ namespace SlopWorld
         // Blank means the daemon's own default.
         public string Command = "";
 
+        // Shipped with the daemon rather than written in config.toml: it cannot be edited or
+        // deleted, and the shortcuts table leaves it out. The breadcrumb lists still offer it,
+        // which is the only place a shipped entry is meant to be seen.
+        public bool Builtin;
+
         public static ShortcutInfo FromJson(JVal j) => new ShortcutInfo
         {
             Name = j["name"].AsString(),
-            Kind = j["kind"].AsString() == "shell" ? ShortcutKind.Shell : ShortcutKind.Prompt,
+            Kind = j["kind"].AsString() == "shell" ? ShortcutKind.Shell :
+                   j["kind"].AsString() == "breadcrumb" ? ShortcutKind.Breadcrumb : ShortcutKind.Prompt,
             Link = ParseLink(j["link"].AsString()),
             Project = j["project"].AsString(),
             Text = j["text"].AsString(),
             Command = j["command"].IsNull ? "" : j["command"].AsString(),
+            Builtin = j["builtin"].AsBool(false),
         };
 
         // An unknown link reads as Project, the way an unknown state reads as Down: a version
@@ -235,10 +253,14 @@ namespace SlopWorld
         public static string LinkName(ShortcutLink l) =>
             l == ShortcutLink.Temp ? "temp" : l == ShortcutLink.Ask ? "ask" : "project";
 
+        static string KindName(ShortcutKind k) =>
+            k == ShortcutKind.Shell ? "shell" :
+            k == ShortcutKind.Breadcrumb ? "breadcrumb" : "prompt";
+
         public string ToJson() =>
             "{" +
             $"\"name\":{JVal.Q(Name)}," +
-            $"\"kind\":{JVal.Q(Kind == ShortcutKind.Shell ? "shell" : "prompt")}," +
+            $"\"kind\":{JVal.Q(KindName(Kind))}," +
             $"\"link\":{JVal.Q(LinkName(Link))}," +
             $"\"project\":{JVal.Q(Project)},\"text\":{JVal.Q(Text)}," +
             $"\"command\":{(string.IsNullOrEmpty((Command ?? "").Trim()) ? "null" : JVal.Q(Command))}}}";
@@ -251,6 +273,7 @@ namespace SlopWorld
             Project = Project,
             Text = Text,
             Command = Command,
+            Builtin = Builtin,
         };
     }
 
@@ -677,11 +700,23 @@ namespace SlopWorld
 
         public void SendKeys(string name, IEnumerable<string> keys, bool literal)
         {
+            SendKeys(name, keys, literal, null);
+        }
+
+        // `randomTips` fills a waiting breadcrumb's `{{ random_tip }}`, one per mention. Null
+        // on all but the Enter of an agent that still has breadcrumbs pending: every other
+        // keystroke would be paying to send a dozen strings nothing renders.
+        public void SendKeys(string name, IEnumerable<string> keys, bool literal,
+                             List<string> randomTips)
+        {
             if (_ws == null || !_ws.Connected) return;
             var arr = string.Join(",", keys.Select(JVal.Q).ToArray());
             _ws.SendText($"{{\"t\":\"keys\",\"name\":{JVal.Q(name)},\"keys\":[{arr}]," +
-                         $"\"literal\":{JVal.B(literal)}}}");
+                         $"\"literal\":{JVal.B(literal)},\"random_tips\":{Tips(randomTips)}}}");
         }
+
+        static string Tips(List<string> tips) =>
+            tips == null ? "[]" : "[" + string.Join(",", tips.Select(JVal.Q).ToArray()) + "]";
 
         public void RequestScroll(string name, int off, ulong requestId)
         {
@@ -780,10 +815,12 @@ namespace SlopWorld
         // on a session this end has never heard of closes itself next frame. `project` and
         // `temp` are the same message whether they answer an `ask` entry or override one.
         public void RunShortcut(string name, Action<string> started, Action<string> fail = null,
-                                string project = null, bool temp = false) =>
+                                string project = null, bool temp = false,
+                                List<string> randomTips = null) =>
             SlopClient.Post($"/api/shortcuts/{Esc(name)}/run",
                 "{" + $"\"project\":{(string.IsNullOrEmpty(project) ? "null" : JVal.Q(project))}," +
-                $"\"temp\":{JVal.B(temp)}" + "}",
+                $"\"temp\":{JVal.B(temp)}," +
+                $"\"random_tips\":{Tips(randomTips)}" + "}",
                 j =>
                 {
                     string session = j["session"].AsString();
