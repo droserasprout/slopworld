@@ -164,6 +164,7 @@ namespace SlopWorld
             // Grandma mode: no fun allowed.
             if (!Settings.GrandmaMode)
                 options.Add(new FloatMenuOption("Kill something", KillAction));
+            options.Add(new FloatMenuOption("New faces", NewFacesAction));
             options.Add(new FloatMenuOption("Next planet", NextPlanet.Begin));
 
             // OpenOverPane rather than a plain Add: the status bar is drawn over a terminal
@@ -207,6 +208,20 @@ namespace SlopWorld
 
             _strikesLeft = Rand.RangeInclusive(5, 10);
             _nextStrikeAt = Time.realtimeSinceStartup;
+        }
+
+        // Reroll the visible parts of every agent's face at once.
+        void NewFacesAction()
+        {
+            var colony = AgentColony.Current;
+            if (colony == null) return;
+
+            foreach (var kv in colony.All)
+            {
+                var pawn = kv.Value;
+                if (pawn == null || pawn.Destroyed) continue;
+                RobotFace.Reroll(pawn);
+            }
         }
 
         // Pick a random spawned pawn (humanlike or animal) or tree on the map.

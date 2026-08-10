@@ -91,6 +91,28 @@ namespace SlopWorld
             _eyeColors[pawn.thingIDNumber] = color;
         }
 
+        // Give an existing agent a new face. Hair keeps the same no-scalp rule as generation,
+        // and one dirty rebuild picks up the plate texture, cut and colour together.
+        public static void Reroll(Pawn pawn)
+        {
+            if (pawn?.story == null) return;
+
+            _eyeColors[pawn.thingIDNumber] =
+                ColorWeights.RandomElementByWeight(p => p.Weight).Color;
+
+            for (var i = 0; i < 8; i++)
+            {
+                var hair = PawnStyleItemChooser.RandomHairFor(pawn);
+                if (hair == null || ScalpHair.Contains(hair.defName)) continue;
+                pawn.story.hairDef = hair;
+                break;
+            }
+
+            pawn.story.HairColor = PawnHairColors.RandomHairColor(
+                pawn, pawn.story.SkinColor, pawn.ageTracker.AgeBiologicalYears);
+            pawn.Drawer?.renderer?.SetAllGraphicsDirty();
+        }
+
         // Returns the eye colour assigned to this pawn, or the default (Blue) if unassigned.
         public static EyeColor ColorOf(Pawn pawn)
         {
