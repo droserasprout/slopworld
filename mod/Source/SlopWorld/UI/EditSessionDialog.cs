@@ -176,9 +176,13 @@ namespace SlopWorld
             y += SlopWidgets.RowH + SlopWidgets.GapXS;
 
             // Its command's are ticked and refused here; its project's are the project's to
-            // edit. What is left is what this one agent adds.
+            // edit there, so both inherited sets are ticked and refused here. What is left is
+            // what this one agent adds.
+            var inheritedPresets = new List<string>();
+            if (preset != null) inheritedPresets.AddRange(preset.Sandbox);
+            if (project != null) inheritedPresets.AddRange(project.Sandbox);
             PresetList.Draw(new Rect(rect.x, y, rect.width, PresetsH), _s.Sandbox,
-                _presetScroll, preset != null ? preset.Sandbox : null);
+                _presetScroll, inheritedPresets);
             y += PresetsH + SlopWidgets.GapL;
 
             SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),

@@ -111,7 +111,7 @@ namespace SlopWorld
         static string Tip(PresetInfo p, bool forced)
         {
             string gives = string.Join("\n", p.Gives.ToArray());
-            string why = forced ? "\n\nRequired by another selected preset or the command this agent runs." : "";
+            string why = forced ? "\n\nRequired by another selected preset or inherited by this entry." : "";
             // First, not last: what it costs is read before what it gives, because by the time
             // the eye reaches a list of paths the decision has usually been made.
             string out_ = p.IsEscape ? $"Way out of the sandbox: {p.Escapes}.\n\n" : "";
