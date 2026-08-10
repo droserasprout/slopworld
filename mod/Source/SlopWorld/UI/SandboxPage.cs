@@ -176,7 +176,9 @@ namespace SlopWorld
             y += SlopWidgets.RowH;
             foreach (var item in items)
             {
-                var cell = new Rect(SlopWidgets.GapS, y, view.width - SlopWidgets.GapS, SlopWidgets.RowH);
+                bool child = item is PresetInfo preset && IsOptionalChild(preset);
+                float inset = child ? SlopWidgets.GapM : SlopWidgets.GapS;
+                var cell = new Rect(inset, y, view.width - inset, SlopWidgets.RowH);
                 string name = label(item);
                 bool selected = (item is PresetInfo p && p == _preset) ||
                                 (item is CommandInfo c && c == _command);
@@ -189,6 +191,9 @@ namespace SlopWorld
                     : selected ? SlopWidgets.Lead : SlopWidgets.Name;
                 SlopWidgets.RowLabel(cell, name);
                 GUI.color = Color.white;
+                string description = item is PresetInfo info ? info.Description
+                    : item is CommandInfo command ? command.Description : "";
+                if (!string.IsNullOrEmpty(description)) TooltipHandler.TipRegion(cell, description);
                 if (Widgets.ButtonInvisible(cell)) pick(item);
                 y += SlopWidgets.RowH;
             }
@@ -201,6 +206,13 @@ namespace SlopWorld
             }
             return y + SlopWidgets.GapS;
         }
+
+        // The optional half of one integration follows its read-only essential by name and
+        // requires it. It is indented rather than put in another category, so `python` and
+        // `python-cache` read as one small tree.
+        static bool IsOptionalChild(PresetInfo p) =>
+            p.Name.EndsWith("-cache", StringComparison.OrdinalIgnoreCase) &&
+            p.Requires.Any(required => required == p.Name.Substring(0, p.Name.Length - "-cache".Length));
 
         void DrawCommandList(Rect r)
         {
@@ -233,7 +245,8 @@ namespace SlopWorld
             }
             var p = _preset;
             bool editable = _newEntry || p.Source != "system";
-            var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(1500f, r.height));
+            var view = new Rect(0f, 0f, r.width - 18f,
+                Mathf.Max(PresetEditorHeight(p, r.width - 18f), r.height));
             _editorScroll.Begin(r, view);
             float y = 0f;
             // Put the cost before the identity and all the fields. A warning at the bottom is
@@ -265,7 +278,6 @@ namespace SlopWorld
             y = EditorList(view, y, "Forwarded environment", "preset.env", p.Env, editable);
             y = EditorArea(view, y, "Set environment (KEY=VALUE)", "preset.setenv",
                 SetenvLines(p), editable, 48f, v => { _setenvText = v; ParseSetenv(p); });
-            y = EditorField(view, y, "Escape warning", "preset.escapes", p.Escapes, editable, v => p.Escapes = v);
             EditorButtons(view, y, editable, p.Source, "sandbox", p.Name,
                 () => SessionHub.Instance.SavePreset(p, () => { _newEntry = false; _error = null; }, msg => _error = msg),
                 () => Remove("sandbox", p.Name));
@@ -303,7 +315,8 @@ namespace SlopWorld
             }
             var c = _command;
             bool editable = _newEntry || c.Source != "system";
-            var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(900f, r.height));
+            var view = new Rect(0f, 0f, r.width - 18f,
+                Mathf.Max(CommandEditorHeight(c, r.width - 18f), r.height));
             _editorScroll.Begin(r, view);
             float y = 0f;
             EditorTitle(view, ref y, c.Name, c.Source, editable, "command");
@@ -371,9 +384,49 @@ namespace SlopWorld
             Widgets.Label(new Rect(0f, y, view.width, SlopWidgets.LineH), label);
             GUI.color = Color.white;
             y += SlopWidgets.LineH + SlopWidgets.GapXS;
-            set(SlopWidgets.Area(new Rect(0f, y, view.width, height), name, value, editable));
-            return y + height + SlopWidgets.GapS;
+            float actual = AreaHeight(view.width, value, height);
+            set(SlopWidgets.Area(new Rect(0f, y, view.width, actual), name, value, editable));
+            return y + actual + SlopWidgets.GapS;
         }
+
+        static float AreaHeight(float width, string text, float minimum) =>
+            Mathf.Max(minimum, Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text,
+                                                width - 12f) + 8f);
+
+        static float FieldHeight() => SlopWidgets.LineH + SlopWidgets.GapXS +
+                                      SlopWidgets.FieldH + SlopWidgets.GapS;
+
+        static float AreaEditorHeight(float width, string text, float minimum) =>
+            SlopWidgets.LineH + SlopWidgets.GapXS + AreaHeight(width, text, minimum) + SlopWidgets.GapS;
+
+        static float ListEditorHeight(float width, List<string> items) =>
+            AreaEditorHeight(width, SlopConfig.Lines(items), 48f);
+
+        static float TitleHeight(string source) => SlopWidgets.RowH + SlopWidgets.LineH +
+            SlopWidgets.GapS + (source == "system" ? SlopWidgets.BtnH + SlopWidgets.GapM : 0f);
+
+        static float PresetEditorHeight(PresetInfo p, float width)
+        {
+            float y = string.IsNullOrEmpty(p.Escapes) ? 0f
+                : Text.CalcHeight($"Escape path: {p.Escapes}.", width) + SlopWidgets.GapM;
+            y += TitleHeight(p.Source) + FieldHeight() * 2f;
+            y += AreaEditorHeight(width, p.Description, 44f) + ListEditorHeight(width, p.Requires);
+            y += SlopWidgets.GapXS + 1f + SlopWidgets.GapM;
+            y += ListEditorHeight(width, p.Ro) + ListEditorHeight(width, p.Rw) + ListEditorHeight(width, p.Dev);
+            y += 1f + SlopWidgets.GapM;
+            y += ListEditorHeight(width, p.Private) + ListEditorHeight(width, p.Seed) +
+                 ListEditorHeight(width, p.Skip) + ListEditorHeight(width, p.Shared);
+            y += 1f + SlopWidgets.GapM;
+            y += ListEditorHeight(width, p.Env) +
+                 AreaEditorHeight(width, string.Join("\n", p.Setenv.Select(x => x.Key + "=" + x.Value).ToArray()), 48f);
+            return y + SlopWidgets.BtnH + SlopWidgets.GapM;
+        }
+
+        static float CommandEditorHeight(CommandInfo c, float width) =>
+            TitleHeight(c.Source) + FieldHeight() * 2f +
+            AreaEditorHeight(width, c.Description, 44f) + AreaEditorHeight(width, c.Cmd, 52f) +
+            SlopWidgets.GapS + SlopWidgets.RowH + SlopWidgets.LineH + SlopWidgets.GapXS +
+            SessionHub.Instance.Presets.Count * SlopWidgets.RowH + SlopWidgets.BtnH + SlopWidgets.GapM;
 
         float EditorList(Rect view, float y, string label, string name, List<string> items, bool editable)
         {
