@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -11,15 +10,23 @@ namespace SlopWorld
     // one is mandatory and there is no directory field.
     public class EditSessionDialog : Window
     {
+        enum Tab { Edit, Preview }
+
         readonly bool _isNew;
         readonly SessionInfo _s;
         // The edit is addressed to it, and a changed name in the field is a rename.
         readonly string _origName;
-        string _env;
         readonly SmoothScroll _presetScroll = new SmoothScroll();
         readonly SmoothScroll _breadcrumbScroll = new SmoothScroll();
+        SmoothScroll _previewScroll = new SmoothScroll();
+        Vector2 _editorScroll;
         const float PresetsH = 132f;
         const float BreadcrumbsH = 132f;
+        Tab _tab;
+
+        // Last frame's form height, so the Edit tab can scroll when the fixed lists and the
+        // controls below them do not fit in the window.
+        float _editorContentH = 700f;
 
         // For the title. Null unless it is a duplicate: an edit already has `_origName`.
         readonly string _copiedFrom;
@@ -53,15 +60,13 @@ namespace SlopWorld
                         : existing.Name,
                     Project = existing.Project,
                     Command = existing.Command,
+                    CommandPreset = existing.CommandPreset,
                     Cmd = existing.Cmd,
                     Sandbox = new List<string>(existing.Sandbox),
                     Breadcrumbs = new List<string>(existing.Breadcrumbs),
                     Agent = existing.Agent,
                     Autostart = existing.Autostart,
-                    Env = new List<string>(existing.Env),
                 };
-
-            _env = string.Join("\n", _s.Env.ToArray());
 
             doCloseX = true;
             absorbInputAroundWindow = true;
@@ -72,13 +77,16 @@ namespace SlopWorld
             // Both tables are files the daemon reads, so they are asked for on every open
             // rather than once per process.
             SessionHub.Instance.LoadPresets();
+            if (string.IsNullOrEmpty(_s.CommandPreset) && string.IsNullOrEmpty(_s.Command) &&
+                string.IsNullOrWhiteSpace(_s.Cmd))
+                SlopClient.Get("/api/config",
+                    j => _s.CommandPreset = j["values"]["defaults"]["agent"].AsString("claude"),
+                    SlopWidgets.Fail);
         }
 
-        // Taller than it was by what the boxes grew: this is the one form here laid out from
-        // `l.CurHeight` with three fixed-height things under it - the preset list, the env box
-        // and the footer - so a field that gains eight pixels spends them out of the bottom of
-        // the window rather than out of a scroll view.
-        public override Vector2 InitialSize => new Vector2(560f, 760f);
+        // This is the one form here laid out from `l.CurHeight` with the preset and breadcrumb
+        // lists under it, so the Edit tab can size its scroll view from the actual form.
+        public override Vector2 InitialSize => new Vector2(560f, 800f);
 
         public override void DoWindowContents(Rect rect)
         {
@@ -86,9 +94,45 @@ namespace SlopWorld
                 ? $"Copy of '{_copiedFrom}'"
                 : _isNew ? "New agent" : $"Edit '{_origName}'");
 
-            float head = SlopWidgets.HeaderH + SlopWidgets.GapS;
+            float tabsY = rect.y + SlopWidgets.HeaderH + SlopWidgets.GapS;
+            DrawTabs(new Rect(rect.x, tabsY, rect.width, SlopWidgets.BtnH));
+            float top = tabsY + SlopWidgets.BtnH + SlopWidgets.GapM;
+            var body = new Rect(rect.x, top, rect.width,
+                rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - top);
+
+            if (_tab == Tab.Edit)
+            {
+                var view = new Rect(0f, 0f, body.width - 18f,
+                    Mathf.Max(_editorContentH, body.height));
+                Widgets.BeginScrollView(body, ref _editorScroll, view);
+                DrawEditor(view);
+                Widgets.EndScrollView();
+            }
+            else
+                SandboxPreviewPanel.Draw(body, ref _previewScroll,
+                    SandboxPreviewData.ForAgent(_s));
+
+            var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
+            if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
+            if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
+        }
+
+        void DrawTabs(Rect r)
+        {
+            float gap = SlopWidgets.GapS;
+            float w = (r.width - gap) / 2f;
+            if (SlopWidgets.Button(new Rect(r.x, r.y, w, r.height), "Edit",
+                    _tab == Tab.Edit ? SlopWidgets.Btn.Primary : SlopWidgets.Btn.Ghost))
+                _tab = Tab.Edit;
+            if (SlopWidgets.Button(new Rect(r.x + w + gap, r.y, w, r.height), "Preview",
+                    _tab == Tab.Preview ? SlopWidgets.Btn.Primary : SlopWidgets.Btn.Ghost))
+                _tab = Tab.Preview;
+        }
+
+        void DrawEditor(Rect rect)
+        {
             var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(new Rect(rect.x, rect.y + head, rect.width, rect.height - head));
+            l.Begin(new Rect(rect.x, rect.y, rect.width, rect.height));
 
             l.Label("Name (also the colonist's name)");
             _s.Name = SlopWidgets.Field(l, "agent.name", _s.Name);
@@ -108,7 +152,8 @@ namespace SlopWorld
                     : "");
             GUI.color = Color.white;
 
-            var preset = SessionHub.Instance.Command(_s.Command);
+            string commandName = string.IsNullOrEmpty(_s.Command) ? _s.CommandPreset : _s.Command;
+            var preset = SessionHub.Instance.Command(commandName);
 
             l.Gap(SlopWidgets.GapS);
             l.Label("Command");
@@ -125,7 +170,7 @@ namespace SlopWorld
             float used = l.CurHeight;
             l.End();
 
-            float y = rect.y + head + used + SlopWidgets.GapL;
+            float y = rect.y + used + SlopWidgets.GapL;
             SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
                 "Extra sandbox presets");
             y += SlopWidgets.RowH + SlopWidgets.GapXS;
@@ -146,22 +191,11 @@ namespace SlopWorld
 
             var rest = new Listing_Standard { maxOneColumn = true };
             rest.Begin(new Rect(rect.x, y, rect.width,
-                rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - y));
+                rect.yMax - y));
 
-            rest.Label("Environment variables (overrides)");
-            _env = SlopWidgets.Area(rest.GetRect(96f), "agent.env", _env ?? "");
-            GUI.color = SlopWidgets.Dim;
-            rest.Label("One KEY=VALUE a line. Set last of all, so these beat the project's " +
-                       "passed variables and any preset's own.");
-            GUI.color = Color.white;
-
-            rest.Gap(SlopWidgets.GapS);
             _s.Autostart = SlopWidgets.Checkbox(rest, "Start with the daemon", _s.Autostart);
+            _editorContentH = y - rect.y + rest.CurHeight + SlopWidgets.GapS;
             rest.End();
-
-            var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
-            if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
-            if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
         }
 
         void PickProject()
@@ -207,7 +241,14 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Default", () => { _s.Command = ""; _s.Cmd = ""; }),
+                new FloatMenuOption("Default", () =>
+                {
+                    _s.Command = "";
+                    _s.Cmd = "";
+                    SlopClient.Get("/api/config",
+                        j => _s.CommandPreset = j["values"]["defaults"]["agent"].AsString("claude"),
+                        SlopWidgets.Fail);
+                }),
             };
 
             // Named by the daemon rather than listed here, so a command file dropped in its
@@ -225,19 +266,6 @@ namespace SlopWorld
 
         void Save()
         {
-            _s.Env = (_env ?? "").Split('\n')
-                .Select(x => x.Trim())
-                .Where(x => x.Length > 0)
-                .ToList();
-
-            var bad = _s.Env.FirstOrDefault(
-                x => !x.StartsWith("#") && (x.IndexOf('=') <= 0));
-            if (bad != null)
-            {
-                SlopWidgets.Fail($"'{bad}' is not KEY=VALUE");
-                return;
-            }
-
             if (string.IsNullOrEmpty(_s.Name) || string.IsNullOrEmpty(_s.Project))
             {
                 SlopWidgets.Fail("name and project are required");

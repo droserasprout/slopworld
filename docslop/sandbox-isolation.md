@@ -59,16 +59,13 @@ longer read each other's transcripts either.
   `prompts` - three directories pi has never made - and agents came up having
   forgotten which model they were. Seed wide, skip the bulk, fail towards an
   agent that works.
-- `seed` comes from two places: the **preset**, for what every session of that
-  software wants, and the **project**, for what one ground wants. `~/.claude/plugins` is the case the project layer was added
-  for - 13MB of language servers and marketplace clones, worth copying into the
-  session that will open one and not into the thirty that will not. A project
-  may name the whole directory or a single plugin inside it; a seed path that
-  falls under no private path is skipped.
+- `seed` comes from the **preset**, for what every session of that software wants.
+  If one project or agent needs extra seeded state, make a user preset and attach it
+  there. A seed path that falls under no private path is skipped.
 - A `private` entry that is a file is its own seed. One whose host path does
   not exist is skipped - nothing to keep separate from a file nobody has.
-- Bound *after* the ro/rw/dev binds, so a project naming `~/.claude` in its own
-  `rw_paths` gets the copy anyway. There is no way to ask for the original.
+- Bound *after* the ro/rw/dev binds, so an ordinary writable preset bind gets the copy anyway.
+  There is no way to ask for the original.
 - `prepare_private` runs in `start`, before the argv: bwrap binding a source
   that is not there is a session that will not start. `build_argv` stays pure,
   because the tests call it and own no home.

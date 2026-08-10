@@ -19,16 +19,15 @@ opens are still windows, and go up through `TerminalWindow.OpenOverPane`.
   open rather than once per process, for the same reason. What an agent's command or
   another selected preset requires is drawn ticked and refused: "why is `~/.claude` bound" is the
   question that answers.
-- **`EditSessionDialog`** - picks a command preset, or neither: `Command` empty with
-  a `Cmd` typed is a command line of its own; empty with no `Cmd` is whatever
-  `[defaults] agent` names. `Agent` is the daemon's resolved answer and is **never
-  written back** - it would pin today's default into the file.
-- **`EditProjectDialog`** - its three path boxes are what the project *adds*;
-  `DoEffective` draws the merge (the implicit `global` preset, presets, boxes, deduplicated the way
-  `paths()` does, then *sorted*). It says **asked for** rather than handed over,
-  because `paths()` drops a bind whose path is not on this machine and only the
-  daemon knows which. `PresetInfo` keeps `Ro`/`Rw`/`Env` apart for this, `Gives`
-  being the flattened tooltip view.
+- **`EditSessionDialog`** - **Edit** picks a command preset, or neither: `Command` empty
+  with a `Cmd` typed is a command line of its own; empty with no `Cmd` is whatever
+  `[defaults] agent` names. **Preview** resolves the command, project, dependencies and
+  this agent's additions into one sandbox readout. `Agent` is the daemon's resolved answer
+  and is **never written back** - it would pin today's default into the file.
+- **`EditProjectDialog`** - its preset list is what the project owns. **Edit** changes it;
+  **Preview** shows the combined sandbox after the implicit `global` preset, dependencies
+  and project presets have been resolved. It says **asked for** rather than handed over,
+  because the daemon drops paths that are absent or protected on this machine.
 - **`ConfigPage`** - one page: the daemon, `[defaults]`, and the game. The sandbox base
   and presets moved to `SandboxPage`. The field column is a scroll view sized from the
   previous frame's `CurHeight`, its listing begun on a rect far taller than it needs so

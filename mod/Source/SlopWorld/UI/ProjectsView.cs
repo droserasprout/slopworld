@@ -103,8 +103,6 @@ namespace SlopWorld
             if (p.Temp) bits.Add("temporary");
             if (!p.Net) bits.Add("no net");
             bits.AddRange(p.Sandbox);
-            int extra = p.RoPaths.Count + p.RwPaths.Count;
-            if (extra > 0) bits.Add(extra == 1 ? "+1 bind" : $"+{extra} binds");
             return string.Join(", ", bits.ToArray());
         }
     }
@@ -113,6 +111,8 @@ namespace SlopWorld
     // never has to be kept in step with sandbox.rs by hand.
     public class EditProjectDialog : Window
     {
+        enum Tab { Edit, Preview }
+
         readonly bool _isNew;
         readonly ProjectInfo _p;
         // A changed name in the field is a rename, and the daemon carries its sessions
@@ -122,18 +122,13 @@ namespace SlopWorld
         // For the title. Null unless it is a duplicate: an edit already has `_origName`.
         readonly string _copiedFrom;
 
-        string _roPaths, _rwPaths, _passEnv, _seed;
         Vector2 _scroll;
         readonly SmoothScroll _presetScroll = new SmoothScroll();
         readonly SmoothScroll _breadcrumbScroll = new SmoothScroll();
+        SmoothScroll _previewScroll = new SmoothScroll();
         const float PresetsH = 152f;
         const float BreadcrumbsH = 132f;
-
-        // The implicit global preset every project builds on. Fetched per dialog rather than
-        // cached on the hub, because a user override can change while the game is open.
-        List<string> _baseRo = new List<string>();
-        List<string> _baseRw = new List<string>();
-        List<string> _baseEnv = new List<string>();
+        Tab _tab;
 
         // Last frame's laid-out height, so the scroll view is sized by what the form
         // actually drew rather than by a number that drifts as fields are added.
@@ -141,11 +136,11 @@ namespace SlopWorld
 
         public EditProjectDialog(ProjectInfo existing) : this(existing, false) { }
 
-        // A second project built on the first: the binds and the presets are what took the
-        // work to get right, and ticking all of them again by hand is the step that gets one
-        // wrong. The directory comes over with them - the same repo under a tighter sandbox
-        // is what this is for, and nothing refuses two projects on one directory. Only the
-        // name cannot, so it is the one field suggested rather than copied.
+        // A second project built on the first: the presets are what took the work to get right,
+        // and ticking/copying all of them again by hand is the step that gets one wrong. The
+        // directory comes over with them - the same repo under a tighter sandbox is what this
+        // is for, and nothing refuses two projects on one directory. Only the name cannot, so
+        // it is the one field suggested rather than copied.
         public static EditProjectDialog Copy(ProjectInfo of) => new EditProjectDialog(of, true);
 
         EditProjectDialog(ProjectInfo existing, bool copy)
@@ -166,11 +161,6 @@ namespace SlopWorld
                 if (_p.Temp) _p.Dir = ProjectInfo.TempDir(_p.Name);
             }
 
-            _roPaths = Lines(_p.RoPaths);
-            _rwPaths = Lines(_p.RwPaths);
-            _passEnv = Lines(_p.PassEnv);
-            _seed = Lines(_p.Seed);
-
             doCloseX = true;
             draggable = true;
             resizeable = true;
@@ -178,13 +168,7 @@ namespace SlopWorld
             closeOnClickedOutside = false;
             closeOnAccept = false;
 
-            SessionHub.Instance.LoadPresets(() =>
-            {
-                var global = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == "global");
-                _baseRo = global?.Ro ?? new List<string>();
-                _baseRw = global?.Rw ?? new List<string>();
-                _baseEnv = global?.Env ?? new List<string>();
-            }, SlopWidgets.Fail);
+            SessionHub.Instance.LoadPresets(fail: SlopWidgets.Fail);
         }
 
         public override Vector2 InitialSize => new Vector2(680f, 680f);
@@ -195,18 +179,39 @@ namespace SlopWorld
                 ? $"Copy of '{_copiedFrom}'"
                 : _isNew ? "New project" : $"Edit '{_origName}'");
 
-            float top = rect.y + SlopWidgets.HeaderH + SlopWidgets.GapS;
+            float tabsY = rect.y + SlopWidgets.HeaderH + SlopWidgets.GapS;
+            DrawTabs(new Rect(rect.x, tabsY, rect.width, SlopWidgets.BtnH));
+            float top = tabsY + SlopWidgets.BtnH + SlopWidgets.GapM;
             var body = new Rect(rect.x, top, rect.width,
                 rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - top);
-            var view = new Rect(0f, 0f, body.width - 18f, Mathf.Max(_contentH, body.height));
-
-            Widgets.BeginScrollView(body, ref _scroll, view);
-            DoFields(view);
-            Widgets.EndScrollView();
+            if (_tab == Tab.Edit)
+            {
+                var view = new Rect(0f, 0f, body.width - 18f, Mathf.Max(_contentH, body.height));
+                Widgets.BeginScrollView(body, ref _scroll, view);
+                DoFields(view);
+                Widgets.EndScrollView();
+            }
+            else
+            {
+                SandboxPreviewPanel.Draw(body, ref _previewScroll,
+                    SandboxPreviewData.ForProject(_p));
+            }
 
             var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
             if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
             if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
+        }
+
+        void DrawTabs(Rect r)
+        {
+            float gap = SlopWidgets.GapS;
+            float w = (r.width - gap) / 2f;
+            if (SlopWidgets.Button(new Rect(r.x, r.y, w, r.height), "Edit",
+                    _tab == Tab.Edit ? SlopWidgets.Btn.Primary : SlopWidgets.Btn.Ghost))
+                _tab = Tab.Edit;
+            if (SlopWidgets.Button(new Rect(r.x + w + gap, r.y, w, r.height), "Preview",
+                    _tab == Tab.Preview ? SlopWidgets.Btn.Primary : SlopWidgets.Btn.Ghost))
+                _tab = Tab.Preview;
         }
 
         void DoFields(Rect r)
@@ -214,8 +219,7 @@ namespace SlopWorld
             // Begun on the room it has and pinned to one column. Listing_Standard breaks to a
             // second column the moment a control would cross the bottom of the rect it was
             // begun on - curX past the whole width, so everything after is clipped away by
-            // the group, and CurHeight back to nearly nothing. Everything below is laid out
-            // from that number, so the path boxes land on top of the fields.
+            // the group, and CurHeight back to nearly nothing.
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(new Rect(r.x, r.y, r.width, r.height));
 
@@ -264,122 +268,11 @@ namespace SlopWorld
                 _breadcrumbScroll);
             y += BreadcrumbsH + SlopWidgets.GapXS;
 
-            // An agent gets whatever its command preset asks for whether or not it is ticked
-            // here, and saying so is cheaper than the player wondering why ~/.claude is bound.
-            GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(r.x, y, r.width, SlopWidgets.RowH),
-                "An agent also gets the presets its command asks for, and any of its own.");
-            GUI.color = Color.white;
-            y += SlopWidgets.RowH + SlopWidgets.GapM;
-
-            float boxW = (r.width - SlopWidgets.GapS * 2f) / 3f;
-            float boxH = 132f;
-            _roPaths = SlopWidgets.PathList(new Rect(r.x, y, boxW, boxH),
-                "project.ro", "Read-only binds", _roPaths);
-            _rwPaths = SlopWidgets.PathList(
-                new Rect(r.x + boxW + SlopWidgets.GapS, y, boxW, boxH),
-                "project.rw", "Read-write binds", _rwPaths);
-            _passEnv = SlopWidgets.PathList(
-                new Rect(r.x + (boxW + SlopWidgets.GapS) * 2f, y, boxW, boxH),
-                "project.env", "Passed env vars", _passEnv);
-            y += boxH + SlopWidgets.GapM;
-
-            // A row of its own, because it is not a bind: the three above say what an agent
-            // here can reach, and this says what it is *born with*. Sharing their row would
-            // read as a fourth kind of bind, which is the one thing it must not.
-            _seed = SlopWidgets.PathList(new Rect(r.x, y, boxW * 2f + SlopWidgets.GapS, boxH),
-                "project.seed", "Seeded into a new agent's private state", _seed);
-            GUI.color = SlopWidgets.Dim;
-            Widgets.Label(
-                new Rect(r.x + (boxW + SlopWidgets.GapS) * 2f, y, boxW, boxH),
-                "Copied once, when a session here first starts, on top of what its presets " +
-                "seed. Credentials and settings come across on their own; this is for what " +
-                "is big and optional - ~/.claude/plugins, or one plugin inside it.");
-            GUI.color = Color.white;
-            y += boxH + SlopWidgets.GapL;
-
-            y = DoEffective(r, y, boxW);
             _contentH = y - r.y + SlopWidgets.GapS;
-        }
-
-        // The three boxes above are what this project *adds*. On their own they say
-        // nothing about what an agent in here can actually reach, which is the only
-        // question anybody opens this dialog to answer - and it is the reason the
-        // machine-wide base is read here rather than as a project checkbox. The merge is
-        // drawn where it is asked about, in the same three groups and the same order the
-        // daemon assembles them: global preset, then the ticked presets, then this project.
-        //
-        // Asked for rather than handed over: `paths()` drops any bind whose path is not
-        // on this machine, and only the daemon knows which those are. Saying so is
-        // cheaper than a readout that is quietly wrong about a socket that was not there.
-        float DoEffective(Rect r, float y, float colW)
-        {
-            SlopWidgets.SectionHeading(new Rect(r.x, y, r.width, SlopWidgets.RowH),
-                "What an agent here asks for");
-            y += SlopWidgets.RowH + SlopWidgets.GapXS;
-
-            GUI.color = SlopWidgets.Dim;
-            const string how = "The base, the presets and the boxes above, together. A path " +
-                               "that is not on this machine is skipped.";
-            var note = new Rect(r.x, y, r.width, Text.CalcHeight(how, r.width));
-            Widgets.Label(note, how);
-            y = note.yMax + SlopWidgets.GapS;
-
-            var cols = new[]
-            {
-                Merge(_baseRo, pr => pr.Ro, Split(_roPaths)),
-                Merge(_baseRw, pr => pr.Rw, Split(_rwPaths)),
-                Merge(_baseEnv, pr => pr.Env, Split(_passEnv)),
-            };
-
-            float tallest = 0f;
-            for (int i = 0; i < 3; i++)
-            {
-                string text = cols[i].Count > 0
-                    ? string.Join("\n", cols[i].ToArray())
-                    : "(nothing)";
-                float w = colW - SlopWidgets.GapS;
-                float h = Text.CalcHeight(text, w);
-                Widgets.Label(new Rect(r.x + i * (colW + SlopWidgets.GapS), y, w, h), text);
-                tallest = Mathf.Max(tallest, h);
-            }
-            GUI.color = Color.white;
-
-            return y + tallest;
-        }
-
-        // Gathered in the order `sandbox.rs` binds them - global, presets, project - so
-        // a path named twice is deduplicated against the first that asked for it, then
-        // sorted, because this column is read to find out whether a particular path is
-        // in it. Bind order is the daemon's business and settles nothing a reader here
-        // can see; alphabetical means a path can be looked for rather than hunted, and
-        // means two projects' columns can be held side by side and compared.
-        List<string> Merge(List<string> baseList,
-                           System.Func<PresetInfo, List<string>> pick,
-                           List<string> own)
-        {
-            var all = new List<string>(baseList);
-            foreach (var pr in SessionHub.Instance.Presets)
-                if (_p.Sandbox.Contains(pr.Name))
-                    all.AddRange(pick(pr));
-            all.AddRange(own);
-
-            var seen = new List<string>();
-            foreach (var s in all)
-                if (s.Length > 0 && !seen.Contains(s))
-                    seen.Add(s);
-
-            seen.Sort(System.StringComparer.OrdinalIgnoreCase);
-            return seen;
         }
 
         void Save()
         {
-            _p.RoPaths = Split(_roPaths);
-            _p.RwPaths = Split(_rwPaths);
-            _p.PassEnv = Split(_passEnv);
-            _p.Seed = Split(_seed);
-
             if (string.IsNullOrEmpty((_p.Name ?? "").Trim()))
             {
                 SlopWidgets.Fail("a project needs a name");
@@ -400,12 +293,5 @@ namespace SlopWorld
                 fail: SlopWidgets.Fail);
         }
 
-        static string Lines(List<string> items) => string.Join("\n", items.ToArray());
-
-        static List<string> Split(string text) =>
-            (text ?? "").Split('\n')
-                .Select(x => x.Trim())
-                .Where(x => x.Length > 0)
-                .ToList();
     }
 }

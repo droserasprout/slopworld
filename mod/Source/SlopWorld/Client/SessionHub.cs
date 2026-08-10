@@ -22,9 +22,12 @@ namespace SlopWorld
         // Repeated on the wire so a session list reads without a join. Blank when the entry
         // names a project that has gone.
         public string Dir = "";
-        // A command preset's name. Blank means this agent states a command line of its own,
-        // and so is handed no agent's state directory.
+        // A command preset's explicit name. Blank means this agent states a command line of
+        // its own, or falls through to the daemon default when Cmd is also blank.
         public string Command = "";
+        // The command preset after the daemon resolves [defaults] agent. Unlike Command,
+        // this is also populated when the session leaves its command blank for that default.
+        public string CommandPreset = "";
         // This agent's own answer to what that preset runs. Blank is the preset's.
         public string Cmd = "";
         // Sandbox presets it adds to its command's and its project's.
@@ -36,7 +39,6 @@ namespace SlopWorld
         // The project's, and read-only here: edit the project to change it.
         public bool Net = true;
         public bool Autostart;
-        public List<string> Env = new List<string>();
         public List<string> Breadcrumbs = new List<string>();
 
         // Read-only here: this process has breadcrumbs waiting for its first Enter. What the
@@ -93,6 +95,7 @@ namespace SlopWorld
             Project = j["project"].AsString(),
             Dir = j["dir"].AsString(),
             Command = j["command"].AsString(),
+            CommandPreset = j["command_preset"].AsString(),
             Cmd = j["cmd"].IsNull ? "" : j["cmd"].AsString(),
             Sandbox = j["sandbox"].Items.Select(i => i.AsString()).ToList(),
             Agent = j["agent"].AsString(),
@@ -100,7 +103,6 @@ namespace SlopWorld
             Alive = j["alive"].AsBool(),
             Net = j["net"].AsBool(true),
             Autostart = j["autostart"].AsBool(false),
-            Env = j["env"].Items.Select(i => i.AsString()).ToList(),
             Breadcrumbs = j["breadcrumbs"].Items.Select(i => i.AsString()).ToList(),
             BreadcrumbsPending = j["breadcrumbs_pending"].AsBool(false),
             Ephemeral = j["ephemeral"].AsBool(false),
@@ -121,7 +123,6 @@ namespace SlopWorld
             $"\"command\":{JVal.Q(Command)}," +
             $"\"cmd\":{(string.IsNullOrEmpty((Cmd ?? "").Trim()) ? "null" : JVal.Q(Cmd))}," +
             $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]," +
-            $"\"env\":[{string.Join(",", Env.Select(JVal.Q).ToArray())}]," +
             $"\"breadcrumbs\":[{string.Join(",", Breadcrumbs.Select(JVal.Q).ToArray())}]," +
             $"\"autostart\":{JVal.B(Autostart)}}}";
     }
@@ -135,13 +136,6 @@ namespace SlopWorld
         public bool Temp;
         // Sandbox presets by name. Every agent runs in a sandbox; this says what it reaches.
         public List<string> Sandbox = new List<string>();
-        public List<string> RoPaths = new List<string>();
-        public List<string> RwPaths = new List<string>();
-        public List<string> PassEnv = new List<string>();
-        // Not a bind: what a *fresh* agent on this ground is copied, on top of what its
-        // presets seed. `~/.claude/plugins` is why it exists - 13MB one project wants and the
-        // machine does not.
-        public List<string> Seed = new List<string>();
         public bool Net = true;
         public List<string> Breadcrumbs = new List<string>();
 
@@ -170,10 +164,6 @@ namespace SlopWorld
             Dir = j["dir"].AsString(),
             Temp = j["temp"].AsBool(false),
             Sandbox = Strings(j["sandbox"]),
-            RoPaths = Strings(j["ro_paths"]),
-            RwPaths = Strings(j["rw_paths"]),
-            PassEnv = Strings(j["pass_env"]),
-            Seed = Strings(j["seed"]),
             Breadcrumbs = Strings(j["breadcrumbs"]),
             Net = j["net"].AsBool(true),
         };
@@ -181,9 +171,8 @@ namespace SlopWorld
         public string ToJson() =>
             "{" +
             $"\"name\":{JVal.Q(Name)},\"dir\":{JVal.Q(Dir)},\"temp\":{JVal.B(Temp)}," +
-            $"\"sandbox\":{Arr(Sandbox)},\"ro_paths\":{Arr(RoPaths)}," +
-            $"\"rw_paths\":{Arr(RwPaths)},\"pass_env\":{Arr(PassEnv)}," +
-            $"\"seed\":{Arr(Seed)},\"breadcrumbs\":{Arr(Breadcrumbs)},\"net\":{JVal.B(Net)}}}";
+            $"\"sandbox\":{Arr(Sandbox)}," +
+            $"\"breadcrumbs\":{Arr(Breadcrumbs)},\"net\":{JVal.B(Net)}}}";
 
         public ProjectInfo Copy() => new ProjectInfo
         {
@@ -191,10 +180,6 @@ namespace SlopWorld
             Dir = Dir,
             Temp = Temp,
             Sandbox = new List<string>(Sandbox),
-            RoPaths = new List<string>(RoPaths),
-            RwPaths = new List<string>(RwPaths),
-            PassEnv = new List<string>(PassEnv),
-            Seed = new List<string>(Seed),
             Breadcrumbs = new List<string>(Breadcrumbs),
             Net = Net,
         };

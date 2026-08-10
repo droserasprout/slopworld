@@ -42,6 +42,9 @@ pub struct SessionView {
     pub project: String,
     pub dir: String,
     pub command: String,
+    /// The command preset after `[defaults] agent` is resolved. Empty means the session
+    /// supplies its own command line, so it has no command preset's sandbox.
+    pub command_preset: String,
     pub cmd: Option<String>,
     pub sandbox: Vec<String>,
     pub breadcrumbs: Vec<String>,
@@ -53,7 +56,6 @@ pub struct SessionView {
     pub cols: u16,
     pub rows: u16,
     pub net: bool,
-    pub env: Vec<String>,
     pub autostart: bool,
     // Ephemeral sessions have no editable config entry and die with their process.
     pub ephemeral: bool,
@@ -527,20 +529,6 @@ fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
     }
     check_presets(&s.sandbox)?;
     check_breadcrumbs(cfg, &s.breadcrumbs)?;
-    check_env(s)
-}
-
-fn check_env(s: &SessionCfg) -> Result<()> {
-    for line in &s.env {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        match line.split_once('=') {
-            Some((k, _)) if !k.trim().is_empty() => {}
-            _ => bail!("environment override {line:?} is not KEY=VALUE"),
-        }
-    }
     Ok(())
 }
 
@@ -1624,6 +1612,7 @@ impl Manager {
                     project: l.cfg.project.clone(),
                     dir: p.map(|p| p.dir.clone()).unwrap_or_default(),
                     command: l.cfg.command.clone(),
+                    command_preset: cfg.command_name(&l.cfg),
                     cmd: l.cfg.cmd.clone(),
                     sandbox: l.cfg.sandbox.clone(),
                     breadcrumbs: l.cfg.breadcrumbs.clone(),
@@ -1634,7 +1623,6 @@ impl Manager {
                     cols: l.cols,
                     rows: l.rows,
                     net: p.map(|p| p.net).unwrap_or(true),
-                    env: l.cfg.env.clone(),
                     autostart: l.cfg.autostart,
                     ephemeral: l.ephemeral,
                     last_change: l.last_change,

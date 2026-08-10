@@ -234,18 +234,6 @@ pub struct ProjectCfg {
     /// rather than refused, because the files outlive the binary.
     #[serde(default)]
     pub sandbox: Vec<String>,
-    #[serde(default)]
-    pub ro_paths: Vec<String>,
-    #[serde(default)]
-    pub rw_paths: Vec<String>,
-    #[serde(default)]
-    pub pass_env: Vec<String>,
-    /// Copied into a session's private state on top of what its presets seed - see
-    /// `sandbox::seed_into`. Not a bind: it is what a *fresh* agent on this ground is born
-    /// with. `~/.claude/plugins` is why it exists, a project that wants the language servers
-    /// naming them rather than every session on the machine carrying 13MB it will not open.
-    #[serde(default)]
-    pub seed: Vec<String>,
     /// Named breadcrumbs added to every agent in this project.
     #[serde(default)]
     pub breadcrumbs: Vec<String>,
@@ -260,18 +248,14 @@ impl Default for ProjectCfg {
             dir: String::new(),
             temp: false,
             sandbox: Vec::new(),
-            ro_paths: Vec::new(),
-            rw_paths: Vec::new(),
-            pass_env: Vec::new(),
-            seed: Vec::new(),
             breadcrumbs: Vec::new(),
             net: true,
         }
     }
 }
 
-/// An agent is a command preset plus this file's answer to it - the same three things a
-/// preset states, in the entry that names one.
+/// An agent is a command preset plus this file's answer to it - the command, sandbox presets
+/// and breadcrumbs that entry adds.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SessionCfg {
     pub name: String,
@@ -288,8 +272,6 @@ pub struct SessionCfg {
     /// Sandbox presets it adds to its command's and its project's.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sandbox: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub env: Vec<String>,
     /// Named breadcrumbs added to this agent's first prompt.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub breadcrumbs: Vec<String>,
@@ -656,24 +638,6 @@ pub fn migrate_legacy_sandbox(sandbox: &Sandbox) -> Result<bool> {
         })?;
     }
     Ok(true)
-}
-
-pub fn env_pairs(lines: &[String]) -> Vec<(String, String)> {
-    lines
-        .iter()
-        .filter_map(|line| {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with('#') {
-                return None;
-            }
-            let (k, v) = line.split_once('=')?;
-            let k = k.trim();
-            if k.is_empty() {
-                return None;
-            }
-            Some((k.to_string(), v.to_string()))
-        })
-        .collect()
 }
 
 /// bwrap expands neither `~` nor `$VAR`, and the preset table is written in both. A path

@@ -3,7 +3,7 @@ use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result};
 
-use crate::config::{env_pairs, expand, Config, ProjectCfg, SessionCfg};
+use crate::config::{expand, Config, ProjectCfg, SessionCfg};
 use crate::presets::{SandboxPreset, Table};
 
 /// Forwarded whatever the config says, plus anything named `LC_*`. What belongs here says
@@ -65,9 +65,6 @@ pub fn host_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
         format!("SLOPWORLD_SESSION={}", s.name),
         format!("SLOPWORLD_PROJECT={}", p.name),
     ];
-    for (k, v) in env_pairs(&s.env) {
-        a.push(format!("{k}={v}"));
-    }
     a.extend(shell_split(&host_command(cfg, s, host_shell().as_deref())));
     a
 }
@@ -141,12 +138,10 @@ fn private_path(session: &str, host: &str) -> PathBuf {
         .join(host.strip_prefix("/").unwrap_or(host))
 }
 
-/// What no bind list may hand a sandbox, whoever asks - the implicit `global` preset, a preset
-/// file, a project. The invariant is that an agent reaches neither `[daemon] token`, nor the
-/// preset files that decide what the next sandbox binds, nor another session's private state;
-/// until now that held because of how `config.toml` happened to be written, and a single
-/// `rw_paths = ["/"]` was the whole of undoing it. Stated here instead, where all three kinds
-/// of bind list meet.
+/// What no bind list may hand a sandbox, whoever asks - the implicit `global` preset or a
+/// preset file. The invariant is that an agent reaches neither `[daemon] token`, nor the preset
+/// files that decide what the next sandbox binds, nor another session's private state.
+/// Stated here, where every preset bind list meets.
 ///
 /// Both directions are refused: a path *inside* one of these reaches it, and a path *above*
 /// one contains it. `~/.config` is as much a way to the token as the file itself.
@@ -429,7 +424,7 @@ pub fn prepare_private(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
                 continue;
             }
             tracing::info!("session {:?} gets its own {host}", s.name);
-            seed_into(pr, &p.seed, &host, &copy)?;
+            seed_into(pr, &host, &copy)?;
         }
     }
     Ok(())
@@ -439,7 +434,7 @@ pub fn prepare_private(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
 /// there, which is what "once" means: what an agent has written is never trodden on by what
 /// the host has changed since. The tree is an ordinary directory - deleting a session's is
 /// how it is handed a fresh one.
-fn seed_into(pr: &SandboxPreset, project: &[String], host: &str, copy: &Path) -> Result<()> {
+fn seed_into(pr: &SandboxPreset, host: &str, copy: &Path) -> Result<()> {
     if copy.exists() {
         return Ok(());
     }
@@ -493,10 +488,9 @@ fn seed_into(pr: &SandboxPreset, project: &[String], host: &str, copy: &Path) ->
 
     // And the subdirectories asked for by name, which is where what the *user* wrote lives -
     // agents, commands, plugins - as against what the tool wrote about them. The preset's list
-    // is what every session of that software wants; the project's is what this ground wants,
-    // and `~/.claude/plugins` is the case it was added for: 13MB of language servers is worth
-    // copying into a session that will use one and not into thirty that will not.
-    for from in pr.seed.iter().chain(project) {
+    // is what every session of that software wants; a user preset attached to one project or
+    // agent can carry any extra state that ground needs, without another override layer here.
+    for from in &pr.seed {
         let from = expand(from);
         let Ok(rel) = Path::new(&from).strip_prefix(host) else {
             continue; // a seed for some other private path, or for another preset's
@@ -549,7 +543,6 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     let agent_argv: Vec<String> = shell_split(&cfg.command_of(s));
     let dir = expand(&p.dir);
 
-    let overrides = env_pairs(&s.env);
     let table = crate::presets::table();
     let presets = presets_for(cfg, s, p, &table);
 
@@ -557,11 +550,11 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|| "/root".into());
 
-    // Global, then presets, then the project, so the most specific answer for a path
-    // is the last one bwrap sees.
-    let ro = paths(&cfg.sandbox.ro_paths, &presets, |pr| &pr.ro, &p.ro_paths);
-    let rw = paths(&cfg.sandbox.rw_paths, &presets, |pr| &pr.rw, &p.rw_paths);
-    let dev = paths(&[], &presets, |pr| &pr.dev, &[]);
+    // Global first, then the resolved presets, so the most specific answer for a path is the
+    // last one bwrap sees.
+    let ro = paths(&presets, |pr| &pr.ro);
+    let rw = paths(&presets, |pr| &pr.rw);
+    let dev = paths(&presets, |pr| &pr.dev);
 
     let mut a: Vec<String> = vec!["bwrap".into()];
     let mut push = |args: &[&str]| a.extend(args.iter().map(|x| x.to_string()));
@@ -626,9 +619,9 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
         push(&["--dev-bind", path, path]);
     }
 
-    // Last of the binds under $HOME, so a project that put `~/.claude` in its own `rw_paths`
-    // gets the copy anyway: the point of a private path is that there is no way to ask for
-    // the original, and an earlier bind of the same target is one bwrap mounts over.
+    // Last of the binds under $HOME, so the private copy wins over an ordinary preset bind:
+    // the point of a private path is that there is no way to ask for the original, and an
+    // earlier bind of the same target is one bwrap mounts over.
     for (copy, host) in private_binds(cfg, s, p, &table) {
         push(&["--bind", copy.as_str(), host.as_str()]);
     }
@@ -661,11 +654,10 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
         }
     }
 
-    let mut env: Vec<&str> = cfg.sandbox.pass_env.iter().map(String::as_str).collect();
+    let mut env: Vec<&str> = Vec::new();
     for pr in &presets {
         env.extend(pr.env.iter().map(String::as_str));
     }
-    env.extend(p.pass_env.iter().map(String::as_str));
 
     for k in env {
         if passed.iter().any(|seen| seen == k) {
@@ -685,34 +677,20 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
         }
     }
 
-    for (k, v) in &overrides {
-        push(&["--setenv", k.as_str(), v.as_str()]);
-    }
-
     a.push("--".into());
     a.extend(agent_argv);
     a
 }
 
 /// Expanded, dropped if they are not on this host, and deduplicated.
-fn paths(
-    global: &[String],
-    presets: &[&SandboxPreset],
-    pick: fn(&SandboxPreset) -> &[String],
-    project: &[String],
-) -> Vec<String> {
+fn paths(presets: &[&SandboxPreset], pick: fn(&SandboxPreset) -> &[String]) -> Vec<String> {
     let from_presets: Vec<String> = presets
         .iter()
         .flat_map(|pr| pick(pr).iter().cloned())
         .collect();
 
     let mut out: Vec<String> = Vec::new();
-    for path in global
-        .iter()
-        .cloned()
-        .chain(from_presets)
-        .chain(project.iter().cloned())
-    {
+    for path in from_presets {
         let path = expand(&path);
         if path.is_empty() || out.contains(&path) {
             continue;
@@ -894,8 +872,8 @@ mod tests {
         assert!(at(&a, "--proc") < first_bind);
     }
 
-    /// The command preset's own binds, whether or not the project asked: knowing a session
-    /// is Claude Code is what lets the sandbox hand it ~/.claude.
+    /// The command preset's own binds, whether or not the project selected another preset:
+    /// knowing a session is Claude Code is what lets the sandbox hand it ~/.claude.
     #[test]
     fn a_command_brings_its_own_presets() {
         let cfg = Config::default();
@@ -985,16 +963,19 @@ mod tests {
         }
     }
 
-    /// And the guard is reached from the list a project writes, not only from the function
-    /// under it: `rw_paths = ["/"]` is the line this whole thing is for.
+    /// The guard is reached from the effective preset list, not only from the validator.
     #[test]
-    fn a_project_asking_for_the_world_does_not_get_it() {
+    fn a_preset_asking_for_the_world_does_not_get_it() {
         let home = dirs::home_dir().map(|h| h.to_string_lossy().into_owned());
         let mut asked = vec!["/".to_string(), "/usr".to_string()];
         asked.extend(home.clone());
         asked.push(Config::path_in_use().to_string_lossy().into_owned());
 
-        let out = paths(&[], &[], |pr| &pr.ro, &asked);
+        let preset = SandboxPreset {
+            ro: asked,
+            ..Default::default()
+        };
+        let out = paths(&[&preset], |pr| &pr.ro);
         assert_eq!(out, vec!["/usr".to_string()], "got {out:?}");
     }
 
@@ -1023,7 +1004,7 @@ mod tests {
     /// The point of a private path: whatever else asked for that path, the copy is what the
     /// sandbox gets, because it is bound last and bwrap mounts in order.
     #[test]
-    fn a_private_bind_is_last_and_beats_a_project_asking_for_the_original() {
+    fn a_private_bind_is_last_and_beats_an_ordinary_preset_bind() {
         let Some(home) = dirs::home_dir() else { return };
         let claude = home.join(".claude").to_string_lossy().into_owned();
         if !std::path::Path::new(&claude).exists() {
@@ -1040,8 +1021,6 @@ mod tests {
         let p = ProjectCfg {
             name: "p".into(),
             dir: "/tmp".into(),
-            // The project asks for the real one by name, which is the case this defeats.
-            rw_paths: vec!["~/.claude".into()],
             ..Default::default()
         };
         let a = build_argv(&cfg, &s, &p);
@@ -1266,7 +1245,7 @@ mod tests {
             ..Default::default()
         };
         let copy = root.join("copy");
-        seed_into(&pr, &[], &host.to_string_lossy(), &copy).unwrap();
+        seed_into(&pr, &host.to_string_lossy(), &copy).unwrap();
 
         // Credentials on top, without this file naming them.
         assert_eq!(
@@ -1283,7 +1262,7 @@ mod tests {
         // Seeded once: what the agent wrote survives, and the host's later edit stays out.
         std::fs::write(copy.join("auth.json"), "the agent's own").unwrap();
         std::fs::write(host.join("auth.json"), "changed since").unwrap();
-        seed_into(&pr, &[], &host.to_string_lossy(), &copy).unwrap();
+        seed_into(&pr, &host.to_string_lossy(), &copy).unwrap();
         assert_eq!(
             std::fs::read_to_string(copy.join("auth.json")).unwrap(),
             "the agent's own"
@@ -1317,7 +1296,7 @@ mod tests {
             ..Default::default()
         };
         let copy = root.join("copy");
-        seed_into(&pr, &[], &host.to_string_lossy(), &copy).unwrap();
+        seed_into(&pr, &host.to_string_lossy(), &copy).unwrap();
 
         assert!(
             copy.join("settings.json").exists(),
@@ -1357,7 +1336,7 @@ mod tests {
             ..Default::default()
         };
         let copy = root.join("copy");
-        seed_into(&pr, &[], &host.to_string_lossy(), &copy).unwrap();
+        seed_into(&pr, &host.to_string_lossy(), &copy).unwrap();
 
         // What the agent needs to be itself, however deep it sits.
         assert_eq!(
@@ -1369,58 +1348,6 @@ mod tests {
         assert!(
             !copy.join("agent/sessions").exists(),
             "the transcripts came across"
-        );
-
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    /// The project's own seed, on top of the preset's: `~/.claude/plugins` is 13MB that one
-    /// ground wants and the machine does not, so it is named where the ground is described.
-    #[test]
-    fn a_project_seeds_what_its_preset_did_not() {
-        let root = std::env::temp_dir().join(format!("slopd-pseed-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
-        let host = root.join("host");
-        std::fs::create_dir_all(host.join("plugins/cache/lsp")).unwrap();
-        std::fs::create_dir_all(host.join("agents")).unwrap();
-        std::fs::write(host.join("plugins/cache/lsp/bin"), "server").unwrap();
-        std::fs::write(host.join("agents/one.md"), "mine").unwrap();
-
-        let pr = SandboxPreset {
-            name: "t".into(),
-            private: vec![host.to_string_lossy().into_owned()],
-            seed: vec![host.join("agents").to_string_lossy().into_owned()],
-            ..Default::default()
-        };
-
-        // Without the project asking, the heavy directory stays behind.
-        let lean = root.join("lean");
-        seed_into(&pr, &[], &host.to_string_lossy(), &lean).unwrap();
-        assert!(lean.join("agents/one.md").exists());
-        assert!(!lean.join("plugins").exists(), "plugins came uninvited");
-
-        // Naming it - or one plugin inside it - is what brings it across.
-        let full = root.join("full");
-        let asked = vec![host.join("plugins").to_string_lossy().into_owned()];
-        seed_into(&pr, &asked, &host.to_string_lossy(), &full).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(full.join("plugins/cache/lsp/bin")).unwrap(),
-            "server"
-        );
-        assert!(
-            full.join("agents/one.md").exists(),
-            "the preset's own was dropped"
-        );
-
-        let one = root.join("one");
-        let asked = vec![host
-            .join("plugins/cache/lsp")
-            .to_string_lossy()
-            .into_owned()];
-        seed_into(&pr, &asked, &host.to_string_lossy(), &one).unwrap();
-        assert!(
-            one.join("plugins/cache/lsp/bin").exists(),
-            "a nested seed missed"
         );
 
         let _ = std::fs::remove_dir_all(&root);
