@@ -38,6 +38,11 @@ namespace SlopWorld
                     return false;
                 }
                 _tcp.EndConnect(ar);
+                // ConnectTimeout covers only the TCP handshake. The HTTP upgrade below is
+                // synchronous too, and runs on Unity's main thread, so a listener that accepts
+                // and then says nothing must not freeze the game forever.
+                _tcp.ReceiveTimeout = timeoutMs;
+                _tcp.SendTimeout = timeoutMs;
                 _net = _tcp.GetStream();
 
                 var keyBytes = new byte[16];
@@ -66,6 +71,11 @@ namespace SlopWorld
                     return false;
                 }
 
+                // An established websocket is expected to sit quiet indefinitely. Keep the
+                // write timeout, since game-thread sends must still be bounded, but let the
+                // background reader wait for the next event without reconnecting every few
+                // seconds.
+                _tcp.ReceiveTimeout = 0;
                 Connected = true;
                 _closing = false;
                 _reader = new Thread(ReadLoop) { IsBackground = true, Name = "SlopWorld WS" };

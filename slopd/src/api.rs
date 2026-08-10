@@ -894,6 +894,10 @@ struct BrowseReq {
 /// `read_dir` on `.git` or `node_modules` being a reply nobody reads.
 const BROWSE_LIMIT: usize = 500;
 
+fn browse_limit(requested: Option<usize>) -> usize {
+    requested.unwrap_or(BROWSE_LIMIT).clamp(1, BROWSE_LIMIT)
+}
+
 /// What one directory holds, as far as this endpoint is concerned. Split out from the
 /// handler so the rules below can be tested against a real directory without standing a
 /// manager and a router up around them.
@@ -936,19 +940,24 @@ async fn list_dir(
             t.is_dir()
         };
 
-        if is_dir {
-            out.dirs.push(name);
-        } else if want_files {
-            out.files.push(name);
-        } else {
+        if !is_dir && !want_files {
             // Not asked for, so not counted either: a directory holding three folders and
             // ten thousand files is three rows, not a truncated answer.
             continue;
         }
 
-        if out.dirs.len() + out.files.len() >= limit {
+        let count = out.dirs.len() + out.files.len();
+        if count >= limit {
+            // This qualifying entry is the evidence that the answer really was cut short.
+            // Merely reaching the limit is not: a directory may contain exactly that many.
             out.truncated = true;
             break;
+        }
+
+        if is_dir {
+            out.dirs.push(name);
+        } else {
+            out.files.push(name);
         }
     }
 
@@ -967,7 +976,7 @@ async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult 
         std::path::PathBuf::from(crate::config::expand(&q.path))
     };
 
-    let limit = q.limit.unwrap_or(BROWSE_LIMIT).max(1);
+    let limit = browse_limit(q.limit);
     let out = list_dir(&base, q.files, q.hidden, limit)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
@@ -1007,19 +1016,14 @@ async fn git_status(State(_m): State<Mgr>, Query(q): Query<GitReq>) -> ApiResult
         return Ok(Json(json!({ "repo": false, "path": dir })));
     };
 
-    // The shortstat line, added up from the rows rather than asked of git a second time -
-    // `--shortstat` is this sum and nothing else. A binary file counts as a changed file and
-    // contributes no lines, the same way git counts it.
-    let added: u32 = st.changes.iter().filter_map(|c| c.added).sum();
-    let deleted: u32 = st.changes.iter().filter_map(|c| c.deleted).sum();
-
     Ok(Json(json!({
         "repo": true,
         "root": st.root,
         "branch": st.branch,
-        "changed": st.changes.len(),
-        "added": added,
-        "deleted": deleted,
+        "changed": st.changed,
+        "added": st.added,
+        "deleted": st.deleted,
+        "truncated": st.truncated,
         "files": st.changes.iter().map(|c| json!({
             "path": c.path,
             "status": c.status,
@@ -1430,7 +1434,7 @@ async fn send(
 mod tests {
     use std::path::{Path, PathBuf};
 
-    use super::list_dir;
+    use super::{browse_limit, list_dir};
 
     /// Somewhere of our own under the machine's temp dir, cleared on the way in so a run
     /// that died before its cleanup does not poison the next one. No dev-dependency for
@@ -1528,5 +1532,37 @@ mod tests {
         assert!(!whole.truncated);
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn exactly_the_limit_is_not_truncated() {
+        let dir = fixture("exact-cap");
+        for i in 0..5 {
+            touch(&dir, &format!("f{i:02}"));
+        }
+
+        let exact = list_dir(&dir, true, false, 5).await.unwrap();
+        assert_eq!(exact.files.len(), 5);
+        assert!(!exact.truncated);
+
+        let dirs = fixture("exact-dir-cap");
+        for i in 0..5 {
+            subdir(&dirs, &format!("d{i:02}"));
+        }
+        touch(&dirs, "ignored-file");
+        let exact_dirs = list_dir(&dirs, false, false, 5).await.unwrap();
+        assert_eq!(exact_dirs.dirs.len(), 5);
+        assert!(!exact_dirs.truncated);
+
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&dirs);
+    }
+
+    #[test]
+    fn browse_limit_is_bounded() {
+        assert_eq!(browse_limit(None), 500);
+        assert_eq!(browse_limit(Some(0)), 1);
+        assert_eq!(browse_limit(Some(12)), 12);
+        assert_eq!(browse_limit(Some(usize::MAX)), 500);
     }
 }

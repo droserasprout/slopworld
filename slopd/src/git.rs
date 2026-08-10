@@ -35,6 +35,10 @@ pub struct Status {
     /// The branch, or the short hash on a detached head, or empty on a repository with no
     /// commit yet.
     pub branch: String,
+    pub changed: usize,
+    pub added: u32,
+    pub deleted: u32,
+    pub truncated: bool,
     pub changes: Vec<Change>,
 }
 
@@ -54,27 +58,32 @@ pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
     // pointed at a subdirectory of a repository is still that repository, and a path relative
     // to the root is the one form `git diff` will take back without a second guess about cwd.
     let branch = branch(&root).await;
-    let mut counts = numstat(&root).await;
+    let counts = numstat(&root).await;
 
     let porcelain = run(&root, &["status", "--porcelain=v1", "-z"]).await?;
+    let rows = parse_porcelain(&porcelain);
+    let changed = rows.len();
+    let added = counts.values().filter_map(|c| c.0).sum();
+    let deleted = counts.values().filter_map(|c| c.1).sum();
     let mut changes = Vec::new();
-    for (path, status) in parse_porcelain(&porcelain) {
-        let (added, deleted) = counts.remove(&path).unwrap_or((None, None));
+    for (path, status) in rows.into_iter().take(LIMIT) {
+        let (added, deleted) = counts.get(&path).copied().unwrap_or((None, None));
         changes.push(Change {
             path,
             status,
             added,
             deleted,
         });
-        if changes.len() >= LIMIT {
-            break;
-        }
     }
 
     changes.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(Some(Status {
         root,
         branch,
+        changed,
+        added,
+        deleted,
+        truncated: changed > LIMIT,
         changes,
     }))
 }

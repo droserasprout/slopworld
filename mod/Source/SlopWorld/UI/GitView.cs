@@ -56,6 +56,7 @@ namespace SlopWorld
             public bool Loading;
             public string Error;
             public bool Asked;          // whether an answer has ever landed
+            public bool Truncated;      // the summary is whole, but the drawn tree hit the daemon cap
             public int Changed, Added, Deleted;
             public Node Tree;
             public HashSet<string> Shut = new HashSet<string>();  // folded directories, by Rel
@@ -151,6 +152,7 @@ namespace SlopWorld
                     repo.Changed = j["changed"].AsInt();
                     repo.Added = j["added"].AsInt();
                     repo.Deleted = j["deleted"].AsInt();
+                    repo.Truncated = j["truncated"].AsBool(false);
                     repo.Tree = Fold(repo, j["files"]);
                 },
                 msg =>
@@ -447,7 +449,7 @@ namespace SlopWorld
             {
                 if (repo.Deleted > 0) rx = Tail(rx, y, "-" + repo.Deleted, SlopWidgets.Bad);
                 if (repo.Added > 0) rx = Tail(rx, y, "+" + repo.Added, SlopWidgets.Yes);
-                rx = Tail(rx, y, repo.Changed.ToString(), SlopWidgets.Dim);
+                rx = Tail(rx, y, repo.Changed + (repo.Truncated ? "*" : ""), SlopWidgets.Dim);
             }
 
             GUI.color = SlopWidgets.Dim;
@@ -462,7 +464,8 @@ namespace SlopWorld
             TooltipHandler.TipRegion(r, repo.Changed == 0
                 ? $"{repo.Root}\n\nNothing changed."
                 : $"{repo.Root}\n\n{repo.Changed} changed, " +
-                  $"{repo.Added} insertions(+), {repo.Deleted} deletions(-)");
+                  $"{repo.Added} insertions(+), {repo.Deleted} deletions(-)" +
+                  (repo.Truncated ? "\n\nThe tree shows the first 2,000 changes." : ""));
             return y + RowH;
         }
 
