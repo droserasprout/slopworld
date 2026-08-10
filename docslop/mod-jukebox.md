@@ -40,11 +40,11 @@ calls `PreOptionChosen` - which closes the parent - before it invokes the action
   does not restart its fade every time the station moves on. Nothing is drawn when
   there is nothing to say - muted, or a station a second into a pick. The OST's
   name is hardcoded (`Radio.OstTitles`, "Terry Fail - slopbg01" / "Terry Fail - slopbg02"), there being nobody
-  else to say it. **Hovering the status bar's icon** says the same thing behind
-  the name of what it opens - `Jukebox.IconTip`, "Jukebox" and then the song on a
-  second line, the name alone when nothing is playing - the icon being a door onto
-  this box and so owing the same answer. `TopBar` keys that one on an id of its
-  own for the reason the cell is used here.
+  else to say it. **Hovering the status bar's icon** says the same thing, the song
+  alone - `Jukebox.IconTip`, `♪ Artist - Song`, with nothing drawing when nothing
+  is playing, the way the box on the ground answers muted: the icon is the radio
+  it opens and does the naming the other doors up there do with a word. `TopBar`
+  keys that one on an id of its own for the reason the cell is used here.
 - The two ticked rows are `SlopWidgets.MenuToggle`, which hangs a tick or a cross
   off `FloatMenuOption.extraPartOnGUI` with `extraPartRightJustified`. `Disabled`
   would have been the nearest vanilla thing and it reads as broken rather than as

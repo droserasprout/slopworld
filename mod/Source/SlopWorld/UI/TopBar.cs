@@ -28,8 +28,9 @@ namespace SlopWorld
 
         // A `TipSignal` with no id of its own is keyed on its text, and the jukebox's names
         // what is playing - so the bubble would restart its fade every time the station moved
-        // on. Both things carry an id instead, which only has to be theirs alone.
-        const int CoreTipId = 0x51_0C_01;
+        // on. It carries an id, which only has to be its own. The persona core's bubble is
+        // gone (the icon is the core, and the name added nothing), so it registers no tip at
+        // all.
         const int JukeboxTipId = 0x51_0C_02;
 
         public static Rect Rect =>
@@ -129,7 +130,7 @@ namespace SlopWorld
             {
                 x -= gap + IconW;
                 Thing(Slot(r, x, IconW), SlopDefOf.Ship_ComputerCore,
-                    new TipSignal("Persona core", CoreTipId), CoreTip.OpenMenu, live);
+                    default, CoreTip.OpenMenu, live);
                 gap = SlopWidgets.GapS;
             }
 
@@ -164,12 +165,15 @@ namespace SlopWorld
         }
 
         // ThingIcon carries the def's own colour and gives nothing back on a hover, so the
-        // highlight and the press are drawn and taken here.
+        // highlight and the press are drawn and taken here. A tip with no text - the persona
+        // core, which is its own name - gets no bubble at all, and the jukebox's song drops
+        // out rather than leaving an empty one.
         static void Thing(Rect r, ThingDef def, TipSignal tip, System.Action go, bool live)
         {
             if (def == null) return;
 
-            TooltipHandler.TipRegion(r, tip);
+            if (!string.IsNullOrEmpty(tip.text)) TooltipHandler.TipRegion(r, tip);
+
             bool over = ColonistBarStrip.MouseOver(r);
 
             // Both of these read the ambient colour and only one of them puts it back, so the

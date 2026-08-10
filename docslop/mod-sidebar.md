@@ -36,7 +36,9 @@ the postfix, which is what puts the column over a pane as well as on the map.
   directory leaf, or to "temporary" for an ephemeral agent. The age is laid out
   from the right so the times line up down the column. A `bell` takes the end of
   the *name* line, that being about the agent rather than its posture, and is
-  `Icons.Bell`.
+  `Icons.Bell`. A **down** agent wears no age at all - it is stopped, and how long
+  it has stood there is a fact about nobody's clock - so its line two is the state
+  alone.
 - **Ghost rows** are the ephemeral sessions: the viewer's `less`, an editor, a shell
   on the host. No colonist is spawned for one any more (`AgentColony` skips them, and
   retires a pawn bound to one), so the bar knows nothing about them and they are laid

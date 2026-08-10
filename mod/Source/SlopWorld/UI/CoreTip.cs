@@ -79,57 +79,70 @@ namespace SlopWorld
                 Open(Event.current.mousePosition, cell);
             }
 
-            // Sticky hint: draw the tip bubble near the click position.
-            if (_sticky && _stickyTip != null)
+            // Sticky hint: draw the tip bubble near the click position. Drawn from the map
+            // layer only when no terminal is up - a pane fills the screen opaque, so a bubble
+            // asked for over one would land behind it; TerminalWindow draws the same hint
+            // from its own contents, on top (see DrawHint).
+            if (Find.WindowStack?.WindowOfType<TerminalWindow>() == null)
+                DrawHint();
+        }
+
+        // The sticky tip bubble, wherever it is asked for. Drawn from the map layer over the
+        // map and from TerminalWindow over an open pane, so a hint from the persona core's
+        // menu is not buried under the terminal that answered it. Returns when there is
+        // nothing to show or the hint has dismissed itself.
+        public void DrawHint()
+        {
+            if (!_sticky || _stickyTip == null) return;
+
+            // Timed out.
+            if (Time.realtimeSinceStartup - _stickyAtTime >= HintTimeout)
             {
-                // Timed out.
-                if (Time.realtimeSinceStartup - _stickyAtTime >= HintTimeout)
-                {
-                    _sticky = false;
-                    _stickyTip = null;
-                    return;
-                }
-
-                // The core's own cell, not the cell under the mouse: the hint must
-                // survive the cursor leaving it.
-                var still = map.thingGrid.ThingAt(_stickyCell, SlopDefOf.Ship_ComputerCore);
-                if (still == null)
-                {
-                    _sticky = false;
-                    _stickyTip = null;
-                    return;
-                }
-
-                Text.Font = GameFont.Small;
-                Text.WordWrap = true;
-                float w = 320f;
-                float h = Text.CalcHeight(_stickyTip, w - 16f) + 20f;
-                float margin = 8f;
-
-                // Place above the click position; if it hits the top edge, place below.
-                float y = _stickyAt.y - h - 12f;
-                if (y < margin) y = _stickyAt.y + 12f;
-                // Clamp bottom edge too.
-                if (y + h > UI.screenHeight - margin) y = UI.screenHeight - margin - h;
-                if (y < margin) y = margin; // last resort: top margin
-
-                var tipRect = new Rect(_stickyAt.x - w / 2f, y, w, h);
-                if (tipRect.x < margin) tipRect.x = margin;
-                if (tipRect.xMax > UI.screenWidth - margin) tipRect.x = UI.screenWidth - margin - w;
-
-                Widgets.DrawWindowBackground(tipRect);
-                var inner = tipRect.ContractedBy(8f);
-                Widgets.Label(inner, _stickyTip);
-                Text.WordWrap = false;
+                _sticky = false;
+                _stickyTip = null;
+                return;
             }
+
+            // The core's own cell, not the cell under the mouse: the hint must
+            // survive the cursor leaving it.
+            var still = map.thingGrid.ThingAt(_stickyCell, SlopDefOf.Ship_ComputerCore);
+            if (still == null)
+            {
+                _sticky = false;
+                _stickyTip = null;
+                return;
+            }
+
+            Text.Font = GameFont.Small;
+            Text.WordWrap = true;
+            float w = 320f;
+            float h = Text.CalcHeight(_stickyTip, w - 16f) + 20f;
+            float margin = 8f;
+
+            // Place above the click position; if it hits the top edge, place below.
+            float y = _stickyAt.y - h - 12f;
+            if (y < margin) y = _stickyAt.y + 12f;
+            // Clamp bottom edge too.
+            if (y + h > UI.screenHeight - margin) y = UI.screenHeight - margin - h;
+            if (y < margin) y = margin; // last resort: top margin
+
+            var tipRect = new Rect(_stickyAt.x - w / 2f, y, w, h);
+            if (tipRect.x < margin) tipRect.x = margin;
+            if (tipRect.xMax > UI.screenWidth - margin) tipRect.x = UI.screenWidth - margin - w;
+
+            Widgets.DrawWindowBackground(tipRect);
+            var inner = tipRect.ContractedBy(8f);
+            Widgets.Label(inner, _stickyTip);
+            Text.WordWrap = false;
         }
 
         // The same menu from somewhere that is not the core: the status bar's icon. The cell
         // is looked up rather than pointed at - the hint is pinned to the core wherever the
         // press came from - and the bubble still lands under the pointer, which up there is the top
-        // of the screen. Drawn from MapComponentOnGUI, so a hint asked for over an open
-        // terminal is behind it; the core's own click cannot happen there at all, and the row
-        // that can is one press away from the map.
+        // of the screen. Drawn over the map and, when a pane is up, by TerminalWindow itself
+        // (DrawHint), so a hint asked for over an open terminal is on top of it; the core's
+        // own click cannot happen there at all, and the row that can is one press away from
+        // the map.
         public static void OpenMenu()
         {
             var map = Find.CurrentMap;

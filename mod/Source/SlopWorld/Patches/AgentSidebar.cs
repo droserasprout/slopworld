@@ -886,10 +886,12 @@ namespace SlopWorld
                     // Line two is what it is doing and for how long. The elapsed is laid out
                     // from the right so the times line up down the column and the word keeps
                     // whatever is left - the pair reads as one line either way, and "working
-                    // 40m" is a different animal from "working 12s".
+                    // 40m" is a different animal from "working 12s". A down agent wears no
+                    // age: it is stopped, and how long it has stood there is a fact about
+                    // nobody's clock, so the row is just the state.
                     Text.Font = GameFont.Tiny;
                     var word = new Rect(row.Text.x, row.Text.y + NameH, row.Text.width, SubH);
-                    string ago = Ago(info);
+                    string ago = state == AgentState.Down ? "" : Ago(info);
                     if (ago.Length > 0)
                     {
                         Text.Anchor = TextAnchor.UpperRight;

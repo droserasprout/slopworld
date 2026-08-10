@@ -299,6 +299,7 @@ namespace SlopWorld
             {
                 if (input) ChromeKeys(Event.current);
                 _content.Draw(body);
+                DrawHint(); // the pane is opaque; a hint drawn from the map is behind it
                 return;
             }
 
@@ -322,6 +323,7 @@ namespace SlopWorld
             if (buf == null || buf.Lines.Length == 0)
             {
                 DrawCentered(body, hub.Online ? "Waiting for output..." : $"Daemon {hub.Status}");
+                DrawHint();
                 return;
             }
 
@@ -334,6 +336,8 @@ namespace SlopWorld
 
             if (!hub.Online) DrawOfflineBanner(body);
             else _droppedKeys = 0;
+
+            DrawHint(); // over the pane: a hint drawn from the map layer is behind it
         }
 
         // The pane keeps showing its last frame across a daemon restart, which without this
@@ -377,6 +381,12 @@ namespace SlopWorld
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
         }
+
+        // The persona core's hint bubble, drawn here rather than on the map layer so it sits
+        // over this pane: the window fills the screen opaque and a bubble behind it cannot be
+        // seen. Only the current map's core holds a hint; elsewhere there is nothing to draw
+        // and this returns at once.
+        void DrawHint() => Find.CurrentMap?.GetComponent<CoreTip>()?.DrawHint();
 
         // The daemon's own limits, so what we ask for is always something it can answer with.
         const int MinCols = 20, MaxCols = 500, MinRows = 5, MaxRows = 200;

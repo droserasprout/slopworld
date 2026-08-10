@@ -224,10 +224,12 @@ Two groups, `GapM` apart:
   `TerminalWindow.OpenOverPane`, this line being drawn over a terminal as well as
   over the map.
 
-  Both carry a **`TipSignal` with an id of its own** rather than a bare string,
-  because the jukebox's names what is playing (`Jukebox.IconTip`, the icon's
+  Only the jukebox carries a **`TipSignal` with an id of its own** rather than a
+  bare string, because it names what is playing (`Jukebox.IconTip`, the icon's
   answer to the same question the box on the ground answers) and a signal keyed on
-  its text restarts the bubble's fade every time the station moves on.
+  its text restarts the bubble's fade every time the station moves on. The persona
+  core's bubble is gone - the icon is the core and the name added nothing - so it
+  registers no tip at all.
 
 **Nothing here goes through `Widgets.ButtonImage`**, and for the reason
 `ColonistBarStrip.MouseOver` states: every vanilla road to a click passes
@@ -242,9 +244,11 @@ up, and it matters most for the cog - dead here, it would open a window it canno
 close. `Absorb` keeps the plain `interactive`; it is about the map underneath,
 not about this line.
 
-The core's **hint** bubble is still `CoreTip`'s and still drawn from
-`MapComponentOnGUI`, so one asked for over an open pane is behind it; the cell it
-pins to is looked up rather than clicked on.
+The core's **hint** bubble is `CoreTip.DrawHint`'s and is drawn over the map
+from `MapComponentOnGUI`, and over an open pane by `TerminalWindow` itself after
+the window's contents - a pane fills the screen opaque, so one asked for over a
+terminal would be behind it otherwise; the cell it pins to is looked up rather
+than clicked on.
 
 ## Small stuff
 

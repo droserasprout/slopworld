@@ -86,13 +86,14 @@ namespace SlopWorld
         }
 
         // The same question asked of the status bar's icon, which is a door onto this box and
-        // so owes the same answer. The name leads rather than standing alone, the way the
-        // other doors up there name what they open; the song follows when there is one, and
-        // with nothing playing the row is what it always was.
+        // so owes the same answer. The icon is a radio drawn as the radio it opens, so it does
+        // the naming that the other doors up there do with a word - the row is the song alone,
+        // dropping out entirely when nothing is playing, the way the box on the ground says
+        // nothing while muted.
         public static string IconTip()
         {
             string now = Radio.NowPlaying;
-            return string.IsNullOrEmpty(now) ? "Jukebox" : "Jukebox\n" + Note + now;
+            return string.IsNullOrEmpty(now) ? "" : Note + now;
         }
 
         // The cell in screen coordinates. Two opposite corners mapped and squared up, since
