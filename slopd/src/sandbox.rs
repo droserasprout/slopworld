@@ -1,4 +1,5 @@
-use std::path::{Path, PathBuf};
+use std::ffi::OsString;
+use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result};
 
@@ -14,7 +15,8 @@ const PANE_TERM: &str = "tmux-256color";
 
 /// A name this build has no preset for is dropped with a warning rather than refused: the
 /// files outlive the binary, and one bad name is not grounds for an agent that will not
-/// start.
+/// start. A known preset with an unsafe definition is dropped by the same boundary after the
+/// complete dependency closure is validated.
 fn presets_for<'a>(
     cfg: &Config,
     s: &SessionCfg,
@@ -24,15 +26,23 @@ fn presets_for<'a>(
     cfg.sandbox_of(s, p)
         .into_iter()
         .filter_map(|n| {
-            let hit = t.sandbox(&n);
-            if hit.is_none() {
+            let Some(hit) = t.sandbox(&n) else {
                 tracing::warn!(
                     "session {:?} in project {:?} names unknown sandbox preset {n:?}, ignoring",
                     s.name,
                     p.name
                 );
+                return None;
+            };
+            if let Err(e) = validate_preset_name(&n, t) {
+                tracing::warn!(
+                    "session {:?} in project {:?} names invalid sandbox preset {n:?}: {e:#}, ignoring",
+                    s.name,
+                    p.name
+                );
+                return None;
             }
-            hit
+            Some(hit)
         })
         .collect()
 }
@@ -141,11 +151,11 @@ fn private_path(session: &str, host: &str) -> PathBuf {
 /// Both directions are refused: a path *inside* one of these reaches it, and a path *above*
 /// one contains it. `~/.config` is as much a way to the token as the file itself.
 pub fn refused(path: &str) -> Option<String> {
-    let path = Path::new(path);
+    let path = safety_path(Path::new(path));
     if path == Path::new("/") {
         return Some("the whole filesystem".into());
     }
-    if dirs::home_dir().is_some_and(|home| home == path) {
+    if dirs::home_dir().is_some_and(|home| safety_path(&home) == path) {
         return Some("the whole home directory".into());
     }
 
@@ -158,11 +168,185 @@ pub fn refused(path: &str) -> Option<String> {
         ("what the sessions keep to themselves", state_root()),
     ];
     for (what, kept) in keep {
-        if kept.starts_with(path) || path.starts_with(&kept) {
+        let kept = safety_path(&kept);
+        if kept.starts_with(&path) || path.starts_with(&kept) {
             return Some(what.into());
         }
     }
     None
+}
+
+/// Resolve a path as far as the filesystem lets us, retaining any missing suffix. This keeps
+/// safety checks aware of symlinks in existing parents while still allowing portable presets to
+/// name software that is not installed on this machine yet.
+fn safety_path(path: &Path) -> PathBuf {
+    let mut missing: Vec<OsString> = Vec::new();
+    let mut probe = path.to_path_buf();
+
+    while !probe.exists() {
+        let Some(name) = probe.file_name() else {
+            return lexical_path(path);
+        };
+        missing.push(name.to_os_string());
+        if !probe.pop() {
+            return lexical_path(path);
+        }
+    }
+
+    let mut out = std::fs::canonicalize(&probe).unwrap_or_else(|_| lexical_path(&probe));
+    for name in missing.iter().rev() {
+        out.push(name);
+    }
+    lexical_path(&out)
+}
+
+/// Normalize `.` and `..` without following symlinks. `safety_path` follows symlinks first where
+/// possible, then uses this only for the missing suffix or paths whose parents do not exist.
+fn lexical_path(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}
+
+/// Validate one effective sandbox preset before either exposing it to bwrap or saving it from
+/// the API. Keeping this beside argv construction prevents the API, hand-edited files and old
+/// config entries from growing subtly different safety rules.
+pub fn validate_preset(p: &SandboxPreset, table: &Table) -> Result<()> {
+    validate_preset_fields(p, table)?;
+    let mut visiting = vec![p.name.clone()];
+    for required in &p.requires {
+        validate_preset_name_inner(required, table, &mut visiting)?;
+    }
+    Ok(())
+}
+
+/// Validate a named preset and its complete dependency closure. A dependent preset is invalid
+/// when any required preset is invalid, so runtime selection cannot silently apply only half of
+/// a capability bundle.
+pub fn validate_preset_name(name: &str, table: &Table) -> Result<()> {
+    validate_preset_name_inner(name, table, &mut Vec::new())
+}
+
+fn validate_preset_name_inner(name: &str, table: &Table, visiting: &mut Vec<String>) -> Result<()> {
+    if visiting.iter().any(|seen| seen == name) {
+        anyhow::bail!("sandbox preset dependency cycle at {name:?}");
+    }
+    let p = table
+        .sandbox(name)
+        .ok_or_else(|| anyhow::anyhow!("unknown sandbox preset: {name}"))?;
+    validate_preset_fields(p, table)?;
+    visiting.push(name.to_string());
+    for required in &p.requires {
+        validate_preset_name_inner(required, table, visiting)?;
+    }
+    visiting.pop();
+    Ok(())
+}
+
+fn validate_preset_fields(p: &SandboxPreset, table: &Table) -> Result<()> {
+    validate_preset_paths(p)?;
+    for required in &p.requires {
+        if required == &p.name {
+            anyhow::bail!("sandbox preset {:?} requires itself", p.name);
+        }
+        if table.sandbox(required).is_none() {
+            anyhow::bail!(
+                "sandbox preset {:?} requires unknown preset {:?}",
+                p.name,
+                required
+            );
+        }
+    }
+    Ok(())
+}
+
+fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
+    if p.name.trim().is_empty() {
+        anyhow::bail!("sandbox preset name is empty");
+    }
+    if p.requires.iter().any(|name| name.trim().is_empty()) {
+        anyhow::bail!("sandbox preset {:?} has an empty dependency", p.name);
+    }
+
+    for (kind, paths) in [
+        ("read-only", p.ro.as_slice()),
+        ("read-write", p.rw.as_slice()),
+        ("device", p.dev.as_slice()),
+        ("private", p.private.as_slice()),
+        ("seed", p.seed.as_slice()),
+        ("skip", p.skip.as_slice()),
+        ("shared", p.shared.as_slice()),
+    ] {
+        for raw in paths {
+            let expanded = expand(raw);
+            if expanded.is_empty() {
+                continue;
+            }
+            if let Some(what) = refused(&expanded) {
+                anyhow::bail!(
+                    "sandbox preset {:?} {kind} path {raw:?} reaches {what}",
+                    p.name
+                );
+            }
+        }
+    }
+
+    let private: Vec<PathBuf> = p
+        .private
+        .iter()
+        .filter_map(|raw| {
+            let expanded = expand(raw);
+            (!expanded.is_empty()).then(|| safety_path(Path::new(&expanded)))
+        })
+        .collect();
+
+    for (kind, paths) in [("seed", p.seed.as_slice()), ("skip", p.skip.as_slice())] {
+        for raw in paths {
+            let expanded = expand(raw);
+            if expanded.is_empty() {
+                continue;
+            }
+            let path = safety_path(Path::new(&expanded));
+            if !private.iter().any(|root| path.starts_with(root)) {
+                anyhow::bail!(
+                    "sandbox preset {:?} {kind} path {raw:?} is outside its private paths",
+                    p.name
+                );
+            }
+        }
+    }
+
+    for raw in &p.shared {
+        let expanded = expand(raw);
+        if expanded.is_empty() {
+            anyhow::bail!(
+                "sandbox preset {:?} shared path {raw:?} contains an unset variable",
+                p.name
+            );
+        }
+        if Path::new(&expanded).exists() && !Path::new(&expanded).is_file() {
+            anyhow::bail!(
+                "sandbox preset {:?} shared path {raw:?} is not a regular file",
+                p.name
+            );
+        }
+        let path = safety_path(Path::new(&expanded));
+        if !private.iter().any(|root| path.starts_with(root)) {
+            anyhow::bail!(
+                "sandbox preset {:?} shared path {raw:?} must be inside a private path",
+                p.name
+            );
+        }
+    }
+    Ok(())
 }
 
 /// `(copy, host)` for every path this session's presets keep to themselves: what is bound
@@ -919,13 +1103,8 @@ mod tests {
         let t = Table {
             sandbox: vec![SandboxPreset {
                 name: "t".into(),
-                shared: vec![
-                    file.clone(),
-                    root.join("dir").to_string_lossy().into_owned(),
-                    root.join("gone").to_string_lossy().into_owned(),
-                    // And the guard: what no bind list may hand a sandbox, whoever asks.
-                    Config::path_in_use().to_string_lossy().into_owned(),
-                ],
+                private: vec![root.to_string_lossy().into_owned()],
+                shared: vec![file.clone()],
                 ..Default::default()
             }],
             commands: Vec::new(),
@@ -945,10 +1124,125 @@ mod tests {
         assert_eq!(
             shared_binds(&Config::default(), &s, &p, &t),
             vec![file],
-            "a directory, a missing path or the token got through"
+            "the valid shared file did not get through"
         );
 
+        let invalid = SandboxPreset {
+            name: "invalid".into(),
+            private: vec![root.to_string_lossy().into_owned()],
+            shared: vec![root.join("dir").to_string_lossy().into_owned()],
+            ..Default::default()
+        };
+        let error = validate_preset(&invalid, &Table::default())
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("not a regular file"), "{error}");
+
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn preset_validation_covers_private_seed_skip_and_shared_paths() {
+        let root = std::env::temp_dir().join(format!("slopd-validation-{}", std::process::id()));
+        let private = root.join(".tool");
+        let mut p = SandboxPreset {
+            name: "tool".into(),
+            private: vec![private.to_string_lossy().into_owned()],
+            shared: vec![root
+                .join(".toolbox/credentials")
+                .to_string_lossy()
+                .into_owned()],
+            ..Default::default()
+        };
+        let table = Table {
+            sandbox: vec![p.clone()],
+            commands: Vec::new(),
+        };
+
+        let error = validate_preset(&p, &table).unwrap_err().to_string();
+        assert!(error.contains("must be inside a private path"), "{error}");
+
+        p.shared.clear();
+        p.seed = vec![root.join("outside").to_string_lossy().into_owned()];
+        let error = validate_preset(&p, &table).unwrap_err().to_string();
+        assert!(error.contains("seed path"), "{error}");
+
+        p.seed.clear();
+        p.skip = vec![root.join("outside").to_string_lossy().into_owned()];
+        let error = validate_preset(&p, &table).unwrap_err().to_string();
+        assert!(error.contains("skip path"), "{error}");
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn preset_validation_rejects_protected_private_paths_and_dependency_cycles() {
+        let protected = Config::path_in_use().to_string_lossy().into_owned();
+        let p = SandboxPreset {
+            name: "tool".into(),
+            private: vec![protected],
+            ..Default::default()
+        };
+        let table = Table {
+            sandbox: vec![p.clone()],
+            commands: Vec::new(),
+        };
+        let error = validate_preset(&p, &table).unwrap_err().to_string();
+        assert!(error.contains("reaches"), "{error}");
+
+        let table = Table {
+            sandbox: vec![
+                SandboxPreset {
+                    name: "a".into(),
+                    requires: vec!["b".into()],
+                    ..Default::default()
+                },
+                SandboxPreset {
+                    name: "b".into(),
+                    requires: vec!["a".into()],
+                    ..Default::default()
+                },
+            ],
+            commands: Vec::new(),
+        };
+        let error = validate_preset_name("a", &table).unwrap_err().to_string();
+        assert!(error.contains("dependency cycle"), "{error}");
+    }
+
+    #[test]
+    fn refused_normalizes_parent_components_before_checking_protected_paths() {
+        let config = Config::path_in_use();
+        let parent = config.parent().expect("config parent");
+        let alias = parent
+            .join("..")
+            .join(parent.file_name().expect("config directory"))
+            .join(config.file_name().expect("config file"));
+        assert!(refused(&alias.to_string_lossy()).is_some());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refused_follows_existing_symlink_parents_before_checking_protected_paths() {
+        use std::os::unix::fs::symlink;
+
+        let root = std::env::temp_dir().join(format!("slopd-symlink-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let home = dirs::home_dir().expect("home directory");
+        let link = root.join("home");
+        symlink(home, &link).unwrap();
+        let alias = link;
+        assert!(refused(&alias.to_string_lossy()).is_some());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn shipped_presets_pass_the_central_validator() {
+        let table = Table::builtins();
+        for preset in &table.sandbox {
+            validate_preset_name(&preset.name, &table)
+                .unwrap_or_else(|e| panic!("{} is invalid: {e:#}", preset.name));
+        }
     }
 
     /// Seeding, which is what decides whether an agent can log in at all: the files at the
