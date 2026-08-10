@@ -139,7 +139,7 @@ const BUILTIN: &[(&str, &str)] = &[
     ("gpg-agent", include_str!("../presets/gpg-agent.toml")),
 ];
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Table {
     pub sandbox: Vec<SandboxPreset>,
     pub commands: Vec<CommandPreset>,

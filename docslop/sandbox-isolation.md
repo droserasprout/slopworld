@@ -9,9 +9,12 @@ granted and never the machine.
 
 `refused()` is checked by `paths()` (so the global `[sandbox]`, every preset
 file and every project pass through it), by `check_project` where a directory
-is typed, and by `start` for an entry older than the check. Refused in **both
-directions**: a path inside one of these reaches it, a path above one contains
-it, and `~/.config` is as much a road to the token as `config.toml` is.
+is typed, and by `start` for an entry older than the check. Presets additionally
+pass through the centralized validator before the daemon saves or uses them:
+private, seed, skip and shared paths must stay within the declared private tree,
+and the complete dependency closure must be valid. Refused in **both directions**:
+a path inside one of these reaches it, a path above one contains it, and
+`~/.config` is as much a road to the token as `config.toml` is.
 
 - `/` and `$HOME` itself.
 - `Config::path_in_use()` - `SLOPD_CONFIG` included, which is why that lookup

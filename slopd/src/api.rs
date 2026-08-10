@@ -591,40 +591,12 @@ async fn update_preset(
         let mut p: crate::presets::SandboxPreset =
             serde_json::from_slice(&body).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
         p.name = name;
-        let table = crate::presets::table();
-        for required in &p.requires {
-            if required == &p.name || table.sandbox(required).is_some() {
-                continue;
-            }
-            return Err(err(
-                StatusCode::BAD_REQUEST,
-                format!("unknown required sandbox preset: {required}"),
-            ));
-        }
-        for path in
-            p.ro.iter()
-                .chain(p.rw.iter())
-                .chain(p.dev.iter())
-                .chain(p.private.iter())
-                .chain(p.seed.iter())
-                .chain(p.skip.iter())
-                .chain(p.shared.iter())
-        {
-            if let Some(why) = crate::sandbox::refused(&crate::config::expand(path)) {
-                return Err(err(
-                    StatusCode::BAD_REQUEST,
-                    format!("preset path {path:?} reaches {why}"),
-                ));
-            }
-        }
-        for path in &p.shared {
-            if !p.private.iter().any(|root| path.starts_with(root)) {
-                return Err(err(
-                    StatusCode::BAD_REQUEST,
-                    format!("shared path {path:?} must be inside a private path"),
-                ));
-            }
-        }
+        let current = crate::presets::table();
+        let mut candidate = (*current).clone();
+        candidate.sandbox.retain(|existing| existing.name != p.name);
+        candidate.sandbox.push(p.clone());
+        crate::sandbox::validate_preset(&p, &candidate)
+            .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
         crate::presets::save_sandbox(p).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     } else {
         let mut c: crate::presets::CommandPreset =
@@ -635,12 +607,12 @@ async fn update_preset(
         }
         let table = crate::presets::table();
         for dep in &c.sandbox {
-            if table.sandbox(dep).is_none() {
-                return Err(err(
+            crate::sandbox::validate_preset_name(dep, &table).map_err(|e| {
+                err(
                     StatusCode::BAD_REQUEST,
-                    format!("unknown sandbox dependency: {dep}"),
-                ));
-            }
+                    format!("invalid sandbox dependency {dep:?}: {e}"),
+                )
+            })?;
         }
         crate::presets::save_command(c).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     }
