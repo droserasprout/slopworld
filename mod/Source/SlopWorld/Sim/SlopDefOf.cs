@@ -45,6 +45,12 @@ namespace SlopWorld
         /// F5: focus the shortcuts view in the sidebar.
         public static KeyBindingDef SlopSidebarShortcuts;
 
+        /// Comma: walk to the previous session in the sidebar order.
+        public static KeyBindingDef SlopPrevSession;
+
+        /// Period: walk to the next session in the sidebar order.
+        public static KeyBindingDef SlopNextSession;
+
         /// The colony's one and only pet.
         public static PawnKindDef Cat;
 

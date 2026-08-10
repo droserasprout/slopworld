@@ -62,6 +62,9 @@ namespace SlopWorld
 
         public static TerminalWindow Open(string name)
         {
+            // The current session follows the pane.
+            SessionSelectable.Current = name;
+
             // Re-opening the same session should focus it, not stack a second copy. Asking
             // for a pane always puts the pane back, though, even the one already behind the
             // content: a portrait clicked while the options menu is up is a request to see
@@ -949,6 +952,16 @@ namespace SlopWorld
             {
                 SwitchToSlot(slot);
                 e.Use();
+                return;
+            }
+
+            // Alt+comma/Alt+period: walk the session list while a content view is up.
+            // With a content view, bare comma/dot would be eaten by the view; the alt
+            // prefix is what keeps them for the chrome.
+            if (e.alt && (e.keyCode == KeyCode.Comma || e.keyCode == KeyCode.Period))
+            {
+                WalkSession(e.keyCode == KeyCode.Period ? 1 : -1);
+                e.Use();
             }
         }
 
@@ -987,6 +1000,15 @@ namespace SlopWorld
             if (slot >= 0 && e.alt)
             {
                 SwitchToSlot(slot);
+                e.Use();
+                return;
+            }
+
+            // Alt+comma/Alt+period: walk the session list while a pane is open. Bare
+            // comma/dot belong to the agent; the alt prefix is the chrome's own walk.
+            if (e.alt && (e.keyCode == KeyCode.Comma || e.keyCode == KeyCode.Period))
+            {
+                WalkSession(e.keyCode == KeyCode.Period ? 1 : -1);
                 e.Use();
                 return;
             }
@@ -1082,6 +1104,50 @@ namespace SlopWorld
 
             if (info.Gone) { SetContent(null); SessionHub.Instance.Start(name); }
             else SwitchTo(name);
+        }
+
+        // Walk the session list by dir (-1 or 1). Used from Alt+comma/Alt+period in both
+        // ChromeKeys (content view up) and HandleKey (pane open). Sets the current session
+        // and switches the pane, or if the target has no process starts it.
+        static void WalkSession(int dir)
+        {
+            var order = AgentSidebar.WalkOrder();
+            if (order.Count == 0)
+            {
+                // Fallback: the hub's alive sessions.
+                var fallback = new List<string>();
+                foreach (var s in SessionHub.Instance.Sessions)
+                    if (s.Alive) fallback.Add(s.Name);
+                if (fallback.Count == 0) return;
+                order = fallback;
+            }
+
+            string current = SessionSelectable.Current;
+            int idx = -1;
+            if (current != null)
+                idx = order.IndexOf(current);
+
+            int next = idx < 0
+                ? (dir > 0 ? 0 : order.Count - 1)
+                : (idx + dir + order.Count) % order.Count;
+
+            string target = order[next];
+            if (target == null) return;
+
+            SessionSelectable.Current = target;
+            Find.Selector?.ClearSelection();
+            AgentSidebar.FocusTerminal();
+
+            var info = SessionHub.Instance.Get(target);
+            if (info == null) return;
+
+            // The same agent while a pane is open is already on screen. A different agent
+            // switches the pane.
+            var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            if (w != null && target == w._name) return;
+
+            if (info.Gone) { SessionHub.Instance.Start(target); }
+            else Open(target);
         }
 
 

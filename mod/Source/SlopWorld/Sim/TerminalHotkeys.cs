@@ -78,8 +78,12 @@ namespace SlopWorld
             var order = AgentColony.InBarOrder();
             if (slot >= order.Count) return;
 
-            var pawn = AgentColony.Current?.PawnOf(order[slot]);
+            var session = order[slot];
+            var pawn = AgentColony.Current?.PawnOf(session);
             if (pawn == null) return;
+
+            // The current session follows the number.
+            SessionSelectable.Current = session;
 
             // Clear first: the selection brackets' jump-out is an animation off
             // SelectionDrawer's select time, so a pawn already selected would never replay
@@ -100,6 +104,7 @@ namespace SlopWorld
             var session = SelectedLive() ?? LastLive() ?? AnyLive();
             if (session != null)
             {
+                SessionSelectable.Current = session;
                 TerminalWindow.Open(session);
                 // F12 opened the terminal: drop the file viewer and show the agents
                 // view in the sidebar, so the portrait the terminal is looking at is

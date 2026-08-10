@@ -300,6 +300,19 @@ namespace SlopWorld
             return order;
         }
 
+        /// <summary>
+        /// The visual order for the comma/dot walk: every visible row, ghosts included
+        /// and folds respected, because a walk follows the eye.
+        /// Rows is empty in the files and git views, so the caller falls back to the hub.
+        /// </summary>
+        public static List<string> WalkOrder()
+        {
+            var order = new List<string>();
+            foreach (var row in Rows)
+                if (row.Session != null) order.Add(row.Session);
+            return order;
+        }
+
         // True for the length of the two draw passes, which is when the pawn label is
         // declined.
         public static bool Drawing { get; private set; }
@@ -608,15 +621,12 @@ namespace SlopWorld
             }
             else
             {
-                string open = TerminalWindow.CurrentName;
-                var selected = Find.Selector?.SingleSelectedThing as Pawn;
+                string currentSession = SessionSelectable.Current;
 
                 foreach (var row in Rows)
                 {
-                    // The agent whose pane is up, or with none the one the map is looking at.
-                    bool current = open != null
-                        ? row.Session == open
-                        : row.Pawn != null && row.Pawn == selected;
+                    // The current session is highlighted, whatever its kind.
+                    bool current = row.Session != null && row.Session == currentSession;
 
                     if (current) Widgets.DrawBoxSolid(row.Line, SlopWidgets.RowOn);
                     else if (ColonistBarStrip.MouseOver(row.Line)) Widgets.DrawHighlight(row.Line);
@@ -1007,12 +1017,18 @@ namespace SlopWorld
             if (row.Session == null || !ColonistBarStrip.Interactive) return;
             if (!Widgets.ButtonInvisible(row.Text, false)) return;
 
+            // The session is what is selected, not the pawn. A row click always sets
+            // the current session. On the map a row with a pawn also jumps the camera.
+            SessionSelectable.Current = row.Session;
+
             if (!ColonistBarStrip.Drawing)
             {
+                // A ghost has no Thing for Selector to hold. Clear an old pawn selection or
+                // MapUIOnGUI would synchronize the session back to that pawn on the next draw.
+                Find.Selector.ClearSelection();
                 if (row.Pawn == null) return;
                 // Cleared first: the brackets' jump-out is an animation off the select time,
                 // so a pawn already selected would never replay it.
-                Find.Selector.ClearSelection();
                 CameraJumper.TryJumpAndSelect(row.Pawn);
                 return;
             }

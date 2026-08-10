@@ -11,10 +11,10 @@ namespace SlopWorld
     // keys with nothing behind them, offered on the Shortcuts page as though they were
     // choices.
     //
-    // Kept: the camera, the two that walk the colonist bar, and Accept/Cancel, which are
-    // barely key bindings at all - Window.InnerWindowOnGUI and
-    // WindowStack.HandleEventsHighPriority read Cancel by name, so Escape closing a window
-    // *is* this def and nothing else. Everything else vanilla ships is dropped.
+    // Kept: the camera and Accept/Cancel, which are barely key bindings at all -
+    // Window.InnerWindowOnGUI and WindowStack.HandleEventsHighPriority read Cancel by name,
+    // so Escape closing a window *is* this def and nothing else. Everything else vanilla
+    // ships is dropped.
     //
     // The defs stay in the database, for the reason StripOptions leaves its category there:
     // `AllDefs` is the database's own list, KeyPrefs keys its table on the def, and a def
@@ -26,7 +26,6 @@ namespace SlopWorld
         {
             "MapDolly_Up", "MapDolly_Down", "MapDolly_Left", "MapDolly_Right",
             "MapZoom_In", "MapZoom_Out",
-            "PreviousColonist", "NextColonist",
             "Accept", "Cancel",
         };
 
