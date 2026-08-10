@@ -3,6 +3,7 @@
 Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 
 - [house-rules](house-rules.md) - where commits land, and what a note here is for.
+- [prose-guide](prose-guide.md) - what belongs in comments and devnotes.
 - [overview](overview.md) - what this is, the two halves, the wire.
 - [build-commands](build-commands.md) - Makefile targets, formatting, debug one-liners.
 - [paths](paths.md) - where config, profile, logs and the tmux socket live.
