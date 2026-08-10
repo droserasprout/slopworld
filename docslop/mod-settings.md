@@ -30,9 +30,9 @@ page reading rather than configuring. One `key=defName` per line, written on the
 click by `UsageReadout.Choose` (`Settings.S.Write()`). A line for a key nothing
 reports is a line nothing reads.
 
-The jukebox's three - `radio`, `radioMute`, `radioStopOnExit` - have no widget
-either: the box on the map is the widget, and `Radio.Save` writes all three on the
-click. See [mod-jukebox](mod-jukebox.md).
+The jukebox's station, `radio`, has no options widget: the box on the map is its picker.
+`radioMute` and `radioStopOnExit` are also drawn on the Audio options page; both roads go
+through `Radio.Save` and write on the click. See [mod-jukebox](mod-jukebox.md).
 
 `sidebar` is the one that is not about the daemon or a pane's legibility: both
 layouts are this mod's and which one works is a question about the screen being

@@ -66,6 +66,10 @@ opens are still windows, and go up through `TerminalWindow.OpenOverPane`.
   first cell of the grid**, not a button beside the icon: it is something you
   pick, the same way silver is, and null all the way through - picking it is what
   clears the line.
+- **`AudioPage`** - the game's five volume preferences, moved out of RimWorld's Audio
+  category and drawn with `SlopWidgets.Slider`, followed by the jukebox's Mute and Stop
+  on exit switches. The sliders remain `Prefs`; the switches remain `SlopSettings` via
+  `Radio`, so each keeps its existing persistence and live side effects.
 - **`ShortcutsView`** - Run leaves the list on the *answer*, opening a terminal
   on whatever the daemon started; an `ask` errand's Run opens a float menu of every
   project plus a temporary one. A temporary agent draws without Edit or Del,

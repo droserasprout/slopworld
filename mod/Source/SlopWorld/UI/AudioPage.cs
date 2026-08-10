@@ -1,0 +1,50 @@
+using UnityEngine;
+using Verse;
+
+namespace SlopWorld
+{
+    // RimWorld's mixer, brought into the SlopWorld group and drawn in the same chrome as
+    // the other pages. These remain Prefs rather than mod settings: the game's sound
+    // engine observes the setters, and Dialog_Options persists them on close.
+    public class AudioPage
+    {
+        public void Draw(Rect rect)
+        {
+            Text.Font = GameFont.Small;
+            SlopWidgets.PageCaption(rect,
+                "Sound levels for RimWorld and the colony's jukebox.");
+
+            var body = SlopWidgets.PageBody(rect);
+            body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
+            Widgets.DrawMenuSection(body);
+            var inner = body.ContractedBy(SlopWidgets.GapM);
+
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(inner);
+
+            SlopWidgets.SectionHeading(l, "Volume");
+            Prefs.VolumeMaster = SlopWidgets.Slider(l, "MasterVolume".Translate(),
+                Prefs.VolumeMaster, "MasterVolumeTooltip".Translate());
+            Prefs.VolumeGame = SlopWidgets.Slider(l, "GameVolume".Translate(),
+                Prefs.VolumeGame, "GameVolumeTooltip".Translate());
+            Prefs.VolumeMusic = SlopWidgets.Slider(l, "MusicVolume".Translate(),
+                Prefs.VolumeMusic, "MusicVolumeTooltip".Translate());
+            Prefs.VolumeAmbient = SlopWidgets.Slider(l, "AmbientVolume".Translate(),
+                Prefs.VolumeAmbient, "AmbientVolumeTooltip".Translate());
+            Prefs.VolumeUI = SlopWidgets.Slider(l, "UIVolume".Translate(),
+                Prefs.VolumeUI, "UIVolumeTooltip".Translate());
+
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "Jukebox");
+            bool mute = SlopWidgets.Checkbox(l, "Mute", Radio.Muted,
+                "Stop playback without downloading unheard audio.");
+            if (mute != Radio.Muted) Radio.ToggleMute();
+
+            bool stop = SlopWidgets.Checkbox(l, "Stop on exit", Radio.StopOnExit,
+                "Stop the daemon's playback when RimWorld exits normally.");
+            if (stop != Radio.StopOnExit) Radio.ToggleStopOnExit();
+
+            l.End();
+        }
+    }
+}

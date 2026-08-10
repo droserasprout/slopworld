@@ -760,6 +760,13 @@ namespace SlopWorld
             });
             _commands.Add(new Entry
             {
+                Id = "view.audio",
+                Name = "View: Audio",
+                Category = "View",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.AudioCategory),
+            });
+            _commands.Add(new Entry
+            {
                 Id = "view.usage",
                 Name = "View: Usage",
                 Category = "View",

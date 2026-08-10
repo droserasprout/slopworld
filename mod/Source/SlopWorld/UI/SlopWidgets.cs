@@ -243,6 +243,67 @@ namespace SlopWorld
         public static bool Checkbox(Listing_Standard l, string label, bool on, string tip = null) =>
             Checkbox(l.GetRect(RowH), label, on, tip);
 
+        // A slider in the same flat chrome as the fields and checkboxes. The label is part
+        // of the control rather than a separate Listing_Standard row, so a page of several
+        // levels reads as one compact mixer. Mouse capture belongs to IMGUI's hot control:
+        // dragging may leave the track without losing the knob.
+        public static float Slider(Listing_Standard l, string label, float value,
+                                   string tip = null)
+        {
+            var r = l.GetRect(RowH + GapS);
+            if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
+
+            const float valueW = 46f;
+            const float knobW = 12f;
+            float labelW = Mathf.Min(Mathf.Max(Wide(label) + GapM, 120f), r.width * 0.42f);
+            var labelRect = new Rect(r.x, r.y, labelW, RowH);
+            var valueRect = new Rect(r.xMax - valueW, r.y, valueW, RowH);
+            var track = new Rect(labelRect.xMax + GapS, r.y + (RowH - 8f) / 2f,
+                Mathf.Max(1f, valueRect.x - GapS - labelRect.xMax - GapS), 8f);
+
+            GUI.color = Name;
+            RowLabel(labelRect, label);
+            var oldAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleRight;
+            Widgets.Label(valueRect, Mathf.RoundToInt(Mathf.Clamp01(value) * 100f) + "%");
+            Text.Anchor = oldAnchor;
+            GUI.color = Color.white;
+
+            int id = GUIUtility.GetControlID(FocusType.Passive, track);
+            var e = Event.current;
+            var hit = new Rect(track.x - knobW / 2f, r.y, track.width + knobW, RowH);
+            if (e.type == EventType.MouseDown && e.button == 0 && hit.Contains(e.mousePosition))
+            {
+                GUIUtility.hotControl = id;
+                e.Use();
+            }
+            if (GUIUtility.hotControl == id)
+            {
+                if (e.type == EventType.MouseDrag || e.type == EventType.MouseDown)
+                {
+                    value = Mathf.Clamp01(Mathf.InverseLerp(track.x, track.xMax,
+                        e.mousePosition.x));
+                    e.Use();
+                }
+                else if (e.type == EventType.MouseUp && e.button == 0)
+                {
+                    value = Mathf.Clamp01(Mathf.InverseLerp(track.x, track.xMax,
+                        e.mousePosition.x));
+                    GUIUtility.hotControl = 0;
+                    e.Use();
+                }
+            }
+
+            Slab.Box(track, Well, BtnEdge);
+            var fill = new Rect(track.x, track.y, track.width * Mathf.Clamp01(value), track.height);
+            if (fill.width > 0f) Slab.Fill(fill, PrimeFace);
+            float knobX = Mathf.Lerp(track.x, track.xMax, Mathf.Clamp01(value));
+            Slab.Raised(new Rect(knobX - knobW / 2f, track.y - 3f, knobW, track.height + 6f),
+                Mouse.IsOver(hit) || GUIUtility.hotControl == id ? Lighten(BtnFace, 0.1f) : BtnFace,
+                BtnEdge, GUIUtility.hotControl == id);
+            return value;
+        }
+
         public static void SectionHeading(Listing_Standard l, string text) =>
             SectionHeading(l.GetRect(RowH), text);
 

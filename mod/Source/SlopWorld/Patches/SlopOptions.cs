@@ -47,6 +47,7 @@ namespace SlopWorld
         // others: Core's mod pack so it is drawn, and the gear icon is drawn by hand below.
         public static OptionCategoryDef TerminalCategory { get; private set; }
         public static OptionCategoryDef AppearanceCategory { get; private set; }
+        public static OptionCategoryDef AudioCategory { get; private set; }
         public static OptionCategoryDef KeyboardCategory { get; private set; }
 
         // Rebuilt per open, so a config edited elsewhere - or a daemon that was down last
@@ -54,6 +55,7 @@ namespace SlopWorld
         static ConfigPage _page;
         static TerminalPage _terminalPage;
         static AppearancePage _appearancePage;
+        static AudioPage _audioPage;
         static UsagePage _usagePage;
         static SandboxPage _sandboxPage;
         static AboutPage _aboutPage;
@@ -80,6 +82,7 @@ namespace SlopWorld
             Category = Section("SlopWorld_Config", "General", general);
             TerminalCategory = Section("SlopWorld_Terminal", "Terminal", general);
             AppearanceCategory = Section("SlopWorld_Appearance", "Appearance", general);
+            AudioCategory = Section("SlopWorld_Audio", "Audio", general);
             UsageCategory = Section("SlopWorld_Usage", "Usage", general);
             SandboxCategory = Section("SlopWorld_Sandbox", "Sandbox", general);
             KeyboardCategory = Section("SlopWorld_Keyboard", "Keyboard", general);
@@ -90,6 +93,7 @@ namespace SlopWorld
             DefDatabase<OptionCategoryDef>.Add(Category);
             DefDatabase<OptionCategoryDef>.Add(TerminalCategory);
             DefDatabase<OptionCategoryDef>.Add(AppearanceCategory);
+            DefDatabase<OptionCategoryDef>.Add(AudioCategory);
             DefDatabase<OptionCategoryDef>.Add(UsageCategory);
             DefDatabase<OptionCategoryDef>.Add(SandboxCategory);
             DefDatabase<OptionCategoryDef>.Add(KeyboardCategory);
@@ -104,6 +108,7 @@ namespace SlopWorld
             all.Remove(Category);
             all.Remove(TerminalCategory);
             all.Remove(AppearanceCategory);
+            all.Remove(AudioCategory);
             all.Remove(UsageCategory);
             all.Remove(SandboxCategory);
             all.Remove(AboutCategory);
@@ -113,11 +118,16 @@ namespace SlopWorld
             all.Insert(1, Category);
             all.Insert(2, TerminalCategory);
             all.Insert(3, AppearanceCategory);
-            all.Insert(4, UsageCategory);
-            all.Insert(5, SandboxCategory);
-            all.Insert(6, KeyboardCategory);
-            all.Insert(7, AboutCategory);
-            all.Insert(8, RimWorldLabel);
+            all.Insert(4, AudioCategory);
+            all.Insert(5, UsageCategory);
+            all.Insert(6, SandboxCategory);
+            all.Insert(7, KeyboardCategory);
+            all.Insert(8, AboutCategory);
+            all.Insert(9, RimWorldLabel);
+
+            // Its five controls live on our Audio page now. Keep the def in the database,
+            // as with Gameplay, but omit its duplicate row from the ordinary options list.
+            if (OptionCategoryDefOf.Audio != null) OptionCategoryDefOf.Audio.isDev = true;
         }
 
         // One of the column's defs, all the same official-pack shape so fruit is drawn.
@@ -177,22 +187,16 @@ namespace SlopWorld
             if (v != null) v.Category = TerminalCategory;
         }
 
-        // The game's own Audio page, which is where the jukebox's loudness actually comes
-        // from - Radio multiplies the music slider by the master one. Vanilla's category
-        // rather than a page of ours: there is one volume in this game and it is already
-        // drawn. Opens the view when it is not up, the jukebox being clicked on the map with
-        // nothing else on screen; swaps the tab when it is, the way the General page's
-        // "Appearance..." does.
+        // The jukebox menu's Settings row opens our mixer directly.
         public static void OpenAudioTab()
         {
-            var audio = OptionCategoryDefOf.Audio;
             var v = TerminalWindow.ShowingAs<OptionsView>();
             if (v == null)
             {
-                TerminalWindow.OpenContent(new OptionsView(audio));
+                TerminalWindow.OpenContent(new OptionsView(AudioCategory));
                 return;
             }
-            if (audio != null) v.Category = audio;
+            if (AudioCategory != null) v.Category = AudioCategory;
         }
 
         // A save is a write of the *whole* file - every page here PUTs the sections it knows
@@ -212,7 +216,8 @@ namespace SlopWorld
         // the dialog the *main menu* still opens as a window of its own.
         public static void Teardown()
         {
-            _page = null; _terminalPage = null; _appearancePage = null; _usagePage = null;
+            _page = null; _terminalPage = null; _appearancePage = null; _audioPage = null;
+            _usagePage = null;
             _sandboxPage = null; _aboutPage = null; _keyBindingsPage = null;
             SlopWorldMod.Instance.settings.Write();
         }
@@ -349,6 +354,45 @@ namespace SlopWorld
 
                 if (_appearancePage == null) _appearancePage = new AppearancePage();
                 _appearancePage.Draw(inRect);
+                return false;
+            }
+        }
+
+        // ---------------------------------------------------------------- audio
+
+        [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
+        public static class Patch_OptionsRow_Audio
+        {
+            static bool Prefix(Dialog_Options __instance, Rect r, OptionCategoryDef optionCategory)
+            {
+                if (optionCategory != AudioCategory) return true;
+
+                Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
+                if (Widgets.ButtonInvisible(r))
+                {
+                    __instance.selectedCategory = optionCategory;
+                    __instance.selectedMod = null;
+                    SoundDefOf.Click.PlayOneShotOnCamera();
+                }
+
+                float x = r.x + 10f;
+                GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
+                    Icons.Bell);
+                x += 30f;
+                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
+                return false;
+            }
+        }
+
+        [HarmonyPatch(typeof(Dialog_Options), "DoOptions")]
+        public static class Patch_OptionsPage_Audio
+        {
+            static bool Prefix(OptionCategoryDef category, Rect inRect)
+            {
+                if (category != AudioCategory) return true;
+
+                if (_audioPage == null) _audioPage = new AudioPage();
+                _audioPage.Draw(inRect);
                 return false;
             }
         }
