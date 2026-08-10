@@ -13,8 +13,8 @@ selection. Unknown or removed keys fall back to the OST. Volume multiplies RimWo
 existing audio sliders.
 
 The Like action appends the normalized `artist - title` text, one line per action, to
-`~/.local/share/jukebox.toml` (or `$XDG_DATA_HOME/jukebox.toml`). It is machine music data,
-not mod settings.
+`~/.local/share/slopworld/jukebox.toml` (or `$XDG_DATA_HOME/slopworld/jukebox.toml`). It is
+machine music data, not mod settings.
 
 ## Daemon audio
 

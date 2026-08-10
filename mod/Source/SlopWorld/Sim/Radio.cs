@@ -206,7 +206,7 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(root))
                 root = Path.Combine(Environment.GetFolderPath(
                     Environment.SpecialFolder.UserProfile), ".local", "share");
-            return Path.Combine(root, "jukebox.toml");
+            return Path.Combine(root, "slopworld", "jukebox.toml");
         }
 
         // Classic Vinyl reports "Song by Artist - Classic Vinyl on walmradio.com", while
