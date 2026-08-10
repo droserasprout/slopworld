@@ -45,13 +45,17 @@ What it does, one owner each:
   between them what a state plate would. `UsageReadout` keeps asking
   `Cutscene.Playing` alone: the top bar is chrome, and in eco it is most of what is
   left.
-- **The sweep**: the reconcile is `GameComponentTick` and the clock is stopped, so
-  `AgentColony.GameComponentUpdate` runs the *retiring* half of it off wall time
-  (`SweepSecs`, 1s) while eco rests. Half only: retiring takes a pawn off the map,
-  where spawning puts one in a drop pod and then waits on ticks that are not coming.
+- **The reconcile**: it is `GameComponentTick` and the clock is stopped, so
+  `AgentColony.GameComponentUpdate` runs `Reconcile` off wall time (`SweepSecs`, 1s)
+  while eco rests - the *whole* of it, one body from either caller. Nothing in it
+  needs a tick once the arrival stops using a pod: `Spawn` sets the colonist down on
+  the cell the pod would have opened over, cargo and all, because a pod has to tick
+  its open delay down and one dropped on a stopped clock hangs in the air. That was
+  what a duplicated agent looked like - a row in the column and no colonist under it
+  until eco was turned off.
 
-What it costs: an agent that **arrives** during an eco spell has a row in the column
-and no colonist until the clock starts again (one that leaves is swept, above), and
-`AutoSaver` takes no autosave - a board that has not moved having nothing to write
+What it costs: an agent that arrives during an eco spell gets no pod and no arrival
+fx - it is simply standing there the next time the picture is looked at - and
+`AutoSaver` takes no autosave, a board that has not moved having nothing to write
 down. The daemon, the socket and the agents are untouched; they were never the
 game's.

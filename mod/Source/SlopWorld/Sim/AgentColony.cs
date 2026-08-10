@@ -135,11 +135,13 @@ namespace SlopWorld
         static float _swept;
 
         // The reconcile is the clock's, and in eco the clock is held at paused - so a session
-        // removed while the machine rests leaves its colonist standing on the board and
-        // holding a row in the column until somebody turns eco off. Retiring is the half of
-        // the reconcile a stopped clock can still do: it takes a pawn off the map, where the
-        // other half puts one in a drop pod and then waits on ticks that are not coming. So an
-        // arrival still waits for the clock - see Eco - and a departure no longer does.
+        // that arrives or leaves while the machine rests would wait on ticks that are not
+        // coming, with a row in the column and no colonist under it (or the other way about)
+        // until somebody turns eco off. So the *whole* reconcile runs off wall time while eco
+        // rests, at the tick reconcile's own second. Nothing in it needs a tick: retiring
+        // takes a pawn off the map, the hediffs are added rather than waited on, and the one
+        // part that did wait - the drop pod, which has to tick its open delay down - is why
+        // `Spawn` sets a colonist on the ground instead while the board is stopped.
         public override void GameComponentUpdate()
         {
             if (!Eco.Resting || Cutscene.AgentsHeld) return;
@@ -148,7 +150,7 @@ namespace SlopWorld
             if (now - _swept < SweepSecs) return;
             _swept = now;
 
-            Sweep(SessionHub.Instance.Sessions);
+            Reconcile();
         }
 
         // Colonists whose session is gone, and colonists gone some other way. False means the
@@ -200,6 +202,14 @@ namespace SlopWorld
 
             if (Cutscene.AgentsHeld) return;
 
+            Reconcile();
+        }
+
+        // The colony against the daemon's list of sessions, from the clock or - while eco
+        // rests - from wall time. One body, because "which colonists are there" is the same
+        // question whichever of the two asked it.
+        void Reconcile()
+        {
             var map = Find.CurrentMap ?? Find.AnyPlayerHomeMap;
             if (map == null) return;
 
@@ -416,7 +426,27 @@ namespace SlopWorld
                 _jukeboxSent = true;
             }
 
-            DropPodUtility.DropThingsNear(SpawnSpot.Find(map, Anchor(map)), map,
+            var cell = SpawnSpot.Find(map, Anchor(map));
+
+            // A pod is a thing that has to *tick* its open delay down, and in eco the clock is
+            // held at paused: podded in while the board rests, a colonist hangs in the air
+            // until somebody starts the game again, which from the column reads as a
+            // duplicated agent that never arrives. So while eco rests it is set down where the
+            // pod would have opened, cargo and all - the ride is the pod's, not the box's -
+            // and there is no arrival fx because nothing is drawing the map but the agents
+            // themselves (see Eco).
+            if (Eco.Resting)
+            {
+                GenSpawn.Spawn(pawn, cell, map);
+                foreach (var thing in cargo)
+                    if (thing != pawn)
+                        GenPlace.TryPlaceThing(thing, cell, map, ThingPlaceMode.Near);
+
+                Log.Message($"[SlopWorld] colonist '{name}' set down; the clock is stopped");
+                return pawn;
+            }
+
+            DropPodUtility.DropThingsNear(cell, map,
                 cargo, openDelay: PodOpenDelay,
                 canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: true,
                 forbid: false, allowFogged: true, faction: Faction.OfPlayer);
