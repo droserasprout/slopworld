@@ -7,13 +7,15 @@ using Verse;
 namespace SlopWorld
 {
     // The key bindings that used to sit behind the "Modify" button on the Controls tab,
-    // drawn as a page of the options menu instead. Every key binding def, grouped by
-    // category, each one a row that says what it does and what key it is on now - and
-    // clicking the key area opens the listener for a new press.
+    // drawn as a page of the options menu instead. Every binding this game still answers
+    // to, grouped by category, each one a row that says what it does and what key it is on
+    // now - and clicking the key area opens the listener for a new press.
     //
-    // The vanilla Controls tab still has its "Modify" button (see OptionCategoryDefOf.Controls);
-    // this page is an additional tab that shows the same content directly, styled with
-    // SlopWidgets throughout.
+    // Every binding, not every def: what is listed here is StripKeys.Kept, the camera and
+    // the colonist bar and Escape and ours. The Controls tab's own "Modify" button is one
+    // of StripOptions' dropped rows now, so vanilla's Dialog_KeyBindings - which would list
+    // all of them, kept or not - has no door left to open by, and this is the one place a
+    // key is set.
     //
     // A page rather than a Window because SlopOptions hangs it off an OptionCategoryDef.
     public class KeyBindingsPage
@@ -55,7 +57,7 @@ namespace SlopWorld
                 .ToList();
 
             var bindingsMap = DefDatabase<KeyBindingDef>.AllDefs
-                .Where(b => b.category != null)
+                .Where(b => b.category != null && StripKeys.Kept(b))
                 .GroupBy(b => b.category)
                 .ToDictionary(g => g.Key, g => g.OrderBy(b => b.defName).ToList());
 
@@ -236,12 +238,16 @@ namespace SlopWorld
         // The first other binding already holding this key, or null. A warning rather than
         // a refusal: vanilla lets two things share a key and so does this, but silently
         // shadowing a key the player set an hour ago is not something to do without a word.
+        //
+        // Over the kept ones only. A dropped binding still holds whatever key it was
+        // shipped with, and naming one - "P is also on Misc 12" - would report a clash with
+        // something the player cannot see, cannot change, and that does not fire.
         static KeyBindingDef Conflict(KeyCode code, KeyBindingDef except)
         {
             var data = KeyPrefs.KeyPrefsData;
             foreach (var b in DefDatabase<KeyBindingDef>.AllDefs)
             {
-                if (b == except) continue;
+                if (b == except || !StripKeys.Kept(b)) continue;
                 if (data.GetBoundKeyCode(b, KeyPrefs.BindingSlot.A) == code
                     || data.GetBoundKeyCode(b, KeyPrefs.BindingSlot.B) == code)
                     return b;

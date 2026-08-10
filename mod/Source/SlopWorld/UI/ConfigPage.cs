@@ -134,11 +134,6 @@ namespace SlopWorld
             Note(l, "No fun allowed! Disable gore, vomit, and offensive/harmful tips. " +
                     "Put it back when she leaves.");
 
-            l.Gap(SlopWidgets.GapS);
-            var dev = Prefs.DevMode;
-            if (SlopWidgets.Checkbox(l, "RimWorld devmode", dev) != dev)
-                Prefs.DevMode = !dev;
-
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
 

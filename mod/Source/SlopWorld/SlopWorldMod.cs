@@ -200,6 +200,7 @@ namespace SlopWorld
                 h.PatchAll(Assembly.GetExecutingAssembly());
                 Patch_HideGui.Apply(h);
                 Patch_MainButtons.Apply(h);
+                StripKeys.Apply(h);
                 Patch_InspectTabs.Apply(h);
                 Patch_NoRelateAgents.Apply(h);
             }

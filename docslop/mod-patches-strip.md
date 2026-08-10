@@ -7,11 +7,37 @@
   `Patch_MainButtons` prefixes `MainButtonWorker.InterfaceTryActivate` and gates
   it on the same `Visible` the bar reads. A button missing from `Keep` never
   appears.
-- **`StripOptions`** - General and Gameplay are removed from
-  `AllDefsListForReading` so they take no slot in the column. Not `isDev`:
-  dev mode is now a checkbox on our General page, and a category with `isDev=true`
-  shows up as soon as the player ticks it. The defs stay in the database for
-  callers who walk `DefDatabase<OptionCategoryDef>` and simply never draw.
+- **`StripKeys`** - the keyboard, cut to the camera, the two that walk the
+  colonist bar, `Accept`/`Cancel` and ours; the other fifty-odd vanilla bindings
+  drive systems this mod does not run. Dropped means two things. **Unlisted**:
+  `KeyBindingsPage` draws `StripKeys.Kept`, and its conflict warning reads the
+  same set, a clash named against a row nobody can see being noise. **Unbound**:
+  a prefix on the four `KeyBindingDef` read paths (`KeyDownEvent`, `IsDownEvent`,
+  `JustPressed`, `IsDown`) answers false. The defs themselves stay in the
+  database for `StripOptions`' reason - `AllDefs` *is* the list, and `KeyPrefs`
+  keys its table on the def.
+  The read is what is answered, rather than each system patched where it sits,
+  because two of them are out of reach of hiding anything: `ScreenshotTaker`
+  reads its key off `Root.Update` through `JustPressed`, so **no `Event.Use()`
+  stops F10** on its way to a TUI; and `KeyBindingDefGenerator` gives every
+  `MainButtonDef` with a `defaultHotKey` an implied binding - **Tab and F1
+  through F9**, our palette and the sidebar's views - which
+  `MainButtonsRoot.MainButtonsOnGUI` **Uses before** `InterfaceTryActivate`,
+  where `Patch_MainButtons` turns it away. Hidden button, swallowed key.
+  The Controls tab's **"Modify"** button is dropped as a row, vanilla's
+  `Dialog_KeyBindings` listing the whole database regardless.
+- **Dev mode went with them** - the nine developer bindings are not kept, our
+  checkbox on `ConfigPage` is gone, and vanilla's own row stays dropped. No door
+  to it inside this game; the unmodded one is where something gets tried.
+- **`StripOptions`** - Gameplay goes by `isDev = true`, the switch `Dialog_Options`
+  already reads: it skips a dev category and advances its row counter only for the
+  ones it draws, so the column has no hole. Not by removing the def from
+  `AllDefsListForReading` - that list *is* the database's own, so a def out of it
+  is gone from every `AllDefs` walk while `GetNamed` still answers. General stays
+  and loses **rows** instead, matched by their finished labels (the two autosave
+  ones, run-in-background, development mode), as does Controls (the key bindings
+  "Modify" button). With dev mode unreachable from inside, `isDev` is now a
+  one-way door.
 
 ## `SlopOptions` - our categories in vanilla's options window
 

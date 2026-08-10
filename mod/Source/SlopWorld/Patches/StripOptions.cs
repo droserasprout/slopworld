@@ -21,10 +21,17 @@ namespace SlopWorld
             () => "AutosaveInterval".Translate(),
             () => "AutosavesCount".Translate(Prefs.AutosavesCount),
             () => "RunInBackground".Translate(),
-            // Ours carries it now, on the General page - see ConfigPage. Vanilla's row is
-            // dropped rather than the whole category, so everything else General holds
-            // (language, resolution, volumes) is still somewhere the player can reach.
+            // Dev mode is not a thing this game offers. Every developer key binding is
+            // gone with the rest of the keyboard (see StripKeys), the dev palette and the
+            // debug menus are vanilla's own tools for a sim that is not ticking, and the
+            // honest way to try something is the unmodded game. The row is dropped rather
+            // than the whole category, so everything else General holds (language,
+            // resolution, volumes) is still somewhere the player can reach.
             () => "DevelopmentMode".Translate(),
+            // The "Modify" button on Controls, which opens vanilla's Dialog_KeyBindings on
+            // the full list of defs - the dropped ones included. The Shortcuts page is the
+            // one door now; the rest of Controls is the camera's, so the category stays.
+            () => "KeyboardConfig".Translate(),
         };
 
         // Gated on who is drawing rather than on a flag armed around DoOptions: these widgets
