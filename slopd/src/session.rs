@@ -13,7 +13,7 @@ use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinHandle;
 
 use crate::config::{
-    expand, Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink,
+    expand, Config, NetworkMode, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink,
 };
 use crate::emu::{parse_output, Frame, MouseInput, SessionEmu};
 use crate::sandbox::build_argv;
@@ -55,7 +55,10 @@ pub struct SessionView {
     pub alive: bool,
     pub cols: u16,
     pub rows: u16,
-    pub net: bool,
+    /// The effective project ceiling or agent reduction.
+    pub network: NetworkMode,
+    /// Null means the agent inherits the project setting.
+    pub network_override: Option<NetworkMode>,
     pub autostart: bool,
     // Ephemeral sessions have no editable config entry and die with their process.
     pub ephemeral: bool,
@@ -524,9 +527,10 @@ fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
     if s.project.trim().is_empty() {
         bail!("session {} must belong to a project", s.name);
     }
-    if cfg.project(&s.project).is_none() {
+    let Some(project) = cfg.project(&s.project) else {
         bail!("no such project: {}", s.project);
-    }
+    };
+    cfg.network_of(s, project)?;
     check_presets(&s.sandbox)?;
     check_breadcrumbs(cfg, &s.breadcrumbs)?;
     Ok(())
@@ -969,6 +973,7 @@ impl Manager {
                 )
             }
         })?;
+        cfg.network_of(&s, &p)?;
 
         if self.tmux.exists(name).await {
             bail!("session {name} is already running");
@@ -998,7 +1003,7 @@ impl Manager {
             crate::sandbox::host_argv(&cfg, &s, &p)
         } else {
             crate::sandbox::prepare_private(&cfg, &s, &p)?;
-            build_argv(&cfg, &s, &p)
+            build_argv(&cfg, &s, &p)?
         };
         tracing::info!("starting {name}: {}", argv.join(" "));
         self.tmux.spawn(name, &dir, cols, rows, &argv).await?;
@@ -1107,6 +1112,14 @@ impl Manager {
             .ok_or_else(|| anyhow!("no such project: {name}"))?;
         if p.name != name && cfg.project(&p.name).is_some() {
             bail!("project {} already exists", p.name);
+        }
+        for s in cfg.sessions.iter().filter(|s| s.project == name) {
+            cfg.network_of(s, &p).with_context(|| {
+                format!(
+                    "project {} cannot lower its network ceiling below agent {}",
+                    p.name, s.name
+                )
+            })?;
         }
 
         let renamed = p.name.clone();
@@ -1518,6 +1531,10 @@ impl Manager {
             if let Some(h) = l.reader.take() {
                 h.abort();
             }
+            // The input consumer captures the tmux target when it is spawned. Drop its
+            // sender so the next key creates a consumer addressed to the new name; keeping
+            // it would silently route every later key to the vanished old session.
+            l.input = None;
             let running = l.emu.take().is_some();
             l.cfg.name = new.to_string();
             live.insert(new.to_string(), l);
@@ -1617,7 +1634,10 @@ impl Manager {
                     alive: l.state != State::Down,
                     cols: l.cols,
                     rows: l.rows,
-                    net: p.map(|p| p.net).unwrap_or(true),
+                    network: p
+                        .map(|p| cfg.network_of(&l.cfg, p).unwrap_or(p.network))
+                        .unwrap_or_default(),
+                    network_override: l.cfg.network,
                     autostart: l.cfg.autostart,
                     ephemeral: l.ephemeral,
                     last_change: l.last_change,
@@ -2275,6 +2295,12 @@ fn validate_config(cfg: &Config) -> Result<()> {
         if table.command(name).is_none() {
             bail!("unknown command preset: {name}");
         }
+    }
+    for s in &cfg.sessions {
+        let Some(p) = cfg.project(&s.project) else {
+            continue;
+        };
+        cfg.network_of(s, p)?;
     }
     Ok(())
 }

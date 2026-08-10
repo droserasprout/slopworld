@@ -3,7 +3,7 @@ use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result};
 
-use crate::config::{expand, Config, ProjectCfg, SessionCfg};
+use crate::config::{expand, Config, NetworkMode, ProjectCfg, SessionCfg};
 use crate::presets::{SandboxPreset, Table};
 
 /// Forwarded whatever the config says, plus anything named `LC_*`. What belongs here says
@@ -12,6 +12,13 @@ use crate::presets::{SandboxPreset, Table};
 const BASE_ENV: &[&str] = &["PATH", "LANG", "USER", "LOGNAME", "SHELL"];
 
 const PANE_TERM: &str = "tmux-256color";
+
+// Private networking gets an address space that cannot collide with the host's real LAN.
+// pasta forwards DNS from this synthetic gateway to the host resolver, while the resolv.conf
+// bind below keeps the guest from seeing a host-loopback stub address.
+const PRIVATE_ADDRESS: &str = "192.0.2.2/24";
+const PRIVATE_GATEWAY: &str = "192.0.2.1";
+const PRIVATE_RESOLVER: &str = "192.0.2.1";
 
 /// A name this build has no preset for is dropped with a warning rather than refused: the
 /// files outlive the binary, and one bad name is not grounds for an agent that will not
@@ -416,6 +423,10 @@ fn shared_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec<
 /// what the host has since changed. The tree is an ordinary directory: deleting a session's
 /// is how it is handed a fresh one.
 pub fn prepare_private(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<()> {
+    if cfg.network_of(s, p)? == NetworkMode::Private {
+        prepare_private_resolver(&s.name)?;
+    }
+
     let t = crate::presets::table();
     for pr in presets_for(cfg, s, p, &t) {
         for path in &pr.private {
@@ -432,6 +443,86 @@ pub fn prepare_private(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
         }
     }
     Ok(())
+}
+
+fn private_resolver_path(session: &str) -> PathBuf {
+    state_root().join(session).join("network/resolv.conf")
+}
+
+fn prepare_private_resolver(session: &str) -> Result<()> {
+    let path = private_resolver_path(session);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).with_context(|| format!("making {}", parent.display()))?;
+    }
+    std::fs::write(&path, format!("nameserver {PRIVATE_RESOLVER}\n"))
+        .with_context(|| format!("writing {}", path.display()))?;
+    Ok(())
+}
+
+fn host_nameservers() -> Vec<String> {
+    let mut out = std::fs::read_to_string("/etc/resolv.conf")
+        .ok()
+        .into_iter()
+        .flat_map(|text| {
+            text.lines()
+                .filter_map(|line| {
+                    let mut fields = line.split_whitespace();
+                    if fields.next()? != "nameserver" {
+                        return None;
+                    }
+                    fields.next()
+                })
+                .filter(|server| !server.is_empty())
+                .filter(|server| server.parse::<std::net::Ipv4Addr>().is_ok())
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    if out.is_empty() {
+        out.push("127.0.0.53".into());
+    }
+    out.truncate(2);
+    out
+}
+
+/// `/etc/resolv.conf` is commonly a symlink into `/run`, which is not mounted in the sandbox.
+/// Bind the replacement onto the real target so the symlink still resolves inside bwrap.
+fn resolver_target() -> Option<String> {
+    std::fs::canonicalize("/etc/resolv.conf")
+        .ok()
+        .map(|p| p.to_string_lossy().into_owned())
+        .filter(|target| target != "/etc/resolv.conf")
+}
+
+fn pasta_prefix() -> Vec<String> {
+    let mut out = vec![
+        "pasta".into(),
+        "--foreground".into(),
+        "--quiet".into(),
+        "--config-net".into(),
+        "--no-map-gw".into(),
+        "--ipv4-only".into(),
+        "--tcp-ports".into(),
+        "none".into(),
+        "--udp-ports".into(),
+        "none".into(),
+        "--tcp-ns".into(),
+        "none".into(),
+        "--udp-ns".into(),
+        "none".into(),
+        "--address".into(),
+        PRIVATE_ADDRESS.into(),
+        "--gateway".into(),
+        PRIVATE_GATEWAY.into(),
+        "--dns-forward".into(),
+        PRIVATE_RESOLVER.into(),
+    ];
+    for server in host_nameservers() {
+        out.push("--dns-host".into());
+        out.push(server);
+    }
+    out.push("--".into());
+    out
 }
 
 /// One private path, made and seeded. Returns having done nothing if the copy is already
@@ -543,7 +634,8 @@ fn seed(from: &Path, to: &Path, skip: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
+pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String>> {
+    let network = cfg.network_of(s, p)?;
     let agent_argv: Vec<String> = shell_split(&cfg.command_of(s));
     let dir = expand(&p.dir);
 
@@ -567,7 +659,7 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     // worse than its absence, a program reading it as "this host has one" and failing at the
     // far end of a connect().
     push(&["--die-with-parent", "--unshare-all", "--clearenv"]);
-    if p.net {
+    if network != NetworkMode::None {
         push(&["--share-net"]);
     }
 
@@ -576,20 +668,23 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     // resolved's stub listener (127.0.0.53, over the shared loopback): it does the split-DNS
     // routing - a Tailscale uplink, say - that a resolver querying the raw server list gets
     // wrong, where an upstream answers NOTIMP and the agent sees ENOTIMP.
-    let resolv = if p.net {
-        std::fs::canonicalize("/etc/resolv.conf")
-            .ok()
-            .map(|p| p.to_string_lossy().into_owned())
-            .filter(|target| target != "/etc/resolv.conf")
-            .map(|target| {
-                let stub = "/run/systemd/resolve/stub-resolv.conf";
-                let src = if std::path::Path::new(stub).exists() {
-                    stub.to_string()
-                } else {
-                    target.clone()
-                };
-                (src, target)
-            })
+    let resolv = if network == NetworkMode::Host {
+        resolver_target().map(|target| {
+            let stub = "/run/systemd/resolve/stub-resolv.conf";
+            let src = if std::path::Path::new(stub).exists() {
+                stub.to_string()
+            } else {
+                target.clone()
+            };
+            (src, target)
+        })
+    } else if network == NetworkMode::Private {
+        Some((
+            private_resolver_path(&s.name)
+                .to_string_lossy()
+                .into_owned(),
+            resolver_target().unwrap_or_else(|| "/etc/resolv.conf".into()),
+        ))
     } else {
         None
     };
@@ -609,10 +704,12 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     for path in &ro {
         push(&["--ro-bind", path, path]);
     }
-    // After the ro list: the target can sit under a path a preset binds (the stub is in
-    // /run/systemd/resolve and `systemd` binds /run/systemd), and this file has to be on top.
-    if let Some((src, target)) = &resolv {
-        push(&["--ro-bind", src.as_str(), target.as_str()]);
+    // Host mode keeps the old resolver ordering: it sits above the ordinary ro binds, while
+    // a preset that explicitly binds a larger tree still gets the final say.
+    if network == NetworkMode::Host {
+        if let Some((src, target)) = &resolv {
+            push(&["--ro-bind", src.as_str(), target.as_str()]);
+        }
     }
 
     for path in &rw {
@@ -638,6 +735,15 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     }
 
     push(&["--bind", &dir, &dir]);
+    // Private mode's resolver must be the last bind at this target. A user preset or project
+    // directory may bind /etc or a file below it, but neither should restore a host-loopback
+    // resolver.
+    if network == NetworkMode::Private {
+        if let Some((src, target)) = &resolv {
+            push(&["--ro-bind", src.as_str(), target.as_str()]);
+        }
+    }
+
     push(&["--setenv", "HOME", &home]);
     push(&["--setenv", "SLOPWORLD_SESSION", &s.name]);
     push(&["--setenv", "SLOPWORLD_PROJECT", &p.name]);
@@ -683,7 +789,14 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
 
     a.push("--".into());
     a.extend(agent_argv);
-    a
+
+    if network == NetworkMode::Private {
+        let mut pasta = pasta_prefix();
+        pasta.extend(a);
+        Ok(pasta)
+    } else {
+        Ok(a)
+    }
 }
 
 /// Expanded, dropped if they are not on this host, and deduplicated.
@@ -760,13 +873,80 @@ mod tests {
             sandbox: vec!["x11".into()],
             ..Default::default()
         };
-        build_argv(&cfg, &s, &p)
+        build_argv(&cfg, &s, &p).expect("sandbox argv")
     }
 
     fn at(a: &[String], needle: &str) -> usize {
         a.iter()
             .position(|x| x == needle)
             .unwrap_or_else(|| panic!("no {needle} in {a:?}"))
+    }
+
+    #[test]
+    fn network_mode_selects_the_expected_namespace() {
+        let cfg = Config::default();
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "p".into(),
+            ..Default::default()
+        };
+
+        let mut p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        };
+        p.network = NetworkMode::None;
+        let none = build_argv(&cfg, &s, &p).expect("no-network argv");
+        assert_eq!(none[0], "bwrap");
+        assert!(!none.contains(&"--share-net".into()));
+
+        p.network = NetworkMode::Host;
+        let host = build_argv(&cfg, &s, &p).expect("host-network argv");
+        assert_eq!(host[0], "bwrap");
+        assert!(host.contains(&"--share-net".into()));
+
+        p.network = NetworkMode::Private;
+        let private = build_argv(&cfg, &s, &p).expect("private-network argv");
+        assert_eq!(private[0], "pasta");
+        assert!(private.contains(&"--ipv4-only".into()));
+        assert!(private.contains(&"--tcp-ports".into()));
+        assert!(private.contains(&"none".into()));
+        assert!(private.contains(&"--share-net".into()));
+        assert!(private.contains(&PRIVATE_ADDRESS.into()));
+    }
+
+    #[test]
+    fn private_resolver_binds_to_the_canonical_target() {
+        let Some(target) = resolver_target() else {
+            return;
+        };
+        let cfg = Config::default();
+        let s = SessionCfg {
+            name: "resolver-test".into(),
+            project: "p".into(),
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        };
+        let a = build_argv(&cfg, &s, &p).expect("private sandbox argv");
+        let source = private_resolver_path(&s.name)
+            .to_string_lossy()
+            .into_owned();
+
+        assert!(
+            a.windows(3)
+                .any(|w| w[0] == "--ro-bind" && w[1] == source && w[2] == target),
+            "private resolver was not bound to {target}: {a:?}"
+        );
+        assert!(
+            !a.windows(3)
+                .any(|w| { w[0] == "--ro-bind" && w[1] == source && w[2] == "/etc/resolv.conf" }),
+            "private resolver still targets the symlink: {a:?}"
+        );
     }
 
     /// The environment is built, not inherited.
@@ -1027,7 +1207,7 @@ mod tests {
             dir: "/tmp".into(),
             ..Default::default()
         };
-        let a = build_argv(&cfg, &s, &p);
+        let a = build_argv(&cfg, &s, &p).expect("sandbox argv");
 
         let copy = private_path("a", &claude).to_string_lossy().into_owned();
         assert!(a.contains(&copy), "no private bind in {a:?}");
@@ -1061,7 +1241,7 @@ mod tests {
             dir: "/tmp".into(),
             ..Default::default()
         };
-        let a = build_argv(&cfg, &s, &p);
+        let a = build_argv(&cfg, &s, &p).expect("sandbox argv");
 
         let copy = private_path("a", &claude).to_string_lossy().into_owned();
         let private_at = at(&a, &copy);

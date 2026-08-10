@@ -31,6 +31,12 @@ per-list routes. See [wire-protocol](wire-protocol.md), [mod-client](mod-client.
 4. Two formats and two lifetimes, which is **not** a fault: the TOML outlives a
    profile rebuild, and the pane's half stays editable with the socket down.
 
+Project and agent network policy is one of the schemas owned by the daemon:
+`project.network` is the ceiling, and `session.network` is an optional
+reduction. The session list repeats both the effective `network` and the raw
+`network_override` for the mod's read-only preview; saving an agent sends only
+the optional override.
+
 `GET /api/config` never carries the token as written: a set one reads as
 `TOKEN_REDACTED` (`<redacted>`) in both the raw `text` and the parsed `values`
 (`Config::redacted`, `redact_token_text`), an empty one stays empty so "no auth"

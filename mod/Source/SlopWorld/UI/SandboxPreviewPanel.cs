@@ -13,7 +13,7 @@ namespace SlopWorld
     {
         public string Title = "";
         public string Subtitle = "";
-        public bool Network;
+        public string Network = "";
         public List<string> Presets = new List<string>();
         public List<string> Notes = new List<string>();
         public List<SandboxPreviewField> Fields = new List<SandboxPreviewField>();
@@ -64,12 +64,17 @@ namespace SlopWorld
             // bwrap emits read-only binds before read-write binds, so a duplicate is writable
             // in the final namespace and belongs only in the latter column here.
             ro.RemoveAll(path => rw.Contains(path));
+            NetworkMode effectiveNetwork = agent != null && agent.NetworkOverride.HasValue &&
+                                           (project == null || NetworkModeText.Allowed(
+                                               agent.NetworkOverride.Value, project.Network))
+                ? agent.NetworkOverride.Value
+                : project?.Network ?? agent?.Network ?? NetworkMode.Private;
 
             var data = new SandboxPreviewData
             {
                 Title = $"{kind}: {name}",
                 Subtitle = string.IsNullOrEmpty(dir) ? "" : $"Directory: {dir}",
-                Network = project?.Net ?? agent?.Net ?? true,
+                Network = NetworkModeText.Label(effectiveNetwork),
                 Presets = names.Select(n => hub.Presets.Any(p => p.Name == n)
                         ? n : n + " (missing)").ToList(),
             };
@@ -80,12 +85,14 @@ namespace SlopWorld
                 data.Notes.Add($"Command preset: {command.Name}");
             else if (agent != null && !string.IsNullOrWhiteSpace(agent.Cmd))
                 data.Notes.Add("Command: this agent's own command line");
+            if (agent?.NetworkOverride is NetworkMode overrideMode)
+                data.Notes.Add("Agent override: " + NetworkModeText.ShortLabel(overrideMode));
             data.Notes.Add("Read-only paths that also appear as read-write are shown as " +
                            "read-write. Missing or protected paths are dropped by slopd.");
 
             data.Fields.Add(new SandboxPreviewField("Included sandbox presets", data.Presets));
             data.Fields.Add(new SandboxPreviewField("Network",
-                new List<string> { data.Network ? "allowed" : "blocked" }));
+                new List<string> { data.Network }));
             data.Fields.Add(new SandboxPreviewField("Read-only binds", ro));
             data.Fields.Add(new SandboxPreviewField("Read-write binds", rw));
             data.Fields.Add(new SandboxPreviewField("Device binds",

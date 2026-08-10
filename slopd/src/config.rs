@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 /// One TOML file, which the mod reads and writes back verbatim, so hand-edits and
@@ -198,9 +198,34 @@ pub fn temp_dir(name: &str) -> String {
     format!("{TEMP_ROOT}/{name}")
 }
 
+/// The network a sandbox may use. `host` is deliberately the widest mode: a project
+/// chooses the ceiling, and an agent can only lower it with its optional override.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NetworkMode {
+    None,
+    #[default]
+    Private,
+    Host,
+}
+
+impl NetworkMode {
+    pub fn no_wider_than(self, ceiling: Self) -> bool {
+        self.rank() <= ceiling.rank()
+    }
+
+    fn rank(self) -> u8 {
+        match self {
+            Self::None => 0,
+            Self::Private => 1,
+            Self::Host => 2,
+        }
+    }
+}
+
 /// Three agents in the same repo want the same binds, and keeping that in three
 /// session entries meant it was wrong in at least one of them.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProjectCfg {
     pub name: String,
     /// Defaulted rather than required, because a temporary project has none to give.
@@ -219,21 +244,9 @@ pub struct ProjectCfg {
     /// Named breadcrumbs added to every agent in this project.
     #[serde(default)]
     pub breadcrumbs: Vec<String>,
-    #[serde(default = "yes")]
-    pub net: bool,
-}
-
-impl Default for ProjectCfg {
-    fn default() -> Self {
-        Self {
-            name: String::new(),
-            dir: String::new(),
-            temp: false,
-            sandbox: Vec::new(),
-            breadcrumbs: Vec::new(),
-            net: true,
-        }
-    }
+    /// The maximum network reach of every sandboxed agent in this project.
+    #[serde(default)]
+    pub network: NetworkMode,
 }
 
 /// An agent is a command preset plus this file's answer to it - the command, sandbox presets
@@ -257,6 +270,9 @@ pub struct SessionCfg {
     /// Named breadcrumbs added to this agent's first prompt.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub breadcrumbs: Vec<String>,
+    /// An optional reduction from the project's network ceiling. Missing means inherit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub network: Option<NetworkMode>,
     #[serde(default)]
     pub autostart: bool,
 }
@@ -505,6 +521,20 @@ impl Config {
         self.project(&s.project)
     }
 
+    pub fn network_of(&self, s: &SessionCfg, p: &ProjectCfg) -> Result<NetworkMode> {
+        let mode = s.network.unwrap_or(p.network);
+        if !mode.no_wider_than(p.network) {
+            bail!(
+                "agent {} network mode {:?} exceeds project {} ceiling {:?}",
+                s.name,
+                mode,
+                p.name,
+                p.network
+            );
+        }
+        Ok(mode)
+    }
+
     /// The command preset a session runs under, by name. Empty when it states a command
     /// line of its own: an agent that named no preset is not handed one, which is what
     /// keeps `~/.claude` off a session running something else.
@@ -666,8 +696,8 @@ pub fn expand(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        expand, redact_token_text, temp_dir, Config, ProjectCfg, SessionCfg, ShortcutCfg,
-        ShortcutKind, ShortcutLink, TOKEN_REDACTED,
+        expand, redact_token_text, temp_dir, Config, NetworkMode, ProjectCfg, SessionCfg,
+        ShortcutCfg, ShortcutKind, ShortcutLink, TOKEN_REDACTED,
     };
 
     /// What a client sees never carries the secret, and a token that is not set still reads as
@@ -873,6 +903,51 @@ token = \"not-a-daemon-token\"
         assert!(!plain.project("repo").unwrap().temp);
     }
 
+    #[test]
+    fn agent_network_can_only_reduce_the_project_ceiling() {
+        let cfg = Config::parse(
+            r#"
+            [[project]]
+            name = "repo"
+            dir = "/home/you/git/repo"
+            network = "private"
+
+            [[session]]
+            name = "safe"
+            project = "repo"
+            network = "none"
+
+            [[session]]
+            name = "too-wide"
+            project = "repo"
+            network = "host"
+            "#,
+        )
+        .expect("network modes should parse");
+
+        let project = cfg.project("repo").unwrap();
+        assert_eq!(
+            cfg.network_of(cfg.session("safe").unwrap(), project)
+                .unwrap(),
+            NetworkMode::None
+        );
+        assert!(cfg
+            .network_of(cfg.session("too-wide").unwrap(), project)
+            .is_err());
+        assert_eq!(
+            cfg.network_of(
+                &SessionCfg {
+                    name: "inherited".into(),
+                    project: "repo".into(),
+                    ..Default::default()
+                },
+                project,
+            )
+            .unwrap(),
+            NetworkMode::Private
+        );
+    }
+
     /// A shortcut that came back as a prompt would run the wrong thing in the right
     /// place.
     #[test]
@@ -987,11 +1062,28 @@ token = \"not-a-daemon-token\"
         let mut cfg = Config::default();
         cfg.daemon.history_limit = 200;
         cfg.daemon.game_cmd = "/home/you/RimWorld/game/RimWorldLinux -popupwindow".into();
+        cfg.projects.push(ProjectCfg {
+            name: "repo".into(),
+            dir: "/home/you/repo".into(),
+            network: NetworkMode::Host,
+            ..Default::default()
+        });
+        cfg.sessions.push(SessionCfg {
+            name: "quiet".into(),
+            project: "repo".into(),
+            network: Some(NetworkMode::None),
+            ..Default::default()
+        });
 
         let text = toml::to_string_pretty(&cfg).unwrap();
         let back = Config::parse(&text).unwrap();
 
         assert_eq!(back.daemon.history_limit, 200);
         assert_eq!(back.daemon.game_cmd, cfg.daemon.game_cmd);
+        assert_eq!(back.project("repo").unwrap().network, NetworkMode::Host);
+        assert_eq!(
+            back.session("quiet").unwrap().network,
+            Some(NetworkMode::None)
+        );
     }
 }

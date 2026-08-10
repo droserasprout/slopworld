@@ -64,6 +64,8 @@ namespace SlopWorld
                     Cmd = existing.Cmd,
                     Sandbox = new List<string>(existing.Sandbox),
                     Breadcrumbs = new List<string>(existing.Breadcrumbs),
+                    Network = existing.Network,
+                    NetworkOverride = existing.NetworkOverride,
                     Agent = existing.Agent,
                     Autostart = existing.Autostart,
                 };
@@ -167,6 +169,18 @@ namespace SlopWorld
             l.Label(CommandNote(preset));
             GUI.color = Color.white;
 
+            l.Gap(SlopWidgets.GapS);
+            l.Label("Network");
+            var ceiling = project?.Network ?? NetworkMode.Private;
+            string networkLabel = _s.NetworkOverride.HasValue
+                ? NetworkModeText.Label(_s.NetworkOverride.Value)
+                : "Inherit project (" + NetworkModeText.ShortLabel(ceiling) + ")";
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), networkLabel))
+                PickNetwork(ceiling);
+            GUI.color = SlopWidgets.Dim;
+            l.Label("The project is the ceiling; this agent can only reduce its network reach.");
+            GUI.color = Color.white;
+
             float used = l.CurHeight;
             l.End();
 
@@ -207,11 +221,39 @@ namespace SlopWorld
             var hub = SessionHub.Instance;
             var options = hub.Projects
                 .Select(p => new FloatMenuOption($"{p.Name}  -  {p.Dir}",
-                    () => _s.Project = p.Name))
+                    () =>
+                    {
+                        _s.Project = p.Name;
+                        if (_s.NetworkOverride.HasValue &&
+                            !NetworkModeText.Allowed(_s.NetworkOverride.Value, p.Network))
+                            _s.NetworkOverride = null;
+                    }))
                 .ToList();
 
             options.Add(new FloatMenuOption("New project...",
                 () => Find.WindowStack.Add(new EditProjectDialog(null))));
+
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        void PickNetwork(NetworkMode ceiling)
+        {
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Inherit project (" + NetworkModeText.ShortLabel(ceiling) + ")",
+                    () => _s.NetworkOverride = null),
+            };
+
+            foreach (NetworkMode mode in new[]
+            {
+                NetworkMode.None, NetworkMode.Private, NetworkMode.Host,
+            })
+            {
+                if (!NetworkModeText.Allowed(mode, ceiling)) continue;
+                var picked = mode;
+                options.Add(new FloatMenuOption(NetworkModeText.Label(picked),
+                    () => _s.NetworkOverride = picked));
+            }
 
             Find.WindowStack.Add(new FloatMenu(options));
         }

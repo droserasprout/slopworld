@@ -115,12 +115,36 @@ is about the wall.
 `presets::tests` holds both facts, since both are properties of the shipped
 files rather than of any code.
 
+## Network modes
+
+The project owns a network **ceiling** and an agent may only reduce it. The
+three values are `none`, `private` and `host`; an omitted agent value inherits
+the project. A project set to `private` therefore offers only `none` and
+`private` to its agents, while a `host` project offers all three.
+
+- `none` keeps bubblewrap's private network namespace and does not share it.
+- `host` uses bubblewrap's `--share-net`, preserving access to local services.
+  A `POST /api/run` errand with `host` remains an unsandboxed host session and
+  is a separate, explicit path.
+- `private` wraps the bubblewrap command in `pasta`. It gives the sandbox a
+  synthetic IPv4 address and gateway, forwards DNS through host resolvers, and
+  explicitly disables TCP/UDP port forwarding in both directions. The private
+  resolver file is session-owned and is prepared before the bind argv is built;
+  on hosts where `/etc/resolv.conf` points into `/run`, the daemon binds the
+  replacement to the canonical target because `/run` is not otherwise in the
+  sandbox.
+
+The mod exposes the ceiling on the project editor, and an `Inherit / None /
+Private / Host` override on the agent editor. The preview shows the effective
+answer. The daemon validates the ceiling again on every add, update and start,
+so a hand-edited config cannot widen an agent through the UI.
+
+The private namespace removes the daemon's loopback from the agent. The grant
+model still has a planned unix-socket handoff for agents that need scoped API
+access; it is not implied by enabling networking.
+
 ## Not done
 
-- **The loopback is shared.** `net = true` is `--share-net`, so the daemon on
-  `127.0.0.1:7717` is inside every sandbox - only `[daemon] token` stands in
-  front of it, and that token is empty by default. Wants a private netns
-  (pasta) and the API on a unix socket bound into granted sandboxes only.
 - No seccomp, and no `--new-session` (which would drop the pane's controlling
   tty and take job control with it - a real trade, not a free win).
 - No `TasksMax`, `MemoryMax` or disk quota: a fork bomb in a sandbox is a host

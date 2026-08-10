@@ -504,7 +504,7 @@ namespace SlopWorld
             {
                 l.Gap(SlopWidgets.GapS);
                 l.Label(_s.Link == ShortcutLink.Temp
-                    ? "Sandbox to copy (blank = plain: network on, no presets)"
+                    ? "Sandbox to copy (blank = plain: private network, no presets)"
                     : "Project (the directory and sandbox it runs in)");
                 if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                         string.IsNullOrEmpty(_s.Project)

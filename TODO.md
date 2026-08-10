@@ -3,7 +3,7 @@
 
 ## Interface
 
-- Bug: ephemeral session on Agents tab can't be selected if Terminal is hidden. We need to spawn them as something on map (item, robo-animal?) to allow focus, info panel, action buttons.
+- Implement session selection for ephemeral/host sessions without a pawn: shared gizmos, inspect pane, sidebar clicks, and keyboard walking via `SessionSelectable`.
 - Tab / Shift+Tab in floating windows to navigate between input fields
 - ModSettings shouldn't pause the game
 - Welcome configuration screen of fresh profile
@@ -18,8 +18,6 @@
 
 ## Keyboard
 
-- Move "Keyboard" from Control to first level tab in settings
-- Disable some native RimWorld shortcuts: unbind by default and hide in 
 - ? to show navigation and keyboard cheatsheet
 
 ## Terminal
@@ -29,7 +27,6 @@
 
 ## Jukebox
 
-- Strip " - Classic Vinyl on walmfadio.com" from Jukebox hover bubble.
 - Add new item to the end of radio station's nested menu: "<3" label opening links in browser on click:
   - RadioParadise: https://radioparadise.com/donate
   - WeFunk: https://session.wefunkradio.com/about/contribute
@@ -54,7 +51,6 @@ Turn Colonist selection bottom-left floatie into full-height right sidebar. Resi
 
 - Cat should sometimes turn ugly things in range into flower/crop containers on click.
 - Cat accumulates clicks as seconds of aura. Charge them spamming clicks and enjoy minutes of cat aura.
-- Config flag to disable blood, vomit, and offensive/harmful hints
 - Realtime weather for provided IRL coordinates
 - Finetune: plague radius, tickrate, building emissions, construction speed and items, cat aura
 

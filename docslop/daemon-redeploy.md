@@ -21,7 +21,8 @@ back; the SIGWINCH makes the app repaint and hand the fresh emulator the modes a
 text capture cannot carry - alternate screen, mouse reporting, cursor shape,
 bracketed paste. A **rename** takes the same nudge: the control reader is pinned
 to the name it attached with, so it is dropped and re-attached, and an idle agent
-has no other reason to repaint.
+has no other reason to repaint. The input queue is name-bound too; its sender is
+dropped during the handoff so the next key starts a worker aimed at the new name.
 
 An alt-screen pane is seeded **either side of the `1049` switch**: a capture is
 the scrollback with the visible pane under it, and tmux hands back the *primary's*

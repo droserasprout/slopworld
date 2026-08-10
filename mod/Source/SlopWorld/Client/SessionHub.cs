@@ -10,6 +10,40 @@ namespace SlopWorld
     // killed, the same process being able to get it back up.
     public enum AgentState { Down, Working, Waiting, Idle }
 
+    public enum NetworkMode { None, Private, Host }
+
+    public static class NetworkModeText
+    {
+        public static NetworkMode Parse(string text)
+        {
+            switch ((text ?? "").Trim().ToLowerInvariant())
+            {
+                case "none": return NetworkMode.None;
+                case "host": return NetworkMode.Host;
+                default: return NetworkMode.Private;
+            }
+        }
+
+        public static string Name(NetworkMode mode) => mode == NetworkMode.None ? "none" :
+            mode == NetworkMode.Host ? "host" : "private";
+
+        public static string Label(NetworkMode mode) => mode == NetworkMode.None
+            ? "No network"
+            : mode == NetworkMode.Host
+                ? "Host network (full local access)"
+                : "Private network (Internet, no host loopback)";
+
+        public static string ShortLabel(NetworkMode mode) => mode == NetworkMode.None
+            ? "no network"
+            : mode == NetworkMode.Host ? "host network" : "private network";
+
+        public static bool Allowed(NetworkMode requested, NetworkMode ceiling) =>
+            Rank(requested) <= Rank(ceiling);
+
+        static int Rank(NetworkMode mode) => mode == NetworkMode.None ? 0 :
+            mode == NetworkMode.Private ? 1 : 2;
+    }
+
     public enum ShortcutKind { Prompt, Shell, Breadcrumb }
 
     // Temp is a fresh scratch directory per run; Ask is decided at the button.
@@ -36,8 +70,10 @@ namespace SlopWorld
         public string Agent = "";
         public AgentState State = AgentState.Down;
         public bool Alive;
-        // The project's, and read-only here: edit the project to change it.
-        public bool Net = true;
+        // The effective mode, resolved by the daemon from the project ceiling and override.
+        public NetworkMode Network = NetworkMode.Private;
+        // Null means inherit the project's mode.
+        public NetworkMode? NetworkOverride;
         public bool Autostart;
         public List<string> Breadcrumbs = new List<string>();
 
@@ -101,7 +137,10 @@ namespace SlopWorld
             Agent = j["agent"].AsString(),
             State = ParseState(j["state"].AsString()),
             Alive = j["alive"].AsBool(),
-            Net = j["net"].AsBool(true),
+            Network = NetworkModeText.Parse(j["network"].AsString("private")),
+            NetworkOverride = j["network_override"].IsNull
+                ? (NetworkMode?)null
+                : NetworkModeText.Parse(j["network_override"].AsString()),
             Autostart = j["autostart"].AsBool(false),
             Breadcrumbs = j["breadcrumbs"].Items.Select(i => i.AsString()).ToList(),
             BreadcrumbsPending = j["breadcrumbs_pending"].AsBool(false),
@@ -124,6 +163,7 @@ namespace SlopWorld
             $"\"cmd\":{(string.IsNullOrEmpty((Cmd ?? "").Trim()) ? "null" : JVal.Q(Cmd))}," +
             $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]," +
             $"\"breadcrumbs\":[{string.Join(",", Breadcrumbs.Select(JVal.Q).ToArray())}]," +
+            $"\"network\":{(NetworkOverride.HasValue ? JVal.Q(NetworkModeText.Name(NetworkOverride.Value)) : "null")}," +
             $"\"autostart\":{JVal.B(Autostart)}}}";
     }
 
@@ -136,7 +176,7 @@ namespace SlopWorld
         public bool Temp;
         // Sandbox presets by name. Every agent runs in a sandbox; this says what it reaches.
         public List<string> Sandbox = new List<string>();
-        public bool Net = true;
+        public NetworkMode Network = NetworkMode.Private;
         public List<string> Breadcrumbs = new List<string>();
 
         // The daemon coins the path and is the only thing that writes it; this is so the dialog
@@ -165,14 +205,14 @@ namespace SlopWorld
             Temp = j["temp"].AsBool(false),
             Sandbox = Strings(j["sandbox"]),
             Breadcrumbs = Strings(j["breadcrumbs"]),
-            Net = j["net"].AsBool(true),
+            Network = NetworkModeText.Parse(j["network"].AsString("private")),
         };
 
         public string ToJson() =>
             "{" +
             $"\"name\":{JVal.Q(Name)},\"dir\":{JVal.Q(Dir)},\"temp\":{JVal.B(Temp)}," +
             $"\"sandbox\":{Arr(Sandbox)}," +
-            $"\"breadcrumbs\":{Arr(Breadcrumbs)},\"net\":{JVal.B(Net)}}}";
+            $"\"breadcrumbs\":{Arr(Breadcrumbs)},\"network\":{JVal.Q(NetworkModeText.Name(Network))}}}";
 
         public ProjectInfo Copy() => new ProjectInfo
         {
@@ -181,7 +221,7 @@ namespace SlopWorld
             Temp = Temp,
             Sandbox = new List<string>(Sandbox),
             Breadcrumbs = new List<string>(Breadcrumbs),
-            Net = Net,
+            Network = Network,
         };
 
         static List<string> Strings(JVal a) => a.Items.Select(i => i.AsString()).ToList();

@@ -101,7 +101,7 @@ namespace SlopWorld
             // First, because it is the one thing here about the ground rather than about the
             // sandbox around it.
             if (p.Temp) bits.Add("temporary");
-            if (!p.Net) bits.Add("no net");
+            bits.Add(NetworkModeText.ShortLabel(p.Network));
             bits.AddRange(p.Sandbox);
             return string.Join(", ", bits.ToArray());
         }
@@ -248,7 +248,16 @@ namespace SlopWorld
             }
 
             l.Gap(SlopWidgets.GapS);
-            _p.Net = SlopWidgets.Checkbox(l, "Allow network", _p.Net);
+            l.Label("Network ceiling");
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), NetworkModeText.Label(_p.Network)))
+                PickNetwork();
+            GUI.color = SlopWidgets.Dim;
+            l.Label(_p.Network == NetworkMode.Host
+                ? "Agents may use the host network, including local services."
+                : _p.Network == NetworkMode.Private
+                    ? "Agents may use the Internet through a private namespace."
+                    : "Agents have no network access.");
+            GUI.color = Color.white;
 
             float used = l.CurHeight;
             l.End();
@@ -269,6 +278,22 @@ namespace SlopWorld
             y += BreadcrumbsH + SlopWidgets.GapXS;
 
             _contentH = y - r.y + SlopWidgets.GapS;
+        }
+
+        void PickNetwork()
+        {
+            var options = new List<FloatMenuOption>();
+            foreach (NetworkMode mode in new[]
+            {
+                NetworkMode.None, NetworkMode.Private, NetworkMode.Host,
+            })
+            {
+                var picked = mode;
+                options.Add(new FloatMenuOption(NetworkModeText.Label(picked),
+                    () => _p.Network = picked));
+            }
+
+            Find.WindowStack.Add(new FloatMenu(options));
         }
 
         void Save()

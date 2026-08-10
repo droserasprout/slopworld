@@ -7,7 +7,7 @@
 | `session.rs` | `Manager`: live table, state classification, control readers. |
 | `emu.rs` | `SessionEmu`, an `alacritty_terminal` per session. |
 | `tmux.rs` | Async wrapper over the tmux CLI. |
-| `sandbox.rs` | The bubblewrap argv. |
+| `sandbox.rs` | The bubblewrap argv, network modes, and pasta wrapper. |
 | `presets.rs` | The preset tables: builtin TOML plus the user's. |
 | `config.rs` | `config.toml` load, save, and seed. |
 | `usage.rs` | Polls Anthropic and OpenRouter for what is left of each. |

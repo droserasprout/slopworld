@@ -25,6 +25,11 @@ and `PUT /api/config/patch`, plus `POST /api/shortcuts/NAME/run` and
 `{"daemon":{"game_cmd":"~/.local/bin/slopworld"}}`. It deep-merges the named
 fields, validates the resulting configuration, and leaves unmentioned fields alone.
 
+Project JSON carries `network` as its ceiling. Session JSON carries the
+effective `network` plus `network_override`; writes send the override as a
+mode string or JSON `null` for inherit. The daemon rejects an override wider
+than its project's ceiling.
+
 `GET /api/usage`, `/api/presets`, `/api/browse`, `/api/git`, `/api/audio` and
 `/api/game` are
 for anything that would rather ask than listen. `POST /api/open` answers 400 for a URL it will
