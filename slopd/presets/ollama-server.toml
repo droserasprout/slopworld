@@ -1,0 +1,6 @@
+[[sandbox]]
+name = "ollama-server"
+category = "ai"
+description = "Ollama server outside the sandbox"
+escapes = "the Ollama service runs outside this sandbox and receives its requests"
+env = ["OLLAMA_HOST", "OLLAMA_CONTEXT_LENGTH"]

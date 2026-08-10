@@ -116,6 +116,7 @@ const BUILTIN: &[(&str, &str)] = &[
     ("docker", include_str!("../presets/docker.toml")),
     ("podman", include_str!("../presets/podman.toml")),
     ("ssh", include_str!("../presets/ssh.toml")),
+    ("ssh-agent", include_str!("../presets/ssh-agent.toml")),
     ("1password", include_str!("../presets/1password.toml")),
     ("git", include_str!("../presets/git.toml")),
     ("rust", include_str!("../presets/rust.toml")),
@@ -126,6 +127,10 @@ const BUILTIN: &[(&str, &str)] = &[
     ("aws", include_str!("../presets/aws.toml")),
     ("kube", include_str!("../presets/kube.toml")),
     ("ollama", include_str!("../presets/ollama.toml")),
+    (
+        "ollama-server",
+        include_str!("../presets/ollama-server.toml"),
+    ),
 ];
 
 #[derive(Debug, Default)]
@@ -424,7 +429,7 @@ mod tests {
         }
         assert_eq!(
             t.sandbox("go").unwrap().rw,
-            vec!["~/.go", "~/.cache/go-build"]
+            vec!["~/go", "~/.cache/go-build"]
         );
         assert_eq!(t.sandbox("kube").unwrap().ro, vec!["~/.kube"]);
     }
@@ -471,7 +476,8 @@ mod tests {
             "dbus",
             "systemd",
             "x11",
-            "ssh",
+            "ssh-agent",
+            "ollama-server",
             "1password",
         ] {
             let p = t
@@ -484,12 +490,18 @@ mod tests {
         }
 
         // And the ordinary ones are not crying wolf.
-        for name in ["rust", "go", "python", "node", "git"] {
+        for name in ["rust", "go", "python", "node", "git", "ollama"] {
             let p = t
                 .sandbox(name)
                 .unwrap_or_else(|| panic!("no {name} preset"));
             assert!(p.escapes.is_empty(), "{name} is marked as a way out");
         }
+
+        // SSH configuration is safe to expose by itself; the agent socket is the explicit
+        // capability that lets a sandbox ask the host to sign.
+        assert!(t.sandbox("ssh").unwrap().rw.is_empty());
+        assert_eq!(t.sandbox("ssh-agent").unwrap().rw, vec!["$SSH_AUTH_SOCK"]);
+        assert!(!t.sandbox("ollama-server").unwrap().escapes.is_empty());
     }
 
     /// A user file replaces the builtin of the same name in place, and adds what it names

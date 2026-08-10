@@ -58,7 +58,10 @@ place**, so the GUI never draws two of one.
   tmpfs buries them. `resolv.conf` is emitted last of the read-only ones, because
   a preset can bind the directory it sits in.
 - A socket is bound by its *directory*, wherever its owner recreates it. `dbus`
-  and `wayland` name sockets directly because those outlive every session.
+  and `wayland` name sockets directly because those outlive every session. SSH is split:
+  `ssh` exposes config and known hosts only; `ssh-agent` is the explicit host-signing
+  capability and is marked as an escape. `ollama` exposes local models, while
+  `ollama-server` makes the host service explicit and marked.
 - `env` forwards names out of slopd's environment; `setenv` sets literals, applied
   last (`SYSTEMCTL_FORCE_BUS=1`, which is why `systemd` is useless without `dbus`).
 - bwrap gets `--clearenv`; `BASE_ENV` survives regardless, `TERM`/`COLORTERM` are
