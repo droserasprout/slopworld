@@ -12,8 +12,8 @@ every agent runs in one.
   is what lets the sandbox hand it `~/.claude` (`Config::sandbox_of`). An entry
   stating a `cmd` and no `command` is handed none - a command line is nobody in
   particular.
-- `ro_paths`, `rw_paths` and `pass_env` are what this ground *adds* to the global
-  `[sandbox]`. `seed` is not one of them: it is not a bind but what a fresh agent
+- `ro_paths`, `rw_paths` and `pass_env` are what this ground *adds* to the implicit
+  `global` preset. `seed` is not one of them: it is not a bind but what a fresh agent
   here is copied, on top of what its presets seed - `~/.claude/plugins` being the
   reason it exists. See [sandbox-isolation](sandbox-isolation.md).
 - `check_belongs` runs on add and update, not at start. A project with agents

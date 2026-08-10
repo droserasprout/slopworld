@@ -7,6 +7,11 @@ binary reading them; user files are `~/.config/slopworld/presets/*.toml`
 (`SLOPD_PRESETS` points elsewhere) and replace a builtin **by entry name, in
 place**, so the GUI never draws two of one.
 
+`global.toml` is the implicit system preset. It is added to every sandbox before
+the command, project and session presets; it is not a project checkbox. Copying
+it to the user list creates the machine-wide `global` override, which is edited
+and reset like any other system preset.
+
 - The directory is re-read when its newest mtime moves, on the same two-second
   check `config.toml` is (`reload_presets_if_changed`), and the sessions are
   re-announced because what an agent runs may have just changed under it.
@@ -42,9 +47,9 @@ place**, so the GUI never draws two of one.
   hands tmux an empty argv.
 - `GET /api/presets` is how the mod learns both tables, so a file added while the
   game is up is a checkbox and a dropdown entry with nothing rebuilt. The Settings
-  page uses the same response as a small editor: Global is `[sandbox]`, Presets are
-  sandbox definitions, and Commands are command definitions with their sandbox
-  dependencies.
+  page uses the same response as a small editor: Presets are sandbox definitions
+  (with the implicit `global` definition shown first and highlighted), and Commands
+  are command definitions with their sandbox dependencies.
 
 ## Sandbox (bubblewrap) rules
 
@@ -55,7 +60,7 @@ place**, so the GUI never draws two of one.
 - A path that reaches the token, the preset files or another session's state is
   warned about and dropped whoever asked for it - see
   [sandbox-isolation](sandbox-isolation.md).
-- Order: global, presets, project, deduplicated, **rw after ro**, so a path in
+- Order: implicit `global`, presets, project, deduplicated, **rw after ro**, so a path in
   both ends up writable. `private` lands after all three: a session's own copy
   is what a project asking for the original gets.
 - Binds go down *after* the skeleton (`--proc`, `--dev`, `--tmpfs /tmp`) or the

@@ -191,31 +191,19 @@ impl Default for Defaults {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 /// The base every sandbox is built on. There is no switch: every agent runs in one.
 pub struct Sandbox {
-    /// Bound into every sandbox, whatever the project.
+    /// Deprecated compatibility fields. The implicit `global` sandbox preset owns the base
+    /// now; old values are promoted to a user `global` preset when the daemon loads them.
     pub ro_paths: Vec<String>,
-    /// An agent's own state dir is not here: `~/.claude` rides on the `claude` preset,
-    /// which a Claude session gets whether or not its project asked.
     pub rw_paths: Vec<String>,
     pub pass_env: Vec<String>,
 }
 
-impl Default for Sandbox {
-    fn default() -> Self {
-        Self {
-            // ~/.local/bin so agent-run tools on PATH resolve inside the sandbox; without it
-            // their spawn fails with ENOENT.
-            ro_paths: vec![
-                "/usr".into(),
-                "/etc".into(),
-                "/opt".into(),
-                "~/.local/bin".into(),
-            ],
-            rw_paths: Vec::new(),
-            pass_env: vec!["PATH".into(), "TERM".into(), "LANG".into()],
-        }
+impl Sandbox {
+    pub fn is_empty(&self) -> bool {
+        self.ro_paths.is_empty() && self.rw_paths.is_empty() && self.pass_env.is_empty()
     }
 }
 
@@ -424,7 +412,12 @@ impl Config {
         }
         let text =
             std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-        Self::parse(&text)
+        let mut cfg = Self::parse(&text)?;
+        if migrate_legacy_sandbox(&cfg.sandbox)? {
+            cfg.sandbox = Sandbox::default();
+            cfg.save(path)?;
+        }
+        Ok(cfg)
     }
 
     pub fn parse(text: &str) -> Result<Self> {
@@ -592,15 +585,17 @@ impl Config {
             .collect()
     }
 
-    /// Its command preset's sandbox presets, the project's, then its own, plus every
-    /// preset dependency before the thing that needs it. First mention wins, as in `paths()`.
+    /// The implicit global base, then its command preset's sandbox presets, the project's,
+    /// then its own, plus every preset dependency before the thing that needs it. First mention
+    /// wins, as in `paths()`.
     pub fn sandbox_of(&self, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
         let t = crate::presets::table();
-        let asked: Vec<String> = t
-            .command(&self.command_name(s))
-            .map(|c| c.sandbox.clone())
-            .unwrap_or_default()
-            .into_iter()
+        let asked: Vec<String> = std::iter::once("global".to_string())
+            .chain(
+                t.command(&self.command_name(s))
+                    .map(|c| c.sandbox.clone())
+                    .unwrap_or_default(),
+            )
             .chain(p.sandbox.iter().cloned())
             .chain(s.sandbox.iter().cloned())
             .collect();
@@ -638,6 +633,29 @@ impl Config {
         }
         names
     }
+}
+
+/// Move the pre-preset `[sandbox]` section into the user override that now owns the same
+/// machine-wide capability. A user definition already present wins; this is deliberately
+/// one-way so an old config cannot keep adding paths after someone edits `global` in the UI.
+pub fn migrate_legacy_sandbox(sandbox: &Sandbox) -> Result<bool> {
+    if sandbox.is_empty() {
+        return Ok(false);
+    }
+
+    if crate::presets::Table::users().sandbox("global").is_none() {
+        crate::presets::save_sandbox(crate::presets::SandboxPreset {
+            name: "global".into(),
+            category: "filesystem/core".into(),
+            description: "The base files and user-installed binaries available to every sandbox"
+                .into(),
+            ro: sandbox.ro_paths.clone(),
+            rw: sandbox.rw_paths.clone(),
+            env: sandbox.pass_env.clone(),
+            ..Default::default()
+        })?;
+    }
+    Ok(true)
 }
 
 pub fn env_pairs(lines: &[String]) -> Vec<(String, String)> {
@@ -857,19 +875,22 @@ token = \"not-a-daemon-token\"
         assert_eq!(prompt.command, "pi");
         assert_eq!(prompt.cmd, None);
         assert_eq!(cfg.command_of(&prompt), "pi");
-        assert_eq!(cfg.sandbox_of(&prompt, &Default::default()), vec!["pi"]);
+        assert_eq!(
+            cfg.sandbox_of(&prompt, &Default::default()),
+            vec!["global", "pi"]
+        );
         assert_eq!(prompt.project, "slopworld");
 
         let shell = cfg.session_for(cfg.shortcut("tests").unwrap(), "tests".into(), "x".into());
         assert_eq!(shell.command, "shell");
         assert_eq!(cfg.command_of(&shell), "bash");
 
-        // A command line rather than a preset name: run as it stands, and handed no
-        // agent's state directory.
+        // A command line rather than a preset name: run as it stands, with only the implicit
+        // global base and no agent's state directory.
         let custom = cfg.session_for(cfg.shortcut("codex").unwrap(), "codex".into(), "x".into());
         assert_eq!(custom.command, "");
         assert_eq!(cfg.command_of(&custom), "codex --yolo");
-        assert!(cfg.sandbox_of(&custom, &Default::default()).is_empty());
+        assert_eq!(cfg.sandbox_of(&custom, &Default::default()), vec!["global"]);
 
         // The place is the caller's answer and not the entry's, which is what lets one
         // errand be run somewhere it never named.
@@ -887,7 +908,7 @@ token = \"not-a-daemon-token\"
         };
         assert_eq!(
             cfg.sandbox_of(&session, &Default::default()),
-            vec!["dbus", "systemd"]
+            vec!["global", "dbus", "systemd"]
         );
     }
 

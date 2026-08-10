@@ -25,6 +25,8 @@ namespace SlopWorld
 
         public static readonly Color Warn = new Color(0.85f, 0.75f, 0.45f);
 
+        public static readonly Color Global = new Color(0.79f, 0.72f, 0.91f);
+
         public static readonly Color Panel = new Color(0.09f, 0.10f, 0.12f, 0.93f);
 
         public static readonly Color Edge = new Color(0f, 0f, 0f, 0.55f);

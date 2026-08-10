@@ -7,7 +7,7 @@ granted and never the machine.
 
 ## No bind list reaches the token
 
-`refused()` is checked by `paths()` (so the global `[sandbox]`, every preset
+`refused()` is checked by `paths()` (so the implicit `global` preset, every preset
 file and every project pass through it), by `check_project` where a directory
 is typed, and by `start` for an entry older than the check. Presets additionally
 pass through the centralized validator before the daemon saves or uses them:

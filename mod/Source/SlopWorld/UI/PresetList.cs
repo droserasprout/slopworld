@@ -22,15 +22,29 @@ namespace SlopWorld
         public static void Draw(Rect outer, List<string> chosen, SmoothScroll scroll,
                                 ICollection<string> implied = null)
         {
-            var presets = SessionHub.Instance.Presets;
+            // The machine-wide base is implicit for every sandbox, so it is edited on the
+            // Settings > Sandbox > Presets page rather than offered as a project checkbox.
+            var allPresets = SessionHub.Instance.Presets;
+            var presets = allPresets
+                .Where(p => p.Name != "global")
+                .ToList();
             Slab.Box(outer, SlopWidgets.Well, SlopWidgets.Edge);
             var pad = outer.ContractedBy(4f);
+
+            if (allPresets.Count == 0)
+            {
+                GUI.color = SlopWidgets.Dim;
+                Widgets.Label(new Rect(pad.x, pad.y, pad.width, SlopWidgets.LineH),
+                    "The daemon has not sent its preset list yet.");
+                GUI.color = Color.white;
+                return;
+            }
 
             if (presets.Count == 0)
             {
                 GUI.color = SlopWidgets.Dim;
                 Widgets.Label(new Rect(pad.x, pad.y, pad.width, SlopWidgets.LineH),
-                    "The daemon has not sent its preset list yet.");
+                    "No optional presets are available.");
                 GUI.color = Color.white;
                 return;
             }

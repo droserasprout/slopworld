@@ -24,7 +24,7 @@ opens are still windows, and go up through `TerminalWindow.OpenOverPane`.
   `[defaults] agent` names. `Agent` is the daemon's resolved answer and is **never
   written back** - it would pin today's default into the file.
 - **`EditProjectDialog`** - its three path boxes are what the project *adds*;
-  `DoEffective` draws the merge (`[sandbox]`, presets, boxes, deduplicated the way
+  `DoEffective` draws the merge (the implicit `global` preset, presets, boxes, deduplicated the way
   `paths()` does, then *sorted*). It says **asked for** rather than handed over,
   because `paths()` drops a bind whose path is not on this machine and only the
   daemon knows which. `PresetInfo` keeps `Ro`/`Rw`/`Env` apart for this, `Gives`
@@ -39,15 +39,16 @@ opens are still windows, and go up through `TerminalWindow.OpenOverPane`.
   missing from `ToJson` is one the next unrelated save resets to its serde
   default. Not a `Window`: it is the first category of the options menu, see
   [mod-patches-strip](mod-patches-strip.md).
-- **`SandboxPage`** - three tabs named **Global**, **Presets** and **Commands**. Global
-  is `[sandbox]` in `config.toml`; Presets is the daemon's sandbox library, with
-  system entries separated from user entries and a master/detail editor; Commands
-  is the command library and shows/edits its sandbox dependencies. Builtins are
-  read-only until copied to a user definition; user entries can be new, saved,
-  removed, or reset to their system definition. All writes go through the daemon's
-  preset API, while which presets a project uses remains that project's checkbox,
-  ticked on `EditProjectDialog`. The page is the second category of the options
-  menu, see [mod-patches-strip](mod-patches-strip.md).
+- **`SandboxPage`** - two tabs named **Presets** and **Commands**. Presets is the
+  daemon's sandbox library, with system entries separated from user entries and a
+  master/detail editor; the implicit `global` preset is first in whichever group
+  owns it and uses a pale-violet label. Empty fields in read-only previews are
+  omitted. Commands is the command library and shows/edits its sandbox dependencies.
+  Builtins are read-only until copied to a user definition; user entries can be
+  new, saved, removed, or reset to their system definition. All writes go through
+  the daemon's preset API, while which presets a project uses remains that
+  project's checkbox, ticked on `EditProjectDialog`. The page is the second
+  category of the options menu, see [mod-patches-strip](mod-patches-strip.md).
 - **`UsagePage`** - the second category, and its two halves are saved by different
   roads on purpose. The switches, the key file and the poll interval are
   `config.toml` under two headings, one per seller, so they go over HTTP and need

@@ -141,7 +141,7 @@ fn private_path(session: &str, host: &str) -> PathBuf {
         .join(host.strip_prefix("/").unwrap_or(host))
 }
 
-/// What no bind list may hand a sandbox, whoever asks - the global `[sandbox]`, a preset
+/// What no bind list may hand a sandbox, whoever asks - the implicit `global` preset, a preset
 /// file, a project. The invariant is that an agent reaches neither `[daemon] token`, nor the
 /// preset files that decide what the next sandbox binds, nor another session's private state;
 /// until now that held because of how `config.toml` happened to be written, and a single

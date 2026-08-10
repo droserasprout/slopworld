@@ -129,9 +129,8 @@ namespace SlopWorld
         const float PresetsH = 152f;
         const float BreadcrumbsH = 132f;
 
-        // The base every project builds on, off `[sandbox]`. Fetched per dialog rather
-        // than cached on the hub, because it is one small request and a stale answer
-        // here would be a readout quietly describing the wrong sandbox.
+        // The implicit global preset every project builds on. Fetched per dialog rather than
+        // cached on the hub, because a user override can change while the game is open.
         List<string> _baseRo = new List<string>();
         List<string> _baseRw = new List<string>();
         List<string> _baseEnv = new List<string>();
@@ -179,14 +178,13 @@ namespace SlopWorld
             closeOnClickedOutside = false;
             closeOnAccept = false;
 
-            SessionHub.Instance.LoadPresets();
-            SlopClient.Get("/api/config", j =>
+            SessionHub.Instance.LoadPresets(() =>
             {
-                var c = SlopConfig.FromJson(j["values"]);
-                _baseRo = c.RoPaths;
-                _baseRw = c.RwPaths;
-                _baseEnv = c.PassEnv;
-            });
+                var global = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == "global");
+                _baseRo = global?.Ro ?? new List<string>();
+                _baseRw = global?.Rw ?? new List<string>();
+                _baseEnv = global?.Env ?? new List<string>();
+            }, SlopWidgets.Fail);
         }
 
         public override Vector2 InitialSize => new Vector2(680f, 680f);
@@ -307,9 +305,9 @@ namespace SlopWorld
         // The three boxes above are what this project *adds*. On their own they say
         // nothing about what an agent in here can actually reach, which is the only
         // question anybody opens this dialog to answer - and it is the reason the
-        // machine-wide lists on the config window read as doing nothing. So the merge is
+        // machine-wide base is read here rather than as a project checkbox. The merge is
         // drawn where it is asked about, in the same three groups and the same order the
-        // daemon assembles them: `[sandbox]`, then the ticked presets, then this project.
+        // daemon assembles them: global preset, then the ticked presets, then this project.
         //
         // Asked for rather than handed over: `paths()` drops any bind whose path is not
         // on this machine, and only the daemon knows which those are. Saying so is

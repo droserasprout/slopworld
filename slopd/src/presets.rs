@@ -104,6 +104,7 @@ struct PresetFile {
 /// Compiled in rather than installed: builtins that can be older than the binary reading
 /// them are builtins a redeploy silently disagrees with.
 const BUILTIN: &[(&str, &str)] = &[
+    ("global", include_str!("../presets/global.toml")),
     ("claude", include_str!("../presets/claude.toml")),
     ("codex", include_str!("../presets/codex.toml")),
     ("opencode", include_str!("../presets/opencode.toml")),
@@ -433,6 +434,11 @@ mod tests {
             assert!(!p.category.is_empty(), "{name} has no category");
             assert!(!p.description.is_empty(), "{name} has no description");
         }
+        assert_eq!(
+            t.sandbox("global").unwrap().ro,
+            vec!["/usr", "/etc", "/opt", "~/.local/bin"]
+        );
+        assert!(t.sandbox("global").unwrap().rw.is_empty());
         assert_eq!(
             t.sandbox("go-cache").unwrap().rw,
             vec!["~/go/pkg/mod", "~/.cache/go-build"]
