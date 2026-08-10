@@ -129,19 +129,34 @@ namespace SlopWorld
             return AgentSidebar.Sessions();
         }
 
-        public override void GameComponentTick()
+        // How often the sweep runs on a stopped clock, in seconds of wall time. The tick
+        // reconcile's own second, near enough, and eco is drawing at 30 frames anyway.
+        const float SweepSecs = 1f;
+        static float _swept;
+
+        // The reconcile is the clock's, and in eco the clock is held at paused - so a session
+        // removed while the machine rests leaves its colonist standing on the board and
+        // holding a row in the column until somebody turns eco off. Retiring is the half of
+        // the reconcile a stopped clock can still do: it takes a pawn off the map, where the
+        // other half puts one in a drop pod and then waits on ticks that are not coming. So an
+        // arrival still waits for the clock - see Eco - and a departure no longer does.
+        public override void GameComponentUpdate()
         {
-            if (_landing.Count > 0) Landed();
+            if (!Eco.Resting || Cutscene.AgentsHeld) return;
 
-            if (Find.TickManager.TicksGame % Interval != 0) return;
+            float now = UnityEngine.Time.realtimeSinceStartup;
+            if (now - _swept < SweepSecs) return;
+            _swept = now;
 
-            if (Cutscene.AgentsHeld) return;
+            Sweep(SessionHub.Instance.Sessions);
+        }
 
-            var map = Find.CurrentMap ?? Find.AnyPlayerHomeMap;
-            if (map == null) return;
-
-            var sessions = SessionHub.Instance.Sessions;
-            if (sessions.Count == 0 && !SessionHub.Instance.Online) return;
+        // Colonists whose session is gone, and colonists gone some other way. False means the
+        // hub had nothing to say and the caller should stand down with it: a socket that has
+        // dropped is not every agent in the colony leaving at once.
+        bool Sweep(List<SessionInfo> sessions)
+        {
+            if (sessions.Count == 0 && !SessionHub.Instance.Online) return false;
 
             // Only the colony's own: an ephemeral session is a viewer's `less`, an editor or
             // a shell on the host - something a person opened and will close, not an agent
@@ -153,7 +168,6 @@ namespace SlopWorld
             var live = new HashSet<string>(
                 sessions.Where(s => !s.Ephemeral).Select(s => s.Name));
 
-            // Session gone, or its colonist was destroyed some other way.
             foreach (var name in _pawns.Keys.ToList())
             {
                 var p = _pawns[name];
@@ -174,6 +188,23 @@ namespace SlopWorld
                     Unbind(name);
                 }
             }
+
+            return true;
+        }
+
+        public override void GameComponentTick()
+        {
+            if (_landing.Count > 0) Landed();
+
+            if (Find.TickManager.TicksGame % Interval != 0) return;
+
+            if (Cutscene.AgentsHeld) return;
+
+            var map = Find.CurrentMap ?? Find.AnyPlayerHomeMap;
+            if (map == null) return;
+
+            var sessions = SessionHub.Instance.Sessions;
+            if (!Sweep(sessions)) return;
 
             // Every session gets a colonist, running or not. A stopped agent's is downed
             // rather than removed, staying a live pawn its process can wake later.

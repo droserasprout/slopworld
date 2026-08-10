@@ -20,19 +20,38 @@ What it does, one owner each:
 - **The frames**: `BackgroundFrames` caps at 30 rather than the unfocused 15 -
   nothing is banking, the clock being stopped, so the number only has to be kind
   to somebody typing. One owner, because the saved target and vSync are one pair.
-- **The backdrop**: with no pane up, `MenuBackground`'s frames are drawn full
-  screen from a prefix on `MapInterfaceOnGUI_BeforeMainTabs`, the first thing on
-  the map's GUI layer, so the strip, the column, the top bar, the gizmos and every
-  window land over it. `Frame()` hands `Current` a **null** source when a set is
-  resident: the menu may have baked an expansion's art, and naming the planet here
-  would re-key the cache every time eco came on.
+- **The backdrop**: with no pane up, `MenuBackground`'s frames are drawn as one
+  screen-covering quad from a postfix on `Map.MapUpdate` - **world space**, not the
+  GUI layer, because the agents have to stand on it and a blit on the GUI layer
+  would be over them too. `UI.UIToMapPosition` on two screen corners gives the rect
+  to cover; the fit is ScaleAndCrop, done by oversizing the quad and letting the
+  overhang run off screen. `ShaderDatabase.Cutout` at render queue 1000 puts it
+  under every pawn draw whatever the altitudes come to. `Frame()` hands `Current` a
+  **null** source when a set is resident: the menu may have baked an expansion's
+  art, and naming the planet here would re-key the cache every time eco came on.
+- **The dimming**: `Dim` (0.45) is folded into that same draw as a grey `_Color`
+  multiply, which is arithmetically a black layer at that alpha over the picture and
+  costs no second quad to sort under the agents. It is eco's alone - the menu and
+  the loading screen draw the same frames undimmed.
+- **The agents**: `Eco.Agents` walks the colony's pawns through vanilla's three
+  `DrawPhase`s, view-culled. `DynamicDrawManager` is stood down, so this is the only
+  thing on the board.
+- **The labels**: `ThingOverlays` is *not* in the draw chain that stands down - it
+  runs off `MapInterfaceOnGUI_BeforeMainTabs` and writes out every name on the map.
+  A prefix on `Pawn.DrawGUIOverlay` keeps the agents' and drops the rest, which
+  would otherwise be words hanging in the picture with nothing under them.
 - **The map's cosmetics**: `Eco.Bare` (`Cutscene.Playing || Resting`) is what
-  `StatusOverlay`, `CoreTip` and `Jukebox` ask - there is nothing under them to be
-  about either way. `UsageReadout` keeps asking `Cutscene.Playing` alone: the top
-  bar is chrome, and in eco it is most of what is left.
+  `StatusOverlay`, `CoreTip` and `Jukebox` ask - the agents and the column say
+  between them what a state plate would. `UsageReadout` keeps asking
+  `Cutscene.Playing` alone: the top bar is chrome, and in eco it is most of what is
+  left.
+- **The sweep**: the reconcile is `GameComponentTick` and the clock is stopped, so
+  `AgentColony.GameComponentUpdate` runs the *retiring* half of it off wall time
+  (`SweepSecs`, 1s) while eco rests. Half only: retiring takes a pawn off the map,
+  where spawning puts one in a drop pod and then waits on ticks that are not coming.
 
-What it costs: a paused game reconciles nothing, so an agent that arrives during an
-eco spell has a row in the column and no colonist until the clock starts again, and
-`AutoSaver` takes no autosave - which is the same statement twice, a board that has
-not moved having nothing to write down. The daemon, the socket and the agents are
-untouched; they were never the game's.
+What it costs: an agent that **arrives** during an eco spell has a row in the column
+and no colonist until the clock starts again (one that leaves is swept, above), and
+`AutoSaver` takes no autosave - a board that has not moved having nothing to write
+down. The daemon, the socket and the agents are untouched; they were never the
+game's.

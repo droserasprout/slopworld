@@ -18,7 +18,10 @@ namespace SlopWorld
     //
     // With the pane closed that would leave an unlit board and nothing to look at, so the
     // menu's own background is drawn in its place - the same baked frames the main menu and
-    // the loading screen use, already resident by the time a colony is, and one blit a frame.
+    // the loading screen use, already resident by the time a colony is, and one quad a frame -
+    // dimmed, because here it is what the agents stand on rather than the picture itself. The
+    // agents are drawn back over it: a colony nobody is looking at still has them in it, and a
+    // board with nothing on it says the wrong thing about a session that is running.
     //
     // What it costs: a paused game reconciles nothing, so an agent that arrives during an eco
     // spell has a row in the column and no colonist on the map until the clock starts again,
@@ -33,41 +36,101 @@ namespace SlopWorld
 
         // What the map's own cosmetics ask: an agent's state plate, the core's bubble, the
         // jukebox under the pointer. A scene plays over the board and eco takes it away, and
-        // either way there is nothing under them to be about. The top bar is drawn from a
-        // MapComponent too and asks neither - it is the chrome, and in eco it is most of what
-        // is left.
+        // the two things eco leaves standing - the agents and the column beside them - already
+        // say between them everything a plate would. The top bar is drawn from a MapComponent
+        // too and asks neither: it is the chrome, and in eco it is most of what is left.
         public static bool Bare => Cutscene.Playing || Resting;
 
-        // Drawn from the first thing on the map's own GUI layer, so the colonist strip, the
-        // column, the top bar, the gizmos and every window land on top of it. Nothing lands
-        // under it: what would have painted the board has already stood down, so this is the
-        // frame.
-        [HarmonyPatch(typeof(MapInterface), nameof(MapInterface.MapInterfaceOnGUI_BeforeMainTabs))]
-        public static class Patch_Backdrop
+        // Drawn into the board's own space rather than over it, which is the whole difference:
+        // an agent has to stand *on* this, and a screen-sized blit on the GUI layer would be
+        // over the pawns as much as over the map. Off Map.MapUpdate, the one call in the frame
+        // eco does not stand down - the four draws inside it that PaneOverDraw gates are
+        // exactly what leaves the board empty for this.
+        [HarmonyPatch(typeof(Map), nameof(Map.MapUpdate))]
+        public static class Patch_Board
         {
-            static void Prefix()
+            static void Postfix(Map __instance)
             {
-                if (!Resting || Event.current.type != EventType.Repaint) return;
-                // The pane is screen-sized and opaque, so a frame under it is a blit nobody
-                // sees; the world view paints its own globe and is not ours to cover. The map
-                // is asked about first, this being the same order the method itself uses -
-                // the render mode is read off a world that need not be there yet.
-                if (Find.CurrentMap == null || TerminalWindow.Covering) return;
+                if (!Resting) return;
+                // The pane is screen-sized and opaque, so a board under it is drawn for
+                // nobody; the world view paints its own globe and is not ours to cover.
+                if (TerminalWindow.Covering) return;
                 if (!WorldRendererUtility.DrawingMap) return;
-                Draw();
+
+                Backdrop();
+                Agents(__instance);
             }
         }
 
-        static void Draw()
-        {
-            var full = new Rect(0f, 0f, UI.screenWidth, UI.screenHeight);
-            var frame = Frame();
+        // How much of the picture is taken away. Here it is a backdrop and not a picture in
+        // its own right - the menu and the loading screen draw that one off the same frames,
+        // and neither may darken with this. A grey multiply *is* a black layer laid over it
+        // and nothing else: Cutout multiplies _Color into the texture, and c*(1-a) is what
+        // compositing black at alpha a over c comes to. The layer is folded into the one draw
+        // rather than sent as a second quad, which would have to be sorted under the agents.
+        const float Dim = 0.45f;
+        static readonly Color Shade = new Color(1f - Dim, 1f - Dim, 1f - Dim, 1f);
 
-            GUI.color = Color.white;
-            if (frame == null) Widgets.DrawBoxSolid(full, Color.black);
+        // Under everything: the queue puts it before the pawns' own cutout draws whatever the
+        // altitudes work out to, and it writes depth at the floor, so nothing standing on the
+        // board can be covered by it.
+        const int Underneath = 1000;
+
+        static void Backdrop()
+        {
+            var tex = Frame() ?? BaseContent.BlackTex;
+
+            // The screen's own corners put back on the map's plane. Exact whatever the camera
+            // is doing, where reading a centre and a size off its transform would be assuming
+            // the view is orthographic and straight down.
+            var a = UI.UIToMapPosition(0f, 0f);
+            var b = UI.UIToMapPosition(UI.screenWidth, UI.screenHeight);
+            float w = Mathf.Abs(b.x - a.x), h = Mathf.Abs(b.z - a.z);
+            if (w <= 0f || h <= 0f) return;
+
             // ScaleAndCrop, which is what vanilla's own BackgroundOnGUI does with the same
-            // picture: a frame baked at the menu's aspect must not letterbox here.
-            else GUI.DrawTexture(full, frame, ScaleMode.ScaleAndCrop);
+            // picture: a frame baked at the menu's aspect must not letterbox here. What hangs
+            // off the screen is the crop.
+            float want = tex.width / (float)tex.height;
+            if (want > w / h) w = h * want;
+            else h = w / want;
+
+            var at = new Vector3((a.x + b.x) * 0.5f, 0f, (a.z + b.z) * 0.5f);
+            Graphics.DrawMesh(MeshPool.plane10,
+                Matrix4x4.TRS(at, Quaternion.identity, new Vector3(w, 1f, h)),
+                MaterialPool.MatFrom(tex, ShaderDatabase.Cutout, Shade, Underneath), 0);
+        }
+
+        // The one thing eco puts back on the board. Vanilla's three phases in vanilla's own
+        // order: DynamicDrawManager walks the whole map through them and is stood down, so the
+        // agents are walked through them here and nothing else is. Culled against the view for
+        // the reason it culls - a colony is a handful of agents, but a pawn render is not free.
+        static void Agents(Map map)
+        {
+            var colony = AgentColony.Current;
+            if (colony == null) return;
+
+            var view = Find.CameraDriver.CurrentViewRect;
+            foreach (var kv in colony.All)
+            {
+                var pawn = kv.Value;
+                if (pawn == null || !pawn.Spawned || pawn.Map != map) continue;
+                if (!view.Contains(pawn.Position)) continue;
+
+                pawn.DynamicDrawPhase(DrawPhase.EnsureInitialized);
+                pawn.DynamicDrawPhase(DrawPhase.ParallelPreDraw);
+                pawn.DynamicDrawPhase(DrawPhase.Draw);
+            }
+        }
+
+        // ThingOverlays is not part of the draw chain that stands down - it runs from
+        // MapInterfaceOnGUI_BeforeMainTabs, on the GUI layer, and writes out every name on the
+        // map whether or not there is anything under it. In eco there is exactly one thing
+        // under a name, so the rest of them are words hanging in the picture.
+        [HarmonyPatch(typeof(Pawn), nameof(Pawn.DrawGUIOverlay))]
+        public static class Patch_PawnLabels
+        {
+            static bool Prefix(Pawn __instance) => !Resting || AgentColony.IsAgent(__instance);
         }
 
         // Whether this has already offered a picture to bake from, ever.

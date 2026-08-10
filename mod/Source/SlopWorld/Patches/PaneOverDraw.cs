@@ -12,8 +12,9 @@ namespace SlopWorld
     // into a buffer the next call covered up.
     //
     // Eco is the second reason and the standing one: there the board is not covered, it
-    // is switched off, and the menu's background is drawn where it was. Same four calls,
-    // so one gate answers for both - see Eco.
+    // is switched off, and the menu's background is drawn where it was with the agents
+    // standing on it - Eco draws those itself, this having taken the whole map's pawns
+    // away. Same four calls, so one gate answers for both - see Eco.
     //
     // Only the draw half stands down. MapMeshDrawerUpdate_First keeps running:
     // skipping it banks the work into a hitch on the frame the pane closes.
