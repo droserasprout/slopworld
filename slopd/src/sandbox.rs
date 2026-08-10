@@ -190,6 +190,42 @@ fn private_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec
     out
 }
 
+/// The host's own files that a preset shares back *into* its private tree, bound read-write:
+/// the hole in "every agent's state is its own", one file wide. See `SandboxPreset::shared`
+/// for why a rotating credential cannot be a copy.
+///
+/// Three things are dropped, and each is the reason this is not simply `rw`:
+///
+/// - A path that is not a **regular file**. A shared directory is a sandbox that can create
+///   `settings.json` in it, and hooks are command lines the host runs. The narrowness is the
+///   safety, so it is enforced here rather than asked for in a comment.
+/// - A path `refused()` names, the same guard every other bind list passes through.
+/// - A path that is not there. Nothing to share, and bwrap would refuse the source.
+fn shared_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for pr in presets_for(cfg, s, p, t) {
+        for path in &pr.shared {
+            let host = expand(path);
+            if host.is_empty() || out.contains(&host) {
+                continue;
+            }
+            if let Some(what) = refused(&host) {
+                tracing::warn!("not sharing {host}: it reaches {what}");
+                continue;
+            }
+            if !Path::new(&host).exists() {
+                continue;
+            }
+            if !Path::new(&host).is_file() {
+                tracing::warn!("not sharing {host}: shared paths are files, and this is not one");
+                continue;
+            }
+            out.push(host);
+        }
+    }
+    out
+}
+
 /// Makes each private tree and seeds it, once. Called before the argv is built, because
 /// bwrap binding a source that is not there is a session that will not start.
 ///
@@ -234,16 +270,33 @@ fn seed_into(pr: &SandboxPreset, project: &[String], host: &str, copy: &Path) ->
     }
     std::fs::create_dir_all(copy).with_context(|| format!("making {}", copy.display()))?;
 
+    // `skip` is expanded once here rather than per directory walked: it is a handful of paths
+    // and the walk is not. A shared file is skipped too, and not because of its size: it is
+    // bound over from the host anyway, and seeding it would leave a superseded credential
+    // lying in the session directory for as long as that session exists.
+    let skip: Vec<String> = pr
+        .skip
+        .iter()
+        .chain(pr.shared.iter())
+        .map(|s| expand(s))
+        .collect();
+    let skipped = |p: &Path| skip.iter().any(|s| Path::new(s) == p);
+
     // The files at the top of the directory, whatever they are called: a tool keeps its
     // credentials and its config there - `auth.json`, `settings.json`, `config.toml` - and its
     // bulk in subdirectories. Copying them unasked is what keeps this from being a list of
     // every agent's filenames, kept in step by hand and wrong for the one that just changed.
     // The failure it chooses is a session that copied a megabyte it did not need, over one
     // that cannot log in.
+    //
+    // `skip` reaches here as well as into the named directories, because "whatever they are
+    // called" catches what a tool wrote *about* the user next to what it wrote *for* them:
+    // `~/.claude/history.jsonl` is 1.1MB of every prompt typed on this machine, in every
+    // project, and no agent has any business reading it.
     match std::fs::read_dir(host) {
         Ok(entries) => {
             for entry in entries.flatten() {
-                if entry.path().is_file() {
+                if entry.path().is_file() && !skipped(&entry.path()) {
                     let to = copy.join(entry.file_name());
                     if let Err(e) = std::fs::copy(entry.path(), &to) {
                         tracing::warn!("seeding {}: {e:#}", to.display());
@@ -259,10 +312,6 @@ fn seed_into(pr: &SandboxPreset, project: &[String], host: &str, copy: &Path) ->
     // is what every session of that software wants; the project's is what this ground wants,
     // and `~/.claude/plugins` is the case it was added for: 13MB of language servers is worth
     // copying into a session that will use one and not into thirty that will not.
-    // `skip` is expanded once here rather than per directory walked: it is a handful of paths
-    // and the walk is not.
-    let skip: Vec<String> = pr.skip.iter().map(|s| expand(s)).collect();
-
     for from in pr.seed.iter().chain(project) {
         let from = expand(from);
         let Ok(rel) = Path::new(&from).strip_prefix(host) else {
@@ -398,6 +447,13 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     // the original, and an earlier bind of the same target is one bwrap mounts over.
     for (copy, host) in private_binds(cfg, s, p, &table) {
         push(&["--bind", copy.as_str(), host.as_str()]);
+    }
+
+    // After the private binds, and only ever inside one: a shared file is a hole cut in a
+    // copy, so it has to be mounted over the copy rather than under it. bwrap makes the
+    // mount point, which is why nothing seeds one.
+    for path in shared_binds(cfg, s, p, &table) {
+        push(&["--bind", path.as_str(), path.as_str()]);
     }
 
     push(&["--bind", &dir, &dir]);
@@ -813,6 +869,88 @@ mod tests {
         assert_eq!(a[last - 1], copy, "the copy is not what lands last");
     }
 
+    /// A shared file is the hole in the copy, so it has to be mounted *after* the copy that
+    /// would otherwise bury it. The credential is the case: bound over the private `~/.claude`
+    /// rather than under it, or a refresh lands in the session directory and expires there.
+    #[test]
+    fn a_shared_file_lands_on_top_of_the_private_copy_it_sits_in() {
+        let Some(home) = dirs::home_dir() else { return };
+        let claude = home.join(".claude").to_string_lossy().into_owned();
+        let creds = home.join(".claude/.credentials.json");
+        if !creds.exists() {
+            return; // nothing shared on a machine that has never logged in
+        }
+        let creds = creds.to_string_lossy().into_owned();
+
+        let cfg = Config::default();
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "p".into(),
+            command: "claude".into(),
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        };
+        let a = build_argv(&cfg, &s, &p);
+
+        let copy = private_path("a", &claude).to_string_lossy().into_owned();
+        let private_at = at(&a, &copy);
+        let shared_at = a.iter().rposition(|x| x == &creds).expect("no shared bind");
+        assert!(
+            shared_at > private_at,
+            "the copy is mounted over the credential it was supposed to expose"
+        );
+    }
+
+    /// Files only, and the guard every other bind list passes through. A shared *directory* is
+    /// a sandbox that can write `settings.json`, and hooks are command lines the host runs -
+    /// the narrowness is the whole of what makes this safe, so it is enforced and not asked for.
+    #[test]
+    fn only_a_file_is_ever_shared() {
+        let root = std::env::temp_dir().join(format!("slopd-shared-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("dir")).unwrap();
+        std::fs::write(root.join("creds.json"), "token").unwrap();
+
+        let file = root.join("creds.json").to_string_lossy().into_owned();
+        let t = Table {
+            sandbox: vec![SandboxPreset {
+                name: "t".into(),
+                shared: vec![
+                    file.clone(),
+                    root.join("dir").to_string_lossy().into_owned(),
+                    root.join("gone").to_string_lossy().into_owned(),
+                    // And the guard: what no bind list may hand a sandbox, whoever asks.
+                    Config::path_in_use().to_string_lossy().into_owned(),
+                ],
+                ..Default::default()
+            }],
+            commands: Vec::new(),
+        };
+
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            sandbox: vec!["t".into()],
+            ..Default::default()
+        };
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "p".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            shared_binds(&Config::default(), &s, &p, &t),
+            vec![file],
+            "a directory, a missing path or the token got through"
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     /// Seeding, which is what decides whether an agent can log in at all: the files at the
     /// top come across unasked, a named subdirectory comes across whole, an unnamed one does
     /// not, and a second start does not tread on what the agent has written since.
@@ -855,6 +993,49 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(copy.join("auth.json")).unwrap(),
             "the agent's own"
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// `skip` reaches the files on top, not only the directories `seed` names. Two of them,
+    /// for different reasons: the user's prompt history is theirs and no agent's, and a shared
+    /// credential is bound from the host anyway - seeding it would leave a superseded token
+    /// lying in the session directory for as long as the session exists.
+    #[test]
+    fn the_files_on_top_are_cut_back_by_skip_and_by_what_is_shared() {
+        let root = std::env::temp_dir().join(format!("slopd-top-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let host = root.join("host");
+        std::fs::create_dir_all(&host).unwrap();
+        std::fs::write(host.join("settings.json"), "wanted").unwrap();
+        std::fs::write(host.join("history.jsonl"), "every prompt ever typed").unwrap();
+        std::fs::write(host.join(".credentials.json"), "rotates").unwrap();
+
+        let pr = SandboxPreset {
+            name: "t".into(),
+            private: vec![host.to_string_lossy().into_owned()],
+            skip: vec![host.join("history.jsonl").to_string_lossy().into_owned()],
+            shared: vec![host
+                .join(".credentials.json")
+                .to_string_lossy()
+                .into_owned()],
+            ..Default::default()
+        };
+        let copy = root.join("copy");
+        seed_into(&pr, &[], &host.to_string_lossy(), &copy).unwrap();
+
+        assert!(
+            copy.join("settings.json").exists(),
+            "the ordinary file went"
+        );
+        assert!(
+            !copy.join("history.jsonl").exists(),
+            "the user's prompt history came across"
+        );
+        assert!(
+            !copy.join(".credentials.json").exists(),
+            "a copy of the credential was left in the session directory"
         );
 
         let _ = std::fs::remove_dir_all(&root);

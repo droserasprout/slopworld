@@ -12,17 +12,27 @@ elsewhere.
   at zero. A failed poll keeps the last good windows and adds the reason.
 - `expiresAt` and `refreshTokenExpiresAt` are **epoch milliseconds**, same as
   `now_ms()`. A past `expiresAt` is *not* a logged-out host: Claude Code renews the
-  access token lazily and rewrites the file only then, and a sandboxed session
-  writes to its **private copy** of `~/.claude` — so a host driven only through
-  slopworld agents sits expired eight hours after its last direct `claude` run
-  while everything is signed in. Only a dead *refresh* token is a re-login, and
-  only that one says `claude auth`.
+  access token lazily and rewrites the file only then, so a machine nobody has
+  asked anything of sits expired with a good login. Only a dead *refresh* token is
+  a re-login, and only that one says `claude auth`.
+- That used to last much longer. The credentials file is now `shared` rather than
+  copied ([sandbox-isolation](sandbox-isolation.md)), so **an agent's refresh
+  lands on the host's file too** and a machine driven only through slopworld keeps
+  its own token current. The renewal message names any `claude` run, host or
+  agent, rather than sending someone to a terminal they were not using.
 - The credentials file's **mtime is watched every lap** and a change puts the
-  Anthropic poller back to due with its failure count cleared. A login renewed on
-  the host is the only thing that turns "expired" back into numbers, and waiting
-  out the backoff that a dead token earned means half an hour of a wrong tooltip.
-  A stale token whose file has not moved keeps backing off, there being nothing to
-  learn by asking again.
+  Anthropic poller back to due with its failure count cleared, because waiting out
+  the backoff a dead token earned means half an hour of a wrong tooltip. Any
+  session's refresh now trips this, not only a host-side one. A stale token whose
+  file has not moved keeps backing off, there being nothing to learn by asking
+  again.
+- **The file has no atomic writer any more**, and that is the cost of sharing it: a
+  rename onto a bind mount fails with `EBUSY`, so inside a sandbox Claude Code
+  takes its `O_TRUNC`-and-write fallback on the host's own inode. A poll can read
+  it mid-write, which is a *parse* error rather than an IO one, so `read_creds`
+  reads once more 50ms later. Cheap, and the alternative is a microsecond window
+  costing half an hour of backoff — the mtime watch that would cut that short has
+  usually already stamped the write that caused it. An IO error is not retried.
 - `backoff` doubles per consecutive failure, capped at half an hour;
   `Retry-After` beats both. A 429 is read rather than raised
   (`http_status_as_error(false)`), and the wait goes into the error string because

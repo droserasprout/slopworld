@@ -126,7 +126,33 @@ struct Creds {
     plan: String,
 }
 
+/// Read once, and read again if what came back was not JSON.
+///
+/// The file has no atomic writer any more. Claude Code writes it tmp-then-rename, but a rename
+/// onto a bind mount fails with `EBUSY` and the sandbox binds this file into every session that
+/// has the `claude` preset - so inside one, its fallback path is taken: `O_TRUNC` and write, on
+/// the host's own inode. A read landing in that window gets a truncated file or an empty one,
+/// and both are parse errors rather than IO errors.
+///
+/// One retry is the whole fix: the window is a single `write(2)` of half a kilobyte, and
+/// anything still unparseable 50ms later is a genuinely broken file worth reporting. Without it
+/// the cost is out of all proportion to the odds - a poll failure doubles a backoff capped at
+/// half an hour, and the mtime watch that would cut it short has usually already stamped the
+/// write that did the damage.
+///
+/// Not retried on an IO error: a file that is missing or unreadable will still be missing in
+/// 50ms, and that is a state worth reporting at once.
 fn read_creds(path: &PathBuf) -> anyhow::Result<Creds> {
+    match read_creds_once(path) {
+        Err(e) if e.downcast_ref::<serde_json::Error>().is_some() => {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            read_creds_once(path)
+        }
+        other => other,
+    }
+}
+
+fn read_creds_once(path: &PathBuf) -> anyhow::Result<Creds> {
     let text =
         std::fs::read_to_string(path).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
     let v: Value = serde_json::from_str(&text)?;
@@ -159,13 +185,18 @@ fn read_creds(path: &PathBuf) -> anyhow::Result<Creds> {
 /// side is how this check stops firing at all.
 ///
 /// A past `expiresAt` is not a logged-out host. Claude Code refreshes the access token lazily,
-/// on use, and rewrites the file only when it does - and a sandboxed session gets a private
-/// copy of `~/.claude`, so an agent's refresh never reaches the host's file. A host nobody has
-/// run `claude` on directly can therefore sit hours past expiry with a perfectly good login,
-/// which is what "expired while I am signed in" means when the readout says it.
+/// on use, and rewrites the file only when it does, so a machine nobody has asked anything of
+/// sits hours past expiry with a perfectly good login - which is what "expired while I am
+/// signed in" means when the readout says it.
+///
+/// It used to sit there much longer. The credentials file is `shared` rather than copied (see
+/// `SandboxPreset::shared`), so a *sandboxed* session's refresh now lands on the host's file
+/// too, and a machine driven only through slopworld agents keeps its own token current without
+/// anyone running `claude` beside them. Hence the remedy below names any agent and not only the
+/// host: sending someone to a terminal they were not using is how this reads as broken.
 ///
 /// Told apart because the remedies are different, and `claude auth` on a token that any
-/// host-side command would renew by itself sends the user to re-authenticate for nothing.
+/// ordinary use would renew by itself sends the user to re-authenticate for nothing.
 /// The refresh token is the one whose death really is a re-login; it outlives the access
 /// token by weeks.
 fn expiry_error(exp: Option<u64>, refresh_exp: Option<u64>, now: u64) -> Option<&'static str> {
@@ -175,7 +206,7 @@ fn expiry_error(exp: Option<u64>, refresh_exp: Option<u64>, now: u64) -> Option<
     if refresh_exp.is_some_and(|e| e < now) {
         return Some("Claude login expired; run `claude auth` on the host");
     }
-    Some("the host's cached Claude token needs renewing; run any `claude` command on the host")
+    Some("the cached Claude token needs renewing; run any `claude` command, host or agent")
 }
 
 /// The wait is carried rather than worked out: on a 429 the endpoint's own
@@ -921,6 +952,43 @@ mod tests {
         assert_eq!(m.unit, Unit::Pct);
         assert_eq!(m.pct, 21.0);
         assert!(m.amount.is_none());
+    }
+
+    /// The file has no atomic writer any more: inside a sandbox the rename fails with `EBUSY`
+    /// and Claude Code truncates the host's inode in place instead, so a poll can read a file
+    /// mid-write. Half-written is a *parse* error, and one retry is what keeps a microsecond
+    /// window from costing half an hour of a wrong readout.
+    #[test]
+    fn a_half_written_credentials_file_is_read_again_rather_than_failed() {
+        let path = std::env::temp_dir().join(format!("slopd-torn-{}.json", std::process::id()));
+        let whole = r#"{"claudeAiOauth":{"accessToken":"t","subscriptionType":"max"}}"#;
+
+        // The state O_TRUNC leaves behind, before the write lands.
+        std::fs::write(&path, "").unwrap();
+        let writer = {
+            let path = path.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                std::fs::write(&path, whole).unwrap();
+            })
+        };
+        let got = read_creds(&path);
+        writer.join().unwrap();
+        assert_eq!(
+            got.unwrap().token,
+            "t",
+            "the retry did not pick up the write"
+        );
+
+        // And a file that is still not JSON once the window has passed is a real error, not
+        // something to keep quiet about.
+        std::fs::write(&path, "half a {").unwrap();
+        assert!(read_creds(&path).is_err());
+
+        // A missing file is not retried at all - it is an IO error, and it will still be
+        // missing in 50ms.
+        std::fs::remove_file(&path).unwrap();
+        assert!(read_creds(&path).is_err());
     }
 
     /// Both stamps are epoch milliseconds. Written as a real pair off a live credentials

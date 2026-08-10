@@ -11,6 +11,15 @@ name = "claude"
 category = "agent"
 description = "Claude Code's own state and credentials, one copy per session"
 private = ["~/.claude", "~/.claude.json"]
+# The one file that cannot be a copy. Claude Code's access token lasts 8 hours and the refresh
+# token behind it is replaced on every use, so a tree seeded once is a tree that logs in until
+# it doesn't - and the only cure was deleting the session, which is also how its transcripts
+# went. Shared, so a refresh made inside lands where the host and every other session read it.
+#
+# It is safe in a way `settings.json` next to it is not: it names no command. Nothing in it
+# becomes a host command line, so what a sandbox gains by writing it is the ability to log the
+# user out, and never the ability to run something. See `SandboxPreset::shared` - files only.
+shared = ["~/.claude/.credentials.json"]
 # What the user wrote, as against what the tool wrote about them. Credentials and settings are
 # files at the top of `~/.claude` and come across without being named.
 #
@@ -21,6 +30,15 @@ seed = [
     "~/.claude/agents",
     "~/.claude/commands",
     "~/.claude/skills",
+]
+# Cut back out of the files at the top, which otherwise come across because they are there.
+# `history.jsonl` is every prompt typed on this machine, in every project, and it is the user's
+# rather than the tool's - the one file the top-level sweep was never meant to catch. The two
+# caches are merely bulk that is wrong the moment it is copied.
+skip = [
+    "~/.claude/history.jsonl",
+    "~/.claude/stats-cache.json",
+    "~/.claude/settings.json.bak",
 ]
 env = ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "CLAUDE_CONFIG_DIR"]
 

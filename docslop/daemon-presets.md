@@ -13,9 +13,12 @@ place**, so the GUI never draws two of one.
 - `category` is free text: an unknown one is a heading in the GUI, not an error.
   So is `escapes`, which is non-empty on a preset that hands the sandbox a way
   back out and is what the GUI draws in `Warn`.
-- A `[[sandbox]]` states five kinds of path: `ro`, `rw`, `dev` (which needs
+- A `[[sandbox]]` states six kinds of path: `ro`, `rw`, `dev` (which needs
   `--dev-bind` to survive the `--dev` tmpfs), `private` (a per-session copy,
-  not the host's) and `seed` (what a fresh copy is filled with).
+  not the host's), `seed` (what a fresh copy is filled with) and `shared` (the
+  host's own file, read-write, cut back *into* a private tree - see
+  [sandbox-isolation](sandbox-isolation.md)). `skip` cuts back out of both
+  `seed` and the files at the top of a private directory.
 - A name the table has no preset for is warned about and dropped rather than
   refused - the files outlive the binary - but one *typed* into a dialog is
   refused (`check_presets`), that being where it can be fixed.

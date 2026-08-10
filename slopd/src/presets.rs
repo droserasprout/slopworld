@@ -43,6 +43,20 @@ pub struct SandboxPreset {
     /// gets the list wrong towards an agent that works rather than one that does not.
     #[serde(default)]
     pub skip: Vec<String>,
+    /// The host's own file, bound read-write, *inside* a `private` tree. The deliberate hole
+    /// in "every agent's state is its own", and it exists because a credential is not state:
+    /// it rotates. Claude Code's access token lasts 8 hours and its refresh token is replaced
+    /// on every use, so a copy seeded once is a copy that expires - and the only cure was
+    /// deleting the session, which is also how its transcripts were lost. A shared file makes
+    /// the refresh land where every session and the host will read it.
+    ///
+    /// **Files only** (`shared_binds` drops a directory), and that restriction is the whole of
+    /// what makes this safe. `~/.claude/.credentials.json` names no command; `settings.json`
+    /// names hooks and `~/.claude.json` names MCP servers, and a shared *directory* is a
+    /// sandbox that can create either one. What is traded here is integrity - something inside
+    /// can log the user out - and never execution.
+    #[serde(default)]
+    pub shared: Vec<String>,
     /// Non-empty when ticking this hands the sandbox a way back out: a socket whose far end
     /// runs on the host, a display every other window shares. Free text, because what it
     /// costs is the part worth reading, and the GUI draws it beside the checkbox rather than
@@ -307,6 +321,16 @@ mod tests {
                 "{name} still binds {:?} read-write on the host's own copy",
                 p.rw
             );
+            // `shared` is the one exception, and it is an exception *within* a copy: a hole cut
+            // in a private tree for a credential that rotates. One that fell outside every
+            // `private` path would be an ordinary read-write bind on the host wearing the name
+            // of a narrow one, which is exactly the thing the line above refuses.
+            for s in &p.shared {
+                assert!(
+                    p.private.iter().any(|priv_| s.starts_with(priv_.as_str())),
+                    "{name} shares {s}, which is under nothing it keeps private"
+                );
+            }
         }
 
         // A socket whose far end runs on the host, or a display every window shares.

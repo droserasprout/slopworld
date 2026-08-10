@@ -44,7 +44,11 @@ longer read each other's transcripts either.
   *user* wrote lives. Deliberately not a list of every agent's filenames: the
   failure it chooses is a session that copied a megabyte it did not need, over
   one that cannot log in.
-- `skip` cuts back out of what `seed` names, which is what makes naming a whole
+- `skip` cuts back out of what `seed` names **and** out of the files on top,
+  because "whatever they are called" catches what a tool wrote *about* the user
+  next to what it wrote *for* them. `~/.claude/history.jsonl` is 1.1MB of every
+  prompt typed on this machine, in every project, and was going into every
+  sandbox until it was named. That is what makes naming a whole
   directory the right move. A tool scatters its config and concentrates its
   bulk: `~/.pi/agent` holds the model selection *and* 21MB of transcripts, so
   the preset seeds `agent` and skips `agent/sessions`. Listing by hand the files
@@ -67,6 +71,36 @@ longer read each other's transcripts either.
   because the tests call it and own no home.
 - **Deleting a session's directory is how it is handed a fresh one.** Nothing
   re-seeds on its own, so what the host changed afterwards stays out.
+
+## Except the credential, which cannot be a copy
+
+`shared = [...]` binds the **host's own file** read-write, after the private
+binds and so on top of them: a hole cut in a copy, one file wide. There is one,
+`~/.claude/.credentials.json`.
+
+A credential is not state, it rotates. Claude Code's access token lasts 8 hours
+and the refresh token behind it is replaced on every use, sliding an 11-day
+window forward; a tree seeded once holds whichever token was current the day the
+session was first started. So every session logged in until it didn't, and the
+only cure was deleting the session directory - which is also how its transcripts
+went. Those were one bug, not two.
+
+- **Files only.** `shared_binds` drops a directory, and that narrowness is the
+  whole of what makes this safe. `.credentials.json` names no command; the
+  `settings.json` beside it names hooks and `~/.claude.json` names MCP servers,
+  and a shared *directory* is a sandbox that can create either. What is traded
+  here is integrity - something inside can log the user out - and never
+  execution. That is why the preset is not marked `escapes`.
+- `refused()` applies, the same as every other bind list.
+- Never seeded. It is bound from the host anyway, and a copy would leave a
+  superseded token in the session directory for as long as the session lives.
+  bwrap makes the mount point itself - an empty file the bind covers.
+- **A rename onto a bind mount fails with `EBUSY`**, so this only works because
+  Claude Code writes credentials tmp-then-rename with an in-place
+  `O_WRONLY|O_CREAT|O_TRUNC` fallback on `EXDEV`/`EPERM`/`EEXIST`/`EBUSY`. That
+  fallback is load-bearing and belongs to somebody else's binary: a tool that
+  renames without one shares nothing, silently, and the check before adding a
+  second `shared` path is whether its writer has the same fallback.
 
 ## A way out says so
 

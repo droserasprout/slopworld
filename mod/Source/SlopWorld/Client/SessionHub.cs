@@ -273,6 +273,10 @@ namespace SlopWorld
         // did my ~/.claude go" is the question a session's own copy raises, and a path that
         // read as an ordinary bind would answer it wrongly.
         public List<string> Private = new List<string>();
+        // The host's own file, read-write, inside one of those copies: a credential that
+        // rotates cannot be a copy. Grouped with Rw rather than Private because that is what
+        // it is - the one path here something inside can write and the host will read.
+        public List<string> Shared = new List<string>();
 
         // What ticking this costs, when it costs anything: a socket whose far end runs on the
         // host, a display every other window shares. Empty for an ordinary preset.
@@ -281,7 +285,7 @@ namespace SlopWorld
 
         // Every path and env var the preset asks for, for the tooltip.
         public List<string> Gives =>
-            Ro.Concat(Rw).Concat(Private).Concat(Env).ToList();
+            Ro.Concat(Rw).Concat(Shared).Concat(Private).Concat(Env).ToList();
 
         public static PresetInfo FromJson(JVal j)
         {
@@ -296,6 +300,7 @@ namespace SlopWorld
                 p.Ro.AddRange(j[key].Items.Select(i => i.AsString()));
             p.Rw.AddRange(j["rw"].Items.Select(i => i.AsString()));
             p.Private.AddRange(j["private"].Items.Select(i => i.AsString()));
+            p.Shared.AddRange(j["shared"].Items.Select(i => i.AsString()));
             foreach (var key in new[] { "env", "setenv" })
                 p.Env.AddRange(j[key].Items.Select(i => i.AsString()));
             return p;
