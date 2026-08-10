@@ -1,6 +1,5 @@
 [[sandbox]]
 name = "python"
 category = "dev"
-description = "pip, uv and the user site-packages tree"
-rw = ["~/.cache/pip", "~/.cache/uv", "~/.local/lib", "~/.local/share/uv"]
-env = ["VIRTUAL_ENV", "UV_CACHE_DIR"]
+description = "Python user site-packages, read-only"
+ro = ["~/.local/lib"]

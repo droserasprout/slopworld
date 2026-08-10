@@ -11,8 +11,12 @@ place**, so the GUI never draws two of one.
   check `config.toml` is (`reload_presets_if_changed`), and the sessions are
   re-announced because what an agent runs may have just changed under it.
 - `category` is free text: an unknown one is a heading in the GUI, not an error.
-  So is `escapes`, which is non-empty on a preset that hands the sandbox a way
-  back out and is what the GUI draws in `Warn`.
+  `escapes` is non-empty on a preset that hands the sandbox a way back out and is
+  what the GUI draws in `Warn`.
+- `requires` names sandbox presets that must be included before this one; it is a
+  dependency closure, cycle-safe in the daemon, and its implied boxes are shown
+  disabled in the mod. `systemd` requires `dbus`; language caches likewise require
+  their read-only toolchain preset (`python-cache` requires `python`, for example).
 - `GET /api/presets` returns `source` as `system`, `user` or `override`, plus the
   complete effective definition. The settings page separates system entries from
   user entries; a user entry with the same name as a builtin is an override.
@@ -60,8 +64,11 @@ place**, so the GUI never draws two of one.
 - A socket is bound by its *directory*, wherever its owner recreates it. `dbus`
   and `wayland` name sockets directly because those outlive every session. SSH is split:
   `ssh` exposes config and known hosts only; `ssh-agent` is the explicit host-signing
-  capability and is marked as an escape. `ollama` exposes local models, while
-  `ollama-server` makes the host service explicit and marked.
+  capability and is marked as an escape. GnuPG follows the same shape: `gpg` exposes
+  public configuration only, while `gpg-agent` is the explicit signing/decryption capability.
+- Agent presets do **not** forward configuration-root variables such as `CODEX_HOME`:
+  the default path under `HOME` is the private bind. Forwarding one could point the
+  tool back at a writable project directory and undo that isolation.
 - `env` forwards names out of slopd's environment; `setenv` sets literals, applied
   last (`SYSTEMCTL_FORCE_BUS=1`, which is why `systemd` is useless without `dbus`).
 - bwrap gets `--clearenv`; `BASE_ENV` survives regardless, `TERM`/`COLORTERM` are

@@ -286,6 +286,9 @@ namespace SlopWorld
         // a heading, not a problem: the table is a directory of files now.
         public string Category = "";
         public string Description = "";
+        // Automatically included before this preset.  The daemon resolves the authoritative
+        // closure; the client keeps it to show why a checkbox is unavailable.
+        public List<string> Requires = new List<string>();
         // `system` is compiled into slopd, `user` exists only in the preset directory, and
         // `override` is a user definition replacing a system entry with the same name.
         public string Source = "";
@@ -323,6 +326,7 @@ namespace SlopWorld
             Name = Name,
             Category = Category,
             Description = Description,
+            Requires = new List<string>(Requires),
             Source = Source,
             Ro = new List<string>(Ro),
             Rw = new List<string>(Rw),
@@ -339,6 +343,7 @@ namespace SlopWorld
         public string ToJson() =>
             "{" + $"\"name\":{JVal.Q(Name)},\"category\":{JVal.Q(Category)}," +
             $"\"description\":{JVal.Q(Description)},\"ro\":{Arr(Ro)}," +
+            $"\"requires\":{Arr(Requires)}," +
             $"\"rw\":{Arr(Rw)},\"dev\":{Arr(Dev)},\"private\":{Arr(Private)}," +
             $"\"seed\":{Arr(Seed)},\"skip\":{Arr(Skip)},\"shared\":{Arr(Shared)}," +
             $"\"escapes\":{JVal.Q(Escapes)},\"env\":{Arr(Env)}," +
@@ -362,6 +367,7 @@ namespace SlopWorld
                 Escapes = j["escapes"].AsString(),
             };
             p.Ro.AddRange(j["ro"].Items.Select(i => i.AsString()));
+            p.Requires.AddRange(j["requires"].Items.Select(i => i.AsString()));
             p.Rw.AddRange(j["rw"].Items.Select(i => i.AsString()));
             p.Dev.AddRange(j["dev"].Items.Select(i => i.AsString()));
             p.Private.AddRange(j["private"].Items.Select(i => i.AsString()));

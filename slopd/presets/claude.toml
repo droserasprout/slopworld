@@ -40,7 +40,7 @@ skip = [
     "~/.claude/stats-cache.json",
     "~/.claude/settings.json.bak",
 ]
-env = ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "CLAUDE_CONFIG_DIR"]
+env = ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"]
 
 [[command]]
 name = "claude"

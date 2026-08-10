@@ -472,6 +472,7 @@ fn sandbox_json(
         "source": source(builtins.sandbox(&p.name).is_some(), users.sandbox(&p.name).is_some()),
         "category": p.category,
         "description": p.description,
+        "requires": p.requires,
         "ro": p.ro,
         "rw": p.rw,
         "dev": p.dev,
@@ -590,6 +591,16 @@ async fn update_preset(
         let mut p: crate::presets::SandboxPreset =
             serde_json::from_slice(&body).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
         p.name = name;
+        let table = crate::presets::table();
+        for required in &p.requires {
+            if required == &p.name || table.sandbox(required).is_some() {
+                continue;
+            }
+            return Err(err(
+                StatusCode::BAD_REQUEST,
+                format!("unknown required sandbox preset: {required}"),
+            ));
+        }
         for path in
             p.ro.iter()
                 .chain(p.rw.iter())

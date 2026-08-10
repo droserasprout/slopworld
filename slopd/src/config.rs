@@ -592,19 +592,49 @@ impl Config {
             .collect()
     }
 
-    /// Its command preset's sandbox presets, the project's, then its own, first mention
-    /// winning the way `paths()` deduplicates.
+    /// Its command preset's sandbox presets, the project's, then its own, plus every
+    /// preset dependency before the thing that needs it. First mention wins, as in `paths()`.
     pub fn sandbox_of(&self, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
         let t = crate::presets::table();
-        let mut names: Vec<String> = t
+        let asked: Vec<String> = t
             .command(&self.command_name(s))
             .map(|c| c.sandbox.clone())
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .into_iter()
+            .chain(p.sandbox.iter().cloned())
+            .chain(s.sandbox.iter().cloned())
+            .collect();
 
-        for n in p.sandbox.iter().chain(s.sandbox.iter()) {
-            if !names.contains(n) {
-                names.push(n.clone());
+        fn add(
+            name: &str,
+            table: &crate::presets::Table,
+            out: &mut Vec<String>,
+            visiting: &mut Vec<String>,
+        ) {
+            if out.iter().any(|seen| seen == name) {
+                return;
             }
+            if visiting.iter().any(|seen| seen == name) {
+                tracing::warn!(
+                    "sandbox preset dependency cycle at {name:?}, ignoring its back-edge"
+                );
+                return;
+            }
+            visiting.push(name.to_string());
+            if let Some(preset) = table.sandbox(name) {
+                for required in &preset.requires {
+                    add(required, table, out, visiting);
+                }
+            }
+            visiting.pop();
+            if !out.iter().any(|seen| seen == name) {
+                out.push(name.to_string());
+            }
+        }
+
+        let mut names = Vec::new();
+        for name in asked {
+            add(&name, &t, &mut names, &mut Vec::new());
         }
         names
     }
@@ -845,6 +875,20 @@ token = \"not-a-daemon-token\"
         // errand be run somewhere it never named.
         let anywhere = cfg.session_for(sc, "review-diff-2".into(), "elsewhere".into());
         assert_eq!(anywhere.project, "elsewhere");
+    }
+
+    #[test]
+    fn preset_dependencies_arrive_before_the_preset_that_needs_them() {
+        let cfg = Config::default();
+        let session = SessionCfg {
+            command: "shell".into(),
+            sandbox: vec!["systemd".into()],
+            ..Default::default()
+        };
+        assert_eq!(
+            cfg.sandbox_of(&session, &Default::default()),
+            vec!["dbus", "systemd"]
+        );
     }
 
     /// An entry written before links existed has to keep meaning what it did: a

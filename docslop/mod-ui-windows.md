@@ -15,9 +15,9 @@ opens are still windows, and go up through `TerminalWindow.OpenOverPane`.
   ignored. Greyed-and-shown beats hidden throughout.
 - **`PresetList`** - those checkboxes wherever they are ticked (a project's, and one
   agent's own), grouped by the `category` each preset states, because the table is
-  a directory of files and not a list this half keeps in step. Fetched on every
-  dialog open rather than once per process, for the same reason. What an agent's
-  *command* asks for is drawn ticked and refused: "why is `~/.claude` bound" is the
+  a directory of files and not a list this half keeps in step. Fetched on every dialog
+  open rather than once per process, for the same reason. What an agent's command or
+  another selected preset requires is drawn ticked and refused: "why is `~/.claude` bound" is the
   question that answers.
 - **`EditSessionDialog`** - picks a command preset, or neither: `Command` empty with
   a `Cmd` typed is a command line of its own; empty with no `Cmd` is whatever

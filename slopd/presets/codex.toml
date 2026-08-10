@@ -8,7 +8,6 @@ description = "OpenAI Codex CLI's own state, config and auth, one copy per sessi
 private = ["~/.codex"]
 seed = ["~/.codex/prompts"]
 env = [
-    "CODEX_HOME",
     "OPENAI_API_KEY",
     "OPENAI_BASE_URL",
     "OPENAI_ORG_ID",

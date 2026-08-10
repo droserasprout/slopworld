@@ -106,7 +106,7 @@ went. Those were one bug, not two.
 
 `escapes` is free text on a sandbox preset, non-empty when ticking it hands the
 sandbox a road back: `docker`, `podman`, `dbus`, `systemd`, `x11`, `ssh-agent`,
-`ollama-server`, `1password`. The mod draws those in `Warn` and puts the sentence first in the
+`gpg-agent`, `1password`. The mod draws those in `Warn` and puts the sentence first in the
 tooltip - before the description, because by the time the eye reaches a list of
 paths the decision has been made. A preset that merely carries a *secret*
 (`aws`, `kube`, `gh`) is not marked: that is a trade about reach, and this one

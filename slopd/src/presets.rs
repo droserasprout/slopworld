@@ -15,6 +15,10 @@ pub struct SandboxPreset {
     pub category: String,
     #[serde(default)]
     pub description: String,
+    /// Presets this one needs in order to function. Resolved before this preset so the
+    /// supporting capability is present whenever the dependent one is chosen.
+    #[serde(default)]
+    pub requires: Vec<String>,
     #[serde(default)]
     pub ro: Vec<String>,
     /// Sockets go here: a bus you cannot write to is a bus you cannot talk on.
@@ -127,10 +131,12 @@ const BUILTIN: &[(&str, &str)] = &[
     ("aws", include_str!("../presets/aws.toml")),
     ("kube", include_str!("../presets/kube.toml")),
     ("ollama", include_str!("../presets/ollama.toml")),
-    (
-        "ollama-server",
-        include_str!("../presets/ollama-server.toml"),
-    ),
+    ("rust-cache", include_str!("../presets/rust-cache.toml")),
+    ("node-cache", include_str!("../presets/node-cache.toml")),
+    ("python-cache", include_str!("../presets/python-cache.toml")),
+    ("go-cache", include_str!("../presets/go-cache.toml")),
+    ("gpg", include_str!("../presets/gpg.toml")),
+    ("gpg-agent", include_str!("../presets/gpg-agent.toml")),
 ];
 
 #[derive(Debug, Default)]
@@ -428,10 +434,18 @@ mod tests {
             assert!(!p.description.is_empty(), "{name} has no description");
         }
         assert_eq!(
-            t.sandbox("go").unwrap().rw,
-            vec!["~/go", "~/.cache/go-build"]
+            t.sandbox("go-cache").unwrap().rw,
+            vec!["~/go/pkg/mod", "~/.cache/go-build"]
         );
         assert_eq!(t.sandbox("kube").unwrap().ro, vec!["~/.kube"]);
+        for (cache, tool) in [
+            ("rust-cache", "rust"),
+            ("node-cache", "node"),
+            ("python-cache", "python"),
+            ("go-cache", "go"),
+        ] {
+            assert_eq!(t.sandbox(cache).unwrap().requires, vec![tool]);
+        }
     }
 
     /// Every agent keeps its own state, and every way back out of the sandbox says so. Both
@@ -477,8 +491,8 @@ mod tests {
             "systemd",
             "x11",
             "ssh-agent",
-            "ollama-server",
             "1password",
+            "gpg-agent",
         ] {
             let p = t
                 .sandbox(name)
@@ -490,7 +504,19 @@ mod tests {
         }
 
         // And the ordinary ones are not crying wolf.
-        for name in ["rust", "go", "python", "node", "git", "ollama"] {
+        for name in [
+            "rust",
+            "rust-cache",
+            "go",
+            "go-cache",
+            "python",
+            "python-cache",
+            "node",
+            "node-cache",
+            "git",
+            "ollama",
+            "gpg",
+        ] {
             let p = t
                 .sandbox(name)
                 .unwrap_or_else(|| panic!("no {name} preset"));
@@ -501,7 +527,26 @@ mod tests {
         // capability that lets a sandbox ask the host to sign.
         assert!(t.sandbox("ssh").unwrap().rw.is_empty());
         assert_eq!(t.sandbox("ssh-agent").unwrap().rw, vec!["$SSH_AUTH_SOCK"]);
-        assert!(!t.sandbox("ollama-server").unwrap().escapes.is_empty());
+        assert_eq!(t.sandbox("systemd").unwrap().requires, vec!["dbus"]);
+
+        // A config-root variable would bypass the private mount, so the shipped agent
+        // presets rely on their default paths under HOME instead of forwarding one.
+        for (name, forbidden) in [
+            ("claude", "CLAUDE_CONFIG_DIR"),
+            ("codex", "CODEX_HOME"),
+            ("pi", "PI_CODING_AGENT_DIR"),
+            ("opencode", "OPENCODE_CONFIG"),
+            ("opencode", "OPENCODE_CONFIG_DIR"),
+        ] {
+            assert!(
+                !t.sandbox(name)
+                    .unwrap()
+                    .env
+                    .iter()
+                    .any(|env| env == forbidden),
+                "{name} forwards {forbidden}, bypassing its private state"
+            );
+        }
     }
 
     /// A user file replaces the builtin of the same name in place, and adds what it names

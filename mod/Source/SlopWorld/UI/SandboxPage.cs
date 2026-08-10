@@ -249,6 +249,7 @@ namespace SlopWorld
             y = EditorField(view, y, "Name", "preset.name", p.Name, _newEntry, v => p.Name = v);
             y = EditorField(view, y, "Category", "preset.category", p.Category, editable, v => p.Category = v);
             y = EditorArea(view, y, "Description", "preset.description", p.Description, editable, 44f, v => p.Description = v);
+            y = EditorList(view, y, "Requires", "preset.requires", p.Requires, editable);
             y = Rule(view.width, y + SlopWidgets.GapXS);
             y = EditorList(view, y, "Read-only binds", "preset.ro", p.Ro, editable);
             y = EditorList(view, y, "Read-write binds", "preset.rw", p.Rw, editable);

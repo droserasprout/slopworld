@@ -2,6 +2,7 @@
 name = "systemd"
 category = "service"
 description = "systemctl --user, journalctl (needs dbus)"
+requires = ["dbus"]
 escapes = "`systemd --user` starts what it is asked to, outside this sandbox"
 ro = ["/run/systemd", "/sys/fs/cgroup", "/var/log/journal", "/run/log/journal"]
 rw = ["$XDG_RUNTIME_DIR/systemd"]

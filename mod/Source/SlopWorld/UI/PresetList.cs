@@ -46,6 +46,9 @@ namespace SlopWorld
 
             scroll.Begin(pad, inner);
             float y = 0f;
+            var roots = new List<string>(chosen);
+            if (implied != null) roots.AddRange(implied);
+            var required = RequiredBy(roots, presets);
             foreach (var g in groups)
             {
                 SlopWidgets.SectionHeading(new Rect(0f, y, inner.width, RowH), g.Key);
@@ -57,7 +60,8 @@ namespace SlopWorld
                         inner.width - SlopWidgets.GapS, RowH);
                     y += RowH;
 
-                    bool forced = implied != null && implied.Contains(pr.Name);
+                    bool forced = (implied != null && implied.Contains(pr.Name)) ||
+                                  (required.Contains(pr.Name) && !chosen.Contains(pr.Name));
                     bool was = forced || chosen.Contains(pr.Name);
                     bool on = SlopWidgets.Checkbox(cell, pr.Name, was, Tip(pr, forced), forced,
                                                    pr.IsEscape);
@@ -73,10 +77,24 @@ namespace SlopWorld
         static string Category(PresetInfo p) =>
             string.IsNullOrEmpty(p.Category) ? "other" : p.Category;
 
+        static HashSet<string> RequiredBy(IEnumerable<string> chosen, List<PresetInfo> presets)
+        {
+            var required = new HashSet<string>();
+            var todo = new Queue<string>(chosen);
+            while (todo.Count > 0)
+            {
+                var p = presets.FirstOrDefault(x => x.Name == todo.Dequeue());
+                if (p == null) continue;
+                foreach (var name in p.Requires)
+                    if (required.Add(name)) todo.Enqueue(name);
+            }
+            return required;
+        }
+
         static string Tip(PresetInfo p, bool forced)
         {
             string gives = string.Join("\n", p.Gives.ToArray());
-            string why = forced ? "\n\nAsked for by the command this agent runs." : "";
+            string why = forced ? "\n\nRequired by another selected preset or the command this agent runs." : "";
             // First, not last: what it costs is read before what it gives, because by the time
             // the eye reaches a list of paths the decision has usually been made.
             string out_ = p.IsEscape ? $"Way out of the sandbox: {p.Escapes}.\n\n" : "";
