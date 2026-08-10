@@ -142,6 +142,18 @@ namespace SlopWorld
         public static void Toggle() =>
             TerminalWindow.ToggleContent(() => new OptionsView(Category));
 
+        // A palette entry can name a page directly. Open the options view when it is not
+        // already up, or swap the category in the existing view - the same two roads as the
+        // gear and the page's own links, without making the palette know about content views.
+        public static void OpenCategory(OptionCategoryDef category)
+        {
+            if (category == null) return;
+
+            var v = TerminalWindow.ShowingAs<OptionsView>();
+            if (v == null) TerminalWindow.OpenContent(new OptionsView(category));
+            else v.Category = category;
+        }
+
         // From the General page, jump to the Terminal page in the view that is already up.
         // The "Appearance..." button used to open a floating window; with the pane's
         // settings a tab of this same page, the honest answer to the press is a tab swap.

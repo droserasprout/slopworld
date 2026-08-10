@@ -554,6 +554,20 @@ namespace SlopWorld
                         () => SessionHub.Instance.Remove(name, SlopWidgets.Fail), destructive: true));
                 },
             });
+            _commands.Add(new Entry
+            {
+                Id = "agent.duplicate",
+                Name = "Agent: Duplicate",
+                Category = "Agent",
+                SubAction = () => AgentsSubWithProject(),
+                Execute = v =>
+                {
+                    if (v == null) return;
+                    var info = SessionHub.Instance.Get(v);
+                    if (info != null && !string.IsNullOrEmpty(info.Project))
+                        TerminalWindow.OpenOverPane(EditSessionDialog.Copy(info));
+                },
+            });
 
             // Project
             _commands.Add(new Entry
@@ -589,6 +603,33 @@ namespace SlopWorld
                     Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                         $"Remove project '{name}'? The directory is left alone; only the entry in config.toml goes.",
                         () => SessionHub.Instance.RemoveProject(name, SlopWidgets.Fail), destructive: true));
+                },
+            });
+            _commands.Add(new Entry
+            {
+                Id = "project.duplicate",
+                Name = "Project: Duplicate",
+                Category = "Project",
+                SubAction = () => ProjectsSub(),
+                Execute = v =>
+                {
+                    if (v == null) return;
+                    var project = SessionHub.Instance.Project(v);
+                    if (project != null)
+                        TerminalWindow.OpenOverPane(EditProjectDialog.Copy(project));
+                },
+            });
+            _commands.Add(new Entry
+            {
+                Id = "project.host-terminal",
+                Name = "Project: Open Host Terminal",
+                Category = "Project",
+                SubAction = () => ProjectsSub(),
+                Execute = v =>
+                {
+                    if (v == null) return;
+                    SessionHub.Instance.RunHostShell(v,
+                        session => TerminalWindow.Open(session), SlopWidgets.Fail);
                 },
             });
 
@@ -644,6 +685,50 @@ namespace SlopWorld
                 },
             });
 
+            // Daemon and data refresh
+            _commands.Add(new Entry
+            {
+                Id = "daemon.reconnect",
+                Name = "Daemon: Reconnect",
+                Category = "Daemon",
+                Execute = _ => SessionHub.Instance.Connect(),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "agents.refresh",
+                Name = "Agents: Refresh",
+                Category = "Refresh",
+                Execute = _ => SessionHub.Instance.Refresh(),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "projects.refresh",
+                Name = "Projects: Refresh",
+                Category = "Refresh",
+                Execute = _ => SessionHub.Instance.RefreshProjects(SlopWidgets.Fail),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "shortcuts.refresh",
+                Name = "Shortcuts: Refresh",
+                Category = "Refresh",
+                Execute = _ => SessionHub.Instance.RefreshShortcuts(SlopWidgets.Fail),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "files.reload",
+                Name = "Files: Reload",
+                Category = "Refresh",
+                Execute = _ => FilesView.Reload(),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "git.refresh",
+                Name = "Git: Refresh",
+                Category = "Refresh",
+                Execute = _ => GitView.Refresh(),
+            });
+
             // View
             _commands.Add(new Entry
             {
@@ -651,6 +736,64 @@ namespace SlopWorld
                 Name = "View: Config",
                 Category = "View",
                 Execute = _ => SlopOptions.Toggle(),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "config.toml",
+                Name = "Config: Edit as TOML",
+                Category = "Config",
+                Execute = _ => ConfigWindow.Open(),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "view.terminal-settings",
+                Name = "View: Terminal",
+                Category = "View",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.TerminalCategory),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "view.appearance",
+                Name = "View: Appearance",
+                Category = "View",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.AppearanceCategory),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "view.usage",
+                Name = "View: Usage",
+                Category = "View",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.UsageCategory),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "view.sandbox",
+                Name = "View: Sandbox",
+                Category = "View",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.SandboxCategory),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "view.about",
+                Name = "View: About",
+                Category = "View",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.AboutCategory),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "view.shortcuts-settings",
+                Name = "View: Keyboard Shortcuts",
+                Category = "View",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.ShortcutsCategory),
+            });
+
+            // Jukebox
+            _commands.Add(new Entry
+            {
+                Id = "jukebox.mute",
+                Name = "Jukebox: Mute",
+                Category = "Jukebox",
+                Execute = _ => Radio.ToggleMute(),
             });
 
             // Game
@@ -705,6 +848,25 @@ namespace SlopWorld
 
             if (list.Count == 0)
                 list.Add(new SubOption { Label = "(no agents)", Enabled = false });
+            return list;
+        }
+
+        // Duplicate is meaningful for any session with a project, including a temporary
+        // errand: the dialog copies that project's command and sandbox context, while a
+        // project-less session has nowhere useful to start from.
+        static List<SubOption> AgentsSubWithProject()
+        {
+            var list = SessionHub.Instance.Sessions
+                .Where(s => !string.IsNullOrEmpty(s.Project))
+                .Select(s => new SubOption
+                {
+                    Label = $"{s.Name}  ({s.State.ToString().ToLower()})  -  {s.Project}",
+                    Value = s.Name,
+                })
+                .ToList();
+
+            if (list.Count == 0)
+                list.Add(new SubOption { Label = "(no agents with a project)", Enabled = false });
             return list;
         }
 
