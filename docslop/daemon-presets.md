@@ -40,7 +40,7 @@ and reset like any other system preset.
   refused - the files outlive the binary - but one *typed* into a dialog is
   refused (`check_presets`), that being where it can be fixed.
 - `[defaults] agent` and `shell` name command presets and nothing else, refused on
-  the way in if there is no file behind them (`update_sections`). Changing what
+  the way in if there is no file behind them (`patch_config`). Changing what
   the agent *runs* means editing a preset, not this section.
 - A session naming a preset there is no file for has no command at all:
   `command_of` answers empty and `start` refuses before it makes a directory or

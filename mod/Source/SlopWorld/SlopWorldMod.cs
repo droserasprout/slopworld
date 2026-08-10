@@ -13,12 +13,10 @@ namespace SlopWorld
     // about the design: where the daemon is, and what a pane looks like on this screen.
     //
     // The pane's half of that is edited on the Terminal page of the options dialog
-    // rather than here, but it is scribed here, because there is one settings file.
+    // rather than here, but it is scribed here, because there is one settings file. The
+    // connection is discovered from the daemon's endpoint descriptor.
     public class SlopSettings : ModSettings
     {
-        public string host = "127.0.0.1";
-        public int port = 7717;
-        public string token = "";
         public bool autoConnect = true;
         // The column's width, dragged rather than typed, and the projects rolled up in it.
         // Both are about this screen the way the layout itself is, so they live beside it -
@@ -86,9 +84,6 @@ namespace SlopWorld
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Values.Look(ref host, "host", "127.0.0.1");
-            Scribe_Values.Look(ref port, "port", 7717);
-            Scribe_Values.Look(ref token, "token", "");
             Scribe_Values.Look(ref autoConnect, "autoConnect", true);
             Scribe_Values.Look(ref sidebarWidth, "sidebarWidth", 210f);
             Scribe_Values.Look(ref foldedProjects, "foldedProjects", "");
@@ -114,9 +109,7 @@ namespace SlopWorld
     {
         public static SlopSettings S => SlopWorldMod.Instance.settings;
 
-        public static string Host => S.host;
-        public static int Port => S.port;
-        public static string Token => S.token;
+        public static ConnectionInfo Connection => Endpoint.Resolve();
         public static bool AutoConnect => S.autoConnect;
         // Unclamped: AgentSidebar owns what a usable column is, and it is the only reader.
         public static float SidebarWidth => S.sidebarWidth;
@@ -158,14 +151,7 @@ namespace SlopWorld
             l.Label($"Daemon: {SlopClient.BaseUrl}  [{SessionHub.Instance.Status}]");
             l.Gap(SlopWidgets.GapM);
 
-            l.Label("Host");
-            settings.host = SlopWidgets.Field(l, "mod.host", settings.host);
-
-            l.Label($"Port: {settings.port}");
-            settings.port = Mathf.RoundToInt(l.Slider(settings.port, 1024, 65535));
-
-            l.Label("Token (blank = no auth)");
-            settings.token = SlopWidgets.Field(l, "mod.token", settings.token);
+            l.Label("Connection: daemon endpoint");
 
             l.Gap(SlopWidgets.GapM);
             settings.autoConnect =

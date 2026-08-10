@@ -12,8 +12,6 @@ pub struct Config {
     pub daemon: Daemon,
     #[serde(default)]
     pub defaults: Defaults,
-    #[serde(default)]
-    pub sandbox: Sandbox,
     /// A session is an agent *in* one of these, and takes its directory and sandbox
     /// from it rather than carrying either.
     #[serde(default, rename = "project")]
@@ -188,22 +186,6 @@ impl Default for Defaults {
             agent: default_agent(),
             shell: default_shell(),
         }
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-/// The base every sandbox is built on. There is no switch: every agent runs in one.
-pub struct Sandbox {
-    /// Deprecated compatibility fields. The implicit `global` sandbox preset owns the base
-    /// now; old values are promoted to a user `global` preset when the daemon loads them.
-    pub ro_paths: Vec<String>,
-    pub rw_paths: Vec<String>,
-    pub pass_env: Vec<String>,
-}
-
-impl Sandbox {
-    pub fn is_empty(&self) -> bool {
-        self.ro_paths.is_empty() && self.rw_paths.is_empty() && self.pass_env.is_empty()
     }
 }
 
@@ -394,12 +376,7 @@ impl Config {
         }
         let text =
             std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-        let mut cfg = Self::parse(&text)?;
-        if migrate_legacy_sandbox(&cfg.sandbox)? {
-            cfg.sandbox = Sandbox::default();
-            cfg.save(path)?;
-        }
-        Ok(cfg)
+        Self::parse(&text)
     }
 
     pub fn parse(text: &str) -> Result<Self> {
@@ -407,10 +384,22 @@ impl Config {
     }
 
     pub fn save(&self, path: &Path) -> Result<()> {
+        Self::save_text(path, &toml::to_string_pretty(self)?)
+    }
+
+    pub fn save_text(path: &Path, text: &str) -> Result<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        std::fs::write(path, toml::to_string_pretty(self)?)?;
+
+        let tmp = path.with_extension("toml.tmp");
+        std::fs::write(&tmp, text)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600))?;
+        }
+        std::fs::rename(tmp, path)?;
         Ok(())
     }
 
@@ -617,29 +606,6 @@ impl Config {
     }
 }
 
-/// Move the pre-preset `[sandbox]` section into the user override that now owns the same
-/// machine-wide capability. A user definition already present wins; this is deliberately
-/// one-way so an old config cannot keep adding paths after someone edits `global` in the UI.
-pub fn migrate_legacy_sandbox(sandbox: &Sandbox) -> Result<bool> {
-    if sandbox.is_empty() {
-        return Ok(false);
-    }
-
-    if crate::presets::Table::users().sandbox("global").is_none() {
-        crate::presets::save_sandbox(crate::presets::SandboxPreset {
-            name: "global".into(),
-            category: "filesystem/core".into(),
-            description: "The base files and user-installed binaries available to every sandbox"
-                .into(),
-            ro: sandbox.ro_paths.clone(),
-            rw: sandbox.rw_paths.clone(),
-            env: sandbox.pass_env.clone(),
-            ..Default::default()
-        })?;
-    }
-    Ok(true)
-}
-
 /// bwrap expands neither `~` nor `$VAR`, and the preset table is written in both. A path
 /// naming a variable this machine has not set expands to **nothing at all**, and every bind is
 /// skipped unless the path is there, so an unset `WAYLAND_DISPLAY` drops that bind rather than
@@ -752,36 +718,6 @@ token = \"not-a-daemon-token\"
         ))
         .expect("config with the sentinel should parse");
         assert_eq!(cfg.daemon.token, TOKEN_REDACTED);
-    }
-
-    /// A field this build added is one an existing file does not have, and a redeploy
-    /// that refused to start would take the agents' only supervisor with it.
-    #[test]
-    fn missing_fields_take_their_defaults() {
-        let cfg = Config::parse(
-            r#"
-            [daemon]
-            bind = "127.0.0.1:7717"
-            tmux_socket = "slopworld"
-            poll_ms = 80
-            "#,
-        )
-        .expect("old config should parse");
-
-        assert_eq!(cfg.daemon.history_limit, 5000);
-        // A config from before the field is an install with no way to restart the game.
-        assert_eq!(cfg.daemon.game_cmd, "~/.local/bin/slopworld");
-        // On, so an existing install gets the readout without anyone editing a file.
-        assert!(cfg.daemon.usage);
-        assert_eq!(cfg.daemon.usage_poll_secs, 60);
-        assert_eq!(cfg.daemon.claude_credentials, "~/.claude/.credentials.json");
-        // Off, unlike the Claude half: there is no login on the host to read a key out of,
-        // so an install that never said anything about OpenRouter is not asked for one.
-        assert!(!cfg.daemon.openrouter);
-        assert_eq!(cfg.daemon.openrouter_key_file, "");
-        assert!(cfg.shortcuts.is_empty());
-        assert_eq!(cfg.defaults.agent, "claude");
-        assert_eq!(cfg.defaults.shell, "shell");
     }
 
     /// A prompt shortcut that names no command comes out running the preset

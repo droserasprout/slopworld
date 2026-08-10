@@ -1,7 +1,7 @@
 # `SlopSettings`
 
-In `SlopWorldMod.cs`, reached through the static `Settings` shim: `host`, `port`,
-`token`, `autoConnect`, `sidebar`, `sidebarWidth`, `foldedProjects`, `sidebarTab`,
+In `SlopWorldMod.cs`, reached through the static `Settings` shim: `autoConnect`,
+`sidebar`, `sidebarWidth`, `foldedProjects`, `sidebarTab`,
 `sidebarShowHidden`, `usageIcons`, `fontSize`, `fontName`, `theme`, `cursorColor`,
 `radio`, `radioMute`, `radioStopOnExit`, `grandmaMode`, `ecoMode`.
 
@@ -38,16 +38,14 @@ click. See [mod-jukebox](mod-jukebox.md).
 layouts are this mod's and which one works is a question about the screen being
 read (see `SlopLayout` in [mod-ui-chrome](mod-ui-chrome.md)). Drawn on
 `ConfigPage`, the page a knob is looked for on, and on the gear, the one settings
-window reachable with a pane over the bottom bar. Not on
-`DoSettingsWindowContents`: that page is the connection, the half still editable
-with the socket down. `ConfigPage` writes it on the click, its own Save button
-being the daemon's file.
+window reachable with a pane over the bottom bar. `ConfigPage` writes it on the
+click, its own Save button being the daemon's file.
 
 ## Writing
 
-Edited in two places: the connection in `DoSettingsWindowContents`, which still
-answers with no colony loaded where the bottom bar does not exist; the pane's own
-in `TerminalSettingsWindow` off the gear. Both are also doors on `ConfigPage`.
+The connection is discovered from the daemon's `endpoint.json`. The pane's own
+settings are edited in `TerminalSettingsWindow` off the gear, and the daemon
+configuration is edited through `ConfigPage`.
 
 The file is written **once, in `PostClose`, by `ModSettings.Write`** rather than
 `Mod.WriteSettings` - the latter reconnects the socket.

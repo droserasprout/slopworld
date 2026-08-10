@@ -159,6 +159,10 @@ pub fn refused(path: &str) -> Option<String> {
             "the daemon's config, and the token in it",
             Config::path_in_use(),
         ),
+        (
+            "the daemon's endpoint descriptor, and its token",
+            crate::endpoint::path(),
+        ),
         ("the preset files", Table::dir()),
         ("what the sessions keep to themselves", state_root()),
     ];

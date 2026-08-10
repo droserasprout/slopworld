@@ -18,7 +18,12 @@ is playing, unpicked out of the audio itself.
 
 Everything that rewrites `config.toml` goes over HTTP instead, because the error
 body matters: `/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`,
-plus `POST /api/shortcuts/NAME/run` and `POST /api/run`.
+and `PUT /api/config/patch`, plus `POST /api/shortcuts/NAME/run` and
+`POST /api/run`.
+
+`PUT /api/config/patch` accepts a nested JSON object such as
+`{"daemon":{"game_cmd":"~/.local/bin/slopworld"}}`. It deep-merges the named
+fields, validates the resulting configuration, and leaves unmentioned fields alone.
 
 `GET /api/usage`, `/api/presets`, `/api/browse`, `/api/git`, `/api/audio` and
 `/api/game` are

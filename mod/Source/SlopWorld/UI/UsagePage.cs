@@ -465,7 +465,7 @@ namespace SlopWorld
             if (int.TryParse(_pollSecs, out int s))
                 _cfg.UsagePollSecs = Mathf.Clamp(s, 10, 3600);
 
-            SlopClient.Put("/api/config/values", _cfg.ToJson(),
+            SlopClient.Put("/api/config/patch", _cfg.ToPatchJson(),
                 _ =>
                 {
                     _error = null;

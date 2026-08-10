@@ -11,9 +11,11 @@ reflection.
   with `ClientWebSocket`.
 - `Json` - a minimal reader, because RimWorld ships none.
 - `SlopClient` - the HTTP half; completions replayed on the main thread.
-- `SlopConfig` - mirrors the config sections the settings GUI edits.
+- `SlopConfig` - the small read model used by the settings GUI; writes go through
+  the daemon's patch endpoint.
 
-**Trap**: `SlopConfig.ToJson` writes *whole sections* of `config.toml`, so a field
-missing from it is one the settings GUI silently resets to its serde default on
-any unrelated save. Adding one to `[daemon]`, `[defaults]` or `[sandbox]` means
-adding it here too, even if no widget shows it.
+The settings pages use `PUT /api/config/patch` with nested partial JSON. A field
+missing from the client remains untouched in `config.toml`, so adding a daemon
+setting no longer requires adding a hidden round-trip field to the mod.
+
+The mod's connection is resolved from the daemon's `endpoint.json` descriptor.

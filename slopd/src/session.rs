@@ -8,12 +8,12 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{anyhow, bail, Context, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinHandle;
 
 use crate::config::{
-    expand, Config, Daemon, Defaults, ProjectCfg, Sandbox, SessionCfg, ShortcutCfg, ShortcutKind,
-    ShortcutLink,
+    expand, Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink,
 };
 use crate::emu::{parse_output, Frame, MouseInput, SessionEmu};
 use crate::sandbox::build_argv;
@@ -563,6 +563,18 @@ impl Manager {
     fn save_cfg(&self, cfg: &Config) -> Result<()> {
         cfg.save(&self.cfg_path)?;
         *self.cfg_mtime.lock().unwrap() = disk_mtime(&self.cfg_path);
+        if let Err(e) = crate::endpoint::update_token(&cfg.daemon.token) {
+            tracing::warn!("config saved but endpoint descriptor was not updated: {e:#}");
+        }
+        Ok(())
+    }
+
+    fn save_cfg_text(&self, cfg: &Config, text: &str) -> Result<()> {
+        Config::save_text(&self.cfg_path, text)?;
+        *self.cfg_mtime.lock().unwrap() = disk_mtime(&self.cfg_path);
+        if let Err(e) = crate::endpoint::update_token(&cfg.daemon.token) {
+            tracing::warn!("config saved but endpoint descriptor was not updated: {e:#}");
+        }
         Ok(())
     }
 
@@ -596,6 +608,9 @@ impl Manager {
         tracing::info!("config changed on disk, reloading");
         *self.rules.write().await = compile_rules(&new);
         *self.cfg.write().await = new;
+        if let Err(e) = crate::endpoint::update_token(&self.cfg.read().await.daemon.token) {
+            tracing::warn!("config reloaded but endpoint descriptor was not updated: {e:#}");
+        }
         self.sync_from_config().await;
         let _ = self.events.send(Event::Sessions {
             sessions: self.views().await,
@@ -1529,56 +1544,38 @@ impl Manager {
         Ok(())
     }
 
-    pub async fn update_sections(
-        self: &Arc<Self>,
-        daemon: Option<Daemon>,
-        defaults: Option<Defaults>,
-        sandbox: Option<Sandbox>,
-    ) -> Result<()> {
+    pub async fn patch_config(self: &Arc<Self>, patch: Value) -> Result<()> {
         self.reload_if_changed().await;
 
-        if let Some(d) = &daemon {
-            d.bind
-                .parse::<std::net::SocketAddr>()
-                .with_context(|| format!("bad bind address {:?}", d.bind))?;
-            if d.tmux_socket.trim().is_empty() {
-                bail!("tmux socket name must not be empty");
-            }
+        let text = std::fs::read_to_string(&self.cfg_path)
+            .with_context(|| format!("reading {}", self.cfg_path.display()))?;
+        let mut document: toml::Value = toml::from_str(&text).context("parsing config.toml")?;
+        let patch = json_to_toml(patch)?;
+        if !patch.is_table() {
+            bail!("config patch must be a JSON object");
         }
-        if let Some(d) = &defaults {
-            let t = crate::presets::table();
-            for (field, name) in [("agent", &d.agent), ("shell", &d.shell)] {
-                let name = name.trim();
-                if name.is_empty() {
-                    bail!("the default {field} must name a command preset");
-                }
-                if t.command(name).is_none() {
-                    bail!("unknown command preset: {name}");
-                }
-            }
-        }
+        merge_toml(&mut document, patch);
 
-        let mut cfg = self.cfg.write().await;
-        if let Some(mut d) = daemon {
-            if d.token == crate::config::TOKEN_REDACTED {
-                d.token = cfg.daemon.token.clone();
-            }
-            cfg.daemon = d;
-        }
-        if let Some(d) = defaults {
-            cfg.defaults = d;
-        }
-        if let Some(s) = sandbox {
-            if crate::config::migrate_legacy_sandbox(&s)? {
-                cfg.sandbox = Sandbox::default();
-            } else {
-                cfg.sandbox = s;
+        let old_token = self.cfg.read().await.daemon.token.clone();
+        let mut new = Config::parse(&toml::to_string_pretty(&document)?)?;
+        if new.daemon.token == crate::config::TOKEN_REDACTED {
+            new.daemon.token = old_token.clone();
+            if let Some(daemon) = document
+                .get_mut("daemon")
+                .and_then(toml::Value::as_table_mut)
+            {
+                daemon.insert("token".into(), toml::Value::String(old_token));
             }
         }
-        self.save_cfg(&cfg)?;
-        drop(cfg);
+        validate_config(&new)?;
 
+        self.save_cfg_text(&new, &toml::to_string_pretty(&document)?)?;
+
+        *self.rules.write().await = compile_rules(&new);
+        *self.cfg.write().await = new;
         self.sync_from_config().await;
+        self.announce_projects().await;
+        self.announce_shortcuts().await;
         Ok(())
     }
 
@@ -1587,9 +1584,7 @@ impl Manager {
         if new.daemon.token == crate::config::TOKEN_REDACTED {
             new.daemon.token = self.cfg.read().await.daemon.token.clone();
         }
-        if crate::config::migrate_legacy_sandbox(&new.sandbox)? {
-            new.sandbox = Sandbox::default();
-        }
+        validate_config(&new)?;
         self.save_cfg(&new)?;
         *self.rules.write().await = compile_rules(&new);
         *self.cfg.write().await = new;
@@ -2259,6 +2254,79 @@ impl Manager {
     }
 }
 
+fn validate_config(cfg: &Config) -> Result<()> {
+    cfg.daemon
+        .bind
+        .parse::<std::net::SocketAddr>()
+        .with_context(|| format!("bad bind address {:?}", cfg.daemon.bind))?;
+    if cfg.daemon.tmux_socket.trim().is_empty() {
+        bail!("tmux socket name must not be empty");
+    }
+
+    let table = crate::presets::table();
+    for (field, name) in [
+        ("agent", &cfg.defaults.agent),
+        ("shell", &cfg.defaults.shell),
+    ] {
+        let name = name.trim();
+        if name.is_empty() {
+            bail!("the default {field} must name a command preset");
+        }
+        if table.command(name).is_none() {
+            bail!("unknown command preset: {name}");
+        }
+    }
+    Ok(())
+}
+
+fn json_to_toml(value: Value) -> Result<toml::Value> {
+    Ok(match value {
+        Value::Null => bail!("null is not a valid config patch value"),
+        Value::Bool(v) => toml::Value::Boolean(v),
+        Value::Number(v) => {
+            if let Some(v) = v.as_i64() {
+                toml::Value::Integer(v)
+            } else if let Some(v) = v.as_u64().and_then(|v| i64::try_from(v).ok()) {
+                toml::Value::Integer(v)
+            } else if let Some(v) = v.as_f64() {
+                toml::Value::Float(v)
+            } else {
+                bail!("invalid JSON number in config patch")
+            }
+        }
+        Value::String(v) => toml::Value::String(v),
+        Value::Array(v) => toml::Value::Array(
+            v.into_iter()
+                .map(json_to_toml)
+                .collect::<Result<Vec<_>>>()?,
+        ),
+        Value::Object(v) => toml::Value::Table(
+            v.into_iter()
+                .map(|(key, value)| Ok((key, json_to_toml(value)?)))
+                .collect::<Result<toml::map::Map<_, _>>>()?,
+        ),
+    })
+}
+
+fn merge_toml(base: &mut toml::Value, patch: toml::Value) {
+    match patch {
+        toml::Value::Table(patch) => {
+            let Some(base) = base.as_table_mut() else {
+                *base = toml::Value::Table(patch);
+                return;
+            };
+            for (key, value) in patch {
+                if let Some(existing) = base.get_mut(&key) {
+                    merge_toml(existing, value);
+                } else {
+                    base.insert(key, value);
+                }
+            }
+        }
+        patch => *base = patch,
+    }
+}
+
 pub fn strip_sgr(s: &str) -> String {
     let b = s.as_bytes();
     let mut out = String::with_capacity(s.len());
@@ -2309,10 +2377,40 @@ mod tests {
 
     use super::{
         breadcrumb_block, check_breadcrumbs, check_name, check_shortcut, compile_rules, free_name,
-        free_project_name, match_rules, merge_input, render_template, settle, slug, strip_sgr,
-        Input, Live, State, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
+        free_project_name, json_to_toml, match_rules, merge_input, merge_toml, render_template,
+        settle, slug, strip_sgr, Input, Live, State, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
     };
     use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind};
+
+    #[test]
+    fn config_patches_merge_nested_fields_without_resetting_unmentioned_values() {
+        let mut document: toml::Value = toml::from_str(
+            r#"
+[daemon]
+bind = "127.0.0.1:7717"
+token = "secret"
+tmux_socket = "slopworld"
+poll_ms = 80
+future = "keep"
+
+[defaults]
+agent = "claude"
+shell = "shell"
+"#,
+        )
+        .expect("config parses");
+
+        let patch = json_to_toml(serde_json::json!({
+            "daemon": { "poll_ms": 120 },
+        }))
+        .expect("patch converts");
+        merge_toml(&mut document, patch);
+
+        assert_eq!(document["daemon"]["poll_ms"].as_integer(), Some(120));
+        assert_eq!(document["daemon"]["future"].as_str(), Some("keep"));
+        assert_eq!(document["defaults"]["agent"].as_str(), Some("claude"));
+        assert_eq!(document["daemon"]["token"].as_str(), Some("secret"));
+    }
 
     fn seeded_rules() -> Vec<(State, regex::Regex)> {
         let cfg = Config::parse(

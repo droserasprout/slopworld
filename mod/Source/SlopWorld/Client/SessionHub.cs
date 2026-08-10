@@ -556,7 +556,8 @@ namespace SlopWorld
             _ws = new MiniWebSocket();
             Status = "connecting";
 
-            if (_ws.Connect(Settings.Host, Settings.Port, "/ws", Settings.Token))
+            var connection = Settings.Connection;
+            if (_ws.Connect(connection.Host, connection.Port, "/ws", connection.Token))
             {
                 Status = "connected";
                 _backoff = 1;

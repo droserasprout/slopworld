@@ -3,6 +3,7 @@ mod audio;
 mod clipboard;
 mod config;
 mod emu;
+mod endpoint;
 mod game;
 mod git;
 mod grant;
@@ -77,6 +78,7 @@ async fn main() -> Result<()> {
 
     let listener = tokio::net::TcpListener::bind(&bind).await?;
     tracing::info!("listening on http://{bind}");
+    endpoint::write(&bind, &m.config().await.daemon.token)?;
 
     axum::serve(listener, app)
         .with_graceful_shutdown(async {
@@ -84,6 +86,8 @@ async fn main() -> Result<()> {
             tracing::info!("shutting down (tmux sessions keep running)");
         })
         .await?;
+
+    endpoint::remove();
 
     poller.abort();
     usage.abort();

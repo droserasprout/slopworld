@@ -13,7 +13,7 @@ use axum::{Extension, Json, Router};
 use crate::grant::{Cap, Level};
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
 use crate::config::{ProjectCfg, SessionCfg, ShortcutCfg};
@@ -62,7 +62,7 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/presets/:kind/:name/copy", post(copy_preset))
         .route("/api/config", get(get_config))
         .route("/api/config", put(put_config))
-        .route("/api/config/values", put(put_config_values))
+        .route("/api/config/patch", put(put_config_patch))
         .route("/api/clipboard", get(clip_read).post(clip_write))
         .route("/api/open", post(open_url))
         .route("/api/usage", get(usage))
@@ -663,6 +663,9 @@ async fn delete_preset(
 /// Text for the raw editor, parsed for the settings GUI, so a mod can offer either
 /// without parsing TOML.
 async fn get_config(State(m): State<Mgr>) -> ApiResult {
+    // Keep the raw text and parsed values from different snapshots when a user edits the file
+    // outside the daemon.
+    m.reload_if_changed().await;
     let text = std::fs::read_to_string(&m.cfg_path)
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
     // The token never leaves the daemon as written: the raw text and the parsed values both
@@ -685,23 +688,9 @@ async fn put_config(State(m): State<Mgr>, Json(req): Json<ConfigReq>) -> ApiResu
     ok_json(m.replace_config(&req.text).await)
 }
 
-/// A section left out is left alone, which keeps a settings GUI from writing back
-/// sessions and state rules it never showed the player.
-#[derive(Deserialize)]
-struct SectionsReq {
-    #[serde(default)]
-    daemon: Option<crate::config::Daemon>,
-    #[serde(default)]
-    defaults: Option<crate::config::Defaults>,
-    #[serde(default)]
-    sandbox: Option<crate::config::Sandbox>,
-}
-
-async fn put_config_values(State(m): State<Mgr>, Json(req): Json<SectionsReq>) -> ApiResult {
-    ok_json(
-        m.update_sections(req.daemon, req.defaults, req.sandbox)
-            .await,
-    )
+/// Apply only the fields named by the client, leaving unmentioned fields untouched.
+async fn put_config_patch(State(m): State<Mgr>, Json(req): Json<Value>) -> ApiResult {
+    ok_json(m.patch_config(req).await)
 }
 
 #[derive(Deserialize)]

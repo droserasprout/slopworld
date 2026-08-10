@@ -210,7 +210,7 @@ namespace SlopWorld
             if (int.TryParse(_pollMs, out int p)) _cfg.PollMs = Mathf.Clamp(p, 20, 5000);
             if (int.TryParse(_history, out int h)) _cfg.HistoryLimit = Mathf.Clamp(h, 0, 100000);
 
-            SlopClient.Put("/api/config/values", _cfg.ToJson(),
+            SlopClient.Put("/api/config/patch", _cfg.ToPatchJson(),
                 _ =>
                 {
                     _error = null;

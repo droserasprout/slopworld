@@ -113,10 +113,9 @@
   orthographicSize` and `orthographicSize` is *half the framed height in world
   units*, so it is a window onto the pawn rather than a magnification - vanilla's
   1.28205 frames 1.56 units, head and torso.
-- `SlopConfig.ToJson` writes whole sections of `config.toml`, so a field missing
-  from it is one the settings GUI silently resets to its serde default on any
-  unrelated save. Adding one to `[daemon]`, `[defaults]` or `[sandbox]` means
-  adding it here too, even if no widget shows it.
+- Config UI writes use `PUT /api/config/patch`, so fields omitted by the settings
+  model are left untouched. New editable fields still need to be added to the
+  patch model and validated by the daemon.
 - Renaming anything on the wire needs both halves. `SessionInfo.ParseState` treats
   an unknown state as `Down`, which keeps a version skew survivable rather than
   correct.

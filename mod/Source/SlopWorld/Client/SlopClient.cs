@@ -14,7 +14,7 @@ namespace SlopWorld
     {
         static readonly ConcurrentQueue<Action> Completions = new ConcurrentQueue<Action>();
 
-        public static string BaseUrl => $"http://{Settings.Host}:{Settings.Port}";
+        public static string BaseUrl => Settings.Connection.BaseUrl;
 
         public static void Get(string path, Action<JVal> ok, Action<string> fail = null) =>
             Send("GET", path, null, ok, fail);
@@ -35,13 +35,14 @@ namespace SlopWorld
             {
                 try
                 {
-                    var req = (HttpWebRequest)WebRequest.Create(BaseUrl + path);
+                    var connection = Settings.Connection;
+                    var req = (HttpWebRequest)WebRequest.Create(connection.BaseUrl + path);
                     req.Method = method;
                     req.Timeout = 5000;
                     req.ReadWriteTimeout = 5000;
                     req.Proxy = null;
-                    if (!string.IsNullOrEmpty(Settings.Token))
-                        req.Headers["X-Slop-Token"] = Settings.Token;
+                    if (!string.IsNullOrEmpty(connection.Token))
+                        req.Headers["X-Slop-Token"] = connection.Token;
 
                     if (body != null)
                     {

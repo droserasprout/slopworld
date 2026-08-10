@@ -4,24 +4,21 @@ using System.Linq;
 namespace SlopWorld
 {
     // The daemon owns the file and hands these over parsed, so nothing in the mod has
-    // to speak TOML. Sessions and state rules are left out on purpose: a section this
-    // window never shows is a section it must not write back.
+    // to speak TOML. This is a read model for the settings pages, not a second schema for
+    // the whole daemon config. Writes are partial patches, so fields not represented here
+    // remain untouched on the server.
     public class SlopConfig
     {
-        // Read and written back but never drawn. Where the daemon listens and where the
-        // game dials are one question - the daemon is always on this machine - and mod
-        // settings is the half of it that still works with the socket down, so that is
-        // the only place either is edited. These two ride along because a field missing
-        // from ToJson is a field the next unrelated save resets to its serde default.
+        // Read-only status for the connection note. The actual connection comes from the
+        // daemon endpoint descriptor or the mod's explicit override.
         public string Bind = "127.0.0.1:7717";
-        public string Token = "";
         public string TmuxSocket = "slopworld";
         public int PollMs = 80;
         // Scrollback tmux keeps per pane, and so the ceiling on how much history survives
         // a daemon restart.
         public int HistoryLimit = 5000;
         // How the daemon relaunches the game for "save and restart".
-        public string GameCmd = "";
+        public string GameCmd = "~/.local/bin/slopworld";
         // Off means the daemon never reads the credentials file.
         public bool Usage = true;
         public int UsagePollSecs = 60;
@@ -44,25 +41,17 @@ namespace SlopWorld
         public string Agent = "claude";
         public string Shell = "shell";
 
-        // The base every sandbox gets. Whether an agent is sandboxed at all is the
-        // project's checkbox and nothing else's.
-        public List<string> RoPaths = new List<string>();
-        public List<string> RwPaths = new List<string>();
-        public List<string> PassEnv = new List<string>();
-
         public static SlopConfig FromJson(JVal v)
         {
             var d = v["daemon"];
             var f = v["defaults"];
-            var s = v["sandbox"];
             return new SlopConfig
             {
                 Bind = d["bind"].AsString("127.0.0.1:7717"),
-                Token = d["token"].AsString(),
                 TmuxSocket = d["tmux_socket"].AsString("slopworld"),
                 PollMs = d["poll_ms"].AsInt(80),
                 HistoryLimit = d["history_limit"].AsInt(5000),
-                GameCmd = d["game_cmd"].AsString(),
+                GameCmd = d["game_cmd"].AsString("~/.local/bin/slopworld"),
                 Usage = d["usage"].AsBool(true),
                 UsagePollSecs = d["usage_poll_secs"].AsInt(60),
                 ClaudeCredentials =
@@ -74,19 +63,13 @@ namespace SlopWorld
 
                 Agent = f["agent"].AsString("claude"),
                 Shell = f["shell"].AsString("shell"),
-
-                RoPaths = Strings(s["ro_paths"]),
-                RwPaths = Strings(s["rw_paths"]),
-                PassEnv = Strings(s["pass_env"]),
             };
         }
 
-        // Every field of a section this writes back has to be here, or saving from the
-        // GUI silently resets the ones it left out to their serde defaults - which for
-        // game_cmd would mean losing it on any unrelated save.
-        public string ToJson() =>
+        // This deliberately omits bind, token, projects, sessions, state rules and sandbox
+        // presets. The daemon deep-merges this object before validating it.
+        public string ToPatchJson() =>
             "{\"daemon\":{" +
-            $"\"bind\":{JVal.Q(Bind)},\"token\":{JVal.Q(Token)}," +
             $"\"tmux_socket\":{JVal.Q(TmuxSocket)},\"poll_ms\":{PollMs}," +
             $"\"history_limit\":{HistoryLimit},\"game_cmd\":{JVal.Q(GameCmd)}," +
             $"\"usage\":{JVal.B(Usage)},\"usage_poll_secs\":{UsagePollSecs}," +
@@ -94,17 +77,11 @@ namespace SlopWorld
             $"\"openrouter\":{JVal.B(Openrouter)}," +
             $"\"openrouter_key_file\":{JVal.Q(OpenrouterKeyFile)}," +
             $"\"openai\":{JVal.B(Openai)}," +
-            $"\"openai_credentials\":{JVal.Q(OpenaiCredentials)}}}," +
+            $"\"openai_credentials\":{JVal.Q(OpenaiCredentials)}" +
+            "}," +
             "\"defaults\":{" +
-            $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}}}," +
-            "\"sandbox\":{" +
-            $"\"ro_paths\":{Arr(RoPaths)},\"rw_paths\":{Arr(RwPaths)}," +
-            $"\"pass_env\":{Arr(PassEnv)}}}}}";
-
-        static List<string> Strings(JVal a) => a.Items.Select(i => i.AsString()).ToList();
-
-        static string Arr(List<string> items) =>
-            "[" + string.Join(",", items.Select(JVal.Q).ToArray()) + "]";
+            $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}" +
+            "}}";
 
         // One entry per line, which is how the GUI edits these lists.
         public static string Lines(List<string> items) =>

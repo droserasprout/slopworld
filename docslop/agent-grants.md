@@ -74,9 +74,9 @@ A granted agent needs slopd's address and its token. Set **at spawn** - an env p
 or a file written before `exec` - because new env cannot be pushed into a running
 sandbox. So *"start Y with a task"* fits: Y is fresh. *"How's X doing?"* to an
 **already-running** X needs the daemon to write a file bound into X's sandbox that X
-re-reads; that channel is the one piece not in the first cut. Absorbs the
-[config-stores](config-stores.md) `endpoint.json` idea - the mod's url+token handoff
-is the root grant's version of the same injection.
+re-reads; that channel is the one piece not in the first cut. The daemon's
+`endpoint.json` is now the mod's url+token handoff; granted-agent injection remains
+a separate spawn-time capability channel.
 
 Lines up with the netns work (the sandbox loses host loopback): the API then rides a
 **unix socket bound only into granted sandboxes**. The socket's presence is the coarse
@@ -94,6 +94,6 @@ net-enabled sandbox already reaches.
    revokes on exit. Root token behaves exactly as before; all tests green.
 2. **Injection.** Spawn-time delivery of a grant's url+token into the granted agent's
    sandbox - an env pair or a file written before `exec` - and a mod UI to cut and
-   revoke a grant without curl. Absorbs `endpoint.json` for the mod's own handoff.
+   revoke a grant without curl.
 3. The bound-file channel for a grant to a session already up, and a fuller
    `GET /api/grants` (grantor, sessions, level; never the token).
