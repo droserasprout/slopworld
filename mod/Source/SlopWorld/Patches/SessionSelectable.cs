@@ -21,7 +21,36 @@ namespace SlopWorld
         /// comma/dot, Alt+Num, opening or switching a pane, and selecting an agent's
         /// colonist on the map. Read by <see cref="SessionGizmoSelection"/> to include
         /// it in the gizmo drawer's object list.
-        public static string Current { get; set; }
+        public static string Current
+        {
+            get => _current;
+            set
+            {
+                _current = value;
+
+                // The map -> session sync below is re-answered every frame, so a colonist
+                // left selected owns the current session: focusing a session any other way
+                // must take the selection off it, or the next frame takes the session back
+                // (see selection-rework.md). Not when the map is the one speaking, and not
+                // when the selected pawn's session is already this one - the sync would say
+                // the same thing again.
+                if (Syncing) return;
+
+                var selector = Find.Selector;
+                if (selector == null || selector.SelectedObjects.Count == 0) return;
+
+                var pawn = selector.SingleSelectedThing as Pawn;
+                if (pawn != null && value != null
+                    && AgentColony.Current?.SessionOf(pawn) == value) return;
+
+                selector.ClearSelection();
+            }
+        }
+
+        static string _current;
+
+        /// True for the length of <see cref="SessionGizmoSelection.SyncFromMapSelection"/>.
+        internal static bool Syncing;
 
         public static bool HasCurrent => Current != null
             && SessionHub.Instance.Get(Current) != null;
@@ -128,22 +157,30 @@ namespace SlopWorld
             var selector = Find.Selector;
             if (selector == null) return;
 
-            var selected = selector.SingleSelectedThing;
-            if (selected == null)
+            SessionSelectable.Syncing = true;
+            try
             {
-                // A sidebar ghost click deliberately clears the pawn selection, leaving the
-                // session selection as the only selection. A real multi-selection, however,
-                // is vanilla selection and must not inherit a stale session.
-                if (selector.SelectedObjects.Count > 0)
-                    SessionSelectable.Current = null;
-                return;
-            }
+                var selected = selector.SingleSelectedThing;
+                if (selected == null)
+                {
+                    // A sidebar ghost click deliberately clears the pawn selection, leaving
+                    // the session selection as the only selection. A real multi-selection,
+                    // however, is vanilla selection and must not inherit a stale session.
+                    if (selector.SelectedObjects.Count > 0)
+                        SessionSelectable.Current = null;
+                    return;
+                }
 
-            var pawn = selected as Pawn;
-            var session = pawn == null ? null : AgentColony.Current?.SessionOf(pawn);
-            // Selecting anything outside the agent colony hands the inspect pane back to
-            // vanilla. An agent pawn is the one-way map -> session synchronization point.
-            SessionSelectable.Current = session;
+                var pawn = selected as Pawn;
+                var session = pawn == null ? null : AgentColony.Current?.SessionOf(pawn);
+                // Selecting anything outside the agent colony hands the inspect pane back to
+                // vanilla. An agent pawn is the one-way map -> session synchronization point.
+                SessionSelectable.Current = session;
+            }
+            finally
+            {
+                SessionSelectable.Syncing = false;
+            }
         }
 
         public static IEnumerable<CodeInstruction> InjectIntoMapUI(

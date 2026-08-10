@@ -54,6 +54,11 @@ to hand the drawer that object.
 - **Set by** a sidebar row click, comma/dot, Alt+Num, opening or switching a pane,
   and selecting an agent's colonist on the map. That last one is a one-way sync -
   pawn selected, current session follows - so the two selections never disagree.
+  It is re-answered every frame, so a colonist left selected owns the current
+  session: **focusing a session any other way clears the map selection**, in
+  `Current`'s own setter rather than at each door, or the next frame takes the
+  session back. Worst in eco, where no brackets are drawn to say a colonist is
+  selected at all - the pane switches and the column's highlight does not.
 - **Shows** the same gizmo row for every session, `T` and `P` on it, ghost or
   agent. Action buttons are not lost by dropping the pawn; they stop being a
   property of having a body.
