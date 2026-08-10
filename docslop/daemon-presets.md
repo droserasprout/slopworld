@@ -13,6 +13,14 @@ place**, so the GUI never draws two of one.
 - `category` is free text: an unknown one is a heading in the GUI, not an error.
   So is `escapes`, which is non-empty on a preset that hands the sandbox a way
   back out and is what the GUI draws in `Warn`.
+- `GET /api/presets` returns `source` as `system`, `user` or `override`, plus the
+  complete effective definition. The settings page separates system entries from
+  user entries; a user entry with the same name as a builtin is an override.
+- Root-only `POST /api/presets/:kind/:name/copy`, `PUT` and `DELETE` manage user
+  definitions for `sandbox` and `command`. Copying without a new name creates an
+  override; saving is daemon-owned TOML, validated and atomically replaced. Deleting
+  an override reveals the builtin again. A user-only sandbox cannot be deleted while
+  a command still requires it.
 - A `[[sandbox]]` states six kinds of path: `ro`, `rw`, `dev` (which needs
   `--dev-bind` to survive the `--dev` tmpfs), `private` (a per-session copy,
   not the host's), `seed` (what a fresh copy is filled with) and `shared` (the
@@ -29,7 +37,10 @@ place**, so the GUI never draws two of one.
   `command_of` answers empty and `start` refuses before it makes a directory or
   hands tmux an empty argv.
 - `GET /api/presets` is how the mod learns both tables, so a file added while the
-  game is up is a checkbox and a dropdown entry with nothing rebuilt.
+  game is up is a checkbox and a dropdown entry with nothing rebuilt. The Settings
+  page uses the same response as a small editor: Global is `[sandbox]`, Presets are
+  sandbox definitions, and Commands are command definitions with their sandbox
+  dependencies.
 
 ## Sandbox (bubblewrap) rules
 

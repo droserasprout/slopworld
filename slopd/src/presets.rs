@@ -89,7 +89,7 @@ pub struct CommandPreset {
 
 /// One file is one piece of software: its sandbox preset and its command preset
 /// together, which is the pair anyone adding an agent writes.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 struct PresetFile {
     #[serde(default)]
     sandbox: Vec<SandboxPreset>,
@@ -147,6 +147,15 @@ impl Table {
     }
 
     pub fn load() -> Self {
+        let mut t = Self::builtins();
+        t.merge_dir(&Self::dir());
+        t
+    }
+
+    /// The compiled table without user files. The settings page needs this distinction:
+    /// an effective entry can be a system preset, a user-only preset, or a user override of
+    /// one of these. Keeping the answer here avoids making the mod guess from filenames.
+    pub fn builtins() -> Self {
         let mut t = Self::default();
         for (name, text) in BUILTIN {
             match toml::from_str::<PresetFile>(text) {
@@ -154,6 +163,12 @@ impl Table {
                 Err(e) => tracing::error!("builtin preset {name} does not parse: {e}"),
             }
         }
+        t
+    }
+
+    /// Only the files in the user directory, for the API's source labels and for editing.
+    pub fn users() -> Self {
+        let mut t = Self::default();
         t.merge_dir(&Self::dir());
         t
     }
@@ -210,6 +225,122 @@ impl Table {
     pub fn command(&self, name: &str) -> Option<&CommandPreset> {
         self.commands.iter().find(|c| c.name == name)
     }
+}
+
+static USER_WRITE: OnceLock<std::sync::Mutex<()>> = OnceLock::new();
+
+fn user_write_lock() -> &'static std::sync::Mutex<()> {
+    USER_WRITE.get_or_init(|| std::sync::Mutex::new(()))
+}
+
+fn valid_name(name: &str) -> anyhow::Result<()> {
+    let mut chars = name.chars();
+    let valid = chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    if !valid {
+        anyhow::bail!("invalid preset name {name:?}; use letters, numbers, '-' or '_'");
+    }
+    Ok(())
+}
+
+fn user_files() -> anyhow::Result<Vec<(PathBuf, PresetFile)>> {
+    let dir = Table::dir();
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return Ok(Vec::new());
+    };
+    let mut paths: Vec<PathBuf> = entries
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|x| x == "toml"))
+        .collect();
+    paths.sort();
+
+    paths
+        .into_iter()
+        .map(|path| {
+            let text = std::fs::read_to_string(&path)
+                .map_err(|e| anyhow::anyhow!("reading {}: {e}", path.display()))?;
+            let file = toml::from_str(&text)
+                .map_err(|e| anyhow::anyhow!("{} does not parse: {e}", path.display()))?;
+            Ok((path, file))
+        })
+        .collect()
+}
+
+fn write_file(path: &std::path::Path, file: &PresetFile) -> anyhow::Result<()> {
+    let text = toml::to_string_pretty(file)?;
+    let tmp = path.with_extension("toml.tmp");
+    std::fs::write(&tmp, text)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
+
+fn write_user_file(
+    kind: &str,
+    name: &str,
+    sandbox: Option<SandboxPreset>,
+    command: Option<CommandPreset>,
+) -> anyhow::Result<()> {
+    valid_name(name)?;
+    let _guard = user_write_lock()
+        .lock()
+        .map_err(|_| anyhow::anyhow!("preset write lock is poisoned"))?;
+    let dir = Table::dir();
+    std::fs::create_dir_all(&dir)?;
+    let target = dir.join(format!("{name}.toml"));
+    let mut files = user_files()?;
+    if !files.iter().any(|(path, _)| *path == target) {
+        files.push((target.clone(), PresetFile::default()));
+    }
+
+    // A name is a logical entry even when an older hand-written file put it elsewhere. Remove
+    // just this kind from every file, preserving the other kind and every unrelated preset.
+    for (_, file) in &mut files {
+        if kind == "sandbox" {
+            file.sandbox.retain(|p| p.name != name);
+        } else {
+            file.command.retain(|p| p.name != name);
+        }
+    }
+    let target_index = files.iter().position(|(path, _)| *path == target).unwrap();
+    if kind == "sandbox" {
+        if let Some(p) = sandbox {
+            files[target_index].1.sandbox.push(p);
+        }
+    } else if let Some(c) = command {
+        files[target_index].1.command.push(c);
+    }
+
+    // Rewrite the files whose entries changed too. Merely writing the target would leave an
+    // old definition in another user file, and filename order would make the result depend on
+    // an invisible stale copy. Empty files are removed, including the target on delete.
+    for (path, file) in files {
+        if file.sandbox.is_empty() && file.command.is_empty() {
+            if path.exists() {
+                std::fs::remove_file(path)?;
+            }
+        } else {
+            write_file(&path, &file)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn save_sandbox(p: SandboxPreset) -> anyhow::Result<()> {
+    let name = p.name.clone();
+    write_user_file("sandbox", &name, Some(p), None)
+}
+
+pub fn save_command(c: CommandPreset) -> anyhow::Result<()> {
+    let name = c.name.clone();
+    write_user_file("command", &name, None, Some(c))
+}
+
+pub fn remove_sandbox(name: &str) -> anyhow::Result<()> {
+    write_user_file("sandbox", name, None, None)
+}
+
+pub fn remove_command(name: &str) -> anyhow::Result<()> {
+    write_user_file("command", name, None, None)
 }
 
 static TABLE: OnceLock<RwLock<Arc<Table>>> = OnceLock::new();

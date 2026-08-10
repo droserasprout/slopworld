@@ -39,13 +39,15 @@ opens are still windows, and go up through `TerminalWindow.OpenOverPane`.
   missing from `ToJson` is one the next unrelated save resets to its serde
   default. Not a `Window`: it is the first category of the options menu, see
   [mod-patches-strip](mod-patches-strip.md).
-- **`SandboxPage`** - the base every sandbox is built on, and the presets that add to
-  it, grouped under the headings "Global" and "Presets" on one tab. Global is
-  `[sandbox]` in `config.toml`, saved over HTTP like the rest of the machine's
-  config; Presets is the daemon's preset directory drawn *read-only* - which presets
-  a project uses is that project's checkbox, ticked on `EditProjectDialog`. The page
-  is the second category of the options menu, see
-  [mod-patches-strip](mod-patches-strip.md).
+- **`SandboxPage`** - three tabs named **Global**, **Presets** and **Commands**. Global
+  is `[sandbox]` in `config.toml`; Presets is the daemon's sandbox library, with
+  system entries separated from user entries and a master/detail editor; Commands
+  is the command library and shows/edits its sandbox dependencies. Builtins are
+  read-only until copied to a user definition; user entries can be new, saved,
+  removed, or reset to their system definition. All writes go through the daemon's
+  preset API, while which presets a project uses remains that project's checkbox,
+  ticked on `EditProjectDialog`. The page is the second category of the options
+  menu, see [mod-patches-strip](mod-patches-strip.md).
 - **`UsagePage`** - the second category, and its two halves are saved by different
   roads on purpose. The switches, the key file and the poll interval are
   `config.toml` under two headings, one per seller, so they go over HTTP and need

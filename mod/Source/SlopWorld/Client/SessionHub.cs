@@ -263,12 +263,19 @@ namespace SlopWorld
         // a heading, not a problem: the table is a directory of files now.
         public string Category = "";
         public string Description = "";
+        // `system` is compiled into slopd, `user` exists only in the preset directory, and
+        // `override` is a user definition replacing a system entry with the same name.
+        public string Source = "";
         // Kept apart because the project dialog groups what a sandbox is handed the way it is
         // edited. A device node goes with the read-only binds: it is bound rather than passed,
         // and which flag bwrap gets is not this screen's business.
         public List<string> Ro = new List<string>();
         public List<string> Rw = new List<string>();
+        public List<string> Dev = new List<string>();
         public List<string> Env = new List<string>();
+        public List<string> Seed = new List<string>();
+        public List<string> Skip = new List<string>();
+        public Dictionary<string, string> Setenv = new Dictionary<string, string>();
         // Bound to a copy of its own rather than to the host's. Its own group because "where
         // did my ~/.claude go" is the question a session's own copy raises, and a path that
         // read as an ordinary bind would answer it wrongly.
@@ -285,7 +292,41 @@ namespace SlopWorld
 
         // Every path and env var the preset asks for, for the tooltip.
         public List<string> Gives =>
-            Ro.Concat(Rw).Concat(Shared).Concat(Private).Concat(Env).ToList();
+            Ro.Concat(Rw).Concat(Dev).Concat(Shared).Concat(Private).Concat(Env)
+                .Concat(Setenv.Select(x => $"{x.Key}={x.Value}")).ToList();
+
+        public PresetInfo Copy() => new PresetInfo
+        {
+            Name = Name,
+            Category = Category,
+            Description = Description,
+            Source = Source,
+            Ro = new List<string>(Ro),
+            Rw = new List<string>(Rw),
+            Dev = new List<string>(Dev),
+            Env = new List<string>(Env),
+            Private = new List<string>(Private),
+            Shared = new List<string>(Shared),
+            Seed = new List<string>(Seed),
+            Skip = new List<string>(Skip),
+            Escapes = Escapes,
+            Setenv = new Dictionary<string, string>(Setenv),
+        };
+
+        public string ToJson() =>
+            "{" + $"\"name\":{JVal.Q(Name)},\"category\":{JVal.Q(Category)}," +
+            $"\"description\":{JVal.Q(Description)},\"ro\":{Arr(Ro)}," +
+            $"\"rw\":{Arr(Rw)},\"dev\":{Arr(Dev)},\"private\":{Arr(Private)}," +
+            $"\"seed\":{Arr(Seed)},\"skip\":{Arr(Skip)},\"shared\":{Arr(Shared)}," +
+            $"\"escapes\":{JVal.Q(Escapes)},\"env\":{Arr(Env)}," +
+            $"\"setenv\":{Map(Setenv)}}}";
+
+        static string Arr(List<string> items) =>
+            "[" + string.Join(",", items.Select(JVal.Q).ToArray()) + "]";
+
+        static string Map(Dictionary<string, string> items) =>
+            "{" + string.Join(",", items.Select(x =>
+                JVal.Q(x.Key) + ":" + JVal.Q(x.Value)).ToArray()) + "}";
 
         public static PresetInfo FromJson(JVal j)
         {
@@ -294,15 +335,20 @@ namespace SlopWorld
                 Name = j["name"].AsString(),
                 Category = j["category"].AsString(),
                 Description = j["description"].AsString(),
+                Source = j["source"].AsString("system"),
                 Escapes = j["escapes"].AsString(),
             };
-            foreach (var key in new[] { "ro", "dev" })
-                p.Ro.AddRange(j[key].Items.Select(i => i.AsString()));
+            p.Ro.AddRange(j["ro"].Items.Select(i => i.AsString()));
             p.Rw.AddRange(j["rw"].Items.Select(i => i.AsString()));
+            p.Dev.AddRange(j["dev"].Items.Select(i => i.AsString()));
             p.Private.AddRange(j["private"].Items.Select(i => i.AsString()));
+            p.Seed.AddRange(j["seed"].Items.Select(i => i.AsString()));
+            p.Skip.AddRange(j["skip"].Items.Select(i => i.AsString()));
             p.Shared.AddRange(j["shared"].Items.Select(i => i.AsString()));
-            foreach (var key in new[] { "env", "setenv" })
-                p.Env.AddRange(j[key].Items.Select(i => i.AsString()));
+            p.Env.AddRange(j["env"].Items.Select(i => i.AsString()));
+            if (j["setenv"].Obj != null)
+                foreach (var pair in j["setenv"].Obj)
+                    p.Setenv[pair.Key] = pair.Value.AsString();
             return p;
         }
     }
@@ -315,15 +361,32 @@ namespace SlopWorld
         public string Name = "";
         public string Category = "";
         public string Description = "";
+        public string Source = "";
         // What it runs before this machine's `[defaults]` and the agent's own override.
         public string Cmd = "";
         public List<string> Sandbox = new List<string>();
+
+        public string ToJson() =>
+            "{" + $"\"name\":{JVal.Q(Name)},\"category\":{JVal.Q(Category)}," +
+            $"\"description\":{JVal.Q(Description)},\"cmd\":{JVal.Q(Cmd)}," +
+            $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]}}";
+
+        public CommandInfo Copy() => new CommandInfo
+        {
+            Name = Name,
+            Category = Category,
+            Description = Description,
+            Source = Source,
+            Cmd = Cmd,
+            Sandbox = new List<string>(Sandbox),
+        };
 
         public static CommandInfo FromJson(JVal j) => new CommandInfo
         {
             Name = j["name"].AsString(),
             Category = j["category"].AsString(),
             Description = j["description"].AsString(),
+            Source = j["source"].AsString("system"),
             Cmd = j["cmd"].AsString(),
             Sandbox = j["sandbox"].Items.Select(i => i.AsString()).ToList(),
         };
@@ -777,14 +840,35 @@ namespace SlopWorld
 
         // The old lists stay up until the answer lands, so a dialog opened with the socket
         // down draws what it knew rather than nothing.
-        public void LoadPresets()
+        public void LoadPresets(Action ok = null, Action<string> fail = null)
         {
             SlopClient.Get("/api/presets", j =>
             {
                 Presets = j["presets"].Items.Select(PresetInfo.FromJson).ToList();
                 Commands = j["commands"].Items.Select(CommandInfo.FromJson).ToList();
-            });
+                ok?.Invoke();
+            }, fail);
         }
+
+        public void CopyPreset(string kind, string name, string newName,
+                               Action ok, Action<string> fail) =>
+            SlopClient.Post($"/api/presets/{kind}/{Uri.EscapeDataString(name)}/copy",
+                $"{{\"name\":{JVal.Q(newName ?? "")}}}", _ =>
+                {
+                    LoadPresets(ok, fail);
+                }, fail);
+
+        public void SavePreset(PresetInfo p, Action ok, Action<string> fail) =>
+            SlopClient.Put($"/api/presets/sandbox/{Uri.EscapeDataString(p.Name)}", p.ToJson(),
+                _ => LoadPresets(ok, fail), fail);
+
+        public void RemovePreset(string kind, string name, Action ok, Action<string> fail) =>
+            SlopClient.Delete($"/api/presets/{kind}/{Uri.EscapeDataString(name)}",
+                _ => LoadPresets(ok, fail), fail);
+
+        public void SaveCommand(CommandInfo c, Action ok, Action<string> fail) =>
+            SlopClient.Put($"/api/presets/command/{Uri.EscapeDataString(c.Name)}", c.ToJson(),
+                _ => LoadPresets(ok, fail), fail);
 
         public CommandInfo Command(string name) =>
             string.IsNullOrEmpty(name) ? null : Commands.FirstOrDefault(c => c.Name == name);

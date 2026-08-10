@@ -1,60 +1,54 @@
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using RimWorld;
+using System.Linq;
 using UnityEngine;
 using Verse;
 
 namespace SlopWorld
 {
-    // The system-wide sandbox, as its own tab of the options menu: the base every sandbox
-    // is built on under a "Global" heading, and the presets that can add to it under
-    // "Presets". Split out of ConfigPage because that page answers "what does this machine
-    // do" - the daemon, the defaults, the game - and the base binds were the paragraph
-    // about the ground every agent runs on, which is a different question and one this tab
-    // can answer with both halves at once.
-    //
-    // The Global half is `[sandbox]` in config.toml, saved over HTTP like the rest of the
-    // machine's config. The Presets half is a directory of the daemon's preset files, drawn
-    // read-only: which presets a *project* uses is that project's answer, ticked on its own
-    // dialog, and this page is where the base is read against what adds to it.
+    // The daemon's sandbox library. Global is the machine-wide base; Presets and Commands
+    // are the user-facing files beside it. A library is deliberately a master/detail page:
+    // there are many fields in one preset, but only one definition is being edited at once.
     public class SandboxPage
     {
+        enum Tab { Global, Presets, Commands }
+
         SlopConfig _cfg;
         string _error;
         bool _loaded;
-
+        Tab _tab;
         string _roPaths, _rwPaths, _passEnv;
 
-        readonly SmoothScroll _presetScroll = new SmoothScroll();
-        readonly SmoothScroll _previewScroll = new SmoothScroll();
-        // The preset whose preview sits beside the list. Kept by reference and dropped when
-        // a reload no longer offers it, so a stale name is never previewed.
-        PresetInfo _selected;
+        readonly SmoothScroll _listScroll = new SmoothScroll();
+        readonly SmoothScroll _editorScroll = new SmoothScroll();
+        PresetInfo _preset;
+        CommandInfo _command;
+        bool _newEntry;
 
         public void Load()
         {
-            SlopClient.Get("/api/config",
-                j =>
-                {
-                    _cfg = SlopConfig.FromJson(j["values"]);
-                    _roPaths = SlopConfig.Lines(_cfg.RoPaths);
-                    _rwPaths = SlopConfig.Lines(_cfg.RwPaths);
-                    _passEnv = SlopConfig.Lines(_cfg.PassEnv);
-                    _loaded = true;
-                    _error = null;
-                },
-                msg => { _error = msg; _loaded = false; });
-
-            // The presets are the daemon's directory, fetched on the page like the project
-            // dialog fetches them, so a file added while the game is up is a name here too.
-            SessionHub.Instance.LoadPresets();
+            SlopClient.Get("/api/config", j =>
+            {
+                _cfg = SlopConfig.FromJson(j["values"]);
+                _roPaths = SlopConfig.Lines(_cfg.RoPaths);
+                _rwPaths = SlopConfig.Lines(_cfg.RwPaths);
+                _passEnv = SlopConfig.Lines(_cfg.PassEnv);
+                _loaded = true;
+                _error = null;
+            }, msg => { _error = msg; _loaded = false; });
+            SessionHub.Instance.LoadPresets(() =>
+            {
+                if (_preset != null)
+                    _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _preset.Name);
+                if (_command != null)
+                    _command = SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == _command.Name);
+            }, msg => _error = msg);
         }
 
         public void Draw(Rect rect)
         {
-            SlopWidgets.PageCaption(rect,
-                "The base every sandbox is built on, and the presets that add to it.");
-
+            SlopWidgets.PageCaption(rect, "The base every sandbox is built on, and the presets that add to it.");
             var body = SlopWidgets.PageBody(rect);
             Widgets.DrawMenuSection(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
@@ -67,30 +61,39 @@ namespace SlopWorld
             }
             else
             {
-                // Global is a short row of three boxes on top; the presets take the rest of
-                // the page and get the scroll, so both halves are read top to bottom.
-                DoGlobal(new Rect(inner.x, inner.y, inner.width, 200f));
-                float presetsY = inner.y + 200f + SlopWidgets.GapL;
-                DoPresets(new Rect(inner.x, presetsY, inner.width, inner.yMax - presetsY));
+                DrawTabs(new Rect(inner.x, inner.y, inner.width, SlopWidgets.BtnH));
+                var content = new Rect(inner.x, inner.y + SlopWidgets.BtnH + SlopWidgets.GapM,
+                    inner.width, inner.yMax - inner.y - SlopWidgets.BtnH - SlopWidgets.GapM);
+                if (_tab == Tab.Global) DoGlobal(content);
+                else if (_tab == Tab.Presets) DoPresets(content);
+                else DoCommands(content);
             }
-
             DoFooter(SlopWidgets.FooterBar(rect));
         }
 
-        // The "Global" section: `[sandbox]`, the base every sandbox is built on. Three
-        // boxes in one row, so the three groups read side by side. Whether an agent is
-        // sandboxed at all is its project's answer, never this page's.
+        void DrawTabs(Rect r)
+        {
+            float gap = SlopWidgets.GapS;
+            float w = (r.width - gap * 2f) / 3f;
+            DrawTab(new Rect(r.x, r.y, w, r.height), "Global", Tab.Global);
+            DrawTab(new Rect(r.x + w + gap, r.y, w, r.height), "Presets", Tab.Presets);
+            DrawTab(new Rect(r.x + (w + gap) * 2f, r.y, w, r.height), "Commands", Tab.Commands);
+        }
+
+        void DrawTab(Rect r, string label, Tab tab)
+        {
+            if (SlopWidgets.Button(r, label, _tab == tab ? SlopWidgets.Btn.Primary : SlopWidgets.Btn.Ghost))
+            {
+                _tab = tab;
+                _error = null;
+            }
+        }
+
         void DoGlobal(Rect r)
         {
             SlopWidgets.SectionHeading(new Rect(r.x, r.y, r.width, SlopWidgets.RowH), "Global");
             float top = r.y + SlopWidgets.RowH + SlopWidgets.GapXS;
-
-            // Measured rather than given a height: forty pixels was two lines of the font it
-            // was written against and one and a half of a larger one.
-            const string what =
-                "The base every project builds on. A project's own presets and binds are " +
-                "added to these; whether an agent is sandboxed at all is its project's " +
-                "answer.";
+            const string what = "The base every project builds on. A project's own presets and binds are added to these; every agent runs in a sandbox.";
             GUI.color = SlopWidgets.Dim;
             var note = new Rect(r.x, top, r.width, Text.CalcHeight(what, r.width));
             Widgets.Label(note, what);
@@ -108,145 +111,293 @@ namespace SlopWorld
                 "sandbox.env", "Passed env vars", _passEnv);
         }
 
-        // The "Presets" section: the daemon's preset directory on the left, and beside it a
-        // preview of whichever preset is selected. The preview is read in the same three
-        // groups the Global half edits, so the base can be held against what adds to it.
         void DoPresets(Rect r)
         {
             SlopWidgets.SectionHeading(new Rect(r.x, r.y, r.width, SlopWidgets.RowH), "Presets");
-            float top = r.y + SlopWidgets.RowH + SlopWidgets.GapXS;
-            float boxH = r.yMax - top;
-
-            var presets = SessionHub.Instance.Presets;
-            if (_selected != null && !presets.Contains(_selected))
-                _selected = null;
-
-            // Two columns: the list, and the selected preset's preview. The preview wants the
-            // read, so it gets the wider half.
-            float previewW = Mathf.Min(380f, r.width * 0.45f);
-            float listW = r.width - previewW - SlopWidgets.GapM;
-            DoPresetList(new Rect(r.x, top, listW, boxH));
-            DoPreview(new Rect(r.x + listW + SlopWidgets.GapM, top, previewW, boxH));
+            var caption = "System presets are supplied by slopd. Copy one to the user list to edit it; user presets can also be new entries.";
+            GUI.color = SlopWidgets.Dim;
+            float y = r.y + SlopWidgets.RowH + SlopWidgets.GapXS;
+            float h = Text.CalcHeight(caption, r.width);
+            Widgets.Label(new Rect(r.x, y, r.width, h), caption);
+            GUI.color = Color.white;
+            y += h + SlopWidgets.GapS;
+            var content = new Rect(r.x, y, r.width, r.yMax - y);
+            float detailW = Mathf.Min(590f, content.width * .60f);
+            float listW = content.width - detailW - SlopWidgets.GapM;
+            DrawPresetList(new Rect(content.x, content.y, listW, content.height));
+            DrawPresetEditor(new Rect(content.x + listW + SlopWidgets.GapM, content.y, detailW, content.height));
         }
 
-        // The list, grouped by category the way the project dialog groups its checkboxes.
-        // A click picks the row for the preview; it is not a checkbox here - a project
-        // ticks presets, this page only shows what they are.
-        void DoPresetList(Rect r)
+        void DoCommands(Rect r)
         {
-            var presets = SessionHub.Instance.Presets;
-            var groups = presets
-                .OrderBy(p => Category(p), System.StringComparer.OrdinalIgnoreCase)
-                .ThenBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase)
-                .GroupBy(Category)
-                .ToList();
+            SlopWidgets.SectionHeading(new Rect(r.x, r.y, r.width, SlopWidgets.RowH), "Commands");
+            var caption = "Commands say what an agent runs and which presets it requires. Copy a system command to make a user override.";
+            GUI.color = SlopWidgets.Dim;
+            float y = r.y + SlopWidgets.RowH + SlopWidgets.GapXS;
+            float h = Text.CalcHeight(caption, r.width);
+            Widgets.Label(new Rect(r.x, y, r.width, h), caption);
+            GUI.color = Color.white;
+            y += h + SlopWidgets.GapS;
+            var content = new Rect(r.x, y, r.width, r.yMax - y);
+            float detailW = Mathf.Min(590f, content.width * .60f);
+            float listW = content.width - detailW - SlopWidgets.GapM;
+            DrawCommandList(new Rect(content.x, content.y, listW, content.height));
+            DrawCommandEditor(new Rect(content.x + listW + SlopWidgets.GapM, content.y, detailW, content.height));
+        }
 
-            float pitch = SlopWidgets.RowH;
-            float h = (presets.Count + groups.Count) * pitch + SlopWidgets.GapS;
+        void DrawPresetList(Rect r)
+        {
+            var all = SessionHub.Instance.Presets;
+            var system = all.Where(p => p.Source == "system").ToList();
+            var user = all.Where(p => p.Source != "system").ToList();
+            float h = (system.Count + user.Count + 3) * SlopWidgets.RowH;
             var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(h, r.height));
-            _presetScroll.Begin(r, view);
-
-            if (presets.Count == 0)
-            {
-                GUI.color = SlopWidgets.Dim;
-                Widgets.Label(new Rect(0f, 0f, view.width, pitch),
-                    "The daemon has not sent its preset list yet.");
-                GUI.color = Color.white;
-            }
-
+            _listScroll.Begin(r, view);
             float y = 0f;
-            foreach (var g in groups)
+            y = DrawLibraryGroup(view, y, "System", system, p => p.Name,
+                p => { _preset = p; _newEntry = false; });
+            y = DrawLibraryGroup(view, y, "User", user, p => p.Name + (p.Source == "override" ? "  (override)" : ""),
+                p => { _preset = p; _newEntry = false; });
+            if (SlopWidgets.Button(new Rect(0f, y + SlopWidgets.GapS, view.width, SlopWidgets.BtnH),
+                    "+ New preset", SlopWidgets.Btn.Ghost))
             {
-                SlopWidgets.SectionHeading(new Rect(0f, y, view.width, pitch), g.Key);
-                y += pitch;
-
-                foreach (var p in g)
-                {
-                    var cell = new Rect(SlopWidgets.GapS, y,
-                        view.width - SlopWidgets.GapS, pitch);
-                    if (p == _selected)
-                        Widgets.DrawBoxSolid(cell, SlopWidgets.RowOn);
-                    var wasAnchor = Text.Anchor;
-                    Text.Anchor = TextAnchor.MiddleLeft;
-                    // A way out keeps its colour even when selected: this page is where the
-                    // presets are read against each other, and that is the difference worth
-                    // seeing without clicking each one.
-                    GUI.color = p.IsEscape ? SlopWidgets.Warn
-                        : p == _selected ? SlopWidgets.Lead : SlopWidgets.Name;
-                    Widgets.Label(cell, p.Name);
-                    GUI.color = Color.white;
-                    Text.Anchor = wasAnchor;
-                    if (Widgets.ButtonInvisible(cell))
-                        _selected = p;
-                    string cost = p.IsEscape
-                        ? $"Way out of the sandbox: {p.Escapes}.\n\n" : "";
-                    TooltipHandler.TipRegion(cell,
-                        $"{cost}{p.Description}\n\n{string.Join("\n", p.Gives.ToArray())}");
-                    y += pitch;
-                }
+                _preset = new PresetInfo { Name = "new-preset", Source = "user" };
+                _newEntry = true;
             }
-            _presetScroll.End();
+            _listScroll.End();
         }
 
-        // The selected preset, in the same three groups the Global half edits, each row
-        // parted by a rule so "read-only", "read-write" and "env" read as the three things
-        // a preset can add rather than as one list.
-        void DoPreview(Rect r)
+        float DrawLibraryGroup<T>(Rect view, float y, string heading, List<T> items,
+                                  Func<T, string> label, Action<T> pick)
         {
-            if (_selected == null)
+            SlopWidgets.SectionHeading(new Rect(0f, y, view.width, SlopWidgets.RowH), heading);
+            y += SlopWidgets.RowH;
+            foreach (var item in items)
+            {
+                var cell = new Rect(SlopWidgets.GapS, y, view.width - SlopWidgets.GapS, SlopWidgets.RowH);
+                string name = label(item);
+                bool selected = (item is PresetInfo p && p == _preset) ||
+                                (item is CommandInfo c && c == _command);
+                if (selected) Widgets.DrawBoxSolid(cell, SlopWidgets.RowOn);
+                // A preset that hands the sandbox a road back out is dangerous even when it
+                // is selected: the yellow stays on the name so the warning is visible in the
+                // library, not only after opening its editor.
+                bool dangerous = item is PresetInfo dangerousPreset && dangerousPreset.IsEscape;
+                GUI.color = dangerous ? SlopWidgets.Warn
+                    : selected ? SlopWidgets.Lead : SlopWidgets.Name;
+                SlopWidgets.RowLabel(cell, name);
+                GUI.color = Color.white;
+                if (Widgets.ButtonInvisible(cell)) pick(item);
+                y += SlopWidgets.RowH;
+            }
+            if (items.Count == 0)
             {
                 GUI.color = SlopWidgets.Dim;
-                Widgets.Label(new Rect(r.x, r.y, r.width, SlopWidgets.RowH),
-                    "Select a preset to see what it adds.");
+                Widgets.Label(new Rect(SlopWidgets.GapS, y, view.width, SlopWidgets.RowH), "(none)");
                 GUI.color = Color.white;
+                y += SlopWidgets.RowH;
+            }
+            return y + SlopWidgets.GapS;
+        }
+
+        void DrawCommandList(Rect r)
+        {
+            var all = SessionHub.Instance.Commands;
+            var system = all.Where(c => c.Source == "system").ToList();
+            var user = all.Where(c => c.Source != "system").ToList();
+            float h = (system.Count + user.Count + 3) * SlopWidgets.RowH;
+            var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(h, r.height));
+            _listScroll.Begin(r, view);
+            float y = 0f;
+            y = DrawLibraryGroup(view, y, "System", system, c => c.Name,
+                c => { _command = c; _newEntry = false; });
+            y = DrawLibraryGroup(view, y, "User", user, c => c.Name + (c.Source == "override" ? "  (override)" : ""),
+                c => { _command = c; _newEntry = false; });
+            if (SlopWidgets.Button(new Rect(0f, y + SlopWidgets.GapS, view.width, SlopWidgets.BtnH),
+                    "+ New command", SlopWidgets.Btn.Ghost))
+            {
+                _command = new CommandInfo { Name = "new-command", Source = "user" };
+                _newEntry = true;
+            }
+            _listScroll.End();
+        }
+
+        void DrawPresetEditor(Rect r)
+        {
+            if (_preset == null)
+            {
+                EmptyEditor(r, "Select a preset to inspect or edit it.");
                 return;
             }
-
-            var p = _selected;
-            var view = new Rect(0f, 0f, r.width - 18f,
-                Mathf.Max(Measure(p, r.width - 18f), r.height));
-            _previewScroll.Begin(r, view);
-
+            var p = _preset;
+            bool editable = _newEntry || p.Source != "system";
+            var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(1500f, r.height));
+            _editorScroll.Begin(r, view);
             float y = 0f;
-            // Above the groups, in the colour the list drew it: what a preset costs is not a
-            // fourth kind of bind, it is the sentence to read before any of them.
-            if (p.IsEscape)
+            // Put the cost before the identity and all the fields. A warning at the bottom is
+            // something a long editor makes the player discover after deciding to use it.
+            if (!string.IsNullOrEmpty(p.Escapes))
             {
                 GUI.color = SlopWidgets.Warn;
-                string cost = $"Way out of the sandbox: {p.Escapes}.";
-                float h = Text.CalcHeight(cost, view.width);
-                Widgets.Label(new Rect(0f, y, view.width, h), cost);
+                string warning = $"Escape path: {p.Escapes}.";
+                float warningH = Text.CalcHeight(warning, view.width);
+                Widgets.Label(new Rect(0f, y, view.width, warningH), warning);
                 GUI.color = Color.white;
-                y = Rule(view.width, y + h + SlopWidgets.GapXS);
+                y += warningH + SlopWidgets.GapM;
             }
-
-            y = Row(view, y, "Read-only binds", p.Ro);
+            EditorTitle(view, ref y, p.Name, p.Source, editable, "sandbox");
+            y = EditorField(view, y, "Name", "preset.name", p.Name, _newEntry, v => p.Name = v);
+            y = EditorField(view, y, "Category", "preset.category", p.Category, editable, v => p.Category = v);
+            y = EditorArea(view, y, "Description", "preset.description", p.Description, editable, 44f, v => p.Description = v);
+            y = Rule(view.width, y + SlopWidgets.GapXS);
+            y = EditorList(view, y, "Read-only binds", "preset.ro", p.Ro, editable);
+            y = EditorList(view, y, "Read-write binds", "preset.rw", p.Rw, editable);
+            y = EditorList(view, y, "Device binds", "preset.dev", p.Dev, editable);
             y = Rule(view.width, y);
-            y = Row(view, y, "Read-write binds", p.Rw);
+            y = EditorList(view, y, "Private paths", "preset.private", p.Private, editable);
+            y = EditorList(view, y, "Seed paths", "preset.seed", p.Seed, editable);
+            y = EditorList(view, y, "Skip paths", "preset.skip", p.Skip, editable);
+            y = EditorList(view, y, "Shared files", "preset.shared", p.Shared, editable);
             y = Rule(view.width, y);
-            y = Row(view, y, "Private, one copy per session", p.Private);
-            y = Rule(view.width, y);
-            Row(view, y, "Passed env vars", p.Env);
-
-            _previewScroll.End();
+            y = EditorList(view, y, "Forwarded environment", "preset.env", p.Env, editable);
+            y = EditorArea(view, y, "Set environment (KEY=VALUE)", "preset.setenv",
+                SetenvLines(p), editable, 48f, v => { _setenvText = v; ParseSetenv(p); });
+            y = EditorField(view, y, "Escape warning", "preset.escapes", p.Escapes, editable, v => p.Escapes = v);
+            EditorButtons(view, y, editable, p.Source, "sandbox", p.Name,
+                () => SessionHub.Instance.SavePreset(p, () => { _newEntry = false; _error = null; }, msg => _error = msg),
+                () => Remove("sandbox", p.Name));
+            _editorScroll.End();
         }
 
-        // What one group costs, heading and all. Row and Measure walked the same layout with
-        // the same four figures written out twice, which is a pair to get out of step the
-        // first time either is touched.
-        static float GroupH(List<string> items, float width) =>
-            SlopWidgets.RowH + SlopWidgets.GapXS
-            + Text.CalcHeight(TextOf(items), width) + SlopWidgets.GapXS;
-
-        static float Row(Rect view, float y, string label, List<string> items)
+        string _setenvText;
+        PresetInfo _setenvOwner;
+        void ParseSetenv(PresetInfo p)
         {
-            SlopWidgets.SectionHeading(new Rect(0f, y, view.width, SlopWidgets.RowH), label);
-            y += SlopWidgets.RowH + SlopWidgets.GapXS;
+            p.Setenv.Clear();
+            foreach (var line in SlopConfig.Split(_setenvText))
+            {
+                int at = line.IndexOf('=');
+                if (at > 0) p.Setenv[line.Substring(0, at).Trim()] = line.Substring(at + 1);
+            }
+        }
 
-            string text = TextOf(items);
-            float h = Text.CalcHeight(text, view.width);
-            Widgets.Label(new Rect(0f, y, view.width, h), text);
-            return y + h + SlopWidgets.GapXS;
+        string SetenvLines(PresetInfo p)
+        {
+            if (_setenvOwner != p)
+            {
+                _setenvOwner = p;
+                _setenvText = string.Join("\n", p.Setenv.Select(x => x.Key + "=" + x.Value).ToArray());
+            }
+            return _setenvText ?? "";
+        }
+
+        void DrawCommandEditor(Rect r)
+        {
+            if (_command == null)
+            {
+                EmptyEditor(r, "Select a command to inspect or edit it.");
+                return;
+            }
+            var c = _command;
+            bool editable = _newEntry || c.Source != "system";
+            var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(900f, r.height));
+            _editorScroll.Begin(r, view);
+            float y = 0f;
+            EditorTitle(view, ref y, c.Name, c.Source, editable, "command");
+            y = EditorField(view, y, "Name", "command.name", c.Name, _newEntry, v => c.Name = v);
+            y = EditorField(view, y, "Category", "command.category", c.Category, editable, v => c.Category = v);
+            y = EditorArea(view, y, "Description", "command.description", c.Description, editable, 44f, v => c.Description = v);
+            y = EditorArea(view, y, "Command line", "command.cmd", c.Cmd, editable, 52f, v => c.Cmd = v);
+            y += SlopWidgets.GapS;
+            SlopWidgets.SectionHeading(new Rect(0f, y, view.width, SlopWidgets.RowH), "Sandbox dependencies");
+            y += SlopWidgets.RowH;
+            GUI.color = SlopWidgets.Dim;
+            Widgets.Label(new Rect(0f, y, view.width, SlopWidgets.LineH), "These presets are added whenever this command runs.");
+            GUI.color = Color.white;
+            y += SlopWidgets.LineH + SlopWidgets.GapXS;
+            foreach (var p in SessionHub.Instance.Presets)
+            {
+                bool on = c.Sandbox.Contains(p.Name);
+                bool was = on;
+                bool next = SlopWidgets.Checkbox(new Rect(0f, y, view.width, SlopWidgets.RowH), p.Name, on,
+                    p.Description, !editable, p.IsEscape);
+                if (editable && next != was)
+                {
+                    if (next) c.Sandbox.Add(p.Name); else c.Sandbox.Remove(p.Name);
+                }
+                y += SlopWidgets.RowH;
+            }
+            EditorButtons(view, y + SlopWidgets.GapS, editable, c.Source, "command", c.Name,
+                () => SessionHub.Instance.SaveCommand(c, () => { _newEntry = false; _error = null; }, msg => _error = msg),
+                () => Remove("command", c.Name));
+            _editorScroll.End();
+        }
+
+        void EditorTitle(Rect view, ref float y, string name, string source, bool editable, string kind)
+        {
+            GUI.color = SlopWidgets.Lead;
+            Widgets.Label(new Rect(0f, y, view.width, SlopWidgets.RowH), name + (source == "override" ? "  (override)" : ""));
+            GUI.color = Color.white;
+            y += SlopWidgets.RowH;
+            GUI.color = source == "system" ? SlopWidgets.Faint : SlopWidgets.Yes;
+            Widgets.Label(new Rect(0f, y, view.width, SlopWidgets.LineH), source == "system" ? "System preset (read-only)" : "User preset");
+            GUI.color = Color.white;
+            y += SlopWidgets.LineH + SlopWidgets.GapS;
+            if (source == "system")
+            {
+                if (SlopWidgets.Button(new Rect(0f, y, view.width, SlopWidgets.BtnH), "Copy to user", SlopWidgets.Btn.Primary))
+                    Copy(kind, name);
+                y += SlopWidgets.BtnH + SlopWidgets.GapM;
+            }
+        }
+
+        float EditorField(Rect view, float y, string label, string name, string value, bool editable, Action<string> set)
+        {
+            GUI.color = SlopWidgets.Dim;
+            Widgets.Label(new Rect(0f, y, view.width, SlopWidgets.LineH), label);
+            GUI.color = Color.white;
+            y += SlopWidgets.LineH + SlopWidgets.GapXS;
+            set(SlopWidgets.Field(new Rect(0f, y, view.width, SlopWidgets.FieldH), name, value, editable));
+            return y + SlopWidgets.FieldH + SlopWidgets.GapS;
+        }
+
+        float EditorArea(Rect view, float y, string label, string name, string value, bool editable,
+                         float height, Action<string> set)
+        {
+            GUI.color = SlopWidgets.Dim;
+            Widgets.Label(new Rect(0f, y, view.width, SlopWidgets.LineH), label);
+            GUI.color = Color.white;
+            y += SlopWidgets.LineH + SlopWidgets.GapXS;
+            set(SlopWidgets.Area(new Rect(0f, y, view.width, height), name, value, editable));
+            return y + height + SlopWidgets.GapS;
+        }
+
+        float EditorList(Rect view, float y, string label, string name, List<string> items, bool editable)
+        {
+            string text = SlopConfig.Lines(items);
+            y = EditorArea(view, y, label, name, text, editable, 48f, v =>
+            {
+                items.Clear();
+                items.AddRange(SlopConfig.Split(v));
+            });
+            return y;
+        }
+
+        void EditorButtons(Rect view, float y, bool editable, string source, string kind, string name,
+                           Action save, Action remove)
+        {
+            if (editable && SlopWidgets.Button(new Rect(0f, y, view.width * .48f, SlopWidgets.BtnH), "Save", SlopWidgets.Btn.Primary))
+                save();
+            if (source != "system" && SlopWidgets.Button(new Rect(view.width * .52f, y, view.width * .48f, SlopWidgets.BtnH),
+                    source == "override" ? "Reset to system" : "Remove", SlopWidgets.Btn.Danger))
+                remove();
+        }
+
+        void EmptyEditor(Rect r, string text)
+        {
+            GUI.color = SlopWidgets.Dim;
+            Widgets.Label(new Rect(r.x, r.y, r.width, SlopWidgets.LineH * 2f), text);
+            GUI.color = Color.white;
         }
 
         static float Rule(float width, float y)
@@ -255,36 +406,33 @@ namespace SlopWorld
             return y + SlopWidgets.GapM;
         }
 
-        static float Measure(PresetInfo p, float width) =>
-            CostH(p, width)
-            + GroupH(p.Ro, width) + SlopWidgets.GapM
-            + GroupH(p.Rw, width) + SlopWidgets.GapM
-            + GroupH(p.Private, width) + SlopWidgets.GapM
-            + GroupH(p.Env, width);
+        void Copy(string kind, string name)
+        {
+            SessionHub.Instance.CopyPreset(kind, name, name, () =>
+            {
+                _error = null;
+                Load();
+            }, msg => _error = msg);
+        }
 
-        // The line above the groups, and the rule under it, for a preset that has one.
-        static float CostH(PresetInfo p, float width) =>
-            p.IsEscape
-                ? Text.CalcHeight($"Way out of the sandbox: {p.Escapes}.", width)
-                  + SlopWidgets.GapXS + SlopWidgets.GapM
-                : 0f;
-
-        static string TextOf(List<string> items) =>
-            items.Count > 0 ? string.Join("\n", items.ToArray()) : "(nothing)";
-
-        static string Category(PresetInfo p) =>
-            string.IsNullOrEmpty(p.Category) ? "other" : p.Category;
+        void Remove(string kind, string name)
+        {
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                kind == "sandbox" && SessionHub.Instance.Presets.Any(p => p.Name == name && p.Source == "override")
+                    ? "Reset this user override and return to the system preset?"
+                    : "Remove this user preset?",
+                () => SessionHub.Instance.RemovePreset(kind, name, () =>
+                {
+                    _preset = null; _command = null; _error = null; Load();
+                }, msg => _error = msg)));
+        }
 
         void DoFooter(Rect bar)
         {
             var foot = new SlopWidgets.Bar(bar);
-
             if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
-            // Greyed and shown rather than hidden: with no config loaded there is nothing to
-            // write back, and a button that vanished would read as a page with no save.
-            if (foot.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
-
-            if (_error != null && _loaded)
+            if (_tab == Tab.Global && foot.Right("Save", SlopWidgets.Btn.Primary, _loaded)) SaveGlobal();
+            if (_error != null)
             {
                 var was = Text.Anchor;
                 Text.Anchor = TextAnchor.MiddleLeft;
@@ -295,24 +443,18 @@ namespace SlopWorld
             }
         }
 
-        void Save()
+        void SaveGlobal()
         {
-            if (!_loaded) return;
-
             _cfg.RoPaths = SlopConfig.Split(_roPaths);
             _cfg.RwPaths = SlopConfig.Split(_rwPaths);
             _cfg.PassEnv = SlopConfig.Split(_passEnv);
-
-            SlopClient.Put("/api/config/values", _cfg.ToJson(),
-                _ =>
-                {
-                    _error = null;
-                    SlopOptions.Reread();
-                    SessionHub.Instance.Refresh();
-                    Messages.Message("SlopWorld: sandbox settings saved.",
-                        MessageTypeDefOf.TaskCompletion, false);
-                },
-                msg => _error = msg);
+            SlopClient.Put("/api/config/values", _cfg.ToJson(), _ =>
+            {
+                _error = null;
+                SlopOptions.Reread();
+                SessionHub.Instance.Refresh();
+                Messages.Message("SlopWorld: global sandbox settings saved.", MessageTypeDefOf.TaskCompletion, false);
+            }, msg => _error = msg);
         }
     }
 }

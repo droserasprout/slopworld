@@ -27,6 +27,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [mod-patches-strip](mod-patches-strip.md) - stripping the sim, the UI and the options menu.
 - [mod-patches-agents](mod-patches-agents.md) - agents are not colonists; the colonist bar.
 - [mod-sidebar](mod-sidebar.md) - `AgentSidebar` and what it does to the rest of the chrome.
+- [selection-rework](selection-rework.md) - planned: the session is what is selected, not the pawn.
 - [mod-patches-misc](mod-patches-misc.md) - background running, real-time durations, loading screen.
 - [mod-ui-chrome](mod-ui-chrome.md) - shared widgets, layout, usage readout, top bar.
 - [mod-ui-files](mod-ui-files.md) - the files view and its icons.

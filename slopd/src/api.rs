@@ -55,6 +55,11 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/grants", get(list_grants).post(mint_grant))
         .route("/api/grants/:grantor", delete(revoke_grants))
         .route("/api/presets", get(presets))
+        .route(
+            "/api/presets/:kind/:name",
+            put(update_preset).delete(delete_preset),
+        )
+        .route("/api/presets/:kind/:name/copy", post(copy_preset))
         .route("/api/config", get(get_config))
         .route("/api/config", put(put_config))
         .route("/api/config/values", put(put_config_values))
@@ -417,47 +422,253 @@ async fn revoke_grants(State(m): State<Mgr>, Path(grantor): Path<String>) -> Api
 
 /// So the GUI draws a checkbox per preset and a row per command rather than a list
 /// somebody keeps in step by hand. Both tables are files, so this is also how the mod
-/// learns about one that was added while it was running.
+/// learns about one that was added while it was running. `source` is explicit because a
+/// merged table alone cannot tell a built-in from a user override.
 async fn presets(State(_m): State<Mgr>) -> ApiResult {
-    let t = crate::presets::table();
-    let sandbox: Vec<serde_json::Value> = t
+    let effective = crate::presets::table();
+    let builtins = crate::presets::Table::builtins();
+    let users = crate::presets::Table::users();
+
+    let sandbox: Vec<serde_json::Value> = effective
         .sandbox
         .iter()
-        .map(|p| {
-            json!({
-                "name": p.name,
-                "category": p.category,
-                "description": p.description,
-                "ro": p.ro,
-                "rw": p.rw,
-                "dev": p.dev,
-                // Drawn as its own group: "where did my ~/.claude go" is the question a
-                // session's own copy raises, and this is the answer.
-                "private": p.private,
-                "escapes": p.escapes,
-                "env": p.env,
-                "setenv": p.setenv.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>(),
-            })
-        })
+        .map(|p| sandbox_json(p, &builtins, &users))
         .collect();
-
-    let commands: Vec<serde_json::Value> = t
+    let commands: Vec<serde_json::Value> = effective
         .commands
         .iter()
-        .map(|c| {
-            json!({
-                "name": c.name,
-                "category": c.category,
-                "description": c.description,
-                "cmd": c.cmd,
-                "sandbox": c.sandbox,
-            })
-        })
+        .map(|c| command_json(c, &builtins, &users))
         .collect();
 
-    Ok(Json(
-        json!({ "presets": sandbox, "commands": commands, "dir": crate::presets::Table::dir() }),
-    ))
+    Ok(Json(json!({
+        "presets": sandbox,
+        "commands": commands,
+        "dir": crate::presets::Table::dir(),
+    })))
+}
+
+fn source(has_builtin: bool, has_user: bool) -> &'static str {
+    match (has_builtin, has_user) {
+        (true, true) => "override",
+        (true, false) => "system",
+        (false, true) => "user",
+        (false, false) => "unknown",
+    }
+}
+
+fn sandbox_json(
+    p: &crate::presets::SandboxPreset,
+    builtins: &crate::presets::Table,
+    users: &crate::presets::Table,
+) -> serde_json::Value {
+    json!({
+        "name": p.name,
+        "source": source(builtins.sandbox(&p.name).is_some(), users.sandbox(&p.name).is_some()),
+        "category": p.category,
+        "description": p.description,
+        "ro": p.ro,
+        "rw": p.rw,
+        "dev": p.dev,
+        "private": p.private,
+        "seed": p.seed,
+        "skip": p.skip,
+        "shared": p.shared,
+        "escapes": p.escapes,
+        "env": p.env,
+        "setenv": p.setenv,
+    })
+}
+
+fn command_json(
+    c: &crate::presets::CommandPreset,
+    builtins: &crate::presets::Table,
+    users: &crate::presets::Table,
+) -> serde_json::Value {
+    json!({
+        "name": c.name,
+        "source": source(builtins.command(&c.name).is_some(), users.command(&c.name).is_some()),
+        "category": c.category,
+        "description": c.description,
+        "cmd": c.cmd,
+        "sandbox": c.sandbox,
+    })
+}
+
+#[derive(Deserialize)]
+struct CopyPresetReq {
+    #[serde(default)]
+    name: String,
+}
+
+fn valid_kind(kind: &str) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    if kind == "sandbox" || kind == "command" {
+        Ok(())
+    } else {
+        Err(err(
+            StatusCode::BAD_REQUEST,
+            format!("unknown preset kind: {kind}"),
+        ))
+    }
+}
+
+async fn copy_preset(
+    State(m): State<Mgr>,
+    Path((kind, old_name)): Path<(String, String)>,
+    body: Option<Json<CopyPresetReq>>,
+) -> ApiResult {
+    valid_kind(&kind)?;
+    let target = body.map(|Json(b)| b.name).unwrap_or_default();
+    let name = if target.trim().is_empty() {
+        old_name.clone()
+    } else {
+        target
+    };
+    let builtins = crate::presets::Table::builtins();
+    let users = crate::presets::Table::users();
+    let already_user = if kind == "sandbox" {
+        users.sandbox(&old_name).is_some()
+    } else {
+        users.command(&old_name).is_some()
+    };
+    if already_user {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "that preset already has a user definition",
+        ));
+    }
+    let target_exists = if kind == "sandbox" {
+        users.sandbox(&name).is_some() || (name != old_name && builtins.sandbox(&name).is_some())
+    } else {
+        users.command(&name).is_some() || (name != old_name && builtins.command(&name).is_some())
+    };
+    if target_exists {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "the target name already exists",
+        ));
+    }
+
+    if kind == "sandbox" {
+        let Some(mut p) = builtins.sandbox(&old_name).cloned() else {
+            return Err(err(
+                StatusCode::NOT_FOUND,
+                format!("unknown sandbox preset: {old_name}"),
+            ));
+        };
+        p.name = name;
+        crate::presets::save_sandbox(p).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    } else {
+        let Some(mut c) = builtins.command(&old_name).cloned() else {
+            return Err(err(
+                StatusCode::NOT_FOUND,
+                format!("unknown command preset: {old_name}"),
+            ));
+        };
+        c.name = name;
+        crate::presets::save_command(c).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    }
+    m.reload_presets_if_changed().await;
+    Ok(Json(json!({ "ok": true })))
+}
+
+async fn update_preset(
+    State(m): State<Mgr>,
+    Path((kind, name)): Path<(String, String)>,
+    body: axum::body::Bytes,
+) -> ApiResult {
+    valid_kind(&kind)?;
+    if name.trim().is_empty() {
+        return Err(err(StatusCode::BAD_REQUEST, "preset name is empty"));
+    }
+    if kind == "sandbox" {
+        let mut p: crate::presets::SandboxPreset =
+            serde_json::from_slice(&body).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+        p.name = name;
+        for path in
+            p.ro.iter()
+                .chain(p.rw.iter())
+                .chain(p.dev.iter())
+                .chain(p.private.iter())
+                .chain(p.seed.iter())
+                .chain(p.skip.iter())
+                .chain(p.shared.iter())
+        {
+            if let Some(why) = crate::sandbox::refused(&crate::config::expand(path)) {
+                return Err(err(
+                    StatusCode::BAD_REQUEST,
+                    format!("preset path {path:?} reaches {why}"),
+                ));
+            }
+        }
+        for path in &p.shared {
+            if !p.private.iter().any(|root| path.starts_with(root)) {
+                return Err(err(
+                    StatusCode::BAD_REQUEST,
+                    format!("shared path {path:?} must be inside a private path"),
+                ));
+            }
+        }
+        crate::presets::save_sandbox(p).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    } else {
+        let mut c: crate::presets::CommandPreset =
+            serde_json::from_slice(&body).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+        c.name = name;
+        if c.cmd.trim().is_empty() {
+            return Err(err(StatusCode::BAD_REQUEST, "command line is empty"));
+        }
+        let table = crate::presets::table();
+        for dep in &c.sandbox {
+            if table.sandbox(dep).is_none() {
+                return Err(err(
+                    StatusCode::BAD_REQUEST,
+                    format!("unknown sandbox dependency: {dep}"),
+                ));
+            }
+        }
+        crate::presets::save_command(c).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    }
+    m.reload_presets_if_changed().await;
+    Ok(Json(json!({ "ok": true })))
+}
+
+async fn delete_preset(
+    State(m): State<Mgr>,
+    Path((kind, name)): Path<(String, String)>,
+) -> ApiResult {
+    valid_kind(&kind)?;
+    let builtins = crate::presets::Table::builtins();
+    let users = crate::presets::Table::users();
+    let has_user = if kind == "sandbox" {
+        users.sandbox(&name).is_some()
+    } else {
+        users.command(&name).is_some()
+    };
+    if !has_user {
+        return Err(err(
+            StatusCode::NOT_FOUND,
+            "no user definition exists for that preset",
+        ));
+    }
+    if kind == "sandbox" {
+        if builtins.sandbox(&name).is_none() {
+            // A user-only sandbox cannot disappear while a command still requires it. Check
+            // before writing, or a rejected delete would have already changed the directory.
+            let remaining = crate::presets::Table::users();
+            for c in remaining.commands.iter().chain(builtins.commands.iter()) {
+                if c.sandbox.iter().any(|d| d == &name) {
+                    return Err(err(
+                        StatusCode::BAD_REQUEST,
+                        format!("sandbox {name:?} is required by command {:?}", c.name),
+                    ));
+                }
+            }
+        }
+        crate::presets::remove_sandbox(&name).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    } else {
+        crate::presets::remove_command(&name).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    }
+    m.reload_presets_if_changed().await;
+    Ok(Json(json!({ "ok": true })))
 }
 
 /// Text for the raw editor, parsed for the settings GUI, so a mod can offer either
