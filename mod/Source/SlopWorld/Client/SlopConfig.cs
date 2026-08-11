@@ -39,6 +39,9 @@ namespace SlopWorld
         // usage poll. Kept here because the Usage page owns both the key and the Codex rows.
         public string AgentTitles = "never";
         public string TitleModel = "google/gemini-3.1-flash-lite";
+        // Pi owns its title extension, but slopd passes these values into its sandbox at start.
+        public string PiTitles = "always";
+        public string PiTitleModel = "google/gemini-3.1-flash-lite";
 
         // Both name a command preset: what an agent that names none of its own runs, and
         // what a shell errand runs. What each one *is* is a TOML file the daemon reads.
@@ -66,6 +69,8 @@ namespace SlopWorld
                 OpenaiCredentials = d["openai_credentials"].AsString("~/.codex/auth.json"),
                 AgentTitles = d["agent_titles"].AsString("never"),
                 TitleModel = d["title_model"].AsString("google/gemini-3.1-flash-lite"),
+                PiTitles = d["pi_titles"].AsString("always"),
+                PiTitleModel = d["pi_title_model"].AsString("google/gemini-3.1-flash-lite"),
 
                 Agent = f["agent"].AsString("claude"),
                 Shell = f["shell"].AsString("shell"),
@@ -85,7 +90,9 @@ namespace SlopWorld
             $"\"openai\":{JVal.B(Openai)}," +
             $"\"openai_credentials\":{JVal.Q(OpenaiCredentials)}," +
             $"\"agent_titles\":{JVal.Q(AgentTitles)}," +
-            $"\"title_model\":{JVal.Q(TitleModel)}" +
+            $"\"title_model\":{JVal.Q(TitleModel)}," +
+            $"\"pi_titles\":{JVal.Q(PiTitles)}," +
+            $"\"pi_title_model\":{JVal.Q(PiTitleModel)}" +
             "}," +
             "\"defaults\":{" +
             $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}" +

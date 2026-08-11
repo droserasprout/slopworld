@@ -161,7 +161,7 @@ namespace SlopWorld
             SlopWidgets.SectionHeading(l, "Automatic task titles");
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     "Codex titles: " + TitlePolicyLabel(_cfg.AgentTitles)))
-                OpenTitlePolicyMenu();
+                OpenTitlePolicyMenu(false);
             Note(l, "Names a Codex session from its submitted prompt. The request uses " +
                     "OpenRouter; it is independent of the credit-balance poll above.");
 
@@ -170,6 +170,23 @@ namespace SlopWorld
                 l.Gap(SlopWidgets.GapS);
                 l.Label("Title model");
                 _cfg.TitleModel = SlopWidgets.Field(l, "usage.title.model", _cfg.TitleModel);
+                Note(l, "At most 2,000 characters of each eligible prompt are sent to " +
+                        "OpenRouter. Use the key file or $OPENROUTER_API_KEY above.");
+            }
+
+            l.Gap(SlopWidgets.GapM);
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+                    "Pi titles: " + TitlePolicyLabel(_cfg.PiTitles)))
+                OpenTitlePolicyMenu(true);
+            Note(l, "Pi defaults to every prompt. Its project-local extension receives this " +
+                    "setting when a Pi session starts, so restart Pi after saving.");
+
+            if (_cfg.PiTitles != "never")
+            {
+                l.Gap(SlopWidgets.GapS);
+                l.Label("Pi title model");
+                _cfg.PiTitleModel = SlopWidgets.Field(l, "usage.pi.title.model",
+                    _cfg.PiTitleModel);
                 Note(l, "At most 2,000 characters of each eligible prompt are sent to " +
                         "OpenRouter. Use the key file or $OPENROUTER_API_KEY above.");
             }
@@ -206,15 +223,21 @@ namespace SlopWorld
             }
         }
 
-        void OpenTitlePolicyMenu()
+        void OpenTitlePolicyMenu(bool pi)
         {
             Find.WindowStack.Add(new SlopMenu(new List<FloatMenuOption>
             {
-                new FloatMenuOption("Off", () => _cfg.AgentTitles = "never"),
+                new FloatMenuOption("Off", () => SetTitlePolicy(pi, "never")),
                 new FloatMenuOption("First prompt in each conversation", () =>
-                    _cfg.AgentTitles = "once"),
-                new FloatMenuOption("Every prompt", () => _cfg.AgentTitles = "always"),
+                    SetTitlePolicy(pi, "once")),
+                new FloatMenuOption("Every prompt", () => SetTitlePolicy(pi, "always")),
             }));
+        }
+
+        void SetTitlePolicy(bool pi, string policy)
+        {
+            if (pi) _cfg.PiTitles = policy;
+            else _cfg.AgentTitles = policy;
         }
 
 

@@ -1,5 +1,5 @@
 /**
- * Auto-name pi sessions from the first user prompt.
+ * Auto-name pi sessions from submitted prompts.
  *
  * Fires a cheap OpenRouter model to summarise the first message into <=6 words
  * and calls both `pi.setSessionName()` and `ctx.ui.setTitle()`.  The session
@@ -9,8 +9,10 @@
  * Fire-and-forget: the agent starts immediately, the title arrives a beat later.
  *
  * Needs `OPENROUTER_API_KEY` in the environment (the pi sandbox already
- * forwards it).  Silently skips if the key is missing, the session already
- * has a name, or the summariser fails.
+ * forwards it). `SLOPWORLD_PI_TITLES` selects never, once or always and
+ * `SLOPWORLD_PI_TITLE_MODEL` overrides the model. Both arrive from slopd's
+ * Usage settings when the session starts. Silently skips if the key is
+ * missing, the policy says not to name, or the summariser fails.
  *
  * Project-local extension (`.pi/extensions/`), loaded only when pi's cwd is
  * inside the slopworld project directory.  No global install, no bind mounts.
@@ -18,16 +20,17 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-const SUMMARY_MODEL = "google/gemini-3.1-flash-lite";
+const DEFAULT_MODEL = "google/gemini-3.1-flash-lite";
 const TIMEOUT_MS = 5_000;
 const MAX_PROMPT_CHARS = 2000;
 const MAX_TITLE_CHARS = 60;
 
 export default function (pi: ExtensionAPI) {
 	pi.on("before_agent_start", async (event, ctx) => {
-		// Only name the session once.  A manual `/name` or a previous summariser
-		// call already filled this in.
-		if (pi.getSessionName() !== undefined) return;
+		const policy = process.env.SLOPWORLD_PI_TITLES ?? "always";
+		if (policy === "never") return;
+		// A manual `/name` or a previous summary owns the title in once mode.
+		if (policy === "once" && pi.getSessionName() !== undefined) return;
 
 		const prompt = (event.prompt ?? "").trim();
 		if (!prompt) return;
@@ -41,13 +44,15 @@ export default function (pi: ExtensionAPI) {
 
 		// Fire-and-forget: the agent starts immediately, the title arrives
 		// a beat later.  Own timeout so we don't depend on the turn's signal.
-		nameFromPrompt(text, key, pi, ctx).catch(() => {});
+		const model = process.env.SLOPWORLD_PI_TITLE_MODEL || DEFAULT_MODEL;
+		nameFromPrompt(text, key, model, pi, ctx).catch(() => {});
 	});
 }
 
 async function nameFromPrompt(
 	text: string,
 	key: string,
+	model: string,
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 ): Promise<void> {
@@ -64,7 +69,7 @@ async function nameFromPrompt(
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({
-					model: SUMMARY_MODEL,
+					model,
 					messages: [
 						{
 							role: "user",

@@ -124,6 +124,12 @@ pub struct Daemon {
     /// config schema.
     #[serde(default = "default_title_model")]
     pub title_model: String,
+    /// Pi's project-local title extension reads this through its sandbox environment. Unlike
+    /// Codex, Pi has historically renamed on every prompt, so that remains its default.
+    #[serde(default = "default_pi_title_policy")]
+    pub pi_titles: TitlePolicy,
+    #[serde(default = "default_title_model")]
+    pub pi_title_model: String,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -155,6 +161,10 @@ fn default_title_model() -> String {
     "google/gemini-3.1-flash-lite".into()
 }
 
+fn default_pi_title_policy() -> TitlePolicy {
+    TitlePolicy::Always
+}
+
 /// Where `make install-runner` puts it, in full rather than left to PATH: a user unit's PATH
 /// is the manager's, and `~/.local/bin` is not reliably on it.
 fn default_game_cmd() -> String {
@@ -179,6 +189,8 @@ impl Default for Daemon {
             openai: true,
             agent_titles: TitlePolicy::Never,
             title_model: default_title_model(),
+            pi_titles: default_pi_title_policy(),
+            pi_title_model: default_title_model(),
         }
     }
 }
@@ -754,10 +766,13 @@ mod tests {
     #[test]
     fn automatic_titles_are_opt_in_and_once_parses() {
         assert_eq!(Config::default().daemon.agent_titles, TitlePolicy::Never);
+        assert_eq!(Config::default().daemon.pi_titles, TitlePolicy::Always);
         let mut cfg = Config::default();
         cfg.daemon.agent_titles = TitlePolicy::Once;
+        cfg.daemon.pi_titles = TitlePolicy::Never;
         let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
         assert_eq!(back.daemon.agent_titles, TitlePolicy::Once);
+        assert_eq!(back.daemon.pi_titles, TitlePolicy::Never);
     }
 
     /// What a client sees never carries the secret, and a token that is not set still reads as

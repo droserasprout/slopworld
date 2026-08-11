@@ -8,8 +8,10 @@ how to read the OpenRouter key without exposing it inside an agent sandbox.
 sends prompt text to OpenRouter. `title_model` names the model; `openrouter_key_file`, or
 slopd's `OPENROUTER_API_KEY` when it is blank, supplies the key.
 
-The Usage settings page exposes the Codex title policy and model. It shares the OpenRouter
-key field with credit polling, but title generation does not require credit polling to be on.
+The Usage settings page exposes the Codex and Pi title policies and models. It shares the
+OpenRouter key field with credit polling, but title generation does not require credit polling
+to be on. Pi defaults to `always`; its extension reads the setting when the Pi session starts,
+so change it before starting or restart the session after saving.
 
 The initial implementation observes Codex only:
 
@@ -46,13 +48,12 @@ an approval or dialog answer and is not sent.
 
 Claude, Pi and OpenCode do not yet use the daemon path.
 
-## Existing Pi experiment
+## Pi extension
 
-`.pi/extensions/auto-name.ts` is the prototype: it summarizes through a cheap OpenRouter
-model, persists Pi's session name and sets the exact UI title. It is intended to run once
-because it checks `pi.getSessionName()`, although observed repeated updates mean its guard or
-async race needs verifying. A local pending/named state would close that race. Remove the
-extension once the daemon implementation has parity, rather than retaining two title owners.
+`.pi/extensions/auto-name.ts` summarizes through a cheap OpenRouter model, persists Pi's
+session name and sets the exact UI title. It reads `SLOPWORLD_PI_TITLES` and
+`SLOPWORLD_PI_TITLE_MODEL`, which `slopd` passes into Pi's sandbox from the Usage settings.
+It remains a separate title owner until Pi can use the daemon implementation directly.
 
 Codex already has persistent `/rename`, a `thread` terminal-title item and app-server
 `thread/name/set`, but ordinary lifecycle hooks cannot set either. Raw SQLite writes and a
