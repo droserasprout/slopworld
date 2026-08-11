@@ -925,6 +925,10 @@ namespace SlopWorld
                     if (title.Length == 0) title = Ground(info);
                     var line3 = new Rect(row.Text.x, row.Text.y + NameH + SubH,
                         row.Text.width, SubH);
+                    DrawStateDot(line3, state);
+                    float dot = Mathf.Min(SlopWidgets.StatusMarker, line3.height);
+                    line3.x += dot + RowGap;
+                    line3.width = Mathf.Max(0f, line3.width - dot - RowGap);
                     SlopWidgets.RowLabel(line3, title);
                     if (title.Length > 0 && SlopWidgets.Wide(title) > line3.width)
                         TooltipHandler.TipRegion(line3, title);
@@ -946,6 +950,15 @@ namespace SlopWorld
         }
 
         static string Word(AgentState state) => state.ToString().ToLower();
+
+        static void DrawStateDot(Rect line, AgentState state)
+        {
+            float d = Mathf.Min(SlopWidgets.StatusMarker, line.height);
+            var dot = new Rect(line.x, line.y + (line.height - d) / 2f, d, d);
+            GUI.color = TerminalWindow.StateColor(state);
+            GUI.DrawTexture(dot, Icons.Dot);
+            GUI.color = Color.white;
+        }
 
         static string Ago(SessionInfo info)
         {

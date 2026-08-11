@@ -17,7 +17,7 @@ namespace SlopWorld
         const float HeadFallbackZ = 0.34f;
 
         // Slightly wider than a tight head crop so hair and clothing have breathing room.
-        const float FaceZoom = 2.0f;
+        const float FaceZoom = 1.9f;
 
         // Aim just above the head anchor to place the pawn slightly lower in the portrait.
         const float FaceVerticalOffset = 0.03f;
@@ -28,10 +28,10 @@ namespace SlopWorld
 
         // Keep stopped agents recognizable while making their state obvious.
         static readonly Color DownTint = new Color(0.50f, 0.50f, 0.50f, 1f);
+        const float SelectionInset = 2f;
 
         static MethodInfo _drawSelectionOverlay;
         static MethodInfo _drawCaravanSelectionOverlay;
-        static MethodInfo _drawIcons;
         static FieldInfo _deadColonistTex;
 
         static bool _ready;
@@ -43,13 +43,10 @@ namespace SlopWorld
                 BindingFlags.Instance | BindingFlags.NonPublic);
             _drawCaravanSelectionOverlay = t.GetMethod("DrawCaravanSelectionOverlayOnGUI",
                 BindingFlags.Instance | BindingFlags.NonPublic);
-            _drawIcons = t.GetMethod("DrawIcons",
-                BindingFlags.Instance | BindingFlags.NonPublic);
             _deadColonistTex = t.GetField("DeadColonistTex",
                 BindingFlags.Static | BindingFlags.NonPublic);
 
-            _ready = _drawIcons != null &&
-                _drawSelectionOverlay != null && _deadColonistTex != null;
+            _ready = _drawSelectionOverlay != null && _deadColonistTex != null;
             if (!_ready)
                 Log.Error("[SlopWorld] Patch_SidebarPortraitDraw: one or more private " +
                     "members not found; sidebar portraits will fall back to vanilla.");
@@ -135,16 +132,8 @@ namespace SlopWorld
             GUI.DrawTexture(portrait, renderTexture);
             GUI.color = Color.white;
 
-            // Draw brackets after the opaque square portrait so their inner arms remain visible.
+            // Draw corners after the opaque square portrait so their inner arms remain visible.
             DrawSelection(__instance, colonist, face);
-
-            // Vanilla anchors icons to its input rect; use the face rather than the smaller cell.
-            if (_drawIcons != null)
-            {
-                GUI.color = new Color(1f, 1f, 1f, alpha * 0.8f);
-                _drawIcons.Invoke(__instance, new object[] { face, colonist });
-                GUI.color = Color.white;
-            }
 
             if (colonist.Dead)
             {
@@ -177,9 +166,13 @@ namespace SlopWorld
 
             if (!selected) return;
 
+            // Vanilla's brackets extend from the supplied rect. Keep them inside the
+            // portrait row after the face has been made a little more compact.
+            var corners = texRect.ContractedBy(SelectionInset);
+
             if (!WorldRendererUtility.WorldSelected)
             {
-                _drawSelectionOverlay?.Invoke(drawer, new object[] { colonist, texRect });
+                _drawSelectionOverlay?.Invoke(drawer, new object[] { colonist, corners });
             }
             else
             {
@@ -188,7 +181,7 @@ namespace SlopWorld
                 var worldSelector = Find.WorldSelector;
                 if (worldSelector != null && worldSelector.IsSelected(caravan))
                     _drawCaravanSelectionOverlay?.Invoke(drawer,
-                        new object[] { caravan, texRect });
+                        new object[] { caravan, corners });
             }
         }
     }
