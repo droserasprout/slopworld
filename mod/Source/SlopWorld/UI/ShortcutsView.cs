@@ -339,7 +339,7 @@ namespace SlopWorld
 
             var where = Where(s);
             if (s.Link == ShortcutLink.Ask)
-                opts.Add(new FloatMenuOption("Run in...", () => AskWhere(s)));
+                opts.Add(new SlopSubmenu("Run in", () => WhereOptions(s)));
 
             opts.Add(new FloatMenuOption("Edit...", () =>
                 TerminalWindow.OpenOverPane(new EditShortcutDialog(s))));
@@ -383,8 +383,9 @@ namespace SlopWorld
         }
 
         // Every project, plus a temporary one - last, being the answer for the run that
-        // belongs nowhere in particular.
-        static void AskWhere(ShortcutInfo s)
+        // belongs nowhere in particular. Hung off the row's own menu where there is one, and
+        // opened as a menu of its own where the run was asked for from somewhere else.
+        static List<FloatMenuOption> WhereOptions(ShortcutInfo s)
         {
             var options = SessionHub.Instance.Projects
                 .Select(p => new FloatMenuOption($"{p.Name}  -  {p.Dir}",
@@ -395,8 +396,11 @@ namespace SlopWorld
                 $"A temporary project under {ProjectInfo.TempRoot}",
                 () => Run(s, null, true)));
 
-            TerminalWindow.OpenOverPane(new SlopMenu(options));
+            return options;
         }
+
+        static void AskWhere(ShortcutInfo s) =>
+            TerminalWindow.OpenOverPane(new SlopMenu(WhereOptions(s)));
 
         // Where an errand runs, in the few words a row and a tooltip have.
         static string Where(ShortcutInfo s)

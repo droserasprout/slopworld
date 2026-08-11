@@ -111,7 +111,12 @@ namespace SlopWorld
         public const float StatusMarker = 8f;
 
         public static float RowBtnH => Mathf.Max(LineH + GapXS, 22f);
-        public static float MenuRowH => Mathf.Max(LineH + GapS, 26f);
+
+        // A dropdown's rows carry one line each and are read as a block, so they sit as close
+        // as the line will let them - a gap step tighter than the palette's, which is a list
+        // scrolled and stepped through with the keyboard and wants the hit target.
+        public static float MenuRowH => Mathf.Max(LineH + GapXS, 22f);
+        public static float PaletteRowH => Mathf.Max(LineH + GapS, 26f);
 
         public static float BtnW(string label, float floor) =>
             Mathf.Max(Wide(label) + ButtonPadX * 2f, floor);

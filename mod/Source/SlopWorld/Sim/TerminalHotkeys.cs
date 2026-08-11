@@ -23,9 +23,14 @@ namespace SlopWorld
             // over it would be the loudest thing on screen.
             if (Cutscene.Playing) return;
 
+            // Both of these arrive with a context menu standing as often as not - the jukebox
+            // on the map opens one, and nothing on this layer absorbs - and a menu opened onto
+            // a screen that is about to be replaced has nothing left to answer for.
+            // TerminalWindow.HandleFunctionKey holds the same line for the keys it gates.
             if (SlopDefOf.SlopCommandPalette != null && SlopDefOf.SlopCommandPalette.KeyDownEvent)
             {
                 Event.current.Use();
+                SlopMenu.CloseAll();
                 CommandPalette.Toggle();
                 return;
             }
@@ -35,6 +40,7 @@ namespace SlopWorld
                 // KeyDownEvent already refuses a search widget that has focus, so this cannot
                 // steal the key from someone typing a session name.
                 Event.current.Use();
+                SlopMenu.CloseAll();
                 Toggle();
                 return;
             }

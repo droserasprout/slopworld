@@ -883,12 +883,23 @@ namespace SlopWorld
         // Single gate for the chrome's own keys. Returns true if consumed. Shift+key passes
         // through to the agent, and so does anything none of the bindings claim - F7-F11
         // by default, being on nothing.
-        //
+        public static bool HandleFunctionKey(Event e)
+        {
+            if (!Chrome(e)) return false;
+
+            // Every key behind this gate replaces what an open menu is standing over - a
+            // palette in front of it, another sidebar view behind it, the pane it was opened
+            // from gone - so the menu goes with the view it belonged to rather than outliving
+            // it. TerminalHotkeys says the same where it takes these keys off the map layer.
+            SlopMenu.CloseAll();
+            return true;
+        }
+
         // Read off the KeyBindingDefs rather than off KeyCode.F1..F5 directly: the options
         // menu's Shortcuts page rebinds these, and matching the raw key would let the page
         // report a change it then went on to ignore. The defaults in KeyBindings.xml are
         // the same F-keys, so out of the box this is the switch it replaced.
-        public static bool HandleFunctionKey(Event e)
+        static bool Chrome(Event e)
         {
             // Shift+key = pass through to the agent/tui.
             if (e.shift || e.keyCode == KeyCode.None) return false;
@@ -1559,8 +1570,8 @@ namespace SlopWorld
             options.Add(new FloatMenuOption("Paste", () => { JumpToLive(); PasteClipboard(); }));
             var info = SessionHub.Instance.Get(_name);
             var breadcrumbs = AllBreadcrumbs();
-            var breadcrumbMenu = new FloatMenuOption("Breadcrumbs...",
-                () => OpenBreadcrumbMenu(breadcrumbs));
+            var breadcrumbMenu = new SlopSubmenu("Breadcrumbs",
+                () => BreadcrumbOptions(breadcrumbs));
             breadcrumbMenu.Disabled = info == null || !info.Alive || breadcrumbs.Count == 0;
             options.Add(breadcrumbMenu);
             options.Add(new FloatMenuOption("Select all", SelectAll));
@@ -1580,7 +1591,7 @@ namespace SlopWorld
             .Select(s => s.Name)
             .ToList();
 
-        void OpenBreadcrumbMenu(List<string> names)
+        List<FloatMenuOption> BreadcrumbOptions(List<string> names)
         {
             var options = new List<FloatMenuOption>();
             foreach (string name in names)
@@ -1593,7 +1604,7 @@ namespace SlopWorld
                         Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch));
                 }));
             }
-            OpenOverPane(new SlopMenu(options));
+            return options;
         }
 
         // Falls back to the game's own buffer. A round trip, so the paste lands a frame or

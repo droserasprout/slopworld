@@ -32,6 +32,26 @@ unchanged by that trade.
 It reads the label, the action, `Disabled` and the right-justified extra part, and ignores
 everything vanilla's pawn-order menus use.
 
+A `SlopSubmenu` row carries a list where an option carries an action. The pointer opens it
+beside its own row once it has rested there `OpenDelay`, so a pointer crossing the menu leaves
+no trail of opened lists — one window per level, chained parent to child, marked with the arrow
+a folded sidebar head wears — and the list is built when the pointer arrives, so rows that mark
+what is playing or selected are current. A submenu's rect is worked out every frame, not kept
+from the moment it opened: the parent scrolls under a resting pointer and is itself shoved near
+a screen edge. It never covers its parent — the room either side is measured and it takes a
+side rather than sliding across one, narrowing itself where neither side can hold it — and the
+two frames share one border, level with the row that opened it. Picking a row anywhere
+closes the whole chain before its action runs, and Escape closes the chain rather than one
+level of it: the pointer is the only thing that walks back up a menu opened on hover. The
+chrome's own F-keys call `SlopMenu.CloseAll` where they are read — in `HandleFunctionKey` and
+again in `TerminalHotkeys` for the map layer — since each of them replaces what the menu was
+standing over. Nesting
+by closing one menu and opening another is what left a parent standing after a value two levels
+down was picked.
+
+`MenuRowH` is the dropdown's row and `PaletteRowH` the command palette's, a gap step taller —
+one is a block read at a glance, the other a list stepped through with the keyboard.
+
 `ActiveTip.DrawInner` is patched once for every hover bubble. Registrations remain ordinary
 `TooltipHandler.TipRegion` calls, so vanilla still owns delay, placement, stacking and size;
 only the final atlas and text draw are replaced with the popover surface and border.

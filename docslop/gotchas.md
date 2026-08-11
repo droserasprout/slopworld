@@ -46,6 +46,16 @@
   on Linux and Steam Deck. The other edge of the same knife: `Use()` does *not* clear
   `rawType`, so a press consumed earlier in the frame is still seen by every later
   reader gated on it. Two hit targets that overlap both fire; keep them apart.
+- **`WindowStack.Add` closes standing windows of the same type before `PreOpen` runs.**
+  `RemoveWindowsOfType` is gated on the *standing* window's `onlyOneOfTypeAllowed` (true by
+  default) and an exact `Type` match, so a window that opens a second of its own class takes
+  the first down with it - and the first's `PostClose` has already run by the time the new one
+  sizes itself, so whatever the two had arranged between them is gone. `SlopMenu`'s levels are
+  one class: it turns the flag off and sweeps standing menus in `PreOpen` instead.
+- **`FloatMenuOption.Disabled` is not a field: it *is* `action == null`.** Setting it true
+  nulls the action, and reading it asks whether the action is there. An option built with no
+  action of its own - a `SlopSubmenu`, whose answer is the list it carries - arrives greyed
+  out and dead unless it is given one.
 - **`Text.Font = GameFont.Tiny` may fall back to `Small`** when tiny text is
   unsupported, disabled, or suppressed for a long event. Measuring Tiny first then
   drawing Small clips labels. Use `SlopWidgets.LineHOf`/`TinyH`, which measure the

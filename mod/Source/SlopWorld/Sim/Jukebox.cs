@@ -61,7 +61,7 @@ namespace SlopWorld
         {
             TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
             {
-                new FloatMenuOption(PlayRow(), Stations),
+                new SlopSubmenu(PlayRow(), Stations),
                 new FloatMenuOption("Like", Radio.Like),
                 SlopWidgets.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
                 SlopWidgets.MenuToggle("Stop on exit", Radio.StopOnExit, Radio.ToggleStopOnExit),
@@ -123,7 +123,7 @@ namespace SlopWorld
         // box grew settings; they are behind a row of their own now so that what is played
         // and how it is played are not one list. The OST leads because it is the one thing
         // here that is not a station and needs no network to play.
-        static void Stations()
+        static List<FloatMenuOption> Stations()
         {
             var options = new List<FloatMenuOption>
             {
@@ -132,25 +132,23 @@ namespace SlopWorld
             foreach (var station in Radio.Stations)
             {
                 var s = station; // the closure outlives the loop
-                options.Add(new FloatMenuOption(StationRow(s), () => Presets(s)));
+                options.Add(new SlopSubmenu(StationRow(s), () => Presets(s)));
             }
-            TerminalWindow.OpenOverPane(new SlopMenu(options));
+            return options;
         }
 
         // A station's row carries the preset it is on, in the separator the rest of the
-        // interface uses for "this, at that". Clicking it opens that station's presets
-        // rather than playing anything, because which one is a question the row cannot
-        // answer - not even where there is only one to pick, since a row that plays on one
-        // station and opens a menu on the next is a row nobody can predict.
+        // interface uses for "this, at that". The row itself plays nothing - which quality
+        // is a question it cannot answer, not even where there is only one to pick, since a
+        // row that plays on one station and opens a list on the next is a row nobody can
+        // predict - so it holds that station's presets and the pointer takes them.
         static string StationRow(Radio.Station s) =>
             Radio.Picked == s ? $"{s.Name}  -  {Radio.RateLabel(s.Rate)}" : s.Name;
 
-        // The second level: one row per quality that station serves. A FloatMenuOption
-        // holds no children of its own, so a nested list is a second menu opened from the
-        // first - which is also what the palette and the shortcut rows do. A station
-        // serving one quality gets a menu of one rather than a special case; what it
-        // answers on is worth saying either way.
-        static void Presets(Radio.Station s)
+        // The second level: one row per quality that station serves. A station serving one
+        // quality gets a list of one rather than a special case; what it answers on is
+        // worth saying either way.
+        static List<FloatMenuOption> Presets(Radio.Station s)
         {
             var options = new List<FloatMenuOption>();
             foreach (int preset in s.Rates)
@@ -160,7 +158,7 @@ namespace SlopWorld
                     Mark(Radio.RateLabel(rate), Radio.Picked == s && s.Rate == rate),
                     () => Radio.Pick(s, rate)));
             }
-            TerminalWindow.OpenOverPane(new SlopMenu(options));
+            return options;
         }
 
         // What is playing is marked rather than greyed out: a disabled row reads as

@@ -24,7 +24,7 @@ namespace SlopWorld
         // tiny line. A figure here holds only for the face it was set against, and a row
         // shorter than its line loses the top and bottom of every label in the palette.
         static float InputH => SlopWidgets.FieldH;
-        static float RowH => SlopWidgets.MenuRowH;
+        static float RowH => SlopWidgets.PaletteRowH;
         static float GroupH => SlopWidgets.TinyRowH;
         const int RecentMax = 8;
         // What a hit found only in a command's id is docked, the name being what is read.

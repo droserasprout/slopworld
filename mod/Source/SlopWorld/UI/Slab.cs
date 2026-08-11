@@ -21,8 +21,10 @@ namespace SlopWorld
     public static class Slab
     {
         // A border is one screen pixel whatever the UI scale; a line that thickens with the
-        // scale turns this deliberately light rectangular frame into a heavy box.
-        static float Line => 1f / Prefs.UIScale;
+        // scale turns this deliberately light rectangular frame into a heavy box. Public
+        // because two boxes that mean to share an edge - a submenu against the menu it hangs
+        // off - have to overlap by exactly this much, or the seam is drawn twice.
+        public static float LineW => 1f / Prefs.UIScale;
 
         // What a focus ring is worth: two screen pixels, outside the widget, so the control
         // keeps the rect it was handed and the ring is the only thing that grew.
@@ -38,7 +40,7 @@ namespace SlopWorld
             if (!Paint(c)) return;
 
             r = Snap(r);
-            float w = Line;
+            float w = LineW;
 
             Flat(new Rect(r.x, r.y, r.width, w), c);
             Flat(new Rect(r.x, r.yMax - w, r.width, w), c);
@@ -78,11 +80,11 @@ namespace SlopWorld
         // on where the window happens to sit. This is the same trick everything else here
         // does, which is why it lives with them.
         public static void Hairline(Rect r, Color c) =>
-            Flat(new Rect(r.x, r.y, r.width, 1f / Prefs.UIScale), c);
+            Flat(new Rect(r.x, r.y, r.width, LineW), c);
 
         // The vertical counterpart, for a panel boundary that stays one screen pixel wide.
         public static void VHairline(Rect r, Color c) =>
-            Flat(new Rect(r.x, r.y, 1f / Prefs.UIScale, r.height), c);
+            Flat(new Rect(r.x, r.y, LineW, r.height), c);
 
         // Nothing to do for a colour that is not there - a ghost at rest asks for all of this
         // in nothing, and it is a bill for no box.
