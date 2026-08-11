@@ -132,7 +132,11 @@ namespace SlopWorld
             if (Settings.SidebarTab == tab) return;
 
             if (tab != TabFiles) FilesView.ReleaseViewer();
-            if (tab != TabSearch) SearchView.ReleaseViewer();
+            if (tab != TabSearch)
+            {
+                SearchView.ReleaseViewer();
+                SearchView.ReleaseFocus();
+            }
             if (tab != TabGit) GitView.ReleaseViewer();
 
             var s = Settings.S;

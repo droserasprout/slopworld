@@ -54,6 +54,8 @@ namespace SlopWorld
         static Match _selected;
         static Match _showing;
         static bool _focus;
+        static float _visibleTop;
+        static float _visibleBottom;
 
         public static void Entered() => _focus = true;
 
@@ -72,6 +74,7 @@ namespace SlopWorld
             const float buttonW = 30f;
             var field = new Rect(r.x, r.y, r.width - buttonW - SlopWidgets.GapS,
                 SlopWidgets.FieldH);
+            var e = Event.current;
             string was = _query;
             _query = SlopWidgets.Field(field, "search.query", _query);
             if (_focus)
@@ -80,15 +83,25 @@ namespace SlopWorld
                 _focus = false;
             }
 
+            // The tab gives this field focus when it is opened, but a sidebar entry must not
+            // keep the game's shortcuts captive after a search, an Escape, or a click elsewhere.
+            if (e.type == EventType.MouseDown && !field.Contains(e.mousePosition))
+                ReleaseFocus();
+            if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape && Focused)
+            {
+                ReleaseFocus();
+                e.Use();
+                return;
+            }
+
             var go = new Rect(field.xMax + SlopWidgets.GapS, field.y, buttonW, field.height);
             bool clicked = SlopWidgets.Button(go, "›", SlopWidgets.Btn.Primary);
-            bool entered = Event.current.type == EventType.KeyDown &&
-                (Event.current.keyCode == KeyCode.Return ||
-                 Event.current.keyCode == KeyCode.KeypadEnter) &&
-                GUI.GetNameOfFocusedControl() == "search.query";
+            bool entered = e.type == EventType.KeyDown &&
+                (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) && Focused;
             if (clicked || entered)
             {
-                if (entered) Event.current.Use();
+                if (entered) e.Use();
+                ReleaseFocus();
                 Search();
             }
 
@@ -104,6 +117,16 @@ namespace SlopWorld
             // Changing text does not search on every frame; Enter is the deliberate boundary
             // between editing a potentially expensive expression and running it.
             if (was != _query) _selected = null;
+        }
+
+        static bool Focused => GUI.GetNameOfFocusedControl() == "search.query";
+
+        // Public because changing sidebar tabs removes the entry that owns this focus; without
+        // clearing it first, Unity keeps reporting a text field after that entry is gone.
+        public static void ReleaseFocus()
+        {
+            _focus = false;
+            if (Focused) GUI.FocusControl(null);
         }
 
         public static void Search()
@@ -179,6 +202,8 @@ namespace SlopWorld
             Scroll.Begin(body, view);
             try
             {
+                _visibleTop = Scroll.Position.y;
+                _visibleBottom = _visibleTop + body.height;
                 float y = Pad;
                 if (Groups.Count == 0)
                 {
@@ -239,6 +264,7 @@ namespace SlopWorld
 
         static void Heading(float width, ref float y, Group group)
         {
+            if (!Visible(y)) { y += RowH; return; }
             var r = new Rect(0f, y, width, RowH);
             GUI.color = SlopWidgets.Lead;
             Text.Font = GameFont.Tiny;
@@ -251,6 +277,7 @@ namespace SlopWorld
 
         static void FileHeading(float width, ref float y, string path)
         {
+            if (!Visible(y)) { y += RowH; return; }
             GUI.color = SlopWidgets.Name;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
@@ -261,6 +288,7 @@ namespace SlopWorld
 
         static void Result(float width, ref float y, Match match)
         {
+            if (!Visible(y)) { y += RowH; return; }
             var r = new Rect(0f, y, width, RowH);
             bool over = SlopWidgets.HoverRow(r);
             if (ReferenceEquals(match, _selected))
@@ -284,6 +312,7 @@ namespace SlopWorld
 
         static void Note(float width, ref float y, string text, Color color)
         {
+            if (!Visible(y)) { y += RowH; return; }
             GUI.color = color;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
@@ -291,6 +320,8 @@ namespace SlopWorld
             GUI.color = Color.white;
             y += RowH;
         }
+
+        static bool Visible(float y) => y + RowH >= _visibleTop && y <= _visibleBottom;
 
         public static void Clicks()
         {

@@ -1018,6 +1018,39 @@ struct SearchReq {
 }
 
 const SEARCH_LIMIT: usize = 200;
+// `rg --max-columns` controls its human output, but JSON match records still carry the whole
+// line. A generated or minified asset can therefore turn one sidebar row into tens of thousands
+// of glyphs. Keep the answer a preview, centred near the first match when there is room.
+const SEARCH_TEXT_LIMIT: usize = 1_000;
+
+fn search_preview(text: &str, column: usize) -> String {
+    let text = text.trim_end_matches(['\r', '\n']);
+    if text.len() <= SEARCH_TEXT_LIMIT {
+        return text.to_string();
+    }
+
+    // `column` is a byte offset from ripgrep. Do not slice through a UTF-8 codepoint even when
+    // a match began at a non-ASCII character.
+    let boundary = |at: usize| {
+        let mut at = at.min(text.len());
+        while at > 0 && !text.is_char_boundary(at) {
+            at -= 1;
+        }
+        at
+    };
+    let match_at = boundary(column.saturating_sub(1));
+    let begin = boundary(match_at.saturating_sub(SEARCH_TEXT_LIMIT / 2));
+    let end = boundary((begin + SEARCH_TEXT_LIMIT).min(text.len()));
+    let mut out = String::with_capacity(end - begin + 6);
+    if begin > 0 {
+        out.push('…');
+    }
+    out.push_str(&text[begin..end]);
+    if end < text.len() {
+        out.push('…');
+    }
+    out
+}
 
 /// Search one project without putting a pattern or path through a shell. `rg --json` keeps
 /// filenames and matching text unambiguous; reading it a line at a time lets the endpoint
@@ -1101,16 +1134,13 @@ async fn search(State(_m): State<Mgr>, Query(q): Query<SearchReq>) -> ApiResult 
             .as_str()
             .unwrap_or("")
             .trim_start_matches("./");
-        let text = data["lines"]["text"]
-            .as_str()
-            .unwrap_or("")
-            .trim_end_matches(['\r', '\n']);
-        let column = data["submatches"][0]["start"].as_u64().unwrap_or(0) + 1;
+        let text = data["lines"]["text"].as_str().unwrap_or("");
+        let column = data["submatches"][0]["start"].as_u64().unwrap_or(0) as usize + 1;
         matches.push(json!({
             "path": path,
             "line": data["line_number"].as_u64().unwrap_or(0),
             "column": column,
-            "text": text,
+            "text": search_preview(text, column),
         }));
     }
 
@@ -1579,7 +1609,7 @@ async fn send(
 mod tests {
     use std::path::{Path, PathBuf};
 
-    use super::{browse_limit, list_dir};
+    use super::{browse_limit, list_dir, search_preview, SEARCH_TEXT_LIMIT};
 
     /// Somewhere of our own under the machine's temp dir, cleared on the way in so a run
     /// that died before its cleanup does not poison the next one. No dev-dependency for
@@ -1709,5 +1739,25 @@ mod tests {
         assert_eq!(browse_limit(Some(0)), 1);
         assert_eq!(browse_limit(Some(12)), 12);
         assert_eq!(browse_limit(Some(usize::MAX)), 500);
+    }
+
+    #[test]
+    fn search_preview_caps_a_long_line_around_its_match() {
+        let text = format!("{}test{}", "x".repeat(2_000), "y".repeat(2_000));
+        let preview = search_preview(&text, 2_001);
+
+        assert!(preview.contains("test"));
+        assert!(preview.starts_with('…'));
+        assert!(preview.ends_with('…'));
+        assert!(preview.len() <= SEARCH_TEXT_LIMIT + 6);
+    }
+
+    #[test]
+    fn search_preview_preserves_utf8_boundaries() {
+        let text = format!("{}test{}", "é".repeat(800), "é".repeat(800));
+        let preview = search_preview(&text, 1_601);
+
+        assert!(preview.contains("test"));
+        assert!(std::str::from_utf8(preview.as_bytes()).is_ok());
     }
 }
