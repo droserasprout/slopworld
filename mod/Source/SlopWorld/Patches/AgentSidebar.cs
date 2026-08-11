@@ -878,13 +878,13 @@ namespace SlopWorld
             {
                 if (row.Session == null) continue;
                 if (!ColonistBarStrip.MouseOver(row.Line)) continue;
-                RowMenu(row.Session);
+                RowMenu(row.Session, row.Pawn);
                 e.Use();
                 return;
             }
         }
 
-        static void RowMenu(string name)
+        static void RowMenu(string name, Pawn pawn = null)
         {
             var hub = SessionHub.Instance;
             var info = hub.Get(name);
@@ -916,6 +916,13 @@ namespace SlopWorld
                         "from config.toml.",
                         () => hub.Remove(name, SlopWidgets.Fail),
                         destructive: true))));
+
+            // Unlike the core's colony-wide reroll, a row owns one particular agent.
+            if (pawn != null)
+                opts.Add(new FloatMenuOption("New look", () =>
+                {
+                    if (!pawn.Destroyed) AgentLook.Reroll(pawn);
+                }));
 
             TerminalWindow.OpenOverPane(new SlopMenu(opts));
         }
