@@ -122,16 +122,15 @@ namespace SlopWorld
                 "Credits bought less credits spent, which is what the pi agent draws down. " +
                 "Off means the daemon never reads the key and never calls OpenRouter.");
 
+            l.Gap(SlopWidgets.GapS);
+            l.Label("Key file (blank reads $OPENROUTER_API_KEY)");
+            _cfg.OpenrouterKeyFile =
+                SlopWidgets.Field(l, "usage.orkey", _cfg.OpenrouterKeyFile);
+            Note(l, "Used by credit polling and generated titles. The daemon reads it directly; " +
+                    "title requests never expose the key inside an agent sandbox.");
+
             if (_cfg.Openrouter)
             {
-                l.Gap(SlopWidgets.GapS);
-                l.Label("Key file (blank reads $OPENROUTER_API_KEY)");
-                _cfg.OpenrouterKeyFile =
-                    SlopWidgets.Field(l, "usage.orkey", _cfg.OpenrouterKeyFile);
-                Note(l, "Blank is the key out of the daemon's own environment - the same one " +
-                        "the pi preset forwards into that agent's sandbox, so a machine that " +
-                        "can run pi needs no second copy of it here.");
-
                 l.Gap(SlopWidgets.GapM);
                 IconRow(l, "openrouter_balance", "Credit balance");
             }
@@ -178,8 +177,8 @@ namespace SlopWorld
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     "Pi titles: " + TitlePolicyLabel(_cfg.PiTitles)))
                 OpenTitlePolicyMenu(true);
-            Note(l, "Pi defaults to every prompt. Its project-local extension receives this " +
-                    "setting when a Pi session starts, so restart Pi after saving.");
+            Note(l, "Pi defaults to every prompt. The daemon applies this setting before input " +
+                    "reaches Pi, so it takes effect in the current session.");
 
             if (_cfg.PiTitles != "never")
             {

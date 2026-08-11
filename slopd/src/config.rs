@@ -103,10 +103,9 @@ pub struct Daemon {
     /// never faster.
     #[serde(default)]
     pub openrouter: bool,
-    /// Blank reads `OPENROUTER_API_KEY` out of slopd's own environment, which is where the
-    /// `pi` preset forwards it from, so a machine that can already run that agent needs no
-    /// second copy of the key. A path here is read fresh per poll and trimmed, the way the
-    /// credentials file is, and neither is ever logged or written back.
+    /// Blank reads `OPENROUTER_API_KEY` out of slopd's own environment. A path here is read
+    /// fresh per request and trimmed, the way the credentials file is, and neither is ever
+    /// logged or written back.
     #[serde(default)]
     pub openrouter_key_file: String,
     /// Codex signs in with ChatGPT and keeps the short-lived access token here. Like the
@@ -124,8 +123,8 @@ pub struct Daemon {
     /// config schema.
     #[serde(default = "default_title_model")]
     pub title_model: String,
-    /// Pi's project-local title extension reads this through its sandbox environment. Unlike
-    /// Codex, Pi has historically renamed on every prompt, so that remains its default.
+    /// Pi follows the daemon title path. It historically renamed on every prompt, so that
+    /// remains its default.
     #[serde(default = "default_pi_title_policy")]
     pub pi_titles: TitlePolicy,
     #[serde(default = "default_title_model")]

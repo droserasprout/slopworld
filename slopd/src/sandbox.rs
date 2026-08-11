@@ -1096,20 +1096,15 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
         }
     }
 
-    // Pi's project-local extension has no safe path back to daemon config. State its title
-    // policy and model at launch instead; they are daemon-owned values, not inherited secrets.
-    if cfg.command_name(s) == "pi" {
-        let policy = match cfg.daemon.pi_titles {
-            crate::config::TitlePolicy::Never => "never",
-            crate::config::TitlePolicy::Once => "once",
-            crate::config::TitlePolicy::Always => "always",
-        };
-        push(&["--setenv", "SLOPWORLD_PI_TITLES", policy]);
-        push(&[
-            "--setenv",
-            "SLOPWORLD_PI_TITLE_MODEL",
-            &cfg.daemon.pi_title_model,
-        ]);
+    // slopd captures Pi prompts before tmux, just as it does Codex prompts. Disable the
+    // project-local extension in managed sessions so it cannot race the daemon or require
+    // project trust and a sandbox-visible OpenRouter key.
+    if agent_argv.first().is_some_and(|command| {
+        Path::new(command)
+            .file_name()
+            .is_some_and(|name| name == "pi")
+    }) {
+        push(&["--setenv", "SLOPWORLD_PI_TITLES", "never"]);
     }
 
     a.push("--".into());
@@ -1288,14 +1283,14 @@ mod tests {
     }
 
     #[test]
-    fn pi_title_settings_enter_the_pi_sandbox() {
+    fn pi_extension_is_disabled_when_daemon_owns_titles() {
         let mut cfg = Config::default();
         cfg.daemon.pi_titles = crate::config::TitlePolicy::Once;
         cfg.daemon.pi_title_model = "test/title-model".into();
         let s = SessionCfg {
             name: "pi".into(),
             project: "p".into(),
-            command: "pi".into(),
+            cmd: Some("pi --model test".into()),
             ..Default::default()
         };
         let p = ProjectCfg {
@@ -1304,14 +1299,9 @@ mod tests {
             ..Default::default()
         };
         let a = build_argv(&cfg, &s, &p).expect("pi sandbox argv");
-        assert!(a.windows(3).any(|w| {
-            w[0] == "--setenv" && w[1] == "SLOPWORLD_PI_TITLES" && w[2] == "once"
-        }));
-        assert!(a.windows(3).any(|w| {
-            w[0] == "--setenv"
-                && w[1] == "SLOPWORLD_PI_TITLE_MODEL"
-                && w[2] == "test/title-model"
-        }));
+        assert!(a
+            .windows(3)
+            .any(|w| { w[0] == "--setenv" && w[1] == "SLOPWORLD_PI_TITLES" && w[2] == "never" }));
     }
 
     /// The point of the host errand: no bwrap anywhere in it, and the shell at the end of it

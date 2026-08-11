@@ -8,12 +8,12 @@ how to read the OpenRouter key without exposing it inside an agent sandbox.
 sends prompt text to OpenRouter. `title_model` names the model; `openrouter_key_file`, or
 slopd's `OPENROUTER_API_KEY` when it is blank, supplies the key.
 
-The Usage settings page exposes the Codex and Pi title policies and models. It shares the
-OpenRouter key field with credit polling, but title generation does not require credit polling
-to be on. Pi defaults to `always`; its extension reads the setting when the Pi session starts,
-so change it before starting or restart the session after saving.
+The Usage settings page exposes the Codex and Pi title policies and models. The OpenRouter key
+field is available even with credit polling off, because title generation does not need polling.
+Pi defaults to `always`.
 
-The initial implementation observes Codex only:
+Both Codex and Pi use the daemon path. Explicit command lines such as `codex --yolo` and
+`pi --model …` are recognized as well as named presets:
 
 - `never`: do not generate a title; pass through the agent's OSC title.
 - `once`: summarize the first real prompt in each conversation.
@@ -33,7 +33,7 @@ dialog selections are not prompts: accidentally sending auth or approval input t
 is worse than missing a title.
 
 A tmux process can hold more than one conversation. Each live session has a conversation
-epoch and the Codex adapter recognizes `/new`.
+epoch and the title adapter recognizes `/new`.
 On a boundary, increment the epoch, clear the override and re-arm `once`; a supplied native
 name such as `/new bug bash` is kept without calling OpenRouter. Unknown editing controls
 make the capture uncertain and skip that submission.
@@ -46,14 +46,13 @@ an approval or dialog answer and is not sent.
 
 ## Remaining adapters
 
-Claude, Pi and OpenCode do not yet use the daemon path.
+Claude and OpenCode do not yet use the daemon path.
 
 ## Pi extension
 
-`.pi/extensions/auto-name.ts` summarizes through a cheap OpenRouter model, persists Pi's
-session name and sets the exact UI title. It reads `SLOPWORLD_PI_TITLES` and
-`SLOPWORLD_PI_TITLE_MODEL`, which `slopd` passes into Pi's sandbox from the Usage settings.
-It remains a separate title owner until Pi can use the daemon implementation directly.
+`.pi/extensions/auto-name.ts` remains useful for Pi launched outside SlopWorld. Managed Pi
+sessions set `SLOPWORLD_PI_TITLES=never`: the daemon owns their titles, avoiding Pi's
+project-trust gate and keeping the OpenRouter key out of the sandbox.
 
 Codex already has persistent `/rename`, a `thread` terminal-title item and app-server
 `thread/name/set`, but ordinary lifecycle hooks cannot set either. Raw SQLite writes and a

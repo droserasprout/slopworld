@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -208,6 +208,37 @@ struct TitleCapture {
     generation: u64,
     pending: bool,
     override_title: Option<String>,
+}
+
+#[derive(Clone, Copy)]
+enum TitleAgent {
+    Codex,
+    Pi,
+}
+
+/// The preset name is the usual case, but sessions may supply an explicit command line.
+/// Those should retain the same title behavior as their corresponding preset.
+fn title_agent(cfg: &Config, session: &SessionCfg) -> Option<TitleAgent> {
+    let command = cfg.command_name(session);
+    let executable = if command.is_empty() {
+        crate::sandbox::shell_split(&cfg.command_of(session))
+            .into_iter()
+            .next()?
+    } else {
+        command
+    };
+    match Path::new(&executable).file_name()?.to_str()? {
+        "codex" => Some(TitleAgent::Codex),
+        "pi" => Some(TitleAgent::Pi),
+        _ => None,
+    }
+}
+
+fn title_settings(cfg: &Config, agent: TitleAgent) -> (TitlePolicy, String) {
+    match agent {
+        TitleAgent::Codex => (cfg.daemon.agent_titles, cfg.daemon.title_model.clone()),
+        TitleAgent::Pi => (cfg.daemon.pi_titles, cfg.daemon.pi_title_model.clone()),
+    }
 }
 
 impl Default for TitleCapture {
@@ -2100,17 +2131,17 @@ impl Manager {
 
     async fn capture_title_keys(self: &Arc<Self>, name: &str, keys: &[String], literal: bool) {
         let cfg = self.config().await;
-        let policy = cfg.daemon.agent_titles;
-        if policy == TitlePolicy::Never {
-            return;
-        }
 
         let mut request = None;
         let mut announce = false;
         {
             let mut live = self.live.write().await;
             let Some(l) = live.get_mut(name) else { return };
-            if cfg.command_name(&l.cfg) != "codex" {
+            let Some(agent) = title_agent(&cfg, &l.cfg) else {
+                return;
+            };
+            let (policy, model) = title_settings(&cfg, agent);
+            if policy == TitlePolicy::Never {
                 return;
             }
 
@@ -2152,7 +2183,7 @@ impl Manager {
                             conversation: l.title.conversation,
                             generation: l.title.generation,
                             key_file: cfg.daemon.openrouter_key_file.clone(),
-                            model: cfg.daemon.title_model.clone(),
+                            model,
                         });
                     }
                 }
@@ -2211,12 +2242,12 @@ impl Manager {
 
     async fn capture_title_paste(&self, name: &str, text: &str) {
         let cfg = self.config().await;
-        if cfg.daemon.agent_titles == TitlePolicy::Never {
-            return;
-        }
         let mut live = self.live.write().await;
         let Some(l) = live.get_mut(name) else { return };
-        if cfg.command_name(&l.cfg) == "codex" {
+        let Some(agent) = title_agent(&cfg, &l.cfg) else {
+            return;
+        };
+        if title_settings(&cfg, agent).0 != TitlePolicy::Never {
             l.title.composer.paste(text);
         }
     }
@@ -2921,8 +2952,9 @@ mod tests {
     use super::{
         breadcrumb_block, check_breadcrumbs, check_name, check_shortcut, compile_rules, free_name,
         free_project_name, json_to_toml, match_rules, merge_input, merge_toml, render_template,
-        render_template_with, settle, slug, strip_sgr, Composer, Input, Live, State, Submission,
-        TemplateVars, TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
+        render_template_with, settle, slug, strip_sgr, title_agent, title_settings, Composer,
+        Input, Live, State, Submission, TemplateVars, TitleAgent, TitleCapture, BOOT_COLS,
+        BOOT_ROWS, INPUT_BATCH,
     };
     use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind};
 
@@ -2956,6 +2988,31 @@ mod tests {
         assert!(c.key("Enter").is_none());
         c.literal("fresh prompt");
         assert!(matches!(c.key("Enter"), Some(Submission::Prompt(_))));
+    }
+
+    #[test]
+    fn title_agents_cover_presets_and_explicit_commands() {
+        let mut cfg = Config::default();
+        cfg.daemon.pi_title_model = "pi-title".into();
+
+        let codex = SessionCfg {
+            cmd: Some("codex --yolo".into()),
+            ..Default::default()
+        };
+        assert!(matches!(title_agent(&cfg, &codex), Some(TitleAgent::Codex)));
+
+        let pi = SessionCfg {
+            cmd: Some("pi --model test".into()),
+            ..Default::default()
+        };
+        assert!(matches!(title_agent(&cfg, &pi), Some(TitleAgent::Pi)));
+        assert_eq!(title_settings(&cfg, TitleAgent::Pi).1, "pi-title");
+
+        let other = SessionCfg {
+            cmd: Some("opencode".into()),
+            ..Default::default()
+        };
+        assert!(title_agent(&cfg, &other).is_none());
     }
 
     #[test]
