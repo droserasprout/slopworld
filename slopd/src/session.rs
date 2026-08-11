@@ -1280,6 +1280,10 @@ impl Manager {
             l.set_state(State::Down);
             l.screen = None;
             l.emu = None;
+            // A stopped run must not leave its generated task title on the downed
+            // session. Resetting the capture also makes late title responses from
+            // this run stale before the next start.
+            l.title = TitleCapture::default();
             if let Some(h) = l.reader.take() {
                 h.abort();
             }
@@ -2754,6 +2758,10 @@ impl Manager {
                 l.bell = false;
                 l.screen = None;
                 l.emu = None;
+                // The generated title belongs to the process that just exited;
+                // the downed session should fall back to its ordinary label.
+                // Resetting the generation also rejects a late worker result.
+                l.title = TitleCapture::default();
                 if let Some(h) = l.reader.take() {
                     h.abort();
                 }
