@@ -50,6 +50,17 @@ and zsh answers it with a bell and a stray `C` ([zsh-terminal](zsh-terminal.md))
 where a bare `Up`/`Down`/`Left`/`Right` at least still moved the cursor. So the
 prompt keeps the plain arrow and the editor gets its selection.
 
+This Unity player can lose semicolon's IMGUI event before the terminal window.
+The terminal tries the character stream and the named key, deduplicated by frame
+against the normal event road. The input string names the physical key `;` even
+while Shift turns it into `:`, so that fallback stands down with Shift held. If
+the window-priority pass marks the event `Used`, `rawType` is checked for the
+same key.
+
+Semicolon uses the daemon's byte-preserving paste road after flushing ordinary
+typed text ahead of it. It avoids the tmux named-key road while keeping the
+character in order with the text around it.
+
 ## `TerminalTheme`
 
 `Sgr.DefaultFg`/`DefaultBg` are properties off it rather than constants, so the

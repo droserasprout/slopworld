@@ -23,6 +23,7 @@ namespace SlopWorld
         // IContentView: the window is the chrome, and this is what the chrome is showing.
         IContentView _content;
         readonly StringBuilder _literal = new StringBuilder();
+        int _semicolonFrame = -1;
 
         int _cols, _rows;
         float _resizeAt;
@@ -308,7 +309,11 @@ namespace SlopWorld
                 return;
             }
 
-            if (input) HandleInput(body);
+            if (input)
+            {
+                CaptureSemicolonInput();
+                HandleInput(body);
+            }
 
             var live = hub.Screen(_name);
             // While scrolled, show the history frame; fall back to live until it lands.
@@ -849,6 +854,16 @@ namespace SlopWorld
         void HandleInput(Rect body)
         {
             var e = Event.current;
+            // WindowStack's high-priority pass may mark a key Used before the window body
+            // runs. Keep the semicolon that pass swallowed: rawType retains the original
+            // KeyDown, and no other Used event is replayed here.
+            if (e.type == EventType.Used && e.rawType == EventType.KeyDown &&
+                (e.character == ';' || IsSemicolonKey(e.keyCode)))
+            {
+                HandleKey(e);
+                return;
+            }
+
             switch (e.type)
             {
                 case EventType.ScrollWheel:
@@ -1054,8 +1069,32 @@ namespace SlopWorld
                 }
             }
 
+            // On this Unity player the literal semicolon arrives with a spurious modifier,
+            // so the ordinary printable-input guard below rejects it. The character is the
+            // layout-resolved answer; trust it instead of the broken modifier flags.
+            if (e.character == ';')
+            {
+                AppendSemicolon();
+                e.Use();
+                return;
+            }
+
             if (e.keyCode != KeyCode.None)
             {
+                // Some backends instead omit the character-only event. Preserve the
+                // keyboard layout's shifted form before the named key is swallowed below.
+                if (IsSemicolonKey(e.keyCode) && e.character == '\0')
+                {
+                    if (e.shift)
+                    {
+                        JumpToLive();
+                        _literal.Append(':');
+                    }
+                    else AppendSemicolon();
+                    e.Use();
+                    return;
+                }
+
                 var keyScreen = SessionHub.Instance.Screen(_name);
                 string key = MapKey(e, keyScreen != null && keyScreen.AltScreen);
                 if (key != null)
@@ -1095,6 +1134,37 @@ namespace SlopWorld
             if (e.keyCode != KeyCode.None)
                 e.Use(); // swallow it so RimWorld hotkeys don't fire behind us
         }
+
+        // IMGUI loses semicolon's KeyDown before it reaches this window on this player, but
+        // Unity's text-input stream still carries it (which is why ordinary game fields work).
+        // DoWindowContents runs more than once per frame, and a surviving KeyDown may follow,
+        // so the frame marker makes the two roads one keystroke.
+        void CaptureSemicolonInput()
+        {
+            if (_semicolonFrame == Time.frameCount || !SessionHub.Instance.Online) return;
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            string input = Input.inputString;
+            int count = shift || string.IsNullOrEmpty(input) ? 0 : input.Count(c => c == ';');
+            bool physical = !shift && Input.GetKeyDown(KeyCode.Semicolon);
+            if (count == 0 && !physical) return;
+
+            JumpToLive();
+            Flush();
+            SessionHub.Instance.Paste(_name, new string(';', count > 0 ? count : 1));
+            _semicolonFrame = Time.frameCount;
+        }
+
+        void AppendSemicolon()
+        {
+            if (_semicolonFrame == Time.frameCount) return;
+            JumpToLive();
+            Flush();
+            SessionHub.Instance.Paste(_name, ";");
+            _semicolonFrame = Time.frameCount;
+        }
+
+        static bool IsSemicolonKey(KeyCode key) =>
+            key == KeyCode.Semicolon || key == KeyCode.Colon;
 
         // A slot past the end is a no-op rather than a wrap: the keys are muscle memory for a
         // fixed portrait. A down agent is started, as clicking the portrait does.
