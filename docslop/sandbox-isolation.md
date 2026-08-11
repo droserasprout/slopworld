@@ -1,20 +1,14 @@
 # What keeps an agent off the host
 
-Three rules in `sandbox.rs`, all of them structural: none is a thing to
-remember at the moment a checkbox is ticked. The invariant they serve is the
-one in [agent-grants](agent-grants.md) - an agent reaches the sessions it was
-granted and never the machine.
+Three structural rules in `sandbox.rs` enforce the [agent-grants](agent-grants.md)
+invariant: an agent reaches granted sessions, never the machine.
 
 ## No bind list reaches the token
 
-`refused()` is checked by `paths()` (so the implicit `global` preset, every preset
-file and every project pass through it), by `check_project` where a directory
-is typed, and by `start` for an entry older than the check. Presets additionally
-pass through the centralized validator before the daemon saves or uses them:
-private, seed, skip and shared paths must stay within the declared private tree,
-and the complete dependency closure must be valid. Refused in **both directions**:
-a path inside one of these reaches it, a path above one contains it, and
-`~/.config` is as much a road to the token as `config.toml` is.
+`refused()` covers implicit and explicit presets, projects, and legacy entries at
+start. Preset validation also requires private, seed, skip, and shared paths to stay
+within their private tree, across the full dependency closure. Refusal works in both
+directions: a protected path and any ancestor that contains it are forbidden.
 
 - `/` and `$HOME` itself.
 - `Config::path_in_use()` - `SLOPD_CONFIG` included, which is why that lookup
@@ -31,34 +25,18 @@ outright instead - it is bound read-write and no preset can drop it.
 
 `private = [...]` on a sandbox preset binds a per-session copy over the host
 path, so a program that looks under `$HOME` finds one and never the user's.
-This is not about privacy: `~/.claude/settings.json` names hooks and
-`~/.claude.json` names MCP servers, and both are command lines the *host's*
-Claude Code runs the next time it starts. A sandbox that can write them has a
-delayed shell on the far side of the wall. It falls out that two agents no
-longer read each other's transcripts either.
+This prevents delayed host execution through writable hook or MCP configuration;
+separating agents' transcripts is a secondary benefit.
 
 - Lives in `~/.local/share/slopworld/sessions/<session>/`, keeping the shape of
   the original (`home/.claude`, `root/etc/x`) so two preset paths sharing a
   basename never land on one directory. `SLOPD_STATE` moves it; the tests use
   that.
-- Seeded **once**, when the copy is absent: the files at the top of the host
-  directory whatever they are called - that is where a tool keeps its
-  credentials - plus the subdirectories `seed` names, which is where what the
-  *user* wrote lives. Deliberately not a list of every agent's filenames: the
-  failure it chooses is a session that copied a megabyte it did not need, over
-  one that cannot log in.
-- `skip` cuts back out of what `seed` names **and** out of the files on top,
-  because "whatever they are called" catches what a tool wrote *about* the user
-  next to what it wrote *for* them. `~/.claude/history.jsonl` is 1.1MB of every
-  prompt typed on this machine, in every project, and was going into every
-  sandbox until it was named. That is what makes naming a whole
-  directory the right move. A tool scatters its config and concentrates its
-  bulk: `~/.pi/agent` holds the model selection *and* 21MB of transcripts, so
-  the preset seeds `agent` and skips `agent/sessions`. Listing by hand the files
-  that turn out to matter is how `pi` shipped seeding `agents`, `extensions` and
-  `prompts` - three directories pi has never made - and agents came up having
-  forgotten which model they were. Seed wide, skip the bulk, fail towards an
-  agent that works.
+- Seeded **once**, when absent: top-level files plus named `seed` subdirectories.
+  This favors copying some harmless excess over missing required configuration.
+- `skip` excludes both seeded descendants and top-level files. Seed broad config
+  areas and skip history or bulk state (for example `agent/sessions`); enumerating
+  guessed filenames has already omitted required model selection.
 - `seed` comes from the **preset**, for what every session of that software wants.
   If one project or agent needs extra seeded state, make a user preset and attach it
   there. A seed path that falls under no private path is skipped.
@@ -78,19 +56,11 @@ longer read each other's transcripts either.
 binds and so on top of them: a hole cut in a copy, one file wide. There is one,
 `~/.claude/.credentials.json`.
 
-A credential is not state, it rotates. Claude Code's access token lasts 8 hours
-and the refresh token behind it is replaced on every use, sliding an 11-day
-window forward; a tree seeded once holds whichever token was current the day the
-session was first started. So every session logged in until it didn't, and the
-only cure was deleting the session directory - which is also how its transcripts
-went. Those were one bug, not two.
+A credential rotates, so a seeded copy eventually expires. Sharing the host file keeps
+refreshes current without deleting the session and its transcripts.
 
-- **Files only.** `shared_binds` drops a directory, and that narrowness is the
-  whole of what makes this safe. `.credentials.json` names no command; the
-  `settings.json` beside it names hooks and `~/.claude.json` names MCP servers,
-  and a shared *directory* is a sandbox that can create either. What is traded
-  here is integrity - something inside can log the user out - and never
-  execution. That is why the preset is not marked `escapes`.
+- **Files only.** A shared directory could create hook or MCP configuration. Sharing
+  the credential risks logout (integrity), not host execution, so it is not `escapes`.
 - `refused()` applies, the same as every other bind list.
 - Never seeded. It is bound from the host anyway, and a copy would leave a
   superseded token in the session directory for as long as the session lives.

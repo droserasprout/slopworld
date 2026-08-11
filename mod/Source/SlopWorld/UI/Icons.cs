@@ -4,31 +4,17 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Every action icon the mod draws, in one place. The textures are Codicons - VS
-    // Code's icon set - baked out of a Nerd Font by tools/icons.py, landing in
-    // mod/Textures/SlopWorld/Icons/<slot>.png; this is the other half of
-    // tools/icons/manifest.toml and the two are kept in step by hand, a table being
-    // cheaper here than shipping the manifest into the game and parsing TOML with no
-    // parser. Same arrangement as FileIcons and its manifest.
+    // Action icons are Codicons baked by tools/icons.py into
+    // mod/Textures/SlopWorld/Icons/<slot>.png. Keep this table in step with
+    // tools/icons/manifest.toml; shipping and parsing TOML costs more than the table.
     //
-    // These used to be nine classes of pixel math, each drawing its one shape from
-    // predicates and signed distances. The reason given was that vanilla keeps its art
-    // in asset bundles, so a content path like TexButton's resolves to null and draws a
-    // button nobody can see - but that is about *vanilla* paths. The mod's own Textures
-    // tree is loose and ContentFinder reads it, which FileIcons had been proving all
-    // along. What the hand-written shapes actually cost was a coverage budget every new
-    // icon had to be tuned against by eye, written down in the old TabIcons because five
-    // shapes had to agree on it. A designed set on one grid agrees by construction.
+    // Vanilla asset paths may resolve null, but the mod's loose Textures tree works through
+    // ContentFinder. A designed grid also avoids tuning hand-drawn shapes against each other.
     //
-    // Named for the slot rather than the glyph: the agents tab is the agents tab whatever
-    // picture it wears next year, and a call site reading Icons.Agents does not have to
-    // be revisited when that changes.
+    // Names describe slots, so changing a glyph does not change call sites.
     //
-    // The attribute only quiets the startup scan, which warns about any type holding a
-    // static Texture2D. Nothing here builds a texture, so nothing here needs
-    // HideFlags.DontUnloadUnusedAsset: ContentFinder's textures are rooted by the content
-    // tables, and it is the ones built at runtime - Slab's corners, DeadCursor - that the
-    // unload on a map switch would take.
+    // The attribute quiets the static-Texture2D scan. ContentFinder roots these textures;
+    // only runtime-built textures need `DontUnloadUnusedAsset`.
     [StaticConstructorOnStartup]
     public static class Icons
     {

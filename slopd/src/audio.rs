@@ -1,21 +1,13 @@
 //! The jukebox's sound, played on the host.
 //!
-//! It lives here rather than in the game because the game cannot play it. Unity 2022
-//! refuses to send a cleartext request at all, FMOD - which is what actually fetches the
-//! audio once a clip is streamed - has no TLS and no AAC decoder on desktop, and it will
-//! not begin playback on a response with no `Content-Length`, which is every Icecast
-//! stream there is. Four runs of the game found four walls. Out here it is a socket, a
-//! decoder and an output device.
+//! Playback lives here because Unity rejects cleartext, while desktop FMOD lacks TLS and
+//! AAC and requires `Content-Length`, which Icecast streams omit.
 //!
-//! The mod says what to play and how loud; it holds no opinion about how. A source is a
-//! URL for the station or an absolute path for the built-in track - anything that is not
-//! `http://` or `https://` is a file, which is also why the mod sends a path rather than a
-//! `file://` URL: there is then nothing to percent-decode and no way to get it wrong.
+//! The mod supplies source and volume. HTTP(S) means a station; anything else is an
+//! absolute file path, avoiding `file://` decoding.
 //!
-//! Threads. The command loop owns the device and the mixer. Opening a source blocks it,
-//! deliberately: an error belongs to the pick that caused it, and the mod is told. Once a
-//! source is open a feeder thread decodes it into a ring, because the audio callback must
-//! never wait on a socket - an empty ring is silence for a moment, not a stop.
+//! The command loop owns the device and mixer and opens sources synchronously so errors map
+//! to picks. A feeder decodes into a ring; the audio callback never waits on the network.
 
 use std::io::{self, BufReader, Read, Seek, SeekFrom};
 use std::sync::atomic::{AtomicU64, Ordering};

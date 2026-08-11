@@ -8,28 +8,19 @@ using Verse.AI;
 
 namespace SlopWorld
 {
-    // The union of a source per finished thing: the core emits a fixed circle, everything
-    // else is a monument or plate the agents raised (Bloom, off Worksite.Patch_ErrandDone).
+    // One source per finished thing; the core alone emits a fixed circle.
     //
-    // What is kept is one arrival tick a cell (Cells); everything else is read off it and
-    // the clock, a cell's *age* being its dose. That is the falloff stated in time rather
-    // than radius, and it is a lookup where asking every source would be a loop - a source
-    // per paved cell is thousands of sources and BandAt is asked ten thousand times a
-    // second. Time also makes one figure right at both scales: a two-cell stamp is all
-    // fringe for half a minute, hour-old paving is old in the middle and young at the hull.
+    // `Cells` stores each cell's first arrival tick; age determines dose. This makes BandAt
+    // a lookup instead of scanning thousands of sources and preserves a young fringe at
+    // both stamp and paved-area scales.
     //
-    // Bands are dithered against Grit rather than thresholded: a hard threshold draws a
-    // traceable line, and a chance re-rolled each sweep still ends in one flat dead disc.
+    // Dither bands against stable Grit; thresholds draw rings and rerolled chance draws discs.
     //
-    // Agents are immune wholly - a dead colonist would leave its session pointing at a
-    // corpse. Effects are applied directly because Patch_Health skips health ticks, so
-    // nothing bleeds out on its own. Fire is the exception, being a Thing that ticks itself.
+    // Agents are immune so sessions never point at corpses. Apply effects directly because
+    // Patch_Health skips health ticks; fire ticks itself.
     //
-    // Grandma mode changes what the circle does, not that it grows: the arrival times, the
-    // bands, the dither and Girth are all still kept, because the leash the agents work on is
-    // measured off them (Worksite.Roam) and the map would otherwise have no clock at all. What
-    // it does when it arrives is Sow - flowers, one bed to a cell, where Catch, Effects, Vent
-    // and StepPlants would each have been an act on something living.
+    // Grandma mode keeps growth and timing because Worksite.Roam uses them, but arrival sows
+    // flowers instead of applying harmful effects.
     public class Plague : MapComponent
     {
         // The pass over what is standing on the map. The plague itself moves when something

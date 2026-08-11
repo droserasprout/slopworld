@@ -55,29 +55,15 @@ namespace SlopWorld
                 h.Patch(AccessTools.PropertyGetter(typeof(KeyBindingDef), read), prefix: pre);
         }
 
-        // A dropped binding is unbound, not merely unlisted. Most are read from a path this
-        // mod never draws - the time controls and the play-settings row are both inside the
-        // GlobalControls that Patch_HideGui skips, and the designators and gizmo hotkeys
-        // have nothing left to hang off - but not all of them, and the two exceptions are
-        // ones no amount of hiding would reach:
+        // Dropped bindings must be unbound, not merely hidden. Two readers bypass the hidden UI:
         //
-        // ScreenshotTaker.Update reads TakeScreenshot off Root.Update through JustPressed,
-        // which is Input's own frame flag, so no window absorbing input and no Event.Use()
-        // can touch it. Bare F10 typed into a TUI is passed to the agent and writes a
-        // screenshot on the way past.
+        // ScreenshotTaker.Update reads Input's frame flag, so F10 typed into a TUI also takes
+        // a screenshot regardless of window input handling.
         //
-        // And hiding a main button does not free its key. KeyBindingDefGenerator hands every
-        // MainButtonDef with a defaultHotKey an implied binding and writes it back onto the
-        // def - Tab, and F1 through F9, which is our command palette and the sidebar's four
-        // views - and MainButtonsRoot.MainButtonsOnGUI Uses the event *before*
-        // InterfaceTryActivate, where Patch_MainButtons turns the press away: the tab does
-        // not open and the key is swallowed anyway. Only reachable while a cutscene plays,
-        // TerminalHotkeys running ahead of MainButtonsRoot in UIRoot_Play.UIRootOnGUI and
-        // Using the key first - but that is an ordering between two callers, not a claim on
-        // the key, and F1 belongs to whoever this mod says it does.
+        // KeyBindingDefGenerator also assigns hidden main buttons Tab and F1-F9, and
+        // MainButtonsOnGUI consumes them before Patch_MainButtons rejects activation.
         //
-        // So the read is answered rather than each system patched where it sits: there is
-        // one question here - is this key bound - and one place vanilla asks it.
+        // Answer the shared binding query instead of patching every reader.
         static bool NotBound(KeyBindingDef __instance, ref bool __result)
         {
             if (Kept(__instance)) return true;

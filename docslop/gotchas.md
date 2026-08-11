@@ -44,39 +44,20 @@
   absorbs input around itself, so a global hotkey taken in a game component fires
   only while nothing is absorbing. A key that must also work with a window up has
   to be read inside that window as well; `SlopQuickTerminal` is read in both.
-- **A window under an absorbing one gets no `MouseDown`, and `rawType` does not
-  bring it back.** `rawType` recovers an event that was *Used* - `Event.Use()`
-  sets `type` to `Used` and leaves `rawType` alone - and that is the whole of what
-  it can do. It cannot recover an event the window was never called for. Measured
-  in `AgentSidebar.Grip` with the options menu up: MouseUp and the repaints arrive,
-  `Drawing` and `Interactive` are both true, and MouseDown does not appear in any
-  form. So a press-driven gesture in a pane goes dead the moment a dialog opens over
-  it, and no reading of the event will fix it, because there is no event.
-  **`Input` is the way through**: `GetMouseButtonDown` / `GetMouseButton` are the
-  frame's own flags and nothing on the window stack can Use them, so a handler that
-  runs every frame can *sample* the press instead of receiving it.
-  `Patch_Root_Update` reads them for `DeadCursor` for the same reason. This makes a
-  drag the shape `WindowResizer` (vanilla's own resize grip) already uses: **latch,
-  follow `mousePosition`, end when the button is up** - which also closes a release
-  dragged off the edge of the screen, that being an event nobody gets either.
-  `MouseDrag` is not worth consulting anywhere: `UnityGUIBugsFixer.MouseDrag(button)`
-  returns `Input.GetMouseButton(button)` outright on a Linux build (and the Steam
-  Deck), and `FixDelta` rebuilds `CurrentEventDelta` from the pointer on Repaints.
-- **`Text.Font = GameFont.Tiny` is a request, not an assignment.** `Verse.Text`'s
-  setter drops it back to `Small` whenever `TinyFontSupported` is false - a
-  language whose `info.canBeTiny` is false, `Prefs.DisableTinyText` (a switch in
-  vanilla's own menu), the Steam Deck, or any frame with a long event on it. So a
-  row measured with `LineHeightOf(GameFont.Tiny)` and drawn after asking for Tiny
-  can be a Small line in a Tiny-sized rect, which `GUI.Label` then clips. Ask
-  `SlopWidgets.LineHOf`/`TinyH`, which measure the tier the request lands on.
-- **`Text.CalcSize` answers about a *wrapped* block while `Text.WordWrap` is on**,
-  which for anything with a space in it is the width of its longest word. That
-  takes `GenText.Truncate` with it - it is `CalcSize(str).x > width` - so a
-  sentence handed to it comes back uncut, and `Widgets.Label` then wraps it into a
-  rect one line tall: with a middle anchor the block is centred and loses the top
-  of one line and the bottom of the other. Vanilla brackets its own row labels
-  with `WordWrap = false` for this, in every list that truncates one.
-  `SlopWidgets.RowLabel` and `SlopWidgets.Wide` are the two ways through.
+- **An absorbing window prevents lower windows from receiving `MouseDown`; `rawType`
+  cannot recover an event never delivered.** Sample `Input.GetMouseButtonDown` and
+  `GetMouseButton` from a per-frame handler instead. For drags: latch, follow
+  `mousePosition`, and stop when the button is up; this also handles release offscreen.
+  `UnityGUIBugsFixer.MouseDrag(button)` already reduces to `Input.GetMouseButton(button)`
+  on Linux and Steam Deck.
+- **`Text.Font = GameFont.Tiny` may fall back to `Small`** when tiny text is
+  unsupported, disabled, or suppressed for a long event. Measuring Tiny first then
+  drawing Small clips labels. Use `SlopWidgets.LineHOf`/`TinyH`, which measure the
+  effective tier.
+- With `Text.WordWrap`, **`Text.CalcSize` reports wrapped width** (often the longest
+  word), so `GenText.Truncate` may leave a sentence that later wraps and clips in a
+  one-line rect. Disable wrapping around measurement, or use `SlopWidgets.RowLabel`
+  / `Wide`.
 - **`Text.spaceBetweenLines` is not a line height.** Vanilla fills it with
   `CalcHeight("W\nW") - 2 * CalcHeight("W")` - the *extra* leading between two
   lines, which for a style with no padding is zero. It is measured off the style's
@@ -88,12 +69,9 @@
   group on the contracted rect, so `DoWindowContents` draws in a space translated
   by the margin while `GUI.matrix` and screen coordinates stay put.
   `TerminalWindow` runs at margin 0 so the two agree.
-- **A `Listing_Standard` begun on a rect shorter than its contents does not
-  overflow.** `GetRect` calls `NewColumnIfNeeded`, so a control that would cross
-  the bottom starts a *second column* - `curX` past the whole width, everything
-  after it clipped away by the group, `curY` back to nearly zero. `CurHeight` is
-  what a dialog lays the rest of itself out from, so one field too many drops a
-  350px input over the form. Begin on the room there is, and set `maxOneColumn`.
+- **A short `Listing_Standard` starts another column instead of overflowing.** The
+  new column may sit outside its clipping group and reset `CurHeight`, breaking later
+  layout. Begin with enough height and set `maxOneColumn`.
 - **A `Font` from `CreateDynamicFontFromOSFont` is held only by a `GUIStyle`**, which
   is not a `UnityEngine.Object` and so roots nothing: the
   `Resources.UnloadUnusedAssets` the game runs on any map switch destroys the

@@ -3,31 +3,16 @@ using Verse;
 
 namespace SlopWorld
 {
-    // A rounded rectangle - filled, outlined, or raised off the surface with a shadow under
-    // it. Drawn in code for the reason every other texture here is: this install keeps its
-    // art in asset bundles, so a content path is a widget somebody's copy draws invisibly.
+    // Rounded boxes are generated because shipped art lives in asset bundles; a loose
+    // content path may resolve invisibly in another install.
     //
-    // **Only the corners are a texture.** The obvious build - one rounded box cut into nine
-    // and stretched - draws a 1px line along every one of its eight internal seams. Bilinear
-    // filtering samples half a texel outside each tile at its edges, and a tile boundary is
-    // where two of those errors meet; at button sizes that is four faint lines across the
-    // face and four more around it. Insetting the texture coordinates trades them for soft
-    // corners, and point filtering trades them for jagged ones.
+    // Only corners are textured. Stretching a nine-sliced box exposes tile seams through
+    // bilinear filtering; inset UVs blur corners and point filtering jaggies them. Draw the
+    // four corners at native size and fill straight runs with `BaseContent.WhiteTex`.
     //
-    // So nothing with shape in it is ever stretched. Four corner textures are drawn at their
-    // own size, and the straight runs between them are flat colour off `BaseContent.WhiteTex`
-    // - a solid rect has no texel grid to disagree about, so there is no seam to see.
-    //
-    // **Everything here is measured in screen pixels**, and that is the whole of the second
-    // seam. A GUI pixel is a screen pixel only at UI scale 1: at 1.75 a rect rounded to whole
-    // GUI coordinates lands on 1.75ths of a screen pixel, and where a corner ends at 8.75 and
-    // the run beside it begins there, the pixel they share is rasterised into one of them, or
-    // neither, or both. Both is a doubled alpha - a dark line; neither is the window showing
-    // through - a light one. Which of the two, and whether it happens at all, comes out of the
-    // button's absolute position, so it appears on some buttons and not on others of the same
-    // size in the same window. `Snap` puts every edge on the screen grid before it is drawn,
-    // through `GUIToScreenPoint` rather than by multiplying - groups and scroll views each
-    // add an offset of their own, and only the transform knows the sum of them.
+    // Measure in screen pixels. At non-integral UI scales, adjacent GUI edges can overlap or
+    // leave a gap. `Snap` uses `GUIToScreenPoint` because groups and scroll views add offsets
+    // that scale multiplication cannot recover.
     [StaticConstructorOnStartup]
     public static class Slab
     {
