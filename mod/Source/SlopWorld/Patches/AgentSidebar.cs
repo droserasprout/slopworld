@@ -327,8 +327,7 @@ namespace SlopWorld
             }
 
             Text.Font = GameFont.Small;
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(text, Label(info) ?? row.Session);
+            DrawGhostLabel(text, info, row.Session);
             GUI.color = Color.white;
         }
 
@@ -912,8 +911,7 @@ namespace SlopWorld
                             text.width -= d + 4f;
                         }
 
-                        GUI.color = SlopWidgets.Dim;
-                        SlopWidgets.RowLabel(text, Label(info) ?? row.Session);
+                        DrawGhostLabel(text, info, row.Session, hostIcon: true);
                         GUI.color = Color.white;
                         Click(row, info);
                         continue;
@@ -1013,10 +1011,93 @@ namespace SlopWorld
             return s / 86400L + "d";
         }
 
-        static string Label(SessionInfo info)
+        // Ghosts have only one line, so give the eye one strong answer and one quiet piece of
+        // context instead of dimming the whole row. Routed file actions do not use the pane's
+        // native title: a shell commonly calls itself `bash` or `less`, which says less than
+        // the action and the session name the daemon already gave us.
+        static void DrawGhostLabel(Rect r, SessionInfo info, string fallback,
+                                    bool hostIcon = false)
         {
-            string t = Title(info);
-            return t.Length > 0 ? t : info?.Name;
+            RowAct act = RowActions.Of(info);
+            string title = GhostTitle(info, fallback, act);
+            string context = GhostContext(info, title, act);
+
+            if (hostIcon && info?.Ephemeral == true)
+            {
+                float d = Mathf.Min(GhostMarkW, r.height);
+                var icon = new Rect(r.x, r.y + (r.height - d) / 2f, d, d);
+                GUI.color = SlopWidgets.Off;
+                GUI.DrawTexture(icon, Icons.Terminal);
+                string project = info.Project ?? "";
+                TooltipHandler.TipRegion(icon, project.Length > 0
+                    ? "Host session in " + project
+                    : "Host session");
+                r.x += d + 4f;
+                r.width -= d + 4f;
+            }
+
+            Text.Anchor = TextAnchor.MiddleLeft;
+            if (context.Length == 0)
+            {
+                GUI.color = SlopWidgets.Lead;
+                SlopWidgets.RowLabel(r, title);
+                Text.Anchor = TextAnchor.UpperLeft;
+                return;
+            }
+
+            float contextW = Mathf.Min(SlopWidgets.Wide(context), r.width * 0.42f);
+            var quiet = new Rect(r.xMax - contextW, r.y, contextW, r.height);
+            var strong = new Rect(r.x, r.y, Mathf.Max(0f, quiet.x - SlopWidgets.GapS - r.x),
+                r.height);
+
+            GUI.color = SlopWidgets.Lead;
+            SlopWidgets.RowLabel(strong, title);
+            GUI.color = SlopWidgets.Dim;
+            SlopWidgets.RowLabel(quiet, context);
+            Text.Anchor = TextAnchor.UpperLeft;
+        }
+
+        static string GhostTitle(SessionInfo info, string fallback, RowAct act)
+        {
+            if (act != RowAct.None)
+            {
+                string name = info?.Name ?? fallback;
+                string prefix = ActionWord(act) + "-";
+                string subject = name.StartsWith(prefix, System.StringComparison.Ordinal)
+                    ? name.Substring(prefix.Length)
+                    : name;
+                return ActionWord(act) + " " + subject;
+            }
+
+            string title = Title(info);
+            return title.Length > 0 ? title : info?.Name ?? fallback;
+        }
+
+        static string GhostContext(SessionInfo info, string title, RowAct act)
+        {
+            string project = info?.Project ?? "";
+            if (act != RowAct.None)
+                return project;
+
+            string name = info?.Name ?? "";
+            if (title != name && name.Length > 0)
+            {
+                if (project.Length > 0) return name + "  ·  " + project;
+                return name;
+            }
+            if (info?.Ephemeral == true) return project;
+            return project;
+        }
+
+        static string ActionWord(RowAct act)
+        {
+            switch (act)
+            {
+                case RowAct.View: return "view";
+                case RowAct.Edit: return "edit";
+                case RowAct.Diff: return "diff";
+                default: return "";
+            }
         }
 
         // A title is whatever the app in the pane set, and a coding agent puts a sigil in
@@ -1035,13 +1116,25 @@ namespace SlopWorld
                 clean.Append(char.IsControl(c) || (font != null && !font.HasCharacter(c))
                     ? ' '
                     : c);
-            return clean.ToString().Trim();
+            var title = clean.ToString().Trim();
+            // Shells commonly initialize OSC 0 to the host name. That is environment
+            // metadata, not an agent title; promoting it made every one-line ghost look
+            // like the same machine instead of the task it was opened for.
+            if (title.Length == 0 || IsHostTitle(title)) return "";
+            return title;
+        }
+
+        static bool IsHostTitle(string title)
+        {
+            return string.Equals(title, System.Environment.MachineName,
+                       System.StringComparison.OrdinalIgnoreCase)
+                || string.Equals(title, "localhost", System.StringComparison.OrdinalIgnoreCase);
         }
 
         static string Ground(SessionInfo info)
         {
             if (info == null) return "";
-            return info.Ephemeral ? "temporary" : Leaf(info.Dir);
+            return info.Ephemeral ? info.Project : Leaf(info.Dir);
         }
 
         static string Leaf(string dir)

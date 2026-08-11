@@ -27,10 +27,13 @@ and the cell's lower edge is level with the chin. `Patch_AgentNeverIdle` outlive
 was written beside: vanilla must still not decide an agent is idle, or that verdict reappears
 in an alert.
 
-Ephemeral host shells appear as one-line ghost rows and have no pawn or state. Viewer,
-editor, and diff sessions are routed to the Files or Git view instead. Routed permanent
-sessions must be parked immediately: colony reconciliation may leave their pawn alive for
-one tick.
+Ephemeral host shells appear as one-line ghost rows and have no pawn or state. Agents rows mark
+them with the terminal icon and project name; ghost rows put the useful title or action/file
+identity in white and keep the session/project context dim;
+viewer, editor, and diff sessions use an explicit action prefix because a shell's native title
+is often only `bash` or `less`. Viewer, editor, and diff sessions are routed to the Files or Git
+view instead. Routed permanent sessions must be parked immediately: colony reconciliation may
+leave their pawn alive for one tick.
 
 The resize grip polls `Input.GetMouseButton*` rather than relying on IMGUI mouse events.
 An absorbing window can prevent the underlying layer from receiving the initial event,

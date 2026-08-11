@@ -15,6 +15,7 @@ namespace SlopWorld
     {
         string _session;
         string _project;      // which project the persistent session serves
+        string _filePath;     // the file named by the persistent viewer
 
         // Who is showing, or null. Read rather than acted on - the two views use it to tell
         // "click the row that is already open" from "click a different one".
@@ -34,10 +35,9 @@ namespace SlopWorld
         const string LessEnv =
             "LESSOPEN='|highlight --out-format=xterm256 %s' LESS=-R";
 
-        // Open a file in the persistent pager. Reuses the existing tmux session if it is
-        // still alive and serving the same project — sends `:e <path>` via keys instead of
-        // spawning a whole new sandbox. For a different project, or a dead session, falls
-        // back to creating a fresh one.
+        // Open a file in the persistent pager. Reuses the existing tmux session only when it
+        // is still alive and already showing this file. A different file gets a fresh session
+        // so the sidebar's one-line title follows the file instead of keeping the old name.
         public void ViewFile(string project, string filePath, string label)
         {
             bool host = string.IsNullOrEmpty(project);
@@ -48,8 +48,9 @@ namespace SlopWorld
                 return;
             }
 
-            // Reuse the existing session if it's alive and on the same project.
-            if (_session != null && _project == project && Alive)
+            // Reuse the existing session if it is alive, on the same project, and already
+            // showing this file.
+            if (_session != null && _project == project && _filePath == filePath && Alive)
             {
                 // Send `:e <path>` as literal text, then Enter as a keypress — a single
                 // call with literal:true would send "Enter" as the word, not the key.
@@ -65,6 +66,7 @@ namespace SlopWorld
             string oldSession = _session;
             _session = null;
             _project = null;
+            _filePath = null;
 
             string cmd = "env " + LessEnv + " less " + Quote(filePath);
             SessionHub.Instance.Run(project, cmd, label,
@@ -72,6 +74,7 @@ namespace SlopWorld
                 {
                     _session = session;
                     _project = project;
+                    _filePath = filePath;
                     TerminalWindow.Open(session);
                     StopIf(oldSession);
                 },
@@ -79,6 +82,7 @@ namespace SlopWorld
                 {
                     _session = null;
                     _project = null;
+                    _filePath = null;
                     StopIf(oldSession);
                     SlopWidgets.Fail(msg);
                 }, host: host, temp: host);
@@ -116,6 +120,7 @@ namespace SlopWorld
             string oldSession = _session;
             _session = null;
             _project = null;
+            _filePath = null;
 
             SessionHub.Instance.Run(project, command, label,
                 session =>
@@ -129,6 +134,7 @@ namespace SlopWorld
                 msg =>
                 {
                     _session = null;
+                    _filePath = null;
                     StopIf(oldSession);
                     SlopWidgets.Fail(msg);
                 });
@@ -152,6 +158,7 @@ namespace SlopWorld
             string s = _session;
             _session = null;
             _project = null;
+            _filePath = null;
             if (s == null) return;
             var info = SessionHub.Instance.Get(s);
             if (info != null && info.Alive) SessionHub.Instance.Stop(s);

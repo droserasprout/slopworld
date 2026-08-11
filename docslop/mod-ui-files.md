@@ -58,7 +58,8 @@ the git view's diff wants exactly the same arrangement ([mod-ui-git](mod-ui-git.
 This view supplies only the command:
 
 - Clicking a *different* file replaces it: the old `less` (an ephemeral agent, so
-  `Stop` and `forget`) is killed and the new file's started. Clicking the file
+  `Stop` and `forget`) is killed and the new file's session is started, so its sidebar title
+  follows the new path. Clicking the file
   already being read just brings its pane back (`Pager.Reopen`). The Files tab owns
   both view and edit sessions; Git owns diffs, including a diff launched from this
   tree.

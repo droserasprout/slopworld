@@ -108,14 +108,27 @@ namespace SlopWorld
         // resolved command in `Agent`. The tab owner must classify both, or a configured pager
         // would stay in Agents while the identical one-off pager moved to Files/Git.
         //
-        // Off the command and not the session's name: a name is what the daemon made of the
-        // label it was handed, and the label is only ever a hint. `env ... less` is the pager
-        // command made by Pager.ViewFile, so account for that wrapper too.
+        // Prefer the command: a name is normally what the daemon made of the label it was
+        // handed, and the label is only ever a hint. After a daemon restart, however, an
+        // adopted tmux session has no command metadata; the three prefixes are the stable
+        // fallback that keeps an existing temporary view in its Files or Git tab.
         public static RowAct Of(SessionInfo info)
         {
+            // An adopted ephemeral session has no saved command, so the daemon resolves its
+            // blank config through the default agent command. Its generated action prefix is
+            // the authoritative identity in that case, and must win before that fallback.
+            if (info?.Ephemeral == true)
+            {
+                RowAct named = ByName(info.Name);
+                if (named != RowAct.None) return named;
+            }
+
             string cmd = (info?.Cmd ?? "").TrimStart();
             if (cmd.Length == 0) cmd = (info?.Agent ?? "").TrimStart();
-            if (cmd.Length == 0) return RowAct.None;
+            if (cmd.Length == 0)
+            {
+                return ByName(info?.Name);
+            }
 
             if (cmd.StartsWith("less") || (cmd.StartsWith("env ") && cmd.Contains(" less")))
                 return RowAct.View;
@@ -123,6 +136,17 @@ namespace SlopWorld
             // The git view's diff, which is a whole `git -C ... --paginate diff` line and the
             // only git this half ever runs in an errand.
             if (cmd.StartsWith("git ") && cmd.Contains(" diff")) return RowAct.Diff;
+            return RowAct.None;
+        }
+
+        static RowAct ByName(string name)
+        {
+            name = (name ?? "").TrimStart();
+            if (name.StartsWith("view-", System.StringComparison.Ordinal)
+                || name.StartsWith("search-", System.StringComparison.Ordinal))
+                return RowAct.View;
+            if (name.StartsWith("edit-", System.StringComparison.Ordinal)) return RowAct.Edit;
+            if (name.StartsWith("diff-", System.StringComparison.Ordinal)) return RowAct.Diff;
             return RowAct.None;
         }
 
