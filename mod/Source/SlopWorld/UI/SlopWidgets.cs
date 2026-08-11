@@ -8,39 +8,68 @@ using Verse.Sound;
 
 namespace SlopWorld
 {
+    // The palette is Adwaita's dark one, by its own names, squared off: the colours are the
+    // library's and the geometry is [Slab]'s, which rounds nothing.
+    //
+    // Two rules carry most of it. **Surfaces are opaque and differ by lightness** - window,
+    // view, headerbar and popover are four flat greys, not one grey at four alphas over the
+    // game. **Controls are white over their surface** - a button is not a colour, it is the
+    // surface plus ten percent white, which is why one face works on all four of them.
     public static class SlopWidgets
     {
+        // ---- Adwaita, dark. The library's own values, hex in the comment so a drift from
+        // upstream is one grep away.
 
-        public static readonly Color Lead = new Color(0.88f, 0.90f, 0.93f);
+        public static readonly Color Accent = new Color(0.208f, 0.518f, 0.894f);      // #3584e4
+        public static readonly Color Destructive = new Color(0.753f, 0.110f, 0.157f); // #c01c28
 
-        public static readonly Color Name = new Color(0.76f, 0.78f, 0.82f);
+        public static readonly Color WindowBg = new Color(0.141f, 0.141f, 0.141f);    // #242424
+        public static readonly Color ViewBg = new Color(0.118f, 0.118f, 0.118f);      // #1e1e1e
+        public static readonly Color PopoverBg = new Color(0.220f, 0.220f, 0.220f);   // #383838
+        public static readonly Color HeaderBg = new Color(0.188f, 0.188f, 0.188f);    // #303030
 
-        public static readonly Color Dim = new Color(0.62f, 0.64f, 0.68f);
+        // ---- The text ramp. White at falling opacity rather than four greys: over any of
+        // the surfaces above it comes out at the right lightness without being retuned per
+        // surface, and Adwaita's own dim-label is exactly this (55%).
 
-        public static readonly Color Faint = new Color(0.50f, 0.52f, 0.57f);
+        public static readonly Color Lead = new Color(1f, 1f, 1f, 1.00f);
+        public static readonly Color Name = new Color(1f, 1f, 1f, 0.80f);
+        public static readonly Color Dim = new Color(1f, 1f, 1f, 0.55f);
+        public static readonly Color Faint = new Color(1f, 1f, 1f, 0.42f);
+        public static readonly Color Off = new Color(1f, 1f, 1f, 0.30f);
 
-        public static readonly Color Off = new Color(0.42f, 0.44f, 0.49f);
-
-        public static readonly Color Bad = new Color(0.92f, 0.45f, 0.44f);
-
-        public static readonly Color Warn = new Color(0.85f, 0.75f, 0.45f);
-
+        public static readonly Color Bad = new Color(1f, 0.482f, 0.388f);   // #ff7b63, dark error
+        public static readonly Color Warn = new Color(0.973f, 0.776f, 0.208f);  // #f8c635
         public static readonly Color Global = new Color(0.79f, 0.72f, 0.91f);
 
-        public static readonly Color Panel = new Color(0.09f, 0.10f, 0.12f, 0.93f);
+        // The chrome's own ground - the top bar, the sidebar, the panels. Not quite opaque:
+        // it is laid over a game that is still being played underneath it.
+        public static readonly Color Panel = new Color(0.141f, 0.141f, 0.141f, 0.96f);
 
-        public static readonly Color Edge = new Color(0f, 0f, 0f, 0.55f);
+        // Adwaita's separator and border, which in dark is a low-alpha white rather than a
+        // black line: a dark border on a dark surface is a groove, and the flat style has no
+        // grooves in it.
+        public static readonly Color Edge = new Color(1f, 1f, 1f, 0.14f);
         public static readonly Color EdgeLit = new Color(0.55f, 0.60f, 0.70f, 0.90f);
 
-        public static readonly Color Well = new Color(0f, 0f, 0f, 0.25f);
+        // What a control sunk into a surface is filled with - an entry, the slider's track,
+        // a list's frame. Adwaita's view background, opaque: a hole showing the map through
+        // it is the one thing that never reads as a hole.
+        public static readonly Color Well = ViewBg;
 
-        static readonly Color Online = new Color(0.5f, 0.8f, 0.5f);
-        static readonly Color Offline = new Color(0.9f, 0.5f, 0.5f);
+        static readonly Color Online = new Color(0.345f, 0.769f, 0.294f);  // #58c44b
+        static readonly Color Offline = new Color(1f, 0.482f, 0.388f);
 
-        public static readonly Color Yes = new Color(0.55f, 0.82f, 0.55f);
+        public static readonly Color Yes = new Color(0.345f, 0.769f, 0.294f);
 
         public static readonly Color RowBg = new Color(1f, 1f, 1f, 0.03f);
         public static readonly Color RowOn = new Color(1f, 1f, 1f, 0.10f);
+
+        // A selected row and a row under the mouse. Adwaita tints the selection with the
+        // accent and the hover with plain white, which is the whole of how the two are told
+        // apart when a list has one of each on it at the same time.
+        public static readonly Color Sel = new Color(0.208f, 0.518f, 0.894f, 0.35f);
+        public static readonly Color Hover = new Color(1f, 1f, 1f, 0.06f);
 
         public enum Btn
         {
@@ -50,16 +79,25 @@ namespace SlopWorld
             Ghost,     // there, but not competing - a press beside a press that matters more.
         }
 
-        static readonly Color BtnEdge = new Color(0f, 0f, 0f, 0.42f);
+        static readonly Color BtnEdge = Edge;
 
-        static readonly Color BtnFace = new Color(0.23f, 0.24f, 0.27f, 0.96f);
+        // Adwaita's button is not a colour of its own: it is white over whatever it sits on,
+        // at ten percent, and its hover and press are the same white at fifteen and thirty.
+        // One face for every surface, which is the point - the same button reads correctly on
+        // the window, on a card and in a popover without being told which it is on.
+        static readonly Color BtnFace = new Color(1f, 1f, 1f, 0.10f);
+        static readonly Color BtnHover = new Color(1f, 1f, 1f, 0.15f);
+        static readonly Color BtnDown = new Color(1f, 1f, 1f, 0.30f);
 
-        static readonly Color GhostFace = new Color(1f, 1f, 1f, 0.055f);
+        // A flat button: nothing at rest, the ordinary button's white once the mouse is on it.
+        static readonly Color GhostFace = new Color(1f, 1f, 1f, 0f);
 
-        static readonly Color FocusEdge = new Color(0.34f, 0.51f, 0.74f, 0.85f);
+        static readonly Color FocusRing = Accent;
 
-        static readonly Color PrimeFace = new Color(0.15f, 0.33f, 0.57f, 0.98f);
-        static readonly Color DangerFace = new Color(0.46f, 0.16f, 0.18f, 0.98f);
+        static readonly Color KnobFace = new Color(1f, 1f, 1f);
+
+        static readonly Color PrimeFace = Accent;
+        static readonly Color DangerFace = Destructive;
 
         public const float BtnH = 30f;
 
@@ -78,31 +116,41 @@ namespace SlopWorld
             bool over = on && Mouse.IsOver(r);
             bool held = over && Input.GetMouseButton(0);
 
+            // The state is the face and nothing else. There is no geometry in a press here -
+            // Adwaita took the relief out of its buttons, so a button that moved or lost a
+            // highlight would be the one thing on screen pretending to be a physical object.
             Color face, text;
             switch (kind)
             {
                 case Btn.Primary:
-                    face = PrimeFace; text = Color.white; break;
+                    face = Step(PrimeFace, over, held); text = Color.white; break;
                 case Btn.Danger:
-                    face = DangerFace; text = new Color(1f, 0.86f, 0.85f); break;
+                    face = Step(DangerFace, over, held); text = Color.white; break;
                 case Btn.Ghost:
-                    face = GhostFace; text = Name;
+                    face = held ? BtnDown : over ? BtnFace : GhostFace;
+                    text = over ? Lead : Name;
                     break;
                 default:
-                    face = BtnFace; text = Lead; break;
+                    face = held ? BtnDown : over ? BtnHover : BtnFace;
+                    text = Lead; break;
             }
 
-            if (held) face = Lighten(face, -0.12f);
-            else if (over) face = Lighten(face, kind == Btn.Ghost ? 0.06f : 0.10f);
-            if (over && kind == Btn.Ghost) text = Lead;
-
+            // Adwaita's insensitive: the control stays exactly where it is and everything in
+            // it loses half its opacity. Not a darker face - these faces are white over the
+            // surface, and darkening a translucent white makes it *lighter*.
             if (!on)
             {
-                face = Lighten(face, -0.45f);
-                text = Off;
+                face = Fade(face, 0.5f);
+                text = Fade(text, 0.5f);
             }
 
-            Slab.Raised(r, face, BtnEdge, held || !on);
+            // A solid accent button has no border; a flat one has none until it is touched.
+            bool solid = kind == Btn.Primary || kind == Btn.Danger;
+            var edge = solid || (kind == Btn.Ghost && !over && !held)
+                ? Clear
+                : on ? BtnEdge : Fade(BtnEdge, 0.5f);
+
+            Slab.Box(r, face, edge);
 
             var wasAnchor = Text.Anchor;
             var wasColor = GUI.color;
@@ -118,6 +166,8 @@ namespace SlopWorld
             return true;
         }
 
+        public static readonly Color Clear = new Color(0f, 0f, 0f, 0f);
+
         static Color Lighten(Color c, float by)
         {
             var to = by >= 0f ? Color.white : Color.black;
@@ -125,6 +175,16 @@ namespace SlopWorld
             return new Color(Mathf.Lerp(c.r, to.r, t), Mathf.Lerp(c.g, to.g, t),
                 Mathf.Lerp(c.b, to.b, t), c.a);
         }
+
+        // Opacity, which is how Adwaita says "the same colour, less of it": a disabled label
+        // and a disabled face are the enabled ones at half alpha, not separate colours.
+        static Color Fade(Color c, float by) =>
+            new Color(c.r, c.g, c.b, c.a * by);
+
+        // A solid colour's hover and press. The accent buttons are opaque, so theirs is a
+        // lightness step rather than the white overlay the flat ones use.
+        static Color Step(Color c, bool over, bool held) =>
+            held ? Lighten(c, -0.15f) : over ? Lighten(c, 0.10f) : c;
 
         public static float LineH => LineHOf(GameFont.Small);
 
@@ -164,7 +224,11 @@ namespace SlopWorld
         public static string Field(Rect r, string name, string text, bool on = true)
         {
             bool focused = on && GUI.GetNameOfFocusedControl() == name;
-            Slab.Box(r, Well, focused ? FocusEdge : BtnEdge);
+            Slab.Box(r, Well, focused ? Accent : BtnEdge);
+            // The one control in this file that has real keyboard focus to show, IMGUI
+            // tracking it by name. Adwaita rings the focused entry rather than only
+            // recolouring its border, and the ring is what carries across a dark form.
+            if (focused) Slab.Ring(r, FocusRing);
 
             var inner = r.ContractedBy(6f, 0f);
             // Do not create a control that accepts input only to discard it next frame.
@@ -178,13 +242,32 @@ namespace SlopWorld
                                   bool frame = true)
         {
             bool focused = on && GUI.GetNameOfFocusedControl() == name;
-            if (frame) Slab.Box(r, Well, focused ? FocusEdge : BtnEdge);
+            if (frame)
+            {
+                Slab.Box(r, Well, focused ? Accent : BtnEdge);
+                if (focused) Slab.Ring(r, FocusRing);
+            }
 
             var inner = frame ? r.ContractedBy(6f, 4f) : r;
             if (!on) return Stated(inner, text, TextAnchor.UpperLeft);
 
             GUI.SetNextControlName(name);
             return GUI.TextArea(inner, text ?? "", Bare(Verse.Text.CurTextAreaStyle));
+        }
+
+        // The entry's frame on its own, for a caller drawing one box round more than one
+        // thing - the command palette puts a prompt and an input inside a single entry.
+        public static void FieldFrame(Rect r, bool focused)
+        {
+            Slab.Box(r, Well, focused ? Accent : BtnEdge);
+            if (focused) Slab.Ring(r, FocusRing);
+        }
+
+        // The text field with no frame of its own, for the same caller.
+        public static string BareField(Rect r, string name, string text)
+        {
+            GUI.SetNextControlName(name);
+            return GUI.TextField(r, text ?? "", Bare(Verse.Text.CurTextFieldStyle));
         }
 
         static GUIStyle Bare(GUIStyle of)
@@ -210,14 +293,19 @@ namespace SlopWorld
                                     bool locked = false, bool warn = false)
         {
             bool over = !locked && Mouse.IsOver(r);
-            if (over) Widgets.DrawHighlight(r);
+            if (over) Slab.Fill(r, Hover);
             if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
 
             float size = Mathf.Min(Mathf.Round(LineH * 0.8f), r.height - 2f);
             var box = new Rect(r.x + 1f, r.y + (r.height - size) / 2f, size, size);
+
+            // Checked is solid accent with no border of its own; unchecked is a hole in the
+            // surface with one. Locked is the same pair at half opacity - Adwaita's
+            // insensitive again, and the same call the buttons make.
             var face = on ? PrimeFace : Well;
-            if (locked) face = Lighten(face, -0.45f);
-            Slab.Box(box, face, BtnEdge);
+            var edge = on ? Clear : BtnEdge;
+            if (locked) { face = Fade(face, 0.5f); edge = Fade(edge, 0.5f); }
+            Slab.Box(box, face, edge);
             if (on)
             {
                 GUI.color = locked ? Faint : Color.white;
@@ -248,11 +336,26 @@ namespace SlopWorld
         // levels reads as one compact mixer. Mouse capture belongs to IMGUI's hot control:
         // dragging may leave the track without losing the knob.
         public static float Slider(Listing_Standard l, string label, float value,
-                                   string tip = null)
+                                   string tip = null) =>
+            Slider(l, label, value, 0f, 1f,
+                Mathf.RoundToInt(Mathf.Clamp01(value) * 100f) + "%", tip);
+
+        // The same control over a range that is not nought to one, with the readout written
+        // by the caller: a font size and a dimming fraction are not percentages of anything,
+        // and the three pages that wanted them were the three still on vanilla's slider.
+        public static float Slider(Listing_Standard l, string label, float value,
+                                   float min, float max, string readout, string tip = null)
         {
             var r = l.GetRect(RowH + GapS);
             if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
 
+            float span = max - min;
+            float at = span <= 0f ? 0f : Mathf.Clamp01((value - min) / span);
+            return min + Track(r, label, at, readout) * span;
+        }
+
+        static float Track(Rect r, string label, float value, string readout)
+        {
             const float valueW = 46f;
             const float knobW = 12f;
             float labelW = Mathf.Min(Mathf.Max(Wide(label) + GapM, 120f), r.width * 0.42f);
@@ -265,7 +368,7 @@ namespace SlopWorld
             RowLabel(labelRect, label);
             var oldAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleRight;
-            Widgets.Label(valueRect, Mathf.RoundToInt(Mathf.Clamp01(value) * 100f) + "%");
+            Widgets.Label(valueRect, readout);
             Text.Anchor = oldAnchor;
             GUI.color = Color.white;
 
@@ -297,12 +400,54 @@ namespace SlopWorld
             Slab.Box(track, Well, BtnEdge);
             var fill = new Rect(track.x, track.y, track.width * Mathf.Clamp01(value), track.height);
             if (fill.width > 0f) Slab.Fill(fill, PrimeFace);
+
+            // Adwaita's knob is white on both the light and the dark theme, and squared off
+            // it is the only solid white thing in the chrome - which is what makes a row of
+            // sliders readable at a glance. Grabbed, it steps down rather than sinking.
             float knobX = Mathf.Lerp(track.x, track.xMax, Mathf.Clamp01(value));
-            Slab.Raised(new Rect(knobX - knobW / 2f, track.y - 3f, knobW, track.height + 6f),
-                Mouse.IsOver(hit) || GUIUtility.hotControl == id ? Lighten(BtnFace, 0.1f) : BtnFace,
-                BtnEdge, GUIUtility.hotControl == id);
+            bool grabbed = GUIUtility.hotControl == id;
+            Slab.Box(new Rect(knobX - knobW / 2f, track.y - 3f, knobW, track.height + 6f),
+                grabbed ? Lighten(KnobFace, -0.20f) : Mouse.IsOver(hit)
+                    ? Lighten(KnobFace, -0.08f) : KnobFace,
+                Clear);
             return value;
         }
+
+        // A page's ground. What `Widgets.DrawMenuSection` used to be, in the palette and
+        // without the texture: Adwaita's card, one shade off the window with a line round it.
+        //
+        // Opaque, and that is the whole reason it exists. The pages are drawn inside the
+        // options window, which is still vanilla's, so a card at any transparency is a page
+        // with RimWorld's stone showing through the middle of it.
+        public static void Card(Rect r) => Slab.Box(r, WindowBg, Edge);
+
+        // An icon that answers to a press, in the chrome's own hover rather than vanilla's.
+        // `Widgets.ButtonImage` tints the icon white on mouseover and draws nothing behind
+        // it; Adwaita puts the button's white *under* the icon and leaves the icon alone,
+        // which is what makes a row of them read as a row of buttons.
+        //
+        // `tint` is the icon's colour at rest - a disabled errand hands over a faded one -
+        // and it goes to full white under the mouse.
+        public static bool IconButton(Rect r, Texture2D icon, Color tint, bool on = true)
+        {
+            bool over = on && Mouse.IsOver(r);
+            bool held = over && Input.GetMouseButton(0);
+
+            if (over) Slab.Fill(r, held ? BtnDown : BtnHover);
+
+            var was = GUI.color;
+            GUI.color = on ? (over ? Lead : tint) : Fade(tint, 0.5f);
+            GUI.DrawTexture(r.ContractedBy(2f), icon);
+            GUI.color = was;
+
+            if (!on || !Widgets.ButtonInvisible(r)) return false;
+
+            SoundDefOf.Click.PlayOneShotOnCamera();
+            return true;
+        }
+
+        public static bool IconButton(Rect r, Texture2D icon, bool on = true) =>
+            IconButton(r, icon, Name, on);
 
         public static void SectionHeading(Listing_Standard l, string text) =>
             SectionHeading(l.GetRect(RowH), text);
@@ -466,13 +611,13 @@ namespace SlopWorld
         public static void RowChrome(Rect r)
         {
             Widgets.DrawBoxSolid(r, RowBg);
-            Widgets.DrawHighlightIfMouseover(r);
+            if (Mouse.IsOver(r)) Slab.Fill(r, Hover);
         }
 
         public static bool HoverRow(Rect r)
         {
             bool on = ColonistBarStrip.Hover(r);
-            if (on) Widgets.DrawHighlight(r);
+            if (on) Slab.Fill(r, Hover);
             return on;
         }
 
@@ -505,7 +650,7 @@ namespace SlopWorld
 
     public abstract class SlopListView<T> : IContentView
     {
-        Vector2 _scroll;
+        readonly SmoothScroll _scroll = new SmoothScroll();
 
         public abstract string Title { get; }
 
@@ -542,7 +687,7 @@ namespace SlopWorld
             var items = Rows.ToList();
             var view = new Rect(0f, 0f, rect.width - 18f, items.Count * RowH + 4f);
 
-            Widgets.BeginScrollView(rect, ref _scroll, view);
+            _scroll.Begin(rect, view);
 
             if (items.Count == 0)
             {
@@ -563,7 +708,7 @@ namespace SlopWorld
                 y += RowH;
             }
 
-            Widgets.EndScrollView();
+            _scroll.End();
         }
     }
 }

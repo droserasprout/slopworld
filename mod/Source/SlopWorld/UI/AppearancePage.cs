@@ -14,7 +14,7 @@ namespace SlopWorld
     // See SlopOptions.
     public class AppearancePage
     {
-        Vector2 _scroll;
+        readonly SmoothScroll _scroll = new SmoothScroll();
         float _fieldsH;
 
         static SlopSettings S => SlopWorldMod.Instance.settings;
@@ -26,7 +26,7 @@ namespace SlopWorld
 
             var body = SlopWidgets.PageBody(rect);
             body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
-            Widgets.DrawMenuSection(body);
+            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             // The preview sits at the foot; the form scrolls above it.
@@ -38,7 +38,7 @@ namespace SlopWorld
             var form = new Rect(inner.x, inner.y, inner.width,
                 caption.y - inner.y - SlopWidgets.GapS);
             var view = new Rect(0f, 0f, form.width - 18f, Mathf.Max(_fieldsH, form.height));
-            Widgets.BeginScrollView(form, ref _scroll, view);
+            _scroll.Begin(form, view);
 
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(new Rect(0f, 0f, view.width, 4000f));
@@ -64,12 +64,12 @@ namespace SlopWorld
                         SlopUIFont.Apply();
                     }));
                 }
-                Find.WindowStack.Add(new FloatMenu(opts));
+                Find.WindowStack.Add(new SlopMenu(opts));
             }
 
             l.Gap(SlopWidgets.GapS);
-            l.Label("Size: " + (S.uiFontSize > 0 ? $"{S.uiFontSize}pt" : "Default (per tier)"));
-            int size = Mathf.RoundToInt(l.Slider(S.uiFontSize, 0, 24));
+            int size = Mathf.RoundToInt(SlopWidgets.Slider(l, "Size", S.uiFontSize, 0, 24,
+                S.uiFontSize > 0 ? $"{S.uiFontSize}pt" : "auto"));
             if (size != S.uiFontSize)
             {
                 S.uiFontSize = size;
@@ -95,7 +95,7 @@ namespace SlopWorld
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
 
-            Widgets.EndScrollView();
+            _scroll.End();
 
             // ---- preview
             SlopWidgets.SectionHeading(caption, "Preview");
@@ -107,7 +107,7 @@ namespace SlopWorld
         // the top bar and the list views.
         static void DrawPreview(Rect r)
         {
-            Widgets.DrawBoxSolid(r, SlopWidgets.Panel);
+            Slab.Box(r, SlopWidgets.Well, SlopWidgets.Edge);
 
             float x = r.x + 8f, y = r.y + 6f;
             float w = r.width - 16f;

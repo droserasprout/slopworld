@@ -8,7 +8,7 @@ namespace SlopWorld
     // What is left here is the two things about the agent: its name and what it runs.
     // Where it works and what it can reach moved to the project, which is why picking
     // one is mandatory and there is no directory field.
-    public class EditSessionDialog : Window
+    public class EditSessionDialog : SlopWindow
     {
         enum Tab { Edit, Preview }
 
@@ -19,7 +19,7 @@ namespace SlopWorld
         readonly SmoothScroll _presetScroll = new SmoothScroll();
         readonly SmoothScroll _breadcrumbScroll = new SmoothScroll();
         SmoothScroll _previewScroll = new SmoothScroll();
-        Vector2 _editorScroll;
+        readonly SmoothScroll _editorScroll = new SmoothScroll();
         const float PresetsH = 132f;
         const float BreadcrumbsH = 132f;
         Tab _tab;
@@ -71,10 +71,6 @@ namespace SlopWorld
                     BreadcrumbYolo = existing.BreadcrumbYolo,
                 };
 
-            doCloseX = true;
-            absorbInputAroundWindow = true;
-            closeOnClickedOutside = false;
-            closeOnAccept = false;
 
             SessionHub.Instance.RefreshProjects();
             // Both tables are files the daemon reads, so they are asked for on every open
@@ -91,7 +87,7 @@ namespace SlopWorld
         // lists under it, so the Edit tab can size its scroll view from the actual form.
         public override Vector2 InitialSize => new Vector2(560f, 800f);
 
-        public override void DoWindowContents(Rect rect)
+        protected override void DoBody(Rect rect)
         {
             SlopWidgets.Title(rect, _copiedFrom != null
                 ? $"Copy of '{_copiedFrom}'"
@@ -107,9 +103,9 @@ namespace SlopWorld
             {
                 var view = new Rect(0f, 0f, body.width - 18f,
                     Mathf.Max(_editorContentH, body.height));
-                Widgets.BeginScrollView(body, ref _editorScroll, view);
+                _editorScroll.Begin(body, view);
                 DrawEditor(view);
-                Widgets.EndScrollView();
+                _editorScroll.End();
             }
             else
                 SandboxPreviewPanel.Draw(body, ref _previewScroll,
@@ -236,7 +232,7 @@ namespace SlopWorld
             options.Add(new FloatMenuOption("New project...",
                 () => Find.WindowStack.Add(new EditProjectDialog(null))));
 
-            Find.WindowStack.Add(new FloatMenu(options));
+            Find.WindowStack.Add(new SlopMenu(options));
         }
 
         void PickNetwork(NetworkMode ceiling)
@@ -258,7 +254,7 @@ namespace SlopWorld
                     () => _s.NetworkOverride = picked));
             }
 
-            Find.WindowStack.Add(new FloatMenu(options));
+            Find.WindowStack.Add(new SlopMenu(options));
         }
 
         // The three states this pair of fields can be in: a command preset, a command line
@@ -310,7 +306,7 @@ namespace SlopWorld
             }
 
             options.Add(new FloatMenuOption("Command line...", () => _s.Command = ""));
-            Find.WindowStack.Add(new FloatMenu(options));
+            Find.WindowStack.Add(new SlopMenu(options));
         }
 
         void Save()
@@ -336,13 +332,13 @@ namespace SlopWorld
 
     // The game is inside Wine and cannot see the host filesystem, so the daemon does
     // the listing.
-    public class BrowseDialog : Window
+    public class BrowseDialog : SlopWindow
     {
         readonly System.Action<string> _pick;
         string _path;
         string _parent;
         string[] _dirs = new string[0];
-        Vector2 _scroll;
+        readonly SmoothScroll _scroll = new SmoothScroll();
 
         // One row and the clearance under it, so the list has a pitch rather than two figures
         // four pixels apart written at three call sites.
@@ -351,8 +347,6 @@ namespace SlopWorld
         public BrowseDialog(string start, System.Action<string> pick)
         {
             _pick = pick;
-            doCloseX = true;
-            absorbInputAroundWindow = true;
             Load(start ?? "");
         }
 
@@ -370,7 +364,7 @@ namespace SlopWorld
                 SlopWidgets.Fail);
         }
 
-        public override void DoWindowContents(Rect rect)
+        protected override void DoBody(Rect rect)
         {
             SlopWidgets.PageCaption(rect, _path ?? "loading...");
 
@@ -380,7 +374,7 @@ namespace SlopWorld
             int count = _dirs.Length + (_parent != null ? 1 : 0);
             var view = new Rect(0f, 0f, list.width - 18f, count * Pitch);
 
-            Widgets.BeginScrollView(list, ref _scroll, view);
+            _scroll.Begin(list, view);
             float y = 0f;
 
             if (_parent != null)
@@ -403,7 +397,7 @@ namespace SlopWorld
                 }
                 y += Pitch;
             }
-            Widgets.EndScrollView();
+            _scroll.End();
 
             if (SlopWidgets.Button(SlopWidgets.FooterBar(rect),
                     "Use this directory", SlopWidgets.Btn.Primary))

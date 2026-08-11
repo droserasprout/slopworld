@@ -33,6 +33,16 @@ namespace SlopWorld
         // keeps the window repainting for nothing.
         const float Snap = 0.5f;
 
+        // The bar's own geometry, kept from `Begin` because it is drawn in `End` - outside
+        // the scroll view's group, which is the only place the outer rect means what it says.
+        Rect _outer;
+        Vector2 _max;
+        bool _bar;
+
+        // Where in the thumb the drag was started, so a grabbed bar does not jump its own
+        // half-height under the cursor on the first frame.
+        float _grab;
+
         Vector2 _pos;
         Vector2 _target;
 
@@ -53,6 +63,17 @@ namespace SlopWorld
             _pos = _target = pos;
         }
 
+        // The least travel that puts a row inside the viewport, and none at all if it is
+        // already there. A jump rather than an ease for the reason `JumpTo` is one: this is
+        // the keyboard moving a selection, and a highlight that arrives before the list it
+        // is on reads as the wrong row being lit.
+        public void Reveal(float top, float height, float viewport)
+        {
+            if (top < _pos.y) JumpTo(new Vector2(_pos.x, top));
+            else if (top + height > _pos.y + viewport)
+                JumpTo(new Vector2(_pos.x, top + height - viewport));
+        }
+
         public void Begin(Rect outer, Rect view, bool showScrollbars = true)
         {
             var max = new Vector2(
@@ -66,8 +87,14 @@ namespace SlopWorld
             TakeWheel(outer, max);
             Ease();
 
+            _outer = outer;
+            _max = max;
+            _bar = showScrollbars;
+
             _drawn = _pos;
-            Widgets.BeginScrollView(outer, ref _pos, view, showScrollbars);
+            // Always false: the bar is drawn in `End`. Handing `true` here is what put the
+            // Unity skin's bar - the last vanilla widget in the mod - inside every list.
+            Widgets.BeginScrollView(outer, ref _pos, view, false);
         }
 
         public void End()
@@ -77,6 +104,88 @@ namespace SlopWorld
             // The scroll view moved it. That is where the list now is, and easing back
             // toward a target from before it would fight the hand on the bar.
             if (_pos != _drawn) _target = _pos;
+
+            if (_bar) DrawBar();
+        }
+
+        // The bar's full width, and the thumb's inside it. Adwaita's is a slim slider with
+        // clear air either side rather than a channel filled edge to edge; the callers all
+        // reserve eighteen pixels off the view's width, so ten sits inside what is already
+        // held back for it.
+        const float BarW = 10f;
+        const float ThumbPad = 2f;
+
+        // Short enough to be a handle on a very long list, long enough to still be one.
+        const float MinThumb = 24f;
+
+        static readonly Color Trough = new Color(1f, 1f, 1f, 0.04f);
+        static readonly Color Thumb = new Color(1f, 1f, 1f, 0.28f);
+        static readonly Color ThumbOver = new Color(1f, 1f, 1f, 0.42f);
+        static readonly Color ThumbHeld = new Color(1f, 1f, 1f, 0.55f);
+
+        // Vertical only. Nothing here scrolls sideways - every caller sizes its view to the
+        // outer rect's width less the bar - and a bar drawn for an axis with no travel in it
+        // is a control that cannot move.
+        void DrawBar()
+        {
+            if (_max.y <= 0f) return;
+
+            var track = new Rect(_outer.xMax - BarW, _outer.y, BarW, _outer.height);
+            float h = ThumbH(track);
+
+            int id = GUIUtility.GetControlID(FocusType.Passive, track);
+            var e = Event.current;
+
+            if (e.type == EventType.MouseDown && e.button == 0 &&
+                track.Contains(e.mousePosition))
+            {
+                // On the thumb, it is picked up where it was touched. On the trough, it
+                // arrives centred under the cursor - which is a jump to that point in the
+                // list, and then a drag from it without letting go.
+                var at = ThumbRect(track, h);
+                _grab = at.Contains(e.mousePosition) ? e.mousePosition.y - at.y : h / 2f;
+                GUIUtility.hotControl = id;
+                DragTo(e.mousePosition.y, track, h);
+                e.Use();
+            }
+            else if (GUIUtility.hotControl == id)
+            {
+                if (e.type == EventType.MouseDrag)
+                {
+                    DragTo(e.mousePosition.y, track, h);
+                    e.Use();
+                }
+                else if (e.type == EventType.MouseUp && e.button == 0)
+                {
+                    GUIUtility.hotControl = 0;
+                    e.Use();
+                }
+            }
+
+            bool held = GUIUtility.hotControl == id;
+            Slab.Fill(track, Trough);
+            Slab.Fill(ThumbRect(track, h),
+                held ? ThumbHeld : Mouse.IsOver(track) ? ThumbOver : Thumb);
+        }
+
+        float ThumbH(Rect track) =>
+            Mathf.Clamp(track.height * (track.height / (track.height + _max.y)),
+                Mathf.Min(MinThumb, track.height), track.height);
+
+        Rect ThumbRect(Rect track, float h)
+        {
+            float t = _max.y <= 0f ? 0f : Mathf.Clamp01(_pos.y / _max.y);
+            return new Rect(track.x + ThumbPad, track.y + (track.height - h) * t,
+                track.width - ThumbPad * 2f, h);
+        }
+
+        // A hand on the bar is not a gesture to ease: the list goes where the thumb is put,
+        // this frame, and the target goes with it so the ease has nothing left to do.
+        void DragTo(float mouseY, Rect track, float h)
+        {
+            float span = track.height - h;
+            float t = span <= 0f ? 0f : Mathf.Clamp01((mouseY - _grab - track.y) / span);
+            _pos.y = _target.y = t * _max.y;
         }
 
         void TakeWheel(Rect outer, Vector2 max)

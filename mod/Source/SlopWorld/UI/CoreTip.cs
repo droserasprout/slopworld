@@ -130,7 +130,9 @@ namespace SlopWorld
             if (tipRect.x < margin) tipRect.x = margin;
             if (tipRect.xMax > UI.screenWidth - margin) tipRect.x = UI.screenWidth - margin - w;
 
-            Widgets.DrawWindowBackground(tipRect);
+            // Adwaita's popover, not vanilla's window: this is a hint floating over the
+            // map, and it is the same surface the command palette stands on.
+            Slab.Box(tipRect, SlopWidgets.PopoverBg, SlopWidgets.Edge);
             var inner = tipRect.ContractedBy(8f);
             Widgets.Label(inner, _stickyTip);
             Text.WordWrap = false;
@@ -169,7 +171,7 @@ namespace SlopWorld
 
             // OpenOverPane rather than a plain Add: the status bar is drawn over a terminal
             // as well as over the map, and a menu opened from it belongs above both.
-            TerminalWindow.OpenOverPane(new FloatMenu(options));
+            TerminalWindow.OpenOverPane(new SlopMenu(options));
         }
 
         // Where the core stands, or Invalid with none - which is a hint that dismisses itself

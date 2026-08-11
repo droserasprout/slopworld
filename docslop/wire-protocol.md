@@ -33,7 +33,7 @@ effective `network` plus `network_override`; writes send the override as a
 mode string or JSON `null` for inherit. The daemon rejects an override wider
 than its project's ceiling.
 
-`GET /api/usage`, `/api/presets`, `/api/browse`, `/api/git`, `/api/audio` and
+`GET /api/usage`, `/api/presets`, `/api/browse`, `/api/search`, `/api/git`, `/api/audio` and
 `/api/game` are
 for anything that would rather ask than listen. `POST /api/open` answers 400 for a URL it will
 not take and 502 for an opener that would not.
@@ -97,3 +97,10 @@ rather than a request that failed. `git` itself missing is the error.
 Renaming anything here needs both halves. `SessionInfo.ParseState` treats an
 unknown state as `Down`, which keeps a version skew survivable rather than
 correct.
+
+## `GET /api/search`
+
+Runs `rg` directly in one project directory. `path` and `q` are required; `regex`,
+`case`, `word`, and `hidden` are boolean switches. The answer is capped at 200 rows
+and carries `truncated`, with each match returning its relative path, line, byte
+column, and matching line text. `.git` is always excluded.

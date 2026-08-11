@@ -51,6 +51,8 @@ namespace SlopWorld
 
         public static Texture2D Files => Get("files");
 
+        public static Texture2D Search => Get("search");
+
         public static Texture2D Git => Get("git");
 
         public static Texture2D Shortcuts => Get("shortcuts");

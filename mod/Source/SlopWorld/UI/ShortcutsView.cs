@@ -63,11 +63,11 @@ namespace SlopWorld
         static Rect Screen(Rect r)
         {
             var list = AgentSidebar.Body;
-            var moved = new Rect(list.x + r.x, list.y + r.y - _scroll.y, r.width, r.height);
+            var moved = new Rect(list.x + r.x, list.y + r.y - _scroll.Position.y, r.width, r.height);
             return moved.yMax <= list.y || moved.y >= list.yMax ? Rect.zero : moved;
         }
 
-        static Vector2 _scroll;
+        static readonly SmoothScroll _scroll = new SmoothScroll();
 
         public static void Draw(Rect body)
         {
@@ -93,7 +93,7 @@ namespace SlopWorld
             // events - see AgentSidebar.DrawBack. Closed from a finally the way the files
             // view closes its own: a scroll view left open is every window drawn after it
             // drawn somewhere else.
-            Widgets.BeginScrollView(list, ref _scroll, view);
+            _scroll.Begin(list, view);
             try
             {
                 float y = Pad;
@@ -129,7 +129,7 @@ namespace SlopWorld
                     Text.Font = GameFont.Small;
 
                     Widgets.DrawBoxSolid(new Rect(CellX, headRect.yMax - 1f,
-                        view.width - CellX * 2f, 1f), new Color(1f, 1f, 1f, 0.08f));
+                        view.width - CellX * 2f, 1f), SlopWidgets.Edge);
 
                     TooltipHandler.TipRegion(headRect,
                         key.Length == 0
@@ -186,7 +186,7 @@ namespace SlopWorld
             }
             finally
             {
-                Widgets.EndScrollView();
+                _scroll.End();
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = Color.white;
@@ -320,7 +320,7 @@ namespace SlopWorld
                 SessionHub.Instance.RunHostShell(project,
                     session => TerminalWindow.Open(session), SlopWidgets.Fail)));
 
-            TerminalWindow.OpenOverPane(new FloatMenu(opts));
+            TerminalWindow.OpenOverPane(new SlopMenu(opts));
         }
 
         static void RowMenu(ShortcutInfo s)
@@ -347,7 +347,7 @@ namespace SlopWorld
                     destructive: true));
             }));
 
-            TerminalWindow.OpenOverPane(new FloatMenu(opts));
+            TerminalWindow.OpenOverPane(new SlopMenu(opts));
         }
 
         // ------------------------------------------------------------------ actions
@@ -389,7 +389,7 @@ namespace SlopWorld
                 $"A temporary project under {ProjectInfo.TempRoot}",
                 () => Run(s, null, true)));
 
-            TerminalWindow.OpenOverPane(new FloatMenu(options));
+            TerminalWindow.OpenOverPane(new SlopMenu(options));
         }
 
         // Where an errand runs, in the few words a row and a tooltip have.
@@ -417,7 +417,7 @@ namespace SlopWorld
 
     // The command box is greyed rather than hidden when it is empty, so the thing
     // that will run is on screen even when nothing here chose it.
-    public class EditShortcutDialog : Window
+    public class EditShortcutDialog : SlopWindow
     {
         readonly bool _isNew;
         readonly ShortcutInfo _s;
@@ -435,10 +435,6 @@ namespace SlopWorld
             _origName = existing?.Name ?? "";
             _s = existing?.Copy() ?? new ShortcutInfo();
 
-            doCloseX = true;
-            absorbInputAroundWindow = true;
-            closeOnClickedOutside = false;
-            closeOnAccept = false;
 
             SessionHub.Instance.RefreshProjects();
             SlopClient.Get("/api/config", j =>
@@ -453,7 +449,7 @@ namespace SlopWorld
         // writes paragraphs in, and the one that gets squeezed when anything above grows.
         public override Vector2 InitialSize => new Vector2(560f, 660f);
 
-        public override void DoWindowContents(Rect rect)
+        protected override void DoBody(Rect rect)
         {
             // One column, on the room it has: a Listing_Standard begun on a rect too short
             // for its contents does not overflow, it breaks to a column off the right-hand
@@ -601,7 +597,7 @@ namespace SlopWorld
 
         void PickLink()
         {
-            TerminalWindow.OpenOverPane(new FloatMenu(new List<FloatMenuOption>
+            TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption(LinkLabel(ShortcutLink.Project),
                     () => _s.Link = ShortcutLink.Project),
@@ -614,7 +610,7 @@ namespace SlopWorld
 
         void PickKind()
         {
-            TerminalWindow.OpenOverPane(new FloatMenu(new List<FloatMenuOption>
+            TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption("Prompt - say something to an agent",
                     () => _s.Kind = ShortcutKind.Prompt),
@@ -634,7 +630,7 @@ namespace SlopWorld
             options.Insert(0, new FloatMenuOption("None", () => _s.Project = ""));
             options.Add(new FloatMenuOption("New project...",
                 () => TerminalWindow.OpenOverPane(new EditProjectDialog(null))));
-            TerminalWindow.OpenOverPane(new FloatMenu(options));
+            TerminalWindow.OpenOverPane(new SlopMenu(options));
         }
 
         void PickProject()
@@ -652,7 +648,7 @@ namespace SlopWorld
             options.Add(new FloatMenuOption("New project...",
                 () => TerminalWindow.OpenOverPane(new EditProjectDialog(null))));
 
-            TerminalWindow.OpenOverPane(new FloatMenu(options));
+            TerminalWindow.OpenOverPane(new SlopMenu(options));
         }
 
         void Save()

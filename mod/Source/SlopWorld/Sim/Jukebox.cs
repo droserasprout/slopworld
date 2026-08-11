@@ -59,7 +59,7 @@ namespace SlopWorld
         // is drawn over a terminal as well as over the map.
         public static void OpenMenu()
         {
-            TerminalWindow.OpenOverPane(new FloatMenu(new List<FloatMenuOption>
+            TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption(PlayRow(), Stations),
                 new FloatMenuOption("Like", Radio.Like),
@@ -134,7 +134,7 @@ namespace SlopWorld
                 var s = station; // the closure outlives the loop
                 options.Add(new FloatMenuOption(StationRow(s), () => Presets(s)));
             }
-            TerminalWindow.OpenOverPane(new FloatMenu(options));
+            TerminalWindow.OpenOverPane(new SlopMenu(options));
         }
 
         // A station's row carries the preset it is on, in the separator the rest of the
@@ -160,7 +160,7 @@ namespace SlopWorld
                     Mark(Radio.RateLabel(rate), Radio.Picked == s && s.Rate == rate),
                     () => Radio.Pick(s, rate)));
             }
-            TerminalWindow.OpenOverPane(new FloatMenu(options));
+            TerminalWindow.OpenOverPane(new SlopMenu(options));
         }
 
         // What is playing is marked rather than greyed out: a disabled row reads as

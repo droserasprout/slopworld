@@ -70,6 +70,7 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/usage", get(usage))
         .route("/api/audio", get(audio))
         .route("/api/browse", get(browse))
+        .route("/api/search", get(search))
         .route("/api/git", get(git_status))
         .route("/api/game", get(game))
         .route("/api/game/restart", post(restart_game))
@@ -987,6 +988,142 @@ async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult 
         "dirs": out.dirs,
         "files": out.files,
         "truncated": out.truncated,
+    })))
+}
+
+#[derive(Deserialize)]
+struct SearchReq {
+    #[serde(default)]
+    path: String,
+    #[serde(default)]
+    q: String,
+    #[serde(default, deserialize_with = "flag")]
+    regex: bool,
+    #[serde(default, deserialize_with = "flag")]
+    case: bool,
+    #[serde(default, deserialize_with = "flag")]
+    word: bool,
+    #[serde(default, deserialize_with = "flag")]
+    hidden: bool,
+    #[serde(default)]
+    limit: Option<usize>,
+}
+
+const SEARCH_LIMIT: usize = 200;
+
+/// Search one project without putting a pattern or path through a shell. `rg --json` keeps
+/// filenames and matching text unambiguous; reading it a line at a time lets the endpoint
+/// stop the process once the UI-sized answer is full rather than collecting an unbounded
+/// repository search in memory.
+async fn search(State(_m): State<Mgr>, Query(q): Query<SearchReq>) -> ApiResult {
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    use tokio::process::Command;
+
+    if q.path.is_empty() {
+        return Err(err(StatusCode::BAD_REQUEST, "no path"));
+    }
+    if q.q.is_empty() {
+        return Err(err(StatusCode::BAD_REQUEST, "no query"));
+    }
+
+    let dir = std::path::PathBuf::from(crate::config::expand(&q.path));
+    let limit = q.limit.unwrap_or(SEARCH_LIMIT).clamp(1, SEARCH_LIMIT);
+    let mut cmd = Command::new("rg");
+    cmd.current_dir(&dir)
+        .arg("--json")
+        .arg("--line-number")
+        .arg("--color=never")
+        .arg("--max-columns=1000")
+        .arg("--max-columns-preview")
+        .arg("--no-messages");
+    if !q.regex {
+        cmd.arg("--fixed-strings");
+    }
+    if q.case {
+        cmd.arg("--case-sensitive");
+    } else {
+        cmd.arg("--ignore-case");
+    }
+    if q.word {
+        cmd.arg("--word-regexp");
+    }
+    if q.hidden {
+        cmd.arg("--hidden");
+    }
+    cmd.arg("--glob=!.git/**")
+        .arg("--")
+        .arg(&q.q)
+        .arg(".")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .kill_on_drop(true);
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| err(StatusCode::BAD_REQUEST, format!("could not run rg: {e}")))?;
+    let stdout = child.stdout.take().ok_or_else(|| {
+        err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "could not read rg output",
+        )
+    })?;
+    let mut lines = BufReader::new(stdout).lines();
+    let mut matches = Vec::new();
+    let mut truncated = false;
+
+    while let Some(line) = lines
+        .next_line()
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?
+    {
+        let Ok(v) = serde_json::from_str::<Value>(&line) else {
+            continue;
+        };
+        if v["type"] != "match" {
+            continue;
+        }
+        if matches.len() >= limit {
+            truncated = true;
+            let _ = child.kill().await;
+            break;
+        }
+
+        let data = &v["data"];
+        let path = data["path"]["text"]
+            .as_str()
+            .unwrap_or("")
+            .trim_start_matches("./");
+        let text = data["lines"]["text"]
+            .as_str()
+            .unwrap_or("")
+            .trim_end_matches(['\r', '\n']);
+        let column = data["submatches"][0]["start"].as_u64().unwrap_or(0) + 1;
+        matches.push(json!({
+            "path": path,
+            "line": data["line_number"].as_u64().unwrap_or(0),
+            "column": column,
+            "text": text,
+        }));
+    }
+
+    if !truncated {
+        let status = child
+            .wait()
+            .await
+            .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+        // ripgrep uses 1 for a clean search with no matches.
+        if !status.success() && status.code() != Some(1) {
+            return Err(err(
+                StatusCode::BAD_REQUEST,
+                format!("rg exited with {status}"),
+            ));
+        }
+    }
+
+    Ok(Json(json!({
+        "path": dir,
+        "matches": matches,
+        "truncated": truncated,
     })))
 }
 

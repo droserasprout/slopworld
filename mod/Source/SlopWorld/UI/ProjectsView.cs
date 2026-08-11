@@ -109,7 +109,7 @@ namespace SlopWorld
 
     // Presets are checkboxes drawn from whatever the daemon says it knows, so this
     // never has to be kept in step with sandbox.rs by hand.
-    public class EditProjectDialog : Window
+    public class EditProjectDialog : SlopWindow
     {
         enum Tab { Edit, Preview }
 
@@ -122,7 +122,7 @@ namespace SlopWorld
         // For the title. Null unless it is a duplicate: an edit already has `_origName`.
         readonly string _copiedFrom;
 
-        Vector2 _scroll;
+        readonly SmoothScroll _scroll = new SmoothScroll();
         readonly SmoothScroll _presetScroll = new SmoothScroll();
         readonly SmoothScroll _breadcrumbScroll = new SmoothScroll();
         SmoothScroll _previewScroll = new SmoothScroll();
@@ -161,19 +161,14 @@ namespace SlopWorld
                 if (_p.Temp) _p.Dir = ProjectInfo.TempDir(_p.Name);
             }
 
-            doCloseX = true;
-            draggable = true;
             resizeable = true;
-            absorbInputAroundWindow = true;
-            closeOnClickedOutside = false;
-            closeOnAccept = false;
 
             SessionHub.Instance.LoadPresets(fail: SlopWidgets.Fail);
         }
 
         public override Vector2 InitialSize => new Vector2(680f, 680f);
 
-        public override void DoWindowContents(Rect rect)
+        protected override void DoBody(Rect rect)
         {
             SlopWidgets.Title(rect, _copiedFrom != null
                 ? $"Copy of '{_copiedFrom}'"
@@ -187,9 +182,9 @@ namespace SlopWorld
             if (_tab == Tab.Edit)
             {
                 var view = new Rect(0f, 0f, body.width - 18f, Mathf.Max(_contentH, body.height));
-                Widgets.BeginScrollView(body, ref _scroll, view);
+                _scroll.Begin(body, view);
                 DoFields(view);
-                Widgets.EndScrollView();
+                _scroll.End();
             }
             else
             {
@@ -293,7 +288,7 @@ namespace SlopWorld
                     () => _p.Network = picked));
             }
 
-            Find.WindowStack.Add(new FloatMenu(options));
+            Find.WindowStack.Add(new SlopMenu(options));
         }
 
         void Save()

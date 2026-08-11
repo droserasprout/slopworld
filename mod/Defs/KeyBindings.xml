@@ -35,7 +35,7 @@
     <defaultKeyCodeA>F12</defaultKeyCodeA>
   </KeyBindingDef>
 
-  <!-- F2, F3, F4: focus the sidebar's three views. Bare key = sidebar;
+  <!-- F2 through F6: focus the sidebar views. Bare key = sidebar;
        Shift+F = that F-key passes through to the agent/tui. -->
   <KeyBindingDef>
     <defName>SlopSidebarAgents</defName>
@@ -63,6 +63,13 @@
     <label>sidebar: shortcuts view</label>
     <category>SelectionMisc</category>
     <defaultKeyCodeA>F5</defaultKeyCodeA>
+  </KeyBindingDef>
+
+  <KeyBindingDef>
+    <defName>SlopSidebarSearch</defName>
+    <label>sidebar: search view</label>
+    <category>SelectionMisc</category>
+    <defaultKeyCodeA>F6</defaultKeyCodeA>
   </KeyBindingDef>
 
   <!-- Walk the session list. Comma and period otherwise walked the colonist bar,

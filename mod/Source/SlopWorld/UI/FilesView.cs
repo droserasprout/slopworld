@@ -58,7 +58,7 @@ namespace SlopWorld
         // as every expansion below it.
         static readonly HashSet<string> Shut = new HashSet<string>();
 
-        static Vector2 _scroll;
+        static readonly SmoothScroll _scroll = new SmoothScroll();
 
         // The file the reader is looking at, and the ephemeral session running `less` on it.
         // `_selected` is what the tree highlights; `Viewer` is who is showing it. The two move
@@ -150,7 +150,7 @@ namespace SlopWorld
             // events - see AgentSidebar.DrawBack. Closed from a finally for the reason
             // SlopOptions closes its group from a finalizer: a group left open is every
             // window drawn after it drawn somewhere else.
-            Widgets.BeginScrollView(body, ref _scroll, view);
+            _scroll.Begin(body, view);
             try
             {
                 float y = Pad;
@@ -163,7 +163,7 @@ namespace SlopWorld
             }
             finally
             {
-                Widgets.EndScrollView();
+                _scroll.End();
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = Color.white;
@@ -261,7 +261,7 @@ namespace SlopWorld
             SlopWidgets.RowLabel(label, project);
 
             Widgets.DrawBoxSolid(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
-                new Color(1f, 1f, 1f, 0.08f));
+                SlopWidgets.Edge);
 
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
@@ -323,7 +323,7 @@ namespace SlopWorld
             var r = new Rect(0f, y, width, RowH);
             bool over = SlopWidgets.HoverRow(r);
             if (node.Path == _selected)
-                Widgets.DrawBoxSolid(r, new Color(1f, 1f, 1f, 0.08f));
+                Slab.Fill(r, SlopWidgets.Hover);
 
             float x = CellX + node.Depth * Indent;
 
@@ -491,7 +491,7 @@ namespace SlopWorld
         static Rect Screen(Rect r)
         {
             var body = AgentSidebar.TreeBody(AgentSidebar.Body, AgentSidebar.TabFiles);
-            var moved = new Rect(body.x + r.x - _scroll.x, body.y + r.y - _scroll.y,
+            var moved = new Rect(body.x + r.x - _scroll.Position.x, body.y + r.y - _scroll.Position.y,
                 r.width, r.height);
             return moved.yMax <= body.y || moved.y >= body.yMax ? Rect.zero : moved;
         }
@@ -574,7 +574,7 @@ namespace SlopWorld
                     "edit-" + node.Name)));
             }
 
-            TerminalWindow.OpenOverPane(new FloatMenu(opts));
+            TerminalWindow.OpenOverPane(new SlopMenu(opts));
         }
 
         // Against the project's own directory. Null for the root itself, which has no relative

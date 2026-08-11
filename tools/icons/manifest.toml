@@ -59,6 +59,10 @@ note = "an actual robot at last; RobotFace_south is a pawn's faceplate, coloured
 glyph = "cod-folder"
 code = "ea83"
 
+[search]
+glyph = "cod-search"
+code = "ea6d"
+
 [git]
 glyph = "cod-git_branch"
 code = "ec6f"

@@ -234,6 +234,16 @@ namespace SlopWorld
             }
         }
 
+        // Vanilla's option background is a texture with a border and a hover of its own.
+        // This is the same row in the list's own colours: the accent tint for the page being
+        // read, plain white for the one under the mouse, nothing for the rest. Every row this
+        // mod adds to the column draws through it, which is why it is one method.
+        static void CategoryRow(Rect r, bool selected)
+        {
+            if (selected) Slab.Fill(r, SlopWidgets.Sel);
+            else if (Mouse.IsOver(r)) Slab.Fill(r, SlopWidgets.Hover);
+        }
+
         // Vanilla's row with our own icon on it. The whole row rather than the texture,
         // because vanilla reads that off `texPath` through `ContentFinder`, which knows
         // about files, and the general-config page gets the gear: it is the tab that opens
@@ -245,7 +255,7 @@ namespace SlopWorld
             {
                 if (optionCategory != Category) return true;
 
-                Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
+                CategoryRow(r, __instance.selectedCategory == optionCategory);
                 if (Widgets.ButtonInvisible(r))
                 {
                     __instance.selectedCategory = optionCategory;
@@ -331,7 +341,7 @@ namespace SlopWorld
             {
                 if (optionCategory != AppearanceCategory) return true;
 
-                Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
+                CategoryRow(r, __instance.selectedCategory == optionCategory);
                 if (Widgets.ButtonInvisible(r))
                 {
                     __instance.selectedCategory = optionCategory;
@@ -371,7 +381,7 @@ namespace SlopWorld
             {
                 if (optionCategory != AudioCategory) return true;
 
-                Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
+                CategoryRow(r, __instance.selectedCategory == optionCategory);
                 if (Widgets.ButtonInvisible(r))
                 {
                     __instance.selectedCategory = optionCategory;
@@ -497,7 +507,7 @@ namespace SlopWorld
             {
                 if (optionCategory != TerminalCategory) return true;
 
-                Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
+                CategoryRow(r, __instance.selectedCategory == optionCategory);
                 if (Widgets.ButtonInvisible(r))
                 {
                     __instance.selectedCategory = optionCategory;
@@ -543,7 +553,7 @@ namespace SlopWorld
             {
                 if (optionCategory != UsageCategory) return true;
 
-                Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
+                CategoryRow(r, __instance.selectedCategory == optionCategory);
                 if (Widgets.ButtonInvisible(r))
                 {
                     __instance.selectedCategory = optionCategory;
@@ -592,7 +602,7 @@ namespace SlopWorld
             {
                 if (optionCategory != SandboxCategory) return true;
 
-                Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
+                CategoryRow(r, __instance.selectedCategory == optionCategory);
                 if (Widgets.ButtonInvisible(r))
                 {
                     __instance.selectedCategory = optionCategory;
@@ -641,7 +651,7 @@ namespace SlopWorld
             {
                 if (optionCategory != AboutCategory) return true;
 
-                Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
+                CategoryRow(r, __instance.selectedCategory == optionCategory);
                 if (Widgets.ButtonInvisible(r))
                 {
                     __instance.selectedCategory = optionCategory;
@@ -688,7 +698,7 @@ namespace SlopWorld
             {
                 if (optionCategory != KeyboardCategory) return true;
 
-                Widgets.DrawOptionBackground(r, __instance.selectedCategory == optionCategory);
+                CategoryRow(r, __instance.selectedCategory == optionCategory);
                 if (Widgets.ButtonInvisible(r))
                 {
                     __instance.selectedCategory = optionCategory;

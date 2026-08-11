@@ -41,14 +41,14 @@ namespace SlopWorld
         KeyPrefs.BindingSlot _bindingSlot;
 
         // The scroll position for the whole page.
-        Vector2 _scroll;
+        readonly SmoothScroll _scroll = new SmoothScroll();
 
         public void Draw(Rect rect)
         {
             SlopWidgets.PageCaption(rect, "Keyboard shortcuts  \u2013  click a key to rebind");
 
             var body = SlopWidgets.PageBody(rect);
-            Widgets.DrawMenuSection(body);
+            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             // Build the content model once per frame.
@@ -77,7 +77,7 @@ namespace SlopWorld
             // Scroll view for the list area.
             var innerRect = new Rect(0f, 0f, inner.width - 18f,
                 Mathf.Max(totalH, inner.height));
-            Widgets.BeginScrollView(inner, ref _scroll, innerRect);
+            _scroll.Begin(inner, innerRect);
 
             float y = 0f;
 
@@ -90,7 +90,7 @@ namespace SlopWorld
 
                 var headRect = new Rect(0f, y, innerRect.width, CatH);
                 bool overHead = Mouse.IsOver(headRect);
-                if (overHead) Widgets.DrawHighlight(headRect);
+                if (overHead) Slab.Fill(headRect, SlopWidgets.Hover);
 
                 float arrowSize = 10f;
                 var arrowRect = new Rect(headRect.x, headRect.y + (CatH - arrowSize) / 2f,
@@ -191,7 +191,7 @@ namespace SlopWorld
                     MessageTypeDefOf.TaskCompletion, false);
             }
 
-            Widgets.EndScrollView();
+            _scroll.End();
 
             // Handle key capture while listening — this catches keys the buttons miss.
             if (_listening != null)

@@ -103,7 +103,7 @@ namespace SlopWorld
                             Prefs.Save();
                         }));
                 }
-                Find.WindowStack.Add(new FloatMenu(opts));
+                Find.WindowStack.Add(new SlopMenu(opts));
             }
         }
 
@@ -169,7 +169,7 @@ namespace SlopWorld
                         "BuySoundtrack_Odyssey".Translate(),
                         () => Application.OpenURL(
                             "https://store.steampowered.com/app/3689230/RimWorld_Odyssey_Soundtrack/")));
-                    Find.WindowStack.Add(new FloatMenu(opts));
+                    Find.WindowStack.Add(new SlopMenu(opts));
                 },
                 TexButton.IconSoundtrack));
 

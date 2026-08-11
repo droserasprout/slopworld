@@ -124,11 +124,8 @@ namespace SlopWorld
             TooltipHandler.TipRegion(term, s.Gone
                 ? $"'{s.Name}' is not running - start it first."
                 : $"Open the terminal for '{s.Name}'.");
-            var was = GUI.color;
-            if (s.Gone) GUI.color = new Color(1f, 1f, 1f, 0.35f);
-            if (Widgets.ButtonImage(term, Icons.Terminal) && !s.Gone)
+            if (SlopWidgets.IconButton(term, Icons.Terminal, SlopWidgets.Name, !s.Gone))
                 TerminalWindow.Open(s.Name);
-            GUI.color = was;
 
             float x = right - termW;
 

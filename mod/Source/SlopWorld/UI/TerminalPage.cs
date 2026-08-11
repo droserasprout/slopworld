@@ -17,7 +17,7 @@ namespace SlopWorld
     // SlopOptions.
     public class TerminalPage
     {
-        Vector2 _scroll;
+        readonly SmoothScroll _scroll = new SmoothScroll();
         // Last frame's measured height for the field column, for the scroll view.
         float _fieldsH;
 
@@ -35,7 +35,7 @@ namespace SlopWorld
             // room as well.
             var body = SlopWidgets.PageBody(rect);
             body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
-            Widgets.DrawMenuSection(body);
+            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             // Taken first: the cell size the preview is laid out from is settled inside the
@@ -51,7 +51,7 @@ namespace SlopWorld
             var form = new Rect(inner.x, inner.y, inner.width,
                 caption.y - inner.y - SlopWidgets.GapS);
             var view = new Rect(0f, 0f, form.width - 18f, Mathf.Max(_fieldsH, form.height));
-            Widgets.BeginScrollView(form, ref _scroll, view);
+            _scroll.Begin(form, view);
 
             // One column: a Listing_Standard given less height than its contents starts a
             // second column off the right edge rather than overflowing, which drops a text
@@ -79,12 +79,12 @@ namespace SlopWorld
                         TerminalFont.Invalidate();
                     }));
                 }
-                Find.WindowStack.Add(new FloatMenu(opts));
+                Find.WindowStack.Add(new SlopMenu(opts));
             }
 
             l.Gap(SlopWidgets.GapM);
-            l.Label($"Font size: {s.fontSize}");
-            int size = Mathf.RoundToInt(l.Slider(s.fontSize, 8, 28));
+            int size = Mathf.RoundToInt(SlopWidgets.Slider(l, "Font size", s.fontSize,
+                8, 28, s.fontSize.ToString()));
             if (size != s.fontSize)
             {
                 s.fontSize = size;
@@ -93,7 +93,7 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapM);
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), $"Colour scheme: {s.theme}"))
-                Find.WindowStack.Add(new FloatMenu(TerminalTheme.All
+                Find.WindowStack.Add(new SlopMenu(TerminalTheme.All
                     .Select(t => new FloatMenuOption(t.Name, () =>
                     {
                         s.theme = t.Name;
@@ -120,7 +120,7 @@ namespace SlopWorld
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
 
-            Widgets.EndScrollView();
+            _scroll.End();
 
             // Re-taken: moving the slider invalidated the style a few lines up, so the one
             // from before it is a size out of date and the preview would sit a frame behind

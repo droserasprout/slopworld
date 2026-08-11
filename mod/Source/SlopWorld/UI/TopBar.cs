@@ -176,7 +176,7 @@ namespace SlopWorld
             // left behind, and ThingIcon hands back the def's own tint.
             var was = GUI.color;
             GUI.color = Color.white;
-            if (over) Widgets.DrawHighlight(r);
+            if (over) Slab.Fill(r, SlopWidgets.Hover);
             Widgets.ThingIcon(r, def);
             GUI.color = was;
 
@@ -204,7 +204,7 @@ namespace SlopWorld
         // opened, moved with it.
         static void Menu()
         {
-            TerminalWindow.OpenOverPane(new FloatMenu(new List<FloatMenuOption>
+            TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption("Quit to OS", Root.Shutdown),
             }));

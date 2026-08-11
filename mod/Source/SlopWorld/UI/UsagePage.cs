@@ -28,12 +28,12 @@ namespace SlopWorld
         // player mid-keystroke.
         string _pollSecs;
 
-        Vector2 _scroll;
+        readonly SmoothScroll _scroll = new SmoothScroll();
         float _fieldsH;
 
         // Which key's icon picker is open, or null.
         string _pickingKey;
-        Vector2 _pickScroll;
+        readonly SmoothScroll _pickScroll = new SmoothScroll();
 
         public void Load()
         {
@@ -54,7 +54,7 @@ namespace SlopWorld
                 "What the daemon asks about, and what it looks like up there.");
 
             var body = SlopWidgets.PageBody(rect);
-            Widgets.DrawMenuSection(body);
+            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             // The icons are not the daemon's, so the fields are drawn whether or not it
@@ -80,7 +80,7 @@ namespace SlopWorld
             }
 
             var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(_fieldsH, r.height));
-            Widgets.BeginScrollView(r, ref _scroll, view);
+            _scroll.Begin(r, view);
 
             // Begun far taller than it is, so a control that would cross the bottom does not
             // start a second column and drop the rest of the form on top of itself.
@@ -168,7 +168,7 @@ namespace SlopWorld
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
 
-            Widgets.EndScrollView();
+            _scroll.End();
         }
 
         static void Note(Listing_Standard l, string text)
@@ -227,7 +227,7 @@ namespace SlopWorld
                 Widgets.DrawBoxSolid(box.ContractedBy(7f), SlopWidgets.Off);
             }
 
-            Widgets.DrawHighlightIfMouseover(box);
+            if (Mouse.IsOver(box)) Slab.Fill(box, SlopWidgets.Hover);
 
             // Whose pick this is, is the one thing the row no longer says by itself.
             TooltipHandler.TipRegion(box, new TipSignal(
@@ -308,9 +308,7 @@ namespace SlopWorld
                 gridW2 = perLine * Cell;
 
                 var view = new Rect(0f, 0f, gridW2, Mathf.Max(totalH, gridH));
-                Widgets.BeginScrollView(
-                    new Rect(r.x + (r.width - gridW2) / 2f, gridTop, gridW2, gridH),
-                    ref _pickScroll, view);
+                _pickScroll.Begin(new Rect(r.x + (r.width - gridW2) / 2f, gridTop, gridW2, gridH), view);
 
                 // Read once for the whole grid rather than per cell: it parses the settings
                 // string, and every cell asks the same question of it.
@@ -328,7 +326,7 @@ namespace SlopWorld
                     if (def == chosen)
                         Widgets.DrawBoxSolid(cell, new Color(1f, 1f, 1f, 0.16f));
                     if (Mouse.IsOver(cell))
-                        Widgets.DrawHighlight(cell);
+                        Slab.Fill(cell, SlopWidgets.Hover);
 
                     var box = new Rect(cell.x + (Cell - IconSize) / 2f,
                         cell.y + (Cell - IconSize) / 2f, IconSize, IconSize);
@@ -362,7 +360,7 @@ namespace SlopWorld
                     }
                 }
 
-                Widgets.EndScrollView();
+                _pickScroll.End();
             }, true, false, 1f);
         }
 

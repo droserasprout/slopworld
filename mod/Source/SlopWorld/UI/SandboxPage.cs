@@ -41,7 +41,7 @@ namespace SlopWorld
         {
             SlopWidgets.PageCaption(rect, "The base every sandbox is built on, and the presets that add to it.");
             var body = SlopWidgets.PageBody(rect);
-            Widgets.DrawMenuSection(body);
+            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             if (!_loaded)

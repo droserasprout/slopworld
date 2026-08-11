@@ -16,7 +16,7 @@ namespace SlopWorld
 
             var body = SlopWidgets.PageBody(rect);
             body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
-            Widgets.DrawMenuSection(body);
+            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             var l = new Listing_Standard { maxOneColumn = true };

@@ -28,7 +28,7 @@ namespace SlopWorld
         // out from under the player mid-keystroke.
         string _pollMs, _history;
 
-        Vector2 _scroll;
+        readonly SmoothScroll _scroll = new SmoothScroll();
         // Last frame's measured height for the field column. The listing is begun on a
         // rect far taller than it needs, so it never breaks to a second column, and what
         // it actually used is what the scroll view is sized from next frame.
@@ -56,7 +56,7 @@ namespace SlopWorld
             SlopWidgets.PageCaption(rect, _loaded ? _path : "loading...");
 
             var body = SlopWidgets.PageBody(rect);
-            Widgets.DrawMenuSection(body);
+            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             if (!_loaded)
@@ -77,7 +77,7 @@ namespace SlopWorld
         void DoFields(Rect r)
         {
             var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(_fieldsH, r.height));
-            Widgets.BeginScrollView(r, ref _scroll, view);
+            _scroll.Begin(r, view);
 
             // Begun far taller than it is, so a control that would cross the bottom does
             // not start a second column and drop the rest of the form on top of itself.
@@ -147,8 +147,8 @@ namespace SlopWorld
             if (s.ecoMode)
             {
                 l.Gap(SlopWidgets.GapS);
-                l.Label($"Backdrop dimming: {Mathf.RoundToInt(s.ecoDim * 100f)}%");
-                s.ecoDim = Mathf.Round(l.Slider(s.ecoDim, 0f, 0.8f) * 20f) / 20f;
+                s.ecoDim = Mathf.Round(SlopWidgets.Slider(l, "Backdrop dimming", s.ecoDim,
+                    0f, 0.8f, Mathf.RoundToInt(s.ecoDim * 100f) + "%") * 20f) / 20f;
                 Note(l, "How far the picture behind the agents is taken down. At zero it is " +
                         "the menu's own background at full strength.");
             }
@@ -156,7 +156,7 @@ namespace SlopWorld
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
 
-            Widgets.EndScrollView();
+            _scroll.End();
         }
 
         // The two doors off this page, and the only two things on it that are not

@@ -48,7 +48,7 @@ namespace SlopWorld
         List<SubHit> _subShown = new List<SubHit>();
         int _subIndex;
 
-        Vector2 _scroll;
+        readonly SmoothScroll _scroll = new SmoothScroll();
         int _selectedIndex;
         // Visible height of the list area, used by ScrollToSelection.
         float _listH;
@@ -107,9 +107,9 @@ namespace SlopWorld
 
         public override void DoWindowContents(Rect rect)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.10f, 0.11f, 0.13f, 0.97f));
-            Widgets.DrawBoxSolid(new Rect(rect.x, rect.y, rect.width, 1f),
-                new Color(0.28f, 0.30f, 0.34f, 0.8f));
+            // Adwaita's popover: its own surface, a shade lighter than a window, with a
+            // line all the way round rather than only along the top.
+            Slab.Box(rect, SlopWidgets.PopoverBg, SlopWidgets.Edge);
 
             var inputRect = new Rect(rect.x + Pad, rect.y + Pad,
                 rect.width - Pad * 2, InputH);
@@ -128,8 +128,10 @@ namespace SlopWorld
 
         void DrawInput(Rect r)
         {
-            Widgets.DrawBoxSolid(r, new Color(0f, 0f, 0f, 0.35f));
-            var inner = r.ContractedBy(2f);
+            // One entry round the whole line, prompt included: in sub-mode the prompt is part
+            // of what is being typed into, not a label beside a second box.
+            SlopWidgets.FieldFrame(r, GUI.GetNameOfFocusedControl() == "paletteInput");
+            var inner = r.ContractedBy(6f, 2f);
 
             var e = Event.current;
             bool isKeyDown = e.type == EventType.KeyDown;
@@ -183,8 +185,6 @@ namespace SlopWorld
                 }
             }
 
-            GUI.SetNextControlName("paletteInput");
-
             if (_mode == Mode.Sub)
             {
                 // Prompt on the left, filter input on the right.
@@ -202,13 +202,13 @@ namespace SlopWorld
 
                 bool hadFilter = _subHasFilter;
                 string wasSub = _subFilter;
-                _subFilter = Widgets.TextField(fieldRect, _subFilter);
+                _subFilter = SlopWidgets.BareField(fieldRect, "paletteInput", _subFilter);
                 _subHasFilter = !string.IsNullOrEmpty(_subFilter);
                 if (_subFilter != wasSub)
                 {
                     RebuildSub();
                     _subIndex = 0;
-                    _scroll = Vector2.zero;
+                    _scroll.JumpTo(Vector2.zero);
                     Resize();
                 }
 
@@ -224,13 +224,13 @@ namespace SlopWorld
             else
             {
                 string was = _input;
-                _input = Widgets.TextField(inner, _input);
+                _input = SlopWidgets.BareField(inner, "paletteInput", _input);
                 if (_input != was)
                 {
                     _filter = _input.ToLowerInvariant();
                     RebuildMatches();
                     _selectedIndex = 0;
-                    _scroll = Vector2.zero;
+                    _scroll.JumpTo(Vector2.zero);
                     Resize();
                 }
             }
@@ -251,7 +251,7 @@ namespace SlopWorld
             _input = "";
             _filter = "";
             _selectedIndex = 0;
-            _scroll = Vector2.zero;
+            _scroll.JumpTo(Vector2.zero);
             _focusInput = true;
             RebuildMatches();
             Resize();
@@ -284,15 +284,13 @@ namespace SlopWorld
                 y += RowH;
             }
 
-            if (y < _scroll.y) _scroll.y = y;
-            else if (y + RowH > _scroll.y + _listH) _scroll.y = y + RowH - _listH;
+            _scroll.Reveal(y, RowH, _listH);
         }
 
         void ScrollToSub()
         {
             float y = _subIndex * RowH;
-            if (y < _scroll.y) _scroll.y = y;
-            else if (y + RowH > _scroll.y + _listH) _scroll.y = y + RowH - _listH;
+            _scroll.Reveal(y, RowH, _listH);
         }
 
         // --------------------------------------------------------------- command list
@@ -327,7 +325,7 @@ namespace SlopWorld
 
             var view = new Rect(0f, 0f, r.width - 18f, totalH);
 
-            Widgets.BeginScrollView(r, ref _scroll, view);
+            _scroll.Begin(r, view);
 
             float y = 0f;
             prev = null;
@@ -350,9 +348,9 @@ namespace SlopWorld
                 bool selected = i == _selectedIndex;
 
                 if (selected)
-                    Widgets.DrawBoxSolid(row, new Color(0.28f, 0.40f, 0.60f, 0.35f));
+                    Slab.Fill(row, SlopWidgets.Sel);
                 else
-                    Widgets.DrawHighlightIfMouseover(row);
+                    if (Mouse.IsOver(row)) Slab.Fill(row, SlopWidgets.Hover);
 
                 if (Widgets.ButtonInvisible(row))
                 {
@@ -370,7 +368,7 @@ namespace SlopWorld
                 y += RowH;
             }
 
-            Widgets.EndScrollView();
+            _scroll.End();
         }
 
         // A filtered list is ranked rather than grouped: the answer is the top row, and a
@@ -403,7 +401,7 @@ namespace SlopWorld
             float totalH = options.Count * RowH;
             var view = new Rect(0f, 0f, r.width - 18f, totalH);
 
-            Widgets.BeginScrollView(r, ref _scroll, view);
+            _scroll.Begin(r, view);
 
             float y = 0f;
             for (int i = 0; i < options.Count; i++)
@@ -412,9 +410,9 @@ namespace SlopWorld
                 bool selected = i == _subIndex;
 
                 if (selected)
-                    Widgets.DrawBoxSolid(row, new Color(0.28f, 0.40f, 0.60f, 0.35f));
+                    Slab.Fill(row, SlopWidgets.Sel);
                 else
-                    Widgets.DrawHighlightIfMouseover(row);
+                    if (Mouse.IsOver(row)) Slab.Fill(row, SlopWidgets.Hover);
 
                 if (Widgets.ButtonInvisible(row))
                 {
@@ -440,7 +438,7 @@ namespace SlopWorld
                 y += RowH;
             }
 
-            Widgets.EndScrollView();
+            _scroll.End();
         }
 
         // --------------------------------------------------------------- entry model
@@ -723,6 +721,13 @@ namespace SlopWorld
             });
             _commands.Add(new Entry
             {
+                Id = "search.open",
+                Name = "Search: Find in Files",
+                Category = "View",
+                Execute = _ => AgentSidebar.ShowSearch(),
+            });
+            _commands.Add(new Entry
+            {
                 Id = "git.refresh",
                 Name = "Git: Refresh",
                 Category = "Refresh",
@@ -955,7 +960,7 @@ namespace SlopWorld
             _subHasFilter = false;
             _input = "";
             _filter = "";
-            _scroll = Vector2.zero;
+            _scroll.JumpTo(Vector2.zero);
             _focusInput = true;
             RebuildSub();
             Resize();
@@ -971,7 +976,7 @@ namespace SlopWorld
             options.Add(new FloatMenuOption(
                 $"A temporary project under {ProjectInfo.TempRoot}",
                 () => RunShortcutWith(name, null, true)));
-            Find.WindowStack.Add(new FloatMenu(options));
+            Find.WindowStack.Add(new SlopMenu(options));
         }
 
         static void RunShortcutWith(string name, string project = null, bool temp = false)

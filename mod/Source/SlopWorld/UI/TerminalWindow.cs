@@ -254,6 +254,7 @@ namespace SlopWorld
             // a diff, means the focus has moved away. Both are asked - the window does not
             // know which view opened what, and only one of them can be showing this session.
             FilesView.CloseViewerIf(_name);
+            SearchView.CloseViewerIf(_name);
             GitView.CloseViewerIf(_name);
         }
 
@@ -865,7 +866,7 @@ namespace SlopWorld
         }
 
         // Single gate for the chrome's own keys. Returns true if consumed. Shift+key passes
-        // through to the agent, and so does anything none of the bindings claim - F6-F11
+        // through to the agent, and so does anything none of the bindings claim - F7-F11
         // by default, being on nothing.
         //
         // Read off the KeyBindingDefs rather than off KeyCode.F1..F5 directly: the options
@@ -890,6 +891,11 @@ namespace SlopWorld
             if (Bound(SlopDefOf.SlopSidebarFiles, e))
             {
                 AgentSidebar.ShowFiles();
+                return true;
+            }
+            if (Bound(SlopDefOf.SlopSidebarSearch, e))
+            {
+                AgentSidebar.ShowSearch();
                 return true;
             }
             if (Bound(SlopDefOf.SlopSidebarGit, e))
@@ -1496,7 +1502,7 @@ namespace SlopWorld
                     ClearSelection();
                 }));
 
-            OpenOverPane(new FloatMenu(options));
+            OpenOverPane(new SlopMenu(options));
         }
 
         static List<string> AllBreadcrumbs() => SessionHub.Instance.Shortcuts
@@ -1517,7 +1523,7 @@ namespace SlopWorld
                         Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch));
                 }));
             }
-            OpenOverPane(new FloatMenu(options));
+            OpenOverPane(new SlopMenu(options));
         }
 
         // Falls back to the game's own buffer. A round trip, so the paste lands a frame or

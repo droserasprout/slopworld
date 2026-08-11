@@ -26,8 +26,8 @@ when the drag ends, not on each frame.
 
 ## Views and navigation
 
-The Agents, Files, Git, and Shortcuts bodies share the panel, tabs, width, add strip, and
-input absorption. Switching away closes readers owned by the old view. Files and Git park
+The Agents, Files, Search, Git, and Shortcuts bodies share the panel, tabs, width, add strip, and
+input absorption. Switching away closes readers owned by the old view. Files, Search and Git park
 all colonist-bar locations, but buckets are still built so Alt+number can return to an
 agent. A fold, unlike a view switch, removes its agents from that visible ordering.
 

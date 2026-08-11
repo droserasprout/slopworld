@@ -6,13 +6,13 @@ namespace SlopWorld
 {
     // The daemon parses on save and rejects the write if it does not round-trip, so a
     // typo cannot leave slopd with no config.
-    public class ConfigWindow : Window
+    public class ConfigWindow : SlopWindow
     {
         string _text = "loading...";
         string _path = "";
         string _error;
         bool _loaded;
-        Vector2 _scroll;
+        readonly SmoothScroll _scroll = new SmoothScroll();
 
         public static void Open()
         {
@@ -23,13 +23,10 @@ namespace SlopWorld
 
         public ConfigWindow()
         {
-            doCloseX = true;
-            draggable = true;
+            // No `optionalTitle`: vanilla draws that one itself, in its own font and centred,
+            // before `DoWindowContents` is ever called. The caption below names the file
+            // being edited, which is the more useful of the two things a title could say.
             resizeable = true;
-            absorbInputAroundWindow = true;
-            closeOnClickedOutside = false;
-            closeOnAccept = false;
-            optionalTitle = "Config Editor";
         }
 
         public override Vector2 InitialSize => new Vector2(720f, 620f);
@@ -47,7 +44,7 @@ namespace SlopWorld
                 msg => { _error = msg; _text = ""; });
         }
 
-        public override void DoWindowContents(Rect rect)
+        protected override void DoBody(Rect rect)
         {
             Text.Font = GameFont.Small;
             SlopWidgets.PageCaption(rect, string.IsNullOrEmpty(_path) ? "config.toml" : _path);
@@ -66,10 +63,10 @@ namespace SlopWorld
             // area inside it draws none of its own: a well as tall as the content would put
             // its border somewhere off the bottom of the window.
             Slab.Box(area, SlopWidgets.Well, SlopWidgets.Edge);
-            Widgets.BeginScrollView(area, ref _scroll, view);
+            _scroll.Begin(area, view);
             _text = SlopWidgets.Area(view.ContractedBy(6f, 4f), "config.toml", _text,
                 _loaded, frame: false);
-            Widgets.EndScrollView();
+            _scroll.End();
 
             if (_error != null)
             {

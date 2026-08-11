@@ -1,6 +1,6 @@
 # `GitView`
 
-The column's third body ([mod-sidebar](mod-sidebar.md)): what every project's working
+The column's Git body ([mod-sidebar](mod-sidebar.md)): what every project's working
 tree has that its last commit does not, drawn as the same nested tree the
 [files view](mod-ui-files.md) draws and from the same `AgentSidebar` back pass.
 
@@ -70,9 +70,9 @@ the Git view owns diffs even when their button was clicked in Files, while Files
 owns viewers and editors. `Pager.Quote` is the single-quoting both views' command
 lines need.
 
-## Three tabs
+## Sidebar tabs
 
-`Settings.sidebarTab` is `agents`, `files` or `git`, and anything else is the agents
+`Settings.sidebarTab` is `agents`, `files`, `search`, `git` or `shortcuts`, and anything else is the agents
 view - it is a string in a file a person can edit and the column has to draw
 something. `AgentSidebar.Agents` is what the bar's own `Place` and `Sessions()` ask
 now, where they asked `!Files`. `Show` releases every pager but the arriving view's,

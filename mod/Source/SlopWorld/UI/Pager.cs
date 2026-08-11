@@ -83,6 +83,16 @@ namespace SlopWorld
                 });
         }
 
+        // Search results need the same tracked reader, but positioned before its first draw.
+        // It deliberately starts a fresh pager: less's `:e` has no atomic "open at line"
+        // form, and flashing the previous file before a second key arrives is worse than the
+        // small process cost of a result click.
+        public void ViewFileAt(string project, string filePath, int line, string label)
+        {
+            Open(project, "env " + LessEnv + " less +" + (line < 1 ? 1 : line) + " -- " +
+                Quote(filePath), label);
+        }
+
         // A temporary agent running one command in the project's own sandbox, which is what
         // makes the pager see the working tree the way the agents working on it do. Nothing
         // is typed into it: the command is the errand.

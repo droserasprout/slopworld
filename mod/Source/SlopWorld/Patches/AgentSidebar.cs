@@ -118,19 +118,21 @@ namespace SlopWorld
 
         public static Rect Panel => new Rect(0f, 0f, Width, UI.screenHeight);
 
-        public const string TabAgents = "agents", TabFiles = "files", TabGit = "git",
-            TabShortcuts = "shortcuts";
+        public const string TabAgents = "agents", TabFiles = "files", TabSearch = "search",
+            TabGit = "git", TabShortcuts = "shortcuts";
 
         public static bool Files => Settings.SidebarTab == TabFiles;
+        public static bool Search => Settings.SidebarTab == TabSearch;
         public static bool Git => Settings.SidebarTab == TabGit;
         public static bool Shortcuts => Settings.SidebarTab == TabShortcuts;
-        public static bool Agents => !Files && !Git && !Shortcuts;
+        public static bool Agents => !Files && !Search && !Git && !Shortcuts;
 
         static void Show(string tab)
         {
             if (Settings.SidebarTab == tab) return;
 
             if (tab != TabFiles) FilesView.ReleaseViewer();
+            if (tab != TabSearch) SearchView.ReleaseViewer();
             if (tab != TabGit) GitView.ReleaseViewer();
 
             var s = Settings.S;
@@ -138,6 +140,8 @@ namespace SlopWorld
             s.Write();
 
             if (tab == TabGit || tab == TabFiles) GitView.Entered();
+
+            if (tab == TabSearch) SearchView.Entered();
 
             if (tab == TabShortcuts) SessionHub.Instance.RefreshShortcuts();
         }
@@ -247,6 +251,7 @@ namespace SlopWorld
         public static void FocusTerminal() => Show(TabAgents);
 
         public static void ShowFiles() => Show(TabFiles);
+        public static void ShowSearch() => Show(TabSearch);
         public static void ShowGit() => Show(TabGit);
         public static void ShowShortcuts() => Show(TabShortcuts);
 
@@ -501,6 +506,10 @@ namespace SlopWorld
                 DrawRouted(Body, TabFiles);
                 FilesView.Draw(TreeBody(Body, TabFiles));
             }
+            else if (Search)
+            {
+                SearchView.Draw(Body);
+            }
             else if (Git)
             {
                 DrawRouted(Body, TabGit);
@@ -534,6 +543,7 @@ namespace SlopWorld
             {
                 if (!ClickRouted()) FilesView.Clicks();
             }
+            else if (Search) SearchView.Clicks();
             else if (Git)
             {
                 if (!ClickRouted()) GitView.Clicks();
@@ -549,7 +559,7 @@ namespace SlopWorld
 
             if (over)
             {
-                Widgets.DrawBoxSolid(r, new Color(1f, 1f, 1f, 0.08f));
+                Slab.Fill(r, SlopWidgets.Hover);
                 TooltipHandler.TipRegion(r, "Add a project, an agent or a shortcut");
             }
             Widgets.DrawBoxSolid(new Rect(r.x, r.y, r.width, 1f), SlopWidgets.Edge);
@@ -580,7 +590,7 @@ namespace SlopWorld
                 new FloatMenuOption("Shortcut...", () =>
                     TerminalWindow.OpenOverPane(new EditShortcutDialog(null))),
             };
-            TerminalWindow.OpenOverPane(new FloatMenu(opts));
+            TerminalWindow.OpenOverPane(new SlopMenu(opts));
             return true;
         }
 
@@ -588,7 +598,7 @@ namespace SlopWorld
         {
             var strip = new Rect(0f, 0f, Width, TabH);
             Widgets.DrawBoxSolid(new Rect(CellX, TabH - 1f, Width - CellX * 2f, 1f),
-                new Color(1f, 1f, 1f, 0.08f));
+                SlopWidgets.Edge);
 
             float y = (TabH - TabIcon) / 2f;
 
@@ -600,6 +610,9 @@ namespace SlopWorld
             Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Files, Files,
                 "Files - every project's directory, as a tree", () => Show(TabFiles));
             x += TabIcon + Gap;
+            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Search, Search,
+                "Search - find text across every project", () => Show(TabSearch));
+            x += TabIcon + Gap;
             Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Git, Git,
                 "Git - what every working tree has that its last commit does not",
                 () => Show(TabGit));
@@ -610,7 +623,7 @@ namespace SlopWorld
 
             float right = Width - CellX - TabIcon;
 
-            if (Files)
+            if (Files || Search)
             {
                 bool showing = Settings.SidebarShowHidden;
                 Tab(new Rect(right, y, TabIcon, TabIcon), Icons.Hidden, showing,
@@ -621,7 +634,8 @@ namespace SlopWorld
                     {
                         Settings.S.sidebarShowHidden = !showing;
                         Settings.S.Write();
-                        FilesView.Reload();
+                        if (Files) FilesView.Reload();
+                        else SearchView.Search();
                     });
             }
             else if (Git)
@@ -640,13 +654,15 @@ namespace SlopWorld
         static void Tab(Rect r, Texture2D icon, bool on, string tip, System.Action go)
         {
             TooltipHandler.TipRegion(r, tip);
-            if (Widgets.ButtonImage(r, icon, on ? Color.white : SlopWidgets.Off, Color.white)
+            if (SlopWidgets.IconButton(r, icon, on ? SlopWidgets.Lead : SlopWidgets.Off)
                 && ColonistBarStrip.Interactive)
                 go();
 
+            // The selected tab keeps its underline, and it is the accent now rather than a
+            // white bar: Adwaita marks the current page in the colour it marks everything
+            // else that is current.
             if (on)
-                Widgets.DrawBoxSolid(new Rect(r.x, TabH - 2f, r.width, 2f),
-                    new Color(1f, 1f, 1f, 0.55f));
+                Slab.Fill(new Rect(r.x, TabH - 2f, r.width, 2f), SlopWidgets.Accent);
         }
 
         static void DrawHead(Head head)
@@ -667,7 +683,7 @@ namespace SlopWorld
             SlopWidgets.RowLabel(label, head.Label + tail);
 
             Widgets.DrawBoxSolid(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
-                new Color(1f, 1f, 1f, 0.08f));
+                SlopWidgets.Edge);
 
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
@@ -897,7 +913,7 @@ namespace SlopWorld
                         () => hub.Remove(name, SlopWidgets.Fail),
                         destructive: true))));
 
-            TerminalWindow.OpenOverPane(new FloatMenu(opts));
+            TerminalWindow.OpenOverPane(new SlopMenu(opts));
         }
 
         static void HeadMenu(Head head)
@@ -932,7 +948,7 @@ namespace SlopWorld
             del.Disabled = agents > 0;
             opts.Add(del);
 
-            TerminalWindow.OpenOverPane(new FloatMenu(opts));
+            TerminalWindow.OpenOverPane(new SlopMenu(opts));
         }
 
 

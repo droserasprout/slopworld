@@ -9,13 +9,26 @@ Text geometry must go through `LineHOf`, `Wide`, and `RowLabel`. Verse may promo
 Hard-coded heights have previously clipped glyphs. Shared gaps are `GapXS`, `GapS`,
 `GapM`, and `GapL`.
 
-`Slab` draws the flat rounded controls. It draws corners separately and snaps geometry to
-the screen pixel grid; nine-sliced borders and GUI-coordinate snapping produce seams at
-non-integer UI scales. `TerminalWindow.SyncSnap` uses the same arithmetic.
+`Slab` draws every control: fill, outline, box, focus ring, hairline. Square, and no
+texture — see [mod-adwaita](mod-adwaita.md). It snaps geometry to the screen pixel grid;
+GUI-coordinate snapping produces seams at non-integer UI scales. `TerminalWindow.SyncSnap`
+uses the same arithmetic.
 
-`SmoothScroll` consumes wheel events before IMGUI and eases toward a target using unscaled
-time. It must consume the event or nested/native scroll views apply the same wheel input
-again. A scrollbar drag or content clamp replaces the target.
+`SmoothScroll` is the only scroll view in the mod, and it draws the only scrollbar. It
+consumes wheel events before IMGUI and eases toward a target using unscaled time; it must
+consume the event or nested scroll views apply the same wheel input again. The bar is drawn
+in `End`, outside the scroll group, which is the only place the outer rect means what it
+says. Callers reserve 18px off the view width for it. Vertical only. `Reveal` puts a
+keyboard-selected row in view without easing to it.
+
+`SlopWindow` is the frame under every dialog: own background, border and close corner.
+`Margin` is nought because vanilla's margin translates the contents into a group rather
+than padding them, so the body is inset by `Pad` here instead. Existing form geometry is
+unchanged by that trade.
+
+`SlopMenu` replaces `FloatMenu` as the dropdown, taking the same `List<FloatMenuOption>`.
+It reads the label, the action, `Disabled` and the right-justified extra part, and ignores
+everything vanilla's pawn-order menus use.
 
 `SlopLayout` is the single source of sidebar/top-bar insets. `Hidden` is intentionally
 separate from layout selection: hiding chrome must not move the rest of the UI.
