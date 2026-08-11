@@ -16,8 +16,11 @@ namespace SlopWorld
         // The portrait camera looks down -Y with world +Z up, so z pans to the head.
         const float HeadFallbackZ = 0.34f;
 
-        // cameraZoom 3 frames 0.667 world units: the head plus a small margin.
-        const float FaceZoom = 3.0f;
+        // Slightly wider than a tight head crop so hair and clothing have breathing room.
+        const float FaceZoom = 2.0f;
+
+        // Aim just above the head anchor to place the pawn slightly lower in the portrait.
+        const float FaceVerticalOffset = 0.03f;
 
         // Hair and clothing are allowed to extend past the icon. Keep the old square centered
         // in a taller portrait so the face does not move while both ends can overflow.
@@ -80,7 +83,7 @@ namespace SlopWorld
             {
                 // Pawns mid-generation may not have a draw tracker yet.
             }
-            return new Vector3(0f, 0f, z);
+            return new Vector3(0f, 0f, z + FaceVerticalOffset);
         }
 
         static bool Prefix(Rect rect, Pawn colonist, Map pawnMap, bool highlight, bool reordering,
