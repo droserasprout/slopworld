@@ -33,7 +33,9 @@ agent. A fold, unlike a view switch, removes its agents from that visible orderi
 
 Context menus run in the back pass because vanilla consumes right-clicks over portraits.
 Project menus include an explicitly unsandboxed host terminal; it goes through
-`SessionHub.RunHostShell` and `/api/run` with `host` set.
+`SessionHub.RunHostShell` and `/api/run` with `host` set. Every view routes row hover through
+the sidebar-only gate, which goes dark under either a vanilla `FloatMenu` or `SlopMenu`
+without disabling the status bar's click-through behavior.
 
 ## Shifting vanilla chrome
 

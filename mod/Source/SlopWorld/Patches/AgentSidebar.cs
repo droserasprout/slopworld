@@ -559,7 +559,7 @@ namespace SlopWorld
         static void DrawAdd()
         {
             var r = AddBar;
-            bool over = ColonistBarStrip.Hover(r);
+            bool over = ColonistBarStrip.SidebarHover(r);
 
             if (over)
             {
@@ -977,7 +977,7 @@ namespace SlopWorld
                 Settings.S.Write();
             }
 
-            bool over = ColonistBarStrip.Hover(grip);
+            bool over = ColonistBarStrip.SidebarHover(grip);
             bool lit = over || _resizing;
 
             Widgets.DrawBoxSolid(new Rect(w - 1f, 0f, lit ? 2f : 1f, UI.screenHeight),

@@ -84,6 +84,12 @@ namespace SlopWorld
         public static bool Hover(Rect r) =>
             Interactive && Find.WindowStack?.FloatMenu == null && MouseOver(r);
 
+        // SlopMenu is used for the sidebar's own context menus. Keep it out of Hover: the
+        // status bar shares that predicate for presses, and its doors intentionally replace
+        // an open SlopMenu when clicked.
+        public static bool SidebarHover(Rect r) =>
+            Find.WindowStack?.WindowOfType<SlopMenu>() == null && Hover(r);
+
         // The map-layer draw is pointless under a terminal and would register the bar's
         // reorderable groups twice a frame.
         public static bool Suppressed => Active && !Drawing;

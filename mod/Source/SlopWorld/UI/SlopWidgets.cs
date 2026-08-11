@@ -616,7 +616,7 @@ namespace SlopWorld
 
         public static bool HoverRow(Rect r)
         {
-            bool on = ColonistBarStrip.Hover(r);
+            bool on = ColonistBarStrip.SidebarHover(r);
             if (on) Slab.Fill(r, Hover);
             return on;
         }
