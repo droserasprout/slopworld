@@ -19,9 +19,9 @@ namespace SlopWorld
         // cameraZoom 3 frames 0.667 world units: the head plus a small margin.
         const float FaceZoom = 3.0f;
 
-        // Hair is allowed to rise out of the icon. Keep the old square as the bottom of a
-        // taller portrait so the face does not move, while the transparent top can overflow.
-        const float HairOverflow = 0.35f;
+        // Hair and clothing are allowed to extend past the icon. Keep the old square centered
+        // in a taller portrait so the face does not move while both ends can overflow.
+        const float PortraitOverflow = 0.35f;
 
         // Keep stopped agents recognizable while making their state obvious.
         static readonly Color DownTint = new Color(0.50f, 0.50f, 0.50f, 1f);
@@ -58,7 +58,7 @@ namespace SlopWorld
             get
             {
                 float side = ColonistBarColonistDrawer.PawnTextureSize.y;
-                return new Vector2(side, side * (1f + HairOverflow));
+                return new Vector2(side, side * (1f + 2f * PortraitOverflow));
             }
         }
 
@@ -80,9 +80,6 @@ namespace SlopWorld
             {
                 // Pawns mid-generation may not have a draw tracker yet.
             }
-            // A zoom of 3 shows 2/3 world units across the original square. Move the taller
-            // camera up by half its added span: its lower square then keeps the old framing.
-            z += HairOverflow / FaceZoom;
             return new Vector3(0f, 0f, z);
         }
 
@@ -130,8 +127,8 @@ namespace SlopWorld
             GUI.color = isDown
                 ? new Color(DownTint.r, DownTint.g, DownTint.b, alpha)
                 : new Color(1f, 1f, 1f, alpha);
-            var portrait = new Rect(face.x, face.y - face.height * HairOverflow,
-                face.width, face.height * (1f + HairOverflow));
+            var portrait = new Rect(face.x, face.y - face.height * PortraitOverflow,
+                face.width, face.height * (1f + 2f * PortraitOverflow));
             GUI.DrawTexture(portrait, renderTexture);
             GUI.color = Color.white;
 
