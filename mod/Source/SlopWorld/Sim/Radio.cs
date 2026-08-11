@@ -74,7 +74,8 @@ namespace SlopWorld
         //
         // WALM serves the one 320k stream, and serves it at 48000 rather than the 44100 the
         // rest of the list is at. That is the daemon's problem rather than this table's -
-        // see Ring::current_span_len, which is what makes it one.
+        // see Ring::current_span_len, which is what makes it one. WFMU is the other station
+        // with a quality choice; its stream names carry both the rate and the `k` suffix.
         public static readonly Station[] Stations =
         {
             new Station("RadioParadise Main", "https://stream.radioparadise.com/",
@@ -83,6 +84,20 @@ namespace SlopWorld
                 "wefunk{0}.mp3", new[] { 64 }, 64),
             new Station("Classic Vinyl HD", "https://icecast.walmradio.com:8443/",
                 "classic", new[] { 320 }, 320),
+            new Station("Kiosk Radio", "https://kioskradiobxl.out.airtime.pro/",
+                "kioskradiobxl_a", new[] { 64 }, 64),
+            new Station("WFMU Freeform Radio", "https://stream0.wfmu.org/",
+                "freeform-{0}k.mp3", new[] { 32, 128 }, 128),
+            new Station("dublab", "https://dublab.out.airtime.pro/",
+                "dublab_a", new[] { 192 }, 192),
+            new Station("SomaFM Secret Agent", "https://ice1.somafm.com/",
+                "secretagent-128-mp3", new[] { 128 }, 128),
+            new Station("NTS Radio 1", "https://stream-relay-geo.ntslive.net/",
+                "stream", new[] { 128 }, 128),
+            new Station("KEXP", "https://kexp-mp3-128.streamguys1.com/",
+                "kexp128.mp3", new[] { 128 }, 128),
+            new Station("SomaFM Groove Salad", "https://ice1.somafm.com/",
+                "groovesalad-128-mp3", new[] { 128 }, 128),
         };
 
         // The tracks this mod ships, as paths under the mod's own folder. One is picked

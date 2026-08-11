@@ -29,9 +29,12 @@ streams: desktop AAC support is absent, cleartext HTTP is rejected by the player
 streaming fetch lacks TLS, and an Icecast response has no `Content-Length`. A loopback
 relay solves only the transport restrictions, not the unknown-length stream.
 
-`slopd/src/audio.rs::STATIONS` and `Radio.Stations` must stay aligned. Network diagnostics
-are ignored Rust tests: `decodes_the_station` needs network access; `plays_the_station`
-also needs an output device.
+Tests must never contact radio stations. Only a user selecting a station in a real build
+may open its stream; keep decoder and metadata coverage local and deterministic.
+
+The hardcoded independent stations are Radio Paradise, WEFUNK, WALM, Kiosk Radio, WFMU,
+dublab, SomaFM Secret Agent and Groove Salad, NTS Radio 1, and KEXP. Prefer direct HTTPS
+MP3 streams with ICY metadata; redirects are acceptable when the station owns the stable URL.
 
 ## Assets
 

@@ -24,7 +24,8 @@ into the whole Cargo dependency graph.
   copyright 2025 Material Extensions. The notice is `tools/fileicons/LICENSE`.
 - Noto Color Emoji, Google: the rasterized radio and wilted-rose glyph artwork.
 - Terry Fail: `slopbg01` and `slopbg02` soundtrack.
-- Radio Paradise, WEFUNK Radio and WALM / Classic Vinyl HD: jukebox stream sources.
+- Radio Paradise, WEFUNK Radio, WALM / Classic Vinyl HD, Kiosk Radio, WFMU, dublab,
+  SomaFM, NTS Radio and KEXP: jukebox stream sources.
 
 The procedural robot faceplate is SlopWorld's own art.
 
