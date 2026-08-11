@@ -7,6 +7,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [overview](overview.md) - what this is, the two halves, the wire.
 - [attribution](attribution.md) - credits, shipped third-party assets and notice gaps.
 - [build-commands](build-commands.md) - Makefile targets, formatting, debug one-liners.
+- [cpu-optimization](cpu-optimization.md) - implemented C# hot-path reductions.
 - [paths](paths.md) - where config, profile, logs and the tmux socket live.
 - [config-stores](config-stores.md) - the daemon's file, the mod's file, the seams.
 - [agent-grants](agent-grants.md) - scoped tokens: one agent watching another, host never.
