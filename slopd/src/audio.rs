@@ -656,21 +656,10 @@ impl Iterator for Ring {
 }
 
 impl Source for Ring {
-    /// **Finite, and never `None`.** The mixer wraps what it is given in rodio's
-    /// `UniformSourceIterator`, which builds the channel and rate converters from the
-    /// source's own `channels()` and `sample_rate()` - and rebuilds them only at a span
-    /// boundary. `None` means "one span, for ever", so the converters built for the *first*
-    /// stream of the session stay bolted on to every stream appended after it: the player
-    /// is opened once and outlives every station switch.
-    ///
-    /// That is a station playing at the wrong speed. Mono read as stereo is 2x - WeFunk's
-    /// 64k - and RP's 32k, which is 22050 mono, read as 44100 stereo is 4x. Stereo 44100
-    /// was every stream on the list until it was not, which is why nothing showed it.
-    ///
-    /// Frame-aligned, or the channel converter loses which sample belongs to which side.
-    /// `SPAN` samples is a fraction of a second and well under the 32768 the iterator
-    /// clamps to; the shape never actually changes within one ring, so the rebuild costs a
-    /// converter and nothing else.
+    /// Finite and frame-aligned. Rodio rebuilds channel/rate converters only at span
+    /// boundaries; `None` would preserve the first station's shape across every switch,
+    /// playing later mono or 22050 Hz streams at 2x or 4x. Alignment preserves channel
+    /// sides, and `SPAN` remains below rodio's 32768-sample clamp.
     fn current_span_len(&self) -> Option<usize> {
         let channels = self.channels.get() as usize;
         Some(SPAN.div_ceil(channels) * channels)
@@ -710,17 +699,9 @@ mod tests {
         )
     }
 
-    /// **One player, several stations in a row, which is the real path**: the device is
-    /// opened once and every switch appends behind it. A ring that called itself one endless
-    /// span left rodio's converters built for whichever stream came first, so a mono station
-    /// after a stereo one played at 2x - WeFunk's 64k - and RP's 32k, mono at 22050, at 4x.
-    /// Stereo 44100 was every stream on the list until it was not.
-    ///
-    /// Measured with a ramp rather than by counting a tone: the value of a sample says
-    /// *where* in the station it came from, so reading one at a known moment is reading the
-    /// speed directly. Counting instead would measure the tail, where ending a ring early
-    /// leaves the converters a few hundred samples to flush - true of the fixed player as
-    /// well as the broken one. Needs neither network nor device.
+    /// Exercises the real path: one player with differently shaped stations appended.
+    /// A ramp exposes playback position directly without counting a converter tail, and
+    /// needs neither network nor audio device.
     #[test]
     fn a_station_of_any_shape_plays_at_its_own_speed() {
         // Frames in, per station. The ramp runs 0.0 to 1.0 across them.

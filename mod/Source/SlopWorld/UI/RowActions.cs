@@ -16,22 +16,10 @@ namespace SlopWorld
         Diff = 4,
     }
 
-    // The little strip of buttons a row grows under the mouse, in both trees ([FilesView],
-    // [GitView]) and to the same geometry - the same three errands the right-click menus have
-    // carried all along, put where the eye already is.
-    //
-    // Only under the mouse, and this is the whole of why it is worth having: the icons sit
-    // where the row's own tail sits - nothing in the files view, the mark and the counts in
-    // the git view - so a row that is not hovered reads exactly as it did. What the strip
-    // costs is the end of a long name, and only while the mouse is on that one row.
-    //
-    // Laid out from the right for the reason the git view's figures are: three buttons under
-    // one another down the column, whatever the names in front of them do.
-    //
-    // Drawn by hand rather than through `Widgets.ButtonImage`, because both trees take their
-    // clicks in a second pass after the whole tree is laid out and outside the scroll view's
-    // group - a button that answered during the draw would fire *and* let the row's own
-    // MouseDown through, which is two things done for one press.
+    // Hover actions shared by FilesView and GitView. They replace the row's right-hand
+    // tail temporarily and are right-aligned so the column stays fixed. Drawing is manual:
+    // both trees handle clicks in a second pass outside the scroll group, and answering in
+    // `Widgets.ButtonImage` would also pass the same MouseDown to the row.
     public static class RowActions
     {
         public const float IconW = 14f;

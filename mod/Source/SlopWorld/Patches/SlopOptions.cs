@@ -7,22 +7,10 @@ using Verse.Sound;
 
 namespace SlopWorld
 {
-    // The options menu, made to look like the rest of this mod: the whole screen a pane
-    // would have, with the page itself a centred band of readable width, and the daemon's
-    // own configuration as the first category in the column.
-    //
-    // The room it takes is the room a terminal pane takes - everything the chrome is not,
-    // so the column of agents and the line across the top stay where they are and this
-    // opens inside them. Dialog_Options was the last thing that opened as a 650x600 panel
-    // floating over the map, and with the config page moved into it there is more to draw
-    // than that panel ever held. Centred with a cap on the width because a form stretched
-    // across a 4K screen is a form nobody can read a row of.
-    //
-    // Vanilla lays this window out in *window* coordinates rather than off the rect it is
-    // handed - the category column is a literal Rect(0, i*50, 160, 48) - so the band is a
-    // GUI group rather than a remapped rect. Same reason InspectPaneUtility.DoTabs is
-    // wrapped rather than shifted: the space a thing draws in is the only lever on a
-    // layout computed from one figure. See ChromeShift.
+    // Options occupy the chrome's content area, with a width-capped page beside the
+    // category column. Vanilla positions categories from window coordinates
+    // (`Rect(0, i*50, 160, 48)`), so the centred band must be a GUI group; remapping its
+    // rect would not move them. See OptionsView and ChromeShift.
     public static class SlopOptions
     {
         // The band, its width and the row taken off the foot for the OK button are

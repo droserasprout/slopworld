@@ -4,22 +4,10 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The keyboard, cut to what this game answers to. Vanilla ships fifty-nine key bindings
-    // and generates one more for every main button carrying a defaultHotKey; nearly all of
-    // them drive something this mod does not run - the architect menu and its designators,
-    // gizmo hotkeys, the time controls, the overlays in the play-settings row - so they are
-    // keys with nothing behind them, offered on the Shortcuts page as though they were
-    // choices.
-    //
-    // Kept: the camera and Accept/Cancel, which are barely key bindings at all -
-    // Window.InnerWindowOnGUI and WindowStack.HandleEventsHighPriority read Cancel by name,
-    // so Escape closing a window *is* this def and nothing else. Everything else vanilla
-    // ships is dropped.
-    //
-    // The defs stay in the database, for the reason StripOptions leaves its category there:
-    // `AllDefs` is the database's own list, KeyPrefs keys its table on the def, and a def
-    // pulled out is a hole for every other reader while its key still binds. Dropped means
-    // unlisted - KeyBindingsPage draws `Kept` - and unbound, which is `NotBound` below.
+    // Retains camera and Accept/Cancel bindings; the removed gameplay systems leave the
+    // other vanilla bindings inert. Keep every def in the database because KeyPrefs and
+    // other readers key on it. "Dropped" means omitted by KeyBindingsPage and forced to
+    // NotBound below. Cancel must remain: WindowStack reads it by name to close windows.
     public static class StripKeys
     {
         static readonly HashSet<string> Keep = new HashSet<string>

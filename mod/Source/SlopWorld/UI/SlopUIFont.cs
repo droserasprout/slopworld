@@ -105,24 +105,11 @@ namespace SlopWorld
             ApplyToStyles(Text.textAreaStyles, font, size);
             ApplyToStyles(Text.textAreaReadOnlyStyles, font, size);
 
-            // Update the private lineHeights array via reflection. It is what
-            // Text.LineHeight / LineHeightOf answer from, and so what every row in this mod
-            // is laid out off.
-            //
-            // We measure each tier at its own size using GUIStyle.lineHeight, which
-            // includes the font's inter-line spacing (ascent + descent + leading).
-            // This is the same metric TerminalFont uses for its cell height:
-            //   CellH = Mathf.Max(_style.lineHeight, _size + 2f)
-            // Floored at size * 1.6 for headroom across diverse faces - see LineHeight.
-            //
-            // `spaceBetweenLines` is deliberately left alone. It is not a line height but the
-            // *extra* leading between two of them - vanilla fills it with
-            // CalcHeight("W\nW") - 2 * CalcHeight("W"), which for a style with no padding is
-            // zero and never more than a pixel or two. Writing a whole line height into it put
-            // twenty-odd pixels between the label lines of every gizmo in the game
-            // (Gizmo.GizmoOnGUI and Widgets.LongLabel are its readers), and the figure vanilla
-            // computed at startup is still right here: the padding it is measuring is on the
-            // style, and changing the face and the size does not touch it.
+            // Text.LineHeight reads this private cache. Measure each tier from
+            // GUIStyle.lineHeight and apply LineHeight's cross-font floor.
+            // `spaceBetweenLines` stays unchanged: it is extra leading, derived from style
+            // padding, not the line height. Setting it to a full line height spaces every
+            // multi-line gizmo label by another twenty-odd pixels.
             try
             {
                 var lhField = typeof(Text).GetField("lineHeights",

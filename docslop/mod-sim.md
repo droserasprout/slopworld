@@ -4,17 +4,11 @@
 none of these need a def. See also [mod-plague](mod-plague.md) and
 [mod-worksite](mod-worksite.md).
 
-- **`AgentColony`** - reconciles sessions to colonists once a second. Down is the
-  only posture it imposes. Moving *into* idle rings `TinyBell`; a state seen for
-  the first time is not a move. Stands down while `Cutscene.AgentsHeld`. Colonists
-  arrive in drop pods, so `Spawn` hands back a pawn that is not spawned yet and
-  the arrival haze waits on `_landing`, checked every tick rather than on the
-  reconcile's second. Taking a pawn into the table dirties its graphics, which is
-  what gets the faceplate onto a loaded colony. **Ephemeral sessions get none**: a
-  viewer's `less` or a shell on the host is something a person opened, and a drop
-  pod every time a file is read is the map twitching for nothing. They are drawn in
-  the sidebar and nowhere else ([mod-sidebar](mod-sidebar.md)); one already bound to
-  a pawn - an older save, an adopted session - is retired the way a gone one is.
+- **`AgentColony`** - reconciles sessions to colonists each second, except while
+  `Cutscene.AgentsHeld`. It only imposes the Down posture and rings `TinyBell` on
+  a transition into idle. Drop-pod arrivals live in `_landing` and are checked
+  each tick; adopting a pawn also dirties its graphics for the faceplate.
+  Ephemeral sessions stay sidebar-only, and any legacy pawn bound to one retires.
 - **`TimeKeeper`** - unpauses. With the time controls stripped, a pause is forever.
 - **`ColonyNames`** - answers all three naming dialogs up front on `FinalizeInit`,
   which closes them with no patch.
@@ -44,37 +38,24 @@ none of these need a def. See also [mod-plague](mod-plague.md) and
   fires and the colony is lost. `Application.wantsToQuit` cancels the first one,
   saves on the next frame and then calls `Shutdown` itself; a second request while
   that save is in flight is let through.
-- **`AutoResume`, `AutoSaver`, `TerminalRecall`** - what makes a restart cheap; none
-  has a switch. `AutoSaver`'s interval is real minutes, RimWorld's own being game
-  days (a quarter hour at 1x) on a colony that exists to be restarted; it writes
-  into vanilla's rotating autosave slots so it never overwrites a named save, never
-  lets a failure stop the game closing, and stands down once "next planet" has said
-  the colony is going - a save taken there would hand `AutoResume` a discarded
-  colony to come back to. `AutoResume` loads the newest save on a cold start and,
-  finding none, calls `QuickStart.Queue`. The player's way in is `Patch_QuickStart`,
-  off `Page_SelectScenario.PreOpen`.
-- **`NextPlanet`** - the seam is `OptionListingUtility.DrawOptionListing`, drawn
-  *twice* per menu (the second is the web links column), hence the `Column` flag
-  armed on the way into `DoMainMenuControls`. The same pass drops four rows,
-  matched on the translated label. `MainTabWindow_Menu` asks for a fixed size, so
-  the height is postfixed by the net row count, written down *and* overwritten
-  with what the last listing did. Closing scene: beat on `GameComponentUpdate`,
-  fire on `GameComponentTick`, fireballs counted off the *area* taken and banked
-  in `_owed`. Grandma mode skips the scene entirely - `Start` sets the two flags
-  and goes straight to `Leave`, so the colony is still discarded and the next one
-  still lands, without the burn. `CoreTip` drops its "Kill something" row there
-  too.
+- **`AutoResume`, `AutoSaver`, `TerminalRecall`** - make restarts cheap; none has a
+  switch. Autosaves use real-minute intervals and vanilla's rotating slots, ignore
+  failures during shutdown, and stop after "next planet" begins. On cold start,
+  `AutoResume` loads the newest save or calls `QuickStart.Queue`; the manual entry
+  is `Patch_QuickStart` on `Page_SelectScenario.PreOpen`.
+- **`NextPlanet`** - patches the first of two
+  `OptionListingUtility.DrawOptionListing` calls, selected by `Column`, to replace
+  four translated-label rows and adjust the menu's fixed height. The closing scene
+  advances beats in `GameComponentUpdate` and area-proportional, banked fireballs
+  in `GameComponentTick`. Grandma mode skips directly to `Leave` but still discards
+  the colony. `CoreTip` also drops "Kill something" here.
 - **`Cutscene`** - which of the two scenes has the board, asked in one place.
 - **`TerminalHotkeys`** - F12 in from anywhere. Closing cannot live here (see
   [gotchas](gotchas.md)) and lives in `TerminalWindow`.
-- **`SlopScenario`** - Crashlanded via `Scenario.CopyForEditing`, stripped by
-  assignability of every part that hands anything over. Derived rather than
-  hand-written, because the parts we are *not* interested in are what a
-  hand-written def gets wrong. Dropping the pawn part leaves
-  `GameInitData.startingPawnCount` at the field's own `-1`, which `PrepForMapGen`
-  indexes the pawn list with, so `QuickStart` writes a zero over it after
-  `PostIdeoChosen`. It also means nobody is on the map at tick zero and
-  `IntroDirector` chooses what arrives.
+- **`SlopScenario`** - copies Crashlanded, then removes every assignable part that
+  grants starting assets. Removing the pawn part leaves `startingPawnCount = -1`,
+  so `QuickStart` sets it to zero after `PostIdeoChosen`; `IntroDirector` then owns
+  the empty map's arrivals.
 - **`RobotFace`** - `SlopFaceRenderNodes` is a `DynamicPawnRenderNodeSetup`, so it
   needs no def; it takes its mesh from the hair set, reads its layer off the head
   node, and hands back a null parent so we never hold a node the tree has rebuilt.

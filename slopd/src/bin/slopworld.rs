@@ -1,17 +1,9 @@
-//! `slopworld` - the launcher, and the only supported way in.
+//! The supported launcher. It creates an isolated save-data profile, seeds Core plus this
+//! mod, and writes the marker required before the mod will patch an install.
 //!
-//! RimWorld keeps saves, prefs and the mod list in one folder per install, and this mod takes
-//! the sim away, renames the faction, rewrites the calendar and ships unknown defs - so it
-//! gets a *profile*: a save data folder of its own, seeded with a mod list that is Core and
-//! us, handed over through `-savedatafolder=`. The marker file this writes is what the mod
-//! looks for; without it, it refuses to patch anything and says so. It is written here rather
-//! than by the game because a folder the game made on its own is somebody's install.
-//!
-//! The game is *waited on* rather than exec'd into: `daemon.game_cmd` is matched against
-//! `argv[0]` anchored (see `game.rs`), so the process slopd finds has to be this binary.
-//! Exec'ing would leave a RimWorld the daemon cannot see, and `restart_game` would launch a
-//! second one over a colony still being written. Waiting also makes this process's lifetime
-//! the game's, which is what `slopworld-game.service` reports.
+//! It waits instead of execing: `game.rs` identifies `daemon.game_cmd` by anchored argv[0],
+//! and the service must live exactly as long as the game. Execing RimWorld would make it
+//! invisible to restart detection and could launch a second process over an active colony.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};

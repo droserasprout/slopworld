@@ -29,16 +29,10 @@
   screen opaque. To put something over the terminal, draw it from
   `DoWindowContents` after the fill - also the only place `Mouse.IsOver` lets
   clicks through.
-- **Screenshot mode (F11) hides less than it looks like.** `UIRootOnGUI` and
-  `MapInterfaceOnGUI_BeforeMainTabs` gate the main buttons, alerts, colonist bar,
-  readouts and gizmos on `Find.ScreenshotModeHandler.FiltersCurrentEvent`, and
-  `Window.WindowOnGUI` drops any window without `drawInScreenshotMode` - but
-  `MapComponentOnGUI` runs *before* that gate and `WindowStack` calls every
-  window's `ExtraOnGUI` regardless of it. So a `MapComponent` (`TopBar`, from
-  `UsageReadout`) and anything hung off `InspectPaneUtility.DoTabs` (the agent's
-  Edit button) stay on screen unless they ask. `SlopLayout.Hidden` is the one
-  answer. Map overlays are *not* filtered in vanilla either - pawn labels are
-  drawn through the same unfiltered path - so `StatusOverlay` stays, on purpose.
+- **Screenshot mode (F11) does not filter `MapComponentOnGUI`, window
+  `ExtraOnGUI`, or vanilla map overlays.** Components such as `TopBar` and hooks
+  such as the agent Edit tab must ask `SlopLayout.Hidden`; `StatusOverlay`
+  deliberately remains, like vanilla pawn labels.
 - **Keyboard order is not draw order.** `WindowStack.HandleEventsHighPriority` runs
   near the top of `UIRoot.UIRootOnGUI` and Uses every `KeyDown` whenever a window
   absorbs input around itself, so a global hotkey taken in a game component fires
@@ -72,19 +66,13 @@
 - **A short `Listing_Standard` starts another column instead of overflowing.** The
   new column may sit outside its clipping group and reset `CurHeight`, breaking later
   layout. Begin with enough height and set `maxOneColumn`.
-- **A `Font` from `CreateDynamicFontFromOSFont` is held only by a `GUIStyle`**, which
-  is not a `UnityEngine.Object` and so roots nothing: the
-  `Resources.UnloadUnusedAssets` the game runs on any map switch destroys the
-  face, and the style silently falls back to the proportional GUI font. Same trap
-  for generated textures (`MenuBackground.Keep`). Mark them
+- **A `GUIStyle` does not root a dynamic `Font`.** Map switches call
+  `Resources.UnloadUnusedAssets`, destroying it and silently restoring the default
+  face. Dynamic fonts and generated textures (`MenuBackground.Keep`) need
   `HideFlags.DontUnloadUnusedAsset`.
-- **`send-keys -H` tops out around 996 bytes** and fails *silently* past it. The
-  tmux client packs a command's whole argv into one imsg and `-H` costs a byte per
-  argument, so an ordinary paste hits tmux's own "command too long". Anything of a
-  size goes through `load-buffer` from stdin, which has no such ceiling, and
-  `paste-buffer -r` - without `-r` tmux rewrites `\n` to `\r`. No bracketed-paste
-  markers are added either: Ink apps (Claude Code) do not strip them and display a
-  literal `^[[200~`.
+- **`send-keys -H` silently fails above about 996 bytes.** Paste through
+  `load-buffer` on stdin and `paste-buffer -r` (`-r` preserves newlines). Do not
+  add bracketed-paste markers; Ink apps display them literally.
 - **A portrait camera's `cameraOffset.y` is the view axis and frames nothing.** The
   pawn cache camera looks straight down -Y from (0, 10, 0), so z pans the shot and
   x slides it sideways; vanilla pans in z throughout. `cameraZoom` is `1 /
