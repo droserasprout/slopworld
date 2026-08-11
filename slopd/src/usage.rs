@@ -1,22 +1,8 @@
-//! What is left of the subscriptions, polled from whoever sells them.
-//!
-//! Anthropic first, and nothing on the host caches it - `stats-cache.json` is aggregate
-//! tokens and days stale, the transcripts carry no rate-limit fields - so the numbers come
-//! from where Claude Code's own `/usage` gets them, with the OAuth token in
-//! `~/.claude/.credentials.json`. Read fresh per poll and never copied: the token expires
-//! hourly and something else refreshes it.
-//!
-//! OpenRouter is the second, and it is money rather than a window: credits bought less
-//! credits spent, which is what the `pi` agent draws down. Same shape on the wire, told
-//! apart by `unit` the way the extra-usage budget already was.
-//!
-//! OpenAI is the third. Codex's ChatGPT login carries an access token in `auth.json`; its
-//! usage endpoint answers a primary and secondary rate-limit window. This endpoint is not a
-//! public API, so the parser is intentionally narrow and an unfamiliar answer draws no zeroes.
-//!
-//! Failure is a state rather than an error: a snapshot carries what it read plus the reason
-//! it got no further. The mod is told a *list* of windows, so a plan with different limits
-//! draws whatever it has - and so two sellers are one readout rather than two.
+//! Polls subscription usage from Anthropic, OpenRouter, and OpenAI. Anthropic and OpenAI
+//! credentials are read fresh because another process refreshes them; OpenRouter reports
+//! money rather than a rate-limit window. Undocumented endpoints are parsed narrowly, and
+//! unknown responses produce no figures rather than false zeroes. Failures remain snapshots
+//! so the mod can keep the last figures and display the cause.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -145,22 +131,10 @@ struct OpenAiCreds {
     account_id: Option<String>,
 }
 
-/// Read once, and read again if what came back was not JSON.
-///
-/// The file has no atomic writer any more. Claude Code writes it tmp-then-rename, but a rename
-/// onto a bind mount fails with `EBUSY` and the sandbox binds this file into every session that
-/// has the `claude` preset - so inside one, its fallback path is taken: `O_TRUNC` and write, on
-/// the host's own inode. A read landing in that window gets a truncated file or an empty one,
-/// and both are parse errors rather than IO errors.
-///
-/// One retry is the whole fix: the window is a single `write(2)` of half a kilobyte, and
-/// anything still unparseable 50ms later is a genuinely broken file worth reporting. Without it
-/// the cost is out of all proportion to the odds - a poll failure doubles a backoff capped at
-/// half an hour, and the mtime watch that would cut it short has usually already stamped the
-/// write that did the damage.
-///
-/// Not retried on an IO error: a file that is missing or unreadable will still be missing in
-/// 50ms, and that is a state worth reporting at once.
+/// Retry one JSON parse after 50ms. A sandboxed Claude cannot rename over the shared
+/// credential bind mount, so its fallback truncates and rewrites the host inode in place.
+/// Readers can catch that brief invalid-JSON window. IO errors are persistent states and
+/// return immediately.
 fn read_creds(path: &PathBuf) -> anyhow::Result<Creds> {
     match read_creds_once(path) {
         Err(e) if e.downcast_ref::<serde_json::Error>().is_some() => {
@@ -216,25 +190,9 @@ fn read_openai_creds(path: &PathBuf) -> anyhow::Result<OpenAiCreds> {
     Ok(OpenAiCreds { token, account_id })
 }
 
-/// Why a poll is not worth making, or None. Both stamps are epoch *milliseconds*, the unit
-/// `now_ms()` is in: Claude Code writes them straight out of `Date.now()`, and scaling either
-/// side is how this check stops firing at all.
-///
-/// A past `expiresAt` is not a logged-out host. Claude Code refreshes the access token lazily,
-/// on use, and rewrites the file only when it does, so a machine nobody has asked anything of
-/// sits hours past expiry with a perfectly good login - which is what "expired while I am
-/// signed in" means when the readout says it.
-///
-/// It used to sit there much longer. The credentials file is `shared` rather than copied (see
-/// `SandboxPreset::shared`), so a *sandboxed* session's refresh now lands on the host's file
-/// too, and a machine driven only through slopworld agents keeps its own token current without
-/// anyone running `claude` beside them. Hence the remedy below names any agent and not only the
-/// host: sending someone to a terminal they were not using is how this reads as broken.
-///
-/// Told apart because the remedies are different, and `claude auth` on a token that any
-/// ordinary use would renew by itself sends the user to re-authenticate for nothing.
-/// The refresh token is the one whose death really is a re-login; it outlives the access
-/// token by weeks.
+/// Explain why polling cannot proceed. Timestamps are epoch milliseconds. An expired access
+/// token only needs any host or agent Claude command; Claude refreshes it lazily into the
+/// shared credential file. Only an expired refresh token requires `claude auth`.
 fn expiry_error(exp: Option<u64>, refresh_exp: Option<u64>, now: u64) -> Option<&'static str> {
     if !exp.is_some_and(|e| e < now) {
         return None;

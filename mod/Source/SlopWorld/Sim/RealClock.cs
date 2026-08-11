@@ -5,26 +5,10 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The bridge between the game's clock and the wall clock, both ways: durations
-    // are read off the game's clock in real units, and the game's calendar is steered
-    // off the real one.
-    //
-    // At Normal speed - the only speed TimeKeeper allows - the game runs 60 ticks a
-    // real second, so a span of ticks already is a real duration. That is all Seconds
-    // and Period do with it.
-    //
-    // The sky is the harder half. Day and night are a pure function of the *absolute*
-    // tick and the tile's longitude, and at 60 ticks a second a game day is sixteen
-    // minutes - so the sun crossed the board eighty-six times a day. The absolute
-    // tick is TicksGame plus TickManager.gameStartAbsTick and nothing else, and that
-    // field is public, so this needs no patch: rewriting it every frame moves glow,
-    // shadow vectors, DayPercent, hour and season at once, where patching would mean
-    // finding every reader and hoping Mono inlined past none of them.
-    //
-    // One game day to a real day, the colony's landing day being day one, so a year
-    // is sixty real days. An absolute tick is therefore worth 1.44 real seconds
-    // rather than a sixtieth of one, and anything holding a stamp converts through
-    // SecondsPerAbsTick.
+    // Bridges game and wall clocks. Normal speed makes game-tick spans real-time spans.
+    // The calendar instead maps one game day to one real day by rewriting
+    // gameStartAbsTick; all vanilla sky, hour, season, and date readers then agree.
+    // Absolute-tick timestamps must convert through SecondsPerAbsTick.
     public class RealClock : GameComponent
     {
         // Ticks the game runs per real second at Normal speed.

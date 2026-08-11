@@ -916,23 +916,10 @@ namespace SlopWorld
             Viewer.Open(repo.Project, DiffCmd(repo, node.Rel, node.Status), "diff-" + node.Name);
         }
 
-        // What the errand runs. The daemon builds an argv rather than running a shell, so
-        // there is no pipe to be had here and the pager is git's own: `--paginate` with
-        // `core.pager` set, which git *does* run through a shell, is how `less` is reached
-        // from an argv that cannot contain one. `--color=always` because git decides colour by
-        // whether its own stdout is a terminal, and behind a pager it is not.
-        //
-        // `LESS` is set on that command line rather than left to git, which fills it with
-        // `FRX` when it is unset - and the `X` there is what keeps `less` off the alternate
-        // screen. The pane reads `AltScreen` to decide whether the wheel is the app's or its
-        // own scrollback, so under git's own default the mouse never reaches the pager and a
-        // diff cannot be scrolled. `R` alone is what the files view's `less -R` amounts to,
-        // and `F` is left off with it: a diff shorter than the pane would quit before it was
-        // read. The shell git runs this through is what makes the assignment an assignment.
-        //
-        // `-C` rather than trusting the working directory: a project may be pointed at a
-        // subdirectory of the repository, and a path relative to the root only means what it
-        // says from the root.
+        // Use git's pager because daemon errands are argv, not shell pipelines. Force colour
+        // and LESS=R: git's default X avoids the alternate screen, preventing the pane from
+        // sending wheel input to less; F would quit on short diffs. `-C` anchors paths when a
+        // project points below the repository root.
         static string DiffCmd(Repo repo, string rel, string status)
         {
             string git = "git -C " + Pager.Quote(repo.Root) +
