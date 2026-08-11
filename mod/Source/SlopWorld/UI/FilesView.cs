@@ -394,8 +394,9 @@ namespace SlopWorld
             if (node.IsDir)
             {
                 GUI.color = SlopWidgets.Faint;
-                GUI.DrawTexture(new Rect(x, y + (RowH - ArrowW) / 2f, ArrowW, ArrowW),
-                    node.Expanded ? TexButton.Collapse : TexButton.Reveal);
+                if (node.Kids == null || node.Kids.Count > 0)
+                    GUI.DrawTexture(new Rect(x, y + (RowH - ArrowW) / 2f, ArrowW, ArrowW),
+                        node.Expanded ? TexButton.Collapse : TexButton.Reveal);
                 GUI.color = Color.white;
             }
             x += ArrowW + 3f;
@@ -638,7 +639,65 @@ namespace SlopWorld
                     "edit-" + node.Name)));
             }
 
+            if (!IsRoot(node))
+            {
+                opts.Add(SlopMenu.Separator());
+                opts.Add(new FloatMenuOption("Rename", () => Rename(node)));
+                opts.Add(new FloatMenuOption("Remove", () => Remove(node)));
+            }
+
+            if (node.IsDir)
+            {
+                opts.Add(SlopMenu.Separator());
+                opts.Add(new FloatMenuOption("New file", () => Create(node, "file")));
+                opts.Add(new FloatMenuOption("New folder", () => Create(node, "folder")));
+                opts.Add(new FloatMenuOption("Terminal here", () => TerminalHere(node)));
+            }
+
             TerminalWindow.OpenOverPane(new SlopMenu(opts));
+        }
+
+        static bool IsRoot(Node node) => node.Depth == 0;
+
+        static void Rename(Node node) => FileNameDialog.Open(
+            "Rename " + node.Name, node.Name, name =>
+            {
+                SlopClient.Put("/api/files",
+                    "{" + $"\"path\":{JVal.Q(node.Path)},\"name\":{JVal.Q(name)}" + "}",
+                    _ => Reload(), SlopWidgets.Fail);
+            });
+
+        static void Remove(Node node)
+        {
+            string what = node.IsDir ? "folder and everything inside it" : "file";
+            TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
+                $"Remove {what} '{node.Name}'?",
+                () => SlopClient.Delete("/api/files",
+                    "{\"path\":" + JVal.Q(node.Path) + "}",
+                    _ => Reload(), SlopWidgets.Fail),
+                destructive: true));
+        }
+
+        static void Create(Node node, string kind)
+        {
+            string fallback = kind == "folder" ? "new-folder" : "untitled";
+            FileNameDialog.Open(kind == "folder" ? "New folder" : "New file", fallback, name =>
+            {
+                SlopClient.Post("/api/files",
+                    "{" + $"\"path\":{JVal.Q(node.Path)},\"name\":{JVal.Q(name)}," +
+                    $"\"kind\":{JVal.Q(kind)}" + "}",
+                    _ => Reload(), SlopWidgets.Fail);
+            });
+        }
+
+        static void TerminalHere(Node node)
+        {
+            string command = "cd -- " + Pager.Quote(node.Path) + " && exec \"$SHELL\"";
+            bool host = string.IsNullOrEmpty(node.Project);
+            SessionHub.Instance.Run(host ? "" : node.Project, command,
+                "terminal-" + node.Name,
+                session => TerminalWindow.Open(session), SlopWidgets.Fail,
+                host: host, temp: host);
         }
 
         // Against the project's own directory. Null for the root itself, which has no relative

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::{bail, Context};
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, Query, Request, State};
 use axum::http::{HeaderMap, StatusCode};
@@ -74,6 +75,10 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/usage", get(usage))
         .route("/api/audio", get(audio))
         .route("/api/browse", get(browse))
+        .route(
+            "/api/files",
+            post(create_file).put(rename_file).delete(remove_file),
+        )
         .route("/api/search", get(search))
         .route("/api/git", get(git_status))
         .route("/api/game", get(game))
@@ -1037,6 +1042,131 @@ async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult 
 }
 
 #[derive(Deserialize)]
+struct FileReq {
+    path: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    kind: String,
+}
+
+fn file_path(path: &str) -> anyhow::Result<std::path::PathBuf> {
+    let path = crate::config::expand(path.trim());
+    if path.is_empty() {
+        bail!("no path");
+    }
+
+    let path = std::path::PathBuf::from(path);
+    if !path.is_absolute() {
+        bail!("path must be absolute");
+    }
+    Ok(path)
+}
+
+fn entry_name(name: &str) -> anyhow::Result<&str> {
+    let name = name.trim();
+    if name.is_empty() || name == "." || name == ".." {
+        bail!("name is empty");
+    }
+    if name.contains('/') || name.contains('\\') || name.contains('\0') {
+        bail!("name must be one path component");
+    }
+    Ok(name)
+}
+
+async fn create_file(Json(q): Json<FileReq>) -> ApiResult {
+    let parent = file_path(&q.path).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    let name = entry_name(&q.name).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    let meta = tokio::fs::metadata(&parent)
+        .await
+        .with_context(|| format!("reading parent directory {}", parent.display()))
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    if !meta.is_dir() {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            format!("not a directory: {}", parent.display()),
+        ));
+    }
+
+    let target = parent.join(name);
+    if tokio::fs::symlink_metadata(&target).await.is_ok() {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            format!("already exists: {}", target.display()),
+        ));
+    }
+
+    let result = if q.kind.trim() == "file" {
+        tokio::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&target)
+            .await
+            .map(|_| ())
+            .with_context(|| format!("creating {}", target.display()))
+    } else if q.kind.trim() == "folder" {
+        tokio::fs::create_dir(&target)
+            .await
+            .with_context(|| format!("creating {}", target.display()))
+    } else {
+        return Err(err(StatusCode::BAD_REQUEST, "kind must be file or folder"));
+    };
+    result.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+
+    Ok(Json(json!({ "ok": true })))
+}
+
+async fn rename_file(Json(q): Json<FileReq>) -> ApiResult {
+    let source = file_path(&q.path).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    let name = entry_name(&q.name).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    let parent = source
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .ok_or_else(|| err(StatusCode::BAD_REQUEST, "cannot rename this path"))?;
+    tokio::fs::symlink_metadata(&source)
+        .await
+        .with_context(|| format!("reading {}", source.display()))
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+
+    let target = parent.join(name);
+    if tokio::fs::symlink_metadata(&target).await.is_ok() {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            format!("already exists: {}", target.display()),
+        ));
+    }
+    tokio::fs::rename(&source, &target)
+        .await
+        .with_context(|| format!("renaming {}", source.display()))
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+async fn remove_file(Json(q): Json<FileReq>) -> ApiResult {
+    let path = file_path(&q.path).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    let meta = tokio::fs::symlink_metadata(&path)
+        .await
+        .with_context(|| format!("reading {}", path.display()))
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    if path.parent().is_none() {
+        return Err(err(StatusCode::BAD_REQUEST, "cannot remove this path"));
+    }
+
+    if meta.is_dir() {
+        tokio::fs::remove_dir_all(&path)
+            .await
+            .with_context(|| format!("removing {}", path.display()))
+            .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    } else {
+        tokio::fs::remove_file(&path)
+            .await
+            .with_context(|| format!("removing {}", path.display()))
+            .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    }
+    Ok(Json(json!({ "ok": true })))
+}
+
+#[derive(Deserialize)]
 struct SearchReq {
     #[serde(default)]
     path: String,
@@ -1646,7 +1776,7 @@ async fn send(
 mod tests {
     use std::path::{Path, PathBuf};
 
-    use super::{browse_limit, list_dir, search_preview, SEARCH_TEXT_LIMIT};
+    use super::{browse_limit, entry_name, list_dir, search_preview, SEARCH_TEXT_LIMIT};
 
     /// Somewhere of our own under the machine's temp dir, cleared on the way in so a run
     /// that died before its cleanup does not poison the next one. No dev-dependency for
@@ -1776,6 +1906,15 @@ mod tests {
         assert_eq!(browse_limit(Some(0)), 1);
         assert_eq!(browse_limit(Some(12)), 12);
         assert_eq!(browse_limit(Some(usize::MAX)), 500);
+    }
+
+    #[test]
+    fn file_names_are_one_component() {
+        assert_eq!(entry_name("note.md").unwrap(), "note.md");
+        assert!(entry_name("").is_err());
+        assert!(entry_name(".").is_err());
+        assert!(entry_name("src/note.md").is_err());
+        assert!(entry_name("src\\note.md").is_err());
     }
 
     #[test]

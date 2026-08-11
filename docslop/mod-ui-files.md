@@ -8,9 +8,9 @@ Storage can temporarily focus one daemon-resolved private-state directory as the
 leaving Files clears that focus. Those roots are host-side, so their readers and editors use
 disposable host errands rather than a project sandbox.
 
-**The daemon does the reading** - a session is in its own mount namespace and the
-game is outside all of them, so `GET /api/browse` is the only thing here that can
-see a project directory the way the project does.
+**The daemon does the filesystem work** - a session is in its own mount namespace and the
+game is outside all of them, so `/api/browse` and `/api/files` are the only roads here that
+can see or mutate a project directory the way the project does.
 
 - `Kids` null is "never asked", which is what makes it lazy; the fetch is fired
   from the **draw** pass rather than from the click, so a listing dropped by the
@@ -33,11 +33,19 @@ see a project directory the way the project does.
   ([mod-ui-rowactions](mod-ui-rowactions.md)); the diff appears only where the git
   view has read a change for that path, which is why arriving here reads the working
   trees too.
+- An empty directory has no fold chevron. It is still a row and can be right-clicked;
+  only a directory with children, or one whose listing is still pending, gets the
+  fold/unfold affordance.
 - Right-click is copy path, copy relative path, and on a file `View` (`less -R`)
-  and `Edit` (`micro`). Those two go through `POST /api/run`, so what opens is an
+  and `Edit` (`micro`). Files and non-root folders also get `Rename` and `Remove`;
+  folders get `New file`, `New folder`, and `Terminal here`, with hairline separators
+  between those groups. Mutations use root-only `POST`, `PUT`, and `DELETE /api/files`.
+  Those two readers still go through `POST /api/run`, so what opens is an
   ephemeral agent in the **project's own sandbox** - which is what makes `less` see
   the file the way the agents working on it do. The path is single-quoted
   (`Pager.Quote`), `shell_split` building an argv rather than running a shell.
+- `Terminal here` starts a shell after changing to the selected folder. Project folders
+  use the project's sandbox; storage roots use a disposable host errand.
 - A **project heading** gets one more: `Terminal (host)`, the same option the agents
   view's heading carries ([mod-sidebar](mod-sidebar.md)). `Menu` takes the project
   name as a second argument, null everywhere below the heading - the two headings

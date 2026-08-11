@@ -19,7 +19,8 @@ is playing, unpicked out of the audio itself.
 Everything that rewrites `config.toml` goes over HTTP instead, because the error
 body matters: `/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`,
 and `PUT /api/config/patch`, plus `POST /api/shortcuts/NAME/run` and
-`POST /api/run`.
+`POST /api/run`. The Files sidebar's root-only `POST`, `PUT` and `DELETE
+/api/files` mutate one directory entry at a time.
 
 `PUT /api/config/patch` accepts a nested JSON object such as
 `{"daemon":{"game_cmd":"~/.local/bin/slopworld"}}`. It deep-merges the named
@@ -87,6 +88,14 @@ Lists one directory.
 - `DirEntry::file_type` is an **lstat**, so a symlink is stat'd once behind the
   entry or a linked directory reads as one that has gone; a dangling link is in
   neither list.
+
+## `/api/files`
+
+Root-only filesystem mutations for the Files sidebar. `POST` creates a `file` or
+`folder` under `{path, name, kind}`; `PUT` renames `{path}` to the one-component
+`{name}` beside it; `DELETE` removes `{path}`, recursively for directories. Names
+cannot contain a slash, backslash, or `.`/`..`, and existing targets are never
+overwritten.
 
 ## `GET /api/git`
 

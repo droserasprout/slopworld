@@ -28,6 +28,10 @@ namespace SlopWorld
         public static void Delete(string path, Action<JVal> ok, Action<string> fail = null) =>
             Send("DELETE", path, null, ok, fail);
 
+        public static void Delete(string path, string body, Action<JVal> ok,
+                                  Action<string> fail = null) =>
+            Send("DELETE", path, body ?? "{}", ok, fail);
+
         public static void Send(string method, string path, string body,
                                 Action<JVal> ok, Action<string> fail)
         {

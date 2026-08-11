@@ -137,6 +137,11 @@ namespace SlopWorld
         public static void Open(List<FloatMenuOption> options) =>
             Find.WindowStack.Add(new SlopMenu(options));
 
+        // An option with no label is a structural row, not a disabled action. Keeping it in
+        // the same list preserves the menu's simple measurement and lets callers put a rule
+        // exactly between related groups of actions.
+        public static FloatMenuOption Separator() => new FloatMenuOption("", null);
+
         float ContentH => _options.Count * RowH + PadY * 2f;
 
         float WidestLabel()
@@ -329,6 +334,13 @@ namespace SlopWorld
         // True if this row took the press.
         bool Row(Rect r, FloatMenuOption o, int i, bool hot)
         {
+            if (string.IsNullOrEmpty(o.Label))
+            {
+                Slab.Hairline(new Rect(r.x + PadX, r.y + r.height / 2f,
+                    r.width - PadX * 2f, 1f), SlopWidgets.Edge);
+                return false;
+            }
+
             bool on = !o.Disabled;
             bool over = on && hot;
             bool nest = o is SlopSubmenu;
