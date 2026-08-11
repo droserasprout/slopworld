@@ -48,7 +48,7 @@ code = "ea76"
 [dot]
 glyph = "cod-circle_filled"
 code = "ea71"
-note = "small on purpose - this is Codicons' inline status dot, which is what the pager's mark is"
+note = "small on purpose - this is Codicons' inline status dot, and the sidebar's state badge draws it through Icons.DotBox because of that"
 
 [agents]
 glyph = "cod-robot"

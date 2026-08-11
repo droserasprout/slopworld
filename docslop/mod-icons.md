@@ -89,8 +89,10 @@ agents tab is the agents tab whatever picture it wears next year.
   row's view action).
 - **stop** is `debug-stop`, not `primitive-square`: the latter is Codicons' small
   inline marker and reads as a pebble beside `play`.
-- **dot** is `circle-filled` and *is* that small inline marker, which is what the
-  pager's mark is.
+- **dot** is `circle-filled` and *is* that small inline marker. It draws the
+  sidebar's state badge, through `Icons.DotBox` rather than straight: one scale for
+  the whole set leaves this, the smallest glyph, inking 30 of its 64 pixels, so a
+  rect at the diameter wanted draws a circle less than half of it.
 - **shortcuts** is `symbol-event`, which Codicons draws as the lightning bolt. The
   set the Nerd Font bundles has no `zap`.
 - **keyboard** is `keyboard`, on the options column's Keyboard row. It wore the

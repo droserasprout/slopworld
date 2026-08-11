@@ -68,6 +68,11 @@
 - **A short `Listing_Standard` starts another column instead of overflowing.** The
   new column may sit outside its clipping group and reset `CurHeight`, breaking later
   layout. Begin with enough height and set `maxOneColumn`.
+- **A character the face has no glyph for still takes its width.** Unity advances and
+  draws nothing, so a pane title opening with a coding agent's sigil indents the line
+  by a blank nobody wrote and nothing in the layout explains. `Font.HasCharacter` is
+  the only way to ask - the set a face carries is not a range that can be named in
+  code - and `AgentSidebar.Title` drops what the current style cannot draw.
 - **A `GUIStyle` does not root a dynamic `Font`.** Map switches call
   `Resources.UnloadUnusedAssets`, destroying it and silently restoring the default
   face. Dynamic fonts and generated textures (`MenuBackground.Keep`) need

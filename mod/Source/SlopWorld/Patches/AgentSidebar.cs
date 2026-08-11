@@ -13,8 +13,25 @@ namespace SlopWorld
         public static float Width => Mathf.Clamp(Settings.SidebarWidth, MinWidth,
             Mathf.Max(MinWidth, Mathf.Min(MaxWidth, UI.screenWidth * 0.4f)));
 
-        const float Nominal = 0.5f;
+        // The scale an uncrowded portrait is drawn at. Read off the text rather than fixed:
+        // a row is as tall as the three lines in it, and the pawn beside them is drawn that
+        // tall - overflow included, so the whole picture is the height of the text and the
+        // pitch keeps its `RowGap` between one portrait and the next. A constant here left
+        // a 37px square sitting in a row the font was free to grow past.
+        //
+        // A face is a width as well as a height, and the label wants the rest of the panel,
+        // so a share of the column caps it: a large font in a narrow one would otherwise
+        // hand the whole row to the portrait. Bounded at both ends besides - the portrait
+        // cache renders one unscaled texture, so past Ceiling the face is being upsampled,
+        // and under Floor it is a thumbnail of a pawn.
+        static float Nominal => Mathf.Clamp(
+            Mathf.Min(Patch_SidebarPortraitDraw.FaceForHeight(TextH), Width * WidthShare)
+                / ColonistBarColonistDrawer.PawnTextureSize.y,
+            Floor, Ceiling);
+
+        const float WidthShare = 0.35f;
         const float Floor = 0.3f;
+        const float Ceiling = 1f;
 
         static float HeadH => SlopWidgets.TinyRowH;
         static float AddH => TopBar.H;
@@ -45,6 +62,13 @@ namespace SlopWorld
 
         const float BellW = 13f;
         const float AgoGap = 6f;
+
+        // The state badge is a share of the portrait rather than a fixed size: the column
+        // shrinks to fit and a marker that did not would swallow a small face. The shared
+        // status marker is its floor, below which a circle is a speck.
+        const float BadgeShare = 0.22f;
+        const float BadgeInset = 1f;
+        const float BadgeRing = 1.5f;
 
         const float GhostMarkW = 12f;
 
@@ -484,8 +508,10 @@ namespace SlopWorld
             float fixedH = groups * HeadH + (plus ? AddH + 2f : 0f) + ghosts;
             float each = ColonistBar.BaseSize.y + ColonistBar.BaseSpaceBetweenColonistsVertical;
             float s = (room - fixedH) / (rows * each);
-            // Fonts do not scale with portraits; shrinking below this point saves no height.
-            float useful = Mathf.Clamp((TextH + RowGap) / each, Floor, Nominal);
+            // Fonts do not shrink with portraits, so once the labels set the pitch there is
+            // no height left to save. Min rather than Clamp: the two bounds are both read
+            // off the same font now and would otherwise cross.
+            float useful = Mathf.Min(Nominal, Mathf.Max(Floor, (TextH + RowGap) / each));
             return Mathf.Clamp(s, useful, Nominal);
         }
 
@@ -893,6 +919,8 @@ namespace SlopWorld
                         continue;
                     }
 
+                    DrawStateBadge(row.Face, state);
+
                     Text.Font = GameFont.Small;
                     var name = new Rect(row.Text.x, row.Text.y, row.Text.width, NameH);
                     if (info != null && info.Bell)
@@ -926,10 +954,6 @@ namespace SlopWorld
                     if (title.Length == 0) title = Ground(info);
                     var line3 = new Rect(row.Text.x, row.Text.y + NameH + SubH,
                         row.Text.width, SubH);
-                    DrawStateDot(line3, state);
-                    float dot = Mathf.Min(SlopWidgets.StatusMarker, line3.height);
-                    line3.x += dot + RowGap;
-                    line3.width = Mathf.Max(0f, line3.width - dot - RowGap);
                     SlopWidgets.RowLabel(line3, title);
                     if (title.Length > 0 && SlopWidgets.Wide(title) > line3.width)
                         TooltipHandler.TipRegion(line3, title);
@@ -952,12 +976,29 @@ namespace SlopWorld
 
         static string Word(AgentState state) => state.ToString().ToLower();
 
-        static void DrawStateDot(Rect line, AgentState state)
+        // Presence, the way a chat client marks it: a circle in the lower corner of the
+        // portrait, which is the one round thing in a rectangular UI because it sits on a
+        // face and is read as one. The front pass runs after the colonist bar has put the
+        // portrait down, which is what lets the badge land on top of it. The ring is the
+        // panel's own dark, so the circle keeps an edge over hair and clothing.
+        //
+        // The corner is the drawn portrait's, not the cell's: hair and clothing overflow
+        // the face box by a third of it at each end, and the box's own lower edge is level
+        // with the pawn's chin - which is where the badge sat, over the mouth.
+        static void DrawStateBadge(Rect face, AgentState state)
         {
-            float d = Mathf.Min(SlopWidgets.StatusMarker, line.height);
-            var dot = new Rect(line.x, line.y + (line.height - d) / 2f, d, d);
+            if (face.width <= 0f) return;
+
+            float d = Mathf.Max(SlopWidgets.StatusMarker,
+                Mathf.Round(face.width * BadgeShare));
+            var portrait = Patch_SidebarPortraitDraw.PortraitRect(face);
+            var center = new Vector2(portrait.xMax - d / 2f - BadgeInset,
+                portrait.yMax - d / 2f - BadgeInset);
+
+            GUI.color = SlopWidgets.ViewBg;
+            GUI.DrawTexture(Icons.DotBox(center, d + BadgeRing * 2f), Icons.Dot);
             GUI.color = TerminalWindow.StateColor(state);
-            GUI.DrawTexture(dot, Icons.Dot);
+            GUI.DrawTexture(Icons.DotBox(center, d), Icons.Dot);
             GUI.color = Color.white;
         }
 
@@ -978,13 +1019,22 @@ namespace SlopWorld
             return t.Length > 0 ? t : info?.Name;
         }
 
+        // A title is whatever the app in the pane set, and a coding agent puts a sigil in
+        // front of its own. The game's font has no glyph for those: Unity draws the
+        // character's width and no ink, so the line begins with an indent that nothing in
+        // the layout accounts for and nothing on the screen explains. Asking the font is
+        // the only way to know - the set it carries is not a range anyone can name here.
+        // Control characters are already the daemon's business (tmux.rs, clean_title).
         static string Title(SessionInfo info)
         {
             if (info == null) return "";
             var t = info.Title ?? "";
+            var font = Text.CurFontStyle?.font;
             var clean = new System.Text.StringBuilder(t.Length);
             foreach (char c in t)
-                clean.Append(char.IsControl(c) ? ' ' : c);
+                clean.Append(char.IsControl(c) || (font != null && !font.HasCharacter(c))
+                    ? ' '
+                    : c);
             return clean.ToString().Trim();
         }
 

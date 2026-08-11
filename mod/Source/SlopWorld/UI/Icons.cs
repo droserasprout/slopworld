@@ -47,6 +47,18 @@ namespace SlopWorld
 
         public static Texture2D Dot => Get("dot");
 
+        // The set is scaled by one factor, sized to its largest glyph, and each shape is
+        // centred in the square - so this, the smallest of them, inks 30 of its 64 pixels
+        // and a rect drawn at the diameter wanted would come out at less than half of it.
+        // Callers that need a circle of a given size ask for the texture's rect here.
+        const float DotInk = 30f / 64f;
+
+        public static Rect DotBox(Vector2 center, float diameter)
+        {
+            float box = diameter / DotInk;
+            return new Rect(center.x - box / 2f, center.y - box / 2f, box, box);
+        }
+
         public static Texture2D Agents => Get("agents");
 
         public static Texture2D Files => Get("files");

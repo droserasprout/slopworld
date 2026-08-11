@@ -265,6 +265,16 @@ enum Submission {
     New(Option<String>),
 }
 
+// Waiting screens normally consume a one-word approval or picker choice. Keep those out of
+// OpenRouter, but do not discard a real prompt just because the last captured frame still says
+// waiting while the agent's input line is active.
+fn is_dialog_answer(prompt: &str) -> bool {
+    matches!(
+        prompt.trim().to_ascii_lowercase().as_str(),
+        "y" | "yes" | "n" | "no" | "1" | "2" | "a" | "b" | "ok" | "okay" | "cancel"
+    )
+}
+
 impl Composer {
     fn ready() -> Self {
         Self {
@@ -2170,9 +2180,8 @@ impl Manager {
                     l.title.override_title = native;
                     announce = true;
                 }
-                // Waiting input is normally an approval or a picker answer. Missing a title is
-                // preferable to sending that material to an outside service.
-                Some(Submission::Prompt(_)) if l.state == State::Waiting => {}
+                Some(Submission::Prompt(prompt))
+                    if l.state == State::Waiting && is_dialog_answer(&prompt) => {}
                 Some(Submission::Prompt(prompt)) => {
                     let armed = match policy {
                         TitlePolicy::Never => false,
@@ -2996,6 +3005,13 @@ mod tests {
         assert!(c.key("Enter").is_none());
         c.literal("fresh prompt");
         assert!(matches!(c.key("Enter"), Some(Submission::Prompt(_))));
+    }
+
+    #[test]
+    fn waiting_dialog_answers_are_not_prompt_titles() {
+        assert!(super::is_dialog_answer(" yes "));
+        assert!(super::is_dialog_answer("1"));
+        assert!(!super::is_dialog_answer("fix the parser"));
     }
 
     #[test]

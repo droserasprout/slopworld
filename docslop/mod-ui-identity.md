@@ -13,4 +13,6 @@ buttons, fields, rows, menus, icons, status markers, and the 18px scrollbar gutt
 derive their layout from those tokens rather than reserving nearby values.
 
 Focus rings appear only around real text input. Status uses a rectangular outlined badge and
-square marker rather than a capsule or dot.
+square marker rather than a capsule. The one circle is an agent's state badge in the corner
+of its sidebar portrait: that marker sits on a face rather than in a panel, and presence on a
+face is a dot everywhere else a person has ever seen one.

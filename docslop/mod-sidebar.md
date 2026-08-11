@@ -10,9 +10,22 @@ folded entries are parked off-screen rather than merely omitted because the colo
 uses the same locations for drawing and hit testing. `Rows` is the shared geometry for
 labels, portraits, clicks, and keyboard order.
 
-Portraits shrink to fit, but font-derived label height, headings, routed rows, and the add
-strip do not. `Fit` therefore stops shrinking when the fixed-height labels determine row
-pitch. The add strip is reserved at the bottom in every view.
+Portrait size is read off the text rather than fixed. A row is as tall as its three lines, and
+`Nominal` is the scale at which the whole drawn portrait — face box plus overflow — is that
+tall, so the font moves the picture and the row together and `RowGap` stays the gap between
+one portrait and the next. A face is a width as well, so it is also held to a share of the
+panel. Headings, routed rows and the add strip scale with nothing; `Fit` shrinks a crowded
+column and stops where those fixed heights take the pitch over, which with the portrait cut
+to the text is nearly always. The add strip is reserved at the bottom in every view.
+
+The portrait prefix replaces vanilla's whole draw, so vanilla's icon row goes with it —
+burning and mental breaks included, which is the trade for a face that is only a face. What
+takes its place is one badge, drawn in the front pass because that is what puts it over the
+portrait, and sized off the face so it survives the column shrinking. Its corner is the drawn
+portrait's rather than the cell's — the two differ by the overflow hair and clothing are given,
+and the cell's lower edge is level with the chin. `Patch_AgentNeverIdle` outlives the icons it
+was written beside: vanilla must still not decide an agent is idle, or that verdict reappears
+in an alert.
 
 Ephemeral host shells appear as one-line ghost rows and have no pawn or state. Viewer,
 editor, and diff sessions are routed to the Files or Git view instead. Routed permanent
