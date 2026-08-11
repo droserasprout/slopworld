@@ -16,6 +16,8 @@ namespace SlopWorld
     {
         const float IconSize = 27f;
 
+        const float ClockIconSize = 18f;
+
         // Twice the daemon's default poll and then some: one missed poll is nothing, a
         // minute of silence is the socket being down.
         const float StaleAfter = 150f;
@@ -40,11 +42,11 @@ namespace SlopWorld
 
         static void DrawClock(Rect row, DateTime now)
         {
-            var icon = new Rect(row.x, row.y + (row.height - IconSize) / 2f,
-                IconSize, IconSize);
+            var icon = new Rect(row.x, row.y + (row.height - ClockIconSize) / 2f,
+                ClockIconSize, ClockIconSize);
             GUI.DrawTexture(icon, Icons.Time);
             Widgets.Label(new Rect(icon.xMax + 2f, row.y,
-                row.width - IconSize - 2f, row.height), now.ToString("HH:mm"));
+                row.width - ClockIconSize - 2f, row.height), now.ToString("HH:mm"));
 
             TooltipHandler.TipRegion(row, new TipSignal(
                 now.ToString("dddd, d MMMM yyyy") + "\n" + now.ToString("HH:mm:ss"),
@@ -73,7 +75,7 @@ namespace SlopWorld
             float x = area.xMax;
             DateTime now = DateTime.Now;
             string time = now.ToString("HH:mm");
-            float clockNeed = IconSize + 2f + SlopWidgets.Wide(time) + 2f;
+            float clockNeed = ClockIconSize + 2f + SlopWidgets.Wide(time) + 2f;
             if (x - clockNeed >= area.x)
             {
                 x -= clockNeed;
