@@ -108,6 +108,9 @@ async fn one(argv: &[&str], text: Option<&str>) -> Result<String> {
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
+        // `run` puts the whole operation under a timeout. Dropping a Tokio
+        // `Child` otherwise leaves the process running after that timeout.
+        .kill_on_drop(true)
         .spawn()?;
 
     // Closing stdin is what tells the tool the content is complete.
@@ -131,6 +134,7 @@ async fn paste(argv: &[&str]) -> Result<String> {
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .kill_on_drop(true)
         .output()
         .await?;
     if !out.status.success() {

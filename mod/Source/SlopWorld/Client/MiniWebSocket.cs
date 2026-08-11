@@ -63,8 +63,8 @@ namespace SlopWorld
                 var bytes = Encoding.ASCII.GetBytes(req.ToString());
                 _net.Write(bytes, 0, bytes.Length);
 
-                string status = ReadHandshake();
-                if (status == null || !status.Contains(" 101"))
+                string response = ReadHandshake();
+                if (!ValidHandshake(response, key, out string status))
                 {
                     LastError = status == null ? "no handshake response" : $"handshake refused: {status}";
                     Cleanup();
@@ -110,9 +110,44 @@ namespace SlopWorld
                     consecutive = 0;
                 }
             }
-            var text = sb.ToString();
-            int nl = text.IndexOf('\n');
-            return nl < 0 ? text : text.Substring(0, nl).Trim();
+            return consecutive == 2 ? sb.ToString() : null;
+        }
+
+        static bool ValidHandshake(string response, string key, out string status)
+        {
+            status = null;
+            if (response == null) return false;
+
+            var lines = response.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            if (lines.Length == 0) return false;
+            status = lines[0].Trim();
+            if (!status.StartsWith("HTTP/1.1 101 ", StringComparison.Ordinal) &&
+                status != "HTTP/1.1 101") return false;
+
+            string upgrade = null;
+            string connection = null;
+            string accept = null;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                int colon = lines[i].IndexOf(':');
+                if (colon <= 0) continue;
+                string name = lines[i].Substring(0, colon).Trim();
+                string value = lines[i].Substring(colon + 1).Trim();
+                if (name.Equals("Upgrade", StringComparison.OrdinalIgnoreCase)) upgrade = value;
+                else if (name.Equals("Connection", StringComparison.OrdinalIgnoreCase)) connection = value;
+                else if (name.Equals("Sec-WebSocket-Accept", StringComparison.OrdinalIgnoreCase)) accept = value;
+            }
+
+            if (!string.Equals(upgrade, "websocket", StringComparison.OrdinalIgnoreCase)) return false;
+            if (connection == null || !Array.Exists(connection.Split(','),
+                v => v.Trim().Equals("Upgrade", StringComparison.OrdinalIgnoreCase))) return false;
+
+            byte[] challenge = Encoding.ASCII.GetBytes(
+                key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+            string expected;
+            using (var sha1 = SHA1.Create())
+                expected = Convert.ToBase64String(sha1.ComputeHash(challenge));
+            return string.Equals(accept, expected, StringComparison.Ordinal);
         }
 
         public void SendText(string text)

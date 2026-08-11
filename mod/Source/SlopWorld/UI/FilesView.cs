@@ -45,6 +45,8 @@ namespace SlopWorld
             public string Root;        // the project dir this hangs off, for a relative path
             public string Project;     // and the project that owns it, for an errand
             public int Depth;
+            // Invalidates a listing already in flight when Reload forgets this node.
+            public int ListingVersion;
         }
 
         // Keyed by project name rather than by directory: two projects on one directory are
@@ -121,6 +123,8 @@ namespace SlopWorld
             n.Kids = null;
             n.More = false;
             n.Error = null;
+            n.Loading = false;
+            n.ListingVersion++;
             // Not Expanded: that is the shape, and it is what asks for the listing again on
             // the next frame this draws.
         }
@@ -381,14 +385,15 @@ namespace SlopWorld
             node.Error = null;
 
             string path = node.Path;
+            int version = node.ListingVersion;
             SlopClient.Get(
                 "/api/browse?files=1&path=" + System.Uri.EscapeDataString(path) +
                 "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0"),
                 j =>
                 {
-                    node.Loading = false;
                     // The tree was dropped, or the project moved, while this was in flight.
-                    if (node.Path != path) return;
+                    if (node.Path != path || node.ListingVersion != version) return;
+                    node.Loading = false;
 
                     var kids = new List<Node>();
                     foreach (var d in j["dirs"].Items) kids.Add(Kid(node, d.AsString(), true));
@@ -399,8 +404,9 @@ namespace SlopWorld
                 },
                 msg =>
                 {
+                    if (node.Path != path || node.ListingVersion != version) return;
                     node.Loading = false;
-                    if (node.Path == path) node.Error = msg;
+                    node.Error = msg;
                 });
         }
 

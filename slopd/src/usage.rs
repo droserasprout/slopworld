@@ -657,6 +657,15 @@ fn epoch_from_rfc3339(s: &str) -> Option<u64> {
     let n = |a: usize, z: usize| s[a..z].parse::<i64>().ok();
     let (y, mo, d) = (n(0, 4)?, n(5, 7)?, n(8, 10)?);
     let (h, mi, sec) = (n(11, 13)?, n(14, 16)?, n(17, 19)?);
+    if !(1..=12).contains(&mo)
+        || d < 1
+        || d > days_in_month(y, mo)
+        || !(0..=23).contains(&h)
+        || !(0..=59).contains(&mi)
+        || !(0..=60).contains(&sec)
+    {
+        return None;
+    }
 
     // Days since the epoch, by the civil-from-days algorithm.
     let y = if mo <= 2 { y - 1 } else { y };
@@ -668,6 +677,15 @@ fn epoch_from_rfc3339(s: &str) -> Option<u64> {
     let days = era * 146_097 + doe - 719_468;
 
     u64::try_from(days * 86_400 + h * 3_600 + mi * 60 + sec - offset_secs(s)?).ok()
+}
+
+fn days_in_month(year: i64, month: i64) -> i64 {
+    match month {
+        2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        _ => 31,
+    }
 }
 
 /// 0 for `Z` or a missing zone. None for a zone this cannot read, which fails the
@@ -686,11 +704,14 @@ fn offset_secs(s: &str) -> Option<i64> {
         _ => return None,
     };
     let rest = &zone[1..];
-    if rest.len() < 5 || rest.as_bytes()[2] != b':' {
+    if rest.len() != 5 || rest.as_bytes()[2] != b':' {
         return None;
     }
     let h = rest[0..2].parse::<i64>().ok()?;
     let m = rest[3..5].parse::<i64>().ok()?;
+    if h > 23 || m > 59 {
+        return None;
+    }
     Some(sign * (h * 3_600 + m * 60))
 }
 
@@ -1257,6 +1278,23 @@ mod tests {
         );
         // A zone this cannot read fails the timestamp rather than guessing UTC.
         assert_eq!(epoch_from_rfc3339("2026-07-26T00:00:00+0500"), None);
+    }
+
+    #[test]
+    fn rfc3339_rejects_out_of_range_fields_and_trailing_zone_text() {
+        for bad in [
+            "2026-13-01T00:00:00Z",
+            "2026-02-29T00:00:00Z",
+            "2024-02-30T00:00:00Z",
+            "2026-07-26T24:00:00Z",
+            "2026-07-26T00:60:00Z",
+            "2026-07-26T00:00:00+24:00",
+            "2026-07-26T00:00:00+00:60",
+            "2026-07-26T00:00:00+00:00garbage",
+        ] {
+            assert_eq!(epoch_from_rfc3339(bad), None, "accepted {bad}");
+        }
+        assert!(epoch_from_rfc3339("2024-02-29T00:00:00Z").is_some());
     }
 
     /// Credits bought less credits spent, in money, on the same wire as a rate limit.

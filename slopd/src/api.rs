@@ -920,13 +920,13 @@ async fn list_dir(
     };
 
     let mut rd = tokio::fs::read_dir(base).await?;
-    while let Ok(Some(e)) = rd.next_entry().await {
+    while let Some(e) = rd.next_entry().await? {
         let name = e.file_name().to_string_lossy().into_owned();
         if !hidden && name.starts_with('.') {
             continue;
         }
 
-        let Ok(t) = e.file_type().await else { continue };
+        let t = e.file_type().await?;
         // `DirEntry::file_type` is an lstat: a symlink is a symlink and never the thing it
         // points at, so a symlinked directory would come out neither a dir nor a file and
         // read in the tree as one that had gone. One stat per link, and a broken one falls
