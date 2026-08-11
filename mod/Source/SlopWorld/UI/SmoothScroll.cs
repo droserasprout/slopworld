@@ -84,7 +84,7 @@ namespace SlopWorld
             _target.x = Mathf.Clamp(_target.x, 0f, max.x);
             _target.y = Mathf.Clamp(_target.y, 0f, max.y);
 
-            TakeWheel(outer, max);
+            ClaimWheel(outer, max);
             Ease();
 
             _outer = outer;
@@ -99,6 +99,7 @@ namespace SlopWorld
 
         public void End()
         {
+            SpendWheel();
             Widgets.EndScrollView();
 
             // The scroll view moved it. That is where the list now is, and easing back
@@ -188,7 +189,15 @@ namespace SlopWorld
             _pos.y = _target.y = t * _max.y;
         }
 
-        void TakeWheel(Rect outer, Vector2 max)
+        // Who gets this frame's wheel. A list inside a list - the preset and breadcrumb boxes
+        // sit inside the editor's own scroll view - has to be the one that moves, and `Begin`
+        // runs outermost first, so taking the event there would always hand it to the page
+        // behind the box. So `Begin` only registers interest and the last registration wins,
+        // which is the innermost box under the cursor.
+        static SmoothScroll _claim;
+        static Vector2 _claimDelta;
+
+        void ClaimWheel(Rect outer, Vector2 max)
         {
             var e = Event.current;
             if (e.type != EventType.ScrollWheel) return;
@@ -199,12 +208,22 @@ namespace SlopWorld
             if (max.x <= 0f && max.y <= 0f) return;
             if (!outer.Contains(e.mousePosition)) return;
 
-            _target.x = Mathf.Clamp(_target.x + e.delta.x * Speed, 0f, max.x);
-            _target.y = Mathf.Clamp(_target.y + e.delta.y * Speed, 0f, max.y);
+            _claim = this;
+            _claimDelta = e.delta;
+        }
 
-            // Before `GUI.EndScrollView` gets it - ours and the scroll view's handling
-            // would otherwise both land and the list would move twice as far. This also
-            // stops an enclosing scroll view from taking the gesture off the inner one.
+        // `End` runs innermost first, so the claimant is settled by the time it is reached.
+        // Spent before `GUI.EndScrollView` gets the event - ours and the scroll view's
+        // handling would otherwise both land and the list would move twice as far - and
+        // using it there also keeps every enclosing view off the same gesture.
+        void SpendWheel()
+        {
+            var e = Event.current;
+            if (_claim != this || e.type != EventType.ScrollWheel) return;
+
+            _claim = null;
+            _target.x = Mathf.Clamp(_target.x + _claimDelta.x * Speed, 0f, _max.x);
+            _target.y = Mathf.Clamp(_target.y + _claimDelta.y * Speed, 0f, _max.y);
             e.Use();
         }
 
