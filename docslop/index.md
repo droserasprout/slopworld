@@ -11,6 +11,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [config-stores](config-stores.md) - the daemon's file, the mod's file, the seams.
 - [agent-grants](agent-grants.md) - scoped tokens: one agent watching another, host never.
 - [agent-tasks](agent-tasks.md) - durable task mailboxes and the `slopctl` delegation CLI.
+- [agent-task-discovery](agent-task-discovery.md) - prompt discovery and safe task-arrival notices.
 - [profile](profile.md) - the save-data folder, the launcher, the refusal gates.
 - [daemon-files](daemon-files.md) - what each `slopd/src/*.rs` holds.
 - [daemon-projects](daemon-projects.md) - projects and sessions in `config.toml`.
@@ -18,6 +19,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [sandbox-isolation](sandbox-isolation.md) - the bind guard, private state, marked ways out.
 - [daemon-shortcuts](daemon-shortcuts.md) - errands, ephemeral agents, delivery.
 - [daemon-session-state](daemon-session-state.md) - state classification, clocks, the emulator.
+- [agent-titles](agent-titles.md) - planned prompt summaries: never/once/always and conversation boundaries.
 - [daemon-redeploy](daemon-redeploy.md) - surviving a daemon restart; tmux traps.
 - [daemon-usage](daemon-usage.md) - Anthropic and OpenRouter quota polling.
 - [daemon-game](daemon-game.md) - is the game up, and restarting it.
