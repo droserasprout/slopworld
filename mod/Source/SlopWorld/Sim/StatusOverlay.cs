@@ -38,7 +38,7 @@ namespace SlopWorld
                 var pos = GenMapUI.LabelDrawPosFor(pawn, -0.85f);
                 var box = new Rect(pos.x - w / 2f, pos.y - 2f, w, h);
 
-                Widgets.DrawBoxSolid(box, new Color(0f, 0f, 0f, 0.55f));
+                Slab.Fill(box, SlopWidgets.Scrim);
 
                 GUI.color = TerminalWindow.StateColor(state);
                 Widgets.Label(box, glyph);

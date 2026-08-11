@@ -43,7 +43,9 @@
   `GetMouseButton` from a per-frame handler instead. For drags: latch, follow
   `mousePosition`, and stop when the button is up; this also handles release offscreen.
   `UnityGUIBugsFixer.MouseDrag(button)` already reduces to `Input.GetMouseButton(button)`
-  on Linux and Steam Deck.
+  on Linux and Steam Deck. The other edge of the same knife: `Use()` does *not* clear
+  `rawType`, so a press consumed earlier in the frame is still seen by every later
+  reader gated on it. Two hit targets that overlap both fire; keep them apart.
 - **`Text.Font = GameFont.Tiny` may fall back to `Small`** when tiny text is
   unsupported, disabled, or suppressed for a long event. Measuring Tiny first then
   drawing Small clips labels. Use `SlopWidgets.LineHOf`/`TinyH`, which measure the

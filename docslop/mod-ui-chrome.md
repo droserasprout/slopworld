@@ -12,7 +12,9 @@ Hard-coded heights have previously clipped glyphs. Shared gaps are `GapXS`, `Gap
 `Slab` draws every control: fill, outline, box, focus ring, and hairline. Square, and no
 texture — see [mod-ui-identity](mod-ui-identity.md). It snaps geometry to the screen pixel grid;
 GUI-coordinate snapping produces seams at non-integer UI scales. `TerminalWindow.SyncSnap`
-uses the same arithmetic.
+uses the same arithmetic. A rule sits *inside* the thing it closes, on its last pixel: a
+strip that ruled below itself would not contain its own line, and two strips of the same
+height would meet with a jog in the boundary.
 
 `SmoothScroll` is the only scroll view in the mod, and it draws the only scrollbar. It
 consumes wheel events before IMGUI and eases toward a target using unscaled time; it must

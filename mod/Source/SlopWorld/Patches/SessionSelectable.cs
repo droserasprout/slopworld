@@ -4,7 +4,6 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using RimWorld;
-using UnityEngine;
 using Verse;
 
 namespace SlopWorld
@@ -99,7 +98,7 @@ namespace SlopWorld
                     defaultDesc = $"Stop '{Session}'. The colonist stays on the floor "
                                 + "until the process runs again.",
                     icon = Icons.Stop,
-                    defaultIconColor = new Color(0.90f, 0.45f, 0.42f),
+                    defaultIconColor = SlopWidgets.Bad,
                     hotKey = SlopDefOf.SlopToggleSession,
                     action = () => Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                         $"Stop '{Session}'? This kills the tmux session; whatever the agent "
@@ -115,7 +114,7 @@ namespace SlopWorld
                     defaultLabel = "Start",
                     defaultDesc = $"Start '{Session}' and put its colonist back on its feet.",
                     icon = Icons.Play,
-                    defaultIconColor = new Color(0.55f, 0.82f, 0.55f),
+                    defaultIconColor = SlopWidgets.Yes,
                     hotKey = SlopDefOf.SlopToggleSession,
                     action = () => SessionHub.Instance.Start(Session, SlopWidgets.Fail),
                 };

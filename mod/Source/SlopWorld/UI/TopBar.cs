@@ -47,7 +47,12 @@ namespace SlopWorld
 
             var r = Rect;
             Slab.Fill(r, SlopWidgets.Panel);
-            Slab.Hairline(new Rect(r.x, r.yMax, r.width, 1f), SlopWidgets.Edge);
+            // Inside the bar, the way every other rule in the chrome sits inside the thing it
+            // closes. Below it, [H] would stop short of its own line: the sidebar's tab strip
+            // is the same height and rules itself at `TabH - 1`, so the two would meet with a
+            // pixel of jog in the boundary, and a body laid out at `TopInset` would start on
+            // top of the line rather than under it.
+            Slab.Hairline(new Rect(r.x, r.yMax - 1f, r.width, 1f), SlopWidgets.Edge);
 
             var was = GUI.color;
             Text.Font = GameFont.Small;

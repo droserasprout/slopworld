@@ -261,9 +261,13 @@ namespace SlopWorld
             new Rect(CellX, UI.screenHeight - Pad - AddH, Width - CellX * 2f, AddH);
 
         // Keep the visual strip inset, but let its hit target reach the panel's screen
-        // edges so the bottom-left screen pixel still belongs to Add.
+        // edges so the bottom-left screen pixel still belongs to Add. Short of the grip on
+        // the right: [Grip] runs first and takes the press with `Use`, which does not clear
+        // `rawType` - the gate this press is read through - so an overlap would start a
+        // resize and open the menu on the same click. [Tabs] holds the same line back.
         static Rect AddHitBar =>
-            new Rect(0f, AddBar.y, Width, UI.screenHeight - AddBar.y);
+            new Rect(0f, AddBar.y, Mathf.Max(0f, Width - GripW),
+                UI.screenHeight - AddBar.y);
 
         public static Rect Body =>
             new Rect(0f, TabH, Width,
@@ -507,8 +511,6 @@ namespace SlopWorld
             // Menus and the grip run here, before vanilla consumes portrait clicks.
             var panel = Panel;
             Slab.Fill(panel, SlopWidgets.Panel);
-            Slab.VHairline(new Rect(panel.xMax - 1f, panel.y, 1f, panel.height),
-                SlopWidgets.Edge);
 
             if (Files)
             {
@@ -983,8 +985,12 @@ namespace SlopWorld
             bool over = ColonistBarStrip.SidebarHover(grip);
             bool lit = over || _resizing;
 
-            Slab.Fill(new Rect(w - 1f, 0f, lit ? 2f : 1f, UI.screenHeight),
-                lit ? SlopWidgets.EdgeLit : SlopWidgets.Edge);
+            // The panel's right edge and the grip's own tell are the same line, and it is
+            // drawn here alone: a second draw of [SlopWidgets.Edge] over this one composites
+            // into a heavier boundary than the palette's, on the sidebar only. At rest it is
+            // one screen pixel like every other rule; lit it is a bar and may be a GUI one.
+            if (lit) Slab.Fill(new Rect(w - 1f, 0f, 2f, UI.screenHeight), SlopWidgets.EdgeLit);
+            else Slab.VHairline(new Rect(w - 1f, 0f, 1f, UI.screenHeight), SlopWidgets.Edge);
 
             if (!ColonistBarStrip.Interactive) return;
 

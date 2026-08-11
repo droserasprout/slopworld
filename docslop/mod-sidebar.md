@@ -22,7 +22,9 @@ one tick.
 The resize grip polls `Input.GetMouseButton*` rather than relying on IMGUI mouse events.
 An absorbing window can prevent the underlying layer from receiving the initial event,
 and a release beyond the screen may produce no usable release event. Settings are written
-when the drag ends, not on each frame.
+when the drag ends, not on each frame. The grip also owns the panel's right edge — drawn
+once, at the end of the pass — and the tab strip and the add strip both hold their press
+gates short of it.
 
 ## Views and navigation
 

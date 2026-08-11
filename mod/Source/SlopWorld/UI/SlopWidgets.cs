@@ -26,7 +26,6 @@ namespace SlopWorld
         public static readonly Color WindowBg = new Color(0.141f, 0.141f, 0.141f);
         public static readonly Color ViewBg = new Color(0.118f, 0.118f, 0.118f);
         public static readonly Color PopoverBg = new Color(0.220f, 0.220f, 0.220f);
-        public static readonly Color HeaderBg = new Color(0.188f, 0.188f, 0.188f);
 
         public static readonly Color Lead = new Color(1f, 1f, 1f, 1.00f);
         public static readonly Color Name = new Color(1f, 1f, 1f, 0.80f);
@@ -43,6 +42,9 @@ namespace SlopWorld
         public static readonly Color Panel = new Color(0.141f, 0.141f, 0.141f, 0.96f);
         public static readonly Color OfflineBg = new Color(0.42f, 0.12f, 0.10f, 0.92f);
 
+        // A wash under text that stands on the map, where there is no surface to put it on.
+        public static readonly Color Scrim = new Color(0f, 0f, 0f, 0.55f);
+
         // Structural lines are a restrained white wash. EdgeLit is reserved for the resize
         // grip and other places where the pointer is actively on the structure.
         public static readonly Color Edge = new Color(1f, 1f, 1f, 0.14f);
@@ -53,7 +55,10 @@ namespace SlopWorld
         public static readonly Color ScrollThumbHeld = new Color(1f, 1f, 1f, 0.55f);
 
         public static readonly Color Well = ViewBg;
-        public static readonly Color Online = new Color(0.345f, 0.769f, 0.294f);
+
+        // One green for "this is up" and "this is on"; Yes is the name the forms ask for it
+        // by, and the status marker is the same colour saying the same thing.
+        static readonly Color Online = new Color(0.345f, 0.769f, 0.294f);
         public static readonly Color Yes = Online;
 
         public static readonly Color RowBg = new Color(1f, 1f, 1f, 0.03f);
@@ -457,7 +462,7 @@ namespace SlopWorld
 
             public bool Left(string label, Btn kind = Btn.Default, bool on = true)
             {
-                float w = SlopWidgets.BtnW(label, SlopWidgets.ButtonMinW);
+                float w = Wide(label);
                 var at = new Rect(_r.x + _left, _r.y, w, SlopWidgets.BtnH);
                 _left += w + SlopWidgets.GapS;
                 return SlopWidgets.Button(at, label, kind, on);
@@ -465,7 +470,7 @@ namespace SlopWorld
 
             public bool Right(string label, Btn kind = Btn.Default, bool on = true)
             {
-                float w = SlopWidgets.BtnW(label, SlopWidgets.ButtonMinW);
+                float w = Wide(label);
                 var at = new Rect(_r.xMax - _right - w, _r.y, w, SlopWidgets.BtnH);
                 _right += w + SlopWidgets.GapS;
                 return SlopWidgets.Button(at, label, kind, on);
@@ -477,6 +482,18 @@ namespace SlopWorld
                 return new Rect(x, _r.y,
                     Mathf.Max(_r.xMax - _right - SlopWidgets.GapS - x, 0f),
                     SlopWidgets.BtnH);
+            }
+
+            // Measured at Small whatever the caller left the font at. [BtnH] is a fixed
+            // height cut for that face, so a width taken against another one gives a box
+            // that does not match its own row.
+            static float Wide(string label)
+            {
+                var was = Verse.Text.Font;
+                Verse.Text.Font = GameFont.Small;
+                float w = SlopWidgets.BtnW(label, SlopWidgets.ButtonMinW);
+                Verse.Text.Font = was;
+                return w;
             }
         }
 
