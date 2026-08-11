@@ -56,7 +56,7 @@ namespace SlopWorld
                 .ToList();
 
             float h = (presets.Count + groups.Count) * RowH;
-            var inner = new Rect(0f, 0f, pad.width - 18f, h);
+            var inner = new Rect(0f, 0f, pad.width - SlopWidgets.ScrollbarW, h);
 
             scroll.Begin(pad, inner);
             float y = 0f;

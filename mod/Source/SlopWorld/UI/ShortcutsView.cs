@@ -19,8 +19,8 @@ namespace SlopWorld
         // Off the font, for the reason the other two trees' are.
         static float RowH => SlopWidgets.TinyRowH;
         static float HeadH => SlopWidgets.TinyRowH;
-        const float Pad = 6f;
-        const float CellX = 8f;
+        const float Pad = SlopWidgets.GapS;
+        const float CellX = SlopWidgets.GapS;
         const float ArrowW = 11f;
 
         // The text that drives the rows, snapshotted once per frame so size and draw agree.
@@ -86,7 +86,8 @@ namespace SlopWorld
 
             var list = body;
             float height = Measure();
-            var view = new Rect(0f, 0f, list.width - (height > list.height ? 16f : 0f),
+            var view = new Rect(0f, 0f,
+                list.width - (height > list.height ? SlopWidgets.ScrollbarW : 0f),
                 height);
 
             // GUI rather than GUILayout, so this is safe in a pass that declines Layout
@@ -128,7 +129,7 @@ namespace SlopWorld
                     Text.Anchor = TextAnchor.UpperLeft;
                     Text.Font = GameFont.Small;
 
-                    Widgets.DrawBoxSolid(new Rect(CellX, headRect.yMax - 1f,
+                    Slab.Hairline(new Rect(CellX, headRect.yMax - 1f,
                         view.width - CellX * 2f, 1f), SlopWidgets.Edge);
 
                     TooltipHandler.TipRegion(headRect,
@@ -148,7 +149,7 @@ namespace SlopWorld
                         float badgeW = 34f;
                         GUI.color = item.Kind == ShortcutKind.Shell
                             ? SlopWidgets.Warn
-                            : new Color(0.55f, 0.75f, 0.9f);
+                            : SlopWidgets.Info;
                         // The whole row is Tiny, the way a row of the other two trees is: the
                         // badge was, and the name and the sample beside it were Small in a row
                         // laid out for Tiny - which on any face taller than the one it was

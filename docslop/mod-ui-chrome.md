@@ -9,8 +9,8 @@ Text geometry must go through `LineHOf`, `Wide`, and `RowLabel`. Verse may promo
 Hard-coded heights have previously clipped glyphs. Shared gaps are `GapXS`, `GapS`,
 `GapM`, and `GapL`.
 
-`Slab` draws every control: fill, outline, box, focus ring, hairline. Square, and no
-texture — see [mod-adwaita](mod-adwaita.md). It snaps geometry to the screen pixel grid;
+`Slab` draws every control: fill, outline, box, focus ring, and hairline. Square, and no
+texture — see [mod-ui-identity](mod-ui-identity.md). It snaps geometry to the screen pixel grid;
 GUI-coordinate snapping produces seams at non-integer UI scales. `TerminalWindow.SyncSnap`
 uses the same arithmetic.
 
@@ -18,7 +18,7 @@ uses the same arithmetic.
 consumes wheel events before IMGUI and eases toward a target using unscaled time; it must
 consume the event or nested scroll views apply the same wheel input again. The bar is drawn
 in `End`, outside the scroll group, which is the only place the outer rect means what it
-says. Callers reserve 18px off the view width for it. Vertical only. `Reveal` puts a
+says. Callers reserve `ScrollbarW` off the view width for it. Vertical only. `Reveal` puts a
 keyboard-selected row in view without easing to it.
 
 `SlopWindow` is the frame under every dialog: own background, border and close corner.

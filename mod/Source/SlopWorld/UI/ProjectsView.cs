@@ -181,7 +181,8 @@ namespace SlopWorld
                 rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - top);
             if (_tab == Tab.Edit)
             {
-                var view = new Rect(0f, 0f, body.width - 18f, Mathf.Max(_contentH, body.height));
+                var view = new Rect(0f, 0f, body.width - SlopWidgets.ScrollbarW,
+                    Mathf.Max(_contentH, body.height));
                 _scroll.Begin(body, view);
                 DoFields(view);
                 _scroll.End();

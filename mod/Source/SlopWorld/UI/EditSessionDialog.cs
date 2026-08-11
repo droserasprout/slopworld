@@ -101,7 +101,7 @@ namespace SlopWorld
 
             if (_tab == Tab.Edit)
             {
-                var view = new Rect(0f, 0f, body.width - 18f,
+                var view = new Rect(0f, 0f, body.width - SlopWidgets.ScrollbarW,
                     Mathf.Max(_editorContentH, body.height));
                 _editorScroll.Begin(body, view);
                 DrawEditor(view);
@@ -380,7 +380,7 @@ namespace SlopWorld
             var list = new Rect(rect.x, top, rect.width,
                 rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - top);
             int count = _dirs.Length + (_parent != null ? 1 : 0);
-            var view = new Rect(0f, 0f, list.width - 18f, count * Pitch);
+            var view = new Rect(0f, 0f, list.width - SlopWidgets.ScrollbarW, count * Pitch);
 
             _scroll.Begin(list, view);
             float y = 0f;

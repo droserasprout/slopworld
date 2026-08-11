@@ -109,20 +109,14 @@ namespace SlopWorld
             if (_bar) DrawBar();
         }
 
-        // The bar's full width, and the thumb's inside it. Adwaita's is a slim slider with
-        // clear air either side rather than a channel filled edge to edge; the callers all
-        // reserve eighteen pixels off the view's width, so ten sits inside what is already
-        // held back for it.
-        const float BarW = 10f;
-        const float ThumbPad = 2f;
+        // The bar has clear air either side instead of filling its reserved gutter. Every
+        // caller reserves [SlopWidgets.ScrollbarW], so the narrow steel track lines up across
+        // windows, trees and menus.
+        const float BarW = SlopWidgets.ScrollTrackW;
+        const float ThumbPad = SlopWidgets.ScrollThumbInset;
 
         // Short enough to be a handle on a very long list, long enough to still be one.
         const float MinThumb = 24f;
-
-        static readonly Color Trough = new Color(1f, 1f, 1f, 0.04f);
-        static readonly Color Thumb = new Color(1f, 1f, 1f, 0.28f);
-        static readonly Color ThumbOver = new Color(1f, 1f, 1f, 0.42f);
-        static readonly Color ThumbHeld = new Color(1f, 1f, 1f, 0.55f);
 
         // Vertical only. Nothing here scrolls sideways - every caller sizes its view to the
         // outer rect's width less the bar - and a bar drawn for an axis with no travel in it
@@ -164,9 +158,10 @@ namespace SlopWorld
             }
 
             bool held = GUIUtility.hotControl == id;
-            Slab.Fill(track, Trough);
+            Slab.Fill(track, SlopWidgets.ScrollTrough);
             Slab.Fill(ThumbRect(track, h),
-                held ? ThumbHeld : Mouse.IsOver(track) ? ThumbOver : Thumb);
+                held ? SlopWidgets.ScrollThumbHeld : Mouse.IsOver(track)
+                    ? SlopWidgets.ScrollThumbHover : SlopWidgets.ScrollThumb);
         }
 
         float ThumbH(Rect track) =>

@@ -12,16 +12,16 @@ namespace SlopWorld
         // font on a bar that stayed 26 is a clock with its top and bottom rows cut off, which is
         // what a middle anchor does when the line does not fit - it crops both ends at once.
         // Floored at the old height so the map is not handed back pixels on the shipped font.
-        public static float H => Mathf.Max(SlopWidgets.LineH + 6f, 26f);
+        public static float H => Mathf.Max(SlopWidgets.RowH, 26f);
 
-        const float Pad = 8f;
+        const float Pad = SlopWidgets.GapS;
 
         // Every door on the line at the size the drawn glyphs were on the strip they came
         // off. The two things on the map had four pixels more for a while, on the grounds
         // that a building shrunk to a tab-bar glyph is a smudge - but a `ThingIcon` fills
         // its rect where a glyph keeps a margin inside one, so the same figure already
         // draws them bigger than their neighbours and a larger one made them loom.
-        const float IconW = 18f;
+        const float IconW = SlopWidgets.IconW;
 
         // A `TipSignal` with no id of its own is keyed on its text, and the jukebox's names
         // what is playing - so the bubble would restart its fade every time the station moved
@@ -46,8 +46,8 @@ namespace SlopWorld
             if (Event.current.type == EventType.Layout) return;
 
             var r = Rect;
-            Widgets.DrawBoxSolid(r, SlopWidgets.Panel);
-            Widgets.DrawBoxSolid(new Rect(r.x, r.yMax - 1f, r.width, 1f), SlopWidgets.Edge);
+            Slab.Fill(r, SlopWidgets.Panel);
+            Slab.Hairline(new Rect(r.x, r.yMax, r.width, 1f), SlopWidgets.Edge);
 
             var was = GUI.color;
             Text.Font = GameFont.Small;
@@ -152,6 +152,7 @@ namespace SlopWorld
             bool over = ColonistBarStrip.Hover(r);
 
             var was = GUI.color;
+            if (over) Slab.Fill(r, SlopWidgets.Hover);
             GUI.color = over ? Color.white : SlopWidgets.Off;
             GUI.DrawTexture(r, icon);
             GUI.color = was;
@@ -249,15 +250,18 @@ namespace SlopWorld
             // A quarter of the line clear at each end rather than seven pixels: the bar grows
             // with the font and a fixed inset would leave the chip a sliver in the middle of it.
             float inset = Mathf.Round(r.height * 0.27f);
-            var chip = new Rect(r.x, r.y + inset, 8f, r.height - inset * 2f);
-            Widgets.DrawBoxSolid(chip, TerminalWindow.StateColor(state));
+            var chip = new Rect(r.x, r.y + inset, SlopWidgets.StatusMarker,
+                r.height - inset * 2f);
+            Slab.Fill(chip, TerminalWindow.StateColor(state));
 
             GUI.color = TerminalWindow.StateColor(state);
-            float w = Mathf.Min(SlopWidgets.Wide(session) + 4f, r.width - 16f);
-            var name = new Rect(chip.xMax + 6f, r.y, w, r.height);
+            float w = Mathf.Min(SlopWidgets.Wide(session) + SlopWidgets.GapXS,
+                r.width - SlopWidgets.StatusMarker - SlopWidgets.GapS * 2f);
+            var name = new Rect(chip.xMax + SlopWidgets.GapS, r.y, w, r.height);
             Widgets.Label(name, session);
 
-            var rest = new Rect(name.xMax + 8f, r.y, r.xMax - name.xMax - 8f, r.height);
+            var rest = new Rect(name.xMax + SlopWidgets.GapS, r.y,
+                r.xMax - name.xMax - SlopWidgets.GapS, r.height);
             if (rest.width <= 20f) { GUI.color = Color.white; return; }
 
             // The pane's shape rides along while one is open, that being the number worth

@@ -201,8 +201,8 @@ namespace SlopWorld
         {
             Slab.Box(outer, SlopWidgets.Well, SlopWidgets.Edge);
             var pad = outer.ContractedBy(SlopWidgets.GapS);
-            var view = new Rect(0f, 0f, pad.width - 18f,
-                Mathf.Max(Height(data, pad.width - 18f), pad.height));
+            var view = new Rect(0f, 0f, pad.width - SlopWidgets.ScrollbarW,
+                Mathf.Max(Height(data, pad.width - SlopWidgets.ScrollbarW), pad.height));
             scroll.Begin(pad, view);
 
             float y = 0f;

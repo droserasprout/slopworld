@@ -17,17 +17,17 @@ namespace SlopWorld
         const float Floor = 0.3f;
 
         static float HeadH => SlopWidgets.TinyRowH;
-        const float AddH = 26f;
+        static float AddH => TopBar.H;
 
-        const float AddIcon = 16f;
-        const float Pad = 6f;
-        const float CellX = 8f;
-        const float TextGap = 7f;
+        const float AddIcon = SlopWidgets.IconW;
+        const float Pad = SlopWidgets.GapS;
+        const float CellX = SlopWidgets.GapS;
+        const float TextGap = SlopWidgets.GapS;
 
-        public const float TabH = 24f;
-        const float TabIcon = 18f;
+        public static float TabH => TopBar.H;
+        const float TabIcon = 20f;
 
-        const float RowGap = 4f;
+        const float RowGap = SlopWidgets.GapXS;
 
         static float GhostH => NameH + 2f;
 
@@ -44,8 +44,6 @@ namespace SlopWorld
         const float ArrowW = 12f;
         const float GripW = 5f;
 
-
-        static readonly Color BellColor = new Color(0.98f, 0.80f, 0.30f);
 
         // The colonist bar draws and hit-tests the same location table.
         static readonly Vector2 Parked = new Vector2(-9999f, -9999f);
@@ -205,7 +203,7 @@ namespace SlopWorld
         static void DrawRoutedRow(Row row, SessionInfo info)
         {
             bool current = row.Session == TerminalWindow.CurrentName;
-            if (current) Widgets.DrawBoxSolid(row.Line, SlopWidgets.RowOn);
+            if (current) Slab.Fill(row.Line, SlopWidgets.RowOn);
             else SlopWidgets.HoverRow(row.Line);
 
             var text = row.Text;
@@ -503,7 +501,9 @@ namespace SlopWorld
 
             // Menus and the grip run here, before vanilla consumes portrait clicks.
             var panel = Panel;
-            Widgets.DrawBoxSolid(panel, SlopWidgets.Panel);
+            Slab.Fill(panel, SlopWidgets.Panel);
+            Slab.VHairline(new Rect(panel.xMax - 1f, panel.y, 1f, panel.height),
+                SlopWidgets.Edge);
 
             if (Files)
             {
@@ -531,7 +531,7 @@ namespace SlopWorld
                 {
                     bool current = row.Session != null && row.Session == currentSession;
 
-                    if (current) Widgets.DrawBoxSolid(row.Line, SlopWidgets.RowOn);
+                    if (current) Slab.Fill(row.Line, SlopWidgets.RowOn);
                     else SlopWidgets.HoverRow(row.Line);
                 }
 
@@ -566,7 +566,7 @@ namespace SlopWorld
                 Slab.Fill(r, SlopWidgets.Hover);
                 TooltipHandler.TipRegion(r, "Add a project, an agent or a shortcut");
             }
-            Widgets.DrawBoxSolid(new Rect(r.x, r.y, r.width, 1f), SlopWidgets.Edge);
+            Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), SlopWidgets.Edge);
 
             float d = AddIcon;
             GUI.color = over ? Color.white : SlopWidgets.Lead;
@@ -601,12 +601,12 @@ namespace SlopWorld
         static void Tabs()
         {
             var strip = new Rect(0f, 0f, Width, TabH);
-            Widgets.DrawBoxSolid(new Rect(CellX, TabH - 1f, Width - CellX * 2f, 1f),
+            Slab.Hairline(new Rect(CellX, TabH - 1f, Width - CellX * 2f, 1f),
                 SlopWidgets.Edge);
 
             float y = (TabH - TabIcon) / 2f;
 
-            const float Gap = 5f;
+            const float Gap = 3f;
             float x = CellX;
             Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Agents, Agents,
                 "Agents - every session, under the project it runs in", () => Show(TabAgents));
@@ -662,9 +662,7 @@ namespace SlopWorld
                 && ColonistBarStrip.Interactive)
                 go();
 
-            // The selected tab keeps its underline, and it is the accent now rather than a
-            // white bar: Adwaita marks the current page in the colour it marks everything
-            // else that is current.
+            // The selected tab is marked by the same blue signal used for the current row.
             if (on)
                 Slab.Fill(new Rect(r.x, TabH - 2f, r.width, 2f), SlopWidgets.Accent);
         }
@@ -686,7 +684,7 @@ namespace SlopWorld
             var label = new Rect(lx, r.y, r.width - lx - CellX, HeadH);
             SlopWidgets.RowLabel(label, head.Label + tail);
 
-            Widgets.DrawBoxSolid(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
+            Slab.Hairline(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
                 SlopWidgets.Edge);
 
             GUI.color = Color.white;
@@ -742,7 +740,7 @@ namespace SlopWorld
                     if (info != null && info.Bell)
                     {
                         float d = Mathf.Min(BellW, NameH);
-                        GUI.color = BellColor;
+                        GUI.color = SlopWidgets.Warn;
                         GUI.DrawTexture(
                             new Rect(name.xMax - d, name.y + (NameH - d) / 2f, d, d),
                             Icons.Bell);
@@ -980,7 +978,7 @@ namespace SlopWorld
             bool over = ColonistBarStrip.SidebarHover(grip);
             bool lit = over || _resizing;
 
-            Widgets.DrawBoxSolid(new Rect(w - 1f, 0f, lit ? 2f : 1f, UI.screenHeight),
+            Slab.Fill(new Rect(w - 1f, 0f, lit ? 2f : 1f, UI.screenHeight),
                 lit ? SlopWidgets.EdgeLit : SlopWidgets.Edge);
 
             if (!ColonistBarStrip.Interactive) return;

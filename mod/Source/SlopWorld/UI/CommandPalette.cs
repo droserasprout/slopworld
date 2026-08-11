@@ -17,14 +17,14 @@ namespace SlopWorld
     {
         const float Width = 520f;
         const float MaxH = 440f;
-        const float Pad = 8f;
+        const float Pad = SlopWidgets.GapS;
 
         // The three heights this list is built from, off the font rather than written down:
         // an input is a field, a row is a line with room round it, and a group heading is a
         // tiny line. A figure here holds only for the face it was set against, and a row
         // shorter than its line loses the top and bottom of every label in the palette.
         static float InputH => SlopWidgets.FieldH;
-        static float RowH => SlopWidgets.LineH + 7f;
+        static float RowH => SlopWidgets.MenuRowH;
         static float GroupH => SlopWidgets.TinyRowH;
         const int RecentMax = 8;
         // What a hit found only in a command's id is docked, the name being what is read.
@@ -64,7 +64,7 @@ namespace SlopWorld
             doCloseX = false;
             doCloseButton = false;
             doWindowBackground = false;
-            drawShadow = true;
+            drawShadow = false;
             absorbInputAroundWindow = true;
             closeOnAccept = false;
             closeOnCancel = false;
@@ -107,14 +107,13 @@ namespace SlopWorld
 
         public override void DoWindowContents(Rect rect)
         {
-            // Adwaita's popover: its own surface, a shade lighter than a window, with a
-            // line all the way round rather than only along the top.
+            // A raised rectangular surface: this is an instrument panel, not a vanilla menu.
             Slab.Box(rect, SlopWidgets.PopoverBg, SlopWidgets.Edge);
 
             var inputRect = new Rect(rect.x + Pad, rect.y + Pad,
                 rect.width - Pad * 2, InputH);
 
-            float listTop = inputRect.yMax + 4f;
+            float listTop = inputRect.yMax + SlopWidgets.GapXS;
             var listRect = new Rect(rect.x + Pad, listTop,
                 rect.width - Pad * 2, rect.yMax - listTop - Pad);
             // Set before DrawInput, which reads it when a key scrolls the selection.
@@ -131,7 +130,7 @@ namespace SlopWorld
             // One entry round the whole line, prompt included: in sub-mode the prompt is part
             // of what is being typed into, not a label beside a second box.
             SlopWidgets.FieldFrame(r, GUI.GetNameOfFocusedControl() == "paletteInput");
-            var inner = r.ContractedBy(6f, 2f);
+            var inner = r.ContractedBy(SlopWidgets.FieldPadX, SlopWidgets.FieldPadY);
 
             var e = Event.current;
             bool isKeyDown = e.type == EventType.KeyDown;
@@ -194,7 +193,7 @@ namespace SlopWorld
                 var fieldRect = new Rect(inner.x + promptW, inner.y,
                     inner.width - promptW, inner.height);
 
-                GUI.color = new Color(0.45f, 0.47f, 0.50f);
+                GUI.color = SlopWidgets.Dim;
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Widgets.Label(labelRect, prompt);
                 GUI.color = Color.white;
@@ -299,7 +298,7 @@ namespace SlopWorld
         {
             if (_matches.Count == 0)
             {
-                GUI.color = new Color(0.5f, 0.5f, 0.5f);
+                GUI.color = SlopWidgets.Faint;
                 Text.Anchor = TextAnchor.MiddleCenter;
                 Widgets.Label(r, _filter.Length > 0
                     ? "No matching commands"
@@ -323,7 +322,7 @@ namespace SlopWorld
                 totalH += RowH;
             }
 
-            var view = new Rect(0f, 0f, r.width - 18f, totalH);
+            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW, totalH);
 
             _scroll.Begin(r, view);
 
@@ -335,7 +334,7 @@ namespace SlopWorld
                 if (group != null && group != prev)
                 {
                     var header = new Rect(0f, y, view.width, GroupH);
-                    GUI.color = new Color(0.45f, 0.47f, 0.50f);
+                    GUI.color = SlopWidgets.Faint;
                     Text.Font = GameFont.Tiny;
                     Widgets.Label(header, group.ToUpperInvariant());
                     Text.Font = GameFont.Small;
@@ -359,9 +358,11 @@ namespace SlopWorld
                     else Execute(_matches[i].E);
                 }
 
-                GUI.color = selected ? Color.white : new Color(0.85f, 0.86f, 0.90f);
+                GUI.color = selected ? SlopWidgets.Lead : SlopWidgets.Name;
                 SlopWidgets.RowLabel(
-                    new Rect(row.x + 6f, row.y + 2f, view.width - 12f, RowH - 4f),
+                    new Rect(row.x + SlopWidgets.FieldPadX, row.y + SlopWidgets.FieldPadY,
+                        view.width - SlopWidgets.FieldPadX * 2f,
+                        RowH - SlopWidgets.FieldPadY * 2f),
                     _matches[i].Label);
                 GUI.color = Color.white;
 
@@ -388,7 +389,7 @@ namespace SlopWorld
 
             if (options.Count == 0)
             {
-                GUI.color = new Color(0.5f, 0.5f, 0.5f);
+                GUI.color = SlopWidgets.Faint;
                 Text.Anchor = TextAnchor.MiddleCenter;
                 Widgets.Label(r, _subHasFilter ? "No matches" : "Nothing available");
                 Text.Anchor = TextAnchor.UpperLeft;
@@ -399,7 +400,7 @@ namespace SlopWorld
             _subIndex = Mathf.Clamp(_subIndex, 0, options.Count - 1);
 
             float totalH = options.Count * RowH;
-            var view = new Rect(0f, 0f, r.width - 18f, totalH);
+            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW, totalH);
 
             _scroll.Begin(r, view);
 
@@ -420,18 +421,20 @@ namespace SlopWorld
                     ExecuteSub();
                 }
 
-                float left = row.x + 6f;
+                float left = row.x + SlopWidgets.FieldPadX;
                 if (!options[i].O.Enabled)
                 {
-                    GUI.color = new Color(0.45f, 0.45f, 0.45f);
+                    GUI.color = SlopWidgets.Off;
                 }
                 else
                 {
-                    GUI.color = selected ? Color.white : new Color(0.85f, 0.86f, 0.90f);
+                    GUI.color = selected ? SlopWidgets.Lead : SlopWidgets.Name;
                 }
 
                 SlopWidgets.RowLabel(
-                    new Rect(left, row.y + 2f, view.width - 12f, RowH - 4f),
+                    new Rect(left, row.y + SlopWidgets.FieldPadY,
+                        view.width - SlopWidgets.FieldPadX * 2f,
+                        RowH - SlopWidgets.FieldPadY * 2f),
                     options[i].Label);
                 GUI.color = Color.white;
 
@@ -1127,7 +1130,7 @@ namespace SlopWorld
                 }
             }
 
-            return Mathf.Min(Pad + InputH + 4f + body + Pad, MaxH);
+            return Mathf.Min(Pad + InputH + SlopWidgets.GapXS + body + Pad, MaxH);
         }
 
     }

@@ -11,9 +11,9 @@ namespace SlopWorld
     public static class SearchView
     {
         static float RowH => SlopWidgets.TinyRowH;
-        const float Pad = 6f;
-        const float CellX = 8f;
-        const float ToolsH = 54f;
+        const float Pad = SlopWidgets.GapS;
+        const float CellX = SlopWidgets.GapS;
+        static float ToolsH => SlopWidgets.FieldH + SlopWidgets.GapS + SlopWidgets.RowH;
 
         sealed class Match
         {
@@ -61,17 +61,18 @@ namespace SlopWorld
 
         public static void Draw(Rect body)
         {
-            DrawTools(new Rect(body.x + CellX, body.y + Pad,
-                body.width - CellX * 2f, ToolsH));
+            var tools = new Rect(body.x + CellX, body.y + Pad,
+                body.width - CellX * 2f, ToolsH);
+            DrawTools(tools);
 
-            var results = new Rect(body.x, body.y + ToolsH + Pad,
-                body.width, Mathf.Max(0f, body.height - ToolsH - Pad));
+            var results = new Rect(body.x, tools.yMax + Pad,
+                body.width, Mathf.Max(0f, body.yMax - tools.yMax - Pad));
             DrawResults(results);
         }
 
         static void DrawTools(Rect r)
         {
-            const float buttonW = 30f;
+            float buttonW = SlopWidgets.FieldH;
             var field = new Rect(r.x, r.y, r.width - buttonW - SlopWidgets.GapS,
                 SlopWidgets.FieldH);
             var e = Event.current;
@@ -197,7 +198,8 @@ namespace SlopWorld
         {
             Hits.Clear();
             float height = Measure();
-            var view = new Rect(0f, 0f, body.width - (height > body.height ? 16f : 0f),
+            var view = new Rect(0f, 0f,
+                body.width - (height > body.height ? SlopWidgets.ScrollbarW : 0f),
                 Mathf.Max(body.height, height));
             Scroll.Begin(body, view);
             try
@@ -281,7 +283,8 @@ namespace SlopWorld
             GUI.color = SlopWidgets.Name;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
-            SlopWidgets.RowLabel(new Rect(CellX + 8f, y, width - CellX * 2f - 8f, RowH), path);
+            SlopWidgets.RowLabel(new Rect(CellX + SlopWidgets.GapS, y,
+                width - CellX * 2f - SlopWidgets.GapS, RowH), path);
             GUI.color = Color.white;
             y += RowH;
         }
@@ -292,17 +295,17 @@ namespace SlopWorld
             var r = new Rect(0f, y, width, RowH);
             bool over = SlopWidgets.HoverRow(r);
             if (ReferenceEquals(match, _selected))
-                Widgets.DrawBoxSolid(r, SlopWidgets.RowOn);
+                Slab.Fill(r, SlopWidgets.RowOn);
 
             string prefix = match.Line + ":" + match.Column;
             float prefixW = Mathf.Min(width * 0.55f, SlopWidgets.Wide(prefix) + 8f);
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = SlopWidgets.Name;
-            SlopWidgets.RowLabel(new Rect(CellX + 16f, y, prefixW, RowH), prefix);
+            SlopWidgets.RowLabel(new Rect(CellX + SlopWidgets.GapM, y, prefixW, RowH), prefix);
             GUI.color = over ? SlopWidgets.Lead : SlopWidgets.Dim;
-            SlopWidgets.RowLabel(new Rect(CellX + 16f + prefixW, y,
-                width - CellX * 2f - 16f - prefixW, RowH), match.Text.Trim());
+            SlopWidgets.RowLabel(new Rect(CellX + SlopWidgets.GapM + prefixW, y,
+                width - CellX * 2f - SlopWidgets.GapM - prefixW, RowH), match.Text.Trim());
             GUI.color = Color.white;
             TooltipHandler.TipRegion(r,
                 $"{match.Path}:{match.Line}:{match.Column}\n{match.Text.Trim()}");
@@ -349,8 +352,9 @@ namespace SlopWorld
         static Rect ResultsBody()
         {
             var body = AgentSidebar.Body;
-            return new Rect(body.x, body.y + ToolsH + Pad, body.width,
-                Mathf.Max(0f, body.height - ToolsH - Pad));
+            float toolsBottom = body.y + Pad + ToolsH;
+            return new Rect(body.x, toolsBottom + Pad, body.width,
+                Mathf.Max(0f, body.yMax - toolsBottom - Pad));
         }
 
         static void Open(Match match)

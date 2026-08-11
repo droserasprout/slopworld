@@ -79,7 +79,8 @@ namespace SlopWorld
                 return;
             }
 
-            var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(_fieldsH, r.height));
+            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
+                Mathf.Max(_fieldsH, r.height));
             _scroll.Begin(r, view);
 
             // Begun far taller than it is, so a control that would cross the bottom does not
@@ -285,7 +286,7 @@ namespace SlopWorld
                 // No icon at all: a key past the end of the pool, which draws its number and
                 // nothing else up there. Said as an empty plate rather than as the cross,
                 // which in the grid below means "let the mod choose" and not "nothing".
-                Widgets.DrawBoxSolid(box.ContractedBy(7f), SlopWidgets.Off);
+                Slab.Fill(box.ContractedBy(SlopWidgets.GapS - 1f), SlopWidgets.Off);
             }
 
             if (Mouse.IsOver(box)) Slab.Fill(box, SlopWidgets.Hover);
@@ -354,7 +355,8 @@ namespace SlopWorld
                 const float IconSize = 30f;
                 float gridTop = r.y + 4f + SlopWidgets.LineH + SlopWidgets.GapXS;
                 float gridH = r.height - gridTop - 8f;
-                int perLine = Mathf.Max(1, Mathf.FloorToInt((r.width - 16f) / Cell));
+                int perLine = Mathf.Max(1, Mathf.FloorToInt(
+                    (r.width - SlopWidgets.GapM) / Cell));
                 float gridW = perLine * Cell;
                 var gridRect = new Rect(r.x + (r.width - gridW) / 2f, gridTop, gridW, gridH);
 
@@ -364,7 +366,7 @@ namespace SlopWorld
                 float totalH = rows * Cell;
                 bool scroll = totalH > gridH;
                 // If scrolling, shrink the grid by the scrollbar width.
-                float gridW2 = scroll ? gridW - 18f : gridW;
+                float gridW2 = scroll ? gridW - SlopWidgets.ScrollbarW : gridW;
                 perLine = Mathf.Max(1, Mathf.FloorToInt(gridW2 / Cell));
                 gridW2 = perLine * Cell;
 
@@ -385,7 +387,7 @@ namespace SlopWorld
                     var cell = new Rect(view.x + col * Cell, view.y + row * Cell, Cell, Cell);
 
                     if (def == chosen)
-                        Widgets.DrawBoxSolid(cell, new Color(1f, 1f, 1f, 0.16f));
+                        Slab.Fill(cell, SlopWidgets.RowOn);
                     if (Mouse.IsOver(cell))
                         Slab.Fill(cell, SlopWidgets.Hover);
 
@@ -400,7 +402,7 @@ namespace SlopWorld
                     {
                         // Grey, and drawn a little smaller than a thing: it is the one cell
                         // here that is not an item, and it should not read as the loudest.
-                        GUI.color = new Color(0.72f, 0.73f, 0.75f);
+                        GUI.color = SlopWidgets.Dim;
                         GUI.DrawTexture(box.ContractedBy(3f), Icons.Cross);
                     }
                     GUI.color = Color.white;

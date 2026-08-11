@@ -75,7 +75,7 @@ namespace SlopWorld
             totalH += SlopWidgets.BtnH + SlopWidgets.GapS + SlopWidgets.GapS;
 
             // Scroll view for the list area.
-            var innerRect = new Rect(0f, 0f, inner.width - 18f,
+            var innerRect = new Rect(0f, 0f, inner.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(totalH, inner.height));
             _scroll.Begin(inner, innerRect);
 
@@ -127,7 +127,7 @@ namespace SlopWorld
 
                     bool over = Mouse.IsOver(r);
                     if (over && _listening != binding)
-                        Widgets.DrawBoxSolid(r, SlopWidgets.RowBg);
+                        Slab.Fill(r, SlopWidgets.RowBg);
 
                     // Label
                     Text.Anchor = TextAnchor.MiddleLeft;

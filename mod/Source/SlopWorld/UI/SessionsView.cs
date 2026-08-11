@@ -48,7 +48,7 @@ namespace SlopWorld
 
             // State chip, so the list scans the same way the map overlay does.
             var chip = new Rect(r.x + 6f, r.y + 6f, 10f, r.height - 12f);
-            Widgets.DrawBoxSolid(chip, TerminalWindow.StateColor(s.State));
+            Slab.Fill(chip, TerminalWindow.StateColor(s.State));
 
             Text.Font = GameFont.Small;
             float l1 = r.y + SlopWidgets.GapXS, l2 = l1 + SlopWidgets.LineH;

@@ -126,7 +126,8 @@ namespace SlopWorld
                 .OrderBy(p => p.Name == "global" ? 0 : 1)
                 .ThenBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase).ToList();
             float h = (system.Count + user.Count + 3) * SlopWidgets.RowH;
-            var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(h, r.height));
+            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
+                Mathf.Max(h, r.height));
             _listScroll.Begin(r, view);
             float y = 0f;
             y = DrawLibraryGroup(view, y, "System", system, p => p.Name,
@@ -149,7 +150,7 @@ namespace SlopWorld
                 string name = label(item);
                 bool selected = (item is PresetInfo p && p == _preset) ||
                                 (item is CommandInfo c && c == _command);
-                if (selected) Widgets.DrawBoxSolid(cell, SlopWidgets.RowOn);
+                if (selected) Slab.Fill(cell, SlopWidgets.RowOn);
                 // A preset that hands the sandbox a road back out is dangerous even when it
                 // is selected: the yellow stays on the name so the warning is visible in the
                 // library, not only after opening its editor.
@@ -189,7 +190,8 @@ namespace SlopWorld
             var system = all.Where(c => c.Source == "system").ToList();
             var user = all.Where(c => c.Source != "system").ToList();
             float h = (system.Count + user.Count + 3) * SlopWidgets.RowH;
-            var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(h, r.height));
+            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
+                Mathf.Max(h, r.height));
             _listScroll.Begin(r, view);
             float y = 0f;
             y = DrawLibraryGroup(view, y, "System", system, c => c.Name,
@@ -214,8 +216,8 @@ namespace SlopWorld
             }
             var p = _preset;
             bool editable = _newEntry || p.Source != "system";
-            var view = new Rect(0f, 0f, r.width - 18f,
-                Mathf.Max(PresetEditorHeight(p, r.width - 18f), r.height));
+            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
+                Mathf.Max(PresetEditorHeight(p, r.width - SlopWidgets.ScrollbarW), r.height));
             _editorScroll.Begin(r, view);
             float y = 0f;
             // Put the cost before the identity and all the fields. A warning at the bottom is
@@ -284,8 +286,8 @@ namespace SlopWorld
             }
             var c = _command;
             bool editable = _newEntry || c.Source != "system";
-            var view = new Rect(0f, 0f, r.width - 18f,
-                Mathf.Max(CommandEditorHeight(c, r.width - 18f), r.height));
+            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
+                Mathf.Max(CommandEditorHeight(c, r.width - SlopWidgets.ScrollbarW), r.height));
             _editorScroll.Begin(r, view);
             float y = 0f;
             EditorTitle(view, ref y, c.Name, c.Source, editable, "command");

@@ -27,7 +27,8 @@ namespace SlopWorld
                 return;
             }
 
-            var inner = new Rect(0f, 0f, pad.width - 18f, all.Count * SlopWidgets.RowH);
+            var inner = new Rect(0f, 0f, pad.width - SlopWidgets.ScrollbarW,
+                all.Count * SlopWidgets.RowH);
             scroll.Begin(pad, inner);
             float y = 0f;
             foreach (var b in all)

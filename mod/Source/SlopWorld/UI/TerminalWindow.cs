@@ -11,7 +11,7 @@ namespace SlopWorld
     // keystrokes back as tmux keys.
     public class TerminalWindow : Window
     {
-        const float Pad = 6f;
+        const float Pad = SlopWidgets.GapS;
 
         // Not readonly: the strip switches sessions by pointing the window at a new one,
         // which keeps the terminal's scroll and selection instead of rebuilding it. Null is
@@ -355,7 +355,7 @@ namespace SlopWorld
         void DrawOfflineBanner(Rect body)
         {
             var r = new Rect(body.x, body.y, body.width, SlopWidgets.LineH + 3f);
-            Widgets.DrawBoxSolid(r, new Color(0.42f, 0.12f, 0.10f, 0.92f));
+            Slab.Box(r, SlopWidgets.OfflineBg, SlopWidgets.Edge);
 
             string tail = _droppedKeys > 0
                 ? $" - {_droppedKeys} keystroke{(_droppedKeys == 1 ? "" : "s")} not delivered"
@@ -376,17 +376,17 @@ namespace SlopWorld
         {
             switch (s)
             {
-                case AgentState.Working: return new Color(0.45f, 0.75f, 0.95f);
-                case AgentState.Waiting: return new Color(0.98f, 0.80f, 0.30f);
-                case AgentState.Idle: return new Color(0.60f, 0.62f, 0.64f);
-                default: return new Color(0.85f, 0.35f, 0.35f);
+                case AgentState.Working: return SlopWidgets.StateWorking;
+                case AgentState.Waiting: return SlopWidgets.StateWaiting;
+                case AgentState.Idle: return SlopWidgets.StateIdle;
+                default: return SlopWidgets.StateDown;
             }
         }
 
         void DrawCentered(Rect r, string msg)
         {
             Text.Anchor = TextAnchor.MiddleCenter;
-            GUI.color = new Color(0.7f, 0.7f, 0.7f);
+            GUI.color = SlopWidgets.Dim;
             Widgets.Label(r, msg);
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
@@ -1679,7 +1679,7 @@ namespace SlopWorld
         {
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.UpperRight;
-            GUI.color = new Color(0.98f, 0.80f, 0.30f);
+            GUI.color = SlopWidgets.Warn;
             Widgets.Label(new Rect(body.x, body.y, body.width - 6f, SlopWidgets.TinyH),
                 $"scrollback -{_scrollOff}   type or scroll down to resume");
             GUI.color = Color.white;

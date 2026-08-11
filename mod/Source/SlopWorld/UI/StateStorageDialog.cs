@@ -63,7 +63,7 @@ namespace SlopWorld
 
             var body = new Rect(rect.x, top, rect.width,
                 rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - top);
-            var view = new Rect(0f, 0f, body.width - 18f,
+            var view = new Rect(0f, 0f, body.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(body.height, _entries.Count * Pitch));
             _scroll.Begin(body, view);
             for (int i = 0; i < _entries.Count; i++) DrawRow(new Rect(0f, i * Pitch, view.width, Pitch - 4f), _entries[i]);

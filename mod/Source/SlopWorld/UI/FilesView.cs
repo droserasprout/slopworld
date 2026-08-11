@@ -22,8 +22,8 @@ namespace SlopWorld
         static float RowH => SlopWidgets.TinyRowH;
         const float IconW = 16f;
         const float Indent = 11f;
-        const float Pad = 6f;
-        const float CellX = 8f;
+        const float Pad = SlopWidgets.GapS;
+        const float CellX = SlopWidgets.GapS;
         const float ArrowW = 11f;
 
         // A directory is a rung above a file, which is the whole of the distinction this view
@@ -143,7 +143,8 @@ namespace SlopWorld
             }
 
             float height = Measure(projects);
-            var view = new Rect(0f, 0f, body.width - (height > body.height ? 16f : 0f),
+            var view = new Rect(0f, 0f,
+                body.width - (height > body.height ? SlopWidgets.ScrollbarW : 0f),
                 height);
 
             // GUI rather than GUILayout, so this is safe in a pass that declines Layout
@@ -260,7 +261,7 @@ namespace SlopWorld
             var label = new Rect(lx, r.y, r.width - lx - CellX, RowH);
             SlopWidgets.RowLabel(label, project);
 
-            Widgets.DrawBoxSolid(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
+            Slab.Hairline(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
                 SlopWidgets.Edge);
 
             GUI.color = Color.white;

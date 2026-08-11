@@ -20,9 +20,8 @@ namespace SlopWorld
     // offset of their own, and only the transform knows the sum of them.
     public static class Slab
     {
-        // A border a whole screen pixel thick, and at least one. Adwaita's is one CSS pixel
-        // whatever the scale, and a border that thickens with the UI scale is the one part of
-        // a flat style that reads as heavy.
+        // A border is one screen pixel whatever the UI scale; a line that thickens with the
+        // scale turns this deliberately light rectangular frame into a heavy box.
         static float Line => 1f / Prefs.UIScale;
 
         // What a focus ring is worth: two screen pixels, outside the widget, so the control
@@ -49,9 +48,8 @@ namespace SlopWorld
 
         // A face and the line round it. Every control here is this: a button, a field, a
         // panel and a check box differ by which two colours they hand over, and by nothing
-        // else. Flat, with no relief - the sheen and drop shadow this used to draw are what
-        // Adwaita took out of its buttons, and a pressed button is a darker face rather than
-        // a box that moved.
+        // else. Flat, with no relief: a pressed button is a darker face rather than a box
+        // that moves.
         public static void Box(Rect r, Color face, Color edge)
         {
             Fill(r, face);
@@ -81,6 +79,10 @@ namespace SlopWorld
         // does, which is why it lives with them.
         public static void Hairline(Rect r, Color c) =>
             Flat(new Rect(r.x, r.y, r.width, 1f / Prefs.UIScale), c);
+
+        // The vertical counterpart, for a panel boundary that stays one screen pixel wide.
+        public static void VHairline(Rect r, Color c) =>
+            Flat(new Rect(r.x, r.y, 1f / Prefs.UIScale, r.height), c);
 
         // Nothing to do for a colour that is not there - a ghost at rest asks for all of this
         // in nothing, and it is a bill for no box.

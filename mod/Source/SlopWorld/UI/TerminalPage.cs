@@ -50,7 +50,8 @@ namespace SlopWorld
             // The fields scroll if the room is short; the preview stays put at the foot.
             var form = new Rect(inner.x, inner.y, inner.width,
                 caption.y - inner.y - SlopWidgets.GapS);
-            var view = new Rect(0f, 0f, form.width - 18f, Mathf.Max(_fieldsH, form.height));
+            var view = new Rect(0f, 0f, form.width - SlopWidgets.ScrollbarW,
+                Mathf.Max(_fieldsH, form.height));
             _scroll.Begin(form, view);
 
             // One column: a Listing_Standard given less height than its contents starts a

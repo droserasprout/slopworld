@@ -28,14 +28,14 @@ namespace SlopWorld
         const float MinW = 160f;
 
         // The clear space either side of a label, and above and below the whole list.
-        const float PadX = 10f;
-        const float PadY = 4f;
+        const float PadX = SlopWidgets.MenuPadX;
+        const float PadY = SlopWidgets.MenuPadY;
 
         // How much of the screen a menu may take before it scrolls instead of growing. The
         // jukebox's station list is the one that reaches it.
         const float MaxScreen = 0.6f;
 
-        static float RowH => Mathf.Max(SlopWidgets.LineH + 8f, 26f);
+        static float RowH => SlopWidgets.MenuRowH;
 
         public SlopMenu(List<FloatMenuOption> options)
         {
@@ -45,7 +45,7 @@ namespace SlopWorld
             doCloseX = false;
             doCloseButton = false;
             closeOnClickedOutside = true;
-            drawShadow = true;
+            drawShadow = false;
             absorbInputAroundWindow = false;
             preventCameraMotion = false;
             layer = WindowLayer.Super;
@@ -91,7 +91,7 @@ namespace SlopWorld
 
             var inner = new Rect(rect.x, rect.y + PadY, rect.width, rect.height - PadY * 2f);
             bool scrolls = ContentH > rect.height;
-            var view = new Rect(0f, 0f, inner.width - (scrolls ? 18f : 0f),
+            var view = new Rect(0f, 0f, inner.width - (scrolls ? SlopWidgets.ScrollbarW : 0f),
                 _options.Count * RowH);
 
             Text.Font = GameFont.Small;

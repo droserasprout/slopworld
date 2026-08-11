@@ -130,8 +130,8 @@ namespace SlopWorld
             if (tipRect.x < margin) tipRect.x = margin;
             if (tipRect.xMax > UI.screenWidth - margin) tipRect.x = UI.screenWidth - margin - w;
 
-            // Adwaita's popover, not vanilla's window: this is a hint floating over the
-            // map, and it is the same surface the command palette stands on.
+            // A floating rectangular panel, not vanilla's window: this is a hint over the
+            // map, on the same surface the command palette uses.
             Slab.Box(tipRect, SlopWidgets.PopoverBg, SlopWidgets.Edge);
             var inner = tipRect.ContractedBy(8f);
             Widgets.Label(inner, _stickyTip);

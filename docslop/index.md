@@ -38,7 +38,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [mod-eco](mod-eco.md) - eco mode: the board stops and the menu's background stands in.
 - [mod-background](mod-background.md) - the baked menu background: the ramp, the grid, the walk.
 - [mod-ui-chrome](mod-ui-chrome.md) - shared widgets, layout, usage readout, top bar.
-- [mod-adwaita](mod-adwaita.md) - the look: square Adwaita, its palette and its two rules.
+- [mod-ui-identity](mod-ui-identity.md) - dark rectangular instrument-panel palette, shape and rhythm.
 - [mod-ui-files](mod-ui-files.md) - the files view and its icons.
 - [mod-ui-search](mod-ui-search.md) - workspace search and its result pager.
 - [mod-icons](mod-icons.md) - the Codicons bake out of a Nerd Font, and the Icons lookup.

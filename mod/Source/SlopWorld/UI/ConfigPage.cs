@@ -76,7 +76,8 @@ namespace SlopWorld
 
         void DoFields(Rect r)
         {
-            var view = new Rect(0f, 0f, r.width - 18f, Mathf.Max(_fieldsH, r.height));
+            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
+                Mathf.Max(_fieldsH, r.height));
             _scroll.Begin(r, view);
 
             // Begun far taller than it is, so a control that would cross the bottom does

@@ -37,7 +37,8 @@ namespace SlopWorld
 
             var form = new Rect(inner.x, inner.y, inner.width,
                 caption.y - inner.y - SlopWidgets.GapS);
-            var view = new Rect(0f, 0f, form.width - 18f, Mathf.Max(_fieldsH, form.height));
+            var view = new Rect(0f, 0f, form.width - SlopWidgets.ScrollbarW,
+                Mathf.Max(_fieldsH, form.height));
             _scroll.Begin(form, view);
 
             var l = new Listing_Standard { maxOneColumn = true };

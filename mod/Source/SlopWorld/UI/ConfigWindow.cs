@@ -56,7 +56,7 @@ namespace SlopWorld
             float foot = SlopWidgets.BtnH + SlopWidgets.GapS + SlopWidgets.LineH
                          + SlopWidgets.GapXS;
             var area = new Rect(rect.x, top, rect.width, rect.yMax - foot - top);
-            var view = new Rect(0f, 0f, area.width - 18f,
+            var view = new Rect(0f, 0f, area.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(area.height, Text.CalcHeight(_text, area.width - 24f) + 40f));
 
             // The box is the scroll view's frame, so it is drawn round the outside and the

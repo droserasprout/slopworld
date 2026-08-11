@@ -1,7 +1,6 @@
 using RimWorld;
 using UnityEngine;
 using Verse;
-using Verse.Sound;
 
 namespace SlopWorld
 {
@@ -12,9 +11,9 @@ namespace SlopWorld
     // The frame is drawn on the window's **own** rect, so the margin is taken here rather
     // than by `Window.Margin`: vanilla's margin is not padding, it opens a GUI group and
     // hands `DoWindowContents` a rect translated inside it (see gotchas), which would leave
-    // the background eighteen pixels short on every side and the game showing through the
-    // gap. `Margin` is nought and [Pad] is the same eighteen, applied to the body alone, so
-    // every form below keeps the geometry it was written against.
+    // the background short on every side and the game showing through the gap. `Margin` is
+    // nought and [Pad] is the shared sixteen, applied to the body alone, so every form keeps
+    // the same rectangular frame rhythm.
     //
     // The close button is drawn **over** the body rather than in a bar of its own. A titled
     // header would be the tidier thing and it would move every row in five forms down by its
@@ -35,15 +34,14 @@ namespace SlopWorld
 
         protected override float Margin => 0f;
 
-        // What vanilla's margin was, now that the body is inset by hand.
-        protected virtual float Pad => 18f;
+        // A form group starts on the shared sixteen-pixel rhythm.
+        protected virtual float Pad => SlopWidgets.GapM;
 
         // Whether the corner carries a cross. Off for a window that has a Cancel in its
         // footer and nothing else to dismiss.
         protected virtual bool Closable => true;
 
         const float CloseSize = 22f;
-        const float CloseIcon = 10f;
 
         public override void DoWindowContents(Rect rect)
         {
@@ -63,22 +61,8 @@ namespace SlopWorld
             var r = new Rect(rect.xMax - Pad - CloseSize, rect.y + Pad,
                 CloseSize, CloseSize);
 
-            bool over = Mouse.IsOver(r);
-            if (over)
-                Slab.Fill(r, Input.GetMouseButton(0)
-                    ? new Color(1f, 1f, 1f, 0.30f)
-                    : new Color(1f, 1f, 1f, 0.15f));
-
-            var icon = new Rect(r.x + (r.width - CloseIcon) / 2f,
-                r.y + (r.height - CloseIcon) / 2f, CloseIcon, CloseIcon);
-            GUI.color = over ? SlopWidgets.Lead : SlopWidgets.Dim;
-            GUI.DrawTexture(icon, Icons.Cross);
-            GUI.color = Color.white;
-
-            if (!Widgets.ButtonInvisible(r)) return;
-
-            SoundDefOf.Click.PlayOneShotOnCamera();
-            Close();
+            if (SlopWidgets.IconButton(r, Icons.Cross, SlopWidgets.Dim,
+                SlopWidgets.FieldPadX)) Close();
         }
     }
 }
