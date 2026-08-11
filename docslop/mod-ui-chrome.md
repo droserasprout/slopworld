@@ -30,6 +30,10 @@ unchanged by that trade.
 It reads the label, the action, `Disabled` and the right-justified extra part, and ignores
 everything vanilla's pawn-order menus use.
 
+`ActiveTip.DrawInner` is patched once for every hover bubble. Registrations remain ordinary
+`TooltipHandler.TipRegion` calls, so vanilla still owns delay, placement, stacking and size;
+only the final atlas and text draw are replaced with the popover surface and border.
+
 `SlopLayout` is the single source of sidebar/top-bar insets. `Hidden` is intentionally
 separate from layout selection: hiding chrome must not move the rest of the UI.
 
