@@ -99,12 +99,16 @@ namespace SlopWorld
 
         public void End()
         {
-            SpendWheel();
+            bool wheel = SpendWheel();
+            // Wheel ownership is resolved here so an inner list can win, but that is after
+            // Begin's easing step. Move once now as well, or the repaint for this event
+            // draws the old position and the gesture starts a frame late.
+            if (wheel) Ease(true);
             Widgets.EndScrollView();
 
             // The scroll view moved it. That is where the list now is, and easing back
             // toward a target from before it would fight the hand on the bar.
-            if (_pos != _drawn) _target = _pos;
+            if (!wheel && _pos != _drawn) _target = _pos;
 
             if (_bar) DrawBar();
         }
@@ -211,20 +215,21 @@ namespace SlopWorld
         // Spent before `GUI.EndScrollView` gets the event - ours and the scroll view's
         // handling would otherwise both land and the list would move twice as far - and
         // using it there also keeps every enclosing view off the same gesture.
-        void SpendWheel()
+        bool SpendWheel()
         {
             var e = Event.current;
-            if (_claim != this || e.type != EventType.ScrollWheel) return;
+            if (_claim != this || e.type != EventType.ScrollWheel) return false;
 
             _claim = null;
             _target.x = Mathf.Clamp(_target.x + _claimDelta.x * Speed, 0f, _max.x);
             _target.y = Mathf.Clamp(_target.y + _claimDelta.y * Speed, 0f, _max.y);
             e.Use();
+            return true;
         }
 
-        void Ease()
+        void Ease(bool force = false)
         {
-            if (_frame == Time.frameCount) return;
+            if (!force && _frame == Time.frameCount) return;
             _frame = Time.frameCount;
 
             var d = _target - _pos;
