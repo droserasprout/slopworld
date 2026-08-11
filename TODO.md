@@ -3,7 +3,6 @@
 
 ## Interface
 
-- Implement session selection for ephemeral/host sessions without a pawn: shared gizmos, inspect pane, sidebar clicks, and keyboard walking via `SessionSelectable`.
 - Tab / Shift+Tab in floating windows to navigate between input fields
 - ModSettings shouldn't pause the game
 - Welcome configuration screen of fresh profile
