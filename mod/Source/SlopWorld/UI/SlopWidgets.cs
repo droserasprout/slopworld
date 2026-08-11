@@ -294,17 +294,20 @@ namespace SlopWorld
             return text;
         }
 
-        public static bool Checkbox(Rect r, string label, bool on, string tip = null,
-                                    bool locked = false, bool warn = false)
+        // The box a checkbox wears, on its own and centred in the height it is given:
+        // checked is solid signal blue with a tick, unchecked a square well with a light
+        // edge. Drawn and not clicked - every caller has a row that is the hit target
+        // already - so the box goes wherever a tick belongs, in a settings page, a menu
+        // and the palette's sub list alike. It returns the square it drew, for a caller
+        // laying a label out beside it; [TickColW] is what a column of them costs.
+        public static float TickW => Mathf.Round(LineH * 0.8f);
+        public static float TickColW => TickW + GapS;
+
+        public static Rect TickBox(Rect r, bool on, bool locked = false)
         {
-            bool over = !locked && Mouse.IsOver(r);
-            if (over) Slab.Fill(r, Hover);
-            if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
+            float size = Mathf.Min(TickW, r.height - 2f);
+            var box = new Rect(r.x, r.y + (r.height - size) / 2f, size, size);
 
-            float size = Mathf.Min(Mathf.Round(LineH * 0.8f), r.height - 2f);
-            var box = new Rect(r.x + 1f, r.y + (r.height - size) / 2f, size, size);
-
-            // Checked is solid signal blue; unchecked is a square well with a light edge.
             var face = on ? PrimeFace : Well;
             var edge = on ? Clear : BtnEdge;
             if (locked) { face = Fade(face, 0.5f); edge = Fade(edge, 0.5f); }
@@ -313,7 +316,19 @@ namespace SlopWorld
             {
                 GUI.color = locked ? Faint : Color.white;
                 GUI.DrawTexture(box.ContractedBy(IconInset), Icons.Check);
+                GUI.color = Color.white;
             }
+            return box;
+        }
+
+        public static bool Checkbox(Rect r, string label, bool on, string tip = null,
+                                    bool locked = false, bool warn = false)
+        {
+            bool over = !locked && Mouse.IsOver(r);
+            if (over) Slab.Fill(r, Hover);
+            if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
+
+            var box = TickBox(new Rect(r.x + 1f, r.y, TickW, r.height), on, locked);
 
             var wasAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleLeft;
@@ -503,24 +518,21 @@ namespace SlopWorld
         public static void Fail(string msg) =>
             Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
 
-        const float MarkW = 30f;
-        const float MarkSize = 18f;
-
+        // A checked menu row wears the same box a settings page does, before the label
+        // rather than after it: `SlopMenu` reads `extraPartRightJustified` and puts the
+        // part on the left when it is false. One checkbox everywhere, so a tick means the
+        // same thing wherever it is read.
         public static FloatMenuOption MenuToggle(string label, bool on, Action act)
         {
             var opt = new FloatMenuOption(label, act, MenuOptionPriority.Default, null, null,
-                MarkW, r => DrawMark(r, on));
-            opt.extraPartRightJustified = true;
+                TickColW, r => DrawTick(r, on));
+            opt.extraPartRightJustified = false;
             return opt;
         }
 
-        static bool DrawMark(Rect r, bool on)
+        static bool DrawTick(Rect r, bool on)
         {
-            var icon = new Rect(r.x + (r.width - MarkSize) / 2f,
-                r.y + (r.height - MarkSize) / 2f, MarkSize, MarkSize);
-            GUI.color = on ? Yes : Dim;
-            GUI.DrawTexture(icon, on ? Icons.Check : Icons.Cross);
-            GUI.color = Color.white;
+            TickBox(r, on);
             // extraPartOnGUI's return means the extra part handled the click; the row does.
             return false;
         }

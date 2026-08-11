@@ -29,6 +29,10 @@ namespace SlopWorld
         // does not know reads as the agents, which is the view that is always worth having.
         public string sidebarTab = "agents";
         public bool sidebarShowHidden;
+        // The projects ticked in the column's filter, one name a line and blank for all of
+        // them - the folds' own format, kept here for the folds' own reason. See
+        // AgentSidebar for what an unticked name and the `[none]` line mean.
+        public string sidebarFilter = "";
 
         // Which thing stands for which quota row, one `key=defName` per line. Here for the
         // reason the folds are: a resource the daemon reports is the daemon's, but what it
@@ -94,6 +98,7 @@ namespace SlopWorld
             Scribe_Values.Look(ref foldedProjects, "foldedProjects", "");
             Scribe_Values.Look(ref sidebarTab, "sidebarTab", "agents");
             Scribe_Values.Look(ref sidebarShowHidden, "sidebarShowHidden", false);
+            Scribe_Values.Look(ref sidebarFilter, "sidebarFilter", "");
             Scribe_Values.Look(ref usageIcons, "usageIcons", "");
             Scribe_Values.Look(ref fontSize, "fontSize", 14);
             Scribe_Values.Look(ref fontName, "fontName", "");
@@ -122,6 +127,7 @@ namespace SlopWorld
         public static string FoldedProjects => S.foldedProjects ?? "";
         public static string SidebarTab => S.sidebarTab ?? "";
         public static bool SidebarShowHidden => S.sidebarShowHidden;
+        public static string SidebarFilter => S.sidebarFilter ?? "";
         public static string UsageIcons => S.usageIcons ?? "";
         public static int FontSize => S.fontSize;
         public static string FontName => S.fontName ?? "";

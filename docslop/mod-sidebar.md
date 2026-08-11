@@ -33,6 +33,30 @@ input absorption. Switching away closes readers owned by the old view. Files, Se
 all colonist-bar locations, but buckets are still built so Alt+number can return to an
 agent. A fold, unlike a view switch, removes its agents from that visible ordering.
 
+## The tab strip
+
+Two rows. The first is what every view has: the five tabs on the left, the project filter
+on the right. The second is what only the current view has — dotfiles for Files and Search,
+refresh for Git — right-aligned under the filter, and absent entirely for the two views
+that have no such button, so neither wears an empty band. `TabH` is the whole strip, which
+is what the body and the colonist-bar layout are pushed down by, so both follow on their
+own.
+
+The filter is a set of ticked keys, held one name a line the way the folds are, and every
+view is read through `AgentSidebar.Passes`. Empty is all of them, not none. Whatever has no
+project of its own is one more key — `[none]` — so it ticks like any other; a project
+actually named that shares the line, which is what a sentinel reading the same in the
+settings file as in the menu costs. A key no project answers to shows nothing rather than
+falling back to all, which is the honest reading while the daemon is still handing its list
+over. Agents, Files and Shortcuts read the filter as they draw; Search and Git hold what
+they asked the daemon for and are asked again when it changes.
+
+The menu is ticks rather than a pick, so a tick closes it — as every option in a `SlopMenu`
+does — and opens it again where it was. That is what the menu's optional anchor is for:
+without one it would come back at the cursor and walk across the screen. `View: Filter
+Projects` in the palette is the same set of ticks as a sub-list, drawn with the same
+`SlopWidgets.TickBox`, where Space ticks without closing.
+
 Context menus run in the back pass because vanilla consumes right-clicks over portraits.
 Project menus include an explicitly unsandboxed host terminal; it goes through
 `SessionHub.RunHostShell` and `/api/run` with `host` set. Every view routes row hover through

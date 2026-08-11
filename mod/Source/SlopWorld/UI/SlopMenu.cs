@@ -14,13 +14,18 @@ namespace SlopWorld
     // A **drop-in**, taking the same `List<FloatMenuOption>` the call sites already build, so
     // switching one over is a changed type name and nothing else. That is also the limit of
     // it: this reads the four things those options actually carry - the label, the action,
-    // `Disabled`, and the right-justified extra part that [SlopWidgets.MenuToggle] hangs a
-    // tick on - and ignores the two dozen fields vanilla's own menus use for pawn orders,
-    // which nothing in this mod builds.
+    // `Disabled`, and the extra part that [SlopWidgets.MenuToggle] hangs a checkbox on,
+    // either side of the label as `extraPartRightJustified` says - and ignores the two dozen
+    // fields vanilla's own menus use for pawn orders, which nothing in this mod builds.
     public class SlopMenu : Window
     {
         readonly List<FloatMenuOption> _options;
         readonly SmoothScroll _scroll = new SmoothScroll();
+
+        // Where to put it, for a menu that does not belong at the mouse: one opened from a
+        // button the keyboard reached, or one that reopens itself a tick at a time and
+        // would otherwise walk across the screen behind the cursor. Null is the mouse.
+        readonly Vector2? _at;
 
         // Vanilla's own ceiling on a menu's width, kept: a label longer than this is a path
         // or a URL, and past three hundred pixels a wider menu does not make it readable.
@@ -37,9 +42,10 @@ namespace SlopWorld
 
         static float RowH => SlopWidgets.MenuRowH;
 
-        public SlopMenu(List<FloatMenuOption> options)
+        public SlopMenu(List<FloatMenuOption> options, Vector2? at = null)
         {
             _options = options ?? new List<FloatMenuOption>();
+            _at = at;
 
             doWindowBackground = false;
             doCloseX = false;
@@ -73,12 +79,13 @@ namespace SlopWorld
             new Vector2(Mathf.Clamp(WidestLabel() + PadX * 2f, MinW, MaxW),
                 Mathf.Min(ContentH, UI.screenHeight * MaxScreen));
 
-        // At the mouse, and shoved back onto the screen rather than off the bottom of it -
-        // which is where a menu opened from a row near the foot of a tall list would go.
+        // At the mouse unless it was given somewhere, and shoved back onto the screen
+        // rather than off the bottom of it - which is where a menu opened from a row near
+        // the foot of a tall list would go.
         protected override void SetInitialSizeAndPosition()
         {
             var size = InitialSize;
-            var at = UI.MousePositionOnUIInverted;
+            var at = _at ?? UI.MousePositionOnUIInverted;
             windowRect = new Rect(
                 Mathf.Min(at.x, UI.screenWidth - size.x),
                 Mathf.Min(at.y, UI.screenHeight - size.y),
@@ -119,13 +126,18 @@ namespace SlopWorld
             if (over) Slab.Fill(r, SlopWidgets.Hover);
             if (o.tooltip.HasValue) TooltipHandler.TipRegion(r, o.tooltip.Value);
 
-            // The extra part is the tick [SlopWidgets.MenuToggle] draws, and it is always
-            // right-justified here - the one caller that asks for it asks for that too.
+            // The extra part is the checkbox [SlopWidgets.MenuToggle] draws, before the
+            // label or after it as the option asks - a tick goes where a settings page
+            // puts it, which is in front.
             float extra = o.extraPartWidth;
+            bool right = o.extraPartRightJustified;
             if (o.extraPartOnGUI != null && extra > 0f)
-                o.extraPartOnGUI(new Rect(r.xMax - extra, r.y, extra, r.height));
+                o.extraPartOnGUI(right
+                    ? new Rect(r.xMax - extra, r.y, extra, r.height)
+                    : new Rect(r.x + PadX, r.y, extra, r.height));
 
-            var label = new Rect(r.x + PadX, r.y, r.width - PadX * 2f - extra, r.height);
+            var label = new Rect(r.x + PadX + (right ? 0f : extra), r.y,
+                r.width - PadX * 2f - extra, r.height);
             var wasAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = !on ? SlopWidgets.Off : over ? SlopWidgets.Lead : SlopWidgets.Name;

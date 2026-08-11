@@ -73,7 +73,10 @@ namespace SlopWorld
         {
             // Builtins are shipped with the daemon and there is nothing to do to one here -
             // no run, no edit, no delete. They are offered where they are attached instead.
-            _items = SessionHub.Instance.Shortcuts.Where(s => !s.Builtin).ToList();
+            // Filtered here rather than in [Group], so a filter that leaves nothing gets
+            // the empty line instead of a blank column.
+            _items = SessionHub.Instance.Shortcuts
+                .Where(s => !s.Builtin && AgentSidebar.Passes(s.Project)).ToList();
             Lines.Clear();
 
             if (_items.Count == 0)
@@ -212,9 +215,11 @@ namespace SlopWorld
             GUI.color = SlopWidgets.Faint;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.UpperLeft;
-            Widgets.Label(r, SessionHub.Instance.Online
-                ? "No shortcuts yet. Press + at the foot of the panel."
-                : $"daemon {SessionHub.Instance.Status}");
+            Widgets.Label(r, !SessionHub.Instance.Online
+                ? $"daemon {SessionHub.Instance.Status}"
+                : AgentSidebar.Filtering
+                    ? $"No shortcuts in {AgentSidebar.FilterLabel}."
+                    : "No shortcuts yet. Press + at the foot of the panel.");
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
         }

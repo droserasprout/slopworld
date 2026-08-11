@@ -184,13 +184,15 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        // Every project with somewhere to look, ordered the way the agents view orders its
-        // headings, so the two read as the same column with different contents in it.
+        // Every project with somewhere to look that the strip's filter lets through,
+        // ordered the way the agents view orders its headings, so the two read as the same
+        // column with different contents in it.
         static List<string> Projects()
         {
             var names = new List<string>();
             foreach (var p in SessionHub.Instance.Projects)
-                if (!string.IsNullOrEmpty(p.Dir)) names.Add(p.Name);
+                if (!string.IsNullOrEmpty(p.Dir) && AgentSidebar.Passes(p.Name))
+                    names.Add(p.Name);
             names.Sort(System.StringComparer.Ordinal);
             return names;
         }

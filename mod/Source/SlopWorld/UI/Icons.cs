@@ -68,6 +68,9 @@ namespace SlopWorld
 
         public static Texture2D View => Hidden;
 
+        // The sidebar's project filter, which every view is read through.
+        public static Texture2D Filter => Get("filter");
+
         public static Texture2D Refresh => Get("refresh");
 
         public static Texture2D Bell => Get("bell");

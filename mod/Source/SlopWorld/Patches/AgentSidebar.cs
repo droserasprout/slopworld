@@ -24,7 +24,14 @@ namespace SlopWorld
         const float CellX = SlopWidgets.GapS;
         const float TextGap = SlopWidgets.GapS;
 
-        public static float TabH => TopBar.H;
+        // The strip is one row of the buttons every view has - the five tabs on the left,
+        // the filter on the right - and, under it, a second row of the buttons only the
+        // current view has. That row is right-aligned like the filter above it and is only
+        // there when the view actually has such a button, so the two views that have none
+        // do not wear an empty band. `TabH` is what the body is pushed down by, so both
+        // [Body] and [Place] follow on their own.
+        static float TabRowH => TopBar.H;
+        public static float TabH => TabRowH + (HasActions ? TabRowH : 0f);
         const float TabIcon = 20f;
 
         const float RowGap = SlopWidgets.GapXS;
@@ -125,6 +132,82 @@ namespace SlopWorld
         public static bool Shortcuts => Settings.SidebarTab == TabShortcuts;
         public static bool Agents => !Files && !Search && !Git && !Shortcuts;
 
+        // Which views own a second row. Keep in step with what [Actions] draws.
+        static bool HasActions => Files || Search || Git;
+
+        // The project filter: a set of ticked keys every view is read through, empty being
+        // all of them rather than none. Held and written the way the folds are - one name a
+        // line - because it is the same kind of thing, and a key no project answers to
+        // shows nothing rather than falling back to all: that is the honest reading while
+        // the daemon is still handing its list over.
+        //
+        // Whatever has no project of its own is one more key, so it can be ticked like any
+        // other. A project actually named this shares its line, which is the price of a
+        // sentinel that reads the same in the settings file as it does in the menu.
+        public const string NoProject = "[none]";
+
+        static HashSet<string> _filter;
+
+        static HashSet<string> Ticks
+        {
+            get
+            {
+                if (_filter == null)
+                {
+                    _filter = new HashSet<string>();
+                    foreach (var name in Settings.SidebarFilter.Split('\n'))
+                        if (name.Length > 0) _filter.Add(name);
+                }
+                return _filter;
+            }
+        }
+
+        public static bool Filtering => Ticks.Count > 0;
+
+        public static bool Ticked(string key) => Ticks.Contains(key);
+
+        static string Key(string project) =>
+            string.IsNullOrEmpty(project) ? NoProject : project;
+
+        public static bool Passes(string project) =>
+            !Filtering || Ticks.Contains(Key(project));
+
+        // What the filter is, for a tooltip or an empty line: the name when it is one name,
+        // and a count when it is more.
+        public static string FilterLabel
+        {
+            get
+            {
+                if (Ticks.Count != 1) return Ticks.Count + " projects";
+                foreach (var key in Ticks) return key;
+                return "";
+            }
+        }
+
+        // A blank key clears the filter outright: "all projects" is no filter at all rather
+        // than every name ticked, so a project made later is in it too.
+        public static void ToggleFilter(string key)
+        {
+            if (key.Length == 0)
+            {
+                if (!Filtering) return;
+                Ticks.Clear();
+            }
+            else if (!Ticks.Remove(key)) Ticks.Add(key);
+
+            var names = new List<string>(Ticks);
+            names.Sort(System.StringComparer.Ordinal);
+            var s = Settings.S;
+            s.sidebarFilter = string.Join("\n", names.ToArray());
+            s.Write();
+
+            // The agents, files and shortcuts views read the filter as they draw. The other
+            // two hold what they asked the daemon for, and a filter that widened is a
+            // project they never asked about.
+            if (Search) SearchView.Search();
+            else if (Git) GitView.Refresh();
+        }
+
         static void Show(string tab)
         {
             if (Settings.SidebarTab == tab) return;
@@ -168,7 +251,7 @@ namespace SlopWorld
         {
             Routed.Clear();
             foreach (var info in SessionHub.Instance.Sessions)
-                if (InTab(info, tab)) Routed.Add(info);
+                if (InTab(info, tab) && Passes(info.Project)) Routed.Add(info);
             Routed.Sort(ByName);
             return Routed;
         }
@@ -430,6 +513,13 @@ namespace SlopWorld
                     locs[i] = Parked;
                     continue;
                 }
+                // Parked rather than skipped, for the reason the routed ones are: the
+                // colonist bar hit-tests the same table it is drawn from.
+                if (!Passes(info?.Project))
+                {
+                    locs[i] = Parked;
+                    continue;
+                }
                 string key = string.IsNullOrEmpty(info?.Project) ? Loose : info.Project;
 
                 if (!Buckets.TryGetValue(key, out var list))
@@ -440,7 +530,7 @@ namespace SlopWorld
 
             foreach (var s in SessionHub.Instance.Sessions)
             {
-                if (!s.Ephemeral || IsRouted(s)) continue;
+                if (!s.Ephemeral || IsRouted(s) || !Passes(s.Project)) continue;
                 if (string.IsNullOrEmpty(s.Project)) { TopGhosts.Add(s); continue; }
 
                 if (!Ghosts.TryGetValue(s.Project, out var list))
@@ -611,7 +701,7 @@ namespace SlopWorld
             Slab.Hairline(new Rect(CellX, TabH - 1f, Width - CellX * 2f, 1f),
                 SlopWidgets.Edge);
 
-            float y = (TabH - TabIcon) / 2f;
+            float y = (TabRowH - TabIcon) / 2f;
 
             const float Gap = 3f;
             float x = CellX;
@@ -632,12 +722,26 @@ namespace SlopWorld
                 "Shortcuts - one-shot errands you can run against any project",
                 () => Show(TabShortcuts));
 
-            float right = Width - CellX - TabIcon;
+            FilterButton();
 
+            if (HasActions)
+                Actions(new Rect(FilterRect.x, TabRowH + y, TabIcon, TabIcon));
+
+            if (ColonistBarStrip.MouseOver(strip) && Event.current.rawType == EventType.MouseDown
+                && ColonistBarStrip.Interactive
+                && Event.current.mousePosition.x < Width - GripW)
+                Event.current.Use();
+        }
+
+        // The buttons only the view up right now has, on their own row under the tabs and
+        // right-aligned under the filter. A view without one leaves the row out entirely -
+        // see [HasActions], which has to agree with what this draws.
+        static void Actions(Rect r)
+        {
             if (Files || Search)
             {
                 bool showing = Settings.SidebarShowHidden;
-                Tab(new Rect(right, y, TabIcon, TabIcon), Icons.Hidden, showing,
+                Tab(r, Icons.Hidden, showing,
                     showing
                         ? "Showing dotfiles. Click to hide them."
                         : "Hiding dotfiles. Click to show them.",
@@ -651,15 +755,59 @@ namespace SlopWorld
             }
             else if (Git)
             {
-                Tab(new Rect(right, y, TabIcon, TabIcon), Icons.Refresh, false,
+                Tab(r, Icons.Refresh, false,
                     "Read every working tree again.", GitView.Refresh);
             }
+        }
 
+        // Where the filter button is. One rect, so the menu comes out under the button
+        // whether the button or the command palette opened it - and, being fixed rather
+        // than taken from the mouse, so a menu that reopens itself after each tick reopens
+        // in the place it was.
+        static Rect FilterRect =>
+            new Rect(Width - CellX - TabIcon, (TabRowH - TabIcon) / 2f, TabIcon, TabIcon);
 
-            if (ColonistBarStrip.MouseOver(strip) && Event.current.rawType == EventType.MouseDown
-                && ColonistBarStrip.Interactive
-                && Event.current.mousePosition.x < Width - GripW)
-                Event.current.Use();
+        static void FilterButton()
+        {
+            Tab(FilterRect, Icons.Filter, Filtering,
+                Filtering
+                    ? $"Showing {FilterLabel}. Click to tick another, or all of them."
+                    : "Every project. Click to show only some of them.",
+                OpenFilterMenu);
+        }
+
+        // Ticks, not a pick: a tick closes the menu the way every option in one does, and
+        // opens it again where it was, so several can be set without hunting the button
+        // back down between them.
+        public static void OpenFilterMenu()
+        {
+            var opts = new List<FloatMenuOption>
+            {
+                SlopWidgets.MenuToggle("All projects", !Filtering, () => Tick("")),
+            };
+
+            // Ordered the way every view orders its headings, so the menu and the column
+            // under it read down in the same order - the loose one last.
+            var names = new List<string>();
+            foreach (var p in SessionHub.Instance.Projects) names.Add(p.Name);
+            names.Sort(System.StringComparer.Ordinal);
+            foreach (var name in names)
+            {
+                var key = name;
+                opts.Add(SlopWidgets.MenuToggle(key, Ticked(key), () => Tick(key)));
+            }
+
+            opts.Add(SlopWidgets.MenuToggle(NoProject, Ticked(NoProject),
+                () => Tick(NoProject)));
+
+            TerminalWindow.OpenOverPane(
+                new SlopMenu(opts, new Vector2(FilterRect.x, FilterRect.yMax)));
+        }
+
+        static void Tick(string key)
+        {
+            ToggleFilter(key);
+            OpenFilterMenu();
         }
 
         static void Tab(Rect r, Texture2D icon, bool on, string tip, System.Action go)
@@ -669,9 +817,11 @@ namespace SlopWorld
                 && ColonistBarStrip.Interactive)
                 go();
 
-            // The selected tab is marked by the same blue signal used for the current row.
+            // The selected tab is marked by the same blue signal used for the current row,
+            // at the foot of whichever of the strip's rows the button sits in.
             if (on)
-                Slab.Fill(new Rect(r.x, TabH - 2f, r.width, 2f), SlopWidgets.Accent);
+                Slab.Fill(new Rect(r.x, (r.y < TabRowH ? TabRowH : TabH) - 2f, r.width, 2f),
+                    SlopWidgets.Accent);
         }
 
         static void DrawHead(Head head)

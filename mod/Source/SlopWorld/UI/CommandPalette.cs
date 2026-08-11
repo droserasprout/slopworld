@@ -135,6 +135,19 @@ namespace SlopWorld
             var e = Event.current;
             bool isKeyDown = e.type == EventType.KeyDown;
 
+            // Space ticks the row a checklist has under the cursor rather than being typed
+            // into the filter, and the palette stays up - ticking one of several is the
+            // whole point of a list of boxes. IMGUI sends the key and the character it
+            // produced as two events and the field reads the second, so both are taken
+            // here; only the one carrying the key code is the press.
+            if (isKeyDown && _mode == Mode.Sub && Checklist &&
+                (e.keyCode == KeyCode.Space || e.character == ' '))
+            {
+                if (e.keyCode == KeyCode.Space) ToggleSub();
+                e.Use();
+                return;
+            }
+
             // Handle navigation keys before the text field, which would otherwise consume
             // arrows, Escape and Enter for its own cursor motion and focus management.
             if (isKeyDown)
@@ -422,6 +435,18 @@ namespace SlopWorld
                 }
 
                 float left = row.x + SlopWidgets.FieldPadX;
+
+                // The checkbox goes before the label, the way a settings page draws one,
+                // and the label starts after it. Rows without one keep the whole line:
+                // a list is all ticks or none, so nothing is left hanging.
+                var box = options[i].O.Checked;
+                if (box.HasValue)
+                {
+                    SlopWidgets.TickBox(new Rect(left, row.y, SlopWidgets.TickW, RowH),
+                        box.Value);
+                    left += SlopWidgets.TickColW;
+                }
+
                 if (!options[i].O.Enabled)
                 {
                     GUI.color = SlopWidgets.Off;
@@ -433,7 +458,7 @@ namespace SlopWorld
 
                 SlopWidgets.RowLabel(
                     new Rect(left, row.y + SlopWidgets.FieldPadY,
-                        view.width - SlopWidgets.FieldPadX * 2f,
+                        row.xMax - SlopWidgets.FieldPadX - left,
                         RowH - SlopWidgets.FieldPadY * 2f),
                     options[i].Label);
                 GUI.color = Color.white;
@@ -463,6 +488,9 @@ namespace SlopWorld
             public string Label;
             public string Value;
             public bool Enabled = true;
+            // A checkbox row when it is set, and the state the box is in. Null for the sub
+            // lists that pick one thing and are done, which is most of them.
+            public bool? Checked;
         }
 
         // A row as the list draws it: the command, and the name with whatever the search
@@ -755,6 +783,14 @@ namespace SlopWorld
             });
             _commands.Add(new Entry
             {
+                Id = "view.filter",
+                Name = "View: Filter Projects",
+                Category = "View",
+                SubAction = () => FilterSub(),
+                Execute = v => { if (v != null) AgentSidebar.ToggleFilter(v); },
+            });
+            _commands.Add(new Entry
+            {
                 Id = "view.terminal-settings",
                 Name = "View: Terminal",
                 Category = "View",
@@ -908,6 +944,39 @@ namespace SlopWorld
             return list;
         }
 
+        // The sidebar's filter, one row a checkbox - the same ticks the strip's own menu
+        // draws. The blank value is that menu's "all projects", which clears the filter
+        // rather than ticking anything.
+        static List<SubOption> FilterSub()
+        {
+            var list = new List<SubOption>
+            {
+                new SubOption
+                {
+                    Label = "All projects",
+                    Value = "",
+                    Checked = !AgentSidebar.Filtering,
+                },
+            };
+
+            foreach (var p in SessionHub.Instance.Projects.OrderBy(p => p.Name,
+                StringComparer.Ordinal))
+                list.Add(new SubOption
+                {
+                    Label = $"{p.Name}  -  {p.Dir}",
+                    Value = p.Name,
+                    Checked = AgentSidebar.Ticked(p.Name),
+                });
+
+            list.Add(new SubOption
+            {
+                Label = $"{AgentSidebar.NoProject}  -  whatever belongs to no project",
+                Value = AgentSidebar.NoProject,
+                Checked = AgentSidebar.Ticked(AgentSidebar.NoProject),
+            });
+            return list;
+        }
+
         static List<SubOption> ShortcutsSub()
         {
             var list = SessionHub.Instance.Shortcuts
@@ -943,6 +1012,35 @@ namespace SlopWorld
             _subCmd?.Execute(opt.Value);
             TrackRecent(_subCmd?.Id);
             Close();
+        }
+
+        // A sub list is a checklist when its options carry boxes. Then Space ticks and
+        // stays, while Enter is the same tick and done.
+        bool Checklist
+        {
+            get
+            {
+                foreach (var o in _subOptions)
+                    if (o.Checked.HasValue) return true;
+                return false;
+            }
+        }
+
+        void ToggleSub()
+        {
+            if (_subIndex < 0 || _subIndex >= _subShown.Count) return;
+            var opt = _subShown[_subIndex].O;
+            if (!opt.Enabled || !opt.Checked.HasValue) return;
+
+            _subCmd?.Execute(opt.Value);
+            TrackRecent(_subCmd?.Id);
+
+            // Asked for again rather than flipped in place: the boxes show the caller's
+            // state, and one tick can move another - ticking a project clears "all".
+            int was = _subIndex;
+            if (_subCmd?.SubAction != null) _subOptions = _subCmd.SubAction();
+            RebuildSub();
+            _subIndex = Mathf.Clamp(was, 0, Mathf.Max(0, _subShown.Count - 1));
         }
 
         void Execute(Entry entry)

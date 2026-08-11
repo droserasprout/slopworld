@@ -35,6 +35,12 @@ F1 opens `CommandPalette`; recent entries come first. A `SubAction` asks its sec
 question in the same box, and Backspace on an empty filter returns. F1 and F12 are handled
 by chrome so absorbing windows cannot consume them first.
 
+A `SubOption` carrying a checked state makes the list a checklist: the box is drawn before
+the label, Space ticks the row and leaves the palette up, and Enter ticks and closes as it
+does anywhere else. Space is taken before the filter field sees it — IMGUI sends the key
+and the character it produced as two events, and both go. A tick asks the command for its
+options again rather than flipping the box, because one tick can move another.
+
 `Fuzzy` splits the query into terms. Every term must appear as a subsequence, in any term
 order. Ranking favors text head, word/camel boundaries, consecutive characters, and whole
 terms; `Match` returns positions for `Highlight`.

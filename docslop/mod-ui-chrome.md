@@ -59,7 +59,11 @@ directly, while map-click absorption retains the stricter interaction gate.
 
 ## Other pieces
 
-- `MenuToggle` supplies checked float-menu rows without abusing `Disabled`.
+- `TickBox` is the checkbox, on its own: the box `Checkbox` wears, drawn rather than
+  clicked, because every other caller has a row that is the hit target already. It goes
+  before the label everywhere — `MenuToggle` hangs one on a float-menu row without abusing
+  `Disabled`, and the palette's sub list draws one for options that carry a state — so a
+  tick reads the same in a settings page, a menu and the palette.
 - `SlopListWindow<T>` holds the common agents/projects/shortcuts window structure.
 - `CoreTip` draws the persona-core hint over either the map or an opaque terminal.
 - `MenuBackground` bakes and caches the menu/loading-screen frames — see

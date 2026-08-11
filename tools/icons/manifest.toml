@@ -127,3 +127,8 @@ note = "the About row. Codicons has no trophy, and a star is the same joke at 20
 glyph = "cod-add"
 code = "ea60"
 note = "the sidebar's one add button. Codicons' plus is drawn heavier than a font's \"+\", which is why the button wears a glyph now"
+
+[filter]
+glyph = "cod-filter"
+code = "eaa5"
+note = "the sidebar's project filter. The outline funnel, not cod-filter_filled, which is a solid wedge at 20px and reads as a play button lying down"

@@ -143,7 +143,8 @@ namespace SlopWorld
 
             var projects = new List<ProjectInfo>();
             foreach (var p in SessionHub.Instance.Projects)
-                if (!string.IsNullOrEmpty(p.Dir)) projects.Add(p);
+                if (!string.IsNullOrEmpty(p.Dir) && AgentSidebar.Passes(p.Name))
+                    projects.Add(p);
             projects.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
             _pending = projects.Count;
             if (_pending == 0) { _loading = false; return; }
