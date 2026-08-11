@@ -18,14 +18,20 @@ directory aborts because it is always read-write.
 `private = [...]` mounts a per-session copy over each host path. This prevents an
 agent from changing host-run hooks or MCP configuration and separates transcripts.
 
-- State lives under `~/.local/share/slopworld/sessions/<session>/`; `SLOPD_STATE`
-  overrides the root.
+- State lives under `~/.local/share/slopworld/sessions/<state-id>/`; `SLOPD_STATE`
+  overrides the root. The id is daemon-owned and stays with an agent through a
+  rename, rather than being its display/tmux name.
 - Missing copies are seeded once from top-level files and named `seed` directories.
   `skip` excludes history and bulk state. File entries seed themselves.
 - Missing host paths and seeds outside a private path are skipped.
 - Private mounts follow ordinary binds, so presets cannot recover the host original.
 - `prepare_private` creates sources before pure `build_argv` constructs bwrap args.
-- Delete a session directory to reseed it; existing copies never update themselves.
+- Resetting or deleting an agent moves its state to `.trash` for 14 days. Nothing
+  age-prunes a configured-but-down agent; resetting is the explicit fresh start.
+- A temporary errand has no durable identity to resume and removes its private state
+  when its process exits.
+- Config entries without an id receive a fresh one. Unclaimed name-keyed folders
+  remain orphaned and can be deleted explicitly from the storage inventory.
 
 ## Shared credentials
 

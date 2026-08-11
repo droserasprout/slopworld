@@ -112,6 +112,14 @@ namespace SlopWorld
                     SandboxPreviewData.ForAgent(_s));
 
             var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
+            if (!_isNew && foot.Left("Reset private state", SlopWidgets.Btn.Danger))
+            {
+                string name = _origName;
+                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                    $"Reset private state for '{name}'? This stops the agent and gives its tools " +
+                    "a fresh state on next start. The old state stays recoverable for 14 days.",
+                    () => SessionHub.Instance.ResetState(name, SlopWidgets.Fail), destructive: true));
+            }
             if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
             if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
         }

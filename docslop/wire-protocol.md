@@ -38,6 +38,13 @@ than its project's ceiling.
 for anything that would rather ask than listen. `POST /api/open` answers 400 for a URL it will
 not take and 502 for an opener that would not.
 
+Private-state lifecycle is daemon-owned too. `POST /api/sessions/NAME/state/reset`
+stops a configured agent and moves its state to 14-day trash. `GET /api/state`
+inventories active, unclaimed orphan and trash entries with byte counts;
+`DELETE /api/state/KIND/KEY` permanently removes only `orphan` or `trash`, and
+`POST /api/state/trash/KEY/restore` restores reset state while its agent still
+exists and has not made a replacement tree. These inventory routes are root-only.
+
 ## `POST /api/run`
 
 An errand nobody wrote down. Two things only it can ask for:

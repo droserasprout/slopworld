@@ -120,6 +120,9 @@ namespace SlopWorld
             l.Gap(SlopWidgets.GapS);
             l.Label("Scrollback lines kept per session");
             _history = SlopWidgets.Field(l, "cfg.history", _history);
+            l.Gap(SlopWidgets.GapS);
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Private state storage..."))
+                Find.WindowStack.Add(new StateStorageDialog());
 
             l.Gap(SlopWidgets.GapS);
             GUI.color = SlopWidgets.Warn;

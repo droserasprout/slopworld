@@ -718,6 +718,11 @@ impl Manager {
             grants: RwLock::new(crate::grant::Grants::default()),
             tasks: Mutex::new(tasks),
         });
+        if let Ok(n) = crate::sandbox::purge_trash() {
+            if n > 0 {
+                tracing::info!("purged {n} expired private-state trash entries");
+            }
+        }
         m.tmux.ensure_server().await;
         m.sync_from_config().await;
         m
@@ -1150,11 +1155,16 @@ impl Manager {
     }
 
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
+        self.ensure_state_id(name).await?;
         let cfg = self.config().await;
-        let s = self
-            .session_cfg(name)
-            .await
-            .ok_or_else(|| anyhow!("no such session: {name}"))?;
+        let configured = cfg.session(name).cloned();
+        let s = match configured.as_ref() {
+            Some(s) => s.clone(),
+            None => self
+                .session_cfg(name)
+                .await
+                .ok_or_else(|| anyhow!("no such session: {name}"))?,
+        };
 
         let p = self.project_for(&cfg, &s).await.ok_or_else(|| {
             if s.project.is_empty() {
@@ -1256,13 +1266,16 @@ impl Manager {
     }
 
     async fn forget(self: &Arc<Self>, name: &str) {
-        let (handle, project) = {
+        let (handle, project, session) = {
             let mut live = self.live.write().await;
             match live.remove(name) {
-                Some(mut l) => (l.reader.take(), l.cfg.project.clone()),
+                Some(mut l) => (l.reader.take(), l.cfg.project.clone(), l.cfg),
                 None => return,
             }
         };
+        if let Err(e) = crate::sandbox::remove_ephemeral_state(&session) {
+            tracing::warn!("removing temporary private state for {name}: {e:#}");
+        }
         self.temp.write().await.remove(&project);
         self.grants.write().await.revoke_grantor(name);
         let _ = self.events.send(Event::Sessions {
@@ -1687,7 +1700,7 @@ impl Manager {
         }
     }
 
-    pub async fn add(self: &Arc<Self>, s: SessionCfg) -> Result<()> {
+    pub async fn add(self: &Arc<Self>, mut s: SessionCfg) -> Result<()> {
         self.reload_if_changed().await;
         let mut cfg = self.cfg.write().await;
         if cfg.session(&s.name).is_some() {
@@ -1695,6 +1708,9 @@ impl Manager {
         }
         check_name(&s.name)?;
         check_belongs(&cfg, &s)?;
+        // A client has no authority over which durable state an agent receives.  Always mint a
+        // fresh key, including if a hand-written request carried a stale one.
+        s.state_id = uuid::Uuid::new_v4().to_string();
         let autostart = s.autostart;
         let name = s.name.clone();
         cfg.sessions.push(s);
@@ -1708,7 +1724,7 @@ impl Manager {
         Ok(())
     }
 
-    pub async fn update(self: &Arc<Self>, name: &str, s: SessionCfg) -> Result<()> {
+    pub async fn update(self: &Arc<Self>, name: &str, mut s: SessionCfg) -> Result<()> {
         self.reload_if_changed().await;
         let renamed = s.name != name;
         if renamed {
@@ -1733,6 +1749,9 @@ impl Manager {
             .iter()
             .position(|x| x.name == name)
             .ok_or_else(|| anyhow!("no such session: {name}"))?;
+        // Keep private state with the agent across every edit, particularly a rename.  The wire
+        // deliberately does not expose this field, but also must not be able to change it.
+        s.state_id = cfg.sessions[idx].state_id.clone();
         cfg.sessions[idx] = s.clone();
         self.save_cfg(&cfg)?;
         drop(cfg);
@@ -1776,12 +1795,120 @@ impl Manager {
         if self.is_ephemeral(name).await {
             return self.stop(name).await;
         }
+        self.ensure_state_id(name).await?;
         self.stop(name).await.ok();
         let mut cfg = self.cfg.write().await;
+        let session = cfg
+            .session(name)
+            .cloned()
+            .ok_or_else(|| anyhow!("no such session: {name}"))?;
+        let trashed = crate::sandbox::trash_state(&session, name)?;
         cfg.sessions.retain(|s| s.name != name);
-        self.save_cfg(&cfg)?;
+        if let Err(e) = self.save_cfg(&cfg) {
+            if let Some(path) = trashed.as_deref() {
+                if let Err(restore) = crate::sandbox::restore_trashed_state(&session, path) {
+                    tracing::error!("config delete failed: {e:#}; private-state restore also failed: {restore:#}");
+                }
+            }
+            return Err(e);
+        }
+        drop(cfg);
+        if let Err(e) = crate::sandbox::purge_trash() {
+            tracing::warn!("purging private-state trash: {e:#}");
+        }
+        self.sync_from_config().await;
+        Ok(())
+    }
+
+    /// Stop an agent and discard only its private tool state.  The old tree is recoverable in
+    /// the daemon-owned trash for two weeks; the configured agent remains and reseeds on start.
+    pub async fn reset_state(self: &Arc<Self>, name: &str) -> Result<()> {
+        self.reload_if_changed().await;
+        if self.is_ephemeral(name).await {
+            bail!("temporary session {name} has no resettable private state");
+        }
+        self.ensure_state_id(name).await?;
+        self.stop(name).await.ok();
+        let cfg = self.config().await;
+        let session = cfg
+            .session(name)
+            .cloned()
+            .ok_or_else(|| anyhow!("no such session: {name}"))?;
+        crate::sandbox::trash_state(&session, &format!("{name}-reset"))?;
+        if let Err(e) = crate::sandbox::purge_trash() {
+            tracing::warn!("purging private-state trash: {e:#}");
+        }
+        self.sync_from_config().await;
+        Ok(())
+    }
+
+    pub async fn stored_states(&self) -> Result<Vec<crate::sandbox::StoredState>> {
+        let sessions = self.config().await.sessions;
+        tokio::task::spawn_blocking(move || crate::sandbox::stored_states(&sessions))
+            .await
+            .map_err(|e| anyhow!("scanning private state: {e}"))
+    }
+
+    pub async fn delete_stored_state(&self, kind: &str, key: &str) -> Result<()> {
+        let sessions = self.config().await.sessions;
+        let kind = kind.to_string();
+        let key = key.to_string();
+        tokio::task::spawn_blocking(move || {
+            crate::sandbox::delete_stored_state(&kind, &key, &sessions)
+        })
+        .await
+        .map_err(|e| anyhow!("deleting private state: {e}"))?
+    }
+
+    pub async fn restore_stored_state(self: &Arc<Self>, key: &str) -> Result<String> {
+        self.reload_if_changed().await;
+        let archived = crate::sandbox::trashed_session(key)?;
+        let mut cfg = self.cfg.write().await;
+        let existing = cfg
+            .sessions
+            .iter()
+            .find(|s| !archived.state_id.is_empty() && s.state_id == archived.state_id)
+            .cloned();
+        let add = existing.is_none();
+        let session = existing.unwrap_or_else(|| archived.clone());
+        if add {
+            if cfg.session(&session.name).is_some() {
+                bail!(
+                    "session {:?} already exists with different private state",
+                    session.name
+                );
+            }
+            check_name(&session.name)?;
+            check_belongs(&cfg, &session)?;
+        }
+
+        crate::sandbox::restore_stored_state(key, &cfg.sessions)?;
+        if add {
+            cfg.sessions.push(session.clone());
+            if let Err(e) = self.save_cfg(&cfg) {
+                if let Err(rollback) = crate::sandbox::rollback_restored_state(key, &session) {
+                    tracing::error!("restored-agent config save failed: {e:#}; state rollback also failed: {rollback:#}");
+                }
+                return Err(e);
+            }
+        }
+        crate::sandbox::finish_restored_state(&session);
         drop(cfg);
         self.sync_from_config().await;
+        Ok(session.name)
+    }
+
+    /// Fill in a config entry written before state identities existed. It deliberately receives
+    /// a fresh tree; any unclaimed name-keyed directory is an orphan in the storage inventory.
+    async fn ensure_state_id(&self, name: &str) -> Result<()> {
+        let mut cfg = self.cfg.write().await;
+        let Some(idx) = cfg.sessions.iter().position(|s| s.name == name) else {
+            return Ok(()); // temporary/session-adopted agent: its in-memory Default owns a key.
+        };
+        if cfg.sessions[idx].state_id.is_empty() {
+            cfg.sessions[idx].state_id = uuid::Uuid::new_v4().to_string();
+            self.save_cfg(&cfg)?;
+        }
         Ok(())
     }
 

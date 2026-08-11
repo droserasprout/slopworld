@@ -143,6 +143,18 @@ namespace SlopWorld
             }
 
             // Stop is Del for a temporary agent: killing the process is what removes it.
+            float resetW = SlopWidgets.BtnW("Reset", 58f);
+            x -= resetW + SlopWidgets.GapXS;
+            if (!s.Ephemeral && SlopWidgets.Button(new Rect(x, bottom, resetW, SlopWidgets.RowBtnH),
+                                    "Reset", SlopWidgets.Btn.Ghost))
+            {
+                var name = s.Name;
+                TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
+                    $"Reset private state for '{name}'? This stops the agent and gives its tools " +
+                    "a fresh state on next start. The old state stays recoverable for 14 days.",
+                    () => SessionHub.Instance.ResetState(name, SlopWidgets.Fail), destructive: true));
+            }
+
             float delW = SlopWidgets.BtnW("Del", 48f);
             x -= delW + SlopWidgets.GapXS;
             if (!s.Ephemeral && SlopWidgets.Button(new Rect(x, bottom, delW, SlopWidgets.RowBtnH),
@@ -150,7 +162,8 @@ namespace SlopWorld
             {
                 var name = s.Name;
                 TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
-                    $"Remove session '{name}'? This kills the tmux session and drops it from config.toml.",
+                    $"Remove session '{name}'? This kills it, drops it from config.toml, and moves " +
+                    "its private state to recoverable trash for 14 days.",
                     () => SessionHub.Instance.Remove(name, SlopWidgets.Fail),
                     destructive: true));
             }

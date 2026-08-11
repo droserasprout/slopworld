@@ -6,10 +6,11 @@
 - User presets: `~/.config/slopworld/presets/*.toml` (`SLOPD_PRESETS` overrides).
 - Jukebox likes: `~/.local/share/slopworld/jukebox.toml` (`XDG_DATA_HOME` overrides).
 - Profile: `$XDG_DATA_HOME/slopworld/profile`. Saves, screenshots, `Config/`.
-- Session state: `$XDG_DATA_HOME/slopworld/sessions/<session>/` (`SLOPD_STATE`
-  overrides). The copy of `~/.claude` and the like that one agent gets to
-  itself; deleting one hands that session a fresh start. See
-  [sandbox-isolation](sandbox-isolation.md).
+- Session state: `$XDG_DATA_HOME/slopworld/sessions/<state-id>/` (`SLOPD_STATE`
+  overrides). The daemon assigns the opaque state id when an agent is created,
+  so a rename or name reuse cannot inherit another agent's tool state. Deleted
+  or reset state moves under `sessions/.trash/` for 14 days before reclamation.
+  See [sandbox-isolation](sandbox-isolation.md).
 - Mod settings: `Config/Mod_SlopWorld_SlopWorldMod.xml` inside the profile.
 - Game log: `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log`.
   Harmony and mod exceptions land there, not in the launching terminal. Unity does

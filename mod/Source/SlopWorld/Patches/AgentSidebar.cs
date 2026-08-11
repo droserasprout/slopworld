@@ -912,8 +912,8 @@ namespace SlopWorld
             if (info != null && !info.Ephemeral)
                 opts.Add(new FloatMenuOption("Remove", () =>
                     TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
-                        $"Remove session '{name}'? This kills the tmux session and drops it " +
-                        "from config.toml.",
+                        $"Remove session '{name}'? This kills it, drops it from config.toml, and moves " +
+                        "its private state to recoverable trash for 14 days.",
                         () => hub.Remove(name, SlopWidgets.Fail),
                         destructive: true))));
 

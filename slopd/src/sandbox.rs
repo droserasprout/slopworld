@@ -2,6 +2,7 @@ use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result};
+use serde::Serialize;
 
 use crate::config::{expand, Config, NetworkMode, ProjectCfg, SessionCfg};
 use crate::presets::{SandboxPreset, Table};
@@ -133,9 +134,9 @@ pub fn state_root() -> PathBuf {
 /// The copy of `host` this session gets. The original's shape is kept rather than its
 /// basename, so `~/.config/opencode` and `~/.local/share/opencode` - one preset, two
 /// directories, one name - never land on each other.
-fn private_path(session: &str, host: &str) -> PathBuf {
+fn private_path(state_id: &str, host: &str) -> PathBuf {
     let host = Path::new(host);
-    let root = state_root().join(session);
+    let root = state_root().join(state_id);
     if let Some(home) = dirs::home_dir() {
         if let Ok(rel) = host.strip_prefix(&home) {
             return root.join("home").join(rel);
@@ -143,6 +144,314 @@ fn private_path(session: &str, host: &str) -> PathBuf {
     }
     root.join("root")
         .join(host.strip_prefix("/").unwrap_or(host))
+}
+
+/// The durable, private directory for a configured agent.  `state_id` is not supplied by
+/// clients; the manager assigns it, so a name reused after deletion cannot inherit another
+/// agent's transcripts or tool configuration.
+pub fn state_dir(s: &SessionCfg) -> PathBuf {
+    state_root().join(&s.state_id)
+}
+
+fn trash_root() -> PathBuf {
+    state_root().join(".trash")
+}
+
+const TRASH_SESSION: &str = ".slopworld-session.toml";
+
+#[derive(Debug, Clone, Serialize)]
+pub struct StoredState {
+    pub kind: String,
+    pub key: String,
+    pub session: Option<String>,
+    pub bytes: u64,
+    pub modified: u64,
+}
+
+fn tree_size(path: &Path) -> u64 {
+    let Ok(meta) = std::fs::symlink_metadata(path) else {
+        return 0;
+    };
+    if !meta.is_dir() {
+        return meta.len();
+    }
+    std::fs::read_dir(path)
+        .ok()
+        .into_iter()
+        .flat_map(|entries| entries.flatten())
+        .map(|entry| tree_size(&entry.path()))
+        .sum()
+}
+
+fn stored_entry(kind: &str, key: String, session: Option<String>, path: &Path) -> StoredState {
+    let modified = std::fs::symlink_metadata(path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    StoredState {
+        kind: kind.into(),
+        key,
+        session,
+        bytes: tree_size(path),
+        modified,
+    }
+}
+
+/// Inventory for the settings UI. Anything not claimed by a configured state id is orphaned
+/// state and requires an explicit delete.
+pub fn stored_states(sessions: &[SessionCfg]) -> Vec<StoredState> {
+    if let Err(e) = purge_trash() {
+        tracing::warn!("purging private-state trash before inventory: {e:#}");
+    }
+    let root = state_root();
+    let mut out = Vec::new();
+    let Ok(entries) = std::fs::read_dir(&root) else {
+        return out;
+    };
+    for entry in entries.flatten() {
+        let key = entry.file_name().to_string_lossy().into_owned();
+        if key == ".trash" {
+            if let Ok(trash) = std::fs::read_dir(entry.path()) {
+                for item in trash.flatten() {
+                    let item_key = item.file_name().to_string_lossy().into_owned();
+                    let owner = sessions
+                        .iter()
+                        .filter(|s| !s.state_id.is_empty())
+                        .find(|s| item_key.ends_with(&format!("-{}", s.state_id)))
+                        .map(|s| s.name.clone())
+                        .or_else(|| read_trashed_session(&item.path()).ok().map(|s| s.name));
+                    out.push(stored_entry("trash", item_key, owner, &item.path()));
+                }
+            }
+            continue;
+        }
+        let owner = sessions
+            .iter()
+            .find(|s| {
+                state_dir(s)
+                    .file_name()
+                    .is_some_and(|n| n == entry.file_name())
+            })
+            .map(|s| s.name.clone());
+        out.push(stored_entry(
+            if owner.is_some() { "active" } else { "orphan" },
+            key,
+            owner,
+            &entry.path(),
+        ));
+    }
+    out.sort_by(|a, b| a.kind.cmp(&b.kind).then_with(|| a.key.cmp(&b.key)));
+    out
+}
+
+fn direct_child(root: &Path, key: &str) -> Result<PathBuf> {
+    if key == ".trash" {
+        anyhow::bail!("private-state trash root is not an entry");
+    }
+    let mut parts = Path::new(key).components();
+    let Some(Component::Normal(name)) = parts.next() else {
+        anyhow::bail!("invalid private-state entry");
+    };
+    if parts.next().is_some() || name.is_empty() {
+        anyhow::bail!("invalid private-state entry");
+    }
+    Ok(root.join(name))
+}
+
+pub fn delete_stored_state(kind: &str, key: &str, sessions: &[SessionCfg]) -> Result<()> {
+    if kind != "orphan" && kind != "trash" {
+        anyhow::bail!("only orphaned state or trash can be deleted here");
+    }
+    let root = if kind == "trash" {
+        trash_root()
+    } else {
+        state_root()
+    };
+    let path = direct_child(&root, key)?;
+    if kind == "orphan" && sessions.iter().any(|s| state_dir(s) == path) {
+        anyhow::bail!("private state is still owned by a configured agent");
+    }
+    let meta =
+        std::fs::symlink_metadata(&path).with_context(|| format!("reading {}", path.display()))?;
+    if meta.is_dir() {
+        std::fs::remove_dir_all(&path)
+    } else {
+        std::fs::remove_file(&path)
+    }
+    .with_context(|| format!("removing {}", path.display()))
+}
+
+pub fn restore_stored_state(key: &str, sessions: &[SessionCfg]) -> Result<String> {
+    let source = direct_child(&trash_root(), key)?;
+    if !source.exists() {
+        anyhow::bail!("no such private-state trash entry");
+    }
+    let archived = read_trashed_session(&source)?;
+    if archived.state_id.is_empty() {
+        anyhow::bail!("trash entry has no private-state identity");
+    }
+    let session = sessions
+        .iter()
+        .filter(|s| !s.state_id.is_empty())
+        .find(|s| s.state_id == archived.state_id)
+        .unwrap_or(&archived);
+    let destination = state_dir(session);
+    if destination.exists() {
+        anyhow::bail!(
+            "agent {:?} already has fresh state; reset it before restoring this copy",
+            session.name
+        );
+    }
+    std::fs::rename(&source, &destination).with_context(|| {
+        format!(
+            "restoring {} to {}",
+            source.display(),
+            destination.display()
+        )
+    })?;
+    Ok(session.name.clone())
+}
+
+fn read_trashed_session(path: &Path) -> Result<SessionCfg> {
+    let metadata = path.join(TRASH_SESSION);
+    let text = std::fs::read_to_string(&metadata)
+        .with_context(|| format!("reading {}", metadata.display()))?;
+    toml::from_str(&text).with_context(|| format!("parsing {}", metadata.display()))
+}
+
+pub fn trashed_session(key: &str) -> Result<SessionCfg> {
+    let path = direct_child(&trash_root(), key)?;
+    read_trashed_session(&path)
+}
+
+pub fn rollback_restored_state(key: &str, session: &SessionCfg) -> Result<()> {
+    let source = state_dir(session);
+    let destination = direct_child(&trash_root(), key)?;
+    std::fs::rename(&source, &destination).with_context(|| {
+        format!(
+            "returning {} to {}",
+            source.display(),
+            destination.display()
+        )
+    })
+}
+
+pub fn finish_restored_state(session: &SessionCfg) {
+    let metadata = state_dir(session).join(TRASH_SESSION);
+    if let Err(e) = std::fs::remove_file(&metadata) {
+        if e.kind() != std::io::ErrorKind::NotFound {
+            tracing::warn!(
+                "removing restored-state metadata {}: {e:#}",
+                metadata.display()
+            );
+        }
+    }
+}
+
+/// Move state out of the live namespace.  The caller owns configuration consistency; the
+/// returned path lets it restore the tree if saving the corresponding config change fails.
+pub fn trash_state(s: &SessionCfg, label: &str) -> Result<Option<PathBuf>> {
+    if s.state_id.is_empty() {
+        anyhow::bail!("session {:?} has no private-state identity", s.name);
+    }
+    let source = state_dir(s);
+    if !source.exists() {
+        return Ok(None);
+    }
+    let root = trash_root();
+    std::fs::create_dir_all(&root).with_context(|| format!("making {}", root.display()))?;
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let safe = label
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    let destination = root.join(format!("{stamp}-{safe}-{}", s.state_id));
+    std::fs::rename(&source, &destination)
+        .with_context(|| format!("moving {} to {}", source.display(), destination.display()))?;
+    let metadata = destination.join(TRASH_SESSION);
+    let text = toml::to_string(s).context("serializing private-state trash metadata")?;
+    if let Err(e) = std::fs::write(&metadata, text) {
+        if let Err(restore) = std::fs::rename(&destination, &source) {
+            tracing::error!(
+                "writing trash metadata failed: {e:#}; state restore also failed: {restore:#}"
+            );
+        }
+        return Err(e).with_context(|| format!("writing {}", metadata.display()));
+    }
+    Ok(Some(destination))
+}
+
+pub fn restore_trashed_state(s: &SessionCfg, trash: &Path) -> Result<()> {
+    if s.state_id.is_empty() {
+        anyhow::bail!("session {:?} has no private-state identity", s.name);
+    }
+    let destination = state_dir(s);
+    if !trash.exists() {
+        return Ok(());
+    }
+    std::fs::rename(trash, &destination)
+        .with_context(|| format!("restoring {} to {}", trash.display(), destination.display()))?;
+    finish_restored_state(s);
+    Ok(())
+}
+
+/// Temporary errands have no durable agent to restore this state to. Their ids are always
+/// daemon-minted, so this can remove exactly one leaf without ever falling back to a name.
+pub fn remove_ephemeral_state(s: &SessionCfg) -> Result<()> {
+    if s.state_id.is_empty() {
+        anyhow::bail!(
+            "temporary session {:?} has no private-state identity",
+            s.name
+        );
+    }
+    let path = state_dir(s);
+    if !path.exists() {
+        return Ok(());
+    }
+    std::fs::remove_dir_all(&path).with_context(|| format!("removing {}", path.display()))
+}
+
+/// Only the daemon-owned trash is reclaimed automatically. Live and orphaned directories are
+/// never age-pruned: a stopped agent can still be deliberately dormant.
+pub fn purge_trash() -> Result<usize> {
+    const RETAIN: std::time::Duration = std::time::Duration::from_secs(14 * 24 * 60 * 60);
+    let root = trash_root();
+    let Ok(entries) = std::fs::read_dir(&root) else {
+        return Ok(0);
+    };
+    let now = std::time::SystemTime::now();
+    let mut purged = 0;
+    for entry in entries.flatten() {
+        let Ok(meta) = entry.metadata() else { continue };
+        let Ok(modified) = meta.modified() else {
+            continue;
+        };
+        if now.duration_since(modified).unwrap_or_default() < RETAIN {
+            continue;
+        }
+        let path = entry.path();
+        let removed = if meta.is_dir() {
+            std::fs::remove_dir_all(&path)
+        } else {
+            std::fs::remove_file(&path)
+        };
+        match removed {
+            Ok(()) => purged += 1,
+            Err(e) => tracing::warn!("purging private-state trash {}: {e:#}", path.display()),
+        }
+    }
+    Ok(purged)
 }
 
 /// What no bind list may hand a sandbox, whoever asks - the implicit `global` preset or a
@@ -373,7 +682,7 @@ fn private_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec
             if out.iter().any(|(_, seen)| seen == &host) {
                 continue;
             }
-            let copy = private_path(&s.name, &host);
+            let copy = private_path(&s.state_id, &host);
             out.push((copy.to_string_lossy().into_owned(), host));
         }
     }
@@ -424,7 +733,7 @@ fn shared_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec<
 /// is how it is handed a fresh one.
 pub fn prepare_private(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<()> {
     if cfg.network_of(s, p)? == NetworkMode::Private {
-        prepare_private_resolver(&s.name)?;
+        prepare_private_resolver(&s.state_id)?;
     }
 
     let t = crate::presets::table();
@@ -434,7 +743,7 @@ pub fn prepare_private(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
             if host.is_empty() || !Path::new(&host).exists() {
                 continue;
             }
-            let copy = private_path(&s.name, &host);
+            let copy = private_path(&s.state_id, &host);
             if copy.exists() {
                 continue;
             }
@@ -680,7 +989,7 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
         })
     } else if network == NetworkMode::Private {
         Some((
-            private_resolver_path(&s.name)
+            private_resolver_path(&s.state_id)
                 .to_string_lossy()
                 .into_owned(),
             resolver_target().unwrap_or_else(|| "/etc/resolv.conf".into()),
@@ -933,7 +1242,7 @@ mod tests {
             ..Default::default()
         };
         let a = build_argv(&cfg, &s, &p).expect("private sandbox argv");
-        let source = private_resolver_path(&s.name)
+        let source = private_resolver_path(&s.state_id)
             .to_string_lossy()
             .into_owned();
 
@@ -1183,6 +1492,31 @@ mod tests {
             private_path("one", "/etc/x"),
             state_root().join("one/root/etc/x")
         );
+    }
+
+    #[test]
+    fn state_directory_follows_the_identity_not_the_agent_name() {
+        let before = SessionCfg {
+            name: "before".into(),
+            state_id: "stable-agent-state".into(),
+            ..Default::default()
+        };
+        let after = SessionCfg {
+            name: "after".into(),
+            ..before.clone()
+        };
+
+        assert_eq!(state_dir(&before), state_dir(&after));
+        assert_eq!(state_dir(&before), state_root().join("stable-agent-state"));
+    }
+
+    #[test]
+    fn stored_state_keys_cannot_escape_or_name_the_trash_root() {
+        let root = Path::new("/tmp/state-root");
+        assert_eq!(direct_child(root, "one").unwrap(), root.join("one"));
+        for key in ["", ".", "..", "../one", "one/two", "/tmp/one", ".trash"] {
+            assert!(direct_child(root, key).is_err(), "accepted {key:?}");
+        }
     }
 
     /// The point of a private path: whatever else asked for that path, the copy is what the

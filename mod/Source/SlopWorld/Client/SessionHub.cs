@@ -975,6 +975,9 @@ namespace SlopWorld
         public void Restart(string name, Action<string> fail = null) =>
             SlopClient.Post($"/api/sessions/{name}/restart", null, _ => Refresh(), fail);
 
+        public void ResetState(string name, Action<string> fail = null) =>
+            SlopClient.Post($"/api/sessions/{name}/state/reset", null, _ => Refresh(), fail);
+
         public void Remove(string name, Action<string> fail = null) =>
             SlopClient.Delete($"/api/sessions/{name}", _ => Refresh(), fail);
 

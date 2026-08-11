@@ -47,6 +47,10 @@ The connection is discovered from the daemon's `endpoint.json`. The pane's own
 settings are edited in `TerminalSettingsWindow` off the gear, and the daemon
 configuration is edited through `ConfigPage`.
 
+`ConfigPage` also opens the private-state storage inventory. It is an operation
+window rather than another setting: sizes are read from the daemon, active state
+can be reset, reset state restored, and orphan or trash entries explicitly deleted.
+
 The file is written **once, in `PostClose`, by `ModSettings.Write`** rather than
 `Mod.WriteSettings` - the latter reconnects the socket.
 

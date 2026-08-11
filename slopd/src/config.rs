@@ -277,6 +277,10 @@ pub struct ProjectCfg {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionCfg {
     pub name: String,
+    /// Stable, daemon-owned identity of this agent's private state.  Names are UI and tmux
+    /// handles and may change or be reused; this is deliberately neither.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub state_id: String,
     /// Everything about where it runs and what it can reach comes from there.
     #[serde(default)]
     pub project: String,
@@ -307,6 +311,7 @@ impl Default for SessionCfg {
     fn default() -> Self {
         Self {
             name: String::new(),
+            state_id: uuid::Uuid::new_v4().to_string(),
             project: String::new(),
             command: String::new(),
             cmd: None,
@@ -1155,5 +1160,25 @@ token = \"not-a-daemon-token\"
             back.session("quiet").unwrap().network,
             Some(NetworkMode::None)
         );
+    }
+
+    #[test]
+    fn old_session_entries_can_lack_a_state_identity() {
+        let old = Config::parse(
+            r#"
+                [[project]]
+                name = "repo"
+                dir = "/tmp"
+
+                [[session]]
+                name = "agent"
+                project = "repo"
+            "#,
+        )
+        .unwrap();
+        assert!(old.session("agent").unwrap().state_id.is_empty());
+
+        // New in-memory sessions, including short-lived errands, always have an identity.
+        assert!(!SessionCfg::default().state_id.is_empty());
     }
 }

@@ -33,6 +33,7 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/sessions/:name/start", post(start))
         .route("/api/sessions/:name/stop", post(stop))
         .route("/api/sessions/:name/restart", post(restart))
+        .route("/api/sessions/:name/state/reset", post(reset_state))
         .route("/api/tasks", get(list_tasks).post(create_task))
         .route("/api/tasks/:id", get(one_task).post(update_task))
         .route("/ws", get(ws_upgrade));
@@ -56,6 +57,9 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/run", post(run))
         .route("/api/grants", get(list_grants).post(mint_grant))
         .route("/api/grants/:grantor", delete(revoke_grants))
+        .route("/api/state", get(stored_states))
+        .route("/api/state/:kind/:key", delete(delete_stored_state))
+        .route("/api/state/trash/:key/restore", post(restore_stored_state))
         .route("/api/presets", get(presets))
         .route(
             "/api/presets/:kind/:name",
@@ -317,6 +321,36 @@ async fn stop(
 ) -> ApiResult {
     guard(&m, &cap, &name, Level::Rw).await?;
     ok_json(m.stop(&name).await)
+}
+
+async fn reset_state(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    Path(name): Path<String>,
+) -> ApiResult {
+    guard(&m, &cap, &name, Level::Rw).await?;
+    ok_json(m.reset_state(&name).await)
+}
+
+async fn stored_states(State(m): State<Mgr>) -> ApiResult {
+    m.stored_states()
+        .await
+        .map(|entries| Json(json!({ "entries": entries })))
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))
+}
+
+async fn delete_stored_state(
+    State(m): State<Mgr>,
+    Path((kind, key)): Path<(String, String)>,
+) -> ApiResult {
+    ok_json(m.delete_stored_state(&kind, &key).await)
+}
+
+async fn restore_stored_state(State(m): State<Mgr>, Path(key): Path<String>) -> ApiResult {
+    m.restore_stored_state(&key)
+        .await
+        .map(|session| Json(json!({ "ok": true, "session": session })))
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))
 }
 
 async fn restart(
