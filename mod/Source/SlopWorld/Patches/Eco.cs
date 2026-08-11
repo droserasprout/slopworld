@@ -31,12 +31,27 @@ namespace SlopWorld
             }
         }
 
-        // Fold dimming into this draw; the shared menu frames remain undimmed.
-        const float Dim = 0.45f;
-        static readonly Color Shade = new Color(1f - Dim, 1f - Dim, 1f - Dim, 1f);
+        // Fold dimming into this draw; the shared menu frames remain undimmed. MaterialPool
+        // keys on the colour, so the slider behind this steps rather than moving freely.
+        static Color Shade
+        {
+            get
+            {
+                float lit = 1f - Mathf.Clamp01(Settings.EcoDim);
+                return new Color(lit, lit, lit, 1f);
+            }
+        }
 
         // Render before pawn cutouts regardless of their altitude.
         const int Underneath = 1000;
+
+        // Oversize past what the crop needs, so both axes have margin to drift inside; the
+        // crop alone leaves one of them exactly on the view. Laps are long and incommensurate.
+        const float Zoom = 1.05f;
+        const float PanX = 47f;
+        const float PanZ = 61f;
+        // Short of the whole margin, or a lap would show past the edge of the picture.
+        const float PanRoom = 0.85f;
 
         static void Backdrop()
         {
@@ -45,15 +60,23 @@ namespace SlopWorld
             // Project the screen corners instead of assuming a top-down orthographic camera.
             var a = UI.UIToMapPosition(0f, 0f);
             var b = UI.UIToMapPosition(UI.screenWidth, UI.screenHeight);
-            float w = Mathf.Abs(b.x - a.x), h = Mathf.Abs(b.z - a.z);
-            if (w <= 0f || h <= 0f) return;
+            float viewW = Mathf.Abs(b.x - a.x), viewH = Mathf.Abs(b.z - a.z);
+            if (viewW <= 0f || viewH <= 0f) return;
 
             // Match vanilla's ScaleAndCrop fit; crop rather than letterbox.
+            float w = viewW, h = viewH;
             float want = tex.width / (float)tex.height;
             if (want > w / h) w = h * want;
             else h = w / want;
 
-            var at = new Vector3((a.x + b.x) * 0.5f, 0f, (a.z + b.z) * 0.5f);
+            w *= Zoom;
+            h *= Zoom;
+
+            float t = Time.realtimeSinceStartup;
+            float dx = (w - viewW) * 0.5f * PanRoom * Mathf.Sin(t * 2f * Mathf.PI / PanX);
+            float dz = (h - viewH) * 0.5f * PanRoom * Mathf.Sin(t * 2f * Mathf.PI / PanZ);
+
+            var at = new Vector3((a.x + b.x) * 0.5f + dx, 0f, (a.z + b.z) * 0.5f + dz);
             Graphics.DrawMesh(MeshPool.plane10,
                 Matrix4x4.TRS(at, Quaternion.identity, new Vector3(w, 1f, h)),
                 MaterialPool.MatFrom(tex, ShaderDatabase.Cutout, Shade, Underneath), 0);

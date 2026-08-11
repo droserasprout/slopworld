@@ -81,6 +81,11 @@ namespace SlopWorld
         // Eco.
         public bool ecoMode;
 
+        // How far the eco backdrop is taken down behind the agents, 0 being the picture as the
+        // menu draws it. Eco is a mode somebody leaves the game sitting in, so this is taste
+        // and not a constant. See Eco.Shade.
+        public float ecoDim = 0.45f;
+
         public override void ExposeData()
         {
             base.ExposeData();
@@ -101,6 +106,7 @@ namespace SlopWorld
             Scribe_Values.Look(ref radioStopOnExit, "radioStopOnExit", true);
             Scribe_Values.Look(ref grandmaMode, "grandmaMode", false);
             Scribe_Values.Look(ref ecoMode, "ecoMode", false);
+            Scribe_Values.Look(ref ecoDim, "ecoDim", 0.45f);
         }
     }
 
@@ -128,6 +134,7 @@ namespace SlopWorld
         public static bool RadioStopOnExit => S.radioStopOnExit;
         public static bool GrandmaMode => S.grandmaMode;
         public static bool EcoMode => S.ecoMode;
+        public static float EcoDim => S.ecoDim;
     }
 
     public class SlopWorldMod : Mod

@@ -42,5 +42,6 @@ directly, while map-click absorption retains the stricter interaction gate.
 - `MenuToggle` supplies checked float-menu rows without abusing `Disabled`.
 - `SlopListWindow<T>` holds the common agents/projects/shortcuts window structure.
 - `CoreTip` draws the persona-core hint over either the map or an opaque terminal.
-- `MenuBackground` caches scale-specific processed backgrounds. Its patch hooks drawing,
-  because the loading screen bypasses the main menu's initialization path.
+- `MenuBackground` bakes and caches the menu/loading-screen frames — see
+  [mod-background](mod-background.md). Its patch hooks drawing, because the loading
+  screen bypasses the main menu's initialization path.

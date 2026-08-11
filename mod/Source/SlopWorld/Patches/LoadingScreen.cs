@@ -15,6 +15,10 @@ namespace SlopWorld
         const double ScrollChance = 0.25;
         const int Passes = 3;
 
+        // Rows that did not move whose noise is rolled again per tick. Seasoning the whole block
+        // instead was StringBuilder churn fourteen times a second during map generation.
+        const int Flicker = 2;
+
         // ZALGO
         const string Marks =
             "\u0300\u0301\u0302\u0303\u0304\u0306\u0307\u0308\u030A\u030B\u030C" +   // above
@@ -304,9 +308,15 @@ namespace SlopWorld
         const float Ratio = 0.3f;
         const int MinLines = 6;
 
-        static bool _measured;
+        // The screen the box was measured against; latching it forever left the wall wrapped to
+        // the old width inside a window sized for it after any resolution or UI-scale change.
+        static int _measuredW, _measuredH;
         static Vector2 _box;
         static int _lines;
+
+        // Bumped per re-measure: tells the layout patch to rewrite vanilla's size field and the
+        // wall to re-wrap.
+        internal static int Generation;
 
         internal static int Lines
         {
@@ -337,9 +347,11 @@ namespace SlopWorld
         {
             get
             {
-                if (!_measured)
+                if (_measuredW != UI.screenWidth || _measuredH != UI.screenHeight)
                 {
-                    _measured = true;
+                    _measuredW = UI.screenWidth;
+                    _measuredH = UI.screenHeight;
+                    Generation++;
                     float w = Mathf.Clamp(UI.screenWidth - 80f, MinWidth, MaxWidth);
                     float text = w - Margin.x * 2f;
 
@@ -358,45 +370,47 @@ namespace SlopWorld
             }
         }
 
-        // The frames, clean; the zalgo is rolled onto whichever is up. Built lazily rather
-        // than in a field initialiser, the wrap needing a font and so an OnGUI. A build that
-        // throws leaves an empty list, which stands both patches down.
-        static List<string> _frames;
+        // The tips as one wrapped stream, clean; zalgo is rolled onto the rows on screen. Built
+        // lazily, the wrap needing a font and so an OnGUI; a build that throws leaves an empty
+        // list, which stands both patches down. A scroll is an index into this, where it used to
+        // be one precomputed block per position.
+        static List<string> _wall;
 
-        // Which mode the wall was built for. The filter runs once, at the build, and the wall
-        // then lives as long as the process - so without this a session that turned the setting
-        // on kept the marked tips it had already been given, which is the whole bug this is.
-        static bool _framesGrandma;
+        // Which mode the wall was filtered for and which box it was wrapped to; both run once,
+        // at the build, and the wall then lives as long as the process.
+        static bool _wallGrandma;
+        static int _wallAt = -1;
 
-        internal static List<string> Frames
+        internal static List<string> Wall
         {
             get
             {
+                var _ = Box;                // so a resize bumps the generation before it is read
                 bool grandma = Settings.GrandmaMode;
-                if (_frames != null && _framesGrandma == grandma) return _frames;
-                _framesGrandma = grandma;
+                if (_wall != null && _wallGrandma == grandma && _wallAt == Generation) return _wall;
+                _wallGrandma = grandma;
+                _wallAt = Generation;
 
-                // Both are indices into the wall that is going away: a scroll position past the
-                // end of the shorter list, and a painted block still holding the tips just
-                // dropped. Painted especially - it is what DrawContents draws, so leaving it
-                // would show the old wall for as long as the screen stayed up.
-                _frame = 0;
+                // All three point into the wall going away. Painted especially: it is what
+                // DrawContents draws, so a stale one keeps the dropped tips on screen.
+                _top = 0;
+                _rows = null;
                 _painted = null;
 
                 try
                 {
-                    _frames = BuildFrames();
+                    _wall = BuildWall();
                 }
                 catch (Exception e)
                 {
-                    _frames = new List<string>();
+                    _wall = new List<string>();
                     Log.Warning($"[SlopWorld] loading tips left to vanilla: {e}");
                 }
-                return _frames;
+                return _wall;
             }
         }
 
-        static List<string> BuildFrames()
+        static List<string> BuildWall()
         {
             var rng = Dice;
             var stream = new System.Text.StringBuilder();
@@ -441,20 +455,7 @@ namespace SlopWorld
                 Text.WordWrap = wrap;
             }
 
-            // Wrapping rather than stopping short, so the scroll never has a seam.
-            int tall = Lines;
-            var frames = new List<string>(lines.Count);
-            for (int i = 0; i < lines.Count; i++)
-            {
-                var block = new System.Text.StringBuilder();
-                for (int n = 0; n < tall; n++)
-                {
-                    if (n > 0) block.Append('\n');
-                    block.Append(lines[(i + n) % lines.Count]);
-                }
-                frames.Add(block.ToString());
-            }
-            return frames;
+            return lines;
         }
 
         // Measured rather than counted, the font being proportional. A word wider than the box
@@ -507,35 +508,84 @@ namespace SlopWorld
         static float _shown;
 
         // Ours rather than vanilla's field; the field is written anyway, for the build where
-        // Patch_LoadingTipBlock did not bind.
-        static int _frame;
-        internal static int Frame => _frame;
+        // Patch_LoadingTipBlock did not bind. Which row of the wall the top of the block holds.
+        static int _top;
+        internal static int Top => _top;
 
-        // Seasoned as of the last tick and held, so the noise is on the tick's clock rather
-        // than the frame rate's.
+        // The rows on screen, seasoned, top to bottom - the ring the scroll turns. A row keeps
+        // its noise until something rolls it again.
+        static string[] _rows;
+
+        // The rows joined as of the last tick, so the noise runs on the tick's clock rather than
+        // the frame rate's and DrawContents does no work of its own.
         static string _painted;
         internal static string Painted => _painted;
 
+        static readonly System.Text.StringBuilder _block = new System.Text.StringBuilder();
+
+        // Grandma's wall is clean, so a row is itself.
+        static string Row(List<string> wall, int n) =>
+            Settings.GrandmaMode
+                ? wall[(_top + n) % wall.Count]
+                : Season(wall[(_top + n) % wall.Count], Dice);
+
+        static string Join()
+        {
+            _block.Length = 0;
+            for (int n = 0; n < _rows.Length; n++)
+            {
+                if (n > 0) _block.Append('\n');
+                _block.Append(_rows[n]);
+            }
+            return _block.ToString();
+        }
+
         static void Prefix()
         {
-            var frames = Frames;
-            if (frames.Count == 0) return;
+            var wall = Wall;
+            if (wall.Count == 0) return;
 
             float now = Time.realtimeSinceStartup;
             if (now - _shown >= Tick || _painted == null)
             {
-                if (Dice.NextDouble() < ScrollChance) _frame = (_frame + 1) % frames.Count;
                 _shown = now;
-                // Grandma mode draws the wall clean: no zalgo.
-                _painted = Settings.GrandmaMode ? frames[_frame] : Season(frames[_frame], Dice);
+                bool grandma = Settings.GrandmaMode;
+                bool fresh = _rows == null || _rows.Length != Lines;
+
+                if (fresh)
+                {
+                    _rows = new string[Lines];
+                    for (int n = 0; n < _rows.Length; n++) _rows[n] = Row(wall, n);
+                }
+
+                bool scrolled = Dice.NextDouble() < ScrollChance;
+                if (scrolled && !fresh)
+                {
+                    // Only the row arriving at the bottom is new; the rest were on screen a tick
+                    // ago, one row higher.
+                    _top = (_top + 1) % wall.Count;
+                    Array.Copy(_rows, 1, _rows, 0, _rows.Length - 1);
+                    _rows[_rows.Length - 1] = Row(wall, _rows.Length - 1);
+                }
+
+                if (!grandma)
+                    for (int i = 0; i < Flicker; i++)
+                    {
+                        int n = Dice.Next(_rows.Length);
+                        _rows[n] = Row(wall, n);
+                    }
+
+                // A clean wall that did not scroll would rebuild the block already up.
+                if (fresh || scrolled || !grandma) _painted = Join();
             }
 
             // A field this build has never heard of leaves vanilla's list in the cache, which
-            // only matters if the draw patch missed too.
+            // only matters if the draw patch missed too - then the wall degrades to vanilla's
+            // own one-row-at-a-time draw off the same stream.
             if (AllTips != null)
             {
-                if (!ReferenceEquals(AllTips.GetValue(null), frames)) AllTips.SetValue(null, frames);
-                if (CurrentTip != null) CurrentTip.SetValue(null, _frame);
+                if (!ReferenceEquals(AllTips.GetValue(null), wall)) AllTips.SetValue(null, wall);
+                if (CurrentTip != null) CurrentTip.SetValue(null, _top);
             }
 
             // Holding the timer at now keeps vanilla from rolling the index on its own.
@@ -552,11 +602,11 @@ namespace SlopWorld
     {
         static bool Prefix(Rect rect)
         {
-            List<string> frames = Patch_LoadingTips.Frames;
-            if (frames.Count == 0) return true;
+            List<string> wall = Patch_LoadingTips.Wall;
+            if (wall.Count == 0) return true;
 
-            // Clean if the tick has not run yet; it has, DrawWindow being what called us.
-            string block = Patch_LoadingTips.Painted ?? frames[Patch_LoadingTips.Frame];
+            // A single row if the tick has not run yet; it has, DrawWindow being what called us.
+            string block = Patch_LoadingTips.Painted ?? wall[Patch_LoadingTips.Top % wall.Count];
 
             Vector2 margin = Patch_LoadingTips.Margin;
             Rect inner = new Rect(
@@ -601,17 +651,19 @@ namespace SlopWorld
 
         // Box rather than a number, the same figure being what the text was wrapped to. The
         // field is `static initonly`, which this runtime may or may not let reflection write;
-        // a refusal leaves vanilla's box with the left of the wall in it.
-        static bool _sized;
+        // a refusal leaves vanilla's box with the left of the wall in it. Keyed on generation,
+        // not a bool, so a screen that changed size mid-session is written again.
+        static int _sizedAt = -1;
 
         static void EnsureSize()
         {
-            if (_sized) return;
-            _sized = true;
+            Vector2 box = Patch_LoadingTips.Box;    // may re-measure, and so bump the generation
+            if (_sizedAt == Patch_LoadingTips.Generation) return;
+            _sizedAt = Patch_LoadingTips.Generation;
             if (WindowSizeField == null) return;
             try
             {
-                WindowSizeField.SetValue(null, Patch_LoadingTips.Box);
+                WindowSizeField.SetValue(null, box);
             }
             catch (Exception e)
             {

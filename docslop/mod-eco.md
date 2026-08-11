@@ -22,19 +22,27 @@ What it does, one owner each:
 - **The frames**: `BackgroundFrames` caps at 30 rather than the unfocused 15 -
   nothing is banking, the clock being stopped, so the number only has to be kind
   to somebody typing. One owner, because the saved target and vSync are one pair.
-- **The backdrop**: with no pane up, `MenuBackground`'s frames are drawn as one
-  screen-covering quad from a postfix on `Map.MapUpdate` - **world space**, not the
-  GUI layer, because the agents have to stand on it and a blit on the GUI layer
-  would be over them too. `UI.UIToMapPosition` on two screen corners gives the rect
-  to cover; the fit is ScaleAndCrop, done by oversizing the quad and letting the
-  overhang run off screen. `ShaderDatabase.Cutout` at render queue 1000 puts it
-  under every pawn draw whatever the altitudes come to. `Frame()` hands `Current` a
-  **null** source when a set is resident: the menu may have baked an expansion's
-  art, and naming the planet here would re-key the cache every time eco came on.
-- **The dimming**: `Dim` (0.45) is folded into that same draw as a grey `_Color`
-  multiply, which is arithmetically a black layer at that alpha over the picture and
-  costs no second quad to sort under the agents. It is eco's alone - the menu and
-  the loading screen draw the same frames undimmed.
+- **The backdrop**: with no pane up, [the baked frames](mod-background.md) are
+  drawn as one screen-covering quad from a postfix on `Map.MapUpdate` - **world
+  space**, not the GUI layer, because the agents have to stand on it and a blit on
+  the GUI layer would be over them too. `UI.UIToMapPosition` on two screen corners
+  gives the rect to cover; the fit is ScaleAndCrop, done by oversizing the quad and
+  letting the overhang run off screen. `ShaderDatabase.Cutout` at render queue 1000
+  puts it under every pawn draw whatever the altitudes come to. `Frame()` hands
+  `Current` a **null** source when a set is resident: the menu may have baked an
+  expansion's art, and naming the planet here would re-key the cache every time eco
+  came on.
+- **The drift**: `Zoom` (1.05) oversizes that quad past what the crop needs, which
+  puts a margin under the picture on *both* axes - the crop alone leaves one of
+  them exactly on the view. The centre then drifts inside that margin on two long
+  incommensurate periods (`PanX`, `PanZ`). It is the same texture at a different
+  offset, so an eco spell has motion in it for no frames and no memory.
+- **The dimming**: `ecoDim` (0.45 by default, a slider on `ConfigPage` under the
+  mode) is folded into that same draw as a grey `_Color` multiply, which is
+  arithmetically a black layer at that alpha over the picture and costs no second
+  quad to sort under the agents. It is eco's alone - the menu and the loading
+  screen draw the same frames undimmed. `MaterialPool` keys on the colour, which is
+  why the slider steps in twentieths rather than moving freely.
 - **The agents**: `Eco.Agents` walks the colony's pawns through vanilla's three
   `DrawPhase`s, view-culled. `DynamicDrawManager` is stood down, so this is the only
   thing on the board.

@@ -1,6 +1,8 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading.Tasks;
 using HarmonyLib;
 using RimWorld;
@@ -9,39 +11,65 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The menu and loading-screen background, rotting - or, with grandma in the house, the same
-    // picture under a rainbow. Nothing here ships art: the frames are baked from the game's own
-    // planet on first run. Baked rather than computed per frame because the source is 4096x2560,
-    // and cached to disk. Playback breathes on two sines of incommensurate period, summed, so it
-    // never repeats visibly; the sparkling variant loops instead, and is baked to close.
-    //
-    // The two variants share everything above the per-stage transform - the read-back, the
-    // downsample, the noise, the batching, the encoder and the cache - and differ only in what
-    // Rot and Sparkle do to a stage and in how Current walks the set. Which one is resident is
-    // the setting, folded into the cache key so a toggle switches the frames rather than
-    // reinterpreting them.
+    // Baked menu and loading-screen frames: a ramp out of the game's own picture, then a
+    // Depths x Phases grid the playback walks. Nothing here ships art. See mod-background.md.
     [StaticConstructorOnStartup]
     public static class MenuBackground
     {
-        // Current cuts between stages with nothing blending, so the count has to be high
-        // enough that a neighbour reads as flicker rather than a jump. The ceiling is memory,
-        // not bake time: each frame is a resident RGB24 texture up to MaxSide on its long
-        // edge, ~8MB, ~380MB for the set. Raising this means lowering MaxSide.
-        const int Stages = 30;
+        // A transform plus the shape of the set it wants. A third preset means a field here, a
+        // branch in Prep and a branch in Stage.
+        sealed class Preset
+        {
+            public readonly string Name;
+            // Depths of one is a preset with nothing to breathe.
+            public readonly int Depths;
+            public readonly int Phases;
+            // Motion that is a continuous function of the phase is baked to close and must be
+            // walked in order; a fresh noise field per phase has no order to keep.
+            public readonly bool Closed;
+
+            public Preset(string name, int depths, int phases, bool closed)
+            {
+                Name = name; Depths = depths; Phases = phases; Closed = closed;
+            }
+
+            public int Total => Onset + Depths * Phases;
+        }
+
+        // Ceiling is memory: a resident RGB24 texture per frame, ~2MB at the planet's aspect
+        // and ~110MB for the rotting set. Non-readable frames are what paid for the second axis.
+        const int Onset = 14;
+        static readonly Preset Rotting = new Preset("rot", 5, 8, false);
+        static readonly Preset Sparkling = new Preset("glow", 1, 24, true);
+
+        static Preset Chosen => Settings.GrandmaMode ? Sparkling : Rotting;
 
         const int MaxSide = 1024; // slightly more than god said
 
-        // Never back to clean, never at the bottom of the well.
+        // Never back to clean, never at the bottom of the well. The ramp lands in the middle.
         const float BreatheLow = 0.7f;
         const float BreatheHigh = 0.9f;
+        static float BreatheMid => (BreatheLow + BreatheHigh) * 0.5f;
 
-        // Seconds, deliberately not a ratio of small integers. Short enough that the walk
-        // across the stages is a flutter rather than a swell.
-        const float SlowSecs = 4.15f;
-        const float FastSecs = 1.27f;
-
-        // How long the first rot takes, once, on the way in from clean.
         const float OnsetSecs = 2f;
+
+        // Mean-reverting random walk rather than a sine, which has a period a menu is up long
+        // enough to learn. The pair decides whether a rung is worth baking: stationary spread is
+        // Jitter*sqrt(1/12)/sqrt(1-(1-Pull)^2), and these put the outer rungs a shade over two of
+        // those out, so a minute of menu reaches every one. Halving Jitter bakes ends nothing draws.
+        const float WalkStep = 0.28f;
+        const float WalkPull = 0.22f;
+        const float WalkJitter = 0.24f;
+        // Past this the gap is an alt-tab, not a frame; stepping across it arrives nowhere new.
+        const float WalkGapMax = 8f;
+
+        // How long one draw of the moving part stays up.
+        const float PhaseSecs = 0.11f;
+
+        // One turn of a closed preset, and so the slowest star's blink.
+        const float LoopSecs = 3.6f;
+
+        // ---- Rot ----
 
         // SlopPlagueGas's violet, matched by eye rather than by reference.
         static readonly Color Sick = new Color(0.80f, 0.38f, 0.86f, 0.9f);
@@ -66,7 +94,7 @@ namespace SlopWorld
         const int NoiseDiv = 4;
         const float NoiseFreq = 0.035f;
         const int Octaves = 4;
-        // Large enough that consecutive stages are unrelated draws; a fire that slid smoothly
+        // Large enough that consecutive phases are unrelated draws; a fire that slid smoothly
         // would read as a pan across a still picture.
         const float StagePhase = 37.7f;
 
@@ -74,10 +102,6 @@ namespace SlopWorld
         static readonly Color Flame = new Color(1f, 0.76f, 0.28f, 1f);
 
         // ---- Grandma's visiting ----
-
-        // How long one turn through every stage takes, and so also how long the slowest star
-        // takes to blink. The set closes, so this is a loop and not a sweep with a cut in it.
-        const float LoopSecs = 3.6f;
 
         // Hue periods along the diagonal. Deliberately not an integer: the sheen only has to
         // close in time, and one that closed in space too would put a seam down the picture
@@ -90,7 +114,7 @@ namespace SlopWorld
         // band with a body and a gap.
         const float HazeLow = 0.40f;
         const float HazeHigh = 0.66f;
-        // Nowhere near the fire's phases, so the two variants are not the same cloud twice.
+        // Nowhere near the fire's phases, so the two presets are not the same cloud twice.
         const float HazePhase = 11.3f;
 
         // The constellation is rolled once from this, so the bake stays reproducible.
@@ -153,25 +177,30 @@ namespace SlopWorld
         // the cache to a few megabytes where PNG would be most of a gigabyte.
         const int JpegQuality = 10;
 
-        // Bump it and every install rebakes - what a change to any constant above needs.
-        const int Version = 2;
+        // What the *code* below bakes, as opposed to what the numbers above say - the constants
+        // hash themselves into the key (see Tuning), so this only has to move when the
+        // arithmetic does.
+        const int Version = 3;
 
-        // A stage's working buffer is bw*bh*16 bytes, so all thirty at once is a few hundred
+        // A stage's working buffer is bw*bh*16 bytes, so a whole set at once is a few hundred
         // megabytes of transient heap under a game that is already holding the menu. Stages are
         // computed in batches sized off this instead, and the buffers are reused across
-        // batches, which makes the bake's footprint a constant rather than a function of
-        // Stages. It also caps how many run at once, so this is the parallelism knob too.
+        // batches, which makes the bake's footprint a constant rather than a function of the
+        // set's size. It also caps how many run at once, so this is the parallelism knob too.
         const int BakeBudgetMB = 96;
+
+        // A cache directory nothing has loaded from in this long is an expansion background the
+        // player moved off, or a tuning the constants have left behind.
+        const int KeepDays = 30;
 
         static Texture2D[] _frames;
         // The cache key, and how a background switched in Options is noticed.
         static Texture2D _src;
         static string _srcKey;
-        // Which transform the resident set was baked with, rather than what the setting says
-        // this instant: the two disagree for the one frame between a toggle and the reload,
-        // and walking rotted stages on the sparkling clock would be visible.
-        static bool _glow;
-        // So the onset ramp has a zero. Negative until the first draw.
+        // What the resident set was baked with, not what the setting says this instant: the two
+        // disagree for the frame between a toggle and the reload.
+        static Preset _preset;
+        // So the ramp has a zero. Negative until the first draw.
         static float _began = -1f;
 
         public static bool HasFrames => _frames != null;
@@ -183,35 +212,82 @@ namespace SlopWorld
             // The caller stops handing us a source as soon as there are frames - it has our own
             // frame in the field by then and nulls it - so a setting turned over with the menu
             // still up would never reach Ready. Handing back what we baked from is what makes
-            // the toggle land, and it is a bool compare rather than the key, which is a string
-            // this would be formatting every frame.
-            if (_frames != null && _glow != Settings.GrandmaMode) source = _src;
+            // the toggle land, and it is a reference compare rather than the key, which is a
+            // string this would be formatting every frame.
+            if (_frames != null && _preset != Chosen) source = _src;
 
             if (source != null && !Ready(source)) return null;
             if (_frames == null) return null;
 
             float now = Time.realtimeSinceStartup;
-            if (_began < 0f) _began = now;
+            if (_began < 0f)
+            {
+                _began = now;
+                _depth = 0.5f;
+                _phase = 0;
+                _walkAt = 0f;
+                _phaseAt = 0f;
+            }
+
             float t = now - _began;
 
-            // Straight through the stages and around again. No breath and no onset: every stage
-            // is the same picture at a different point of the same loop, where the rot's are a
-            // depth it arrives at and then hovers around. The set was baked to close, so the
-            // wrap is not a cut.
-            if (_glow) return _frames[Mathf.FloorToInt(t * (Stages / LoopSecs)) % Stages];
+            // Smoothstepped, a ramp that starts instantly being a cut. Frame zero is the game's
+            // own picture untouched, so this leaves it where the menu had it.
+            if (t < OnsetSecs)
+            {
+                float u = Mathf.SmoothStep(0f, 1f, t / OnsetSecs);
+                return _frames[Mathf.Clamp(Mathf.FloorToInt(u * Onset), 0, Onset - 1)];
+            }
 
-            // Unequal amplitudes, so the fast term is a tremor over the swell rather than a
-            // second beat.
-            float breath =
-                0.68f * Mathf.Sin(t * 2f * Mathf.PI / SlowSecs) +
-                0.32f * Mathf.Sin(t * 2f * Mathf.PI / FastSecs);
-            float band = Mathf.Lerp(BreatheLow, BreatheHigh, (breath + 1f) * 0.5f);
+            Walk(t - OnsetSecs);
+            int depth = Mathf.Clamp(
+                Mathf.RoundToInt(_depth * (_preset.Depths - 1)), 0, _preset.Depths - 1);
+            return _frames[Onset + depth * _preset.Phases + _phase];
+        }
 
-            // Smoothstep, a ramp that starts instantly being a cut.
-            float onset = OnsetSecs <= 0f ? 1f : Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / OnsetSecs));
+        // Stepped off absolute times rather than a delta, so a frame that asks twice gets one
+        // answer - the menu patch and eco both call Current.
+        static float _depth;
+        static int _phase;
+        static float _walkAt;
+        static float _phaseAt;
+        // Time-seeded, unlike everything the bake rolls: the frames are meant to match across
+        // installs and the path across them is meant not to.
+        static readonly System.Random _walkRng = new System.Random();
 
-            int i = Mathf.Clamp(Mathf.RoundToInt(band * onset * (Stages - 1)), 0, Stages - 1);
-            return _frames[i];
+        // Three uniforms sum to a bounded bell, which is what a walk that must not bolt wants.
+        static float Gauss() =>
+            (float)(_walkRng.NextDouble() + _walkRng.NextDouble() + _walkRng.NextDouble()) - 1.5f;
+
+        static void Walk(float t)
+        {
+            // Ornstein-Uhlenbeck: left free the walk settles at an end of the band and stays.
+            if (_preset.Depths > 1)
+            {
+                if (t - _walkAt > WalkGapMax) _walkAt = t - WalkStep;
+                while (t - _walkAt >= WalkStep)
+                {
+                    _walkAt += WalkStep;
+                    _depth = Mathf.Clamp01(_depth + (0.5f - _depth) * WalkPull + WalkJitter * Gauss());
+                }
+            }
+
+            if (_preset.Phases < 2) return;
+
+            // A closed preset's phases are the loop itself and must arrive in order.
+            if (_preset.Closed)
+            {
+                _phase = Mathf.FloorToInt(t / LoopSecs * _preset.Phases) % _preset.Phases;
+                return;
+            }
+
+            if (t - _phaseAt < PhaseSecs) return;
+            _phaseAt = t;
+
+            // Drawn from the others, so a redraw always redraws; picking uniformly would repeat
+            // one time in Phases, which reads as the animation catching.
+            int step = 1 + _walkRng.Next(_preset.Phases - 1);
+            _phase = (_phase + step) % _preset.Phases;
         }
 
         // False means we could not get any and the caller should stand down.
@@ -219,13 +295,13 @@ namespace SlopWorld
         {
             if (source == null) return false;
 
-            bool glow = Settings.GrandmaMode;
-            string key = Key(source, glow);
+            Preset preset = Chosen;
+            string key = Key(source, preset);
             if (_frames != null && _srcKey == key) return true;
 
             _src = source;
             _srcKey = key;
-            _glow = glow;
+            _preset = preset;
             _began = -1f;
 
             // The set being replaced is left to Unity. Its textures are marked
@@ -233,7 +309,7 @@ namespace SlopWorld
             // background switch has always cost, paid once more if the setting is turned over.
             try
             {
-                _frames = Load(key) ?? Bake(source, key, glow);
+                _frames = Load(key, preset) ?? Bake(source, key, preset);
             }
             catch (Exception e)
             {
@@ -245,21 +321,59 @@ namespace SlopWorld
                 _frames = null;
             }
 
+            if (_frames != null) Sweep(key);
             return _frames != null;
         }
 
         // The name changes when the player picks another expansion's background, so keying on
-        // it is what makes that switch rebake. The variant is in here for the same reason and
+        // it is what makes that switch rebake. The preset is in here for the same reason and
         // one more: both sets survive on disk, so turning the setting back is a load rather
         // than a second bake.
-        static string Key(Texture2D src, bool glow)
+        static string Key(Texture2D src, Preset preset)
         {
             string name = string.IsNullOrEmpty(src.name) ? "bg" : src.name;
-            return $"{name}-{src.width}x{src.height}-{Stages}-{(glow ? "glow" : "rot")}-v{Version}";
+            return $"{name}-{src.width}x{src.height}-{preset.Name}{preset.Total}-{Tuning}-v{Version}";
         }
 
-        static string Dir(string key) =>
-            Path.Combine(Path.Combine(CacheRoot(), "slopworld"), Path.Combine("bg", key));
+        // Every number the pixels depend on, hashed in. Under Version alone, a tuning change
+        // that forgot to bump it rendered the old numbers - indistinguishable from a constant
+        // that did nothing.
+        static readonly string Tuning = HashTuning();
+
+        static string HashTuning()
+        {
+            var sb = new StringBuilder();
+            foreach (float f in new[]
+            {
+                BreatheLow, BreatheHigh, OnsetSecs,
+                FireFrom, FuelFloor, FuelFull, FuelDecay, NoiseLow, NoiseHigh, FireGain,
+                NoiseFreq, StagePhase,
+                SheenCycles, SheenGain, HazeLow, HazeHigh, HazePhase,
+                SparkArmMin, SparkArmMax, SparkThick, SparkGain,
+                Sick.r, Sick.g, Sick.b, Ember.r, Ember.g, Ember.b, Flame.r, Flame.g, Flame.b,
+            })
+                sb.Append(f.ToString("R", CultureInfo.InvariantCulture)).Append(';');
+
+            foreach (int i in new[]
+            {
+                Onset, MaxSide, JpegQuality, FuelErode, NoiseDiv, Octaves, LutSide, HueSide,
+                SparkSeed, SparkCount, SparkRateMin, SparkRateMax,
+            })
+                sb.Append(i).Append(';');
+
+            uint h = 2166136261;
+            string all = sb.ToString();
+            for (int i = 0; i < all.Length; i++)
+            {
+                h ^= all[i];
+                h *= 16777619;
+            }
+            return h.ToString("x8");
+        }
+
+        static string Root() => Path.Combine(Path.Combine(CacheRoot(), "slopworld"), "bg");
+
+        static string Dir(string key) => Path.Combine(Root(), key);
 
         // Not GenFilePaths, which is config and saves; a derived texture is regenerable and so
         // safe to delete.
@@ -271,21 +385,44 @@ namespace SlopWorld
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache");
         }
 
-        static Texture2D[] Load(string key)
+        // Recency is the write time, which Load touches: two sets a player toggles between are
+        // both in use however long ago they were baked.
+        static void Sweep(string keep)
+        {
+            try
+            {
+                string root = Root();
+                if (!Directory.Exists(root)) return;
+                DateTime cutoff = DateTime.UtcNow.AddDays(-KeepDays);
+                foreach (string dir in Directory.GetDirectories(root))
+                {
+                    if (Path.GetFileName(dir) == keep) continue;
+                    if (Directory.GetLastWriteTimeUtc(dir) >= cutoff) continue;
+                    Directory.Delete(dir, true);
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"[SlopWorld] background cache left unswept: {e.Message}");
+            }
+        }
+
+        static Texture2D[] Load(string key, Preset preset)
         {
             string dir = Dir(key);
             if (!Directory.Exists(dir)) return null;
 
-            var frames = new Texture2D[Stages];
-            for (int i = 0; i < Stages; i++)
+            var frames = new Texture2D[preset.Total];
+            for (int i = 0; i < frames.Length; i++)
             {
-                // D2 still holds the whole set; past 99 stages this needs widening.
+                // D2 holds a set of up to a hundred; past that this needs widening.
                 string path = Path.Combine(dir, $"{i:D2}.jpg");
                 if (!File.Exists(path)) return null;
 
-                // LoadImage sniffs the header.
+                // LoadImage sniffs the header. Non-readable drops the CPU-side copy Unity keeps
+                // beside the GPU one, half the set's resident cost; nothing here reads pixels back.
                 var tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
-                if (!tex.LoadImage(File.ReadAllBytes(path)))
+                if (!tex.LoadImage(File.ReadAllBytes(path), true))
                 {
                     UnityEngine.Object.Destroy(tex);
                     return null;                    // a half-written cache rebakes
@@ -296,10 +433,55 @@ namespace SlopWorld
                 frames[i] = tex;
             }
 
+            try { Directory.SetLastWriteTimeUtc(dir, DateTime.UtcNow); } catch { }
             return frames;
         }
 
-        static Texture2D[] Bake(Texture2D src, string key, bool glow)
+        // The still inputs every stage of a preset shares, worked out once rather than per stage.
+        sealed class Shared
+        {
+            public float[] Fuel;        // rot: where fire is allowed
+            public float[] Haze;        // glow: where the sheen is bright
+            public Spark[] Sparks;      // glow: where the stars are
+        }
+
+        static Shared Prep(Preset preset, Color[] clean, int w, int h) =>
+            preset == Sparkling
+                ? new Shared { Haze = Haze(w, h), Sparks = Constellation(w, h) }
+                : new Shared { Fuel = Fuel(clean, w, h) };
+
+        // How far into the preset a stage has arrived, and which draw of the moving part it
+        // holds. The ramp's phase keeps moving, so the fire is alive while the picture arrives.
+        static void Where(Preset preset, int stage, out float k, out int phase)
+        {
+            bool breathes = preset.Depths > 1;
+
+            if (stage < Onset)
+            {
+                float arrived = stage / (float)(Onset - 1);
+                k = breathes ? BreatheMid * arrived : arrived;
+                phase = stage % preset.Phases;
+                return;
+            }
+
+            int at = stage - Onset;
+            phase = at % preset.Phases;
+            k = breathes
+                ? Mathf.Lerp(BreatheLow, BreatheHigh, (at / preset.Phases) / (float)(preset.Depths - 1))
+                : 1f;
+        }
+
+        static void Stage(Preset preset, Color[] clean, Color[] dst, Shared shared,
+                          int w, int h, int stage)
+        {
+            Where(preset, stage, out float k, out int phase);
+            if (preset == Sparkling)
+                Sparkle(clean, dst, shared.Haze, shared.Sparks, w, h, phase / (float)preset.Phases, k);
+            else
+                Rot(clean, dst, shared.Fuel, w, h, k, phase);
+        }
+
+        static Texture2D[] Bake(Texture2D src, string key, Preset preset)
         {
             int w = src.width, h = src.height;
             float scale = Mathf.Min(1f, (float)MaxSide / Mathf.Max(w, h));
@@ -307,13 +489,7 @@ namespace SlopWorld
             int bh = Mathf.Max(1, Mathf.RoundToInt(h * scale));
 
             Color[] clean = Downsample(ReadBack(src), w, h, bw, bh);
-
-            // Each variant's one still input, read off the clean picture or rolled from a fixed
-            // seed, and shared by every stage: where fire is allowed for the one, where the
-            // sheen is bright and where the stars are for the other.
-            float[] fuel = glow ? null : Fuel(clean, bw, bh);
-            float[] haze = glow ? Haze(bw, bh) : null;
-            Spark[] sparks = glow ? Constellation(bw, bh) : null;
+            Shared shared = Prep(preset, clean, bw, bh);
 
             string dir = Dir(key);
             Directory.CreateDirectory(dir);
@@ -323,22 +499,20 @@ namespace SlopWorld
             // so the pixels are worked out off the main thread. The encoder is not: Texture2D,
             // EncodeToJPG and LoadImage are all engine calls, so a batch is computed in
             // parallel and then written down in order on the way back.
-            int batch = Mathf.Clamp((BakeBudgetMB << 20) / Mathf.Max(1, bw * bh * 16), 1, Stages);
+            int total = preset.Total;
+            int batch = Mathf.Clamp((BakeBudgetMB << 20) / Mathf.Max(1, bw * bh * 16), 1, total);
             var opts = new ParallelOptions { MaxDegreeOfParallelism = batch };
 
             var scratch = new Color[batch][];
             for (int b = 0; b < batch; b++) scratch[b] = new Color[bw * bh];
 
-            var frames = new Texture2D[Stages];
-            for (int start = 0; start < Stages; start += batch)
+            var frames = new Texture2D[total];
+            for (int start = 0; start < total; start += batch)
             {
-                int end = Math.Min(Stages, start + batch);
+                int end = Math.Min(total, start + batch);
 
-                Parallel.For(start, end, opts, i =>
-                {
-                    if (glow) Sparkle(clean, scratch[i - start], haze, sparks, bw, bh, i);
-                    else Rot(clean, scratch[i - start], fuel, bw, bh, i / (float)(Stages - 1), i);
-                });
+                Parallel.For(start, end, opts,
+                    i => Stage(preset, clean, scratch[i - start], shared, bw, bh, i));
 
                 for (int i = start; i < end; i++)
                 {
@@ -351,8 +525,9 @@ namespace SlopWorld
 
                     // Back in through the decoder: at this quality the difference is most of
                     // the look, and a first launch that came up clean-edged then blocked itself
-                    // on restart would be reported as a bug.
-                    tex.LoadImage(jpg);
+                    // on restart would be reported as a bug. Non-readable on the way in for the
+                    // reason Load's is.
+                    tex.LoadImage(jpg, true);
                     tex.filterMode = FilterMode.Bilinear;
                     tex.wrapMode = TextureWrapMode.Clamp;
                     Keep(tex);
@@ -360,7 +535,8 @@ namespace SlopWorld
                 }
             }
 
-            Log.Message($"[SlopWorld] baked {Stages} {(glow ? "sparkling" : "rotting")} background frames at {bw}x{bh}, jpeg q{JpegQuality}, {batch} at a time, into {dir}");
+            Log.Message($"[SlopWorld] baked {preset.Name}: {Onset} ramp + {preset.Depths}x{preset.Phases} " +
+                        $"at {bw}x{bh}, jpeg q{JpegQuality}, {batch} at a time, into {dir}");
             return frames;
         }
 
@@ -369,7 +545,7 @@ namespace SlopWorld
         // fire last, being emissive. The encoder's damage lands after all of it, being the
         // transmission rather than the scene.
         // Writes into dst rather than allocating — the caller owns the buffer.
-        static void Rot(Color[] src, Color[] dst, float[] fuel, int w, int h, float k, int stage)
+        static void Rot(Color[] src, Color[] dst, float[] fuel, int w, int h, float k, int phase)
         {
             if (k <= 0f)
             {
@@ -384,7 +560,7 @@ namespace SlopWorld
             if (radius > 0) Smear(src, dst, w, h, radius, ref g);
             else for (int i = 0; i < dst.Length; i++) dst[i] = Shade(ref g, src[i]);
 
-            Burn(dst, fuel, w, h, k, stage);
+            Burn(dst, fuel, w, h, k, phase);
         }
 
         // The drain toward luminance, the contrast crush and the tint are three affine steps
@@ -406,9 +582,12 @@ namespace SlopWorld
 
         // Nothing is taken away here: a hair more contrast, the blacks lifted the same as the
         // rot lifts them, and a *negative* drain, which is a saturation boost written in the one
-        // form Shade already knows. No tint - in this variant the colour is the sheen's and the
-        // stars', and a picture already tinted would argue with both.
-        static Grade Cheer() => Affine(1.06f, 0.05f, -0.35f, Color.white, 0f);
+        // form Shade already knows. No tint - in this preset the colour is the sheen's and the
+        // stars', and a picture already tinted would argue with both. At k of zero this is the
+        // identity, which is what lets the ramp start on the game's own picture.
+        static Grade Cheer(float k) => Affine(
+            Mathf.Lerp(1f, 1.06f, k), Mathf.Lerp(0f, 0.05f, k), Mathf.Lerp(0f, -0.35f, k),
+            Color.white, 0f);
 
         static Grade Affine(float contrast, float lift, float drain, Color toward, float tint)
         {
@@ -513,15 +692,16 @@ namespace SlopWorld
 
         // Gated by Fuel, and rolled in with k so the planet catches as it rots. The noise is
         // drawn at a fraction of the frame and read back bilinear - four octaves over ten
-        // megapixels is seconds of bake, and fire has no fine detail to lose. Each stage draws
-        // from a different offset, which is what makes the flames move.
-        static void Burn(Color[] px, float[] fuel, int w, int h, float k, int stage)
+        // megapixels is seconds of bake, and fire has no fine detail to lose. Phase picks the
+        // offset, so the flames move; every depth rung at one phase draws the same field, so
+        // the picture breathes without them.
+        static void Burn(Color[] px, float[] fuel, int w, int h, float k, int phase)
         {
             float heat = Mathf.InverseLerp(FireFrom, 1f, k);
             if (heat <= 0f) return;
 
             int nw = Mathf.Max(2, w / NoiseDiv), nh = Mathf.Max(2, h / NoiseDiv);
-            float[] noise = Fbm(nw, nh, stage * StagePhase);
+            float[] noise = Fbm(nw, nh, phase * StagePhase);
 
             // Hoisted: these are three divides a pixel over ten megapixels otherwise, and the
             // shaping below is InverseLerp into SmoothStep(0,1,..) written out - the clamp the
@@ -572,25 +752,19 @@ namespace SlopWorld
             }
         }
 
-        // What Rot is not: nothing is taken away. The picture is graded a shade brighter and a
-        // shade more saturated, a rainbow is laid over it, and the constellation is lit. Both of
-        // the last two are functions of the stage over the whole set rather than of a depth, and
-        // both close - the sheen slides exactly one hue period across the loop and every star
-        // blinks a whole number of times - so the last stage meets the first with no cut. That
-        // is the difference the playback in Current is about.
-        // Writes into dst rather than allocating — the caller owns the buffer.
-        static void Sparkle(Color[] src, Color[] dst, float[] haze, Spark[] sparks, int w, int h, int stage)
+        // What Rot is not: nothing is taken away. Sheen and constellation are functions of s,
+        // the position in the loop, and both close - one whole hue period, whole-number blinks
+        // - so the last phase meets the first with no cut. k is the ramp's axis, one all
+        // through the loop. Writes into dst rather than allocating — the caller owns the buffer.
+        static void Sparkle(Color[] src, Color[] dst, float[] haze, Spark[] sparks,
+                            int w, int h, float s, float k)
         {
-            Grade g = Cheer();
-
-            // Over Stages rather than Stages-1: the loop is open at the top, stage 0 being where
-            // stage 30 would have landed. Closed on Stages-1 the wrap would show every stage
-            // twice.
-            float s = stage / (float)Stages;
+            Grade g = Cheer(k);
 
             // Along the diagonal, so the band crosses the picture corner to corner rather than
             // lying in bars down it.
             float ramp = SheenCycles / (w + h - 2);
+            float sheen = SheenGain * k;
 
             for (int y = 0; y < h; y++)
             {
@@ -600,7 +774,7 @@ namespace SlopWorld
                     int i = row + x;
                     Color c = Shade(ref g, src[i]);
 
-                    float m = haze[i];
+                    float m = haze[i] * sheen;
                     if (m > 0f)
                     {
                         // The palette's mean is a flat half in every channel, and it comes back
@@ -608,11 +782,10 @@ namespace SlopWorld
                         // colour into the black, over the lit face it swings the hue, and
                         // neither is the even grey fog that adding the palette whole would be.
                         Color hue = Hue((x + y) * ramp + s);
-                        float gain = m * SheenGain;
                         c = new Color(
-                            Mathf.Clamp01(c.r + (hue.r - 0.5f) * gain),
-                            Mathf.Clamp01(c.g + (hue.g - 0.5f) * gain),
-                            Mathf.Clamp01(c.b + (hue.b - 0.5f) * gain),
+                            Mathf.Clamp01(c.r + (hue.r - 0.5f) * m),
+                            Mathf.Clamp01(c.g + (hue.g - 0.5f) * m),
+                            Mathf.Clamp01(c.b + (hue.b - 0.5f) * m),
                             1f);
                     }
 
@@ -620,7 +793,7 @@ namespace SlopWorld
                 }
             }
 
-            Twinkle(dst, sparks, w, h, s);
+            Twinkle(dst, sparks, w, h, s, k);
         }
 
         // A star: where it is, how far it reaches, where it sits on the wheel, and the blink it
@@ -631,7 +804,7 @@ namespace SlopWorld
             public float arm;
             public float hue;
             public int rate;      // blinks per loop, whole
-            public float phase;   // where in that blink stage zero finds it
+            public float phase;   // where in that blink phase zero finds it
         }
 
         // Rolled once from a fixed seed, and the same for every stage - which is what lets a star
@@ -663,17 +836,17 @@ namespace SlopWorld
             return sparks;
         }
 
-        // Each star is lit by a raised cosine of the stage, on its own rate and its own phase, so
-        // the constellation is never all up at once and never all down. Squared, because a blink
+        // Each star is lit by a raised cosine of s, on its own rate and its own phase, so the
+        // constellation is never all up at once and never all down. Squared, because a blink
         // wants a short peak and a long dark where the cosine gives it even halves.
-        static void Twinkle(Color[] px, Spark[] sparks, int w, int h, float s)
+        static void Twinkle(Color[] px, Spark[] sparks, int w, int h, float s, float k)
         {
             for (int i = 0; i < sparks.Length; i++)
             {
                 Spark sp = sparks[i];
 
                 float lit = 0.5f - 0.5f * Mathf.Cos(2f * Mathf.PI * (sp.rate * s + sp.phase));
-                lit *= lit;
+                lit *= lit * k;
                 if (lit <= 0.004f) continue;    // under the encoder's floor anyway
 
                 Color tint = Hue(sp.hue);
@@ -706,12 +879,12 @@ namespace SlopWorld
                         float core = d > 0f ? d * d * d : 0f;
                         if (cross <= 0f && core <= 0f) continue;
 
-                        float a = cross * amp, k = core * amp;
+                        float a = cross * amp, c2 = core * amp;
                         Color c = px[row + x];
                         px[row + x] = new Color(
-                            Mathf.Clamp01(c.r + tint.r * a + k),
-                            Mathf.Clamp01(c.g + tint.g * a + k),
-                            Mathf.Clamp01(c.b + tint.b * a + k),
+                            Mathf.Clamp01(c.r + tint.r * a + c2),
+                            Mathf.Clamp01(c.g + tint.g * a + c2),
+                            Mathf.Clamp01(c.b + tint.b * a + c2),
                             1f);
                     }
                 }

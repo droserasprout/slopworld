@@ -141,6 +141,18 @@ namespace SlopWorld
                     "are the daemon's and keep running. With no terminal up you get the " +
                     "menu's background instead of the map.");
 
+            // Only with the mode on: a slider for a backdrop nothing is drawing is a knob that
+            // does nothing, and the note above is what says so. Stepped to twentieths because
+            // the value keys a material - see Eco.Shade.
+            if (s.ecoMode)
+            {
+                l.Gap(SlopWidgets.GapS);
+                l.Label($"Backdrop dimming: {Mathf.RoundToInt(s.ecoDim * 100f)}%");
+                s.ecoDim = Mathf.Round(l.Slider(s.ecoDim, 0f, 0.8f) * 20f) / 20f;
+                Note(l, "How far the picture behind the agents is taken down. At zero it is " +
+                        "the menu's own background at full strength.");
+            }
+
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
 

@@ -36,6 +36,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [selection-rework](selection-rework.md) - planned: the session is what is selected, not the pawn.
 - [mod-patches-misc](mod-patches-misc.md) - background running, real-time durations, loading screen.
 - [mod-eco](mod-eco.md) - eco mode: the board stops and the menu's background stands in.
+- [mod-background](mod-background.md) - the baked menu background: the ramp, the grid, the walk.
 - [mod-ui-chrome](mod-ui-chrome.md) - shared widgets, layout, usage readout, top bar.
 - [mod-ui-files](mod-ui-files.md) - the files view and its icons.
 - [mod-icons](mod-icons.md) - the Codicons bake out of a Nerd Font, and the Icons lookup.
