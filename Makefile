@@ -74,6 +74,9 @@ appicon:           ## Regenerate the app icon (robot face + wilted rose)
 icons:             ## Rebake the action icons from a Nerd Font's Codicons
 	python3 tools/icons.py
 
+reference:         ## Generate the environment/API/CLI reference
+	python3 tools/reference.py
+
 clean:             ## Drop build output
 	cd slopd && cargo clean
 	rm -f mod/Assemblies/SlopWorld.dll
