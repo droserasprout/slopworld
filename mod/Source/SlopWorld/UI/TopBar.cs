@@ -16,9 +16,6 @@ namespace SlopWorld
 
         const float Pad = 8f;
 
-        // Room for the clock, measured: "88:88" is as wide as the widest time there is.
-        static float ClockW => Mathf.Max(SlopWidgets.Wide("88:88") + SlopWidgets.GapM, 76f);
-
         // Every door on the line at the size the drawn glyphs were on the strip they came
         // off. The two things on the map had four pixels more for a while, on the grounds
         // that a building shrunk to a tab-bar glyph is a smudge - but a `ThingIcon` fills
@@ -56,11 +53,8 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
 
-            var clock = new Rect(r.center.x - ClockW / 2f, r.y, ClockW, r.height);
-            UsageReadout.DrawClock(clock, TextAnchor.MiddleCenter);
-
-            // The doors first: they own the end of the line, and the quota takes what is left
-            // of it. Laid out that way round because the quota is already right-aligned within
+            // The doors first: they own the end of the line, and the resources take what is left
+            // of it. Laid out that way round because the strip is already right-aligned within
             // whatever room it gets, so a window coming or going never moves a button.
             //
             // The options menu used to be excepted here, being the one window laid out below
@@ -70,13 +64,14 @@ namespace SlopWorld
             float right = Doors(r, interactive);
 
             // Nothing where there is no room: the doors take well over a hundred pixels off
-            // this end with all four up, and a strip handed a negative width right-aligns its
-            // first chip off the left of the clock rather than declining to draw.
-            float quota = right - clock.xMax - Pad;
+            // this end with all four up, and a strip handed a negative width would place its
+            // first chip in the status half rather than declining to draw.
+            float resources = r.center.x + Pad;
+            float quota = right - resources;
             if (quota > 0f)
-                UsageReadout.DrawStrip(new Rect(clock.xMax + Pad, r.y, quota, r.height));
+                UsageReadout.DrawStrip(new Rect(resources, r.y, quota, r.height));
 
-            Status(new Rect(r.x + Pad, r.y, clock.x - r.x - Pad * 2f, r.height), pane);
+            Status(new Rect(r.x + Pad, r.y, r.center.x - r.x - Pad * 2f, r.height), pane);
 
             // The line is drawn over the map, and the map takes whatever the buttons did not:
             // without this a press here starts a drag-selection on the ground behind it. Last,

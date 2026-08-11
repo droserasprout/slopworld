@@ -29,9 +29,6 @@ namespace SlopWorld
 
         static ThingDef[] _pool;
 
-        static Texture2D _clock;
-        static bool _looked;
-
         public UsageReadout(Map map) : base(map) { }
 
         public override void MapComponentOnGUI()
@@ -41,20 +38,13 @@ namespace SlopWorld
             TopBar.DrawOnMap();
         }
 
-        public static void DrawClock(Rect row, TextAnchor anchor)
+        static void DrawClock(Rect row, DateTime now)
         {
-            DateTime now = DateTime.Now;
-
-            if (!_looked)
-            {
-                _looked = true;
-                _clock = ContentFinder<Texture2D>.Get("UI/Icons/ColonistBar/Idle", false);
-            }
-
-            var was = Text.Anchor;
-            Text.Anchor = anchor;
-            Widgets.Label(row, now.ToString("HH:mm"));
-            Text.Anchor = was;
+            var icon = new Rect(row.x, row.y + (row.height - IconSize) / 2f,
+                IconSize, IconSize);
+            GUI.DrawTexture(icon, Icons.Time);
+            Widgets.Label(new Rect(icon.xMax + 2f, row.y,
+                row.width - IconSize - 2f, row.height), now.ToString("HH:mm"));
 
             TooltipHandler.TipRegion(row, new TipSignal(
                 now.ToString("dddd, d MMMM yyyy") + "\n" + now.ToString("HH:mm:ss"),
@@ -63,7 +53,8 @@ namespace SlopWorld
 
         // The same rows along a line instead of down a column, right-aligned in the room they
         // are given and laid out from that end, so the first window keeps its place as later
-        // ones come and go. Nothing is drawn where there is no room for it.
+        // ones come and go. The clock owns the final slot beside the colony doors. Nothing is
+        // drawn where there is no room for it.
         public static void DrawStrip(Rect area)
         {
             var usage = SessionHub.Instance.Usage;
@@ -80,6 +71,16 @@ namespace SlopWorld
             var rows = Rows(usage);
 
             float x = area.xMax;
+            DateTime now = DateTime.Now;
+            string time = now.ToString("HH:mm");
+            float clockNeed = IconSize + 2f + SlopWidgets.Wide(time) + 2f;
+            if (x - clockNeed >= area.x)
+            {
+                x -= clockNeed;
+                DrawClock(new Rect(x, area.y, clockNeed, area.height), now);
+                x -= ChipGap;
+            }
+
             for (int i = rows.Count - 1; i >= 0; i--)
             {
                 string key = rows[i];

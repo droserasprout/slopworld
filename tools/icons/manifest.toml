@@ -73,6 +73,11 @@ glyph = "cod-credit_card"
 code = "eac9"
 note = "the Usage options row, which used to draw a lump of ThingDefOf.Silver: money, but the game's money, on a page about what an API bills"
 
+[time]
+glyph = "cod-clock"
+code = "ea4a"
+note = "the real clock as the last resource on the top bar"
+
 [keyboard]
 glyph = "cod-keyboard"
 code = "ea65"

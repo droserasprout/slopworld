@@ -26,7 +26,8 @@ separate from layout selection: hiding chrome must not move the rest of the UI.
 per key and may be overridden by `Settings.usageIcons`. Missing rows expected from an
 enabled source remain as placeholders so an expired login does not look like the resource
 was removed. Freshness comes from the snapshot's successful-poll timestamp, not message
-arrival time.
+arrival time. The real clock is the strip's final resource, immediately before the colony
+doors, rather than a centred divider.
 
 `TopBar` is drawn from the map component and, over a terminal, by `TerminalWindow`; only
 one copy may register input. Doors are laid out right-to-left before quota so transient
