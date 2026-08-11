@@ -106,6 +106,7 @@ namespace SlopWorld
         static readonly string[] OstFiles = { "slopbg01.ogg", "slopbg02.ogg" };
         static readonly string[] OstTitles = { "Terry Fail - slopbg01 (WIP)", "Terry Fail - slopbg02 (WIP)" };
         static int _ostIndex = 0;
+        static readonly System.Random Dice = new System.Random();
 
         static string OstPath()
         {
@@ -250,6 +251,22 @@ namespace SlopWorld
         {
             _ostIndex = (_ostIndex + 1) % OstFiles.Length;
             Pick(null, 0);
+        }
+
+        // Pick one OST track or one station, with a station quality chosen independently.
+        // OST tracks are the only source without a meaningful quality, so their branch just
+        // chooses the track and lets Pick handle mute, persistence, and the daemon push.
+        public static void PickRandom()
+        {
+            if (Dice.Next(Stations.Length + 1) == 0)
+            {
+                _ostIndex = Dice.Next(OstFiles.Length);
+                Pick(null, 0);
+                return;
+            }
+
+            var station = Stations[Dice.Next(Stations.Length)];
+            Pick(station, station.Rates[Dice.Next(station.Rates.Length)]);
         }
 
         public static void ToggleMute()

@@ -9,7 +9,7 @@ namespace SlopWorld
 {
     // F1: VSCode-style command palette. Top centre float, input field, filtered command
     // list, recently used first. Nested sub-commands for actions that need a second
-    // selection (e.g. "Agent: Stop" → pick which agent).
+    // selection (e.g. "Agent: Stop" → pick which agent, or "Jukebox: Tune" → station → quality).
     //
     // Everything that any window or button does is reachable from here, so no action is
     // hidden behind a dialog the player has not found yet.
@@ -47,6 +47,7 @@ namespace SlopWorld
         // _subOptions after the filter, rebuilt when it moves rather than per frame.
         List<SubHit> _subShown = new List<SubHit>();
         int _subIndex;
+        readonly List<SubFrame> _subStack = new List<SubFrame>();
 
         readonly SmoothScroll _scroll = new SmoothScroll();
         int _selectedIndex;
@@ -155,7 +156,7 @@ namespace SlopWorld
                 switch (e.keyCode)
                 {
                     case KeyCode.Escape:
-                        if (_mode == Mode.Sub) BackToCommands();
+                        if (_mode == Mode.Sub) BackSub();
                         else Close();
                         e.Use();
                         return;
@@ -228,7 +229,7 @@ namespace SlopWorld
                 // The text field was empty so it didn't consume the key; ours to take.
                 if (isKeyDown && e.keyCode == KeyCode.Backspace && !hadFilter)
                 {
-                    BackToCommands();
+                    BackSub();
                     e.Use();
                     return;
                 }
@@ -258,6 +259,7 @@ namespace SlopWorld
         {
             _mode = Mode.Commands;
             _subCmd = null;
+            _subStack.Clear();
             _subFilter = "";
             _subHasFilter = false;
             _input = "";
@@ -488,9 +490,20 @@ namespace SlopWorld
             public string Label;
             public string Value;
             public bool Enabled = true;
+            public Func<List<SubOption>> Children;
+            public Action Select;
             // A checkbox row when it is set, and the state the box is in. Null for the sub
             // lists that pick one thing and are done, which is most of them.
             public bool? Checked;
+        }
+
+        class SubFrame
+        {
+            public List<SubOption> Options;
+            public string Prompt;
+            public string Filter;
+            public bool HasFilter;
+            public int Index;
         }
 
         // A row as the list draws it: the command, and the name with whatever the search
@@ -856,6 +869,21 @@ namespace SlopWorld
             });
             _commands.Add(new Entry
             {
+                Id = "jukebox.random",
+                Name = "Jukebox: Random",
+                Category = "Jukebox",
+                Execute = _ => Radio.PickRandom(),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "jukebox.tune",
+                Name = "Jukebox: Tune",
+                Category = "Jukebox",
+                SubAction = JukeboxSub,
+                Execute = _ => { },
+            });
+            _commands.Add(new Entry
+            {
                 Id = "jukebox.like",
                 Name = "Jukebox: Like",
                 Category = "Jukebox",
@@ -1000,6 +1028,48 @@ namespace SlopWorld
             return list;
         }
 
+        static List<SubOption> JukeboxSub()
+        {
+            var list = new List<SubOption>
+            {
+                new SubOption
+                {
+                    Label = Radio.Picked == null && !Radio.Muted ? "OST  (playing)" : "OST",
+                    Select = Radio.PickOst,
+                },
+            };
+
+            foreach (var station in Radio.Stations)
+            {
+                var s = station;
+                list.Add(new SubOption
+                {
+                    Label = Radio.Picked == s && !Radio.Muted
+                        ? $"{s.Name}  -  {Radio.RateLabel(s.Rate)}  (playing)"
+                        : s.Name,
+                    Children = () => JukeboxPresetsSub(s),
+                });
+            }
+            return list;
+        }
+
+        static List<SubOption> JukeboxPresetsSub(Radio.Station station)
+        {
+            var list = new List<SubOption>();
+            foreach (int preset in station.Rates)
+            {
+                var rate = preset;
+                list.Add(new SubOption
+                {
+                    Label = Radio.RateLabel(rate)
+                        + (Radio.Picked == station && !Radio.Muted && station.Rate == rate
+                            ? "  (playing)" : ""),
+                    Select = () => Radio.Pick(station, rate),
+                });
+            }
+            return list;
+        }
+
         // --------------------------------------------------------------- actions
 
         void ExecuteSelected()
@@ -1016,7 +1086,14 @@ namespace SlopWorld
             var opt = _subShown[_subIndex].O;
             if (!opt.Enabled) return;
 
-            _subCmd?.Execute(opt.Value);
+            if (opt.Children != null)
+            {
+                EnterNestedSub(opt);
+                return;
+            }
+
+            if (opt.Select != null) opt.Select();
+            else _subCmd?.Execute(opt.Value);
             TrackRecent(_subCmd?.Id);
             Close();
         }
@@ -1062,6 +1139,7 @@ namespace SlopWorld
         {
             _mode = Mode.Sub;
             _subCmd = entry;
+            _subStack.Clear();
             _subOptions = entry.SubAction();
             _subIndex = 0;
             _subPrompt = entry.Name + ":";
@@ -1069,6 +1147,51 @@ namespace SlopWorld
             _subHasFilter = false;
             _input = "";
             _filter = "";
+            _scroll.JumpTo(Vector2.zero);
+            _focusInput = true;
+            RebuildSub();
+            Resize();
+        }
+
+        void EnterNestedSub(SubOption option)
+        {
+            var children = option.Children();
+            if (children == null || children.Count == 0) return;
+
+            _subStack.Add(new SubFrame
+            {
+                Options = _subOptions,
+                Prompt = _subPrompt,
+                Filter = _subFilter,
+                HasFilter = _subHasFilter,
+                Index = _subIndex,
+            });
+            _subOptions = children;
+            _subPrompt = option.Label + ":";
+            _subFilter = "";
+            _subHasFilter = false;
+            _subIndex = 0;
+            _scroll.JumpTo(Vector2.zero);
+            _focusInput = true;
+            RebuildSub();
+            Resize();
+        }
+
+        void BackSub()
+        {
+            if (_subStack.Count == 0)
+            {
+                BackToCommands();
+                return;
+            }
+
+            var frame = _subStack[_subStack.Count - 1];
+            _subStack.RemoveAt(_subStack.Count - 1);
+            _subOptions = frame.Options;
+            _subPrompt = frame.Prompt;
+            _subFilter = frame.Filter;
+            _subHasFilter = frame.HasFilter;
+            _subIndex = frame.Index;
             _scroll.JumpTo(Vector2.zero);
             _focusInput = true;
             RebuildSub();
