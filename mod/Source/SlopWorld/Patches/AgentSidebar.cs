@@ -260,6 +260,11 @@ namespace SlopWorld
         public static Rect AddBar =>
             new Rect(CellX, UI.screenHeight - Pad - AddH, Width - CellX * 2f, AddH);
 
+        // Keep the visual strip inset, but let its hit target reach the panel's screen
+        // edges so the bottom-left screen pixel still belongs to Add.
+        static Rect AddHitBar =>
+            new Rect(0f, AddBar.y, Width, UI.screenHeight - AddBar.y);
+
         public static Rect Body =>
             new Rect(0f, TabH, Width,
                 Mathf.Max(0f, UI.screenHeight - TabH - AddH - Pad * 2f));
@@ -581,7 +586,7 @@ namespace SlopWorld
 
             var e = Event.current;
             if (e.rawType != EventType.MouseDown || e.button != 0) return false;
-            if (!ColonistBarStrip.MouseOver(AddBar)) return false;
+            if (!ColonistBarStrip.MouseOver(AddHitBar)) return false;
 
             e.Use();
 

@@ -197,3 +197,6 @@ docs:              ## Build human docs
 
 docs-serve:        ## Serve human docs
 	cd docs && mdbook serve
+
+devloop:
+	sh -c 'while true; do make install run; sleep 1; done;'
