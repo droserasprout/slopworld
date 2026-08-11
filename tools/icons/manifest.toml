@@ -78,8 +78,8 @@ code = "eac9"
 note = "the Usage options row, which used to draw a lump of ThingDefOf.Silver: money, but the game's money, on a page about what an API bills"
 
 [time]
-glyph = "cod-clock"
-code = "ea4a"
+glyph = "cod-clockface"
+code = "ec75"
 note = "the real clock as the last resource on the top bar"
 
 [keyboard]
