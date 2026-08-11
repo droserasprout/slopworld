@@ -316,6 +316,22 @@ namespace SlopWorld
             }
         }
 
+        // Dialog_Options() opens vanilla General by default. That category is stripped, so
+        // the main menu road must not begin on a selected page with no row in the column.
+        // Explicit constructors for our content view already name their destination.
+        [HarmonyPatch(typeof(Dialog_Options), nameof(Dialog_Options.PostOpen))]
+        public static class Patch_OptionsDefaultCategory
+        {
+            static void Postfix(Dialog_Options __instance)
+            {
+                if (__instance.selectedCategory == OptionCategoryDefOf.General)
+                {
+                    __instance.selectedCategory = Category;
+                    __instance.selectedMod = null;
+                }
+            }
+        }
+
         // ---------------------------------------------------------------- appearance
 
         // The Appearance row, between Terminal and Usage. A typeface icon: the page is

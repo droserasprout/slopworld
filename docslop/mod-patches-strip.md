@@ -29,22 +29,20 @@
 - **Dev mode went with them** - the nine developer bindings are not kept, our
   checkbox on `ConfigPage` is gone, and vanilla's own row stays dropped. No door
   to it inside this game; the unmodded one is where something gets tried.
-- **`StripOptions`** - Gameplay goes by `isDev = true`, the switch `Dialog_Options`
+- **`StripOptions`** - General and Gameplay go by `isDev = true`, the switch `Dialog_Options`
   already reads: it skips a dev category and advances its row counter only for the
   ones it draws, so the column has no hole. Not by removing the def from
   `AllDefsListForReading` - that list *is* the database's own, so a def out of it
-  is gone from every `AllDefs` walk while `GetNamed` still answers. General stays
-  and loses **rows** instead, matched by their finished labels (the two autosave
-  ones, run-in-background, development mode), as does Controls (the key bindings
-  "Modify" button). With dev mode unreachable from inside, `isDev` is now a
-  one-way door.
+  is gone from every `AllDefs` walk while `GetNamed` still answers. Controls loses
+  the key bindings "Modify" button by its finished label. With dev mode unreachable
+  from inside, `isDev` is now a one-way door. A vanilla options window that defaulted
+  to the hidden General category is redirected to SlopWorld General on `PostOpen`.
 
 ## `SlopOptions` - our categories in vanilla's options window
 
-`ConfigPage`, `TerminalPage`, `UsagePage`, `SandboxPage`, `AboutPage`, inserted at
-0, 1, 2, 3 and 4. The daemon's
-settings live there rather than in a window of their own, so there is one page a
-knob is looked for on.
+The SlopWorld pages are inserted as one group ahead of the remaining RimWorld
+categories. Daemon and mod settings live there rather than in windows of their own,
+so there is one page a knob is looked for on.
 
 - It opens **inside** the chrome rather than over it - `SlopLayout.LeftInset` /
   `TopInset` off the corner, the rest of the screen - so the column and the line

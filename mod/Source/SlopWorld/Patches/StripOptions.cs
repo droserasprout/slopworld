@@ -6,8 +6,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The one vanilla window left standing, the mod's own settings being in it. A category is
-    // taken out whole and a row one at a time, because Dialog_Options is built two ways:
+    // The one vanilla window left standing, the mod's own settings being in it. Categories
+    // are taken out whole and rows one at a time, because Dialog_Options is built two ways:
     // categories are OptionCategoryDefs walked out of the database, where rows are widget
     // calls a private method per category makes on one Listing_Standard.
     public static class StripOptions
@@ -44,26 +44,27 @@ namespace SlopWorld
             && OptionsView.Anywhere
             && Dropped.Any(built => label == built());
 
-        // By the def's own isDev rather than by patching, because that is the switch vanilla
+        // By each def's own isDev rather than by patching, because that is the switch vanilla
         // already reads: the loop skips a dev category unless Prefs.DevMode and advances its
-        // row counter only for the ones it draws, so the column has no hole. The def stays in
-        // the database - OptionCategoryDefOf names all eight. Dev mode brings it back.
+        // row counter only for the ones it draws, so the column has no hole. The defs stay in
+        // the database - OptionCategoryDefOf names all eight. Dev mode brings them back.
         //
         // Not by removing the def from `AllDefsListForReading`: that list *is* the database's
         // own, so a def taken out of it is gone from every `AllDefs` walk in the process while
         // `GetNamed` still answers for it, and any mod that enumerates the categories to hang
-        // its own row off one finds a hole. General keeps its slot for the same reason it
-        // always did - the three rows below are all we ever wanted out of it, and the rest of
-        // what it holds is the player's to reach.
+        // its own row off one finds a hole.
         public static void Hide()
         {
-            var gone = OptionCategoryDefOf.Gameplay;
-            if (gone == null)
-            {
-                Log.Warning("[SlopWorld] no Gameplay option category to hide");
-                return;
-            }
-            gone.isDev = true;
+            Hide(OptionCategoryDefOf.General, "General");
+            Hide(OptionCategoryDefOf.Gameplay, "Gameplay");
+        }
+
+        static void Hide(OptionCategoryDef category, string name)
+        {
+            if (category == null)
+                Log.Warning($"[SlopWorld] no {name} option category to hide");
+            else
+                category.isDev = true;
         }
 
         // Void, so declining to call it is the whole of it: the listing advances inside
