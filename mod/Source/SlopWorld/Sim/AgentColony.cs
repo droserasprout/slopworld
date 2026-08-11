@@ -405,6 +405,7 @@ namespace SlopWorld
             pawn.Name = new NameSingle(name);
             RobotFace.FitHair(pawn);
             RobotFace.Assign(pawn);
+            AgentLook.Roll(pawn);
 
             // In a pod, always, and neither forbidden nor slagged: the pod is the arrival, not
             // wreckage to clear. SpawnSpot picks the ground; DropCellFinder does the last few

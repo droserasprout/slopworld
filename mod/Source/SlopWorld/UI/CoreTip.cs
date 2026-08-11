@@ -166,7 +166,7 @@ namespace SlopWorld
             // Grandma mode: no fun allowed.
             if (!Settings.GrandmaMode)
                 options.Add(new FloatMenuOption("Kill something", KillAction));
-            options.Add(new FloatMenuOption("New faces", NewFacesAction));
+            options.Add(new FloatMenuOption("New look", NewLookAction));
             options.Add(new FloatMenuOption("Next planet", NextPlanet.Begin));
 
             // OpenOverPane rather than a plain Add: the status bar is drawn over a terminal
@@ -212,8 +212,8 @@ namespace SlopWorld
             _nextStrikeAt = Time.realtimeSinceStartup;
         }
 
-        // Reroll the visible parts of every agent's face at once.
-        void NewFacesAction()
+        // Reroll the visible parts of every agent at once.
+        void NewLookAction()
         {
             var colony = AgentColony.Current;
             if (colony == null) return;
@@ -222,7 +222,7 @@ namespace SlopWorld
             {
                 var pawn = kv.Value;
                 if (pawn == null || pawn.Destroyed) continue;
-                RobotFace.Reroll(pawn);
+                AgentLook.Reroll(pawn);
             }
         }
 
