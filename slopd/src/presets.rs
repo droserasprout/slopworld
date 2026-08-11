@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock, RwLock};
 
@@ -255,9 +255,8 @@ fn valid_name(name: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn user_files() -> anyhow::Result<Vec<(PathBuf, PresetFile)>> {
-    let dir = Table::dir();
-    let Ok(entries) = std::fs::read_dir(&dir) else {
+fn read_user_files(dir: &std::path::Path) -> anyhow::Result<Vec<(PathBuf, PresetFile)>> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
         return Ok(Vec::new());
     };
     let mut paths: Vec<PathBuf> = entries
@@ -296,36 +295,59 @@ fn write_user_file(
     let _guard = user_write_lock()
         .lock()
         .map_err(|_| anyhow::anyhow!("preset write lock is poisoned"))?;
-    let dir = Table::dir();
-    std::fs::create_dir_all(&dir)?;
+    write_user_file_in(&Table::dir(), kind, name, sandbox, command)
+}
+
+fn write_user_file_in(
+    dir: &std::path::Path,
+    kind: &str,
+    name: &str,
+    sandbox: Option<SandboxPreset>,
+    command: Option<CommandPreset>,
+) -> anyhow::Result<()> {
+    std::fs::create_dir_all(dir)?;
     let target = dir.join(format!("{name}.toml"));
-    let mut files = user_files()?;
+    let mut files = read_user_files(dir)?;
     if !files.iter().any(|(path, _)| *path == target) {
         files.push((target.clone(), PresetFile::default()));
     }
 
     // A name is a logical entry even when an older hand-written file put it elsewhere. Remove
     // just this kind from every file, preserving the other kind and every unrelated preset.
-    for (_, file) in &mut files {
+    let mut changed = HashSet::new();
+    for (path, file) in &mut files {
         if kind == "sandbox" {
+            let len = file.sandbox.len();
             file.sandbox.retain(|p| p.name != name);
+            if file.sandbox.len() != len {
+                changed.insert(path.clone());
+            }
         } else {
+            let len = file.command.len();
             file.command.retain(|p| p.name != name);
+            if file.command.len() != len {
+                changed.insert(path.clone());
+            }
         }
     }
     let target_index = files.iter().position(|(path, _)| *path == target).unwrap();
     if kind == "sandbox" {
         if let Some(p) = sandbox {
             files[target_index].1.sandbox.push(p);
+            changed.insert(target.clone());
         }
     } else if let Some(c) = command {
         files[target_index].1.command.push(c);
+        changed.insert(target.clone());
     }
 
     // Rewrite the files whose entries changed too. Merely writing the target would leave an
     // old definition in another user file, and filename order would make the result depend on
     // an invisible stale copy. Empty files are removed, including the target on delete.
     for (path, file) in files {
+        if !changed.contains(&path) {
+            continue;
+        }
         if file.sandbox.is_empty() && file.command.is_empty() {
             if path.exists() {
                 std::fs::remove_file(path)?;
@@ -592,5 +614,31 @@ mod tests {
         assert_eq!(t.command("claude").unwrap().cmd, "claude --model opus");
         assert_eq!(t.command("codex").unwrap().cmd, "codex --yolo");
         assert_eq!(t.sandbox.len(), 1);
+    }
+
+    #[test]
+    fn saving_one_preset_does_not_reserialize_an_unrelated_file() {
+        let dir = std::env::temp_dir().join(format!("slopd-presets-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let untouched = dir.join("handwritten.toml");
+        let original = "# keep this comment\n[[sandbox]]\nname = \"other\"\nfuture = true\n";
+        std::fs::write(&untouched, original).unwrap();
+
+        write_user_file_in(
+            &dir,
+            "sandbox",
+            "changed",
+            Some(SandboxPreset {
+                name: "changed".into(),
+                ..Default::default()
+            }),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(std::fs::read_to_string(untouched).unwrap(), original);
+        assert!(dir.join("changed.toml").exists());
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

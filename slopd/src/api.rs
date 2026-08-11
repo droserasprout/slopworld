@@ -746,6 +746,14 @@ async fn delete_preset(
                     ));
                 }
             }
+            for p in remaining.sandbox.iter().chain(builtins.sandbox.iter()) {
+                if p.requires.iter().any(|d| d == &name) {
+                    return Err(err(
+                        StatusCode::BAD_REQUEST,
+                        format!("sandbox {name:?} is required by sandbox {:?}", p.name),
+                    ));
+                }
+            }
         }
         crate::presets::remove_sandbox(&name).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     } else {

@@ -1385,7 +1385,11 @@ impl Manager {
         let mut cfg = self.cfg.write().await;
         sc.builtin = false;
         check_shortcut(&cfg, &sc)?;
-        if cfg.shortcut(&sc.name).is_some() {
+        if cfg
+            .shortcuts
+            .iter()
+            .any(|existing| existing.name == sc.name)
+        {
             bail!("shortcut {} already exists", sc.name);
         }
         let attach_project = (sc.kind == ShortcutKind::Breadcrumb && !sc.project.trim().is_empty())
@@ -1417,9 +1421,15 @@ impl Manager {
             .iter()
             .position(|x| x.name == name)
             .ok_or_else(|| anyhow!("no such shortcut: {name}"))?;
-        if sc.name != name && cfg.shortcut(&sc.name).is_some() {
+        if sc.name != name
+            && cfg
+                .shortcuts
+                .iter()
+                .any(|existing| existing.name == sc.name)
+        {
             bail!("shortcut {} already exists", sc.name);
         }
+        let old = cfg.shortcuts[idx].clone();
         if sc.name != name {
             for p in &mut cfg.projects {
                 for attached in &mut p.breadcrumbs {
@@ -1438,17 +1448,24 @@ impl Manager {
         }
         cfg.shortcuts[idx] = sc.clone();
         if sc.kind == ShortcutKind::Breadcrumb {
-            for p in &mut cfg.projects {
-                p.breadcrumbs.retain(|b| b != name && b != &sc.name);
+            if !old.project.trim().is_empty() && old.project != sc.project {
+                if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == old.project) {
+                    p.breadcrumbs.retain(|b| b != &sc.name);
+                }
             }
             if !sc.project.trim().is_empty() {
                 if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == sc.project) {
-                    p.breadcrumbs.push(sc.name.clone());
+                    if !p.breadcrumbs.contains(&sc.name) {
+                        p.breadcrumbs.push(sc.name.clone());
+                    }
                 }
             }
         } else {
             for p in &mut cfg.projects {
-                p.breadcrumbs.retain(|b| b != name);
+                p.breadcrumbs.retain(|b| b != name && b != &sc.name);
+            }
+            for s in &mut cfg.sessions {
+                s.breadcrumbs.retain(|b| b != name && b != &sc.name);
             }
         }
         self.save_cfg(&cfg)?;
@@ -2090,12 +2107,13 @@ impl Manager {
             match live.get_mut(name) {
                 None => None,
                 Some(l) if !l.breadcrumbs_pending => None,
-                Some(l) => keys.iter().position(|k| k == "Enter").map(|pos| {
+                Some(l) if !literal => keys.iter().position(|k| k == "Enter").map(|pos| {
                     l.breadcrumbs_pending = false;
                     let text = String::from_utf8_lossy(&l.breadcrumbs);
                     let text = render_template(&text, &random_tips);
                     (text.into_bytes(), pos)
                 }),
+                Some(_) => None,
             }
         };
         if let Some((text, pos)) = inject {
@@ -2172,8 +2190,9 @@ impl Manager {
             .session_cfg(name)
             .await
             .ok_or_else(|| anyhow!("no such session: {name}"))?;
-        let p = cfg
-            .project_of(&s)
+        let p = self
+            .project_for(&cfg, &s)
+            .await
             .ok_or_else(|| anyhow!("session {name} has no configured project"))?;
         let b = cfg
             .shortcut(breadcrumb)

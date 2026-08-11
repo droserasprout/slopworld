@@ -11,7 +11,7 @@ namespace SlopWorld
 
         public ConnectionInfo(string host, int port, string token)
         {
-            Host = host;
+            Host = (host ?? "").Trim('[', ']');
             Port = port;
             Token = token ?? "";
         }

@@ -43,16 +43,30 @@ impl Tasks {
     pub fn load(config: &Path) -> Result<Self> {
         let path = config.with_file_name("tasks.json");
         let file = match fs::read_to_string(&path) {
-            Ok(s) => {
-                serde_json::from_str(&s).with_context(|| format!("parsing {}", path.display()))?
-            }
+            Ok(s) => match serde_json::from_str(&s) {
+                Ok(file) => file,
+                Err(e) => {
+                    tracing::warn!("ignoring invalid task store {}: {e}", path.display());
+                    File::default()
+                }
+            },
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => File::default(),
-            Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
+            Err(e) => {
+                tracing::warn!("ignoring unreadable task store {}: {e}", path.display());
+                File::default()
+            }
         };
+        let sequence = file
+            .tasks
+            .iter()
+            .filter_map(|task| task.id.rsplit_once('-'))
+            .filter_map(|(_, suffix)| u64::from_str_radix(suffix, 16).ok())
+            .max()
+            .unwrap_or(0);
         Ok(Self {
             path,
             file,
-            sequence: 0,
+            sequence,
         })
     }
 
@@ -159,6 +173,28 @@ mod tests {
                 .status,
             Status::Done
         );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn invalid_store_is_ignored_and_loaded_ids_continue_the_sequence() {
+        let dir = std::env::temp_dir().join(format!("slopd-bad-tasks-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let config = dir.join("config.toml");
+        fs::write(dir.join("tasks.json"), "{").unwrap();
+        assert!(Tasks::load(&config).unwrap().visible("anyone").is_empty());
+
+        let mut tasks = Tasks::load(&config).unwrap();
+        let first = tasks
+            .create("alice".into(), "bob".into(), "first".into())
+            .unwrap();
+        let mut loaded = Tasks::load(&config).unwrap();
+        let second = loaded
+            .create("alice".into(), "bob".into(), "second".into())
+            .unwrap();
+        assert_eq!(first.id.rsplit_once('-').unwrap().1, "0001");
+        assert_eq!(second.id.rsplit_once('-').unwrap().1, "0002");
         let _ = fs::remove_dir_all(dir);
     }
 }
