@@ -156,6 +156,24 @@ namespace SlopWorld
                 IconRow(l, "openai_week", "Secondary window");
             }
 
+            // ---------------------------------------------------- automatic titles
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "Automatic task titles");
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+                    "Codex titles: " + TitlePolicyLabel(_cfg.AgentTitles)))
+                OpenTitlePolicyMenu();
+            Note(l, "Names a Codex session from its submitted prompt. The request uses " +
+                    "OpenRouter; it is independent of the credit-balance poll above.");
+
+            if (_cfg.AgentTitles != "never")
+            {
+                l.Gap(SlopWidgets.GapS);
+                l.Label("Title model");
+                _cfg.TitleModel = SlopWidgets.Field(l, "usage.title.model", _cfg.TitleModel);
+                Note(l, "At most 2,000 characters of each eligible prompt are sent to " +
+                        "OpenRouter. Use the key file or $OPENROUTER_API_KEY above.");
+            }
+
             // ---------------------------------------------------------------- Both
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "Both");
@@ -176,6 +194,27 @@ namespace SlopWorld
             GUI.color = SlopWidgets.Dim;
             l.Label(text);
             GUI.color = Color.white;
+        }
+
+        static string TitlePolicyLabel(string policy)
+        {
+            switch (policy)
+            {
+                case "once": return "First prompt in each conversation";
+                case "always": return "Every prompt";
+                default: return "Off";
+            }
+        }
+
+        void OpenTitlePolicyMenu()
+        {
+            Find.WindowStack.Add(new SlopMenu(new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Off", () => _cfg.AgentTitles = "never"),
+                new FloatMenuOption("First prompt in each conversation", () =>
+                    _cfg.AgentTitles = "once"),
+                new FloatMenuOption("Every prompt", () => _cfg.AgentTitles = "always"),
+            }));
         }
 
 

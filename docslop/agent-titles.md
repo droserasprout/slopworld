@@ -8,6 +8,9 @@ how to read the OpenRouter key without exposing it inside an agent sandbox.
 sends prompt text to OpenRouter. `title_model` names the model; `openrouter_key_file`, or
 slopd's `OPENROUTER_API_KEY` when it is blank, supplies the key.
 
+The Usage settings page exposes the Codex title policy and model. It shares the OpenRouter
+key field with credit polling, but title generation does not require credit polling to be on.
+
 The initial implementation observes Codex only:
 
 - `never`: do not generate a title; pass through the agent's OSC title.

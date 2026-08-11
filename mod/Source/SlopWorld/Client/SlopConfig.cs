@@ -35,6 +35,10 @@ namespace SlopWorld
         // it is a live login file that the daemon reads fresh and never sends to the mod.
         public bool Openai = true;
         public string OpenaiCredentials = "~/.codex/auth.json";
+        // Prompt-derived session titles are a separate OpenRouter request, not part of the
+        // usage poll. Kept here because the Usage page owns both the key and the Codex rows.
+        public string AgentTitles = "never";
+        public string TitleModel = "google/gemini-3.1-flash-lite";
 
         // Both name a command preset: what an agent that names none of its own runs, and
         // what a shell errand runs. What each one *is* is a TOML file the daemon reads.
@@ -60,6 +64,8 @@ namespace SlopWorld
                 OpenrouterKeyFile = d["openrouter_key_file"].AsString(),
                 Openai = d["openai"].AsBool(true),
                 OpenaiCredentials = d["openai_credentials"].AsString("~/.codex/auth.json"),
+                AgentTitles = d["agent_titles"].AsString("never"),
+                TitleModel = d["title_model"].AsString("google/gemini-3.1-flash-lite"),
 
                 Agent = f["agent"].AsString("claude"),
                 Shell = f["shell"].AsString("shell"),
@@ -77,7 +83,9 @@ namespace SlopWorld
             $"\"openrouter\":{JVal.B(Openrouter)}," +
             $"\"openrouter_key_file\":{JVal.Q(OpenrouterKeyFile)}," +
             $"\"openai\":{JVal.B(Openai)}," +
-            $"\"openai_credentials\":{JVal.Q(OpenaiCredentials)}" +
+            $"\"openai_credentials\":{JVal.Q(OpenaiCredentials)}," +
+            $"\"agent_titles\":{JVal.Q(AgentTitles)}," +
+            $"\"title_model\":{JVal.Q(TitleModel)}" +
             "}," +
             "\"defaults\":{" +
             $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}" +
