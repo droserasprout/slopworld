@@ -13,6 +13,7 @@ mod presets;
 mod sandbox;
 mod session;
 mod tasks;
+mod title;
 mod tmux;
 mod usage;
 

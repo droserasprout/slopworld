@@ -116,6 +116,23 @@ pub struct Daemon {
     /// Off means slopd never reads Codex's auth file or asks ChatGPT for its limits.
     #[serde(default = "yes")]
     pub openai: bool,
+    /// Automatic task titles are opt-in because a title request sends part of a prompt to
+    /// OpenRouter. `once` names the first real prompt in each Codex conversation.
+    #[serde(default)]
+    pub agent_titles: TitlePolicy,
+    /// Kept configurable because OpenRouter model names have a shorter lifetime than this
+    /// config schema.
+    #[serde(default = "default_title_model")]
+    pub title_model: String,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TitlePolicy {
+    #[default]
+    Never,
+    Once,
+    Always,
 }
 
 fn default_history_limit() -> u32 {
@@ -132,6 +149,10 @@ fn default_credentials() -> String {
 
 fn default_openai_credentials() -> String {
     "~/.codex/auth.json".into()
+}
+
+fn default_title_model() -> String {
+    "google/gemini-3.1-flash-lite".into()
 }
 
 /// Where `make install-runner` puts it, in full rather than left to PATH: a user unit's PATH
@@ -156,6 +177,8 @@ impl Default for Daemon {
             openrouter_key_file: String::new(),
             openai_credentials: default_openai_credentials(),
             openai: true,
+            agent_titles: TitlePolicy::Never,
+            title_model: default_title_model(),
         }
     }
 }
@@ -720,8 +743,17 @@ pub fn expand(path: &str) -> String {
 mod tests {
     use super::{
         expand, redact_token_text, temp_dir, Config, NetworkMode, ProjectCfg, SessionCfg,
-        ShortcutCfg, ShortcutKind, ShortcutLink, TOKEN_REDACTED,
+        ShortcutCfg, ShortcutKind, ShortcutLink, TitlePolicy, TOKEN_REDACTED,
     };
+
+    #[test]
+    fn automatic_titles_are_opt_in_and_once_parses() {
+        assert_eq!(Config::default().daemon.agent_titles, TitlePolicy::Never);
+        let mut cfg = Config::default();
+        cfg.daemon.agent_titles = TitlePolicy::Once;
+        let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        assert_eq!(back.daemon.agent_titles, TitlePolicy::Once);
+    }
 
     /// What a client sees never carries the secret, and a token that is not set still reads as
     /// not set - "no auth" being a fact worth telling straight.

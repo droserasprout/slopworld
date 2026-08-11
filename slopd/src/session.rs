@@ -14,6 +14,7 @@ use tokio::task::JoinHandle;
 
 use crate::config::{
     expand, Config, NetworkMode, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink,
+    TitlePolicy,
 };
 use crate::emu::{parse_output, Frame, MouseInput, SessionEmu};
 use crate::sandbox::build_argv;
@@ -187,6 +188,7 @@ struct Live {
     // Spliced immediately before the first Enter after process start.
     breadcrumbs: Vec<u8>,
     breadcrumbs_pending: bool,
+    title: TitleCapture,
 }
 
 impl Live {
@@ -198,6 +200,138 @@ impl Live {
         self.state_since = now_ms();
         true
     }
+}
+
+struct TitleCapture {
+    composer: Composer,
+    conversation: u64,
+    generation: u64,
+    pending: bool,
+    override_title: Option<String>,
+}
+
+impl Default for TitleCapture {
+    fn default() -> Self {
+        Self {
+            composer: Composer::ready(),
+            conversation: 0,
+            generation: 0,
+            pending: false,
+            override_title: None,
+        }
+    }
+}
+
+#[derive(Default)]
+struct Composer {
+    text: Vec<char>,
+    cursor: usize,
+    certain: bool,
+}
+
+enum Submission {
+    Prompt(String),
+    New(Option<String>),
+}
+
+impl Composer {
+    fn ready() -> Self {
+        Self {
+            certain: true,
+            ..Self::default()
+        }
+    }
+
+    fn literal(&mut self, text: &str) {
+        // The mod encodes Shift+Enter with kitty's keyboard protocol. Codex receives a
+        // multiline edit; keeping the escape bytes would poison the mirrored prompt.
+        if text == "\x1b[13;2u" {
+            self.text.insert(self.cursor, '\n');
+            self.cursor += 1;
+            return;
+        }
+        for ch in text.chars() {
+            self.text.insert(self.cursor, ch);
+            self.cursor += 1;
+        }
+    }
+
+    fn paste(&mut self, text: &str) {
+        self.literal(text);
+    }
+
+    fn key(&mut self, key: &str) -> Option<Submission> {
+        match key {
+            "Enter" => return self.submit(),
+            "BSpace" if self.cursor > 0 => {
+                self.cursor -= 1;
+                self.text.remove(self.cursor);
+            }
+            "DC" if self.cursor < self.text.len() => {
+                self.text.remove(self.cursor);
+            }
+            "Left" if self.cursor > 0 => self.cursor -= 1,
+            "Right" if self.cursor < self.text.len() => self.cursor += 1,
+            "Home" | "C-a" => self.cursor = 0,
+            "End" | "C-e" => self.cursor = self.text.len(),
+            "C-u" => {
+                self.text.drain(..self.cursor);
+                self.cursor = 0;
+            }
+            "C-k" => self.text.truncate(self.cursor),
+            "C-w" => {
+                while self.cursor > 0 && self.text[self.cursor - 1].is_whitespace() {
+                    self.cursor -= 1;
+                    self.text.remove(self.cursor);
+                }
+                while self.cursor > 0 && !self.text[self.cursor - 1].is_whitespace() {
+                    self.cursor -= 1;
+                    self.text.remove(self.cursor);
+                }
+            }
+            // An interrupt cancels the input rather than making the next Enter submit stale text.
+            "C-c" => *self = Self::ready(),
+            // History, completion, word-wise movement and TUI controls mean our mirror no
+            // longer proves what Codex will receive. Keep forwarding, but skip this submission.
+            _ => self.certain = false,
+        }
+        None
+    }
+
+    fn submit(&mut self) -> Option<Submission> {
+        let certain = self.certain;
+        let text: String = self.text.iter().collect();
+        *self = Self::ready();
+        if !certain {
+            return None;
+        }
+        let text = text.trim();
+        if text.is_empty() {
+            return None;
+        }
+        if text == "/new" {
+            return Some(Submission::New(None));
+        }
+        if let Some(name) = text
+            .strip_prefix("/new ")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            return Some(Submission::New(Some(name.to_string())));
+        }
+        if text.starts_with('/') {
+            return None;
+        }
+        Some(Submission::Prompt(text.to_string()))
+    }
+}
+
+struct TitleRequest {
+    prompt: String,
+    conversation: u64,
+    generation: u64,
+    key_file: String,
+    model: String,
 }
 
 enum Input {
@@ -893,6 +1027,7 @@ impl Manager {
                     input: None,
                     breadcrumbs: Vec::new(),
                     breadcrumbs_pending: false,
+                    title: TitleCapture::default(),
                 });
         }
         drop(live);
@@ -994,6 +1129,7 @@ impl Manager {
                 input: None,
                 breadcrumbs: Vec::new(),
                 breadcrumbs_pending: false,
+                title: TitleCapture::default(),
             },
         );
         true
@@ -1080,6 +1216,7 @@ impl Manager {
             .collect();
         let mut live = self.live.write().await;
         if let Some(l) = live.get_mut(name) {
+            l.title = TitleCapture::default();
             l.breadcrumbs.clear();
             l.breadcrumbs_pending = false;
             if !host && s.breadcrumb_yolo && !crumbs.is_empty() {
@@ -1444,6 +1581,7 @@ impl Manager {
                     input: None,
                     breadcrumbs: Vec::new(),
                     breadcrumbs_pending: false,
+                    title: TitleCapture::default(),
                 },
             );
             name
@@ -1713,9 +1851,10 @@ impl Manager {
                     last_change: l.last_change,
                     state_since: l.state_since,
                     title: l
-                        .screen
-                        .as_ref()
-                        .map(|s| s.title.clone())
+                        .title
+                        .override_title
+                        .clone()
+                        .or_else(|| l.screen.as_ref().map(|s| s.title.clone()))
                         .unwrap_or_default(),
                     bell: l.bell,
                     seq: l.seq,
@@ -1815,13 +1954,137 @@ impl Manager {
         }
     }
 
+    async fn capture_title_keys(self: &Arc<Self>, name: &str, keys: &[String], literal: bool) {
+        let cfg = self.config().await;
+        let policy = cfg.daemon.agent_titles;
+        if policy == TitlePolicy::Never {
+            return;
+        }
+
+        let mut request = None;
+        let mut announce = false;
+        {
+            let mut live = self.live.write().await;
+            let Some(l) = live.get_mut(name) else { return };
+            if cfg.command_name(&l.cfg) != "codex" {
+                return;
+            }
+
+            let mut submission = None;
+            if literal {
+                for key in keys {
+                    l.title.composer.literal(key);
+                }
+            } else {
+                for key in keys {
+                    if let Some(s) = l.title.composer.key(key) {
+                        submission = Some(s);
+                    }
+                }
+            }
+
+            match submission {
+                Some(Submission::New(native)) => {
+                    l.title.conversation = l.title.conversation.wrapping_add(1);
+                    l.title.generation = l.title.generation.wrapping_add(1);
+                    l.title.pending = false;
+                    l.title.override_title = native;
+                    announce = true;
+                }
+                // Waiting input is normally an approval or a picker answer. Missing a title is
+                // preferable to sending that material to an outside service.
+                Some(Submission::Prompt(_)) if l.state == State::Waiting => {}
+                Some(Submission::Prompt(prompt)) => {
+                    let armed = match policy {
+                        TitlePolicy::Never => false,
+                        TitlePolicy::Once => l.title.override_title.is_none() && !l.title.pending,
+                        TitlePolicy::Always => true,
+                    };
+                    if armed {
+                        l.title.generation = l.title.generation.wrapping_add(1);
+                        l.title.pending = true;
+                        request = Some(TitleRequest {
+                            prompt,
+                            conversation: l.title.conversation,
+                            generation: l.title.generation,
+                            key_file: cfg.daemon.openrouter_key_file.clone(),
+                            model: cfg.daemon.title_model.clone(),
+                        });
+                    }
+                }
+                None => {}
+            }
+        }
+        drop(cfg);
+
+        if announce {
+            let _ = self.events.send(Event::Sessions {
+                sessions: self.views().await,
+            });
+        }
+        if let Some(request) = request {
+            let m = self.clone();
+            let name = name.to_string();
+            tokio::spawn(async move {
+                let prompt = request.prompt.clone();
+                let key_file = request.key_file.clone();
+                let model = request.model.clone();
+                let result = tokio::task::spawn_blocking(move || {
+                    crate::title::summarize(&prompt, &key_file, &model)
+                })
+                .await;
+                let result = match result {
+                    Ok(r) => r,
+                    Err(e) => Err(anyhow!("title worker: {e}")),
+                };
+
+                let mut moved = false;
+                {
+                    let mut live = m.live.write().await;
+                    let Some(l) = live.get_mut(&name) else { return };
+                    if l.title.conversation != request.conversation
+                        || l.title.generation != request.generation
+                    {
+                        return;
+                    }
+                    l.title.pending = false;
+                    match result {
+                        Ok(title) => {
+                            l.title.override_title = Some(title);
+                            moved = true;
+                        }
+                        Err(e) => tracing::debug!("title for {name}: {e:#}"),
+                    }
+                }
+                if moved {
+                    let _ = m.events.send(Event::Sessions {
+                        sessions: m.views().await,
+                    });
+                }
+            });
+        }
+    }
+
+    async fn capture_title_paste(&self, name: &str, text: &str) {
+        let cfg = self.config().await;
+        if cfg.daemon.agent_titles == TitlePolicy::Never {
+            return;
+        }
+        let mut live = self.live.write().await;
+        let Some(l) = live.get_mut(name) else { return };
+        if cfg.command_name(&l.cfg) == "codex" {
+            l.title.composer.paste(text);
+        }
+    }
+
     pub async fn send_keys(
-        &self,
+        self: &Arc<Self>,
         name: &str,
         keys: Vec<String>,
         literal: bool,
         random_tips: Vec<String>,
     ) {
+        self.capture_title_keys(name, &keys, literal).await;
         let inject: Option<(Vec<u8>, usize)> = {
             let mut live = self.live.write().await;
             match live.get_mut(name) {
@@ -1891,6 +2154,7 @@ impl Manager {
             bail!("session {name} is not running");
         }
 
+        self.capture_title_paste(name, text).await;
         self.queue_input(name, Input::Paste(text.as_bytes().to_vec()))
             .await;
         Ok(())
@@ -1925,7 +2189,12 @@ impl Manager {
         };
         let text = render_template_with(&b.text, &random_tips, Some(&vars));
         drop(cfg);
-        self.paste(name, &text).await
+        if !self.tmux.exists(name).await {
+            bail!("session {name} is not running");
+        }
+        self.queue_input(name, Input::Paste(text.into_bytes()))
+            .await;
+        Ok(())
     }
 
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
@@ -2506,10 +2775,42 @@ mod tests {
     use super::{
         breadcrumb_block, check_breadcrumbs, check_name, check_shortcut, compile_rules, free_name,
         free_project_name, json_to_toml, match_rules, merge_input, merge_toml, render_template,
-        render_template_with, settle, slug, strip_sgr, Input, Live, State, TemplateVars, BOOT_COLS,
-        BOOT_ROWS, INPUT_BATCH,
+        render_template_with, settle, slug, strip_sgr, Composer, Input, Live, State, Submission,
+        TemplateVars, TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
     };
     use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind};
+
+    #[test]
+    fn codex_composer_recovers_the_submitted_prompt() {
+        let mut c = Composer::ready();
+        c.literal("fix teh parser");
+        for _ in 0..8 {
+            c.key("Left");
+        }
+        c.key("BSpace");
+        c.literal("he");
+        c.key("DC");
+        let Some(Submission::Prompt(prompt)) = c.key("Enter") else {
+            panic!("expected a prompt")
+        };
+        assert_eq!(prompt, "fix the parser");
+    }
+
+    #[test]
+    fn codex_composer_rearms_new_and_skips_uncertain_input() {
+        let mut c = Composer::ready();
+        c.literal("/new parser work");
+        let Some(Submission::New(name)) = c.key("Enter") else {
+            panic!("expected a boundary")
+        };
+        assert_eq!(name.as_deref(), Some("parser work"));
+
+        c.literal("history entry");
+        c.key("Up");
+        assert!(c.key("Enter").is_none());
+        c.literal("fresh prompt");
+        assert!(matches!(c.key("Enter"), Some(Submission::Prompt(_))));
+    }
 
     #[test]
     fn config_patches_merge_nested_fields_without_resetting_unmentioned_values() {
@@ -2692,6 +2993,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             input: None,
             breadcrumbs: Vec::new(),
             breadcrumbs_pending: false,
+            title: TitleCapture::default(),
         }
     }
 

@@ -25,6 +25,9 @@ and `PUT /api/config/patch`, plus `POST /api/shortcuts/NAME/run` and
 `{"daemon":{"game_cmd":"~/.local/bin/slopworld"}}`. It deep-merges the named
 fields, validates the resulting configuration, and leaves unmentioned fields alone.
 
+The session `title` is the daemon's generated task-title override when one exists, otherwise
+the app's OSC terminal title. This uses the existing sessions event shape.
+
 Project JSON carries `network` as its ceiling. Session JSON carries the
 effective `network` plus `network_override`; writes send the override as a
 mode string or JSON `null` for inherit. The daemon rejects an override wider

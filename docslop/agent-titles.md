@@ -1,39 +1,47 @@
-# Generated agent titles (planned)
+# Generated agent titles
 
 Put automatic prompt summaries in `slopd`, not in each agent's extension system.
 The daemon already sees input before tmux and OSC 0/2 titles after it, and already knows
 how to read the OpenRouter key without exposing it inside an agent sandbox.
 
-The policy should apply to every supported agent:
+`[daemon] agent_titles` selects the policy and defaults to `never`, because enabling it
+sends prompt text to OpenRouter. `title_model` names the model; `openrouter_key_file`, or
+slopd's `OPENROUTER_API_KEY` when it is blank, supplies the key.
+
+The initial implementation observes Codex only:
 
 - `never`: do not generate a title; pass through the agent's OSC title.
 - `once`: summarize the first real prompt in each conversation.
 - `always`: summarize every real prompt, so the title follows the current task.
 
-Keep the generated title as a `Live` override separate from the emulator's OSC title.
-The session and screen views prefer the override when present, so an agent redraw cannot
-replace it. Runtime-only state is enough initially; persistence beside private session state
-can follow if titles should survive a daemon restart.
+The generated title is a runtime-only `Live` override separate from the emulator's OSC title.
+The session view prefers the override, so an agent redraw cannot replace it. Persistence can
+follow if titles should survive a daemon restart.
 
 ## Input and conversation boundaries
 
-Mirror input while forwarding it normally; never delay the agent on the summary request.
+Input is mirrored while being forwarded normally; the summary request never delays Codex.
 Printable keys, paste, backspace/delete, cursor movement, common line kills and multiline
 input need enough composer state to recover the submitted prompt. Unrecognised editing marks
 the capture uncertain and skips naming. Empty input, slash commands, approval answers and
 dialog selections are not prompts: accidentally sending auth or approval input to OpenRouter
 is worse than missing a title.
 
-A tmux process can hold more than one conversation. Give each live session a conversation
-epoch and use a small adapter per agent to recognize boundaries such as Codex `/new`.
+A tmux process can hold more than one conversation. Each live session has a conversation
+epoch and the Codex adapter recognizes `/new`.
 On a boundary, increment the epoch, clear the override and re-arm `once`; a supplied native
-name such as `/new bug bash` can be kept without calling OpenRouter. Unknown agent controls
-are conservative no-ops.
+name such as `/new bug bash` is kept without calling OpenRouter. Unknown editing controls
+make the capture uncertain and skip that submission.
 
-Every summary request also gets a generation number. Apply a response only when both its
+Every summary request gets a generation number. A response applies only when both its
 conversation epoch and generation are still current. This prevents late responses from an
 older prompt or conversation replacing a newer title. A failed `once` request may re-arm the
-next real prompt.
+next real prompt. Input submitted while the session is `waiting` is conservatively treated as
+an approval or dialog answer and is not sent.
+
+## Remaining adapters
+
+Claude, Pi and OpenCode do not yet use the daemon path.
 
 ## Existing Pi experiment
 

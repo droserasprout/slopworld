@@ -278,11 +278,11 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        // Only a subscribed session has a screen here, which in practice means the one whose
-        // pane is open; everything else falls back to the word for its state.
+        // Session metadata prefers slopd's generated task title and falls back to the pane's
+        // native OSC title. Unlike a screen, it is available even when the pane is not open.
         static string Tail(string session, AgentState state)
         {
-            string title = SessionHub.Instance.Screen(session)?.Title;
+            string title = SessionHub.Instance.Get(session)?.Title;
             return string.IsNullOrEmpty(title) ? state.ToString().ToLower() : title;
         }
     }

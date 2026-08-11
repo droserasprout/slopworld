@@ -91,9 +91,8 @@ namespace SlopWorld
         public int Cols;
         public int Rows;
 
-        // What the app calls itself over OSC 0/2, for every agent and not just the one whose
-        // pane is open - the daemon watches every emulator and the mod only sees the pane it
-        // subscribed to. Blank for anything that never says.
+        // The daemon's generated task title when present, otherwise what the app calls itself
+        // over OSC 0/2. Available for every agent, not only the subscribed pane.
         public string Title = "";
 
         // The app rang the bell and nobody has looked since. Cleared by the daemon the moment
