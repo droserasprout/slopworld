@@ -11,12 +11,13 @@ uses the same locations for drawing and hit testing. `Rows` is the shared geomet
 labels, portraits, clicks, and keyboard order.
 
 Portrait size is read off the text rather than fixed. A row is as tall as its three lines, and
-`Nominal` is the scale at which the whole drawn portrait — face box plus overflow — is that
-tall, so the font moves the picture and the row together and `RowGap` stays the gap between
-one portrait and the next. A face is a width as well, so it is also held to a share of the
-panel. Headings, routed rows and the add strip scale with nothing; `Fit` shrinks a crowded
-column and stops where those fixed heights take the pitch over, which with the portrait cut
-to the text is nearly always. The add strip is reserved at the bottom in every view.
+`Nominal` is the scale at which the whole drawn 3:4 portrait — square face box plus equal
+vertical overflow — is that tall, so the font moves the picture and the row together and
+`RowGap` stays the gap between one portrait and the next. A face is a width as well, so it
+is also held to a share of the panel. Headings, routed rows and the add strip scale with
+nothing; `Fit` shrinks a crowded column and stops where those fixed heights take the pitch
+over, which with the portrait cut to the text is nearly always. The add strip is reserved at
+the bottom in every view.
 
 The portrait prefix replaces vanilla's whole draw, so vanilla's icon row goes with it —
 burning and mental breaks included, which is the trade for a face that is only a face. What

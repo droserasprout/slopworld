@@ -8,7 +8,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Replace vanilla's body-and-mood portrait with a square head portrait using the
+    // Replace vanilla's body-and-mood portrait with a 3:4 head portrait using the
     // sidebar's shared geometry. Patch_SidebarPawnLabel suppresses the vanilla label.
     [HarmonyPatch(typeof(ColonistBarColonistDrawer), nameof(ColonistBarColonistDrawer.DrawColonist))]
     public static class Patch_SidebarPortraitDraw
@@ -22,9 +22,10 @@ namespace SlopWorld
         // Aim just above the head anchor to place the pawn slightly lower in the portrait.
         const float FaceVerticalOffset = 0.03f;
 
-        // Hair and clothing are allowed to extend past the icon. Keep the old square centered
-        // in a taller portrait so the face does not move while both ends can overflow.
-        const float PortraitOverflow = 0.35f;
+        // Hair and clothing are allowed to extend past the square face box. A sixth of the
+        // box at each end makes the full drawn portrait exactly 3:4.
+        const float PortraitAspect = 3f / 4f;
+        const float PortraitOverflow = (1f / PortraitAspect - 1f) / 2f;
 
         // Keep stopped agents recognizable while making their state obvious.
         static readonly Color DownTint = new Color(0.50f, 0.50f, 0.50f, 1f);
@@ -65,7 +66,7 @@ namespace SlopWorld
         public static float FaceForHeight(float height) =>
             height / (1f + 2f * PortraitOverflow);
 
-        // Keep cache parameters unscaled so compact layouts reuse the same square texture.
+        // Keep cache parameters unscaled so compact layouts reuse the same portrait texture.
         static Vector2 TextureSize
         {
             get
@@ -134,7 +135,7 @@ namespace SlopWorld
             GUI.DrawTexture(PortraitRect(face), renderTexture);
             GUI.color = Color.white;
 
-            // Both marks go down after the opaque square portrait, the way vanilla ends its
+            // Both marks go down after the opaque portrait, the way vanilla ends its
             // own draw: the corners so their inner arms remain visible, the hover box
             // because the portrait covers the rect it is drawn on.
             if (highlight)

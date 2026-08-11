@@ -85,7 +85,7 @@ namespace SlopWorld
             public Pawn Pawn;
             public Rect Line;   // the whole row, for the highlight and the hover
             public Rect Text;   // beside the portrait: the three labels, and what a click takes
-            public Rect Face;   // the square the close-up is drawn in, read by the drawer patch
+            public Rect Face;   // the square face box, read by the drawer patch
 
             public bool Ghost;
         }
