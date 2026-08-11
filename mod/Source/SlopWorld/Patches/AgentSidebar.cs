@@ -212,6 +212,7 @@ namespace SlopWorld
         {
             if (Settings.SidebarTab == tab) return;
 
+            if (tab != TabFiles) FilesView.ClearFocus();
             if (tab != TabFiles) FilesView.ReleaseViewer();
             if (tab != TabSearch)
             {

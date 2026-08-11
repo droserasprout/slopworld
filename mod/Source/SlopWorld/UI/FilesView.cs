@@ -53,6 +53,11 @@ namespace SlopWorld
         // two headings, and renaming a project is a heading that has gone.
         static readonly Dictionary<string, Node> Roots = new Dictionary<string, Node>();
 
+        // A storage entry is not a project, but it is still a directory the same tree can
+        // browse. It temporarily replaces the project roots when Storage hands Files a path.
+        static Node _focusedRoot;
+        static string _focusedKey;
+
         // Which project headings are rolled up here. The agents view has its own set in the
         // settings; this one is a tree's shape and lives no longer than the process, the same
         // as every expansion below it.
@@ -113,6 +118,34 @@ namespace SlopWorld
             ReleaseViewer();
             ClearSelection();
             foreach (var root in Roots.Values) Forget(root);
+            if (_focusedRoot != null) Forget(_focusedRoot);
+        }
+
+        public static void FocusDirectory(string path, string label)
+        {
+            if (string.IsNullOrEmpty(path)) return;
+
+            ReleaseViewer();
+            ClearSelection();
+            _focusedKey = "storage:" + path;
+            _focusedRoot = new Node
+            {
+                Path = path,
+                Name = string.IsNullOrEmpty(label) ? path : label,
+                IsDir = true,
+                Expanded = true,
+                Root = path,
+                Project = null,
+                Depth = 0,
+            };
+            _scroll.JumpTo(Vector2.zero);
+            AgentSidebar.ShowFiles();
+        }
+
+        public static void ClearFocus()
+        {
+            _focusedRoot = null;
+            _focusedKey = null;
         }
 
         static void Forget(Node n)
@@ -134,6 +167,12 @@ namespace SlopWorld
         public static void Draw(Rect body)
         {
             Lines.Clear();
+
+            if (_focusedRoot != null)
+            {
+                DrawFocused(body);
+                return;
+            }
 
             var projects = Projects();
             if (projects.Count == 0)
@@ -161,6 +200,28 @@ namespace SlopWorld
                     y = Head(view.width, y, name, root);
                     if (!Shut.Contains(name)) y = Rows(view.width, y, root);
                 }
+            }
+            finally
+            {
+                _scroll.End();
+                Text.Font = GameFont.Small;
+                Text.Anchor = TextAnchor.UpperLeft;
+                GUI.color = Color.white;
+            }
+        }
+
+        static void DrawFocused(Rect body)
+        {
+            float height = Pad * 2f + RowH + Count(_focusedRoot) * RowH;
+            var view = new Rect(0f, 0f,
+                body.width - (height > body.height ? SlopWidgets.ScrollbarW : 0f), height);
+
+            _scroll.Begin(body, view);
+            try
+            {
+                float y = Pad;
+                y = Head(view.width, y, _focusedKey, _focusedRoot);
+                if (!Shut.Contains(_focusedKey)) Rows(view.width, y, _focusedRoot);
             }
             finally
             {
@@ -261,7 +322,7 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.MiddleLeft;
             float lx = arrow.xMax + 4f;
             var label = new Rect(lx, r.y, r.width - lx - CellX, RowH);
-            SlopWidgets.RowLabel(label, project);
+            SlopWidgets.RowLabel(label, root.Name);
 
             Slab.Hairline(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
                 SlopWidgets.Edge);
@@ -561,7 +622,7 @@ namespace SlopWorld
             if (rel != null)
                 opts.Add(new FloatMenuOption("Copy relative path", () => Copy(rel)));
 
-            if (project != null)
+            if (project != null && SessionHub.Instance.Project(project) != null)
                 opts.Add(new FloatMenuOption("Terminal (host)", () =>
                     SessionHub.Instance.RunHostShell(project,
                         session => TerminalWindow.Open(session), SlopWidgets.Fail)));
@@ -629,7 +690,8 @@ namespace SlopWorld
         {
             // A project that has gone takes the mark with it: the tree would otherwise
             // highlight a row nobody is reading.
-            if (SessionHub.Instance.Project(project) == null) ClearSelection();
+            if (!string.IsNullOrEmpty(project) && SessionHub.Instance.Project(project) == null)
+                ClearSelection();
             else
             {
                 _selected = path;
@@ -640,6 +702,13 @@ namespace SlopWorld
 
         public static void EditFile(string project, string path, string label)
         {
+            if (string.IsNullOrEmpty(project))
+            {
+                SessionHub.Instance.Run("", "micro -- " + Pager.Quote(path), label,
+                    session => TerminalWindow.Open(session), SlopWidgets.Fail,
+                    host: true, temp: true);
+                return;
+            }
             if (SessionHub.Instance.Project(project) == null)
             {
                 SlopWidgets.Fail($"project '{project}' has gone");

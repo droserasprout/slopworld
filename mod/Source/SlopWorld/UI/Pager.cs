@@ -40,7 +40,8 @@ namespace SlopWorld
         // back to creating a fresh one.
         public void ViewFile(string project, string filePath, string label)
         {
-            if (SessionHub.Instance.Project(project) == null)
+            bool host = string.IsNullOrEmpty(project);
+            if (!host && SessionHub.Instance.Project(project) == null)
             {
                 Release();
                 SlopWidgets.Fail($"project '{project}' has gone");
@@ -80,7 +81,7 @@ namespace SlopWorld
                     _project = null;
                     StopIf(oldSession);
                     SlopWidgets.Fail(msg);
-                });
+                }, host: host, temp: host);
         }
 
         // Search results need the same tracked reader, but positioned before its first draw.

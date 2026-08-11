@@ -4,6 +4,10 @@ One of the column's two tree bodies ([mod-sidebar](mod-sidebar.md)), the other b
 the [git view](mod-ui-git.md): every project's directory as one nested, foldable tree, drawn from `AgentSidebar`'s back pass and so over a
 pane as well as on the map.
 
+Storage can temporarily focus one daemon-resolved private-state directory as the sole root;
+leaving Files clears that focus. Those roots are host-side, so their readers and editors use
+disposable host errands rather than a project sandbox.
+
 **The daemon does the reading** - a session is in its own mount namespace and the
 game is outside all of them, so `GET /api/browse` is the only thing here that can
 see a project directory the way the project does.

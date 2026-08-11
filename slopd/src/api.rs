@@ -471,7 +471,7 @@ async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
         ));
     }
     let project = q.project.trim();
-    if project.is_empty() && !q.temp {
+    if project.is_empty() && !q.temp && !q.host {
         return Err(err(
             StatusCode::BAD_REQUEST,
             "an errand must name a project or ask for a temporary one",
@@ -502,7 +502,10 @@ async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
     // coined - so `temp` rides over as the override it already is rather than a second road.
     let want = RunWhere {
         project: None,
-        temp: q.temp,
+        // A host reader for a private-state directory has no project to attach to. Give it a
+        // disposable project only so the existing errand/session machinery can own its cwd;
+        // the command itself carries the selected absolute path.
+        temp: q.temp || (q.host && project.is_empty()),
         random_tips: q.random_tips,
     };
     let session = m

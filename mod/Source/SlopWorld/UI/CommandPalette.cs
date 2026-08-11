@@ -776,6 +776,13 @@ namespace SlopWorld
             });
             _commands.Add(new Entry
             {
+                Id = "view.storage",
+                Name = "View: Storage",
+                Category = "View",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.StorageCategory),
+            });
+            _commands.Add(new Entry
+            {
                 Id = "config.toml",
                 Name = "Config: Edit as TOML",
                 Category = "Config",

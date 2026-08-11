@@ -164,6 +164,7 @@ pub struct StoredState {
     pub kind: String,
     pub key: String,
     pub session: Option<String>,
+    pub path: String,
     pub bytes: u64,
     pub modified: u64,
 }
@@ -194,6 +195,7 @@ fn stored_entry(kind: &str, key: String, session: Option<String>, path: &Path) -
         kind: kind.into(),
         key,
         session,
+        path: path.to_string_lossy().into_owned(),
         bytes: tree_size(path),
         modified,
     }

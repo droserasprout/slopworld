@@ -21,6 +21,7 @@ namespace SlopWorld
         // refusing to patch (see SlopProfile), and a category whose page is never drawn is
         // an empty tab in somebody else's options menu.
         public static OptionCategoryDef Category { get; private set; }
+        public static OptionCategoryDef StorageCategory { get; private set; }
         public static OptionCategoryDef UsageCategory { get; private set; }
         public static OptionCategoryDef SandboxCategory { get; private set; }
         public static OptionCategoryDef AboutCategory { get; private set; }
@@ -41,6 +42,7 @@ namespace SlopWorld
         // Rebuilt per open, so a config edited elsewhere - or a daemon that was down last
         // time - is re-read rather than remembered.
         static ConfigPage _page;
+        static StoragePage _storagePage;
         static TerminalPage _terminalPage;
         static AppearancePage _appearancePage;
         static AudioPage _audioPage;
@@ -61,13 +63,14 @@ namespace SlopWorld
             }
 
             // The column, from the top down to where the game's own tabs begin: a
-            // "SlopWorld" heading, the five pages under it - the config page named
-            // General, the terminal, the quotas, the sandbox, the About page - then a
+            // "SlopWorld" heading, the pages under it - the config page named General,
+            // storage, the terminal, the quotas, the sandbox, the About page - then a
             // "RimWorld" heading above the game's own categories. The headings are
             // OptionCategoryDefs so they keep the column's fixed pitch, but they are drawn
             // as dim text and take no clicks (Patch_OptionsRow_Section).
             SlopWorldLabel = Section("SlopWorld_Section", "SlopWorld", general);
             Category = Section("SlopWorld_Config", "General", general);
+            StorageCategory = Section("SlopWorld_Storage", "Storage", general);
             TerminalCategory = Section("SlopWorld_Terminal", "Terminal", general);
             AppearanceCategory = Section("SlopWorld_Appearance", "Appearance", general);
             AudioCategory = Section("SlopWorld_Audio", "Audio", general);
@@ -79,6 +82,7 @@ namespace SlopWorld
 
             DefDatabase<OptionCategoryDef>.Add(SlopWorldLabel);
             DefDatabase<OptionCategoryDef>.Add(Category);
+            DefDatabase<OptionCategoryDef>.Add(StorageCategory);
             DefDatabase<OptionCategoryDef>.Add(TerminalCategory);
             DefDatabase<OptionCategoryDef>.Add(AppearanceCategory);
             DefDatabase<OptionCategoryDef>.Add(AudioCategory);
@@ -94,6 +98,7 @@ namespace SlopWorld
             var all = DefDatabase<OptionCategoryDef>.AllDefsListForReading;
             all.Remove(SlopWorldLabel);
             all.Remove(Category);
+            all.Remove(StorageCategory);
             all.Remove(TerminalCategory);
             all.Remove(AppearanceCategory);
             all.Remove(AudioCategory);
@@ -104,14 +109,15 @@ namespace SlopWorld
             all.Remove(RimWorldLabel);
             all.Insert(0, SlopWorldLabel);
             all.Insert(1, Category);
-            all.Insert(2, TerminalCategory);
-            all.Insert(3, AppearanceCategory);
-            all.Insert(4, AudioCategory);
-            all.Insert(5, UsageCategory);
-            all.Insert(6, SandboxCategory);
-            all.Insert(7, KeyboardCategory);
-            all.Insert(8, AboutCategory);
-            all.Insert(9, RimWorldLabel);
+            all.Insert(2, StorageCategory);
+            all.Insert(3, TerminalCategory);
+            all.Insert(4, AppearanceCategory);
+            all.Insert(5, AudioCategory);
+            all.Insert(6, UsageCategory);
+            all.Insert(7, SandboxCategory);
+            all.Insert(8, KeyboardCategory);
+            all.Insert(9, AboutCategory);
+            all.Insert(10, RimWorldLabel);
 
             // Its five controls live on our Audio page now. Keep the def in the database,
             // as with Gameplay, but omit its duplicate row from the ordinary options list.
@@ -194,6 +200,7 @@ namespace SlopWorld
         public static void Reread()
         {
             if (_page != null) _page.Load();
+            if (_storagePage != null) _storagePage.Load();
             if (_usagePage != null) _usagePage.Load();
             if (_sandboxPage != null) _sandboxPage.Load();
         }
@@ -204,7 +211,8 @@ namespace SlopWorld
         // the dialog the *main menu* still opens as a window of its own.
         public static void Teardown()
         {
-            _page = null; _terminalPage = null; _appearancePage = null; _audioPage = null;
+            _page = null; _storagePage = null; _terminalPage = null; _appearancePage = null;
+            _audioPage = null;
             _usagePage = null;
             _sandboxPage = null; _aboutPage = null; _keyBindingsPage = null;
             SlopWorldMod.Instance.settings.Write();
@@ -310,6 +318,50 @@ namespace SlopWorld
                     _page.Load();
                 }
                 _page.Draw(inRect);
+                return false;
+            }
+        }
+
+        // ---------------------------------------------------------------- storage
+
+        // Private state is a page rather than a button buried in General: it is an inventory
+        // with its own destination, and selecting an entry hands that directory to Files.
+        [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
+        public static class Patch_OptionsRow_Storage
+        {
+            static bool Prefix(Dialog_Options __instance, Rect r, OptionCategoryDef optionCategory)
+            {
+                if (optionCategory != StorageCategory) return true;
+
+                CategoryRow(r, __instance.selectedCategory == optionCategory);
+                if (Widgets.ButtonInvisible(r))
+                {
+                    __instance.selectedCategory = optionCategory;
+                    __instance.selectedMod = null;
+                    SoundDefOf.Click.PlayOneShotOnCamera();
+                }
+
+                float x = r.x + 10f;
+                GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), Icons.Files);
+                x += 30f;
+                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
+                return false;
+            }
+        }
+
+        [HarmonyPatch(typeof(Dialog_Options), "DoOptions")]
+        public static class Patch_OptionsPage_Storage
+        {
+            static bool Prefix(OptionCategoryDef category, Rect inRect)
+            {
+                if (category != StorageCategory) return true;
+
+                if (_storagePage == null)
+                {
+                    _storagePage = new StoragePage();
+                    _storagePage.Load();
+                }
+                _storagePage.Draw(inRect);
                 return false;
             }
         }

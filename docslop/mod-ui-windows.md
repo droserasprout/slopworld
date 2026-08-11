@@ -18,6 +18,9 @@ views; their edit dialogs open through `TerminalWindow.OpenOverPane`.
   avoids `Listing_Standard` overflow ([gotchas](gotchas.md)). Connection settings link to
   mod settings; undrawn daemon fields remain in serialization so unrelated saves preserve
   them.
+- `StoragePage`: inventories private state in its own options tab. Selecting an entry focuses
+  that daemon-resolved directory in the sidebar's Files view; reset, restore, and delete stay
+  on the page.
 - `SandboxPage`: edits system and user presets and commands. Built-ins are read-only until
   copied; user entries can be saved, removed, or reset. Project preset selection stays in
   `EditProjectDialog`.

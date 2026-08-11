@@ -885,14 +885,15 @@ namespace SlopWorld
         // closes itself next frame.
         public void Run(string project, string command, string label,
                         Action<string> started, Action<string> fail = null,
-                        bool shell = true, string text = "", bool host = false) =>
+                        bool shell = true, string text = "", bool host = false, bool temp = false) =>
             SlopClient.Post("/api/run",
                 "{" + $"\"project\":{JVal.Q(project ?? "")}," +
                 $"\"kind\":{JVal.Q(shell ? "shell" : "prompt")}," +
                 $"\"command\":{JVal.Q(command ?? "")}," +
                 $"\"label\":{JVal.Q(label ?? "")}," +
                 $"\"text\":{JVal.Q(text ?? "")}," +
-                $"\"host\":{JVal.B(host)}" + "}",
+                $"\"host\":{JVal.B(host)}," +
+                $"\"temp\":{JVal.B(temp)}" + "}",
                 j =>
                 {
                     string session = j["session"].AsString();
