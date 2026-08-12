@@ -26,18 +26,12 @@ pub struct Config {
     pub state_rules: Vec<StateRule>,
 }
 
-/// What a set token reads as over the wire, and what a write may send back to mean "leave it
-/// as it was". A client that only ever saw this cannot echo the real token, so it cannot blank
-/// auth it never held; a deliberate change - a new value, or an empty string to turn auth off -
-/// is anything that is not this. A token literally set to the sentinel is harmless: the write
-/// restores it to the same value it already is.
+/// Wire sentinel for a redacted token and for writes meaning "unchanged"; a new value or empty
+/// string is an explicit change.
 pub const TOKEN_REDACTED: &str = "<redacted>";
 
-/// The same substitution on the raw file text `GET /api/config` also hands back, so the raw
-/// editor shows the sentinel rather than the secret while keeping every comment and blank line
-/// the file has. Only a non-empty `token` inside the `[daemon]` table is touched. The write
-/// path reserializes from the struct, so this is display only; the restore lives in
-/// `Manager::replace_config`.
+/// Redacts only a non-empty `[daemon] token` in raw config text, preserving comments and blanks;
+/// `Manager::replace_config` restores the real value when the sentinel is written back.
 pub fn redact_token_text(text: &str) -> String {
     let mut out = String::with_capacity(text.len() + TOKEN_REDACTED.len());
     let mut in_daemon = false;
@@ -543,11 +537,8 @@ impl Config {
             && builtin_shortcuts().iter().any(|b| b.name == name)
     }
 
-    /// A prompt shortcut with no command comes out an agent running the *preset*
-    /// `[defaults] agent` names, rather than that preset's command line: the preset is what
-    /// hands the sandbox `~/.claude`. An errand naming a preset gets it; one naming a
-    /// command line runs that. The project is handed in, the entry being allowed not to
-    /// name one.
+    /// A commandless prompt uses the `[defaults] agent` preset; explicit presets or command
+    /// lines keep their own command. The project may be empty.
     pub fn session_for(&self, sc: &ShortcutCfg, name: String, project: String) -> SessionCfg {
         let t = crate::presets::table();
         let own = sc
@@ -698,15 +689,8 @@ impl Config {
     }
 }
 
-/// bwrap expands neither `~` nor `$VAR`, and the preset table is written in both. A path
-/// naming a variable this machine has not set expands to **nothing at all**, and every bind is
-/// skipped unless the path is there, so an unset `WAYLAND_DISPLAY` drops that bind rather than
-/// mounting `/run/user/1000/` whole.
-///
-/// The whole path rather than the one variable, which is not a nicety: `wayland` asks for
-/// `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY`, and with neither set, dropping each in turn leaves the
-/// separator behind - `"/"`, which exists, and which was therefore bound read-write into the
-/// sandbox. A path about a thing this machine does not have is not a path.
+/// Expands `~` and environment variables for bwrap; unset variables yield an empty path so
+/// `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` cannot collapse to `/` and bind the filesystem.
 pub fn expand(path: &str) -> String {
     let path = if let Some(rest) = path.strip_prefix("~/") {
         match dirs::home_dir() {
@@ -824,12 +808,7 @@ token = \"not-a-daemon-token\"
         assert_eq!(cfg.daemon.token, TOKEN_REDACTED);
     }
 
-    /// A prompt shortcut that names no command comes out running the preset
-    /// `[defaults] agent` names: a preset is what hands the sandbox ~/.claude.
-    /// A path is about a thing this machine has, or it is not a path. The two-variable case is
-    /// the one that mattered: dropping each in turn used to leave the separator behind, and
-    /// `"/"` exists, so `wayland` on a machine with no Wayland bound the whole filesystem
-    /// read-write. `sandbox::refused` would stop that now; nothing should get that far.
+    /// Unset variables expand to empty rather than leaving separators that could name `/`.
     #[test]
     fn a_path_naming_a_variable_this_machine_lacks_is_nothing() {
         assert_eq!(expand("$SLOPD_NO_SUCH_VAR_A/thing"), "");

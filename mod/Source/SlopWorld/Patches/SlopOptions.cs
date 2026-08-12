@@ -62,12 +62,8 @@ namespace SlopWorld
                 return;
             }
 
-            // The column, from the top down to where the game's own tabs begin: a
-            // "SlopWorld" heading, the pages under it - the config page named General,
-            // storage, the terminal, the quotas, the sandbox, the About page - then a
-            // "RimWorld" heading above the game's own categories. The headings are
-            // OptionCategoryDefs so they keep the column's fixed pitch, but they are drawn
-            // as dim text and take no clicks (Patch_OptionsRow_Section).
+            // Insert SlopWorld section/category defs before RimWorld's categories; section rows
+            // are dim, fixed-pitch labels and do not accept clicks.
             SlopWorldLabel = Section("SlopWorld_Section", "SlopWorld", general);
             Category = Section("SlopWorld_Config", "General", general);
             StorageCategory = Section("SlopWorld_Storage", "Storage", general);
@@ -124,10 +120,8 @@ namespace SlopWorld
             if (OptionCategoryDefOf.Audio != null) OptionCategoryDefOf.Audio.isDev = true;
         }
 
-        // One of the column's defs, all the same official-pack shape so fruit is drawn.
-        // Dialog_Options draws a category only if its def came from an official mod, and
-        // asks the def's own pack. Ours is Core's as far as that goes; the icon and the
-        // row are drawn by hand below, so texPath is never read.
+        // Reuse General's content pack so Dialog_Options accepts the synthetic category; rows
+        // and icons are drawn here, so `texPath` is unused.
         static OptionCategoryDef Section(string defName, string label, OptionCategoryDef general)
         {
             return new OptionCategoryDef
@@ -139,12 +133,7 @@ namespace SlopWorld
             };
         }
 
-        // Which page the view was on when it was last left. A toggle builds a *new* view
-        // every time it opens one - the dialog behind it is rebuilt so the pages re-read
-        // config.toml - so without this the gear and the palette's "Settings" both dropped
-        // the reader back on General each time, and a switch that forgets where it was is a
-        // switch you cannot use to glance at something. In memory only: which tab you were
-        // reading is about this sitting and not something to write to a settings file.
+        // Preserve the last page because each toggle rebuilds the view and reloads config.
         static OptionCategoryDef _lastCategory;
 
         // From OptionsView.Closed, which is the one road out of the view.
@@ -205,10 +194,7 @@ namespace SlopWorld
             if (_sandboxPage != null) _sandboxPage.Load();
         }
 
-        // Dropped when the view is left, so the next open re-reads config.toml. The terminal
-        // page also writes the settings file here, once, the way the window it replaced did
-        // on close. Called from OptionsView.Closed, and from the PreClose patch below for
-        // the dialog the *main menu* still opens as a window of its own.
+        // Drop page instances and persist settings when the view/window closes.
         public static void Teardown()
         {
             _page = null; _storagePage = null; _terminalPage = null; _appearancePage = null;
@@ -218,11 +204,8 @@ namespace SlopWorld
             SlopWorldMod.Instance.settings.Write();
         }
 
-        // The band is the content rect now, so there is nothing for an OK button to dismiss
-        // that the corner cross and Escape do not. Void by returning what a button that
-        // was not clicked returns; matched on the finished label the way StripOptions
-        // matches its rows, and gated on the window rather than on a flag an exception
-        // could strand.
+        // The content view has no OK button; suppress only vanilla's translated OK button
+        // while the options view is active.
         [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText),
             new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool),
                     typeof(TextAnchor?) })]
@@ -230,8 +213,7 @@ namespace SlopWorld
         {
             static bool Prefix(string label, ref bool __result)
             {
-                // Who is drawing first: this prefix is in front of every button in the game,
-                // and the translation lookup is the expensive half of the question.
+                // This prefix sees every button, so gate before translating the label.
                 if (!OptionsView.Anywhere) return true;
 
                 string ok = "OK".Translate();
@@ -465,15 +447,9 @@ namespace SlopWorld
 
 
         // ---------------------------------------------------------------- the main menu
-        //
-        // Out there the dialog is still a window: there is no chrome to be content inside of,
-        // the column hanging off the colonist bar and the line off a MapComponent. So the
-        // three patches that shaped that window are kept, and only that road reaches them -
-        // the view calls DoWindowContents itself, and opens the band on the body rect.
+        // Main-menu options remain a real window; the content view applies the same layout itself.
 
-        // The screen less the chrome, which is the same room a pane gets. Zero inset from the
-        // main menu: with no colony behind it there is nothing to leave room for, and an inset
-        // would be a black margin around a window with nothing in it.
+        // Reserve chrome in-game; use the full screen on the main menu.
         static Rect Free()
         {
             bool playing = Current.ProgramState == ProgramState.Playing
@@ -494,9 +470,7 @@ namespace SlopWorld
             }
         }
 
-        // The size above is centred by Window's own placement, and what is wanted is a corner.
-        // Patched where the method is declared and gated on the instance, this window
-        // overriding nothing - the same shape Patch_MainTabWindowShift takes.
+        // Override vanilla's centred placement with the chrome-aligned rect.
         [HarmonyPatch(typeof(Window), "SetInitialSizeAndPosition")]
         public static class Patch_OptionsPlace
         {
@@ -506,13 +480,11 @@ namespace SlopWorld
             }
         }
 
-        // The band, for the window road only: OptionsView opens its own on the body rect, and
-        // a second one here would centre the page inside the page.
+        // Apply the band only to vanilla's window path; OptionsView opens its own group.
         [HarmonyPatch(typeof(Dialog_Options), nameof(Dialog_Options.DoWindowContents))]
         public static class Patch_OptionsBand
         {
-            // A BeginGroup without its End throws for the rest of the frame, so the finalizer
-            // closes only what the prefix actually opened.
+            // Close only a group opened by this prefix.
             static bool _grouped;
 
             static void Prefix(ref Rect inRect)
@@ -540,18 +512,9 @@ namespace SlopWorld
             static void Postfix() => Teardown();
         }
 
-        // F1 and F12 are the chrome's own now (TerminalWindow.ChromeKeys), the options menu
-        // being drawn *by* that window rather than by one over it. What used to be answered
-        // here - a patch on the dialog, because a window absorbing input made
-        // HandleEventsHighPriority use every KeyDown before anything below it could hear one
-        // - is one of the things the content view took away.
-
-
         // ---------------------------------------------------------------- terminal
 
-        // The Terminal row, between General and Usage. Drawn with the terminal icon that
-        // used to be on the General tab: the page is about the pane's look, and the ">_"
-        // is what said "terminal" before the settings moved into a tab of their own.
+        // Terminal settings row.
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
         public static class Patch_OptionsRow_Terminal
         {
@@ -593,11 +556,7 @@ namespace SlopWorld
 
         // ---------------------------------------------------------------- usage
 
-        // The Usage row, between Terminal and About. Same shape as the row above, wearing
-        // the card of Icons.Usage. It was a lump of ThingDefOf.Silver, on the grounds that
-        // the readout draws spend as the game's own resource - but that is the readout's
-        // joke, and in the column it was the one row not drawn from the icon set, tinted
-        // by the def rather than by the row.
+        // Usage settings row, using the shared usage icon.
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
         public static class Patch_OptionsRow_Usage
         {
@@ -738,11 +697,7 @@ namespace SlopWorld
 
         // ----------------------------------------------------------------- keyboard
 
-        // The Keyboard row, over the About row. Same shape as the rows above, wearing the
-        // keyboard of Icons.Keyboard: the page is the key bindings, and both the label and
-        // the glyph say so outright. It was the lightning bolt of Icons.Shortcuts under
-        // the label "Shortcuts", which is the sidebar's errands - the same two words and
-        // the same picture for two unrelated things.
+        // Keyboard settings row, using the keyboard icon.
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
         public static class Patch_OptionsRow_Keyboard
         {
@@ -793,11 +748,7 @@ namespace SlopWorld
             static bool Prefix() => false;
         }
 
-        // The web links column is what the main menu draws on the right. We suppress
-        // it here; the same links are in the About tab. The list is identified by its
-        // content: the game options are ListableOption, the web links are
-        // ListableOption_WebLink. The About page also draws ListableOption_WebLink
-        // inside Dialog_Options, which is gated by the window check.
+        // Hide the main-menu web-link list; the About tab owns those links.
         [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
         public static class Patch_WebLinks
         {

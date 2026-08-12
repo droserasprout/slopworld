@@ -4,19 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // What this machine does, drawn as the first page of the options menu rather than as a
-    // window of its own. The daemon, the defaults, and the game. The sandbox base and
-    // presets moved to their own tab because that is a different question: what the ground
-    // under every agent is, and what adds to it.
-    //
-    // The connection is not here either. Where the daemon listens and where the game dials
-    // are one question - they are the same machine - and only one of the two ends can be
-    // edited with the socket down, so mod settings owns it and this page states it. State
-    // rules keep to the raw editor behind "Edit as TOML": they are regexes, and a text box
-    // is the honest widget for a regex.
-    //
-    // A page rather than a Window because SlopOptions hangs it off an OptionCategoryDef;
-    // it owns no chrome and closes with the dialog around it. See SlopOptions.
+    // First options page for daemon/config values, defaults, and state rules. Connection values
+    // remain editable in mod settings when the socket is down; regex rules stay in raw TOML.
     public class ConfigPage
     {
         SlopConfig _cfg;

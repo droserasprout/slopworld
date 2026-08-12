@@ -8,12 +8,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// Wraps a session name and implements <see cref="ISelectable"/>, so the gizmo grid
-    /// draws the same Terminal / Start / Stop buttons for every session whether its pawn
-    /// is selected or not - a ghost row has no pawn, and an agent whose pawn is on the
-    /// map has its session follow the selection.
-    /// </summary>
+    /// <summary>Supplies session gizmos for real pawns and sidebar ghost rows.</summary>
     public class SessionSelectable : ISelectable
     {
         /// The one session the mod considers "current". Set by a sidebar row click,
@@ -27,12 +22,8 @@ namespace SlopWorld
             {
                 _current = value;
 
-                // The map -> session sync below is re-answered every frame, so a colonist
-                // left selected owns the current session: focusing a session any other way
-                // must take the selection off it, or the next frame takes the session back
-                // (see selection-rework.md). Not when the map is the one speaking, and not
-                // when the selected pawn's session is already this one - the sync would say
-                // the same thing again.
+                // Map selection is authoritative each frame; clear it when another session
+                // becomes current, except while syncing from the map or when it already matches.
                 if (Syncing) return;
 
                 var selector = Find.Selector;
@@ -127,15 +118,7 @@ namespace SlopWorld
             Enumerable.Empty<InspectTabBase>();
     }
 
-    /// <summary>
-    /// Appends the current session to vanilla's temporary selection list. This is done in
-    /// MapGizmoUtility.MapUIOnGUI, after its tab early-out and before it calls the drawer,
-    /// rather than in DrawGizmoGridFor: the latter is never reached for an empty selection,
-    /// which is precisely the normal state after selecting a ghost row.
-    ///
-    /// The return value lets the transpiler preserve the list on the evaluation stack while
-    /// inserting this call between vanilla's load of the list and its AddRange call.
-    /// </summary>
+    /// <summary>Appends the current session to vanilla's temporary gizmo selection list.</summary>
     public static class SessionGizmoSelection
     {
         static readonly FieldInfo ObjectsField =

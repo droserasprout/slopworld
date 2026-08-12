@@ -6,14 +6,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The column's shortcuts body: every [[shortcut]] entry, grouped by project, drawn
-    // as thin text rows under foldable headings - the same shape the agents view draws
-    // its ghost rows in. No portraits, no titles, no footer bar and no "+" of its own:
-    // just the list. Adding a shortcut is one of the three answers the column's own add
-    // strip offers, at the foot of the panel below this body (AgentSidebar.AddBar).
-    //
-    // Drawn from AgentSidebar's back pass, which is what puts it over a terminal as well
-    // as on the map - the same road the other three views take.
+    // Draw project-grouped shortcut rows from AgentSidebar's back pass; the shared AddBar owns
+    // creation and keeps the view usable over a terminal.
     public static class ShortcutsView
     {
         // Off the font, for the reason the other two trees' are.
@@ -53,13 +47,8 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ drawing
 
-        // The whole body is the list: the "+" at the foot of the panel is the column's own
-        // now, shared by all four views, and AgentSidebar.Body already has its strip taken
-        // off - so this view reserves nothing and draws no button of its own.
-        //
-        // The view's own rect, moved into the panel and up by however far it is scrolled.
-        // The scroll view is clipped, so a row scrolled out of sight would otherwise still
-        // answer a click where it used to be. Same helper the files view carries.
+        // The body is only the clipped list; shared AddBar supplies the plus button, and Screen
+        // converts scrolled rows to hit-test coordinates.
         static Rect Screen(Rect r)
         {
             var list = AgentSidebar.Body;
@@ -358,11 +347,8 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ actions
 
-        // `temp` is the answer to the menu as well as a caller's own, which is why the
-        // menu is only opened when neither has been given: asking again on the way back
-        // from "a temporary project under ..." - which comes back with a null project by
-        // design - would put the same menu up forever and the temporary run would be the
-        // one option in it that could never be taken.
+        // Do not reopen AskWhere after resolving a temporary project: `temp` marks the return
+        // path where `project == null` is intentional.
         static void Run(ShortcutInfo s, string project = null, bool temp = false)
         {
             // An entry that never said where goes through a menu first.

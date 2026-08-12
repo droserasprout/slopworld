@@ -5,38 +5,27 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The jukebox: LMB opens Play, Mute, Stop on exit and Settings; Play opens the OST and
-    // the stations, and each station opens the quality presets it serves. Whatever is
-    // playing is marked, and hovering the box names the song. Radio owns the sound and the
-    // list of stations; this owns the box it comes out of.
-    //
-    // The click is read here rather than through selection because nothing on this map is
-    // selectable but a colonist - StripInteraction turns every other Select away - so the
-    // jukebox would never see one. Same shape as CoreTip, which reads the core's click for
-    // the same reason.
+    // Map jukebox UI: Radio owns playback/catalog state; this owns menus, hover text, and input.
+    // Read clicks directly because StripInteraction makes only colonists selectable.
     public class Jukebox : MapComponent
     {
         public Jukebox(Map map) : base(map) { }
 
-        // A colony has one box. AgentColony's latch is what keeps a batch of pods from
-        // each bringing their own; this is the swept floor underneath it, so a save made
-        // before that latch existed comes back with one rather than with a row of them.
+        // Keep one box on load; AgentColony's latch prevents new duplicates.
         public override void FinalizeInit()
         {
             var boxes = map.listerThings.ThingsOfDef(SlopDefOf.SlopJukebox);
             if (boxes.Count < 2) return;
 
             int extra = boxes.Count - 1;
-            // Vanish: they are not wreckage and there is nobody to explain them to.
-            // Destroy shortens the lister's own list, so the last one is taken each time.
+            // Vanish duplicates; destroying from the end avoids invalidating the lister walk.
             while (boxes.Count > 1) boxes[boxes.Count - 1].Destroy(DestroyMode.Vanish);
             Log.Message($"[SlopWorld] jukebox: removed {extra} duplicate(s)");
         }
 
         public override void MapComponentOnGUI()
         {
-            // A scene plays bare and eco draws no board, and either way the box is not
-            // there to be pointed at. The status bar's icon opens the same menu.
+            // No map box is interactive in bare scenes or eco; the status-bar icon still works.
             if (Eco.Bare) return;
 
             var cell = UI.MouseCell();
@@ -52,11 +41,8 @@ namespace SlopWorld
             OpenMenu();
         }
 
-        // The box's own menu, from the box or from the status bar's icon. Nothing in it is
-        // about where the press came from - the four rows are the colony's one radio either
-        // way - so the whole of it is static and the two callers differ only in what they
-        // had to do to be heard. OpenOverPane rather than a plain Add because the status bar
-        // is drawn over a terminal as well as over the map.
+        // Both box and status-bar entry points open the same menu; use OpenOverPane for either
+        // map or terminal rendering.
         public static void OpenMenu()
         {
             TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
@@ -69,13 +55,7 @@ namespace SlopWorld
             }));
         }
 
-        // What is playing, on the box itself, in vanilla's own bubble - the thing is not
-        // selectable and has no inspect pane to put it in, and this is the question a
-        // hovering pointer is asking. Nothing is drawn when there is nothing to say: muted,
-        // or a station a second into a pick and still unnamed.
-        //
-        // The note is escaped rather than typed in. The file is UTF-8 either way; what an
-        // escape rules out is a toolchain that decides otherwise.
+        // Hover text names the current track; empty/muted playback has no tooltip.
         const string Note = "\u266A ";
 
         // A `TipSignal` with no id of its own is keyed on its text, so the bubble would
@@ -88,11 +68,7 @@ namespace SlopWorld
             TooltipHandler.TipRegion(CellRect(cell), new TipSignal(Note + now, cell.GetHashCode()));
         }
 
-        // The same question asked of the status bar's icon, which is a door onto this box and
-        // so owes the same answer. The icon is a radio drawn as the radio it opens, so it does
-        // the naming that the other doors up there do with a word - the row is the song alone,
-        // dropping out entirely when nothing is playing, the way the box on the ground says
-        // nothing while muted.
+        // The status-bar door uses the same current-track label.
         public static string IconTip()
         {
             string now = Radio.NowPlaying;
@@ -137,11 +113,8 @@ namespace SlopWorld
             return options;
         }
 
-        // A station's row carries the preset it is on, in the separator the rest of the
-        // interface uses for "this, at that". The row itself plays nothing - which quality
-        // is a question it cannot answer, not even where there is only one to pick, since a
-        // row that plays on one station and opens a list on the next is a row nobody can
-        // predict - so it holds that station's presets and the pointer takes them.
+        // Show a station's active preset in its row; selecting the row opens that station's
+        // preset list rather than playing it directly.
         static string StationRow(Radio.Station s) =>
             Radio.Picked == s ? $"{s.Name}  -  {Radio.RateLabel(s.Rate)}" : s.Name;
 

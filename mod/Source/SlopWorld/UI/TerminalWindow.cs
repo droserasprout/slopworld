@@ -549,16 +549,9 @@ namespace SlopWorld
         float _cacheCw, _cacheCh;
         bool _noCache;
 
-        // The pane is drawn only on the frames it moves: a frame arrives about ten times a
-        // second and the window draws at the monitor's rate, so five frames in six laid ~130
-        // GUI.Labels down again over an identical picture.
-        //
-        // Screen-sized rather than pane-sized: GUI drawing goes to the active render target
-        // in the coordinates it already holds, so a target shaped like the backbuffer needs
-        // no projection and no argument with GUIClip. Cleared opaque, because glyph edges are
-        // part-transparent and over a clear target would blend twice into a fringe.
-        //
-        // Throwing takes the cache out for the life of the process rather than per frame.
+        // Cache the pane between screen frames: the daemon updates more slowly than the monitor.
+        // Use an opaque screen-sized target so GUI coordinates and glyph edges remain stable;
+        // disable the cache for the process after a render-target failure.
         bool Blit(Rect body, ScreenBuf buf, float cw, float ch)
         {
             if (_noCache) return false;
@@ -880,20 +873,9 @@ namespace SlopWorld
             }
         }
 
-        // Single gate for the chrome's own keys. Returns true if consumed. Shift+key passes
-        // through to the agent, and so does anything none of the bindings claim - F7-F11
-        // by default, being on nothing.
-        //
-        // Read off the KeyBindingDefs rather than off KeyCode.F1..F5 directly: the options
-        // menu's Shortcuts page rebinds these, and matching the raw key would let the page
-        // report a change it then went on to ignore. The defaults in KeyBindings.xml are
-        // the same F-keys, so out of the box this is the switch it replaced.
-        //
-        // Nothing here dismisses an open context menu, though every key in it replaces what
-        // that menu was standing over: an absorbing window has this gate skipped entirely,
-        // its keys spent in `HandleEventsHighPriority` before any window body runs, so a menu
-        // hung off it would go on some screens and stay on others. `SlopMenu` reads the
-        // keyboard itself instead.
+        // Handle unshifted keys bound to the chrome. Read KeyBindingDefs so option-menu
+        // rebindings apply; shifted/unbound keys pass to the agent, and SlopMenu handles its
+        // own dismissal because absorbing windows consume keys before this body runs.
         public static bool HandleFunctionKey(Event e)
         {
             // Shift+key = pass through to the agent/tui.
@@ -953,14 +935,8 @@ namespace SlopWorld
                 || data.GetBoundKeyCode(def, KeyPrefs.BindingSlot.B) == e.keyCode;
         }
 
-        // The chrome's own keys, read while a view has the body. Everything an agent would
-        // have been sent stays unsent - there is no agent on screen to send it to - so this
-        // is the short list: the palette, the way out of the view, the way out of the window,
-        // and the numbers that point it back at a portrait.
-        //
-        // A bare Escape is the way out of a view where in a pane it belongs to the agent. It
-        // is what closed the options dialog when the options menu was a window, and what
-        // every other view here would be closed with.
+        // Handle chrome keys while a content view owns the body; bare Escape leaves the view,
+        // while it remains an agent key in the pane.
         void ChromeKeys(Event e)
         {
             if (e.type != EventType.KeyDown) return;
@@ -1294,11 +1270,8 @@ namespace SlopWorld
             e.Use();
         }
 
-        // Leading-edge throttle: the first event of a new gesture sends immediately, then
-        // subsequent events ride the beat so a swipe does not take the emulator lock for
-        // every tick. A new gesture is a direction change or an expired beat - either way,
-        // sending at once means a reversal (up then down, say) answers in one round trip
-        // instead of waiting out the previous gesture's beat.
+        // Send the first wheel event immediately, then throttle repeats; direction changes
+        // bypass the delay so reversals respond in one round trip.
         bool _lastWheelUp;
 
         void QueueScroll(bool up)
@@ -1744,11 +1717,8 @@ namespace SlopWorld
 
         static string MapKey(Event e, bool altScreen)
         {
-            // tmux turns modifier-prefixed names (C-Left, M-Up, S-Right) into the xterm
-            // sequences apps read for word-wise motion and selection. Shift goes over only on
-            // the alt screen: an editor there asked for the whole screen and groks \e[1;2C,
-            // while zsh and bash leave it undefined - zsh rings the bell and inserts the C
-            // (see zsh-terminal.md), where a bare arrow at least still moved the cursor.
+            // Use tmux's modifier names; Shift is forwarded only on the alt screen because
+            // shells do not define the corresponding xterm sequences.
             string mod = "";
             if (e.control) mod += "C-";
             if (e.alt) mod += "M-";

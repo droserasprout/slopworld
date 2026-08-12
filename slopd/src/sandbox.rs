@@ -80,11 +80,7 @@ pub fn host_shell() -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
-/// What a host errand actually runs. `$SHELL` when it named nothing: `[defaults] shell` is
-/// the answer for a shell *inside* a sandbox, where a login shell's own rc files are mostly
-/// not reachable anyway, and out here the machine's own answer is the better one. An errand
-/// that did name something - a preset, a command line - is taken at its word and run as
-/// asked, which is what keeps `/api/run` with `host` from being a shell and nothing else.
+/// An unnamed host errand uses `$SHELL`; a preset or command line runs as configured.
 fn host_command(cfg: &Config, s: &SessionCfg, shell: Option<&str>) -> String {
     let asked = s.cmd.is_some() || s.command.trim() != cfg.defaults.shell.trim();
     match shell {
@@ -93,12 +89,7 @@ fn host_command(cfg: &Config, s: &SessionCfg, shell: Option<&str>) -> String {
     }
 }
 
-/// The word such a session goes by: the project it opened on, then the shell's own basename
-/// off `$SHELL` - `slopworld-zsh` in this project, `tmp-bash` in one called `tmp`. Both
-/// halves are what a reader wants to know about it and neither is on any other entry, an
-/// ordinary agent being named for the errand instead. An errand that named no project - a
-/// temporary one, coined after this - is the shell alone. `session_name_for` is the pure half
-/// so a test does not have to own the environment.
+/// Names a host session `<project>-<shell>`, or just the shell when no project is set.
 pub fn host_session_name(project: &str) -> String {
     session_name_for(project, host_shell().as_deref())
 }
@@ -449,13 +440,8 @@ pub fn purge_trash() -> Result<usize> {
     Ok(purged)
 }
 
-/// What no bind list may hand a sandbox, whoever asks - the implicit `global` preset or a
-/// preset file. The invariant is that an agent reaches neither `[daemon] token`, nor the preset
-/// files that decide what the next sandbox binds, nor another session's private state.
-/// Stated here, where every preset bind list meets.
-///
-/// Both directions are refused: a path *inside* one of these reaches it, and a path *above*
-/// one contains it. `~/.config` is as much a way to the token as the file itself.
+/// Rejects paths reaching the daemon token/config, preset definitions, or another session's
+/// private state, including paths above or below those protected roots.
 pub fn refused(path: &str) -> Option<String> {
     let path = safety_path(Path::new(path));
     if path == Path::new("/") {
@@ -659,13 +645,8 @@ fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
     Ok(())
 }
 
-/// `(copy, host)` for every path this session's presets keep to themselves: what is bound
-/// *over* the host path, so a program that looks its config up under `$HOME` still finds one
-/// and never the user's. Pure - `prepare_private` is the half that touches the disk, and it
-/// has run by the time this is called.
-///
-/// A host path that is not there is skipped, the same rule the rest of the file binds by:
-/// there is nothing to keep separate from a file nobody has.
+/// Returns existing `(private_copy, host_path)` pairs used to shadow private state under
+/// `$HOME`. Disk preparation happens in `prepare_private`.
 fn private_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = Vec::new();
     for pr in presets_for(cfg, s, p, t) {
@@ -712,12 +693,7 @@ fn shared_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec<
     out
 }
 
-/// Makes each private tree and seeds it, once. Called before the argv is built, because
-/// bwrap binding a source that is not there is a session that will not start.
-///
-/// Seeded only when the copy is absent, so what an agent has written is never trodden on by
-/// what the host has since changed. The tree is an ordinary directory: deleting a session's
-/// is how it is handed a fresh one.
+/// Creates and seeds each private tree before argv construction; existing copies are preserved.
 pub fn prepare_private(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<()> {
     if cfg.network_of(s, p)? == NetworkMode::Private {
         prepare_private_resolver(&s.state_id)?;
@@ -894,14 +870,8 @@ fn seed_into(pr: &SandboxPreset, host: &str, copy: &Path) -> Result<()> {
     Ok(())
 }
 
-/// One seed entry, file or directory, minus whatever `skip` names under it. A missing source is
-/// not an error: a preset names what the software it describes *may* keep, and no two machines
-/// have all of it.
-///
-/// `skip` is what makes naming a whole directory safe. A tool scatters its config and
-/// concentrates its bulk - `~/.pi/agent` holds the model selection *and* 21MB of transcripts -
-/// so seeding the directory and cutting the one subdirectory out beats listing by hand every
-/// file that turns out to matter. It fails towards an agent that works.
+/// Recursively copies an existing seed entry, omitting paths in `skip`; missing sources are
+/// allowed because presets describe optional software state.
 fn seed(from: &Path, to: &Path, skip: &[String]) -> Result<()> {
     if !from.exists() || skip.iter().any(|s| Path::new(s) == from) {
         return Ok(());
@@ -950,11 +920,8 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
         push(&["--share-net"]);
     }
 
-    // systemd-resolved / NetworkManager make /etc/resolv.conf a symlink into /run, which the
-    // sandbox never mounts, so with only /etc bound every lookup fails with ENOENT. Prefer
-    // resolved's stub listener (127.0.0.53, over the shared loopback): it does the split-DNS
-    // routing - a Tailscale uplink, say - that a resolver querying the raw server list gets
-    // wrong, where an upstream answers NOTIMP and the agent sees ENOTIMP.
+    // /etc/resolv.conf often points into unmounted /run; use resolved's stub when available so
+    // split-DNS routing is preserved.
     let resolv = if network == NetworkMode::Host {
         resolver_target().map(|target| {
             let stub = "/run/systemd/resolve/stub-resolv.conf";

@@ -4,21 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The frame every dialog here wears. Five windows used to take vanilla's - its tiled
-    // background, its border and its close cross - which is the one piece of chrome a player
-    // sees before they have read a word of the form inside it.
-    //
-    // The frame is drawn on the window's **own** rect, so the margin is taken here rather
-    // than by `Window.Margin`: vanilla's margin is not padding, it opens a GUI group and
-    // hands `DoWindowContents` a rect translated inside it (see gotchas), which would leave
-    // the background short on every side and the game showing through the gap. `Margin` is
-    // nought and [Pad] is the shared sixteen, applied to the body alone, so every form keeps
-    // the same rectangular frame rhythm.
-    //
-    // The close button is drawn **over** the body rather than in a bar of its own. A titled
-    // header would be the tidier thing and it would move every row in five forms down by its
-    // own height - the prompt box at the foot of `EditShortcutDialog` is already the field
-    // that gets squeezed. Every title here is left-aligned, so the corner is free.
+    // Shared dialog frame: draw background/border on the window rect, keep `Margin = 0`, and
+    // pad only contents. Draw the close control over the body so existing forms gain no header row.
     public abstract class SlopWindow : Window
     {
         protected SlopWindow()

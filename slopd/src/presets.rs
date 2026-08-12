@@ -47,18 +47,8 @@ pub struct SandboxPreset {
     /// gets the list wrong towards an agent that works rather than one that does not.
     #[serde(default)]
     pub skip: Vec<String>,
-    /// The host's own file, bound read-write, *inside* a `private` tree. The deliberate hole
-    /// in "every agent's state is its own", and it exists because a credential is not state:
-    /// it rotates. Claude Code's access token lasts 8 hours and its refresh token is replaced
-    /// on every use, so a copy seeded once is a copy that expires - and the only cure was
-    /// deleting the session, which is also how its transcripts were lost. A shared file makes
-    /// the refresh land where every session and the host will read it.
-    ///
-    /// **Files only** (`shared_binds` drops a directory), and that restriction is the whole of
-    /// what makes this safe. `~/.claude/.credentials.json` names no command; `settings.json`
-    /// names hooks and `~/.claude.json` names MCP servers, and a shared *directory* is a
-    /// sandbox that can create either one. What is traded here is integrity - something inside
-    /// can log the user out - and never execution.
+    /// Shared entries are host-owned regular files bound read-write inside private state; shared
+    /// directories could expose hooks or MCP configuration. This trades integrity, not execution.
     #[serde(default)]
     pub shared: Vec<String>,
     /// Non-empty when ticking this hands the sandbox a way back out: a socket whose far end

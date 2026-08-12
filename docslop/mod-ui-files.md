@@ -1,81 +1,56 @@
 # `FilesView` and its icons
 
-One of the column's two tree bodies ([mod-sidebar](mod-sidebar.md)), the other being
-the [git view](mod-ui-git.md): every project's directory as one nested, foldable tree, drawn from `AgentSidebar`'s back pass and so over a
-pane as well as on the map.
+One of the column's two tree bodies ([mod-sidebar](mod-sidebar.md)), alongside the
+[git view](mod-ui-git.md): each project's directory as a nested, foldable tree. It is drawn
+from `AgentSidebar`'s back pass, so it also appears over a pane.
 
-Storage can temporarily focus one daemon-resolved private-state directory as the sole root;
-leaving Files clears that focus. Those roots are host-side, so their readers and editors use
-disposable host errands rather than a project sandbox.
+Storage can focus one daemon-resolved private-state directory as its root; leaving Files clears
+it. These host-side roots use disposable host errands for reading and editing.
 
-**The daemon does the filesystem work** - a session is in its own mount namespace and the
-game is outside all of them, so `/api/browse` and `/api/files` are the only roads here that
-can see or mutate a project directory the way the project does.
+**The daemon does the filesystem work.** Sessions have private mount namespaces and the game is
+outside them, so `/api/browse` and `/api/files` are the only project-directory access paths.
 
-- `Kids` null is "never asked", which is what makes it lazy; the fetch is fired
-  from the **draw** pass rather than from the click, so a listing dropped by the
-  dotfile switch comes back without the reader folding and unfolding. An `Error`
-  stops that, or a directory that refused once refuses sixty times a second, and
-  the retry is the reader closing it and opening it again.
+- `Kids == null` means "never asked" and keeps the tree lazy. Fetches start in the **draw**
+  pass, so the dotfile switch reloads without toggling the fold; an `Error` stops retries until
+  the reader closes and reopens the directory.
 - The tree is a scroll view - the one thing in this column that cannot be made to
   fit by shrinking. `Widgets.BeginScrollView` is `GUI` rather than `GUILayout`, so
   it is safe in a pass that declines Layout events.
-- Clicks are taken from a `Lines` table **after** the whole tree is laid out and
-  outside the scroll view's group, so `Screen` moves a row's rect by the scroll
-  and drops one scrolled out of the body. Same reason `AgentSidebar` keeps a `Row`
-  table: three readers, one answer about where a row is. Taken during the draw
-  instead, expanding a directory would change the layout the rest of the frame is
-  being drawn from.
-- Expansions and the project folds are **in memory only**. `foldedProjects` is the
-  agents view's; a tree's shape is a set of paths and reloading it costs one
-  browse.
-- A hovered file row grows the **view/edit/diff** strip at its right end
-  ([mod-ui-rowactions](mod-ui-rowactions.md)); the diff appears only where the git
-  view has read a change for that path, which is why arriving here reads the working
-  trees too.
-- An empty directory has no fold chevron. It is still a row and can be right-clicked;
-  only a directory with children, or one whose listing is still pending, gets the
-  fold/unfold affordance.
-- Right-click is copy path, copy relative path, and on a file `View` (`less -R`)
-  and `Edit` (`micro`). Files and non-root folders also get `Rename` and `Remove`;
-  folders get `New file`, `New folder`, and `Terminal here`, with hairline separators
-  between those groups. Mutations use root-only `POST`, `PUT`, and `DELETE /api/files`.
-  Those two readers still go through `POST /api/run`, so what opens is an
-  ephemeral agent in the **project's own sandbox** - which is what makes `less` see
-  the file the way the agents working on it do. The path is single-quoted
-  (`Pager.Quote`), `shell_split` building an argv rather than running a shell.
-- `Terminal here` starts a shell after changing to the selected folder. Project folders
-  use the project's sandbox; storage roots use a disposable host errand.
-- A **project heading** gets one more: `Terminal (host)`, the same option the agents
-  view's heading carries ([mod-sidebar](mod-sidebar.md)). `Menu` takes the project
-  name as a second argument, null everywhere below the heading - the two headings
-  name the same thing, and a reader who finds the option in one view looks for it
-  in the other.
+- Clicks use the `Lines` table **after** layout and outside the scroll group. `Screen` applies
+  the scroll offset and omits rows outside the body; drawing-time hit tests would change as
+  expansion changes the layout.
+- Expansions and project folds are **in memory only**; a tree's shape is a path set and reload
+  costs one browse.
+- A hovered file row shows **view/edit/diff** actions
+  ([mod-ui-rowactions](mod-ui-rowactions.md)); diff is offered only for paths present in the
+  git view's already-read working tree.
+- An empty directory has no fold chevron but remains a row and can be right-clicked. Pending
+  listings also show the fold affordance.
+- Right-click offers copy path/relative path; files also get `View` (`less -R`) and `Edit`
+  (`micro`), while files and non-root folders get `Rename`/`Remove`, and folders get
+  `New file`, `New folder` and `Terminal here`. Mutations use root-only `POST`, `PUT` and
+  `DELETE /api/files`. View/edit run through `POST /api/run` in the **project sandbox**;
+  `Pager.Quote` and `shell_split` build an argv without a shell.
+- `Terminal here` changes to the selected folder first. Project folders use the project
+  sandbox; storage roots use a disposable host errand.
+- A **project heading** also gets `Terminal (host)`, matching the agents view
+  ([mod-sidebar](mod-sidebar.md)). `Menu` receives the project name only for headings so both
+  views expose the same host-terminal action.
 
 ## The viewer
 
-A left click on a **text file** is the road to reading it: the row is marked (the
-`_selected` highlight that also shows on a marked binary file) and `less -R --`
-opens on it in a pane over the tree. The resulting viewer row is kept at the top of
-this Files body, before the grouped project headings; it is not an Agents ghost.
-"Text" is anything whose extension is not in `BinaryExt` - a source tree, a config,
-a readme - so the pager is never handed an image or an archive.
+A left click on a **text file** selects it and opens `less -R --` in a pane over the tree.
+The viewer row stays above the project headings and is not an Agents ghost. "Text" means an
+extension outside `BinaryExt`, so images and archives never reach the pager.
 
-At most one viewer is open, and `Pager` owns its lifecycle - the shared half, since
-the git view's diff wants exactly the same arrangement ([mod-ui-git](mod-ui-git.md)).
-This view supplies only the command:
+`Pager` owns the single viewer lifecycle shared with git diffs
+([mod-ui-git](mod-ui-git.md)); Files supplies only the command:
 
-- Clicking a *different* file replaces it: the old `less` (an ephemeral agent, so
-  `Stop` and `forget`) is killed and the new file's session is started, so its sidebar title
-  follows the new path. Clicking the file
-  already being read just brings its pane back (`Pager.Reopen`). The Files tab owns
-  both view and edit sessions; Git owns diffs, including a diff launched from this
-  tree.
-- Leaving the file manager closes it: a click on a directory or a project heading,
-  the dotfile switch (`Reload`), switching to any other view (`Show`, which is what
-  `FocusTerminal` and every summon of a terminal take), or the pane closing
-  (`CloseViewerIf`). Killing the session is what closes the process; the pane over
-  it seeing `Gone` is what closes itself.
+- Clicking a *different* file stops/forgets the old ephemeral `less` session and starts the new
+  one; the sidebar title follows the path. Clicking the current file calls `Pager.Reopen`.
+  Files owns view/edit sessions; Git owns diffs, including diffs opened from this tree.
+- A directory/project-heading click, dotfile reload, view switch, terminal summon, or pane close
+  closes the viewer. Killing the session closes the process; `Gone` closes its pane.
 
 ## `FileIcons`
 

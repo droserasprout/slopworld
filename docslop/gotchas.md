@@ -2,135 +2,77 @@
 
 - **1.6 only.** Most tick methods were renamed to interval forms in 1.6, so the
   patch targets will not bind on 1.5.
-- Launching `RimWorldLinux` by hand gets a mod that has patched nothing and a
-  dialog saying why. A save made outside the profile is a save against the game's
-  own folder. See [profile](profile.md).
-- **A game tick and an absolute tick are different units here.** `TicksGame` is
-  sixty to the real second; `TicksAbs` is `RealClock`'s, sixty thousand to the
-  real *day*. So `GenDate.TickAbsToGame` and `TickGameToAbs` no longer round trip,
-  and a duration in absolute ticks handed to something expecting game ticks reads
-  eighty-six times short. Only the pawn log's timestamps store one.
-- Harmony errors surface in `Player.log` at **runtime**, not at build time. A patch
-  whose target moved fails silently until you read the log.
-- A Harmony patch that throws during `PatchAll` kills the whole mod, and the game
-  then looks vanilla. `SlopWorldBootstrap` catches and logs `patching
-  incomplete:`, so grep `Player.log` for that first. Transpilers are the usual
-  cause - this game's Mono rejected a `ColonistBarOnGUI` transpiler with
-  `InvalidProgramException` at patch time, in two emission shapes.
+- Launching `RimWorldLinux` directly bypasses the profile: the mod patches nothing,
+  and saves use the game's folder. See [profile](profile.md).
+- **Game and absolute ticks differ.** `TicksGame` is 60 per real second; `TicksAbs` is
+  `RealClock`'s 60,000 per real day. The conversion helpers no longer round-trip, and an
+  absolute-tick duration passed to a game-tick API is about 86 times short. Only pawn-log
+  timestamps use absolute ticks.
+- Harmony failures appear in `Player.log` at **runtime**, not build time. A failed `PatchAll`
+  leaves the game looking vanilla; grep for `patching incomplete:`. Moved targets and
+  transpilers are common causes.
 - Disassemble rather than guess:
-  `ikdasm "$RIMWORLD/RimWorldLinux_Data/Managed/Assembly-CSharp.dll"`. The game
-  also ships a sample of its own source under `$RIMWORLD/Source`.
-- An exception inside `AgentColony.GameComponentTick` stops the whole reconcile,
-  not just one pawn.
-- **Draw order** in one frame is `UIRoot_Play.UIRootOnGUI`: map interface, then
-  `WindowStackOnGUI`, which runs *every* window's `ExtraOnGUI` and only then
-  *every* window's contents. So anything drawn on the map layer or in
-  `ExtraOnGUI` is behind every window's background, and `TerminalWindow` fills the
-  screen opaque. To put something over the terminal, draw it from
-  `DoWindowContents` after the fill - also the only place `Mouse.IsOver` lets
-  clicks through.
-- **Screenshot mode (F11) does not filter `MapComponentOnGUI`, window
-  `ExtraOnGUI`, or vanilla map overlays.** Components such as `TopBar` and hooks
-  such as the agent Edit tab must ask `SlopLayout.Hidden`; `StatusOverlay`
-  deliberately remains, like vanilla pawn labels.
-- **Keyboard order is not draw order.** `WindowStack.HandleEventsHighPriority` runs
-  near the top of `UIRoot.UIRootOnGUI` and Uses every `KeyDown` whenever a window
-  absorbs input around itself, so a global hotkey taken in a game component fires
-  only while nothing is absorbing. A key that must also work with a window up has
-  to be read inside that window as well; `SlopQuickTerminal` is read in both.
-- **An absorbing window prevents lower windows from receiving `MouseDown`; `rawType`
-  cannot recover an event never delivered.** Sample `Input.GetMouseButtonDown` and
-  `GetMouseButton` from a per-frame handler instead. For drags: latch, follow
-  `mousePosition`, and stop when the button is up; this also handles release offscreen.
-  `UnityGUIBugsFixer.MouseDrag(button)` already reduces to `Input.GetMouseButton(button)`
-  on Linux and Steam Deck. The other edge of the same knife: `Use()` does *not* clear
-  `rawType`, so a press consumed earlier in the frame is still seen by every later
-  reader gated on it. Two hit targets that overlap both fire; keep them apart.
-- **`WindowStack.Add` closes standing windows of the same type before `PreOpen` runs.**
-  `RemoveWindowsOfType` is gated on the *standing* window's `onlyOneOfTypeAllowed` (true by
-  default) and an exact `Type` match, so a window that opens a second of its own class takes
-  the first down with it - and the first's `PostClose` has already run by the time the new one
-  sizes itself, so whatever the two had arranged between them is gone. `SlopMenu`'s levels are
-  one class: it turns the flag off and sweeps standing menus in `PreOpen` instead.
-- **`FloatMenuOption.Disabled` is not a field: it *is* `action == null`.** Setting it true
-  nulls the action, and reading it asks whether the action is there. An option built with no
-  action of its own - a `SlopSubmenu`, whose answer is the list it carries - arrives greyed
-  out and dead unless it is given one.
-- **`Text.Font = GameFont.Tiny` may fall back to `Small`** when tiny text is
-  unsupported, disabled, or suppressed for a long event. Measuring Tiny first then
-  drawing Small clips labels. Use `SlopWidgets.LineHOf`/`TinyH`, which measure the
-  effective tier.
-- With `Text.WordWrap`, **`Text.CalcSize` reports wrapped width** (often the longest
-  word), so `GenText.Truncate` may leave a sentence that later wraps and clips in a
-  one-line rect. Disable wrapping around measurement, or use `SlopWidgets.RowLabel`
-  / `Wide`.
-- **`Text.spaceBetweenLines` is not a line height.** Vanilla fills it with
-  `CalcHeight("W\nW") - 2 * CalcHeight("W")` - the *extra* leading between two
-  lines, which for a style with no padding is zero. It is measured off the style's
-  padding, so changing the face and the size (`SlopUIFont`) does not invalidate
-  it and it is left alone; a whole line height written there puts twenty-odd
-  pixels between the label lines of every gizmo in the game, `Gizmo.GizmoOnGUI`
-  and `Widgets.LongLabel` being its readers.
-- **`Window.Margin` (18 by default) is not padding.** `InnerWindowOnGUI` opens a GUI
-  group on the contracted rect, so `DoWindowContents` draws in a space translated
-  by the margin while `GUI.matrix` and screen coordinates stay put.
-  `TerminalWindow` runs at margin 0 so the two agree.
-- **A short `Listing_Standard` starts another column instead of overflowing.** The
-  new column may sit outside its clipping group and reset `CurHeight`, breaking later
-  layout. Begin with enough height and set `maxOneColumn`.
-- **A character the face has no glyph for still takes its width.** Unity advances and
-  draws nothing, so a pane title opening with a coding agent's sigil indents the line
-  by a blank nobody wrote and nothing in the layout explains. `Font.HasCharacter` is
-  the only way to ask - the set a face carries is not a range that can be named in
-  code - and `AgentSidebar.Title` drops what the current style cannot draw.
-- **A `GUIStyle` does not root a dynamic `Font`.** Map switches call
-  `Resources.UnloadUnusedAssets`, destroying it and silently restoring the default
-  face. Dynamic fonts and generated textures (`MenuBackground.Keep`) need
-  `HideFlags.DontUnloadUnusedAsset`.
-- **Replacement UI fonts must be baked at their display size.** Scaling a dynamic font
-  through `GUIStyle.fontSize` can make IMGUI measure and draw different bounds; use
-  `SlopUIFont` and `SlopWidgets.RowLabel` for one-line rows.
-- **The bundled Small style carries a one-pixel content offset.** It is not part of
-  measurement, so `SlopUIFont` clears it when replacing the face.
-- **Middle-aligned `RowLabel` centers its full measured line box.** That box includes
-  dynamic-font ascender and descender bounds, rather than Unity's sometimes-short layout metric.
-- **Labels need the same screen-grid snapping as their frames.** `SlopWidgets.RowLabel`
-  uses `Slab.SnapY`; GUI-coordinate snapping is inconsistent at non-integer UI scales.
-- **`Prefs.UIScale` is a plain float; what caps it is a watchdog.** Nothing clamps the
-  setter, but `ResolutionUtility.Update` re-measures every thirty frames and resets the
-  scale when the scaled screen falls under 1024x768 - which on 1080p is anything past
-  1.75x. So a scale set by hand reverts half a second later, and the game suggests the
-  config file. `UnlockUIScale` transpiles the one `Prefs.DevMode` call in that guard to a
-  constant true, taking vanilla's own exemption always. `Verse.UI.ApplyUIScale` re-derives
-  the scaled screen each OnGUI and `WindowStack.AdjustWindowsIfResolutionChanged` re-lays
-  the windows out, so a change needs no notification of its own.
-- **A control that changes the UI scale cannot apply it live.** `Event.current.mousePosition`
-  and the rect are both in scaled GUI coordinates, so raising the scale moves and narrows the
-  track under the pointer; the next frame reads the pointer further along a track that has
-  moved again, and two frames of that put the knob on a rail. Clamping the step only slows
-  it down. Hold the pending value while `SlopWidgets.Slider` reports `held` and apply on the
-  frame the hand comes off - what `AppearancePage` does with `SlopUIScale`.
-- **`send-keys -H` silently fails above about 996 bytes.** Paste through
-  `load-buffer` on stdin and `paste-buffer -r` (`-r` preserves newlines). Do not
-  add bracketed-paste markers; Ink apps display them literally.
-- **A portrait camera's `cameraOffset.y` is the view axis and frames nothing.** The
-  pawn cache camera looks straight down -Y from (0, 10, 0), so z pans the shot and
-  x slides it sideways; vanilla pans in z throughout. `cameraZoom` is `1 /
-  orthographicSize` and `orthographicSize` is *half the framed height in world
-  units*, so it is a window onto the pawn rather than a magnification - vanilla's
-  1.28205 frames 1.56 units, head and torso.
-- Config UI writes use `PUT /api/config/patch`, so fields omitted by the settings
-  model are left untouched. New editable fields still need to be added to the
-  patch model and validated by the daemon.
-- Renaming anything on the wire needs both halves. `SessionInfo.ParseState` treats
-  an unknown state as `Down`, which keeps a version skew survivable rather than
-  correct.
-- A save written against defs this build no longer ships (`SlopRobotHead`,
-  `SlopClaudwatch`) is not migrated. "Next planet" is the answer.
-- **A bind path built from two unset variables is `/`, and `/` exists.** `expand`
-  dropped each `$VAR` in turn, so `wayland`'s
-  `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` on a machine with neither left the
-  separator: the whole filesystem, bound read-write into every sandbox that
-  ticked the preset. A path naming a variable this machine lacks now expands to
-  nothing at all, and `sandbox::refused` refuses `/` besides - two answers
-  because one of them was already wrong once.
+  `ikdasm "$RIMWORLD/RimWorldLinux_Data/Managed/Assembly-CSharp.dll"`; the game also ships
+  sample source under `$RIMWORLD/Source`.
+- An exception inside `AgentColony.GameComponentTick` aborts the whole reconcile.
+- **Draw order** is map interface, then every window's `ExtraOnGUI`, then every window's
+  contents. `TerminalWindow` fills the screen opaque, so over-pane UI belongs in
+  `DoWindowContents` after the fill; `Mouse.IsOver` only passes input there.
+- **Screenshot mode (F11) does not filter `MapComponentOnGUI`, window `ExtraOnGUI`, or vanilla
+  map overlays.** Components such as `TopBar` and the agent Edit tab must ask
+  `SlopLayout.Hidden`; `StatusOverlay` deliberately remains.
+- **Keyboard order is not draw order.** `WindowStack.HandleEventsHighPriority` consumes
+  `KeyDown` before game components when a window absorbs input. Read a hotkey inside the
+  window too if it must work with that window open; `SlopQuickTerminal` does both.
+- **An absorbing window prevents lower windows from receiving `MouseDown`; `rawType` cannot
+  recover it.** Sample `Input.GetMouseButtonDown`/`GetMouseButton` per frame for drags;
+  latch until release, including offscreen release. `Use()` leaves `rawType` set, so
+  overlapping hit targets can both fire. `UnityGUIBugsFixer.MouseDrag` is equivalent to
+  `Input.GetMouseButton` on Linux and Steam Deck.
+- **`WindowStack.Add` removes standing same-type windows before `PreOpen`.** The standing
+  window's `onlyOneOfTypeAllowed` (true by default) and exact `Type` match control this.
+  `SlopMenu` disables it and sweeps standing menus in `PreOpen` so its levels can coexist.
+- **`FloatMenuOption.Disabled` is `action == null`.** A submenu has no action of its own,
+  so give `SlopSubmenu` an action or it arrives disabled.
+- **`GameFont.Tiny` may draw as Small.** Measure the effective tier with
+  `SlopWidgets.LineHOf`/`TinyH`; measuring Tiny first clips labels when it falls back.
+- With `Text.WordWrap`, **`Text.CalcSize` reports wrapped width**. Disable wrapping while
+  measuring one-line text, or use `SlopWidgets.RowLabel`/`Wide`.
+- **`Text.spaceBetweenLines` is extra leading, not line height.** It is measured from style
+  padding; writing a whole line height there spaces every gizmo label.
+- **`Window.Margin` (18 by default) is not padding.** `InnerWindowOnGUI` translates the
+  contents group while screen coordinates stay fixed; `TerminalWindow` uses margin 0.
+- **A short `Listing_Standard` starts another column.** Give it enough height and set
+  `maxOneColumn` to keep later layout inside its clip.
+- **A missing glyph still advances the line.** `Font.HasCharacter` is the only reliable test;
+  `AgentSidebar.Title` replaces unsupported characters before drawing.
+- **A `GUIStyle` does not root a dynamic `Font`.** Map switches unload it; dynamic fonts and
+  generated textures need `HideFlags.DontUnloadUnusedAsset`.
+- **Bake replacement fonts at display size.** Scaling through `GUIStyle.fontSize` can make
+  IMGUI measure and draw different bounds; use `SlopUIFont` and `RowLabel`.
+- The bundled Small style has a one-pixel content offset; `SlopUIFont` clears it.
+- Middle-aligned `RowLabel` centers the full dynamic-font line box, including ascender and
+  descender bounds.
+- Labels need the same screen-grid snapping as frames; `RowLabel` uses `Slab.SnapY`.
+- **`Prefs.UIScale` is capped by a watchdog, not its setter.** `ResolutionUtility.Update`
+  checks every 30 frames and resets below 1024x768 (above 1.75x on 1080p).
+  `UnlockUIScale` makes vanilla's dev exemption unconditional; `Verse.UI.ApplyUIScale` and
+  window relayout handle changes without a notification.
+- **A UI-scale slider cannot apply live.** Scaled GUI coordinates move the track under the
+  pointer; hold the pending value while `SlopWidgets.Slider` reports `held` and apply on
+  release, as `AppearancePage` does.
+- **`send-keys -H` silently fails above about 996 bytes.** Use stdin with `load-buffer` and
+  `paste-buffer -r`; do not add bracketed-paste markers because Ink displays them literally.
+- **A portrait camera's `cameraOffset.y` is the view axis.** The camera looks down -Y, so z
+  pans and x slides. `cameraZoom = 1 / orthographicSize`, where `orthographicSize` is half
+  the framed height; vanilla's 1.28205 frames 1.56 world units.
+- Config UI writes use `PUT /api/config/patch`, so omitted fields stay unchanged; new fields
+  still need patch-model validation in the daemon.
+- Wire renames need both halves. `SessionInfo.ParseState` maps unknown states to `Down`, which
+  survives version skew safely but is not semantically correct.
+- Saves using removed defs (`SlopRobotHead`, `SlopClaudwatch`) are not migrated; start a new
+  planet.
+- **Unset variables must not form paths.** Expanding
+  `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` with both unset once produced `/`, exposing the
+  whole filesystem read-write. `expand` now returns empty for unset variables and
+  `sandbox::refused` rejects `/`.

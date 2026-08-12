@@ -5,15 +5,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The column's other view: every project's directory as one nested, foldable tree.
-    //
-    // Drawn from AgentSidebar's back pass, which is to say from ColonistBarOnGUI, which is
-    // what puts it over a terminal as well as on the map - the same road the portraits take
-    // and the reason there is no second call site anywhere.
-    //
-    // The daemon does the reading. A session runs in its own mount namespace and the game
-    // runs outside all of them, so `/api/browse` is the only thing on this machine that can
-    // see a project directory the way the project does.
+    // Files view is a lazy directory tree rendered from AgentSidebar's back pass; the daemon
+    // owns browsing because the game is outside every session's mount namespace.
     public static class FilesView
     {
         // Off the font, not written down: every line in this tree is drawn at Tiny, and a
@@ -425,12 +418,8 @@ namespace SlopWorld
             return y + RowH;
         }
 
-        // The buttons a row offers. A directory offers none - `less` on one is a listing
-        // nobody asked for and `micro` on one is a file browser inside a game, which is the
-        // same line the right-click menu draws. A binary file is not offered the pager for the
-        // reason a left click on one opens nothing. And the diff is offered where the working
-        // tree has something to diff, which is the git view's answer rather than this one's:
-        // the two views draw the same files and only one of them has read the repository.
+        // Text files offer View/Edit; changed files additionally offer Diff. Directories and
+        // binary files offer no row actions.
         static RowAct Acts(Node node)
         {
             if (node.IsDir) return RowAct.None;
@@ -486,12 +475,8 @@ namespace SlopWorld
         };
 
         // ------------------------------------------------------------------ clicks
-        //
-        // Called from AgentSidebar's back pass where Menus is in the other view: after the
-        // whole tree is laid out and outside the scroll view's group, so a rect here is in the
-        // coordinates ColonistBarStrip.MouseOver reads; after Grip, because a row is the full width of the
-        // panel and asked first it would eat every press on the edge; and before Absorb, which
-        // takes whatever the panel's contents did not.
+        // Called after layout and outside the scroll group; run after Grip and before panel
+        // Absorb so row actions receive the press in screen coordinates.
         public static void Clicks()
         {
             if (!ColonistBarStrip.Interactive) return;
@@ -736,11 +721,7 @@ namespace SlopWorld
         }
 
         // ------------------------------------------------------------------ viewer
-        //
-        // The file manager's other half: a `less` session on the selected file, shown in a
-        // pane over the tree. At most one is open - the reader replaces it by clicking
-        // another file, and the focus leaving the tree closes it. All of that is `Pager`'s;
-        // the command is this view's.
+        // Pager-backed `less` viewer; one file at a time, closed on replacement or leaving the tree.
         static void View(Node node) => ViewFile(node.Project, node.Path, "view-" + node.Name);
 
         // Public for GitView: viewing a changed file is a Files operation, regardless of

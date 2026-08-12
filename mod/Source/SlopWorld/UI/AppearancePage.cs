@@ -5,20 +5,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The non-terminal UI appearance settings, as a page of the options menu. UI scale is
-    // the first row and vanilla's Interface row is dropped for it (StripOptions), the
-    // ladder there stopping well short of what the pref itself takes; see SlopUIScale.
-    // The colour scheme is the row under it, drawn the way the Terminal page draws the
-    // pane's - a name and the palette itself in a strip, nobody judging either from a
-    // name; see UIScheme.
-    // Font face and size are set here too; they apply to every Widgets.Label and
-    // Text.CalcSize call in the game — the mod's own views, the patched chrome
-    // (AgentSidebar, InspectPane), and any vanilla RimWorld dialog still on screen. The
-    // hardware cursor is chosen here too, beside the font controls because it is another
-    // thing the player reads on this screen.
-    //
-    // A page rather than a Window because SlopOptions hangs it off an OptionCategoryDef.
-    // See SlopOptions.
+    // Appearance page for global UI scale, scheme, fonts, and cursor; font changes affect every
+    // `Widgets.Label`/`Text.CalcSize`, including vanilla dialogs. SlopOptions hosts the page.
     public class AppearancePage
     {
         readonly SmoothScroll _scroll = new SmoothScroll();

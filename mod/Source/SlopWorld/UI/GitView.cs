@@ -5,22 +5,11 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The column's third view: what every project's working tree has that its last commit
-    // does not, as the same nested tree the files view draws.
-    //
-    // Drawn from AgentSidebar's back pass, which is to say from ColonistBarOnGUI, the same
-    // road the portraits and the file tree take and the reason there is no second call site.
-    //
-    // The daemon runs the git. A session is in its own mount namespace and the game is outside
-    // all of them, so `/api/git` is here for the reason `/api/browse` is.
-    //
-    // Where the files view is lazy - one directory a click, because a project root is a
-    // hundred thousand files deep - this one is not. A working tree's changes are a list
-    // short enough to ask for whole, and the tree is folded out of that list rather than
-    // walked: a directory here exists because something under it changed.
+    // Git view draws the daemon's whole changed-file list as a tree. It shares the Files view's
+    // back pass, while the daemon runs `git` outside the sessions' mount namespaces.
     public static class GitView
     {
-        // Off the font, for the reason the files view's is - one column, one kind of row.
+        // One column uses one font-derived row height.
         static float RowH => SlopWidgets.TinyRowH;
         const float IconW = 16f;
         const float Indent = 11f;
@@ -28,8 +17,7 @@ namespace SlopWorld
         const float CellX = SlopWidgets.GapS;
         const float ArrowW = 11f;
 
-        // One node of the folded-out tree. A directory holds kids and nothing else; a file
-        // holds the row the daemon sent.
+        // A directory holds children; a file holds the daemon's row.
         class Node
         {
             public string Name;
@@ -533,13 +521,7 @@ namespace SlopWorld
 
             Text.Font = GameFont.Tiny;
 
-            // The counts from the right, so they line up down the column whatever the names
-            // do. Directories carry none: a folder's total is a figure nobody diffs.
-            //
-            // Under the mouse the buttons stand where the figures do, and the figures go: the
-            // strip is fifty pixels and the column is narrow, so keeping both would cost the
-            // name rather than the tail. Nothing is lost by it - the row's own tooltip says
-            // the state in words, and it is up whenever a button is not.
+            // Right-align counts; row actions temporarily occupy the same tail space.
             float rx = width - Pad;
             var acts = over ? Acts(node) : RowAct.None;
             if (acts != RowAct.None)
@@ -575,14 +557,8 @@ namespace SlopWorld
             return y + RowH;
         }
 
-        // The buttons a row offers. Every row here is a change, so the diff is always one of
-        // them - it is what a left click on the row does anyway, and the button is where a
-        // reader who has just been in the files view will look for it.
-        //
-        // The other two are about the file on disk, so a deletion offers neither: `less` on a
-        // path that is not there says so in a pager, and `micro` on one opens an empty buffer
-        // ready to write the file back. A binary loses the pager for the reason it loses it in
-        // the files view.
+        // Every changed file offers Diff; existing files additionally offer Edit and text files
+        // offer View.
         static RowAct Acts(Node node)
         {
             if (node.IsDir) return RowAct.None;
@@ -595,9 +571,7 @@ namespace SlopWorld
             return acts;
         }
 
-        // Is there a file at that path now? Deleted in the working tree, or deleted and the
-        // deletion staged, are both "no"; a staged deletion the worktree has since put back is
-        // a "yes" and reads as `D` in the first column with something in the second.
+        // A path is absent when either worktree deletion or staged deletion is authoritative.
         static bool Present(string status)
         {
             if (string.IsNullOrEmpty(status) || status == "??") return true;
@@ -657,10 +631,7 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ clicks
         //
-        // Called from AgentSidebar's back pass where Menus is in the agents view: after the
-        // whole tree is laid out and outside the scroll view's group, so a rect here is in the
-        // coordinates ColonistBarStrip.MouseOver reads; after Grip, because a row is the full
-        // width of the panel and asked first it would eat every press on the edge.
+        // Called after layout and Grip; row rects are screen-adjusted before hit-testing.
         public static void Clicks()
         {
             if (!ColonistBarStrip.Interactive) return;
@@ -671,8 +642,7 @@ namespace SlopWorld
 
             foreach (var line in Lines)
             {
-                // Shifted by the scroll and clipped by the view, so the rect a row was drawn
-                // at is not where it can be clicked; Contains against the scrolled rect is.
+                // Hit-test the scrolled, clipped row rect rather than its layout rect.
                 if (!ColonistBarStrip.MouseOver(Screen(line.Rect))) continue;
 
                 if (line.Project != null)
@@ -690,10 +660,7 @@ namespace SlopWorld
                 }
                 else
                 {
-                    // The hover strip first, and the row's own answer only where the press
-                    // missed it: a button drawn over the row's tail is a button, and the row
-                    // underneath must not act on the same press. Directories offer none, so
-                    // this falls through for them without asking.
+                    // Row actions take precedence over the row; directories have none.
                     var scr = Screen(line.Rect);
                     var hit = RowActions.Hit(scr, scr.xMax - Pad, Acts(line.Node));
 
@@ -705,8 +672,7 @@ namespace SlopWorld
                     {
                         if (!line.Repo.Shut.Remove(line.Node.Rel))
                             line.Repo.Shut.Add(line.Node.Rel);
-                        // A directory is not a change: whatever diff was up is no longer what
-                        // the reader is looking at.
+                        // A directory is not a diff selection.
                         ClearSelection();
                         Viewer.Release();
                     }
@@ -782,10 +748,7 @@ namespace SlopWorld
         // ------------------------------------------------------------------ what the files
         //                                                                     view asks
         //
-        // The other tree draws the same files and has never read a repository. So it asks
-        // here: whether a file it is about to draw has a change, and what would show it. Only
-        // what has already been read - nothing is fetched on this road, the answer being
-        // wanted once a frame per visible row.
+        // FilesView queries only the already-read repository cache; this path never fetches.
 
         // The repository as it stands for a project, or null where there is none to speak of:
         // never read, read and refused, not a repository, or read about a directory this
@@ -813,9 +776,7 @@ namespace SlopWorld
             return rel != null && repo.Changes.ContainsKey(rel);
         }
 
-        // What would show that file's diff, or null where there is nothing to show. The files
-        // view runs it in its own pager: two views, two pagers, and the one being stood in is
-        // the one that keeps its session.
+        // Returns a diff command for the cached path, without opening a pager.
         public static string DiffFor(string project, string abs)
         {
             var repo = Known(project);
@@ -889,9 +850,7 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ the diff
         //
-        // A coloured diff in a pager, in a pane over the tree, from an ephemeral agent in the
-        // project's own sandbox - which is what makes git see the working tree the way the
-        // agents changing it do. At most one is open; `Pager` is the rest of that.
+        // Diffs run in one Pager session through an ephemeral agent in the project sandbox.
 
         // Public for FilesView: a diff opened from the files tree still belongs to Git and
         // must therefore use this pager, so the resulting ghost appears in the Git tab.

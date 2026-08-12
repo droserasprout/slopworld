@@ -3,16 +3,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // F12 closes whatever pane is open, and with none open opens the selected agent's -
-    // or, with nothing selected, the one that was last on screen, and failing that any
-    // agent that is up.
-    //
-    // Opening needs a home outside every window, since there is no window to hang it
-    // off yet. Closing is not here and cannot be:
-    // WindowStack.HandleEventsHighPriority Uses every KeyDown while a window absorbs
-    // input around itself, and it runs earlier in UIRoot.UIRootOnGUI than the game
-    // components - so with a pane up this never hears the key. TerminalWindow holds
-    // that half.
+    // GameComponentOnGUI opens F12's selected/last live agent and handles the no-window path.
+    // TerminalWindow owns closing because absorbing windows consume the key first.
     public class TerminalHotkeys : GameComponent
     {
         public TerminalHotkeys(Game game) { }

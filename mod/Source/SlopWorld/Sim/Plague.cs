@@ -127,11 +127,8 @@ namespace SlopWorld
         // Without it every colony thins out through the same speckle.
         int _seed;
 
-        // The plague's whole extent: the tick it arrived at each cell, or Never. Min-combined
-        // on the way in and never raised - nothing here takes a finished thing back off the
-        // board - so the field only fills in, which is what lets a question about it be an
-        // array index. Never rather than zero, zero being a tick the game has. Allocated on
-        // first use, a MapComponent being built while the map still is.
+        // `_cells` stores each cell's first arrival tick; Min-combined values only grow, with
+        // `Never` as unset. Allocate lazily because MapComponents load before the map is ready.
         const int Never = int.MaxValue;
         int[] _cells;
 
@@ -193,11 +190,8 @@ namespace SlopWorld
 
             int t = Find.TickManager.TicksGame;
 
-            // The only thing the window losing focus is allowed to stop is the vent's
-            // flecks, which nobody is there to see. Everything else here mutates the
-            // world - Effects detonates and ignites pawns, Sow spawns plants, StepPlants
-            // withers them - and a plague that pauses while the player alt-tabs is a
-            // different game depending on where they are looking.
+            // Only visual vent flecks pause when unfocused; Effects, Sow, and StepPlants mutate
+            // world state and must keep running.
             bool background = !Application.isFocused;
 
             if (Settings.GrandmaMode)
@@ -363,11 +357,8 @@ namespace SlopWorld
             }
         }
 
-        // Read instead of Rand.Value wherever the answer must not move: the plant sweep walks
-        // the map over and over, and a chance re-rolled every pass converges on certainty.
-        // Seeded off the cell, so ground that shrugged the plague off keeps shrugging it off
-        // across a reload. Hashed (lowbias32, top 24 bits) rather than Rand.ValueSeeded,
-        // which pushes the global RNG state onto a stack, reseeds, draws and pops.
+        // Use deterministic cell-seeded rolls for stable sweep/reload results without mutating
+        // the global RNG state.
         float Grit(IntVec3 cell) => Grit(cell, 0);
 
         // Salted, for the second question asked of the same cell. One hash answering both
@@ -663,11 +654,8 @@ namespace SlopWorld
             return (ushort)(Mathf.Clamp(secs, -Span, Span) + Bias);
         }
 
-        // Offsets go in raw and become ticks in FinalizeInit: a map is scribed *before* the
-        // tick manager (Game.ExposeData), so the clock read here is the last game's. An offset
-        // cannot collide with Never, being a short's worth either side of zero. Being called
-        // at all is also the only word we get that this save has a field -
-        // DataSerializeUtility returns silently when the node is absent.
+        // Save relative offsets before the tick manager exists; FinalizeInit converts them to
+        // current ticks. Detect absent save nodes because DataSerializeUtility is silent there.
         void Unpack(IntVec3 c, ushort v)
         {
             int k = map.cellIndices.CellToIndex(c);
@@ -678,11 +666,8 @@ namespace SlopWorld
             _reached++;
         }
 
-        // Every wild plant arrives through this one method. The sweep alone loses the race -
-        // the spawner refills behind it - so the core would spend the colony's life growing
-        // grass and tearing it out. Gated on Band.Full rather than Reaches: the weak band has
-        // to keep growing the plants it only holds back, and Grit being stable is what makes
-        // a cell sterile or fertile forever rather than flickering.
+        // Centralize wild-plant spawning: the sweep cannot keep up with the spawner, and only
+        // Full-band cells reseed; weak-band plants must continue growing.
         [HarmonyPatch(typeof(WildPlantSpawner), nameof(WildPlantSpawner.CheckSpawnWildPlantAt))]
         public static class Patch_NoRegrowth
         {

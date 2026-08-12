@@ -5,20 +5,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The five pages a new colony asks for are moot here: nobody starts on the map
-    // and it is eaten by the plague regardless.
-    //
-    // The chain is copied out of Root_Play.SetupForQuickTestPlay - what the dev Quick
-    // Test button runs - with the scenario swapped for SlopScenario. Copied rather
-    // than called, because the scenario has to be in place before PreConfigure and
-    // PostIdeoChosen fan out over its parts, and those sit in the middle of that
-    // method with no seam to reach.
-    //
-    // The one thing the quick start gets wrong for us is startedFromEntry, which it
-    // leaves false: that is GameInitData.QuickStarted, which the rest of the game
-    // reads as "this is a dev test". Nothing it changes reaches us any more now that
-    // no pawn starts on the map, but the honest answer is still that this is a real
-    // start.
+    // Reproduce vanilla quick-start with `SlopScenario`, but skip setup pages and starting pawns.
+    // The sequence is copied because scenario hooks are interleaved with setup; mark a real
+    // entry start and set `startingPawnCount` after those hooks run.
     public static class QuickStart
     {
         // Vanilla's own quick-start size is 250; 200 generates faster and is more than

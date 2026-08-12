@@ -6,18 +6,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The key bindings that used to sit behind the "Modify" button on the Controls tab,
-    // drawn as a page of the options menu instead. Every binding this game still answers
-    // to, grouped by category, each one a row that says what it does and what key it is on
-    // now - and clicking the key area opens the listener for a new press.
-    //
-    // Every binding, not every def: what is listed here is StripKeys.Kept, the camera and
-    // the colonist bar and Escape and ours. The Controls tab's own "Modify" button is one
-    // of StripOptions' dropped rows now, so vanilla's Dialog_KeyBindings - which would list
-    // all of them, kept or not - has no door left to open by, and this is the one place a
-    // key is set.
-    //
-    // A page rather than a Window because SlopOptions hangs it off an OptionCategoryDef.
+    // Lists `StripKeys.Kept` as an options page; clicking a key cell opens the listener.
+    // It replaces vanilla's all-bindings Modify dialog, which would expose stripped keys.
     public class KeyBindingsPage
     {
         // A row holds a button, so it is a button's height; the category band is a tiny line.

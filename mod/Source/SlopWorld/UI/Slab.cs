@@ -3,21 +3,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // A rectangle - filled, outlined, or ringed for focus. Square: the corners are corners,
-    // which is the house style and also why there is no texture in this file at all. Every
-    // shape here is flat colour off `BaseContent.WhiteTex`, and a solid rect has no texel
-    // grid to disagree about, so there is no seam to see and nothing to bake at startup.
-    //
-    // **Everything here is measured in screen pixels**, which is the whole of what is left to
-    // get wrong. A GUI pixel is a screen pixel only at UI scale 1: at 1.75 a rect rounded to
-    // whole GUI coordinates lands on 1.75ths of a screen pixel, and where one edge ends and
-    // the next begins, the pixel they share is rasterised into one of them, or neither, or
-    // both. Both is a doubled alpha - a dark line; neither is the window showing through - a
-    // light one. Which of the two, and whether it happens at all, comes out of the box's
-    // absolute position, so it appears on some buttons and not on others of the same size in
-    // the same window. `Snap` puts every edge on the screen grid before it is drawn, through
-    // `GUIToScreenPoint` rather than by multiplying - groups and scroll views each add an
-    // offset of their own, and only the transform knows the sum of them.
+    // Flat rectangular chrome with no textures. Geometry is snapped through GUIToScreenPoint
+    // so edges land on the screen pixel grid at non-integer UI scales.
     public static class Slab
     {
         // A border is one screen pixel whatever the UI scale; a line that thickens with the
@@ -74,11 +61,7 @@ namespace SlopWorld
             Flat(new Rect(r.xMax, r.y, w, r.height), c);
         }
 
-        // A line one screen pixel thick, along the top of the rect it is given. Not a rect a
-        // GUI pixel tall: at 1.75 that is 1.75 screen pixels, which rasterises as one row at
-        // full alpha and one at three quarters - a rule that is a different weight depending
-        // on where the window happens to sit. This is the same trick everything else here
-        // does, which is why it lives with them.
+        // Draw a one-screen-pixel top rule regardless of UI scale.
         public static void Hairline(Rect r, Color c) =>
             Flat(new Rect(r.x, r.y, r.width, LineW), c);
 
@@ -91,20 +74,8 @@ namespace SlopWorld
         static bool Paint(Color c) =>
             Event.current.type == EventType.Repaint && c.a > 0f;
 
-        // Both edges of both axes onto the screen grid, independently. Rounding the origin and
-        // the size separately would let a box one pixel wider than its neighbour end half a
-        // pixel short of it; rounding the edges means two rects that were handed the same
-        // coordinate come back with the same coordinate, which is the property the seams
-        // needed and the only one that matters.
-        //
-        // Out to the screen and back **by arithmetic**, from a transform sampled at two
-        // points. `ScreenToGUIPoint` is documented as the inverse of `GUIToScreenPoint` and
-        // is not one inside a group: a window is drawn in several nested ones, the return
-        // trip drops their offsets, and every box lands somewhere else on the screen while
-        // the labels - which go through none of this - stay where they belong.
-        //
-        // `TerminalWindow.SyncSnap` samples the same transform for the same reason, that
-        // being where the pane's black seam between coloured rows came from.
+        // Snap both edges of each axis in screen space; nested GUI groups make arithmetic
+        // inversion through ScreenToGUIPoint unreliable. TerminalWindow uses the same transform.
         static Rect Snap(Rect r)
         {
             var p0 = GUIUtility.GUIToScreenPoint(Vector2.zero);

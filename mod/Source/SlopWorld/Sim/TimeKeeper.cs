@@ -4,20 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // There is no way for the player to start the clock again if it stops:
-    // Patch_HideGui drops GlobalControls wholesale, and vanilla wires up every
-    // time-speed key binding inside TimeControls.DoTimeControlsGUI, which only runs
-    // while those controls are drawing. So a pause is a pause forever, on a board
-    // with no clock to show it - the map just stops, and looks like everything on it
-    // has died.
-    //
-    // It is also the only thing that starts the clock on a fresh colony now the
-    // scenario's opening dialog is gone: that box held the pause a new game begins
-    // on. Windows that force a pause still hold time while they are up.
-    //
-    // And it is where eco mode's pause is held, for the same reason: this is the one
-    // thing with an opinion about the clock, so a mode that wants it stopped states it
-    // here rather than fighting the resume from somewhere else.
+    // Own the game clock: start fresh colonies, hold Eco paused, and resume only pauses this
+    // component owns. Vanilla time controls are hidden, so an external pause needs this fallback.
     public class TimeKeeper : GameComponent
     {
         // Logged once: knowing that something out there still pauses the game, and when,

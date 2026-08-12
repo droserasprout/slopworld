@@ -4,20 +4,8 @@ using System.Text;
 
 namespace SlopWorld
 {
-    // The search behind the command palette. A substring test is the wrong shape for a
-    // list of "Noun: Verb" rows: nobody types the colon, so "v c" and "vc" both have to
-    // find "View: Config" while "e" alone does not put "Agent: Delete" above
-    // "Agent: Edit".
-    //
-    // So: the query is split on whitespace, every term has to appear as a subsequence,
-    // and the terms may arrive in any order - "config view" is the same question as
-    // "view config". What separates the answers is the score, and the whole of the
-    // tuning is where a matched character sits: the front of the text, the front of a
-    // word, or directly after the previous match. Anything else is worth little, which
-    // is what keeps a hit buried mid-word below one that reads as an abbreviation.
-    //
-    // Positions come back with the score, because a fuzzy hit whose reason cannot be
-    // seen reads as a wrong one.
+    // Palette matching splits terms, accepts order-independent subsequences, and scores head,
+    // word-boundary, and consecutive matches above mid-word hits. Match positions drive markup.
     static class Fuzzy
     {
         // Per matched character.

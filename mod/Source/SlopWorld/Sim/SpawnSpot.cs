@@ -3,16 +3,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // CellFinder.RandomSpawnCellForPawnNear asks for standable, unfogged, unoccupied
-    // and reachable - but reachable *from the root it was handed*, and a root in a
-    // pocket inside a mountain satisfies all four while the pawn cannot walk
-    // anywhere. Agents ended up sealed in stone, which is not obviously broken: it
-    // just never moves.
-    //
-    // So every candidate has to sit in a room that touches the map edge. Rooms are
-    // bounded by walls and natural rock counts, so a sealed pocket is a room that
-    // does not reach the edge, while a cave open to the sky is the same room as the
-    // outdoors. Not "can I stand here" but "can I leave".
+    // Require spawn candidates to be in a room connected to the map edge: vanilla's reachable
+    // test can accept a walkable pocket that the pawn cannot leave.
     public static class SpawnSpot
     {
         // How far out from the anchor to look before giving up on staying close.

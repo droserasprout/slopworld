@@ -13,17 +13,8 @@ namespace SlopWorld
         public static float Width => Mathf.Clamp(Settings.SidebarWidth, MinWidth,
             Mathf.Max(MinWidth, Mathf.Min(MaxWidth, UI.screenWidth * 0.4f)));
 
-        // The scale an uncrowded portrait is drawn at. Read off the text rather than fixed:
-        // a row is as tall as the three lines in it, and the pawn beside them is drawn that
-        // tall - overflow included, so the whole picture is the height of the text and the
-        // pitch keeps its `RowGap` between one portrait and the next. A constant here left
-        // a 37px square sitting in a row the font was free to grow past.
-        //
-        // A face is a width as well as a height, and the label wants the rest of the panel,
-        // so a share of the column caps it: a large font in a narrow one would otherwise
-        // hand the whole row to the portrait. Bounded at both ends besides - the portrait
-        // cache renders one unscaled texture, so past Ceiling the face is being upsampled,
-        // and under Floor it is a thumbnail of a pawn.
+        // Size portraits from the text row, then clamp them so the cached texture is neither
+        // upsampled nor reduced to a thumbnail.
         static float Nominal => Mathf.Clamp(
             Mathf.Min(Patch_SidebarPortraitDraw.FaceForHeight(TextH), Width * WidthShare)
                 / ColonistBarColonistDrawer.PawnTextureSize.y,
@@ -41,12 +32,8 @@ namespace SlopWorld
         const float CellX = SlopWidgets.GapS;
         const float TextGap = SlopWidgets.GapS;
 
-        // The strip is one row of the buttons every view has - the five tabs on the left,
-        // the filter on the right - and, under it, a second row of the buttons only the
-        // current view has. That row is right-aligned like the filter above it and is only
-        // there when the view actually has such a button, so the two views that have none
-        // do not wear an empty band. `TabH` is what the body is pushed down by, so both
-        // [Body] and [Place] follow on their own.
+        // The shared tabs/filter row is followed by an optional right-aligned view-action row;
+        // `TabH` includes both when present.
         static float TabRowH => TopBar.H;
         public static float TabH => TabRowH + (HasActions ? TabRowH : 0f);
         const float TabIcon = 20f;
@@ -159,15 +146,8 @@ namespace SlopWorld
         // Which views own a second row. Keep in step with what [Actions] draws.
         static bool HasActions => Files || Search || Git;
 
-        // The project filter: a set of ticked keys every view is read through, empty being
-        // all of them rather than none. Held and written the way the folds are - one name a
-        // line - because it is the same kind of thing, and a key no project answers to
-        // shows nothing rather than falling back to all: that is the honest reading while
-        // the daemon is still handing its list over.
-        //
-        // Whatever has no project of its own is one more key, so it can be ticked like any
-        // other. A project actually named this shares its line, which is the price of a
-        // sentinel that reads the same in the settings file as it does in the menu.
+        // Empty means all projects. Unknown project keys show no rows while the daemon list is
+        // incomplete; the no-project bucket is a normal filter key.
         public const string NoProject = "[none]";
 
         static HashSet<string> _filter;
@@ -367,11 +347,8 @@ namespace SlopWorld
         public static Rect AddBar =>
             new Rect(CellX, UI.screenHeight - Pad - AddH, Width - CellX * 2f, AddH);
 
-        // Keep the visual strip inset, but let its hit target reach the panel's screen
-        // edges so the bottom-left screen pixel still belongs to Add. Short of the grip on
-        // the right: [Grip] runs first and takes the press with `Use`, which does not clear
-        // `rawType` - the gate this press is read through - so an overlap would start a
-        // resize and open the menu on the same click. [Tabs] holds the same line back.
+        // Extend the hit target to the panel edges, but stop before Grip: `Use` leaves
+        // `rawType` set, so overlap would resize and open the menu on one click.
         static Rect AddHitBar =>
             new Rect(0f, AddBar.y, Mathf.Max(0f, Width - GripW),
                 UI.screenHeight - AddBar.y);
@@ -971,15 +948,8 @@ namespace SlopWorld
 
         static string Word(AgentState state) => state.ToString().ToLower();
 
-        // Presence, the way a chat client marks it: a circle in the lower corner of the
-        // portrait, which is the one round thing in a rectangular UI because it sits on a
-        // face and is read as one. The front pass runs after the colonist bar has put the
-        // portrait down, which is what lets the badge land on top of it. The ring is the
-        // panel's own dark, so the circle keeps an edge over hair and clothing.
-        //
-        // The corner is the drawn portrait's, not the cell's: hair and clothing overflow
-        // the face box by a third of it at each end, and the box's own lower edge is level
-        // with the pawn's chin - which is where the badge sat, over the mouth.
+        // Draw the status badge in the front pass at the portrait's lower corner, not the cell's;
+        // the dark ring keeps it legible over portrait overflow.
         static void DrawStateBadge(Rect face, AgentState state)
         {
             if (face.width <= 0f) return;
@@ -1097,12 +1067,8 @@ namespace SlopWorld
             }
         }
 
-        // A title is whatever the app in the pane set, and a coding agent puts a sigil in
-        // front of its own. The game's font has no glyph for those: Unity draws the
-        // character's width and no ink, so the line begins with an indent that nothing in
-        // the layout accounts for and nothing on the screen explains. Asking the font is
-        // the only way to know - the set it carries is not a range anyone can name here.
-        // Control characters are already the daemon's business (tmux.rs, clean_title).
+        // Replace control or unsupported title characters before drawing; Unity otherwise
+        // advances for missing glyphs and leaves unexplained gaps.
         static string Title(SessionInfo info)
         {
             if (info == null) return "";
@@ -1114,9 +1080,7 @@ namespace SlopWorld
                     ? ' '
                     : c);
             var title = clean.ToString().Trim();
-            // Shells commonly initialize OSC 0 to the host name. That is environment
-            // metadata, not an agent title; promoting it made every one-line ghost look
-            // like the same machine instead of the task it was opened for.
+            // Ignore default OSC host titles: they are environment metadata, not task titles.
             if (title.Length == 0 || IsHostTitle(title)) return "";
             return title;
         }

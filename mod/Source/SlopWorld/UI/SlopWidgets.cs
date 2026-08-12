@@ -8,13 +8,8 @@ using Verse.Sound;
 
 namespace SlopWorld
 {
-    // SlopWorld's chrome is a dark instrument panel: squared frames, a blue signal colour,
-    // and a small set of opaque surfaces. The map can stay visible behind the panel,
-    // but a control never borrows its fill from the colony underneath it.
-    //
-    // The geometry follows one rhythm. Four pixels separates a label from its rule, eight
-    // separates controls, and sixteen/twenty-four separate groups and sections. [Slab] owns
-    // all fills and edges so corners stay square and every edge lands on the screen grid.
+    // Shared dark, opaque chrome; Slab owns fills/edges and fixed gaps keep controls on the
+    // screen pixel grid.
     public static class SlopWidgets
     {
         // ---- Surfaces and semantic colours. These are named for SlopWorld's jobs rather
@@ -349,12 +344,8 @@ namespace SlopWorld
             return text;
         }
 
-        // The box a checkbox wears, on its own and centred in the height it is given:
-        // checked is solid signal blue with a tick, unchecked a square well with a light
-        // edge. Drawn and not clicked - every caller has a row that is the hit target
-        // already - so the box goes wherever a tick belongs, in a settings page, a menu
-        // and the palette's sub list alike. It returns the square it drew, for a caller
-        // laying a label out beside it; [TickColW] is what a column of them costs.
+        // Draw the checkbox indicator only; the row owns hit testing. Return its reserved width
+        // so callers can place the adjacent label.
         public static float TickW => Mathf.Round(LineH * 0.8f);
         public static float TickColW => TickW + GapS;
 
@@ -417,11 +408,8 @@ namespace SlopWorld
                                    float min, float max, string readout, string tip = null) =>
             Slider(l, label, value, min, max, readout, out _, tip);
 
-        // `held` is true while the knob has the hot control, and false on the frame the hand
-        // comes off it. A caller whose value changes the coordinates this control is drawn
-        // in - the UI scale is the one - has to wait for that frame: applying it live moves
-        // the track out from under the pointer, and the next frame reads the pointer further
-        // along a track that has moved again. Two frames of that and the knob is on a rail.
+        // Apply geometry-changing values after release: live UI scaling moves the track under the
+        // pointer. `held` reports whether the hot control still owns the knob.
         public static float Slider(Listing_Standard l, string label, float value,
                                    float min, float max, string readout, out bool held,
                                    string tip = null)

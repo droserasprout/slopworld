@@ -7,15 +7,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The entry point that takes the bar's layout away from it and gives it back, redirecting
-    // to AgentSidebar for the column layout. The prefix and finalizer are the only things that
-    // touch the bar's cached layout, so nothing else has to know about the swap.
-    //
-    // Over a terminal the call has to come from inside the window. UIRootOnGUI draws the map
-    // interface, then every window's ExtraOnGUI, and only then every window's contents -
-    // TerminalWindow fills the screen opaque, so anything from the first two is painted over.
-    // Drawing after that fill also puts Mouse.IsOver in the right frame of reference. Hence
-    // Draw(), and Suppressed to keep the map-layer call from drawing a buried second copy.
+    // Redirect colonist-bar layout to AgentSidebar. Over a terminal, draw from the window after
+    // its opaque fill; suppress the map-layer copy to avoid drawing a buried duplicate.
     public static class ColonistBarStrip
     {
         static readonly FieldInfo DrawLocsField =
@@ -49,38 +42,18 @@ namespace SlopWorld
         // True only for the length of the terminal's own call to the bar.
         public static bool Drawing { get; private set; }
 
-        // The strip draws from the terminal's contents, which run before anything stacked above
-        // it, so with a dialog up the bar would still be answering clicks underneath. It keeps
-        // drawing; it stops listening. On the map layer this never arises, HandleEventsHighPriority
-        // having already Used the event.
+        // A stacked dialog leaves the bar visible below it but must block its input.
         public static bool Blocked { get; private set; }
 
-        // What the strip's own handlers ask instead of Blocked, read wherever the column
-        // decides whether to answer a click. It carried an exception for a while - the options
-        // menu, which opened *inside* the chrome and so was the one window the column was kept
-        // alive under - and the exception bought nothing: a window under an absorbing one is
-        // never called for a MouseDown, so the column kept its hover and lost every press
-        // regardless (see gotchas.md). The options menu is a content view now, drawn *by* this
-        // window rather than by one over it, so this is the plain answer again.
+        // Internal handlers use this gate to match the current input state.
         public static bool Interactive => !Blocked;
 
-        // The mouse is over a rect on the strip, bypassing `Mouse.IsOver`'s input-blocked gate.
-        // `Mouse.IsOver` calls `IsInputBlockedNow` which returns true when the current window
-        // does not get input, which is the terminal's state whenever anything is stacked over
-        // the pane. The strip draws in screen coordinates from inside that window, so a direct
-        // `Contains` is the right answer and is what every hover and press path here uses.
+        // Use direct screen-rect hit testing because Mouse.IsOver rejects input from an
+        // absorbing window.
         public static bool MouseOver(Rect r) => r.Contains(Event.current.mousePosition);
 
-        // What every *hover* on this chrome asks instead of `MouseOver`. A context menu keeps
-        // the pointer for as long as it stands, and the column underneath goes on drawing: a
-        // highlight following the mouse across a panel that answers nothing reads as a live
-        // list, and the row it lights is not the row a click would reach. `Interactive` is the
-        // terminal's half of that - a menu over the pane is drawn with input off - and the
-        // float menu is asked directly for the map layer, where nothing sets `Blocked`, the
-        // press being eaten by HandleEventsHighPriority instead (which draws no hover).
-        //
-        // Presses keep asking `Interactive` and `MouseOver` themselves: this is about what is
-        // drawn, and a press path that also wants the menu gate says so where it is taken.
+        // Hover requires interactive chrome and no float menu; map-layer menus consume presses
+        // without drawing hover, so the underlying list must not highlight.
         public static bool Hover(Rect r) =>
             Interactive && Find.WindowStack?.FloatMenu == null && MouseOver(r);
 
@@ -197,11 +170,8 @@ namespace SlopWorld
         }
     }
 
-    // Selecting off the bar does not happen inside ColonistBarOnGUI: the Selector asks
-    // TryGetEntryAt while the *map* handles the click, long after the finalizer above has put
-    // the vanilla layout back - so the click was tested against where the portraits would be
-    // without this mod. The two layouts overlap for part of the row, which is why it read as
-    // some colonists selecting and some not.
+    // Selector.TryGetEntryAt runs after ColonistBarOnGUI restores vanilla layout, so apply the
+    // sidebar layout around hit-testing as well.
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.TryGetEntryAt))]
     public static class Patch_StripHitTest
     {

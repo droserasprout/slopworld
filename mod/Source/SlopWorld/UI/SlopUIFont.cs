@@ -6,18 +6,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Manages a custom UI font replacing RimWorld's built-in GameFont faces across all
-    // three tiers (Tiny/Small/Medium). Modifies Text.fontStyles in-place — since that
-    // array is public — and the private lineHeights/spaceBetweenLines arrays via
-    // reflection. Every Widgets.Label, Text.CalcSize and Text.LineHeightOf call
-    // immediately reads the new font; no per-call-site changes needed anywhere.
-    //
-    // The font is baked from Font.CreateDynamicFontFromOSFont, exactly the way
-    // TerminalFont works. An empty font name falls through to the Candidates list;
-    // size 0 means "keep the existing per-tier sizes and only change the face".
-    //
-    // Each tier is baked at its rendered size; GUIStyle.fontSize stays zero so measurement and
-    // drawing use the same native metrics.
+    // Replaces Tiny/Small/Medium with dynamic fonts and matching private line metrics. Keep
+    // `GUIStyle.fontSize` zero so measurement and drawing use each tier's native baked size.
     public static class SlopUIFont
     {
         // Default proportional faces for the "Automatic" fallback chain. Listed in

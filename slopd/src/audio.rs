@@ -1,13 +1,8 @@
-//! The jukebox's sound, played on the host.
+//! Host-side playback keeps station networking out of Unity: desktop FMOD lacks TLS/AAC and
+//! requires `Content-Length`, which Icecast streams omit.
 //!
-//! Playback lives here because Unity rejects cleartext, while desktop FMOD lacks TLS and
-//! AAC and requires `Content-Length`, which Icecast streams omit.
-//!
-//! The mod supplies a daemon-resolved source and volume. HTTP(S) means a station; anything
-//! else is an absolute file path, avoiding `file://` decoding.
-//!
-//! The command loop owns the device and mixer and opens sources synchronously so errors map
-//! to picks. A feeder decodes into a ring; the audio callback never waits on the network.
+//! The mod supplies a URL or absolute file path and volume. The command loop owns the device;
+//! a feeder decodes into a ring so the audio callback never waits on the network.
 
 use std::io::{self, BufReader, Read, Seek, SeekFrom};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -20,33 +15,25 @@ use rodio::cpal::traits::{DeviceTrait, HostTrait};
 use rodio::{cpal, ChannelCount, Sample, SampleRate, Source};
 use serde::Serialize;
 
-/// Samples per hop between the feeder and the callback. Small enough that a stop is
-/// noticed promptly, large enough that the channel is not the work.
+/// Samples per feeder hop; small enough for prompt stops without making the channel the work.
 const CHUNK: usize = 4096;
 
-/// Hops the ring holds. At 44.1kHz stereo this is about six seconds of audio, which is
-/// what a station's hiccup costs and what the feeder is allowed to run ahead by - the
-/// send blocking on a full ring is what paces the download to playback.
+/// Ring capacity in hops: about six seconds at 44.1kHz stereo, pacing downloads to playback.
 const RING: usize = 64;
 
-/// Samples a ring calls a span, before frame alignment. This is not a buffer size: it is
-/// how often the mixer is made to look at what it is playing. See `Ring::current_span_len`,
-/// which is where the reason lives.
+/// Samples per mixer span before frame alignment; see `Ring::current_span_len`.
 const SPAN: usize = 8192;
 
 /// How long to wait on a station before calling the connection failed. The body itself
 /// is never timed out: it is not supposed to end.
 const CONNECT: Duration = Duration::from_secs(15);
 
-/// A source that runs dry is opened again - a file loops, a dropped station reconnects -
-/// but not instantly and not forever, or a station that has gone becomes a spin.
+/// Delay before reopening a dry file or reconnecting a dropped station.
 const REOPEN_PAUSE: Duration = Duration::from_secs(2);
 const REOPEN_TRIES: u32 = 20;
 
-/// What the mod is told. `error` is the last thing that went wrong, kept after the fact
-/// so a pick that failed can be reported rather than just leaving silence. `title` is what
-/// the station says it is playing, which arrives spliced into the audio and so is empty for
-/// a while after every pick - and forever for a file, which says nothing about itself.
+/// State sent to the mod; errors persist for reporting, and titles are station metadata absent
+/// from local files.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct AudioState {
     pub playing: bool,
@@ -78,8 +65,7 @@ impl Audio {
         }));
 
         let worker_state = state.clone();
-        // Detached on purpose: the daemon outlives it in every case that matters, and a
-        // join on shutdown would only wait for a socket to notice it has been closed.
+        // Detached: shutdown only needs the worker to observe its closed channel.
         let spawned = std::thread::Builder::new()
             .name("slopd audio".into())
             .spawn(move || run(rx, worker_state));
@@ -106,9 +92,7 @@ impl Audio {
         let _ = self.tx.send(Cmd::Stop);
     }
 
-    /// Publish a request-side error without trying to open a source. This is used when a
-    /// catalog selection is malformed or no longer exists, so a stale client cannot leave the
-    /// previous station playing while it waits for an audio-thread failure.
+    /// Publishes a request-side error without opening a source, stopping stale playback first.
     pub fn reject(&self, why: impl Into<String>) {
         GENERATION.fetch_add(1, Ordering::SeqCst);
         fail(&self.state, why.into());
@@ -125,10 +109,7 @@ impl Default for Audio {
     }
 }
 
-/// Watches the player and broadcasts what it is doing. A poll rather than a callback out
-/// of the audio thread: what changes without being asked for is a station dropping or a
-/// device that was not there, and neither is worth a millisecond. The mod hears about its
-/// own picks on the same beat as everything else.
+/// Polls player state and broadcasts changes without coupling the audio thread to the event bus.
 pub fn spawn(m: std::sync::Arc<crate::session::Manager>) -> tokio::task::JoinHandle<()> {
     const BEAT: Duration = Duration::from_millis(500);
 
@@ -148,14 +129,11 @@ pub fn spawn(m: std::sync::Arc<crate::session::Manager>) -> tokio::task::JoinHan
     })
 }
 
-/// Which run of the player a thread belongs to. Every Play bumps it, and a feeder
-/// carrying an older one puts itself down - which is what keeps the last source from
-/// pouring into a ring nobody is reading.
+/// Generation of the active source; stale feeders stop before writing to the new ring.
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 
 fn run(rx: Receiver<Cmd>, state: Arc<Mutex<AudioState>>) {
-    // Opened on the first Play rather than here: a machine with no sink should say so
-    // when somebody asks for music, not on the daemon's way up.
+    // Open lazily so a missing sink is reported when playback is requested.
     let mut device: Option<(rodio::MixerDeviceSink, rodio::Player)> = None;
 
     while let Ok(cmd) = rx.recv() {
@@ -174,17 +152,12 @@ fn run(rx: Receiver<Cmd>, state: Arc<Mutex<AudioState>>) {
                 }
                 let (_sink, player) = device.as_ref().unwrap();
 
-                // Whatever was named is not what is about to play. Cleared before the
-                // source is opened rather than after, so a station that names itself
-                // promptly is not cleared by the pick that asked for it.
+                // Clear stale metadata before opening; a fast station may publish a new title.
                 state.lock().unwrap_or_else(|p| p.into_inner()).title = None;
 
                 player.set_volume(volume);
-                // Not `Player::clear`: that pauses the player - and nothing appended to a
-                // paused player is ever pulled, which is silence with no sign of itself -
-                // and it blocks until the current source ends, which a station does not.
-                // The generation bump above is what retires the old source: its `Ring`
-                // answers `None` on the next callback and the player moves on to this one.
+                // Do not call `Player::clear`: it pauses playback. The generation bump retires
+                // the old ring, whose next callback returns `None`.
                 player.play();
 
                 match start(&source, player, &state) {
@@ -236,11 +209,8 @@ fn fail(state: &Arc<Mutex<AudioState>>, why: String) {
 /// plugins that lead to it, and everything else in the list is a card or a filter.
 const SERVER_PCMS: [&str; 3] = ["pipewire", "pulse", "default"];
 
-/// The one PCM that must never be chosen. It accepts every sample and discards it, opens
-/// without complaint on any machine, and sorts first in ALSA's enumeration - so it is what
-/// a "try them all until one opens" fallback lands on. Playing to it looks exactly like
-/// working: no error, no sound, and nothing in `pavucontrol`, because it never goes near
-/// the sound server.
+/// ALSA's `null` PCM accepts and discards every sample, so selecting it looks like playback
+/// with no sound. Never use it as a fallback.
 const NULL_PCM: &str = "null";
 
 /// The ALSA PCM id - `pipewire`, `pulse`, `default`, `null`. `description().name()` is a
@@ -253,11 +223,8 @@ fn pcm_id(device: &cpal::Device) -> String {
         .unwrap_or_default()
 }
 
-/// Named rather than default, and never `open_default_sink`. That helper falls back by
-/// walking every output device and taking the first that opens - and on a machine whose
-/// `default` PCM is not reachable, the first that opens is `null`. See `NULL_PCM`: this is
-/// what "playing, no sound, not in pavucontrol" was. A device that is not the one in use
-/// is not a fallback, it is a wrong answer, so a failure here stays a failure.
+/// Prefer named server PCMs over `open_default_sink`, whose fallback can select `null`;
+/// reject `null` rather than silently playing nowhere.
 fn open_device() -> Result<(rodio::MixerDeviceSink, rodio::Player)> {
     let host = cpal::default_host();
 
@@ -300,12 +267,8 @@ fn open_device() -> Result<(rodio::MixerDeviceSink, rodio::Player)> {
     Ok((sink, player))
 }
 
-/// Where a station's `StreamTitle` goes. Held by the reader, which is on the far side of the
-/// decoder and two threads from anyone who asks: a title arrives spliced into the audio,
-/// minutes after the source it belongs to was opened. Hence the generation, checked on the
-/// way in - a station being switched away from must not name the one that replaced it.
-/// `state` is an Option so a source nobody wants the titles of - a file, which has none, or
-/// a test - has somewhere to send them.
+/// Receives delayed station metadata. The generation prevents an old station naming its
+/// replacement; `None` omits titles for files and tests.
 #[derive(Clone)]
 struct TitleSink {
     state: Option<Arc<Mutex<AudioState>>>,
@@ -519,15 +482,9 @@ fn open_stream(url: &str, title: &TitleSink) -> Result<Box<dyn Source + Send>> {
     Ok(Box::new(decoded))
 }
 
-/// Takes the station's titles back out of its audio.
-///
-/// With `Icy-MetaData: 1` on the request the server answers an `icy-metaint`, and from then
-/// on the body is that many bytes of audio, one length byte, that many *sixteens* of text,
-/// and around again. The text is `StreamTitle='Artist - Song';StreamUrl='...';` padded with
-/// NULs, and a length of zero - which is nearly all of them - means nothing has changed.
-///
-/// This hands on the audio and keeps the text, so what reaches the decoder is sound and only
-/// sound. Getting that wrong is not a missing title, it is a click every few seconds.
+/// Removes ICY metadata blocks from a station stream while passing audio bytes through.
+/// Each block has `icy-metaint` audio bytes, a 16-byte-unit length, and padded metadata;
+/// zero length means no title change.
 struct Icy<R: Read> {
     inner: R,
     metaint: usize,
@@ -565,8 +522,7 @@ impl<R: Read> Read for Icy<R> {
             self.block()?;
             self.left = self.metaint;
         }
-        // Never past the block boundary, however much was asked for: what is on the other
-        // side of it is not audio.
+        // Never read past the metadata boundary: bytes beyond it are not audio.
         let want = buf.len().min(self.left);
         let n = self.inner.read(&mut buf[..want])?;
         self.left -= n;
@@ -574,12 +530,8 @@ impl<R: Read> Read for Icy<R> {
     }
 }
 
-/// The `StreamTitle` out of one block, or `None` when it carries none - which is nothing to
-/// say rather than nothing playing. `Some(None)` is the station clearing it, which is what
-/// an advertisement break looks like.
-///
-/// Latin-1 by the specification and UTF-8 in practice, so it is read lossily rather than
-/// refused: a mangled dash beats no title.
+/// Extracts `StreamTitle`; `Some(None)` clears it, while `None` means no field was present.
+/// Decode lossily because streams use both Latin-1 and UTF-8 in practice.
 fn stream_title(raw: &[u8]) -> Option<Option<String>> {
     let text = String::from_utf8_lossy(raw);
     let rest = text.split("StreamTitle=").nth(1)?.strip_prefix('\'')?;

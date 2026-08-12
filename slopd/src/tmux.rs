@@ -337,19 +337,9 @@ impl Tmux {
         Ok(())
     }
 
-    /// Anything of a size goes through a tmux *buffer* rather than `send-keys`. The client
-    /// packs a command's whole argv into one imsg to the server, and `-H` takes one byte per
-    /// argument, so a hex write hits tmux's own "command too long" at **996 bytes** - which
-    /// is an ordinary paste, and it failed silently. A buffer is loaded from stdin, which has
-    /// no such ceiling.
-    ///
-    /// `-r` because `paste-buffer` rewrites `\n` to `\r` otherwise, and the hex road this
-    /// replaces sent the bytes as they came. Bracketing markers are not added here either:
-    /// sending them caused literal `^[[200~` display in applications like Claude Code/Ink
-    /// that don't strip them. The raw text is what the child process expects.
-    ///
-    /// The buffer is named after the session so two panes pasting at once cannot take each
-    /// other's, and `-d` drops it rather than leaving it on the user's buffer stack.
+    /// Use a per-session tmux buffer for large payloads; `send-keys -H` silently fails near
+    /// 996 bytes. Load from stdin, paste with `-r` to preserve newlines, omit bracketed markers,
+    /// and delete the buffer after use.
     pub async fn paste_bytes(&self, name: &str, bytes: &[u8]) -> Result<()> {
         use tokio::io::AsyncWriteExt;
 

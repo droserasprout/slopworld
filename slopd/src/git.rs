@@ -1,13 +1,5 @@
-//! What a working tree has that its last commit does not.
-//!
-//! The mod cannot ask this itself: a project directory is where the agents work and the game
-//! runs outside every one of their mount namespaces, the same reason `/api/browse` exists. So
-//! this is `git` run here, on the host, and the answer sent over as rows.
-//!
-//! Three readings, and no more: the toplevel (which is also whether this is a repository at
-//! all), the porcelain status (which files, and how each one is changed), and the numstat
-//! (how many lines). `--shortstat` is the numstat added up, so it is added up here rather
-//! than asked for a second time.
+//! Host-side git snapshot for the game, which cannot enter agent mount namespaces.
+//! Collects repository root, porcelain status, and numstat/shortstat for the tree.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

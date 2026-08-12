@@ -884,14 +884,8 @@ namespace SlopWorld
                 },
                 fail);
 
-        // The same temporary agent an errand makes, for an errand nobody wrote down: the files
-        // view opens `less` on whatever the cursor is over, which is not a `[[shortcut]]` and
-        // should never become one. `text` empty is a command with nothing to type after it,
-        // which the daemon allows here and refuses of an entry.
-        //
-        // The sessions list is refetched before the answer is handed on, for the reason
-        // RunShortcut does it: a terminal opened on a session this end has never heard of
-        // closes itself next frame.
+        // Run an ephemeral shell/prompt without creating a shortcut; refresh Sessions before
+        // the callback so a newly opened pane is visible next frame.
         public void Run(string project, string command, string label,
                         Action<string> started, Action<string> fail = null,
                         bool shell = true, string text = "", bool host = false, bool temp = false) =>
@@ -914,13 +908,8 @@ namespace SlopWorld
                 },
                 fail);
 
-        // The project's own directory, in a shell, outside the sandbox every other agent runs
-        // in - the sidebar's "Terminal (host)" in both views. Both the command and the label
-        // are left empty on purpose: the shell is `$SHELL`, the login shell of whoever the
-        // daemon runs as, and the entry is named for the project and that shell together -
-        // `slopworld-zsh` here, `tmp-bash` in a project called `tmp`. Which shell this machine
-        // has is the daemon's answer rather than the game's, so the game asks for neither and
-        // reads the name it was given back off the reply.
+        // Host terminal leaves command/label empty: slopd chooses `$SHELL` and returns the
+        // generated project-shell session name.
         public void RunHostShell(string project, Action<string> started,
                                  Action<string> fail = null) =>
             Run(project, "", "", started, fail, shell: true, host: true);

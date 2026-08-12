@@ -4,17 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The bands only mean anything against a rim that is still living, and the intro
-    // populates the hillside once while the circle eats its way through it. So
-    // animals and people keep arriving the way anything arrives on a map it did not
-    // start on: walking in from the edge, through vanilla's own
-    // TryFindRandomPawnEntryCell.
-    //
-    // Nothing keeps them out there - a thing that wanders in and comes apart is the
-    // plague working - and the census counts the population outside the circle rather
-    // than on the map, so the arrivals are a steady state against that drain rather
-    // than a queue feeding the middle. Off until the plague is armed, so the opening
-    // scene never has strangers walking into it.
+    // After the plague is armed, replenish the living rim with slow edge arrivals; count outside
+    // the circle separately so they do not form a queue at the center.
     public class Outskirts : MapComponent
     {
         // Slow on purpose: a stream of things walking in off the edge reads as life

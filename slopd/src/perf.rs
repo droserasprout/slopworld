@@ -1,13 +1,5 @@
-//! Temporary instrumentation for the terminal pipeline, aggregated rather than per-event:
-//! the paths being measured run sixty times a second per session, so a line each would cost
-//! more than the thing it is measuring and drown the journal besides. Counters are relaxed
-//! atomics and the reporter drains them, so a window is what happened since the last line.
-//!
-//! Global rather than per-session on purpose - the question is where the pipeline's time
-//! goes, not which agent spent it, and one set of counters is one cache line rather than a
-//! map lookup per output line.
-//!
-//! `SLOPD_PERF` is the window in seconds; `0` turns it off.
+//! Aggregate terminal-pipeline timing globally per reporting window; per-event logs would
+//! overwhelm the journal. `SLOPD_PERF` sets the window in seconds; `0` disables it.
 
 use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 use std::time::{Duration, Instant};

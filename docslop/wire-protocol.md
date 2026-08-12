@@ -1,120 +1,90 @@
 # Wire protocol
 
-**Server events**: `{"t":"sessions"}` on any state, title or bell move;
+**Server events**: `{"t":"sessions"}` on state, title or bell changes;
 `{"t":"screen"}` for subscribed sessions; `{"t":"usage"}`, `{"t":"projects"}`,
-`{"t":"shortcuts"}`, and `{"t":"jukebox"}` - those catalog/config events **also once
-on connect**, or a client attaching between polls draws nothing. `jukebox` is resent when
-the daemon's TOML directory changes. And `{"t":"quit"}`: save and go.
+`{"t":"shortcuts"}` and `{"t":"jukebox"}` catalogs on connect and when changed;
+and `{"t":"quit"}`. The jukebox is
+resent when its TOML directory changes.
 
-**Client messages**: `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste`,
-`audio`. And `{"t":"audio"}` back the other way, **on connect too**: the mod picks
-the music but only the daemon knows whether it plays - see
-[mod-jukebox](mod-jukebox.md).
+**Client messages**: `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste`
+and `audio`. Audio state is also sent on connect because only the daemon knows whether
+the mod's selection is playing; see [mod-jukebox](mod-jukebox.md).
 
-`audio` carries `volume` always and `selection` in three states: an object with
-`station`/`stream` resolves through the daemon catalog, an object with `file` plays a local
-OST track, `null` stops, and **leaving the key out** is the volume slider moving and must not
-restart a stream. The old `source` form is accepted during upgrades. Coming back it is
-`{playing, source, volume, error, title}` - `title` being what the station says it is
-playing, unpicked out of the audio itself.
+`audio` always carries `volume`. `selection` is a catalog `station`/`stream`, a local
+`file`, `null` to stop, or absent when only volume changed; absent must not restart a stream.
+The legacy `source` form remains accepted. State returns `{playing, source, volume, error,
+title}`, with `title` extracted from station metadata.
 
-Everything that rewrites `config.toml` goes over HTTP instead, because the error
-body matters: `/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`,
-and `PUT /api/config/patch`, plus `POST /api/shortcuts/NAME/run` and
-`POST /api/run`. The Files sidebar's root-only `POST`, `PUT` and `DELETE
-/api/files` mutate one directory entry at a time.
+`config.toml` writes use HTTP so callers receive error bodies:
+`/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`,
+`PUT /api/config/patch`, `POST /api/shortcuts/NAME/run` and `POST /api/run`.
+The Files sidebar's root-only `POST`, `PUT` and `DELETE /api/files` mutate one entry.
 
-`PUT /api/config/patch` accepts a nested JSON object such as
-`{"daemon":{"game_cmd":"~/.local/bin/slopworld"}}`. It deep-merges the named
-fields, validates the resulting configuration, and leaves unmentioned fields alone.
+`PUT /api/config/patch` accepts nested JSON such as
+`{"daemon":{"game_cmd":"~/.local/bin/slopworld"}}`, deep-merges named fields,
+validates the result, and leaves other fields unchanged.
 
-The session `title` is the daemon's generated task-title override when one exists, otherwise
-the app's OSC terminal title. This uses the existing sessions event shape.
+`title` is the daemon's task-title override when present, otherwise the app's OSC title.
 
-Project JSON carries `network` as its ceiling. Session JSON carries the
-effective `network` plus `network_override`; writes send the override as a
-mode string or JSON `null` for inherit. The daemon rejects an override wider
-than its project's ceiling.
+Project JSON carries the `network` ceiling. Session JSON carries effective `network` plus
+`network_override`; writes use a mode string or JSON `null` for inherit. The daemon rejects
+an override wider than the project ceiling.
 
-`GET /api/usage`, `/api/presets`, `/api/jukebox`, `/api/browse`, `/api/search`, `/api/git`, `/api/audio` and
-`/api/game` are
-for anything that would rather ask than listen. `POST /api/open` answers 400 for a URL it will
-not take and 502 for an opener that would not.
+`GET /api/usage`, `/api/presets`, `/api/jukebox`, `/api/browse`, `/api/search`, `/api/git`,
+`/api/audio` and `/api/game` are query routes. `POST /api/open` returns 400 for a rejected
+URL and 502 when its opener fails.
 
-Private-state lifecycle is daemon-owned too. `POST /api/sessions/NAME/state/reset`
-stops a configured agent and moves its state to 14-day trash. `GET /api/state`
-inventories active, unclaimed orphan and trash entries with byte counts;
-`DELETE /api/state/KIND/KEY` permanently removes only `orphan` or `trash`, and
-`POST /api/state/trash/KEY/restore` restores reset state while its agent still
-exists and has not made a replacement tree. These inventory routes are root-only.
+Private-state lifecycle is daemon-owned. `POST /api/sessions/NAME/state/reset` stops an agent
+and moves its state to 14-day trash. Root-only `GET /api/state` lists active, orphan and trash
+entries with byte counts; `DELETE /api/state/KIND/KEY` permanently removes only orphan/trash;
+`POST /api/state/trash/KEY/restore` restores reset state while its agent still exists and has
+not created a replacement tree.
 
 ## `POST /api/run`
 
-An errand nobody wrote down. Two things only it can ask for:
+An ephemeral errand. It has two special cases:
 
-- `host` runs it **outside the sandbox** - `sandbox::host_argv` instead of
-  `build_argv`, so no bwrap, no `--clearenv`, and the pane inherits the tmux
-  server's environment with only `TERM`, `COLORTERM` and the two `SLOPWORLD_*`
-  stated over it. The flag rides on `Live` rather than on `SessionCfg`, and
-  `run_errand` takes it as an argument rather than off `ShortcutCfg`: nothing in
-  `config.toml` is allowed to name an agent that runs on the host.
-- An **empty `command`**, when `kind` is `shell`: a shell errand with nothing to run
-  is a shell. The empty string becomes `None` on the way to `session_for`, which
-  reads "no command of its own" off the Option. Any other kind still has to say.
+- `host` runs **outside the sandbox** via `sandbox::host_argv`: no bwrap or
+  `--clearenv`; it inherits the tmux environment with only `TERM`, `COLORTERM` and
+  `SLOPWORLD_*` added. It is a runtime `Live` flag, not a `SessionCfg`/config option.
+- An **empty `command`** with `kind: shell` opens a shell; other kinds must provide one.
 
-Which shell a *host* errand opens is `$SHELL` - `host_command`, the login shell of
-whoever slopd runs as - and not `[defaults] shell`, which answers for a shell inside
-a sandbox where a login shell's rc files are mostly out of reach anyway. An errand
-that named something itself, a preset or a command line, is run as asked on either
-side; only one that named nothing gets the login shell.
+An unnamed host errand uses slopd's `$SHELL`, not `[defaults] shell` (the latter is for
+inside a sandbox). A named preset or command line runs as requested on either side.
 
-An **empty `label`** with `host` set is the one case the daemon names the entry
-rather than the caller: the project it opened on, then the shell's own basename, so
-`/usr/bin/zsh` lands `slopworld-zsh` in this project and `tmp-bash` in one called
-`tmp` (`host_session_name`, then `free_name` and `slug` as for any errand). Neither
-half is a constant. An errand naming no project - a temporary one, which is coined
-*after* the session and off its name - is the shell alone. The game sends neither
-command nor label and reads the name back off the reply, since neither answer is
-the game's to give.
+With `host` and an empty `label`, the daemon names the session from project and shell:
+`slopworld-zsh` here, `tmp-bash` for project `tmp`, or just the shell for no project.
+The game sends neither value and reads the generated name from the reply.
 
 ## `GET /api/browse`
 
 Lists one directory.
 
-- `dirs` is what it always was; `files` is opt-in (`?files=1`), so the project-dir
-  picker pays neither the read nor the wire for a directory of files - and a
-  directory of files is still no rows, so the cap never fires on it.
+- `dirs` is always returned; `files` is opt-in (`?files=1`) so project pickers avoid
+  reading or sending file-heavy directories. Files are not rows unless requested.
 - `?hidden=1` keeps the dotfiles.
-- `?limit=` caps entries at 500 and says `truncated` rather than lying about a
-  short directory.
-- `DirEntry::file_type` is an **lstat**, so a symlink is stat'd once behind the
-  entry or a linked directory reads as one that has gone; a dangling link is in
-  neither list.
+- `?limit=` caps entries at 500 and sets `truncated` when more remain.
+- `DirEntry::file_type` uses **lstat**: symlinks are classified without following them;
+  dangling links appear in neither list.
 
 ## `/api/files`
 
-Root-only filesystem mutations for the Files sidebar. `POST` creates a `file` or
-`folder` under `{path, name, kind}`; `PUT` renames `{path}` to the one-component
-`{name}` beside it; `DELETE` removes `{path}`, recursively for directories. Names
-cannot contain a slash, backslash, or `.`/`..`, and existing targets are never
-overwritten.
+Root-only Files-sidebar mutations. `POST` creates a file/folder from `{path, name, kind}`;
+`PUT` renames `{path}` to a one-component `{name}`; `DELETE` removes `{path}`
+recursively for directories. Names cannot contain slash, backslash, `.` or `..`; existing
+targets are never overwritten.
 
 ## `GET /api/git`
 
-One project's working tree, for the [git view](mod-ui-git.md). `?path=` is the
-project's directory, and the answer is against the repository **root** above it -
-`root`, `branch`, the `--shortstat` figures (`changed`, `added`, `deleted`) and a
-`files` row apiece: the porcelain `status` pair, and `added`/`deleted` from the
-numstat, **null** where git counted none (a binary file, or an untracked one with no
-blob to compare against).
+One project's working tree for the [git view](mod-ui-git.md). `?path=` selects the project;
+the response uses its repository **root** and includes `root`, `branch`, shortstat
+(`changed`, `added`, `deleted`) and per-file porcelain status plus numstat additions and
+deletions. Counts are **null** when git has none (binary or untracked files).
 
-A directory that is no repository answers **200 with `repo` false**, not an error:
-half the projects on a machine are not one, and that is a fact about the project
-rather than a request that failed. `git` itself missing is the error.
+A non-repository directory returns **200 with `repo: false`**; a missing `git` binary is
+the error.
 
-Renaming anything here needs both halves. `SessionInfo.ParseState` treats an
-unknown state as `Down`, which keeps a version skew survivable rather than
-correct.
+Wire renames need both halves. `SessionInfo.ParseState` maps unknown states to `Down`.
 
 ## `GET /api/search`
 

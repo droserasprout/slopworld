@@ -75,11 +75,8 @@ namespace SlopWorld
         // Floor under Roam, so the plague's first seconds do not hem the agents into the core.
         const float MinCircle = 18f;
 
-        // Share of the errands each thing is, out of a hundred - the whole of the tuning.
-        // Nothing enforces the sum; Pick normalises whatever it is handed, and must,
-        // because it weighs only what the pawn in front of it could finish. Shares by
-        // *count*, not by time: a plate is a tenth of a second where a grand stele is
-        // thirty, so at even odds the agents would spend nine tenths of a burst on shapes.
+        // Relative task weights; Pick normalizes them over work the current pawn can finish.
+        // Weight by item count, not work time, so large builds do not dominate every burst.
         const float PavingOdds = 10f;
 
         const float ColumnOdds = 2f;
@@ -169,11 +166,8 @@ namespace SlopWorld
         // nothing else - what the plague has is in the plague's own field.
         int _laid;
 
-        // The frame each agent was last sent to, and the frames being passed over. Being
-        // asked for an errand at all means the last job did not survive a quarter second
-        // (a pass that finds the pawn on FinishFrame leaves it alone), so whatever we were
-        // told about that frame was wrong and it waits for the next sweep. Otherwise two
-        // systems disagree about one frame for the life of the colony.
+        // Track the last assigned frame and skipped frames; a new request means the previous
+        // assignment is no longer valid, so wait for the next sweep before reassigning.
         readonly Dictionary<Pawn, Frame> _sent = new Dictionary<Pawn, Frame>();
         readonly HashSet<Frame> _shunned = new HashSet<Frame>();
 
@@ -242,12 +236,8 @@ namespace SlopWorld
             Allow(pawn, false);
         }
 
-        // One kind of work, and only while the process is busy. On the vanilla work sheet
-        // the work givers find their own jobs (blood to clean, steel to haul) and this
-        // loop overrides them a quarter second later, so the pawn turns round every few
-        // steps. Construction is on the same switch from the other side: left on while
-        // idle, the work giver hands the agent the nearest frame and the site stops saying
-        // which processes are busy.
+        // Override vanilla work only while the process is busy; otherwise its work givers
+        // fight daemon assignments and make pawns turn between sweeps.
         static void Allow(Pawn pawn, bool building)
         {
             var work = pawn.workSettings;
@@ -295,11 +285,8 @@ namespace SlopWorld
                 _sent[pawn] = frame;
         }
 
-        // The driver's own fail condition, asked one tick early and asked *the same way*.
-        // Asked with skills off, a sarcophagus (Construction 5) is handed to a clanker
-        // with three, which walks the site, is refused on arrival - the fail condition
-        // sits on the build toil, not the walk - and is handed the same nearest unreserved
-        // frame a quarter second later, forever.
+        // Use the driver's fail condition one tick early and with skills disabled; otherwise
+        // an under-skilled pawn receives an unreachable frame and retries it forever.
         static bool Buildable(Frame frame, Pawn pawn) =>
             GenConstruct.CanConstruct(frame, pawn, true, false);
 
@@ -357,21 +344,14 @@ namespace SlopWorld
                 if (frame != null) return frame;
             }
 
-            // Only the floor's failure sits the site down. A plate is one cell wanting no
-            // clearance, so nowhere to lay one means a full circle - the state this is all
-            // aimed at, and it must be cheap to be in (otherwise 500 CanPlaceBlueprintAt a
-            // second against ground that will not change). Anything with a shape failing
-            // says only that there is no room for *it* near this pawn.
+            // Only floor-placement failure blocks the site: a one-cell plate means no valid
+            // position exists nearby. Shaped runs can fail locally without stopping the site.
             if (errand.What is TerrainDef) _blocked = now + BlockedFor;
             return null;
         }
 
-        // A frame nobody can finish counts against MaxOpen and nothing else would ever take
-        // it away, so a site left alone fills its own quota with rubbish. Blocked is
-        // GenConstruct.FirstBlockingThing - vanilla's own question, whose answer is
-        // something to cut down or carry off, which here is work no agent is allowed and no
-        // hauler exists to do. Fits declines these on the way in, but only what it can see;
-        // this is for the ground changing afterwards.
+        // Exclude frames blocked by vanilla's first blocking thing: they would consume MaxOpen
+        // forever, and no agent or hauler can remove the blocker.
         void Sweep()
         {
             // A frame nobody on the map is skilled enough for is rubbish the same way.
@@ -527,14 +507,8 @@ namespace SlopWorld
         bool Near(IntVec3 cell) =>
             _plague != null && _plague.Active && cell.DistanceTo(_plague.Heart) <= Roam();
 
-        // One sequence, centred on the dart. Every member faces the same way - the facing
-        // is rolled once, for the run, not once per thing - and the line runs *across* that
-        // facing, so a row of graves is a row of graves rather than a queue of them. A
-        // single is the same code with a run of one, which is why there is only this.
-        //
-        // A member that does not fit is skipped rather than ending the run: the far end of
-        // a row reaching a boulder should cost the row its far end, not the whole colony a
-        // dart. The run is what is *offered*; what stands is what the ground allowed.
+        // Place one oriented run; skip members that do not fit so one blocked cell does not
+        // abort the rest of the run.
         Frame Lay(Errand errand, IntVec3 at, Pawn pawn)
         {
             var td = errand.What as ThingDef;

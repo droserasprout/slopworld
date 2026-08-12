@@ -4,18 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The options menu as content rather than as a window. It was the one window that opened
-    // *inside* the chrome - laid out off the column's right edge and the line's bottom, both
-    // of which stayed visible - and being a window anyway is what cost the column every press
-    // it was drawn to take. Under an absorbing window the pane below is never called for a
-    // MouseDown at all, so the tabs, the menus and the tree's rows were dead and only the
-    // things that need no press (the drawing, the hover) still worked.
-    //
-    // So the dialog is *driven* rather than opened: an instance that never reaches the window
-    // stack, asked for its contents once a frame on the body rect. Vanilla lays that content
-    // out in window coordinates - the category column is a literal Rect(0, i*50, 160, 48) -
-    // so the band is a GUI group and the rect handed over starts at its corner, exactly as
-    // the patch that used to wrap the window did.
+    // Render Dialog_Options as content inside the chrome; a stacked window would block sidebar
+    // input. Preserve vanilla's GUI-coordinate category layout inside a temporary group.
     public class OptionsView : IContentView
     {
         // As wide as the config page needs and no wider: 177 for the category column, the

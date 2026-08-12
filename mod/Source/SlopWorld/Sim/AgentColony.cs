@@ -134,14 +134,8 @@ namespace SlopWorld
         const float SweepSecs = 1f;
         static float _swept;
 
-        // The reconcile is the clock's, and in eco the clock is held at paused - so a session
-        // that arrives or leaves while the machine rests would wait on ticks that are not
-        // coming, with a row in the column and no colonist under it (or the other way about)
-        // until somebody turns eco off. So the *whole* reconcile runs off wall time while eco
-        // rests, at the tick reconcile's own second. Nothing in it needs a tick: retiring
-        // takes a pawn off the map, the hediffs are added rather than waited on, and the one
-        // part that did wait - the drop pod, which has to tick its open delay down - is why
-        // `Spawn` sets a colonist on the ground instead while the board is stopped.
+        // Eco pauses game ticks, so run the full reconcile from wall time while resting; pod
+        // arrivals are spawned directly because their open delay would otherwise never tick.
         public override void GameComponentUpdate()
         {
             if (!Eco.Resting || Cutscene.AgentsHeld) return;
@@ -160,13 +154,8 @@ namespace SlopWorld
         {
             if (sessions.Count == 0 && !SessionHub.Instance.Online) return false;
 
-            // Only the colony's own: an ephemeral session is a viewer's `less`, an editor or
-            // a shell on the host - something a person opened and will close, not an agent
-            // the colony has. Dropping a colonist out of the sky for one and walking it back
-            // off when the file is closed made the map twitch every time a directory was
-            // read. They are drawn in the sidebar (AgentSidebar's ghost rows) and nowhere
-            // else. Not in `live` either, so a colonist already bound to one - a save from
-            // before this, or a session that was adopted - is retired the way a gone one is.
+            // Reconcile colony-owned sessions only; ephemeral viewer/editor/host sessions are
+            // sidebar ghosts, not pawns, and are excluded from `live`.
             var live = new HashSet<string>(
                 sessions.Where(s => !s.Ephemeral).Select(s => s.Name));
 
@@ -412,15 +401,8 @@ namespace SlopWorld
             // cells itself.
             var cargo = new List<Thing> { pawn };
 
-            // The colony gets one jukebox, and it rides down with whichever clanker is
-            // first. The pod places each thing it carries separately, so the box ends up
-            // beside the pawn rather than under it.
-            //
-            // The latch is what makes it one. A reconcile drops a whole colony's worth of
-            // pods in the same tick and a thing inside a pod in the air is not on the map,
-            // so "is one standing" is false for every pod in the batch and each would
-            // carry its own. Saved, because a colony reloaded with its pods still falling
-            // would answer false again.
+            // Put one jukebox in the first arrival; the saved latch prevents multiple pods in
+            // one reconcile or a reload with pods still in flight from adding duplicates.
             if (!_jukeboxSent && !Jukebox.On(map))
             {
                 cargo.Add(ThingMaker.MakeThing(SlopDefOf.SlopJukebox));
@@ -429,13 +411,8 @@ namespace SlopWorld
 
             var cell = SpawnSpot.Find(map, Anchor(map));
 
-            // A pod is a thing that has to *tick* its open delay down, and in eco the clock is
-            // held at paused: podded in while the board rests, a colonist hangs in the air
-            // until somebody starts the game again, which from the column reads as a
-            // duplicated agent that never arrives. So while eco rests it is set down where the
-            // pod would have opened, cargo and all - the ride is the pod's, not the box's -
-            // and there is no arrival fx because nothing is drawing the map but the agents
-            // themselves (see Eco).
+            // While eco rests, bypass the pod so its ticked open delay cannot leave a duplicate
+            // ghost in the sidebar; place the pawn and cargo at the landing cell directly.
             if (Eco.Resting)
             {
                 GenSpawn.Spawn(pawn, cell, map);

@@ -5,19 +5,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // What this machine is allowed to ask about, and what the answers look like along the
-    // top of the screen. A page of its own rather than a paragraph on ConfigPage: there are
-    // two sellers now, each with a switch and a key, and the row they draw is the only thing
-    // in this mod the player is invited to choose the *look* of.
-    //
-    // The two halves are saved by different roads and that is the point of the split. The
-    // switches and paths are `config.toml`, so they go over HTTP and need a daemon; the
-    // icons are mod settings, written on the click, so they can be set with the socket down
-    // and are about this install rather than this machine. See SlopSettings.
-    //
-    // A page rather than a Window, hung off an OptionCategoryDef by SlopOptions.
-    // Icon rows are grouped by provider in the fields list, and picking one opens a
-    // floating grid rather than drawing the whole palette inline.
+    // Configures quota providers from config.toml and per-install usage icons from SlopSettings.
+    // It is an OptionCategoryDef page; icon choices open a floating grid.
     public class UsagePage
     {
         SlopConfig _cfg;
@@ -243,14 +232,7 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ icon row
 
-        // One line in the fields list: the long name, and the icon, which is the button.
-        //
-        //   [Long name               ] [icon]
-        //
-        // One target rather than an icon and two buttons beside it. Clearing a choice is the
-        // first cell of the grid this opens, not a control out here, and that is the whole
-        // argument: automatic is something you *pick*, the same way silver is, where a greyed
-        // "auto" button next to the icon said it was a different kind of thing.
+        // Each provider row uses the icon itself as the button; the picker starts with Auto.
         void IconRow(Listing_Standard l, string key, string hint)
         {
             var row = l.GetRect(SlopWidgets.RowH);
@@ -427,20 +409,8 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ palette
 
-        // The icons the picker offers. A hand-picked subset and not the database: vanilla
-        // counts a hundred and twenty-odd things as resources and generates a meat def per
-        // animal on top of that, and most of the difference is one texture tinted - twenty
-        // leathers, twenty eggs, five stone blocks. Those are cells, not choices, and past a
-        // screenful this grid owes a search box it has no room for.
-        //
-        // Grouped by no category, only laid out in runs so the order reads: the grid is one
-        // screenful and scanning it is faster than any heading would be.
-        //
-        // Names are checked against the game's own defs - eleven of the originals here were
-        // typed rather than looked up (`FineMeal` for `MealFine`, `Thrumbofur` for
-        // `Leather_Thrumbo`) and Choices drops what it cannot resolve, so the picker had been
-        // quietly drawing twenty-five cells of thirty-six. Carpet is gone entirely: it is one
-        // stuffed TerrainDef in 1.6 and never was a ThingDef.
+        // The picker uses a hand-picked, one-screen subset; resolve names against defs and drop
+        // missing entries. Carpet is a TerrainDef in 1.6, not a ThingDef, so it is excluded.
         static readonly string[] Palette =
         {
             // Metals and stone.

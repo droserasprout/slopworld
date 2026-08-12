@@ -1,16 +1,7 @@
 namespace SlopWorld
 {
-    // One ephemeral agent, running one pager, shown in a pane over the sidebar - and the
-    // sidebar's grip on it, so the next thing clicked can replace it and the focus leaving
-    // can close it.
-    //
-    // Both bodies that read something want exactly this: the files view opens `less` on a
-    // file, the git view opens `git diff` on a change, and each has at most one open at a
-    // time. What differs is the command; what does not is that leaving the view, closing the
-    // pane, or picking something else all mean the same thing to the session behind it.
-    //
-    // An instance rather than a static: two views, two pagers, and the git view's diff is not
-    // closed by the files view being left.
+    // Each view owns one ephemeral pager session for files or git diffs; a new selection replaces
+    // it, and leaving that view or pane closes it without affecting the other view.
     public class Pager
     {
         string _session;

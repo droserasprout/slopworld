@@ -4,20 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The map is not drawn while a pane covers it, nor at all in eco mode.
-    //
-    // Map.MapUpdate runs the whole draw chain and looks at nothing above it, vanilla
-    // having no window that fills the screen opaque. TerminalWindow is exactly that -
-    // screen-sized, margin 0, its own background painted first - so all of this went
-    // into a buffer the next call covered up.
-    //
-    // Eco is the second reason and the standing one: there the board is not covered, it
-    // is switched off, and the menu's background is drawn where it was with the agents
-    // standing on it - Eco draws those itself, this having taken the whole map's pawns
-    // away. Same four calls, so one gate answers for both - see Eco.
-    //
-    // Only the draw half stands down. MapMeshDrawerUpdate_First keeps running:
-    // skipping it banks the work into a hitch on the frame the pane closes.
+    // Skip map mesh, dynamic things, and flecks while a terminal covers the map or Eco replaces
+    // it. Keep `MapMeshDrawerUpdate_First` running so closing the pane does not cause a rebuild hitch.
     public static class PaneOverDraw
     {
         // Prefixes return "run the original", so this is the sense the game wants.

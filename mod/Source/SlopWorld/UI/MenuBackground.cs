@@ -11,21 +11,18 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Baked menu and loading-screen frames: a ramp out of the game's own picture, then a
-    // Depths x Phases grid the playback walks. Nothing here ships art. See mod-background.md.
+    // Bakes a ramp plus a Depths x Phases frame grid; see mod-background.md.
     [StaticConstructorOnStartup]
     public static class MenuBackground
     {
-        // A transform plus the shape of the set it wants. A third preset means a field here, a
-        // branch in Prep and a branch in Stage.
+        // Preset parameters and the frame set shape; adding one also requires Prep/Stage support.
         sealed class Preset
         {
             public readonly string Name;
-            // Depths of one is a preset with nothing to breathe.
+            // A single depth has no moving layer.
             public readonly int Depths;
             public readonly int Phases;
-            // Motion that is a continuous function of the phase is baked to close and must be
-            // walked in order; a fresh noise field per phase has no order to keep.
+            // Closed motion must be played in phase order; independent noise does not.
             public readonly bool Closed;
 
             public Preset(string name, int depths, int phases, bool closed)
@@ -36,37 +33,33 @@ namespace SlopWorld
             public int Total => Onset + Depths * Phases;
         }
 
-        // Ceiling is memory: a resident RGB24 texture per frame, ~2MB at the planet's aspect
-        // and ~110MB for the rotting set. Non-readable frames are what paid for the second axis.
+        // Resident RGB24 frames make this a memory limit (~110MB for the rotting set).
         const int Onset = 14;
         static readonly Preset Rotting = new Preset("rot", 5, 8, false);
         static readonly Preset Sparkling = new Preset("glow", 1, 24, true);
 
         static Preset Chosen => Settings.GrandmaMode ? Sparkling : Rotting;
 
-        const int MaxSide = 1024; // slightly more than god said
+        const int MaxSide = 1024; // frame-side ceiling
 
-        // Never back to clean, never at the bottom of the well. The ramp lands in the middle.
+        // The ramp stays between clean and fully dark.
         const float BreatheLow = 0.7f;
         const float BreatheHigh = 0.9f;
         static float BreatheMid => (BreatheLow + BreatheHigh) * 0.5f;
 
         const float OnsetSecs = 2f;
 
-        // Mean-reverting random walk rather than a sine, which has a period a menu is up long
-        // enough to learn. The pair decides whether a rung is worth baking: stationary spread is
-        // Jitter*sqrt(1/12)/sqrt(1-(1-Pull)^2), and these put the outer rungs a shade over two of
-        // those out, so a minute of menu reaches every one. Halving Jitter bakes ends nothing draws.
+        // Mean-reverting walk avoids a learnable period; step/pull/jitter set the baked range.
         const float WalkStep = 0.28f;
         const float WalkPull = 0.22f;
         const float WalkJitter = 0.24f;
-        // Past this the gap is an alt-tab, not a frame; stepping across it arrives nowhere new.
+        // Gaps larger than this are treated as an alt-tab rather than a new frame.
         const float WalkGapMax = 8f;
 
-        // How long one draw of the moving part stays up.
+        // Duration of one moving frame.
         const float PhaseSecs = 0.11f;
 
-        // One turn of a closed preset, and so the slowest star's blink.
+        // Loop duration for closed presets and star blink rates.
         const float LoopSecs = 3.6f;
 
         // ---- Rot ----
@@ -76,26 +69,23 @@ namespace SlopWorld
 
         // A third of the way down the rot: a picture alight at stage one has nowhere to go.
         const float FireFrom = 0.33f;
-        // Read off the picture: its median luminance is 0.09 and its 95th percentile 0.69, so
-        // a ramp reaching 1 only at pure white leaves the fire invisible.
+        // Tuned to the source luminance so fire remains visible before pure white.
         const float FuelFloor = 0.4f;
         const float FuelFull = 0.65f;
-        // How far a bright thing must extend to count as fuel - the star filter, see Erode.
+        // Minimum bright-region radius for fuel and star filtering.
         const int FuelErode = 3;
-        // Over a 1280-row frame, a plume of a hundred-odd pixels.
+        // Fuel decay over roughly a hundred pixels at 1280px height.
         const float FuelDecay = 0.98f;
-        // fBm piles up around its middle, so 0..1 as-is is an even shimmer; stretching this
-        // band gives a flame a lit body and a dark gap.
+        // Stretch the fBm mid-band into a distinct flame body and gap.
         const float NoiseLow = 0.38f;
         const float NoiseHigh = 0.62f;
         const float FireGain = 1.15f;
 
-        // The noise field is drawn at 1/N of the frame and read back bilinear.
+        // Noise is drawn at 1/N resolution and sampled bilinearly.
         const int NoiseDiv = 4;
         const float NoiseFreq = 0.035f;
         const int Octaves = 4;
-        // Large enough that consecutive phases are unrelated draws; a fire that slid smoothly
-        // would read as a pan across a still picture.
+        // Phase separation keeps consecutive fire frames from reading as a pan.
         const float StagePhase = 37.7f;
 
         static readonly Color Ember = new Color(1f, 0.24f, 0.05f, 1f);
@@ -103,47 +93,34 @@ namespace SlopWorld
 
         // ---- Grandma's visiting ----
 
-        // Hue periods along the diagonal. Deliberately not an integer: the sheen only has to
-        // close in time, and one that closed in space too would put a seam down the picture
-        // where the last band met the first.
+        // Non-integer diagonal hue period avoids a spatial seam while closing in time.
         const float SheenCycles = 1.6f;
-        // The palette's swing is +-0.5 about a flat grey, so this is the chroma at full mask.
+        // Palette swing around grey; this is chroma at full mask.
         const float SheenGain = 0.85f;
-        // The sheen rides a still fBm field, banded for the same reason the fire's is: taken
-        // as it comes, fBm piles up around its middle and gives an even wash rather than a
-        // band with a body and a gap.
+        // Band the still fBm field so the sheen has a body and gap rather than an even wash.
         const float HazeLow = 0.40f;
         const float HazeHigh = 0.66f;
-        // Nowhere near the fire's phases, so the two presets are not the same cloud twice.
+        // Keep sheen phases distinct from fire phases.
         const float HazePhase = 11.3f;
 
         // The constellation is rolled once from this, so the bake stays reproducible.
         const int SparkSeed = 1971;
         const int SparkCount = 140;
-        // Arm half-lengths in pixels at MaxSide, scaled down with the frame. A star is a cross
-        // this long and SparkThick times thinner.
+        // Star arm lengths at MaxSide, scaled with the frame.
         const float SparkArmMin = 7f;
         const float SparkArmMax = 22f;
         const float SparkThick = 7f;
         const float SparkGain = 1.1f;
-        // Blinks per loop. Integers, or a star would be caught mid-blink at the wrap.
+        // Integer blink rates ensure closed-loop alignment.
         const int SparkRateMin = 1;
         const int SparkRateMax = 4;
 
-        // Value noise off a 256x256 field: what the fire's shape is drawn from, and cheaper
-        // than Unity's Perlin by the whole of a native call. Rolled from a fixed seed rather
-        // than shipped, so the bake is reproducible; held as floats rather than bytes so a
-        // sample is four loads and no conversion. 256KB, which stays in cache for all of Fbm.
+        // Reproducible 256x256 float value-noise LUT; cheaper to sample than Unity Perlin.
         const int LutSide = 256;
         const int LutMask = LutSide - 1;
         static readonly float[] _noiseLut = new float[LutSide * LutSide];
 
-        // The rainbow, as a cosine palette: three raised cosines a third of a turn apart, which
-        // is a full hue circle with none of HSV's corners and no branch to sample it. Tabulated
-        // off the same reasoning as the noise - a hue a pixel is three Cos calls over ten
-        // megapixels otherwise. 256 entries and no interpolation between them: over a ramp this
-        // long a step is under two pixels wide, and the encoder is about to throw away far more
-        // than that.
+        // Tabulated cosine hue palette: branch-free full-circle hues at lower per-pixel cost.
         const int HueSide = 256;
         const int HueMask = HueSide - 1;
         static readonly Color[] _hueLut = new Color[HueSide];
@@ -166,39 +143,27 @@ namespace SlopWorld
             }
         }
 
-        // Wrapped rather than clamped, hue being a circle and both callers walking off both
-        // ends of it. Two's complement makes the mask do the negative side for free, which is
-        // the trick Noise plays on its own indices.
+        // Wrap hue indices because hue is circular; the mask also handles negative values.
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static Color Hue(float t) => _hueLut[Mathf.FloorToInt(t * HueSide) & HueMask];
 
-        // The artefacts are the point: 8x8 blocking and smeared chroma are the failure the
-        // rest of this file imitates by hand, and the encoder does them for free. Also keeps
-        // the cache to a few megabytes where PNG would be most of a gigabyte.
+        // Low JPEG quality supplies the intended block/chroma artifacts and keeps the cache small.
         const int JpegQuality = 10;
 
-        // What the *code* below bakes, as opposed to what the numbers above say - the constants
-        // hash themselves into the key (see Tuning), so this only has to move when the
-        // arithmetic does.
+        // Bump when bake arithmetic changes; tuning constants are already in the cache key.
         const int Version = 3;
 
-        // A stage's working buffer is bw*bh*16 bytes, so a whole set at once is a few hundred
-        // megabytes of transient heap under a game that is already holding the menu. Stages are
-        // computed in batches sized off this instead, and the buffers are reused across
-        // batches, which makes the bake's footprint a constant rather than a function of the
-        // set's size. It also caps how many run at once, so this is the parallelism knob too.
+        // Batch scratch buffers to cap transient memory and parallelism independently of set size.
         const int BakeBudgetMB = 96;
 
-        // A cache directory nothing has loaded from in this long is an expansion background the
-        // player moved off, or a tuning the constants have left behind.
+        // Remove cache directories unused for this long.
         const int KeepDays = 30;
 
         static Texture2D[] _frames;
         // The cache key, and how a background switched in Options is noticed.
         static Texture2D _src;
         static string _srcKey;
-        // What the resident set was baked with, not what the setting says this instant: the two
-        // disagree for the frame between a toggle and the reload.
+        // Preset used by the resident set, which can lag the current setting during reload.
         static Preset _preset;
         // So the ramp has a zero. Negative until the first draw.
         static float _began = -1f;
@@ -209,11 +174,7 @@ namespace SlopWorld
         // nothing to bake from and the caller should leave the field alone.
         public static Texture2D Current(Texture2D source)
         {
-            // The caller stops handing us a source as soon as there are frames - it has our own
-            // frame in the field by then and nulls it - so a setting turned over with the menu
-            // still up would never reach Ready. Handing back what we baked from is what makes
-            // the toggle land, and it is a reference compare rather than the key, which is a
-            // string this would be formatting every frame.
+            // Keep using the baked source during a preset switch so Ready can observe the change.
             if (_frames != null && _preset != Chosen) source = _src;
 
             if (source != null && !Ready(source)) return null;
@@ -494,11 +455,8 @@ namespace SlopWorld
             string dir = Dir(key);
             Directory.CreateDirectory(dir);
 
-            // Stages are independent of each other and of the engine - Mathf and Color are
-            // arithmetic on structs, and nothing below Rot or Sparkle touches a Unity object -
-            // so the pixels are worked out off the main thread. The encoder is not: Texture2D,
-            // EncodeToJPG and LoadImage are all engine calls, so a batch is computed in
-            // parallel and then written down in order on the way back.
+            // Pixel math is thread-safe; Texture2D encoding/loading must remain on the main
+            // thread, so compute batches in parallel and write them in order.
             int total = preset.Total;
             int batch = Mathf.Clamp((BakeBudgetMB << 20) / Mathf.Max(1, bw * bh * 16), 1, total);
             var opts = new ParallelOptions { MaxDegreeOfParallelism = batch };
@@ -523,10 +481,7 @@ namespace SlopWorld
                     byte[] jpg = tex.EncodeToJPG(JpegQuality);
                     File.WriteAllBytes(Path.Combine(dir, $"{i:D2}.jpg"), jpg);
 
-                    // Back in through the decoder: at this quality the difference is most of
-                    // the look, and a first launch that came up clean-edged then blocked itself
-                    // on restart would be reported as a bug. Non-readable on the way in for the
-                    // reason Load's is.
+                    // Reload the JPEG so the first launch and cached reload use identical pixels.
                     tex.LoadImage(jpg, true);
                     tex.filterMode = FilterMode.Bilinear;
                     tex.wrapMode = TextureWrapMode.Clamp;
@@ -540,11 +495,8 @@ namespace SlopWorld
             return frames;
         }
 
-        // Order is load-bearing: smear first, because blurring after the contrast crush undoes
-        // it; tint next, because a colour bias applied before a stretch comes back out of it;
-        // fire last, being emissive. The encoder's damage lands after all of it, being the
-        // transmission rather than the scene.
-        // Writes into dst rather than allocating — the caller owns the buffer.
+        // Apply smear, grade/tint, then emissive fire; JPEG artifacts are applied last.
+        // The caller owns `dst`.
         static void Rot(Color[] src, Color[] dst, float[] fuel, int w, int h, float k, int phase)
         {
             if (k <= 0f)
@@ -555,7 +507,7 @@ namespace SlopWorld
 
             Grade g = Grading(k);
 
-            // Horizontal: a signal being dragged rather than a lens out of focus.
+            // Horizontal smear reads as motion rather than defocus.
             int radius = Mathf.RoundToInt(Mathf.Lerp(0f, 24f, k * k));
             if (radius > 0) Smear(src, dst, w, h, radius, ref g);
             else for (int i = 0; i < dst.Length; i++) dst[i] = Shade(ref g, src[i]);
@@ -563,10 +515,7 @@ namespace SlopWorld
             Burn(dst, fuel, w, h, k, phase);
         }
 
-        // The drain toward luminance, the contrast crush and the tint are three affine steps
-        // per channel, and affine composed with affine is affine - so all of it is one 3x3 and
-        // an offset, solved once a stage rather than nine Lerps and a grayscale a pixel. The
-        // same arithmetic folded, not an approximation of it.
+        // Combine drain, contrast, and tint into one affine transform per stage.
         struct Grade
         {
             public float rr, rg, rb, ro;
@@ -580,27 +529,21 @@ namespace SlopWorld
             Mathf.Lerp(0f, 0.75f, k),       // drain toward luminance
             Sick, Mathf.Lerp(0f, 0.42f, k));
 
-        // Nothing is taken away here: a hair more contrast, the blacks lifted the same as the
-        // rot lifts them, and a *negative* drain, which is a saturation boost written in the one
-        // form Shade already knows. No tint - in this preset the colour is the sheen's and the
-        // stars', and a picture already tinted would argue with both. At k of zero this is the
-        // identity, which is what lets the ramp start on the game's own picture.
+        // Cheer raises contrast/blacks and boosts saturation without tint; at k=0 it is identity.
         static Grade Cheer(float k) => Affine(
             Mathf.Lerp(1f, 1.06f, k), Mathf.Lerp(0f, 0.05f, k), Mathf.Lerp(0f, -0.35f, k),
             Color.white, 0f);
 
         static Grade Affine(float contrast, float lift, float drain, Color toward, float tint)
         {
-            // Color.grayscale's own weights, which is where the drain's cross-terms come from.
+            // Match Color.grayscale's channel weights.
             const float LR = 0.299f, LG = 0.587f, LB = 0.114f;
 
             float keep = 1f - drain;
-            // (c - 0.5) * contrast + 0.5 + lift, with the c gathered into the matrix.
+            // Bias for (c - 0.5) * contrast + 0.5 + lift.
             float bias = 0.5f - 0.5f * contrast + lift;
 
-            // Multiplied rather than blended: a blend fogs the frame evenly, where this leaves
-            // the dark dark and puts colour where there is light. A per-channel scale, so it
-            // multiplies the contrast term and the lift alike.
+            // Multiply per channel so dark regions stay dark instead of becoming a flat tint.
             float tr = Mathf.Lerp(1f, toward.r, tint), sr = contrast * tr;
             float tg = Mathf.Lerp(1f, toward.g, tint), sg = contrast * tg;
             float tb = Mathf.Lerp(1f, toward.b, tint), sb = contrast * tb;
@@ -690,11 +633,7 @@ namespace SlopWorld
             return dst;
         }
 
-        // Gated by Fuel, and rolled in with k so the planet catches as it rots. The noise is
-        // drawn at a fraction of the frame and read back bilinear - four octaves over ten
-        // megapixels is seconds of bake, and fire has no fine detail to lose. Phase picks the
-        // offset, so the flames move; every depth rung at one phase draws the same field, so
-        // the picture breathes without them.
+        // Fuel gates the fire; low-resolution bilinear noise supplies moving shape at bakeable cost.
         static void Burn(Color[] px, float[] fuel, int w, int h, float k, int phase)
         {
             float heat = Mathf.InverseLerp(FireFrom, 1f, k);
@@ -703,16 +642,14 @@ namespace SlopWorld
             int nw = Mathf.Max(2, w / NoiseDiv), nh = Mathf.Max(2, h / NoiseDiv);
             float[] noise = Fbm(nw, nh, phase * StagePhase);
 
-            // Hoisted: these are three divides a pixel over ten megapixels otherwise, and the
-            // shaping below is InverseLerp into SmoothStep(0,1,..) written out - the clamp the
-            // first does is the clamp the second would, so it is done once.
+            // Hoist shared scales and the noise-band reciprocal out of the pixel loop.
             float xScale = (nw - 1) / (float)w, yScale = (nh - 1) / (float)h;
             float band = 1f / (NoiseHigh - NoiseLow);
 
             for (int y = 0; y < h; y++)
             {
                 int row = y * w;
-                // Where this row falls in the noise, and the two rows to blend.
+                // Locate this output row in the noise field.
                 float ny = y * yScale;
                 int ny0 = (int)ny, ny1 = Mathf.Min(nh - 1, ny0 + 1);
                 float fy = ny - ny0;
@@ -732,15 +669,13 @@ namespace SlopWorld
                     c0 += (noise[r1 + nx1] - c0) * fx;
                     float n = a + (c0 - a) * fy;
 
-                    // Fuel says where fire is allowed, the shaped noise what shape it takes.
-                    // Multiplying the raw field in would let the noise decide both.
+                    // Fuel controls location; shaped noise controls form.
                     float s = (n - NoiseLow) * band;
                     s = s < 0f ? 0f : (s > 1f ? 1f : s);
                     float t = f * (s * s * (3f - 2f * s)) * heat;
                     if (t <= 0f) continue;
 
-                    // Added rather than blended, so it lights the picture rather than painting
-                    // over it.
+                    // Add fire as light instead of replacing the source pixel.
                     float gain = t * FireGain;
                     Color c = px[row + x];
                     px[row + x] = new Color(
@@ -752,17 +687,13 @@ namespace SlopWorld
             }
         }
 
-        // What Rot is not: nothing is taken away. Sheen and constellation are functions of s,
-        // the position in the loop, and both close - one whole hue period, whole-number blinks
-        // - so the last phase meets the first with no cut. k is the ramp's axis, one all
-        // through the loop. Writes into dst rather than allocating — the caller owns the buffer.
+        // Sparkle adds closed-loop sheen and stars to the graded source; the caller owns `dst`.
         static void Sparkle(Color[] src, Color[] dst, float[] haze, Spark[] sparks,
                             int w, int h, float s, float k)
         {
             Grade g = Cheer(k);
 
-            // Along the diagonal, so the band crosses the picture corner to corner rather than
-            // lying in bars down it.
+            // Diagonal ramp keeps the sheen from forming horizontal bars.
             float ramp = SheenCycles / (w + h - 2);
             float sheen = SheenGain * k;
 
@@ -777,10 +708,7 @@ namespace SlopWorld
                     float m = haze[i] * sheen;
                     if (m > 0f)
                     {
-                        // The palette's mean is a flat half in every channel, and it comes back
-                        // out here: what is added is chroma alone. Over the sky that lights a
-                        // colour into the black, over the lit face it swings the hue, and
-                        // neither is the even grey fog that adding the palette whole would be.
+                        // Add chroma around the palette's neutral 0.5 midpoint, not grey light.
                         Color hue = Hue((x + y) * ramp + s);
                         c = new Color(
                             Mathf.Clamp01(c.r + (hue.r - 0.5f) * m),
@@ -807,16 +735,12 @@ namespace SlopWorld
             public float phase;   // where in that blink phase zero finds it
         }
 
-        // Rolled once from a fixed seed, and the same for every stage - which is what lets a star
-        // blink rather than jump about. Uniform over the frame: a star on the planet's own lit
-        // face simply does not show, and that is a truer scattering than one that had been told
-        // to avoid it.
+        // Use one fixed, uniform constellation for every stage so stars blink without moving.
         static Spark[] Constellation(int w, int h)
         {
             var rng = new System.Random(SparkSeed);
 
-            // Arms are quoted at MaxSide, so a frame baked smaller gets smaller stars rather
-            // than the same stars taking up more of it.
+            // Scale star arms with the baked frame relative to MaxSide.
             float scale = Mathf.Max(w, h) / (float)MaxSide;
 
             var sparks = new Spark[SparkCount];
@@ -891,11 +815,7 @@ namespace SlopWorld
             }
         }
 
-        // How bright the sheen is allowed to be, and still across the whole loop: one fBm field
-        // drawn small and read back bilinear the way the fire's is, banded so the rainbow has a
-        // body and a gap. Still, because a mask that drifted would have to close with the loop
-        // too, and a rainbow sliding under a moving cloud is one motion more than a background
-        // behind a menu has any business having.
+        // Use one still, banded low-resolution fBm mask so the rainbow keeps a stable body/gap.
         static float[] Haze(int w, int h)
         {
             int nw = Mathf.Max(2, w / NoiseDiv), nh = Mathf.Max(2, h / NoiseDiv);
@@ -933,11 +853,7 @@ namespace SlopWorld
             return dst;
         }
 
-        // One cell of the LUT, smoothstep-interpolated. The two axes are wrapped separately:
-        // stepping a flat index by one runs off the end of a row into the start of the next
-        // one, so a field sampled that way is discontinuous down every 256th column - a hard
-        // vertical seam through the flames, and the phase walks it across the picture stage by
-        // stage. The rows wrap for free, being the whole array.
+        // Bilinear sample of the wrapped 2D LUT; wrap x and y independently to avoid row seams.
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static float Noise(float x, float y)
         {
@@ -954,8 +870,7 @@ namespace SlopWorld
             return n00 + u * (n10 - n00) + v * (n01 - n00 + u * (n00 - n10 - n01 + n11));
         }
 
-        // Each octave stretched twice as far across x as up y, for the vertical grain;
-        // isotropic noise is a cloud.
+        // Stretch x twice as far as y to produce vertical grain rather than cloud-like noise.
         static float[] Fbm(int w, int h, float phase)
         {
             var field = new float[w * h];
@@ -983,11 +898,7 @@ namespace SlopWorld
             return field;
         }
 
-        // Box rather than gaussian: through the contrast crush the difference is invisible, and
-        // a running sum makes the cost independent of the radius. Writes into dst, which the
-        // caller owns, and grades on the way out rather than leaving a second sweep to do it:
-        // the buffer is ten megabytes, so a pass over it costs more than all the arithmetic in
-        // it and the two passes read the same pixel twice for nothing.
+        // A running-sum box blur is fast enough after contrast crush; grade during the same pass.
         static void Smear(Color[] src, Color[] dst, int w, int h, int radius, ref Grade t)
         {
             // Reciprocal rather than a divide per channel per pixel; the last bit of difference
@@ -1081,8 +992,7 @@ namespace SlopWorld
             return dst;
         }
 
-        // Core textures come out of the bundles unreadable, so the pixels are fetched back off
-        // the GPU - the trip DeadCursor makes too.
+        // Read bundle textures back from the GPU because they are non-readable.
         static Color[] ReadBack(Texture2D src)
         {
             var rt = RenderTexture.GetTemporary(src.width, src.height, 0, RenderTextureFormat.ARGB32);
@@ -1103,8 +1013,7 @@ namespace SlopWorld
             return px;
         }
 
-        // A generated texture is referenced by nothing in the scene, so the
-        // Resources.UnloadUnusedAssets on any map switch may take it - see TerminalFont.
+        // Root generated textures across map switches.
         static void Keep(Texture2D tex) => tex.hideFlags = HideFlags.DontUnloadUnusedAsset;
 
         // So the source capture below never bakes the rot from an already-rotted frame.
@@ -1117,10 +1026,8 @@ namespace SlopWorld
         }
     }
 
-    // On the draw rather than on MainMenuDrawer.Init: Init runs once where this changes every
-    // frame, and the loading screen draws the same background without going near Init.
-    // BackgroundOnGUI reads overrideBGImage's size for the aspect fit, so handing it our frame
-    // keeps scaling, letterboxing and the expansion crossfade working.
+    // Patch the draw path: loading screens bypass MainMenuDrawer.Init, and BackgroundOnGUI owns
+    // aspect fitting, letterboxing, and the expansion crossfade.
     [HarmonyPatch(typeof(UI_BackgroundMain), nameof(UI_BackgroundMain.BackgroundOnGUI))]
     public static class Patch_MenuBackgroundRot
     {
@@ -1128,12 +1035,10 @@ namespace SlopWorld
         {
             Texture2D src = __instance.overrideBGImage;
 
-            // Our own frame as a source would key the cache off a rotted picture.
+            // Never rebake from an already-rotted frame.
             if (MenuBackground.IsOurs(src)) src = null;
 
-            // A null field means vanilla is about to draw BGPlanet without consulting it, so
-            // fetch the same texture - but only when nothing is baked, ContentFinder.Get
-            // walking every loaded mod and this running once a frame.
+            // Supply vanilla's source only before the first bake; ContentFinder scans loaded mods.
             if (src == null && !MenuBackground.HasFrames)
                 src = ContentFinder<Texture2D>.Get("UI/HeroArt/BGPlanet", false);
 

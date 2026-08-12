@@ -3,21 +3,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // A scroll position that is eased rather than assigned.
-    //
-    // IMGUI does the wheel in `GUI.EndScrollView`: it adds `delta * 20` to the position
-    // and that is where the list is on the next frame. Fine for a mouse, where a notch is
-    // one event and the jump reads as the notch. Wrong for a touchpad, where the driver
-    // hands Unity the same notch-sized deltas dozens of times a gesture and the list
-    // teleports in 60px steps with nothing between them.
-    //
-    // So the wheel is taken here first, before the scroll view sees it. The delta goes
-    // into a *target* and what is drawn walks toward it, which costs a frame or two of
-    // travel and buys a gesture that looks continuous. Sub-notch deltas - if a driver ever
-    // sends them - add up in the target instead of being spent one at a time.
-    //
-    // Held by the caller in place of the `Vector2` it used to keep: the target and the
-    // drawn position are two numbers and only one of them is the scroll view's.
+    // Intercept wheel input and ease a target toward the drawn position, smoothing touchpad
+    // bursts while preserving Unity's 20px-per-wheel-unit travel.
     public sealed class SmoothScroll
     {
         // Pixels per unit of wheel delta. Unity's own figure, and matching it is the point:

@@ -1412,12 +1412,8 @@ struct GitReq {
     path: String,
 }
 
-/// What has changed in one project's working tree, so the git view can draw a tree of it -
-/// `/api/browse` for a repository, and here for the same reason: the game is outside every
-/// session's mount namespace and cannot run `git` where the agents do.
-///
-/// A directory that is no repository answers 200 with `repo` false rather than an error. It
-/// is a fact about the project, not a request that failed, and the view says it in a line.
+/// Returns a project's changed files for the git view; the game cannot run `git` inside agent
+/// mount namespaces. Non-repositories return 200 with `repo: false`.
 async fn git_status(State(_m): State<Mgr>, Query(q): Query<GitReq>) -> ApiResult {
     if q.path.is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "no path"));
@@ -1571,11 +1567,8 @@ async fn ws_upgrade(
         .into_response()
 }
 
-/// What of an event a socket at `cap` is allowed to see. Root sees all. A scoped grant sees the
-/// sessions it names (the list filtered to them) and their screens, and nothing of the mod's
-/// wider view - projects, shortcuts, usage, the jukebox are not a grant's to learn. A screen
-/// only ever flows for a subscribed pane, and a grant can only subscribe to one it may read, so
-/// screens need no filter of their own.
+/// Filters events for a socket capability. Root sees all; scoped grants see named sessions and
+/// screens, but not projects, shortcuts, usage, audio, or jukebox catalog data.
 fn scope_event(cap: &Cap, ev: Event) -> Option<Event> {
     match cap {
         Cap::Root => Some(ev),
@@ -1646,13 +1639,8 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
         }
     }
 
-    // The mod draws at the monitor's rate, which the emulator's 8ms tick outruns: every frame
-    // it cannot keep up with is one it parses anyway and throws away. Screen frames are thus
-    // coalesced per client to roughly that rate - held beats, the newest wins, and the last one
-    // is always flushed on the beat rather than dropped, so a still pane never reads stale.
-    // A frame that arrives after the coalesce window (the ordinary single page turn) is sent
-    // straight through, so holding never adds latency to the case that matters. Everything else
-    // on the wire - sessions, usage, quit - rides straight through uncoalesced.
+    // Coalesce screen frames per client to the monitor cadence: newest wins, and the pending
+    // frame flushes on the beat. Other event types remain uncoalesced.
     const FRAME_COALESCE: Duration = Duration::from_millis(16);
 
     let pump = {
@@ -1740,12 +1728,8 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
             tracing::debug!("unparseable ws message: {text}");
             continue;
         };
-        // Every message that names a session is checked against this socket's capability first:
-        // reading a pane (sub, scroll) wants ro, driving one (keys, resize, mouse, paste) wants
-        // rw, and the host terminal is reachable by neither. A message it may not make is
-        // dropped in silence, the same as one for a session that is not there. Unsub only forgets
-        // a local subscription, so it needs no leave to make; the jukebox is the mod's, so a
-        // grant does not touch it.
+        // Require ro for pane reads, rw for input, and neither for host terminals; unauthorized
+        // messages are dropped silently.
         match cm {
             ClientMsg::Sub { name } => {
                 if !m.cap_ok(&cap, &name, Level::Ro).await {

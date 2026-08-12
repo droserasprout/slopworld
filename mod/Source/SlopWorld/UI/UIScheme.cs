@@ -3,20 +3,8 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // The chrome's palette by name, the way TerminalTheme is the pane's - and for the same
-    // reason. What a screen looks like is about the eyes reading it, and the window has two
-    // halves that were never lit by the same taste: one is somebody else's terminal, the
-    // other is ours.
-    //
-    // A scheme is a table of colours and nothing else. There is no geometry in it, no gaps
-    // and no shapes: SlopWorld is a rectangular instrument panel under every scheme (see
-    // mod-ui-identity), and what a scheme changes is the light it stands in. SlopWidgets
-    // reads this and everything else reads SlopWidgets, so a scheme arrives everywhere the
-    // frame after it is picked, with nothing to repaint and nothing to tell.
-    //
-    // Written as hex because a table of colours is read as a table. `#rrggbb`, or
-    // `#rrggbbaa` for the washes - a structural line and a hovered row are the same colour
-    // at two strengths, and the eighth digit keeps that pair on one line each.
+    // Named palette for `SlopWidgets`; geometry stays fixed while selected colours propagate on
+    // the next frame. Hex values are persisted in settings.
     public class UIScheme
     {
         // Id is what the settings file holds; Label is what the options page says. They are

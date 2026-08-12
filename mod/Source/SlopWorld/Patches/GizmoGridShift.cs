@@ -4,18 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The gizmo grid is drawn at the bottom of the screen, above the main button row.
-    // When the sidebar layout is active, the inspect pane is shifted right by the sidebar's
-    // width, but the gizmo grid's startX (14 + PaneWidthFor(pane)) is not shifted. Since the
-    // pane window is drawn over the gizmo grid (window stack after map interface), the first
-    // gizmos are hidden under the shifted pane.
-    //
-    // This patch adds the sidebar inset to the gizmo grid's startX, keeping the gizmos to the
-    // right of the shifted pane.
-    //
-    // A static flag is used to distinguish the bottom-of-screen gizmo grid (drawn from
-    // DrawGizmoGridFor) from the architect menu's designator gizmo grid (drawn via a separate
-    // DrawGizmoGrid call from inside the architect tab window).
+    // Shift the bottom gizmo grid by the sidebar inset so it remains beside the shifted pane.
+    // `Active` distinguishes `DrawGizmoGridFor` from the architect tab's designator grid.
 
     [HarmonyPatch(typeof(GizmoGridDrawer), "DrawGizmoGridFor")]
     public static class Patch_GizmoGridFlag

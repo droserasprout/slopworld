@@ -6,15 +6,8 @@ using Exception = System.Exception;
 
 namespace SlopWorld
 {
-    // Everything the mod does to the game is unconditional: being loaded is the
-    // switch, as it always was for the UI stripping. A checkbox that turns the mod
-    // back into RimWorld is not a setting anyone wants, it is a second product nobody
-    // tests. What is left is about this machine and about the eyes reading it, never
-    // about the design: where the daemon is, and what a pane looks like on this screen.
-    //
-    // The pane's half of that is edited on the Terminal page of the options dialog
-    // rather than here, but it is scribed here, because there is one settings file. The
-    // connection is discovered from the daemon's endpoint descriptor.
+    // Loading enables the mod unconditionally; settings cover daemon connection and UI
+    // appearance, with terminal values sharing this settings file and endpoint discovery.
     public class SlopSettings : ModSettings
     {
         public bool autoConnect = true;
@@ -34,11 +27,8 @@ namespace SlopWorld
         // AgentSidebar for what an unticked name and the `[none]` line mean.
         public string sidebarFilter = "";
 
-        // Which thing stands for which quota row, one `key=defName` per line. Here for the
-        // reason the folds are: a resource the daemon reports is the daemon's, but what it
-        // looks like on this screen is this install's, and it is wanted back tomorrow. A key
-        // nothing reports is a line nothing reads, and a def this build has not got falls
-        // back to the pick UsageReadout would have made.
+        // Per-install quota icon overrides, one `key=defName` per line; missing rows/defs fall
+        // back to UsageReadout's default.
         public string usageIcons = "";
 
         public int fontSize = 14;
@@ -47,11 +37,8 @@ namespace SlopWorld
         public int uiFontSize;
         public string uiFontName = "";
 
-        // The chrome's palette, by name, the way `theme` is the pane's - and read the same
-        // way when this build no longer ships it. Kept apart from `theme` because the two
-        // halves of the window are lit by two different tastes: a terminal palette is
-        // somebody's habit carried in from another machine, and this one is the mod's own
-        // light. See UIScheme.
+        // Named chrome palette, separate from the terminal's `theme`; unknown schemes fall back
+        // through `UIScheme`.
         public string uiScheme = "slopworld";
 
         // The pane's palette, by name. A scheme this build no longer ships reads as the
@@ -83,11 +70,8 @@ namespace SlopWorld
         // it from is the surprise, not the feature.
         public bool radioStopOnExit = true;
 
-        // Grandma mode: no fun allowed. Disables gore, vomit, plague emissions, graves,
-        // obelisks, harmful tips, zalgo, easter eggs, the core's "Kill something" option and
-        // the burning of the map on the way to the next planet. Two of them are swapped rather
-        // than taken: the menu background is rebaked to sparkles and rainbows, and the plague
-        // still spreads but grows flowers where it arrives.
+        // Grandma mode removes gore, harmful tips, and destructive/easter-egg effects; the
+        // background becomes sparkles/rainbows and plague arrivals grow flowers.
         public bool grandmaMode;
 
         // Eco mode: the board stops. The clock is held paused, the map's draw chain stands

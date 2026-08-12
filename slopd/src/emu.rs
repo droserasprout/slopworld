@@ -64,14 +64,8 @@ struct Side {
     bell: bool,
 }
 
-/// Replies to cursor-position reports (`ESC[6n`), device attributes and mode queries.
-/// `VoidListener` dropped all of these, leaving apps that probe the terminal (Ink, which
-/// Claude Code is built on) anchoring their cursor on the wrong line.
-///
-/// Also takes the three things an app says *about* itself: its title, a clipboard write and
-/// a ring of the bell.
-/// Only the store half of OSC 52 - `Osc52::OnlyCopy` has `Term` refuse a load, which is the
-/// right way round when the clipboard is the operator's.
+/// Handles terminal replies and side effects: cursor/device queries, title, clipboard store,
+/// and BEL. OSC 52 remains copy-only so apps cannot read the operator's clipboard.
 #[derive(Clone)]
 struct ReplySink {
     side: Arc<Mutex<Side>>,
@@ -344,11 +338,8 @@ pub(crate) enum Slot {
     Ch(char, Color, Color, Flags, Option<Hyperlink>),
 }
 
-/// What a cell will actually be *drawn* as, which is not the same question as what its
-/// attributes are: several `Color::Named` values emit no code at all, so comparing raw
-/// attributes would put a reset between two cells that look identical. Copy and `Eq`, so a
-/// run is found by comparing two of these rather than by formatting a `String` per cell and
-/// comparing that - which is what this screen used to cost, four thousand times a frame.
+/// Render-ready cell style; `Color::Named` values can emit no code, so compare normalized pens
+/// rather than raw attributes and avoid formatting strings per cell.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 struct Pen {
     bold: bool,
@@ -439,13 +430,8 @@ fn write_ink(out: &mut String, ink: Ink, base: u16) {
     }
 }
 
-/// Each line opens with a reset, runs are self-contained, trailing default cells are trimmed.
-/// CHA is emitted only where the true column diverges from the pen - right after a wide char
-/// - so plain ASCII rows stay byte-identical to a plain capture.
-///
-/// Nothing in here allocates per cell: the pen is compared as a `Pen` and written only where
-/// a run begins, and a link's URI is sanitised only when it changes rather than for every
-/// cell it covers.
+/// Serialize self-contained rows with reset/trimmed defaults and only necessary CHA, pen, and
+/// link updates; avoid per-cell allocation.
 fn serialize_row(row: &[Slot]) -> String {
     let mut out = String::from("\x1b[0m");
 

@@ -23,17 +23,8 @@ namespace SlopWorld
         });
     }
 
-    // What makes running in the background affordable. The sim does not slow with the frames:
-    // TickManagerUpdate banks Time.deltaTime and spends up to 45ms a frame paying it back, so
-    // fifteen frames a second is four ticks a frame at exact pace. Below ten it stops banking
-    // - the accumulator is assigned rather than added once deltaTime reaches 0.1 - hence the
-    // clearance. vSync comes off with it or the cap does nothing, Unity ignoring
-    // targetFrameRate while vSyncCount is set; both go back as found.
-    //
-    // Eco's cap is the second reason to ask for one, and higher: nothing is banking there -
-    // the clock is stopped - so the only thing the number has to be kind to is somebody
-    // typing into a pane. It is one owner for both, because the pair of them is a saved
-    // target and a saved vSync, and two writers would restore each other's.
+    // Use a background cap for catch-up and a gentler Eco cap for pane input; restore target FPS
+    // and vSync together when leaving either state.
     public static class BackgroundFrames
     {
         const int Away = 15;

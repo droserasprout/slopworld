@@ -7,27 +7,15 @@ namespace SlopWorld
 {
     public static class TopBar
     {
-        // A line of the small font with room round it, not a figure: everything on this bar is
-        // text or an 18-pixel glyph beside text, and 26 was a line of the shipped face. A taller
-        // font on a bar that stayed 26 is a clock with its top and bottom rows cut off, which is
-        // what a middle anchor does when the line does not fit - it crops both ends at once.
-        // Floored at the old height so the map is not handed back pixels on the shipped font.
+        // Fit the current row height while preserving the shipped 26px minimum.
         public static float H => Mathf.Max(SlopWidgets.RowH, 26f);
 
         const float Pad = SlopWidgets.GapS;
 
-        // Every door on the line at the size the drawn glyphs were on the strip they came
-        // off. The two things on the map had four pixels more for a while, on the grounds
-        // that a building shrunk to a tab-bar glyph is a smudge - but a `ThingIcon` fills
-        // its rect where a glyph keeps a margin inside one, so the same figure already
-        // draws them bigger than their neighbours and a larger one made them loom.
+        // Door icons use the shared glyph size; ThingIcon already fills its slot more densely.
         const float IconW = SlopWidgets.IconW;
 
-        // A `TipSignal` with no id of its own is keyed on its text, and the jukebox's names
-        // what is playing - so the bubble would restart its fade every time the station moved
-        // on. It carries an id, which only has to be its own. The persona core's bubble is
-        // gone (the icon is the core, and the name added nothing), so it registers no tip at
-        // all.
+        // Give the jukebox tip a stable id so changing song text does not restart its fade.
         const int JukeboxTipId = 0x51_0C_02;
 
         public static Rect Rect =>
@@ -47,30 +35,17 @@ namespace SlopWorld
 
             var r = Rect;
             Slab.Fill(r, SlopWidgets.Panel);
-            // Inside the bar, the way every other rule in the chrome sits inside the thing it
-            // closes. Below it, [H] would stop short of its own line: the sidebar's tab strip
-            // is the same height and rules itself at `TabH - 1`, so the two would meet with a
-            // pixel of jog in the boundary, and a body laid out at `TopInset` would start on
-            // top of the line rather than under it.
+            // Keep the hairline inside the bar so adjoining chrome shares its boundary pixel.
             Slab.Hairline(new Rect(r.x, r.yMax - 1f, r.width, 1f), SlopWidgets.Edge);
 
             var was = GUI.color;
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
 
-            // The doors first: they own the end of the line, and the resources take what is left
-            // of it. Laid out that way round because the strip is already right-aligned within
-            // whatever room it gets, so a window coming or going never moves a button.
-            //
-            // The options menu used to be excepted here, being the one window laid out below
-            // this line rather than over it - and the exception was worth nothing, a window
-            // under an absorbing one never being called for a MouseDown. It is a content view
-            // now, so the line is live whenever the window it is drawn from is.
+            // Lay out fixed doors first; usage rows then consume the remaining width.
             float right = Doors(r, interactive);
 
-            // Nothing where there is no room: the doors take well over a hundred pixels off
-            // this end with all four up, and a strip handed a negative width would place its
-            // first chip in the status half rather than declining to draw.
+            // Omit usage when the doors leave no room.
             float resources = r.center.x + Pad;
             float quota = right - resources;
             if (quota > 0f)
@@ -87,8 +62,7 @@ namespace SlopWorld
             GUI.color = was;
         }
 
-        // The press and nothing else: a drag and its release belong to whoever the press went
-        // to. Same reason as AgentSidebar.Absorb.
+        // Consume only the initial press; the drag and release belong to its original target.
         static void Absorb(Rect r)
         {
             var e = Event.current;
@@ -97,19 +71,7 @@ namespace SlopWorld
             e.Use();
         }
 
-        // The end of the line, right to left: the menu, the settings cog, and the two things
-        // standing on the map that have a menu of their own. Hands back the x the quota strip
-        // may run up to.
-        //
-        // The cog and the hamburger came off the sidebar's tab strip. They are not about a
-        // view - one opens the options dialog and the other opens every window this mod has -
-        // so a selector two icons wide was the wrong place to keep them, and this end of the
-        // bar is where the rest of the doors already are.
-        //
-        // The core and the jukebox are drawn only where they exist, an icon onto a thing that
-        // is not on the map being no door at all. They are the game's own icons rather than
-        // ones drawn in code, which is also what makes them read as the resources' neighbours
-        // instead of as two more grey glyphs beside the cog.
+        // Place menu/config and any map objects with menus right-to-left; return quota's limit.
         static float Doors(Rect r, bool live)
         {
             float x = r.xMax - Pad;
@@ -144,8 +106,7 @@ namespace SlopWorld
             return x - SlopWidgets.GapM;
         }
 
-        // Centred in the bar's height rather than filling it: 26 pixels of hit box for an
-        // 18-pixel glyph is a press that lands on the hairline under the line.
+        // Centre the glyph-sized hit slot inside the taller bar.
         static Rect Slot(Rect r, float x, float w) =>
             new Rect(x, r.y + (r.height - w) / 2f, w, w);
 
@@ -165,10 +126,7 @@ namespace SlopWorld
             Press(over, go, live);
         }
 
-        // ThingIcon carries the def's own colour and gives nothing back on a hover, so the
-        // highlight and the press are drawn and taken here. A tip with no text - the persona
-        // core, which is its own name - gets no bubble at all, and the jukebox's song drops
-        // out rather than leaving an empty one.
+        // ThingIcon supplies its own tint; this method adds hover, input, and optional tips.
         static void Thing(Rect r, ThingDef def, TipSignal tip, System.Action go, bool live)
         {
             if (def == null) return;
@@ -189,12 +147,7 @@ namespace SlopWorld
             Press(over, go, live);
         }
 
-        // Neither the hover nor the press goes through `Widgets.ButtonImage`, and for the
-        // reason ColonistBarStrip.MouseOver states: every vanilla road to a click passes
-        // `Mouse.IsOver`, which answers false whenever the window being drawn is not getting
-        // input - and with the options dialog up over a pane, that is this line. Drawn from a
-        // MapComponent it is not a window at all. So the rect is asked directly and the press
-        // is taken here.
+        // Use direct rect hit-testing because this map component may draw over an absorbing window.
         static void Press(bool over, System.Action go, bool live)
         {
             if (!over || !live) return;
@@ -206,8 +159,7 @@ namespace SlopWorld
             go();
         }
 
-        // Everything the bottom button row used to hold. Same list the sidebar's hamburger
-        // opened, moved with it.
+        // The top-bar menu replaces the old bottom-row menu.
         static void Menu()
         {
             TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
@@ -216,17 +168,12 @@ namespace SlopWorld
             }));
         }
 
-        // The current agent is whichever pane is open, or with none the agent the map is
-        // looking at. Its own title is the only thing here the agent itself wrote - Claude
-        // Code keeps what it is doing in the terminal title - so it is said when there is one
-        // and the state stands in when there is not.
+        // Show the pane's session, or the selected inspect-pane agent when no pane is open.
         static void Status(Rect r, TerminalWindow pane)
         {
             if (r.width <= 40f) return;
 
-            // A view in the body is what this line is about while it is up: the options
-            // menu, or one of the three lists. No agent is being looked at, so naming one
-            // here would be naming the thing behind what is on screen.
+            // Content views replace the session status while visible.
             var view = TerminalWindow.Showing;
             if (view != null)
             {
@@ -252,8 +199,7 @@ namespace SlopWorld
             var info = hub.Get(session);
             var state = info?.State ?? AgentState.Down;
 
-            // A quarter of the line clear at each end rather than seven pixels: the bar grows
-            // with the font and a fixed inset would leave the chip a sliver in the middle of it.
+            // Scale the status marker inset with the row height.
             float inset = Mathf.Round(r.height * 0.27f);
             var chip = new Rect(r.x, r.y + inset, SlopWidgets.StatusMarker,
                 r.height - inset * 2f);
@@ -269,8 +215,7 @@ namespace SlopWorld
                 r.xMax - name.xMax - SlopWidgets.GapS, r.height);
             if (rest.width <= 20f) { GUI.color = Color.white; return; }
 
-            // The pane's shape rides along while one is open, that being the number worth
-            // seeing when an app has drawn itself the wrong width.
+            // Include the negotiated pane shape when a pane is open.
             string tail = Tail(session, state);
             if (pane != null && !string.IsNullOrEmpty(pane.Shape))
                 tail = pane.Shape + "   " + tail;
@@ -282,8 +227,7 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        // Session metadata prefers slopd's generated task title and falls back to the pane's
-        // native OSC title. Unlike a screen, it is available even when the pane is not open.
+        // Prefer slopd's task title, falling back to the pane's OSC title.
         static string Tail(string session, AgentState state)
         {
             string title = SessionHub.Instance.Get(session)?.Title;

@@ -5,16 +5,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The pane's own settings, as a page of the options menu rather than a window of its
-    // own. Font size and palette are the two things nobody can judge from a number - you
-    // set them by looking at a terminal - so the preview is drawn live at the foot of the
-    // page, same style, same glyphs, and every control invalidates the pane's style as it
-    // moves so a pane underneath changes with it.
-    //
-    // A page rather than a Window because SlopOptions hangs it off an OptionCategoryDef,
-    // the same way ConfigPage and UsagePage are. It owns no chrome and closes with the
-    // dialog around it; the settings file is written once, on the dialog's close. See
-    // SlopOptions.
+    // Terminal appearance page with a live preview; controls invalidate the pane theme and save
+    // on dialog close. SlopOptions hosts it as an `OptionCategoryDef` page.
     public class TerminalPage
     {
         readonly SmoothScroll _scroll = new SmoothScroll();
