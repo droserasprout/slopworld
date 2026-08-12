@@ -35,8 +35,14 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/sessions/:name/stop", post(stop))
         .route("/api/sessions/:name/restart", post(restart))
         .route("/api/sessions/:name/state/reset", post(reset_state))
-        .route("/api/tasks", get(list_tasks).post(create_task))
-        .route("/api/tasks/:id", get(one_task).post(update_task))
+        .route(
+            "/api/tasks",
+            get(list_tasks).post(create_task).delete(prune_tasks),
+        )
+        .route(
+            "/api/tasks/:id",
+            get(one_task).post(update_task).delete(remove_task),
+        )
         .route("/ws", get(ws_upgrade));
 
     // The mod's own: the file, the projects, the machine, and minting grants itself. Default
@@ -164,7 +170,8 @@ async fn health(State(m): State<Mgr>) -> ApiResult {
 }
 
 fn task_principal(cap: &Cap, headers: &HeaderMap) -> Result<String, (StatusCode, Json<Value>)> {
-    cap.principal()
+    let who = cap
+        .principal()
         .map(str::to_string)
         .or_else(|| {
             headers
@@ -178,7 +185,25 @@ fn task_principal(cap: &Cap, headers: &HeaderMap) -> Result<String, (StatusCode,
                 StatusCode::BAD_REQUEST,
                 "root task requests need x-slop-session",
             )
-        })
+        })?;
+    // The root token is the only thing that speaks for the user at the keyboard. A grant resolves
+    // to its grantor's name, so this covers a session that happens to be called `host` too: it may
+    // hold a grant, but it cannot wear the host's identity with it.
+    if who == crate::tasks::HOST && !cap.may_create() {
+        return Err(err(
+            StatusCode::FORBIDDEN,
+            "only the daemon's own token speaks as the host",
+        ));
+    }
+    Ok(who)
+}
+
+/// A task endpoint is a live session or the host. The host is checked here rather than through
+/// `guard`, because it is not a session: it has no host-ness flag to look up, appears in no
+/// grant's scope, and names nothing a scoped caller could learn from reaching it. An agent
+/// reporting back to the user is what the mailbox is for.
+async fn task_endpoint_known(m: &Mgr, who: &str) -> bool {
+    who == crate::tasks::HOST || m.session_known(who).await
 }
 
 #[derive(Deserialize)]
@@ -194,19 +219,21 @@ async fn create_task(
     Json(q): Json<CreateTaskReq>,
 ) -> ApiResult {
     let from = task_principal(&cap, &headers)?;
-    if !m.session_known(&from).await {
+    if !task_endpoint_known(&m, &from).await {
         return Err(err(
             StatusCode::BAD_REQUEST,
             format!("no such session: {from}"),
         ));
     }
-    if !m.session_known(&q.to).await {
+    if !task_endpoint_known(&m, &q.to).await {
         return Err(err(
             StatusCode::BAD_REQUEST,
             format!("no such session: {}", q.to),
         ));
     }
-    guard(&m, &cap, &q.to, Level::Ro).await?;
+    if q.to != crate::tasks::HOST {
+        guard(&m, &cap, &q.to, Level::Ro).await?;
+    }
     let task = m
         .create_task(from, q.to, q.body)
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
@@ -251,6 +278,46 @@ async fn update_task(
     let who = task_principal(&cap, &headers)?;
     let task = m
         .update_task(&who, &id, q.status, q.note)
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "task": task })))
+}
+
+#[derive(Deserialize)]
+struct PruneTasksQuery {
+    /// Every finished task in the store rather than the caller's own. Root-only: it reaches
+    /// mailboxes the caller is not party to.
+    #[serde(default)]
+    all: bool,
+}
+
+async fn prune_tasks(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    headers: HeaderMap,
+    Query(q): Query<PruneTasksQuery>,
+) -> ApiResult {
+    let who = task_principal(&cap, &headers)?;
+    if q.all && !cap.may_create() {
+        return Err(err(
+            StatusCode::FORBIDDEN,
+            "only the daemon's own token prunes every mailbox",
+        ));
+    }
+    let removed = m
+        .prune_tasks(&who, q.all)
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "removed": removed })))
+}
+
+async fn remove_task(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> ApiResult {
+    let who = task_principal(&cap, &headers)?;
+    let task = m
+        .remove_task(&who, &id, cap.may_create())
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "task": task })))
 }

@@ -1040,6 +1040,14 @@ impl Manager {
         self.tasks.lock().unwrap().update(who, id, status, note)
     }
 
+    pub fn remove_task(&self, who: &str, id: &str, force: bool) -> Result<crate::tasks::Task> {
+        self.tasks.lock().unwrap().remove(who, id, force)
+    }
+
+    pub fn prune_tasks(&self, who: &str, all: bool) -> Result<usize> {
+        self.tasks.lock().unwrap().prune(who, all)
+    }
+
     pub async fn usage(&self) -> crate::usage::Snapshot {
         self.usage.read().await.clone()
     }

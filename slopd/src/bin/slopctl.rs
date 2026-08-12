@@ -1,22 +1,37 @@
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
 use serde_json::{json, Value};
+
+/// Mirrors `tasks::HOST` in the daemon. `src/bin` is its own crate root and this crate has no
+/// library target, so the name is restated rather than imported; it is the whole of the contract.
+const HOST: &str = "host";
 
 const USAGE: &str = "slopctl - delegate work between SlopWorld agents
 
 usage:
   slopctl delegate AGENT TASK...
-  slopctl inbox
+  slopctl inbox [--all] [--sent] [--received] [--status STATUS]
   slopctl task ID
   slopctl accept ID [NOTE...]
   slopctl progress ID [NOTE...]
   slopctl finish ID [RESULT...]
   slopctl fail ID [ERROR...]
+  slopctl rm ID
+  slopctl prune [--all]
+  slopctl peers
+  slopctl status
 
-SLOPWORLD_SESSION identifies the caller. SLOPD_ENDPOINT selects endpoint.json.
+inbox shows unfinished work in both directions, newest first; --all adds what is
+done and failed. rm takes a finished task, prune takes all of them. --json is
+accepted anywhere and prints the answer as JSON instead of for a reader.
+
+SLOPWORLD_SESSION identifies the caller, and defaults to `host` - the user at the
+keyboard - which the daemon accepts only from the root token. SLOPD_ENDPOINT
+selects endpoint.json; SLOPD_URL and SLOPD_TOKEN override it.
 ";
 
 #[derive(Deserialize)]
@@ -36,31 +51,64 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), String> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
     if args.is_empty() || matches!(args[0].as_str(), "-h" | "--help" | "help") {
         print!("{USAGE}");
         return Ok(());
     }
+    // A global: it changes how an answer is rendered, never which answer is asked for, so it is
+    // taken out of the argument list before any command has to think about it.
+    let json = args.iter().any(|a| a == "--json");
+    args.retain(|a| a != "--json");
+
     let endpoint = load_endpoint()?;
+    // Unset means the host: running `slopctl` by hand is the common case, and asking the user to
+    // name themselves before they can read their own inbox buys nothing.
     let session = std::env::var("SLOPWORLD_SESSION")
-        .map_err(|_| "SLOPWORLD_SESSION is not set".to_string())?;
-    let value = match args[0].as_str() {
-        "delegate" if args.len() >= 3 => request(
-            &endpoint,
-            &session,
-            "POST",
-            "/api/tasks",
-            Some(json!({"to": args[1], "body": args[2..].join(" ")})),
-        )?,
-        "inbox" if args.len() == 1 => request(&endpoint, &session, "GET", "/api/tasks", None)?,
-        "task" if args.len() == 2 => request(
-            &endpoint,
-            &session,
-            "GET",
-            &format!("/api/tasks/{}", args[1]),
-            None,
-        )?,
-        command @ ("accept" | "progress" | "finish" | "fail") if args.len() >= 2 => {
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| HOST.to_string());
+
+    match args[0].as_str() {
+        "delegate" => {
+            let to = arg(&args, 1, "delegate needs the agent to send to")?;
+            let body = rest(&args, 2, "delegate needs a task body")?;
+            let v = request(
+                &endpoint,
+                &session,
+                "POST",
+                "/api/tasks",
+                Some(json!({"to": to, "body": body})),
+            )?;
+            emit(&v, json);
+        }
+        "inbox" => {
+            let filter = InboxFilter::parse(&args[1..])?;
+            let v = request(&endpoint, &session, "GET", "/api/tasks", None)?;
+            let tasks = filter.apply(&v, &session);
+            if json {
+                print_json(&Value::Array(tasks.into_iter().cloned().collect()));
+            } else if tasks.is_empty() {
+                // stderr, so an empty inbox stays an empty stdout for whatever is reading it.
+                eprintln!("no tasks");
+            } else {
+                tasks.iter().for_each(|t| print_task(t));
+            }
+        }
+        "task" => {
+            let id = arg(&args, 1, "task needs a task id")?;
+            only(&args, 2)?;
+            let v = request(
+                &endpoint,
+                &session,
+                "GET",
+                &format!("/api/tasks/{id}"),
+                None,
+            )?;
+            emit(&v, json);
+        }
+        command @ ("accept" | "progress" | "finish" | "fail") => {
+            let id = arg(&args, 1, &format!("{command} needs a task id"))?;
             let status = match command {
                 "accept" => "accepted",
                 "progress" => "working",
@@ -68,26 +116,105 @@ fn run() -> Result<(), String> {
                 _ => "failed",
             };
             let note = (args.len() > 2).then(|| args[2..].join(" "));
-            request(
+            let v = request(
                 &endpoint,
                 &session,
                 "POST",
-                &format!("/api/tasks/{}", args[1]),
+                &format!("/api/tasks/{id}"),
                 Some(json!({"status": status, "note": note})),
-            )?
+            )?;
+            emit(&v, json);
         }
-        _ => return Err(format!("invalid arguments\n\n{USAGE}")),
-    };
-    print_value(&value);
+        "rm" => {
+            let id = arg(&args, 1, "rm needs a task id")?;
+            only(&args, 2)?;
+            let v = request(
+                &endpoint,
+                &session,
+                "DELETE",
+                &format!("/api/tasks/{id}"),
+                None,
+            )?;
+            emit(&v, json);
+        }
+        "prune" => {
+            let path = match args.get(1).map(String::as_str) {
+                None => "/api/tasks",
+                Some("--all") => "/api/tasks?all=true",
+                Some(flag) => return Err(format!("unknown flag: {flag}\n\n{USAGE}")),
+            };
+            only(&args, 2)?;
+            let v = request(&endpoint, &session, "DELETE", path, None)?;
+            if json {
+                print_json(&v);
+            } else {
+                println!("removed {}", v["removed"].as_u64().unwrap_or(0));
+            }
+        }
+        "peers" => {
+            only(&args, 1)?;
+            let v = request(&endpoint, &session, "GET", "/api/sessions", None)?;
+            let names = peer_names(&v);
+            if json {
+                print_json(&json!(names));
+            } else {
+                for name in names {
+                    let mark = if name == session { " (you)" } else { "" };
+                    println!("{name}{mark}");
+                }
+            }
+        }
+        "status" => {
+            only(&args, 1)?;
+            let v = status_value(&endpoint, &session);
+            if json {
+                print_json(&v);
+            } else {
+                print_status(&v);
+            }
+        }
+        command => return Err(format!("unknown command: {command}\n\n{USAGE}")),
+    }
     Ok(())
+}
+
+/// The argument at `at`, or the sentence naming what was left out. A usage dump answers "what may
+/// I type"; a caller who typed most of a command is asking the narrower question instead.
+fn arg<'a>(args: &'a [String], at: usize, missing: &str) -> Result<&'a str, String> {
+    args.get(at)
+        .map(String::as_str)
+        .ok_or_else(|| missing.to_string())
+}
+
+/// Everything from `from` on, joined - a task body or a note, which are written as prose and so
+/// arrive as however many words the shell split them into.
+fn rest(args: &[String], from: usize, missing: &str) -> Result<String, String> {
+    if args.len() <= from {
+        return Err(missing.to_string());
+    }
+    Ok(args[from..].join(" "))
+}
+
+/// Refuse what follows a command that takes nothing more, rather than silently ignoring it: a
+/// stray word is usually a flag that was meant to do something.
+fn only(args: &[String], at: usize) -> Result<(), String> {
+    match args.get(at) {
+        None => Ok(()),
+        Some(extra) => Err(format!("unexpected argument: {extra}\n\n{USAGE}")),
+    }
 }
 
 fn load_endpoint() -> Result<Endpoint, String> {
     if let Ok(url) = std::env::var("SLOPD_URL") {
-        return Ok(Endpoint {
-            url,
-            token: std::env::var("SLOPD_TOKEN").unwrap_or_default(),
-        });
+        // An empty root token is the daemon's "no auth" contract, so `SLOPD_TOKEN=` is a real
+        // answer and kept. Unset is not one - it is the variable that was forgotten - and sending
+        // an empty token on its behalf only turns the mistake into a 401 raised somewhere else.
+        let token = std::env::var("SLOPD_TOKEN").map_err(|_| {
+            "SLOPD_URL is set but SLOPD_TOKEN is not; \
+             set SLOPD_TOKEN= for a daemon with no token"
+                .to_string()
+        })?;
+        return Ok(Endpoint { url, token });
     }
     let path = std::env::var("SLOPD_ENDPOINT")
         .map(PathBuf::from)
@@ -109,12 +236,28 @@ fn request(
     body: Option<Value>,
 ) -> Result<Value, String> {
     let url = format!("{}{}", endpoint.url.trim_end_matches('/'), path);
+    // A refusal carries the daemon's reason in its body, and that sentence is the whole value of
+    // the reply - "a task still in flight cannot be removed" tells the user what to do next, where
+    // a bare 400 does not. So a status is not an error here; it is read below, body first.
     let mut res = match (method, body) {
         ("GET", None) => ureq::get(&url)
+            .config()
+            .http_status_as_error(false)
+            .build()
+            .header("x-slop-token", &endpoint.token)
+            .header("x-slop-session", session)
+            .call(),
+        ("DELETE", None) => ureq::delete(&url)
+            .config()
+            .http_status_as_error(false)
+            .build()
             .header("x-slop-token", &endpoint.token)
             .header("x-slop-session", session)
             .call(),
         ("POST", Some(value)) => ureq::post(&url)
+            .config()
+            .http_status_as_error(false)
+            .build()
             .header("x-slop-token", &endpoint.token)
             .header("x-slop-session", session)
             .send_json(value),
@@ -127,8 +270,14 @@ fn request(
         .as_reader()
         .read_to_string(&mut text)
         .map_err(|e| format!("response: {e}"))?;
-    let value: Value =
-        serde_json::from_str(&text).map_err(|e| format!("response {status}: {e}"))?;
+    let value: Value = match serde_json::from_str(&text) {
+        Ok(value) => value,
+        Err(e) if status.is_success() => return Err(format!("response {status}: {e}")),
+        // A refusal from the layer above the handlers - `auth`, which answers 401 bare - has no
+        // JSON body to quote, so the status is the whole of what happened.
+        Err(_) if text.trim().is_empty() => return Err(format!("refused: {status}")),
+        Err(_) => return Err(format!("refused: {status}: {}", text.trim())),
+    };
     if !status.is_success() {
         return Err(value
             .get("error")
@@ -139,6 +288,144 @@ fn request(
     Ok(value)
 }
 
+/// What `inbox` was asked to leave out. The store hands back everything the caller is party to,
+/// in the order it was written; the shaping is here, where the person reading it is.
+#[derive(Default)]
+struct InboxFilter {
+    all: bool,
+    sent: bool,
+    received: bool,
+    status: Option<String>,
+}
+
+impl InboxFilter {
+    fn parse(args: &[String]) -> Result<Self, String> {
+        let mut f = Self::default();
+        let mut rest = args.iter();
+        while let Some(arg) = rest.next() {
+            match arg.as_str() {
+                "--all" => f.all = true,
+                "--sent" => f.sent = true,
+                "--received" => f.received = true,
+                "--status" => {
+                    let s = rest.next().ok_or("--status needs a value")?;
+                    f.status = Some(s.to_string());
+                }
+                flag => return Err(format!("unknown flag: {flag}\n\n{USAGE}")),
+            }
+        }
+        Ok(f)
+    }
+
+    fn keeps(&self, task: &Value, me: &str) -> bool {
+        let status = task["status"].as_str().unwrap_or("");
+        let from_me = task["from"].as_str() == Some(me);
+        let to_me = task["to"].as_str() == Some(me);
+        // Neither direction flag, or both, means both - there is no third direction to ask for.
+        if self.sent != self.received && ((self.sent && !from_me) || (self.received && !to_me)) {
+            return false;
+        }
+        match &self.status {
+            Some(want) => status == want,
+            // Finished work is still readable by id; it just stops crowding the list.
+            None => self.all || !matches!(status, "done" | "failed"),
+        }
+    }
+
+    /// Newest first: what arrived while you were away is what the list is opened to find.
+    fn apply<'a>(&self, v: &'a Value, me: &str) -> Vec<&'a Value> {
+        let mut tasks: Vec<&Value> = v
+            .get("tasks")
+            .and_then(Value::as_array)
+            .map(|t| t.iter().filter(|t| self.keeps(t, me)).collect())
+            .unwrap_or_default();
+        tasks.sort_by_key(|t| std::cmp::Reverse(t["created_ms"].as_u64().unwrap_or(0)));
+        tasks
+    }
+}
+
+fn peer_names(v: &Value) -> Vec<&str> {
+    let mut names: Vec<&str> = v
+        .get("sessions")
+        .and_then(Value::as_array)
+        .map(|s| s.iter().filter_map(|s| s["name"].as_str()).collect())
+        .unwrap_or_default();
+    // The host is a mailbox without being a session, so it is named here or it is never found.
+    names.push(HOST);
+    names.sort_unstable();
+    names.dedup();
+    names
+}
+
+/// Identity, reachability and what is waiting - the three things to check before believing any
+/// other answer this CLI gives. Unreachable is reported, not raised: that *is* the status.
+fn status_value(endpoint: &Endpoint, session: &str) -> Value {
+    let mut out = json!({ "session": session, "endpoint": endpoint.url });
+    match request(endpoint, session, "GET", "/api/health", None) {
+        Ok(v) => {
+            out["daemon"] = json!("ok");
+            out["version"] = v["version"].clone();
+        }
+        Err(e) => {
+            out["daemon"] = json!("unreachable");
+            out["error"] = json!(e);
+            return out;
+        }
+    }
+    match request(endpoint, session, "GET", "/api/tasks", None) {
+        Ok(v) => {
+            let tasks = v
+                .get("tasks")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            let open = |t: &Value| !matches!(t["status"].as_str().unwrap_or(""), "done" | "failed");
+            out["waiting"] = json!(tasks
+                .iter()
+                .filter(|t| t["to"].as_str() == Some(session) && open(t))
+                .count());
+            out["sent"] = json!(tasks
+                .iter()
+                .filter(|t| t["from"].as_str() == Some(session) && open(t))
+                .count());
+        }
+        Err(e) => out["error"] = json!(e),
+    }
+    out
+}
+
+fn print_status(v: &Value) {
+    println!("session   {}", v["session"].as_str().unwrap_or("?"));
+    println!("endpoint  {}", v["endpoint"].as_str().unwrap_or("?"));
+    if v["daemon"] != json!("ok") {
+        println!(
+            "daemon    unreachable: {}",
+            v["error"].as_str().unwrap_or("?")
+        );
+        return;
+    }
+    println!(
+        "daemon    ok, slopd {}",
+        v["version"].as_str().unwrap_or("?")
+    );
+    match (v["waiting"].as_u64(), v["sent"].as_u64()) {
+        (Some(waiting), Some(sent)) => println!("pending   {waiting} for you, {sent} you sent"),
+        _ => println!("pending   unknown: {}", v["error"].as_str().unwrap_or("?")),
+    }
+}
+
+fn emit(v: &Value, json: bool) {
+    if json {
+        print_json(v);
+    } else {
+        print_value(v);
+    }
+}
+
+fn print_json(v: &Value) {
+    println!("{}", serde_json::to_string_pretty(v).unwrap_or_default());
+}
+
 fn print_value(v: &Value) {
     if let Some(tasks) = v.get("tasks").and_then(Value::as_array) {
         for t in tasks {
@@ -147,20 +434,43 @@ fn print_value(v: &Value) {
     } else if let Some(task) = v.get("task") {
         print_task(task);
     } else {
-        println!("{}", serde_json::to_string_pretty(v).unwrap());
+        print_json(v);
     }
 }
 
 fn print_task(t: &Value) {
+    let created = t["created_ms"].as_u64().unwrap_or(0);
+    let updated = t["updated_ms"].as_u64().unwrap_or(created);
+    let mut when = age(created);
+    if updated > created {
+        when.push_str(&format!(", moved {}", age(updated)));
+    }
     println!(
-        "{}  {} -> {}  [{}]\n  {}",
+        "{}  {} -> {}  [{}]  {}\n  {}",
         t["id"].as_str().unwrap_or("?"),
         t["from"].as_str().unwrap_or("?"),
         t["to"].as_str().unwrap_or("?"),
         t["status"].as_str().unwrap_or("?"),
+        when,
         t["body"].as_str().unwrap_or("")
     );
     if let Some(note) = t["note"].as_str() {
         println!("  {note}");
+    }
+}
+
+/// How long ago, in the coarsest unit that still says something. An inbox is read to find what
+/// has been sitting, so hours and days are the answer; the exact second never is.
+fn age(ms: u64) -> String {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let secs = now.saturating_sub(ms) / 1000;
+    match secs {
+        0..=59 => format!("{secs}s ago"),
+        60..=3599 => format!("{}m ago", secs / 60),
+        3600..=86399 => format!("{}h ago", secs / 3600),
+        _ => format!("{}d ago", secs / 86400),
     }
 }

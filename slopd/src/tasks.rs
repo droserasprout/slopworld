@@ -5,6 +5,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
+/// The user at the keyboard. Not a session and never one: `slopctl` run from the host states it
+/// as its identity, and the daemon accepts it only from the root token, so a grant cannot wear it
+/// however its grantor happens to be named.
+pub const HOST: &str = "host";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Status {
@@ -13,6 +18,13 @@ pub enum Status {
     Working,
     Done,
     Failed,
+}
+
+impl Status {
+    /// Where a task stops moving. What `prune` may drop, and what an inbox leaves out until asked.
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Status::Done | Status::Failed)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -132,6 +144,39 @@ impl Tasks {
         Ok(result)
     }
 
+    /// Drop one task. The store holds a single copy of a task rather than one per side, so a
+    /// removal is not a participant hiding it from their own view - it is gone for both. A
+    /// participant may therefore only drop one that has already stopped moving; `force` is the
+    /// root's, and reaches a task still in flight.
+    pub fn remove(&mut self, who: &str, id: &str, force: bool) -> Result<Task> {
+        let at = self
+            .file
+            .tasks
+            .iter()
+            .position(|t| t.id == id && (force || t.from == who || t.to == who))
+            .with_context(|| format!("no such task: {id}"))?;
+        if !force && !self.file.tasks[at].status.is_terminal() {
+            bail!("a task still in flight cannot be removed: {id}");
+        }
+        let task = self.file.tasks.remove(at);
+        self.save()?;
+        Ok(task)
+    }
+
+    /// Drop every finished task the caller can see - `all` widens that to the whole store and is
+    /// the root's. Without this the file is append-only and an inbox is a growing wall.
+    pub fn prune(&mut self, who: &str, all: bool) -> Result<usize> {
+        let before = self.file.tasks.len();
+        self.file
+            .tasks
+            .retain(|t| !(t.status.is_terminal() && (all || t.from == who || t.to == who)));
+        let removed = before - self.file.tasks.len();
+        if removed > 0 {
+            self.save()?;
+        }
+        Ok(removed)
+    }
+
     fn save(&self) -> Result<()> {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent)?;
@@ -173,6 +218,45 @@ mod tests {
                 .status,
             Status::Done
         );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// Removal is shared, so it waits for the task to stop moving - unless the root asks. Pruning
+    /// takes the finished ones the caller can see, and `all` the rest.
+    #[test]
+    fn removing_and_pruning_finished_work() {
+        let dir = std::env::temp_dir().join(format!("slopd-rm-tasks-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let config = dir.join("config.toml");
+        let mut s = Tasks::load(&config).unwrap();
+        let live = s
+            .create("alice".into(), "bob".into(), "live".into())
+            .unwrap();
+        let over = s
+            .create("alice".into(), "bob".into(), "over".into())
+            .unwrap();
+        s.update("bob", &over.id, Status::Done, None).unwrap();
+
+        assert!(s.remove("eve", &over.id, false).is_err()); // not a participant
+        assert!(s.remove("alice", &live.id, false).is_err()); // still in flight
+        assert!(s.remove("alice", &live.id, true).is_ok()); // the root reaches it
+        assert!(s.remove("alice", &over.id, false).is_ok()); // finished, so either side may
+
+        let other = s
+            .create("carol".into(), "dave".into(), "theirs".into())
+            .unwrap();
+        s.update("dave", &other.id, Status::Failed, None).unwrap();
+        assert_eq!(s.prune("alice", false).unwrap(), 0); // not alice's to see
+        assert_eq!(s.prune("carol", false).unwrap(), 1);
+
+        let mut s = Tasks::load(&config).unwrap();
+        let mine = s
+            .create("alice".into(), "bob".into(), "mine".into())
+            .unwrap();
+        s.update("bob", &mine.id, Status::Done, None).unwrap();
+        assert_eq!(s.prune("nobody", true).unwrap(), 1); // `all` ignores who is asking
+        assert!(Tasks::load(&config).unwrap().visible("alice").is_empty());
         let _ = fs::remove_dir_all(dir);
     }
 

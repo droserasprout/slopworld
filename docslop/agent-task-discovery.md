@@ -23,7 +23,8 @@ classified `Waiting`, for example: `New SlopWorld task ID from Alice; run slopct
 task ID.` The body stays in the mailbox. Do not blindly paste and press Enter
 while an agent is working or inside a TUI. Coalesce several arrivals.
 
-Add `slopctl peers` before advertising delegation broadly, plus a `slopctl status`
-that reports caller identity, reachability and pending count. The intended stack
-is credentials and environment for capability, one breadcrumb for discovery,
-and daemon events plus a safe waiting-state notification for attention.
+`slopctl peers` and `slopctl status` are in, so a caller can find the names it may
+send to and check its own identity, reachability and pending count before trusting
+any other answer. What is left is the wake-up: the intended stack is credentials and
+environment for capability, one breadcrumb for discovery, and daemon events plus a
+safe waiting-state notification for attention.
