@@ -342,14 +342,34 @@ namespace SlopWorld
         // chooses the track and lets Pick handle mute, persistence, and the daemon push.
         public static void PickRandom()
         {
-            if (Dice.Next(Stations.Length + 1) == 0)
+            Read();
+
+            var candidates = new List<Station>();
+            foreach (var candidate in Stations)
+                if (_muted || candidate != _station) candidates.Add(candidate);
+
+            // The OST is one source candidate, but when it is active its current track is not.
+            // The shipped OST has another track to choose from; a one-track custom build has
+            // no valid OST candidate in that case.
+            bool ostCurrent = !_muted && _station == null;
+            bool canPickOst = !ostCurrent || OstFiles.Length > 1;
+            int count = candidates.Count + (canPickOst ? 1 : 0);
+            if (count == 0) return;
+
+            if (canPickOst && Dice.Next(count) == 0)
             {
-                _ostIndex = Dice.Next(OstFiles.Length);
+                if (ostCurrent)
+                {
+                    int next = Dice.Next(OstFiles.Length - 1);
+                    _ostIndex = next >= _ostIndex ? next + 1 : next;
+                }
+                else
+                    _ostIndex = Dice.Next(OstFiles.Length);
                 Pick(null, 0);
                 return;
             }
 
-            var station = Stations[Dice.Next(Stations.Length)];
+            var station = candidates[Dice.Next(candidates.Count)];
             Pick(station, station.Rates[Dice.Next(station.Rates.Length)]);
         }
 
