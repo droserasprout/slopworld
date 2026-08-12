@@ -26,28 +26,36 @@ namespace SlopWorld
             for (int i = 0; i < 16; i++) Ansi[i] = Hex(ansi[i]);
         }
 
+        // The alpha multiplies rather than replaces, so a string that carried one keeps it.
+        // Every colour in this file is six digits, where the two are the same thing.
         public static Color Hex(string s, float a = 1f)
         {
-            if (TryHex(s, out var c)) { c.a = a; return c; }
+            if (TryHex(s, out var c)) { c.a *= a; return c; }
             return new Color(1f, 1f, 1f, a);
         }
 
+        // Six digits is a colour. Eight is a colour and the strength it is laid on at, which
+        // is how the chrome's washes are written - see UIScheme.
         public static bool TryHex(string s, out Color c)
         {
             c = Color.white;
             if (string.IsNullOrEmpty(s)) return false;
             s = s.Trim();
             if (s.Length > 0 && s[0] == '#') s = s.Substring(1);
-            if (s.Length != 6) return false;
+            if (s.Length != 6 && s.Length != 8) return false;
 
-            int v = 0;
-            for (int i = 0; i < 6; i++)
+            uint v = 0;
+            for (int i = 0; i < s.Length; i++)
             {
                 int d = Digit(s[i]);
                 if (d < 0) return false;
-                v = v * 16 + d;
+                v = v * 16u + (uint)d;
             }
-            c = new Color(((v >> 16) & 0xFF) / 255f, ((v >> 8) & 0xFF) / 255f, (v & 0xFF) / 255f);
+            // Six digits are eight with an opaque tail, so both read out the same way.
+            if (s.Length == 6) v = (v << 8) | 0xFF;
+
+            c = new Color(((v >> 24) & 0xFF) / 255f, ((v >> 16) & 0xFF) / 255f,
+                          ((v >> 8) & 0xFF) / 255f, (v & 0xFF) / 255f);
             return true;
         }
 

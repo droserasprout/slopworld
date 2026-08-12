@@ -47,6 +47,13 @@ namespace SlopWorld
         public int uiFontSize;
         public string uiFontName = "";
 
+        // The chrome's palette, by name, the way `theme` is the pane's - and read the same
+        // way when this build no longer ships it. Kept apart from `theme` because the two
+        // halves of the window are lit by two different tastes: a terminal palette is
+        // somebody's habit carried in from another machine, and this one is the mod's own
+        // light. See UIScheme.
+        public string uiScheme = "slopworld";
+
         // The pane's palette, by name. A scheme this build no longer ships reads as the
         // default rather than as no colours at all.
         public string theme = "slopworld";
@@ -108,6 +115,7 @@ namespace SlopWorld
             Scribe_Values.Look(ref fontName, "fontName", "");
             Scribe_Values.Look(ref uiFontSize, "uiFontSize", 0);
             Scribe_Values.Look(ref uiFontName, "uiFontName", "");
+            Scribe_Values.Look(ref uiScheme, "uiScheme", "slopworld");
             Scribe_Values.Look(ref theme, "theme", "slopworld");
             Scribe_Values.Look(ref cursorColor, "cursorColor", "");
             Scribe_Values.Look(ref cursor, "cursor", "tame");
@@ -139,6 +147,7 @@ namespace SlopWorld
         public static string FontName => S.fontName ?? "";
         public static int UIFontSize => S.uiFontSize;
         public static string UIFontName => S.uiFontName ?? "";
+        public static string UIScheme => S.uiScheme ?? "";
         public static string Theme => S.theme ?? "";
         public static string CursorColor => S.cursorColor ?? "";
         public static string Cursor => S.cursor ?? "tame";

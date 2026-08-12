@@ -8,6 +8,9 @@ namespace SlopWorld
     // The non-terminal UI appearance settings, as a page of the options menu. UI scale is
     // the first row and vanilla's Interface row is dropped for it (StripOptions), the
     // ladder there stopping well short of what the pref itself takes; see SlopUIScale.
+    // The colour scheme is the row under it, drawn the way the Terminal page draws the
+    // pane's - a name and the palette itself in a strip, nobody judging either from a
+    // name; see UIScheme.
     // Font face and size are set here too; they apply to every Widgets.Label and
     // Text.CalcSize call in the game — the mod's own views, the patched chrome
     // (AgentSidebar, InspectPane), and any vanilla RimWorld dialog still on screen. The
@@ -32,7 +35,8 @@ namespace SlopWorld
         {
             Text.Font = GameFont.Small;
             SlopWidgets.PageCaption(rect,
-                "The mod's look — scale, font, and the pointer that follows your hand.");
+                "The mod's look — scale, colours, font, and the pointer that follows "
+                + "your hand.");
 
             var body = SlopWidgets.PageBody(rect);
             body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
@@ -73,6 +77,20 @@ namespace SlopWorld
                 SlopUIScale.Set(scale);
             }
             SlopUIScale.Flush();
+
+            l.Gap(SlopWidgets.GapM);
+
+            // ---- colour scheme
+            // Nothing to invalidate on the way out: every colour in the mod is read through
+            // SlopWidgets on the frame it is drawn, so the page under the dropdown has
+            // already changed by the time the menu closes over it. See UIScheme.
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+                    $"Colour scheme: {UIScheme.Current.Label}"))
+                Find.WindowStack.Add(new SlopMenu(UIScheme.All
+                    .Select(s => new FloatMenuOption(s.Label, () => S.uiScheme = s.Id))
+                    .ToList()));
+
+            DrawSwatches(l.GetRect(18f));
 
             l.Gap(SlopWidgets.GapM);
 
@@ -148,6 +166,22 @@ namespace SlopWorld
 
             if (_pickingCursor)
                 DrawCursorPicker(rect);
+        }
+
+        // The scheme, drawn rather than described - the Terminal page's swatch strip, over
+        // the surface these will actually be read on rather than over the page. The washes
+        // among them are the point: a text ramp is five strengths of one colour, and the
+        // only way to see whether the fifth is still a colour is to lay it on its own well.
+        static void DrawSwatches(Rect r)
+        {
+            var scheme = UIScheme.Current;
+            Widgets.DrawBoxSolid(r, scheme.ViewBg);
+
+            var sw = scheme.Swatches;
+            float w = Mathf.Min(18f, (r.width - 8f) / sw.Length);
+            for (int i = 0; i < sw.Length; i++)
+                Widgets.DrawBoxSolid(
+                    new Rect(r.x + 2f + i * w, r.y + 2f, w - 2f, r.height - 4f), sw[i]);
         }
 
         // Like the Usage page's icon rows, the current cursor is a small button at the

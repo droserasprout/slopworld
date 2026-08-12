@@ -18,59 +18,61 @@ namespace SlopWorld
     public static class SlopWidgets
     {
         // ---- Surfaces and semantic colours. These are named for SlopWorld's jobs rather
-        // than for a borrowed toolkit's widgets.
+        // than for a borrowed toolkit's widgets, and they are the only names anything else
+        // in the mod knows: the values behind them belong to the scheme the player picked,
+        // and are read through here so a scheme lands everywhere at once. See UIScheme.
 
-        public static readonly Color Accent = new Color(0.208f, 0.518f, 0.894f);      // signal blue
-        public static readonly Color Destructive = new Color(0.753f, 0.110f, 0.157f); // hard red
+        public static Color Accent => UIScheme.Current.Accent;            // signal blue
+        public static Color Destructive => UIScheme.Current.Destructive;  // hard red
 
-        public static readonly Color WindowBg = new Color(0.141f, 0.141f, 0.141f);
-        public static readonly Color ViewBg = new Color(0.118f, 0.118f, 0.118f);
-        public static readonly Color PopoverBg = new Color(0.220f, 0.220f, 0.220f);
+        public static Color WindowBg => UIScheme.Current.WindowBg;
+        public static Color ViewBg => UIScheme.Current.ViewBg;
+        public static Color PopoverBg => UIScheme.Current.PopoverBg;
 
-        public static readonly Color Lead = new Color(1f, 1f, 1f, 1.00f);
-        public static readonly Color Name = new Color(1f, 1f, 1f, 0.80f);
-        public static readonly Color Dim = new Color(1f, 1f, 1f, 0.55f);
-        public static readonly Color Faint = new Color(1f, 1f, 1f, 0.42f);
-        public static readonly Color Off = new Color(1f, 1f, 1f, 0.30f);
+        public static Color Lead => UIScheme.Current.Lead;
+        public static Color Name => UIScheme.Current.Name;
+        public static Color Dim => UIScheme.Current.Dim;
+        public static Color Faint => UIScheme.Current.Faint;
+        public static Color Off => UIScheme.Current.Off;
 
-        public static readonly Color Bad = new Color(1f, 0.482f, 0.388f);
-        public static readonly Color Warn = new Color(0.973f, 0.776f, 0.208f);
-        public static readonly Color Global = new Color(0.79f, 0.72f, 0.91f);
+        public static Color Bad => UIScheme.Current.Bad;
+        public static Color Warn => UIScheme.Current.Warn;
+        public static Color Global => UIScheme.Current.Global;
 
         // Panel is the one surface allowed to show a trace of the map beneath it. All
         // controls and popovers use the opaque surfaces above.
-        public static readonly Color Panel = new Color(0.141f, 0.141f, 0.141f, 0.96f);
-        public static readonly Color OfflineBg = new Color(0.42f, 0.12f, 0.10f, 0.92f);
+        public static Color Panel => UIScheme.Current.Panel;
+        public static Color OfflineBg => UIScheme.Current.OfflineBg;
 
         // A wash under text that stands on the map, where there is no surface to put it on.
-        public static readonly Color Scrim = new Color(0f, 0f, 0f, 0.55f);
+        public static Color Scrim => UIScheme.Current.Scrim;
 
-        // Structural lines are a restrained white wash. EdgeLit is reserved for the resize
-        // grip and other places where the pointer is actively on the structure.
-        public static readonly Color Edge = new Color(1f, 1f, 1f, 0.14f);
-        public static readonly Color EdgeLit = new Color(0.55f, 0.60f, 0.70f, 0.90f);
-        public static readonly Color ScrollTrough = new Color(1f, 1f, 1f, 0.04f);
-        public static readonly Color ScrollThumb = new Color(1f, 1f, 1f, 0.28f);
-        public static readonly Color ScrollThumbHover = new Color(1f, 1f, 1f, 0.42f);
-        public static readonly Color ScrollThumbHeld = new Color(1f, 1f, 1f, 0.55f);
+        // Structural lines are a restrained wash of the scheme's own light. EdgeLit is
+        // reserved for the resize grip and other places where the pointer is actively on
+        // the structure.
+        public static Color Edge => UIScheme.Current.Edge;
+        public static Color EdgeLit => UIScheme.Current.EdgeLit;
+        public static Color ScrollTrough => UIScheme.Current.ScrollTrough;
+        public static Color ScrollThumb => UIScheme.Current.ScrollThumb;
+        public static Color ScrollThumbHover => UIScheme.Current.ScrollThumbHover;
+        public static Color ScrollThumbHeld => UIScheme.Current.ScrollThumbHeld;
 
-        public static readonly Color Well = ViewBg;
+        public static Color Well => UIScheme.Current.Well;
 
         // One green for "this is up" and "this is on"; Yes is the name the forms ask for it
         // by, and the status marker is the same colour saying the same thing.
-        static readonly Color Online = new Color(0.345f, 0.769f, 0.294f);
-        public static readonly Color Yes = Online;
+        public static Color Yes => UIScheme.Current.Yes;
 
-        public static readonly Color RowBg = new Color(1f, 1f, 1f, 0.03f);
-        public static readonly Color RowOn = new Color(1f, 1f, 1f, 0.10f);
-        public static readonly Color Sel = new Color(0.208f, 0.518f, 0.894f, 0.35f);
-        public static readonly Color Hover = new Color(1f, 1f, 1f, 0.06f);
+        public static Color RowBg => UIScheme.Current.RowBg;
+        public static Color RowOn => UIScheme.Current.RowOn;
+        public static Color Sel => UIScheme.Current.Sel;
+        public static Color Hover => UIScheme.Current.Hover;
 
-        public static readonly Color StateWorking = new Color(0.45f, 0.75f, 0.95f);
-        public static readonly Color StateWaiting = new Color(0.98f, 0.80f, 0.30f);
-        public static readonly Color StateIdle = new Color(0.60f, 0.62f, 0.64f);
-        public static readonly Color StateDown = new Color(0.85f, 0.35f, 0.35f);
-        public static readonly Color Info = StateWorking;
+        public static Color StateWorking => UIScheme.Current.StateWorking;
+        public static Color StateWaiting => UIScheme.Current.StateWaiting;
+        public static Color StateIdle => UIScheme.Current.StateIdle;
+        public static Color StateDown => UIScheme.Current.StateDown;
+        public static Color Info => UIScheme.Current.StateWorking;
 
         public enum Btn
         {
@@ -80,21 +82,21 @@ namespace SlopWorld
             Ghost,     // there, but not competing - a press beside a press that matters more.
         }
 
-        static readonly Color BtnEdge = Edge;
+        static Color BtnEdge => Edge;
 
-        static readonly Color BtnFace = new Color(1f, 1f, 1f, 0.10f);
-        static readonly Color BtnHover = new Color(1f, 1f, 1f, 0.15f);
-        static readonly Color BtnDown = new Color(1f, 1f, 1f, 0.30f);
+        static Color BtnFace => UIScheme.Current.BtnFace;
+        static Color BtnHover => UIScheme.Current.BtnHover;
+        static Color BtnDown => UIScheme.Current.BtnDown;
 
         // A ghost button has no face at rest; its rectangular hit area appears on hover.
-        static readonly Color GhostFace = new Color(1f, 1f, 1f, 0f);
+        static Color GhostFace => Clear;
 
-        static readonly Color FocusRing = Accent;
+        static Color FocusRing => Accent;
 
-        static readonly Color KnobFace = new Color(1f, 1f, 1f);
+        static Color KnobFace => UIScheme.Current.Knob;
 
-        static readonly Color PrimeFace = Accent;
-        static readonly Color DangerFace = Destructive;
+        static Color PrimeFace => Accent;
+        static Color DangerFace => Destructive;
 
         public const float BtnH = 30f;
         public const float ButtonPadX = 12f;
@@ -613,7 +615,7 @@ namespace SlopWorld
 
             var marker = new Rect(badge.x + GapS, badge.y + (h - StatusMarker) / 2f,
                 StatusMarker, StatusMarker);
-            Slab.Fill(marker, hub.Online ? Online : Bad);
+            Slab.Fill(marker, hub.Online ? Yes : Bad);
 
             GUI.color = Dim;
             RowLabel(new Rect(marker.xMax + GapS, badge.y, w + 2f, h), text);

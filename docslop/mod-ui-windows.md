@@ -27,7 +27,9 @@ views; their edit dialogs open through `TerminalWindow.OpenOverPane`.
 - `UsagePage`: daemon quota switches, credentials, and polling use `config.toml`; icon
   choices use mod settings and work offline. Known quota rows are offered before first
   observation. `Automatic` is the first, null-valued icon choice.
-- `AppearancePage`: UI scale, font face and size, cursor. Scale is `Prefs.UIScale` through
+- `AppearancePage`: UI scale, colour scheme, font face and size, cursor. The scheme row is
+  the Terminal page's, in the mod's own palette: a name, and the scheme itself as a swatch
+  strip over the well it will be read on — see [mod-ui-identity](mod-ui-identity.md). Scale is `Prefs.UIScale` through
   `SlopUIScale` — a slider over 0.5x–4x rather than vanilla's ladder, `UnlockUIScale` having
   removed the guard that capped it ([gotchas](gotchas.md)). It is the one slider applied on
   **release** rather than live: its value decides the coordinates it is drawn in, so a live

@@ -2,7 +2,7 @@
 
 In `SlopWorldMod.cs`, reached through the static `Settings` shim: `autoConnect`,
 `sidebarWidth`, `foldedProjects`, `sidebarTab`, `sidebarShowHidden`, `usageIcons`,
-`fontSize`, `fontName`, `uiFontSize`, `uiFontName`, `theme`, `cursorColor`,
+`fontSize`, `fontName`, `uiFontSize`, `uiFontName`, `uiScheme`, `theme`, `cursorColor`,
 `radio`, `radioMute`, `radioStopOnExit`, `grandmaMode`, `ecoMode`, `ecoDim`.
 
 Adding one means a field, a `Scribe_Values.Look`, a shim property and a widget.
@@ -57,8 +57,11 @@ The file is written **once, in `PostClose`, by `ModSettings.Write`** rather than
 - A size change also calls `TerminalFont.Invalidate`: the style rebuilds off the
   size, but the per-glyph fit verdicts are measured at one size and the pane's
   cache is keyed on the cell it was drawn at.
-- The scheme calls `TerminalTheme.Invalidate`.
+- The pane's scheme calls `TerminalTheme.Invalidate`.
 - The cursor field needs neither, since `Resolve` compares the hex it was given.
+- `uiScheme` needs nothing at all: `UIScheme.Current` re-resolves against the setting
+  on every read, and no chrome colour is baked. See
+  [mod-ui-identity](mod-ui-identity.md).
 
 Which terminal was open belongs to a *colony*, so `TerminalRecall` scribes it into
 the save; writing mod settings on every switch would also mean a reconnect.

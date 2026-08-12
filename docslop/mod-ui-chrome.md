@@ -1,8 +1,9 @@
 # Shared UI chrome
 
 `SlopWidgets` owns chrome shared by windows and embedded views: colours, font-derived
-heights, spacing, buttons, fields, headings, and error messages. Terminal colours remain
-in `TerminalTheme`.
+heights, spacing, buttons, fields, headings, and error messages. Its colours are names
+rather than values — the values are the picked `UIScheme`, see
+[mod-ui-identity](mod-ui-identity.md). Terminal colours remain in `TerminalTheme`.
 
 Text geometry must go through `LineHOf`, `Wide`, and `RowLabel`. Verse may promote
 `GameFont.Tiny` to Small, and its measurements change when word wrapping is enabled.
