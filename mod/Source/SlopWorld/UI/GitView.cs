@@ -764,8 +764,11 @@ namespace SlopWorld
         // The path relative to the repository root, or null for anything outside it.
         static string RelOf(Repo repo, string abs)
         {
-            string root = (repo.Root ?? "").TrimEnd('/');
+            string root = repo.Root ?? "";
             if (root.Length == 0 || string.IsNullOrEmpty(abs)) return null;
+            if (root == "/")
+                return abs.StartsWith("/") && abs.Length > 1 ? abs.Substring(1) : null;
+            root = root.TrimEnd('/');
             return abs.StartsWith(root + "/") ? abs.Substring(root.Length + 1) : null;
         }
 
@@ -794,16 +797,17 @@ namespace SlopWorld
                 new FloatMenuOption("Refresh", () => Fetch(project)),
             };
 
-            if (repo.IsRepo && !string.IsNullOrEmpty(repo.Root))
+            if (repo.IsRepo && repo.Error == null && !string.IsNullOrEmpty(repo.Root))
             {
                 opts.Add(new FloatMenuOption("Copy repository path", () => Copy(repo.Root)));
                 // The whole tree's diff, in the same pager one file's opens in. Tracked as
                 // the viewer, so the next row clicked replaces it.
-                opts.Add(new FloatMenuOption("Diff all", () =>
-                {
-                    ClearSelection();
-                    Viewer.Open(project, DiffCmd(repo, null, null), "diff-" + project);
-                }));
+                if (repo.Changed > 0)
+                    opts.Add(new FloatMenuOption("Diff all", () =>
+                    {
+                        ClearSelection();
+                        Viewer.Open(project, DiffCmd(repo, null, null), "diff-" + project);
+                    }));
             }
 
             opts.Add(new FloatMenuOption("Terminal (host)", () =>
@@ -823,7 +827,7 @@ namespace SlopWorld
                 new FloatMenuOption("Copy relative path", () => Copy(node.Rel)),
             };
 
-            if (!node.IsDir)
+            if (!node.IsDir && Present(node.Status))
                 opts.Add(new FloatMenuOption("Edit", () =>
                 {
                     AgentSidebar.ShowFiles();
@@ -899,7 +903,11 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ lifecycle
 
-        public static void ReleaseViewer() => Viewer.Release();
+        public static void ReleaseViewer()
+        {
+            ClearSelection();
+            Viewer.Release();
+        }
 
         public static void CloseViewerIf(string session) => Viewer.CloseIf(session);
 

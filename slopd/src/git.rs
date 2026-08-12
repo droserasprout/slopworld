@@ -161,7 +161,10 @@ fn parse_porcelain(out: &str) -> Vec<(String, String)> {
             // The source path, which nothing here draws.
             fields.next();
         }
-        rows.push((path.trim_start().to_string(), status.to_string()));
+        // The first space is porcelain's separator. Do not trim the rest: a perfectly
+        // legitimate filename may itself begin with a space.
+        let path = path.strip_prefix(' ').unwrap_or(path);
+        rows.push((path.to_string(), status.to_string()));
     }
     rows
 }
@@ -208,6 +211,12 @@ mod tests {
                 ("Cargo.toml".to_string(), "M ".to_string()),
             ]
         );
+    }
+
+    #[test]
+    fn porcelain_keeps_a_leading_space_in_the_filename() {
+        let rows = parse_porcelain("??  notes.txt\0");
+        assert_eq!(rows, vec![(" notes.txt".to_string(), "??".to_string())]);
     }
 
     #[test]

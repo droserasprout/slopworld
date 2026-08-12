@@ -1125,8 +1125,8 @@ struct FileReq {
 }
 
 fn file_path(path: &str) -> anyhow::Result<std::path::PathBuf> {
-    let path = crate::config::expand(path.trim());
-    if path.is_empty() {
+    let path = crate::config::expand(path);
+    if path.trim().is_empty() {
         bail!("no path");
     }
 
@@ -1878,7 +1878,7 @@ async fn send(
 mod tests {
     use std::path::{Path, PathBuf};
 
-    use super::{browse_limit, entry_name, list_dir, search_preview, SEARCH_TEXT_LIMIT};
+    use super::{browse_limit, entry_name, file_path, list_dir, search_preview, SEARCH_TEXT_LIMIT};
 
     /// Somewhere of our own under the machine's temp dir, cleared on the way in so a run
     /// that died before its cleanup does not poison the next one. No dev-dependency for
@@ -2017,6 +2017,14 @@ mod tests {
         assert!(entry_name(".").is_err());
         assert!(entry_name("src/note.md").is_err());
         assert!(entry_name("src\\note.md").is_err());
+    }
+
+    #[test]
+    fn file_paths_keep_whitespace_in_a_real_filename() {
+        assert_eq!(
+            file_path("/tmp/ notes.txt ").unwrap(),
+            Path::new("/tmp/ notes.txt ")
+        );
     }
 
     #[test]

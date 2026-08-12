@@ -1097,11 +1097,26 @@ pub fn shell_split(s: &str) -> Vec<String> {
     let mut cur = String::new();
     let mut quote: Option<char> = None;
     let mut any = false;
+    let mut escaped = false;
 
     for c in s.chars() {
+        if escaped {
+            cur.push(c);
+            any = true;
+            escaped = false;
+            continue;
+        }
+
         match quote {
-            Some(q) if c == q => quote = None,
+            Some('\'') if c == '\'' => quote = None,
+            Some('\'') => cur.push(c),
+            Some('"') if c == '"' => quote = None,
+            Some('"') if c == '\\' => escaped = true,
             Some(_) => cur.push(c),
+            None if c == '\\' => {
+                escaped = true;
+                any = true;
+            }
             None if c == '\'' || c == '"' => {
                 quote = Some(c);
                 any = true;
@@ -1114,6 +1129,9 @@ pub fn shell_split(s: &str) -> Vec<String> {
             }
             None => cur.push(c),
         }
+    }
+    if escaped {
+        cur.push('\\');
     }
     if !cur.is_empty() || any {
         out.push(cur);
@@ -1858,5 +1876,11 @@ mod tests {
         );
         assert_eq!(shell_split("a  b"), vec!["a", "b"]);
         assert_eq!(shell_split(r#"x ''"#), vec!["x", ""]);
+        assert_eq!(shell_split(r#"'a'\''b'"#), vec!["a'b"]);
+        assert_eq!(shell_split(r#"x\ y"#), vec!["x y"]);
+        assert_eq!(
+            shell_split(r#"bash -lc 'cd -- '\''a b'\'' && exec "${SHELL:-bash}"'"#),
+            vec!["bash", "-lc", "cd -- 'a b' && exec \"${SHELL:-bash}\""]
+        );
     }
 }

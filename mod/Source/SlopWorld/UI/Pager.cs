@@ -7,6 +7,7 @@ namespace SlopWorld
         string _session;
         string _project;      // which project the persistent session serves
         string _filePath;     // the file named by the persistent viewer
+        int _operation;
 
         // Who is showing, or null. Read rather than acted on - the two views use it to tell
         // "click the row that is already open" from "click a different one".
@@ -43,17 +44,15 @@ namespace SlopWorld
             // showing this file.
             if (_session != null && _project == project && _filePath == filePath && Alive)
             {
-                // Send `:e <path>` as literal text, then Enter as a keypress — a single
-                // call with literal:true would send "Enter" as the word, not the key.
-                SessionHub.Instance.SendKeys(
-                    _session, new[] { ":e " + filePath }, true);
-                SessionHub.Instance.SendKeys(
-                    _session, new[] { "Enter" }, false);
+                // The pane is all a reopen promises. Sending a less command here would need
+                // another quoting language for paths with spaces or apostrophes, and it would
+                // also flash the file again before the caller can read it.
                 TerminalWindow.Open(_session);
                 return;
             }
 
             // First time, or project changed, or session died: create a new one.
+            int operation = ++_operation;
             string oldSession = _session;
             _session = null;
             _project = null;
@@ -63,6 +62,11 @@ namespace SlopWorld
             SessionHub.Instance.Run(project, cmd, label,
                 session =>
                 {
+                    if (operation != _operation)
+                    {
+                        StopIf(session);
+                        return;
+                    }
                     _session = session;
                     _project = project;
                     _filePath = filePath;
@@ -71,6 +75,7 @@ namespace SlopWorld
                 },
                 msg =>
                 {
+                    if (operation != _operation) return;
                     _session = null;
                     _project = null;
                     _filePath = null;
@@ -108,6 +113,7 @@ namespace SlopWorld
 
             // Start the new session *before* killing the old one so the terminal pane always
             // has something to show — no blink of the game map between the two.
+            int operation = ++_operation;
             string oldSession = _session;
             _session = null;
             _project = null;
@@ -116,6 +122,11 @@ namespace SlopWorld
             SessionHub.Instance.Run(project, command, label,
                 session =>
                 {
+                    if (operation != _operation)
+                    {
+                        StopIf(session);
+                        return;
+                    }
                     _session = session;
                     // Don't set _project — this is a one-off command, not the persistent
                     // pager, so the next ViewFile will create its own session.
@@ -124,6 +135,7 @@ namespace SlopWorld
                 },
                 msg =>
                 {
+                    if (operation != _operation) return;
                     _session = null;
                     _filePath = null;
                     StopIf(oldSession);
@@ -146,6 +158,7 @@ namespace SlopWorld
         // itself.
         public void Release()
         {
+            ++_operation;
             string s = _session;
             _session = null;
             _project = null;

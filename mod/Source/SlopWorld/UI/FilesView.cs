@@ -560,7 +560,7 @@ namespace SlopWorld
             bool same = _selected == node.Path && _showing == RowAct.View;
             _selected = node.Path;
             // Marked, and nobody showing it: whatever was in the pane is not about this row.
-            if (!IsText(node.Name)) { _showing = RowAct.None; ReleaseViewer(); return; }
+            if (!IsText(node.Name)) { _showing = RowAct.None; Viewer.Release(); return; }
             if (!same || !Viewer.Reopen()) View(node);
         }
 
@@ -677,7 +677,12 @@ namespace SlopWorld
 
         static void TerminalHere(Node node)
         {
-            string command = "cd -- " + Pager.Quote(node.Path) + " && exec \"$SHELL\"";
+            // Errands are argv, not shell command lines. Invoke bash explicitly so the
+            // directory change and the final interactive shell happen in one process, while
+            // keeping the selected path quoted for both the daemon splitter and bash itself.
+            string script = "cd -- " + Pager.Quote(node.Path) +
+                " && exec \"${SHELL:-bash}\"";
+            string command = "bash -lc " + Pager.Quote(script);
             bool host = string.IsNullOrEmpty(node.Project);
             SessionHub.Instance.Run(host ? "" : node.Project, command,
                 "terminal-" + node.Name,
@@ -689,8 +694,12 @@ namespace SlopWorld
         // path worth the name, and for anything that somehow sits outside it.
         static string Relative(Node node)
         {
-            string root = node.Root?.TrimEnd('/');
+            string root = node.Root;
             if (string.IsNullOrEmpty(root)) return null;
+            if (root == "/")
+                return node.Path.StartsWith("/") && node.Path.Length > 1
+                    ? node.Path.Substring(1) : null;
+            root = root.TrimEnd('/');
             if (node.Path.Length <= root.Length + 1) return null;
             return node.Path.StartsWith(root + "/") ? node.Path.Substring(root.Length + 1) : null;
         }
@@ -758,7 +767,11 @@ namespace SlopWorld
                 session => TerminalWindow.Open(session), SlopWidgets.Fail);
         }
 
-        public static void ReleaseViewer() => Viewer.Release();
+        public static void ReleaseViewer()
+        {
+            ClearSelection();
+            Viewer.Release();
+        }
 
         public static void CloseViewerIf(string session) => Viewer.CloseIf(session);
 

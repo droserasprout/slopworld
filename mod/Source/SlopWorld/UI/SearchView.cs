@@ -133,12 +133,24 @@ namespace SlopWorld
         public static void Search()
         {
             string query = (_query ?? "").Trim();
-            if (query.Length == 0) return;
+            if (query.Length == 0)
+            {
+                // Invalidate replies for the previous query before clearing its rows. Otherwise a
+                // slow request can repopulate the result list after the user erased the field.
+                ++_generation;
+                _pending = 0;
+                _loading = false;
+                Groups.Clear();
+                Scroll.JumpTo(Vector2.zero);
+                ReleaseViewer();
+                return;
+            }
 
             ReleaseViewer();
             Groups.Clear();
             _selected = null;
             _loading = true;
+            Scroll.JumpTo(Vector2.zero);
             int generation = ++_generation;
 
             var projects = new List<ProjectInfo>();
@@ -208,7 +220,15 @@ namespace SlopWorld
                 _visibleTop = Scroll.Position.y;
                 _visibleBottom = _visibleTop + body.height;
                 float y = Pad;
-                if (Groups.Count == 0)
+                bool hasRows = false;
+                foreach (var group in Groups)
+                    if (group.Matches.Count > 0 || group.Error != null || group.Truncated)
+                    {
+                        hasRows = true;
+                        break;
+                    }
+
+                if (Groups.Count == 0 || (!_loading && !hasRows))
                 {
                     Note(view.width, ref y, _loading ? "Searching…" :
                         string.IsNullOrWhiteSpace(_query) ? "Type a query and press Enter."
