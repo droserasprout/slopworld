@@ -27,6 +27,13 @@ views; their edit dialogs open through `TerminalWindow.OpenOverPane`.
 - `UsagePage`: daemon quota switches, credentials, and polling use `config.toml`; icon
   choices use mod settings and work offline. Known quota rows are offered before first
   observation. `Automatic` is the first, null-valued icon choice.
+- `AppearancePage`: UI scale, font face and size, cursor. Scale is `Prefs.UIScale` through
+  `SlopUIScale` — a slider over 0.5x–4x rather than vanilla's ladder, `UnlockUIScale` having
+  removed the guard that capped it ([gotchas](gotchas.md)). It is the one slider applied on
+  **release** rather than live: its value decides the coordinates it is drawn in, so a live
+  scale moves the track out from under the pointer and the knob runs to a rail within two
+  frames. `SlopWidgets.Slider` reports `held` for it; the page keeps the pending value and
+  the readout follows the hand. The write to `Prefs.xml` is deferred again, to `Flush`.
 - `AudioPage`: keeps vanilla volume sliders in `Prefs` and jukebox switches in
   `SlopSettings`, preserving their existing persistence and side effects.
 - `ShortcutsView`: Run opens the daemon's returned session. Ask-style errands first choose
@@ -47,5 +54,9 @@ options again rather than flipping the box, because one tick can move another.
 `Fuzzy` splits the query into terms. Every term must appear as a subsequence, in any term
 order. Ranking favors text head, word/camel boundaries, consecutive characters, and whole
 terms; `Match` returns positions for `Highlight`.
+
+`View: Zoom In` / `Zoom Out` step `SlopUIScale` by 0.25 off the coarse grid, so repeated
+presses walk 1x, 1.25x, 1.5x whatever the slider was left on. They save for themselves;
+there is no page behind them to come back to.
 
 There is no sandbox toggle: every agent is sandboxed, and project presets define it.

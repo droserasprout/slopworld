@@ -5,11 +5,14 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The non-terminal UI appearance settings, as a page of the options menu. Font face
-    // and size are set here; they apply to every Widgets.Label and Text.CalcSize call in
-    // the game — the mod's own views, the patched chrome (AgentSidebar, InspectPane), and
-    // any vanilla RimWorld dialog still on screen. The hardware cursor is chosen here too,
-    // beside the font controls because it is another thing the player reads on this screen.
+    // The non-terminal UI appearance settings, as a page of the options menu. UI scale is
+    // the first row and vanilla's Interface row is dropped for it (StripOptions), the
+    // ladder there stopping well short of what the pref itself takes; see SlopUIScale.
+    // Font face and size are set here too; they apply to every Widgets.Label and
+    // Text.CalcSize call in the game — the mod's own views, the patched chrome
+    // (AgentSidebar, InspectPane), and any vanilla RimWorld dialog still on screen. The
+    // hardware cursor is chosen here too, beside the font controls because it is another
+    // thing the player reads on this screen.
     //
     // A page rather than a Window because SlopOptions hangs it off an OptionCategoryDef.
     // See SlopOptions.
@@ -20,13 +23,16 @@ namespace SlopWorld
         float _fieldsH;
         bool _pickingCursor;
 
+        // The scale under the hand, while the hand is on it. Null when nothing is dragging.
+        float? _scaleHeld;
+
         static SlopSettings S => SlopWorldMod.Instance.settings;
 
         public void Draw(Rect rect)
         {
             Text.Font = GameFont.Small;
             SlopWidgets.PageCaption(rect,
-                "The mod's look — font, size, and the pointer that follows your hand.");
+                "The mod's look — scale, font, and the pointer that follows your hand.");
 
             var body = SlopWidgets.PageBody(rect);
             body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
@@ -47,6 +53,28 @@ namespace SlopWorld
 
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(new Rect(0f, 0f, view.width, 4000f));
+
+            // ---- ui scale
+            // The knob and the readout follow the hand; the scale itself is not moved until
+            // the hand comes off, because this is the one row whose value decides where the
+            // row is drawn. See SlopWidgets.Slider.
+            float shown = _scaleHeld ?? SlopUIScale.Current;
+            float scale = SlopWidgets.Slider(l, "UI scale", shown,
+                SlopUIScale.Min, SlopUIScale.Max, SlopUIScale.Readout(shown), out bool held,
+                "Zooms the whole interface, ours and the game's. Vanilla's own row stops "
+                + "where the scaled screen would fall under 1024x768; this one does not.");
+            if (held)
+            {
+                _scaleHeld = scale;
+            }
+            else if (_scaleHeld.HasValue)
+            {
+                _scaleHeld = null;
+                SlopUIScale.Set(scale);
+            }
+            SlopUIScale.Flush();
+
+            l.Gap(SlopWidgets.GapM);
 
             // ---- font face
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),

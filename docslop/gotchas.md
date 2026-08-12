@@ -96,6 +96,20 @@
   dynamic-font ascender and descender bounds, rather than Unity's sometimes-short layout metric.
 - **Labels need the same screen-grid snapping as their frames.** `SlopWidgets.RowLabel`
   uses `Slab.SnapY`; GUI-coordinate snapping is inconsistent at non-integer UI scales.
+- **`Prefs.UIScale` is a plain float; what caps it is a watchdog.** Nothing clamps the
+  setter, but `ResolutionUtility.Update` re-measures every thirty frames and resets the
+  scale when the scaled screen falls under 1024x768 - which on 1080p is anything past
+  1.75x. So a scale set by hand reverts half a second later, and the game suggests the
+  config file. `UnlockUIScale` transpiles the one `Prefs.DevMode` call in that guard to a
+  constant true, taking vanilla's own exemption always. `Verse.UI.ApplyUIScale` re-derives
+  the scaled screen each OnGUI and `WindowStack.AdjustWindowsIfResolutionChanged` re-lays
+  the windows out, so a change needs no notification of its own.
+- **A control that changes the UI scale cannot apply it live.** `Event.current.mousePosition`
+  and the rect are both in scaled GUI coordinates, so raising the scale moves and narrows the
+  track under the pointer; the next frame reads the pointer further along a track that has
+  moved again, and two frames of that put the knob on a rail. Clamping the step only slows
+  it down. Hold the pending value while `SlopWidgets.Slider` reports `held` and apply on the
+  frame the hand comes off - what `AppearancePage` does with `SlopUIScale`.
 - **`send-keys -H` silently fails above about 996 bytes.** Paste through
   `load-buffer` on stdin and `paste-buffer -r` (`-r` preserves newlines). Do not
   add bracketed-paste markers; Ink apps display them literally.

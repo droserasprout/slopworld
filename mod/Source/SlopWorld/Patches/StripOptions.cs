@@ -32,6 +32,11 @@ namespace SlopWorld
             // the full list of defs - the dropped ones included. The Shortcuts page is the
             // one door now; the rest of Controls is the camera's, so the category stays.
             () => "KeyboardConfig".Translate(),
+            // Interface's UI scale row, a float menu over a fixed ladder with the rungs its
+            // own guard rejects left out. Appearance has the slider, over the whole range
+            // (see SlopUIScale); two doors to one pref, disagreeing about its span, is one
+            // door too many.
+            () => "UIScale".Translate(),
         };
 
         // Gated on who is drawing rather than on a flag armed around DoOptions: these widgets

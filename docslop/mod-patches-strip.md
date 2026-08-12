@@ -37,6 +37,9 @@
   the key bindings "Modify" button by its finished label. With dev mode unreachable
   from inside, `isDev` is now a one-way door. A vanilla options window that defaulted
   to the hidden General category is redirected to SlopWorld General on `PostOpen`.
+  Interface loses its **UI scale** row the same way: Appearance has that slider over the
+  whole range now (see [mod-ui-windows](mod-ui-windows.md)), and two doors to one pref
+  disagreeing about its span is one door too many.
 
 ## `SlopOptions` - our categories in vanilla's options window
 

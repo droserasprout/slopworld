@@ -820,6 +820,20 @@ namespace SlopWorld
             });
             _commands.Add(new Entry
             {
+                Id = "view.zoom-in",
+                Name = "View: Zoom In",
+                Category = "View",
+                Execute = _ => SlopUIScale.Zoom(1),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "view.zoom-out",
+                Name = "View: Zoom Out",
+                Category = "View",
+                Execute = _ => SlopUIScale.Zoom(-1),
+            });
+            _commands.Add(new Entry
+            {
                 Id = "view.audio",
                 Name = "View: Audio",
                 Category = "View",

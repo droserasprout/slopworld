@@ -412,17 +412,27 @@ namespace SlopWorld
         // by the caller: a font size and a dimming fraction are not percentages of anything,
         // and the three pages that wanted them were the three still on vanilla's slider.
         public static float Slider(Listing_Standard l, string label, float value,
-                                   float min, float max, string readout, string tip = null)
+                                   float min, float max, string readout, string tip = null) =>
+            Slider(l, label, value, min, max, readout, out _, tip);
+
+        // `held` is true while the knob has the hot control, and false on the frame the hand
+        // comes off it. A caller whose value changes the coordinates this control is drawn
+        // in - the UI scale is the one - has to wait for that frame: applying it live moves
+        // the track out from under the pointer, and the next frame reads the pointer further
+        // along a track that has moved again. Two frames of that and the knob is on a rail.
+        public static float Slider(Listing_Standard l, string label, float value,
+                                   float min, float max, string readout, out bool held,
+                                   string tip = null)
         {
             var r = l.GetRect(RowH + GapS);
             if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
 
             float span = max - min;
             float at = span <= 0f ? 0f : Mathf.Clamp01((value - min) / span);
-            return min + Track(r, label, at, readout) * span;
+            return min + Track(r, label, at, readout, out held) * span;
         }
 
-        static float Track(Rect r, string label, float value, string readout)
+        static float Track(Rect r, string label, float value, string readout, out bool held)
         {
             const float valueW = 46f;
             const float knobW = 12f;
@@ -468,7 +478,7 @@ namespace SlopWorld
 
             // The slider's square light knob makes a row of levels readable at a glance.
             float knobX = Mathf.Lerp(track.x, track.xMax, Mathf.Clamp01(value));
-            bool grabbed = GUIUtility.hotControl == id;
+            bool grabbed = held = GUIUtility.hotControl == id;
             Slab.Box(new Rect(knobX - knobW / 2f, track.y - 3f, knobW, track.height + 6f),
                 grabbed ? Lighten(KnobFace, -0.20f) : Mouse.IsOver(hit)
                     ? Lighten(KnobFace, -0.08f) : KnobFace,
