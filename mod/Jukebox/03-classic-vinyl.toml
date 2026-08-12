@@ -1,0 +1,11 @@
+id = "classic-vinyl"
+default_rate = 320
+
+[metadata]
+name = "Classic Vinyl HD"
+donate = "https://walmradio.com/"
+
+[[stream]]
+rate = 320
+key = "classic"
+url = "https://icecast.walmradio.com:8443/classic"

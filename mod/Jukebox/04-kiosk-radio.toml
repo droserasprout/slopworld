@@ -1,0 +1,11 @@
+id = "kiosk-radio"
+default_rate = 64
+
+[metadata]
+name = "Kiosk Radio"
+donate = ""
+
+[[stream]]
+rate = 64
+key = "kioskradiobxl_a"
+url = "https://kioskradiobxl.out.airtime.pro/kioskradiobxl_a"

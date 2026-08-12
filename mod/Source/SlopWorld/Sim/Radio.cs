@@ -12,71 +12,89 @@ namespace SlopWorld
     // not colony state, so it survives loading another colony.
     public static class Radio
     {
-        // A station out there: what it is called, the qualities it serves, and where each
-        // one is served from. mp3 throughout rather than the aac some of them lead with:
-        // aac is what the game could not decode, and there is no reason to hand the daemon
-        // a harder problem than the one the player asked for. https because there is
-        // nothing in the way of it out there.
-        public sealed class Station
+        // The part of a station the UI will eventually use in addition to its streams. Keep
+        // donation links here, beside the name, rather than throwing them away in the loader.
+        public sealed class Metadata
         {
             public readonly string Name;
+            public readonly string Donate;
+
+            internal Metadata(string name, string donate)
+            {
+                Name = name;
+                Donate = donate ?? "";
+            }
+        }
+
+        // A station out there: metadata and the qualities it serves. The definitions are
+        // TOML files rather than code so a user can add one without rebuilding the mod. See
+        // JukeboxConfig for the file shape and the two directories it merges.
+        public sealed class Station
+        {
+            public readonly string Id;
+            public readonly Metadata Metadata;
+
+            public string Name => Metadata.Name;
 
             // The qualities this one answers on. One entry is a whole list, and the menu
             // is built the same way either way - see Jukebox.Presets.
             public readonly int[] Rates;
 
-            readonly string _host;
-
-            // A format, where {0} is the rate. A station serving one stream has no rate to
-            // put anywhere and so is just its name, which formats to itself.
-            readonly string _path;
+            readonly JukeboxStream[] _streams;
 
             // The quality it was last left on, so a switch away and back comes up where it
             // was. Kept per station rather than as one number for the lot of them: the
             // lists do not overlap, and RP's 192 is not a rate WeFunk has ever served.
             public int Rate;
 
-            public Station(string name, string host, string path, int[] rates, int rate)
+            internal Station(JukeboxDefinition definition)
             {
-                Name = name;
-                _host = host;
-                _path = path;
-                Rates = rates;
-                Rate = rate;
+                Id = definition.Id;
+                Metadata = new Metadata(definition.Name, definition.Donate);
+                _streams = definition.Streams.ToArray();
+                Rates = new int[_streams.Length];
+                for (int i = 0; i < _streams.Length; i++) Rates[i] = _streams[i].Rate;
+                Rate = definition.DefaultRate;
             }
 
-            // The stream's own name at a rate - "mp3-192", "wefunk64.mp3", "classic". This
-            // is what is saved, so it doubles as the station's key: see Save.
-            public string Path(int rate) => string.Format(_path, rate);
+            // The stream's stable key at a rate - "mp3-192", "wefunk64.mp3", "classic".
+            // It keeps old settings readable and gives new settings a human-editable tail.
+            public string Path(int rate) => Find(rate)?.Key;
 
-            public string Url(int rate) => _host + Path(rate);
+            public string Url(int rate) => Find(rate)?.Url;
+
+            public string SelectionKey(int rate) => Id + ":" + Path(rate);
+
+            JukeboxStream Find(int rate)
+            {
+                foreach (var stream in _streams)
+                    if (stream.Rate == rate) return stream;
+                return null;
+            }
         }
 
-        // Stations in menu order. Use a known WeFunk mirror instead of its playlist so the
-        // daemon performs one fetch; WALM's 48 kHz stream is handled by the daemon's resampler.
-        public static readonly Station[] Stations =
+        static Station[] _stations;
+
+        // Stations in menu order. Built-ins are loose TOML files in the installed mod and
+        // user files replace a built-in with the same id or append a new station. Loading is
+        // lazy because ModContentPack is not available when static classes are first touched.
+        public static Station[] Stations
         {
-            new Station("RadioParadise Main", "https://stream.radioparadise.com/",
-                "mp3-{0}", new[] { 32, 128, 192, 320 }, 128),
-            new Station("WeFunk Radio", "https://s-00.wefunkradio.com:8443/",
-                "wefunk{0}.mp3", new[] { 64 }, 64),
-            new Station("Classic Vinyl HD", "https://icecast.walmradio.com:8443/",
-                "classic", new[] { 320 }, 320),
-            new Station("Kiosk Radio", "https://kioskradiobxl.out.airtime.pro/",
-                "kioskradiobxl_a", new[] { 64 }, 64),
-            new Station("WFMU Freeform Radio", "https://stream0.wfmu.org/",
-                "freeform-{0}k.mp3", new[] { 32, 128 }, 128),
-            new Station("dublab", "https://dublab.out.airtime.pro/",
-                "dublab_a", new[] { 192 }, 192),
-            new Station("SomaFM Secret Agent", "https://ice1.somafm.com/",
-                "secretagent-128-mp3", new[] { 128 }, 128),
-            new Station("NTS Radio 1", "https://stream-relay-geo.ntslive.net/",
-                "stream", new[] { 128 }, 128),
-            new Station("KEXP", "https://kexp-mp3-128.streamguys1.com/",
-                "kexp128.mp3", new[] { 128 }, 128),
-            new Station("SomaFM Groove Salad", "https://ice1.somafm.com/",
-                "groovesalad-128-mp3", new[] { 128 }, 128),
-        };
+            get
+            {
+                EnsureStations();
+                return _stations;
+            }
+        }
+
+        static void EnsureStations()
+        {
+            if (_stations != null) return;
+            var definitions = JukeboxConfig.Load();
+            _stations = new Station[definitions.Count];
+            for (int i = 0; i < definitions.Count; i++)
+                _stations[i] = new Station(definitions[i]);
+        }
 
         // The tracks this mod ships, as paths under the mod's own folder. One is picked
         // when the OST is selected. A path and not a file:// URL so that neither end has
@@ -410,13 +428,12 @@ namespace SlopWorld
             _title = null;
         }
 
-        // Saved as the stream's own name - "ost", or the path the station serves that
-        // preset at - so there is nothing to keep in step with the list of stations or with
-        // any of their lists of presets. A name this build does not serve reads as the OST,
-        // which is what a station that has been dropped comes back as.
+        // Saved as "station-id:stream-key" - or "ost". The stream key keeps the setting
+        // readable, while the id prevents two user stations serving the same path from
+        // stealing one another's selection. Old path-only settings remain accepted below.
         static void Save()
         {
-            Settings.S.radio = _station == null ? "ost" : _station.Path(_station.Rate);
+            Settings.S.radio = _station == null ? "ost" : _station.SelectionKey(_station.Rate);
             Settings.S.radioMute = _muted;
             Settings.S.radioStopOnExit = _stopOnExit;
             Settings.S.Write();
@@ -427,6 +444,8 @@ namespace SlopWorld
             if (_read) return;
             _read = true;
 
+            EnsureStations();
+
             _muted = Settings.RadioMute;
             _stopOnExit = Settings.RadioStopOnExit;
 
@@ -435,7 +454,10 @@ namespace SlopWorld
             {
                 foreach (int rate in station.Rates)
                 {
-                    if (saved != station.Path(rate)) continue;
+                    // The path-only form is what previous builds wrote. New settings use
+                    // the id as well, but retaining the old form makes the file migration
+                    // invisible to anyone who already picked a station.
+                    if (saved != station.SelectionKey(rate) && saved != station.Path(rate)) continue;
                     _station = station;
                     station.Rate = rate;
                     return;

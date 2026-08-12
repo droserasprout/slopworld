@@ -137,7 +137,7 @@ install-mod:       ## Install the mod into the game's Mods folder
 	@test -n "$(MODS)" || { echo "MODS is empty, refusing to remove anything"; exit 1; }
 	rm -rf "$(MODS)/SlopWorld"
 	mkdir -p "$(MODS)/SlopWorld"
-	cp -r mod/About mod/Defs mod/Patches mod/Sounds mod/Textures mod/Assemblies "$(MODS)/SlopWorld/"
+	cp -r mod/About mod/Defs mod/Jukebox mod/Patches mod/Sounds mod/Textures mod/Assemblies "$(MODS)/SlopWorld/"
 	@echo "installed to $(MODS)/SlopWorld"
 
 ##

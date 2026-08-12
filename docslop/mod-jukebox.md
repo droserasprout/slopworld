@@ -1,14 +1,37 @@
 # The jukebox
 
 `Sim/Jukebox.cs` owns the building and menus; `Sim/Radio.cs` owns the selected source and
-reports it to the daemon. Mute sends no source rather than setting volume to zero, so the
-daemon does not download unheard audio. Selecting a source clears mute.
+reports it to the daemon. Station definitions are loose TOML files in the installed mod's
+`Jukebox/` directory. One file is one station:
+
+```toml
+id = "example"
+default_rate = 128
+
+[metadata]
+name = "Example Radio"
+donate = "https://example.org/support"
+
+[[stream]]
+rate = 128
+key = "example-128"
+url = "https://stream.example.org/example-128"
+```
+
+Additional files go in `$XDG_CONFIG_HOME/slopworld/jukebox/`, or
+`~/.config/slopworld/jukebox/` when `XDG_CONFIG_HOME` is unset. They are read in filename
+order; a matching `id` replaces a shipped station, and a new id appends one. `metadata.donate`
+is retained on `Radio.Station.Metadata` for the future donation action. `key` is the stable
+human-readable part of the saved selection; old path-only selections remain readable.
+
+Mute sends no source rather than setting volume to zero, so the daemon does not download
+unheard audio. Selecting a source clears mute.
 
 Stop-on-exit sends `source: null` during `Root.Shutdown`. `Radio.Quit` also latches the
 shutdown state because `Application.Quit` lets later frames run; without the latch,
 `Radio.Update` can restart playback. A killed process cannot send this message.
 
-The station/preset key is stored in `SlopSettings.radio`; the daemon deliberately keeps no
+The station/stream key is stored in `SlopSettings.radio`; the daemon deliberately keeps no
 selection. Unknown or removed keys fall back to the OST. Volume multiplies RimWorld's
 existing audio sliders.
 
@@ -32,7 +55,7 @@ relay solves only the transport restrictions, not the unknown-length stream.
 Tests must never contact radio stations. Only a user selecting a station in a real build
 may open its stream; keep decoder and metadata coverage local and deterministic.
 
-The hardcoded independent stations are Radio Paradise, WEFUNK, WALM, Kiosk Radio, WFMU,
+The shipped independent stations are Radio Paradise, WEFUNK, WALM, Kiosk Radio, WFMU,
 dublab, SomaFM Secret Agent and Groove Salad, NTS Radio 1, and KEXP. Prefer direct HTTPS
 MP3 streams with ICY metadata; redirects are acceptable when the station owns the stable URL.
 

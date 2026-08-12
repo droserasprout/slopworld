@@ -1,0 +1,16 @@
+id = "wfmu"
+default_rate = 128
+
+[metadata]
+name = "WFMU Freeform Radio"
+donate = ""
+
+[[stream]]
+rate = 32
+key = "freeform-32k.mp3"
+url = "https://stream0.wfmu.org/freeform-32k.mp3"
+
+[[stream]]
+rate = 128
+key = "freeform-128k.mp3"
+url = "https://stream0.wfmu.org/freeform-128k.mp3"

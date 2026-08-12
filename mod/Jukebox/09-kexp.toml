@@ -1,0 +1,11 @@
+id = "kexp"
+default_rate = 128
+
+[metadata]
+name = "KEXP"
+donate = ""
+
+[[stream]]
+rate = 128
+key = "kexp128.mp3"
+url = "https://kexp-mp3-128.streamguys1.com/kexp128.mp3"
