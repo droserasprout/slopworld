@@ -159,7 +159,7 @@ namespace SlopWorld
                         // written against is a line with its descenders cut off.
                         Text.Font = GameFont.Tiny;
                         Text.Anchor = TextAnchor.MiddleLeft;
-                        Widgets.Label(new Rect(CellX, r.y, badgeW, RowH),
+                        SlopWidgets.RowLabel(new Rect(CellX, r.y, badgeW, RowH),
                             item.Kind == ShortcutKind.Shell ? "sh" :
                                 item.Kind == ShortcutKind.Breadcrumb ? "bc" : "pt");
                         GUI.color = Color.white;

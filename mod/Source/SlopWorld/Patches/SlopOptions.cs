@@ -275,7 +275,7 @@ namespace SlopWorld
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
                     Icons.Gear);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
+                SlopWidgets.RowLabel(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }
@@ -294,7 +294,7 @@ namespace SlopWorld
 
                 Text.Font = GameFont.Small;
                 GUI.color = SlopWidgets.Dim;
-                Widgets.Label(new Rect(r.x + 10f, r.y, r.width - 20f, r.height),
+                SlopWidgets.RowLabel(new Rect(r.x + 10f, r.y, r.width - 20f, r.height),
                     optionCategory.label);
                 GUI.color = Color.white;
                 return false;
@@ -344,7 +344,7 @@ namespace SlopWorld
                 float x = r.x + 10f;
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), Icons.Files);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
+                SlopWidgets.RowLabel(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }
@@ -405,7 +405,7 @@ namespace SlopWorld
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
                     Icons.Type);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
+                SlopWidgets.RowLabel(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }
@@ -445,7 +445,7 @@ namespace SlopWorld
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
                     Icons.Bell);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
+                SlopWidgets.RowLabel(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }
@@ -571,7 +571,7 @@ namespace SlopWorld
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
                     Icons.Terminal);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
+                SlopWidgets.RowLabel(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }
@@ -618,7 +618,7 @@ namespace SlopWorld
                 if (icon != null)
                     GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), icon);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
+                SlopWidgets.RowLabel(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }
@@ -666,7 +666,7 @@ namespace SlopWorld
                 GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f),
                     Icons.Shield);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
+                SlopWidgets.RowLabel(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }
@@ -716,7 +716,7 @@ namespace SlopWorld
                 if (icon != null)
                     GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), icon);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
+                SlopWidgets.RowLabel(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }
@@ -763,7 +763,7 @@ namespace SlopWorld
                 if (icon != null)
                     GUI.DrawTexture(new Rect(x, r.y + (r.height - 20f) / 2f, 20f, 20f), icon);
                 x += 30f;
-                Widgets.Label(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
+                SlopWidgets.RowLabel(new Rect(x, r.y, r.xMax - x, r.height), optionCategory.LabelCap);
                 return false;
             }
         }

@@ -131,11 +131,8 @@ namespace SlopWorld
             float boxW = SlopWidgets.RowH - 2f;
             float col = Mathf.Min(230f, row.width - boxW - SlopWidgets.GapXS);
 
-            var wasAnchor = Text.Anchor;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(new Rect(row.x, row.y, col - SlopWidgets.GapXS, row.height),
+            SlopWidgets.RowLabel(new Rect(row.x, row.y, col - SlopWidgets.GapXS, row.height),
                 "Mouse cursor");
-            Text.Anchor = wasAnchor;
 
             var box = new Rect(row.x + col, row.y + (row.height - boxW) / 2f, boxW, boxW);
             Slab.Box(box, SlopWidgets.Well, SlopWidgets.Edge);
@@ -256,21 +253,22 @@ namespace SlopWorld
 
             Text.Font = GameFont.Small;
             GUI.color = SlopWidgets.Lead;
-            Widgets.Label(new Rect(x, y, w, SlopWidgets.LineH), "Agents  ~/project  main  +12 -3");
+            SlopWidgets.RowLabel(new Rect(x, y, w, SlopWidgets.LineH),
+                "Agents  ~/project  main  +12 -3");
             y += SlopWidgets.LineH;
 
             GUI.color = SlopWidgets.Name;
-            Widgets.Label(new Rect(x, y, w, SlopWidgets.LineH),
+            SlopWidgets.RowLabel(new Rect(x, y, w, SlopWidgets.LineH),
                 "This is how your agent list will read.");
             y += SlopWidgets.LineH;
 
             GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(x, y, w, SlopWidgets.LineH),
+            SlopWidgets.RowLabel(new Rect(x, y, w, SlopWidgets.LineH),
                 "A second line in the rung below it.");
             y += SlopWidgets.LineH;
 
             GUI.color = SlopWidgets.Faint;
-            Widgets.Label(new Rect(x, y, w, SlopWidgets.LineH),
+            SlopWidgets.RowLabel(new Rect(x, y, w, SlopWidgets.LineH),
                 "A fine print note. Quick brown fox.");
             GUI.color = Color.white;
         }

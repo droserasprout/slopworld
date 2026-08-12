@@ -16,9 +16,8 @@ namespace SlopWorld
     // TerminalFont works. An empty font name falls through to the Candidates list;
     // size 0 means "keep the existing per-tier sizes and only change the face".
     //
-    // Line-height values are derived from GUIStyle.lineHeight (which reports the
-    // font's inter-line spacing including leading), floored at (size + 6) so the
-    // rendered text always has room for descenders regardless of the font face.
+    // Each tier is baked at its rendered size; GUIStyle.fontSize stays zero so measurement and
+    // drawing use the same native metrics.
     public static class SlopUIFont
     {
         // Default proportional faces for the "Automatic" fallback chain. Listed in
@@ -38,11 +37,8 @@ namespace SlopWorld
         // when the user only picks a face.
         static readonly int[] DefaultSizes = { 11, 13, 15 };
 
-        // The font in the styles now, and what was asked for to get it. Held because the
-        // size slider calls Apply on every step it passes through: a dynamic font is an
-        // asset with a texture atlas behind it, and this one is marked never to unload, so
-        // building a fresh one per step and dropping the last would pin the whole drag.
-        static Font _font;
+        // Keep the fonts alive while the styles reference their dynamic atlases.
+        static Font[] _fonts;
         static string _fontName;
         static int _fontSize = -1;
 
@@ -56,60 +52,128 @@ namespace SlopWorld
             if (size < 0) size = 0;
             if (size > 48) size = 48;
 
-            // The face is baked at a size, so a size change is a new font as much as a
-            // face change is. Size 0 means "leave the per-tier sizes alone", and the face
-            // is baked at 13 for it - dynamic fonts rasterise per request anyway.
-            int bake = size > 0 ? size : 13;
-
-            if (_font != null && _fontName == name && _fontSize == size)
+            if (_fonts != null && _fontName == name && _fontSize == size && AllAlive(_fonts))
             {
-                // Same font, but the styles may have been left at another tier's size by
-                // an earlier call, so the application itself still has to happen.
-                ApplyFont(_font, size);
+                // Reapply in case another caller changed the style arrays.
+                ApplyFont(_fonts);
                 return;
             }
 
-            // Build the font. Empty name = auto-detect from Candidates.
-            Font font = name.Length == 0
-                ? Font.CreateDynamicFontFromOSFont(Candidates, bake)
-                  ?? Font.CreateDynamicFontFromOSFont("Arial", bake)
-                : Font.CreateDynamicFontFromOSFont(name, bake);
+            int[] sizes = new int[3];
+            for (int i = 0; i < sizes.Length; i++)
+                sizes[i] = size > 0 ? size : DefaultSizes[i];
 
-            if (font == null)
+            // Build one native-size font per distinct tier size.
+            var fonts = new Font[3];
+            var made = new List<Font>();
+            try
             {
-                Log.Warning("[SlopWorld] UI font: could not create font " +
+                var bySize = new Dictionary<int, Font>();
+                for (int i = 0; i < sizes.Length; i++)
+                {
+                    if (!bySize.TryGetValue(sizes[i], out var font))
+                    {
+                        font = Create(name, sizes[i]);
+                        if (font == null)
+                            throw new InvalidOperationException("could not create font at " +
+                                sizes[i] + "pt");
+                        font.hideFlags = HideFlags.DontUnloadUnusedAsset;
+                        bySize.Add(sizes[i], font);
+                        made.Add(font);
+                    }
+                    fonts[i] = font;
+                }
+            }
+            catch (Exception e)
+            {
+                DestroyUnique(made, null);
+                Log.Warning("[SlopWorld] UI font: " + e.Message + " " +
                             (name.NullOrEmpty() ? "(auto)" : name));
                 return;
             }
-            font.hideFlags = HideFlags.DontUnloadUnusedAsset;
 
-            var old = _font;
-            _font = font;
+            var old = _fonts;
+            _fonts = fonts;
             _fontName = name;
             _fontSize = size;
 
-            ApplyFont(font, size);
+            ApplyFont(fonts);
 
-            // Only once nothing points at it any more: the styles were still holding it
-            // until the line above.
-            if (old != null && old != font) UnityEngine.Object.Destroy(old);
+            // Destroy old fonts only after all style arrays point at the replacements.
+            DestroyUnique(old, fonts);
+        }
+
+        static Font Create(string name, int size) => name.Length == 0
+            ? Font.CreateDynamicFontFromOSFont(Candidates, size)
+              ?? Font.CreateDynamicFontFromOSFont("Arial", size)
+            : Font.CreateDynamicFontFromOSFont(name, size);
+
+        static bool AllAlive(Font[] fonts)
+        {
+            for (int i = 0; i < fonts.Length; i++)
+                if (fonts[i] == null) return false;
+            return true;
+        }
+
+        static void DestroyUnique(Font[] old, Font[] keep)
+        {
+            if (old == null) return;
+            for (int i = 0; i < old.Length; i++)
+            {
+                var font = old[i];
+                if (font == null || Contains(keep, font) || SeenBefore(old, i, font)) continue;
+                UnityEngine.Object.Destroy(font);
+            }
+        }
+
+        static void DestroyUnique(List<Font> fonts, Font[] keep)
+        {
+            for (int i = 0; i < fonts.Count; i++)
+            {
+                var font = fonts[i];
+                if (font != null && !Contains(keep, font) && !SeenBefore(fonts, i, font))
+                    UnityEngine.Object.Destroy(font);
+            }
+        }
+
+        static bool Contains(Font[] fonts, Font font)
+        {
+            if (fonts == null) return false;
+            for (int i = 0; i < fonts.Length; i++)
+                if (fonts[i] == font) return true;
+            return false;
+        }
+
+        static bool SeenBefore(Font[] fonts, int at, Font font)
+        {
+            for (int i = 0; i < at; i++)
+                if (fonts[i] == font) return true;
+            return false;
+        }
+
+        static bool SeenBefore(List<Font> fonts, int at, Font font)
+        {
+            for (int i = 0; i < at; i++)
+                if (fonts[i] == font) return true;
+            return false;
         }
 
         // Applies the given Font object to all public Text style arrays and updates
         // the private line-height caches.
-        static void ApplyFont(Font font, int size)
+        static void ApplyFont(Font[] fonts)
         {
             // Replace the font face (and optionally size) in every style array.
-            ApplyToStyles(Text.fontStyles, font, size);
-            ApplyToStyles(Text.textFieldStyles, font, size);
-            ApplyToStyles(Text.textAreaStyles, font, size);
-            ApplyToStyles(Text.textAreaReadOnlyStyles, font, size);
+            ApplyToStyles(Text.fontStyles, fonts);
+            ApplyToStyles(Text.textFieldStyles, fonts);
+            ApplyToStyles(Text.textAreaStyles, fonts);
+            ApplyToStyles(Text.textAreaReadOnlyStyles, fonts);
 
-            // Text.LineHeight reads this private cache. Measure each tier from
-            // GUIStyle.lineHeight and apply LineHeight's cross-font floor.
-            // `spaceBetweenLines` stays unchanged: it is extra leading, derived from style
-            // padding, not the line height. Setting it to a full line height spaces every
-            // multi-line gizmo label by another twenty-odd pixels.
+            // The bundled Small face uses a -1 content offset; it is not part of measurement,
+            // so clear it when replacing that face. Entry styles retain their skin offsets.
+            for (int i = 0; i < Text.fontStyles.Length && i < 3; i++)
+                Text.fontStyles[i].contentOffset = Vector2.zero;
+
+            // Text.LineHeight reads this cache; keep spaceBetweenLines as extra leading, not line height.
             try
             {
                 var lhField = typeof(Text).GetField("lineHeights",
@@ -120,37 +184,78 @@ namespace SlopWorld
                     var arr = (float[])lhField.GetValue(null);
                     if (arr != null && arr.Length >= 3)
                         for (int i = 0; i < 3; i++)
-                            arr[i] = LineHeight(font, size > 0 ? size : DefaultSizes[i]);
+                            arr[i] = LineHeight(Text.fontStyles[i]);
                 }
             }
             catch (Exception e)
             {
                 Log.Warning($"[SlopWorld] UI font: couldn't update line heights: {e.Message}");
             }
+
         }
 
-        // Computes a generous line height for the given font at the given size.
-        // Uses GUIStyle.lineHeight (the actual inter-line spacing in Unity's layout)
-        // floored at size × 1.6 so ascenders and descenders are never cropped even
-        // on faces with tall glyphs (e.g. DejaVu Sans, Noto Sans).  This gives
-        // values close to RimWorld's originals (18/22/26 for Tiny/Small/Medium)
-        // which were designed for the bundled Arial face at 11/13/15 pt.
-        static float LineHeight(Font font, int size)
+        // Probe both ascenders and descenders. Unity's line-height and CalcHeight values can
+        // be a pixel shorter than a dynamic face's actual quads at some native sizes.
+        static readonly GUIContent Metric = new GUIContent("\u00c5Wgjpqy");
+
+        // Use the tallest layout or glyph bounds, including the style's padding. The latter is
+        // what keeps the lower edge of a dynamic glyph inside the row it is laid out in.
+        static float LineHeight(GUIStyle style)
         {
-            var style = new GUIStyle { font = font, fontSize = size };
-            return Mathf.Max(style.lineHeight, Mathf.Ceil(size * 1.6f));
+            bool wrap = style.wordWrap;
+            try
+            {
+                style.wordWrap = false;
+                float layout = Mathf.Max(style.lineHeight, style.CalcHeight(Metric, 10000f));
+                return Mathf.Ceil(Mathf.Max(layout, InkHeight(style)));
+            }
+            finally
+            {
+                style.wordWrap = wrap;
+            }
         }
 
+        static float InkHeight(GUIStyle style)
+        {
+            var font = style.font;
+            if (font == null) return 0f;
+
+            int size = style.fontSize > 0 ? style.fontSize : font.fontSize;
+            if (size <= 0) return 0f;
+
+            try
+            {
+                font.RequestCharactersInTexture(Metric.text, size, style.fontStyle);
+                float min = float.PositiveInfinity, max = float.NegativeInfinity;
+                for (int i = 0; i < Metric.text.Length; i++)
+                {
+                    CharacterInfo info;
+                    if (!font.GetCharacterInfo(Metric.text[i], out info, size, style.fontStyle))
+                        continue;
+                    min = Mathf.Min(min, info.minY);
+                    max = Mathf.Max(max, info.maxY);
+                }
+                if (!float.IsInfinity(min) && !float.IsInfinity(max))
+                    return max - min + style.padding.vertical;
+            }
+            catch (Exception e)
+            {
+                Log.WarningOnce($"[SlopWorld] UI font: couldn't measure glyph bounds: {e.Message}",
+                    0x51_09_12);
+            }
+            return 0f;
+        }
         // Size 0 is not "leave the size as it is" but "put the tier back to what RimWorld
         // shipped": the slider can be dragged up and then back down again, and a style left
         // at the size it was last given would keep 20pt text under a page saying 11/13/15.
-        static void ApplyToStyles(GUIStyle[] styles, Font font, int size)
+        static void ApplyToStyles(GUIStyle[] styles, Font[] fonts)
         {
-            if (styles == null) return;
+            if (styles == null || fonts == null) return;
             for (int i = 0; i < styles.Length && i < 3; i++)
             {
-                styles[i].font = font;
-                styles[i].fontSize = size > 0 ? size : DefaultSizes[i];
+                styles[i].font = fonts[i];
+                // The font is already baked at the requested size.
+                styles[i].fontSize = 0;
             }
         }
 

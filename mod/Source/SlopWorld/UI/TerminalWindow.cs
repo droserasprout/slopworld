@@ -1684,12 +1684,11 @@ namespace SlopWorld
         void DrawScrollHint(Rect body)
         {
             Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.UpperRight;
             GUI.color = SlopWidgets.Warn;
-            Widgets.Label(new Rect(body.x, body.y, body.width - 6f, SlopWidgets.TinyH),
-                $"scrollback -{_scrollOff}   type or scroll down to resume");
+            SlopWidgets.RowLabel(new Rect(body.x, body.y, body.width - 6f, SlopWidgets.TinyH),
+                $"scrollback -{_scrollOff}   type or scroll down to resume",
+                TextAnchor.MiddleRight);
             GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;
         }
 

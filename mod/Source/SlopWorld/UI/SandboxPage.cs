@@ -170,7 +170,7 @@ namespace SlopWorld
             if (items.Count == 0)
             {
                 GUI.color = SlopWidgets.Dim;
-                Widgets.Label(new Rect(SlopWidgets.GapS, y, view.width, SlopWidgets.RowH), "(none)");
+                SlopWidgets.RowLabel(new Rect(SlopWidgets.GapS, y, view.width, SlopWidgets.RowH), "(none)");
                 GUI.color = Color.white;
                 y += SlopWidgets.RowH;
             }
@@ -299,7 +299,8 @@ namespace SlopWorld
             SlopWidgets.SectionHeading(new Rect(0f, y, view.width, SlopWidgets.RowH), "Sandbox dependencies");
             y += SlopWidgets.RowH;
             GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(0f, y, view.width, SlopWidgets.LineH), "These presets are added whenever this command runs.");
+            SlopWidgets.RowLabel(new Rect(0f, y, view.width, SlopWidgets.LineH),
+                "These presets are added whenever this command runs.");
             GUI.color = Color.white;
             y += SlopWidgets.LineH + SlopWidgets.GapXS;
             foreach (var p in SessionHub.Instance.Presets.Where(p => p.Name != "global"))
@@ -323,11 +324,13 @@ namespace SlopWorld
         void EditorTitle(Rect view, ref float y, string name, string source, bool editable, string kind)
         {
             GUI.color = SlopWidgets.Lead;
-            Widgets.Label(new Rect(0f, y, view.width, SlopWidgets.RowH), name + (source == "override" ? "  (override)" : ""));
+            SlopWidgets.RowLabel(new Rect(0f, y, view.width, SlopWidgets.RowH),
+                name + (source == "override" ? "  (override)" : ""));
             GUI.color = Color.white;
             y += SlopWidgets.RowH;
             GUI.color = source == "system" ? SlopWidgets.Faint : SlopWidgets.Yes;
-            Widgets.Label(new Rect(0f, y, view.width, SlopWidgets.LineH), source == "system" ? "System preset (read-only)" : "User preset");
+            SlopWidgets.RowLabel(new Rect(0f, y, view.width, SlopWidgets.LineH),
+                source == "system" ? "System preset (read-only)" : "User preset");
             GUI.color = Color.white;
             y += SlopWidgets.LineH + SlopWidgets.GapS;
             if (source == "system")
@@ -342,7 +345,7 @@ namespace SlopWorld
         {
             if (!editable && string.IsNullOrWhiteSpace(value)) return y;
             GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(0f, y, view.width, SlopWidgets.LineH), label);
+            SlopWidgets.RowLabel(new Rect(0f, y, view.width, SlopWidgets.LineH), label);
             GUI.color = Color.white;
             y += SlopWidgets.LineH + SlopWidgets.GapXS;
             set(SlopWidgets.Field(new Rect(0f, y, view.width, SlopWidgets.FieldH), name, value, editable));
@@ -354,7 +357,7 @@ namespace SlopWorld
         {
             if (!editable && string.IsNullOrWhiteSpace(value)) return y;
             GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(0f, y, view.width, SlopWidgets.LineH), label);
+            SlopWidgets.RowLabel(new Rect(0f, y, view.width, SlopWidgets.LineH), label);
             GUI.color = Color.white;
             y += SlopWidgets.LineH + SlopWidgets.GapXS;
             float actual = AreaHeight(view.width, value, height);
@@ -496,12 +499,9 @@ namespace SlopWorld
             if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
             if (_error != null)
             {
-                var was = Text.Anchor;
-                Text.Anchor = TextAnchor.MiddleLeft;
                 GUI.color = SlopWidgets.Bad;
-                Widgets.Label(foot.Rest(), _error);
+                SlopWidgets.RowLabel(foot.Rest(), _error);
                 GUI.color = Color.white;
-                Text.Anchor = was;
             }
         }
 

@@ -87,6 +87,15 @@
   `Resources.UnloadUnusedAssets`, destroying it and silently restoring the default
   face. Dynamic fonts and generated textures (`MenuBackground.Keep`) need
   `HideFlags.DontUnloadUnusedAsset`.
+- **Replacement UI fonts must be baked at their display size.** Scaling a dynamic font
+  through `GUIStyle.fontSize` can make IMGUI measure and draw different bounds; use
+  `SlopUIFont` and `SlopWidgets.RowLabel` for one-line rows.
+- **The bundled Small style carries a one-pixel content offset.** It is not part of
+  measurement, so `SlopUIFont` clears it when replacing the face.
+- **Middle-aligned `RowLabel` centers its full measured line box.** That box includes
+  dynamic-font ascender and descender bounds, rather than Unity's sometimes-short layout metric.
+- **Labels need the same screen-grid snapping as their frames.** `SlopWidgets.RowLabel`
+  uses `Slab.SnapY`; GUI-coordinate snapping is inconsistent at non-integer UI scales.
 - **`send-keys -H` silently fails above about 996 bytes.** Paste through
   `load-buffer` on stdin and `paste-buffer -r` (`-r` preserves newlines). Do not
   add bracketed-paste markers; Ink apps display them literally.

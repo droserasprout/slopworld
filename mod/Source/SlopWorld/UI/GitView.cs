@@ -381,7 +381,6 @@ namespace SlopWorld
             GUI.DrawTexture(arrow, shut ? TexButton.Reveal : TexButton.Collapse);
 
             Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleLeft;
 
             // The count from the right, so the figures line up down the column the way the
             // agents view's times do. Only where the heading is folded: with the tree open
@@ -390,11 +389,9 @@ namespace SlopWorld
             if (shut && repo.IsRepo && repo.Changed > 0)
             {
                 GUI.color = SlopWidgets.Dim;
-                Text.Anchor = TextAnchor.MiddleRight;
                 var count = new Rect(r.width * 0.5f, r.y, rx - r.width * 0.5f, RowH);
-                Widgets.Label(count, repo.Changed.ToString());
+                SlopWidgets.RowLabel(count, repo.Changed.ToString(), TextAnchor.MiddleRight);
                 rx = count.x - 4f;
-                Text.Anchor = TextAnchor.MiddleLeft;
                 GUI.color = SlopWidgets.Faint;
             }
 
@@ -481,8 +478,8 @@ namespace SlopWorld
             // than its ink, which on a number is the whole of what there was to read.
             float w = SlopWidgets.Wide(text) + 2f;
             GUI.color = color;
-            Text.Anchor = TextAnchor.MiddleRight;
-            Widgets.Label(new Rect(right - w, y, w, RowH), text);
+            SlopWidgets.RowLabel(new Rect(right - w, y, w, RowH), text,
+                TextAnchor.MiddleRight);
             return right - w - 5f;
         }
 

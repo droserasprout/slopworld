@@ -56,7 +56,7 @@ namespace SlopWorld
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(inner.x, inner.y, inner.width, SlopWidgets.LineH),
+            SlopWidgets.RowLabel(new Rect(inner.x, inner.y, inner.width, SlopWidgets.LineH),
                 $"{Human(_entries.Sum(e => e.Bytes))} total. Configured agents are retained; " +
                 "deleted/reset state expires after 14 days.");
             GUI.color = Color.white;
@@ -82,7 +82,7 @@ namespace SlopWorld
             if (_error != null && _entries.Count > 0)
             {
                 GUI.color = SlopWidgets.Bad;
-                Widgets.Label(foot.Rest(), _error);
+                SlopWidgets.RowLabel(foot.Rest(), _error);
                 GUI.color = Color.white;
             }
         }

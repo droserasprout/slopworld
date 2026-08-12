@@ -263,7 +263,7 @@ namespace SlopWorld
             float w = Mathf.Min(SlopWidgets.Wide(session) + SlopWidgets.GapXS,
                 r.width - SlopWidgets.StatusMarker - SlopWidgets.GapS * 2f);
             var name = new Rect(chip.xMax + SlopWidgets.GapS, r.y, w, r.height);
-            Widgets.Label(name, session);
+            SlopWidgets.RowLabel(name, session);
 
             var rest = new Rect(name.xMax + SlopWidgets.GapS, r.y,
                 r.xMax - name.xMax - SlopWidgets.GapS, r.height);

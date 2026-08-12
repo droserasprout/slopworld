@@ -63,7 +63,7 @@ namespace SlopWorld
             // The number that decides whether this project can be deleted at all.
             int agents = SessionHub.Instance.Sessions.Count(s => s.Project == p.Name);
             GUI.color = SlopWidgets.Dim;
-            Widgets.Label(
+            SlopWidgets.RowLabel(
                 new Rect(r.x + SlopWidgets.GapS + nameW + SlopWidgets.GapS, l1,
                     SlopWidgets.Wide("99 agents") + 4f, SlopWidgets.LineH),
                 agents == 1 ? "1 agent" : $"{agents} agents");

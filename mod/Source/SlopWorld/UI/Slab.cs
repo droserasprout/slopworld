@@ -121,6 +121,18 @@ namespace SlopWorld
             return new Rect(x0, y0, x1 - x0, y1 - y0);
         }
 
+        // Snap a label baseline to the same screen-pixel grid as Slab geometry.
+        public static float SnapY(float y)
+        {
+            var p0 = GUIUtility.GUIToScreenPoint(Vector2.zero);
+            var p1 = GUIUtility.GUIToScreenPoint(Vector2.one);
+
+            float sy = p1.y - p0.y;
+            if (Mathf.Abs(sy) < 0.0001f) return y;
+
+            return (Mathf.Round(y * sy + p0.y) - p0.y) / sy;
+        }
+
         static void Flat(Rect r, Color c)
         {
             if (!Paint(c)) return;

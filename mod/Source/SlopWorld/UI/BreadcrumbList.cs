@@ -21,7 +21,7 @@ namespace SlopWorld
             if (all.Count == 0)
             {
                 GUI.color = SlopWidgets.Dim;
-                Widgets.Label(new Rect(pad.x, pad.y, pad.width, SlopWidgets.LineH),
+                SlopWidgets.RowLabel(new Rect(pad.x, pad.y, pad.width, SlopWidgets.LineH),
                     "No breadcrumbs yet. Add one from Shortcuts.");
                 GUI.color = Color.white;
                 return;

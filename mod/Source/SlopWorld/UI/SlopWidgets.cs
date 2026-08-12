@@ -164,12 +164,9 @@ namespace SlopWorld
 
             Slab.Box(r, face, edge);
 
-            var wasAnchor = Text.Anchor;
             var wasColor = GUI.color;
-            Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = text;
-            Widgets.Label(r, label);
-            Text.Anchor = wasAnchor;
+            RowLabel(r, label, TextAnchor.MiddleCenter);
             GUI.color = wasColor;
 
             if (!on || !Widgets.ButtonInvisible(r)) return false;
@@ -223,13 +220,64 @@ namespace SlopWorld
             return w;
         }
 
-        public static void RowLabel(Rect r, string text)
+        public static void RowLabel(Rect r, string text, TextAnchor anchor = TextAnchor.MiddleLeft)
         {
             // Truncate measures incorrectly while wrapping is enabled.
             bool wrap = Verse.Text.WordWrap;
-            Verse.Text.WordWrap = false;
-            Widgets.Label(r, (text ?? "").Truncate(Mathf.Max(1f, r.width)));
-            Verse.Text.WordWrap = wrap;
+            var wasAnchor = Verse.Text.Anchor;
+            try
+            {
+                Verse.Text.WordWrap = false;
+                string label = (text ?? "").Truncate(Mathf.Max(1f, r.width));
+
+                Verse.Text.Anchor = UpperAnchor(anchor);
+                // Text.LineHeightOf is the box SlopUIFont sized to hold the face. Drawing
+                // into a fresh CalcHeight box was shorter for some dynamic sizes, cutting
+                // descenders despite the row itself having enough space for them.
+                float lineH = LineHOf(Verse.Text.Font);
+                float y = Slab.SnapY(r.y + (r.height - lineH) * VerticalFactor(anchor));
+                float yMax = Slab.SnapY(y + lineH);
+                Widgets.Label(new Rect(r.x, y, r.width, Mathf.Max(1f, yMax - y)), label);
+            }
+            finally
+            {
+                Verse.Text.Anchor = wasAnchor;
+                Verse.Text.WordWrap = wrap;
+            }
+        }
+
+        static TextAnchor UpperAnchor(TextAnchor anchor)
+        {
+            switch (anchor)
+            {
+                case TextAnchor.UpperCenter:
+                case TextAnchor.MiddleCenter:
+                case TextAnchor.LowerCenter:
+                    return TextAnchor.UpperCenter;
+                case TextAnchor.UpperRight:
+                case TextAnchor.MiddleRight:
+                case TextAnchor.LowerRight:
+                    return TextAnchor.UpperRight;
+                default:
+                    return TextAnchor.UpperLeft;
+            }
+        }
+
+        static float VerticalFactor(TextAnchor anchor)
+        {
+            switch (anchor)
+            {
+                case TextAnchor.LowerLeft:
+                case TextAnchor.LowerCenter:
+                case TextAnchor.LowerRight:
+                    return 1f;
+                case TextAnchor.MiddleLeft:
+                case TextAnchor.MiddleCenter:
+                case TextAnchor.MiddleRight:
+                    return 0.5f;
+                default:
+                    return 0f;
+            }
         }
 
         public static string Field(Rect r, string name, string text, bool on = true)
@@ -335,11 +383,8 @@ namespace SlopWorld
 
             var box = TickBox(new Rect(r.x + 1f, r.y, TickW, r.height), on, locked);
 
-            var wasAnchor = Text.Anchor;
-            Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = locked ? Faint : warn ? Warn : over ? Lead : Name;
-            Widgets.Label(new Rect(box.xMax + 8f, r.y, r.xMax - box.xMax - 8f, r.height), label);
-            Text.Anchor = wasAnchor;
+            RowLabel(new Rect(box.xMax + 8f, r.y, r.xMax - box.xMax - 8f, r.height), label);
             GUI.color = Color.white;
 
             if (locked || !Widgets.ButtonInvisible(r)) return on;
@@ -389,10 +434,7 @@ namespace SlopWorld
 
             GUI.color = Name;
             RowLabel(labelRect, label);
-            var oldAnchor = Text.Anchor;
-            Text.Anchor = TextAnchor.MiddleRight;
-            Widgets.Label(valueRect, readout);
-            Text.Anchor = oldAnchor;
+            RowLabel(valueRect, readout, TextAnchor.MiddleRight);
             GUI.color = Color.white;
 
             int id = GUIUtility.GetControlID(FocusType.Passive, track);
@@ -550,9 +592,6 @@ namespace SlopWorld
 
         static void Status(Rect line, SessionHub hub)
         {
-            var wasAnchor = Text.Anchor;
-            Text.Anchor = TextAnchor.MiddleLeft;
-
             string text = $"{SlopClient.BaseUrl} - {hub.Status}";
             float w = Wide(text);
 
@@ -567,25 +606,21 @@ namespace SlopWorld
             Slab.Fill(marker, hub.Online ? Online : Bad);
 
             GUI.color = Dim;
-            Widgets.Label(new Rect(marker.xMax + GapS, badge.y, w + 2f, h), text);
+            RowLabel(new Rect(marker.xMax + GapS, badge.y, w + 2f, h), text);
             GUI.color = Color.white;
-            Text.Anchor = wasAnchor;
         }
 
         public static void SectionHeading(Rect r, string text)
         {
-            var wasAnchor = Text.Anchor;
-            Text.Anchor = TextAnchor.MiddleLeft;
             var was = Text.Font;
             Text.Font = GameFont.Small;
 
             float w = Wide(text);
             GUI.color = Faint;
-            Widgets.Label(r, text);
+            RowLabel(r, text);
             GUI.color = Color.white;
 
             Text.Font = was;
-            Text.Anchor = wasAnchor;
 
             float x = r.x + w + GapS;
             if (x < r.xMax)
@@ -595,7 +630,7 @@ namespace SlopWorld
         public static void PageCaption(Rect page, string text)
         {
             GUI.color = Dim;
-            Widgets.Label(new Rect(page.x, page.y, page.width, RowH), text);
+            RowLabel(new Rect(page.x, page.y, page.width, RowH), text);
             GUI.color = Color.white;
         }
 
@@ -611,16 +646,13 @@ namespace SlopWorld
         public static void Title(Rect rect, string text)
         {
             var line = new Rect(rect.x, rect.y, rect.width, HeaderH);
-            var wasAnchor = Text.Anchor;
-            Text.Anchor = TextAnchor.MiddleLeft;
 
             Text.Font = GameFont.Medium;
             GUI.color = Lead;
-            Widgets.Label(line, text);
+            RowLabel(line, text);
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
 
-            Text.Anchor = wasAnchor;
             Slab.Hairline(new Rect(rect.x, line.yMax, rect.width, 1f), Edge);
         }
 

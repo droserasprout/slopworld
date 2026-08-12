@@ -206,12 +206,9 @@ namespace SlopWorld
             // used to put it there were counted off labels this bar now measures itself.
             if (_error != null && _loaded)
             {
-                var was = Text.Anchor;
-                Text.Anchor = TextAnchor.MiddleLeft;
                 GUI.color = SlopWidgets.Bad;
-                Widgets.Label(foot.Rest(), _error);
+                SlopWidgets.RowLabel(foot.Rest(), _error);
                 GUI.color = Color.white;
-                Text.Anchor = was;
             }
         }
 

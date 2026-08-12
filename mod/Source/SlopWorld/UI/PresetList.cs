@@ -34,7 +34,7 @@ namespace SlopWorld
             if (allPresets.Count == 0)
             {
                 GUI.color = SlopWidgets.Dim;
-                Widgets.Label(new Rect(pad.x, pad.y, pad.width, SlopWidgets.LineH),
+                SlopWidgets.RowLabel(new Rect(pad.x, pad.y, pad.width, SlopWidgets.LineH),
                     "The daemon has not sent its preset list yet.");
                 GUI.color = Color.white;
                 return;
@@ -43,7 +43,7 @@ namespace SlopWorld
             if (presets.Count == 0)
             {
                 GUI.color = SlopWidgets.Dim;
-                Widgets.Label(new Rect(pad.x, pad.y, pad.width, SlopWidgets.LineH),
+                SlopWidgets.RowLabel(new Rect(pad.x, pad.y, pad.width, SlopWidgets.LineH),
                     "No optional presets are available.");
                 GUI.color = Color.white;
                 return;

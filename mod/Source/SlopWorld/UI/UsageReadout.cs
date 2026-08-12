@@ -45,7 +45,7 @@ namespace SlopWorld
             var icon = new Rect(row.x, row.y + (row.height - ClockIconSize) / 2f,
                 ClockIconSize, ClockIconSize);
             GUI.DrawTexture(icon, Icons.Time);
-            Widgets.Label(new Rect(icon.xMax + 2f, row.y,
+            SlopWidgets.RowLabel(new Rect(icon.xMax + 2f, row.y,
                 row.width - ClockIconSize - 2f, row.height), now.ToString("HH:mm"));
 
             TooltipHandler.TipRegion(row, new TipSignal(
@@ -110,7 +110,7 @@ namespace SlopWorld
 
                 // After the icon: ThingIcon leaves GUI.color on the def's own tint.
                 GUI.color = new Color(1f, 1f, 1f, a);
-                Widgets.Label(
+                SlopWidgets.RowLabel(
                     new Rect(chip.x + IconSize + 2f, chip.y,
                         chip.width - IconSize - 2f, chip.height),
                     count);

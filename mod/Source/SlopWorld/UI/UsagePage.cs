@@ -263,11 +263,8 @@ namespace SlopWorld
 
             // If hint is given it is a fallback short label, so the row works even when the
             // daemon is not reporting this key yet.
-            var wasAnchor = Text.Anchor;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(new Rect(row.x, row.y, col - SlopWidgets.GapXS, row.height),
+            SlopWidgets.RowLabel(new Rect(row.x, row.y, col - SlopWidgets.GapXS, row.height),
                 UsageReadout.Long(key, hint ?? key));
-            Text.Anchor = wasAnchor;
 
             var box = new Rect(row.x + col, row.y + (row.height - boxW) / 2f, boxW, boxW);
 
@@ -508,12 +505,9 @@ namespace SlopWorld
 
             if (_error != null && _loaded)
             {
-                var was = Text.Anchor;
-                Text.Anchor = TextAnchor.MiddleLeft;
                 GUI.color = SlopWidgets.Bad;
-                Widgets.Label(foot.Rest(), _error);
+                SlopWidgets.RowLabel(foot.Rest(), _error);
                 GUI.color = Color.white;
-                Text.Anchor = was;
             }
         }
 

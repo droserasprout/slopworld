@@ -46,21 +46,21 @@ namespace SlopWorld
             float y = 0f;
             Text.Font = GameFont.Small;
             GUI.color = SlopWidgets.Lead;
-            Widgets.Label(new Rect(0f, y, rect.width, SlopWidgets.LineH), session);
+            SlopWidgets.RowLabel(new Rect(0f, y, rect.width, SlopWidgets.LineH), session);
             GUI.color = TerminalWindow.StateColor(info.State);
-            Widgets.Label(new Rect(0f, y + SlopWidgets.LineH, rect.width,
+            SlopWidgets.RowLabel(new Rect(0f, y + SlopWidgets.LineH, rect.width,
                 SlopWidgets.LineH), info.State.ToString().ToLower());
             GUI.color = SlopWidgets.Dim;
             y += SlopWidgets.LineH * 2f + SlopWidgets.GapXS;
 
             string ground = string.IsNullOrEmpty(info.Dir) ? "(no directory)" : info.Dir;
-            Widgets.Label(new Rect(0f, y, rect.width, SlopWidgets.LineH), ground);
+            SlopWidgets.RowLabel(new Rect(0f, y, rect.width, SlopWidgets.LineH), ground);
             y += SlopWidgets.LineH;
 
             if (!string.IsNullOrEmpty(info.Title))
             {
                 GUI.color = SlopWidgets.Name;
-                Widgets.Label(new Rect(0f, y, rect.width, SlopWidgets.LineH), info.Title);
+                SlopWidgets.RowLabel(new Rect(0f, y, rect.width, SlopWidgets.LineH), info.Title);
             }
             GUI.color = Color.white;
         }

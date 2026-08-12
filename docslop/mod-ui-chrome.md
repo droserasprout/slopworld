@@ -6,8 +6,9 @@ in `TerminalTheme`.
 
 Text geometry must go through `LineHOf`, `Wide`, and `RowLabel`. Verse may promote
 `GameFont.Tiny` to Small, and its measurements change when word wrapping is enabled.
-Hard-coded heights have previously clipped glyphs. Shared gaps are `GapXS`, `GapS`,
-`GapM`, and `GapL`.
+Hard-coded heights have previously clipped glyphs. `RowLabel` also owns the middle
+anchor and turns wrapping off; direct `Widgets.Label` calls are for wrapped or
+deliberately top-aligned blocks only. Shared gaps are `GapXS`, `GapS`, `GapM`, and `GapL`.
 
 `Slab` draws every control: fill, outline, box, focus ring, and hairline. Square, and no
 texture — see [mod-ui-identity](mod-ui-identity.md). It snaps geometry to the screen pixel grid;

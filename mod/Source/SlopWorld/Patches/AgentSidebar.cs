@@ -860,7 +860,6 @@ namespace SlopWorld
             GUI.DrawTexture(arrow, head.Folded ? TexButton.Reveal : TexButton.Collapse);
 
             Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.LowerLeft;
 
             float lx = arrow.xMax + 4f;
             string tail = head.Folded ? "  " + head.Count : "";
@@ -938,10 +937,8 @@ namespace SlopWorld
                     string ago = state == AgentState.Down ? "" : Ago(info);
                     if (ago.Length > 0)
                     {
-                        Text.Anchor = TextAnchor.UpperRight;
                         GUI.color = SlopWidgets.Faint;
-                        Widgets.Label(word, ago);
-                        Text.Anchor = TextAnchor.UpperLeft;
+                        SlopWidgets.RowLabel(word, ago, TextAnchor.MiddleRight);
                         word.width -= Mathf.Ceil(SlopWidgets.Wide(ago)) + AgoGap;
                     }
                     GUI.color = SlopWidgets.Dim;

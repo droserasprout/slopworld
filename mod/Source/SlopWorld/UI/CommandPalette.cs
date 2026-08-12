@@ -208,10 +208,8 @@ namespace SlopWorld
                     inner.width - promptW, inner.height);
 
                 GUI.color = SlopWidgets.Dim;
-                Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(labelRect, prompt);
+                SlopWidgets.RowLabel(labelRect, prompt);
                 GUI.color = Color.white;
-                Text.Anchor = TextAnchor.UpperLeft;
 
                 bool hadFilter = _subHasFilter;
                 string wasSub = _subFilter;
@@ -314,11 +312,9 @@ namespace SlopWorld
             if (_matches.Count == 0)
             {
                 GUI.color = SlopWidgets.Faint;
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(r, _filter.Length > 0
+                SlopWidgets.RowLabel(r, _filter.Length > 0
                     ? "No matching commands"
-                    : "No commands available");
-                Text.Anchor = TextAnchor.UpperLeft;
+                    : "No commands available", TextAnchor.MiddleCenter);
                 GUI.color = Color.white;
                 return;
             }
@@ -351,7 +347,7 @@ namespace SlopWorld
                     var header = new Rect(0f, y, view.width, GroupH);
                     GUI.color = SlopWidgets.Faint;
                     Text.Font = GameFont.Tiny;
-                    Widgets.Label(header, group.ToUpperInvariant());
+                    SlopWidgets.RowLabel(header, group.ToUpperInvariant());
                     Text.Font = GameFont.Small;
                     GUI.color = Color.white;
                     y += GroupH;
@@ -405,9 +401,8 @@ namespace SlopWorld
             if (options.Count == 0)
             {
                 GUI.color = SlopWidgets.Faint;
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(r, _subHasFilter ? "No matches" : "Nothing available");
-                Text.Anchor = TextAnchor.UpperLeft;
+                SlopWidgets.RowLabel(r, _subHasFilter ? "No matches" : "Nothing available",
+                    TextAnchor.MiddleCenter);
                 GUI.color = Color.white;
                 return;
             }

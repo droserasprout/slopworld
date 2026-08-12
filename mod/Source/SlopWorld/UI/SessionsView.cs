@@ -64,7 +64,7 @@ namespace SlopWorld
             // The state in words next to the name, so the row scans without decoding the
             // colour of the chip beside it.
             GUI.color = TerminalWindow.StateColor(s.State);
-            Widgets.Label(new Rect(stateX, l1, SlopWidgets.Wide("connecting") + 4f,
+            SlopWidgets.RowLabel(new Rect(stateX, l1, SlopWidgets.Wide("connecting") + 4f,
                 SlopWidgets.LineH), s.State.ToString().ToLower());
             GUI.color = SlopWidgets.Dim;
 
