@@ -5,15 +5,9 @@ using Exception = System.Exception;
 
 namespace SlopWorld
 {
-    // Is this our install or somebody's game? This mod takes the sim away, renames the
-    // faction, rewrites the calendar, deletes the vanilla songs and ships unknown defs, so it
-    // keeps to a save data folder of its own, handed to the game with `-savedatafolder=` by
-    // the `slopworld` runner. The runner writes the marker file rather than us: a folder the
-    // game made for itself is an install, and only something outside the game can say this
-    // one is for agents.
-    //
-    // Refusing means refusing *before touching anything*: no Harmony patches, no stat parts,
-    // no XML operations. What is left in a vanilla game is the defs we add.
+    // The runner marks its own `-savedatafolder=`. Refuse unmarked installs before Harmony,
+    // stat or XML work; this mod replaces the sim and adds defs, faction/calendar changes and
+    // music changes that must not touch a vanilla game.
     public static class SlopProfile
     {
         // Written by `slopworld`; see slopd/src/bin/slopworld.rs.

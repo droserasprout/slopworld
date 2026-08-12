@@ -6,12 +6,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The quota readout, drawn from TopBar across the top of the screen. The number is
-    // what is *left* - see Count, the one place the daemon's spent figure is turned round.
-    //
-    // A MapComponent rather than a window, so it sits behind every window. The numbers are
-    // never computed here; the countdown is, off the frame clock, so it keeps ticking between
-    // polls and when the daemon goes away.
+    // TopBar quota readout. A MapComponent keeps it behind windows; the daemon supplies the
+    // figures while this class computes remaining amounts and the off-frame countdown.
     public class UsageReadout : MapComponent
     {
         const float IconSize = 27f;
@@ -129,14 +125,8 @@ namespace SlopWorld
         // one reads as a spent window and the other as a row that has been switched off.
         const string Unsaid = "...";
 
-        // Every row this strip should have, left to right: what the daemon reported, plus a
-        // place held for anything a switched-on seller owes us and has not sent.
-        //
-        // Keyed off the sellers rather than off the windows, because the case this is for is
-        // exactly the one where there are no windows: a login that has gone stale answers with
-        // an error and nothing else, and a strip that drew only what arrived would take the
-        // colony's resources off the top of the screen to say so. The icons stay, the numbers
-        // go, and the tooltip says which seller is out.
+        // Include returned windows plus placeholders for enabled sources' expected rows, so a
+        // stale login remains visible without making the strip reflow.
         static List<string> Rows(UsageInfo usage)
         {
             var rows = new List<string>();

@@ -148,14 +148,8 @@ namespace SlopWorld
             _scroll.End();
         }
 
-        // The two doors off this page, and the only two things on it that are not
-        // `config.toml`. Both are mod settings - RimWorld's own file, not the daemon's.
-        //
-        // The connection is stated rather than edited: the mod's end of it is the only
-        // half that can be changed while the socket is down, which is exactly when it
-        // needs changing, so mod settings owns it and this page points at it. The
-        // daemon's own bind is TOML-only - slopd reads it at startup, so a box here that
-        // took effect on the next restart would mostly read as a field that did nothing.
+        // These buttons edit mod settings, not config.toml. The mod endpoint remains useful
+        // while the socket is down; slopd's bind is startup-only, so it stays a displayed value.
         void DoConnectionNote(Listing_Standard l)
         {
             SlopWidgets.SectionHeading(l, "Connection");

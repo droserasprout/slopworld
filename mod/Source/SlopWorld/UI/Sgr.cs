@@ -263,14 +263,8 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ links
 
-        // Hardly anything states OSC 8: an agent prints a URL as text and the terminal is
-        // expected to notice. So the row is read once more as *characters* rather than as
-        // runs - the runs are how it will be drawn, and a URL has no reason to respect
-        // where one ends.
-        //
-        // A row at a time, which is the whole limitation: a link the app wrapped over two
-        // rows is two links here, and each half opens to what it says. Joining them would
-        // mean guessing at a wrap the daemon does not mark.
+        // Scan each row as characters, not SGR runs, because a plain URL may cross runs.
+        // Detection is row-local; wrapped links remain separate because the daemon marks no wrap.
         static void Autolink(List<SgrRun> runs)
         {
             if (runs.Count == 0) return;

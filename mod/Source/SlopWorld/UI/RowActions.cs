@@ -103,15 +103,9 @@ namespace SlopWorld
             return ColonistBarStrip.MouseOver(r);
         }
 
-        // The same three said about a session rather than a row. Ephemeral errands carry their
-        // command in `Cmd`; a permanent command preset leaves that field blank and carries the
-        // resolved command in `Agent`. The tab owner must classify both, or a configured pager
-        // would stay in Agents while the identical one-off pager moved to Files/Git.
-        //
-        // Prefer the command: a name is normally what the daemon made of the label it was
-        // handed, and the label is only ever a hint. After a daemon restart, however, an
-        // adopted tmux session has no command metadata; the three prefixes are the stable
-        // fallback that keeps an existing temporary view in its Files or Git tab.
+        // Classify session actions from `Cmd`/`Agent`: ephemeral commands may be in `Cmd`,
+        // configured commands in `Agent`. After restart, adopted sessions lack metadata, so
+        // view/edit/diff name prefixes are the fallback for routing them to Files/Git.
         public static RowAct Of(SessionInfo info)
         {
             // An adopted ephemeral session has no saved command, so the daemon resolves its

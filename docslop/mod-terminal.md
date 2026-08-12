@@ -1,91 +1,57 @@
 # The terminal pane
 
-`TerminalWindow` renders a pane and forwards keys. Almost everything typed goes to
-the agent - **Escape included, so leaving is Shift+Escape** - and the few keys the
-window keeps are taken first: F12 closes, Alt+1..9 / Alt+0 point it at that
-portrait, counting through `AgentColony.InBarOrder`. The same numbers are read on
-the map by `TerminalHotkeys`. Game components run *ahead* of the window stack in
-`UIRootOnGUI`, so the map half stands down while a pane is open rather than
-trusting the pane to have eaten the key. `SnapX`/`SnapY` put every box edge on a
-screen pixel.
+`TerminalWindow` renders the pane and forwards keys. Escape goes to the agent, so
+Shift+Escape leaves; F12 closes; Alt+1..9/Alt+0 selects a portrait through
+`AgentColony.InBarOrder`. `TerminalHotkeys` handles the same numbers on the map because
+game components run before the window stack in `UIRootOnGUI`. `SnapX`/`SnapY` put edges
+on screen pixels.
 
-`TerminalWindow` runs at `Margin` 0 so GUI-group and screen coordinates agree (see
-[gotchas](gotchas.md)).
+The window uses `Margin` 0 so GUI-group and screen coordinates agree
+([gotchas](gotchas.md)).
 
 ## Size
 
-The pane's size is the window's, not a setting: `NegotiateSize` divides the body
-rect by the cell size and sends a `resize` (debounced 0.2s), and keeps asking once
-a second while the frames coming back disagree - a fire-and-forget message over a
-socket that drops on every redeploy has no other way back. `BOOT_COLS`/`BOOT_ROWS`
-in `session.rs` is what a pane wears until someone looks at it.
+`NegotiateSize` divides the body by cell size and sends a debounced `resize` (0.2s).
+It retries once per second while returned frames disagree, which is needed because a
+socket can drop during redeploy. `session.rs`'s `BOOT_COLS`/`BOOT_ROWS` are the initial
+size.
 
-## Title bar (strip layout)
+## Title bar
 
-Carries a gear and a cross; anything that *ends* an agent is in the agents list
-instead. `Icons.Gear` and `Icons.Cross`, off the icon bake
-([mod-icons](mod-icons.md)) - vanilla's `TexButton` has no gear. Those buttons are drawn
-**before** `ColonistBarStrip.Draw`, so the strip keeps their corner clear via
-`TerminalWindow.CornerW`, subtracted from both ends of `FitScale`'s room since the
-row is centred and the map view lays out the same pixels. `OpenMenu` is on the
-right button, taken before the forwarder sees it in every mode: the menu has to be
-reachable from inside a full-screen TUI, and no agent here asks for button 2. Line
-two of the bar is `ScreenView.title` off OSC 0/2, drawn only when there is one.
+The title bar has gear and close buttons; agent-ending actions remain in the agents list.
+Buttons use the icon bake ([mod-icons](mod-icons.md)) and draw before
+`ColonistBarStrip.Draw`, so the strip reserves `TerminalWindow.CornerW` at both ends.
+`OpenMenu` is handled before key forwarding in every mode, allowing a menu from a
+full-screen TUI. The second line is `ScreenView.title` from OSC 0/2, only when non-empty.
 
-The colonist strip is *in* the title bar, hence `HeaderH` is
-`ColonistBarStrip.BarH`. `OpenOverPane` puts a window opened from the bar on the
-Super layer with the pane, since an ordinary dialog would land underneath.
-
-In the **sidebar layout** the window draws no header at all: `TopBar`
-([mod-ui-chrome](mod-ui-chrome.md)) carries the name, the state and those two
-buttons, and the body starts below it and right of the column.
+The colonist strip is part of the title bar, so `HeaderH` is `ColonistBarStrip.BarH`.
+`OpenOverPane` puts a bar-opened window on the same Super layer as the pane. In sidebar
+layout the window draws no header: `TopBar` owns the name, state and buttons.
 
 ## Keys
 
-`MapKey` names a key the way tmux does - `C-Left`, `M-Up`, `S-Right` - and
-`send-keys` on the far side turns that into the xterm sequence. **Shift is sent
-only on the alt screen.** A full-screen editor asked for the whole terminal and
-reads `\e[1;2C` as select-right, but zsh and bash leave that sequence undefined
-and zsh answers it with a bell and a stray `C` ([zsh-terminal](zsh-terminal.md)),
-where a bare `Up`/`Down`/`Left`/`Right` at least still moved the cursor. So the
-prompt keeps the plain arrow and the editor gets its selection.
+`MapKey` uses tmux names (`C-Left`, `M-Up`, `S-Right`). Shift is sent only on the alt
+screen: editors use shifted arrows, while zsh/bash treat those sequences as undefined
+([zsh-terminal](zsh-terminal.md)).
 
-This Unity player can lose semicolon's IMGUI event before the terminal window.
-The terminal tries the character stream and the named key, deduplicated by frame
-against the normal event road. The input string names the physical key `;` even
-while Shift turns it into `:`, so that fallback stands down with Shift held. If
-the window-priority pass marks the event `Used`, `rawType` is checked for the
-same key.
-
-Semicolon uses the daemon's byte-preserving paste road after flushing ordinary
-typed text ahead of it. It avoids the tmux named-key road while keeping the
-character in order with the text around it.
+Unity can lose the semicolon IMGUI event. The terminal therefore checks both the
+character stream and named key, deduplicated per frame; Shift suppresses the `;` fallback
+when the physical key produced `:`. A consumed event is also checked by `rawType`.
+Semicolon uses byte-preserving paste after flushing ordinary text, rather than tmux's
+named-key path.
 
 ## `TerminalTheme`
 
-`Sgr.DefaultFg`/`DefaultBg` are properties off it rather than constants, so the
-window's own fills follow the scheme. Colours are resolved **into** the runs at
-parse time, which is why `Rev` exists - it moves on every scheme change, and both
-the run cache (`ScreenBuf.RunsRev`) and the pane's RenderTexture (`_cacheRev`) are
-keyed on it, or an idle agent keeps the old palette until it next writes, which on
-an idle agent is never. `Get` on an unknown name answers the default; the cursor
-override is read as `#rrggbb` or ignored. A block cursor is drawn opaque with the
-glyph put back over it in `CursorText`.
+`Sgr.DefaultFg`/`DefaultBg` resolve from the scheme. Parsed runs carry resolved colours,
+so `Rev` keys both `ScreenBuf.RunsRev` and the pane render cache; idle panes otherwise
+retain the old palette. Unknown names use the default. Cursor override accepts `#rrggbb`;
+`CursorText` redraws the glyph over an opaque block cursor.
 
 ## Links
 
-Two sources, the same thing by the time they are drawn.
-
-- `emu.rs` carries the app's own **OSC 8** through into the row (`safe_uri` strips
-  controls and caps it).
-- `Sgr.Autolink` reads each row once more as *characters* to catch URLs an agent
-  merely printed - runs are how a row will be drawn and a URL has no reason to
-  respect where one ends, so `Split` cuts the runs against the spans. A run the app
-  already linked is left alone.
-- **Limitation**: row at a time. A link the app wrapped is two links here, the
-  daemon not marking the wrap.
-- `TrackHover`/`LinkAt` decide highlight, tooltip and click from one lookup.
-  Ctrl+click opens through `POST /api/open`; `open.rs` takes http, https and
-  mailto and nothing else, tries `xdg-open`, `gio` and `wslview`, and treats a
-  child still alive after `HANDOFF` as success. `Application.OpenURL` is the
-  fallback rather than the road.
+- `emu.rs` preserves application OSC 8 after `safe_uri` strips controls and caps length.
+- `Sgr.Autolink` scans each row as characters for plain URLs, then splits runs; existing
+  links win. Detection is row-local, so a wrapped link becomes two links.
+- `TrackHover`/`LinkAt` share lookup for highlight, tooltip and click. Ctrl+click uses
+  `POST /api/open`; `open.rs` permits only http/https/mailto and tries `xdg-open`, `gio`
+  and `wslview`, with `Application.OpenURL` as fallback.

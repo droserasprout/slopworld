@@ -5,15 +5,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The quick start takes whatever RandomStartingTile hands back - ice sheet,
-    // extreme desert, the side of a mountain. The map here is scenery for a row of
-    // terminals, so it wants to be green, open and walkable. Rock is the enemy twice
-    // over: it is what agents get sealed inside of (see SpawnSpot) and what the
-    // plague's circle crawls over with nothing to kill.
-    //
-    // This runs off the main thread inside the map-generation long event, after
-    // SetupForQuickTestPlay has built the world and before InitGameStart reads the
-    // tile, so overwriting startingTile is all it takes.
+    // QuickStart may choose any tile, but this map needs green, open, walkable ground:
+    // rock traps agents and gives the plague no targets. Choose a forest/swamp tile in the
+    // map-generation long event, before InitGameStart reads `startingTile`.
     public static class LandingSite
     {
         // Swamp is the same climate with worse footing, so it is a fallback rather than

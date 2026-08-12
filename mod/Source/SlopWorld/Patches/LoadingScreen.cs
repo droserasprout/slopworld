@@ -32,11 +32,8 @@ namespace SlopWorld
         const string Gaps = "\u200a";
         const double GapChance = 0.2;
 
-        // A tip may end in a marker saying who it is for, and the marker is a face. ` (` is
-        // offensive, harmful or depressive and goes when grandma is visiting; ` )` is written
-        // for her and is shown only then. Unmarked is shown either way, which is nearly all of
-        // them. The marker is an instruction to this file rather than part of the line, so it
-        // is stripped whichever way the tip got through and never reaches the screen.
+        // ` (` tips are hidden in Grandma mode; ` )` tips are shown only there. Unmarked tips
+        // are always eligible, and Strip removes either marker before display.
         const string Sad = " (";
         const string Sweet = " )";
 
@@ -266,13 +263,8 @@ namespace SlopWorld
             }
         }
 
-        // What a breadcrumb's `{{ random_tip }}` is filled from, one per mention. Distinct,
-        // because a list of five that says the same thing twice reads as a bug: filtered and
-        // shuffled rather than rolled, `RandomTip`'s draw-until-allowed being a poor way to
-        // avoid what has already come up.
-        // How many ride along with a prompt. The daemon spends one per mention and starts the
-        // batch again if a text asks for more, so this is the number of bullets that are
-        // certainly all different - well past the five the shipped breadcrumb writes.
+        // RandomTips draws without replacement. Twelve covers the shipped five-tip
+        // breadcrumb and prompts containing several `{{ random_tip }}` mentions.
         public const int TipBatch = 12;
 
         public static List<string> RandomTips(int n)
@@ -298,11 +290,8 @@ namespace SlopWorld
         // Vanilla's own TextMargin, which is private.
         internal static readonly Vector2 Margin = new Vector2(15f, 8f);
 
-        // Patch_LoadingLayout writes Box into GameplayTipWindow.WindowSize and the wrap
-        // measures against it, so the two can never disagree about where a line ends. Width is
-        // a ceiling rather than a number - UI.screenWidth is in the game's scaled coordinates,
-        // and a 4K screen at UI scale 2 reports 960 of them. Height is probed rather than
-        // multiplied out of Text.LineHeight, which is taller than the spacing Unity draws.
+        // Layout and wrapping share the measured box. Width is capped in scaled UI
+        // coordinates; height comes from wrapped text rather than Text.LineHeight.
         const float MaxWidth = 500f;
         const float MinWidth = 320f;
         const float Ratio = 0.3f;

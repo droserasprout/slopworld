@@ -7,15 +7,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Every thirty frames ResolutionUtility.Update measures the scaled screen and, when it is
-    // under 1024x768, throws the UI scale back to whatever it considers recommended. That is
-    // why anything past 1.75x on a 1080p display snaps back half a second after it is set,
-    // with the game suggesting the config file instead. Vanilla already exempts one case from
-    // the reset - dev mode - so the smallest honest patch takes that exemption always: one
-    // call site swapped, and the windowed screen-size bookkeeping Update also does untouched.
-    //
-    // The instruction is edited in place rather than replaced, so any label or exception
-    // block anchored to it survives.
+    // ResolutionUtility.Update resets scales when the scaled screen is below 1024x768. Make
+    // vanilla's DevMode exemption unconditional, replacing only that getter so the rest of
+    // the method and its instruction anchors remain intact.
     [HarmonyPatch(typeof(ResolutionUtility), nameof(ResolutionUtility.Update))]
     public static class Patch_ResolutionUpdate_UIScale
     {

@@ -137,11 +137,8 @@ namespace SlopWorld
                     {
                         string keyLabel = BindingLabel(binding);
 
-                        // Left sets the main key, right the alternate. Taken as an event
-                        // rather than off the button, which answers the left button only.
-                        // Choosing the slot by which one happened to be free - so B for
-                        // every binding that already has an A - would mean the key the row
-                        // shows first could never be changed, only added to.
+                        // Click side selects the main/alternate slot; do not choose the first
+                        // empty slot or a populated primary key could never be replaced.
                         var ev = Event.current;
                         if (Mouse.IsOver(keyRect) && ev.rawType == EventType.MouseDown
                                                   && ev.button == 1)
@@ -225,13 +222,8 @@ namespace SlopWorld
             e.Use();
         }
 
-        // The first other binding already holding this key, or null. A warning rather than
-        // a refusal: vanilla lets two things share a key and so does this, but silently
-        // shadowing a key the player set an hour ago is not something to do without a word.
-        //
-        // Over the kept ones only. A dropped binding still holds whatever key it was
-        // shipped with, and naming one - "P is also on Misc 12" - would report a clash with
-        // something the player cannot see, cannot change, and that does not fire.
+        // Return the first duplicate among kept bindings. Conflicts warn rather than refuse;
+        // dropped bindings are hidden and unbound, so reporting them would name an inactive row.
         static KeyBindingDef Conflict(KeyCode code, KeyBindingDef except)
         {
             var data = KeyPrefs.KeyPrefsData;

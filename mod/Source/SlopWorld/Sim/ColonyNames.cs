@@ -3,15 +3,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Vanilla puts a box up a few days in - the faction's, the settlement's, and the
-    // combined one - from Faction.FactionTick, gated on nothing more than
-    // Faction.OfPlayer.HasName and Settlement.namedByPlayer being false. So closing
-    // all three is a matter of answering them up front rather than of patching
-    // anything, and nothing has to be kept in step if the dialog moves.
-    //
-    // FinalizeInit and not the quick start: the settlement is not made until map
-    // generation, and FinalizeInit runs on a loaded save too, so a colony saved
-    // before this existed is named on its next load instead of being asked.
+    // FactionTick prompts for faction/settlement names when unset. FinalizeInit sets both
+    // before that prompt and also runs for loaded saves, unlike quick start.
     public class ColonyNames : GameComponent
     {
         // As it reads in the colonist bar's tooltips and on the world map.

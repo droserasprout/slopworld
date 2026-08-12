@@ -104,13 +104,8 @@ namespace SlopWorld
             preventCameraMotion = false;
             layer = WindowLayer.Super;
 
-            // `WindowStack.Add` opens with `RemoveWindowsOfType(window.GetType())`, which
-            // closes every standing window of this exact type *before* `PreOpen` runs. One
-            // menu at a time is right for vanilla's single-level float menus and fatal here:
-            // adding a child took its own parent down, and the parent's `PostClose` unhooked
-            // the child on the way out, so the child then sized itself as a root and landed
-            // at the mouse. `PreOpen` does the sweep instead, where it can tell a chain from
-            // a menu that has no business standing.
+            // WindowStack removes same-type windows before PreOpen. Disable that behavior so
+            // nested menus survive; root PreOpen sweeps unrelated menus instead.
             onlyOneOfTypeAllowed = false;
         }
 
@@ -149,13 +144,8 @@ namespace SlopWorld
             new Vector2(Mathf.Clamp(WidestLabel() + PadX * 2f, MinW, MaxW),
                 Mathf.Min(ContentH, UI.screenHeight * MaxScreen));
 
-        // At the mouse unless it was given somewhere, and shoved back onto the screen
-        // rather than off the bottom of it - which is where a menu opened from a row near
-        // the foot of a tall list would go.
-        // A menu that is nobody's child puts away whatever menu was standing - the answer
-        // vanilla's `onlyOneOfTypeAllowed` gave until the chain needed it off. A menu opened
-        // by a click is closed by that same click landing outside it; this is for the ones
-        // opened from a key or from a callback, which no click ever answers for.
+        // Root menus open at the pointer and clamp to the screen; child menus use their
+        // parent anchor. Root PreOpen closes unrelated menus while preserving the chain.
         public override void PreOpen()
         {
             base.PreOpen();

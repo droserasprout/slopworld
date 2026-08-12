@@ -7,15 +7,10 @@ using Verse;
 
 namespace SlopWorld
 {
-    // This planet burns, then the colony lands on the next one - or, with grandma in the
-    // house, it only lands, the burning being the part she is here to miss. The landing is
-    // vanilla's - Patch_QuickStart turns a Page_SelectScenario into a generated map - and all
-    // this does is get back to the menu first, a scenario page opened over a live game building
-    // a second one underneath it. GoToMainMenu queues the teardown as a long event, hence the
-    // flag: the page is opened on the menu's first frame, the seam Patch_AutoResume hooks.
-    //
-    // Beats off GameComponentUpdate so a pause cannot strand the scene, work off
-    // GameComponentTick, an explosion being a Thing that has to tick to go off.
+    // Return to the menu before QuickStart generates the next map; otherwise the scenario page
+    // opens over a live map and builds a second one. GoToMainMenu is a long event, so the
+    // menu-first-frame flag is the seam Patch_AutoResume uses. Run from GameComponentTick so
+    // pauses do not strand the scene; explosions are Things and need ticking.
     public class NextPlanet : GameComponent
     {
         // Everything below is wall clock, so the front reaches the map edge exactly as the
@@ -238,13 +233,9 @@ namespace SlopWorld
             return Mathf.Sqrt(x * x + z * z);
         }
 
-        // The seam is the option listing rather than the menu: DoMainMenuControls builds its
-        // whole list in one method with nothing to hook in the middle, and hands the finished
-        // list here. The same listing draws the startup menu and the options dialog, hence the
-        // two checks; it also draws *twice* per menu, the second call being the column of web
-        // links, so `Column` is armed on the way into DoMainMenuControls and spent by the first
-        // listing to arrive - a rect width or a label would be a guess about a layout free to
-        // move. The same pass drops four rows, matched on the translated label.
+        // Hook the completed option list: DoMainMenuControls builds startup/options lists and
+        // draws the web-link column in a second pass. Column marks the first pass; labels or
+        // rects would not survive layout changes. Both passes drop the same four translated rows.
         [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
         public static class Patch_MenuOption
         {

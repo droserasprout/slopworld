@@ -27,35 +27,24 @@ pub struct SandboxPreset {
     /// Device nodes, which need `--dev-bind` to survive the `--dev` tmpfs.
     #[serde(default)]
     pub dev: Vec<String>,
-    /// Bound to a copy of its own, one per session, rather than to the host's. What an agent
-    /// writes to its own config directory is what the *host* runs the next time it starts
-    /// one: `~/.claude/settings.json` names hooks, `~/.claude.json` names MCP servers, and
-    /// both are ordinary files to whatever is inside the sandbox. Shared state is deferred
-    /// execution; a copy is not. See `sandbox::private_binds`.
+    /// Per-session copies, so agent config writes do not become host state. See
+    /// `sandbox::private_binds`; Claude settings/MCP files are typical examples.
     #[serde(default)]
     pub private: Vec<String>,
-    /// Subdirectories copied into a `private` directory when it is first made, and never
-    /// again. The *files* at the top of that directory come across unasked - that is where a
-    /// tool keeps its credentials - so this names only what the user wrote a directory of:
-    /// plugins, agents, commands. A `private` entry that is itself a file is its own seed.
+    /// Paths copied into a new `private` directory. Top-level files are copied automatically
+    /// (credentials); this selects subdirectories, or a file directly.
     #[serde(default)]
     pub seed: Vec<String>,
-    /// Cut out of whatever `seed` names, which is what makes naming a whole directory safe. A
-    /// tool scatters its config and concentrates its bulk in one place - `~/.pi/agent` holds
-    /// the model selection *and* 21MB of transcripts - so seeding the directory and skipping
-    /// the one subdirectory beats listing by hand every file that turns out to matter, and
-    /// gets the list wrong towards an agent that works rather than one that does not.
+    /// Excludes paths from `seed` and private top-level files; useful when a seeded directory
+    /// contains bulky or disposable state such as `~/.pi/agent` transcripts.
     #[serde(default)]
     pub skip: Vec<String>,
     /// Shared entries are host-owned regular files bound read-write inside private state; shared
     /// directories could expose hooks or MCP configuration. This trades integrity, not execution.
     #[serde(default)]
     pub shared: Vec<String>,
-    /// Non-empty when ticking this hands the sandbox a way back out: a socket whose far end
-    /// runs on the host, a display every other window shares. Free text, because what it
-    /// costs is the part worth reading, and the GUI draws it beside the checkbox rather than
-    /// burying it in a tooltip. A preset that merely carries a secret is not this - that is a
-    /// trade about *reach*, and this one is about the wall itself.
+    /// Non-empty marks a host-reachable capability such as a socket or display; the GUI shows
+    /// the text as a warning. A secret-only bind is not an escape.
     #[serde(default)]
     pub escapes: String,
     /// Forwarded out of slopd's own environment.

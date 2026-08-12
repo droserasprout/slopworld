@@ -82,15 +82,9 @@ impl Tmux {
         }
     }
 
-    /// Whichever tmux command first needs a server forks it, and the server inherits that
-    /// client's cgroup - `slopd.service`, so `make install-daemon` SIGTERMs every agent. A
-    /// unit of its own is what keeps them.
-    ///
-    /// `Type=forking` and not a scope: `tmux start-server` daemonises, so the process
-    /// systemd-run put in a scope forks the server and exits, systemd tears the empty scope
-    /// down, and the next tmux command forks a server back into `slopd.service` - while
-    /// systemd-run exits zero throughout. Hence checking the socket rather than the exit code;
-    /// a host without systemd falls through to starting the server inline.
+    /// tmux inherits the caller's cgroup unless launched in its own systemd user unit.
+    /// `tmux start-server` forks, so a scope exits before the server and gets torn down;
+    /// use a `Type=forking` unit, verify the socket, and fall back inline without systemd.
     pub async fn ensure_server(&self) {
         if self.server_running().await {
             return;

@@ -3,15 +3,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Intercepts OS-level close requests (Alt+F4, window close button on Linux) to
-    // save the game before the process exits.  Unity fires Application.wantsToQuit
-    // when the window manager sends a close request.  Without this, the process exits
-    // without going through Root.Shutdown, so Patch_SaveOnShutdown never fires and the
-    // colony is not saved.
-    //
-    // The close request is cancelled, the game is saved on the next frame, and then
-    // Root.Shutdown is called (which saves again via Patch_SaveOnShutdown and quits
-    // cleanly).  A second close request while the save is in flight is let through.
+    // Intercept OS close requests so the game saves before exit: cancel wantsToQuit, save on
+    // the next frame, then call Root.Shutdown. A second request and programmatic shutdown pass.
     public static class QuitInterceptor
     {
         // null = idle, "pending" = save and quit on next frame

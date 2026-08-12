@@ -5,15 +5,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The opening scene of a fresh colony, once, as a cutscene: nothing on the map is
-    // clickable and no UI is drawn until it is over. A hillside is placed, the core falls into
-    // it, it vents alone, the plague is armed, and only then are the clankers released.
-    //
-    // Nobody is on this map at tick zero - SlopScenario hands over no people - so the only
-    // things that arrive are the ones this scene calls for, in the order it wants them.
-    //
-    // The phase is persisted so a reload never replays the intro; the work lists are not, so a
-    // reload mid-intro skips ahead.
+    // One persisted cutscene per fresh colony: block map/UI input while placing the hillside,
+    // core, plague and clankers. SlopScenario supplies no pawns; this scene adds everything.
+    // The phase persists but work lists do not, so a reload mid-intro skips ahead.
     public class IntroDirector : GameComponent
     {
         const int AnimalsMin = 50;

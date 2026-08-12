@@ -1,89 +1,67 @@
 # `AgentSidebar` and `ChromeShift`
 
-`AgentSidebar` reuses the colonist bar's entries and hit testing but writes their cached
-locations into a project-grouped column. Its back pass draws the panel, headings, tabs,
-menus, and resize grip before vanilla consumes input; its front pass draws labels and row
-actions. `Drawing` must also be cleared by the Harmony finalizer when vanilla throws.
+`AgentSidebar` reuses colonist-bar entries and hit testing but lays them out in
+project groups. The back pass draws the panel, headings, tabs, menus and grip before
+vanilla consumes input; the front pass draws labels and row actions. A Harmony
+finalizer clears `Drawing` if vanilla throws.
 
-Entries retain their original indices so vanilla reordering remains valid. Hidden or
-folded entries are parked off-screen rather than merely omitted because the colonist bar
-uses the same locations for drawing and hit testing. `Rows` is the shared geometry for
-labels, portraits, clicks, and keyboard order.
+Entries keep their original indices for vanilla reordering. Hidden/folded entries are
+parked off-screen because the colonist bar shares locations for drawing and hit testing.
+`Rows` is the geometry source for labels, portraits, clicks and keyboard order.
 
-Portrait size is read off the text rather than fixed. A row is as tall as its three lines, and
-`Nominal` is the scale at which the whole drawn 3:4 portrait — square face box plus equal
-vertical overflow — is that tall, so the font moves the picture and the row together and
-`RowGap` stays the gap between one portrait and the next. A face is a width as well, so it
-is also held to a share of the panel. Headings, routed rows and the add strip scale with
-nothing; `Fit` shrinks a crowded column and stops where those fixed heights take the pitch
-over, which with the portrait cut to the text is nearly always. The add strip is reserved at
-the bottom in every view.
+Portrait scale is derived from text: `Nominal` makes the drawn 3:4 portrait (square
+face plus equal vertical overflow) match the row's three text lines, and `RowGap` stays
+between portraits. The face also has a panel-width limit. Headings, routed rows and the
+add strip remain fixed; `Fit` shrinks crowded portraits and reserves the add strip at
+the bottom.
 
-The portrait prefix replaces vanilla's whole draw, so vanilla's icon row goes with it —
-burning and mental breaks included, which is the trade for a face that is only a face. What
-takes its place is one badge, drawn in the front pass because that is what puts it over the
-portrait, and sized off the face so it survives the column shrinking. Its corner is the drawn
-portrait's rather than the cell's — the two differ by the overflow hair and clothing are given,
-and the cell's lower edge is level with the chin. `Patch_AgentNeverIdle` outlives the icons it
-was written beside: vanilla must still not decide an agent is idle, or that verdict reappears
-in an alert.
+The portrait prefix replaces vanilla's complete draw, including its icon row. The
+front pass adds one badge, sized from the face so it survives shrinking and anchored to
+the drawn portrait rather than the cell. `Patch_AgentNeverIdle` remains active so
+vanilla does not report an agent idle after the replacement.
 
-Ephemeral host shells appear as one-line ghost rows and have no pawn or state. Agents rows mark
-them with the terminal icon and project name; ghost rows put the useful title or action/file
-identity in white and keep the session/project context dim;
-viewer, editor, and diff sessions use an explicit action prefix because a shell's native title
-is often only `bash` or `less`. Viewer, editor, and diff sessions are routed to the Files or Git
-view instead. Routed permanent sessions must be parked immediately: colony reconciliation may
-leave their pawn alive for one tick.
+Ephemeral host shells are one-line ghost rows with no pawn/state. Agent rows show the
+terminal icon and project; ghost rows emphasize the title/action/file identity and dim
+context. Viewer, editor and diff sessions use explicit prefixes because native titles
+are often `bash` or `less`, and route to Files/Git. Permanent routed sessions are parked
+immediately; reconciliation may otherwise leave their pawn for one tick.
 
-The resize grip polls `Input.GetMouseButton*` rather than relying on IMGUI mouse events.
-An absorbing window can prevent the underlying layer from receiving the initial event,
-and a release beyond the screen may produce no usable release event. Settings are written
-when the drag ends, not on each frame. The grip also owns the panel's right edge — drawn
-once, at the end of the pass — and the tab strip and the add strip both hold their press
-gates short of it.
+The grip polls `Input.GetMouseButton*`, not IMGUI events: absorbing windows can hide the
+initial press and off-screen release. It saves settings on release, owns the panel's
+right edge, and keeps tab/add hit gates short of that edge.
 
 ## Views and navigation
 
-The Agents, Files, Search, Git, and Shortcuts bodies share the panel, tabs, width, add strip, and
-input absorption. Switching away closes readers owned by the old view. Files, Search and Git park
-all colonist-bar locations, but buckets are still built so Alt+number can return to an
-agent. A fold, unlike a view switch, removes its agents from that visible ordering.
+Agents, Files, Search, Git and Shortcuts share the panel, tabs, width, add strip and
+input absorption. Leaving a view closes its readers. Files/Search/Git park colonist-bar
+locations but still build buckets so Alt+number can return to an agent; folding removes
+agents from visible order.
 
 ## The tab strip
 
-Two rows. The first is what every view has: the five tabs on the left, the project filter
-on the right. The second is what only the current view has — dotfiles for Files and Search,
-refresh for Git — right-aligned under the filter, and absent entirely for the two views
-that have no such button, so neither wears an empty band. `TabH` is the whole strip, which
-is what the body and the colonist-bar layout are pushed down by, so both follow on their
-own.
+Every view has two possible rows: five tabs plus the project filter, then a right-aligned
+view control (dotfiles for Files/Search, refresh for Git). Views without a control have
+no second band. `TabH` is the complete strip height used by both the body and the
+colonist-bar layout.
 
-The filter is a set of ticked keys, held one name a line the way the folds are, and every
-view is read through `AgentSidebar.Passes`. Empty is all of them, not none. Whatever has no
-project of its own is one more key — `[none]` — so it ticks like any other; a project
-actually named that shares the line, which is what a sentinel reading the same in the
-settings file as in the menu costs. A key no project answers to shows nothing rather than
-falling back to all, which is the honest reading while the daemon is still handing its list
-over. Agents, Files and Shortcuts read the filter as they draw; Search and Git hold what
-they asked the daemon for and are asked again when it changes.
+The project filter is a set of ticked keys read through `AgentSidebar.Passes`; empty
+means all. `[none]` represents unassigned projects, including a real project with that
+name. An unknown project key shows nothing rather than falling back to all. Agents,
+Files and Shortcuts filter while drawing; Search and Git re-request their stored result
+when the filter changes.
 
-The menu is ticks rather than a pick, so a tick closes it — as every option in a `SlopMenu`
-does — and opens it again where it was. That is what the menu's optional anchor is for:
-without one it would come back at the cursor and walk across the screen. `View: Filter
-Projects` in the palette is the same set of ticks as a sub-list, drawn with the same
-`SlopWidgets.TickBox`, where Space ticks without closing.
+The filter menu is multi-select: each tick closes and reopens at its anchor instead of
+the cursor. The palette's `View: Filter Projects` uses the same keys and `TickBox`, with
+Space toggling without closing.
 
-Context menus run in the back pass because vanilla consumes right-clicks over portraits.
-Project menus include an explicitly unsandboxed host terminal; it goes through
-`SessionHub.RunHostShell` and `/api/run` with `host` set. Every view routes row hover through
-the sidebar-only gate, which goes dark under either a vanilla `FloatMenu` or `SlopMenu`
-without disabling the status bar's click-through behavior.
+Context menus run in the back pass because vanilla consumes portrait right-clicks. A
+project menu's unsandboxed terminal uses `SessionHub.RunHostShell` and `/api/run` with
+`host`; row hover is gated while either `FloatMenu` or `SlopMenu` is open without
+disabling status-bar click-through.
 
 ## Shifting vanilla chrome
 
-`ChromeShift` remaps the bottom main-button rects, repositions the inspect pane, and shifts
-the gizmo grid by the sidebar inset. Inspect tabs need separate handling because vanilla
-draws their tab row outside the window group. Dragging the sidebar explicitly repositions
-an already-open inspect pane; its normal positioning hook otherwise runs only on open or
-resolution change.
+`ChromeShift` remaps bottom main-button rects, repositions the inspect pane and shifts
+the gizmo grid by the sidebar inset. Inspect tabs need a separate patch because vanilla
+draws them outside the window group. Dragging explicitly repositions an already-open
+inspect pane; the normal hook runs only on open or resolution change.

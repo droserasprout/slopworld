@@ -5,20 +5,14 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The scenario hands over nothing and says nothing on the way in; IntroDirector has a
-    // scene to open with instead. Derived from Crashlanded rather than written as a def of our
-    // own: what a hand-written def gets wrong is exactly the parts we are not interested in -
-    // the surface planet layer 1.6 wants, the player faction, the drop-pod arrival. Built once
-    // per process; a save carries its own scenario.
+    // Derived from Crashlanded to retain the 1.6 surface/faction/drop-pod setup, but supplies
+    // no starting parts; IntroDirector owns the opening scene. Built once per process; saves
+    // retain their scenario.
     public static class SlopScenario
     {
-        // Matched by assignability, so a subclass we have never heard of goes with them.
-        // ThingCount is the base of both the starting pile and the scatter parts;
-        // StartingAnimal picks a tame animal weighted by biome (LandingSite aims at tropical
-        // rainforest, hence the monkey); StartingMech is Biotech's; GameStartDialog is
-        // Crashlanded's opening message box. ConfigureStartingPawnsBase hands over people -
-        // dropping it leaves GameInitData.startingPawnCount at its -1 default, which
-        // PrepForMapGen indexes with, hence the zero QuickStart writes in its place.
+        // Remove starting items, animals, mechs, dialog and pawns by assignability. Leaving
+        // the pawn part would preserve the -1 default that QuickStart indexes, so it writes
+        // zero instead.
         static readonly Type[] Dropped =
         {
             typeof(ScenPart_ThingCount),

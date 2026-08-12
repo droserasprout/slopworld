@@ -7,14 +7,8 @@ using Exception = System.Exception;
 
 namespace SlopWorld
 {
-    // The mod's assembly is read once per process, so seeing a change to it means
-    // restarting the game - and this is what makes that cost a loading screen rather
-    // than a menu, a colony chooser and a click.
-    //
-    // Hooked on the menu's own draw rather than on UI root construction: it is a
-    // plain static that has been there for many versions, and its first frame is
-    // exactly when the game is idle and ready to load something. Once per process,
-    // and only when no game is loaded, so quitting to the menu leaves you there.
+    // An assembly change requires a restart. Hook the first MainMenuOnGUI frame so resume
+    // starts from an idle menu, once per process and only without a loaded game.
     [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI))]
     public static class Patch_AutoResume
     {

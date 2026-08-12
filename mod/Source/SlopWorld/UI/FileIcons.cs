@@ -4,14 +4,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The icon beside a name in the files view. The textures are baked from the vendored
-    // Material Icon Theme SVGs by tools/fileicons.py and land in
-    // mod/Textures/SlopWorld/FileIcons; this is the other half of tools/fileicons/manifest.toml
-    // and the two are kept in step by hand, a table being cheaper here than shipping the
-    // manifest into the game and parsing TOML with no parser.
-    //
-    // Loaded lazily and cached, including the misses: ContentFinder walks the mod's content
-    // tables, and a tree is hundreds of rows a frame.
+    // File-view icons are baked from the Material Icon Theme manifest by tools/fileicons.py
+    // into loose textures. Keep the lookup table in code (the mod has no TOML parser), and
+    // cache hits and misses because ContentFinder would otherwise scan every tree row.
     public static class FileIcons
     {
         const string Dir = "SlopWorld/FileIcons/";

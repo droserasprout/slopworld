@@ -5,13 +5,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The sandbox preset checkboxes, drawn the same way wherever they are ticked: for a
-    // project, and for one agent in it. One column in a box of its own, because the list is
-    // as long as whatever is in the daemon's preset directory and a form that grows with it
-    // is one where everything below moves the day a file is added.
-    //
-    // Grouped by the category each preset states rather than by a list held here: a category
-    // this build has never heard of is a heading, which is the whole point of the field.
+    // Shared project/agent preset checkboxes use one column and group by the daemon-provided
+    // category. Unknown categories remain headings; the implicit global preset is settings-only.
     public static class PresetList
     {
         // The pitch of a row here, off the font like every other height in this mod.

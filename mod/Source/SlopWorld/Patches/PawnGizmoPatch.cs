@@ -8,11 +8,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>
-    /// The pawn's own gizmos are vanilla only. Terminal / Start / Stop now live on
-    /// <see cref="SessionSelectable"/>, which is inserted into the gizmo grid by
-    /// <see cref="SessionGizmoSelection"/> for the current session.
-    /// </summary>
+    /// <summary>Pawn gizmos stay vanilla; session actions come from the current
+    /// <see cref="SessionSelectable"/> inserted by <see cref="SessionGizmoSelection"/>.</summary>
     [HarmonyPatch(typeof(Pawn), nameof(Pawn.GetGizmos))]
     public static class Patch_Pawn_GetGizmos
     {
@@ -20,14 +17,8 @@ namespace SlopWorld
         // the SessionSelectable on the gizmo grid.
     }
 
-    /// <summary>
-    /// "Clear prioritized work" offers to undo an order nobody gave. Work here is handed
-    /// out by <see cref="Worksite"/> off the daemon's word, never through the priority
-    /// system, so the button has nothing to clear - and it turns up anyway, because a
-    /// PriorityWork that was never set reads back from a save with a zeroed cell and
-    /// IntVec3 counts a zero as valid. A row on an agent's gizmo bar that does nothing is
-    /// a row that says the player has a lever here.
-    /// </summary>
+    /// <summary><c>PriorityWork</c> is never assigned by this mod, but a zeroed saved cell
+    /// can make vanilla emit "Clear prioritized work"; remove the no-op button.</summary>
     [HarmonyPatch(typeof(PriorityWork), nameof(PriorityWork.GetGizmos))]
     public static class Patch_NoPrioritizedWorkGizmo
     {

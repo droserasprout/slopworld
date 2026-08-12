@@ -138,13 +138,9 @@ namespace SlopWorld
             Text.WordWrap = false;
         }
 
-        // The same menu from somewhere that is not the core: the status bar's icon. The cell
-        // is looked up rather than pointed at - the hint is pinned to the core wherever the
-        // press came from - and the bubble still lands under the pointer, which up there is the top
-        // of the screen. Drawn over the map and, when a pane is up, by TerminalWindow itself
-        // (DrawHint), so a hint asked for over an open terminal is on top of it; the core's
-        // own click cannot happen there at all, and the row that can is one press away from
-        // the map.
+        // The status-bar button resolves the core cell, anchors the hint to that cell and
+        // places the bubble at the pointer. Map drawing covers the map; TerminalWindow.DrawHint
+        // repeats it over an opaque pane.
         public static void OpenMenu()
         {
             var map = Find.CurrentMap;

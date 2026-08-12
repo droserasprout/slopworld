@@ -1,80 +1,49 @@
 # Presets and the sandbox
 
-`presets.rs` reads one TOML file per piece of software, each stating a
-`[[sandbox]]` preset, a `[[command]]` preset, or both under one name. Builtins
-are `include_str!` of `slopd/presets/*.toml`, so they can never be older than the
-binary reading them; user files are `~/.config/slopworld/presets/*.toml`
-(`SLOPD_PRESETS` points elsewhere) and replace a builtin **by entry name, in
-place**, so the GUI never draws two of one.
+`presets.rs` reads one TOML file per tool. A file may define `[[sandbox]]`,
+`[[command]]`, or both. Builtins are `include_str!` from `slopd/presets/*.toml`;
+user files live under `~/.config/slopworld/presets/*.toml` (`SLOPD_PRESETS` overrides)
+and replace builtins by entry name, in place.
 
-`global.toml` is the implicit system preset. It is added to every sandbox before
-the command, project and session presets; it is not a project checkbox. Copying
-it to the user list creates the machine-wide `global` override, which is edited
-and reset like any other system preset.
+`global.toml` is implicit and precedes command, project and session presets. It is not
+a project checkbox; copying it creates the user `global` override.
 
-- The directory is re-read when its newest mtime moves, on the same two-second
-  check `config.toml` is (`reload_presets_if_changed`), and the sessions are
-  re-announced because what an agent runs may have just changed under it.
-- `category` is free text: an unknown one is a heading in the GUI, not an error.
-  `escapes` is non-empty on a preset that hands the sandbox a way back out and is
-  what the GUI draws in `Warn`.
-- `requires` names sandbox presets that must be included before this one; it is a
-  dependency closure, cycle-safe in the daemon, and its implied boxes are shown
-  disabled in the mod. `systemd` requires `dbus`; language caches likewise require
-  their read-only toolchain preset (`python-cache` requires `python`, for example).
-- `GET /api/presets` returns `source` as `system`, `user` or `override`, plus the
-  complete effective definition. The settings page separates system entries from
-  user entries; a user entry with the same name as a builtin is an override.
-- Root-only `POST /api/presets/:kind/:name/copy`, `PUT` and `DELETE` manage user
-  definitions for `sandbox` and `command`. Copying without a new name creates an
-  override; saving is daemon-owned TOML, validated and atomically replaced. Deleting
-  an override reveals the builtin again. A user-only sandbox cannot be deleted while
-  a command still requires it.
-- A `[[sandbox]]` states six kinds of path: `ro`, `rw`, `dev` (which needs
-  `--dev-bind` to survive the `--dev` tmpfs), `private` (a per-session copy,
-  not the host's), `seed` (what a fresh copy is filled with) and `shared` (the
-  host's own file, read-write, cut back *into* a private tree - see
-  [sandbox-isolation](sandbox-isolation.md)). `skip` cuts back out of both
-  `seed` and the files at the top of a private directory.
-- A name the table has no preset for is warned about and dropped rather than
-  refused - the files outlive the binary - but one *typed* into a dialog is
-  refused (`check_presets`), that being where it can be fixed.
-- `[defaults] agent` and `shell` name command presets and nothing else, refused on
-  the way in if there is no file behind them (`patch_config`). Changing what
-  the agent *runs* means editing a preset, not this section.
-- A session naming a preset there is no file for has no command at all:
-  `command_of` answers empty and `start` refuses before it makes a directory or
-  hands tmux an empty argv.
-- `GET /api/presets` is how the mod learns both tables, so a file added while the
-  game is up is a checkbox and a dropdown entry with nothing rebuilt. The Settings
-  page uses the same response as a small editor: Presets are sandbox definitions
-  (with the implicit `global` definition shown first and highlighted), and Commands
-  are command definitions with their sandbox dependencies.
+- Presets reload when the directory's newest mtime changes, using the same two-second
+  check as `config.toml`; sessions are re-announced after reload.
+- `category` is free text and unknown values become GUI headings. Non-empty `escapes`
+  marks a host-reachable capability and is shown by `Warn`.
+- `requires` forms a cycle-safe dependency closure. Implied boxes are disabled in the
+  mod; for example `systemd` requires `dbus` and `python-cache` requires `python`.
+- `GET /api/presets` returns the complete effective definition and `source` (`system`,
+  `user` or `override`). Root-only `POST /api/presets/:kind/:name/copy`, `PUT` and
+  `DELETE` edit user `sandbox`/`command` entries. Saves are validated and atomically
+  replaced; deleting an override reveals the builtin. A required user-only sandbox
+  cannot be deleted.
+- `[[sandbox]]` path kinds are `ro`, `rw`, `dev`, `private`, `seed`, `shared`, plus
+  `skip`. `dev` needs `--dev-bind`; `private` is per-session; `seed` fills a new copy;
+  `shared` binds a host-owned file read-write into private state; `skip` removes paths
+  from seed and private top-level files ([sandbox-isolation](sandbox-isolation.md)).
+- Unknown preset names from files are warned and dropped; names entered in a dialog are
+  rejected by `check_presets`. `[defaults] agent` and `shell` must name command presets,
+  and `start` refuses a session whose command preset is missing.
+- The mod learns both tables from `GET /api/presets`; files added while the game runs
+  become settings-page entries without rebuilding. `global` is shown first/highlighted,
+  followed by sandbox definitions and command definitions with dependencies.
 
 ## Sandbox (bubblewrap) rules
 
-- Every bind is skipped unless the path exists. What makes that safe is that a
-  path naming a variable this machine has not set expands to **nothing**, whole
-  - not variable by variable, which used to leave the separator behind and turn
-  `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` into `"/"`.
-- A path that reaches the token, the preset files or another session's state is
-  warned about and dropped whoever asked for it - see
-  [sandbox-isolation](sandbox-isolation.md).
-- Order: implicit `global`, presets, project, deduplicated, **rw after ro**, so a path in
-  both ends up writable. `private` lands after all three: a session's own copy
-  is what a project asking for the original gets.
-- Binds go down *after* the skeleton (`--proc`, `--dev`, `--tmpfs /tmp`) or the
-  tmpfs buries them. `resolv.conf` is emitted last of the read-only ones, because
-  a preset can bind the directory it sits in.
-- A socket is bound by its *directory*, wherever its owner recreates it. `dbus`
-  and `wayland` name sockets directly because those outlive every session. SSH is split:
-  `ssh` exposes config and known hosts only; `ssh-agent` is the explicit host-signing
-  capability and is marked as an escape. GnuPG follows the same shape: `gpg` exposes
-  public configuration only, while `gpg-agent` is the explicit signing/decryption capability.
-- Agent presets do **not** forward configuration-root variables such as `CODEX_HOME`:
-  the default path under `HOME` is the private bind. Forwarding one could point the
-  tool back at a writable project directory and undo that isolation.
-- `env` forwards names out of slopd's environment; `setenv` sets literals, applied
-  last (`SYSTEMCTL_FORCE_BUS=1`, which is why `systemd` is useless without `dbus`).
-- bwrap gets `--clearenv`; `BASE_ENV` survives regardless, `TERM`/`COLORTERM` are
-  stated rather than forwarded.
+- Binds are skipped when their paths do not exist. An unset variable expands to the
+  whole empty path, not an empty component; this prevents
+  `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` from becoming `/`.
+- Paths reaching the token, preset files or another session's state are warned and
+  dropped ([sandbox-isolation](sandbox-isolation.md)).
+- Order is implicit `global`, presets, project, then deduplicated paths with `rw` after
+  `ro`; `private` is applied last so a project's original path can resolve to its copy.
+- Binds follow the skeleton (`--proc`, `--dev`, `--tmpfs /tmp`); `resolv.conf` is the last
+  read-only bind. Sockets are bound by directory except long-lived `dbus`/`wayland`
+  sockets. `ssh` exposes public config; `ssh-agent` is the explicit host-signing escape.
+  `gpg`/`gpg-agent` follow the same split.
+- Configuration-root variables such as `CODEX_HOME` are not forwarded: the default path
+  under `HOME` is private. `env` forwards names; `setenv` writes literals last.
+- bwrap starts with `--clearenv`; `BASE_ENV` survives, while `TERM`/`COLORTERM` are set
+  explicitly.

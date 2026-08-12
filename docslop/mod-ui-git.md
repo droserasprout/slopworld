@@ -1,79 +1,49 @@
 # `GitView`
 
-The column's Git body ([mod-sidebar](mod-sidebar.md)): what every project's working
-tree has that its last commit does not, drawn as the same nested tree the
-[files view](mod-ui-files.md) draws and from the same `AgentSidebar` back pass.
-
-**The daemon runs the git** - `GET /api/git?path=` - for the reason `/api/browse`
-exists: a session is in its own mount namespace and the game is outside all of them
+The Git body in the sidebar ([mod-sidebar](mod-sidebar.md)) shows each project's
+working-tree changes as the same nested tree as Files, using the same `AgentSidebar`
+back pass. The daemon runs git through `GET /api/git?path=` because sandbox mount
+namespaces isolate sessions from the game; `/api/browse` exists for the same boundary
 ([wire-protocol](wire-protocol.md)).
 
-- **Not lazy, unlike the files view.** A project root is a hundred thousand files
-  deep and has to be asked a directory at a time; a working tree's changes are a
-  list short enough to ask for whole. So the daemon sends a flat list of relative
-  paths and `Fold` builds the tree out of it - every interior node exists because
-  something under it changed - and `Squash` collapses a chain of single-child
-  directories into one row (`slopd/src`). Depth is written by `Depths` afterwards
-  rather than kept in step through the squash.
-- **Nothing tells this column a tree moved**, the agents being the ones moving it.
-  So it is read on arriving in the view (`Entered`, and only what has never been
-  read) and again whenever the reader asks - the refresh button on the tab strip,
-  which is the only *button* there and is never lit, or `Refresh` on a heading's
-  menu. Everything else in the sidebar is a switch.
-- A hovered row's figures give way to the **view/edit/diff** strip
-  ([mod-ui-rowactions](mod-ui-rowactions.md)) - fifty pixels of buttons, and keeping
-  both would cost the name rather than the tail. The row's tooltip still says the
-  state in words. The flat `Changes` table beside the tree is what the files view
-  asks about a path of its own.
-- A row carries the porcelain pair in one character and the numstat beside it,
-  laid out from the right so the figures line up down the column - the same move
-  the agents view makes with its times. Green is staged, amber is not, red is
-  unmerged, faint is untracked. The state line under each heading is
-  `git diff --shortstat` said in the room a narrow column has: branch, then the
-  three figures.
-- An error drops the tree with it. A stale tree under a message about why it could
-  not be read is two answers, and `Measure` and `Body` have to agree about how many
-  rows there are.
+- Git is not lazy: changed paths are short enough to request as one flat list. `Fold`
+  builds interior nodes; `Squash` collapses single-child directory chains (for example
+  `slopd/src`), then `Depths` recalculates indentation.
+- There is no filesystem-change event, so `Entered` reads a project once on arrival and
+  `Refresh` reads it again from the tab button or heading menu. The refresh button is the
+  only button in the tab strip.
+- Hover replaces row figures with the view/edit/diff strip
+  ([mod-ui-rowactions](mod-ui-rowactions.md)); tooltips retain the state. The separate
+  `Changes` table serves Files' path lookup.
+- Rows show the porcelain pair, numstat and right-aligned figures. Green is staged,
+  amber unstaged, red unmerged and faint untracked. Heading status uses
+  `git diff --shortstat` as branch plus three figures.
+- Errors clear the tree so `Measure` and `Body` agree with the visible rows.
 
 ## The diff
 
-A left click opens a coloured diff in a pager in a pane over the tree, from an
-ephemeral agent in the project's own sandbox - so git sees the working tree the way
-the agents changing it do. The resulting diff row is kept at the top of this Git
-body, before the grouped project headings; it is not an Agents ghost. A directory's
-right-click menu diffs everything under it; a heading's diffs the lot.
+A file click opens a diff in an ephemeral pager agent using the project's sandbox, so git
+sees the same tree as the editing agent. The diff row stays at the top of Git, not in
+Agents; directory menus diff their contents and heading menus diff the project.
 
-`DiffCmd` is the whole of the awkwardness, and all of it comes from the daemon
-building an **argv** rather than running a shell:
+`DiffCmd` builds argv rather than a shell:
 
-- No pipe, so the pager is git's own: `--paginate` with `core.pager` set, which git
-  *does* run through a shell.
-- `LESS=R` is set on that command line rather than left to git, which fills `LESS`
-  with `FRX` when it is unset. The `X` keeps `less` off the alternate screen, and
-  `TerminalWindow.HandleWheel` reads `AltScreen` to decide whether the wheel belongs
-  to the app or to its own scrollback - so under git's default a diff cannot be
-  scrolled at all. `F` goes with it: a diff shorter than the pane would quit before
-  it was read.
-- `--color=always`, because git decides colour by whether its own stdout is a
-  terminal and behind a pager it is not.
-- `-C <root>` rather than trusting the working directory: a project may point at a
-  subdirectory of the repository.
-- An untracked file has no blob to diff against, so it is `--no-index` against
-  `/dev/null` - the whole file as added, which is how git shows one itself.
+- `--paginate` uses git's `core.pager`.
+- Git's pager runs `LESS=R less`; keep `X` off the alternate screen and `F` off so short
+  diffs stay open. The terminal wheel path depends on `AltScreen`.
+- `--color=always` keeps colour through the pager.
+- `-C <root>` handles projects rooted below the repository.
+- Untracked files use `--no-index` against `/dev/null`, displaying the whole file as added.
 
 ## `Pager`
 
-The one tracked ephemeral pager, and the sidebar's grip on it: `Open` replaces
-whatever was showing, `Reopen` brings back the row already open, `Release` is the
-focus moving away, `CloseIf` is the pane closing. An **instance**, not a static -
-the Git view owns diffs even when their button was clicked in Files, while Files
-owns viewers and editors. `Pager.Quote` is the single-quoting both views' command
-lines need.
+The tracked ephemeral pager is an instance. `Open` replaces it, `Reopen` restores the
+current row, `Release` follows focus, and `CloseIf` follows pane close. Git owns diffs
+even when opened from Files; Files owns viewers/editors. `Pager.Quote` supplies the
+single-quoting both command lines need.
 
 ## Sidebar tabs
 
-`Settings.sidebarTab` is `agents`, `files`, `search`, `git` or `shortcuts`, and anything else is the agents
-view - it is a string in a file a person can edit and the column has to draw
-something. `AgentSidebar.Agents` is what the bar's own `Place` and `Sessions()` ask
-now, where they asked `!Files`. `Show` releases every pager but the arriving view's,
-so leaving one never leaves a reader running behind it.
+`Settings.sidebarTab` accepts `agents`, `files`, `search`, `git` and `shortcuts`; unknown
+values fall back to Agents. `AgentSidebar.Agents` is now the source for colonist-bar
+placement and sessions. `Show` releases every pager except the arriving view's.
