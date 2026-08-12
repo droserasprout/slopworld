@@ -27,24 +27,10 @@ namespace SlopWorld
         }
     }
 
-    // The dropdown, in the mod's own chrome. `FloatMenu` was the last vanilla surface left:
-    // every picker here - fonts, themes, projects, stations, network modes, the sidebar's
-    // context menus - opened one, and it arrived textured, rounded at the corners and lit in
-    // vanilla's colours in the middle of a flat dark form.
-    //
-    // A **drop-in**, taking the same `List<FloatMenuOption>` the call sites already build, so
-    // switching one over is a changed type name and nothing else. That is also the limit of
-    // it: this reads the four things those options actually carry - the label, the action,
-    // `Disabled`, and the extra part that [SlopWidgets.MenuToggle] hangs a checkbox on,
-    // either side of the label as `extraPartRightJustified` says - and ignores the two dozen
-    // fields vanilla's own menus use for pawn orders, which nothing in this mod builds.
-    //
-    // A [SlopSubmenu] row opens its list **beside** itself while the pointer is on it. Each
-    // level is a window of its own - one list, one scroll view, one set of bounds - and the
-    // parent/child chain is what keeps them behaving as one menu. The chain is also the
-    // answer to the leftovers nesting used to leave: a level that opened the next by closing
-    // itself and opening a fresh window could only ever dismiss the level the pointer was
-    // on, so picking a value two deep left the menus above it standing.
+    // Dark-chrome replacement for FloatMenu. It accepts the existing option lists and only
+    // relies on label, action, Disabled, and the checkbox extra-part used by this mod.
+    // Submenus are sibling windows linked by parent/child references so closing a branch
+    // removes every level above it.
     public class SlopMenu : Window
     {
         readonly List<FloatMenuOption> _options;
@@ -176,17 +162,8 @@ namespace SlopWorld
             if (_parent == null) Sweep(this);
         }
 
-        // The keyboard is the chrome's, never the menu's: there is nothing in here to press,
-        // and the keys that do reach the chrome replace the very screen the menu was opened
-        // onto - F1 puts a palette in front of it, F12 takes the pane away underneath, F2-F6
-        // swap the sidebar view it was opened from. So any key puts the tree away, and the
-        // event is otherwise left alone: whoever it was addressed to still gets it, and the
-        // palette that F1 opens arrives with no menu standing behind it.
-        //
-        // Off `rawType`, not `type`. A window that absorbs input - the pane, whenever there is
-        // one - makes `WindowStack.HandleEventsHighPriority` spend a `Use` on every KeyDown
-        // before any window body runs, which is why hanging this off a key *handler* answered
-        // only where nothing was absorbing. `Use` does not clear `rawType` (see gotchas).
+        // Any non-modifier key closes the tree; the chrome owns keyboard input. Use rawType
+        // because an absorbing window may consume the event type before this body runs.
         bool Keyed()
         {
             // Never on the frame it opened. A menu put up from a key - the palette's own
@@ -240,21 +217,9 @@ namespace SlopWorld
                 size.x, size.y);
         }
 
-        // Beside the parent and **never over it**, which is the whole of the rule every
-        // desktop menu follows: the trail back out of a tree is the levels above it, and a
-        // child that covered its parent would take that trail with it. So the room either
-        // side is measured and the child takes a side rather than being slid across one -
-        // the right by preference, the left when the right cannot hold it, and where neither
-        // can, the roomier side with the list **narrowed** to what is there. Truncated labels
-        // cost less than a menu hanging off the screen or a parent hidden under its own child.
-        //
-        // Level with the row that opened it, the two frames sharing one border so the chain
-        // reads as one surface rather than as windows that happen to touch.
-        //
-        // Worked out every frame rather than kept from the moment it opened. Both terms move:
-        // the parent list scrolls under a resting pointer, and a parent near an edge is itself
-        // shoved, either of which leaves a pinned child pointing at a row that is no longer
-        // there.
+        // Place beside the parent, never over it. Prefer the right side, then the left, and
+        // narrow to the roomier side when neither can hold the requested width. Recompute
+        // every frame because scrolling or edge clamping can move the anchor row.
         void Place()
         {
             var p = _parent.windowRect;

@@ -55,16 +55,9 @@ fn presets_for<'a>(
         .collect()
 }
 
-/// The same session, spawned *beside* the sandbox rather than inside one: what the sidebar's
-/// "Terminal (host)" runs. There is no bwrap, so there is no `--clearenv` either and nothing
-/// to build an environment back up from - the pane inherits the tmux server's, which is
-/// slopd's, which is the login's. Only the four the sandbox states for its own reasons are
-/// stated here too: the two the emulator at the far end assumes about its terminal, and the
-/// two an agent reads to learn what it is.
-///
-/// The directory is tmux's `-c`, the same as for a sandboxed session, so nothing is chdir'd
-/// here. Deliberately not reachable from `config.toml`: an entry that could ask for this
-/// would be an agent outside the sandbox written down as an ordinary one.
+/// Builds the unsandboxed "Terminal (host)" command. It inherits slopd's environment, keeps
+/// the same tmux working directory as sandboxed sessions, and is intentionally not selectable
+/// from `config.toml`.
 pub fn host_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     let mut a: Vec<String> = vec![
         "env".into(),
@@ -691,17 +684,9 @@ fn private_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec
     out
 }
 
-/// The host's own files that a preset shares back *into* its private tree, bound read-write:
-/// the hole in "every agent's state is its own", one file wide. See `SandboxPreset::shared`
-/// for why a rotating credential cannot be a copy.
-///
-/// Three things are dropped, and each is the reason this is not simply `rw`:
-///
-/// - A path that is not a **regular file**. A shared directory is a sandbox that can create
-///   `settings.json` in it, and hooks are command lines the host runs. The narrowness is the
-///   safety, so it is enforced here rather than asked for in a comment.
-/// - A path `refused()` names, the same guard every other bind list passes through.
-/// - A path that is not there. Nothing to share, and bwrap would refuse the source.
+/// Returns existing regular files that presets may share read-write into private state.
+/// Refused paths and directories are excluded so shared state cannot grant execution or reach
+/// another session's secrets.
 fn shared_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     for pr in presets_for(cfg, s, p, t) {
@@ -867,17 +852,8 @@ fn seed_into(pr: &SandboxPreset, host: &str, copy: &Path) -> Result<()> {
         .collect();
     let skipped = |p: &Path| skip.iter().any(|s| Path::new(s) == p);
 
-    // The files at the top of the directory, whatever they are called: a tool keeps its
-    // credentials and its config there - `auth.json`, `settings.json`, `config.toml` - and its
-    // bulk in subdirectories. Copying them unasked is what keeps this from being a list of
-    // every agent's filenames, kept in step by hand and wrong for the one that just changed.
-    // The failure it chooses is a session that copied a megabyte it did not need, over one
-    // that cannot log in.
-    //
-    // `skip` reaches here as well as into the named directories, because "whatever they are
-    // called" catches what a tool wrote *about* the user next to what it wrote *for* them:
-    // `~/.claude/history.jsonl` is 1.1MB of every prompt typed on this machine, in every
-    // project, and no agent has any business reading it.
+    // Copy top-level files generically for tool portability; `skip` also excludes sensitive
+    // history and shared files.
     match std::fs::read_dir(host) {
         Ok(entries) => {
             for entry in entries.flatten() {

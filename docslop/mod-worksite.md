@@ -1,14 +1,11 @@
 # `Worksite` - what a working agent builds
 
-A working agent takes the nearest unreserved frame; with none free it opens one
-where it stands. Everything finished emits plague (`Plague.Bloom`).
+A working agent takes the nearest unreserved frame, or opens one at its position;
+every finished frame emits plague (`Plague.Bloom`).
 
-- The site cannot be held *inside* the dead ground: ground only the site makes
-  cannot also be ground it needs to start. `Roam` is `Plague.Girth` plus
-  `RoamMargin` and a pawn past it is aimed back in - building blooms, blooming
-  grows the girth, and the girth is what the leash is measured off. A distance
-  rather than the plague's own shape, because "within a few cells of somewhere
-  dead" asked of every candidate is hundreds of lookups where this is one.
+- The site cannot start inside its own dead ground. `Roam` is `Plague.Girth` plus
+  `RoamMargin`; building grows the girth, and the distance check avoids scanning
+  the plague's shape for every candidate.
 - Leaving `Working` ends the job where it stands and `Frame.workDone` stays on the
   frame, so a monument is the sum of every burst.
 - No stockpiles, no haulers, no economy, so a frame arrives with its stone in it
@@ -20,23 +17,14 @@ where it stands. Everything finished emits plague (`Plague.Bloom`).
 
 ## Runs (`Run`, `Lay`)
 
-How many of a thing go down together and in what shape: a line of `Least`..`Most`,
-`Lines` of those side by side, `Gap` cells between neighbours. Zeroes mean one
-thing on its own, which is what most errands are, so `Add` normalises and an
-errand wanting nothing special says nothing. Paving is seven-by-seven with no
-gaps; graves are a row of five to ten with one.
+`Run` describes `Least`..`Most` items in `Lines` rows with `Gap` cells between
+neighbours. Zeroes normalise to one item; paving is seven-by-seven with no gaps,
+while graves form rows of five to ten with one-cell gaps.
 
-- `Lay` is the **only** placement path - a single is a run of one. The whole
-  sequence is pitched in one pass and a frame is a `Building`, so the strip is
-  reserved before the first is finished; laid one at a time, a row of graves grows
-  a stele through the middle of it.
-- Facing is rolled once *for the run* and the line goes across it, so a row of
-  graves is a row rather than a queue. Spacing is read off the thing's own rotated
-  footprint (`Reach`), so the table never states a figure that has to be kept in
-  step with a def.
-- `_mine` is the run's own frames, and `Fits` lets them through its pad. Read as
-  strangers, the pad refuses the second grave of every row and every row on the
-  map comes out one grave long.
+- `Lay` is the only placement path. It reserves the complete run before the first
+  item finishes, rolls facing once per run, and derives spacing from the rotated
+  footprint (`Reach`).
+- `_mine` marks the run's own frames so `Fits` applies the pad consistently.
 - A member that does not fit is **skipped rather than ending the run** - a grave
   wants `Diggable` ground and the agents pave, so a row through finished ground is
   meant to come out with holes in it.
@@ -64,23 +52,17 @@ are busy.
 - A frame is handed out only if `GenConstruct.CanConstruct` says yes - the
   driver's own fail condition asked one tick early; otherwise an unreachable frame
   is handed out, fails, and is handed back forever.
-- A round of darts finding nowhere to lay *floor* sits the site down for five
-  seconds (`BlockedFor`), or every agent asking four times a second is five
-  hundred `CanPlaceBlueprintAt` calls a second against ground that will not
-  change. Anything with a shape asks for a footprint and a pad, and finding no
-  room near one pawn is not grounds for stopping agents who could pave.
+- A round of darts finding nowhere to lay floor pauses the site for five seconds
+  (`BlockedFor`), avoiding repeated `CanPlaceBlueprintAt` calls. Shaped items use
+  a footprint and pad; one pawn finding no room does not stop other agents paving.
 - `Sweep`, once a second: a frame with a plant grown into it or a chunk on it is
   one vanilla wants *cleared* first, which here means work no agent is allowed and
   a hauler that does not exist. It can never finish and counts against `MaxOpen`,
   so a site left alone fills its own quota with rubbish.
   `GenConstruct.FirstBlockingThing` is vanilla's own word for it.
-- `Fits` reads `clearBuildingArea` and `forceMoveItemsBeforeConstruction` off the
-  thing's **blueprint** rather than the thing: for a floor the two disagree and
-  only the blueprint's is the answer the game will give. `NewBlueprintDef_Terrain`
-  sets both false, so a plate goes over grass and slag and only a plant worth
-  harvesting blocks one (`Rooted`). Read off the `TerrainDef`, where
-  `clearBuildingArea` defaults true, every cell with a blade of grass was refused
-  as a paving site.
+- `Fits` reads `clearBuildingArea` and `forceMoveItemsBeforeConstruction` from the
+  **blueprint**. Terrain blueprints set both false, so plates cross grass and slag;
+  only a harvestable plant (`Rooted`) blocks them.
 - `Patch_HideFloorFrames` - floor is queued a square at a time, so its corner
   brackets are a grid over most of the map saying nothing anybody can act on.
   Anything with a shape keeps its frame.

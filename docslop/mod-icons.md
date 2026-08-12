@@ -19,44 +19,29 @@ slots come from that one set.
 
 ## The font, and why it is not vendored
 
-The glyphs come out of a **Nerd Font**, which is not itself an icon set — it is a
-font patched to carry other people's sets in the private use area, Codicons among
-them. `tools/icons.py` wants any Nerd Font (Arch: one of the `ttf-*-nerd`
-packages) and rasterizes through FreeType, which pillow already carries, so unlike
-`tools/fileicons.py` it needs no `rsvg-convert`.
+The glyphs come from a **Nerd Font**, a font patched with icon sets in the private-use
+area. `tools/icons.py` rasterizes any installed Nerd Font through FreeType.
 
-The font is not vendored the way the fileicons SVGs are: it is four megabytes to
-hold twenty-three glyphs. The PNGs are committed instead, so a build never needs the
-font and only a rebake does. The manifest records both the Nerd Fonts glyph name
-and its codepoint — the name is documentation and the codepoint is what the bake
-reads — so nothing fetches `glyphnames.json` at bake time. Both are on the [cheat
-sheet](https://www.nerdfonts.com/cheat-sheet).
+The font is not vendored: committed PNGs keep builds independent of a four-megabyte
+font. The manifest stores both the glyph name and codepoint, so baking needs no
+`glyphnames.json`; see the [cheat sheet](https://www.nerdfonts.com/cheat-sheet).
 
 ## One scale, not twenty-three
 
-Codicons is drawn on a 16px grid for a code editor: sharp corners, no round caps,
-one weight throughout. That is the whole reason to take it, and it is what the two
-tries before this one did not have — an emoji bake has no common grid at all, and
-Feather's round caps and round joins read as too soft for a terminal.
+Codicons uses a 16px grid with sharp corners and one weight, matching the terminal
+instrument-panel style better than emoji or rounded icon sets.
 
-Its glyphs are **not** all the same size and are not meant to be: `circle-filled`
-is an inline status dot at 129/256 em where `terminal` fills its cell at 224. So
-the bake scales every glyph by ONE factor, the one that fits the largest of them,
-and centres each in the square. Fitting each glyph to the box separately would
-flatten exactly the relative sizing the set was drawn with — and per-glyph fitting
-by eye is what the nine procedural icon classes this replaced had to do, the old
-`TabIcons` holding each shape to a 22×22 box *and* to ~250 of 1024 covered pixels
-because five of them had to agree about what "the same weight" meant.
+Glyphs intentionally have different relative sizes, so the bake uses one scale based
+on the largest glyph and centres every result. Per-glyph fitting would flatten that
+relationship and make the status dot too large.
 
 Ink lands between 5.9% (`check`) and 38.1% (`trophy`, the only solid glyph);
 `--report` prints it, because that agreement is the reason to use a real set.
 
 ## Why a set and not drawn shapes
 
-The reason the shapes were drawn was that vanilla keeps its art in asset bundles,
-so a content path like `TexButton`'s resolves to null and draws a button nobody
-can see. That is true of **vanilla** paths. The mod's own `Textures` tree is loose
-and `ContentFinder` reads it, which `FileIcons` had been proving the whole time.
+Vanilla art paths resolve through asset bundles, but the mod's loose `Textures` tree
+is readable by `ContentFinder`; generated PNGs are therefore reliable here.
 
 ## The loader
 

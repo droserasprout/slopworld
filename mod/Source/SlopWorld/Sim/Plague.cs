@@ -8,19 +8,9 @@ using Verse.AI;
 
 namespace SlopWorld
 {
-    // One source per finished thing; the core alone emits a fixed circle.
-    //
-    // `Cells` stores each cell's first arrival tick; age determines dose. This makes BandAt
-    // a lookup instead of scanning thousands of sources and preserves a young fringe at
-    // both stamp and paved-area scales.
-    //
-    // Dither bands against stable Grit; thresholds draw rings and rerolled chance draws discs.
-    //
-    // Agents are immune so sessions never point at corpses. Apply effects directly because
-    // Patch_Health skips health ticks; fire ticks itself.
-    //
-    // Grandma mode keeps growth and timing because Worksite.Roam uses them, but arrival sows
-    // flowers instead of applying harmful effects.
+    // Each cell stores its first arrival tick, making BandAt a lookup and preserving a young
+    // fringe as the plague expands. Agents are immune; effects are applied here because
+    // Patch_Health skips health ticks. Grandma mode keeps timing and growth but sows flowers.
     public class Plague : MapComponent
     {
         // The pass over what is standing on the map. The plague itself moves when something
@@ -223,17 +213,9 @@ namespace SlopWorld
             StepPlants();
         }
 
-        // Walked in slices and rebuilt at the end of each pass, so a plant that grew since
-        // last time still gets its turn.
-        //
-        // The copy is the point: `ThingsInGroup` hands back the lister's own list, and the
-        // strip below destroys plants out of it. Walking that list directly would shift
-        // every entry past the one destroyed down by a slot - skipping the next plant -
-        // and no count taken off it can serve as a version, because the count it is being
-        // compared against came from the same list and moves with it. A map with wild
-        // plants on it churns that count constantly, which would restart the sweep at the
-        // head of the list nearly every tick and leave everything past the first slice
-        // untouched.
+        // Work from a copy: ThingsInGroup returns the lister's live list, and destroying a
+        // plant while walking it shifts the next entry and skips it. Rebuild after each
+        // slice so newly grown plants are included without restarting the sweep every tick.
         void StepPlants()
         {
             if (_plantIdx >= _plants.Count)

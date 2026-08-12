@@ -7,19 +7,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // What the jukebox plays, decided here and played by the daemon. Everything on the list
-    // is the same kind of thing to it - the built-in track is a path, a station is a URL -
-    // so there is one mechanism rather than one per source taking turns, which is what the
-    // last version of this file spent most of its lines on.
-    //
-    // It is out there because it cannot be in here. Unity 2022 will not send a cleartext
-    // request; FMOD, which is what fetches a streamed clip, has no TLS, no desktop AAC
-    // decoder, and will not start on a response with no Content-Length - which is every
-    // Icecast stream there is. See slopd/src/audio.rs.
-    //
-    // Which station is picked is a setting rather than colony data, for the reason the
-    // pane's font is one: it is about this room and these ears, and it is wanted back on
-    // the next colony rather than buried with this one.
+    // The mod selects a path or URL; slopd plays it because Unity/FMOD cannot reliably fetch
+    // HTTPS Icecast streams or decode their common responses. The station is a user setting,
+    // not colony state, so it survives loading another colony.
     public static class Radio
     {
         // A station out there: what it is called, the qualities it serves, and where each
@@ -62,20 +52,8 @@ namespace SlopWorld
             public string Url(int rate) => _host + Path(rate);
         }
 
-        // The stations, in menu order. RP's 64 and 96 are advertised in various places on
-        // the web and 404 there, so its list is the one that actually answers.
-        //
-        // WeFunk publishes a .pls of four mirrors - s-00, s-09, s-14, s-17 - shuffled per
-        // request, all serving the one 64k stream. One of them is named here rather than
-        // the playlist: the daemon opens a URL and decodes what comes back, and teaching it
-        // to unpick a playlist first would be a second fetch and a second thing to go
-        // wrong. A mirror that is down is the same failure as a station that is down, and
-        // Report already hands that back to the OST.
-        //
-        // WALM serves the one 320k stream, and serves it at 48000 rather than the 44100 the
-        // rest of the list is at. That is the daemon's problem rather than this table's -
-        // see Ring::current_span_len, which is what makes it one. WFMU is the other station
-        // with a quality choice; its stream names carry both the rate and the `k` suffix.
+        // Stations in menu order. Use a known WeFunk mirror instead of its playlist so the
+        // daemon performs one fetch; WALM's 48 kHz stream is handled by the daemon's resampler.
         public static readonly Station[] Stations =
         {
             new Station("RadioParadise Main", "https://stream.radioparadise.com/",
@@ -321,18 +299,8 @@ namespace SlopWorld
             if (++_updateSkip < UpdateInterval) return;
             _updateSkip = 0;
 
-            // The game's own music manager stays off for good. It is not sharing the job
-            // with anything any more - the OST is out there too - so this is a flag held
-            // rather than the switching the two of them used to do. A load or a new colony
-            // builds a fresh manager with the flag clear, which is why the manager's own
-            // `disabled` is what is asked rather than something we latch on our side: a
-            // static that stuck would let vanilla music back in on the second game of the
-            // process. It is the throttle above, not a cached answer, that keeps the cost
-            // of asking down.
-            //
-            // Only once there is a game. Find.MusicManagerPlay is a castclass to Root_Play,
-            // so on the menu it throws rather than returning null, and Stop() asks
-            // DangerMusicMode, which reads Find.Scenario before it is set.
+            // Disable vanilla music only while a game is active. Query the manager each time:
+            // a new colony creates it enabled, and Find.MusicManagerPlay is unsafe on menus.
             if (Current.ProgramState == ProgramState.Playing)
             {
                 try

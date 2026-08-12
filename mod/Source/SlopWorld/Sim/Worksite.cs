@@ -108,17 +108,9 @@ namespace SlopWorld
         const float LargeBloom = 8f;
         const float MonumentBloom = 11f;
 
-        // How a thing stands with its own kind: a line of Least..Most of them, Lines such
-        // lines side by side, Gap cells clear between neighbours along the line and
-        // between the lines. Zeroes mean one thing on its own, which is what most errands
-        // are, so an errand wanting nothing special says nothing (Add normalises).
-        //
-        // The whole sequence is pitched in the same pass, and a frame is a building as far
-        // as Fits and the next round of darts are concerned, so the ground under the run
-        // is claimed before the first of them is finished. One at a time, a row of graves
-        // would grow a stele through the middle of it. The spacing is read off the thing's
-        // own footprint rather than stated here, so the table never has to keep a figure
-        // in step with a def.
+        // A run is Least..Most items in Lines rows with Gap cells between them. The whole
+        // run is pitched in one pass so its frames reserve the ground before construction;
+        // spacing comes from the rotated footprint rather than duplicated def dimensions.
         struct Run
         {
             public int Least, Most, Lines, Gap;
@@ -601,17 +593,8 @@ namespace SlopWorld
             bool floor = what is TerrainDef;
             var footprint = GenAdj.OccupiedRect(at, rot, what.Size);
 
-            // What vanilla wants cleared off the ground first, which here is work no agent
-            // is allowed and a hauler that does not exist - so such a cell is not a site.
-            //
-            // Read off the *blueprint*, not off what is being built: for a floor the two
-            // disagree and only the blueprint's is the answer the game will give.
-            // NewBlueprintDef_Terrain sets both flags false, so a plate goes over grass and
-            // slag and only a plant worth harvesting blocks one. The TerrainDef has
-            // clearBuildingArea true, as every BuildableDef does by default, and reading it
-            // there refused every cell with a blade of grass in it - which on the rim and
-            // anywhere a detonation has been is most of them, so the darts found nowhere to
-            // pave and BlockedFor sat the site down on that.
+            // Read clearing flags from the blueprint: terrain blueprints disable both flags,
+            // allowing paving over grass and slag while harvestable plants still block it.
             var print = what.blueprintDef;
             bool clear = print != null ? print.clearBuildingArea : what.clearBuildingArea;
             bool tidy = clear || (print != null
