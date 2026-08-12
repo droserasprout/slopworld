@@ -55,6 +55,11 @@ namespace SlopWorld
         // is about the screen it is on.
         public string cursorColor = "";
 
+        // The hardware cursor's game-asset design. Kept as a key rather than a texture path
+        // so an asset can move without invalidating somebody's preference.
+        public string cursor = "tame";
+        public bool cursorGrayscale = true;
+
         // Which station the jukebox is on: "ost", or the name the stream host serves a
         // quality preset at ("mp3-128"). Here rather than in a save for the reason the
         // theme is: it is about this room and these ears, and it is wanted back on the
@@ -106,6 +111,8 @@ namespace SlopWorld
             Scribe_Values.Look(ref uiFontName, "uiFontName", "");
             Scribe_Values.Look(ref theme, "theme", "slopworld");
             Scribe_Values.Look(ref cursorColor, "cursorColor", "");
+            Scribe_Values.Look(ref cursor, "cursor", "tame");
+            Scribe_Values.Look(ref cursorGrayscale, "cursorGrayscale", true);
             Scribe_Values.Look(ref radio, "radio", "ost");
             Scribe_Values.Look(ref radioMute, "radioMute", false);
             Scribe_Values.Look(ref radioStopOnExit, "radioStopOnExit", true);
@@ -135,6 +142,8 @@ namespace SlopWorld
         public static string UIFontName => S.uiFontName ?? "";
         public static string Theme => S.theme ?? "";
         public static string CursorColor => S.cursorColor ?? "";
+        public static string Cursor => S.cursor ?? "tame";
+        public static bool CursorGrayscale => S.cursorGrayscale;
         public static string Radio => S.radio ?? "";
         public static bool RadioMute => S.radioMute;
         public static bool RadioStopOnExit => S.radioStopOnExit;
