@@ -5,7 +5,8 @@
   written while slopd is running with the effective URL and token, mode `0600`.
 - User presets: `~/.config/slopworld/presets/*.toml` (`SLOPD_PRESETS` overrides).
 - User jukebox definitions: `~/.config/slopworld/jukebox/*.toml` (`XDG_CONFIG_HOME`
-  overrides). The shipped definitions are under the mod's `Jukebox/` folder.
+  or `SLOPD_JUKEBOX` overrides). The shipped definitions are compiled into `slopd` from
+  `slopd/jukebox/`.
 - Jukebox likes: `~/.local/share/slopworld/jukebox.toml` (`XDG_DATA_HOME` overrides).
 - Profile: `$XDG_DATA_HOME/slopworld/profile`. Saves, screenshots, `Config/`.
 - Session state: `$XDG_DATA_HOME/slopworld/sessions/<state-id>/` (`SLOPD_STATE`

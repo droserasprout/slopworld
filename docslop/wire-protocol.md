@@ -2,19 +2,21 @@
 
 **Server events**: `{"t":"sessions"}` on any state, title or bell move;
 `{"t":"screen"}` for subscribed sessions; `{"t":"usage"}`, `{"t":"projects"}`,
-`{"t":"shortcuts"}` - those last three **also once on connect**, or a client
-attaching between polls draws nothing. And `{"t":"quit"}`: save and go.
+`{"t":"shortcuts"}`, and `{"t":"jukebox"}` - those catalog/config events **also once
+on connect**, or a client attaching between polls draws nothing. `jukebox` is resent when
+the daemon's TOML directory changes. And `{"t":"quit"}`: save and go.
 
 **Client messages**: `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste`,
 `audio`. And `{"t":"audio"}` back the other way, **on connect too**: the mod picks
 the music but only the daemon knows whether it plays - see
 [mod-jukebox](mod-jukebox.md).
 
-`audio` carries `volume` always and `source` in three states, which is the whole
-of the protocol: a string plays it, `null` stops, and **leaving the key out** is
-the volume slider moving and must not restart a stream. Coming back it is
-`{playing, source, volume, error, title}` - `title` being what the station says it
-is playing, unpicked out of the audio itself.
+`audio` carries `volume` always and `selection` in three states: an object with
+`station`/`stream` resolves through the daemon catalog, an object with `file` plays a local
+OST track, `null` stops, and **leaving the key out** is the volume slider moving and must not
+restart a stream. The old `source` form is accepted during upgrades. Coming back it is
+`{playing, source, volume, error, title}` - `title` being what the station says it is
+playing, unpicked out of the audio itself.
 
 Everything that rewrites `config.toml` goes over HTTP instead, because the error
 body matters: `/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`,
@@ -34,7 +36,7 @@ effective `network` plus `network_override`; writes send the override as a
 mode string or JSON `null` for inherit. The daemon rejects an override wider
 than its project's ceiling.
 
-`GET /api/usage`, `/api/presets`, `/api/browse`, `/api/search`, `/api/git`, `/api/audio` and
+`GET /api/usage`, `/api/presets`, `/api/jukebox`, `/api/browse`, `/api/search`, `/api/git`, `/api/audio` and
 `/api/game` are
 for anything that would rather ask than listen. `POST /api/open` answers 400 for a URL it will
 not take and 502 for an opener that would not.

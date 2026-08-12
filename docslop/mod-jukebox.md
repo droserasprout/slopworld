@@ -1,8 +1,9 @@
 # The jukebox
 
 `Sim/Jukebox.cs` owns the building and menus; `Sim/Radio.cs` owns the selected source and
-reports it to the daemon. Station definitions are loose TOML files in the installed mod's
-`Jukebox/` directory. One file is one station:
+reports it to the daemon. `slopd` owns the station catalog: shipped definitions are compiled
+from `slopd/jukebox/`, and user definitions are loose TOML files in the daemon's config
+directory. One file is one station:
 
 ```toml
 id = "example"
@@ -11,6 +12,8 @@ default_rate = 128
 [metadata]
 name = "Example Radio"
 donate = "https://example.org/support"
+# Optional, case-insensitive; both named captures are required for normalization.
+title_regex = '^\s*(?<title>.+?)\s+by\s+(?<artist>.+?)\s*$'
 
 [[stream]]
 rate = 128
@@ -19,15 +22,23 @@ url = "https://stream.example.org/example-128"
 ```
 
 Additional files go in `$XDG_CONFIG_HOME/slopworld/jukebox/`, or
-`~/.config/slopworld/jukebox/` when `XDG_CONFIG_HOME` is unset. They are read in filename
-order; a matching `id` replaces a shipped station, and a new id appends one. `metadata.donate`
-is retained on `Radio.Station.Metadata` for the future donation action. `key` is the stable
-human-readable part of the saved selection; old path-only selections remain readable.
+`~/.config/slopworld/jukebox/` when `XDG_CONFIG_HOME` is unset; `SLOPD_JUKEBOX` can point
+the daemon at another directory. The daemon reads them in filename order; a matching `id`
+replaces a shipped station, and a new id appends one.
+`metadata.donate` is sent to the mod and retained on `Radio.Station.Metadata` for the future
+donation action. `metadata.title_regex`, when present, extracts named `artist` and `title`
+groups from the raw ICY title and displays them as `artist - title`. `key` is the stable
+human-readable part of the saved selection; old path-only selections remain readable. URLs
+are resolved and opened by the daemon; they are not sent as the mod's selection.
 
-Mute sends no source rather than setting volume to zero, so the daemon does not download
-unheard audio. Selecting a source clears mute.
+The catalog is sent as a root WebSocket `jukebox` event on connect and whenever the daemon
+reloads the directory. `GET /api/jukebox` exposes the same display catalog to tools; it omits
+stream URLs. The mod keeps the last catalog in memory during a reconnect.
 
-Stop-on-exit sends `source: null` during `Root.Shutdown`. `Radio.Quit` also latches the
+Mute sends `selection: null` rather than setting volume to zero, so the daemon does not
+download unheard audio. Selecting a source clears mute.
+
+Stop-on-exit sends `selection: null` during `Root.Shutdown`. `Radio.Quit` also latches the
 shutdown state because `Application.Quit` lets later frames run; without the latch,
 `Radio.Update` can restart playback. A killed process cannot send this message.
 

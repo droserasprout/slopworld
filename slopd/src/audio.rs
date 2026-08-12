@@ -3,8 +3,8 @@
 //! Playback lives here because Unity rejects cleartext, while desktop FMOD lacks TLS and
 //! AAC and requires `Content-Length`, which Icecast streams omit.
 //!
-//! The mod supplies source and volume. HTTP(S) means a station; anything else is an
-//! absolute file path, avoiding `file://` decoding.
+//! The mod supplies a daemon-resolved source and volume. HTTP(S) means a station; anything
+//! else is an absolute file path, avoiding `file://` decoding.
 //!
 //! The command loop owns the device and mixer and opens sources synchronously so errors map
 //! to picks. A feeder decodes into a ring; the audio callback never waits on the network.
@@ -104,6 +104,14 @@ impl Audio {
 
     pub fn stop(&self) {
         let _ = self.tx.send(Cmd::Stop);
+    }
+
+    /// Publish a request-side error without trying to open a source. This is used when a
+    /// catalog selection is malformed or no longer exists, so a stale client cannot leave the
+    /// previous station playing while it waits for an audio-thread failure.
+    pub fn reject(&self, why: impl Into<String>) {
+        GENERATION.fetch_add(1, Ordering::SeqCst);
+        fail(&self.state, why.into());
     }
 
     pub fn state(&self) -> AudioState {

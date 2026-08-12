@@ -674,6 +674,10 @@ namespace SlopWorld
                     Shortcuts = ev["shortcuts"].Items.Select(ShortcutInfo.FromJson).ToList();
                     break;
 
+                case "jukebox":
+                    Radio.SetStations(ev["jukebox"]);
+                    break;
+
                 case "usage":
                     Usage = UsageInfo.FromJson(ev["usage"], Usage);
                     break;
@@ -788,17 +792,22 @@ namespace SlopWorld
                          $"\"random_tips\":{Tips(randomTips)}}}");
         }
 
-        // The jukebox. `source` is a station's URL or the absolute path of a file, null
-        // stops it, and leaving the key out altogether is the volume moving on its own -
-        // which must not restart what is playing. See Sim/Radio.cs.
-        public void SendAudio(string source, float volume)
+        // The jukebox. A station is an id plus its catalog stream key; a file is the absolute
+        // path of one of the mod's OST tracks. All three nulls stop it, and leaving selection
+        // out altogether is the volume moving on its own - which must not restart a stream.
+        // URLs never leave the selection message. See Sim/Radio.cs.
+        public void SendAudio(string station, string stream, string file, float volume)
         {
             if (_ws == null || !_ws.Connected) return;
-            // JVal.Q writes an empty string for a null, and the daemon reads the JSON null
-            // as "stop" and an absent key as "volume only" - three cases, so the literal
-            // is written here rather than quoted.
-            string src = source == null ? "null" : JVal.Q(source);
-            _ws.SendText($"{{\"t\":\"audio\",\"source\":{src},\"volume\":{Num(volume)}}}");
+            string selection;
+            if (file != null)
+                selection = $"{{\"file\":{JVal.Q(file)}}}";
+            else if (station != null && stream != null)
+                selection = $"{{\"station\":{JVal.Q(station)},\"stream\":{JVal.Q(stream)}}}";
+            else
+                selection = "null";
+            _ws.SendText($"{{\"t\":\"audio\",\"selection\":{selection}," +
+                         $"\"volume\":{Num(volume)}}}");
         }
 
         public void SendVolume(float volume)

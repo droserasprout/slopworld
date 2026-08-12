@@ -10,11 +10,12 @@ Where each half keeps its knobs, and the three places they rub. See
 | Format | TOML, one `toml::from_str` | RimWorld `Scribe_Values` |
 | Scope | this **machine** | this **install** |
 | Written by | `Config::save`, and the HTTP routes | `ModSettings.Write` in `PostClose` |
-| Sidecar | `presets/*.toml` (`SLOPD_PRESETS`), `endpoint.json` (`SLOPD_ENDPOINT`) | `Jukebox/*.toml` in the mod, user additions under `~/.config/slopworld/jukebox/` |
+| Sidecar | `presets/*.toml` (`SLOPD_PRESETS`), `jukebox/*.toml` (`SLOPD_JUKEBOX`), `endpoint.json` (`SLOPD_ENDPOINT`) | none; the mod mirrors the daemon catalog |
 
 The mod does not open the daemon's TOML: it asks over HTTP (`GET /api/config` ->
 `SlopConfig.FromJson`, `PUT /api/config/patch`), plus the raw-text door and the
-per-list routes. Its separate `Jukebox/*.toml` files are read locally by `Radio`.
+per-list routes. The daemon's `jukebox/*.toml` files are read by `slopd`; `Radio` receives
+the catalog over the authenticated WebSocket and sends back only station/stream keys.
 See [wire-protocol](wire-protocol.md), [mod-client](mod-client.md),
 [mod-settings](mod-settings.md).
 

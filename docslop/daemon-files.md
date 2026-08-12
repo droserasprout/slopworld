@@ -9,6 +9,7 @@
 | `tmux.rs` | Async wrapper over the tmux CLI. |
 | `sandbox.rs` | The bubblewrap argv, network modes, and pasta wrapper. |
 | `presets.rs` | The preset tables: builtin TOML plus the user's. |
+| `jukebox.rs` | The station catalog: builtin/user TOML, metadata, and daemon-side URL resolution. |
 | `config.rs` | `config.toml` load, save, and seed. |
 | `usage.rs` | Polls Anthropic and OpenRouter for what is left of each. |
 | `audio.rs` | The jukebox's sound, because the game cannot play it. |

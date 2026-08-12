@@ -74,6 +74,7 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/open", post(open_url))
         .route("/api/usage", get(usage))
         .route("/api/audio", get(audio))
+        .route("/api/jukebox", get(jukebox))
         .route("/api/browse", get(browse))
         .route(
             "/api/files",
@@ -875,6 +876,12 @@ async fn audio(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!(m.audio.state())))
 }
 
+/// The station catalog for clients that draw the jukebox. URLs stay daemon-side; this carries
+/// only ids, stream keys, rates and the metadata a UI may render.
+async fn jukebox() -> ApiResult {
+    Ok(Json(json!(crate::jukebox::catalog())))
+}
+
 #[derive(Deserialize)]
 struct ClipReq {
     #[serde(default)]
@@ -1389,22 +1396,34 @@ enum ClientMsg {
     Audio(AudioReq),
 }
 
-/// The jukebox. `source` is a URL for a station or an absolute path for a file, and null
-/// is silence - the mod sends the path of the track it ships rather than a `file://` URL,
-/// so there is nothing to escape at either end. `volume` alone (no `source` key at all)
-/// is the slider moving and must not restart what is playing.
+/// The jukebox. `selection` is absent for a volume-only update, null for silence, a station
+/// id/stream key for a catalog entry, or a file path for one of the mod's OST tracks. The old
+/// `source` form remains accepted while a daemon and mod are being upgraded independently.
 #[derive(Deserialize)]
 struct AudioReq {
+    #[serde(default, deserialize_with = "some_option")]
+    selection: Option<Option<AudioSelection>>,
     #[serde(default, deserialize_with = "some_option")]
     source: Option<Option<String>>,
     volume: f32,
 }
 
+#[derive(Deserialize)]
+struct AudioSelection {
+    #[serde(default)]
+    station: Option<String>,
+    #[serde(default)]
+    stream: Option<String>,
+    #[serde(default)]
+    file: Option<String>,
+}
+
 /// Tells "the key was absent" from "the key was null", which is the difference between a
 /// volume change and a stop.
-fn some_option<'de, D>(d: D) -> Result<Option<Option<String>>, D::Error>
+fn some_option<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
 where
     D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
 {
     Option::deserialize(d).map(Some)
 }
@@ -1504,7 +1523,8 @@ fn scope_event(cap: &Cap, ev: Event) -> Option<Event> {
             Event::Projects { .. }
             | Event::Shortcuts { .. }
             | Event::Usage { .. }
-            | Event::Audio { .. } => None,
+            | Event::Audio { .. }
+            | Event::Jukebox { .. } => None,
         },
     }
 }
@@ -1549,6 +1569,9 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
         // whether the music it asked for last time is playing.
         Event::Audio {
             audio: m.audio.state(),
+        },
+        Event::Jukebox {
+            jukebox: crate::jukebox::catalog(),
         },
     ] {
         if let Some(ev) = scope_event(&cap, ev) {
@@ -1748,9 +1771,37 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
                 if !cap.may_create() {
                     continue;
                 }
-                match ar.source {
-                    Some(Some(source)) => m.audio.play(&source, ar.volume),
+                match ar.selection {
+                    Some(Some(selection)) => {
+                        let source = match (selection.station, selection.stream, selection.file) {
+                            (Some(station), Some(stream), None) => {
+                                match crate::jukebox::catalog().resolve(&station, &stream) {
+                                    Ok(source) => Some(source),
+                                    Err(e) => {
+                                        let why = format!("jukebox selection rejected: {e:#}");
+                                        tracing::warn!("{why}");
+                                        m.audio.reject(why);
+                                        None
+                                    }
+                                }
+                            }
+                            (None, None, Some(file)) => Some(file),
+                            _ => {
+                                let why = "jukebox selection must name a station/stream or file";
+                                tracing::warn!("{why}");
+                                m.audio.reject(why);
+                                None
+                            }
+                        };
+                        if let Some(source) = source {
+                            m.audio.play(&source, ar.volume);
+                        }
+                    }
                     Some(None) => m.audio.stop(),
+                    None if ar.source.is_some() => match ar.source.unwrap() {
+                        Some(source) => m.audio.play(&source, ar.volume),
+                        None => m.audio.stop(),
+                    },
                     None => m.audio.set_volume(ar.volume),
                 }
             }
@@ -1935,5 +1986,23 @@ mod tests {
 
         assert!(preview.contains("test"));
         assert!(std::str::from_utf8(preview.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn audio_selection_has_distinct_stop_volume_and_catalog_shapes() {
+        let station: super::AudioReq = serde_json::from_str(
+            r#"{"selection":{"station":"fixture","stream":"local"},"volume":0.5}"#,
+        )
+        .unwrap();
+        let selected = station.selection.unwrap().unwrap();
+        assert_eq!(selected.station.as_deref(), Some("fixture"));
+        assert_eq!(selected.stream.as_deref(), Some("local"));
+
+        let stop: super::AudioReq =
+            serde_json::from_str(r#"{"selection":null,"volume":0.5}"#).unwrap();
+        assert!(stop.selection.is_some_and(|selection| selection.is_none()));
+
+        let volume: super::AudioReq = serde_json::from_str(r#"{"volume":0.5}"#).unwrap();
+        assert!(volume.selection.is_none());
     }
 }

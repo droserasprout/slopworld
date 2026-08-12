@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -7,9 +9,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The mod selects a path or URL; slopd plays it because Unity/FMOD cannot reliably fetch
-    // HTTPS Icecast streams or decode their common responses. The station is a user setting,
-    // not colony state, so it survives loading another colony.
+    // The mod selects an opaque station key; slopd owns the catalog and opens the URL because
+    // Unity/FMOD cannot reliably fetch HTTPS Icecast streams or decode their common responses.
+    // The station is a user setting, not colony state, so it survives loading another colony.
     public static class Radio
     {
         // The part of a station the UI will eventually use in addition to its streams. Keep
@@ -18,17 +20,18 @@ namespace SlopWorld
         {
             public readonly string Name;
             public readonly string Donate;
+            public readonly string TitleRegex;
 
-            internal Metadata(string name, string donate)
+            internal Metadata(string name, string donate, string titleRegex)
             {
                 Name = name;
                 Donate = donate ?? "";
+                TitleRegex = titleRegex ?? "";
             }
         }
 
-        // A station out there: metadata and the qualities it serves. The definitions are
-        // TOML files rather than code so a user can add one without rebuilding the mod. See
-        // JukeboxConfig for the file shape and the two directories it merges.
+        // A station from the daemon's catalog: metadata and the qualities it serves. URLs stay
+        // out of selection messages; only stable ids and stream keys cross that boundary.
         public sealed class Station
         {
             public readonly string Id;
@@ -40,60 +43,157 @@ namespace SlopWorld
             // is built the same way either way - see Jukebox.Presets.
             public readonly int[] Rates;
 
-            readonly JukeboxStream[] _streams;
+            readonly string[] _keys;
+            readonly Regex _titleRegex;
 
             // The quality it was last left on, so a switch away and back comes up where it
             // was. Kept per station rather than as one number for the lot of them: the
             // lists do not overlap, and RP's 192 is not a rate WeFunk has ever served.
             public int Rate;
 
-            internal Station(JukeboxDefinition definition)
+            internal Station(string id, string name, string donate, string titleRegex,
+                             int[] rates, string[] keys, int defaultRate)
             {
-                Id = definition.Id;
-                Metadata = new Metadata(definition.Name, definition.Donate);
-                _streams = definition.Streams.ToArray();
-                Rates = new int[_streams.Length];
-                for (int i = 0; i < _streams.Length; i++) Rates[i] = _streams[i].Rate;
-                Rate = definition.DefaultRate;
+                Id = id;
+                Metadata = new Metadata(name, donate, titleRegex);
+                Rates = rates;
+                _keys = keys;
+                Rate = defaultRate;
+
+                if (string.IsNullOrEmpty(Metadata.TitleRegex)) return;
+                try
+                {
+                    _titleRegex = new Regex(Metadata.TitleRegex,
+                        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                }
+                catch (ArgumentException e)
+                {
+                    Log.Warning($"[SlopWorld] jukebox: invalid title regex for {Id}: {e.Message}");
+                }
             }
 
             // The stream's stable key at a rate - "mp3-192", "wefunk64.mp3", "classic".
             // It keeps old settings readable and gives new settings a human-editable tail.
-            public string Path(int rate) => Find(rate)?.Key;
-
-            public string Url(int rate) => Find(rate)?.Url;
+            public string Path(int rate)
+            {
+                int index = Find(rate);
+                return index < 0 ? null : _keys[index];
+            }
 
             public string SelectionKey(int rate) => Id + ":" + Path(rate);
 
-            JukeboxStream Find(int rate)
+            internal string FormatTitle(string title)
             {
-                foreach (var stream in _streams)
-                    if (stream.Rate == rate) return stream;
-                return null;
+                if (_titleRegex == null || string.IsNullOrEmpty(title)) return title;
+                Match match = _titleRegex.Match(title);
+                if (!match.Success) return title;
+
+                Group artist = match.Groups["artist"];
+                Group song = match.Groups["title"];
+                if (!artist.Success || !song.Success) return title;
+
+                string artistText = artist.Value.Trim();
+                string songText = song.Value.Trim();
+                return string.IsNullOrEmpty(artistText) || string.IsNullOrEmpty(songText)
+                    ? title
+                    : artistText + " - " + songText;
+            }
+
+            int Find(int rate)
+            {
+                for (int i = 0; i < Rates.Length; i++)
+                    if (Rates[i] == rate) return i;
+                return -1;
             }
         }
 
-        static Station[] _stations;
+        static Station[] _stations = new Station[0];
 
-        // Stations in menu order. Built-ins are loose TOML files in the installed mod and
-        // user files replace a built-in with the same id or append a new station. Loading is
-        // lazy because ModContentPack is not available when static classes are first touched.
-        public static Station[] Stations
+        // Stations in daemon catalog order. The last catalog remains in memory while the
+        // socket reconnects, so a temporary daemon restart does not empty an open menu.
+        public static Station[] Stations => _stations;
+
+        // The daemon sends metadata and stable keys, never stream URLs. Invalid entries are
+        // ignored individually so one bad user definition cannot take the whole menu down.
+        public static void SetStations(JVal catalog)
         {
-            get
+            if (catalog == null || catalog.IsNull || catalog["stations"].IsNull) return;
+
+            string saved = null;
+            if (_station != null) saved = _station.SelectionKey(_station.Rate);
+            else if (_read) saved = Settings.Radio;
+            string previousSelection = _station?.SelectionKey(_station.Rate);
+
+            var next = new List<Station>();
+            foreach (var item in catalog["stations"].Items)
             {
-                EnsureStations();
-                return _stations;
+                try
+                {
+                    string id = item["id"].AsString(null);
+                    if (string.IsNullOrEmpty(id)) throw new InvalidOperationException("missing id");
+
+                    var metadata = item["metadata"];
+                    string name = metadata["name"].AsString(id);
+                    string donate = metadata["donate"].AsString("");
+                    string titleRegex = metadata["title_regex"].AsString("");
+
+                    var rates = new List<int>();
+                    var keys = new List<string>();
+                    foreach (var stream in item["streams"].Items)
+                    {
+                        int rate = stream["rate"].AsInt(0);
+                        string key = stream["key"].AsString("");
+                        if (rate <= 0 || string.IsNullOrEmpty(key))
+                            throw new InvalidOperationException("stream needs a positive rate and key");
+                        if (rates.Contains(rate) || keys.Contains(key))
+                            throw new InvalidOperationException("duplicate stream rate or key");
+                        rates.Add(rate);
+                        keys.Add(key);
+                    }
+                    if (rates.Count == 0) throw new InvalidOperationException("no streams");
+
+                    int defaultRate = item["default_rate"].AsInt(rates[0]);
+                    if (!rates.Contains(defaultRate))
+                        throw new InvalidOperationException("default rate has no stream");
+
+                    next.Add(new Station(id, name, donate, titleRegex,
+                        rates.ToArray(), keys.ToArray(), defaultRate));
+                }
+                catch (Exception e)
+                {
+                    Log.Warning("[SlopWorld] jukebox: ignoring catalog station: " + e.Message);
+                }
             }
+
+            _stations = next.ToArray();
+            if (!_read) return;
+
+            _station = FindSelection(saved);
+            string nextSelection = _station?.SelectionKey(_station.Rate);
+            if (previousSelection != null && nextSelection == null)
+            {
+                Save();
+            }
+            // This also covers the first catalog arriving after Read selected the OST
+            // provisionally, and a reload that changes the URL behind the same stable key.
+            if (previousSelection != null || nextSelection != null) Push();
         }
 
-        static void EnsureStations()
+        static Station FindSelection(string saved)
         {
-            if (_stations != null) return;
-            var definitions = JukeboxConfig.Load();
-            _stations = new Station[definitions.Count];
-            for (int i = 0; i < definitions.Count; i++)
-                _stations[i] = new Station(definitions[i]);
+            if (string.IsNullOrEmpty(saved)) return null;
+            foreach (var station in Stations)
+            {
+                foreach (int rate in station.Rates)
+                {
+                    // The path-only form is what older builds wrote. New settings include the
+                    // id, but retaining the old form makes the migration invisible.
+                    if (saved != station.SelectionKey(rate) && saved != station.Path(rate)) continue;
+                    station.Rate = rate;
+                    return station;
+                }
+            }
+            return null;
         }
 
         // The tracks this mod ships, as paths under the mod's own folder. One is picked
@@ -221,24 +321,12 @@ namespace SlopWorld
             return Path.Combine(root, "slopworld", "jukebox.toml");
         }
 
-        // Classic Vinyl reports "Song by Artist - Classic Vinyl on walmradio.com", while
-        // the other stations report the usual "Artist - Song" shape. Keep the station's
-        // branding out of the hover bubble and make its title read like the rest.
+        // A station may provide metadata.title_regex with named `artist` and `title` groups.
+        // Keep the station-specific title shape in its TOML rather than in this list of
+        // stations, and leave an unmatched title untouched for diagnosis.
         static string FormatTitle(Station station, string title)
         {
-            if (station == null || string.IsNullOrEmpty(title)
-                || station.Name != "Classic Vinyl HD") return title;
-
-            const string suffix = " - Classic Vinyl on walmradio.com";
-            if (title.EndsWith(suffix, System.StringComparison.OrdinalIgnoreCase))
-                title = title.Substring(0, title.Length - suffix.Length).Trim();
-
-            int by = title.IndexOf(" by ", System.StringComparison.OrdinalIgnoreCase);
-            if (by <= 0 || by + 4 >= title.Length) return title;
-
-            string song = title.Substring(0, by).Trim();
-            string artist = title.Substring(by + 4).Trim();
-            return artist + " - " + song;
+            return station == null ? title : station.FormatTitle(title);
         }
 
         public static string RateLabel(int rate) => rate + "k mp3";
@@ -340,10 +428,10 @@ namespace SlopWorld
             // that knows what was playing.
             if (!hub.Online) { _told = false; _sentVolume = -1f; return; }
 
-            string want = Source();
+            string want = Selection();
             if (!_told || want != _sent)
             {
-                hub.SendAudio(want, Volume());
+                SendSelection(hub, Volume());
                 _sent = want;
                 _told = true;
                 _sentVolume = Volume();
@@ -360,15 +448,27 @@ namespace SlopWorld
         // the game's AudioListener - out there, this is the whole of it.
         static float Volume() => Mathf.Clamp01(Prefs.VolumeMusic * Prefs.VolumeMaster);
 
-        static string Source()
+        static string Selection()
         {
-            // Muted is silence rather than a quiet stream, and null is how silence is
-            // asked for: see SessionHub.SendAudio.
-            if (_muted) return null;
-            if (_station != null) return _station.Url(_station.Rate);
-            // No path means no shipped track to point at, which is silence rather than a
-            // string the daemon would only fail to open.
-            return OstPath();
+            if (_muted) return "stop";
+            if (_station != null) return "station:" + _station.SelectionKey(_station.Rate);
+            string path = OstPath();
+            return path == null ? "stop" : "file:" + path;
+        }
+
+        static void SendSelection(SessionHub hub, float volume)
+        {
+            if (_muted)
+            {
+                hub.SendAudio(null, null, null, volume);
+                return;
+            }
+            if (_station != null)
+            {
+                hub.SendAudio(_station.Id, _station.Path(_station.Rate), null, volume);
+                return;
+            }
+            hub.SendAudio(null, null, OstPath(), volume);
         }
 
         // The daemon's answer to what was asked of it. A station that will not play is
@@ -415,7 +515,7 @@ namespace SlopWorld
 
             var hub = SessionHub.Instance;
             if (hub == null || !hub.Online) return;
-            hub.SendAudio(null, Volume());
+            hub.SendAudio(null, null, null, Volume());
         }
 
         // Forces the next Update to send, rather than sending from here: one place puts
@@ -444,29 +544,12 @@ namespace SlopWorld
             if (_read) return;
             _read = true;
 
-            EnsureStations();
-
             _muted = Settings.RadioMute;
             _stopOnExit = Settings.RadioStopOnExit;
 
-            string saved = Settings.Radio;
-            foreach (var station in Stations)
-            {
-                foreach (int rate in station.Rates)
-                {
-                    // The path-only form is what previous builds wrote. New settings use
-                    // the id as well, but retaining the old form makes the file migration
-                    // invisible to anyone who already picked a station.
-                    if (saved != station.SelectionKey(rate) && saved != station.Path(rate)) continue;
-                    _station = station;
-                    station.Rate = rate;
-                    return;
-                }
-            }
-
-            // Anything else, "ost" included, is the OST. The stations keep the default
-            // quality they were declared with, since nothing has been said about them.
-            _station = null;
+            // The catalog arrives over the socket. If it has not arrived yet, keep the saved
+            // key in Settings and SetStations will restore it when the daemon sends the list.
+            _station = FindSelection(Settings.Radio);
         }
     }
 

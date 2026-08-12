@@ -60,9 +60,9 @@ namespace SlopWorld
         public string cursor = "tame";
         public bool cursorGrayscale = true;
 
-        // Which station the jukebox is on: "ost", or "station-id:stream-key" from one of
-        // the station TOML files. Here rather than in a save for the reason the theme is: it
-        // is about this room and these ears, and it is wanted back on the next colony rather
+        // Which station the jukebox is on: "ost", or "station-id:stream-key" from the
+        // daemon's catalog. Here rather than in a save for the reason the theme is: it is
+        // about this room and these ears, and it is wanted back on the next colony rather
         // than buried with this one. A preset this build no longer lists reads as the OST.
         public string radio = "ost";
 

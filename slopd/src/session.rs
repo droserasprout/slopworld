@@ -152,6 +152,7 @@ pub enum Event {
     Screen { screen: ScreenView },
     Usage { usage: crate::usage::Snapshot },
     Audio { audio: crate::audio::AudioState },
+    Jukebox { jukebox: crate::jukebox::Catalog },
     Quit,
 }
 
@@ -424,6 +425,7 @@ pub struct Manager {
     rules: RwLock<Vec<(State, Regex)>>,
     cfg_mtime: Mutex<Option<SystemTime>>,
     presets_mtime: Mutex<Option<SystemTime>>,
+    jukebox_mtime: Mutex<Option<SystemTime>>,
     cfg_checked: AtomicU64,
     usage: RwLock<crate::usage::Snapshot>,
     clients: AtomicUsize,
@@ -748,6 +750,7 @@ impl Manager {
             cfg: RwLock::new(cfg),
             cfg_mtime: Mutex::new(mtime),
             presets_mtime: Mutex::new(crate::presets::dir_stamp()),
+            jukebox_mtime: Mutex::new(crate::jukebox::dir_stamp()),
             cfg_checked: AtomicU64::new(0),
             usage: RwLock::new(crate::usage::Snapshot::default()),
             clients: AtomicUsize::new(0),
@@ -843,6 +846,7 @@ impl Manager {
             return;
         }
         self.reload_presets_if_changed().await;
+        self.reload_jukebox_if_changed().await;
         self.reload_if_changed().await;
     }
 
@@ -859,6 +863,23 @@ impl Manager {
         crate::presets::reload();
         let _ = self.events.send(Event::Sessions {
             sessions: self.views().await,
+        });
+        true
+    }
+
+    pub async fn reload_jukebox_if_changed(self: &Arc<Self>) -> bool {
+        let disk = crate::jukebox::dir_stamp();
+        {
+            let mut seen = self.jukebox_mtime.lock().unwrap();
+            if *seen == disk {
+                return false;
+            }
+            *seen = disk;
+        }
+        tracing::info!("jukebox definitions changed on disk, reloading");
+        crate::jukebox::reload();
+        let _ = self.events.send(Event::Jukebox {
+            jukebox: crate::jukebox::catalog(),
         });
         true
     }

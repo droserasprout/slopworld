@@ -7,6 +7,7 @@ mod endpoint;
 mod game;
 mod git;
 mod grant;
+mod jukebox;
 mod open;
 mod perf;
 mod presets;
@@ -50,6 +51,14 @@ async fn main() -> Result<()> {
         presets::Table::dir().display()
     );
     drop(table);
+
+    let jukebox = jukebox::catalog();
+    tracing::info!(
+        "jukebox: {} stations, user files from {}",
+        jukebox.stations.len(),
+        jukebox::Catalog::dir().display()
+    );
+    drop(jukebox);
 
     let bind = cfg.daemon.bind.clone();
     let poll_ms = cfg.daemon.poll_ms.max(200);
