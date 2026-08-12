@@ -49,6 +49,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [mod-content-views](mod-content-views.md) - one window, and what fills it.
 - [mod-ui-windows](mod-ui-windows.md) - the dialogs and the options pages.
 - [mod-settings](mod-settings.md) - `SlopSettings`, and why a knob lives there.
+- [vscode-registries](vscode-registries.md) - how VS Code wires actions, keys and settings into one system.
 - [gotchas](gotchas.md) - the traps that cost a day each.
 - [zsh-terminal](zsh-terminal.md) - zsh-newuser-install wizard vs bash default prompt.
 - [skyfallers](skyfallers.md) - dropping a thing out of the sky.
