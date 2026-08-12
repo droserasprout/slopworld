@@ -27,6 +27,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [daemon-game](daemon-game.md) - is the game up, and restarting it.
 - [wire-protocol](wire-protocol.md) - WS events, client messages, HTTP routes.
 - [mod-client](mod-client.md) - `Client/`: hub, socket, JSON, config mirror.
+- [csharp-tests](csharp-tests.md) - why the mod has no test harness yet, and the useful first layer.
 - [mod-sim](mod-sim.md) - `Sim/`: colony reconcile, clock, intro, restart.
 - [mod-plague](mod-plague.md) - the dead ground.
 - [mod-worksite](mod-worksite.md) - what a working agent builds.
