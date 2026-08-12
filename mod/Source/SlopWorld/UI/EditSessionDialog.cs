@@ -29,6 +29,10 @@ namespace SlopWorld
         float _generalH = 320f;
         float _sandboxH = 480f;
 
+        // Limits are edited as raw strings so a half-typed number is not lost to a reparse each
+        // frame; they are parsed back into `_s.Limits` on Save. Blank means no cap.
+        string _limMem, _limPids, _limNofile, _limCpu;
+
         // For the title. Null unless it is a duplicate: an edit already has `_origName`.
         readonly string _copiedFrom;
 
@@ -67,6 +71,7 @@ namespace SlopWorld
                     Breadcrumbs = new List<string>(existing.Breadcrumbs),
                     Network = existing.Network,
                     NetworkOverride = existing.NetworkOverride,
+                    Limits = existing.Limits,
                     Agent = existing.Agent,
                     Autostart = existing.Autostart,
                     BreadcrumbYolo = existing.BreadcrumbYolo,
@@ -82,7 +87,14 @@ namespace SlopWorld
                 SlopClient.Get("/api/config",
                     j => _s.CommandPreset = j["values"]["defaults"]["agent"].AsString("claude"),
                     SlopWidgets.Fail);
+
+            _limMem = LimStr(_s.Limits.MemoryMb);
+            _limPids = LimStr(_s.Limits.Pids);
+            _limNofile = LimStr(_s.Limits.Nofile);
+            _limCpu = LimStr(_s.Limits.CpuPct);
         }
+
+        static string LimStr(int? v) => v.HasValue ? v.Value.ToString() : "";
 
         // A left rail of short pages rather than one long form: the agent, its sandbox, its
         // breadcrumbs and the preview each get their own tab so none has to hold the others.
@@ -257,21 +269,45 @@ namespace SlopWorld
             return y - rect.y + SlopWidgets.GapS;
         }
 
-        // Per-session rlimit/cgroup caps. A stub until the daemon enforces them and
-        // `SessionInfo` carries the values; returns the height drawn so `DrawSandbox` can size
-        // its scroll view.
+        // Per-agent resource caps the daemon enforces with a systemd scope. Edited as strings;
+        // parsed on Save. Returns the height drawn so `DrawSandbox` can size its scroll view.
         float DrawLimits(Rect rect)
         {
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
+
             GUI.color = SlopWidgets.Dim;
-            l.Label("Coming soon: caps on processes, open files, memory and disk. " +
-                    "Unset means the daemon default.");
+            l.Label("Blank means no cap. An unset field inherits the project, then the host.");
             GUI.color = Color.white;
+
+            l.Label("Memory (MiB)");
+            _limMem = SlopWidgets.Field(l, "agent.lim.mem", _limMem ?? "");
+            l.Label("Max processes and threads");
+            _limPids = SlopWidgets.Field(l, "agent.lim.pids", _limPids ?? "");
+            l.Label("Open files per process");
+            _limNofile = SlopWidgets.Field(l, "agent.lim.nofile", _limNofile ?? "");
+            l.Label("CPU (% of one core)");
+            _limCpu = SlopWidgets.Field(l, "agent.lim.cpu", _limCpu ?? "");
+
+            // Mirror the buffers into the model as they are typed, leniently, so the Preview tab
+            // reflects them; Save reparses strictly and reports a typo rather than dropping it.
+            _s.Limits = new SessionLimits
+            {
+                MemoryMb = LimVal(_limMem),
+                Pids = LimVal(_limPids),
+                Nofile = LimVal(_limNofile),
+                CpuPct = LimVal(_limCpu),
+            };
+
             float used = l.CurHeight;
             l.End();
             return used;
         }
+
+        // Blank or not a positive whole number reads as no cap; the strict parse on Save is
+        // what turns a typo into a message instead of silence.
+        static int? LimVal(string text) =>
+            int.TryParse((text ?? "").Trim(), out int n) && n >= 1 ? n : (int?)null;
 
         void DrawBreadcrumbs(Rect rect)
         {
@@ -379,6 +415,22 @@ namespace SlopWorld
             Find.WindowStack.Add(new SlopMenu(options));
         }
 
+        // Blank clears a cap; otherwise it must be a whole number of at least 1. A typo is
+        // refused rather than silently dropped, so a cap the user typed is never lost on Save.
+        static bool TryLimit(string text, string label, out int? value)
+        {
+            value = null;
+            string t = (text ?? "").Trim();
+            if (t.Length == 0) return true;
+            if (int.TryParse(t, out int n) && n >= 1)
+            {
+                value = n;
+                return true;
+            }
+            SlopWidgets.Fail($"{label} must be a whole number of at least 1, or blank for no cap");
+            return false;
+        }
+
         void Save()
         {
             if (string.IsNullOrEmpty(_s.Name) || string.IsNullOrEmpty(_s.Project))
@@ -386,6 +438,19 @@ namespace SlopWorld
                 SlopWidgets.Fail("name and project are required");
                 return;
             }
+
+            if (!TryLimit(_limMem, "Memory", out var mem) ||
+                !TryLimit(_limPids, "Max processes", out var pids) ||
+                !TryLimit(_limNofile, "Open files", out var nofile) ||
+                !TryLimit(_limCpu, "CPU", out var cpu))
+                return;
+            _s.Limits = new SessionLimits
+            {
+                MemoryMb = mem,
+                Pids = pids,
+                Nofile = nofile,
+                CpuPct = cpu,
+            };
 
             string from = _origName, to = _s.Name;
             SessionHub.Instance.Save(_s, _isNew, _origName,

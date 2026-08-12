@@ -93,6 +93,9 @@ namespace SlopWorld
             data.Fields.Add(new SandboxPreviewField("Included sandbox presets", data.Presets));
             data.Fields.Add(new SandboxPreviewField("Network",
                 new List<string> { data.Network }));
+            if (agent != null)
+                data.Fields.Add(new SandboxPreviewField("Resource limits",
+                    LimitLines(agent.Limits)));
             data.Fields.Add(new SandboxPreviewField("Read-only binds", ro));
             data.Fields.Add(new SandboxPreviewField("Read-write binds", rw));
             data.Fields.Add(new SandboxPreviewField("Device binds",
@@ -110,6 +113,17 @@ namespace SlopWorld
             data.Fields.Add(new SandboxPreviewField("Set environment (final)",
                 FinalEnvironment(presets)));
             return data;
+        }
+
+        // The agent's own caps, one line each. Empty renders as "(nothing)", i.e. no cap.
+        static List<string> LimitLines(SessionLimits limits)
+        {
+            var lines = new List<string>();
+            if (limits.MemoryMb.HasValue) lines.Add($"Memory: {limits.MemoryMb.Value} MiB");
+            if (limits.Pids.HasValue) lines.Add($"Max processes and threads: {limits.Pids.Value}");
+            if (limits.Nofile.HasValue) lines.Add($"Open files per process: {limits.Nofile.Value}");
+            if (limits.CpuPct.HasValue) lines.Add($"CPU: {limits.CpuPct.Value}% of one core");
+            return lines;
         }
 
         static List<string> ResolveNames(CommandInfo command, ProjectInfo project,

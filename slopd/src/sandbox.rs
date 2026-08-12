@@ -4,7 +4,7 @@ use std::path::{Component, Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::Serialize;
 
-use crate::config::{expand, Config, NetworkMode, ProjectCfg, SessionCfg};
+use crate::config::{expand, Config, Limits, NetworkMode, ProjectCfg, SessionCfg};
 use crate::presets::{SandboxPreset, Table};
 
 /// Forwarded whatever the config says, plus anything named `LC_*`. What belongs here says
@@ -766,6 +766,39 @@ fn resolver_target() -> Option<String> {
         .filter(|target| target != "/etc/resolv.conf")
 }
 
+/// A transient systemd user scope carrying this session's resource caps, so the agent's whole
+/// process tree lands in a cgroup the kernel enforces. An empty `Limits` never reaches here.
+/// slopd already leans on `systemd-run` for the tmux server and the game launcher, so it is a
+/// dependency in place rather than a new one - and unlike those two there is no silent inline
+/// fallback: a cap the caller asked for is enforced or the session does not start.
+fn scope_prefix(limits: &Limits) -> Vec<String> {
+    let mut out = vec![
+        "systemd-run".into(),
+        "--user".into(),
+        "--scope".into(),
+        "--quiet".into(),
+        "--collect".into(),
+    ];
+    let mut prop = |k: &str, v: String| {
+        out.push("--property".into());
+        out.push(format!("{k}={v}"));
+    };
+    if let Some(mb) = limits.memory_mb {
+        prop("MemoryMax", format!("{mb}M"));
+    }
+    if let Some(pids) = limits.pids {
+        prop("TasksMax", pids.to_string());
+    }
+    if let Some(nofile) = limits.nofile {
+        prop("LimitNOFILE", nofile.to_string());
+    }
+    if let Some(cpu) = limits.cpu_pct {
+        prop("CPUQuota", format!("{cpu}%"));
+    }
+    out.push("--".into());
+    out
+}
+
 fn pasta_prefix() -> Vec<String> {
     let mut out = vec![
         "pasta".into(),
@@ -1055,12 +1088,22 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
     a.push("--".into());
     a.extend(agent_argv);
 
-    if network == NetworkMode::Private {
+    let a = if network == NetworkMode::Private {
         let mut pasta = pasta_prefix();
         pasta.extend(a);
-        Ok(pasta)
+        pasta
     } else {
+        a
+    };
+
+    // The scope goes outermost, so pasta and bwrap and the agent all count against the caps.
+    let limits = cfg.limits_of(s, p);
+    if limits.is_empty() {
         Ok(a)
+    } else {
+        let mut scoped = scope_prefix(&limits);
+        scoped.extend(a);
+        Ok(scoped)
     }
 }
 
@@ -1197,6 +1240,64 @@ mod tests {
         assert!(private.contains(&"none".into()));
         assert!(private.contains(&"--share-net".into()));
         assert!(private.contains(&PRIVATE_ADDRESS.into()));
+    }
+
+    #[test]
+    fn resource_limits_wrap_the_agent_in_a_systemd_scope() {
+        let cfg = Config::default();
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "p".into(),
+            limits: Limits {
+                memory_mb: Some(512),
+                pids: Some(64),
+                nofile: None,
+                cpu_pct: Some(150),
+            },
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            network: NetworkMode::None,
+            ..Default::default()
+        };
+        let a = build_argv(&cfg, &s, &p).expect("scoped argv");
+
+        // Outermost: the scope is the very first thing, ahead of bwrap.
+        assert_eq!(a[0], "systemd-run");
+        assert!(a.contains(&"--scope".into()));
+        assert!(a
+            .windows(2)
+            .any(|w| w[0] == "--property" && w[1] == "MemoryMax=512M"));
+        assert!(a
+            .windows(2)
+            .any(|w| w[0] == "--property" && w[1] == "TasksMax=64"));
+        assert!(a
+            .windows(2)
+            .any(|w| w[0] == "--property" && w[1] == "CPUQuota=150%"));
+        // An unset cap is absent, never zero.
+        assert!(!a.iter().any(|x| x.starts_with("LimitNOFILE")));
+        // bwrap follows the scope's own `--` separator.
+        let sep = a.iter().position(|x| x == "--").expect("scope separator");
+        assert_eq!(a[sep + 1], "bwrap");
+    }
+
+    #[test]
+    fn no_limits_leaves_the_argv_unwrapped() {
+        let cfg = Config::default();
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "p".into(),
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        };
+        let a = build_argv(&cfg, &s, &p).expect("argv");
+        assert!(!a.contains(&"systemd-run".into()));
     }
 
     #[test]

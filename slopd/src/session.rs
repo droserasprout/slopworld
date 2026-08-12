@@ -13,8 +13,8 @@ use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinHandle;
 
 use crate::config::{
-    expand, Config, NetworkMode, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink,
-    TitlePolicy,
+    expand, Config, Limits, NetworkMode, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind,
+    ShortcutLink, TitlePolicy,
 };
 use crate::emu::{parse_output, Frame, MouseInput, SessionEmu};
 use crate::sandbox::build_argv;
@@ -61,6 +61,10 @@ pub struct SessionView {
     pub network: NetworkMode,
     /// Null means the agent inherits the project setting.
     pub network_override: Option<NetworkMode>,
+    /// The caps this agent runs under, its own merged over its project's.
+    pub limits: Limits,
+    /// This agent's own caps before project inheritance - what the editor edits.
+    pub limits_override: Limits,
     pub autostart: bool,
     // Ephemeral sessions have no editable config entry and die with their process.
     pub ephemeral: bool,
@@ -1782,6 +1786,7 @@ impl Manager {
         }
         check_name(&s.name)?;
         check_belongs(&cfg, &s)?;
+        s.limits.validate()?;
         // A client has no authority over which durable state an agent receives.  Always mint a
         // fresh key, including if a hand-written request carried a stale one.
         s.state_id = uuid::Uuid::new_v4().to_string();
@@ -1818,6 +1823,7 @@ impl Manager {
 
         let mut cfg = self.cfg.write().await;
         check_belongs(&cfg, &s)?;
+        s.limits.validate()?;
         let idx = cfg
             .sessions
             .iter()
@@ -2064,6 +2070,8 @@ impl Manager {
                         .map(|p| cfg.network_of(&l.cfg, p).unwrap_or(p.network))
                         .unwrap_or_default(),
                     network_override: l.cfg.network,
+                    limits: p.map(|p| cfg.limits_of(&l.cfg, p)).unwrap_or(l.cfg.limits),
+                    limits_override: l.cfg.limits,
                     autostart: l.cfg.autostart,
                     ephemeral: l.ephemeral,
                     last_change: l.last_change,

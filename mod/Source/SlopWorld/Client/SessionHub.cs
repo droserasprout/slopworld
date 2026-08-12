@@ -49,6 +49,41 @@ namespace SlopWorld
     // Temp is a fresh scratch directory per run; Ask is decided at the button.
     public enum ShortcutLink { Project, Temp, Ask }
 
+    // Per-agent resource caps, mirrored from the daemon's Limits. Every field is optional; a
+    // blank one means no cap (and inherits the project). A struct, so copies are by value.
+    public struct SessionLimits
+    {
+        public int? MemoryMb;
+        public int? Pids;
+        public int? Nofile;
+        public int? CpuPct;
+
+        public bool IsEmpty =>
+            !MemoryMb.HasValue && !Pids.HasValue && !Nofile.HasValue && !CpuPct.HasValue;
+
+        static int? Num(JVal v) => v.IsNull ? (int?)null : v.AsInt(0);
+
+        public static SessionLimits FromJson(JVal j) => new SessionLimits
+        {
+            MemoryMb = Num(j["memory_mb"]),
+            Pids = Num(j["pids"]),
+            Nofile = Num(j["nofile"]),
+            CpuPct = Num(j["cpu_pct"]),
+        };
+
+        // Only the set fields ride along, so an unset cap is absent rather than zero - the
+        // daemon reads a missing field as "no cap", a zero as a session that cannot start.
+        public string ToJson()
+        {
+            var parts = new List<string>();
+            if (MemoryMb.HasValue) parts.Add($"\"memory_mb\":{MemoryMb.Value}");
+            if (Pids.HasValue) parts.Add($"\"pids\":{Pids.Value}");
+            if (Nofile.HasValue) parts.Add($"\"nofile\":{Nofile.Value}");
+            if (CpuPct.HasValue) parts.Add($"\"cpu_pct\":{CpuPct.Value}");
+            return "{" + string.Join(",", parts.ToArray()) + "}";
+        }
+    }
+
     public class SessionInfo
     {
         public string Name = "";
@@ -74,6 +109,10 @@ namespace SlopWorld
         public NetworkMode Network = NetworkMode.Private;
         // Null means inherit the project's mode.
         public NetworkMode? NetworkOverride;
+        // This agent's own resource caps, each overriding its project's. What the editor edits.
+        public SessionLimits Limits;
+        // The effective caps after project inheritance. Read-only here.
+        public SessionLimits EffectiveLimits;
         public bool Autostart;
         // YOLO mode folds every effective breadcrumb into the first submitted prompt.
         public bool BreadcrumbYolo = true;
@@ -142,6 +181,8 @@ namespace SlopWorld
             NetworkOverride = j["network_override"].IsNull
                 ? (NetworkMode?)null
                 : NetworkModeText.Parse(j["network_override"].AsString()),
+            Limits = SessionLimits.FromJson(j["limits_override"]),
+            EffectiveLimits = SessionLimits.FromJson(j["limits"]),
             Autostart = j["autostart"].AsBool(false),
             BreadcrumbYolo = j["breadcrumb_yolo"].AsBool(true),
             Breadcrumbs = j["breadcrumbs"].Items.Select(i => i.AsString()).ToList(),
@@ -166,6 +207,7 @@ namespace SlopWorld
             $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]," +
             $"\"breadcrumbs\":[{string.Join(",", Breadcrumbs.Select(JVal.Q).ToArray())}]," +
             $"\"network\":{(NetworkOverride.HasValue ? JVal.Q(NetworkModeText.Name(NetworkOverride.Value)) : "null")}," +
+            $"\"limits\":{Limits.ToJson()}," +
             $"\"autostart\":{JVal.B(Autostart)}," +
             $"\"breadcrumb_yolo\":{JVal.B(BreadcrumbYolo)}}}";
     }

@@ -251,6 +251,61 @@ impl NetworkMode {
     }
 }
 
+/// Per-agent resource caps, enforced by the systemd scope `build_argv` wraps the agent in.
+/// Every field is optional: a session inherits any it leaves unset from its project, and one
+/// unset in both means no cap at all. Reach is the sandbox's job; this is only how much.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Limits {
+    /// Hard memory ceiling in MiB (systemd `MemoryMax`); the kernel OOM-kills the tree at it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory_mb: Option<u32>,
+    /// The most tasks - processes and threads together - the agent's tree may hold (`TasksMax`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pids: Option<u32>,
+    /// Open-file-descriptor ceiling for each process in the tree (`LimitNOFILE`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nofile: Option<u32>,
+    /// CPU as a percentage of one core: 100 is a whole core, 50 a half, 200 two (`CPUQuota`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cpu_pct: Option<u32>,
+}
+
+impl Limits {
+    pub fn is_empty(&self) -> bool {
+        self.memory_mb.is_none()
+            && self.pids.is_none()
+            && self.nofile.is_none()
+            && self.cpu_pct.is_none()
+    }
+
+    /// This agent's own caps over its project's, field by field: a cap the session states wins,
+    /// one it leaves unset falls through to the project, and unset in both stays no cap.
+    fn inherit(self, project: Limits) -> Limits {
+        Limits {
+            memory_mb: self.memory_mb.or(project.memory_mb),
+            pids: self.pids.or(project.pids),
+            nofile: self.nofile.or(project.nofile),
+            cpu_pct: self.cpu_pct.or(project.cpu_pct),
+        }
+    }
+
+    /// A cap of zero is not a cap, it is a session that cannot start: refuse it where it is
+    /// written rather than let the agent OOM or fail to fork on its first breath.
+    pub fn validate(&self) -> Result<()> {
+        for (what, value) in [
+            ("memory_mb", self.memory_mb),
+            ("pids", self.pids),
+            ("nofile", self.nofile),
+            ("cpu_pct", self.cpu_pct),
+        ] {
+            if value == Some(0) {
+                bail!("resource limit {what} must be at least 1, or unset for no cap");
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Three agents in the same repo want the same binds, and keeping that in three
 /// session entries meant it was wrong in at least one of them.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -275,6 +330,9 @@ pub struct ProjectCfg {
     /// The maximum network reach of every sandboxed agent in this project.
     #[serde(default)]
     pub network: NetworkMode,
+    /// Resource caps applied to every agent here, each overridable per agent.
+    #[serde(default, skip_serializing_if = "Limits::is_empty")]
+    pub limits: Limits,
 }
 
 /// An agent is a command preset plus this file's answer to it - the command, sandbox presets
@@ -308,6 +366,9 @@ pub struct SessionCfg {
     /// An optional reduction from the project's network ceiling. Missing means inherit.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub network: Option<NetworkMode>,
+    /// This agent's own resource caps, each overriding the project's for the same field.
+    #[serde(default, skip_serializing_if = "Limits::is_empty")]
+    pub limits: Limits,
     #[serde(default)]
     pub autostart: bool,
 }
@@ -324,6 +385,7 @@ impl Default for SessionCfg {
             breadcrumbs: Vec::new(),
             breadcrumb_yolo: true,
             network: None,
+            limits: Limits::default(),
             autostart: false,
         }
     }
@@ -586,6 +648,13 @@ impl Config {
             );
         }
         Ok(mode)
+    }
+
+    /// The caps an agent actually runs under: its own merged over its project's, field by
+    /// field. Unlike the network ceiling this is inheritance, not a limit the agent may only
+    /// tighten - both are the same trusted author, and a cap is a guardrail, not a boundary.
+    pub fn limits_of(&self, s: &SessionCfg, p: &ProjectCfg) -> Limits {
+        s.limits.inherit(p.limits)
     }
 
     /// The command preset a session runs under, by name. Empty when it states a command

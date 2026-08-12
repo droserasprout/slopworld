@@ -65,9 +65,23 @@ the daemon revalidates the ceiling on add, update, and start. Unsandboxed host e
 remain a separate explicit route. Scoped daemon access over a Unix socket is planned;
 network access does not imply it.
 
+## Resource limits
+
+`limits = { memory_mb, pids, nofile, cpu_pct }` on a project or agent caps what a runaway
+agent takes from the host. A session's own field wins over its project's; unset in both is no
+cap. `build_argv` wraps the agent - outside pasta and bwrap, so the whole tree counts against
+them - in a transient `systemd-run --user --scope` carrying `MemoryMax`, `TasksMax`,
+`LimitNOFILE` and `CPUQuota`. An empty `Limits` adds no wrapper, so an uncapped agent is
+unchanged, and there is no silent inline fallback the way tmux and the game launcher have: a
+cap is enforced or the session does not start. Unlike the network ceiling this is inheritance,
+not a bound the agent may only tighten - both are the same trusted author, and a cap is a
+guardrail, not a boundary. A zero is refused where it is written: it is not a cap but a session
+that cannot fork.
+
 ## Remaining exposure
 
 - No seccomp or `--new-session`; the latter breaks controlling-TTY job control.
-- No process, memory, or disk limits, so resource exhaustion can affect the host.
+- No disk quota, so a runaway write can still fill the host. Memory, CPU, task and
+  file-descriptor caps are per agent (see Resource limits) but off unless asked for.
 - Project directories, including `.git`, are read-write. Agents can install hooks or
   `core.fsmonitor`; this is deliberate ownership of the working tree.
