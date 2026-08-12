@@ -101,6 +101,9 @@ namespace SlopWorld
 
         static float RowH => SlopWidgets.MenuRowH;
 
+        // The frame this menu was built on - see `Keyed`.
+        readonly int _born = Time.frameCount;
+
         public SlopMenu(List<FloatMenuOption> options, Vector2? at = null)
         {
             _options = options ?? new List<FloatMenuOption>();
@@ -173,10 +176,38 @@ namespace SlopWorld
             if (_parent == null) Sweep(this);
         }
 
-        // Every menu on screen, chains and all. What the chrome's own keys ask for: F1 puts a
-        // palette over the screen and F12 takes the pane away underneath, and a menu that
-        // outlives what it was opened from is answering for something nobody is looking at.
-        public static void CloseAll() => Sweep(null);
+        // The keyboard is the chrome's, never the menu's: there is nothing in here to press,
+        // and the keys that do reach the chrome replace the very screen the menu was opened
+        // onto - F1 puts a palette in front of it, F12 takes the pane away underneath, F2-F6
+        // swap the sidebar view it was opened from. So any key puts the tree away, and the
+        // event is otherwise left alone: whoever it was addressed to still gets it, and the
+        // palette that F1 opens arrives with no menu standing behind it.
+        //
+        // Off `rawType`, not `type`. A window that absorbs input - the pane, whenever there is
+        // one - makes `WindowStack.HandleEventsHighPriority` spend a `Use` on every KeyDown
+        // before any window body runs, which is why hanging this off a key *handler* answered
+        // only where nothing was absorbing. `Use` does not clear `rawType` (see gotchas).
+        bool Keyed()
+        {
+            // Never on the frame it opened. A menu put up from a key - the palette's own
+            // pickers are - would otherwise be shut by the character event IMGUI sends after
+            // the key that produced it, the press arriving as two events and both being read.
+            if (Time.frameCount == _born) return false;
+
+            var e = Event.current;
+            if (e.rawType != EventType.KeyDown || e.keyCode == KeyCode.None) return false;
+            // A modifier on its own is somebody reaching for a chord, not a key.
+            if (Modifier(e.keyCode)) return false;
+
+            CloseTree();
+            return true;
+        }
+
+        static bool Modifier(KeyCode k) =>
+            k == KeyCode.LeftShift || k == KeyCode.RightShift ||
+            k == KeyCode.LeftControl || k == KeyCode.RightControl ||
+            k == KeyCode.LeftAlt || k == KeyCode.RightAlt ||
+            k == KeyCode.LeftCommand || k == KeyCode.RightCommand;
 
         static void Sweep(SlopMenu keep)
         {
@@ -242,6 +273,8 @@ namespace SlopWorld
 
         public override void DoWindowContents(Rect rect)
         {
+            if (Keyed()) return;
+
             Slab.Box(rect, SlopWidgets.PopoverBg, SlopWidgets.Edge);
 
             var inner = new Rect(rect.x, rect.y + PadY, rect.width, rect.height - PadY * 2f);

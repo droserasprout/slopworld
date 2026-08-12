@@ -42,10 +42,11 @@ a screen edge. It never covers its parent — the room either side is measured a
 side rather than sliding across one, narrowing itself where neither side can hold it — and the
 two frames share one border, level with the row that opened it. Picking a row anywhere
 closes the whole chain before its action runs, and Escape closes the chain rather than one
-level of it: the pointer is the only thing that walks back up a menu opened on hover. The
-chrome's own F-keys call `SlopMenu.CloseAll` where they are read — in `HandleFunctionKey` and
-again in `TerminalHotkeys` for the map layer — since each of them replaces what the menu was
-standing over. Nesting
+level of it: the pointer is the only thing that walks back up a menu opened on hover. Any key
+closes it, read off `rawType` in the menu's own body rather than from a key handler — an
+absorbing window has `HandleEventsHighPriority` spend a `Use` on every KeyDown before a window
+body runs, so a dismissal hung off `HandleFunctionKey` fired only where nothing was absorbing.
+The event is left alone, so F1 still opens its palette; it just arrives with no menu behind it. Nesting
 by closing one menu and opening another is what left a parent standing after a value two levels
 down was picked.
 
