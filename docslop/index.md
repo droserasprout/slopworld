@@ -4,6 +4,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 
 - [house-rules](house-rules.md) - where commits land, and what a note here is for.
 - [prose-guide](prose-guide.md) - what belongs in comments and devnotes.
+- [human-docs](human-docs.md) - `docs/`: page ownership and material for the person writing it.
 - [overview](overview.md) - what this is, the two halves, the wire.
 - [attribution](attribution.md) - credits, shipped third-party assets and notice gaps.
 - [build-commands](build-commands.md) - Makefile targets, formatting, debug one-liners.
