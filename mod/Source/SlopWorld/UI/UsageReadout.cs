@@ -167,7 +167,7 @@ namespace SlopWorld
 
         static readonly string[] AnthropicRows = { "claude_session", "claude_week" };
         static readonly string[] OpenRouterRows = { "openrouter_balance" };
-        static readonly string[] OpenAiRows = { "openai_session", "openai_week" };
+        static readonly string[] OpenAiRows = { "openai_session" };
 
         // Slots a held place next to its own kind rather than on the end: a session window that
         // turned up after the weekly one would otherwise sit to the right of it, and the strip
