@@ -46,7 +46,9 @@ pub struct Station {
     pub default_rate: u32,
     #[serde(default)]
     pub metadata: Metadata,
-    #[serde(rename = "stream", default)]
+    /// `[[stream]]` in TOML, `streams` on the wire: an array of tables reads as the singular
+    /// in a definition file, and as the plural in the catalog the mod is handed.
+    #[serde(rename(serialize = "streams", deserialize = "stream"), default)]
     pub streams: Vec<Stream>,
 }
 
@@ -324,6 +326,26 @@ url = "http://127.0.0.1:9/not-a-server"
             catalog.resolve("fixture", "fixture").unwrap(),
             "http://127.0.0.1:9/not-a-server"
         );
+    }
+
+    /// The mod drops any station whose streams it cannot see, so the catalog's own key names
+    /// are part of the wire protocol and not an internal detail of the TOML.
+    #[test]
+    fn shipped_catalog_reaches_the_mod_as_named_streams() {
+        let catalog = Catalog::builtins();
+        assert!(!catalog.stations.is_empty());
+
+        let json: serde_json::Value = serde_json::to_value(&catalog).unwrap();
+        for station in json["stations"].as_array().unwrap() {
+            let streams = station["streams"].as_array().unwrap();
+            assert!(!streams.is_empty());
+            assert!(station["stream"].is_null());
+            for stream in streams {
+                assert!(stream["rate"].as_u64().unwrap() > 0);
+                assert!(!stream["key"].as_str().unwrap().is_empty());
+                assert!(stream["url"].is_null());
+            }
+        }
     }
 
     #[test]

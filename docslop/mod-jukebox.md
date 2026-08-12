@@ -31,6 +31,9 @@ groups from the raw ICY title and displays them as `artist - title`. `key` is th
 human-readable part of the saved selection; old path-only selections remain readable. URLs
 are resolved and opened by the daemon; they are not sent as the mod's selection.
 
+A definition's array of tables is `[[stream]]`, but the catalog carries it as `streams`; the
+mod drops any station whose streams it cannot find, so those names are wire protocol.
+
 The catalog is sent as a root WebSocket `jukebox` event on connect and whenever the daemon
 reloads the directory. `GET /api/jukebox` exposes the same display catalog to tools; it omits
 stream URLs. The mod keeps the last catalog in memory during a reconnect.
