@@ -124,9 +124,9 @@ namespace SlopWorld
                 return ByName(info?.Name);
             }
 
-            if (cmd.StartsWith("less") || (cmd.StartsWith("env ") && cmd.Contains(" less")))
+            if (Pager.IsPagerCommand(cmd))
                 return RowAct.View;
-            if (cmd.StartsWith("micro")) return RowAct.Edit;
+            if (Pager.IsEditorCommand(cmd)) return RowAct.Edit;
             // The git view's diff, which is a whole `git -C ... --paginate diff` line and the
             // only git this half ever runs in an errand.
             if (cmd.StartsWith("git ") && cmd.Contains(" diff")) return RowAct.Diff;

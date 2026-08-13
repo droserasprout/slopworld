@@ -23,6 +23,7 @@ Release whatever `BUILD` says.
 | `redeploy` | `install`, then `POST /api/game/restart`. |
 | `run` | Launches through the runner. `PROFILE` picks the folder. |
 | `logs` | Tails `Player.log`. |
+| `check-reqs` | Reports required host dependencies and detected optional integrations/tools. |
 | `clean` | Drops build output. |
 
 `install-mod` copies loose folders, so a new top-level folder under `mod/` needs

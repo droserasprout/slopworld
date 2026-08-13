@@ -817,7 +817,7 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(project))
             {
-                SessionHub.Instance.Run("", "micro -- " + Pager.Quote(path), label,
+                SessionHub.Instance.Run("", Pager.EditorCommand(path), label,
                     session => TerminalWindow.Open(session), SlopWidgets.Fail,
                     host: true, temp: true);
                 return;
@@ -827,7 +827,7 @@ namespace SlopWorld
                 SlopWidgets.Fail($"project '{project}' has gone");
                 return;
             }
-            SessionHub.Instance.Run(project, "micro -- " + Pager.Quote(path), label,
+            SessionHub.Instance.Run(project, Pager.EditorCommand(path), label,
                 session => TerminalWindow.Open(session), SlopWidgets.Fail);
         }
 

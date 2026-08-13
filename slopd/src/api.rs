@@ -1007,9 +1007,10 @@ struct OpenReq {
     url: String,
 }
 
-async fn open_url(Json(q): Json<OpenReq>) -> ApiResult {
+async fn open_url(State(m): State<Mgr>, Json(q): Json<OpenReq>) -> ApiResult {
     crate::open::check(q.url.trim()).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    crate::open::url(&q.url)
+    let opener = m.config().await.commands.opener;
+    crate::open::url(&opener, &q.url)
         .await
         .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
     Ok(Json(json!({ "ok": true })))

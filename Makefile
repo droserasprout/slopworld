@@ -188,6 +188,9 @@ redeploy:          ## Install both halves, then bounce the game
 logs:              ## Tail the game's Player.log
 	@tail -f "$(LOG)"
 
+check-reqs:        ## Print required and optional host requirements
+	@RIMWORLD="$(RIMWORLD)" sh tools/check-reqs.sh
+
 # Needs the `x11` preset on this project's sandbox; see tools/shot.sh.
 shot:              ## Screenshot the game window into OUT
 	@tools/shot.sh $(OUT)

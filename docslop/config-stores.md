@@ -28,7 +28,7 @@ See [wire-protocol](wire-protocol.md), [mod-client](mod-client.md),
    read model. The daemon deep-merges the JSON object, validates the resulting TOML,
    and atomically replaces the file. Fields and sections unknown to the mod survive.
 3. **`SlopConfig` is a read model, not a whole-schema mirror.** It contains only the
-   fields drawn by the config and usage pages; it does not carry endpoint, project,
+   fields drawn by the config, Commands and usage pages; it does not carry endpoint, project,
    session, state-rule, or sandbox-preset data.
 4. Two formats and two lifetimes, which is **not** a fault: the TOML outlives a
    profile rebuild, and the pane's half stays editable with the socket down.
