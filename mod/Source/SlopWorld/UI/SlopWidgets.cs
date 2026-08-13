@@ -234,7 +234,10 @@ namespace SlopWorld
                 float lineH = LineHOf(Verse.Text.Font);
                 float y = Slab.SnapY(r.y + (r.height - lineH) * VerticalFactor(anchor));
                 float yMax = Slab.SnapY(y + lineH);
-                Widgets.Label(new Rect(r.x, y, r.width, Mathf.Max(1f, yMax - y)), label);
+                // A fractional scroll offset can snap the two edges inward by one pixel;
+                // never let screen-pixel snapping make the label shorter than its metric.
+                float h = Mathf.Max(lineH, yMax - y);
+                Widgets.Label(new Rect(r.x, y, r.width, h), label);
             }
             finally
             {
