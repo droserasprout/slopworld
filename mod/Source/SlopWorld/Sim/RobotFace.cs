@@ -5,11 +5,12 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Metal from the hairline down, drawn over the vanilla head rather than replacing it, so
-    // the head, its skin color and its hair are still the game's. tools/roboface.py has the
-    // geometry.
+    // The plate is drawn over the vanilla head, while the agent skin override keeps exposed
+    // areas under hair and apparel metallic. tools/roboface.py has the geometry.
     public static class RobotFace
     {
+        static readonly Color MetalSkinColor = new Color(0.42f, 0.435f, 0.46f);
+
         // Each variant is a separate texture set (south + east) so the color lives in the
         // PNG rather than in a shader parameter. RimWorld's texture loader caches by path, so
         // the per-pawn texPath is the only thing that changes.
@@ -57,9 +58,7 @@ namespace SlopWorld
         // No _north: a faceplate has no back, and the node below hides on that facing. _west is
         // Graphic_Multi's mirror of _east.
 
-        // The plate's edge is a fixed line across the brow, so a cut whose hairline sits above
-        // it leaves bare skin. By defName rather than through a DefOf, so a name this game does
-        // not have is never matched instead of failing at load.
+        // These scalp cuts are rerolled so every agent keeps a visible hair silhouette.
         static readonly HashSet<string> ScalpHair =
             new HashSet<string> { "Bald", "Shaved", "Mohawk" };
 
@@ -131,11 +130,23 @@ namespace SlopWorld
         // above the head, hair does not.
         public static void Apply(Pawn pawn)
         {
-            if (pawn?.style == null) return;
-            if (pawn.style.beardDef == BeardDefOf.NoBeard) return;
+            if (pawn?.story == null) return;
 
-            pawn.style.beardDef = BeardDefOf.NoBeard;
-            pawn.Drawer?.renderer?.SetAllGraphicsDirty();
+            bool dirty = false;
+            if (!pawn.story.skinColorOverride.HasValue ||
+                pawn.story.skinColorOverride.Value != MetalSkinColor)
+            {
+                pawn.story.skinColorOverride = MetalSkinColor;
+                dirty = true;
+            }
+
+            if (pawn.style != null && pawn.style.beardDef != BeardDefOf.NoBeard)
+            {
+                pawn.style.beardDef = BeardDefOf.NoBeard;
+                dirty = true;
+            }
+
+            if (dirty) pawn.Drawer?.renderer?.SetAllGraphicsDirty();
         }
     }
 
