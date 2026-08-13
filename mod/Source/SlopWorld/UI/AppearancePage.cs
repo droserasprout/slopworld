@@ -127,6 +127,14 @@ namespace SlopWorld
                         "Small=13, Medium=15); only the face changes.");
                 GUI.color = Color.white;
             }
+            else
+            {
+                l.Gap(SlopWidgets.GapXS);
+                GUI.color = SlopWidgets.Faint;
+                l.Label("Custom size anchors Small; Tiny and Medium stay 2pt below " +
+                        "and above it.");
+                GUI.color = Color.white;
+            }
 
             l.Gap(SlopWidgets.GapS);
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Rescan installed fonts"))
