@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -12,9 +15,23 @@ namespace SlopWorld
         SlopConfig _cfg;
         string _error;
         bool _loaded;
+        bool _agentCustom, _shellCustom, _pagerCustom, _editorCustom;
+        bool _highlighterCustom, _openerCustom;
 
         readonly SmoothScroll _scroll = new SmoothScroll();
         float _fieldsH;
+
+        class Choice
+        {
+            public readonly string Label;
+            public readonly string Value;
+
+            public Choice(string label, string value)
+            {
+                Label = label;
+                Value = value;
+            }
+        }
 
         public void Load()
         {
@@ -23,6 +40,9 @@ namespace SlopWorld
                 {
                     _cfg = SlopConfig.FromJson(j["values"]);
                     SessionHub.Instance.Config = _cfg;
+                    SessionHub.Instance.LoadPresets();
+                    _agentCustom = _shellCustom = _pagerCustom = _editorCustom = false;
+                    _highlighterCustom = _openerCustom = false;
                     _loaded = true;
                     _error = null;
                 },
@@ -62,43 +82,120 @@ namespace SlopWorld
             l.Begin(new Rect(0f, 0f, view.width, 4000f));
 
             SlopWidgets.SectionHeading(l, "Session defaults");
-            Note(l, "These are command preset names, not executable paths. The daemon's " +
-                "preset library decides what each agent or shell errand runs.");
-            l.Gap(SlopWidgets.GapS);
-            l.Label("Agent preset");
-            _cfg.Agent = SlopWidgets.Field(l, "commands.agent", _cfg.Agent);
-            l.Gap(SlopWidgets.GapS);
-            l.Label("Shell preset");
-            _cfg.Shell = SlopWidgets.Field(l, "commands.shell", _cfg.Shell);
+            ChoiceRow(l, "Agent", "commands.agent", _cfg.Agent, Presets(_cfg.Agent),
+                _agentCustom, value => _cfg.Agent = value, value => _agentCustom = value);
+            ChoiceRow(l, "Shell", "commands.shell", _cfg.Shell, Presets(_cfg.Shell),
+                _shellCustom, value => _cfg.Shell = value, value => _shellCustom = value);
 
             l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "Files");
-            l.Label("Pager");
-            _cfg.Pager = SlopWidgets.Field(l, "commands.pager", _cfg.Pager);
-            Note(l, "The file is appended as -- {file} unless the command contains {file}. " +
-                "A line jump can use {line}; the search viewer supplies it.");
-            l.Gap(SlopWidgets.GapS);
-            l.Label("Editor");
-            _cfg.Editor = SlopWidgets.Field(l, "commands.editor", _cfg.Editor);
-            Note(l, "The file is appended as -- {file} unless the command contains {file}.");
+            SlopWidgets.SectionHeading(l, "Default apps");
+            ChoiceRow(l, "Pager", "commands.pager", _cfg.Pager, PagerChoices(),
+                _pagerCustom, value => _cfg.Pager = value, value => _pagerCustom = value);
+            ChoiceRow(l, "Editor", "commands.editor", _cfg.Editor, EditorChoices(),
+                _editorCustom, value => _cfg.Editor = value, value => _editorCustom = value);
+            ChoiceRow(l, "Syntax highlighter", "commands.highlighter", _cfg.Highlighter,
+                HighlighterChoices(), _highlighterCustom, value => _cfg.Highlighter = value,
+                value => _highlighterCustom = value);
+            ChoiceRow(l, "URL opener", "commands.opener", _cfg.Opener, OpenerChoices(),
+                _openerCustom, value => _cfg.Opener = value, value => _openerCustom = value);
 
             l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "Syntax highlighting");
-            l.Label("Highlighter");
-            _cfg.Highlighter = SlopWidgets.Field(l, "commands.highlighter", _cfg.Highlighter);
-            Note(l, "Used by the pager through LESSOPEN. %s is replaced by less with the " +
-                "current file. Leave blank to disable highlighting.");
-
-            l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "Web links");
-            l.Label("URL opener");
-            _cfg.Opener = SlopWidgets.Field(l, "commands.opener", _cfg.Opener);
-            Note(l, "The URL is appended unless the command contains {url}. Blank tries " +
-                "xdg-open, gio, then wslview.");
+            SlopWidgets.SectionHeading(l, "Template legend");
+            Note(l, "{file} is replaced with a quoted file path; {line} with a search result " +
+                "line. Without {file}, file commands receive -- and the path.");
+            Note(l, "{url} is replaced with the URL. Without it, URL commands receive the " +
+                "URL as their final argument.");
+            Note(l, "%s is less's filename placeholder for the syntax highlighter. A blank " +
+                "highlighter disables it; a blank URL opener uses host fallbacks.");
+            Note(l, "Templates are split into arguments without a shell.");
 
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
             _scroll.End();
+        }
+
+        static List<Choice> Presets(string current)
+        {
+            var choices = SessionHub.Instance.Commands
+                .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(c => new Choice(c.Name, c.Name))
+                .ToList();
+            if (!string.IsNullOrEmpty(current) &&
+                !choices.Any(c => c.Value == current))
+                choices.Insert(0, new Choice(current, current));
+            return choices;
+        }
+
+        static List<Choice> PagerChoices() => new List<Choice>
+        {
+            new Choice("less", "less"),
+            new Choice("more", "more"),
+            new Choice("bat (always page)", "bat --paging=always"),
+        };
+
+        static List<Choice> EditorChoices() => new List<Choice>
+        {
+            new Choice("micro", "micro"),
+            new Choice("vim", "vim"),
+            new Choice("nano", "nano"),
+            new Choice("Neovim", "nvim"),
+            new Choice("Emacs client", "emacsclient -c"),
+        };
+
+        static List<Choice> HighlighterChoices() => new List<Choice>
+        {
+            new Choice("highlight (256 colors)", "highlight --out-format=xterm256"),
+            new Choice("bat (always color)", "bat --color=always --paging=never"),
+            new Choice("Off", ""),
+        };
+
+        static List<Choice> OpenerChoices() => new List<Choice>
+        {
+            new Choice("xdg-open", "xdg-open {url}"),
+            new Choice("gio", "gio open {url}"),
+            new Choice("wslview", "wslview {url}"),
+            new Choice("Automatic (host fallback)", ""),
+        };
+
+        void ChoiceRow(Listing_Standard l, string label, string fieldName, string value,
+                       List<Choice> choices, bool custom, Action<string> set,
+                       Action<bool> setCustom)
+        {
+            Rect row = l.GetRect(SlopWidgets.RowH);
+            float leftW = Mathf.Min(220f, row.width * .42f);
+            float rightX = row.x + leftW + SlopWidgets.GapM;
+            float rightW = row.width - leftW - SlopWidgets.GapM;
+            bool isCustom = custom || !choices.Any(c => c.Value == value);
+
+            GUI.color = SlopWidgets.Name;
+            SlopWidgets.RowLabel(new Rect(row.x, row.y, leftW, row.height), label);
+            GUI.color = Color.white;
+
+            string shown = isCustom
+                ? "Custom"
+                : choices.First(c => c.Value == value).Label;
+            if (SlopWidgets.Button(new Rect(rightX, row.y, rightW, row.height), shown,
+                    SlopWidgets.Btn.Default))
+            {
+                var options = choices.Select(c => new FloatMenuOption(c.Label, () =>
+                {
+                    setCustom(false);
+                    set(c.Value);
+                })).ToList();
+                options.Add(new FloatMenuOption("Custom", () => setCustom(true)));
+                Find.WindowStack.Add(new SlopMenu(options));
+            }
+
+            if (isCustom)
+            {
+                Rect customRow = l.GetRect(SlopWidgets.FieldH);
+                GUI.color = SlopWidgets.Dim;
+                SlopWidgets.RowLabel(new Rect(customRow.x, customRow.y, leftW,
+                    customRow.height), "Custom template");
+                GUI.color = Color.white;
+                set(SlopWidgets.Field(new Rect(rightX, customRow.y, rightW, customRow.height),
+                    fieldName + ".custom", value));
+            }
         }
 
         static void Note(Listing_Standard l, string text)
