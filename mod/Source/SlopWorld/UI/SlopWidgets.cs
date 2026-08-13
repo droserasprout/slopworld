@@ -8,8 +8,8 @@ using Verse.Sound;
 
 namespace SlopWorld
 {
-    // Shared dark, opaque chrome; Slab owns fills/edges and fixed gaps keep controls on the
-    // screen pixel grid.
+    // Shared scheme-driven opaque chrome; Slab owns fills/edges and fixed gaps keep controls
+    // on the screen pixel grid.
     public static class SlopWidgets
     {
         // ---- Surfaces and semantic colors. These are named for SlopWorld's jobs rather
@@ -17,8 +17,8 @@ namespace SlopWorld
         // in the mod knows: the values behind them belong to the scheme the player picked,
         // and are read through here so a scheme lands everywhere at once. See UIScheme.
 
-        public static Color Accent => UIScheme.Current.Accent;            // signal blue
-        public static Color Destructive => UIScheme.Current.Destructive;  // hard red
+        public static Color Accent => UIScheme.Current.Accent;
+        public static Color Destructive => UIScheme.Current.Destructive;
 
         public static Color WindowBg => UIScheme.Current.WindowBg;
         public static Color ViewBg => UIScheme.Current.ViewBg;
@@ -89,6 +89,7 @@ namespace SlopWorld
         static Color FocusRing => Accent;
 
         static Color KnobFace => UIScheme.Current.Knob;
+        static Color CheckFace => UIScheme.Current.CheckFace;
 
         static Color PrimeFace => Accent;
         static Color DangerFace => Destructive;
@@ -134,9 +135,13 @@ namespace SlopWorld
             switch (kind)
             {
                 case Btn.Primary:
-                    face = Step(PrimeFace, over, held); text = Color.white; break;
+                    face = Step(PrimeFace, over, held);
+                    text = over ? UIScheme.TextOn(face) : UIScheme.Current.AccentText;
+                    break;
                 case Btn.Danger:
-                    face = Step(DangerFace, over, held); text = Color.white; break;
+                    face = Step(DangerFace, over, held);
+                    text = over ? UIScheme.TextOn(face) : UIScheme.Current.DestructiveText;
+                    break;
                 case Btn.Ghost:
                     face = held ? BtnDown : over ? BtnFace : GhostFace;
                     text = over ? Lead : Name;
@@ -183,7 +188,7 @@ namespace SlopWorld
         }
 
         // Opacity is used only for disabled or overlaid states; base surfaces stay opaque.
-        static Color Fade(Color c, float by) =>
+        public static Color Fade(Color c, float by) =>
             new Color(c.r, c.g, c.b, c.a * by);
 
         // Accent and destructive buttons use a lightness step; ordinary buttons use the
@@ -357,13 +362,13 @@ namespace SlopWorld
             float size = Mathf.Min(TickW, r.height - 2f);
             var box = new Rect(r.x, r.y + (r.height - size) / 2f, size, size);
 
-            var face = on ? PrimeFace : Well;
+            var face = on ? CheckFace : Well;
             var edge = on ? Clear : BtnEdge;
             if (locked) { face = Fade(face, 0.5f); edge = Fade(edge, 0.5f); }
             Slab.Box(box, face, edge);
             if (on)
             {
-                GUI.color = locked ? Faint : Color.white;
+                GUI.color = locked ? Faint : UIScheme.TextOn(face);
                 GUI.DrawTexture(box.ContractedBy(IconInset), Icons.Check);
                 GUI.color = Color.white;
             }

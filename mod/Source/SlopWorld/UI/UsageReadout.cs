@@ -64,7 +64,7 @@ namespace SlopWorld
             var anchor = Text.Anchor;
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
-            GUI.color = new Color(1f, 1f, 1f, alpha);
+            GUI.color = SlopWidgets.Fade(SlopWidgets.Name, alpha);
 
             var rows = showUsage ? Rows(usage) : new List<string>();
 
@@ -105,7 +105,7 @@ namespace SlopWorld
                 }
 
                 // After the icon: ThingIcon leaves GUI.color on the def's own tint.
-                GUI.color = new Color(1f, 1f, 1f, a);
+                GUI.color = SlopWidgets.Fade(SlopWidgets.Name, a);
                 SlopWidgets.RowLabel(
                     new Rect(chip.x + IconSize + 2f, chip.y,
                         chip.width - IconSize - 2f, chip.height),
