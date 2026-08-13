@@ -6,7 +6,7 @@
 
 "YOLO" breadcrumbs
 
-Try builtin preset Useful tips.
+Try the builtin preset Useful tips.
 
 ## Jukebox
 

@@ -2,11 +2,11 @@
 
 ## Host system
 
-- **Linux** only. Any modern disto will make.
+- **Linux** only. Any modern distro will do.
 - **systemd**
 - **Bubblewrap** - for sandboxing.
-- **psst (pasta)** - for networking
-- **tmux** - termial multiplexer.
+- **passt (pasta)** - for networking
+- **tmux** - terminal multiplexer.
 
 ## Build toolchain
 
@@ -15,6 +15,6 @@
 
 ## RimWorld
 
-Native Linux RimWorld build. Set $RIMWORLD env var to path to the game.
+Native Linux RimWorld build. Set the $RIMWORLD env var to the path to the game.
 
-Tested with GOG, Steam should work the same way.
+Tested with GOG; Steam should work the same way.
