@@ -11,8 +11,9 @@ namespace SlopWorld
         const string CapybaraDefName = "Capybara";
         const float BubbleSeconds = 3f;
         // Keep the flag close to the capybara's on-map footprint rather than making a large
-        // UI badge; the rendered flag is about 1.7x smaller than the original bubble.
-        const float BubbleSize = 36f;
+        // Keep it easy to miss at a glance and visibly floating above the capybara.
+        const float FlagSize = 12f;
+        const float FlagLift = 36f;
 
         readonly HashSet<Pawn> _immune = new HashSet<Pawn>();
         Pawn _bubblePawn;
@@ -89,14 +90,13 @@ namespace SlopWorld
             if (flag == null) return;
 
             var pos = GenMapUI.LabelDrawPosFor(_bubblePawn, -0.85f);
-            var bubble = new Rect(pos.x - BubbleSize / 2f, pos.y - BubbleSize - 12f,
-                BubbleSize, BubbleSize);
+            var flagRect = new Rect(pos.x - FlagSize / 2f, pos.y - FlagSize - FlagLift,
+                FlagSize, FlagSize);
             const float margin = 4f;
-            bubble.x = Mathf.Clamp(bubble.x, margin, UI.screenWidth - margin - bubble.width);
-            bubble.y = Mathf.Clamp(bubble.y, margin, UI.screenHeight - margin - bubble.height);
+            flagRect.x = Mathf.Clamp(flagRect.x, margin, UI.screenWidth - margin - flagRect.width);
+            flagRect.y = Mathf.Clamp(flagRect.y, margin, UI.screenHeight - margin - flagRect.height);
 
-            Slab.Box(bubble, SlopWidgets.PopoverBg, SlopWidgets.Edge);
-            GUI.DrawTexture(bubble.ContractedBy(4f), flag, ScaleMode.ScaleToFit, true);
+            GUI.DrawTexture(flagRect, flag, ScaleMode.ScaleToFit, true);
         }
 
         static Texture2D Uruguay
