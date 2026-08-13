@@ -144,10 +144,10 @@ namespace SlopWorld
             if (SlopWidgets.Button(new Rect(row.x, row.y, w, row.height), "Connection..."))
                 Find.WindowStack.Add(new Dialog_ModSettings(SlopWorldMod.Instance));
 
-            // The terminal's own settings are now a tab of this same dialog, left of
-            // Usage: the honest answer to the press is a tab swap rather than a window.
+            // The terminal's own settings are a child of Appearance in this dialog. Keep
+            // this shortcut direct and name the destination rather than the parent group.
             if (SlopWidgets.Button(new Rect(row.x + w + SlopWidgets.GapS, row.y, w, row.height),
-                    "Appearance..."))
+                    "Terminal..."))
                 SlopOptions.OpenTerminalTab();
         }
 

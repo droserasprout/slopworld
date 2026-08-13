@@ -25,9 +25,10 @@ reset, restore and delete actions.
 
 ## Writing and invalidation
 
-The connection comes from `endpoint.json`. `TerminalSettingsWindow` edits pane settings;
-`ConfigPage` edits daemon configuration. Mod settings are written once in `PostClose`
-by `ModSettings.Write`, not through `Mod.WriteSettings`, because the latter reconnects.
+The connection comes from `endpoint.json`. `AppearancePage` edits the global interface
+settings and `TerminalPage` edits pane settings; `ConfigPage` edits daemon configuration.
+Mod settings are written once in `PostClose` by `ModSettings.Write`, not through
+`Mod.WriteSettings`, because the latter reconnects.
 
 Font or size changes invalidate `TerminalFont`; terminal scheme changes invalidate
 `TerminalTheme`. Cursor and UI scheme resolve on read and need no cache invalidation.
