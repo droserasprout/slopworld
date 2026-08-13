@@ -21,6 +21,7 @@ namespace SlopWorld
         public float ColumnHeadingPadding = 16f;
         public float CreditMargin = 18f;
         public float LinkMargin = 6f;
+        public float ParagraphBottomPadding = 3f;
         public float TailPadding = 120f;
         public int KickerTextSize;
         public int TitleTextSize = 28;
@@ -416,7 +417,8 @@ namespace SlopWorld
             {
                 var style = SizedStyle(font, textSize, anchor, true);
                 float largeH = Mathf.Max(1f,
-                    style.CalcHeight(new GUIContent(text ?? ""), r.width));
+                    style.CalcHeight(new GUIContent(text ?? ""), r.width)) +
+                    Layout.ParagraphBottomPadding;
                 var largeColor = GUI.color;
                 GUI.color = color;
                 GUI.Label(new Rect(r.x, y, r.width, largeH), text ?? "", style);
@@ -432,7 +434,8 @@ namespace SlopWorld
             Text.WordWrap = true;
             Text.Anchor = anchor;
             GUI.color = color;
-            float h = Mathf.Max(SlopWidgets.LineHOf(font), Text.CalcHeight(text, r.width));
+            float h = Mathf.Max(SlopWidgets.LineHOf(font), Text.CalcHeight(text, r.width)) +
+                Layout.ParagraphBottomPadding;
             Widgets.Label(new Rect(r.x, y, r.width, h), text);
             Text.Anchor = wasAnchor;
             Text.WordWrap = wasWrap;
