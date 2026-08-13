@@ -23,7 +23,7 @@ into the whole Cargo dependency graph.
 - Material Icon Theme, Material Extensions: the vendored file-icon SVGs, MIT,
   copyright 2025 Material Extensions. The notice is `tools/fileicons/LICENSE`.
 - Noto Color Emoji, Google: the rasterized radio and wilted-rose glyph artwork.
-- Terry Fail: `slopbg01` and `slopbg02` soundtrack.
+- Terry Fail: `pace`, `dive`, `hime` and `dawn` soundtrack export.
 - Radio Paradise, WEFUNK Radio, WALM / Classic Vinyl HD, Kiosk Radio, WFMU, dublab,
   SomaFM, NTS Radio and KEXP: jukebox stream sources.
 
@@ -51,7 +51,7 @@ vendors, projects or services.
 - Record and ship the exact Codicons licence/source revision.
 - Record the exact Nerd Font build input and its applicable licence bundle.
 - Ship the Noto Color Emoji copyright and licence notice for the derived artwork.
-- Record Terry Fail's copyright and the distribution licence for both OST tracks.
+- Record Terry Fail's copyright and the distribution licence for all four OST tracks.
 - Generate Rust notices from `Cargo.lock` and preserve the Material Icon Theme notice
   in release packages, not only in the source tree.
 

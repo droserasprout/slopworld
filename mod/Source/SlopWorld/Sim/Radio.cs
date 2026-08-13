@@ -196,12 +196,8 @@ namespace SlopWorld
             return null;
         }
 
-        // The tracks this mod ships, as paths under the mod's own folder. One is picked
-        // when the OST is selected. A path and not a file:// URL so that neither end has
-        // anything to escape.
-        static readonly string[] OstFiles = { "slopbg01.ogg", "slopbg02.ogg" };
-        static readonly string[] OstTitles = { "Terry Fail - slopbg01 (WIP)", "Terry Fail - slopbg02 (WIP)" };
-        static int _ostIndex = 0;
+        // The daemon shuffles the files in this directory, so the mod selects the OST as one
+        // source instead of trying to track which file the host is currently feeding.
         static readonly System.Random Dice = new System.Random();
 
         static string OstPath()
@@ -209,7 +205,7 @@ namespace SlopWorld
             var root = SlopWorldMod.Instance?.Content?.RootDir;
             return string.IsNullOrEmpty(root)
                 ? null
-                : System.IO.Path.Combine(root, "Sounds", "SlopWorld", OstFiles[_ostIndex]);
+                : System.IO.Path.Combine(root, "Sounds", "SlopWorld", "OST");
         }
 
         // Null is the OST, which is the one thing played that is not a station.
@@ -274,14 +270,16 @@ namespace SlopWorld
         // "Artist - Song", or null when there is nothing to say: muted, or a station that
         // has not named itself yet - a title is spliced into the audio and so arrives a
         // second or two behind the pick, and never at all if the host stops sending
-        // `icy-metaint`. The OST names itself, there being nobody else to do it.
+        // `icy-metaint`. The daemon names the OST file it is currently feeding.
         public static string NowPlaying
         {
             get
             {
                 Read();
                 if (_muted) return null;
-                return _station != null ? FormatTitle(_station, _title) : OstTitles[_ostIndex];
+                return _station != null
+                    ? FormatTitle(_station, _title)
+                    : string.IsNullOrEmpty(_title) ? "Terry Fail - OST" : "Terry Fail - " + _title;
             }
         }
 
@@ -333,8 +331,12 @@ namespace SlopWorld
 
         public static void PickOst()
         {
-            _ostIndex = (_ostIndex + 1) % OstFiles.Length;
-            Pick(null, 0);
+            Read();
+            _station = null;
+            _muted = false;
+            _blamed = false;
+            Save();
+            Push();
         }
 
         // Pick one OST track or one station, with a station quality chosen independently.
@@ -348,23 +350,14 @@ namespace SlopWorld
             foreach (var candidate in Stations)
                 if (_muted || candidate != _station) candidates.Add(candidate);
 
-            // The OST is one source candidate, but when it is active its current track is not.
-            // The shipped OST has another track to choose from; a one-track custom build has
-            // no valid OST candidate in that case.
+            // The OST is one source candidate, but when it is active it is not picked again.
             bool ostCurrent = !_muted && _station == null;
-            bool canPickOst = !ostCurrent || OstFiles.Length > 1;
+            bool canPickOst = !ostCurrent;
             int count = candidates.Count + (canPickOst ? 1 : 0);
             if (count == 0) return;
 
             if (canPickOst && Dice.Next(count) == 0)
             {
-                if (ostCurrent)
-                {
-                    int next = Dice.Next(OstFiles.Length - 1);
-                    _ostIndex = next >= _ostIndex ? next + 1 : next;
-                }
-                else
-                    _ostIndex = Dice.Next(OstFiles.Length);
                 Pick(null, 0);
                 return;
             }
@@ -511,7 +504,6 @@ namespace SlopWorld
             Log.Warning("[SlopWorld] jukebox: " + error);
             if (_station == null) return;
 
-            _ostIndex = (_ostIndex + 1) % OstFiles.Length;
             Messages.Message($"Jukebox: {_station.Name} {RateLabel(_station.Rate)} would not "
                 + "play. Back to the OST.", MessageTypeDefOf.RejectInput, false);
             _station = null;

@@ -1,14 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
   <SongDef>
-    <defName>SlopWorld_slopbg01</defName>
-    <clipPath>SlopWorld/slopbg01</clipPath>
+    <defName>SlopWorld_pace_20260812</defName>
+    <clipPath>SlopWorld/OST/pace-20260812</clipPath>
     <volume>1</volume>
     <tense>false</tense>
   </SongDef>
   <SongDef>
-    <defName>SlopWorld_slopbg02</defName>
-    <clipPath>SlopWorld/slopbg02</clipPath>
+    <defName>SlopWorld_dive_20260812</defName>
+    <clipPath>SlopWorld/OST/dive-20260812</clipPath>
+    <volume>1</volume>
+    <tense>false</tense>
+  </SongDef>
+  <SongDef>
+    <defName>SlopWorld_hime_20260812</defName>
+    <clipPath>SlopWorld/OST/hime-20260812</clipPath>
+    <volume>1</volume>
+    <tense>false</tense>
+  </SongDef>
+  <SongDef>
+    <defName>SlopWorld_dawn_20260812</defName>
+    <clipPath>SlopWorld/OST/dawn-20260812</clipPath>
     <volume>1</volume>
     <tense>false</tense>
   </SongDef>

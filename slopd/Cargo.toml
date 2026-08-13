@@ -11,6 +11,7 @@ axum = { version = "0.7", features = ["ws"] }
 dirs = "5"
 futures = "0.3"
 nix = { version = "0.28", features = ["term"] }
+rand = "0.8"
 regex = "1"
 # symphonia-vorbis is the codec and symphonia-ogg the container it always comes in;
 # without the second, the OST is a file no demuxer claims and the probe reads to EOF.

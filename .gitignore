@@ -5,6 +5,7 @@ mod/Assemblies/SlopWorld.dll
 *.pdb
 *.mdb
 .tokensave
+.ost-staging/
 __pycache__/
 tools/bg/
 packaging/arch/src/
