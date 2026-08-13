@@ -52,7 +52,14 @@ pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
     let branch = branch(&root).await;
     let counts = numstat(&root).await;
 
-    let porcelain = run(&root, &["status", "--porcelain=v1", "-z"]).await?;
+    // Ask for every untracked file rather than Git's default one-row-per-directory
+    // summary. The latter produces `?? path/`, which is not a file path and would
+    // become an empty child when the client folds the list into its tree.
+    let porcelain = run(
+        &root,
+        &["status", "--porcelain=v1", "--untracked-files=all", "-z"],
+    )
+    .await?;
     let rows = parse_porcelain(&porcelain);
     let changed = rows.len();
     let added = counts.values().filter_map(|c| c.0).sum();
@@ -254,5 +261,31 @@ mod tests {
         if let Ok(answer) = status(&dir).await {
             assert!(answer.is_none() || answer.unwrap().root != dir);
         }
+    }
+
+    #[tokio::test]
+    async fn an_untracked_directory_reports_its_files() {
+        let dir = std::env::temp_dir().join(format!("slopd-git-untracked-{}", std::process::id()));
+        let nested = dir.join("untracked/nested");
+        tokio::fs::create_dir_all(&nested).await.unwrap();
+        tokio::fs::write(nested.join("file.txt"), "hello\n")
+            .await
+            .unwrap();
+
+        let init = Command::new("git")
+            .arg("init")
+            .arg("-q")
+            .current_dir(&dir)
+            .status()
+            .await
+            .unwrap();
+        assert!(init.success());
+
+        let answer = status(&dir).await.unwrap().unwrap();
+        assert_eq!(answer.changes.len(), 1);
+        assert_eq!(answer.changes[0].path, "untracked/nested/file.txt");
+        assert_eq!(answer.changes[0].status, "??");
+
+        tokio::fs::remove_dir_all(&dir).await.unwrap();
     }
 }
