@@ -88,6 +88,8 @@ namespace SlopWorld
 
         public static Texture2D Trophy => Get("trophy");
 
+        public static Texture2D RimWorld => Get("rimworld");
+
         // The options column's Usage row. A card rather than the silver the readouts draw:
         // those are the game's own resource icons on purpose, and this row is a tab.
         public static Texture2D Usage => Get("usage");

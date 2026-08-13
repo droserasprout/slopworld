@@ -24,8 +24,6 @@ views; their edit dialogs open through `TerminalWindow.OpenOverPane`.
 - `SandboxPage`: edits system and user presets and commands. Built-ins are read-only until
   copied; user entries can be saved, removed, or reset. Project preset selection stays in
   `EditProjectDialog`.
-- `IntegrationsPage`: the parent tab's own page. Text only: what each seller is configured
-  to answer, from `config.toml`, and what the hub last heard, from `SessionHub.Usage`.
 - `UsagePage`: daemon quota switches, credentials, and polling use `config.toml`; the
   global Left/Spent display mode and icon choices use mod settings and work offline. Known
   quota rows are offered before first observation. `Automatic` is the first, null-valued
