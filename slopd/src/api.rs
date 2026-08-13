@@ -1033,6 +1033,10 @@ fn flag<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
     }
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Deserialize)]
 struct BrowseReq {
     #[serde(default)]
@@ -1286,6 +1290,8 @@ struct SearchReq {
     word: bool,
     #[serde(default, deserialize_with = "flag")]
     hidden: bool,
+    #[serde(default = "default_true", deserialize_with = "flag")]
+    gitignore: bool,
     #[serde(default)]
     limit: Option<usize>,
 }
@@ -1360,6 +1366,9 @@ async fn search(State(_m): State<Mgr>, Query(q): Query<SearchReq>) -> ApiResult 
     }
     if q.word {
         cmd.arg("--word-regexp");
+    }
+    if !q.gitignore {
+        cmd.arg("--no-ignore");
     }
     if q.hidden {
         cmd.arg("--hidden");
@@ -1899,7 +1908,9 @@ async fn send(
 mod tests {
     use std::path::{Path, PathBuf};
 
-    use super::{browse_limit, entry_name, file_path, list_dir, search_preview, SEARCH_TEXT_LIMIT};
+    use super::{
+        browse_limit, entry_name, file_path, list_dir, search_preview, SearchReq, SEARCH_TEXT_LIMIT,
+    };
 
     /// Somewhere of our own under the machine's temp dir, cleared on the way in so a run
     /// that died before its cleanup does not poison the next one. No dev-dependency for
@@ -2066,6 +2077,24 @@ mod tests {
 
         assert!(preview.contains("test"));
         assert!(std::str::from_utf8(preview.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn search_filters_gitignored_files_by_default() {
+        let default: SearchReq = serde_json::from_value(serde_json::json!({
+            "path": "/tmp/project",
+            "q": "needle"
+        }))
+        .unwrap();
+        assert!(default.gitignore);
+
+        let include: SearchReq = serde_json::from_value(serde_json::json!({
+            "path": "/tmp/project",
+            "q": "needle",
+            "gitignore": "0"
+        }))
+        .unwrap();
+        assert!(!include.gitignore);
     }
 
     #[test]

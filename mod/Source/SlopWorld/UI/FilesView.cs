@@ -813,11 +813,11 @@ namespace SlopWorld
             Viewer.ViewFile(project, path, label);
         }
 
-        public static void EditFile(string project, string path, string label)
+        public static void EditFile(string project, string path, string label, int line = 0)
         {
             if (string.IsNullOrEmpty(project))
             {
-                SessionHub.Instance.Run("", Pager.EditorCommand(path), label,
+                SessionHub.Instance.Run("", Pager.EditorCommand(path, line), label,
                     session => TerminalWindow.Open(session), SlopWidgets.Fail,
                     host: true, temp: true);
                 return;
@@ -827,7 +827,7 @@ namespace SlopWorld
                 SlopWidgets.Fail($"project '{project}' has gone");
                 return;
             }
-            SessionHub.Instance.Run(project, Pager.EditorCommand(path), label,
+            SessionHub.Instance.Run(project, Pager.EditorCommand(path, line), label,
                 session => TerminalWindow.Open(session), SlopWidgets.Fail);
         }
 
