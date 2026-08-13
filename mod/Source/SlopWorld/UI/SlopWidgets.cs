@@ -413,6 +413,9 @@ namespace SlopWorld
 
         // Apply geometry-changing values after release: live UI scaling moves the track under the
         // pointer. `held` reports whether the hot control still owns the knob.
+        static int _sliderGrabId;
+        static float _sliderGrab;
+
         public static float Slider(Listing_Standard l, string label, float value,
                                    float min, float max, string readout, out bool held,
                                    string tip = null)
@@ -445,22 +448,29 @@ namespace SlopWorld
             var hit = new Rect(track.x - knobW / 2f, r.y, track.width + knobW, RowH);
             if (e.type == EventType.MouseDown && e.button == 0 && hit.Contains(e.mousePosition))
             {
+                // Keep the point where the knob was picked up under the pointer. Without
+                // this, grabbing either side of the square makes the first drag recenter it.
                 GUIUtility.hotControl = id;
+                _sliderGrabId = id;
+                _sliderGrab = e.mousePosition.x - Mathf.Lerp(track.x, track.xMax, value);
                 e.Use();
             }
             if (GUIUtility.hotControl == id)
             {
                 if (e.type == EventType.MouseDrag || e.type == EventType.MouseDown)
                 {
+                    float grab = _sliderGrabId == id ? _sliderGrab : 0f;
                     value = Mathf.Clamp01(Mathf.InverseLerp(track.x, track.xMax,
-                        e.mousePosition.x));
+                        e.mousePosition.x - grab));
                     e.Use();
                 }
                 else if (e.type == EventType.MouseUp && e.button == 0)
                 {
+                    float grab = _sliderGrabId == id ? _sliderGrab : 0f;
                     value = Mathf.Clamp01(Mathf.InverseLerp(track.x, track.xMax,
-                        e.mousePosition.x));
+                        e.mousePosition.x - grab));
                     GUIUtility.hotControl = 0;
+                    if (_sliderGrabId == id) _sliderGrabId = 0;
                     e.Use();
                 }
             }
