@@ -18,25 +18,22 @@ namespace SlopWorld
         // OptionsView's: they are about the shape the pages are drawn in, and this file is
         // the column of categories and the pages themselves.
 
-        // One row of the column. A child is drawn indented and without an icon; a tab with
-        // no page of its own hands its selection to its first child.
+        // A child row is indented and iconless; a page-less parent selects its first child.
         class Tab
         {
             public OptionCategoryDef Def;
             public Func<Texture2D> Icon;
             public Action<Rect> Page;
             public Tab Parent;
-            public bool Heading;
+            public bool Synthetic;
         }
 
-        // The column, in the order it is drawn. Ours are added at startup rather than
-        // shipped as XML: a def survives this mod refusing to patch (see SlopProfile), and
-        // a category whose page is never drawn is an empty tab in somebody else's options
-        // menu.
+        // Column order matches the visible category order, and synthetic entries are added
+        // at startup.
         static readonly List<Tab> Column = new List<Tab>();
 
         static Tab _config, _storage, _terminal, _appearance, _audio, _integrations,
-                   _usage, _summaries, _sandbox, _keyboard, _about;
+                   _usage, _summaries, _sandbox, _keyboard, _rimworld, _about;
 
         public static OptionCategoryDef Category => _config?.Def;
         public static OptionCategoryDef StorageCategory => _storage?.Def;
@@ -48,6 +45,7 @@ namespace SlopWorld
         public static OptionCategoryDef SummariesCategory => _summaries?.Def;
         public static OptionCategoryDef SandboxCategory => _sandbox?.Def;
         public static OptionCategoryDef KeyboardCategory => _keyboard?.Def;
+        public static OptionCategoryDef RimWorldCategory => _rimworld?.Def;
         public static OptionCategoryDef AboutCategory => _about?.Def;
 
         // Rebuilt per open, so a config edited elsewhere - or a daemon that was down last
@@ -57,7 +55,6 @@ namespace SlopWorld
         static TerminalPage _terminalPage;
         static AppearancePage _appearancePage;
         static AudioPage _audioPage;
-        static IntegrationsPage _integrationsPage;
         static UsagePage _usagePage;
         static SummariesPage _summariesPage;
         static SandboxPage _sandboxPage;
@@ -75,9 +72,6 @@ namespace SlopWorld
                 return;
             }
 
-            // Insert SlopWorld section/category defs before RimWorld's categories; section
-            // rows are dim, fixed-pitch labels and do not accept clicks.
-            Heading("SlopWorld_Section", "SlopWorld", general);
             _config = Add("SlopWorld_Config", "General", general, () => Icons.Gear, DrawConfig);
             _storage = Add("SlopWorld_Storage", "Storage", general, () => Icons.Files,
                 DrawStorage);
@@ -87,7 +81,7 @@ namespace SlopWorld
                 DrawAppearance);
             _audio = Add("SlopWorld_Audio", "Audio", general, () => Icons.Bell, DrawAudio);
             _integrations = Add("SlopWorld_Integrations", "Integrations", general,
-                () => Icons.Usage, DrawIntegrations);
+                () => Icons.Usage, null);
             _usage = Add("SlopWorld_Usage", "Usage", general, null, DrawUsage, _integrations);
             _summaries = Add("SlopWorld_Summaries", "Summaries", general, null, DrawSummaries,
                 _integrations);
@@ -95,14 +89,18 @@ namespace SlopWorld
                 DrawSandbox);
             _keyboard = Add("SlopWorld_Keyboard", "Keyboard", general, () => Icons.Keyboard,
                 DrawKeyboard);
+            _rimworld = Add("SlopWorld_RimWorld", "RimWorld", general, () => Icons.RimWorld,
+                null);
+            Existing(OptionCategoryDefOf.Graphics, _rimworld);
+            Existing(OptionCategoryDefOf.Interface, _rimworld);
+            Existing(OptionCategoryDefOf.Controls, _rimworld);
             _about = Add("SlopWorld_About", "About", general, () => Icons.Trophy, DrawAbout);
-            Heading("SlopWorld_RimWorldSection", "RimWorld", general);
 
-            foreach (var tab in Column) DefDatabase<OptionCategoryDef>.Add(tab.Def);
+            foreach (var tab in Column)
+                if (tab.Synthetic) DefDatabase<OptionCategoryDef>.Add(tab.Def);
 
-            // AllDefsListForReading is the database's own list, and the column is drawn in
-            // its order. Taken from wherever they sat and laid out at the head, with the
-            // game's own categories following the "RimWorld" heading untouched.
+            // Move column entries to the front of the database in column order; remaining
+            // game categories follow About.
             var all = DefDatabase<OptionCategoryDef>.AllDefsListForReading;
             for (int i = 0; i < Column.Count; i++)
             {
@@ -124,13 +122,20 @@ namespace SlopWorld
                 Icon = icon,
                 Page = page,
                 Parent = parent,
+                Synthetic = true,
             };
             Column.Add(tab);
             return tab;
         }
 
-        static void Heading(string defName, string label, OptionCategoryDef general) =>
-            Column.Add(new Tab { Def = MakeDef(defName, label, general), Heading = true });
+        static Tab Existing(OptionCategoryDef def, Tab parent)
+        {
+            if (def == null) return null;
+
+            var tab = new Tab { Def = def, Parent = parent };
+            Column.Add(tab);
+            return tab;
+        }
 
         // Reuse General's content pack so Dialog_Options accepts the synthetic category; rows
         // and icons are drawn here, so `texPath` is unused.
@@ -208,16 +213,6 @@ namespace SlopWorld
             _audioPage.Draw(r);
         }
 
-        static void DrawIntegrations(Rect r)
-        {
-            if (_integrationsPage == null)
-            {
-                _integrationsPage = new IntegrationsPage();
-                _integrationsPage.Load();
-            }
-            _integrationsPage.Draw(r);
-        }
-
         static void DrawUsage(Rect r)
         {
             if (_usagePage == null)
@@ -283,6 +278,9 @@ namespace SlopWorld
         {
             if (category == null) return;
 
+            var target = Target(TabOf(category));
+            if (target != null) category = target.Def;
+
             var v = TerminalWindow.ShowingAs<OptionsView>();
             if (v == null) TerminalWindow.OpenContent(new OptionsView(category));
             else v.Category = category;
@@ -317,7 +315,6 @@ namespace SlopWorld
         {
             if (_page != null) _page.Load();
             if (_storagePage != null) _storagePage.Load();
-            if (_integrationsPage != null) _integrationsPage.Load();
             if (_usagePage != null) _usagePage.Load();
             if (_summariesPage != null) _summariesPage.Load();
             if (_sandboxPage != null) _sandboxPage.Load();
@@ -328,7 +325,7 @@ namespace SlopWorld
         {
             _page = null; _storagePage = null; _terminalPage = null; _appearancePage = null;
             _audioPage = null;
-            _integrationsPage = null; _usagePage = null; _summariesPage = null;
+            _usagePage = null; _summariesPage = null;
             _sandboxPage = null; _aboutPage = null; _keyBindingsPage = null;
             SlopWorldMod.Instance.settings.Write();
         }
@@ -355,8 +352,7 @@ namespace SlopWorld
 
         // ---------------------------------------------------------------- the column
 
-        // The icon is inset by RowPadX and the label sits IconGap past it, as vanilla's do.
-        // A child draws no icon and its label is indented past where its parent's starts.
+        // Children omit the icon and indent their labels by ChildIndent.
         const float RowPadX = 10f;
         const float ChildIndent = 12f;
         const float IconGap = 10f;
@@ -366,28 +362,29 @@ namespace SlopWorld
         const float VanillaPitch = 50f;
         const float VanillaInset = 4f;
 
-        // A tab is drawn half again the line it carries. Not off `MenuRowH`: that is floored
-        // at 22 for the tick box a menu row can carry, and the floor rather than the font is
-        // what set the pitch while these rows stayed as fat as vanilla's.
+        // Vanilla reserves a 50px pitch, so top-level rows use the larger computed pitch.
         static float RowH => Mathf.Round(SlopWidgets.LineH * 1.5f);
+        static float NestedRowH => Mathf.Round(SlopWidgets.LineH * 1.25f);
         static float Pitch => RowH + SlopWidgets.GapXS;
+        static float NestedPitch => NestedRowH + SlopWidgets.GapXS;
 
-        // The icon gives way to the row, rather than the row being held open by a fixed 20px
-        // icon it has to clear.
+        // Limit the icon box to the row height.
         static float IconBox => Mathf.Min(20f, RowH - 6f);
         static float LabelX => RowPadX + IconBox + IconGap;
 
-        // The compact slot for the row vanilla is asking about. Its index is recovered from
-        // the y it was handed, so no row has to remember what the one above it did.
-        static Rect Slot(Rect r)
+        // Recover the vanilla row index from r.y and recompute the compact row rectangle.
+        static Rect Slot(Rect r, Tab tab)
         {
             int i = Mathf.Max(0, Mathf.RoundToInt((r.y - VanillaInset) / VanillaPitch));
-            return new Rect(r.x, VanillaInset + i * Pitch, r.width, RowH);
+            float y = VanillaInset;
+            for (int n = 0; n < i; n++)
+                y += n < Column.Count && Column[n].Parent != null ? NestedPitch : Pitch;
+
+            float h = tab != null && tab.Parent != null ? NestedRowH : RowH;
+            return new Rect(r.x, y, r.width, h);
         }
 
-        // Vanilla's option background is a texture with a border and a hover of its own.
-        // This is the same row in the list's own colors: the accent tint for the page being
-        // read, plain white for the one under the mouse, nothing for the rest.
+        // Draw selected and hovered rows with the mod's colors.
         static void CategoryRow(Rect r, bool selected)
         {
             if (selected) Slab.Fill(r, SlopWidgets.Sel);
@@ -401,30 +398,15 @@ namespace SlopWorld
             SoundDefOf.Click.PlayOneShotOnCamera();
         }
 
-        // Every row in the column is drawn here, the game's own included: the pitch is ours
-        // now, and a row left to vanilla would be laid out at the old one. Ours differ in
-        // where the icon comes from - vanilla reads `texPath` through `ContentFinder`, which
-        // knows about files, and none of ours is a file - and in the two headings, which
-        // take a slot but draw as dim text and take no clicks, so neither can ever become
-        // the selected category.
+        // Draw vanilla categories here so nested game rows use the compact layout.
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
         public static class Patch_OptionsRow
         {
             static bool Prefix(Dialog_Options __instance, Rect r, OptionCategoryDef optionCategory)
             {
-                var row = Slot(r);
                 var tab = TabOf(optionCategory);
+                var row = Slot(r, tab);
                 Text.Font = GameFont.Small;
-
-                if (tab != null && tab.Heading)
-                {
-                    GUI.color = SlopWidgets.Dim;
-                    SlopWidgets.RowLabel(
-                        new Rect(row.x + RowPadX, row.y, row.width - RowPadX * 2f, row.height),
-                        tab.Def.label);
-                    GUI.color = Color.white;
-                    return false;
-                }
 
                 CategoryRow(row, __instance.selectedCategory == optionCategory);
                 if (Widgets.ButtonInvisible(row))

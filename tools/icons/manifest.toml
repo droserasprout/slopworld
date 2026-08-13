@@ -123,6 +123,11 @@ glyph = "cod-star_full"
 code = "eb59"
 note = "the About row. Codicons has no trophy, and a star is the same joke at 20px"
 
+[rimworld]
+glyph = "cod-game"
+code = "ec17"
+note = "the vanilla RimWorld settings group"
+
 [add]
 glyph = "cod-add"
 code = "ea60"

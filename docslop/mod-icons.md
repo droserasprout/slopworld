@@ -1,7 +1,7 @@
 # Icons
 
 Every action icon the mod draws is one PNG, baked from [Codicons][c] — VS Code's
-icon set — by `tools/icons.py` and looked up through `UI/Icons.cs`. All twenty-three
+icon set — by `tools/icons.py` and looked up through `UI/Icons.cs`. All twenty-seven
 slots come from that one set.
 
 [c]: https://github.com/microsoft/vscode-codicons
@@ -26,7 +26,7 @@ The font is not vendored: committed PNGs keep builds independent of a four-megab
 font. The manifest stores both the glyph name and codepoint, so baking needs no
 `glyphnames.json`; see the [cheat sheet](https://www.nerdfonts.com/cheat-sheet).
 
-## One scale, not twenty-three
+## One scale, not twenty-seven
 
 Codicons uses a 16px grid with sharp corners and one weight, matching the terminal
 instrument-panel style better than emoji or rounded icon sets.
