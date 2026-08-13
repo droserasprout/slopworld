@@ -2,8 +2,8 @@
 <Defs>
   <MainButtonDef>
     <defName>SlopWorld_Config</defName>
-    <label>config</label>
-    <description>Edit the daemon's configuration.</description>
+    <label>settings</label>
+    <description>Open SlopWorld settings.</description>
     <workerClass>SlopWorld.MainButtonWorker_Config</workerClass>
     <order>77</order>
     <validWithoutMap>true</validWithoutMap>

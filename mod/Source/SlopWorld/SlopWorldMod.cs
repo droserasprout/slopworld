@@ -205,7 +205,8 @@ namespace SlopWorld
             TerminalFont.Invalidate();
             TerminalTheme.Invalidate();
             SlopUIFont.Apply();
-            SessionHub.Instance.Connect();
+            if (Settings.AutoConnect) SessionHub.Instance.Connect();
+            else SessionHub.Instance.Disconnect();
         }
     }
 

@@ -38,7 +38,7 @@ namespace SlopWorld
             _dlg = c != null ? new Dialog_Options(c) : new Dialog_Options();
         }
 
-        public string Title => "Options";
+        public string Title => "Settings";
 
         // The tab the column is on, so the doors that used to swap a category on an open
         // dialog still have something to swap it on.
