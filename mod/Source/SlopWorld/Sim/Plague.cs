@@ -404,7 +404,8 @@ namespace SlopWorld
 
         // Asked of a thing rather than a cell: the grace outlives the cat walking away, so it
         // belongs to what was standing there.
-        bool Spared(Thing t) => (_aura ?? (_aura = Aura.Of(map)))?.Spares(t) == true;
+        bool Spared(Thing t) => CapybaraEgg.IsImmune(t as Pawn)
+            || (_aura ?? (_aura = Aura.Of(map)))?.Spares(t) == true;
 
         public bool Active => _active;
 
