@@ -775,19 +775,19 @@ namespace SlopWorld
                 Execute = _ => GitView.Refresh(),
             });
 
-            // View
+            // Settings
             _commands.Add(new Entry
             {
                 Id = "view.config",
-                Name = "View: Config",
-                Category = "View",
-                Execute = _ => SlopOptions.Toggle(),
+                Name = "Settings: General",
+                Category = "Settings",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.Category),
             });
             _commands.Add(new Entry
             {
                 Id = "view.storage",
-                Name = "View: Storage",
-                Category = "View",
+                Name = "Settings: Storage",
+                Category = "Settings",
                 Execute = _ => SlopOptions.OpenCategory(SlopOptions.StorageCategory),
             });
             _commands.Add(new Entry
@@ -808,15 +808,15 @@ namespace SlopWorld
             _commands.Add(new Entry
             {
                 Id = "view.terminal-settings",
-                Name = "View: Terminal",
-                Category = "View",
+                Name = "Settings: Terminal",
+                Category = "Settings",
                 Execute = _ => SlopOptions.OpenCategory(SlopOptions.TerminalCategory),
             });
             _commands.Add(new Entry
             {
                 Id = "view.appearance",
-                Name = "View: Appearance",
-                Category = "View",
+                Name = "Settings: Appearance",
+                Category = "Settings",
                 Execute = _ => SlopOptions.OpenCategory(SlopOptions.AppearanceCategory),
             });
             _commands.Add(new Entry
@@ -836,51 +836,65 @@ namespace SlopWorld
             _commands.Add(new Entry
             {
                 Id = "view.audio",
-                Name = "View: Audio",
-                Category = "View",
+                Name = "Settings: Audio",
+                Category = "Settings",
                 Execute = _ => SlopOptions.OpenCategory(SlopOptions.AudioCategory),
             });
             _commands.Add(new Entry
             {
-                Id = "view.integrations",
-                Name = "View: Integrations",
-                Category = "View",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.IntegrationsCategory),
-            });
-            _commands.Add(new Entry
-            {
                 Id = "view.usage",
-                Name = "View: Usage",
-                Category = "View",
+                Name = "Settings: Integrations - Usage",
+                Category = "Settings",
                 Execute = _ => SlopOptions.OpenCategory(SlopOptions.UsageCategory),
             });
             _commands.Add(new Entry
             {
                 Id = "view.summaries",
-                Name = "View: Summaries",
-                Category = "View",
+                Name = "Settings: Integrations - Summaries",
+                Category = "Settings",
                 Execute = _ => SlopOptions.OpenCategory(SlopOptions.SummariesCategory),
             });
             _commands.Add(new Entry
             {
                 Id = "view.sandbox",
-                Name = "View: Sandbox",
-                Category = "View",
+                Name = "Settings: Sandbox",
+                Category = "Settings",
                 Execute = _ => SlopOptions.OpenCategory(SlopOptions.SandboxCategory),
             });
             _commands.Add(new Entry
             {
-                Id = "view.about",
-                Name = "View: About",
-                Category = "View",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.AboutCategory),
+                Id = "view.shortcuts-settings",
+                Name = "Settings: Keyboard",
+                Category = "Settings",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.KeyboardCategory),
             });
             _commands.Add(new Entry
             {
-                Id = "view.shortcuts-settings",
-                Name = "View: Keyboard Shortcuts",
-                Category = "View",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.KeyboardCategory),
+                Id = "settings.graphics",
+                Name = "Settings: RimWorld - Graphics",
+                Category = "Settings",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.GraphicsCategory),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "settings.interface",
+                Name = "Settings: RimWorld - Interface",
+                Category = "Settings",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.InterfaceCategory),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "settings.controls",
+                Name = "Settings: RimWorld - Controls",
+                Category = "Settings",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.ControlsCategory),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "view.about",
+                Name = "Settings: About",
+                Category = "Settings",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.AboutCategory),
             });
 
             // Jukebox

@@ -33,7 +33,8 @@ namespace SlopWorld
         static readonly List<Tab> Column = new List<Tab>();
 
         static Tab _config, _storage, _terminal, _appearance, _audio, _integrations,
-                   _usage, _summaries, _sandbox, _keyboard, _rimworld, _about;
+                   _usage, _summaries, _sandbox, _keyboard, _rimworld,
+                   _graphics, _interface, _controls, _about;
 
         public static OptionCategoryDef Category => _config?.Def;
         public static OptionCategoryDef StorageCategory => _storage?.Def;
@@ -46,6 +47,9 @@ namespace SlopWorld
         public static OptionCategoryDef SandboxCategory => _sandbox?.Def;
         public static OptionCategoryDef KeyboardCategory => _keyboard?.Def;
         public static OptionCategoryDef RimWorldCategory => _rimworld?.Def;
+        public static OptionCategoryDef GraphicsCategory => _graphics?.Def;
+        public static OptionCategoryDef InterfaceCategory => _interface?.Def;
+        public static OptionCategoryDef ControlsCategory => _controls?.Def;
         public static OptionCategoryDef AboutCategory => _about?.Def;
 
         // Rebuilt per open, so a config edited elsewhere - or a daemon that was down last
@@ -91,9 +95,9 @@ namespace SlopWorld
                 DrawKeyboard);
             _rimworld = Add("SlopWorld_RimWorld", "RimWorld", general, () => Icons.RimWorld,
                 null);
-            Existing(OptionCategoryDefOf.Graphics, _rimworld);
-            Existing(OptionCategoryDefOf.Interface, _rimworld);
-            Existing(OptionCategoryDefOf.Controls, _rimworld);
+            _graphics = Existing(OptionCategoryDefOf.Graphics, _rimworld);
+            _interface = Existing(OptionCategoryDefOf.Interface, _rimworld);
+            _controls = Existing(OptionCategoryDefOf.Controls, _rimworld);
             _about = Add("SlopWorld_About", "About", general, () => Icons.Trophy, DrawAbout);
 
             foreach (var tab in Column)
