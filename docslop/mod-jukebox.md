@@ -1,9 +1,10 @@
 # The jukebox
 
-`Sim/Jukebox.cs` owns the building and menus; `Sim/Radio.cs` owns the selected source and
-reports it to the daemon. `slopd` owns the station catalog: shipped definitions are compiled
-from `slopd/jukebox/`, and user definitions are loose TOML files in the daemon's config
-directory. One file is one station:
+`Sim/Jukebox.cs` owns the building and menus; `Sim/Radio.cs` owns selection and
+reports it to `slopd`. The daemon owns the station catalog. Shipped stations are
+compiled from `slopd/jukebox/`; user files are one-station TOMLs under
+`$XDG_CONFIG_HOME/slopworld/jukebox/` (`SLOPD_JUKEBOX` overrides). A matching `id`
+replaces a shipped station; new ids append in filename order.
 
 ```toml
 id = "example"
@@ -12,7 +13,6 @@ default_rate = 128
 [metadata]
 name = "Example Radio"
 donate = "https://example.org/support"
-# Optional, case-insensitive; both named captures are required for normalization.
 title_regex = '^\s*(?<title>.+?)\s+by\s+(?<artist>.+?)\s*$'
 
 [[stream]]
@@ -21,71 +21,37 @@ key = "example-128"
 url = "https://stream.example.org/example-128"
 ```
 
-Additional files go in `$XDG_CONFIG_HOME/slopworld/jukebox/`, or
-`~/.config/slopworld/jukebox/` when `XDG_CONFIG_HOME` is unset; `SLOPD_JUKEBOX` can point
-the daemon at another directory. The daemon reads them in filename order; a matching `id`
-replaces a shipped station, and a new id appends one.
-`metadata.donate` is sent to the mod and retained on `Radio.Station.Metadata` for the future
-donation action. `metadata.title_regex`, when present, extracts named `artist` and `title`
-groups from the raw ICY title and displays them as `artist - title`. `key` is the stable
-human-readable part of the saved selection; old path-only selections remain readable. URLs
-are resolved and opened by the daemon; they are not sent as the mod's selection.
+The wire catalog calls the array `streams`; the mod drops stations with no matching
+stream. Stable station/stream keys are saved in `SlopSettings.radio`; URLs stay in
+the daemon. Old path selections remain readable. Catalogs arrive as the root `jukebox`
+WebSocket event and through `GET /api/jukebox`; the mod retains the last catalog while
+reconnecting. `metadata.title_regex` normalizes ICY titles; `donate` is retained for
+the future donation action.
 
-A definition's array of tables is `[[stream]]`, but the catalog carries it as `streams`; the
-mod drops any station whose streams it cannot find, so those names are wire protocol.
-
-The catalog is sent as a root WebSocket `jukebox` event on connect and whenever the daemon
-reloads the directory. `GET /api/jukebox` exposes the same display catalog to tools; it omits
-stream URLs. The mod keeps the last catalog in memory during a reconnect.
-
-Mute sends `selection: null` rather than setting volume to zero, so the daemon does not
-download unheard audio. Selecting a source clears mute.
-
-Stop-on-exit sends `selection: null` during `Root.Shutdown`. `Radio.Quit` also latches the
-shutdown state because `Application.Quit` lets later frames run; without the latch,
-`Radio.Update` can restart playback. A killed process cannot send this message.
-
-The station/stream key is stored in `SlopSettings.radio`; the daemon deliberately keeps no
-selection. Unknown or removed keys fall back to the OST. Volume multiplies RimWorld's
-existing audio sliders.
-
-The Like action appends the normalized `artist - title` text, one line per action, to
-`~/.local/share/slopworld/jukebox.toml` (or `$XDG_DATA_HOME/slopworld/jukebox.toml`). It is
-machine music data, not mod settings.
+Mute sends `selection: null` so unheard audio is not downloaded. Stop-on-exit sends the
+same during shutdown; `Radio.Quit` latches because Unity may run frames after
+`Application.Quit`. A killed process cannot send it. Volume multiplies RimWorld's
+existing audio settings.
 
 ## Daemon audio
 
-The daemon decodes MP3 with Symphonia, resamples to the output device's format, and feeds a
-bounded CPAL queue. The callback must never block. Station replacement increments a
-generation so an old decoder cannot publish status or samples after a new selection.
-Metadata is parsed from Icecast headers and in-stream ICY blocks and sent back in audio
-status events.
+The daemon decodes MP3 with Symphonia, resamples to the device format and feeds a
+bounded CPAL queue; the callback never blocks. A selection generation prevents an old
+decoder from publishing after replacement. ICY headers and in-stream metadata become
+audio status events. Tests use local deterministic fixtures and never contact stations.
 
-Playback lives in the daemon because the game's Unity/FMOD path cannot reliably play these
-streams: desktop AAC support is absent, cleartext HTTP is rejected by the player, FMOD's
-streaming fetch lacks TLS, and an Icecast response has no `Content-Length`. A loopback
-relay solves only the transport restrictions, not the unknown-length stream.
+The daemon is required because Unity/FMOD cannot reliably handle the target HTTPS,
+AAC, Icecast and unknown-length streams. Shipped sources include Radio Paradise,
+WEFUNK, WALM, Kiosk Radio, WFMU, dublab, SomaFM, NTS and KEXP; prefer direct HTTPS
+MP3 streams with ICY metadata.
 
-Tests must never contact radio stations. Only a user selecting a station in a real build
-may open its stream; keep decoder and metadata coverage local and deterministic.
+## Local audio and likes
 
-The shipped independent stations are Radio Paradise, WEFUNK, WALM, Kiosk Radio, WFMU,
-dublab, SomaFM Secret Agent and Groove Salad, NTS Radio 1, and KEXP. Prefer direct HTTPS
-MP3 streams with ICY metadata; redirects are acceptable when the station owns the stable URL.
+The dated OST remains in `mod/Sounds/SlopWorld/OST/` as 192 kbps OGG, but the daemon
+opens it as a directory and plays a non-repeating shuffled bag. `Songs.xml` keeps the
+matching `SlopWorld_` defs because the vanilla-song patch expects them.
+`split_ost.py` stages exports; `install_ost.py` installs them and updates the catalog.
 
-## Assets
-
-The OST files remain ordinary dated 192 kbps OGG Vorbis mod assets in
-`mod/Sounds/SlopWorld/OST/` (`pace-YYYYMMDD.ogg` through `dawn-YYYYMMDD.ogg`) but are opened by
-the daemon. When the selected source is a directory, the daemon shuffles a non-repeating bag
-of its OGG/MP3 files and publishes the current filename stem as the title.
-`Songs.xml` keeps matching
-`SlopWorld_` definitions because the XML patch removing vanilla songs expects one of ours.
-`tools/split_ost.py` stages a dated export and `tools/install_ost.py` copies it into the mod
-and updates the dated song catalog.
-
-The ground texture is `mod/Textures/SlopWorld/Jukebox.png`, generated with:
-
-```sh
-python3 tools/emoji.py --emoji 📻 --name Jukebox --size 128 --color --out mod/Textures/SlopWorld
-```
+Like appends normalized `artist - title` lines to
+`$XDG_DATA_HOME/slopworld/jukebox.toml`. The map texture is generated with
+`tools/emoji.py`; it is unrelated to station configuration.

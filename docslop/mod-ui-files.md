@@ -1,80 +1,35 @@
 # `FilesView` and its icons
 
-One of the column's two tree bodies ([mod-sidebar](mod-sidebar.md)), alongside the
-[git view](mod-ui-git.md): each project's directory as a nested, foldable tree. It is drawn
-from `AgentSidebar`'s back pass, so it also appears over a pane.
+`FilesView` is one of the sidebar's two project trees, alongside [Git](mod-ui-git.md).
+It is drawn in the sidebar back pass and can overlay a pane. The daemon owns all
+filesystem access because sessions have private mount namespaces; the mod uses
+`/api/browse` and `/api/files`. A selected daemon-resolved private-state directory
+can temporarily become the tree root.
 
-Storage can focus one daemon-resolved private-state directory as its root; leaving Files clears
-it. These host-side roots use disposable host errands for reading and editing.
+- `Kids == null` means not fetched. Fetches begin in the draw pass; errors stop retries
+  until the directory is reopened. Folds and expansions are in memory only.
+- `Lines` is the post-layout hit-test table. `Screen` applies scroll offset and omits
+  offscreen rows; do not hit-test against drawing-time geometry.
+- Empty directories remain right-clickable rows. Hover exposes view/edit/diff actions;
+  diff is offered only for paths already present in Git's working-tree result.
+- Context menus support copy paths, `less -R`, `micro`, rename/remove, new file/folder
+  and terminal here. Root-only Files mutations use create, one-component rename and
+  recursive delete. View/edit and file actions run through the project sandbox; storage
+  roots use disposable host errands.
+- Project headings also offer a host terminal. `fa` shortcuts run with bounded output
+  or in a temporary project terminal; path markers are quoted and normalized by the
+  daemon.
 
-**The daemon does the filesystem work.** Sessions have private mount namespaces and the game is
-outside them, so `/api/browse` and `/api/files` are the only project-directory access paths.
+## Viewer
 
-- `Kids == null` means "never asked" and keeps the tree lazy. Fetches start in the **draw**
-  pass, so the dotfile switch reloads without toggling the fold; an `Error` stops retries until
-  the reader closes and reopens the directory.
-- The tree is a scroll view - the one thing in this column that cannot be made to
-  fit by shrinking. `Widgets.BeginScrollView` is `GUI` rather than `GUILayout`, so
-  it is safe in a pass that declines Layout events.
-- Clicks use the `Lines` table **after** layout and outside the scroll group. `Screen` applies
-  the scroll offset and omits rows outside the body; drawing-time hit tests would change as
-  expansion changes the layout.
-- Expansions and project folds are **in memory only**; a tree's shape is a path set and reload
-  costs one browse.
-- A hovered file row shows **view/edit/diff** actions
-  ([mod-ui-rowactions](mod-ui-rowactions.md)); diff is offered only for paths present in the
-  git view's already-read working tree.
-- An empty directory has no fold chevron but remains a row and can be right-clicked. Pending
-  listings also show the fold affordance.
-- Right-click offers copy path/relative path; files also get `View` (`less -R`) and `Edit`
-  (`micro`), while files and non-root folders get `Rename`/`Remove`, and folders get
-  `New file`, `New folder` and `Terminal here`. Mutations use root-only `POST`, `PUT` and
-  `DELETE /api/files`. View/edit run through `POST /api/run` in the **project sandbox**;
-  `Pager.Quote` and `shell_split` build an argv without a shell.
-- `Terminal here` changes to the selected folder first. Project folders use the project
-  sandbox; storage roots use a disposable host errand.
-- A **project heading** also gets `Terminal (host)`, matching the agents view
-  ([mod-sidebar](mod-sidebar.md)). `Menu` receives the project name only for headings so both
-  views expose the same host-terminal action.
+A text-file click starts or reopens one tracked `less -R --` pager above the tree.
+Binary extensions are excluded. Changing file, directory, project, view, terminal or
+pane closes it; Files owns view/edit sessions, while Git owns diffs opened from here.
 
-Configured `fa` shortcuts appear under `File actions`. Each action can show bounded command output
-in a message or open the same command in a temporary project terminal. `{{ absolute_path }}` and
-`{{ relative_path }}` can place the quoted selected path explicitly; without either marker, the
-absolute path is appended.
+## Icons
 
-## The viewer
-
-A left click on a **text file** selects it and opens `less -R --` in a pane over the tree.
-The viewer row stays above the project headings and is not an Agents ghost. "Text" means an
-extension outside `BinaryExt`, so images and archives never reach the pager.
-
-`Pager` owns the single viewer lifecycle shared with git diffs
-([mod-ui-git](mod-ui-git.md)); Files supplies only the command:
-
-- Clicking a *different* file stops/forgets the old ephemeral `less` session and starts the new
-  one; the sidebar title follows the path. Clicking the current file calls `Pager.Reopen`.
-  Files owns view/edit sessions; Git owns diffs, including diffs opened from this tree.
-- A directory/project-heading click, dotfile reload, view switch, terminal summon, or pane close
-  closes the viewer. Killing the session closes the process; `Gone` closes its pane.
-
-## `FileIcons`
-
-One PNG per icon under `Textures/SlopWorld/FileIcons`, baked by
-`tools/fileicons.py` from the Material Icon Theme SVGs vendored in
-`tools/fileicons/` (MIT). Whole filename first, then the longest extension that
-resolves, then a generic page.
-
-One file per icon rather than an atlas: this game's loader decides mipmapping for
-mod textures, and mip bleed across atlas cells is a trap at the size these are
-drawn. The lookup table is the other half of `tools/fileicons/manifest.toml` and
-the two are kept in step **by hand** - shipping the manifest into the game would
-mean a TOML parser the mod does not have.
-
-## `Icons`
-
-The selector's three icons, the dotfile switch, the git view's refresh button and
-the sidebar's bell all come off the icon bake — see [mod-icons](mod-icons.md).
-The agents tab is a chip, not `RobotFace_south`: that is a pawn's faceplate,
-colored, and tinted flat at 18px it is a blob. A bell rather than a plain dot
-because a row can carry several marks and the shape is what tells them apart at
-ten pixels.
+File icons are one PNG per slot, baked from the vendored MIT Material Icon Theme by
+`tools/fileicons.py`. Lookup is filename, then longest matching extension, then a
+generic page. The manifest and lookup table are maintained by hand; no atlas is used
+because mipmapping can bleed between cells. Sidebar action icons come from the shared
+[icon bake](mod-icons.md); the agents tab is a chip, not a robot faceplate.
