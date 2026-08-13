@@ -31,6 +31,19 @@ namespace SlopWorld
         static readonly Color DownTint = new Color(0.50f, 0.50f, 0.50f, 1f);
         const float SelectionInset = 2f;
 
+        // The faceplate is authored inside the 128px head frame. Match the brackets to its
+        // visible bounds after the portrait camera zooms that frame in the sidebar.
+        const float PlateFrame = 128f;
+        const float PlateCenterX = 64f;
+        const float PlateCenterY = 64.5f;
+        const float PlateVisibleCenterX = 64f;
+        const float PlateVisibleCenterY = 70.5f;
+        const float PlateLeft = 40.5f;
+        const float PlateTop = 40f;
+        const float PlateRight = 87.5f;
+        const float PlateBottom = 89f;
+        const float SelectionScale = 1.2f;
+
         static MethodInfo _drawSelectionOverlay;
         static MethodInfo _drawCaravanSelectionOverlay;
         static FieldInfo _deadColonistTex;
@@ -65,6 +78,24 @@ namespace SlopWorld
         // in rather than being a fixed square the text grows past.
         public static float FaceForHeight(float height) =>
             height / (1f + 2f * PortraitOverflow);
+
+        static Rect FaceplateRect(Rect face)
+        {
+            float left = PlateCenterX + (PlateLeft - PlateCenterX) * FaceZoom;
+            float top = PlateCenterY + (PlateTop - PlateCenterY) * FaceZoom;
+            float right = PlateCenterX + (PlateRight - PlateCenterX) * FaceZoom;
+            float bottom = PlateCenterY + (PlateBottom - PlateCenterY) * FaceZoom;
+            var rect = new Rect(face.x + face.width * left / PlateFrame,
+                face.y + face.height * top / PlateFrame,
+                face.width * (right - left) / PlateFrame,
+                face.height * (bottom - top) / PlateFrame);
+            float centerX = PlateCenterX + (PlateVisibleCenterX - PlateCenterX) * FaceZoom;
+            float centerY = PlateCenterY + (PlateVisibleCenterY - PlateCenterY) * FaceZoom;
+            rect.size *= SelectionScale;
+            rect.center = new Vector2(face.x + face.width * centerX / PlateFrame,
+                face.y + face.height * centerY / PlateFrame);
+            return rect;
+        }
 
         // Keep cache parameters unscaled so compact layouts reuse the same portrait texture.
         static Vector2 TextureSize
@@ -178,9 +209,9 @@ namespace SlopWorld
 
             if (!selected) return;
 
-            // Vanilla's brackets extend from the supplied rect. Keep them inside the
-            // portrait row after the face has been made a little more compact.
-            var corners = texRect.ContractedBy(SelectionInset);
+            // Vanilla's brackets extend from the supplied rect. Put them over the visible
+            // faceplate rather than around the transparent margin of the head texture.
+            var corners = FaceplateRect(texRect).ContractedBy(SelectionInset);
 
             if (!WorldRendererUtility.WorldSelected)
             {
