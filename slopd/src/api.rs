@@ -1033,10 +1033,6 @@ fn flag<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
     }
 }
 
-fn default_true() -> bool {
-    true
-}
-
 #[derive(Deserialize)]
 struct BrowseReq {
     #[serde(default)]
@@ -1290,7 +1286,7 @@ struct SearchReq {
     word: bool,
     #[serde(default, deserialize_with = "flag")]
     hidden: bool,
-    #[serde(default = "default_true", deserialize_with = "flag")]
+    #[serde(deserialize_with = "flag")]
     gitignore: bool,
     #[serde(default)]
     limit: Option<usize>,
@@ -2081,12 +2077,19 @@ mod tests {
 
     #[test]
     fn search_filters_gitignored_files_by_default() {
-        let default: SearchReq = serde_json::from_value(serde_json::json!({
+        let missing: Result<SearchReq, _> = serde_json::from_value(serde_json::json!({
             "path": "/tmp/project",
             "q": "needle"
+        }));
+        assert!(missing.is_err());
+
+        let respect: SearchReq = serde_json::from_value(serde_json::json!({
+            "path": "/tmp/project",
+            "q": "needle",
+            "gitignore": "1"
         }))
         .unwrap();
-        assert!(default.gitignore);
+        assert!(respect.gitignore);
 
         let include: SearchReq = serde_json::from_value(serde_json::json!({
             "path": "/tmp/project",
