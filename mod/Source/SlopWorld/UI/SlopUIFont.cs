@@ -24,7 +24,7 @@ namespace SlopWorld
         };
 
         // RimWorld's built-in Tiny/Small/Medium sizes, kept so we can leave them alone
-        // when the user only picks a face.
+        // when the user only picks a face and preserve their offsets for custom sizes.
         static readonly int[] DefaultSizes = { 11, 13, 15 };
 
         // Keep the fonts alive while the styles reference their dynamic atlases.
@@ -51,7 +51,13 @@ namespace SlopWorld
 
             int[] sizes = new int[3];
             for (int i = 0; i < sizes.Length; i++)
-                sizes[i] = size > 0 ? size : DefaultSizes[i];
+            {
+                // The setting is the Small tier's size. Keep Tiny and Medium two points
+                // below and above it, as in RimWorld's built-in 11/13/15 ramp.
+                sizes[i] = size > 0
+                    ? Mathf.Max(1, size + DefaultSizes[i] - DefaultSizes[1])
+                    : DefaultSizes[i];
+            }
 
             // Build one native-size font per distinct tier size.
             var fonts = new Font[3];
