@@ -48,6 +48,7 @@ namespace SlopWorld
         static bool _regex;
         static bool _case;
         static bool _word;
+        static bool _gitignore = true;
         static bool _loading;
         static int _generation;
         static int _pending;
@@ -107,13 +108,16 @@ namespace SlopWorld
             }
 
             float y = field.yMax + SlopWidgets.GapS;
-            float w = (r.width - SlopWidgets.GapS * 2f) / 3f;
+            float w = (r.width - SlopWidgets.GapS * 3f) / 4f;
             _case = SlopWidgets.Checkbox(new Rect(r.x, y, w, SlopWidgets.RowH),
                 "Case", _case, "Case-sensitive search");
             _word = SlopWidgets.Checkbox(new Rect(r.x + w + SlopWidgets.GapS, y,
                 w, SlopWidgets.RowH), "Word", _word, "Match whole words");
             _regex = SlopWidgets.Checkbox(new Rect(r.x + (w + SlopWidgets.GapS) * 2f, y,
                 w, SlopWidgets.RowH), "Regex", _regex, "Interpret the query as a regex");
+            _gitignore = SlopWidgets.Checkbox(new Rect(r.x + (w + SlopWidgets.GapS) * 3f, y,
+                w, SlopWidgets.RowH), "Gitignore", _gitignore,
+                "Exclude files ignored by Git");
 
             // Changing text does not search on every frame; Enter is the deliberate boundary
             // between editing a potentially expensive expression and running it.
@@ -170,6 +174,7 @@ namespace SlopWorld
                     "&regex=" + (_regex ? "1" : "0") +
                     "&case=" + (_case ? "1" : "0") +
                     "&word=" + (_word ? "1" : "0") +
+                    "&gitignore=" + (_gitignore ? "1" : "0") +
                     "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0");
                 SlopClient.Get(url, j =>
                 {
@@ -320,16 +325,21 @@ namespace SlopWorld
 
             string prefix = match.Line + ":" + match.Column;
             float prefixW = Mathf.Min(width * 0.55f, SlopWidgets.Wide(prefix) + 8f);
+            float rx = width - Pad;
+            var acts = over ? RowAct.View | RowAct.Edit : RowAct.None;
+            if (acts != RowAct.None) rx = RowActions.Draw(r, rx, acts) - 4f;
+
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = SlopWidgets.Name;
             SlopWidgets.RowLabel(new Rect(CellX + SlopWidgets.GapM, y, prefixW, RowH), prefix);
             GUI.color = over ? SlopWidgets.Lead : SlopWidgets.Dim;
             SlopWidgets.RowLabel(new Rect(CellX + SlopWidgets.GapM + prefixW, y,
-                width - CellX * 2f - SlopWidgets.GapM - prefixW, RowH), match.Text.Trim());
+                Mathf.Max(0f, rx - CellX - SlopWidgets.GapM - prefixW), RowH), match.Text.Trim());
             GUI.color = Color.white;
-            TooltipHandler.TipRegion(r,
-                $"{match.Path}:{match.Line}:{match.Column}\n{match.Text.Trim()}");
+            if (RowActions.Hit(r, width - Pad, acts) == RowAct.None)
+                TooltipHandler.TipRegion(r,
+                    $"{match.Path}:{match.Line}:{match.Column}\n{match.Text.Trim()}");
             Hits.Add(new Hit { Rect = r, Match = match });
             y += RowH;
         }
@@ -354,9 +364,16 @@ namespace SlopWorld
             if (e.rawType != EventType.MouseDown || e.button != 0) return;
             foreach (var hit in Hits)
             {
-                if (!ColonistBarStrip.MouseOver(Screen(hit.Rect))) continue;
-                _selected = hit.Match;
-                Open(hit.Match);
+                var scr = Screen(hit.Rect);
+                if (!ColonistBarStrip.MouseOver(scr)) continue;
+
+                var act = RowActions.Hit(scr, scr.xMax - Pad, RowAct.View | RowAct.Edit);
+                if (act != RowAct.None) Act(hit.Match, act);
+                else
+                {
+                    _selected = hit.Match;
+                    Open(hit.Match);
+                }
                 e.Use();
                 return;
             }
@@ -389,6 +406,21 @@ namespace SlopWorld
             }
             _showing = match;
             Viewer.ViewFileAt(match.Project, path, match.Line, "search-" + Leaf(match.Path));
+        }
+
+        static void Act(Match match, RowAct act)
+        {
+            switch (act)
+            {
+                case RowAct.View:
+                    Open(match);
+                    break;
+
+                case RowAct.Edit:
+                    string path = match.Root.TrimEnd('/') + "/" + match.Path;
+                    FilesView.EditFile(match.Project, path, "edit-" + Leaf(match.Path), match.Line);
+                    break;
+            }
         }
 
         static string Leaf(string path)

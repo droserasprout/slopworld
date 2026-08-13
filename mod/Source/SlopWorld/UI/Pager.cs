@@ -84,8 +84,22 @@ namespace SlopWorld
             "env " + LessEnv + " " +
             FileCommand(SessionHub.Instance.Config.Pager, "less", file, line);
 
-        public static string EditorCommand(string file) =>
-            FileCommand(SessionHub.Instance.Config.Editor, "micro", file);
+        // micro's +LINE selector follows the file. FileCommand puts a pager's selector before
+        // its `-- FILE`, which makes +LINE look like a buffer name to micro.
+        public static string EditorCommand(string file, int line = 0)
+        {
+            string template = App(SessionHub.Instance.Config.Editor, "micro");
+            if (line < 1) return FileCommand(template, "micro", file);
+
+            bool hasFile = template.Contains("{file}");
+            bool hasLine = template.Contains("{line}");
+            string command = template
+                .Replace("{file}", Quote(file))
+                .Replace("{line}", line.ToString());
+            if (!hasFile) command += " " + Quote(file);
+            if (!hasLine) command += " +" + line;
+            return command;
+        }
 
         // Open a file in the persistent pager. Reuses the existing tmux session only when it
         // is still alive and already showing this file. A different file gets a fresh session
