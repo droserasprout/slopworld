@@ -1,27 +1,24 @@
 # Rectangular SlopWorld
 
-The UI is a dark instrument panel, not a theme derivative: dark wells, restrained edges,
-pale text, a blue action signal, and semantic green/yellow/red states. `SlopWidgets` owns
-the only color *names* anything else in the mod knows; terminal ANSI colors stay in
-`TerminalTheme`.
+The UI is an instrument panel: wells, restrained edges, pale text, an action signal, and
+semantic states. `SlopWidgets` owns the only color *names* anything else in the mod knows;
+terminal ANSI colors stay in `TerminalTheme`.
 
 ## Color schemes
 
 The values behind those names are a `UIScheme`, picked on the Appearance page and held in
 `SlopSettings.uiScheme`. A scheme is a table of colors and nothing else — no geometry, no
 gaps, no shapes — so the panel is the same instrument under every one of them, standing in
-a different light. `slopworld` is the only house scheme. The remaining entries are named
-classic palettes: One Dark, Dracula, GNOME light/dark, Tango light/dark, Solarized
-light/dark, Gruvbox, Nord, Monokai and VS Code Dark+.
+a different light. `slopworld` and `slopworld-warm` are the complete house tables. The
+remaining entries are named palettes adapted to the UI's semantic roles.
 
 The catalog deliberately uses stable IDs for persisted settings and human labels for the
-picker. `onedark`, `gruvbox` and `nord` retain their earlier IDs; `solarized` remains the
-terminal ID for Solarized Dark, while the UI catalog uses the explicit `solarized-dark` ID.
-Unknown or retired IDs resolve to SlopWorld.
+picker. Unknown or retired IDs resolve to SlopWorld.
 
 Named palette values are adapted to SlopWorld's semantic roles rather than pretending that
-an editor theme publishes every widget color. The UI remains rectangular and keeps its
-geometry, but surfaces, text ramps, accents and state colors follow the selected palette.
+an external palette publishes every widget color. The adapter keeps text and structural
+roles separate, and solid faces carry matching foreground roles. The UI remains rectangular
+and keeps its geometry.
 
 Schemes are written in hex, `#rrggbb` or `#rrggbbaa`, parsed by `TerminalTheme.TryHex`. The
 eighth digit is what makes the table readable: a structural line, a hovered row and a text
