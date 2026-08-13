@@ -32,6 +32,35 @@ namespace SlopWorld
             // (see SlopUIScale); two doors to one pref, disagreeing about its span, is one
             // door too many.
             () => "UIScale".Translate(),
+
+            // The rest are rows this mod has already taken the last reader away from. A
+            // preference nothing consults is worse than an absent one: it is a knob that
+            // moves, and a player who moves it is owed the change it advertises.
+
+            // The pointer is DeadCursor's, and both CustomCursor.Activate and Deactivate are
+            // prefixed to lay ours down whichever way the pref went. Appearance picks it.
+            () => "CustomCursor".Translate(),
+
+            // Both clocks are drawn by GlobalControls, which Patch_HideGui declines, and by
+            // the planet view, which has no button left to open it.
+            () => "ShowRealtimeClock".Translate(),
+            () => "TwelveHourClockMode".Translate(),
+
+            // The mood bar under the portrait belongs to ColonistBarColonistDrawer.DrawColonist,
+            // which ColonistBarDrawPatch replaces outright; the weapon beside it belongs to
+            // ColonistBarOnGUI, and an agent generated from PawnKindDefOf.Colonist - a kind
+            // carrying no weaponTags, in a colony that equips nothing - has none to draw.
+            () => "VisibleMood".Translate(),
+            () => "ShowWeaponsUnderPortrait".Translate(),
+
+            // A gravship cutscene wants a gravship, which wants the quests and the Architect
+            // menu this sim does not have.
+            () => "GravshipCutscenes".Translate(),
+
+            // Zoom-to-switch-layer is the world camera's and the remembered draw style is the
+            // designator's: one view and one menu, neither of them reachable.
+            () => "ZoomSwitchLayer".Translate(),
+            () => "RememberDrawStyle".Translate(),
         };
 
         // Gate on the actual content view; a global flag could remain set after an exception and

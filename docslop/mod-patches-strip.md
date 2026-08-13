@@ -24,6 +24,12 @@
   finished "Modify" row and redirects a vanilla window opened on hidden General to
   SlopWorld General. Appearance owns the full-range UI-scale slider, so vanilla's row
   is removed too ([mod-ui-windows](mod-ui-windows.md)).
+- Eight further rows go for one shared reason: their last reader is already patched
+  out, so the row was a knob wired to nothing. The custom cursor (DeadCursor answers
+  either way), both clocks and the mood bar and portrait weapon (GlobalControls and
+  the colonist-bar drawer), gravship cutscenes, zoom-to-switch-layer and the
+  remembered draw style (no gravship, no planet view, no Architect menu). Graphics,
+  Interface, Controls and Mods are what remain of the RimWorld group.
 
 ## `SlopOptions` - our categories in vanilla's options window
 
