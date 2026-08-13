@@ -43,8 +43,10 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   `Settings.usageIcons`; enabled sources keep missing rows as placeholders. Freshness uses
   the last successful poll, and the clock is the final resource before colony doors.
 - `TopBar` draws from a map component and, over a terminal, from `TerminalWindow`; only
-  one copy handles input. Doors lay out right-to-left before quota, so transient usage
-  rows do not move them. Jukebox/core doors exist only when their objects do.
+  one copy handles input. Appearance settings can hide Usage, Clock, Jukebox or the
+  Computer Core (`GM`) independently. Doors lay out right-to-left before quota, so
+  transient usage rows do not move them. Jukebox/core doors exist only when their objects
+  do.
 - Top-bar hit tests use door rects, not `Mouse.IsOver`: the bar can be outside the active
   window and remains interactive over options. Map-click absorption keeps its stricter
   interaction gate.

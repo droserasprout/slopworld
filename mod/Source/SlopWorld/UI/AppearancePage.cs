@@ -24,7 +24,7 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
             SlopWidgets.PageCaption(rect,
                 "The mod's look — scale, colors, font, and the pointer that follows "
-                + "your hand.");
+                + "your hand, plus what stays in the statusbar.");
 
             var body = SlopWidgets.PageBody(rect);
             body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
@@ -142,6 +142,17 @@ namespace SlopWorld
                 S.cursorGrayscale = grayscale;
                 DeadCursor.Apply();
             }
+
+            l.Gap(SlopWidgets.GapM);
+            SlopWidgets.SectionHeading(l, "Statusbar");
+            S.statusbarUsage = SlopWidgets.Checkbox(l, "Show Usage in statusbar", S.statusbarUsage,
+                "Show quota readouts in the top statusbar.");
+            S.statusbarClock = SlopWidgets.Checkbox(l, "Show Clock in statusbar", S.statusbarClock,
+                "Show the local time in the top statusbar.");
+            S.statusbarJukebox = SlopWidgets.Checkbox(l, "Show Jukebox in statusbar", S.statusbarJukebox,
+                "Show the jukebox door when a jukebox is present.");
+            S.statusbarGM = SlopWidgets.Checkbox(l, "Show GM in statusbar", S.statusbarGM,
+                "Show the Computer Core door when the core is present.");
 
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();

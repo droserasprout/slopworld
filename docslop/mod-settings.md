@@ -4,7 +4,8 @@ In `SlopWorldMod.cs`, reached through the static `Settings` shim: `autoConnect`,
 `sidebarWidth`, `foldedProjects`, `sidebarTab`, `sidebarShowHidden`, `usageIcons`,
 `usageSpent`,
 `fontSize`, `fontName`, `uiFontSize`, `uiFontName`, `uiScheme`, `theme`, `cursorColor`,
-`radio`, `radioMute`, `radioStopOnExit`, `grandmaMode`, `ecoMode`, `ecoDim`.
+`radio`, `radioMute`, `statusbarUsage`, `statusbarClock`, `statusbarJukebox`, `statusbarGM`,
+`radioStopOnExit`, `grandmaMode`, `ecoMode`, `ecoDim`.
 
 Adding one means a field, a `Scribe_Values.Look`, a shim property and a widget.
 
@@ -34,6 +35,11 @@ reports is a line nothing reads.
 `usageSpent` is the global quota readout mode. It is off for the default Left display;
 the Usage page's `Show spent quota instead of left` checkbox changes it immediately, and
 the options view writes it when it closes.
+
+`statusbarUsage`, `statusbarClock`, `statusbarJukebox` and `statusbarGM` control the
+optional top-bar readouts and doors. All are on by default; `statusbarGM` is the
+Computer Core door. They only hide those statusbar elements and do not disable polling,
+audio or the map things themselves.
 
 The jukebox's station, `radio`, has no options widget: the box on the map is its picker.
 `radioMute` and `radioStopOnExit` are also drawn on the Audio options page; both roads go

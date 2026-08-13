@@ -68,6 +68,14 @@ namespace SlopWorld
         // what was on.
         public bool radioMute;
 
+        // Which optional instruments are visible in the top statusbar. These are display
+        // preferences rather than the things' own switches: hiding the Computer Core does
+        // not remove it from the map, and hiding Usage does not stop the daemon polling.
+        public bool statusbarUsage = true;
+        public bool statusbarClock = true;
+        public bool statusbarJukebox = true;
+        public bool statusbarGM = true;
+
         // Whether the daemon is told to go quiet on the way out. On by default: slopd
         // outlives the game, and music playing on a machine with nothing on screen to stop
         // it from is the surprise, not the feature.
@@ -110,6 +118,10 @@ namespace SlopWorld
             Scribe_Values.Look(ref cursorGrayscale, "cursorGrayscale", true);
             Scribe_Values.Look(ref radio, "radio", "ost");
             Scribe_Values.Look(ref radioMute, "radioMute", false);
+            Scribe_Values.Look(ref statusbarUsage, "statusbarUsage", true);
+            Scribe_Values.Look(ref statusbarClock, "statusbarClock", true);
+            Scribe_Values.Look(ref statusbarJukebox, "statusbarJukebox", true);
+            Scribe_Values.Look(ref statusbarGM, "statusbarGM", true);
             Scribe_Values.Look(ref radioStopOnExit, "radioStopOnExit", true);
             Scribe_Values.Look(ref grandmaMode, "grandmaMode", false);
             Scribe_Values.Look(ref ecoMode, "ecoMode", false);
@@ -143,6 +155,10 @@ namespace SlopWorld
         public static bool CursorGrayscale => S.cursorGrayscale;
         public static string Radio => S.radio ?? "";
         public static bool RadioMute => S.radioMute;
+        public static bool StatusbarUsage => S.statusbarUsage;
+        public static bool StatusbarClock => S.statusbarClock;
+        public static bool StatusbarJukebox => S.statusbarJukebox;
+        public static bool StatusbarGM => S.statusbarGM;
         public static bool RadioStopOnExit => S.radioStopOnExit;
         public static bool GrandmaMode => S.grandmaMode;
         public static bool EcoMode => S.ecoMode;
