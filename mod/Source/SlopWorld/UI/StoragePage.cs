@@ -196,7 +196,9 @@ namespace SlopWorld
             long days = elapsed / 86400L;
             long hours = (elapsed % 86400L) / 3600L;
             long minutes = (elapsed % 3600L) / 60L;
-            return $"[{days}d {hours}h] {minutes}m ago";
+            if (days > 0) return $"{days}d {hours}h {minutes}m ago";
+            if (hours > 0) return $"{hours}h {minutes}m ago";
+            return $"{minutes}m ago";
         }
     }
 }
