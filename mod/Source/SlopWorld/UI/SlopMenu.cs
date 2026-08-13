@@ -33,6 +33,11 @@ namespace SlopWorld
     // removes every level above it.
     public class SlopMenu : Window
     {
+        sealed class SeparatorOption : FloatMenuOption
+        {
+            public SeparatorOption() : base(" ", null) { }
+        }
+
         readonly List<FloatMenuOption> _options;
         readonly SmoothScroll _scroll = new SmoothScroll();
 
@@ -87,6 +92,7 @@ namespace SlopWorld
         const float OpenDelay = 0.18f;
 
         static float RowH => SlopWidgets.MenuRowH;
+        const float SeparatorH = 8f;
 
         // The frame this menu was built on - see `Keyed`.
         readonly int _born = Time.frameCount;
@@ -122,12 +128,24 @@ namespace SlopWorld
         public static void Open(List<FloatMenuOption> options) =>
             Find.WindowStack.Add(new SlopMenu(options));
 
-        // An option with no label is a structural row, not a disabled action. Keeping it in
-        // the same list preserves the menu's simple measurement and lets callers put a rule
-        // exactly between related groups of actions.
-        public static FloatMenuOption Separator() => new FloatMenuOption("", null);
+        // A separator is a structural row, not a disabled action. It needs its own type
+        // because FloatMenuOption turns an empty label into "(missing label)" in its setter.
+        // Keeping it in the same list preserves the menu's simple measurement and lets
+        // callers put a rule exactly between related groups of actions.
+        public static FloatMenuOption Separator() => new SeparatorOption();
 
-        float ContentH => _options.Count * RowH + PadY * 2f;
+        static float Height(FloatMenuOption option) =>
+            option is SeparatorOption ? SeparatorH : RowH;
+
+        float ContentH
+        {
+            get
+            {
+                float h = PadY * 2f;
+                foreach (var option in _options) h += Height(option);
+                return h;
+            }
+        }
 
         float WidestLabel()
         {
@@ -135,8 +153,11 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
             float w = 0f;
             foreach (var o in _options)
+            {
+                if (o is SeparatorOption) continue;
                 w = Mathf.Max(w, SlopWidgets.Wide(o.Label) + o.extraPartWidth +
                     (o is SlopSubmenu ? ArrowW + SlopWidgets.GapXS : 0f));
+            }
             Text.Font = was;
             return w;
         }
@@ -236,7 +257,7 @@ namespace SlopWorld
             var inner = new Rect(rect.x, rect.y + PadY, rect.width, rect.height - PadY * 2f);
             bool scrolls = ContentH > rect.height;
             var view = new Rect(0f, 0f, inner.width - (scrolls ? SlopWidgets.ScrollbarW : 0f),
-                _options.Count * RowH);
+                ContentH - PadY * 2f);
 
             // One hit test for the whole list, before the scroll view opens its group and
             // while the viewport still means what it says. The rows tile it exactly, so which
@@ -253,8 +274,9 @@ namespace SlopWorld
             float y = 0f;
             for (int i = 0; i < _options.Count; i++)
             {
-                if (Row(new Rect(0f, y, view.width, RowH), _options[i], i, hot == i)) break;
-                y += RowH;
+                float h = Height(_options[i]);
+                if (Row(new Rect(0f, y, view.width, h), _options[i], i, hot == i)) break;
+                y += h;
             }
 
             _scroll.End();
@@ -267,8 +289,17 @@ namespace SlopWorld
             if (!Mouse.IsOver(viewport)) return -1;
 
             float y = Event.current.mousePosition.y - viewport.y + _scroll.Position.y;
-            int i = Mathf.FloorToInt(y / RowH);
-            return i >= 0 && i < _options.Count ? i : -1;
+            if (y < 0f) return -1;
+
+            float top = 0f;
+            for (int i = 0; i < _options.Count; i++)
+            {
+                float h = Height(_options[i]);
+                if (y < top + h) return i;
+                top += h;
+            }
+
+            return -1;
         }
 
         // The pointer walks the tree, once a frame. A row with a list opens it once the
@@ -311,7 +342,12 @@ namespace SlopWorld
 
         // The screen y a submenu opened from row `i` hangs at. Its first row begins at this
         // same y because menus have no vertical inset; only this menu knows the scroll offset.
-        float RowTop(int i) => windowRect.y + i * RowH - _scroll.Position.y;
+        float RowTop(int i)
+        {
+            float y = windowRect.y - _scroll.Position.y;
+            for (int j = 0; j < i; j++) y += Height(_options[j]);
+            return y;
+        }
 
         void Follow(float anchor)
         {
@@ -322,7 +358,7 @@ namespace SlopWorld
         // True if this row took the press.
         bool Row(Rect r, FloatMenuOption o, int i, bool hot)
         {
-            if (string.IsNullOrEmpty(o.Label))
+            if (o is SeparatorOption)
             {
                 Slab.Hairline(new Rect(r.x + PadX, r.y + r.height / 2f,
                     r.width - PadX * 2f, 1f), SlopWidgets.Edge);
