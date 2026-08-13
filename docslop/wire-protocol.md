@@ -7,8 +7,8 @@ Server events are `sessions` (state/title/bell), `screen`, `usage`, `projects`,
 Clients send `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste` and `audio`.
 
 `audio` always includes `volume`; `selection` is a station/stream key, local file,
-`null` to stop, or absent for volume-only changes. The legacy `source` form is still
-accepted. Audio state is `{playing, source, volume, error, title}`; station titles
+`null` to stop, or absent for volume-only changes. Unknown audio fields are rejected. Audio
+state is `{playing, source, volume, error, title}`; station titles
 come from metadata and stream URLs never cross the wire to the mod.
 
 ## HTTP conventions
