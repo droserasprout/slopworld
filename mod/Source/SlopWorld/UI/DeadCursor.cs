@@ -119,18 +119,17 @@ namespace SlopWorld
             Apply();
         }
 
-        // Cheap enough to call on every prefs change, which is the only time the game
-        // touches the cursor.
+        // Cheap enough to call on every prefs change. Vanilla also calls the patched
+        // CustomCursor methods while changing cursor modes, so preserve an animation that
+        // is already running instead of briefly putting the resting cursor back on screen.
         public static void Apply()
         {
             var choice = ChoiceFor(Settings.Cursor) ?? _choices[0];
             if (_tex == null || _builtKey != choice.Key ||
                 _builtGrayscale != Settings.CursorGrayscale)
                 Build(choice);
-            Cursor.SetCursor(_tex, _hotspot, CursorMode.Auto);
-            // Whatever frame was up is gone; a waggle in progress puts its next one back on
-            // the very next Update.
-            _shown = 0;
+            _shown = -1;
+            Show(AnimationStep(Time.realtimeSinceStartup));
         }
 
         // A pat while it is already going is one that has been answered, so it is dropped
@@ -157,28 +156,38 @@ namespace SlopWorld
         // A hardware cursor is one still image, so an animation is a texture per frame.
         public static void Tick()
         {
-            if (_spinUntil < 0f)
+            Show(AnimationStep(Time.realtimeSinceStartup));
+        }
+
+        static int AnimationStep(float now)
+        {
+            if (_spinUntil >= 0f)
             {
-                if (_clickUntil < 0f) return;
-                bool down = Time.realtimeSinceStartup < _clickUntil;
-                if (!down) _clickUntil = -1f;
-                Show(down ? ClickStep : 0);
-                return;
+                float left = _spinUntil - now;
+                if (left <= 0f)
+                {
+                    _spinUntil = -1f;
+                    return 0;
+                }
+
+                // Half a sine per waggle, so the hand goes out and back without ever crossing
+                // to the other side of straight.
+                float t = 1f - left / SpinSeconds;
+                float f = Mathf.Abs(Mathf.Sin(t * SpinWaggles * Mathf.PI));
+                return Mathf.RoundToInt(f * SpinSteps);
             }
 
-            float left = _spinUntil - Time.realtimeSinceStartup;
-            if (left <= 0f)
+            if (_clickUntil >= 0f)
             {
-                _spinUntil = -1f;
-                Show(0);
-                return;
+                if (now >= _clickUntil)
+                {
+                    _clickUntil = -1f;
+                    return 0;
+                }
+                return ClickStep;
             }
 
-            // Half a sine per waggle, so the hand goes out and back without ever crossing to
-            // the other side of straight.
-            float t = 1f - left / SpinSeconds;
-            float f = Mathf.Abs(Mathf.Sin(t * SpinWaggles * Mathf.PI));
-            Show(Mathf.RoundToInt(f * SpinSteps));
+            return 0;
         }
 
         static void Show(int step)

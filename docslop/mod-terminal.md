@@ -34,6 +34,12 @@ layout the window draws no header: `TopBar` owns the name, state and buttons.
 screen: editors use shifted arrows, while zsh/bash treat those sequences as undefined
 ([zsh-terminal](zsh-terminal.md)).
 
+These combos are hardcoded rather than `KeyBindingDef`s, so `KeyBindingsPage` does not
+list them and they cannot be rebound: Alt+comma/Alt+period walk the session list,
+Shift+Enter sends `\e[13;2u` so an agent inserts a newline instead of submitting, Ctrl+C
+copies when text is selected and otherwise falls through as SIGINT, Ctrl+V pastes, and
+Shift+F1..F12 forwards the F-key to the agent while a bare F-key is the mod's.
+
 Unity can lose the semicolon IMGUI event. The terminal therefore checks both the
 character stream and named key, deduplicated per frame; Shift suppresses the `;` fallback
 when the physical key produced `:`. A consumed event is also checked by `rawType`.
@@ -50,8 +56,9 @@ retain the old palette. Unknown names use the default. Cursor override accepts `
 ## Links
 
 - `emu.rs` preserves application OSC 8 after `safe_uri` strips controls and caps length.
-- `Sgr.Autolink` scans each row as characters for plain URLs, then splits runs; existing
-  links win. Detection is row-local, so a wrapped link becomes two links.
+- `Sgr.Autolink` scans screen rows as fixed-width characters for plain URLs, then splits runs;
+  existing links win. A URL that reaches a row edge continues onto the next row, while a blank
+  tail breaks it.
 - `TrackHover`/`LinkAt` share lookup for highlight, tooltip and click. Ctrl+click uses
   `POST /api/open`; `open.rs` permits only http/https/mailto and tries `xdg-open`, `gio`
   and `wslview`, with `Application.OpenURL` as fallback.

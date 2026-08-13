@@ -44,6 +44,8 @@ namespace SlopWorld
 
         // Drag selection, in cell coordinates of the drawn buffer.
         bool _dragging;
+        bool _wordDragging;
+        Vector2Int _wordStart, _wordEnd;
         bool _hasSel;
         Vector2Int _selA, _selB;
 
@@ -52,11 +54,21 @@ namespace SlopWorld
         bool _mouseFwd;
         Vector2Int _fwdCell;
 
-        // The link the pointer is over, and the stretch of one row it covers. Held for
-        // the draw rather than looked up there: the same answer decides the highlight,
-        // the tooltip and what a Ctrl+click opens.
+        // The link the pointer is over and its row spans. Held for the draw rather than looked
+        // up there: the same answer decides the highlight, tooltip and Ctrl+click target.
         string _hoverUrl;
-        int _hoverRow, _hoverC0, _hoverC1;
+        struct HoverSpan
+        {
+            public int Row, C0, C1;
+
+            public HoverSpan(int row, int c0, int c1)
+            {
+                Row = row;
+                C0 = c0;
+                C1 = c1;
+            }
+        }
+        readonly List<HoverSpan> _hoverSpans = new List<HoverSpan>();
 
         // There is nowhere to send them, and swallowing them in silence is how a redeploy
         // reads as a frozen terminal.
@@ -707,19 +719,18 @@ namespace SlopWorld
         void TrackHover(Rect body, ScreenBuf buf)
         {
             _hoverUrl = null;
+            _hoverSpans.Clear();
             var e = Event.current;
             if (e == null) return;
             if (Find.WindowStack != null && !Find.WindowStack.GetsInput(this)) return;
 
-            _hoverUrl = LinkAt(body, buf, e.mousePosition,
-                out _hoverRow, out _hoverC0, out _hoverC1);
+            _hoverUrl = LinkAt(body, buf, e.mousePosition);
         }
 
         // Looked up rather than remembered from the last draw: a click is handled ahead of the
         // frame it lands in, so the drawn answer is one pointer position out of date.
-        string LinkAt(Rect body, ScreenBuf buf, Vector2 m, out int row, out int c0, out int c1)
+        string LinkAt(Rect body, ScreenBuf buf, Vector2 m)
         {
-            row = c0 = c1 = 0;
             if (buf == null || buf.Runs == null || !body.Contains(m)) return null;
 
             var cell = CellAt(body, m);
@@ -737,14 +748,68 @@ namespace SlopWorld
 
             // Outwards over everything carrying the same URL.
             string url = line[hit].Url;
-            c0 = line[hit].Col;
-            c1 = line[hit].Col + line[hit].Text.Length;
-            for (int i = hit - 1; i >= 0 && line[i].Url == url; i--) c0 = line[i].Col;
-            for (int i = hit + 1; i < line.Count && line[i].Url == url; i++)
-                c1 = line[i].Col + line[i].Text.Length;
+            LinkSegment(line, hit, url, out int c0, out int c1);
+            var spans = new List<HoverSpan> { new HoverSpan(cell.y, c0, c1) };
+            int width = Mathf.Max(1, buf.Cols);
 
-            row = cell.y;
+            int scanRow = cell.y;
+            int edge = c0;
+            while (scanRow > 0 && edge <= 0)
+            {
+                var previous = buf.Runs[scanRow - 1];
+                if (!LinkAtEdge(previous, url, width, false,
+                        out int previousC0, out int previousC1)) break;
+                spans.Insert(0, new HoverSpan(scanRow - 1, previousC0, previousC1));
+                scanRow--;
+                edge = previousC0;
+            }
+
+            scanRow = cell.y;
+            edge = c1;
+            while (scanRow + 1 < buf.Runs.Length && edge >= width)
+            {
+                var next = buf.Runs[scanRow + 1];
+                if (!LinkAtEdge(next, url, width, true, out int nextC0, out int nextC1)) break;
+                spans.Add(new HoverSpan(scanRow + 1, nextC0, nextC1));
+                scanRow++;
+                edge = nextC1;
+            }
+
+            _hoverSpans.AddRange(spans);
             return url;
+        }
+
+        static bool LinkAtEdge(List<SgrRun> line, string url, int width, bool start,
+            out int c0, out int c1)
+        {
+            c0 = c1 = 0;
+            for (int i = 0; i < line.Count; i++)
+            {
+                if (line[i].Url != url) continue;
+                LinkSegment(line, i, url, out c0, out c1);
+                if (start ? c0 == 0 : c1 >= width) return true;
+            }
+            return false;
+        }
+
+        static void LinkSegment(List<SgrRun> line, int index, string url,
+            out int start, out int end)
+        {
+            start = line[index].Col;
+            end = start + line[index].Text.Length;
+            int i = index - 1;
+            while (i >= 0 && line[i].Url == url && line[i].Col + line[i].Text.Length == start)
+            {
+                start = line[i].Col;
+                i--;
+            }
+
+            i = index + 1;
+            while (i < line.Count && line[i].Url == url && end == line[i].Col)
+            {
+                end += line[i].Text.Length;
+                i++;
+            }
         }
 
         // Runs made sure of first: a pane that arrived but was never drawn has none.
@@ -753,7 +818,7 @@ namespace SlopWorld
             var buf = DisplayedBuf();
             if (buf == null || buf.Lines.Length == 0) return null;
             EnsureRuns(buf);
-            return LinkAt(body, buf, m, out _, out _, out _);
+            return LinkAt(body, buf, m);
         }
 
         void DrawHover(Rect body)
@@ -761,21 +826,23 @@ namespace SlopWorld
             if (_hoverUrl == null) return;
 
             float cw = TerminalFont.CellW, ch = TerminalFont.CellH;
-            float l = SnapX(body.x + _hoverC0 * cw);
-            float r = SnapX(body.x + _hoverC1 * cw);
-            float t = SnapY(body.y + _hoverRow * ch);
-            float b = SnapY(body.y + (_hoverRow + 1) * ch);
-            if (b > body.yMax) return;
-
-            // Over the text: the only place anything can go once the pane has been blitted.
             var col = TerminalTheme.Current.Link;
             var wash = col;
             wash.a = 0.14f;
-            Widgets.DrawBoxSolid(new Rect(l, t, r - l, b - t), wash);
-            Widgets.DrawBoxSolid(new Rect(l, b - 2f, r - l, 2f), col);
+            foreach (var span in _hoverSpans)
+            {
+                float l = SnapX(body.x + span.C0 * cw);
+                float r = SnapX(body.x + span.C1 * cw);
+                float t = SnapY(body.y + span.Row * ch);
+                float b = SnapY(body.y + (span.Row + 1) * ch);
+                if (b > body.yMax) continue;
 
-            TooltipHandler.TipRegion(new Rect(l, t, r - l, b - t),
-                $"{_hoverUrl}\n\nCtrl+click to open it on the host");
+                // Over the text: the only place anything can go once the pane has been blitted.
+                Widgets.DrawBoxSolid(new Rect(l, t, r - l, b - t), wash);
+                Widgets.DrawBoxSolid(new Rect(l, b - 2f, r - l, 2f), col);
+                TooltipHandler.TipRegion(new Rect(l, t, r - l, b - t),
+                    $"{_hoverUrl}\n\nCtrl+click to open it on the host");
+            }
         }
 
         // Through the daemon: the game is a Unity player under Wine as often as not, and
@@ -1310,6 +1377,19 @@ namespace SlopWorld
                 }
             }
 
+            // A double-click is the terminal's word gesture even when the app reports mouse
+            // clicks. Keeping it ahead of forwarding also leaves the second press armed for a
+            // drag, which is how a multi-line word selection starts.
+            if (e.type == EventType.MouseDown && e.button == 0 && e.clickCount >= 2 &&
+                body.Contains(e.mousePosition))
+            {
+                var cell = CellAt(body, e.mousePosition);
+                if (e.clickCount >= 3) TripleClickSelect(cell.y);
+                else DoubleClickSelect(cell);
+                e.Use();
+                return;
+            }
+
             // Shift forces our own selection, like a real terminal.
             var live = SessionHub.Instance.Screen(_name);
             if (live != null && live.AppMouse && !e.shift && HandleMouseForward(body, e))
@@ -1324,22 +1404,9 @@ namespace SlopWorld
                     if (!body.Contains(e.mousePosition)) return;
                     var cell = CellAt(body, e.mousePosition);
 
-                    if (e.clickCount >= 3)
-                    {
-                        TripleClickSelect(cell.y);
-                        e.Use();
-                        return;
-                    }
-
-                    if (e.clickCount == 2)
-                    {
-                        DoubleClickSelect(cell);
-                        e.Use();
-                        return;
-                    }
-
                     _selA = _selB = cell;
                     _dragging = true;
+                    _wordDragging = false;
                     _hasSel = false;
                     e.Use();
                     return;
@@ -1347,17 +1414,33 @@ namespace SlopWorld
 
                 case EventType.MouseDrag:
                     if (!_dragging) return;
-                    _selB = CellAt(body, e.mousePosition);
-                    _hasSel = _selA != _selB;
+                    var dragCell = CellAt(body, e.mousePosition);
+                    if (_wordDragging) UpdateWordSelection(dragCell);
+                    else
+                    {
+                        _selB = dragCell;
+                        _hasSel = _selA != _selB;
+                    }
                     e.Use();
                     return;
 
                 case EventType.MouseUp:
                     if (!_dragging) return;
-                    _dragging = false;
-                    _selB = CellAt(body, e.mousePosition);
-                    if (_selA != _selB) { _hasSel = true; CopySelection(); }
-                    else _hasSel = false;
+                    var upCell = CellAt(body, e.mousePosition);
+                    if (_wordDragging)
+                    {
+                        UpdateWordSelection(upCell);
+                        _wordDragging = false;
+                        _dragging = false;
+                        if (_hasSel) CopySelection();
+                    }
+                    else
+                    {
+                        _dragging = false;
+                        _selB = upCell;
+                        if (_selA != _selB) { _hasSel = true; CopySelection(); }
+                        else _hasSel = false;
+                    }
                     e.Use();
                     return;
             }
@@ -1417,6 +1500,7 @@ namespace SlopWorld
         {
             _hasSel = false;
             _dragging = false;
+            _wordDragging = false;
         }
 
         // Both ends inclusive, the way a dragged selection states them.
@@ -1426,6 +1510,7 @@ namespace SlopWorld
             _selB = new Vector2Int(c1, row);
             _hasSel = true;
             _dragging = false;
+            _wordDragging = false;
             CopySelection();
         }
 
@@ -1446,8 +1531,50 @@ namespace SlopWorld
             int c0 = cell.x, c1 = cell.x;
             while (c0 > 0 && SameClass(line[c0 - 1], anchor, word)) c0--;
             while (c1 + 1 < len && SameClass(line[c1 + 1], anchor, word)) c1++;
-            SelectSpan(cell.y, c0, c1);
+            _wordStart = new Vector2Int(c0, cell.y);
+            _wordEnd = new Vector2Int(c1, cell.y);
+            _selA = _wordStart;
+            _selB = _wordEnd;
+            _hasSel = true;
+            _dragging = true;
+            _wordDragging = true;
+            CopySelection();
         }
+
+        void UpdateWordSelection(Vector2Int cell)
+        {
+            var buf = DisplayedBuf();
+            if (buf == null) return;
+            EnsureRuns(buf);
+            if (cell.y < 0 || cell.y >= buf.Runs.Length) return;
+
+            string line = RowText(buf, cell.y);
+            int len = ContentLen(line);
+            if (len == 0) return;
+            int x = Mathf.Clamp(cell.x, 0, len - 1);
+            char anchor = line[x];
+            bool word = IsWordChar(anchor);
+            int c0 = x, c1 = x;
+            while (c0 > 0 && SameClass(line[c0 - 1], anchor, word)) c0--;
+            while (c1 + 1 < len && SameClass(line[c1 + 1], anchor, word)) c1++;
+
+            var destinationStart = new Vector2Int(c0, cell.y);
+            var destinationEnd = new Vector2Int(c1, cell.y);
+            if (Before(cell, _wordStart))
+            {
+                _selA = destinationStart;
+                _selB = _wordEnd;
+            }
+            else
+            {
+                _selA = _wordStart;
+                _selB = destinationEnd;
+            }
+            _hasSel = true;
+        }
+
+        static bool Before(Vector2Int a, Vector2Int b) =>
+            a.y < b.y || (a.y == b.y && a.x < b.x);
 
         // The row, not the logical line: the daemon does not mark where one wrapped.
         void TripleClickSelect(int row)
@@ -1503,6 +1630,7 @@ namespace SlopWorld
             _selB = new Vector2Int(buf.Cols, buf.Runs.Length - 1);
             _hasSel = true;
             _dragging = false;
+            _wordDragging = false;
             CopyText(SelectionText(buf).TrimEnd('\n'));
         }
 
@@ -1671,9 +1799,7 @@ namespace SlopWorld
         static void EnsureRuns(ScreenBuf buf)
         {
             if (buf.Runs != null && buf.RunsRev == TerminalTheme.Rev) return;
-            buf.Runs = new List<SgrRun>[buf.Lines.Length];
-            for (int i = 0; i < buf.Lines.Length; i++)
-                buf.Runs[i] = Sgr.ParseLine(buf.Lines[i]);
+            buf.Runs = Sgr.ParseLines(buf.Lines, buf.Cols);
             buf.RunsRev = TerminalTheme.Rev;
         }
 
