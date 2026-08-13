@@ -109,6 +109,32 @@ namespace SlopWorld
         static Color Hex(string s) =>
             TerminalTheme.TryHex(s, out var c) ? c : Color.magenta;
 
+        // Named palettes do not all publish a complete set of application-widget roles. This
+        // maps their published background, foreground, accent and semantic colors onto the
+        // rectangular UI's roles without inventing a second house palette for each one.
+        static UIScheme Classic(string id, string label,
+                                string background, string view, string popover,
+                                string foreground, string muted, string accent,
+                                string destructive, string warn, string yes, string global,
+                                string stateWorking)
+        {
+            string alpha(string color, string a) => color + a;
+            return new UIScheme(id, label,
+                accent, destructive,
+                background, view, popover, alpha(background, "f5"),
+                alpha(destructive, "55"), "#0000008c",
+                foreground, alpha(foreground, "cc"), muted, alpha(muted, "b0"),
+                alpha(muted, "80"),
+                destructive, warn, yes, global,
+                alpha(muted, "40"), alpha(accent, "e6"),
+                alpha(muted, "18"), alpha(muted, "70"),
+                alpha(muted, "a0"), alpha(muted, "d0"),
+                alpha(muted, "10"), alpha(muted, "30"), alpha(muted, "20"),
+                stateWorking, warn, muted, destructive,
+                alpha(muted, "30"), alpha(muted, "45"), alpha(muted, "70"),
+                foreground);
+        }
+
         public static readonly List<UIScheme> All = new List<UIScheme>
         {
             // The house scheme: an opaque grey panel, a signal blue, and every line, row and
@@ -149,6 +175,72 @@ namespace SlopWorld
                 stateIdle: "#7f848e", stateDown: "#e06c75",
                 btnFace: "#abb2bf24", btnHover: "#abb2bf33", btnDown: "#abb2bf4d",
                 knob: "#dcdfe4"),
+
+            Classic("dracula", "Dracula",
+                background: "#282a36", view: "#21222c", popover: "#343746",
+                foreground: "#f8f8f2", muted: "#6272a4", accent: "#bd93f9",
+                destructive: "#ff5555", warn: "#f1fa8c", yes: "#50fa7b",
+                global: "#bd93f9", stateWorking: "#8be9fd"),
+
+            Classic("gnome-dark", "GNOME Dark",
+                background: "#241f31", view: "#1e1e1e", popover: "#3d3846",
+                foreground: "#deddda", muted: "#9a9996", accent: "#62a0ea",
+                destructive: "#e01b24", warn: "#e5a50a", yes: "#33d17a",
+                global: "#c061cb", stateWorking: "#78aeed"),
+
+            Classic("gnome-light", "GNOME Light",
+                background: "#f6f5f4", view: "#ffffff", popover: "#ffffff",
+                foreground: "#2e3436", muted: "#77767b", accent: "#3584e4",
+                destructive: "#c01c28", warn: "#e5a50a", yes: "#26a269",
+                global: "#9141ac", stateWorking: "#1c71d8"),
+
+            Classic("tango-dark", "Tango Dark",
+                background: "#2e3436", view: "#242729", popover: "#555753",
+                foreground: "#eeeeec", muted: "#888a85", accent: "#729fcf",
+                destructive: "#ef2929", warn: "#fce94f", yes: "#8ae234",
+                global: "#ad7fa8", stateWorking: "#34e2e2"),
+
+            Classic("tango-light", "Tango Light",
+                background: "#eeeeec", view: "#ffffff", popover: "#f6f5f4",
+                foreground: "#2e3436", muted: "#888a85", accent: "#3465a4",
+                destructive: "#cc0000", warn: "#c4a000", yes: "#4e9a06",
+                global: "#75507b", stateWorking: "#729fcf"),
+
+            Classic("solarized-dark", "Solarized Dark",
+                background: "#002b36", view: "#073642", popover: "#586e75",
+                foreground: "#93a1a1", muted: "#657b83", accent: "#268bd2",
+                destructive: "#dc322f", warn: "#b58900", yes: "#859900",
+                global: "#6c71c4", stateWorking: "#2aa198"),
+
+            Classic("solarized-light", "Solarized Light",
+                background: "#fdf6e3", view: "#eee8d5", popover: "#fdf6e3",
+                foreground: "#586e75", muted: "#839496", accent: "#268bd2",
+                destructive: "#dc322f", warn: "#b58900", yes: "#859900",
+                global: "#6c71c4", stateWorking: "#2aa198"),
+
+            Classic("gruvbox", "Gruvbox Dark",
+                background: "#282828", view: "#1d2021", popover: "#3c3836",
+                foreground: "#ebdbb2", muted: "#928374", accent: "#83a598",
+                destructive: "#fb4934", warn: "#fabd2f", yes: "#b8bb26",
+                global: "#d3869b", stateWorking: "#8ec07c"),
+
+            Classic("nord", "Nord",
+                background: "#2e3440", view: "#3b4252", popover: "#434c5e",
+                foreground: "#eceff4", muted: "#4c566a", accent: "#88c0d0",
+                destructive: "#bf616a", warn: "#ebcb8b", yes: "#a3be8c",
+                global: "#b48ead", stateWorking: "#81a1c1"),
+
+            Classic("monokai", "Monokai",
+                background: "#272822", view: "#1e1f1c", popover: "#414339",
+                foreground: "#f8f8f2", muted: "#75715e", accent: "#a6e22e",
+                destructive: "#f92672", warn: "#f4bf75", yes: "#a6e22e",
+                global: "#ae81ff", stateWorking: "#66d9ef"),
+
+            Classic("vscode-dark", "VS Code Dark+",
+                background: "#1e1e1e", view: "#1e1e1e", popover: "#252526",
+                foreground: "#d4d4d4", muted: "#858585", accent: "#007acc",
+                destructive: "#f44747", warn: "#dcdcaa", yes: "#89d185",
+                global: "#c586c0", stateWorking: "#4fc1ff"),
         };
 
         // A scheme this build no longer ships reads as the house one rather than as no

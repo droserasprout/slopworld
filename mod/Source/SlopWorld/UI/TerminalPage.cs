@@ -85,9 +85,10 @@ namespace SlopWorld
             }
 
             l.Gap(SlopWidgets.GapM);
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), $"Color scheme: {s.theme}"))
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+                    $"Color scheme: {TerminalTheme.Current.Label}"))
                 Find.WindowStack.Add(new SlopMenu(TerminalTheme.All
-                    .Select(t => new FloatMenuOption(t.Name, () =>
+                    .Select(t => new FloatMenuOption(t.Label, () =>
                     {
                         s.theme = t.Name;
                         TerminalTheme.Invalidate();
