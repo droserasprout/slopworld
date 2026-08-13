@@ -150,7 +150,8 @@ namespace SlopWorld
                         Text.Anchor = TextAnchor.MiddleLeft;
                         SlopWidgets.RowLabel(new Rect(CellX, r.y, badgeW, RowH),
                             item.Kind == ShortcutKind.Shell ? "sh" :
-                                item.Kind == ShortcutKind.Breadcrumb ? "bc" : "pt");
+                                item.Kind == ShortcutKind.Breadcrumb ? "bc" :
+                                item.Kind == ShortcutKind.FileAction ? "fa" : "pt");
                         GUI.color = Color.white;
 
                         float tx = CellX + badgeW + 4f;
@@ -290,7 +291,7 @@ namespace SlopWorld
                 // Breadcrumbs are attached definitions, not errands. A click edits them;
                 // prompt and shell entries still run as before.
                 e.Use();
-                if (line.Item.Kind == ShortcutKind.Breadcrumb)
+                if (line.Item.Kind == ShortcutKind.Breadcrumb || line.Item.Kind == ShortcutKind.FileAction)
                     TerminalWindow.OpenOverPane(new EditShortcutDialog(line.Item));
                 else
                     Run(line.Item);
@@ -323,7 +324,7 @@ namespace SlopWorld
             var opts = new List<FloatMenuOption>();
 
             // Run is the reason ordinary shortcuts exist. Breadcrumbs are definitions only.
-            if (s.Kind != ShortcutKind.Breadcrumb)
+            if (s.Kind != ShortcutKind.Breadcrumb && s.Kind != ShortcutKind.FileAction)
                 opts.Add(new FloatMenuOption("Run", () => Run(s)));
 
             var where = Where(s);
@@ -467,11 +468,13 @@ namespace SlopWorld
                         ? "Shell - run a command"
                         : _s.Kind == ShortcutKind.Breadcrumb
                             ? "Breadcrumb - append to the first prompt"
+                            : _s.Kind == ShortcutKind.FileAction
+                                ? "File action - run on a Files row"
                             : "Prompt - say something to an agent"))
                 PickKind();
 
             l.Gap(SlopWidgets.GapS);
-            if (_s.Kind != ShortcutKind.Breadcrumb)
+            if (_s.Kind != ShortcutKind.Breadcrumb && _s.Kind != ShortcutKind.FileAction)
             {
                 l.Label("Where it runs");
                 if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), LinkLabel(_s.Link)))
@@ -492,7 +495,7 @@ namespace SlopWorld
             // The project dropdown stays up for two of the three, because in temp mode it
             // still answers something - which sandbox the scratch project is given - and a
             // field that vanished would read as a setting that does not exist.
-            if (_s.Kind != ShortcutKind.Breadcrumb && _s.Link != ShortcutLink.Ask)
+            if (_s.Kind != ShortcutKind.Breadcrumb && _s.Kind != ShortcutKind.FileAction && _s.Link != ShortcutLink.Ask)
             {
                 l.Gap(SlopWidgets.GapS);
                 l.Label(_s.Link == ShortcutLink.Temp
@@ -509,13 +512,16 @@ namespace SlopWorld
             GUI.color = SlopWidgets.Dim;
             l.Label(_s.Kind == ShortcutKind.Breadcrumb
                 ? "Attach this text to projects and agents; it is not runnable."
+                : _s.Kind == ShortcutKind.FileAction
+                    ? "This command is offered by the Files sidebar; use {{ absolute_path }} or {{ relative_path }}."
                 : Explain(project));
             GUI.color = Color.white;
 
             l.Gap(SlopWidgets.GapS);
             if (_s.Kind != ShortcutKind.Breadcrumb)
             {
-                l.Label(_s.Kind == ShortcutKind.Shell ? "Shell (blank = the default)"
+                l.Label(_s.Kind == ShortcutKind.FileAction ? "Command (path is appended unless substituted)" :
+                    _s.Kind == ShortcutKind.Shell ? "Shell (blank = the default)"
                                                       : "Agent (blank = the default)");
                 var box = l.GetRect(SlopWidgets.FieldH);
                 if (string.IsNullOrEmpty((_s.Command ?? "").Trim()))
@@ -545,13 +551,20 @@ namespace SlopWorld
 
             float y = rect.y + head + used + SlopWidgets.GapL;
             SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
-                _s.Kind == ShortcutKind.Shell ? "Command line" :
+                _s.Kind == ShortcutKind.Shell || _s.Kind == ShortcutKind.FileAction ? "Command line" :
                 _s.Kind == ShortcutKind.Breadcrumb ? "Breadcrumb text" : "Prompt");
             y += SlopWidgets.RowH + SlopWidgets.GapXS;
 
-            var area = new Rect(rect.x, y, rect.width,
-                rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - y);
-            _s.Text = SlopWidgets.Area(area, "shortcut.text", _s.Text ?? "");
+            if (_s.Kind != ShortcutKind.FileAction)
+            {
+                var area = new Rect(rect.x, y, rect.width,
+                    rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - y);
+                _s.Text = SlopWidgets.Area(area, "shortcut.text", _s.Text ?? "");
+            }
+            else
+            {
+                _s.Text = "";
+            }
 
             var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
             if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
@@ -614,6 +627,8 @@ namespace SlopWorld
                     () => _s.Kind = ShortcutKind.Shell),
                 new FloatMenuOption("Breadcrumb - append to the first prompt",
                     () => { _s.Kind = ShortcutKind.Breadcrumb; _s.Link = ShortcutLink.Project; _s.Project = ""; }),
+                new FloatMenuOption("File action - run on a Files row",
+                    () => { _s.Kind = ShortcutKind.FileAction; _s.Link = ShortcutLink.Project; _s.Project = ""; _s.Text = ""; }),
             }));
         }
 
@@ -655,14 +670,20 @@ namespace SlopWorld
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }
-            if (_s.Kind != ShortcutKind.Breadcrumb && _s.Link == ShortcutLink.Project &&
+            if (_s.Kind != ShortcutKind.Breadcrumb && _s.Kind != ShortcutKind.FileAction && _s.Link == ShortcutLink.Project &&
                 string.IsNullOrEmpty((_s.Project ?? "").Trim()))
             {
                 Messages.Message("SlopWorld: pick a project, or a way to choose one.",
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }
-            if (string.IsNullOrEmpty((_s.Text ?? "").Trim()))
+            if (_s.Kind == ShortcutKind.FileAction && string.IsNullOrEmpty((_s.Command ?? "").Trim()))
+            {
+                Messages.Message("SlopWorld: a file action needs a command.",
+                    MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+            if (_s.Kind != ShortcutKind.FileAction && string.IsNullOrEmpty((_s.Text ?? "").Trim()))
             {
                 Messages.Message("SlopWorld: a shortcut needs something to send.",
                     MessageTypeDefOf.RejectInput, false);

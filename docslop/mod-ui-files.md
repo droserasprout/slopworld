@@ -37,6 +37,11 @@ outside them, so `/api/browse` and `/api/files` are the only project-directory a
   ([mod-sidebar](mod-sidebar.md)). `Menu` receives the project name only for headings so both
   views expose the same host-terminal action.
 
+Configured `fa` shortcuts appear under `File actions`. Each action can show bounded command output
+in a message or open the same command in a temporary project terminal. `{{ absolute_path }}` and
+`{{ relative_path }}` can place the quoted selected path explicitly; without either marker, the
+absolute path is appended.
+
 ## The viewer
 
 A left click on a **text file** selects it and opens `less -R --` in a pane over the tree.

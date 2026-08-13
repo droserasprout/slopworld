@@ -62,6 +62,7 @@ pub fn router(m: Mgr) -> Router {
         )
         .route("/api/shortcuts/:name/run", post(run_shortcut))
         .route("/api/run", post(run))
+        .route("/api/file-action", post(file_action))
         .route("/api/grants", get(list_grants).post(mint_grant))
         .route("/api/grants/:grantor", delete(revoke_grants))
         .route("/api/state", get(stored_states))
@@ -512,6 +513,10 @@ struct RunReq {
     /// A preset name or a command line, read exactly as a shortcut's is.
     #[serde(default)]
     command: String,
+    /// Raw selected Files-sidebar path. When present, the daemon expands it and replaces the
+    /// quoted raw path in `command`, so interactive and captured file actions agree.
+    #[serde(default)]
+    path: String,
     #[serde(default)]
     text: String,
     /// Names the session and, through `slug`, the tmux session behind it. The errand's own
@@ -532,7 +537,15 @@ struct RunReq {
 }
 
 async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
-    let command = q.command.trim();
+    let project = q.project.trim();
+    let command = if q.path.trim().is_empty() {
+        q.command.trim().to_string()
+    } else {
+        m.file_action_command(project, &q.path, q.command.trim())
+            .await
+            .map_err(|e| err(StatusCode::BAD_REQUEST, e))?
+    };
+    let command = command.trim();
     // A shell errand with nothing to run is a shell - `[defaults] shell` inside the sandbox,
     // `$SHELL` on the host - and saying so again here would be the caller guessing at this
     // machine's answer. Every other kind has to say: a prompt with no command is an agent
@@ -543,7 +556,6 @@ async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
             "an errand must say what to run",
         ));
     }
-    let project = q.project.trim();
     if project.is_empty() && !q.temp && !q.host {
         return Err(err(
             StatusCode::BAD_REQUEST,
@@ -586,6 +598,24 @@ async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "ok": true, "session": session })))
+}
+
+#[derive(Deserialize)]
+struct FileActionReq {
+    project: String,
+    path: String,
+    command: String,
+}
+
+/// Run a non-interactive Files action in the project's normal sandbox and return a small
+/// result for a game message. Interactive actions use `/api/run`, since their terminal needs
+/// a tmux session and a persistent screen.
+async fn file_action(State(m): State<Mgr>, Json(q): Json<FileActionReq>) -> ApiResult {
+    let output = m
+        .file_action(&q.project, &q.path, &q.command)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "ok": true, "output": output })))
 }
 
 /// Mint a grant: let `grantor` watch or drive the named `sessions`. Root-only by the router,

@@ -404,6 +404,9 @@ pub enum ShortcutKind {
     Shell,
     /// A named piece of guidance pasted into an agent's first prompt.
     Breadcrumb,
+    /// A command offered for the selected path in the Files sidebar.
+    #[serde(rename = "fa")]
+    FileAction,
 }
 
 /// The one thing about a shortcut allowed not to be decided in advance.
@@ -619,7 +622,7 @@ impl Config {
                 self.defaults.shell.trim().to_string(),
                 line.map(str::to_string),
             ),
-            (ShortcutKind::Breadcrumb, _, _) => (String::new(), None),
+            (ShortcutKind::Breadcrumb | ShortcutKind::FileAction, _, _) => (String::new(), None),
         };
         SessionCfg {
             name,
