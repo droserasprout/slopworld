@@ -842,10 +842,24 @@ namespace SlopWorld
             });
             _commands.Add(new Entry
             {
+                Id = "view.integrations",
+                Name = "View: Integrations",
+                Category = "View",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.IntegrationsCategory),
+            });
+            _commands.Add(new Entry
+            {
                 Id = "view.usage",
                 Name = "View: Usage",
                 Category = "View",
                 Execute = _ => SlopOptions.OpenCategory(SlopOptions.UsageCategory),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "view.summaries",
+                Name = "View: Summaries",
+                Category = "View",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.SummariesCategory),
             });
             _commands.Add(new Entry
             {

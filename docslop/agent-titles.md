@@ -8,9 +8,9 @@ how to read the OpenRouter key without exposing it inside an agent sandbox.
 sends prompt text to OpenRouter. `title_model` names the model; `openrouter_key_file`, or
 slopd's `OPENROUTER_API_KEY` when it is blank, supplies the key.
 
-The Usage settings page exposes the Codex and Pi title policies and models. The OpenRouter key
-field is available even with credit polling off, because title generation does not need polling.
-Pi defaults to `always`.
+The Summaries settings page exposes the Codex and Pi title policies and models. Its key is the
+Usage page's OpenRouter key file, which is editable with credit polling off because title
+generation does not need polling. Pi defaults to `always`.
 
 Both Codex and Pi use the daemon path. Explicit command lines such as `codex --yolo` and
 `pi --model …` are recognized as well as named presets:

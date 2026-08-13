@@ -24,10 +24,15 @@ views; their edit dialogs open through `TerminalWindow.OpenOverPane`.
 - `SandboxPage`: edits system and user presets and commands. Built-ins are read-only until
   copied; user entries can be saved, removed, or reset. Project preset selection stays in
   `EditProjectDialog`.
+- `IntegrationsPage`: the parent tab's own page. Text only: what each seller is configured
+  to answer, from `config.toml`, and what the hub last heard, from `SessionHub.Usage`.
 - `UsagePage`: daemon quota switches, credentials, and polling use `config.toml`; the
   global Left/Spent display mode and icon choices use mod settings and work offline. Known
   quota rows are offered before first observation. `Automatic` is the first, null-valued
   icon choice.
+- `SummariesPage`: the Codex and Pi title policies and models - see
+  [agent-titles](agent-titles.md). The OpenRouter key stays on `UsagePage`, one field for
+  both readers.
 - `AppearancePage`: UI scale, color scheme, font face and size, cursor. The scheme row is
   the Terminal page's, in the mod's own palette: a name, and the scheme itself as a swatch
   strip over the well it will be read on — see [mod-ui-identity](mod-ui-identity.md). Scale is `Prefs.UIScale` through
@@ -41,6 +46,24 @@ views; their edit dialogs open through `TerminalWindow.OpenOverPane`.
   `SlopSettings`, preserving their existing persistence and side effects.
 - `ShortcutsView`: Run opens the daemon's returned session. Ask-style errands first choose
   a project or temporary agent; temporary entries cannot be edited or deleted.
+
+## The options column
+
+`SlopOptions.Column` is the table every row is drawn from: a def, an icon, a page delegate,
+and an optional parent. One `DoCategoryRow` prefix draws all of them and one `DoOptions`
+prefix dispatches all of them; a category not in the table falls through to vanilla.
+
+A child row draws no icon and is indented past its parent's label. A tab with no page of its
+own selects its first child when clicked, which is what makes an empty parent a heading with
+pages under it rather than a dead row.
+
+A row is `Mathf.Round(SlopWidgets.LineH * 1.5f)` and the pitch is that plus `GapXS`, so the
+column follows the UI font rather than vanilla's fixed 50px. Not `MenuRowH`: that is floored
+at 22 for the tick box a menu row can carry, and on a small UI font the floor rather than the
+font sets the pitch. The icon is `min(20, RowH - 6)` so the row is never held open by it. Vanilla computes each row's `y` as `i * 50` before handing
+the rect over, so `Slot` recovers `i` from that `y` and re-lays the row; the game's own
+categories are drawn by the same prefix for the same reason, a row left to vanilla being a
+row at the old spacing. The page rect beside the column is unaffected.
 
 ## Command palette and fuzzy matching
 
