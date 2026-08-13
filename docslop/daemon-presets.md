@@ -14,6 +14,9 @@ a project checkbox; copying it creates the user `global` override.
   marks a host-reachable capability and is shown by `Warn`.
 - `requires` forms a cycle-safe dependency closure. Implied boxes are disabled in the
   mod; for example `systemd` requires `dbus` and `python-cache` requires `python`.
+- `tmux = true` is a deliberate host escape for a debugging preset: the daemon's configured
+  tmux socket is mounted into the guest's uid-0 socket directory so `tmux -L slopworld` can
+  inspect the live terminals.
 - `GET /api/presets` returns the complete effective definition and `source` (`system`,
   `user` or `override`). Root-only `POST /api/presets/:kind/:name/copy`, `PUT` and
   `DELETE` edit user `sandbox`/`command` entries. Saves are validated and atomically

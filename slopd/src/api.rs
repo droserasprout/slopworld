@@ -718,6 +718,7 @@ fn sandbox_json(
         "escapes": p.escapes,
         "env": p.env,
         "setenv": p.setenv,
+        "tmux": p.tmux,
     })
 }
 

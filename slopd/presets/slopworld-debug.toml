@@ -1,0 +1,17 @@
+[[sandbox]]
+name = "slopworld-debug"
+category = "debug"
+description = "SlopWorld profile, game log, screenshot, tmux sessions, host processes and service status"
+requires = ["systemd", "x11"]
+ro = [
+    "$SLOPWORLD_PROFILE",
+    "$XDG_DATA_HOME/slopworld/profile",
+    "~/.local/share/slopworld/profile",
+    "$SLOPWORLD_GAME",
+    "~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios",
+    "/proc",
+]
+# Bind the daemon's configured tmux socket, not the user's other tmux servers.
+tmux = true
+escapes = "reads and controls the host game and terminals, shares the X11 display, exposes host processes, and can talk to the user systemd manager"
+env = ["SLOPWORLD_PROFILE", "SLOPWORLD_GAME", "XDG_DATA_HOME"]

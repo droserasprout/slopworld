@@ -476,11 +476,15 @@ namespace SlopWorld
         // What ticking this costs, when it costs anything: a socket whose far end runs on the
         // host, a display every other window shares. Empty for an ordinary preset.
         public string Escapes = "";
+        // A generated bind for the daemon's live tmux socket. It is not a path the editor can
+        // change, but it must round-trip when the settings page saves this preset.
+        public bool Tmux;
         public bool IsEscape => !string.IsNullOrEmpty(Escapes);
 
         // Every path and env var the preset asks for, for the tooltip.
         public List<string> Gives =>
-            Ro.Concat(Rw).Concat(Dev).Concat(Shared).Concat(Private).Concat(Env)
+            (Tmux ? new[] { "configured tmux socket" } : Enumerable.Empty<string>())
+                .Concat(Ro).Concat(Rw).Concat(Dev).Concat(Shared).Concat(Private).Concat(Env)
                 .Concat(Setenv.Select(x => $"{x.Key}={x.Value}")).ToList();
 
         public PresetInfo Copy() => new PresetInfo
@@ -499,6 +503,7 @@ namespace SlopWorld
             Seed = new List<string>(Seed),
             Skip = new List<string>(Skip),
             Escapes = Escapes,
+            Tmux = Tmux,
             Setenv = new Dictionary<string, string>(Setenv),
         };
 
@@ -508,7 +513,7 @@ namespace SlopWorld
             $"\"requires\":{Arr(Requires)}," +
             $"\"rw\":{Arr(Rw)},\"dev\":{Arr(Dev)},\"private\":{Arr(Private)}," +
             $"\"seed\":{Arr(Seed)},\"skip\":{Arr(Skip)},\"shared\":{Arr(Shared)}," +
-            $"\"escapes\":{JVal.Q(Escapes)},\"env\":{Arr(Env)}," +
+            $"\"escapes\":{JVal.Q(Escapes)},\"env\":{Arr(Env)},\"tmux\":{(Tmux ? "true" : "false")}," +
             $"\"setenv\":{Map(Setenv)}}}";
 
         static string Arr(List<string> items) =>
@@ -527,6 +532,7 @@ namespace SlopWorld
                 Description = j["description"].AsString(),
                 Source = j["source"].AsString("system"),
                 Escapes = j["escapes"].AsString(),
+                Tmux = j["tmux"].AsBool(false),
             };
             p.Ro.AddRange(j["ro"].Items.Select(i => i.AsString()));
             p.Requires.AddRange(j["requires"].Items.Select(i => i.AsString()));
