@@ -75,9 +75,14 @@ MP3 streams with ICY metadata; redirects are acceptable when the station owns th
 
 ## Assets
 
-The OST files remain ordinary mod assets but are opened by the daemon. `SlopWorld_Bg1` is
-still declared because the XML patch removing vanilla songs expects a `SlopWorld_` song;
-remove both together.
+The OST files remain ordinary dated 192 kbps OGG Vorbis mod assets in
+`mod/Sounds/SlopWorld/OST/` (`pace-YYYYMMDD.ogg` through `dawn-YYYYMMDD.ogg`) but are opened by
+the daemon. When the selected source is a directory, the daemon shuffles a non-repeating bag
+of its OGG/MP3 files and publishes the current filename stem as the title.
+`Songs.xml` keeps matching
+`SlopWorld_` definitions because the XML patch removing vanilla songs expects one of ours.
+`tools/split_ost.py` stages a dated export and `tools/install_ost.py` copies it into the mod
+and updates the dated song catalog.
 
 The ground texture is `mod/Textures/SlopWorld/Jukebox.png`, generated with:
 

@@ -1490,7 +1490,7 @@ enum ClientMsg {
 }
 
 /// The jukebox. `selection` is absent for a volume-only update, null for silence, a station
-/// id/stream key for a catalog entry, or a file path for one of the mod's OST tracks. The old
+/// id/stream key for a catalog entry, or a file/directory path for the mod's OST. The old
 /// `source` form remains accepted while a daemon and mod are being upgraded independently.
 #[derive(Deserialize)]
 struct AudioReq {

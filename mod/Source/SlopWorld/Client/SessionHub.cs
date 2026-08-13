@@ -837,7 +837,7 @@ namespace SlopWorld
         }
 
         // The jukebox. A station is an id plus its catalog stream key; a file is the absolute
-        // path of one of the mod's OST tracks. All three nulls stop it, and leaving selection
+        // path of one of the mod's OST files or its containing directory. All three nulls stop it, and leaving selection
         // out altogether is the volume moving on its own - which must not restart a stream.
         // URLs never leave the selection message. See Sim/Radio.cs.
         public void SendAudio(string station, string stream, string file, float volume)

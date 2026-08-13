@@ -1676,6 +1676,7 @@ dependencies = [
  "dirs",
  "futures",
  "nix",
+ "rand",
  "regex",
  "rodio",
  "serde",

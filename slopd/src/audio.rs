@@ -1,16 +1,18 @@
 //! Host-side playback keeps station networking out of Unity: desktop FMOD lacks TLS/AAC and
 //! requires `Content-Length`, which Icecast streams omit.
 //!
-//! The mod supplies a URL or absolute file path and volume. The command loop owns the device;
-//! a feeder decodes into a ring so the audio callback never waits on the network.
+//! The mod supplies a URL, absolute file path, or audio directory and volume. The command loop
+//! owns the device; a feeder decodes into a ring so the audio callback never waits on the network.
 
 use std::io::{self, BufReader, Read, Seek, SeekFrom};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
+use rand::seq::SliceRandom;
 use rodio::cpal::traits::{DeviceTrait, HostTrait};
 use rodio::{cpal, ChannelCount, Sample, SampleRate, Source};
 use serde::Serialize;
@@ -32,8 +34,8 @@ const CONNECT: Duration = Duration::from_secs(15);
 const REOPEN_PAUSE: Duration = Duration::from_secs(2);
 const REOPEN_TRIES: u32 = 20;
 
-/// State sent to the mod; errors persist for reporting, and titles are station metadata absent
-/// from local files.
+/// State sent to the mod; errors persist for reporting, and directory playback reports the
+/// current local file stem as its title.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct AudioState {
     pub playing: bool,
@@ -76,7 +78,7 @@ impl Audio {
         Audio { tx, state }
     }
 
-    /// `source` is a URL or an absolute path; `volume` is 0..1.
+    /// `source` is a URL, file path, or directory; `volume` is 0..1.
     pub fn play(&self, source: &str, volume: f32) {
         let _ = self.tx.send(Cmd::Play {
             source: source.to_string(),
@@ -302,38 +304,55 @@ fn start(source: &str, player: &rodio::Player, state: &Arc<Mutex<AudioState>>) -
         generation,
     };
 
-    let first = open_source(source, &title)?;
-    let channels = first.channels();
-    let rate = first.sample_rate();
+    let mut playlist = if Path::new(source).is_dir() {
+        Some(Playlist::from_dir(Path::new(source))?)
+    } else {
+        None
+    };
+    let first_path = playlist.as_mut().map(|p| {
+        p.next()
+            .expect("a directory playlist is non-empty by construction")
+    });
+    let first = match first_path.as_ref() {
+        Some(path) => {
+            title.set(local_title(path));
+            open_file(path)?
+        }
+        None => open_source(source, &title)?,
+    };
+    let format = AudioFormat {
+        channels: first.channels(),
+        rate: first.sample_rate(),
+    };
 
     let (tx, rx) = sync_channel::<Vec<Sample>>(RING);
     player.append(Ring {
         rx,
         held: Vec::new(),
         at: 0,
-        channels,
-        rate,
+        channels: format.channels,
+        rate: format.rate,
         generation,
     });
 
     let source = source.to_string();
     std::thread::Builder::new()
         .name("slopd audio feed".into())
-        .spawn(move || feed(first, source, channels, rate, tx, generation, title))
+        .spawn(move || feed(first, source, playlist, format, tx, generation, title))
         .context("starting the feeder")?;
 
     Ok(())
 }
 
-/// Decodes into the ring until the source runs dry, then opens it again: a file loops,
-/// and a station that dropped reconnects. Stops for good when the run it belongs to has
-/// been superseded, when the ring's other end has gone, or when the source will not come
-/// back.
+/// Decodes into the ring until the source runs dry. A file loops, a directory advances through
+/// its shuffled bag, and a station that dropped reconnects. Stops for good when the run it
+/// belongs to has been superseded, when the ring's other end has gone, or when the source will
+/// not come back.
 fn feed(
     first: Box<dyn Source + Send>,
     source: String,
-    channels: ChannelCount,
-    rate: SampleRate,
+    mut playlist: Option<Playlist>,
+    format: AudioFormat,
     tx: SyncSender<Vec<Sample>>,
     generation: u64,
     title: TitleSink,
@@ -344,6 +363,19 @@ fn feed(
     loop {
         let decoded = match current.take() {
             Some(d) => d,
+            None if playlist.is_some() => {
+                match next_playlist_source(
+                    playlist.as_mut().expect("playlist checked above"),
+                    format,
+                    &title,
+                ) {
+                    Some(decoded) => decoded,
+                    None => {
+                        tracing::warn!("audio: no playable files remain in {source}");
+                        return;
+                    }
+                }
+            }
             None => {
                 if tries >= REOPEN_TRIES {
                     tracing::warn!("audio: {source} would not come back");
@@ -355,7 +387,7 @@ fn feed(
                     return;
                 }
                 match open_source(&source, &title) {
-                    Ok(d) if d.channels() == channels && d.sample_rate() == rate => d,
+                    Ok(d) if d.channels() == format.channels && d.sample_rate() == format.rate => d,
                     // A file that came back as something else would play at the wrong
                     // speed, which is worse than stopping and saying so.
                     Ok(_) => {
@@ -394,27 +426,126 @@ fn feed(
     }
 }
 
+#[derive(Clone, Copy)]
+struct AudioFormat {
+    channels: ChannelCount,
+    rate: SampleRate,
+}
+
 fn open_source(source: &str, title: &TitleSink) -> Result<Box<dyn Source + Send>> {
     if source.starts_with("http://") || source.starts_with("https://") {
         open_stream(source, title)
     } else {
-        open_file(source)
+        open_file(Path::new(source))
     }
 }
 
-fn open_file(path: &str) -> Result<Box<dyn Source + Send>> {
-    let file = std::fs::File::open(path).with_context(|| format!("opening {path}"))?;
+fn open_file(path: &Path) -> Result<Box<dyn Source + Send>> {
+    let file = std::fs::File::open(path).with_context(|| format!("opening {}", path.display()))?;
     let len = file.metadata().map(|m| m.len()).ok();
 
     let mut builder = rodio::Decoder::builder()
         .with_data(BufReader::new(file))
         .with_seekable(true)
-        .with_hint(path);
+        .with_hint(&path.to_string_lossy());
     if let Some(len) = len {
         builder = builder.with_byte_len(len);
     }
 
     Ok(Box::new(builder.build().context("decoding")?))
+}
+
+/// A directory selection is a non-repeating shuffled bag. It reshuffles only after every
+/// file has been used, and swaps the first entry when needed so a bag boundary cannot repeat
+/// the track that just ended.
+struct Playlist {
+    files: Vec<PathBuf>,
+    next: usize,
+    last: Option<PathBuf>,
+}
+
+impl Playlist {
+    fn from_dir(path: &Path) -> Result<Self> {
+        let mut files = std::fs::read_dir(path)
+            .with_context(|| format!("reading audio directory {}", path.display()))?
+            .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+            .filter(|entry| entry.is_file() && supported_file(entry))
+            .collect::<Vec<_>>();
+        files.sort();
+        if files.is_empty() {
+            return Err(anyhow!("audio directory {} is empty", path.display()));
+        }
+
+        files.shuffle(&mut rand::thread_rng());
+        Ok(Self {
+            files,
+            next: 0,
+            last: None,
+        })
+    }
+
+    fn len(&self) -> usize {
+        self.files.len()
+    }
+
+    fn next(&mut self) -> Option<PathBuf> {
+        if self.next == self.files.len() {
+            self.files.shuffle(&mut rand::thread_rng());
+            if self.files.len() > 1 && self.last.as_ref() == self.files.first() {
+                self.files.swap(0, 1);
+            }
+            self.next = 0;
+        }
+
+        let path = self.files.get(self.next)?.clone();
+        self.next += 1;
+        self.last = Some(path.clone());
+        Some(path)
+    }
+}
+
+fn supported_file(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.to_ascii_lowercase())
+            .as_deref(),
+        Some("mp3") | Some("ogg")
+    )
+}
+
+fn local_title(path: &Path) -> Option<String> {
+    path.file_stem()
+        .and_then(|stem| stem.to_str())
+        .map(str::to_string)
+}
+
+fn next_playlist_source(
+    playlist: &mut Playlist,
+    format: AudioFormat,
+    title: &TitleSink,
+) -> Option<Box<dyn Source + Send>> {
+    for _ in 0..playlist.len() {
+        let path = playlist.next()?;
+        match open_file(&path) {
+            Ok(decoded)
+                if decoded.channels() == format.channels
+                    && decoded.sample_rate() == format.rate =>
+            {
+                title.set(local_title(&path));
+                return Some(decoded);
+            }
+            Ok(decoded) => {
+                tracing::warn!(
+                    "audio: skipping {}: format changes within a directory playlist",
+                    path.display()
+                );
+                drop(decoded);
+            }
+            Err(e) => tracing::warn!("audio: skipping {}: {e:#}", path.display()),
+        }
+    }
+    None
 }
 
 fn open_stream(url: &str, title: &TitleSink) -> Result<Box<dyn Source + Send>> {
@@ -784,6 +915,39 @@ mod tests {
         drop(tx);
         assert_eq!(r.next(), Some(1.0));
         assert_eq!(r.next(), None);
+    }
+
+    #[test]
+    fn playlist_uses_each_file_once_before_reshuffling() {
+        let files = (0..4)
+            .map(|n| PathBuf::from(format!("track-{n}.ogg")))
+            .collect();
+        let mut playlist = Playlist {
+            files,
+            next: 0,
+            last: None,
+        };
+
+        let first: Vec<_> = (0..4).map(|_| playlist.next().unwrap()).collect();
+        let second: Vec<_> = (0..4).map(|_| playlist.next().unwrap()).collect();
+
+        let mut first_unique = first.clone();
+        first_unique.sort();
+        first_unique.dedup();
+        let mut second_unique = second.clone();
+        second_unique.sort();
+        second_unique.dedup();
+        assert_eq!(first_unique.len(), 4);
+        assert_eq!(second_unique.len(), 4);
+        assert_ne!(first.last(), second.first());
+    }
+
+    #[test]
+    fn supported_directory_extensions_are_limited_to_stream_codecs() {
+        assert!(supported_file(Path::new("pace.ogg")));
+        assert!(supported_file(Path::new("dive.MP3")));
+        assert!(!supported_file(Path::new("hime.flac")));
+        assert!(!supported_file(Path::new("notes.txt")));
     }
 
     /// The ordinary block, and the two shapes that used to be got wrong: an apostrophe in

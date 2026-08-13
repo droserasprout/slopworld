@@ -69,3 +69,8 @@ journalctl --user -u slopd -f
 - `tools/emoji.py` - bakes an icon from an emoji glyph. An alpha mask by default,
   for the caller to tint; `--color` keeps the face's own colors, which is what a
   thing standing on the map wants - see [mod-jukebox](mod-jukebox.md).
+- `tools/split_ost.py` - crops the newest Bitwig FLAC export at the fixed OST
+  boundaries into 192 kbps OGGs in `.ost-staging/`.
+- `tools/install_ost.py` - copies the newest staged dated tracks into
+  `mod/Sounds/SlopWorld/OST/` and updates `Defs/Songs.xml`; `Radio.cs` points the daemon at
+  that directory.
