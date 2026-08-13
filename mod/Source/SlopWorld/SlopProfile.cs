@@ -79,11 +79,9 @@ namespace SlopWorld
                     "starts the game there. `make install` puts the runner on your PATH.\n\n" +
                     "This folder: " + Folder;
 
-                Find.WindowStack.Add(new Dialog_MessageBox(
-                    text,
-                    "Quit", Root.Shutdown,
-                    "Close", null,
-                    "SlopWorld"));
+                Find.WindowStack.Add(SlopAlertDialog.Create(
+                    "SlopWorld", text, "Quit", Root.Shutdown, "Close", null,
+                    SlopWidgets.Btn.Danger));
             });
         }
     }

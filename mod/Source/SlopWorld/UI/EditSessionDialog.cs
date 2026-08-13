@@ -153,7 +153,7 @@ namespace SlopWorld
             if (!_isNew && foot.Left("Reset private state", SlopWidgets.Btn.Danger))
             {
                 string name = _origName;
-                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                Find.WindowStack.Add(SlopConfirmDialog.Create(
                     $"Reset private state for '{name}'? This stops the agent and gives its tools " +
                     "a fresh state on next start. The old state stays recoverable for 14 days.",
                     () => SessionHub.Instance.ResetState(name, SlopWidgets.Fail), destructive: true));

@@ -91,7 +91,7 @@ namespace SlopWorld
                     icon = Icons.Stop,
                     defaultIconColor = SlopWidgets.Bad,
                     hotKey = SlopDefOf.SlopToggleSession,
-                    action = () => Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                    action = () => Find.WindowStack.Add(SlopConfirmDialog.Create(
                         $"Stop '{Session}'? This kills the tmux session; whatever the agent "
                       + "is in the middle of goes with it.",
                         () => SessionHub.Instance.Stop(Session, SlopWidgets.Fail),

@@ -149,7 +149,7 @@ namespace SlopWorld
                                     "Reset", SlopWidgets.Btn.Ghost))
             {
                 var name = s.Name;
-                TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
+                TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
                     $"Reset private state for '{name}'? This stops the agent and gives its tools " +
                     "a fresh state on next start. The old state stays recoverable for 14 days.",
                     () => SessionHub.Instance.ResetState(name, SlopWidgets.Fail), destructive: true));
@@ -161,7 +161,7 @@ namespace SlopWorld
                                     "Del", SlopWidgets.Btn.Danger))
             {
                 var name = s.Name;
-                TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
+                TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
                     $"Remove session '{name}'? This kills it, drops it from config.toml, and moves " +
                     "its private state to recoverable trash for 14 days.",
                     () => SessionHub.Instance.Remove(name, SlopWidgets.Fail),
