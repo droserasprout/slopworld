@@ -48,7 +48,7 @@ namespace SlopWorld
         static bool _regex;
         static bool _case;
         static bool _word;
-        static bool _gitignore = true;
+        static bool _includeIgnored;
         static bool _loading;
         static int _generation;
         static int _pending;
@@ -115,9 +115,9 @@ namespace SlopWorld
                 w, SlopWidgets.RowH), "Word", _word, "Match whole words");
             _regex = SlopWidgets.Checkbox(new Rect(r.x + (w + SlopWidgets.GapS) * 2f, y,
                 w, SlopWidgets.RowH), "Regex", _regex, "Interpret the query as a regex");
-            _gitignore = SlopWidgets.Checkbox(new Rect(r.x + (w + SlopWidgets.GapS) * 3f, y,
-                w, SlopWidgets.RowH), "Gitignore", _gitignore,
-                "Exclude files ignored by Git");
+            _includeIgnored = SlopWidgets.Checkbox(new Rect(r.x + (w + SlopWidgets.GapS) * 3f, y,
+                w, SlopWidgets.RowH), "Include ignored", _includeIgnored,
+                "Include files ignored by Git");
 
             // Changing text does not search on every frame; Enter is the deliberate boundary
             // between editing a potentially expensive expression and running it.
@@ -174,7 +174,7 @@ namespace SlopWorld
                     "&regex=" + (_regex ? "1" : "0") +
                     "&case=" + (_case ? "1" : "0") +
                     "&word=" + (_word ? "1" : "0") +
-                    "&gitignore=" + (_gitignore ? "1" : "0") +
+                    "&gitignore=" + (_includeIgnored ? "0" : "1") +
                     "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0");
                 SlopClient.Get(url, j =>
                 {
