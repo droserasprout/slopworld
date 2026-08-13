@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using Verse;
 
 namespace SlopWorld
@@ -11,6 +13,82 @@ namespace SlopWorld
     public enum AgentState { Down, Working, Waiting, Idle }
 
     public enum NetworkMode { None, Private, Host }
+
+    public enum DnsMode { Resolved, Servers }
+
+    // DNS is separate from network reach. Resolved means the stable local systemd-resolved
+    // stub; Servers is an explicit list passed to pasta.
+    public class DnsConfig
+    {
+        public DnsMode Mode = DnsMode.Resolved;
+        public List<string> Servers = new List<string>();
+
+        public bool IsResolved => Mode == DnsMode.Resolved;
+
+        public string Label => IsResolved
+            ? "System resolver (127.0.0.53)"
+            : Servers.Count == 0
+                ? "Custom DNS (empty)"
+                : "Custom DNS: " + string.Join(", ", Servers.ToArray());
+
+        public static DnsConfig FromJson(JVal j)
+        {
+            var dns = new DnsConfig();
+            if (j == null || j.IsNull || j["mode"].AsString() != "servers") return dns;
+            dns.Mode = DnsMode.Servers;
+            dns.Servers = j["servers"].Items.Select(i => i.AsString()).ToList();
+            return dns;
+        }
+
+        public DnsConfig Copy() => new DnsConfig
+        {
+            Mode = Mode,
+            Servers = new List<string>(Servers),
+        };
+
+        public string ToJson() => IsResolved
+            ? "{\"mode\":\"resolved\"}"
+            : "{\"mode\":\"servers\",\"servers\":[" +
+              string.Join(",", Servers.Select(JVal.Q).ToArray()) + "]}";
+
+        public static DnsConfig Resolved() => new DnsConfig();
+        public static DnsConfig Custom() => new DnsConfig { Mode = DnsMode.Servers };
+
+        public static bool TryParseServers(string text, out List<string> servers, out string error)
+        {
+            servers = new List<string>();
+            error = null;
+            var parts = (text ?? "").Split(new[] { ',', ';', ' ', '\t', '\r', '\n' },
+                System.StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0)
+            {
+                error = "enter at least one IPv4 DNS server";
+                return false;
+            }
+            if (parts.Length > 2)
+            {
+                error = "enter at most two IPv4 DNS servers";
+                return false;
+            }
+            foreach (string part in parts)
+            {
+                if (!IPAddress.TryParse(part, out var address) ||
+                    address.AddressFamily != AddressFamily.InterNetwork)
+                {
+                    error = $"{part} is not an IPv4 address";
+                    return false;
+                }
+                string normalized = address.ToString();
+                if (servers.Contains(normalized))
+                {
+                    error = "DNS servers must be unique";
+                    return false;
+                }
+                servers.Add(normalized);
+            }
+            return true;
+        }
+    }
 
     public static class NetworkModeText
     {
@@ -109,6 +187,10 @@ namespace SlopWorld
         public NetworkMode Network = NetworkMode.Private;
         // Null means inherit the project's mode.
         public NetworkMode? NetworkOverride;
+        // Effective DNS, resolved by the daemon from the project and optional agent override.
+        public DnsConfig Dns = DnsConfig.Resolved();
+        // Null means inherit the project's DNS setting.
+        public DnsConfig DnsOverride;
         // This agent's own resource caps, each overriding its project's. What the editor edits.
         public SessionLimits Limits;
         // The effective caps after project inheritance. Read-only here.
@@ -181,6 +263,8 @@ namespace SlopWorld
             NetworkOverride = j["network_override"].IsNull
                 ? (NetworkMode?)null
                 : NetworkModeText.Parse(j["network_override"].AsString()),
+            Dns = DnsConfig.FromJson(j["dns"]),
+            DnsOverride = j["dns_override"].IsNull ? null : DnsConfig.FromJson(j["dns_override"]),
             Limits = SessionLimits.FromJson(j["limits_override"]),
             EffectiveLimits = SessionLimits.FromJson(j["limits"]),
             Autostart = j["autostart"].AsBool(false),
@@ -207,6 +291,7 @@ namespace SlopWorld
             $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]," +
             $"\"breadcrumbs\":[{string.Join(",", Breadcrumbs.Select(JVal.Q).ToArray())}]," +
             $"\"network\":{(NetworkOverride.HasValue ? JVal.Q(NetworkModeText.Name(NetworkOverride.Value)) : "null")}," +
+            $"\"dns\":{(DnsOverride == null ? "null" : DnsOverride.ToJson())}," +
             $"\"limits\":{Limits.ToJson()}," +
             $"\"autostart\":{JVal.B(Autostart)}," +
             $"\"breadcrumb_yolo\":{JVal.B(BreadcrumbYolo)}}}";
@@ -223,6 +308,8 @@ namespace SlopWorld
         public List<string> Sandbox = new List<string>();
         public NetworkMode Network = NetworkMode.Private;
         public List<string> Breadcrumbs = new List<string>();
+        // A project-level DNS choice is the default for its agents. Resolved is the default.
+        public DnsConfig Dns = DnsConfig.Resolved();
 
         // The daemon coins the path and is the only thing that writes it; this is so the dialog
         // can show what a name is about to become before anything is saved.
@@ -251,13 +338,15 @@ namespace SlopWorld
             Sandbox = Strings(j["sandbox"]),
             Breadcrumbs = Strings(j["breadcrumbs"]),
             Network = NetworkModeText.Parse(j["network"].AsString("private")),
+            Dns = DnsConfig.FromJson(j["dns"]),
         };
 
         public string ToJson() =>
             "{" +
             $"\"name\":{JVal.Q(Name)},\"dir\":{JVal.Q(Dir)},\"temp\":{JVal.B(Temp)}," +
             $"\"sandbox\":{Arr(Sandbox)}," +
-            $"\"breadcrumbs\":{Arr(Breadcrumbs)},\"network\":{JVal.Q(NetworkModeText.Name(Network))}}}";
+            $"\"breadcrumbs\":{Arr(Breadcrumbs)},\"network\":{JVal.Q(NetworkModeText.Name(Network))}," +
+            $"\"dns\":{Dns.ToJson()}}}";
 
         public ProjectInfo Copy() => new ProjectInfo
         {
@@ -267,6 +356,7 @@ namespace SlopWorld
             Sandbox = new List<string>(Sandbox),
             Breadcrumbs = new List<string>(Breadcrumbs),
             Network = Network,
+            Dns = Dns.Copy(),
         };
 
         static List<string> Strings(JVal a) => a.Items.Select(i => i.AsString()).ToList();

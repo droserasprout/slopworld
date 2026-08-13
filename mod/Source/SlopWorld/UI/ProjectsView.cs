@@ -102,6 +102,7 @@ namespace SlopWorld
             // sandbox around it.
             if (p.Temp) bits.Add("temporary");
             bits.Add(NetworkModeText.ShortLabel(p.Network));
+            bits.Add(p.Dns.IsResolved ? "system DNS" : "custom DNS");
             bits.AddRange(p.Sandbox);
             return string.Join(", ", bits.ToArray());
         }
@@ -128,6 +129,7 @@ namespace SlopWorld
         SmoothScroll _previewScroll = new SmoothScroll();
         const float PresetsH = 152f;
         const float BreadcrumbsH = 132f;
+        string _dnsServers;
         Tab _tab;
 
         // Last frame's laid-out height, so the scroll view is sized by what the form
@@ -160,6 +162,9 @@ namespace SlopWorld
                 // named after the copy rather than pointing back at what it came from.
                 if (_p.Temp) _p.Dir = ProjectInfo.TempDir(_p.Name);
             }
+            _dnsServers = _p.Dns.Mode == DnsMode.Servers
+                ? string.Join(", ", _p.Dns.Servers.ToArray())
+                : "";
 
             resizeable = true;
 
@@ -255,6 +260,24 @@ namespace SlopWorld
                     : "Agents have no network access.");
             GUI.color = Color.white;
 
+            l.Gap(SlopWidgets.GapS);
+            l.Label("DNS");
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), _p.Dns.Label))
+                PickDns();
+            if (_p.Dns.Mode == DnsMode.Servers)
+            {
+                _dnsServers = SlopWidgets.Field(l, "project.dns", _dnsServers ?? "");
+                GUI.color = SlopWidgets.Dim;
+                l.Label("Comma-separated IPv4 addresses; maximum two. Changes apply on restart.");
+                GUI.color = Color.white;
+            }
+            else
+            {
+                GUI.color = SlopWidgets.Dim;
+                l.Label("System resolver uses the stable systemd-resolved stub.");
+                GUI.color = Color.white;
+            }
+
             float used = l.CurHeight;
             l.End();
 
@@ -292,6 +315,22 @@ namespace SlopWorld
             Find.WindowStack.Add(new SlopMenu(options));
         }
 
+        void PickDns()
+        {
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("System resolver (127.0.0.53)",
+                    () => _p.Dns = DnsConfig.Resolved()),
+                new FloatMenuOption("Custom DNS servers",
+                    () =>
+                    {
+                        if (_p.Dns.Mode != DnsMode.Servers)
+                            _p.Dns = DnsConfig.Custom();
+                    }),
+            };
+            Find.WindowStack.Add(new SlopMenu(options));
+        }
+
         void Save()
         {
             if (string.IsNullOrEmpty((_p.Name ?? "").Trim()))
@@ -308,6 +347,17 @@ namespace SlopWorld
                 SlopWidgets.Fail("a project needs a directory");
                 return;
             }
+
+            List<string> dnsServers = null;
+            string dnsError;
+            if (_p.Dns.Mode == DnsMode.Servers &&
+                !DnsConfig.TryParseServers(_dnsServers, out dnsServers, out dnsError))
+            {
+                SlopWidgets.Fail("DNS: " + dnsError);
+                return;
+            }
+            if (_p.Dns.Mode == DnsMode.Servers)
+                _p.Dns.Servers = dnsServers;
 
             SessionHub.Instance.SaveProject(_p, _isNew, _origName,
                 ok: () => Close(),

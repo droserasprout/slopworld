@@ -39,6 +39,13 @@ reduction. The session list repeats both the effective `network` and the raw
 `network_override` for the mod's read-only preview; saving an agent sends only
 the optional override.
 
+DNS is separate from network reach. `dns` is optional on both a project and a
+session: a session setting overrides the project setting, and an omitted setting
+uses the systemd-resolved stub at `127.0.0.53`. An explicit `dns` value selects
+up to two IPv4 servers for pasta. The session list repeats effective `dns` and
+raw `dns_override`; changing either setting affects the next agent start, not a
+running process.
+
 `GET /api/config` never carries the token as written: a set one reads as
 `TOKEN_REDACTED` (`<redacted>`) in both the raw `text` and the parsed `values`
 (`Config::redacted`, `redact_token_text`), an empty one stays empty so "no auth"

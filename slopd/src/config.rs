@@ -1,3 +1,4 @@
+use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
@@ -287,6 +288,51 @@ pub enum NetworkMode {
     Host,
 }
 
+/// How private or host-mode sandboxes resolve names.  The implicit answer is the
+/// systemd-resolved stub, whose address remains stable while Wi-Fi or VPN DNS
+/// configuration changes.  Explicit servers are an opt-in for machines or projects
+/// that deliberately do not use that stub.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "mode", rename_all = "lowercase")]
+pub enum DnsConfig {
+    #[default]
+    Resolved,
+    Servers {
+        servers: Vec<Ipv4Addr>,
+    },
+}
+
+impl DnsConfig {
+    pub fn validate(&self, owner: &str) -> Result<()> {
+        let Self::Servers { servers } = self else {
+            return Ok(());
+        };
+        if servers.is_empty() {
+            bail!("{owner} DNS server list must not be empty; use mode = \"resolved\"");
+        }
+        if servers.len() > 2 {
+            bail!("{owner} may configure at most two DNS servers");
+        }
+        if servers
+            .iter()
+            .any(|server| server.is_unspecified() || server.is_multicast())
+        {
+            bail!("{owner} DNS servers must be unicast IPv4 addresses");
+        }
+        if servers.windows(2).any(|pair| pair[0] == pair[1]) {
+            bail!("{owner} DNS servers must be unique");
+        }
+        Ok(())
+    }
+
+    pub fn servers(&self) -> Vec<String> {
+        match self {
+            Self::Resolved => vec!["127.0.0.53".into()],
+            Self::Servers { servers } => servers.iter().map(ToString::to_string).collect(),
+        }
+    }
+}
+
 impl NetworkMode {
     pub fn no_wider_than(self, ceiling: Self) -> bool {
         self.rank() <= ceiling.rank()
@@ -380,6 +426,9 @@ pub struct ProjectCfg {
     /// The maximum network reach of every sandboxed agent in this project.
     #[serde(default)]
     pub network: NetworkMode,
+    /// DNS for agents in this project. Missing means the configured system resolver.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dns: Option<DnsConfig>,
     /// Resource caps applied to every agent here, each overridable per agent.
     #[serde(default, skip_serializing_if = "Limits::is_empty")]
     pub limits: Limits,
@@ -416,6 +465,9 @@ pub struct SessionCfg {
     /// An optional reduction from the project's network ceiling. Missing means inherit.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub network: Option<NetworkMode>,
+    /// DNS override for this agent. Missing means inherit the project's DNS setting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dns: Option<DnsConfig>,
     /// This agent's own resource caps, each overriding the project's for the same field.
     #[serde(default, skip_serializing_if = "Limits::is_empty")]
     pub limits: Limits,
@@ -435,6 +487,7 @@ impl Default for SessionCfg {
             breadcrumbs: Vec::new(),
             breadcrumb_yolo: true,
             network: None,
+            dns: None,
             limits: Limits::default(),
             autostart: false,
         }
@@ -703,6 +756,10 @@ impl Config {
         Ok(mode)
     }
 
+    pub fn dns_of(&self, s: &SessionCfg, p: &ProjectCfg) -> DnsConfig {
+        s.dns.clone().or_else(|| p.dns.clone()).unwrap_or_default()
+    }
+
     /// The caps an agent actually runs under: its own merged over its project's, field by
     /// field. Unlike the network ceiling this is inheritance, not a limit the agent may only
     /// tighten - both are the same trusted author, and a cap is a guardrail, not a boundary.
@@ -864,9 +921,65 @@ pub fn expand(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        expand, redact_token_text, temp_dir, Config, NetworkMode, ProjectCfg, SessionCfg,
-        ShortcutCfg, ShortcutKind, ShortcutLink, TitlePolicy, TOKEN_REDACTED,
+        expand, redact_token_text, temp_dir, Config, DnsConfig, NetworkMode, ProjectCfg,
+        SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink, TitlePolicy, TOKEN_REDACTED,
     };
+
+    #[test]
+    fn dns_defaults_to_resolved_and_overrides_inherit() {
+        let cfg = Config::parse(
+            r#"
+            [[project]]
+            name = "repo"
+            dir = "/tmp"
+
+            [project.dns]
+            mode = "servers"
+            servers = ["10.0.0.53", "10.0.0.54"]
+
+            [[session]]
+            name = "agent"
+            project = "repo"
+
+            [session.dns]
+            mode = "resolved"
+            "#,
+        )
+        .expect("DNS config should parse");
+        let project = cfg.project("repo").unwrap();
+        let session = cfg.session("agent").unwrap();
+        assert_eq!(cfg.dns_of(session, project), DnsConfig::Resolved);
+        assert_eq!(
+            project.dns.as_ref().unwrap().servers(),
+            vec!["10.0.0.53", "10.0.0.54"]
+        );
+
+        let text = toml::to_string_pretty(&cfg).unwrap();
+        let back = Config::parse(&text).unwrap();
+        assert_eq!(back.project("repo").unwrap().dns, project.dns);
+    }
+
+    #[test]
+    fn dns_validation_rejects_empty_duplicate_and_too_many_servers() {
+        for dns in [
+            DnsConfig::Servers {
+                servers: Vec::new(),
+            },
+            DnsConfig::Servers {
+                servers: vec!["10.0.0.53".parse().unwrap(), "10.0.0.53".parse().unwrap()],
+            },
+            DnsConfig::Servers {
+                servers: vec![
+                    "10.0.0.51".parse().unwrap(),
+                    "10.0.0.52".parse().unwrap(),
+                    "10.0.0.53".parse().unwrap(),
+                ],
+            },
+        ] {
+            assert!(dns.validate("project repo").is_err());
+        }
+        assert!(DnsConfig::Resolved.validate("project repo").is_ok());
+    }
 
     #[test]
     fn automatic_titles_are_opt_in_and_once_parses() {
