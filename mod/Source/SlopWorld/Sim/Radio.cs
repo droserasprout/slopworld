@@ -73,7 +73,7 @@ namespace SlopWorld
             }
 
             // The stream's stable key at a rate - "mp3-192", "wefunk64.mp3", "classic".
-            // It keeps old settings readable and gives new settings a human-editable tail.
+            // It gives the setting a human-editable tail.
             public string Path(int rate)
             {
                 int index = Find(rate);
@@ -186,9 +186,7 @@ namespace SlopWorld
             {
                 foreach (int rate in station.Rates)
                 {
-                    // The path-only form is what older builds wrote. New settings include the
-                    // id, but retaining the old form makes the migration invisible.
-                    if (saved != station.SelectionKey(rate) && saved != station.Path(rate)) continue;
+                    if (saved != station.SelectionKey(rate)) continue;
                     station.Rate = rate;
                     return station;
                 }
@@ -542,7 +540,7 @@ namespace SlopWorld
 
         // Saved as "station-id:stream-key" - or "ost". The stream key keeps the setting
         // readable, while the id prevents two user stations serving the same path from
-        // stealing one another's selection. Old path-only settings remain accepted below.
+        // stealing one another's selection.
         static void Save()
         {
             Settings.S.radio = _station == null ? "ost" : _station.SelectionKey(_station.Rate);

@@ -1497,14 +1497,12 @@ enum ClientMsg {
 }
 
 /// The jukebox. `selection` is absent for a volume-only update, null for silence, a station
-/// id/stream key for a catalog entry, or a file/directory path for the mod's OST. The old
-/// `source` form remains accepted while a daemon and mod are being upgraded independently.
+/// id/stream key for a catalog entry, or a file/directory path for the mod's OST.
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct AudioReq {
     #[serde(default, deserialize_with = "some_option")]
     selection: Option<Option<AudioSelection>>,
-    #[serde(default, deserialize_with = "some_option")]
-    source: Option<Option<String>>,
     volume: f32,
 }
 
@@ -1875,10 +1873,6 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
                         }
                     }
                     Some(None) => m.audio.stop(),
-                    None if ar.source.is_some() => match ar.source.unwrap() {
-                        Some(source) => m.audio.play(&source, ar.volume),
-                        None => m.audio.stop(),
-                    },
                     None => m.audio.set_volume(ar.volume),
                 }
             }
@@ -2116,5 +2110,10 @@ mod tests {
 
         let volume: super::AudioReq = serde_json::from_str(r#"{"volume":0.5}"#).unwrap();
         assert!(volume.selection.is_none());
+
+        assert!(serde_json::from_str::<super::AudioReq>(
+            r#"{"source":"/tmp/old.ogg","volume":0.5}"#
+        )
+        .is_err());
     }
 }
