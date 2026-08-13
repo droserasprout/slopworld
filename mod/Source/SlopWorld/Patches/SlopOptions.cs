@@ -98,7 +98,7 @@ namespace SlopWorld
             _keyboard = Add("SlopWorld_Keyboard", "Keyboard", general, () => Icons.Keyboard,
                 DrawKeyboard);
             _rimworld = Add("SlopWorld_RimWorld", "RimWorld", general, () => Icons.RimWorld,
-                null);
+                DrawRimWorld);
             _graphics = Existing(OptionCategoryDefOf.Graphics, _rimworld);
             _interface = Existing(OptionCategoryDefOf.Interface, _rimworld);
             _controls = Existing(OptionCategoryDefOf.Controls, _rimworld);
@@ -271,6 +271,12 @@ namespace SlopWorld
         {
             if (_aboutPage == null) _aboutPage = new AboutPage();
             _aboutPage.Draw(r);
+        }
+
+        static void DrawRimWorld(Rect r)
+        {
+            if (_aboutPage == null) _aboutPage = new AboutPage();
+            _aboutPage.DrawRimWorld(r);
         }
 
         // Preserve the last page because each toggle rebuilds the view and reloads config.
