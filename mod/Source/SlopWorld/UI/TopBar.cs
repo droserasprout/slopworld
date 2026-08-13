@@ -48,8 +48,9 @@ namespace SlopWorld
             // Omit usage when the doors leave no room.
             float resources = r.center.x + Pad;
             float quota = right - resources;
-            if (quota > 0f)
-                UsageReadout.DrawStrip(new Rect(resources, r.y, quota, r.height));
+            if (quota > 0f && (Settings.StatusbarUsage || Settings.StatusbarClock))
+                UsageReadout.DrawStrip(new Rect(resources, r.y, quota, r.height),
+                    Settings.StatusbarUsage, Settings.StatusbarClock);
 
             Status(new Rect(r.x + Pad, r.y, r.center.x - r.x - Pad * 2f, r.height), pane);
 
@@ -88,7 +89,7 @@ namespace SlopWorld
             // colony's.
             float gap = SlopWidgets.GapM;
 
-            if (CoreTip.On(map))
+            if (Settings.StatusbarGM && CoreTip.On(map))
             {
                 x -= gap + IconW;
                 Thing(Slot(r, x, IconW), SlopDefOf.Ship_ComputerCore,
@@ -96,7 +97,7 @@ namespace SlopWorld
                 gap = SlopWidgets.GapS;
             }
 
-            if (Jukebox.On(map))
+            if (Settings.StatusbarJukebox && Jukebox.On(map))
             {
                 x -= gap + IconW;
                 Thing(Slot(r, x, IconW), SlopDefOf.SlopJukebox,

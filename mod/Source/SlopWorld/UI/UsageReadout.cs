@@ -53,11 +53,11 @@ namespace SlopWorld
         // are given and laid out from that end, so the first window keeps its place as later
         // ones come and go. The clock owns the final slot beside the colony doors. Nothing is
         // drawn where there is no room for it.
-        public static void DrawStrip(Rect area)
+        public static void DrawStrip(Rect area, bool showUsage, bool showClock)
         {
-            var usage = SessionHub.Instance.Usage;
+            var usage = showUsage ? SessionHub.Instance.Usage : null;
 
-            bool stale = !usage.Ok || usage.Age > StaleAfter;
+            bool stale = showUsage && (!usage.Ok || usage.Age > StaleAfter);
             float alpha = stale ? 0.55f : 1f;
 
             var was = GUI.color;
@@ -66,13 +66,13 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = new Color(1f, 1f, 1f, alpha);
 
-            var rows = Rows(usage);
+            var rows = showUsage ? Rows(usage) : new List<string>();
 
             float x = area.xMax;
             DateTime now = DateTime.Now;
             string time = now.ToString("HH:mm");
             float clockNeed = ClockIconSize + 2f + SlopWidgets.Wide(time) + 2f;
-            if (x - clockNeed >= area.x)
+            if (showClock && x - clockNeed >= area.x)
             {
                 x -= clockNeed;
                 DrawClock(new Rect(x, area.y, clockNeed, area.height), now);
