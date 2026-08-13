@@ -24,6 +24,7 @@ Release whatever `BUILD` says.
 | `run` | Launches through the runner. `PROFILE` picks the folder. |
 | `logs` | Tails `Player.log`. |
 | `check-reqs` | Reports required host dependencies and detected optional integrations/tools. |
+| `harmony` | Fetches the latest official Harmony release into `mod/Assemblies/`. |
 | `clean` | Drops build output. |
 
 `install-mod` copies loose folders, so a new top-level folder under `mod/` needs
