@@ -77,6 +77,9 @@ icons:             ## Rebake the action icons from a Nerd Font's Codicons
 reference:         ## Generate the environment/API/CLI reference
 	python3 tools/reference.py
 
+harmony:           ## Fetch the latest Harmony release into the mod
+	tools/fetch-harmony.sh
+
 clean:             ## Drop build output
 	cd slopd && cargo clean
 	rm -f mod/Assemblies/SlopWorld.dll
