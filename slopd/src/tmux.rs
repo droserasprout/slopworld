@@ -34,14 +34,12 @@ impl Tmux {
     }
 
     async fn run(&self, args: &[&str]) -> Result<String> {
-        let started = std::time::Instant::now();
         let out = Command::new("tmux")
             .arg("-L")
             .arg(&self.socket)
             .args(args)
             .output()
             .await?;
-        crate::perf::PERF.spawn.add(started.elapsed());
         if !out.status.success() {
             bail!(
                 "tmux {}: {}",
