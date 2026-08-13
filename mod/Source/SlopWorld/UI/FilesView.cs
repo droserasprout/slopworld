@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -611,7 +612,15 @@ namespace SlopWorld
             if (project != null && SessionHub.Instance.Project(project) != null)
                 opts.Add(new FloatMenuOption("Terminal (host)", () =>
                     SessionHub.Instance.RunHostShell(project,
-                        session => TerminalWindow.Open(session), SlopWidgets.Fail)));
+                    session => TerminalWindow.Open(session), SlopWidgets.Fail)));
+
+            var actions = SessionHub.Instance.Shortcuts
+                .Where(s => s.Kind == ShortcutKind.FileAction)
+                .ToList();
+            if (actions.Count > 0 && !string.IsNullOrEmpty(node.Project))
+            {
+                opts.Add(new SlopSubmenu("File actions", () => FileActionOptions(node, actions)));
+            }
 
             // Only files, and only because a directory in `less` is a listing nobody asked
             // for and a directory in `micro` is a file browser inside a game. The left
@@ -640,6 +649,61 @@ namespace SlopWorld
             }
 
             TerminalWindow.OpenOverPane(new SlopMenu(opts));
+        }
+
+        static List<FloatMenuOption> FileActionOptions(Node node, List<ShortcutInfo> actions)
+        {
+            return actions.Select(action => new FloatMenuOption(action.Name, () =>
+            {
+                if (string.IsNullOrEmpty(node.Project))
+                {
+                    SlopWidgets.Fail("file actions need a project-backed Files row");
+                    return;
+                }
+                var command = FileActionCommand(action.Command, node);
+                TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
+                {
+                    new FloatMenuOption("Show result", () =>
+                        SlopClient.Post("/api/file-action", "{" +
+                            $"\"project\":{JVal.Q(node.Project)}," +
+                            $"\"path\":{JVal.Q(node.Path)}," +
+                            $"\"command\":{JVal.Q(command)}" +
+                            "}", j => Messages.Message("SlopWorld: " + j["output"].AsString(),
+                                MessageTypeDefOf.NeutralEvent, false), SlopWidgets.Fail)),
+                    new FloatMenuOption("Open terminal", () =>
+                        SessionHub.Instance.Run(node.Project, command, "fa-" + node.Name,
+                            session => TerminalWindow.Open(session), SlopWidgets.Fail,
+                            path: node.Path)),
+                }));
+            })).ToList();
+        }
+
+        // File actions are shell command lines. Substitute quoted values so paths remain one
+        // argv even when they contain spaces or shell metacharacters. With no placeholder the
+        // historical behavior remains: the absolute path is appended as the final argument.
+        static string FileActionCommand(string template, Node node)
+        {
+            string command = (template ?? "").Trim();
+            string absolute = Pager.Quote(node.Path);
+            string relative = Pager.Quote(Relative(node) ?? ".");
+            bool substituted = false;
+            foreach (var marker in new[] { "{{ absolute_path }}", "{{absolute_path}}" })
+            {
+                if (command.Contains(marker))
+                {
+                    command = command.Replace(marker, absolute);
+                    substituted = true;
+                }
+            }
+            foreach (var marker in new[] { "{{ relative_path }}", "{{relative_path}}" })
+            {
+                if (command.Contains(marker))
+                {
+                    command = command.Replace(marker, relative);
+                    substituted = true;
+                }
+            }
+            return substituted ? command : command + " " + absolute;
         }
 
         static bool IsRoot(Node node) => node.Depth == 0;

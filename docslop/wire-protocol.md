@@ -34,6 +34,9 @@ an override wider than the project ceiling.
 `/api/audio` and `/api/game` are query routes. `POST /api/open` returns 400 for a rejected
 URL and 502 when its opener fails.
 
+`POST /api/file-action` runs a configured Files action command in a named project's sandbox and
+returns bounded output; interactive variants use `POST /api/run` instead.
+
 Private-state lifecycle is daemon-owned. `POST /api/sessions/NAME/state/reset` stops an agent
 and moves its state to 14-day trash. Root-only `GET /api/state` lists active, orphan and trash
 entries with byte counts; `DELETE /api/state/KIND/KEY` permanently removes only orphan/trash;
@@ -50,7 +53,9 @@ An ephemeral errand. It has two special cases:
 - An **empty `command`** with `kind: shell` opens a shell; other kinds must provide one.
 
 An unnamed host errand uses slopd's `$SHELL`, not `[defaults] shell` (the latter is for
-inside a sandbox). A named preset or command line runs as requested on either side.
+inside a sandbox). A named preset or command line runs as requested on either side. A Files
+action terminal also sends its raw selected `path`; the daemon expands and normalizes it before
+the command runs.
 
 With `host` and an empty `label`, the daemon names the session from project and shell:
 `slopworld-zsh` here, `tmp-bash` for project `tmp`, or just the shell for no project.

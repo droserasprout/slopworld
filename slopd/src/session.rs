@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
+use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -9,6 +10,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinHandle;
 
@@ -19,6 +21,7 @@ use crate::config::{
 use crate::emu::{parse_output, Frame, MouseInput, SessionEmu};
 use crate::sandbox::build_argv;
 use crate::tmux::Tmux;
+use tokio::process::Command;
 
 const IDLE_MS: u64 = 10_000;
 
@@ -27,6 +30,9 @@ const TAIL_LINES: usize = 12;
 
 // Unwatched panes still need classification, but not reader-rate rendering.
 const UNWATCHED_MS: u64 = 200;
+
+const FILE_ACTION_TIMEOUT: Duration = Duration::from_secs(15);
+const FILE_ACTION_STREAM_LIMIT: usize = 4096;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -697,6 +703,21 @@ fn check_shortcut(cfg: &Config, sc: &ShortcutCfg) -> Result<()> {
         }
         return Ok(());
     }
+    if sc.kind == ShortcutKind::FileAction {
+        if sc
+            .command
+            .as_deref()
+            .map(str::trim)
+            .unwrap_or("")
+            .is_empty()
+        {
+            bail!("file action {} has no command", sc.name);
+        }
+        if !sc.text.trim().is_empty() {
+            bail!("file action {} has unexpected text", sc.name);
+        }
+        return Ok(());
+    }
     if sc.link == ShortcutLink::Project && sc.project.trim().is_empty() {
         bail!("shortcut {} must belong to a project", sc.name);
     }
@@ -737,6 +758,74 @@ fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
     check_presets(&s.sandbox)?;
     check_breadcrumbs(cfg, &s.breadcrumbs)?;
     Ok(())
+}
+
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::RootDir => out.push(Path::new("/")),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                out.pop();
+            }
+            Component::Normal(name) => out.push(name),
+            Component::Prefix(prefix) => out.push(prefix.as_os_str()),
+        }
+    }
+    out
+}
+
+fn absolute_path(raw: &str) -> Result<PathBuf> {
+    if raw.trim().is_empty() {
+        bail!("no file action path");
+    }
+    let expanded = expand(raw);
+    let path = Path::new(&expanded);
+    let path = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
+    };
+    Ok(normalize_path(&path))
+}
+
+fn project_action_path(project: &ProjectCfg, raw: &str) -> Result<PathBuf> {
+    let root = absolute_path(&project.dir)?;
+    let path = absolute_path(raw)?;
+    if !path.starts_with(&root) {
+        bail!("file action path is outside project {}", project.name);
+    }
+    Ok(path)
+}
+
+fn shell_quote(path: &str) -> String {
+    format!("'{}'", path.replace('\'', "'\\''"))
+}
+
+fn normalize_action_command(raw_path: &str, path: &Path, command: &str) -> String {
+    let raw = shell_quote(raw_path);
+    let absolute = shell_quote(&path.to_string_lossy());
+    command.replace(&raw, &absolute)
+}
+
+async fn read_action_output<R: AsyncRead + Unpin>(mut stream: R) -> Result<(Vec<u8>, bool)> {
+    let mut output = Vec::new();
+    let mut truncated = false;
+    let mut buffer = [0u8; 4096];
+    loop {
+        let read = stream.read(&mut buffer).await?;
+        if read == 0 {
+            break;
+        }
+        let room = FILE_ACTION_STREAM_LIMIT.saturating_sub(output.len());
+        let take = room.min(read);
+        output.extend_from_slice(&buffer[..take]);
+        if take < read {
+            truncated = true;
+        }
+    }
+    Ok((output, truncated))
 }
 
 impl Manager {
@@ -1602,14 +1691,118 @@ impl Manager {
             .ok_or_else(|| anyhow!("no such shortcut: {name}"))?
             .clone();
         check_shortcut(&cfg, &sc)?;
-        if sc.kind == ShortcutKind::Breadcrumb {
-            bail!(
-                "breadcrumb {} is attached to agents; it cannot be run",
-                sc.name
-            );
+        if matches!(sc.kind, ShortcutKind::Breadcrumb | ShortcutKind::FileAction) {
+            bail!("shortcut {} is not runnable as an agent errand", sc.name);
         }
         drop(cfg);
         self.run_errand(sc, want, false).await
+    }
+
+    pub async fn file_action(
+        self: &Arc<Self>,
+        project: &str,
+        raw_path: &str,
+        command: &str,
+    ) -> Result<String> {
+        self.reload_if_changed().await;
+        let cfg = self.config().await;
+        let p = cfg
+            .project(project.trim())
+            .cloned()
+            .ok_or_else(|| anyhow!("no such project: {project}"))?;
+        let path = project_action_path(&p, raw_path)?;
+        if command.trim().is_empty() {
+            bail!("file action has no command");
+        }
+        let command = normalize_action_command(raw_path, &path, command);
+
+        let s = SessionCfg {
+            name: "file-action".into(),
+            project: p.name.clone(),
+            command: cfg.defaults.shell.clone(),
+            cmd: Some(command),
+            ..Default::default()
+        };
+
+        let result = async {
+            crate::sandbox::prepare_private(&cfg, &s, &p)?;
+            let argv = build_argv(&cfg, &s, &p)?;
+            let mut child = Command::new(&argv[0])
+                .args(&argv[1..])
+                .kill_on_drop(true)
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .context("starting file action")?;
+            let stdout = child
+                .stdout
+                .take()
+                .context("capturing file action stdout")?;
+            let stderr = child
+                .stderr
+                .take()
+                .context("capturing file action stderr")?;
+
+            let collected = tokio::time::timeout(FILE_ACTION_TIMEOUT, async {
+                let stdout = read_action_output(stdout);
+                let stderr = read_action_output(stderr);
+                let status = child.wait();
+                let (stdout, stderr, status) = tokio::join!(stdout, stderr, status);
+                Ok::<_, anyhow::Error>((stdout?, stderr?, status?))
+            })
+            .await;
+
+            let ((stdout, stdout_truncated), (stderr, stderr_truncated), status) = match collected {
+                Ok(result) => result?,
+                Err(_) => {
+                    let _ = child.kill().await;
+                    let _ = child.wait().await;
+                    bail!("file action timed out")
+                }
+            };
+
+            let mut text = String::from_utf8_lossy(&stdout).into_owned();
+            if !stderr.is_empty() {
+                if !text.is_empty() && !text.ends_with('\n') {
+                    text.push('\n');
+                }
+                text.push_str(&String::from_utf8_lossy(&stderr));
+            }
+            if stdout_truncated || stderr_truncated {
+                text.push_str("\n[output truncated]");
+            }
+            if !status.success() {
+                bail!("file action failed: {}", text.trim());
+            }
+            Ok::<_, anyhow::Error>(if text.trim().is_empty() {
+                "(no output)".into()
+            } else {
+                text.trim_end().into()
+            })
+        }
+        .await;
+
+        if let Err(e) = crate::sandbox::remove_ephemeral_state(&s) {
+            tracing::warn!("removing file action private state: {e:#}");
+        }
+        result
+    }
+
+    pub async fn file_action_command(
+        self: &Arc<Self>,
+        project: &str,
+        raw_path: &str,
+        command: &str,
+    ) -> Result<String> {
+        self.reload_if_changed().await;
+        let cfg = self.config().await;
+        let p = cfg
+            .project(project.trim())
+            .cloned()
+            .ok_or_else(|| anyhow!("no such project: {project}"))?;
+        let path = project_action_path(&p, raw_path)?;
+        Ok(normalize_action_command(raw_path, &path, command))
     }
 
     pub async fn run_errand(
@@ -1621,8 +1814,8 @@ impl Manager {
         self.reload_if_changed().await;
         let cfg = self.config().await;
         let name = sc.name.as_str();
-        if sc.kind == ShortcutKind::Breadcrumb {
-            bail!("breadcrumb {name} is attached to agents; it cannot be run");
+        if matches!(sc.kind, ShortcutKind::Breadcrumb | ShortcutKind::FileAction) {
+            bail!("shortcut {name} is not runnable as an agent errand");
         }
 
         let asked = match want.project.as_deref().map(str::trim) {
@@ -3002,15 +3195,26 @@ fn utf8_len(first: u8) -> usize {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::path::{Path, PathBuf};
 
     use super::{
         breadcrumb_block, check_breadcrumbs, check_name, check_shortcut, compile_rules, free_name,
-        free_project_name, json_to_toml, match_rules, merge_input, merge_toml, render_template,
-        render_template_with, settle, slug, strip_sgr, title_agent, title_settings, Composer,
-        Input, Live, State, Submission, TemplateVars, TitleAgent, TitleCapture, BOOT_COLS,
-        BOOT_ROWS, INPUT_BATCH,
+        free_project_name, json_to_toml, match_rules, merge_input, merge_toml,
+        normalize_action_command, normalize_path, render_template, render_template_with, settle,
+        slug, strip_sgr, title_agent, title_settings, Composer, Input, Live, State, Submission,
+        TemplateVars, TitleAgent, TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
     };
     use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind};
+
+    #[test]
+    fn file_action_paths_normalize_and_replace_the_raw_quoted_path() {
+        let path = normalize_path(Path::new("/tmp/slop/../repo/file name"));
+        assert_eq!(path, PathBuf::from("/tmp/repo/file name"));
+        assert_eq!(
+            normalize_action_command("~/repo/file name", &path, "du -sh '~/repo/file name'"),
+            "du -sh '/tmp/repo/file name'"
+        );
+    }
 
     #[test]
     fn codex_composer_recovers_the_submitted_prompt() {

@@ -44,7 +44,7 @@ namespace SlopWorld
             mode == NetworkMode.Private ? 1 : 2;
     }
 
-    public enum ShortcutKind { Prompt, Shell, Breadcrumb }
+    public enum ShortcutKind { Prompt, Shell, Breadcrumb, FileAction }
 
     // Temp is a fresh scratch directory per run; Ask is decided at the button.
     public enum ShortcutLink { Project, Temp, Ask }
@@ -300,7 +300,8 @@ namespace SlopWorld
         {
             Name = j["name"].AsString(),
             Kind = j["kind"].AsString() == "shell" ? ShortcutKind.Shell :
-                   j["kind"].AsString() == "breadcrumb" ? ShortcutKind.Breadcrumb : ShortcutKind.Prompt,
+                   j["kind"].AsString() == "breadcrumb" ? ShortcutKind.Breadcrumb :
+                   j["kind"].AsString() == "fa" ? ShortcutKind.FileAction : ShortcutKind.Prompt,
             Link = ParseLink(j["link"].AsString()),
             Project = j["project"].AsString(),
             Text = j["text"].AsString(),
@@ -325,7 +326,8 @@ namespace SlopWorld
 
         static string KindName(ShortcutKind k) =>
             k == ShortcutKind.Shell ? "shell" :
-            k == ShortcutKind.Breadcrumb ? "breadcrumb" : "prompt";
+            k == ShortcutKind.Breadcrumb ? "breadcrumb" :
+            k == ShortcutKind.FileAction ? "fa" : "prompt";
 
         public string ToJson() =>
             "{" +
@@ -930,11 +932,13 @@ namespace SlopWorld
         // the callback so a newly opened pane is visible next frame.
         public void Run(string project, string command, string label,
                         Action<string> started, Action<string> fail = null,
-                        bool shell = true, string text = "", bool host = false, bool temp = false) =>
+                        bool shell = true, string text = "", bool host = false, bool temp = false,
+                        string path = "") =>
             SlopClient.Post("/api/run",
                 "{" + $"\"project\":{JVal.Q(project ?? "")}," +
                 $"\"kind\":{JVal.Q(shell ? "shell" : "prompt")}," +
                 $"\"command\":{JVal.Q(command ?? "")}," +
+                $"\"path\":{JVal.Q(path ?? "")}," +
                 $"\"label\":{JVal.Q(label ?? "")}," +
                 $"\"text\":{JVal.Q(text ?? "")}," +
                 $"\"host\":{JVal.B(host)}," +

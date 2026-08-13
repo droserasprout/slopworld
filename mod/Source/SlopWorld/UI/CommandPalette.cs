@@ -682,7 +682,8 @@ namespace SlopWorld
                 {
                     if (v == null) return;
                     var info = SessionHub.Instance.Shortcut(v);
-                    if (info == null || info.Kind == ShortcutKind.Breadcrumb) return;
+                    if (info == null || info.Kind == ShortcutKind.Breadcrumb ||
+                        info.Kind == ShortcutKind.FileAction) return;
                     if (info.Link == ShortcutLink.Ask) AskWhere(info);
                     else RunShortcutWith(v);
                 },
@@ -1024,7 +1025,7 @@ namespace SlopWorld
         static List<SubOption> ShortcutsSub()
         {
             var list = SessionHub.Instance.Shortcuts
-                .Where(s => s.Kind != ShortcutKind.Breadcrumb)
+                .Where(s => s.Kind != ShortcutKind.Breadcrumb && s.Kind != ShortcutKind.FileAction)
                 .Select(s => new SubOption
                 {
                     Label = $"{s.Name}  ({s.Kind.ToString().ToLower()})",
