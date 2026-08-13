@@ -54,6 +54,10 @@ pub struct SandboxPreset {
     /// the forwarded ones, so the preset's answer beats how slopd was launched.
     #[serde(default)]
     pub setenv: BTreeMap<String, String>,
+    /// Bind slopd's configured tmux socket into the sandbox's uid-0 socket directory. This
+    /// is deliberately opt-in: the socket is a live control channel to host terminals.
+    #[serde(default)]
+    pub tmux: bool,
 }
 
 /// What an agent runs, and the sandbox presets that come with it: knowing a session is
@@ -123,6 +127,10 @@ const BUILTIN: &[(&str, &str)] = &[
     ("ccache", include_str!("../presets/ccache.toml")),
     ("gpg", include_str!("../presets/gpg.toml")),
     ("gpg-agent", include_str!("../presets/gpg-agent.toml")),
+    (
+        "slopworld-debug",
+        include_str!("../presets/slopworld-debug.toml"),
+    ),
 ];
 
 #[derive(Debug, Clone, Default)]
@@ -434,13 +442,18 @@ mod tests {
         assert_eq!(t.sandbox("gpu").unwrap().dev, vec!["/dev/dri", "/dev/kfd"]);
 
         // The new presets parse and name themselves correctly.
-        for name in ["go", "gh", "aws", "kube"] {
+        for name in ["go", "gh", "aws", "kube", "slopworld-debug"] {
             let p = t
                 .sandbox(name)
                 .unwrap_or_else(|| panic!("no {name} sandbox preset"));
             assert!(!p.category.is_empty(), "{name} has no category");
             assert!(!p.description.is_empty(), "{name} has no description");
         }
+        assert!(t.sandbox("slopworld-debug").unwrap().tmux);
+        assert_eq!(
+            t.sandbox("slopworld-debug").unwrap().requires,
+            vec!["systemd", "x11"]
+        );
         assert_eq!(
             t.sandbox("global").unwrap().ro,
             vec!["/usr", "/etc", "/opt", "~/.local/bin"]

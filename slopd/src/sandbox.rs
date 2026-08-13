@@ -693,6 +693,29 @@ fn shared_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec<
     out
 }
 
+/// The tmux server is outside bwrap and uses the host uid in its socket directory. A bwrap
+/// session is uid 0 in its user namespace, so a debug preset gets the host directory mounted at
+/// the path tmux will calculate inside the session. The bind is read-only: clients talk through
+/// the socket, while an absent or stale server costs the preset nothing.
+fn tmux_socket_bind(socket: &str) -> Option<(String, String)> {
+    if socket.trim().is_empty() {
+        return None;
+    }
+    let root = std::env::var_os("TMUX_TMPDIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/tmp"));
+    let host_dir = root.join(format!("tmux-{}", nix::unistd::getuid().as_raw()));
+    if !host_dir.is_dir() || !host_dir.join(socket).exists() {
+        return None;
+    }
+    let host_dir = host_dir.to_string_lossy().into_owned();
+    if let Some(what) = refused(&host_dir) {
+        tracing::warn!("not exposing tmux socket directory {host_dir}: it reaches {what}");
+        return None;
+    }
+    Some((host_dir, "/tmp/tmux-0".into()))
+}
+
 /// Creates generated resolver files and seeds each private tree before argv construction;
 /// existing copies are preserved. The private resolver is always synthetic, while an explicit
 /// DNS list in host mode needs a generated `/etc/resolv.conf` source too.
@@ -929,6 +952,7 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
     let ro = paths(&presets, |pr| &pr.ro);
     let rw = paths(&presets, |pr| &pr.rw);
     let dev = paths(&presets, |pr| &pr.dev);
+    let tmux = presets.iter().any(|pr| pr.tmux);
 
     let mut a: Vec<String> = vec!["bwrap".into()];
     let mut push = |args: &[&str]| a.extend(args.iter().map(|x| x.to_string()));
@@ -1001,6 +1025,14 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
     // After the /dev tmpfs, or it would be mounted over.
     for path in &dev {
         push(&["--dev-bind", path, path]);
+    }
+
+    // The debug preset asks for this after the ordinary binds so a broad `/tmp` bind from
+    // another preset cannot bury the socket. Inside bwrap the guest uid is 0, hence the target.
+    if tmux {
+        if let Some((source, target)) = tmux_socket_bind(&cfg.daemon.tmux_socket) {
+            push(&["--ro-bind", source.as_str(), target.as_str()]);
+        }
     }
 
     // Last of the binds under $HOME, so the private copy wins over an ordinary preset bind:

@@ -59,3 +59,8 @@ the agent value winning. A non-empty limit wraps the complete tree in a transien
 There is no seccomp, `--new-session` or disk quota. Project directories, including
 `.git`, are intentionally read-write, so agents can install hooks or alter git
 configuration. Resource caps are off unless configured.
+
+`slopworld-debug` is intentionally broader: it reads the SlopWorld profile and Unity log,
+mounts the live SlopWorld tmux socket, binds the host `/proc` for `ps`, shares X11 for game
+screenshots, and includes the `systemd`/D-Bus access needed to inspect the game and tmux
+services. Its `escapes` warning is therefore not cosmetic.
