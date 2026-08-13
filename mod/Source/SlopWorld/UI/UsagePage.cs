@@ -186,10 +186,7 @@ namespace SlopWorld
             bool spent = SlopWidgets.Checkbox(l, "Show spent quota instead of left",
                 Settings.UsageSpent);
             if (spent != Settings.UsageSpent)
-            {
                 Settings.S.usageSpent = spent;
-                Settings.S.Write();
-            }
             Note(l, "Applies to every provider. Left is the amount remaining; spent is the " +
                     "provider-facing percentage or amount used.");
 

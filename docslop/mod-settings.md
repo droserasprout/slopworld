@@ -32,8 +32,8 @@ click by `UsageReadout.Choose` (`Settings.S.Write()`). A line for a key nothing
 reports is a line nothing reads.
 
 `usageSpent` is the global quota readout mode. It is off for the default Left display;
-the Usage page's `Show spent quota instead of left` checkbox turns it on and writes it
-immediately because the top bar can be visible while the options page remains open.
+the Usage page's `Show spent quota instead of left` checkbox changes it immediately, and
+the options view writes it when it closes.
 
 The jukebox's station, `radio`, has no options widget: the box on the map is its picker.
 `radioMute` and `radioStopOnExit` are also drawn on the Audio options page; both roads go
