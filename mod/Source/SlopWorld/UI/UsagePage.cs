@@ -6,7 +6,7 @@ using Verse;
 namespace SlopWorld
 {
     // Configures quota providers from config.toml and per-install usage icons from SlopSettings.
-    // It is an OptionCategoryDef page; icon choices open a floating grid.
+    // A child tab of Integrations; icon choices open a floating grid.
     public class UsagePage
     {
         SlopConfig _cfg;
@@ -116,8 +116,8 @@ namespace SlopWorld
             l.Label("Key file (blank reads $OPENROUTER_API_KEY)");
             _cfg.OpenrouterKeyFile =
                 SlopWidgets.Field(l, "usage.orkey", _cfg.OpenrouterKeyFile);
-            Note(l, "Used by credit polling and generated titles. The daemon reads it directly; " +
-                    "title requests never expose the key inside an agent sandbox.");
+            Note(l, "Used by credit polling and by the Summaries tab's titles. The daemon reads " +
+                    "it directly; title requests never expose the key inside an agent sandbox.");
 
             if (_cfg.Openrouter)
             {
@@ -143,41 +143,6 @@ namespace SlopWorld
                 l.Gap(SlopWidgets.GapM);
                 IconRow(l, "openai_session", "Primary window");
                 IconRow(l, "openai_week", "Secondary window");
-            }
-
-            // ---------------------------------------------------- automatic titles
-            l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "Automatic task titles");
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
-                    "Codex titles: " + TitlePolicyLabel(_cfg.AgentTitles)))
-                OpenTitlePolicyMenu(false);
-            Note(l, "Names a Codex session from its submitted prompt. The request uses " +
-                    "OpenRouter; it is independent of the credit-balance poll above.");
-
-            if (_cfg.AgentTitles != "never")
-            {
-                l.Gap(SlopWidgets.GapS);
-                l.Label("Title model");
-                _cfg.TitleModel = SlopWidgets.Field(l, "usage.title.model", _cfg.TitleModel);
-                Note(l, "At most 2,000 characters of each eligible prompt are sent to " +
-                        "OpenRouter. Use the key file or $OPENROUTER_API_KEY above.");
-            }
-
-            l.Gap(SlopWidgets.GapM);
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
-                    "Pi titles: " + TitlePolicyLabel(_cfg.PiTitles)))
-                OpenTitlePolicyMenu(true);
-            Note(l, "Pi defaults to every prompt. The daemon applies this setting before input " +
-                    "reaches Pi, so it takes effect in the current session.");
-
-            if (_cfg.PiTitles != "never")
-            {
-                l.Gap(SlopWidgets.GapS);
-                l.Label("Pi title model");
-                _cfg.PiTitleModel = SlopWidgets.Field(l, "usage.pi.title.model",
-                    _cfg.PiTitleModel);
-                Note(l, "At most 2,000 characters of each eligible prompt are sent to " +
-                        "OpenRouter. Use the key file or $OPENROUTER_API_KEY above.");
             }
 
             // ---------------------------------------------------------------- Both
@@ -208,33 +173,6 @@ namespace SlopWorld
             GUI.color = SlopWidgets.Dim;
             l.Label(text);
             GUI.color = Color.white;
-        }
-
-        static string TitlePolicyLabel(string policy)
-        {
-            switch (policy)
-            {
-                case "once": return "First prompt in each conversation";
-                case "always": return "Every prompt";
-                default: return "Off";
-            }
-        }
-
-        void OpenTitlePolicyMenu(bool pi)
-        {
-            Find.WindowStack.Add(new SlopMenu(new List<FloatMenuOption>
-            {
-                new FloatMenuOption("Off", () => SetTitlePolicy(pi, "never")),
-                new FloatMenuOption("First prompt in each conversation", () =>
-                    SetTitlePolicy(pi, "once")),
-                new FloatMenuOption("Every prompt", () => SetTitlePolicy(pi, "always")),
-            }));
-        }
-
-        void SetTitlePolicy(bool pi, string policy)
-        {
-            if (pi) _cfg.PiTitles = policy;
-            else _cfg.AgentTitles = policy;
         }
 
         // ------------------------------------------------------------------ icon row
