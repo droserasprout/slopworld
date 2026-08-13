@@ -1,6 +1,7 @@
 #!/bin/sh
 # Reports the host commands and files used by the build and by the default UI.
-# Required failures make the target fail; optional integrations are informational.
+# Required failures make the target fail; optional integrations and devtools are
+# informational.
 
 required_missing=0
 
@@ -156,10 +157,12 @@ required_command 'default editor' micro
 required_library 'daemon audio backend' libasound.so.2
 required_any 'agent CLI (one of)' claude codex opencode pi
 
-printf '\n%s\n' 'Optional: integrations and developer tools'
+printf '\n%s\n' 'Optional: integrations'
 optional_all 'Wayland clipboard' wl-copy wl-paste
 optional_any 'X11 clipboard' xclip xsel
 optional_any 'URL opener' xdg-open gio wslview
+
+printf '\n%s\n' 'Optional: developer tools'
 optional_command 'redeploy helper' curl
 optional_command 'C# formatting/linting' dotnet
 optional_command 'human docs' mdbook
