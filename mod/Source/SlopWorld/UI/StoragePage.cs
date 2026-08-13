@@ -18,6 +18,7 @@ namespace SlopWorld
             public string Session;
             public string Path;
             public long Bytes;
+            public long Modified;
 
             public static Entry FromJson(JVal j) => new Entry
             {
@@ -26,6 +27,7 @@ namespace SlopWorld
                 Session = j["session"].IsNull ? null : j["session"].AsString(),
                 Path = j["path"].AsString(),
                 Bytes = j["bytes"].AsLong(),
+                Modified = j["modified"].AsLong(),
             };
         }
 
@@ -41,7 +43,12 @@ namespace SlopWorld
             _loading = true;
             SlopClient.Get("/api/state", j =>
             {
-                _entries = j["entries"].Items.Select(Entry.FromJson).ToList();
+                _entries = j["entries"].Items.Select(Entry.FromJson)
+                    .OrderBy(e => KindRank(e.Kind))
+                    .ThenByDescending(e => e.Modified)
+                    .ThenBy(e => e.Session ?? e.Key, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(e => e.Key, StringComparer.Ordinal)
+                    .ToList();
                 _loading = false;
                 _error = null;
             }, msg => { _loading = false; _error = msg; });
@@ -110,7 +117,7 @@ namespace SlopWorld
                 e.Kind == "orphan" ? "unclaimed orphan state" :
                 e.Session != null ? $"trash for {e.Session}" : "trash (agent removed)";
             SlopWidgets.RowLabel(new Rect(r.x + 10f, r.y + 5f + SlopWidgets.LineH,
-                labelW, SlopWidgets.LineH), $"{note}  -  {Human(e.Bytes)}");
+                labelW, SlopWidgets.LineH), $"{note}  -  {Human(e.Bytes)}  -  {When(e.Modified)}");
             GUI.color = Color.white;
 
             if (e.Kind == "active")
@@ -174,6 +181,22 @@ namespace SlopWorld
             int unit = 0;
             while (value >= 1024d && unit < units.Length - 1) { value /= 1024d; unit++; }
             return unit == 0 ? $"{value:0} {units[unit]}" : $"{value:0.#} {units[unit]}";
+        }
+
+        static int KindRank(string kind) => kind == "active" ? 0 : kind == "orphan" ? 1 : 2;
+
+        static readonly DateTime Epoch =
+            new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        static string When(long unixSeconds)
+        {
+            if (unixSeconds <= 0) return "unknown age";
+            long now = (long)(DateTime.UtcNow - Epoch).TotalSeconds;
+            long elapsed = Math.Max(0L, now - unixSeconds);
+            long days = elapsed / 86400L;
+            long hours = (elapsed % 86400L) / 3600L;
+            long minutes = (elapsed % 3600L) / 60L;
+            return $"[{days}d {hours}h] {minutes}m ago";
         }
     }
 }
