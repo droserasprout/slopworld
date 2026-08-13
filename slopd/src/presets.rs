@@ -103,10 +103,13 @@ const BUILTIN: &[(&str, &str)] = &[
     ("ssh-agent", include_str!("../presets/ssh-agent.toml")),
     ("1password", include_str!("../presets/1password.toml")),
     ("git", include_str!("../presets/git.toml")),
+    ("hg", include_str!("../presets/hg.toml")),
     ("rust", include_str!("../presets/rust.toml")),
     ("node", include_str!("../presets/node.toml")),
     ("python", include_str!("../presets/python.toml")),
     ("go", include_str!("../presets/go.toml")),
+    ("dotnet", include_str!("../presets/dotnet.toml")),
+    ("ruby", include_str!("../presets/ruby.toml")),
     ("gh", include_str!("../presets/gh.toml")),
     ("aws", include_str!("../presets/aws.toml")),
     ("kube", include_str!("../presets/kube.toml")),
@@ -115,6 +118,9 @@ const BUILTIN: &[(&str, &str)] = &[
     ("node-cache", include_str!("../presets/node-cache.toml")),
     ("python-cache", include_str!("../presets/python-cache.toml")),
     ("go-cache", include_str!("../presets/go-cache.toml")),
+    ("nuget-cache", include_str!("../presets/nuget-cache.toml")),
+    ("ruby-cache", include_str!("../presets/ruby-cache.toml")),
+    ("ccache", include_str!("../presets/ccache.toml")),
     ("gpg", include_str!("../presets/gpg.toml")),
     ("gpg-agent", include_str!("../presets/gpg-agent.toml")),
 ];
@@ -425,7 +431,7 @@ mod tests {
             t.sandbox("systemd").unwrap().setenv["SYSTEMCTL_FORCE_BUS"],
             "1"
         );
-        assert_eq!(t.sandbox("gpu").unwrap().dev, vec!["/dev/dri"]);
+        assert_eq!(t.sandbox("gpu").unwrap().dev, vec!["/dev/dri", "/dev/kfd"]);
 
         // The new presets parse and name themselves correctly.
         for name in ["go", "gh", "aws", "kube"] {
@@ -450,6 +456,8 @@ mod tests {
             ("node-cache", "node"),
             ("python-cache", "python"),
             ("go-cache", "go"),
+            ("nuget-cache", "dotnet"),
+            ("ruby-cache", "ruby"),
         ] {
             assert_eq!(t.sandbox(cache).unwrap().requires, vec![tool]);
         }
@@ -520,7 +528,13 @@ mod tests {
             "python-cache",
             "node",
             "node-cache",
+            "dotnet",
+            "nuget-cache",
+            "ruby",
+            "ruby-cache",
+            "ccache",
             "git",
+            "hg",
             "ollama",
             "gpg",
         ] {
