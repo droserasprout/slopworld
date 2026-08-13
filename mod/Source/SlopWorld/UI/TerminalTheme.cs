@@ -6,16 +6,18 @@ namespace SlopWorld
     public class TerminalTheme
     {
         public readonly string Name;
+        public readonly string Label;
         public readonly Color Fg, Bg;
         public readonly Color Cursor, CursorText;
         public readonly Color Selection;
         public readonly Color Link;
         public readonly Color[] Ansi;
 
-        TerminalTheme(string name, string fg, string bg, string cursor, string cursorText,
+        TerminalTheme(string name, string label, string fg, string bg, string cursor, string cursorText,
                       string selection, string link, string[] ansi)
         {
             Name = name;
+            Label = label;
             Fg = Hex(fg);
             Bg = Hex(bg);
             Cursor = Hex(cursor);
@@ -69,7 +71,9 @@ namespace SlopWorld
 
         public static readonly List<TerminalTheme> All = new List<TerminalTheme>
         {
-            new TerminalTheme("slopworld",
+            // SlopWorld is the only house palette. The other entries are named palettes with
+            // published values, kept here as terminal-ready 16-color adaptations.
+            new TerminalTheme("slopworld", "SlopWorld",
                 fg: "#d3cbb8", bg: "#14120e",
                 cursor: "#e0b64a", cursorText: "#14120e",
                 selection: "#3d4c64", link: "#86a9c4",
@@ -81,19 +85,79 @@ namespace SlopWorld
                     "#7b9ebd", "#ae87b3", "#8cb6b1", "#efe7d4",
                 }),
 
-            new TerminalTheme("slate",
-                fg: "#d4d9db", bg: "#0a0d0f",
-                cursor: "#d4d9db", cursorText: "#0a0d0f",
-                selection: "#4d80e6", link: "#7ab3ed",
+            new TerminalTheme("onedark", "One Dark",
+                fg: "#abb2bf", bg: "#282c34",
+                cursor: "#61afef", cursorText: "#282c34",
+                selection: "#3e4451", link: "#61afef",
                 ansi: new[]
                 {
-                    "#242628", "#cc4a4f", "#73b55c", "#d9ad54",
-                    "#5994d4", "#b073c7", "#59b8b8", "#c7cccf",
-                    "#595e63", "#eb7073", "#94d478", "#f0cc73",
-                    "#7ab3ed", "#cc94e3", "#78d6d6", "#f2f5f7",
+                    "#282c34", "#e06c75", "#98c379", "#e5c07b",
+                    "#61afef", "#c678dd", "#56b6c2", "#abb2bf",
+                    "#5c6370", "#e06c75", "#98c379", "#e5c07b",
+                    "#61afef", "#c678dd", "#56b6c2", "#ffffff",
                 }),
 
-            new TerminalTheme("gruvbox",
+            new TerminalTheme("dracula", "Dracula",
+                fg: "#f8f8f2", bg: "#282a36",
+                cursor: "#f8f8f2", cursorText: "#282a36",
+                selection: "#44475a", link: "#8be9fd",
+                ansi: new[]
+                {
+                    "#21222c", "#ff5555", "#50fa7b", "#f1fa8c",
+                    "#bd93f9", "#ff79c6", "#8be9fd", "#f8f8f2",
+                    "#6272a4", "#ff6e6e", "#69ff94", "#ffffa5",
+                    "#d6acff", "#ff92df", "#a4ffff", "#ffffff",
+                }),
+
+            new TerminalTheme("gnome-dark", "GNOME Dark",
+                fg: "#deddda", bg: "#241f31",
+                cursor: "#deddda", cursorText: "#241f31",
+                selection: "#3d3846", link: "#62a0ea",
+                ansi: new[]
+                {
+                    "#171421", "#c01c28", "#26a269", "#a2734c",
+                    "#12488b", "#a347ba", "#2aa1b3", "#d0cfcc",
+                    "#5e5c64", "#f66151", "#33d17a", "#e9ad0c",
+                    "#2a7bde", "#c061cb", "#33c7de", "#ffffff",
+                }),
+
+            new TerminalTheme("gnome-light", "GNOME Light",
+                fg: "#2e3436", bg: "#fafafa",
+                cursor: "#2e3436", cursorText: "#fafafa",
+                selection: "#d3d7cf", link: "#1c71d8",
+                ansi: new[]
+                {
+                    "#171421", "#c01c28", "#26a269", "#a2734c",
+                    "#12488b", "#a347ba", "#2aa1b3", "#d0cfcc",
+                    "#5e5c64", "#f66151", "#33d17a", "#e9ad0c",
+                    "#2a7bde", "#c061cb", "#33c7de", "#ffffff",
+                }),
+
+            new TerminalTheme("tango-dark", "Tango Dark",
+                fg: "#d3d7cf", bg: "#2e3436",
+                cursor: "#eeeeec", cursorText: "#2e3436",
+                selection: "#555753", link: "#729fcf",
+                ansi: new[]
+                {
+                    "#2e3436", "#cc0000", "#4e9a06", "#c4a000",
+                    "#3465a4", "#75507b", "#06989a", "#d3d7cf",
+                    "#555753", "#ef2929", "#8ae234", "#fce94f",
+                    "#729fcf", "#ad7fa8", "#34e2e2", "#eeeeec",
+                }),
+
+            new TerminalTheme("tango-light", "Tango Light",
+                fg: "#2e3436", bg: "#eeeeec",
+                cursor: "#2e3436", cursorText: "#eeeeec",
+                selection: "#d3d7cf", link: "#204a87",
+                ansi: new[]
+                {
+                    "#2e3436", "#cc0000", "#4e9a06", "#c4a000",
+                    "#3465a4", "#75507b", "#06989a", "#d3d7cf",
+                    "#555753", "#ef2929", "#8ae234", "#fce94f",
+                    "#729fcf", "#ad7fa8", "#34e2e2", "#eeeeec",
+                }),
+
+            new TerminalTheme("gruvbox", "Gruvbox Dark",
                 fg: "#ebdbb2", bg: "#282828",
                 cursor: "#fabd2f", cursorText: "#282828",
                 selection: "#665c54", link: "#83a598",
@@ -105,7 +169,7 @@ namespace SlopWorld
                     "#83a598", "#d3869b", "#8ec07c", "#ebdbb2",
                 }),
 
-            new TerminalTheme("nord",
+            new TerminalTheme("nord", "Nord",
                 fg: "#d8dee9", bg: "#2e3440",
                 cursor: "#88c0d0", cursorText: "#2e3440",
                 selection: "#4c566a", link: "#88c0d0",
@@ -117,7 +181,7 @@ namespace SlopWorld
                     "#81a1c1", "#b48ead", "#8fbcbb", "#eceff4",
                 }),
 
-            new TerminalTheme("solarized",
+            new TerminalTheme("solarized", "Solarized Dark",
                 fg: "#839496", bg: "#002b36",
                 cursor: "#93a1a1", cursorText: "#002b36",
                 selection: "#073642", link: "#268bd2",
@@ -129,16 +193,40 @@ namespace SlopWorld
                     "#839496", "#6c71c4", "#93a1a1", "#fdf6e3",
                 }),
 
-            new TerminalTheme("paper",
-                fg: "#33322e", bg: "#f6f2e8",
-                cursor: "#b5762b", cursorText: "#f6f2e8",
-                selection: "#8fa7c4", link: "#3a6a99",
+            new TerminalTheme("solarized-light", "Solarized Light",
+                fg: "#586e75", bg: "#fdf6e3",
+                cursor: "#586e75", cursorText: "#fdf6e3",
+                selection: "#eee8d5", link: "#268bd2",
                 ansi: new[]
                 {
-                    "#2b2a26", "#a3402f", "#4f7a3a", "#a07a22",
-                    "#3a6a99", "#8a5a96", "#3e8a85", "#d9d2c2",
-                    "#6e6a5f", "#c25b45", "#6e9c52", "#c29a38",
-                    "#5a8cc0", "#a87bb4", "#5caaa4", "#fffdf7",
+                    "#eee8d5", "#dc322f", "#859900", "#b58900",
+                    "#268bd2", "#d33682", "#2aa198", "#073642",
+                    "#fdf6e3", "#cb4b16", "#586e75", "#657b83",
+                    "#839496", "#6c71c4", "#93a1a1", "#002b36",
+                }),
+
+            new TerminalTheme("monokai", "Monokai",
+                fg: "#f8f8f2", bg: "#272822",
+                cursor: "#f8f8f0", cursorText: "#272822",
+                selection: "#49483e", link: "#66d9ef",
+                ansi: new[]
+                {
+                    "#333333", "#c4265e", "#86b42b", "#b3b42b",
+                    "#6a7ec8", "#8c6bc8", "#56adbc", "#e3e3dd",
+                    "#666666", "#f92672", "#a6e22e", "#e2e22e",
+                    "#819aff", "#ae81ff", "#66d9ef", "#f8f8f2",
+                }),
+
+            new TerminalTheme("vscode-dark", "VS Code Dark+",
+                fg: "#d4d4d4", bg: "#1e1e1e",
+                cursor: "#aeafad", cursorText: "#1e1e1e",
+                selection: "#264f78", link: "#3794ff",
+                ansi: new[]
+                {
+                    "#000000", "#cd3131", "#0dbc79", "#e5e510",
+                    "#2472c8", "#bc3fbc", "#11a8cd", "#e5e5e5",
+                    "#666666", "#cd3131", "#23d18b", "#f5f543",
+                    "#3b8eea", "#d670d6", "#29b8db", "#e5e5e5",
                 }),
         };
 

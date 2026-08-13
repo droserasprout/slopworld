@@ -53,6 +53,17 @@ so `Rev` keys both `ScreenBuf.RunsRev` and the pane render cache; idle panes oth
 retain the old palette. Unknown names use the default. Cursor override accepts `#rrggbb`;
 `CursorText` redraws the glyph over an opaque block cursor.
 
+The picker contains the only original palette, `SlopWorld`, plus named classic palettes:
+One Dark, Dracula, GNOME light/dark, Tango light/dark, Gruvbox, Nord, Solarized light/dark,
+Monokai and VS Code Dark+. `Name` is the persisted ID and `Label` is the visible picker
+name. The old `slate` and `paper` entries are retired; their saved values use the normal
+unknown-theme fallback to SlopWorld.
+
+The 16-color entries follow the published palettes where one exists. GNOME and Tango use
+the palettes shipped by GNOME Terminal; the UI's additional surfaces and cursor/link roles
+are small adaptations required by this pane rather than claims that those source projects
+define those exact roles.
+
 ## Links
 
 - `emu.rs` preserves application OSC 8 after `safe_uri` strips controls and caps length.

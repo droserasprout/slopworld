@@ -245,6 +245,11 @@ namespace SlopWorld
         protected override void SetInitialSizeAndPosition() =>
             windowRect = new Rect(0f, 0f, UI.screenWidth, UI.screenHeight);
 
+        // The window is also the host for settings and other content views. Those views are
+        // SlopWorld chrome, so their fullscreen backing surface belongs to UIScheme; only the
+        // pane itself is allowed to expose the terminal palette here.
+        Color Background => _content == null ? Sgr.DefaultBg : SlopWidgets.WindowBg;
+
         public override void PreOpen()
         {
             base.PreOpen();
@@ -276,7 +281,7 @@ namespace SlopWorld
             var hub = SessionHub.Instance;
             var info = hub.Get(_name);
 
-            Widgets.DrawBoxSolid(rect, Sgr.DefaultBg);
+            Widgets.DrawBoxSolid(rect, Background);
 
             // An agent that has gone takes its pane with it - but not the window, while the
             // window is showing something else. The chrome closes when there is nothing left
@@ -1836,7 +1841,7 @@ namespace SlopWorld
 
             Widgets.DrawBoxSolid(new Rect(0f, 0f,
                 Mathf.Ceil(Screen.width / Prefs.UIScale),
-                Mathf.Ceil(Screen.height / Prefs.UIScale)), Sgr.DefaultBg);
+                Mathf.Ceil(Screen.height / Prefs.UIScale)), Background);
 
             Flush();
         }
