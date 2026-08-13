@@ -12,6 +12,9 @@ pub struct Config {
     pub daemon: Daemon,
     #[serde(default)]
     pub defaults: Defaults,
+    /// Commands the client uses for file viewers, editors, syntax highlighting and links.
+    #[serde(default)]
+    pub commands: CommandDefaults,
     /// A session is an agent *in* one of these, and takes its directory and sandbox
     /// from it rather than carrying either.
     #[serde(default, rename = "project")]
@@ -213,6 +216,53 @@ impl Default for Defaults {
         Self {
             agent: default_agent(),
             shell: default_shell(),
+        }
+    }
+}
+
+/// Host applications used by the mod for transient file and URL actions. These are command
+/// templates, split into argv without a shell; the client expands `{file}`, `{line}` and
+/// `{url}` where the relevant action supports them.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandDefaults {
+    /// Pager command. The client appends the file unless `{file}` is present.
+    #[serde(default = "default_pager")]
+    pub pager: String,
+    /// Editor command. The client appends the file unless `{file}` is present.
+    #[serde(default = "default_editor")]
+    pub editor: String,
+    /// Command used by less's LESSOPEN hook. `%s` is replaced by less with the file path.
+    #[serde(default = "default_highlighter")]
+    pub highlighter: String,
+    /// Desktop URL opener. The URL is appended unless `{url}` is present; blank uses host
+    /// fallbacks (`xdg-open`, `gio`, then `wslview`).
+    #[serde(default = "default_opener")]
+    pub opener: String,
+}
+
+fn default_pager() -> String {
+    "less".into()
+}
+
+fn default_editor() -> String {
+    "micro".into()
+}
+
+fn default_highlighter() -> String {
+    "highlight --out-format=xterm256".into()
+}
+
+fn default_opener() -> String {
+    "xdg-open {url}".into()
+}
+
+impl Default for CommandDefaults {
+    fn default() -> Self {
+        Self {
+            pager: default_pager(),
+            editor: default_editor(),
+            highlighter: default_highlighter(),
+            opener: default_opener(),
         }
     }
 }
@@ -1225,6 +1275,9 @@ token = \"not-a-daemon-token\"
             back.session("quiet").unwrap().network,
             Some(NetworkMode::None)
         );
+        assert_eq!(back.commands.pager, "less");
+        assert_eq!(back.commands.editor, "micro");
+        assert_eq!(back.commands.opener, "xdg-open {url}");
     }
 
     #[test]

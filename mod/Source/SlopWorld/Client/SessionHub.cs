@@ -614,6 +614,10 @@ namespace SlopWorld
         // can arrive without slopd being rebuilt or restarted.
         public List<PresetInfo> Presets = new List<PresetInfo>();
         public List<CommandInfo> Commands = new List<CommandInfo>();
+        // Defaults for transient host applications. This is refreshed on connect and after
+        // any settings page saves; the initial object keeps file actions usable before the
+        // first daemon response.
+        public SlopConfig Config = new SlopConfig();
         // Never null: an empty one draws as "no numbers", which is what a daemon that has not
         // answered yet means.
         public UsageInfo Usage = new UsageInfo();
@@ -648,6 +652,7 @@ namespace SlopWorld
             {
                 Status = "connected";
                 _backoff = 1;
+                RefreshConfig();
                 // A reconnect must not silently drop the terminal the player has open.
                 foreach (var name in _subs.ToList())
                     _ws.SendText($"{{\"t\":\"sub\",\"name\":{JVal.Q(name)}}}");
@@ -882,6 +887,10 @@ namespace SlopWorld
         public void Refresh() =>
             SlopClient.Get("/api/sessions",
                 j => Sessions = j["sessions"].Items.Select(SessionInfo.FromJson).ToList());
+
+        public void RefreshConfig(Action<string> fail = null) =>
+            SlopClient.Get("/api/config",
+                j => Config = SlopConfig.FromJson(j["values"]), fail);
 
         public ProjectInfo Project(string name) =>
             Projects.FirstOrDefault(p => p.Name == name);

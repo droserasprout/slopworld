@@ -30,6 +30,7 @@ namespace SlopWorld
                 j =>
                 {
                     _cfg = SlopConfig.FromJson(j["values"]);
+                    SessionHub.Instance.Config = _cfg;
                     _pollSecs = _cfg.UsagePollSecs.ToString();
                     _loaded = true;
                     _error = null;

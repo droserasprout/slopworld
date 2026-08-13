@@ -9,9 +9,10 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   default is never saved. `EditProjectDialog` previews the resolved sandbox.
 - `PresetList` groups daemon presets, refreshes on open, and locks required entries.
   `SandboxPage` edits copied/user presets; builtins are read-only until copied.
-- `ConfigPage` edits daemon/default/game values and uses a tall single column. Undrawn
-  daemon fields survive serialization. `StoragePage` inventories private state and
-  owns reset/restore/delete actions.
+- `ConfigPage` edits daemon/game values and uses a tall single column. `CommandsPage`
+  owns the agent/shell preset defaults plus pager, editor, highlighter and URL opener
+  templates. Undrawn daemon fields survive serialization. `StoragePage` inventories
+  private state and owns reset/restore/delete actions.
 - `UsagePage` owns quota credentials, switches and polling; icon choices and left/spent
   display remain mod settings and work offline. `SummariesPage` edits Codex/Pi title
   policy; its OpenRouter key stays on Usage. `AppearancePage` owns scale, scheme, font

@@ -32,11 +32,12 @@ namespace SlopWorld
         // at startup.
         static readonly List<Tab> Column = new List<Tab>();
 
-        static Tab _config, _storage, _terminal, _appearance, _audio, _integrations,
+        static Tab _config, _commands, _storage, _terminal, _appearance, _audio, _integrations,
                    _usage, _summaries, _sandbox, _keyboard, _rimworld,
                    _graphics, _interface, _controls, _about;
 
         public static OptionCategoryDef Category => _config?.Def;
+        public static OptionCategoryDef CommandsCategory => _commands?.Def;
         public static OptionCategoryDef StorageCategory => _storage?.Def;
         public static OptionCategoryDef TerminalCategory => _terminal?.Def;
         public static OptionCategoryDef AppearanceCategory => _appearance?.Def;
@@ -55,6 +56,7 @@ namespace SlopWorld
         // Rebuilt per open, so a config edited elsewhere - or a daemon that was down last
         // time - is re-read rather than remembered.
         static ConfigPage _page;
+        static CommandsPage _commandsPage;
         static StoragePage _storagePage;
         static TerminalPage _terminalPage;
         static AppearancePage _appearancePage;
@@ -77,6 +79,8 @@ namespace SlopWorld
             }
 
             _config = Add("SlopWorld_Config", "General", general, () => Icons.Gear, DrawConfig);
+            _commands = Add("SlopWorld_Commands", "Commands", general, () => Icons.Terminal,
+                DrawCommands);
             _storage = Add("SlopWorld_Storage", "Storage", general, () => Icons.Files,
                 DrawStorage);
             _terminal = Add("SlopWorld_Terminal", "Terminal", general, () => Icons.Terminal,
@@ -199,6 +203,16 @@ namespace SlopWorld
             _storagePage.Draw(r);
         }
 
+        static void DrawCommands(Rect r)
+        {
+            if (_commandsPage == null)
+            {
+                _commandsPage = new CommandsPage();
+                _commandsPage.Load();
+            }
+            _commandsPage.Draw(r);
+        }
+
         static void DrawTerminal(Rect r)
         {
             if (_terminalPage == null) _terminalPage = new TerminalPage();
@@ -318,6 +332,7 @@ namespace SlopWorld
         public static void Reread()
         {
             if (_page != null) _page.Load();
+            if (_commandsPage != null) _commandsPage.Load();
             if (_storagePage != null) _storagePage.Load();
             if (_usagePage != null) _usagePage.Load();
             if (_summariesPage != null) _summariesPage.Load();
@@ -327,7 +342,8 @@ namespace SlopWorld
         // Drop page instances and persist settings when the view/window closes.
         public static void Teardown()
         {
-            _page = null; _storagePage = null; _terminalPage = null; _appearancePage = null;
+            _page = null; _commandsPage = null; _storagePage = null; _terminalPage = null;
+            _appearancePage = null;
             _audioPage = null;
             _usagePage = null; _summariesPage = null;
             _sandboxPage = null; _aboutPage = null; _keyBindingsPage = null;

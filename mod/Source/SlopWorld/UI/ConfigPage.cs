@@ -4,8 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // First options page for daemon/config values, defaults, and state rules. Connection values
-    // remain editable in mod settings when the socket is down; regex rules stay in raw TOML.
+    // First options page for daemon/config values and game controls. Connection values remain
+    // editable in mod settings when the socket is down; regex rules stay in raw TOML.
     public class ConfigPage
     {
         SlopConfig _cfg;
@@ -29,6 +29,7 @@ namespace SlopWorld
                 j =>
                 {
                     _cfg = SlopConfig.FromJson(j["values"]);
+                    SessionHub.Instance.Config = _cfg;
                     _path = j["path"].AsString();
                     _pollMs = _cfg.PollMs.ToString();
                     _history = _cfg.HistoryLimit.ToString();
@@ -75,21 +76,6 @@ namespace SlopWorld
             l.Begin(new Rect(0f, 0f, view.width, 4000f));
 
             DoConnectionNote(l);
-
-            l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "Commands");
-            Note(l, "What an agent or errand runs when it names none of its own. Both name a " +
-                    "command preset; what one runs is a TOML file beside this one, and the " +
-                    "agent dialog lists them.");
-
-            l.Gap(SlopWidgets.GapS);
-            l.Label("Agent");
-            _cfg.Agent = SlopWidgets.Field(l, "cfg.agent", _cfg.Agent);
-            l.Gap(SlopWidgets.GapS);
-            // What a shell errand runs. tmux hands it a pty, so it is interactive without
-            // being told to be.
-            l.Label("Shell");
-            _cfg.Shell = SlopWidgets.Field(l, "cfg.shell", _cfg.Shell);
 
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "The game");

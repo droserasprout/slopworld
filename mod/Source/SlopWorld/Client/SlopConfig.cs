@@ -46,11 +46,16 @@ namespace SlopWorld
         // what a shell errand runs. What each one *is* is a TOML file the daemon reads.
         public string Agent = "claude";
         public string Shell = "shell";
+        public string Pager = "less";
+        public string Editor = "micro";
+        public string Highlighter = "highlight --out-format=xterm256";
+        public string Opener = "xdg-open {url}";
 
         public static SlopConfig FromJson(JVal v)
         {
             var d = v["daemon"];
             var f = v["defaults"];
+            var c = v["commands"];
             return new SlopConfig
             {
                 Bind = d["bind"].AsString("127.0.0.1:7717"),
@@ -73,6 +78,10 @@ namespace SlopWorld
 
                 Agent = f["agent"].AsString("claude"),
                 Shell = f["shell"].AsString("shell"),
+                Pager = c["pager"].AsString("less"),
+                Editor = c["editor"].AsString("micro"),
+                Highlighter = c["highlighter"].AsString("highlight --out-format=xterm256"),
+                Opener = c["opener"].AsString("xdg-open {url}"),
             };
         }
 
@@ -95,6 +104,10 @@ namespace SlopWorld
             "}," +
             "\"defaults\":{" +
             $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}" +
+            "}," +
+            "\"commands\":{" +
+            $"\"pager\":{JVal.Q(Pager)},\"editor\":{JVal.Q(Editor)}," +
+            $"\"highlighter\":{JVal.Q(Highlighter)},\"opener\":{JVal.Q(Opener)}" +
             "}}";
 
         // One entry per line, which is how the GUI edits these lists.

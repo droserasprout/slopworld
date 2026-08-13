@@ -886,7 +886,7 @@ namespace SlopWorld
         static string DiffCmd(Repo repo, string rel, string status)
         {
             string git = "git -C " + Pager.Quote(repo.Root) +
-                " -c " + Pager.Quote("core.pager=LESS=R less") + " --paginate";
+                " -c " + Pager.Quote("core.pager=LESS=R " + Pager.PipePager) + " --paginate";
 
             // An untracked file has no blob to diff against, and `git diff` says nothing about
             // one. `--no-index` against the empty file is how git itself shows it: the whole
