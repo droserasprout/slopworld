@@ -586,7 +586,7 @@ namespace SlopWorld
                 {
                     if (v == null) return;
                     var name = v;
-                    Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                    Find.WindowStack.Add(SlopConfirmDialog.Create(
                     $"Remove session '{name}'? This kills it, drops it from config.toml, and moves " +
                     "its private state to recoverable trash for 14 days.",
                         () => SessionHub.Instance.Remove(name, SlopWidgets.Fail), destructive: true));
@@ -638,7 +638,7 @@ namespace SlopWorld
                 {
                     if (v == null) return;
                     var name = v;
-                    Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                    Find.WindowStack.Add(SlopConfirmDialog.Create(
                         $"Remove project '{name}'? The directory is left alone; only the entry in config.toml goes.",
                         () => SessionHub.Instance.RemoveProject(name, SlopWidgets.Fail), destructive: true));
                 },
@@ -718,7 +718,7 @@ namespace SlopWorld
                 {
                     if (v == null) return;
                     var name = v;
-                    Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                    Find.WindowStack.Add(SlopConfirmDialog.Create(
                         $"Remove shortcut '{name}'? Anything it already started keeps running.",
                         () => SessionHub.Instance.RemoveShortcut(name, SlopWidgets.Fail), destructive: true));
                 },

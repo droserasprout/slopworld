@@ -337,7 +337,7 @@ namespace SlopWorld
             opts.Add(new FloatMenuOption("Delete", () =>
             {
                 var name = s.Name;
-                TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
+                TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
                     $"Remove shortcut '{name}'? Anything it already started keeps running.",
                     () => SessionHub.Instance.RemoveShortcut(name, SlopWidgets.Fail),
                     destructive: true));

@@ -1184,7 +1184,7 @@ namespace SlopWorld
 
             if (info != null && !info.Ephemeral)
                 opts.Add(new FloatMenuOption("Remove", () =>
-                    TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
+                    TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
                         $"Remove session '{name}'? This kills it, drops it from config.toml, and moves " +
                         "its private state to recoverable trash for 14 days.",
                         () => hub.Remove(name, SlopWidgets.Fail),
@@ -1224,7 +1224,7 @@ namespace SlopWorld
 
             var del = new FloatMenuOption(
                 agents > 0 ? $"Delete ({agents} agent{(agents == 1 ? "" : "s")} in it)" : "Delete",
-                () => TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
+                () => TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
                     $"Remove project '{name}'? The directory is left alone; only the entry " +
                     "in config.toml goes.",
                     () => hub.RemoveProject(name, SlopWidgets.Fail),

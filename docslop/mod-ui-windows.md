@@ -9,6 +9,9 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   default is never saved. `EditProjectDialog` previews the resolved sandbox.
 - `PresetList` groups daemon presets, refreshes on open, and locks required entries.
   `SandboxPage` edits copied/user presets; builtins are read-only until copied.
+- `SlopConfirmDialog` and `SlopAlertDialog` own mod message surfaces instead of vanilla
+  message boxes. They use the shared window/buttons and wrapped text; confirmations retain
+  `OpenOverPane` layering and mark destructive actions with the danger button.
 - `ConfigPage` edits daemon/game values and uses a tall single column. `CommandsPage`
   owns the agent/shell preset defaults plus pager, editor, highlighter and URL opener
   templates. Undrawn daemon fields survive serialization. `StoragePage` inventories

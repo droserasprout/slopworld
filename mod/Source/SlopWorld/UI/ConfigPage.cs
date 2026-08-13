@@ -209,7 +209,7 @@ namespace SlopWorld
                 return;
             }
 
-            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+            Find.WindowStack.Add(SlopConfirmDialog.Create(
                 "Save the colony and restart RimWorld? The daemon starts it again a few " +
                 "seconds later and the agents keep running throughout.",
                 // Nothing here saves or quits: the daemon answers this request by telling every

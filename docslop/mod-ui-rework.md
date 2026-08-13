@@ -1,21 +1,11 @@
 # Flat UI
 
-The flat UI migration is complete and has been checked in-game. `SlopWidgets` owns
-the palette, `Slab`, buttons, fields, headings, spacing, row chrome and form heights;
-`TerminalTheme` is the only separate colour system.
+The flat UI migration is complete and has been checked in-game. `SlopWidgets` owns the
+scheme-driven controls, `Slab` owns shapes, and `TerminalTheme` remains the terminal's
+separate colour system. Use those helpers for new UI; `Listing_Standard`, `Widgets.Label`,
+and IMGUI fields are only layout/text/input primitives behind the shared styling.
 
-- Use `Slab` (or its `Snap`/`Hairline` helpers) for every new shape. UI scale is
-  1.75 here; do not round GUI coordinates manually or use `ScreenToGUIPoint`.
-- Measure with `LineHOf`, `Wide` and `RowLabel`. `GameFont.Tiny` can resolve to Small.
-- Use `GapXS`/`GapS`/`GapM`/`GapL` and `Header`/`SectionHeading`/`PageCaption`/
-  `PageBody`/`FooterBar` for shared page geometry.
-- Forms use names such as `form.field`; equal names share IMGUI focus.
-- Long `Listing_Standard` pages need a tall rect and `maxOneColumn = true`.
-
-The palette uses the same controls and palette as the rest of the UI. Its command
-registry and focus model remain local to `CommandPalette`; do not infer a shared
-command system from the visual migration.
-
-The remaining visual tuning is deliberately small: consider a shared `Chip` helper
-for state pills and revisit `Slab.R` or the row accent only if an in-game screen
-shows a consistency problem.
+Measure with `LineHOf`, `Wide`, and `RowLabel`; use the shared gaps and page geometry
+helpers. Forms use stable names such as `form.field`, and long `Listing_Standard` pages
+need a tall rect with `maxOneColumn = true`. RimWorld-owned `Dialog_Options` and
+`Dialog_ModSettings` remain API hosts; their SlopWorld controls use these helpers.

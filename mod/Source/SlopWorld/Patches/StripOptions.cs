@@ -23,9 +23,8 @@ namespace SlopWorld
             () => "RunInBackground".Translate(),
             // Drop dev mode; debug tools are not part of this sim, but keep General's other rows.
             () => "DevelopmentMode".Translate(),
-            // The "Modify" button on Controls, which opens vanilla's Dialog_KeyBindings on
-            // the full list of defs - the dropped ones included. The Shortcuts page is the
-            // one door now; the rest of Controls is the camera's, so the category stays.
+            // KeyboardConfig is dropped: nothing exposes vanilla's Dialog_KeyBindings, and
+            // the Shortcuts page is the one door for the mod's shortcuts.
             () => "KeyboardConfig".Translate(),
             // Interface's UI scale row, a float menu over a fixed ladder with the rungs its
             // own guard rejects left out. Appearance has the slider, over the whole range

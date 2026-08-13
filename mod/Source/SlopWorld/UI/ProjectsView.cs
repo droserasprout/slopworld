@@ -86,7 +86,7 @@ namespace SlopWorld
                     SlopWidgets.Btn.Danger))
             {
                 var name = p.Name;
-                TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
+                TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
                     $"Remove project '{name}'? The directory is left alone; only the entry " +
                     "in config.toml goes.",
                     () => SessionHub.Instance.RemoveProject(name, SlopWidgets.Fail),

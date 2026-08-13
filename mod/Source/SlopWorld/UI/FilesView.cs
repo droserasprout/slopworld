@@ -719,7 +719,7 @@ namespace SlopWorld
         static void Remove(Node node)
         {
             string what = node.IsDir ? "folder and everything inside it" : "file";
-            TerminalWindow.OpenOverPane(Dialog_MessageBox.CreateConfirmation(
+            TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
                 $"Remove {what} '{node.Name}'?",
                 () => SlopClient.Delete("/api/files",
                     "{\"path\":" + JVal.Q(node.Path) + "}",

@@ -483,7 +483,7 @@ namespace SlopWorld
 
         void Remove(string kind, string name)
         {
-            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+            Find.WindowStack.Add(SlopConfirmDialog.Create(
                 kind == "sandbox" && SessionHub.Instance.Presets.Any(p => p.Name == name && p.Source == "override")
                     ? "Reset this user override and return to the system preset?"
                     : "Remove this user preset?",

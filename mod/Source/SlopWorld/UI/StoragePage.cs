@@ -151,7 +151,7 @@ namespace SlopWorld
 
         void ConfirmReset(Entry e)
         {
-            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+            Find.WindowStack.Add(SlopConfirmDialog.Create(
                 $"Reset private state for '{e.Session}'? The agent stops and this {Human(e.Bytes)} " +
                 "copy moves to recoverable trash for 14 days.",
                 () => SlopClient.Post($"/api/sessions/{Uri.EscapeDataString(e.Session)}/state/reset",
@@ -161,7 +161,7 @@ namespace SlopWorld
 
         void ConfirmDelete(Entry e)
         {
-            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+            Find.WindowStack.Add(SlopConfirmDialog.Create(
                 $"Permanently delete {Human(e.Bytes)} of {e.Kind} private state? This cannot be undone.",
                 () => SlopClient.Delete($"/api/state/{Uri.EscapeDataString(e.Kind)}/" +
                         Uri.EscapeDataString(e.Key), _ => Load(), msg => _error = msg),
