@@ -2,8 +2,8 @@
 
 The sidebar's Search tab asks `GET /api/search` once per project and groups the returned
 matches under project and file headings. Enter runs the query; Case, Word, and Regex alter the next
-run rather than searching on every keystroke. Case, Word, Regex, and Gitignore are sent with
-the next run; Gitignore starts on, so files ignored by Git are filtered by default. A generation
+run rather than searching on every keystroke. Case, Word, Regex, and Include ignored are sent with the
+next run; Include ignored starts off, so files ignored by Git are filtered by default. A generation
 number drops replies from an older query that arrive after a newer one. The result list measures
 every row for scrolling but only draws rows in the viewport, since a common term can fill the
 per-project cap many times over.
