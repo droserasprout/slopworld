@@ -36,7 +36,8 @@ S = N * SS
 # spanning x 40.5..87.5 and y 40..89.
 CX, CY, RX, RY, EXP = 64.0, 64.5, 23.5, 24.5, 3.0
 
-HAIRLINE = 54.0
+# Metal fills the skull under the hair, so no hairstyle can expose a crown-side edge.
+PLATE_TOP = CY - RY
 SKIN_INSET = 2.0
 SEAM_W = 1.6
 
@@ -128,16 +129,16 @@ def steel(x0, y0, x1, y1):
     return np.clip(C_PLATE_TOP * (1 - t) + C_PLATE_BOT * t + lit[..., None] * 0.09, 0, 1)
 
 
-def front(r, *cuts):
-    region = skull(SKIN_INSET)
-    for c in cuts:
+def front(r, top_cut, *seamed_cuts):
+    region = np.maximum(skull(SKIN_INSET), top_cut)
+    for c in seamed_cuts:
         region = np.maximum(region, c)
     r.paint(cover(region), C_SEAM)
-    inner = skull(SKIN_INSET)
-    for c in cuts:
+    inner = np.maximum(skull(SKIN_INSET + SEAM_W), top_cut)
+    for c in seamed_cuts:
         inner = np.maximum(inner, c + SEAM_W)
     m = cover(inner)[..., None]
-    r.rgb = r.rgb * (1 - m) + steel(CX - RX, HAIRLINE, CX + RX, CY + RY) * m
+    r.rgb = r.rgb * (1 - m) + steel(CX - RX, PLATE_TOP, CX + RX, CY + RY) * m
     return region
 
 
@@ -192,14 +193,14 @@ def build_base(facing):
     """Render the base plate (no eyes) at supersampled resolution."""
     r = Renderer()
     if facing == "south":
-        region = front(r, below(HAIRLINE))
+        region = front(r, below(PLATE_TOP))
         for x in EYES_X:
             socket(r, x, EYE_Y)
         mouth(r, *MOUTH, BARS_X)
         for cx, cy in BOLTS:
             bolt(r, cx, cy, region)
     else:
-        region = front(r, below(HAIRLINE), ahead_of(BACK_X))
+        region = front(r, below(PLATE_TOP), ahead_of(BACK_X))
         socket(r, 73.5, EYE_Y)
         mouth(r, 63.0, MOUTH[1], 80.0, MOUTH[3], (66.0, 69.5, 73.0, 76.5))
         for cy in (59.5, 84.0):

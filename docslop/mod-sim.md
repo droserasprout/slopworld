@@ -59,10 +59,11 @@ none of these need a def. See also [mod-plague](mod-plague.md) and
 - **`RobotFace`** - `SlopFaceRenderNodes` is a `DynamicPawnRenderNodeSetup`, so it
   needs no def; it takes its mesh from the hair set, reads its layer off the head
   node, and hands back a null parent so we never hold a node the tree has rebuilt.
-  `FitHair` rerolls hair showing scalp, once, at generation. `AgentLook` rolls one
-  of thirteen Core-only, hatless outfits at generation. The core's `New look` row
-  rerolls every agent's outfit, eyes, hair and hair color; the agent row's context
-  menu rerolls only that agent. `tools/roboface.py` draws the texture.
+  Agents use a metal skin override beneath the vanilla hair and apparel. `FitHair`
+  rerolls hair showing scalp, once, at generation. `AgentLook` rolls one of thirteen
+  Core-only, hatless outfits at generation. The core's `New look` row rerolls every
+  agent's outfit, eyes, hair and hair color; the agent row's context menu rerolls
+  only that agent. `tools/roboface.py` draws the texture.
 - `StatusOverlay`, `QuickStart`, `SlopDefOf`.
 
 **Trap**: an exception inside `AgentColony.GameComponentTick` stops the whole
