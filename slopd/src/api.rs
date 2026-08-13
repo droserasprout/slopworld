@@ -1781,12 +1781,7 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
                 if !m.cap_ok(&cap, &k.name, Level::Rw).await {
                     continue;
                 }
-                // The whole call, not the tmux spawn inside it: this loop reads the next
-                // message only when this one is done, so what is timed here is what a held
-                // key waits behind.
-                let started = std::time::Instant::now();
                 m.send_keys(&k.name, k.keys, k.literal, k.random_tips).await;
-                crate::perf::PERF.input.add(started.elapsed());
             }
             ClientMsg::Resize(r) => {
                 if !m.cap_ok(&cap, &r.name, Level::Rw).await {
@@ -1820,23 +1815,17 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
                     col: mr.col,
                     row: mr.row,
                 };
-                let started = std::time::Instant::now();
                 m.send_mouse(&mr.name, ev, mr.count).await;
-                crate::perf::PERF.input.add(started.elapsed());
             }
             ClientMsg::Paste(pr) => {
                 if !m.cap_ok(&cap, &pr.name, Level::Rw).await {
                     continue;
                 }
-                let started = std::time::Instant::now();
-                // Warn rather than debug, unlike keys and mouse: those have no `exists`
-                // pre-check on purpose, so "the session went" is an ordinary answer there.
                 // A paste checks first, so anything left is a paste that did not land - and
                 // the only other sign of one is the operator noticing nothing arrived.
                 if let Err(e) = m.paste(&pr.name, &pr.text).await {
                     tracing::warn!("paste to {}: {e:#}", pr.name);
                 }
-                crate::perf::PERF.input.add(started.elapsed());
             }
             ClientMsg::Breadcrumb(br) => {
                 if !m.cap_ok(&cap, &br.name, Level::Rw).await {

@@ -9,7 +9,6 @@ mod git;
 mod grant;
 mod jukebox;
 mod open;
-mod perf;
 mod presets;
 mod sandbox;
 mod session;
@@ -83,8 +82,6 @@ async fn main() -> Result<()> {
     // Watches the jukebox rather than driving it: what to play is the mod's to say.
     let audio = audio::spawn(m.clone());
 
-    let perf = perf::spawn();
-
     let app = api::router(m.clone()).layer(middleware::from_fn_with_state(m.clone(), auth));
 
     let listener = tokio::net::TcpListener::bind(&bind).await?;
@@ -103,9 +100,6 @@ async fn main() -> Result<()> {
     poller.abort();
     usage.abort();
     audio.abort();
-    if let Some(p) = perf {
-        p.abort();
-    }
     Ok(())
 }
 

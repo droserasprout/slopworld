@@ -2353,10 +2353,6 @@ impl Manager {
             while let Ok(next) = rx.try_recv() {
                 batch.push(next);
             }
-            crate::perf::PERF.drains.fetch_add(1, Ordering::Relaxed);
-            crate::perf::PERF
-                .drained
-                .fetch_add(batch.len() as u64, Ordering::Relaxed);
             let batch = merge_input(batch);
             for item in batch {
                 Self::send_input(&tmux, &name, item).await;
@@ -2365,7 +2361,6 @@ impl Manager {
     }
 
     async fn send_input(tmux: &Tmux, name: &str, item: Input) {
-        let started = Instant::now();
         let (what, res) = match item {
             Input::Keys { keys, literal } => ("keys", tmux.send_keys(name, &keys, literal).await),
             Input::Bytes(b) => ("bytes", tmux.send_bytes(name, &b).await),
@@ -2375,7 +2370,6 @@ impl Manager {
                 return;
             }
         };
-        crate::perf::PERF.send.add(started.elapsed());
         if let Err(e) = res {
             if what == "paste" {
                 tracing::warn!("paste to {name}: {e:#}");
@@ -2828,25 +2822,17 @@ impl Manager {
             tokio::select! {
                 line = rx.recv() => match line {
                     Some(l) => {
-                        crate::perf::PERF.backlog.fetch_max(rx.len() as u64, Ordering::Relaxed);
-                        crate::perf::PERF.lines.fetch_add(1, Ordering::Relaxed);
-                        crate::perf::PERF.esc_bytes.fetch_add(l.len() as u64, Ordering::Relaxed);
                         if let Some(bytes) = parse_output(&l) {
-                            crate::perf::PERF
-                                .raw_bytes
-                                .fetch_add(bytes.len() as u64, Ordering::Relaxed);
-                            let replies = crate::perf::time(&crate::perf::PERF.feed, || {
+                            let replies = {
                                 if let Ok(mut e) = emu.lock() {
                                     e.feed(&bytes);
                                     e.take_replies()
                                 } else {
                                     Vec::new()
                                 }
-                            });
+                            };
                             if !replies.is_empty() {
-                                let started = Instant::now();
                                 self.queue_input(&name, Input::Bytes(replies)).await;
-                                crate::perf::PERF.reply.add(started.elapsed());
                             }
                             dirty = true;
                         } else if l.starts_with(b"%exit") {
@@ -2897,12 +2883,10 @@ impl Manager {
 
     async fn render_and_broadcast(&self, name: &str, emu: &Mutex<SessionEmu>) {
         let frame = match emu.lock() {
-            Ok(e) => crate::perf::time(&crate::perf::PERF.render, || e.render()),
+            Ok(e) => e.render(),
             Err(_) => return,
         };
-        let started = Instant::now();
         self.apply_frame(name, frame).await;
-        crate::perf::PERF.apply.add(started.elapsed());
     }
 
     async fn apply_frame(&self, name: &str, frame: Frame) {
@@ -2948,10 +2932,8 @@ impl Manager {
         let changed = hash != prev_hash || (frame.cx, frame.cy) != prev_cursor || meta != prev_meta;
         let title_moved = meta.5 != prev_meta.5;
         let rang = frame.bell;
-        let started = Instant::now();
         let plain = strip_sgr(&frame.lines.join("\n"));
         let state = self.classify(changed, prev_change, &plain).await;
-        crate::perf::PERF.classify.add(started.elapsed());
 
         if !changed && state == prev_state && !rang {
             return;
@@ -2983,7 +2965,6 @@ impl Manager {
         }
 
         if changed {
-            crate::perf::PERF.frames.fetch_add(1, Ordering::Relaxed);
             let _ = self.events.send(Event::Screen { screen: view });
         }
         if dirty_list {
