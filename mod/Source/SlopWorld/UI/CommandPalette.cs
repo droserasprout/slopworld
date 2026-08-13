@@ -793,8 +793,8 @@ namespace SlopWorld
             _commands.Add(new Entry
             {
                 Id = "config.toml",
-                Name = "Config: Edit as TOML",
-                Category = "Config",
+                Name = "Configuration: Edit config.toml",
+                Category = "Configuration",
                 Execute = _ => ConfigWindow.Open(),
             });
             _commands.Add(new Entry

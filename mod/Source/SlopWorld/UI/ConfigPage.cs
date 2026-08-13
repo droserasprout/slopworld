@@ -205,7 +205,7 @@ namespace SlopWorld
                     _error = null;
                     SlopOptions.Reread();
                     SessionHub.Instance.Refresh();
-                    Messages.Message("SlopWorld: config saved.",
+                    Messages.Message("SlopWorld: settings saved.",
                         MessageTypeDefOf.TaskCompletion, false);
                 },
                 msg => _error = msg);

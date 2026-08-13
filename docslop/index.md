@@ -49,8 +49,9 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [mod-ui-rowactions](mod-ui-rowactions.md) - view/edit/diff on a hovered row, in both trees.
 - [mod-terminal](mod-terminal.md) - the pane: rendering, keys, theme, links.
 - [mod-content-views](mod-content-views.md) - one window, and what fills it.
-- [mod-ui-windows](mod-ui-windows.md) - the dialogs and the options pages.
+- [mod-ui-windows](mod-ui-windows.md) - the dialogs and Settings pages.
 - [mod-settings](mod-settings.md) - `SlopSettings`, and why a knob lives there.
+- [settings](settings.md) - the user-facing vocabulary and apply/confirmation rules.
 - [vscode-registries](vscode-registries.md) - how VS Code wires actions, keys and settings into one system.
 - [gotchas](gotchas.md) - the traps that cost a day each.
 - [zsh-terminal](zsh-terminal.md) - zsh-newuser-install wizard vs bash default prompt.

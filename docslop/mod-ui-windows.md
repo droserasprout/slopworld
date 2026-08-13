@@ -1,6 +1,6 @@
-# Dialogs and options pages
+# Dialogs and Settings pages
 
-GUI configuration writes to the daemon, except `TerminalSettingsWindow`, which edits
+Settings pages write to the daemon, except `TerminalSettingsWindow`, which edits
 [mod settings](mod-settings.md). Agents, projects, and shortcuts are chrome content
 views; their edit dialogs open through `TerminalWindow.OpenOverPane`.
 
@@ -18,7 +18,7 @@ views; their edit dialogs open through `TerminalWindow.OpenOverPane`.
   avoids `Listing_Standard` overflow ([gotchas](gotchas.md)). Connection settings link to
   mod settings; undrawn daemon fields remain in serialization so unrelated saves preserve
   them.
-- `StoragePage`: inventories private state in its own options tab. Selecting an entry focuses
+- `StoragePage`: inventories private state in its own Settings tab. Selecting an entry focuses
   that daemon-resolved directory in the sidebar's Files view; reset, restore, and delete stay
   on the page.
 - `SandboxPage`: edits system and user presets and commands. Built-ins are read-only until
@@ -45,7 +45,7 @@ views; their edit dialogs open through `TerminalWindow.OpenOverPane`.
 - `ShortcutsView`: Run opens the daemon's returned session. Ask-style errands first choose
   a project or temporary agent; temporary entries cannot be edited or deleted.
 
-## The options column
+## The Settings column
 
 `SlopOptions.Column` is the table every row is drawn from: a def, an icon, a page delegate,
 and an optional parent. One `DoCategoryRow` prefix draws all of them and one `DoOptions`

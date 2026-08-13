@@ -681,7 +681,13 @@ namespace SlopWorld
         {
             SlopClient.PumpCompletions();
 
-            if (!Settings.AutoConnect) return;
+            if (!Settings.AutoConnect)
+            {
+                // Auto-connect is a live setting: turning it off must also release an
+                // already-open socket, not merely stop the next retry.
+                if (_ws != null) Disconnect();
+                return;
+            }
 
             if (_ws == null || !_ws.Connected)
             {
