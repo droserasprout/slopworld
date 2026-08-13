@@ -32,7 +32,10 @@ namespace SlopWorld
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             // The preview sits at the foot; the form scrolls above it.
-            float ph = Mathf.Clamp(SlopWidgets.LineH * 4 + 20f, 60f, 160f);
+            float ph = Mathf.Clamp(
+                SlopWidgets.LineHOf(GameFont.Tiny) + SlopWidgets.LineHOf(GameFont.Small)
+                    + SlopWidgets.LineHOf(GameFont.Medium) + SlopWidgets.GapS * 5 + 36f,
+                104f, 190f);
             var preview = new Rect(inner.x, inner.yMax - ph, inner.width, ph);
             var caption = new Rect(inner.x, preview.y - SlopWidgets.RowH - SlopWidgets.GapXS,
                 inner.width, SlopWidgets.RowH);
@@ -302,36 +305,79 @@ namespace SlopWorld
                 }, true, false, 1f);
         }
 
-        // A live preview of the current font at the current size, drawn in the mod's
-        // own chrome colors so what is judged here is what arrives on the sidebar,
-        // the top bar and the list views.
+        // A live preview of the three UI tiers and the semantic colors they carry, drawn
+        // over the same surfaces used by the sidebar, top bar and list views. This makes a
+        // face or size choice legible even when the current page happens to use only Small.
         static void DrawPreview(Rect r)
         {
             Slab.Box(r, SlopWidgets.Well, SlopWidgets.Edge);
 
-            float x = r.x + 8f, y = r.y + 6f;
-            float w = r.width - 16f;
+            var wasFont = Text.Font;
+            var wasColor = GUI.color;
+            try
+            {
+                float x = r.x + 8f, y = r.y + 5f;
+                float w = r.width - 16f;
+                const float tagW = 52f;
 
-            Text.Font = GameFont.Small;
-            GUI.color = SlopWidgets.Lead;
-            SlopWidgets.RowLabel(new Rect(x, y, w, SlopWidgets.LineH),
-                "Agents  ~/project  main  +12 -3");
-            y += SlopWidgets.LineH;
+                y = DrawTier(new Rect(x, y, w,
+                        SlopWidgets.LineHOf(GameFont.Medium) + 2f),
+                    GameFont.Medium, "Medium", "Agents  ~/project  main", SlopWidgets.Lead,
+                    tagW);
+                y += SlopWidgets.GapXS;
+                y = DrawTier(new Rect(x, y, w,
+                        SlopWidgets.LineHOf(GameFont.Small) + 2f),
+                    GameFont.Small, "Small", "claude  working  +12 -3", SlopWidgets.Name,
+                    tagW);
+                y += SlopWidgets.GapXS;
+                y = DrawTier(new Rect(x, y, w,
+                        SlopWidgets.LineHOf(GameFont.Tiny) + 2f),
+                    GameFont.Tiny, "Tiny", "last output 14m ago  ·  metadata", SlopWidgets.Dim,
+                    tagW);
+                y += SlopWidgets.GapS;
 
-            GUI.color = SlopWidgets.Name;
-            SlopWidgets.RowLabel(new Rect(x, y, w, SlopWidgets.LineH),
-                "This is how your agent list will read.");
-            y += SlopWidgets.LineH;
+                float gap = SlopWidgets.GapXS;
+                float chipW = (w - gap * 3f) / 4f;
+                float chipH = Mathf.Min(22f, r.yMax - y - 5f);
+                if (chipH > 0f)
+                {
+                    DrawColorKey(new Rect(x, y, chipW, chipH), "OK", SlopWidgets.Yes);
+                    DrawColorKey(new Rect(x + chipW + gap, y, chipW, chipH), "WARN",
+                        SlopWidgets.Warn);
+                    DrawColorKey(new Rect(x + (chipW + gap) * 2f, y, chipW, chipH), "ERROR",
+                        SlopWidgets.Bad);
+                    DrawColorKey(new Rect(x + (chipW + gap) * 3f, y, chipW, chipH), "LINK",
+                        SlopWidgets.Accent);
+                }
+            }
+            finally
+            {
+                Text.Font = wasFont;
+                GUI.color = wasColor;
+            }
+        }
 
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(new Rect(x, y, w, SlopWidgets.LineH),
-                "A second line in the rung below it.");
-            y += SlopWidgets.LineH;
+        static float DrawTier(Rect r, GameFont font, string label, string sample, Color color,
+            float tagW)
+        {
+            Slab.Fill(r, SlopWidgets.RowBg);
 
+            Text.Font = font;
             GUI.color = SlopWidgets.Faint;
-            SlopWidgets.RowLabel(new Rect(x, y, w, SlopWidgets.LineH),
-                "A fine print note. Quick brown fox.");
-            GUI.color = Color.white;
+            SlopWidgets.RowLabel(new Rect(r.x + 6f, r.y, tagW - 6f, r.height), label);
+
+            GUI.color = color;
+            SlopWidgets.RowLabel(new Rect(r.x + tagW, r.y, r.width - tagW - 6f, r.height),
+                sample);
+            return r.yMax;
+        }
+
+        static void DrawColorKey(Rect r, string label, Color color)
+        {
+            Slab.Box(r, SlopWidgets.RowBg, SlopWidgets.Edge);
+            Text.Font = GameFont.Tiny;
+            GUI.color = color;
+            SlopWidgets.RowLabel(r.ContractedBy(2f), label, TextAnchor.MiddleCenter);
         }
     }
 }

@@ -1,6 +1,6 @@
 # Dialogs and Settings pages
 
-Daemon-backed pages write through HTTP; `TerminalSettingsWindow` writes
+Daemon-backed pages write through HTTP; `AppearancePage` and `TerminalPage` write
 [mod settings](mod-settings.md). Agents, projects and shortcuts are content views;
 their editors open above the chrome with `TerminalWindow.OpenOverPane`.
 
@@ -15,8 +15,10 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   private state and owns reset/restore/delete actions.
 - `UsagePage` owns quota credentials, switches and polling; icon choices and left/spent
   display remain mod settings and work offline. `SummariesPage` edits Codex/Pi title
-  policy; its OpenRouter key stays on Usage. `AppearancePage` owns scale, scheme, font
-  and cursor. Scale applies on release because live scaling moves the slider.
+  policy; its OpenRouter key stays on Usage. Appearance is a heading with `Interface`
+  and `Terminal` children: `AppearancePage` owns global scale, scheme, font and cursor,
+  while `TerminalPage` owns pane font, theme and cursor color. Scale applies on release
+  because live scaling moves the slider.
 - `AudioPage` keeps vanilla volume in `Prefs` and jukebox state in `SlopSettings`.
   `ShortcutsView` runs daemon errands; ask-style errands choose a project or temp agent.
 

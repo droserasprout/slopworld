@@ -32,7 +32,8 @@ namespace SlopWorld
         // at startup.
         static readonly List<Tab> Column = new List<Tab>();
 
-        static Tab _config, _commands, _storage, _terminal, _appearance, _audio, _integrations,
+        static Tab _config, _commands, _storage, _terminal, _appearance, _appearanceInterface,
+                   _audio, _integrations,
                    _usage, _summaries, _sandbox, _keyboard, _rimworld,
                    _graphics, _interface, _controls, _about;
 
@@ -41,6 +42,7 @@ namespace SlopWorld
         public static OptionCategoryDef StorageCategory => _storage?.Def;
         public static OptionCategoryDef TerminalCategory => _terminal?.Def;
         public static OptionCategoryDef AppearanceCategory => _appearance?.Def;
+        public static OptionCategoryDef AppearanceInterfaceCategory => _appearanceInterface?.Def;
         public static OptionCategoryDef AudioCategory => _audio?.Def;
         public static OptionCategoryDef IntegrationsCategory => _integrations?.Def;
         public static OptionCategoryDef UsageCategory => _usage?.Def;
@@ -83,10 +85,12 @@ namespace SlopWorld
                 DrawCommands);
             _storage = Add("SlopWorld_Storage", "Storage", general, () => Icons.Files,
                 DrawStorage);
-            _terminal = Add("SlopWorld_Terminal", "Terminal", general, () => Icons.Terminal,
-                DrawTerminal);
             _appearance = Add("SlopWorld_Appearance", "Appearance", general, () => Icons.Type,
-                DrawAppearance);
+                null);
+            _appearanceInterface = Add("SlopWorld_AppearanceInterface", "Interface", general,
+                null, DrawAppearance, _appearance);
+            _terminal = Add("SlopWorld_Terminal", "Terminal", general, null, DrawTerminal,
+                _appearance);
             _audio = Add("SlopWorld_Audio", "Audio", general, () => Icons.Bell, DrawAudio);
             _integrations = Add("SlopWorld_Integrations", "Integrations", general,
                 () => Icons.Usage, null);
@@ -310,9 +314,9 @@ namespace SlopWorld
             else v.Category = category;
         }
 
-        // From the General page, jump to the Terminal page in the view that is already up.
-        // The "Appearance..." button used to open a floating window; with the pane's
-        // settings a tab of this same page, the honest answer to the press is a tab swap.
+        // From the General page, jump to the Terminal child in the view that is already up.
+        // The shortcut used to open a floating window; with the pane's settings in this
+        // options view, the honest answer to the press is a tab swap.
         public static void OpenTerminalTab()
         {
             var v = TerminalWindow.ShowingAs<OptionsView>();
