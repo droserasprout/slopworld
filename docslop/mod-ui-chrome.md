@@ -1,8 +1,8 @@
 # Shared UI chrome
 
-`SlopWidgets` owns shared window/view chrome: scheme colours, font-derived geometry,
-spacing, buttons, fields, headings and errors. Colour names resolve through
-`UIScheme` ([mod-ui-identity](mod-ui-identity.md)); terminal colours stay in
+`SlopWidgets` owns shared window/view chrome: scheme colors, font-derived geometry,
+spacing, buttons, fields, headings and errors. Color names resolve through
+`UIScheme` ([mod-ui-identity](mod-ui-identity.md)); terminal colors stay in
 `TerminalTheme`.
 
 - Measure text with `LineHOf`, `Wide` and `RowLabel`. `GameFont.Tiny` may draw as
@@ -21,7 +21,8 @@ spacing, buttons, fields, headings and errors. Colour names resolve through
   vanilla translates contents into a group instead of providing padding; bodies use
   `Pad`.
 - `SlopMenu` replaces `FloatMenu` and reads only the label, action, `Disabled` and
-  right-side extra text from `FloatMenuOption`.
+  right-side extra text from `FloatMenuOption`; rows touch the frame vertically and
+  use the darker `PopoverBg`.
 - `SlopSubmenu` keeps one window per level and builds its rows when opened. Hover opens
   after `OpenDelay`; the child follows a scrolling/clamped parent, chooses the roomier
   side without covering it, and shares its border. Selecting a row or pressing Escape
@@ -37,10 +38,10 @@ spacing, buttons, fields, headings and errors. Colour names resolve through
 
 ## Usage and top bar
 
-- `UsageReadout` draws daemon-reported remaining quota. Icon choices are stable per key
-  and overrideable through `Settings.usageIcons`; enabled sources keep missing rows as
-  placeholders. Freshness uses the last successful poll, and the clock is the final
-  resource before colony doors.
+- `UsageReadout` draws daemon-reported quota, leading with remaining or spent values from
+  the global Usage setting. Icon choices are stable per key and overrideable through
+  `Settings.usageIcons`; enabled sources keep missing rows as placeholders. Freshness uses
+  the last successful poll, and the clock is the final resource before colony doors.
 - `TopBar` draws from a map component and, over a terminal, from `TerminalWindow`; only
   one copy handles input. Doors lay out right-to-left before quota, so transient usage
   rows do not move them. Jukebox/core doors exist only when their objects do.

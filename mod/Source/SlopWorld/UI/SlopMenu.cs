@@ -68,7 +68,8 @@ namespace SlopWorld
         const float MaxW = 300f;
         const float MinW = 160f;
 
-        // The clear space either side of a label, and above and below the whole list.
+        // The clear space either side of a label. Rows touch the frame vertically so a menu
+        // does not grow a needless blank strip above and below its first and last action.
         const float PadX = SlopWidgets.MenuPadX;
         const float PadY = SlopWidgets.MenuPadY;
 
@@ -308,9 +309,8 @@ namespace SlopWorld
         SlopSubmenu Sub(int i) =>
             _options[i].Disabled ? null : _options[i] as SlopSubmenu;
 
-        // The screen y a submenu opened from row `i` hangs at. Its own top padding puts its
-        // first row a `PadY` below this, which is where the parent's row is: the rows are
-        // drawn inside a scroll view inside a window, and only this menu knows the offsets.
+        // The screen y a submenu opened from row `i` hangs at. Its first row begins at this
+        // same y because menus have no vertical inset; only this menu knows the scroll offset.
         float RowTop(int i) => windowRect.y + i * RowH - _scroll.Position.y;
 
         void Follow(float anchor)

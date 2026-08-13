@@ -54,14 +54,14 @@ BAR_W = 0.8
 BOLTS = ((52.0, 58.0), (76.0, 58.0), (52.5, 84.0), (75.5, 84.0))
 BOLT_R = 1.2
 
-# Base plate colours.
+# Base plate colors.
 C_PLATE_TOP = np.array([0.42, 0.435, 0.46])
 C_PLATE_BOT = np.array([0.25, 0.265, 0.29])
 C_SEAM = np.array([0.16, 0.175, 0.195])
 C_SOCKET = np.array([0.085, 0.095, 0.115])
 C_BOLT = np.array([0.52, 0.535, 0.56])
 
-# Eye glow colours.
+# Eye glow colors.
 EYE_COLORS = {
     "Blue": np.array([0.45, 0.75, 0.95]),
     "Red": np.array([0.95, 0.25, 0.15]),
@@ -71,7 +71,7 @@ EYE_COLORS = {
     "White": np.array([0.85, 0.88, 0.95]),
 }
 
-# Missing variant colours.
+# Missing variant colors.
 C_VOID = np.array([0.02, 0.015, 0.025])
 C_VOID_RIM = np.array([0.12, 0.06, 0.08])
 
@@ -209,7 +209,7 @@ def build_base(facing):
 
 def build_eyes(facing, glow_or_none):
     """Render the eyes at supersampled resolution. glow_or_none is an RGB array
-    for a coloured glow, or None for void holes."""
+    for a colored glow, or None for void holes."""
     r = Renderer()
     if facing == "south":
         positions = [(x, EYE_Y) for x in EYES_X]

@@ -135,7 +135,7 @@ namespace SlopWorld
 
             bool over = ColonistBarStrip.Hover(r);
 
-            // Both of these read the ambient colour and only one of them puts it back, so the
+            // Both of these read the ambient color and only one of them puts it back, so the
             // pair is bracketed: the highlight would wear whatever the last thing on the line
             // left behind, and ThingIcon hands back the def's own tint.
             var was = GUI.color;

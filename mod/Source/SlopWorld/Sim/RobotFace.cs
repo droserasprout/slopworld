@@ -6,11 +6,11 @@ using Verse;
 namespace SlopWorld
 {
     // Metal from the hairline down, drawn over the vanilla head rather than replacing it, so
-    // the head, its skin colour and its hair are still the game's. tools/roboface.py has the
+    // the head, its skin color and its hair are still the game's. tools/roboface.py has the
     // geometry.
     public static class RobotFace
     {
-        // Each variant is a separate texture set (south + east) so the colour lives in the
+        // Each variant is a separate texture set (south + east) so the color lives in the
         // PNG rather than in a shader parameter. RimWorld's texture loader caches by path, so
         // the per-pawn texPath is the only thing that changes.
         public enum EyeColor
@@ -36,7 +36,7 @@ namespace SlopWorld
             { EyeColor.Missing, "SlopWorld/RobotFace_Missing" },
         };
 
-        // More common colours are weighted higher, so the colony's default palette reads as
+        // More common colors are weighted higher, so the colony's default palette reads as
         // working machines. Missing is rare: a story beat rather than an everyday look.
         struct Weighted { public EyeColor Color; public float Weight; }
         static readonly Weighted[] ColorWeights =
@@ -80,7 +80,7 @@ namespace SlopWorld
             // Out of tries: a scalp is better than the null hair a blank would be.
         }
 
-        // Assigns an eye colour to the pawn, once. Called at generation time; the colour is
+        // Assigns an eye color to the pawn, once. Called at generation time; the color is
         // stable for the pawn's life.
         public static void Assign(Pawn pawn)
         {
@@ -92,7 +92,7 @@ namespace SlopWorld
         }
 
         // Give an existing agent a new face. Hair keeps the same no-scalp rule as generation,
-        // and one dirty rebuild picks up the plate texture, cut and colour together.
+        // and one dirty rebuild picks up the plate texture, cut and color together.
         public static void Reroll(Pawn pawn)
         {
             if (pawn?.story == null) return;
@@ -113,14 +113,14 @@ namespace SlopWorld
             pawn.Drawer?.renderer?.SetAllGraphicsDirty();
         }
 
-        // Returns the eye colour assigned to this pawn, or the default (Blue) if unassigned.
+        // Returns the eye color assigned to this pawn, or the default (Blue) if unassigned.
         public static EyeColor ColorOf(Pawn pawn)
         {
             if (pawn == null) return EyeColor.Blue;
             return _eyeColors.TryGetValue(pawn.thingIDNumber, out var c) ? c : EyeColor.Blue;
         }
 
-        // The texPath for this pawn's eye colour, falling back to Blue if unassigned.
+        // The texPath for this pawn's eye color, falling back to Blue if unassigned.
         public static string TexPathFor(Pawn pawn)
         {
             var color = ColorOf(pawn);
@@ -163,7 +163,7 @@ namespace SlopWorld
                 nodeClass = typeof(PawnRenderNode_AttachmentHead),
                 texPath = RobotFace.TexPathFor(pawn),
                 parentTagDef = PawnRenderNodeTagDefOf.Head,
-                // The plate arrives painted; on the skin shader it would change colour with
+                // The plate arrives painted; on the skin shader it would change color with
                 // the pawn under it.
                 shaderTypeDef = ShaderTypeDefOf.Cutout,
                 colorType = PawnRenderNodeProperties.AttachmentColorType.Custom,

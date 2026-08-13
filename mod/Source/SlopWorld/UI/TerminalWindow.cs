@@ -524,7 +524,7 @@ namespace SlopWorld
                     style.normal.textColor = run.Fg;
                     DrawRun(run.Text, x, y, cw, ch, style);
 
-                    // Half strength in the text's own colour; the pointer is what makes a
+                    // Half strength in the text's own color; the pointer is what makes a
                     // link loud.
                     if (run.Url != null)
                     {
@@ -663,7 +663,7 @@ namespace SlopWorld
             _snapOy = p0.y;
         }
 
-        // The thin black line that ran through coloured diff: a cell is 19 units tall and the
+        // The thin black line that ran through colored diff: a cell is 19 units tall and the
         // UI runs at 1.75, so a row is 33.25 pixels, the shared edge sits on a pixel centre
         // every fourth row, and a pixel split by two quads belongs to neither. It has to be
         // the *screen* grid - a whole unit here is 1.75 pixels there.
@@ -702,7 +702,7 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------- links
 
-        // A row and a stretch of columns rather than a run, a URL drawn in two colours being
+        // A row and a stretch of columns rather than a run, a URL drawn in two colors being
         // still one link.
         void TrackHover(Rect body, ScreenBuf buf)
         {
@@ -1665,7 +1665,7 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
         }
 
-        // Colours are resolved into the runs at parse time, so a scheme change is a re-parse:
+        // Colors are resolved into the runs at parse time, so a scheme change is a re-parse:
         // without it an idle pane keeps the old palette until the agent next writes, which on
         // an idle agent is never.
         static void EnsureRuns(ScreenBuf buf)
@@ -1677,7 +1677,7 @@ namespace SlopWorld
             buf.RunsRev = TerminalTheme.Rev;
         }
 
-        // The daemon trims trailing blanks only when they carry nothing, so anything coloured
+        // The daemon trims trailing blanks only when they carry nothing, so anything colored
         // to the right margin arrives padded with spaces - which copied as spaces.
         static int ContentLen(string line)
         {

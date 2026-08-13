@@ -42,7 +42,7 @@ named-key path.
 
 ## `TerminalTheme`
 
-`Sgr.DefaultFg`/`DefaultBg` resolve from the scheme. Parsed runs carry resolved colours,
+`Sgr.DefaultFg`/`DefaultBg` resolve from the scheme. Parsed runs carry resolved colors,
 so `Rev` keys both `ScreenBuf.RunsRev` and the pane render cache; idle panes otherwise
 retain the old palette. Unknown names use the default. Cursor override accepts `#rrggbb`;
 `CursorText` redraws the glyph over an opaque block cursor.

@@ -5,7 +5,7 @@ using Verse;
 namespace SlopWorld
 {
     // The plague's tell, shared by every one of its acts. Flecks rather than motes: a struct
-    // submitted to the map's own batch rather than a spawned Thing. Colour and alpha belong to
+    // submitted to the map's own batch rather than a spawned Thing. Color and alpha belong to
     // the def, because instanceColor is combined with a separate fade alpha and would throw
     // the transparency away - hence the hue varying by def where the speed varies by number.
     public static class PlagueFx
@@ -17,7 +17,7 @@ namespace SlopWorld
         const float FastestFleck = 1.0f;
 
         // Rolled per cloud, so the flecks of one puff share a hue. See Flecks.xml for why this
-        // is three defs and not a colour.
+        // is three defs and not a color.
         static FleckDef Gas
         {
             get

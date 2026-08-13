@@ -194,16 +194,25 @@ namespace SlopWorld
             return null;
         }
 
-        // What is *left*: a number in this corner that grew as the colony worked would read as
-        // stock coming in. The daemon sends the spent figure, so the subtraction is here and
-        // the tooltip says both ends of it.
+        // Left is the default because a number in this corner that grew as the colony worked
+        // would read as stock coming in. The daemon sends spent, so the subtraction is here;
+        // the global display setting can instead lead with the provider's spent figure.
         static string Count(UsageWindow w)
         {
-            // A money row whose limit the daemon could not read falls back to the percentage,
-            // the only figure that can say "left" when the size is unsaid. Unsaid rather than
-            // zero: a wallet with nothing in it has $0 left, and rounding that to a percentage
-            // would draw an empty account as a full bar.
-            if (!w.IsMoney || w.Limit < 0f) return Mathf.RoundToInt(Left(w)) + "%";
+            // In Left mode, a money row whose limit the daemon could not read falls back to
+            // the percentage, the only figure that can say "left" when the size is unsaid.
+            // Unsaid rather than zero: a wallet with nothing in it has $0 left, and rounding
+            // that to a percentage would draw an empty account as a full bar.
+            if (!w.IsMoney)
+                return Mathf.RoundToInt(Settings.UsageSpent ? w.Pct : Left(w)) + "%";
+
+            if (Settings.UsageSpent)
+                return w.Amount >= 10f
+                    ? "$" + Mathf.RoundToInt(w.Amount)
+                    : "$" + w.Amount.ToString("0.00");
+
+            if (w.Limit < 0f)
+                return Mathf.RoundToInt(Left(w)) + "%";
 
             float left = Mathf.Max(0f, w.Limit - w.Amount);
             return left >= 10f
@@ -263,11 +272,17 @@ namespace SlopWorld
         // number an agent's own /usage will agree with.
         static string Detail(UsageWindow w)
         {
-            if (!w.IsMoney) return $"{Long(w)}: {Left(w):0.#}% left ({w.Pct:0.#}% spent)";
+            if (!w.IsMoney)
+                return Settings.UsageSpent
+                    ? $"{Long(w)}: {w.Pct:0.#}% spent ({Left(w):0.#}% left)"
+                    : $"{Long(w)}: {Left(w):0.#}% left ({w.Pct:0.#}% spent)";
 
-            return w.Limit >= 0f
-                ? $"{Long(w)}: ${Mathf.Max(0f, w.Limit - w.Amount):0.00} left of ${w.Limit:0.##} (${w.Amount:0.00} spent, {w.Pct:0.#}%)"
-                : $"{Long(w)}: ${w.Amount:0.00} spent ({Left(w):0.#}% left)";
+            if (w.Limit < 0f)
+                return $"{Long(w)}: ${w.Amount:0.00} spent ({Left(w):0.#}% left)";
+
+            return Settings.UsageSpent
+                ? $"{Long(w)}: ${w.Amount:0.00} spent (${Mathf.Max(0f, w.Limit - w.Amount):0.00} left of ${w.Limit:0.##}, {w.Pct:0.#}%)"
+                : $"{Long(w)}: ${Mathf.Max(0f, w.Limit - w.Amount):0.00} left of ${w.Limit:0.##} (${w.Amount:0.00} spent, {w.Pct:0.#}%)";
         }
 
         static string Long(UsageWindow w) => Long(w.Key, w.Label);

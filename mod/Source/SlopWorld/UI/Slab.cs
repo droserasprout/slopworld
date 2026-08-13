@@ -17,7 +17,7 @@ namespace SlopWorld
         // keeps the rect it was handed and the ring is the only thing that grew.
         static float RingW => 2f / Prefs.UIScale;
 
-        // A box in one colour.
+        // A box in one color.
         public static void Fill(Rect r, Color c) => Flat(r, c);
 
         // The same box's border and nothing inside it, laid inside the rect so an outlined
@@ -36,7 +36,7 @@ namespace SlopWorld
         }
 
         // A face and the line round it. Every control here is this: a button, a field, a
-        // panel and a check box differ by which two colours they hand over, and by nothing
+        // panel and a check box differ by which two colors they hand over, and by nothing
         // else. Flat, with no relief: a pressed button is a darker face rather than a box
         // that moves.
         public static void Box(Rect r, Color face, Color edge)
@@ -69,7 +69,7 @@ namespace SlopWorld
         public static void VHairline(Rect r, Color c) =>
             Flat(new Rect(r.x, r.y, LineW, r.height), c);
 
-        // Nothing to do for a colour that is not there - a ghost at rest asks for all of this
+        // Nothing to do for a color that is not there - a ghost at rest asks for all of this
         // in nothing, and it is a bill for no box.
         static bool Paint(Color c) =>
             Event.current.type == EventType.Repaint && c.a > 0f;

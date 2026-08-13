@@ -23,7 +23,7 @@ namespace SlopWorld
         {
             Text.Font = GameFont.Small;
             SlopWidgets.PageCaption(rect,
-                "The mod's look — scale, colours, font, and the pointer that follows "
+                "The mod's look — scale, colors, font, and the pointer that follows "
                 + "your hand.");
 
             var body = SlopWidgets.PageBody(rect);
@@ -68,12 +68,12 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapM);
 
-            // ---- colour scheme
-            // Nothing to invalidate on the way out: every colour in the mod is read through
+            // ---- color scheme
+            // Nothing to invalidate on the way out: every color in the mod is read through
             // SlopWidgets on the frame it is drawn, so the page under the dropdown has
             // already changed by the time the menu closes over it. See UIScheme.
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
-                    $"Colour scheme: {UIScheme.Current.Label}"))
+                    $"Color scheme: {UIScheme.Current.Label}"))
                 Find.WindowStack.Add(new SlopMenu(UIScheme.All
                     .Select(s => new FloatMenuOption(s.Label, () => S.uiScheme = s.Id))
                     .ToList()));
@@ -136,7 +136,7 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapS);
             bool grayscale = SlopWidgets.Checkbox(l, "Grayscale cursor", S.cursorGrayscale,
-                "Use neutral grey instead of each asset's original colours.");
+                "Use neutral grey instead of each asset's original colors.");
             if (grayscale != S.cursorGrayscale)
             {
                 S.cursorGrayscale = grayscale;
@@ -158,8 +158,8 @@ namespace SlopWorld
 
         // The scheme, drawn rather than described - the Terminal page's swatch strip, over
         // the surface these will actually be read on rather than over the page. The washes
-        // among them are the point: a text ramp is five strengths of one colour, and the
-        // only way to see whether the fifth is still a colour is to lay it on its own well.
+        // among them are the point: a text ramp is five strengths of one color, and the
+        // only way to see whether the fifth is still a color is to lay it on its own well.
         static void DrawSwatches(Rect r)
         {
             var scheme = UIScheme.Current;
@@ -292,7 +292,7 @@ namespace SlopWorld
         }
 
         // A live preview of the current font at the current size, drawn in the mod's
-        // own chrome colours so what is judged here is what arrives on the sidebar,
+        // own chrome colors so what is judged here is what arrives on the sidebar,
         // the top bar and the list views.
         static void DrawPreview(Rect r)
         {

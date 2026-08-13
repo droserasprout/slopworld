@@ -27,14 +27,14 @@ namespace SlopWorld
         }
 
         // The alpha multiplies rather than replaces, so a string that carried one keeps it.
-        // Every colour in this file is six digits, where the two are the same thing.
+        // Every color in this file is six digits, where the two are the same thing.
         public static Color Hex(string s, float a = 1f)
         {
             if (TryHex(s, out var c)) { c.a *= a; return c; }
             return new Color(1f, 1f, 1f, a);
         }
 
-        // Six digits is a colour. Eight is a colour and the strength it is laid on at, which
+        // Six digits is a color. Eight is a color and the strength it is laid on at, which
         // is how the chrome's washes are written - see UIScheme.
         public static bool TryHex(string s, out Color c)
         {

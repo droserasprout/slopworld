@@ -53,7 +53,7 @@ note = "small on purpose - this is Codicons' inline status dot, and the sidebar'
 [agents]
 glyph = "cod-robot"
 code = "ec20"
-note = "an actual robot at last; RobotFace_south is a pawn's faceplate, coloured, and a blob when tinted flat at this size"
+note = "an actual robot at last; RobotFace_south is a pawn's faceplate, colored, and a blob when tinted flat at this size"
 
 [files]
 glyph = "cod-folder"

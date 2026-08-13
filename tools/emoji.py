@@ -10,12 +10,12 @@ its alpha - the outline of the glyph - writing <out>/<name>.png. A mono icon is
 an alpha mask: RGB is white outright, so the caller tints it, exactly the way the
 procedural icons here are drawn (GearIcon, TerminalIcon, TabIcons).
 
-The colour is stripped by default on purpose: it is the shape that makes an icon,
+The color is stripped by default on purpose: it is the shape that makes an icon,
 and a flat white glyph reads on the column's dark rows the way the other icons
-do. `--color` keeps the face's own colours instead, which is what a thing
+do. `--color` keeps the face's own colors instead, which is what a thing
 standing on the map wants - a silhouette there is a box, not a jukebox.
-Pango is used rather than PIL's FreeType because NotoColorEmoji is a colour
-font with CBDT/CBLC tables FreeType cannot load, and because the colour glyphs
+Pango is used rather than PIL's FreeType because NotoColorEmoji is a color
+font with CBDT/CBLC tables FreeType cannot load, and because the color glyphs
 (Pango draws them) are solid where the monochrome fallback-font glyphs are thin
 outlines or tofu boxes.
 
@@ -37,7 +37,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 DEFAULT_OUT = os.path.join(ROOT, "mod", "Textures", "SlopWorld", "FileIcons")
 
-# The colour emoji face, found by name so a machine without it says so rather
+# The color emoji face, found by name so a machine without it says so rather
 # than baking a tofu. Fall back on the system's emoji font if the name differs.
 EMOJI_FONTS = ["Noto Color Emoji", "NotoColorEmoji", "EmojiOne Color"]
 
@@ -126,7 +126,7 @@ def bake(emoji, name, size, out, color=False):
     out_arr[..., 3] = small[..., 3]
     if color:
         # Undo the premultiply the resample was done in. A pixel with no alpha has
-        # no colour to recover, and stays the black it already is.
+        # no color to recover, and stays the black it already is.
         lit = small[..., 3] > 0
         out_arr[..., :3][lit] = np.clip(
             small[..., :3][lit] / small[..., 3][lit, None], 0.0, 1.0)
@@ -151,7 +151,7 @@ def main():
     ap.add_argument("--out", default=DEFAULT_OUT,
                     help="output directory")
     ap.add_argument("--color", action="store_true",
-                    help="keep the face's own colours instead of an alpha mask")
+                    help="keep the face's own colors instead of an alpha mask")
     args = ap.parse_args()
 
     if len(args.emoji) != len(args.name):
@@ -160,7 +160,7 @@ def main():
 
     done = sum(bake(e, n, args.size, args.out, args.color)
                for e, n in zip(args.emoji, args.name))
-    print(f"{done}/{len(args.emoji)} {'colour' if args.color else 'mono'} icons "
+    print(f"{done}/{len(args.emoji)} {'color' if args.color else 'mono'} icons "
           f"at {args.size}px -> {os.path.relpath(args.out, ROOT)}")
     return 0 if done == len(args.emoji) else 1
 

@@ -183,6 +183,17 @@ namespace SlopWorld
             // ---------------------------------------------------------------- Both
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "Both");
+            bool spent = SlopWidgets.Checkbox(l, "Show spent quota instead of left",
+                Settings.UsageSpent);
+            if (spent != Settings.UsageSpent)
+            {
+                Settings.S.usageSpent = spent;
+                Settings.S.Write();
+            }
+            Note(l, "Applies to every provider. Left is the amount remaining; spent is the " +
+                    "provider-facing percentage or amount used.");
+
+            l.Gap(SlopWidgets.GapM);
             l.Label("Seconds between polls");
             _pollSecs = SlopWidgets.Field(l, "usage.poll", _pollSecs);
             Note(l, "A failed poll backs off on its own, doubling to half an hour, and each " +
@@ -228,7 +239,6 @@ namespace SlopWorld
             if (pi) _cfg.PiTitles = policy;
             else _cfg.AgentTitles = policy;
         }
-
 
         // ------------------------------------------------------------------ icon row
 
@@ -426,7 +436,7 @@ namespace SlopWorld
             "PsychiteTea", "SmokeleafJoint", "WakeUp", "Yayo",
             "MechSerumHealer", "MechSerumResurrector",
             // Textiles and leather. One wool and three of the twenty leathers - they are all
-            // one texture and differ only in colour, so these are the three that read apart
+            // one texture and differ only in color, so these are the three that read apart
             // at this size: brown, elephant grey, thrumbo white.
             "Cloth", "Synthread", "Hyperweave", "DevilstrandCloth", "WoolMegasloth",
             "Leather_Plain", "Leather_Elephant", "Leather_Thrumbo",

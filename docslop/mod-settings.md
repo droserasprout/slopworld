@@ -2,6 +2,7 @@
 
 In `SlopWorldMod.cs`, reached through the static `Settings` shim: `autoConnect`,
 `sidebarWidth`, `foldedProjects`, `sidebarTab`, `sidebarShowHidden`, `usageIcons`,
+`usageSpent`,
 `fontSize`, `fontName`, `uiFontSize`, `uiFontName`, `uiScheme`, `theme`, `cursorColor`,
 `radio`, `radioMute`, `radioStopOnExit`, `grandmaMode`, `ecoMode`, `ecoDim`.
 
@@ -29,6 +30,10 @@ and it is still legible with the socket down, which is when somebody is in that
 page reading rather than configuring. One `key=defName` per line, written on the
 click by `UsageReadout.Choose` (`Settings.S.Write()`). A line for a key nothing
 reports is a line nothing reads.
+
+`usageSpent` is the global quota readout mode. It is off for the default Left display;
+the Usage page's `Show spent quota instead of left` checkbox turns it on and writes it
+immediately because the top bar can be visible while the options page remains open.
 
 The jukebox's station, `radio`, has no options widget: the box on the map is its picker.
 `radioMute` and `radioStopOnExit` are also drawn on the Audio options page; both roads go
@@ -60,7 +65,7 @@ The file is written **once, in `PostClose`, by `ModSettings.Write`** rather than
 - The pane's scheme calls `TerminalTheme.Invalidate`.
 - The cursor field needs neither, since `Resolve` compares the hex it was given.
 - `uiScheme` needs nothing at all: `UIScheme.Current` re-resolves against the setting
-  on every read, and no chrome colour is baked. See
+  on every read, and no chrome color is baked. See
   [mod-ui-identity](mod-ui-identity.md).
 
 Which terminal was open belongs to a *colony*, so `TerminalRecall` scribes it into

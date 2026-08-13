@@ -61,7 +61,7 @@ none of these need a def. See also [mod-plague](mod-plague.md) and
   node, and hands back a null parent so we never hold a node the tree has rebuilt.
   `FitHair` rerolls hair showing scalp, once, at generation. `AgentLook` rolls one
   of thirteen Core-only, hatless outfits at generation. The core's `New look` row
-  rerolls every agent's outfit, eyes, hair and hair colour; the agent row's context
+  rerolls every agent's outfit, eyes, hair and hair color; the agent row's context
   menu rerolls only that agent. `tools/roboface.py` draws the texture.
 - `StatusOverlay`, `QuickStart`, `SlopDefOf`.
 

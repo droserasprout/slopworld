@@ -225,7 +225,7 @@ namespace SlopWorld
         }
 
         // Vanilla's option background is a texture with a border and a hover of its own.
-        // This is the same row in the list's own colours: the accent tint for the page being
+        // This is the same row in the list's own colors: the accent tint for the page being
         // read, plain white for the one under the mouse, nothing for the rest. Every row this
         // mod adds to the column draws through it, which is why it is one method.
         static void CategoryRow(Rect r, bool selected)

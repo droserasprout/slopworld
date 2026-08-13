@@ -3475,7 +3475,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
     }
 
     #[test]
-    fn strips_colour_and_keeps_text() {
+    fn strips_color_and_keeps_text() {
         assert_eq!(strip_sgr("\x1b[31mred\x1b[0m done"), "red done");
         assert_eq!(strip_sgr("esc to interrupt"), "esc to interrupt");
         assert_eq!(strip_sgr("\x1b]0;title\x07body"), "body");

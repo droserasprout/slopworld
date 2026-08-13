@@ -30,6 +30,9 @@ namespace SlopWorld
         // Per-install quota icon overrides, one `key=defName` per line; missing rows/defs fall
         // back to UsageReadout's default.
         public string usageIcons = "";
+        // Whether quota readouts lead with what is left or what has been spent. Left is the
+        // useful default for resources; spent matches the provider-facing convention.
+        public bool usageSpent;
 
         public int fontSize = 14;
         public string fontName = "";
@@ -42,9 +45,9 @@ namespace SlopWorld
         public string uiScheme = "slopworld";
 
         // The pane's palette, by name. A scheme this build no longer ships reads as the
-        // default rather than as no colours at all.
+        // default rather than as no colors at all.
         public string theme = "slopworld";
-        // "#rrggbb", or blank for the scheme's own. The one colour worth overriding on
+        // "#rrggbb", or blank for the scheme's own. The one color worth overriding on
         // its own: everything else is the scheme's business, and a cursor you cannot find
         // is about the screen it is on.
         public string cursorColor = "";
@@ -95,6 +98,7 @@ namespace SlopWorld
             Scribe_Values.Look(ref sidebarShowHidden, "sidebarShowHidden", false);
             Scribe_Values.Look(ref sidebarFilter, "sidebarFilter", "");
             Scribe_Values.Look(ref usageIcons, "usageIcons", "");
+            Scribe_Values.Look(ref usageSpent, "usageSpent", false);
             Scribe_Values.Look(ref fontSize, "fontSize", 14);
             Scribe_Values.Look(ref fontName, "fontName", "");
             Scribe_Values.Look(ref uiFontSize, "uiFontSize", 0);
@@ -127,6 +131,7 @@ namespace SlopWorld
         public static bool SidebarShowHidden => S.sidebarShowHidden;
         public static string SidebarFilter => S.sidebarFilter ?? "";
         public static string UsageIcons => S.usageIcons ?? "";
+        public static bool UsageSpent => S.usageSpent;
         public static int FontSize => S.fontSize;
         public static string FontName => S.fontName ?? "";
         public static int UIFontSize => S.uiFontSize;

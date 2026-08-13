@@ -31,7 +31,7 @@ Agents; directory menus diff their contents and heading menus diff the project.
 - `--paginate` uses git's `core.pager`.
 - Git's pager runs `LESS=R less`; keep `X` off the alternate screen and `F` off so short
   diffs stay open. The terminal wheel path depends on `AltScreen`.
-- `--color=always` keeps colour through the pager.
+- `--color=always` keeps color through the pager.
 - `-C <root>` handles projects rooted below the repository.
 - Untracked files use `--no-index` against `/dev/null`, displaying the whole file as added.
 

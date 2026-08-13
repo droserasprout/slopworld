@@ -41,7 +41,7 @@ ramp, `Slab`, `Button`/`Bar`, the form controls and the heights are all there.
 - **Radius** is 5 for everything. If the 22px row buttons still read pill-ish next
   to the 30px footer ones, `Slab.R` is the one number.
 - **Accent** is `PrimeFace = 0.15, 0.33, 0.57`, tuned twice by eye. If the mod ever
-  wants a real accent colour of its own, that is the line, and `FocusEdge` should
+  wants a real accent color of its own, that is the line, and `FocusEdge` should
   move with it.
 
 ## Traps

@@ -67,5 +67,5 @@ journalctl --user -u slopd -f
   Codicons; wants one installed, unlike the others - see
   [mod-icons](mod-icons.md).
 - `tools/emoji.py` - bakes an icon from an emoji glyph. An alpha mask by default,
-  for the caller to tint; `--color` keeps the face's own colours, which is what a
+  for the caller to tint; `--color` keeps the face's own colors, which is what a
   thing standing on the map wants - see [mod-jukebox](mod-jukebox.md).

@@ -24,10 +24,11 @@ views; their edit dialogs open through `TerminalWindow.OpenOverPane`.
 - `SandboxPage`: edits system and user presets and commands. Built-ins are read-only until
   copied; user entries can be saved, removed, or reset. Project preset selection stays in
   `EditProjectDialog`.
-- `UsagePage`: daemon quota switches, credentials, and polling use `config.toml`; icon
-  choices use mod settings and work offline. Known quota rows are offered before first
-  observation. `Automatic` is the first, null-valued icon choice.
-- `AppearancePage`: UI scale, colour scheme, font face and size, cursor. The scheme row is
+- `UsagePage`: daemon quota switches, credentials, and polling use `config.toml`; the
+  global Left/Spent display mode and icon choices use mod settings and work offline. Known
+  quota rows are offered before first observation. `Automatic` is the first, null-valued
+  icon choice.
+- `AppearancePage`: UI scale, color scheme, font face and size, cursor. The scheme row is
   the Terminal page's, in the mod's own palette: a name, and the scheme itself as a swatch
   strip over the well it will be read on — see [mod-ui-identity](mod-ui-identity.md). Scale is `Prefs.UIScale` through
   `SlopUIScale` — a slider over 0.5x–4x rather than vanilla's ladder, `UnlockUIScale` having

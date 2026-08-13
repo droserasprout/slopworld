@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // Named palette for `SlopWidgets`; geometry stays fixed while selected colours propagate on
+    // Named palette for `SlopWidgets`; geometry stays fixed while selected colors propagate on
     // the next frame. Hex values are persisted in settings.
     public class UIScheme
     {
@@ -104,19 +104,19 @@ namespace SlopWorld
         }
 
         // The pane's parser, which is the only one there should be. Six digits or eight; a
-        // string this cannot read comes back as magenta, which is a colour nobody chose and
-        // therefore a colour somebody notices.
+        // string this cannot read comes back as magenta, which is a color nobody chose and
+        // therefore a color somebody notices.
         static Color Hex(string s) =>
             TerminalTheme.TryHex(s, out var c) ? c : Color.magenta;
 
         public static readonly List<UIScheme> All = new List<UIScheme>
         {
             // The house scheme: an opaque grey panel, a signal blue, and every line, row and
-            // face on it a wash of white at some strength. Restated here in hex, colour for
-            // colour, from where these lived as floats in SlopWidgets.
+            // face on it a wash of white at some strength. Restated here in hex, color for
+            // color, from where these lived as floats in SlopWidgets.
             new UIScheme("slopworld", "SlopWorld",
                 accent: "#3584e4", destructive: "#c01c28",
-                windowBg: "#242424", viewBg: "#1e1e1e", popoverBg: "#383838",
+                windowBg: "#242424", viewBg: "#1e1e1e", popoverBg: "#2c2c2c",
                 panel: "#242424f5", offlineBg: "#6b1f1aeb", scrim: "#0000008c",
                 lead: "#ffffff", name: "#ffffffcc", dim: "#ffffff8c",
                 faint: "#ffffff6b", off: "#ffffff4d",
@@ -136,7 +136,7 @@ namespace SlopWorld
             // colder line than that panel was drawn expecting.
             new UIScheme("onedark", "One Dark",
                 accent: "#61afef", destructive: "#be5046",
-                windowBg: "#282c34", viewBg: "#21252b", popoverBg: "#3a3f4b",
+                windowBg: "#282c34", viewBg: "#21252b", popoverBg: "#30343d",
                 panel: "#282c34f5", offlineBg: "#5f2a2feb", scrim: "#0000008c",
                 lead: "#dcdfe4", name: "#abb2bf", dim: "#7f848e",
                 faint: "#5c6370", off: "#4b5263",
@@ -152,7 +152,7 @@ namespace SlopWorld
         };
 
         // A scheme this build no longer ships reads as the house one rather than as no
-        // colours at all - the same bargain TerminalTheme.Get makes.
+        // colors at all - the same bargain TerminalTheme.Get makes.
         public static UIScheme Get(string id)
         {
             foreach (var s in All) if (s.Id == id) return s;
@@ -165,7 +165,7 @@ namespace SlopWorld
         // Resolved against the setting on every read rather than behind an Invalidate call:
         // this is a reference comparison against a string the settings object hands back
         // unchanged, and it is one branch on a path that is otherwise a field read. Nothing
-        // caches a chrome colour into a texture, so there is no Rev here for anything to
+        // caches a chrome color into a texture, so there is no Rev here for anything to
         // watch - unlike the pane, whose row cache is keyed on the theme it was drawn in.
         public static UIScheme Current
         {

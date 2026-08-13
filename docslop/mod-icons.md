@@ -66,7 +66,7 @@ agents tab is the agents tab whatever picture it wears next year.
 ## Notes on particular slots
 
 - **agents** is `robot`, an actual one — Codicons has it where Feather and Ionicons
-  both did not. `RobotFace_south` is a pawn's faceplate: coloured, with eye
+  both did not. `RobotFace_south` is a pawn's faceplate: colored, with eye
   variants, and a blob when tinted flat at 18px.
 - **gear** serves both the options row and the top bar's config door; `Icons.Config`
   is an alias, because the two call sites are not about the same thing.

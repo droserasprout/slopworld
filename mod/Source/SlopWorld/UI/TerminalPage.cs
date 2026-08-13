@@ -85,7 +85,7 @@ namespace SlopWorld
             }
 
             l.Gap(SlopWidgets.GapM);
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), $"Colour scheme: {s.theme}"))
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), $"Color scheme: {s.theme}"))
                 Find.WindowStack.Add(new SlopMenu(TerminalTheme.All
                     .Select(t => new FloatMenuOption(t.Name, () =>
                     {
@@ -97,7 +97,7 @@ namespace SlopWorld
             DrawSwatches(l.GetRect(18f));
 
             l.Gap(SlopWidgets.GapM);
-            l.Label("Cursor colour, #rrggbb (blank = the scheme's)");
+            l.Label("Cursor color, #rrggbb (blank = the scheme's)");
             s.cursorColor = SlopWidgets.Field(l, "term.cursor", s.cursorColor ?? "");
 
             // Said rather than corrected: a half-typed "#8" is not a mistake yet, and a field
@@ -106,7 +106,7 @@ namespace SlopWorld
                 !TerminalTheme.TryHex(s.cursorColor, out _))
             {
                 GUI.color = SlopWidgets.Bad;
-                l.Label("Not a colour - the scheme's own cursor is being used.");
+                l.Label("Not a color - the scheme's own cursor is being used.");
                 GUI.color = Color.white;
             }
 

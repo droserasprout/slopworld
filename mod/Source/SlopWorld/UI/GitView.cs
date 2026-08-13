@@ -582,7 +582,7 @@ namespace SlopWorld
 
         // The porcelain pair said in one character, because one is what fits: the staged
         // letter where there is one, the unstaged letter otherwise. Which of the two it was
-        // is the colour's job below.
+        // is the color's job below.
         static string Mark(string status)
         {
             if (string.IsNullOrEmpty(status)) return "?";
@@ -592,8 +592,8 @@ namespace SlopWorld
             return (staged != ' ' && staged != '?' ? staged : worktree).ToString();
         }
 
-        // Staged is the colour of a thing that is going somewhere; everything else is the
-        // colour of a thing that is not. Untracked is neither, and is dimmer than both.
+        // Staged is the color of a thing that is going somewhere; everything else is the
+        // color of a thing that is not. Untracked is neither, and is dimmer than both.
         static Color MarkColor(string status)
         {
             if (string.IsNullOrEmpty(status) || status == "??") return SlopWidgets.Faint;
@@ -879,7 +879,7 @@ namespace SlopWorld
             Viewer.Open(repo.Project, DiffCmd(repo, node.Rel, node.Status), "diff-" + node.Name);
         }
 
-        // Use git's pager because daemon errands are argv, not shell pipelines. Force colour
+        // Use git's pager because daemon errands are argv, not shell pipelines. Force color
         // and LESS=R: git's default X avoids the alternate screen, preventing the pane from
         // sending wheel input to less; F would quit on short diffs. `-C` anchors paths when a
         // project points below the repository root.
@@ -890,7 +890,7 @@ namespace SlopWorld
 
             // An untracked file has no blob to diff against, and `git diff` says nothing about
             // one. `--no-index` against the empty file is how git itself shows it: the whole
-            // file as added, coloured and paged like any other diff.
+            // file as added, colored and paged like any other diff.
             if (status == "??")
                 return git + " diff --color=always --no-index -- /dev/null " + Pager.Quote(rel);
 

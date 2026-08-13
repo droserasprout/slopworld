@@ -20,7 +20,7 @@ namespace SlopWorld
         public string Url;
     }
 
-    // The daemon's emulator already did the hard part, so we only ever see SGR colour
+    // The daemon's emulator already did the hard part, so we only ever see SGR color
     // escapes, CHA column markers and the OSC 8 links it passes on.
     public static class Sgr
     {
@@ -31,9 +31,9 @@ namespace SlopWorld
 
         static Color[] Basic16 => TerminalTheme.Current.Ansi;
 
-        // How much of a faint run's own colour survives. Low enough that a completion hint
+        // How much of a faint run's own color survives. Low enough that a completion hint
         // reads as a hint next to the line it is offered under, high enough that it is still
-        // that colour rather than a grey - agents state 2 over an ANSI colour as often as over
+        // that color rather than a grey - agents state 2 over an ANSI color as often as over
         // the default foreground.
         const float FaintMix = 0.55f;
 
@@ -43,7 +43,7 @@ namespace SlopWorld
             public Color Bg;
             public bool HasBg;
             public bool Bold;
-            // SGR 2. A colour rather than a weight: the cell keeps the foreground it was
+            // SGR 2. A color rather than a weight: the cell keeps the foreground it was
             // given and the terminal is what decides how far towards the background it is
             // drawn. Which is why it cannot be resolved in the daemon - see Flush.
             public bool Faint;
@@ -154,7 +154,7 @@ namespace SlopWorld
 
             // A run is flushed on every escape and most escapes change nothing a viewer can
             // see - a TUI re-states attributes constantly. What decides whether two runs
-            // are one is the drawn colours, not the codes behind them, and never across a
+            // are one is the drawn colors, not the codes behind them, and never across a
             // column jump: a CHA is the one thing that says the pen moved.
             int last = runs.Count - 1;
             if (last >= 0)
@@ -206,7 +206,7 @@ namespace SlopWorld
                     case 39: a.Fg = DefaultFg; break;
                     case 49: a.HasBg = false; a.Bg = DefaultBg; break;
 
-                    // 38/48 take an argument list: 5;<n> for 256-colour, 2;r;g;b for truecolour.
+                    // 38/48 take an argument list: 5;<n> for 256-color, 2;r;g;b for truecolor.
                     case 38:
                     case 48:
                     {
@@ -249,7 +249,7 @@ namespace SlopWorld
 
             if (i < 232)
             {
-                // 6x6x6 colour cube; levels are not linear.
+                // 6x6x6 color cube; levels are not linear.
                 int n = i - 16;
                 int r = n / 36, g = (n % 36) / 6, b = n % 6;
                 return new Color(Level(r), Level(g), Level(b));
@@ -375,7 +375,7 @@ namespace SlopWorld
         }
 
         // Runs are cut where the spans cross them, so a link that starts mid-word or ends
-        // mid-colour keeps every one of the colours it was drawn in. A run the app already
+        // mid-color keeps every one of the colors it was drawn in. A run the app already
         // linked is left alone: what it says beats what the text looks like.
         static void Split(List<SgrRun> runs, string text, List<Vector2Int> spans)
         {

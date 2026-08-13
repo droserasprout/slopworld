@@ -797,7 +797,7 @@ namespace SlopWorld
                         // The cross is one arm long and thin and the same turned over. Their sum
                         // alone gives a middle no brighter than twice an arm, so the core is a
                         // separate round term - and it is white rather than tinted, a star being
-                        // hot in the middle and coloured at the edges.
+                        // hot in the middle and colored at the edges.
                         float cross = fx * ty + fy * tx;
                         float d = 1f - Mathf.Sqrt(ax * ax + ay * ay);
                         float core = d > 0f ? d * d * d : 0f;

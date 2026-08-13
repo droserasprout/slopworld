@@ -32,7 +32,7 @@ namespace SlopWorld
         }
 
         // Fold dimming into this draw; the shared menu frames remain undimmed. MaterialPool
-        // keys on the colour, so the slider behind this steps rather than moving freely.
+        // keys on the color, so the slider behind this steps rather than moving freely.
         static Color Shade
         {
             get

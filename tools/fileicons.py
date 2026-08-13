@@ -89,7 +89,7 @@ def bake(name, size):
 
     big = render(src, size * SUPER)
 
-    # Premultiply before the filter. Averaging straight RGBA drags the colour of a
+    # Premultiply before the filter. Averaging straight RGBA drags the color of a
     # fully transparent pixel into its neighbours, which on these icons is black,
     # and every edge comes out with a dark rind.
     a = np.asarray(big, dtype=np.float64) / 255.0

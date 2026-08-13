@@ -1,5 +1,5 @@
 //! One `SessionEmu` per running session, driving an `alacritty_terminal` VT engine off the
-//! raw bytes tmux control mode gives us and serialising back into the SGR-coloured line
+//! raw bytes tmux control mode gives us and serialising back into the SGR-colored line
 //! format the mod speaks.
 
 use std::sync::{Arc, Mutex};
@@ -349,7 +349,7 @@ struct Pen {
     bg: Ink,
 }
 
-/// A colour as the offset it contributes to `30`/`40`, rather than as the string it becomes.
+/// A color as the offset it contributes to `30`/`40`, rather than as the string it becomes.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 enum Ink {
     /// Emits nothing: the mod's own default for that half.
@@ -382,7 +382,7 @@ impl Pen {
         Self {
             bold: flags.contains(Flags::BOLD),
             // Dropping this is what drew Claude Code's greyed-out completions as ordinary
-            // text: the colour on a faint cell is the *full* one, the dimming being an
+            // text: the color on a faint cell is the *full* one, the dimming being an
             // attribute rather than a palette entry.
             dim: flags.contains(Flags::DIM),
             inverse: flags.contains(Flags::INVERSE),
@@ -391,7 +391,7 @@ impl Pen {
         }
     }
 
-    /// Straight onto the row's buffer. The mod renders only bold, faint, reverse and colour,
+    /// Straight onto the row's buffer. The mod renders only bold, faint, reverse and color,
     /// so that is all this emits, and the order is the one the runs were always written in.
     fn write(&self, out: &mut String) {
         if *self == Self::default() {
@@ -610,14 +610,14 @@ mod tests {
     }
 
     #[test]
-    fn maps_colour_to_index_sgr() {
+    fn maps_color_to_index_sgr() {
         let mut e = SessionEmu::new(20, 2);
         e.feed(b"\x1b[1;31mX\x1b[0m");
         let f = e.render();
         assert_eq!(f.lines[0], "\x1b[0m\x1b[0;1;31mX");
     }
 
-    // Faint is an attribute rather than a colour, so dropping it here left the mod nothing to
+    // Faint is an attribute rather than a color, so dropping it here left the mod nothing to
     // tell a completion hint from the line above it.
     #[test]
     fn carries_faint_through() {

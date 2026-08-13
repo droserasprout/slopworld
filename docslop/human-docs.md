@@ -20,7 +20,7 @@ when filling a page, not a draft of the page.
 
 Interface - loading screen and intro, colonist bar as live agents, the sidebar,
 the terminal window filling the screen opaque, files/search/git views, usage
-readout in the top bar, colour schemes, eco mode, keys. Sources:
+readout in the top bar, color schemes, eco mode, keys. Sources:
 [mod-ui-chrome](mod-ui-chrome.md), [mod-sidebar](mod-sidebar.md),
 [mod-terminal](mod-terminal.md), [mod-content-views](mod-content-views.md),
 [mod-ui-identity](mod-ui-identity.md), [mod-eco](mod-eco.md).

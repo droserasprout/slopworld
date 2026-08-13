@@ -12,7 +12,7 @@ namespace SlopWorld
     // screen pixel grid.
     public static class SlopWidgets
     {
-        // ---- Surfaces and semantic colours. These are named for SlopWorld's jobs rather
+        // ---- Surfaces and semantic colors. These are named for SlopWorld's jobs rather
         // than for a borrowed toolkit's widgets, and they are the only names anything else
         // in the mod knows: the values behind them belong to the scheme the player picked,
         // and are read through here so a scheme lands everywhere at once. See UIScheme.
@@ -55,7 +55,7 @@ namespace SlopWorld
         public static Color Well => UIScheme.Current.Well;
 
         // One green for "this is up" and "this is on"; Yes is the name the forms ask for it
-        // by, and the status marker is the same colour saying the same thing.
+        // by, and the status marker is the same color saying the same thing.
         public static Color Yes => UIScheme.Current.Yes;
 
         public static Color RowBg => UIScheme.Current.RowBg;
@@ -104,7 +104,7 @@ namespace SlopWorld
         public const float ScrollTrackW = 10f;
         public const float ScrollThumbInset = 2f;
         public const float MenuPadX = 12f;
-        public const float MenuPadY = 4f;
+        public const float MenuPadY = 0f;
         public const float StatusMarker = 8f;
 
         public static float RowBtnH => Mathf.Max(LineH + GapXS, 22f);
@@ -481,7 +481,7 @@ namespace SlopWorld
 
         // An icon that answers to a press, in the chrome's own rectangular hover surface.
         //
-        // `tint` is the icon's colour at rest - a disabled errand hands over a faded one -
+        // `tint` is the icon's color at rest - a disabled errand hands over a faded one -
         // and it goes to full white under the mouse.
         public static bool IconButton(Rect r, Texture2D icon, Color tint, bool on = true)
         {
