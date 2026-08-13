@@ -4,7 +4,7 @@ use std::path::{Component, Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::Serialize;
 
-use crate::config::{expand, Config, Limits, NetworkMode, ProjectCfg, SessionCfg};
+use crate::config::{expand, Config, DnsConfig, Limits, NetworkMode, ProjectCfg, SessionCfg};
 use crate::presets::{SandboxPreset, Table};
 
 /// Forwarded whatever the config says, plus anything named `LC_*`. What belongs here says
@@ -646,7 +646,7 @@ fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
 }
 
 /// Returns existing `(private_copy, host_path)` pairs used to shadow private state under
-/// `$HOME`. Disk preparation happens in `prepare_private`.
+/// `$HOME`. Disk preparation happens in `prepare_network`.
 fn private_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = Vec::new();
     for pr in presets_for(cfg, s, p, t) {
@@ -693,10 +693,18 @@ fn shared_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec<
     out
 }
 
-/// Creates and seeds each private tree before argv construction; existing copies are preserved.
-pub fn prepare_private(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<()> {
-    if cfg.network_of(s, p)? == NetworkMode::Private {
-        prepare_private_resolver(&s.state_id)?;
+/// Creates generated resolver files and seeds each private tree before argv construction;
+/// existing copies are preserved. The private resolver is always synthetic, while an explicit
+/// DNS list in host mode needs a generated `/etc/resolv.conf` source too.
+pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<()> {
+    let network = cfg.network_of(s, p)?;
+    let dns = cfg.dns_of(s, p);
+    match network {
+        NetworkMode::Private => prepare_resolver(&s.state_id, &[PRIVATE_RESOLVER.into()])?,
+        NetworkMode::Host if matches!(dns, DnsConfig::Servers { .. }) => {
+            prepare_resolver(&s.state_id, &dns.servers())?
+        }
+        NetworkMode::None | NetworkMode::Host => {}
     }
 
     let t = crate::presets::table();
@@ -721,40 +729,19 @@ fn private_resolver_path(session: &str) -> PathBuf {
     state_root().join(session).join("network/resolv.conf")
 }
 
-fn prepare_private_resolver(session: &str) -> Result<()> {
+fn prepare_resolver(session: &str, servers: &[String]) -> Result<()> {
     let path = private_resolver_path(session);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).with_context(|| format!("making {}", parent.display()))?;
     }
-    std::fs::write(&path, format!("nameserver {PRIVATE_RESOLVER}\n"))
+    let text = servers
+        .iter()
+        .map(|server| format!("nameserver {server}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(&path, format!("{text}\n"))
         .with_context(|| format!("writing {}", path.display()))?;
     Ok(())
-}
-
-fn host_nameservers() -> Vec<String> {
-    let mut out = std::fs::read_to_string("/etc/resolv.conf")
-        .ok()
-        .into_iter()
-        .flat_map(|text| {
-            text.lines()
-                .filter_map(|line| {
-                    let mut fields = line.split_whitespace();
-                    if fields.next()? != "nameserver" {
-                        return None;
-                    }
-                    fields.next()
-                })
-                .filter(|server| !server.is_empty())
-                .filter(|server| server.parse::<std::net::Ipv4Addr>().is_ok())
-                .map(str::to_string)
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
-    if out.is_empty() {
-        out.push("127.0.0.53".into());
-    }
-    out.truncate(2);
-    out
 }
 
 /// `/etc/resolv.conf` is commonly a symlink into `/run`, which is not mounted in the sandbox.
@@ -799,7 +786,7 @@ fn scope_prefix(limits: &Limits) -> Vec<String> {
     out
 }
 
-fn pasta_prefix() -> Vec<String> {
+fn pasta_prefix(dns: &DnsConfig) -> Vec<String> {
     let mut out = vec![
         "pasta".into(),
         "--foreground".into(),
@@ -822,9 +809,9 @@ fn pasta_prefix() -> Vec<String> {
         "--dns-forward".into(),
         PRIVATE_RESOLVER.into(),
     ];
-    for server in host_nameservers() {
+    for server in dns.servers() {
         out.push("--dns-host".into());
-        out.push(server);
+        out.push(server.to_string());
     }
     out.push("--".into());
     out
@@ -926,6 +913,7 @@ fn seed(from: &Path, to: &Path, skip: &[String]) -> Result<()> {
 
 pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String>> {
     let network = cfg.network_of(s, p)?;
+    let dns = cfg.dns_of(s, p);
     let agent_argv: Vec<String> = shell_split(&cfg.command_of(s));
     let dir = expand(&p.dir);
 
@@ -956,14 +944,22 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
     // /etc/resolv.conf often points into unmounted /run; use resolved's stub when available so
     // split-DNS routing is preserved.
     let resolv = if network == NetworkMode::Host {
-        resolver_target().map(|target| {
-            let stub = "/run/systemd/resolve/stub-resolv.conf";
-            let src = if std::path::Path::new(stub).exists() {
-                stub.to_string()
-            } else {
-                target.clone()
-            };
-            (src, target)
+        resolver_target().map(|target| match &dns {
+            DnsConfig::Resolved => {
+                let stub = "/run/systemd/resolve/stub-resolv.conf";
+                let src = if std::path::Path::new(stub).exists() {
+                    stub.to_string()
+                } else {
+                    target.clone()
+                };
+                (src, target)
+            }
+            DnsConfig::Servers { .. } => (
+                private_resolver_path(&s.state_id)
+                    .to_string_lossy()
+                    .into_owned(),
+                target,
+            ),
         })
     } else if network == NetworkMode::Private {
         Some((
@@ -1089,7 +1085,7 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
     a.extend(agent_argv);
 
     let a = if network == NetworkMode::Private {
-        let mut pasta = pasta_prefix();
+        let mut pasta = pasta_prefix(&dns);
         pasta.extend(a);
         pasta
     } else {
@@ -1240,6 +1236,22 @@ mod tests {
         assert!(private.contains(&"none".into()));
         assert!(private.contains(&"--share-net".into()));
         assert!(private.contains(&PRIVATE_ADDRESS.into()));
+        let dns = private
+            .windows(2)
+            .find(|w| w[0] == "--dns-host")
+            .expect("resolved DNS host");
+        assert_eq!(dns[1], "127.0.0.53");
+
+        p.dns = Some(DnsConfig::Servers {
+            servers: vec!["10.0.0.53".parse().unwrap(), "10.0.0.54".parse().unwrap()],
+        });
+        let explicit = build_argv(&cfg, &s, &p).expect("explicit DNS argv");
+        let hosts: Vec<_> = explicit
+            .windows(2)
+            .filter(|w| w[0] == "--dns-host")
+            .map(|w| w[1].as_str())
+            .collect();
+        assert_eq!(hosts, vec!["10.0.0.53", "10.0.0.54"]);
     }
 
     #[test]

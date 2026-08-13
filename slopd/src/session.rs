@@ -15,8 +15,8 @@ use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinHandle;
 
 use crate::config::{
-    expand, Config, Limits, NetworkMode, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind,
-    ShortcutLink, TitlePolicy,
+    expand, Config, DnsConfig, Limits, NetworkMode, ProjectCfg, SessionCfg, ShortcutCfg,
+    ShortcutKind, ShortcutLink, TitlePolicy,
 };
 use crate::emu::{parse_output, Frame, MouseInput, SessionEmu};
 use crate::sandbox::build_argv;
@@ -67,6 +67,10 @@ pub struct SessionView {
     pub network: NetworkMode,
     /// Null means the agent inherits the project setting.
     pub network_override: Option<NetworkMode>,
+    /// The effective DNS source, resolved from the project and agent settings.
+    pub dns: DnsConfig,
+    /// Null means the agent inherits the project's DNS setting.
+    pub dns_override: Option<DnsConfig>,
     /// The caps this agent runs under, its own merged over its project's.
     pub limits: Limits,
     /// This agent's own caps before project inheritance - what the editor edits.
@@ -643,6 +647,9 @@ fn check_project(p: &ProjectCfg) -> Result<()> {
     if let Some(what) = crate::sandbox::refused(&dir) {
         bail!("project {} cannot live at {dir}: it reaches {what}", p.name);
     }
+    if let Some(dns) = &p.dns {
+        dns.validate(&format!("project {}", p.name))?;
+    }
     check_presets(&p.sandbox)?;
     Ok(())
 }
@@ -755,6 +762,9 @@ fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
         bail!("no such project: {}", s.project);
     };
     cfg.network_of(s, project)?;
+    if let Some(dns) = &s.dns {
+        dns.validate(&format!("agent {}", s.name))?;
+    }
     check_presets(&s.sandbox)?;
     check_breadcrumbs(cfg, &s.breadcrumbs)?;
     Ok(())
@@ -1368,7 +1378,7 @@ impl Manager {
         let argv = if host {
             crate::sandbox::host_argv(&cfg, &s, &p)
         } else {
-            crate::sandbox::prepare_private(&cfg, &s, &p)?;
+            crate::sandbox::prepare_network(&cfg, &s, &p)?;
             build_argv(&cfg, &s, &p)?
         };
         tracing::info!("starting {name}: {}", argv.join(" "));
@@ -1725,7 +1735,7 @@ impl Manager {
         };
 
         let result = async {
-            crate::sandbox::prepare_private(&cfg, &s, &p)?;
+            crate::sandbox::prepare_network(&cfg, &s, &p)?;
             let argv = build_argv(&cfg, &s, &p)?;
             let mut child = Command::new(&argv[0])
                 .args(&argv[1..])
@@ -2263,6 +2273,8 @@ impl Manager {
                         .map(|p| cfg.network_of(&l.cfg, p).unwrap_or(p.network))
                         .unwrap_or_default(),
                     network_override: l.cfg.network,
+                    dns: p.map(|p| cfg.dns_of(&l.cfg, p)).unwrap_or_default(),
+                    dns_override: l.cfg.dns.clone(),
                     limits: p.map(|p| cfg.limits_of(&l.cfg, p)).unwrap_or(l.cfg.limits),
                     limits_override: l.cfg.limits,
                     autostart: l.cfg.autostart,
@@ -3092,10 +3104,18 @@ fn validate_config(cfg: &Config) -> Result<()> {
         }
     }
     for s in &cfg.sessions {
+        if let Some(dns) = &s.dns {
+            dns.validate(&format!("agent {}", s.name))?;
+        }
         let Some(p) = cfg.project(&s.project) else {
             continue;
         };
         cfg.network_of(s, p)?;
+    }
+    for p in &cfg.projects {
+        if let Some(dns) = &p.dns {
+            dns.validate(&format!("project {}", p.name))?;
+        }
     }
     Ok(())
 }

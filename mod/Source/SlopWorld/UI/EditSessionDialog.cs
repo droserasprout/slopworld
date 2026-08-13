@@ -32,6 +32,7 @@ namespace SlopWorld
         // Limits are edited as raw strings so a half-typed number is not lost to a reparse each
         // frame; they are parsed back into `_s.Limits` on Save. Blank means no cap.
         string _limMem, _limPids, _limNofile, _limCpu;
+        string _dnsServers;
 
         // For the title. Null unless it is a duplicate: an edit already has `_origName`.
         readonly string _copiedFrom;
@@ -71,6 +72,8 @@ namespace SlopWorld
                     Breadcrumbs = new List<string>(existing.Breadcrumbs),
                     Network = existing.Network,
                     NetworkOverride = existing.NetworkOverride,
+                    Dns = existing.Dns.Copy(),
+                    DnsOverride = existing.DnsOverride?.Copy(),
                     Limits = existing.Limits,
                     Agent = existing.Agent,
                     Autostart = existing.Autostart,
@@ -92,6 +95,9 @@ namespace SlopWorld
             _limPids = LimStr(_s.Limits.Pids);
             _limNofile = LimStr(_s.Limits.Nofile);
             _limCpu = LimStr(_s.Limits.CpuPct);
+            _dnsServers = _s.DnsOverride?.Mode == DnsMode.Servers
+                ? string.Join(", ", _s.DnsOverride.Servers.ToArray())
+                : "";
         }
 
         static string LimStr(int? v) => v.HasValue ? v.Value.ToString() : "";
@@ -234,6 +240,7 @@ namespace SlopWorld
             l.Begin(rect);
             l.Label("Network");
             var ceiling = project?.Network ?? NetworkMode.Private;
+            var inheritedDns = project?.Dns ?? _s.Dns;
             string networkLabel = _s.NetworkOverride.HasValue
                 ? NetworkModeText.Label(_s.NetworkOverride.Value)
                 : "Inherit project (" + NetworkModeText.ShortLabel(ceiling) + ")";
@@ -242,6 +249,27 @@ namespace SlopWorld
             GUI.color = SlopWidgets.Dim;
             l.Label("The project is the ceiling; this agent can only reduce its network reach.");
             GUI.color = Color.white;
+
+            l.Gap(SlopWidgets.GapS);
+            l.Label("DNS");
+            string dnsLabel = _s.DnsOverride == null
+                ? "Inherit project (" + inheritedDns.Label + ")"
+                : _s.DnsOverride.Label;
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), dnsLabel))
+                PickDns();
+            if (_s.DnsOverride?.Mode == DnsMode.Servers)
+            {
+                _dnsServers = SlopWidgets.Field(l, "agent.dns", _dnsServers ?? "");
+                GUI.color = SlopWidgets.Dim;
+                l.Label("Comma-separated IPv4 addresses; maximum two. Changes apply on restart.");
+                GUI.color = Color.white;
+            }
+            else
+            {
+                GUI.color = SlopWidgets.Dim;
+                l.Label("System resolver uses the stable systemd-resolved stub.");
+                GUI.color = Color.white;
+            }
             float used = l.CurHeight;
             l.End();
 
@@ -363,6 +391,25 @@ namespace SlopWorld
             Find.WindowStack.Add(new SlopMenu(options));
         }
 
+        void PickDns()
+        {
+            var inheritedDns = SessionHub.Instance.Project(_s.Project)?.Dns ?? _s.Dns;
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Inherit project (" + inheritedDns.Label + ")",
+                    () => _s.DnsOverride = null),
+                new FloatMenuOption("System resolver (127.0.0.53)",
+                    () => _s.DnsOverride = DnsConfig.Resolved()),
+                new FloatMenuOption("Custom DNS servers",
+                    () =>
+                    {
+                        if (_s.DnsOverride?.Mode != DnsMode.Servers)
+                            _s.DnsOverride = DnsConfig.Custom();
+                    }),
+            };
+            Find.WindowStack.Add(new SlopMenu(options));
+        }
+
         // The three states this pair of fields can be in: a command preset, a command line
         // of its own, or neither, which is whatever the daemon's `[defaults] agent` names.
         string CommandLabel(CommandInfo preset)
@@ -444,6 +491,16 @@ namespace SlopWorld
                 !TryLimit(_limNofile, "Open files", out var nofile) ||
                 !TryLimit(_limCpu, "CPU", out var cpu))
                 return;
+            List<string> dnsServers = null;
+            string dnsError;
+            if (_s.DnsOverride?.Mode == DnsMode.Servers &&
+                !DnsConfig.TryParseServers(_dnsServers, out dnsServers, out dnsError))
+            {
+                SlopWidgets.Fail("DNS: " + dnsError);
+                return;
+            }
+            if (_s.DnsOverride?.Mode == DnsMode.Servers)
+                _s.DnsOverride.Servers = dnsServers;
             _s.Limits = new SessionLimits
             {
                 MemoryMb = mem,

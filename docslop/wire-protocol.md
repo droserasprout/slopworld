@@ -20,6 +20,11 @@ The patch route deep-merges nested JSON, validates the result, and preserves omi
 fields. Project JSON carries the network ceiling; session JSON carries effective
 network plus nullable `network_override`, which cannot widen the ceiling.
 
+Project JSON also carries optional tagged `dns` (`{"mode":"resolved"}` or
+`{"mode":"servers","servers":["IPv4", ...]}`). Session views carry effective
+`dns` plus nullable `dns_override`; session writes send only the nullable raw
+override. A missing DNS setting means the systemd-resolved stub.
+
 Query routes are `/api/usage`, `/api/presets`, `/api/jukebox`, `/api/browse`,
 `/api/search`, `/api/git`, `/api/audio` and `/api/game`. `/api/open` returns 400 for
 an invalid URL and 502 when its opener fails. `/api/file-action` runs a configured

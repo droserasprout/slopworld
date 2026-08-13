@@ -69,6 +69,8 @@ namespace SlopWorld
                                                agent.NetworkOverride.Value, project.Network))
                 ? agent.NetworkOverride.Value
                 : project?.Network ?? agent?.Network ?? NetworkMode.Private;
+            DnsConfig effectiveDns = agent?.DnsOverride ?? project?.Dns ??
+                                     agent?.Dns ?? DnsConfig.Resolved();
 
             var data = new SandboxPreviewData
             {
@@ -87,12 +89,15 @@ namespace SlopWorld
                 data.Notes.Add("Command: this agent's own command line");
             if (agent?.NetworkOverride is NetworkMode overrideMode)
                 data.Notes.Add("Agent override: " + NetworkModeText.ShortLabel(overrideMode));
+            data.Notes.Add("DNS: " + effectiveDns.Label);
             data.Notes.Add("Read-only paths that also appear as read-write are shown as " +
                            "read-write. Missing or protected paths are dropped by slopd.");
 
             data.Fields.Add(new SandboxPreviewField("Included sandbox presets", data.Presets));
             data.Fields.Add(new SandboxPreviewField("Network",
                 new List<string> { data.Network }));
+            data.Fields.Add(new SandboxPreviewField("DNS",
+                new List<string> { effectiveDns.Label }));
             if (agent != null)
                 data.Fields.Add(new SandboxPreviewField("Resource limits",
                     LimitLines(agent.Limits)));
