@@ -15,6 +15,10 @@ namespace SlopWorld
     {
         public readonly ConcurrentQueue<string> Incoming = new ConcurrentQueue<string>();
 
+        // A frame is one screen's worth of SGR text, and the daemon clamps a pane to 500x200,
+        // so the widest thing it can send is orders of magnitude under this.
+        const long MaxFrame = 32L * 1024 * 1024;
+
         public bool Connected { get; private set; }
         public string LastError { get; private set; }
 
@@ -235,6 +239,12 @@ namespace SlopWorld
                         for (int i = 0; i < 8; i++)
                             len = (len << 8) | (uint)ReadByteOrThrow();
                     }
+
+                    // The length arrives as 64 bits and is about to become an allocation
+                    // size. Unchecked, a desynced or corrupt header asks for gigabytes, or
+                    // casts negative and throws somewhere further from the cause than here.
+                    if (len < 0 || len > MaxFrame)
+                        throw new IOException($"frame length out of range: {len}");
 
                     var payload = ReadExactly((int)len);
 
