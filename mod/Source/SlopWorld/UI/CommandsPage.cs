@@ -101,13 +101,13 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "Template legend");
-            Note(l, "{file} is replaced with a quoted file path; {line} with a search result " +
+            SlopWidgets.Note(l, "{file} is replaced with a quoted file path; {line} with a search result " +
                 "line. Without {file}, file commands receive -- and the path.");
-            Note(l, "{url} is replaced with the URL. Without it, URL commands receive the " +
+            SlopWidgets.Note(l, "{url} is replaced with the URL. Without it, URL commands receive the " +
                 "URL as their final argument.");
-            Note(l, "%s is less's filename placeholder for the syntax highlighter. A blank " +
+            SlopWidgets.Note(l, "%s is less's filename placeholder for the syntax highlighter. A blank " +
                 "highlighter disables it; a blank URL opener uses host fallbacks.");
-            Note(l, "Templates are split into arguments without a shell.");
+            SlopWidgets.Note(l, "Templates are split into arguments without a shell.");
 
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
@@ -198,12 +198,6 @@ namespace SlopWorld
             }
         }
 
-        static void Note(Listing_Standard l, string text)
-        {
-            GUI.color = SlopWidgets.Dim;
-            l.Label(text);
-            GUI.color = Color.white;
-        }
 
         void DoFooter(Rect bar)
         {

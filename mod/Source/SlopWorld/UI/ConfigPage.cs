@@ -105,13 +105,20 @@ namespace SlopWorld
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "This install");
             var s = SlopWorldMod.Instance.settings;
-            s.grandmaMode = SlopWidgets.Checkbox(l, "Grandma's visiting", s.grandmaMode);
-            Note(l, "No fun allowed! Disable gore, vomit, and offensive/harmful tips. " +
+            bool gm = SlopWidgets.Checkbox(l, "Grandma's visiting", s.grandmaMode);
+            SlopWidgets.Note(l, "No fun allowed! Disable gore, vomit, and offensive/harmful tips. " +
                     "Put it back when she leaves.");
 
             l.Gap(SlopWidgets.GapS);
-            s.ecoMode = SlopWidgets.Checkbox(l, "Eco mode", s.ecoMode);
-            Note(l, "80% less CPU. 0.1% less guilt. You're welcome, Earth.");
+            bool eco = SlopWidgets.Checkbox(l, "Eco mode", s.ecoMode);
+            SlopWidgets.Note(l, "80% less CPU. 0.1% less guilt. You're welcome, Earth.");
+
+            if (gm != s.grandmaMode || eco != s.ecoMode)
+            {
+                s.grandmaMode = gm;
+                s.ecoMode = eco;
+                s.MarkDirty();
+            }
 
             // Only with the mode on: a slider for a backdrop nothing is drawing is a knob that
             // does nothing, and the note above is what says so. Stepped to twentieths because
@@ -119,10 +126,11 @@ namespace SlopWorld
             if (s.ecoMode)
             {
                 l.Gap(SlopWidgets.GapS);
-                s.ecoDim = Mathf.Round(SlopWidgets.Slider(l, "Backdrop dimming", s.ecoDim,
+                float dim = Mathf.Round(SlopWidgets.Slider(l, "Backdrop dimming", s.ecoDim,
                     0f, 0.8f, Mathf.RoundToInt(s.ecoDim * 100f) + "%") * 20f) / 20f;
-                Note(l, "How far the picture behind the agents is taken down. At zero it is " +
+                SlopWidgets.Note(l, "How far the picture behind the agents is taken down. At zero it is " +
                         "the menu's own background at full strength.");
+                if (dim != s.ecoDim) { s.ecoDim = dim; s.MarkDirty(); }
             }
 
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
@@ -136,7 +144,7 @@ namespace SlopWorld
         void DoConnectionNote(Listing_Standard l)
         {
             SlopWidgets.SectionHeading(l, "Connection");
-            Note(l, $"This game dials {SlopClient.BaseUrl} ({SessionHub.Instance.Status}). " +
+            SlopWidgets.Note(l, $"This game dials {SlopClient.BaseUrl} ({SessionHub.Instance.Status}). " +
                     $"The daemon is bound to {_cfg.Bind}.");
 
             var row = l.GetRect(SlopWidgets.BtnH);
@@ -151,14 +159,6 @@ namespace SlopWorld
                 SlopOptions.OpenTerminalTab();
         }
 
-        // A second line about the line above it. Every page here has one of these; this is
-        // the only thing that distinguishes it from body text.
-        static void Note(Listing_Standard l, string text)
-        {
-            GUI.color = SlopWidgets.Dim;
-            l.Label(text);
-            GUI.color = Color.white;
-        }
 
         void DoFooter(Rect bar)
         {

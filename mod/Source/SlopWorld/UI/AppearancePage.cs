@@ -78,7 +78,7 @@ namespace SlopWorld
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     $"Color scheme: {UIScheme.Current.Label}"))
                 Find.WindowStack.Add(new SlopMenu(UIScheme.All
-                    .Select(s => new FloatMenuOption(s.Label, () => S.uiScheme = s.Id))
+                    .Select(s => new FloatMenuOption(s.Label, () => { S.uiScheme = s.Id; S.MarkDirty(); }))
                     .ToList()));
 
             DrawSwatches(l.GetRect(18f));
@@ -95,6 +95,7 @@ namespace SlopWorld
                     {
                         S.uiFontName = "";
                         SlopUIFont.Apply();
+                        S.MarkDirty();
                     }),
                 };
                 foreach (var name in SlopUIFont.All)
@@ -104,6 +105,7 @@ namespace SlopWorld
                     {
                         S.uiFontName = picked;
                         SlopUIFont.Apply();
+                        S.MarkDirty();
                     }));
                 }
                 Find.WindowStack.Add(new SlopMenu(opts));
@@ -116,6 +118,7 @@ namespace SlopWorld
             {
                 S.uiFontSize = size;
                 SlopUIFont.Apply();
+                S.MarkDirty();
             }
 
             // A note about size 0 meaning "keep the built-in per-tier sizes".
@@ -152,18 +155,28 @@ namespace SlopWorld
             {
                 S.cursorGrayscale = grayscale;
                 DeadCursor.Apply();
+                S.MarkDirty();
             }
 
             l.Gap(SlopWidgets.GapM);
             SlopWidgets.SectionHeading(l, "Statusbar");
-            S.statusbarUsage = SlopWidgets.Checkbox(l, "Show Usage in statusbar", S.statusbarUsage,
+            bool u = SlopWidgets.Checkbox(l, "Show Usage in statusbar", S.statusbarUsage,
                 "Show quota readouts in the top statusbar.");
-            S.statusbarClock = SlopWidgets.Checkbox(l, "Show Clock in statusbar", S.statusbarClock,
+            bool c = SlopWidgets.Checkbox(l, "Show Clock in statusbar", S.statusbarClock,
                 "Show the local time in the top statusbar.");
-            S.statusbarJukebox = SlopWidgets.Checkbox(l, "Show Jukebox in statusbar", S.statusbarJukebox,
+            bool j = SlopWidgets.Checkbox(l, "Show Jukebox in statusbar", S.statusbarJukebox,
                 "Show the jukebox door when a jukebox is present.");
-            S.statusbarGM = SlopWidgets.Checkbox(l, "Show GM in statusbar", S.statusbarGM,
+            bool g = SlopWidgets.Checkbox(l, "Show GM in statusbar", S.statusbarGM,
                 "Show the Computer Core door when the core is present.");
+            if (u != S.statusbarUsage || c != S.statusbarClock
+                || j != S.statusbarJukebox || g != S.statusbarGM)
+            {
+                S.statusbarUsage = u;
+                S.statusbarClock = c;
+                S.statusbarJukebox = j;
+                S.statusbarGM = g;
+                S.MarkDirty();
+            }
 
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();

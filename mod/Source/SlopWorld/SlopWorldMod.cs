@@ -10,6 +10,22 @@ namespace SlopWorld
     // appearance, with terminal values sharing this settings file and endpoint discovery.
     public class SlopSettings : ModSettings
     {
+        int _dirtyAge = -1;
+        const int FlushAfter = 120;
+
+        public void MarkDirty()
+        {
+            _dirtyAge = 0;
+        }
+
+        public void FlushIfDue()
+        {
+            if (_dirtyAge < 0) return;
+            if (++_dirtyAge < FlushAfter) return;
+            _dirtyAge = -1;
+            Write();
+        }
+
         public bool autoConnect = true;
         // The column's width, dragged rather than typed, and the projects rolled up in it.
         // Both are about this screen the way the layout itself is, so they live beside it -
@@ -273,7 +289,7 @@ namespace SlopWorld
             // Drops the framerate while the window is behind something else. Here because
             // it has to hold on the menu too, and because focus is a per-frame question.
             BackgroundFrames.Follow();
-            // The pointer's own animation, which has nowhere else to run.
+            SlopWorldMod.Instance?.settings.FlushIfDue();
             DeadCursor.Tick();
             // Update and not OnGUI, so it fires per frame rather than per event, and below
             // HandleEventsHighPriority, where the clicks that count are used -
