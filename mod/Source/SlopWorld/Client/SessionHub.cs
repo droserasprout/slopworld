@@ -815,6 +815,7 @@ namespace SlopWorld
             {
                 case "sessions":
                     Sessions = ev["sessions"].Items.Select(SessionInfo.FromJson).ToList();
+                    ForgetScreens();
                     break;
 
                 case "projects":
@@ -875,6 +876,27 @@ namespace SlopWorld
             }
         }
 
+
+        // Both stores are keyed by session name and nothing else ever drops from them, so an
+        // agent that has been removed - or a temporary errand, which mints a fresh name every
+        // time one is run - would leave its last screen behind for as long as the game is up.
+        // The session list is the daemon's own answer to "what exists", so it is what prunes.
+        void ForgetScreens()
+        {
+            Prune(_screens);
+            Prune(_scrolls);
+        }
+
+        void Prune(Dictionary<string, ScreenBuf> store)
+        {
+            if (store.Count == 0) return;
+            List<string> gone = null;
+            foreach (var name in store.Keys)
+                if (!Sessions.Any(s => s.Name == name))
+                    (gone ?? (gone = new List<string>())).Add(name);
+            if (gone == null) return;
+            foreach (var name in gone) store.Remove(name);
+        }
 
         public void Subscribe(string name)
         {
