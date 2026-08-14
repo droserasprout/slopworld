@@ -77,6 +77,9 @@ icons:             ## Rebake the action icons from a Nerd Font's Codicons
 reference:         ## Generate the environment/API/CLI reference
 	python3 tools/reference.py
 
+scheme-report:     ## Analyze the complete UI schemes and check Warm's luminance hierarchy
+	python3 tools/analyze_ui_schemes.py --check-warm
+
 harmony:           ## Fetch the latest Harmony release into the mod
 	tools/fetch-harmony.sh
 
