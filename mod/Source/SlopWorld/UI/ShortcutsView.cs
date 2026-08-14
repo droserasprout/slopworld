@@ -334,6 +334,9 @@ namespace SlopWorld
             opts.Add(new FloatMenuOption("Edit...", () =>
                 TerminalWindow.OpenOverPane(new EditShortcutDialog(s))));
 
+            opts.Add(new FloatMenuOption("Duplicate...", () =>
+                TerminalWindow.OpenOverPane(EditShortcutDialog.Copy(s))));
+
             opts.Add(new FloatMenuOption("Delete", () =>
             {
                 var name = s.Name;
@@ -420,17 +423,30 @@ namespace SlopWorld
         readonly ShortcutInfo _s;
         // The edit is addressed to it, and a changed name in the field is a rename.
         readonly string _origName;
+        // Set only for a duplicate, so the title can distinguish copying from editing.
+        readonly string _copiedFrom;
 
         // Asked for rather than assumed: `[defaults] shell` is a per-machine answer and
         // this dialog would otherwise print somebody else's.
         string _agentDefault = "claude";
         string _shellDefault = "bash";
 
-        public EditShortcutDialog(ShortcutInfo existing)
+        public EditShortcutDialog(ShortcutInfo existing) : this(existing, false) { }
+
+        public static EditShortcutDialog Copy(ShortcutInfo of) =>
+            new EditShortcutDialog(of, true);
+
+        EditShortcutDialog(ShortcutInfo existing, bool copy)
         {
-            _isNew = existing == null;
-            _origName = existing?.Name ?? "";
+            // A duplicate is a new daemon entry: it must POST rather than PUT, and its
+            // name is suggested rather than copied so saving it cannot collide by default.
+            _isNew = existing == null || copy;
+            _origName = copy ? "" : (existing?.Name ?? "");
+            _copiedFrom = copy ? existing.Name : null;
             _s = existing?.Copy() ?? new ShortcutInfo();
+            if (copy)
+                _s.Name = SlopWidgets.FreeName(_s.Name,
+                    SessionHub.Instance.Shortcuts.Select(s => s.Name), "shortcut");
 
 
             SessionHub.Instance.RefreshProjects();
@@ -462,7 +478,9 @@ namespace SlopWorld
             // for its contents does not overflow, it breaks to a column off the right-hand
             // edge and puts CurHeight back to nearly zero - and the prompt box below is
             // placed and sized from that number. See EditProjectDialog.DoFields.
-            SlopWidgets.Title(rect, _isNew ? "New shortcut" : $"Edit '{_origName}'");
+            SlopWidgets.Title(rect, _copiedFrom != null
+                ? $"Copy of '{_copiedFrom}'"
+                : _isNew ? "New shortcut" : $"Edit '{_origName}'");
 
             float head = SlopWidgets.HeaderH + SlopWidgets.GapS;
             var l = new Listing_Standard { maxOneColumn = true };
