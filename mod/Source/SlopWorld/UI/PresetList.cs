@@ -18,7 +18,7 @@ namespace SlopWorld
                                 ICollection<string> implied = null)
         {
             // The machine-wide base is implicit for every sandbox, so it is edited on the
-            // Settings > Sandbox > Presets page rather than offered as a project checkbox.
+            // Settings > Sandbox page rather than offered as a project checkbox.
             var allPresets = SessionHub.Instance.Presets;
             var presets = allPresets
                 .Where(p => p.Name != "global")

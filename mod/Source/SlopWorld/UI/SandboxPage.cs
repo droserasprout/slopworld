@@ -6,16 +6,15 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The daemon's sandbox library. Global is the machine-wide base; Presets and Commands
-    // are the user-facing files beside it. A library is deliberately a master/detail page:
-    // there are many fields in one preset, but only one definition is being edited at once.
+    // The daemon's sandbox and command libraries. Each is a master/detail page: there are
+    // many fields in one definition, but only one preset or command is being edited at once.
     public class SandboxPage
     {
-        enum Tab { Presets, Commands }
+        public enum Section { Presets, Commands }
 
         string _error;
         bool _loaded;
-        Tab _tab;
+        readonly Section _section;
 
         readonly SmoothScroll _listScroll = new SmoothScroll();
         readonly SmoothScroll _editorScroll = new SmoothScroll();
@@ -24,6 +23,11 @@ namespace SlopWorld
         bool _newEntry;
         bool _newPresetRequested;
         bool _newCommandRequested;
+
+        public SandboxPage(Section section)
+        {
+            _section = section;
+        }
 
         public void Load()
         {
@@ -58,7 +62,6 @@ namespace SlopWorld
 
             _preset = new PresetInfo { Name = name, Source = "user" };
             _command = null;
-            _tab = Tab.Presets;
             _newEntry = true;
             _setenvOwner = null;
             _setenvText = "";
@@ -82,14 +85,15 @@ namespace SlopWorld
 
             _preset = null;
             _command = new CommandInfo { Name = name, Source = "user" };
-            _tab = Tab.Commands;
             _newEntry = true;
             _error = null;
         }
 
         public void Draw(Rect rect)
         {
-            SlopWidgets.PageCaption(rect, "The base every sandbox is built on, and the presets that add to it.");
+            SlopWidgets.PageCaption(rect, _section == Section.Presets
+                ? "Sandbox presets that add to the base every project runs on."
+                : "Commands that say what an agent runs and which presets it requires.");
             var body = SlopWidgets.PageBody(rect);
             SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
@@ -102,30 +106,10 @@ namespace SlopWorld
             }
             else
             {
-                DrawTabs(new Rect(inner.x, inner.y, inner.width, SlopWidgets.BtnH));
-                var content = new Rect(inner.x, inner.y + SlopWidgets.BtnH + SlopWidgets.GapM,
-                    inner.width, inner.yMax - inner.y - SlopWidgets.BtnH - SlopWidgets.GapM);
-                if (_tab == Tab.Presets) DoPresets(content);
-                else DoCommands(content);
+                if (_section == Section.Presets) DoPresets(inner);
+                else DoCommands(inner);
             }
             DoFooter(SlopWidgets.FooterBar(rect));
-        }
-
-        void DrawTabs(Rect r)
-        {
-            float gap = SlopWidgets.GapS;
-            float w = (r.width - gap) / 2f;
-            DrawTab(new Rect(r.x, r.y, w, r.height), "Presets", Tab.Presets);
-            DrawTab(new Rect(r.x + w + gap, r.y, w, r.height), "Commands", Tab.Commands);
-        }
-
-        void DrawTab(Rect r, string label, Tab tab)
-        {
-            if (SlopWidgets.Button(r, label, _tab == tab ? SlopWidgets.Btn.Primary : SlopWidgets.Btn.Ghost))
-            {
-                _tab = tab;
-                _error = null;
-            }
         }
 
         void DoPresets(Rect r)

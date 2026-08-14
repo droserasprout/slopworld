@@ -5,8 +5,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Configures quota providers from config.toml and per-install usage icons from SlopSettings.
-    // A child tab of Integrations; icon choices open a floating grid.
     public class UsagePage
     {
         SlopConfig _cfg;
@@ -80,22 +78,15 @@ namespace SlopWorld
 
             // ---------------------------------------------------------------- Anthropic
             SlopWidgets.SectionHeading(l, "Anthropic");
-            _cfg.Usage = SlopWidgets.Checkbox(l, "Poll for what is left of the subscription",
+            _cfg.Usage = SlopWidgets.Checkbox(l, "Poll Claude usage",
                 _cfg.Usage,
                 "The daemon reads the OAuth token Claude Code keeps on this machine and " +
                 "asks Anthropic. Off means it never touches that file.");
-
             if (_cfg.Usage)
             {
-                l.Gap(SlopWidgets.GapS);
-                l.Label("Credentials file");
-                _cfg.ClaudeCredentials =
-                    SlopWidgets.Field(l, "usage.creds", _cfg.ClaudeCredentials);
-
                 l.Gap(SlopWidgets.GapM);
-                // Icon rows for the Anthropic windows. The extra-usage row is
-                // here rather than under OpenRouter because it is the one Claude Code's
-                // own /usage answers with.
+                // The extra-usage row is here rather than under OpenRouter because it is the
+                // one Claude Code's own /usage answers with.
                 IconRow(l, "claude_session", "5-hour window");
                 IconRow(l, "claude_week", "Weekly limit");
                 // Any per-model weekly limits the daemon reports.
@@ -104,43 +95,26 @@ namespace SlopWorld
                         IconRow(l, key, null);
                 IconRow(l, "claude_spend", "Extra usage");
             }
-
             // ---------------------------------------------------------------- OpenRouter
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "OpenRouter");
-            _cfg.Openrouter = SlopWidgets.Checkbox(l, "Poll for the credit balance",
+            _cfg.Openrouter = SlopWidgets.Checkbox(l, "Poll credit balance",
                 _cfg.Openrouter,
                 "Credits bought less credits spent, which is what the pi agent draws down. " +
                 "Off means the daemon never reads the key and never calls OpenRouter.");
-
-            l.Gap(SlopWidgets.GapS);
-            l.Label("Key file (blank reads $OPENROUTER_API_KEY)");
-            _cfg.OpenrouterKeyFile =
-                SlopWidgets.Field(l, "usage.orkey", _cfg.OpenrouterKeyFile);
-            Note(l, "Used by credit polling and by the Summaries tab's titles. The daemon reads " +
-                    "it directly; title requests never expose the key inside an agent sandbox.");
-
             if (_cfg.Openrouter)
             {
                 l.Gap(SlopWidgets.GapM);
                 IconRow(l, "openrouter_balance", "Credit balance");
             }
-
             // ---------------------------------------------------------------- OpenAI
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "OpenAI / Codex");
-            _cfg.Openai = SlopWidgets.Checkbox(l, "Poll for Codex usage limits",
-                _cfg.Openai,
+            _cfg.Openai = SlopWidgets.Checkbox(l, "Poll Codex usage", _cfg.Openai,
                 "The daemon reads Codex's ChatGPT login and asks for the primary and " +
                 "secondary usage windows. Off means it never touches that file.");
-
             if (_cfg.Openai)
             {
-                l.Gap(SlopWidgets.GapS);
-                l.Label("Codex credentials file");
-                _cfg.OpenaiCredentials =
-                    SlopWidgets.Field(l, "usage.openai.creds", _cfg.OpenaiCredentials);
-
                 l.Gap(SlopWidgets.GapM);
                 IconRow(l, "openai_session", "Primary window");
                 IconRow(l, "openai_week", "Secondary window");
@@ -149,7 +123,7 @@ namespace SlopWorld
             // ---------------------------------------------------------------- Both
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "Both");
-            bool spent = SlopWidgets.Checkbox(l, "Show spent quota instead of left",
+            bool spent = SlopWidgets.Checkbox(l, "Show spent instead of left",
                 Settings.UsageSpent);
             if (spent != Settings.UsageSpent)
                 Settings.S.usageSpent = spent;
@@ -157,7 +131,7 @@ namespace SlopWorld
                     "provider-facing percentage or amount used.");
 
             l.Gap(SlopWidgets.GapM);
-            l.Label("Seconds between polls");
+            l.Label("Poll interval (s)");
             _pollSecs = SlopWidgets.Field(l, "usage.poll", _pollSecs);
             Note(l, "A failed poll backs off on its own, doubling to half an hour, and each " +
                     "seller keeps its own place in that queue: one being down never takes " +
