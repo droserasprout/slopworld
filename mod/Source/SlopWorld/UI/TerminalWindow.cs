@@ -1312,6 +1312,7 @@ namespace SlopWorld
             ClearSelection();
 
             var live = SessionHub.Instance.Screen(_name);
+            bool editor = IsEditorSession();
             int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
             bool up = e.delta.y < 0;
 
@@ -1340,7 +1341,12 @@ namespace SlopWorld
 
             // Alt-screen app with no mouse (less, man, git log): the terminal convention is
             // to translate the wheel to arrow keys.
-            if (live != null && live.AltScreen)
+            // The first frame after an editor errand starts can still be the shell frame:
+            // the command has been launched, but the screen event carrying AltScreen has not
+            // reached the client yet. Keep that race from turning the first wheel into the
+            // terminal's own scrollback; arrows are micro's native scroll path and are harmless
+            // while the shell is handing control to it.
+            if (editor || (live != null && live.AltScreen))
             {
                 var keys = new string[step];
                 for (int k = 0; k < step; k++) keys[k] = up ? "Up" : "Down";
@@ -1354,6 +1360,15 @@ namespace SlopWorld
             else _scrollOff = Mathf.Max(0, _scrollOff - step);
             QueueScroll(up);
             e.Use();
+        }
+
+        bool IsEditorSession()
+        {
+            var info = SessionHub.Instance.Get(_name);
+            if (info == null) return false;
+            if (Pager.IsEditorCommand(info.Cmd)) return true;
+            return info.Ephemeral &&
+                (info.Name ?? "").StartsWith("edit-", System.StringComparison.Ordinal);
         }
 
         // Send the first wheel event immediately, then throttle repeats; direction changes
