@@ -3,7 +3,7 @@ default_rate = 192
 
 [metadata]
 name = "dublab"
-donate = ""
+donate = "https://www.dublab.com/support"
 
 [[stream]]
 rate = 192

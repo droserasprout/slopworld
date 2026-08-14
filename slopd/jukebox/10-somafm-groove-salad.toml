@@ -3,7 +3,7 @@ default_rate = 128
 
 [metadata]
 name = "SomaFM Groove Salad"
-donate = ""
+donate = "https://somafm.com/support/"
 
 [[stream]]
 rate = 128
