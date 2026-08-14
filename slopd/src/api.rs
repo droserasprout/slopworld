@@ -92,8 +92,6 @@ pub fn router(m: Mgr) -> Router {
         )
         .route("/api/search", get(search))
         .route("/api/git", get(git_status))
-        .route("/api/game", get(game))
-        .route("/api/game/restart", post(restart_game))
         .layer(middleware::from_fn(require_root));
 
     scoped.merge(root).with_state(m)
@@ -948,32 +946,6 @@ async fn put_config_patch(State(m): State<Mgr>, Json(req): Json<Value>) -> ApiRe
     ok_json(m.patch_config(req).await)
 }
 
-#[derive(Deserialize)]
-struct RestartGameReq {
-    /// Milliseconds to wait before launching, covering the caller's own exit.
-    #[serde(default = "default_restart_delay")]
-    delay_ms: u64,
-}
-
-fn default_restart_delay() -> u64 {
-    4000
-}
-
-/// The mod calls this after saving, then quits: the game cannot exec itself across
-/// a Unity shutdown, and slopd outlives it.
-async fn restart_game(State(m): State<Mgr>, body: Option<Json<RestartGameReq>>) -> ApiResult {
-    let delay = body
-        .map(|Json(r)| r.delay_ms)
-        .unwrap_or_else(default_restart_delay);
-    ok_json(m.restart_game(delay).await)
-}
-
-/// Written for an agent inside a session, which cannot see the host's process
-/// table at all - see `game.rs`.
-async fn game(State(m): State<Mgr>) -> ApiResult {
-    Ok(Json(json!(m.game().await)))
-}
-
 async fn usage(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!(m.usage().await)))
 }
@@ -1721,7 +1693,7 @@ fn scope_event(cap: &Cap, ev: Event) -> Option<Event> {
                     .filter(|s| cap.can_see(&s.name, false))
                     .collect(),
             }),
-            Event::Screen { .. } | Event::Quit => Some(ev),
+            Event::Screen { .. } => Some(ev),
             Event::Projects { .. }
             | Event::Shortcuts { .. }
             | Event::Usage { .. }
@@ -1732,7 +1704,7 @@ fn scope_event(cap: &Cap, ev: Event) -> Option<Event> {
 }
 
 async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
-    // Held for the life of the pump, so /api/game can say whether anything is
+    // Held for the life of the pump so the manager knows how many clients are
     // attached.
     let _client = m.client_joined();
 

@@ -14,7 +14,6 @@
 | `usage.rs` | Polls Anthropic and OpenRouter for what is left of each. |
 | `audio.rs` | The jukebox's sound, because the game cannot play it. |
 | `clipboard.rs` | The host clipboard. |
-| `game.rs` | Launching the game, and whether it is up. |
 | `git.rs` | What a working tree has that its last commit does not. |
 | `open.rs` | Opening a URL on the host. |
 | `bin/slopworld.rs` | The launcher - see [profile](profile.md). |

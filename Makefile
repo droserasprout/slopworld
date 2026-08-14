@@ -183,14 +183,6 @@ run:               ## Launch the game through the runner
 ##-> Misc
 ##
 
-redeploy:          ## Install both halves, then bounce the game
-	$(MAKE) install
-	@curl -fsS -X POST "$(API)/api/game/restart" \
-		-H "x-slop-token: $(TOKEN)" -H "content-type: application/json" \
-		-d '{"delay_ms":4000}' >/dev/null \
-		&& echo "game restart requested" \
-		|| echo "game not restarted (is daemon.game_cmd set, and the game running?)"
-
 logs:              ## Tail the game's Player.log
 	@tail -f "$(LOG)"
 

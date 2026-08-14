@@ -81,11 +81,6 @@ pub struct Daemon {
     /// that kept running, so it is the ceiling on history surviving a redeploy.
     #[serde(default = "default_history_limit")]
     pub history_limit: u32,
-    /// Empty disables the endpoint. Split like an agent command: no shell. Names the
-    /// *launcher*, which makes the profile the mod insists on and waits on the game, so the
-    /// process this path matches is the one that goes away when the colony is saved.
-    #[serde(default = "default_game_cmd")]
-    pub game_cmd: String,
     /// Off means slopd never reads the credentials file and never leaves the machine.
     #[serde(default = "yes")]
     pub usage: bool,
@@ -162,12 +157,6 @@ fn default_pi_title_policy() -> TitlePolicy {
     TitlePolicy::Always
 }
 
-/// Where `make install-runner` puts it, in full rather than left to PATH: a user unit's PATH
-/// is the manager's, and `~/.local/bin` is not reliably on it.
-fn default_game_cmd() -> String {
-    "~/.local/bin/slopworld".into()
-}
-
 impl Default for Daemon {
     fn default() -> Self {
         Self {
@@ -176,7 +165,6 @@ impl Default for Daemon {
             tmux_socket: "slopworld".into(),
             poll_ms: 80,
             history_limit: default_history_limit(),
-            game_cmd: default_game_cmd(),
             usage: true,
             usage_poll_secs: default_usage_poll(),
             claude_credentials: default_credentials(),
@@ -1364,7 +1352,6 @@ token = \"not-a-daemon-token\"
     fn config_round_trips_through_toml() {
         let mut cfg = Config::default();
         cfg.daemon.history_limit = 200;
-        cfg.daemon.game_cmd = "/home/you/RimWorld/game/RimWorldLinux -popupwindow".into();
         cfg.projects.push(ProjectCfg {
             name: "repo".into(),
             dir: "/home/you/repo".into(),
@@ -1382,7 +1369,6 @@ token = \"not-a-daemon-token\"
         let back = Config::parse(&text).unwrap();
 
         assert_eq!(back.daemon.history_limit, 200);
-        assert_eq!(back.daemon.game_cmd, cfg.daemon.game_cmd);
         assert_eq!(back.project("repo").unwrap().network, NetworkMode::Host);
         assert_eq!(
             back.session("quiet").unwrap().network,

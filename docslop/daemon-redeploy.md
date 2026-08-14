@@ -3,9 +3,9 @@
 `make install-daemon` restarts slopd while the game and tmux survive. Both services
 must be outside slopd's cgroup:
 
-- `Tmux::ensure_server` and `Manager::restart_game` use transient services.
-  `Type=forking` is required for tmux because `start-server` daemonises; the
-  helper verifies the socket after launch.
+- `Tmux::ensure_server` uses a transient service. `Type=forking` is required for
+  tmux because `start-server` daemonises; the helper verifies the socket after
+  launch.
 - `slopd.service` needs `KillMode=process`, and `install-daemon` reloads units
   before restarting. Otherwise stopping slopd kills its tmux server.
 

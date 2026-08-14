@@ -16,7 +16,6 @@ the release build. Suffixed targets are aliases. Both builds write
 | `format` / `lint` | Both halves; `-daemon` and `-mod` variants exist. |
 | `install` | `install-daemon` (binary, unit, restart), `install-runner`, `install-mod`. |
 | `uninstall` | Undoes those three. Config and profile are left alone. |
-| `redeploy` | `install`, then `POST /api/game/restart`. |
 | `run` | Launches through the runner. `PROFILE` picks the folder. |
 | `logs` | Tails `Player.log`. |
 | `check-reqs` | Reports required host dependencies and detected optional integrations/tools. |
@@ -26,9 +25,8 @@ the release build. Suffixed targets are aliases. Both builds write
 `install-mod` copies loose folders, so a new top-level folder under `mod/` needs
 adding to that line.
 
-`make redeploy` needs `daemon.game_cmd` (default `~/.local/bin/slopworld`).
-Agents survive it: neither tmux nor the game is in the daemon's cgroup - see
-[daemon-redeploy](daemon-redeploy.md).
+Agents survive daemon installation restarts: neither tmux nor the game is in the
+daemon's cgroup - see [daemon-redeploy](daemon-redeploy.md).
 
 `slopctl logs` shows the last 200 game and daemon lines by default. Select
 `game`, `daemon`, or `all`; add `--follow` and pipe the plain output as needed:

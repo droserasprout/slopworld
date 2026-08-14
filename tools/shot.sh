@@ -1,7 +1,7 @@
 #!/bin/sh
 # Grabs the game's window into a PNG, because an agent working on this repo is
 # drawing a UI it cannot see: the sandbox has no display unless its project asks
-# for one, and the process is invisible from in there (see game.rs).
+# for one, and the process is invisible from in there.
 #
 # X11 and not Wayland on purpose. RimWorld is an SDL/X11 client, so on a Wayland
 # desktop it is an Xwayland one - whose window contents can simply be read, where
@@ -30,7 +30,7 @@ done
 win=$(xdotool search --onlyvisible --name 'RimWorld' 2>/dev/null | head -1 || true)
 [ -n "$win" ] || win=$(xdotool search --onlyvisible --class 'rimworld' 2>/dev/null | head -1 || true)
 [ -n "$win" ] || {
-	echo "no RimWorld window on $DISPLAY - is the game running? (curl -s localhost:7717/api/game)" >&2
+	echo "no RimWorld window on $DISPLAY - is the game running?" >&2
 	exit 1
 }
 

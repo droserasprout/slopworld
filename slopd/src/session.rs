@@ -167,7 +167,6 @@ pub enum Event {
     Usage { usage: crate::usage::Snapshot },
     Audio { audio: crate::audio::AudioState },
     Jukebox { jukebox: crate::jukebox::Catalog },
-    Quit,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -485,8 +484,6 @@ impl Drop for WatchGuard {
 }
 
 const CFG_CHECK_MS: u64 = 2_000;
-
-const QUIT_WAIT_TICKS: usize = 120;
 
 const BOOT_COLS: u16 = 120;
 const BOOT_ROWS: u16 = 34;
@@ -997,49 +994,6 @@ impl Manager {
             jukebox: crate::jukebox::catalog(),
         });
         true
-    }
-
-    pub async fn restart_game(&self, delay_ms: u64) -> Result<()> {
-        let cmd = self.config().await.daemon.game_cmd.trim().to_string();
-        if cmd.is_empty() {
-            bail!("daemon.game_cmd is not set, so there is nothing to launch");
-        }
-        let argv = crate::sandbox::shell_split(&cmd);
-        let Some((exe, args)) = argv.split_first() else {
-            bail!("daemon.game_cmd is empty after splitting");
-        };
-        let exe = exe.clone();
-        let args: Vec<String> = args.to_vec();
-
-        let _ = self.events.send(Event::Quit);
-        let watch = self.config().await.daemon.game_cmd;
-
-        tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(delay_ms.min(60_000))).await;
-
-            for _ in 0..QUIT_WAIT_TICKS {
-                if !crate::game::status(&watch, 0, None).running {
-                    match crate::game::launch(&exe, &args) {
-                        Ok(()) => tracing::info!("relaunched the game: {exe}"),
-                        Err(e) => tracing::error!("relaunching the game: {e:#}"),
-                    }
-                    return;
-                }
-                tokio::time::sleep(Duration::from_millis(500)).await;
-            }
-            tracing::error!(
-                "the game is still running after being asked to quit; not starting a second one"
-            );
-        });
-        Ok(())
-    }
-
-    pub async fn game(&self) -> crate::game::Status {
-        let cmd = self.config().await.daemon.game_cmd;
-        let clients = self.clients.load(Ordering::Relaxed);
-        let since = self.clients_since.load(Ordering::Relaxed);
-        let up = (clients > 0 && since > 0).then(|| now_ms().saturating_sub(since) / 1000);
-        crate::game::status(&cmd, clients, up)
     }
 
     pub fn client_joined(self: &Arc<Self>) -> ClientGuard {

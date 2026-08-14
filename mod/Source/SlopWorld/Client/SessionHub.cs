@@ -840,14 +840,6 @@ namespace SlopWorld
                         ev["audio"]["title"].AsString(null));
                     break;
 
-                // Update() is the Root.Update patch, so this is the main thread and Shutdown is
-                // called from where the menu would call it.
-                case "quit":
-                    Log.Message("[SlopWorld] slopd asked for a restart; saving and quitting");
-                    AutoSaver.SaveNow();
-                    Root.Shutdown();
-                    break;
-
                 case "screen":
                     var s = ev["screen"];
                     string name = s["name"].AsString();
