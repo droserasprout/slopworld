@@ -4,7 +4,6 @@ mod clipboard;
 mod config;
 mod emu;
 mod endpoint;
-mod game;
 mod git;
 mod grant;
 mod jukebox;

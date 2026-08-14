@@ -12,8 +12,8 @@ namespace SlopWorld
         // Set before calling Root.Shutdown, so the wantsToQuit event that fires when
         // Root.Shutdown calls Application.Quit is let through instead of looping.
         static bool _shuttingDown;
-        // Set by Patch_SaveOnShutdown: a programmatic Root.Shutdown (daemon restart,
-        // profile Quit button) should not be intercepted by the wantsToQuit handler.
+        // Set by Patch_SaveOnShutdown: a programmatic Root.Shutdown (profile Quit
+        // button) should not be intercepted by the wantsToQuit handler.
         static bool _programmatic;
 
         public static void Register()
@@ -21,9 +21,8 @@ namespace SlopWorld
             Application.wantsToQuit += OnWantsToQuit;
         }
 
-        // Called by Patch_SaveOnShutdown to mark that this Root.Shutdown is from a
-        // programmatic path (daemon restart, profile Quit button) and should not be
-        // intercepted.
+        // Called by Patch_SaveOnShutdown to mark that this Root.Shutdown is from the
+        // profile Quit button and should not be intercepted.
         public static void NoteProgrammaticShutdown()
         {
             _programmatic = true;
@@ -37,7 +36,7 @@ namespace SlopWorld
             // through to avoid blocking the exit.
             if (_state != null || _shuttingDown) return true;
 
-            // Programmatic shutdown (daemon restart, profile Quit button): let it through.
+            // Programmatic shutdown (profile Quit button): let it through.
             if (_programmatic)
             {
                 _programmatic = false;

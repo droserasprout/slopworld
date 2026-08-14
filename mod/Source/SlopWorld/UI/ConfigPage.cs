@@ -78,15 +78,6 @@ namespace SlopWorld
             DoConnectionNote(l);
 
             l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "The game");
-            l.Label("Game command (blank disables restarting the game from here)");
-            _cfg.GameCmd = SlopWidgets.Field(l, "cfg.gamecmd", _cfg.GameCmd);
-            l.Gap(SlopWidgets.GapXS);
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
-                    "Save the colony and restart the game"))
-                ConfirmRestartGame();
-
-            l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "The daemon");
             l.Label("tmux socket");
             _cfg.TmuxSocket = SlopWidgets.Field(l, "cfg.tmux", _cfg.TmuxSocket);
@@ -195,27 +186,6 @@ namespace SlopWorld
                         MessageTypeDefOf.TaskCompletion, false);
                 },
                 msg => _error = msg);
-        }
-
-        // The mod's assembly is read once at startup, so a rebuilt mod only reaches the
-        // screen in a fresh process - which, with the colony saved on the way out and
-        // resumed on the way back in, costs a loading screen and nothing else. The agents
-        // are the daemon's and it is not restarting.
-        void ConfirmRestartGame()
-        {
-            if (string.IsNullOrEmpty((_cfg.GameCmd ?? "").Trim()))
-            {
-                SlopWidgets.Fail("set a game command above and save first");
-                return;
-            }
-
-            Find.WindowStack.Add(SlopConfirmDialog.Create(
-                "Save the colony and restart RimWorld? The daemon starts it again a few " +
-                "seconds later and the agents keep running throughout.",
-                // Nothing here saves or quits: the daemon answers this request by telling every
-                // client to do exactly that, and doing it twice is two saves and two shutdowns.
-                // The error road is still ours, because a refused request sends no such event.
-                () => SlopClient.Post("/api/game/restart", "{\"delay_ms\":1000}", _ => { }, SlopWidgets.Fail)));
         }
 
     }

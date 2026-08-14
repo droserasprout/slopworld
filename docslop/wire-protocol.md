@@ -3,7 +3,7 @@
 ## WebSocket
 
 Server events are `sessions` (state/title/bell), `screen`, `usage`, `projects`,
-`shortcuts`, `jukebox` and `quit`. Catalogs arrive on connect and when changed.
+`shortcuts` and `jukebox`. Catalogs arrive on connect and when changed.
 Clients send `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste` and `audio`.
 
 `audio` always includes `volume`; `selection` is a station/stream key, local file,
@@ -26,7 +26,7 @@ Project JSON also carries optional tagged `dns` (`{"mode":"resolved"}` or
 override. A missing DNS setting means the systemd-resolved stub.
 
 Query routes are `/api/usage`, `/api/presets`, `/api/jukebox`, `/api/browse`, `/api/read`,
-`/api/image`, `/api/search`, `/api/git`, `/api/audio` and `/api/game`. `/api/read` is root-only
+`/api/image`, `/api/search`, `/api/git` and `/api/audio`. `/api/read` is root-only
 and returns bounded UTF-8 file text for native Markdown previews. `/api/image` is root-only and
 returns bounded base64 image bytes for local Markdown images. `/api/open` returns 400 for an invalid
 URL and 502 when its opener fails. `/api/file-action` runs a configured

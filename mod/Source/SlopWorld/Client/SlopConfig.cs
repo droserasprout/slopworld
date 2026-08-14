@@ -17,8 +17,6 @@ namespace SlopWorld
         // Scrollback tmux keeps per pane, and so the ceiling on how much history survives
         // a daemon restart.
         public int HistoryLimit = 5000;
-        // How the daemon relaunches the game for "save and restart".
-        public string GameCmd = "~/.local/bin/slopworld";
         // Off means the daemon never reads the credentials file.
         public bool Usage = true;
         public int UsagePollSecs = 60;
@@ -61,7 +59,6 @@ namespace SlopWorld
                 TmuxSocket = d["tmux_socket"].AsString("slopworld"),
                 PollMs = d["poll_ms"].AsInt(80),
                 HistoryLimit = d["history_limit"].AsInt(5000),
-                GameCmd = d["game_cmd"].AsString("~/.local/bin/slopworld"),
                 Usage = d["usage"].AsBool(true),
                 UsagePollSecs = d["usage_poll_secs"].AsInt(60),
                 ClaudeCredentials =
@@ -89,7 +86,7 @@ namespace SlopWorld
         public string ToPatchJson() =>
             "{\"daemon\":{" +
             $"\"tmux_socket\":{JVal.Q(TmuxSocket)},\"poll_ms\":{PollMs}," +
-            $"\"history_limit\":{HistoryLimit},\"game_cmd\":{JVal.Q(GameCmd)}," +
+            $"\"history_limit\":{HistoryLimit}," +
             $"\"usage\":{JVal.B(Usage)},\"usage_poll_secs\":{UsagePollSecs}," +
             $"\"claude_credentials\":{JVal.Q(ClaudeCredentials)}," +
             $"\"openrouter\":{JVal.B(Openrouter)}," +

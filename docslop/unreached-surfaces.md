@@ -17,8 +17,7 @@ model in [agent-grants](agent-grants.md) is implemented and untriggered.
 
 `GET /api/usage`, `/api/audio` and `/api/jukebox` have no mod caller. The mod
 takes those payloads from the WS events of the same name, in
-`SessionHub.HandleEvent`. `GET /api/game` has no caller either; the mod uses only
-`POST /api/game/restart`. All four remain for external tools -
+`SessionHub.HandleEvent`. All three remain for external tools -
 [wire-protocol](wire-protocol.md) lists them as query routes.
 
 Before adding a route for the mod, check whether the payload already rides the
