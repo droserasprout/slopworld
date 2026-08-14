@@ -1,8 +1,14 @@
 //! Creates an isolated profile and waits for the game so slopd can track its argv[0] and lifetime; execing would evade restart detection and allow a second game.
 
-use std::io::Write;
+use std::fs::{File, OpenOptions};
+use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
+
+use nix::errno::Errno;
+use nix::fcntl::{Flock, FlockArg};
+
+const LOCK_FILE: &str = "launcher.lock";
 
 /// Written by us, read by the mod. Its content is for a human reading the folder;
 /// only its existence is a promise.
@@ -83,6 +89,11 @@ fn run() -> Result<ExitCode, String> {
         ));
     }
 
+    // One launcher owns the SlopWorld profile, daemon-facing game process, shared log and
+    // tmux namespace. Acquire this before seeding so a second process cannot rewrite the
+    // profile while the first game is running. The kernel releases it if the owner crashes.
+    let _instance = InstanceLock::acquire(&launcher_lock_path())?;
+
     seed(&profile, args.reset)?;
 
     let argv = game_argv(&game, &profile, &args.rest);
@@ -103,6 +114,57 @@ fn run() -> Result<ExitCode, String> {
         Some(c) => ExitCode::from(c.clamp(0, 255) as u8),
         None => ExitCode::FAILURE,
     })
+}
+
+struct InstanceLock {
+    _file: Flock<File>,
+}
+
+impl InstanceLock {
+    fn acquire(path: &Path) -> Result<Self, String> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("creating {}: {e}", parent.display()))?;
+        }
+
+        let file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(path)
+            .map_err(|e| format!("opening SlopWorld launcher lock {}: {e}", path.display()))?;
+
+        let mut file = match Flock::lock(file, FlockArg::LockExclusiveNonblock) {
+            Ok(file) => file,
+            Err((_, e)) if e == Errno::EWOULDBLOCK || e == Errno::EAGAIN => {
+                return Err(format!(
+                    "another SlopWorld session is already running (lock: {})",
+                    path.display()
+                ));
+            }
+            Err((_, e)) => {
+                return Err(format!(
+                    "locking SlopWorld launcher {}: {e}",
+                    path.display()
+                ));
+            }
+        };
+
+        file.set_len(0)
+            .and_then(|_| file.seek(SeekFrom::Start(0)))
+            .and_then(|_| writeln!(file, "{}", std::process::id()))
+            .map_err(|e| format!("writing SlopWorld launcher lock {}: {e}", path.display()))?;
+
+        Ok(Self { _file: file })
+    }
+}
+
+fn launcher_lock_path() -> PathBuf {
+    let root = option_env_nonempty("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .or_else(|| dirs::config_dir())
+        .unwrap_or_else(|| PathBuf::from(expand("~/.config")));
+    root.join("slopworld").join(LOCK_FILE)
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -379,6 +441,24 @@ mod tests {
         seed(&p, true).expect("resets");
         assert!(std::fs::read_to_string(&mods).unwrap().contains(SLOPWORLD));
         std::fs::remove_dir_all(&p).ok();
+    }
+
+    #[test]
+    fn launcher_lock_rejects_a_second_owner_and_reopens_after_drop() {
+        let p = scratch("lock").join(LOCK_FILE);
+        let first = InstanceLock::acquire(&p).expect("first launcher owns the lock");
+        let second = InstanceLock::acquire(&p);
+        let err = match second {
+            Ok(_) => panic!("second launcher must be rejected"),
+            Err(e) => e,
+        };
+        assert!(err.contains("another SlopWorld session"));
+
+        drop(first);
+        InstanceLock::acquire(&p).expect("the kernel releases the lock after the owner exits");
+        if let Some(parent) = p.parent() {
+            std::fs::remove_dir_all(parent).ok();
+        }
     }
 
     /// A profile made before the marker existed is still a profile, and the mod's

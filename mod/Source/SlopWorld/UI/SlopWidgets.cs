@@ -131,6 +131,8 @@ namespace SlopWorld
 
             // A button changes face, never shape. Pressing a rectangular instrument should not
             // make the layout jump underneath the pointer.
+            ButtonBackground(r, kind, on, over, held);
+
             Color face, text;
             switch (kind)
             {
@@ -151,20 +153,7 @@ namespace SlopWorld
                     text = Lead; break;
             }
 
-            // Insensitive controls keep their geometry and lose contrast together.
-            if (!on)
-            {
-                face = Fade(face, 0.5f);
-                text = Fade(text, 0.5f);
-            }
-
-            // A solid accent button has no border; a flat one has none until it is touched.
-            bool solid = kind == Btn.Primary || kind == Btn.Danger;
-            var edge = solid || (kind == Btn.Ghost && !over && !held)
-                ? Clear
-                : on ? BtnEdge : Fade(BtnEdge, 0.5f);
-
-            Slab.Box(r, face, edge);
+            if (!on) text = Fade(text, 0.5f);
 
             var wasColor = GUI.color;
             GUI.color = text;
@@ -175,6 +164,35 @@ namespace SlopWorld
 
             SoundDefOf.Click.PlayOneShotOnCamera();
             return true;
+        }
+
+        public static void ButtonBackground(Rect r, Btn kind, bool on, bool over, bool held)
+        {
+            Color face;
+            switch (kind)
+            {
+                case Btn.Primary:
+                    face = Step(PrimeFace, over, held);
+                    break;
+                case Btn.Danger:
+                    face = Step(DangerFace, over, held);
+                    break;
+                case Btn.Ghost:
+                    face = held ? BtnDown : over ? BtnFace : GhostFace;
+                    break;
+                default:
+                    face = held ? BtnDown : over ? BtnHover : BtnFace;
+                    break;
+            }
+
+            if (!on) face = Fade(face, 0.5f);
+
+            bool solid = kind == Btn.Primary || kind == Btn.Danger;
+            var edge = solid || (kind == Btn.Ghost && !over && !held)
+                ? Clear
+                : on ? BtnEdge : Fade(BtnEdge, 0.5f);
+
+            Slab.Box(r, face, edge);
         }
 
         public static readonly Color Clear = new Color(0f, 0f, 0f, 0f);
