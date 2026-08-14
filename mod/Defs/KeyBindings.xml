@@ -18,12 +18,12 @@
     <defaultKeyCodeA>F1</defaultKeyCodeA>
   </KeyBindingDef>
 
-  <!-- Not S: vanilla already spends it on a selected pawn. -->
+  <!-- S is free after StripKeys leaves only arrow keys on the camera. -->
   <KeyBindingDef>
     <defName>SlopToggleSession</defName>
     <label>start/stop agent</label>
     <category>SelectionMisc</category>
-    <defaultKeyCodeA>P</defaultKeyCodeA>
+    <defaultKeyCodeA>S</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
@@ -31,6 +31,13 @@
     <label>edit selected agent</label>
     <category>SelectionMisc</category>
     <defaultKeyCodeA>E</defaultKeyCodeA>
+  </KeyBindingDef>
+
+  <KeyBindingDef>
+    <defName>SlopDuplicateSession</defName>
+    <label>duplicate selected agent</label>
+    <category>SelectionMisc</category>
+    <defaultKeyCodeA>D</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
