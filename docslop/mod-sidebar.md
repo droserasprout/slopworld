@@ -13,7 +13,8 @@ Portrait scale is derived from text: `Nominal` makes the drawn square portrait m
 row's three text lines, and `RowGap` stays between portraits. The face also has a
 panel-width limit. Headings, routed rows and the add strip remain fixed; `Fit` shrinks
 crowded portraits until their text floor, then the agent rows and portraits scroll in the
-remaining body.
+remaining body. The body keeps its full panel width without a scrollbar gutter; overflow is
+marked by a soft shadow above the fixed add strip.
 
 Selected portrait corners are queued during the vanilla portrait pass and drawn later in the
 same scroll group, using the same local face rect as the portrait. The sidebar retains
