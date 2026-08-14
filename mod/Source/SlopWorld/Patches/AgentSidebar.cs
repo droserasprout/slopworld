@@ -1009,7 +1009,9 @@ namespace SlopWorld
 
             GUI.color = SlopWidgets.ViewBg;
             GUI.DrawTexture(Icons.DotBox(center, d + BadgeRing * 2f), Icons.Dot);
-            GUI.color = TerminalWindow.StateColor(state);
+            var stateColor = TerminalWindow.StateColor(state);
+            GUI.color = new Color(stateColor.r, stateColor.g, stateColor.b,
+                Patch_SidebarPortraitDraw.SelectionAlpha);
             GUI.DrawTexture(Icons.DotBox(center, d), Icons.Dot);
             GUI.color = Color.white;
         }

@@ -42,8 +42,8 @@ namespace SlopWorld
         const float PlateTop = 40f;
         const float PlateRight = 87.5f;
         const float PlateBottom = 89f;
-        const float SelectionScale = 1f;
-        const float SelectionAlpha = 0.55f;
+        const float SelectionScale = 0.92f;
+        public const float SelectionAlpha = 0.45f;
 
         static MethodInfo _drawSelectionOverlay;
         static MethodInfo _drawCaravanSelectionOverlay;
