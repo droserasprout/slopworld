@@ -162,17 +162,26 @@ namespace SlopWorld
             SlopWidgets.SectionHeading(l, "Statusbar");
             bool u = SlopWidgets.Checkbox(l, "Show Usage in statusbar", S.statusbarUsage,
                 "Show quota readouts in the top statusbar.");
-            bool c = SlopWidgets.Checkbox(l, "Show Clock in statusbar", S.statusbarClock,
-                "Show the local time in the top statusbar.");
+            string clockPosition = StatusbarClockMode.Normalize(
+                S.statusbarClockPosition, S.statusbarClock);
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+                    $"Clock position: {StatusbarClockMode.Label(clockPosition)}"))
+            {
+                Find.WindowStack.Add(new SlopMenu(new List<FloatMenuOption>
+                {
+                    new FloatMenuOption("Right", () => SetClockPosition(StatusbarClockMode.Right)),
+                    new FloatMenuOption("Center", () => SetClockPosition(StatusbarClockMode.Center)),
+                    new FloatMenuOption("Hidden", () => SetClockPosition(StatusbarClockMode.Hidden)),
+                }));
+            }
             bool j = SlopWidgets.Checkbox(l, "Show Jukebox in statusbar", S.statusbarJukebox,
                 "Show the jukebox door when a jukebox is present.");
             bool g = SlopWidgets.Checkbox(l, "Show GM in statusbar", S.statusbarGM,
                 "Show the Computer Core door when the core is present.");
-            if (u != S.statusbarUsage || c != S.statusbarClock
+            if (u != S.statusbarUsage
                 || j != S.statusbarJukebox || g != S.statusbarGM)
             {
                 S.statusbarUsage = u;
-                S.statusbarClock = c;
                 S.statusbarJukebox = j;
                 S.statusbarGM = g;
                 S.MarkDirty();
@@ -189,6 +198,14 @@ namespace SlopWorld
 
             if (_pickingCursor)
                 DrawCursorPicker(rect);
+        }
+
+        static void SetClockPosition(string position)
+        {
+            S.statusbarClockPosition = position;
+            // Keep the old flag in sync for profiles written by the previous version.
+            S.statusbarClock = position != StatusbarClockMode.Hidden;
+            S.MarkDirty();
         }
 
         // The scheme, drawn rather than described - the Terminal page's swatch strip, over

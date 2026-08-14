@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using System;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -45,14 +45,35 @@ namespace SlopWorld
             // Lay out fixed doors first; usage rows then consume the remaining width.
             float right = Doors(r, interactive);
 
-            // Omit usage when the doors leave no room.
+            string clockPosition = Settings.StatusbarClockPosition;
+            float statusRight = r.center.x - Pad;
             float resources = r.center.x + Pad;
-            float quota = right - resources;
-            if (quota > 0f && (Settings.StatusbarUsage || Settings.StatusbarClock))
-                UsageReadout.DrawStrip(new Rect(resources, r.y, quota, r.height),
-                    Settings.StatusbarUsage, Settings.StatusbarClock);
 
-            Status(new Rect(r.x + Pad, r.y, r.center.x - r.x - Pad * 2f, r.height), pane);
+            if (clockPosition == StatusbarClockMode.Center)
+            {
+                DateTime now = DateTime.Now;
+                float clockWidth = UsageReadout.ClockWidth(now);
+                float clockX = r.center.x - clockWidth / 2f;
+                if (clockX >= r.x + Pad && clockX + clockWidth <= right - Pad)
+                {
+                    var clockColor = GUI.color;
+                    GUI.color = SlopWidgets.Name;
+                    UsageReadout.DrawClock(new Rect(clockX, r.y, clockWidth, r.height), now);
+                    GUI.color = clockColor;
+                    statusRight = clockX - Pad;
+                    resources = clockX + clockWidth + Pad;
+                }
+            }
+
+            // Omit usage when the doors leave no room. A centered clock owns its own gap;
+            // right mode keeps the original quota-strip layout.
+            float quota = right - resources;
+            if (quota > 0f && (Settings.StatusbarUsage
+                || clockPosition == StatusbarClockMode.Right))
+                UsageReadout.DrawStrip(new Rect(resources, r.y, quota, r.height),
+                    Settings.StatusbarUsage, clockPosition == StatusbarClockMode.Right);
+
+            Status(new Rect(r.x + Pad, r.y, Mathf.Max(0f, statusRight - r.x - Pad), r.height), pane);
 
             // The line is drawn over the map, and the map takes whatever the buttons did not:
             // without this a press here starts a drag-selection on the ground behind it. Last,
@@ -72,20 +93,16 @@ namespace SlopWorld
             e.Use();
         }
 
-        // Place menu/config and any map objects with menus right-to-left; return quota's limit.
+        // Place config and any map objects with menus right-to-left; return quota's limit.
         static float Doors(Rect r, bool live)
         {
             float x = r.xMax - Pad;
             var map = Find.CurrentMap;
 
-            x -= IconW;
-            Door(Slot(r, x, IconW), Icons.Menu, "Menu", Menu, live);
-
             x -= SlopWidgets.GapS + IconW;
             Door(Slot(r, x, IconW), Icons.Config, "Settings", SlopOptions.Toggle, live);
 
-            // A group of two and a group of two, so the gap between them is the wider one -
-            // the cog and the menu are this interface's, and what is left of the line is the
+            // The settings cog is this interface's door; what is left of the line is the
             // colony's.
             float gap = SlopWidgets.GapM;
 
@@ -158,15 +175,6 @@ namespace SlopWorld
 
             e.Use();
             go();
-        }
-
-        // The top-bar menu replaces the old bottom-row menu.
-        static void Menu()
-        {
-            TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
-            {
-                new FloatMenuOption("Quit to OS", Root.Shutdown),
-            }));
         }
 
         // Show the pane's session, or the selected inspect-pane agent when no pane is open.

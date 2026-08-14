@@ -6,6 +6,30 @@ using Exception = System.Exception;
 
 namespace SlopWorld
 {
+    public static class StatusbarClockMode
+    {
+        public const string Right = "right";
+        public const string Center = "center";
+        public const string Hidden = "hidden";
+
+        // The boolean is the setting used before clock placement existed. An old false
+        // therefore means Hidden while a missing or invalid placement keeps the old visible
+        // default on the right.
+        public static string Normalize(string mode, bool legacyVisible)
+        {
+            if (mode == Center) return Center;
+            if (mode == Hidden) return Hidden;
+            return legacyVisible ? Right : Hidden;
+        }
+
+        public static string Label(string mode)
+        {
+            if (mode == Center) return "Center";
+            if (mode == Hidden) return "Hidden";
+            return "Right";
+        }
+    }
+
     // Loading enables the mod unconditionally; settings cover daemon connection and UI
     // appearance, with terminal values sharing this settings file and endpoint discovery.
     public class SlopSettings : ModSettings
@@ -88,7 +112,9 @@ namespace SlopWorld
         // preferences rather than the things' own switches: hiding the Computer Core does
         // not remove it from the map, and hiding Usage does not stop the daemon polling.
         public bool statusbarUsage = true;
+        // Kept for profiles written before the clock gained placement choices.
         public bool statusbarClock = true;
+        public string statusbarClockPosition = StatusbarClockMode.Right;
         public bool statusbarJukebox = true;
         public bool statusbarGM = true;
 
@@ -136,6 +162,8 @@ namespace SlopWorld
             Scribe_Values.Look(ref radioMute, "radioMute", false);
             Scribe_Values.Look(ref statusbarUsage, "statusbarUsage", true);
             Scribe_Values.Look(ref statusbarClock, "statusbarClock", true);
+            Scribe_Values.Look(ref statusbarClockPosition, "statusbarClockPosition",
+                StatusbarClockMode.Right);
             Scribe_Values.Look(ref statusbarJukebox, "statusbarJukebox", true);
             Scribe_Values.Look(ref statusbarGM, "statusbarGM", true);
             Scribe_Values.Look(ref radioStopOnExit, "radioStopOnExit", true);
@@ -172,7 +200,9 @@ namespace SlopWorld
         public static string Radio => S.radio ?? "";
         public static bool RadioMute => S.radioMute;
         public static bool StatusbarUsage => S.statusbarUsage;
-        public static bool StatusbarClock => S.statusbarClock;
+        public static string StatusbarClockPosition =>
+            StatusbarClockMode.Normalize(S.statusbarClockPosition, S.statusbarClock);
+        public static bool StatusbarClock => StatusbarClockPosition != StatusbarClockMode.Hidden;
         public static bool StatusbarJukebox => S.statusbarJukebox;
         public static bool StatusbarGM => S.statusbarGM;
         public static bool RadioStopOnExit => S.radioStopOnExit;

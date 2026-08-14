@@ -36,7 +36,10 @@ namespace SlopWorld
             TopBar.DrawOnMap();
         }
 
-        static void DrawClock(Rect row, DateTime now)
+        public static float ClockWidth(DateTime now) =>
+            ClockIconSize + 2f + SlopWidgets.Wide(now.ToString("HH:mm")) + 2f;
+
+        public static void DrawClock(Rect row, DateTime now)
         {
             var icon = new Rect(row.x, row.y + (row.height - ClockIconSize) / 2f,
                 ClockIconSize, ClockIconSize);
@@ -51,8 +54,8 @@ namespace SlopWorld
 
         // The same rows along a line instead of down a column, right-aligned in the room they
         // are given and laid out from that end, so the first window keeps its place as later
-        // ones come and go. The clock owns the final slot beside the colony doors. Nothing is
-        // drawn where there is no room for it.
+        // ones come and go. The clock owns the final slot beside the colony doors when it is
+        // in Right mode. Nothing is drawn where there is no room for it.
         public static void DrawStrip(Rect area, bool showUsage, bool showClock)
         {
             var usage = showUsage ? SessionHub.Instance.Usage : null;
@@ -70,8 +73,7 @@ namespace SlopWorld
 
             float x = area.xMax;
             DateTime now = DateTime.Now;
-            string time = now.ToString("HH:mm");
-            float clockNeed = ClockIconSize + 2f + SlopWidgets.Wide(time) + 2f;
+            float clockNeed = ClockWidth(now);
             if (showClock && x - clockNeed >= area.x)
             {
                 x -= clockNeed;
