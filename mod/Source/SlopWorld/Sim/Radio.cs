@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
 using HarmonyLib;
@@ -298,7 +299,9 @@ namespace SlopWorld
             {
                 string path = LikesPath();
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.AppendAllText(path, now + Environment.NewLine);
+                string stamp = DateTime.UtcNow.ToString(
+                    "yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+                File.AppendAllText(path, stamp + "\t" + now + Environment.NewLine);
                 Messages.Message($"Jukebox: liked {now}", MessageTypeDefOf.TaskCompletion, false);
             }
             catch (Exception e)
@@ -308,7 +311,7 @@ namespace SlopWorld
             }
         }
 
-        static string LikesPath()
+        public static string LikesPath()
         {
             string root = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
             if (string.IsNullOrEmpty(root))
