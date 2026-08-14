@@ -65,7 +65,9 @@ namespace SlopWorld
 
         public override void MapComponentOnGUI()
         {
-            if (Eco.Bare) return; // a scene plays bare, and eco draws no board to point at
+            // Eco draws the core and keeps this direct map click alive; only a scene or an
+            // opaque terminal leaves no visible core to point at.
+            if (Cutscene.Playing || TerminalWindow.Covering) return;
 
             var cell = UI.MouseCell();
             var core = map.thingGrid.ThingAt(cell, SlopDefOf.Ship_ComputerCore);

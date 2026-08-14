@@ -27,7 +27,7 @@ namespace SlopWorld
                 if (!WorldRendererUtility.DrawingMap) return;
 
                 Backdrop();
-                Agents(__instance);
+                Things(__instance);
             }
         }
 
@@ -44,6 +44,51 @@ namespace SlopWorld
 
         // Render before pawn cutouts regardless of their altitude.
         const int Underneath = 1000;
+
+        // A barely visible sway for the objects eco puts back on the board. This is an
+        // extra draw angle, not a Thing rotation, so save data and gameplay-facing facing stay
+        // unchanged.
+        const float WobbleDegrees = 60f;
+        const float WobbleSeconds = 20f;
+        static bool _drawingThings;
+
+        static float Wobble => WobbleDegrees *
+            Mathf.Sin(Time.realtimeSinceStartup * 2f * Mathf.PI / WobbleSeconds);
+
+        [HarmonyPatch(typeof(Graphic), nameof(Graphic.Draw))]
+        public static class Patch_ThingWobble
+        {
+            static void Prefix(Thing thing, ref float extraRotation)
+            {
+                if (_drawingThings && thing != null) extraRotation += Wobble;
+            }
+        }
+
+        [HarmonyPatch(typeof(GenDraw), nameof(GenDraw.DrawMeshNowOrLater),
+            new[] { typeof(Mesh), typeof(Vector3), typeof(Quaternion), typeof(Material),
+                typeof(bool) })]
+        public static class Patch_PawnMeshWobble
+        {
+            static void Prefix(ref Quaternion quat)
+            {
+                if (_drawingThings) quat = Quaternion.AngleAxis(Wobble, Vector3.up) * quat;
+            }
+        }
+
+        [HarmonyPatch(typeof(GenDraw), nameof(GenDraw.DrawMeshNowOrLater),
+            new[] { typeof(Mesh), typeof(Matrix4x4), typeof(Material), typeof(bool),
+                typeof(MaterialPropertyBlock) })]
+        public static class Patch_PawnMatrixWobble
+        {
+            static void Prefix(ref Matrix4x4 matrix)
+            {
+                if (!_drawingThings) return;
+
+                var at = matrix.GetColumn(3);
+                matrix = Matrix4x4.TRS(at, Quaternion.AngleAxis(Wobble, Vector3.up), Vector3.one)
+                    * Matrix4x4.Translate(-at) * matrix;
+            }
+        }
 
         // Oversize past what the crop needs, so both axes have margin to drift inside; the
         // crop alone leaves one of them exactly on the view. Laps are long and incommensurate.
@@ -82,22 +127,56 @@ namespace SlopWorld
                 MaterialPool.MatFrom(tex, ShaderDatabase.Cutout, Shade, Underneath), 0);
         }
 
-        // DynamicDrawManager is disabled, so replay its phases only for visible agents.
-        static void Agents(Map map)
+        // DynamicDrawManager is disabled, so replay its phases for the visible agents and cat;
+        // map-mesh things need their graphics drawn directly. The wobble patch is scoped to this
+        // pass, keeping UI ThingIcons and all other graphics at their normal angle.
+        static void Things(Map map)
+        {
+            var view = Find.CameraDriver.CurrentViewRect;
+            _drawingThings = true;
+            try
+            {
+                DrawThingDef(map, SlopDefOf.SlopJukebox, view);
+                DrawThingDef(map, SlopDefOf.Ship_ComputerCore, view);
+                DrawAgents(map, view);
+                foreach (var pet in Pets.On(map)) DrawPawn(pet, view, map);
+            }
+            finally
+            {
+                _drawingThings = false;
+            }
+        }
+
+        static void DrawAgents(Map map, CellRect view)
         {
             var colony = AgentColony.Current;
             if (colony == null) return;
 
-            var view = Find.CameraDriver.CurrentViewRect;
-            foreach (var kv in colony.All)
-            {
-                var pawn = kv.Value;
-                if (pawn == null || !pawn.Spawned || pawn.Map != map) continue;
-                if (!view.Contains(pawn.Position)) continue;
+            foreach (var kv in colony.All) DrawPawn(kv.Value, view, map);
+        }
 
-                pawn.DynamicDrawPhase(DrawPhase.EnsureInitialized);
-                pawn.DynamicDrawPhase(DrawPhase.ParallelPreDraw);
-                pawn.DynamicDrawPhase(DrawPhase.Draw);
+        static void DrawPawn(Pawn pawn, CellRect view, Map map)
+        {
+            if (pawn == null || !pawn.Spawned || pawn.Map != map) return;
+            if (!view.Contains(pawn.Position)) return;
+
+            pawn.DynamicDrawPhase(DrawPhase.EnsureInitialized);
+            pawn.DynamicDrawPhase(DrawPhase.ParallelPreDraw);
+            pawn.DynamicDrawPhase(DrawPhase.Draw);
+        }
+
+        static void DrawThingDef(Map map, ThingDef def, CellRect view)
+        {
+            if (def == null) return;
+
+            foreach (var thing in map.listerThings.ThingsOfDef(def))
+            {
+                if (thing == null || !thing.Spawned || thing.Map != map) continue;
+                if (!view.Contains(thing.Position)) continue;
+
+                var graphic = thing.Graphic;
+                if (graphic != null)
+                    graphic.Draw(thing.DrawPos, thing.Rotation, thing, 0f);
             }
         }
 
