@@ -26,9 +26,10 @@ What it does, one owner each:
 - **The dimming**: `ecoDim` (default 0.45) is the quad's grey `_Color` multiply;
   menu and loading frames remain undimmed. The slider steps by twentieths because
   `MaterialPool` keys on color.
-- **The agents**: `Eco.Agents` walks the colony's pawns through vanilla's three
-  `DrawPhase`s, view-culled. `DynamicDrawManager` is stood down, so this is the only
-  thing on the board.
+- **The things**: `Eco.Things` restores visible agent pawns and the colony cat through
+  vanilla's three `DrawPhase`s, then draws the jukebox and computer core directly because
+  their map-mesh draw is stood down. A shared extra angle sways all four kinds by 60 degrees
+  over twenty seconds and back; saved `Rot4`s do not change.
 - **The labels**: `ThingOverlays` is *not* in the draw chain that stands down - it
   runs off `MapInterfaceOnGUI_BeforeMainTabs` and writes out every name on the map.
   A prefix on `Pawn.DrawGUIOverlay` keeps the agents' and drops the rest, which
