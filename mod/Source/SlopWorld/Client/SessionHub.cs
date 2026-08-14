@@ -1066,7 +1066,7 @@ namespace SlopWorld
         public void Run(string project, string command, string label,
                         Action<string> started, Action<string> fail = null,
                         bool shell = true, string text = "", bool host = false, bool temp = false,
-                        string path = "") =>
+                        string path = "", bool hold = false) =>
             SlopClient.Post("/api/run",
                 "{" + $"\"project\":{JVal.Q(project ?? "")}," +
                 $"\"kind\":{JVal.Q(shell ? "shell" : "prompt")}," +
@@ -1075,7 +1075,8 @@ namespace SlopWorld
                 $"\"label\":{JVal.Q(label ?? "")}," +
                 $"\"text\":{JVal.Q(text ?? "")}," +
                 $"\"host\":{JVal.B(host)}," +
-                $"\"temp\":{JVal.B(temp)}" + "}",
+                $"\"temp\":{JVal.B(temp)}," +
+                $"\"hold\":{JVal.B(hold)}" + "}",
                 j =>
                 {
                     string session = j["session"].AsString();

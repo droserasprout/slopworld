@@ -664,16 +664,26 @@ namespace SlopWorld
                 TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
                 {
                     new FloatMenuOption("Show result", () =>
+                    {
                         SlopClient.Post("/api/file-action", "{" +
                             $"\"project\":{JVal.Q(node.Project)}," +
                             $"\"path\":{JVal.Q(node.Path)}," +
                             $"\"command\":{JVal.Q(command)}" +
-                            "}", j => Messages.Message("SlopWorld: " + j["output"].AsString(),
-                                MessageTypeDefOf.NeutralEvent, false), SlopWidgets.Fail)),
+                            "}", j =>
+                            {
+                                string output = j["output"].AsString("(no output)");
+                                TerminalWindow.OpenOverPane(SlopAlertDialog.Create(
+                                    "File action: " + action.Name, output, "Close", null));
+                            }, msg =>
+                                TerminalWindow.OpenOverPane(SlopAlertDialog.Create(
+                                    "File action failed", msg, "Close", null,
+                                    primaryKind: SlopWidgets.Btn.Danger))
+                            );
+                    }),
                     new FloatMenuOption("Open terminal", () =>
                         SessionHub.Instance.Run(node.Project, command, "fa-" + node.Name,
                             session => TerminalWindow.Open(session), SlopWidgets.Fail,
-                            path: node.Path)),
+                            path: node.Path, hold: true)),
                 }));
             })).ToList();
         }

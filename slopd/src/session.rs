@@ -813,10 +813,22 @@ fn shell_quote(path: &str) -> String {
     format!("'{}'", path.replace('\'', "'\\''"))
 }
 
+pub(crate) fn hold_action_command(command: &str) -> String {
+    format!(
+        "bash -lc {}",
+        shell_quote(&format!("{command}; exec \"${{SHELL:-bash}}\""))
+    )
+}
+
 fn normalize_action_command(raw_path: &str, path: &Path, command: &str) -> String {
     let raw = shell_quote(raw_path);
     let absolute = shell_quote(&path.to_string_lossy());
-    command.replace(&raw, &absolute)
+    // The mod expands these before sending the request, but keep the daemon authoritative so
+    // direct API callers and older mod DLLs cannot hand the executor a literal template.
+    command
+        .replace("{{ absolute_path }}", &absolute)
+        .replace("{{absolute_path}}", &absolute)
+        .replace(&raw, &absolute)
 }
 
 async fn read_action_output<R: AsyncRead + Unpin>(mut stream: R) -> Result<(Vec<u8>, bool)> {
@@ -3226,7 +3238,7 @@ mod tests {
 
     use super::{
         breadcrumb_block, check_breadcrumbs, check_name, check_shortcut, compile_rules, free_name,
-        free_project_name, json_to_toml, match_rules, merge_input, merge_toml,
+        free_project_name, hold_action_command, json_to_toml, match_rules, merge_input, merge_toml,
         normalize_action_command, normalize_path, render_template, render_template_with, settle,
         slug, strip_sgr, title_agent, title_settings, Composer, Input, Live, State, Submission,
         TemplateVars, TitleAgent, TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
@@ -3240,6 +3252,18 @@ mod tests {
         assert_eq!(
             normalize_action_command("~/repo/file name", &path, "du -sh '~/repo/file name'"),
             "du -sh '/tmp/repo/file name'"
+        );
+        assert_eq!(
+            normalize_action_command("~/repo/file name", &path, "du -sh {{ absolute_path }}"),
+            "du -sh '/tmp/repo/file name'"
+        );
+        assert_eq!(
+            crate::sandbox::shell_split(&hold_action_command("du -sh '/tmp/repo/file name'")),
+            vec![
+                "bash",
+                "-lc",
+                "du -sh '/tmp/repo/file name'; exec \"${SHELL:-bash}\""
+            ]
         );
     }
 
