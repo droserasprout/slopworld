@@ -250,25 +250,8 @@ namespace SlopWorld
         {
             if (_links == null) _links = BuildLinks();
 
-            float used = OptionListingUtility.DrawOptionListing(
+            OptionListingUtility.DrawOptionListing(
                 new Rect(r.x, y, r.width, 1000f), _links);
-            y += used + 8f;
-
-            if (SlopWidgets.Button(new Rect(r.x, y, r.width, SlopWidgets.BtnH),
-                    LanguageDatabase.activeLanguage.FriendlyNameNative))
-            {
-                var opts = new List<FloatMenuOption>();
-                foreach (var lang in LanguageDatabase.AllLoadedLanguages)
-                {
-                    var local = lang;
-                    opts.Add(new FloatMenuOption(local.DisplayName, () =>
-                    {
-                        LanguageDatabase.SelectLanguage(local);
-                        Prefs.Save();
-                    }));
-                }
-                Find.WindowStack.Add(new SlopMenu(opts));
-            }
         }
 
         static List<ListableOption> BuildLinks()
