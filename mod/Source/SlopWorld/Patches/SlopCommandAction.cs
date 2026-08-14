@@ -24,7 +24,7 @@ namespace SlopWorld
         public override void DrawIcon(Rect rect, Material buttonMat, GizmoRenderParms parms)
         {
             bool over = !Disabled && Mouse.IsOver(rect);
-            SlopWidgets.ButtonBackground(rect, _kind, !Disabled, over,
+            SlopWidgets.ActionButtonBackground(rect, _kind, !Disabled, over,
                 over && Input.GetMouseButton(0));
             base.DrawIcon(rect, buttonMat, parms);
         }

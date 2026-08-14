@@ -168,6 +168,20 @@ namespace SlopWorld
 
         public static void ButtonBackground(Rect r, Btn kind, bool on, bool over, bool held)
         {
+            ButtonBackground(r, kind, on, over, held, BtnFace);
+        }
+
+        // Session gizmos sit over the map beside the sidebar. Give their resting face the
+        // same opaque panel surface so the action strip reads as part of the chrome too.
+        public static void ActionButtonBackground(Rect r, Btn kind, bool on, bool over,
+                                                  bool held)
+        {
+            ButtonBackground(r, kind, on, over, held, Panel);
+        }
+
+        static void ButtonBackground(Rect r, Btn kind, bool on, bool over, bool held,
+                                     Color defaultFace)
+        {
             Color face;
             switch (kind)
             {
@@ -181,7 +195,7 @@ namespace SlopWorld
                     face = held ? BtnDown : over ? BtnFace : GhostFace;
                     break;
                 default:
-                    face = held ? BtnDown : over ? BtnHover : BtnFace;
+                    face = held ? BtnDown : over ? BtnHover : defaultFace;
                     break;
             }
 
