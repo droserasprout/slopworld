@@ -175,11 +175,7 @@ namespace SlopWorld
             _pos.y = _target.y = t * _max.y;
         }
 
-        // Who gets this frame's wheel. A list inside a list - the preset and breadcrumb boxes
-        // sit inside the editor's own scroll view - has to be the one that moves, and `Begin`
-        // runs outermost first, so taking the event there would always hand it to the page
-        // behind the box. So `Begin` only registers interest and the last registration wins,
-        // which is the innermost box under the cursor.
+        // Nested scroll views register in draw order; the last Begin claim is the innermost box and receives the wheel.
         static SmoothScroll _claim;
         static Vector2 _claimDelta;
 

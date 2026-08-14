@@ -5,11 +5,7 @@ using Exception = System.Exception;
 
 namespace SlopWorld
 {
-    // RimWorld's own interval is measured in game days - a quarter of an hour at 1x -
-    // which is far too coarse for a colony that exists to be restarted: every rebuild
-    // of the mod needs a fresh process, and the save is what carries the colony
-    // across it. The save itself is vanilla's, into the rotating autosave slots, so
-    // this never overwrites one the player named.
+    // Vanilla autosaves are too infrequent for process restarts; rotating autosave slots preserve rebuilds without replacing named saves.
     public class AutoSaver : GameComponent
     {
         // Short enough that a crash costs a colony nothing worth mourning, long enough
@@ -37,13 +33,7 @@ namespace SlopWorld
             SaveNow();
         }
 
-        // Everything that quits goes through here, including paths the player did not
-        // choose, so a failure must never be what stops the game closing.
-        //
-        // Except a colony already on its way to the bin. "Next planet" says so several
-        // seconds before the game is gone - long enough for the interval to come round on
-        // a map that is burning - and a save taken there would hand Patch_AutoResume a
-        // discarded colony to come back to.
+        // Save failures must not block shutdown, but skip colonies pending NextPlanet so AutoResume cannot restore a discarded map.
         public static void SaveNow()
         {
             try

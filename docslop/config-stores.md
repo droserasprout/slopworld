@@ -1,4 +1,4 @@
-# The two config stores, and the seams between them
+# Configuration stores
 
 Where each half keeps its knobs, and the three places they rub. See
 [paths](paths.md) for the bare list of locations.
@@ -12,58 +12,38 @@ Where each half keeps its knobs, and the three places they rub. See
 | Written by | `Config::save`, and the HTTP routes | `ModSettings.Write` in `PostClose` |
 | Sidecar | `presets/*.toml` (`SLOPD_PRESETS`), `jukebox/*.toml` (`SLOPD_JUKEBOX`), `endpoint.json` (`SLOPD_ENDPOINT`) | none; the mod mirrors the daemon catalog |
 
-The mod does not open the daemon's TOML: it asks over HTTP (`GET /api/config` ->
-`SlopConfig.FromJson`, `PUT /api/config/patch`), plus the raw-text door and the
-per-list routes. The daemon's `jukebox/*.toml` files are read by `slopd`; `Radio` receives
-the catalog over the authenticated WebSocket and sends back only station/stream keys.
-See [wire-protocol](wire-protocol.md), [mod-client](mod-client.md),
-[mod-settings](mod-settings.md).
+The mod does not open daemon TOML. It uses HTTP (`GET /api/config`,
+`PUT /api/config/patch`), the raw-text route, and per-list routes. `slopd` reads
+`jukebox/*.toml`; `Radio` receives the catalog over the authenticated WebSocket
+and sends only station/stream keys. See [wire-protocol](wire-protocol.md),
+[mod-client](mod-client.md), and [mod-settings](mod-settings.md).
 
 ## Where it rubs
 
-1. **The daemon owns the live endpoint.** It writes `endpoint.json` atomically
-   with `url` and `token`, mode `0600`; the mod reads that descriptor rather than
-   maintaining a second connection configuration.
-2. **Config writes are patches.** The settings pages send only the fields in their
-   read model. The daemon deep-merges the JSON object, validates the resulting TOML,
-   and atomically replaces the file. Fields and sections unknown to the mod survive.
-3. **`SlopConfig` is a read model, not a whole-schema mirror.** It contains only the
-   fields drawn by the config, Commands and usage pages; it does not carry endpoint, project,
-   session, state-rule, or sandbox-preset data.
-4. Two formats and two lifetimes, which is **not** a fault: the TOML outlives a
-   profile rebuild, and the pane's half stays editable with the socket down.
+1. **Endpoint:** the daemon atomically writes `endpoint.json` (`0600`) with `url`
+   and `token`; the mod reads it instead of storing another connection config.
+2. **Patches:** settings pages send their read-model fields; the daemon deep-merges,
+   validates TOML, and replaces the file atomically, preserving unknown fields.
+3. **Read model:** `SlopConfig` contains fields used by config, Commands, and usage
+   pages, not endpoint, project, session, state-rule, or sandbox-preset data.
+4. **Lifetime:** daemon TOML survives profile rebuilds; mod settings remain editable
+   while the socket is down.
 
-Project and agent network policy is one of the schemas owned by the daemon:
-`project.network` is the ceiling, and `session.network` is an optional
-reduction. The session list repeats both the effective `network` and the raw
-`network_override` for the mod's read-only preview; saving an agent sends only
-the optional override.
+Network policy is daemon-owned: `project.network` is the ceiling and
+`session.network` may reduce it. The session list exposes effective `network` and
+raw `network_override`; saving an agent sends only the optional override. DNS is
+separate: session `dns` overrides project `dns`, omission uses `127.0.0.53`, and
+an explicit value selects up to two IPv4 servers for pasta. Network and DNS
+changes affect the next agent start, not running processes.
 
-DNS is separate from network reach. `dns` is optional on both a project and a
-session: a session setting overrides the project setting, and an omitted setting
-uses the systemd-resolved stub at `127.0.0.53`. An explicit `dns` value selects
-up to two IPv4 servers for pasta. The session list repeats effective `dns` and
-raw `dns_override`; changing either setting affects the next agent start, not a
-running process.
-
-`GET /api/config` never carries the token as written: a set one reads as
-`TOKEN_REDACTED` (`<redacted>`) in both the raw `text` and the parsed `values`
-(`Config::redacted`, `redact_token_text`), an empty one stays empty so "no auth"
-still reads straight. The write is the mirror: a token that comes back as the
-sentinel is restored to the stored one (`replace_config`, `patch_config`), so a
-save from a client that only ever saw the sentinel - the raw editor, the GUI - cannot
-blank auth it never held. A real value, or an empty string to turn auth off, is any
-value that is not the sentinel and stands. The endpoint descriptor is the mod's
-normal path for this secret; the settings pages no longer round-trip the token.
+`GET /api/config` redacts a set token as `TOKEN_REDACTED` in raw and parsed forms;
+empty remains empty. Writes restore the stored token when the sentinel is sent,
+while any other value, including empty, replaces it. The endpoint descriptor is
+the mod's normal token path; settings pages do not round-trip the secret.
 
 ## Remaining work
 
-Not done, argued once so it need not be argued again.
-
-- **A `[ui]` section, stored opaquely, is the wrong direction for now.** It would
-  make the pane's look survive a profile wipe and serve a second client, at the
-  price of a round-trip per theme, fold and sidebar drag - and the sidebar writes
-  on every drag. Worth it when a non-RimWorld client is real, not before.
-- **Codegen `SlopConfig` from the Rust structs** remains the thorough answer if a
-  second client needs the complete schema. The patch route avoids requiring it for
-  the current UI.
+- A persisted opaque `[ui]` section would support profile rebuilds and another
+  client, but would add round-trips for theme, fold, and sidebar-drag changes.
+- Codegen `SlopConfig` from Rust structs is appropriate if a second client needs
+  the complete schema; the current patch route does not require it.

@@ -7,12 +7,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // F1: VSCode-style command palette. Top centre float, input field, filtered command
-    // list, recently used first. Nested sub-commands for actions that need a second
-    // selection (e.g. "Agent: Stop" → pick which agent, or "Jukebox: Tune" → station → quality).
-    //
-    // Everything that any window or button does is reachable from here, so no action is
-    // hidden behind a dialog the player has not found yet.
+    // F1 opens a filtered command palette; all window and button actions, including nested selections, are registered here.
     public class CommandPalette : Window
     {
         const float Width = 520f;
@@ -136,11 +131,7 @@ namespace SlopWorld
             var e = Event.current;
             bool isKeyDown = e.type == EventType.KeyDown;
 
-            // Space ticks the row a checklist has under the cursor rather than being typed
-            // into the filter, and the palette stays up - ticking one of several is the
-            // whole point of a list of boxes. IMGUI sends the key and the character it
-            // produced as two events and the field reads the second, so both are taken
-            // here; only the one carrying the key code is the press.
+            // IMGUI emits Space as key and character events; consume both in checklist mode, but toggle only on the key event so Space is not typed into the filter.
             if (isKeyDown && _mode == Mode.Sub && Checklist &&
                 (e.keyCode == KeyCode.Space || e.character == ' '))
             {

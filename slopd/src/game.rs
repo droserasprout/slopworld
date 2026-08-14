@@ -1,9 +1,4 @@
-//! How the game is launched, and whether it is up.
-//!
-//! Nothing inside a session can answer the second half: an agent runs in its own PID
-//! namespace, so `pgrep` there reads as "no game is running" rather than "cannot tell". The
-//! attached client count is in the answer because the question is usually "is it running the
-//! mod I just built", which the process table cannot prove.
+//! Launches the game and reports status; session PID namespaces cannot inspect the host, so status also includes attached clients.
 
 use std::process::Command;
 
@@ -86,12 +81,7 @@ fn unit_pid() -> Option<u32> {
     (active && pid > 0).then_some(pid)
 }
 
-/// The configured path first, then the executable's bare name - which would also match an
-/// editor with the word in its argv, hence the fallback and not the test.
-///
-/// The path is matched *anchored*: `pgrep -f` tries its pattern anywhere in a command line,
-/// and every sandbox binds `<game>/RimWorldLinux_Data/Managed`, so a bare `-f <path>` matches
-/// an agent and a restart then waits forever for a PID that was never the game.
+/// Match configured argv[0] as an anchored path before falling back to the bare name; unanchored `pgrep -f` also matches sandbox-bound agent paths.
 fn found(exe: &str) -> Option<u32> {
     if exe.is_empty() {
         return None;

@@ -43,15 +43,7 @@ namespace SlopWorld
                 h.Patch(AccessTools.PropertyGetter(typeof(KeyBindingDef), read), prefix: pre);
         }
 
-        // Dropped bindings must be unbound, not merely hidden. Two readers bypass the hidden UI:
-        //
-        // ScreenshotTaker.Update reads Input's frame flag, so F10 typed into a TUI also takes
-        // a screenshot regardless of window input handling.
-        //
-        // KeyBindingDefGenerator also assigns hidden main buttons Tab and F1-F9, and
-        // MainButtonsOnGUI consumes them before Patch_MainButtons rejects activation.
-        //
-        // Answer the shared binding query instead of patching every reader.
+        // Patch KeyBindingDef reads because hidden bindings still reach ScreenshotTaker and MainButtonsOnGUI (F10, Tab, and F1-F9).
         static bool NotBound(KeyBindingDef __instance, ref bool __result)
         {
             if (Kept(__instance)) return true;

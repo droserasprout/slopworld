@@ -313,11 +313,7 @@ namespace SlopWorld
         static UIScheme _current;
         static string _id;
 
-        // Resolved against the setting on every read rather than behind an Invalidate call:
-        // this is a reference comparison against a string the settings object hands back
-        // unchanged, and it is one branch on a path that is otherwise a field read. Nothing
-        // caches a chrome color into a texture, so there is no Rev here for anything to
-        // watch - unlike the pane, whose row cache is keyed on the theme it was drawn in.
+        // Resolve on each read because settings returns the same string reference and chrome colors are not cached; no revision invalidation is needed.
         public static UIScheme Current
         {
             get

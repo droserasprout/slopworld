@@ -1,8 +1,4 @@
-//! Host-side playback keeps station networking out of Unity: desktop FMOD lacks TLS/AAC and
-//! requires `Content-Length`, which Icecast streams omit.
-//!
-//! The mod supplies a URL, absolute file path, or audio directory and volume. The command loop
-//! owns the device; a feeder decodes into a ring so the audio callback never waits on the network.
+//! Host playback keeps station networking out of Unity because FMOD lacks TLS/AAC and requires Icecast's omitted `Content-Length`; a feeder decodes URLs/files into a callback-safe ring.
 
 use std::io::{self, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};

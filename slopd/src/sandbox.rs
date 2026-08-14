@@ -781,11 +781,7 @@ fn resolver_target() -> Option<String> {
         .filter(|target| target != "/etc/resolv.conf")
 }
 
-/// A transient systemd user scope carrying this session's resource caps, so the agent's whole
-/// process tree lands in a cgroup the kernel enforces. An empty `Limits` never reaches here.
-/// slopd already leans on `systemd-run` for the tmux server and the game launcher, so it is a
-/// dependency in place rather than a new one - and unlike those two there is no silent inline
-/// fallback: a cap the caller asked for is enforced or the session does not start.
+/// Prefix limited sessions with a transient systemd scope; requested caps are enforced or startup fails, with no inline fallback.
 fn scope_prefix(limits: &Limits) -> Vec<String> {
     let mut out = vec![
         "systemd-run".into(),

@@ -512,12 +512,7 @@ namespace SlopWorld
             Push();
         }
 
-        // The daemon outlives the game: what it was told to play it keeps playing, and
-        // whoever has just quit is not listening. Sent from a Root.Shutdown prefix, where
-        // the socket is still up and MiniWebSocket writes on the calling thread, so the
-        // bytes are in the kernel before the process goes. A killed game is not covered and
-        // cannot be - nothing of ours gets to run - which is what `GET /api/audio` and a
-        // restarted daemon are for.
+        // Root.Shutdown sends the daemon's last selection before the socket closes; killed games require GET /api/audio or a daemon restart.
         public static void Quit()
         {
             Read();

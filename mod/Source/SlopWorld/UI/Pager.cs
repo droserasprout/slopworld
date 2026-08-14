@@ -167,12 +167,7 @@ namespace SlopWorld
             Open(project, PagerCommand(filePath, line), label);
         }
 
-        // A temporary agent running one command in the project's own sandbox, which is what
-        // makes the pager see the working tree the way the agents working on it do. Nothing
-        // is typed into it: the command is the errand.
-        //
-        // Whatever was open is replaced, and its tmux session - and the pane showing it - goes
-        // with it: one at a time is the whole arrangement.
+        // Open one temporary agent in the project's sandbox to run the pager command; replacing an open pager closes its tmux session.
         public void Open(string project, string command, string label)
         {
             // The project may have been renamed or deleted since the listing that put the row

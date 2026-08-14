@@ -1,15 +1,11 @@
 # Building and running
 
-Everything goes through the Makefile; `make` alone prints the target list (each
-target carries a `##` line). `RIMWORLD` defaults to `~/RimWorld/game` and must
-point at a real install - the mod builds against the game's own assemblies.
+Use the Makefile; `make` prints its target list. `RIMWORLD` defaults to
+`~/RimWorld/game` and must point to a real install because the mod uses its assemblies.
 
-`BUILD` is `debug` (the default) or `release`, and every target follows it -
-including `install`, so a packaged-quality install is `make BUILD=release
-install`. The `-debug` and `-release` suffixed targets are aliases that set it.
-Both configurations write the mod to the same `mod/Assemblies/SlopWorld.dll`, so
-nothing on disk says which one is there; `lint-mod` rebuilds that file in
-Release whatever `BUILD` says.
+`BUILD` is `debug` (default) or `release`; `make BUILD=release install` installs
+the release build. Suffixed targets are aliases. Both builds write
+`mod/Assemblies/SlopWorld.dll`, and `lint-mod` always rebuilds it in Release.
 
 | Target | Does |
 | --- | --- |
@@ -34,10 +30,8 @@ adding to that line.
 Agents survive it: neither tmux nor the game is in the daemon's cgroup - see
 [daemon-redeploy](daemon-redeploy.md).
 
-`slopctl logs` is the host-side, pipeline-friendly diagnostic command. It shows
-the last 200 lines from both sources by default; choose `game`, `daemon` or
-`all`, add `--follow`, and pipe the plain output through tools such as `grep`
-and `head`:
+`slopctl logs` shows the last 200 game and daemon lines by default. Select
+`game`, `daemon`, or `all`; add `--follow` and pipe the plain output as needed:
 
 ```sh
 slopctl logs --follow | grep -iE 'error|exception' | head -50
@@ -51,15 +45,12 @@ emits newline-delimited objects for scripts.
 
 ## Formatting
 
-`.editorconfig` exists for the C# half: `dotnet format` takes its whole layout
-from there and on defaults would rewrite the codebase rather than tidy it -
-`csharp_preserve_single_line_statements` is what keeps a guard clause a guard
-clause. Run in *folder* mode, whitespace only, because loading a net472 project
-wants reference assemblies. It is an SDK command while the mod builds under
-mono's msbuild, so a machine that can build may have no SDK: `format-mod` says so
-and stops, `lint-mod` carries on with the compiler's own warnings.
+For C#, run `dotnet format` in folder mode with whitespace-only changes;
+`.editorconfig` preserves single-line statements. It needs SDK reference
+assemblies, while the mod compiler uses mono: `format-mod` stops without an SDK,
+and `lint-mod` still runs compiler warnings.
 
-## Poking at it
+## Diagnostics
 
 ```sh
 curl -s localhost:7717/api/sessions | python3 -m json.tool

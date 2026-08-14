@@ -56,11 +56,7 @@ namespace SlopWorld
         }
     }
 
-    // The "occurred X ago" tooltip behind every line of a pawn's Log tab - the one
-    // place a viewer reads a time at all. Unlike the raw durations above this one
-    // knows when the thing happened, so it goes through the anchored lookup and gets
-    // back the stretches the game clock stood still. The two vanilla overrides chain
-    // up to this one.
+    // LogEntry tooltips use RealClock's game-clock adjustment; both vanilla overrides route here.
     [HarmonyPatch(typeof(LogEntry), nameof(LogEntry.GetTipString))]
     public static class Patch_LogEntryTip
     {

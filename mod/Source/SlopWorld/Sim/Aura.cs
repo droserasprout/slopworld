@@ -7,11 +7,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The only argument this map has against the core, made one pat at a time (Pets.Poke).
-    // Each effect is the exact undo of something in Plague: filth and fire go and
-    // Patch_NoRegrowth stands aside, the mark comes off whatever was standing there, plants
-    // inside are spared the sweep and *one* is put right, and the cat is healed (Comfort).
-    // Neither table is saved.
+    // Pets.Poke reverses Plague locally: clears filth, fire, and marks, bypasses no-regrowth, restores one plant, and heals the animal; neither table is saved.
     public class Aura : MapComponent
     {
         // Aimed: the handful of cells under the animal rather than a weather front.
