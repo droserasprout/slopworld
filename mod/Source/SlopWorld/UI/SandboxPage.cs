@@ -22,19 +22,69 @@ namespace SlopWorld
         PresetInfo _preset;
         CommandInfo _command;
         bool _newEntry;
+        bool _newPresetRequested;
+        bool _newCommandRequested;
 
         public void Load()
         {
             _loaded = false;
             SessionHub.Instance.LoadPresets(() =>
             {
-                if (_preset != null)
+                if (_preset != null && !_newEntry)
                     _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _preset.Name);
-                if (_command != null)
+                if (_command != null && !_newEntry)
                     _command = SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == _command.Name);
                 _loaded = true;
                 _error = null;
+                if (_newPresetRequested) NewPreset();
+                else if (_newCommandRequested) NewCommand();
             }, msg => { _error = msg; _loaded = false; });
+        }
+
+        public void NewPreset()
+        {
+            if (!_loaded)
+            {
+                _newPresetRequested = true;
+                _newCommandRequested = false;
+                return;
+            }
+
+            _newPresetRequested = false;
+            string name = "new-preset";
+            int suffix = 2;
+            while (SessionHub.Instance.Presets.Any(p => p.Name == name))
+                name = "new-preset-" + suffix++;
+
+            _preset = new PresetInfo { Name = name, Source = "user" };
+            _command = null;
+            _tab = Tab.Presets;
+            _newEntry = true;
+            _setenvOwner = null;
+            _setenvText = "";
+            _error = null;
+        }
+
+        public void NewCommand()
+        {
+            if (!_loaded)
+            {
+                _newCommandRequested = true;
+                _newPresetRequested = false;
+                return;
+            }
+
+            _newCommandRequested = false;
+            string name = "new-command";
+            int suffix = 2;
+            while (SessionHub.Instance.Commands.Any(c => c.Name == name))
+                name = "new-command-" + suffix++;
+
+            _preset = null;
+            _command = new CommandInfo { Name = name, Source = "user" };
+            _tab = Tab.Commands;
+            _newEntry = true;
+            _error = null;
         }
 
         public void Draw(Rect rect)
@@ -455,21 +505,6 @@ namespace SlopWorld
         {
             Slab.Hairline(new Rect(0f, y, width, 1f), SlopWidgets.Edge);
             return y + SlopWidgets.GapM;
-        }
-
-        void NewPreset()
-        {
-            string name = "new-preset";
-            int suffix = 2;
-            while (SessionHub.Instance.Presets.Any(p => p.Name == name))
-                name = "new-preset-" + suffix++;
-
-            _preset = new PresetInfo { Name = name, Source = "user" };
-            _command = null;
-            _newEntry = true;
-            _setenvOwner = null;
-            _setenvText = "";
-            _error = null;
         }
 
         void Copy(string kind, string name)

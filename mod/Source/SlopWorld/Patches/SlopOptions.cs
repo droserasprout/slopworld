@@ -265,6 +265,30 @@ namespace SlopWorld
             _sandboxPage.Draw(r);
         }
 
+        public static void OpenNewSandboxPreset()
+        {
+            if (SandboxCategory == null) return;
+            if (_sandboxPage == null)
+            {
+                _sandboxPage = new SandboxPage();
+                _sandboxPage.Load();
+            }
+            _sandboxPage.NewPreset();
+            OpenCategory(SandboxCategory);
+        }
+
+        public static void OpenNewCommand()
+        {
+            if (SandboxCategory == null) return;
+            if (_sandboxPage == null)
+            {
+                _sandboxPage = new SandboxPage();
+                _sandboxPage.Load();
+            }
+            _sandboxPage.NewCommand();
+            OpenCategory(SandboxCategory);
+        }
+
         static void DrawKeyboard(Rect r)
         {
             if (_keyBindingsPage == null) _keyBindingsPage = new KeyBindingsPage();

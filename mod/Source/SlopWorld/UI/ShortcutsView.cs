@@ -442,6 +442,16 @@ namespace SlopWorld
             });
         }
 
+        public EditShortcutDialog(ShortcutKind kind) : this(null)
+        {
+            _s.Kind = kind;
+            if (kind == ShortcutKind.Breadcrumb || kind == ShortcutKind.FileAction)
+            {
+                _s.Link = ShortcutLink.Project;
+                _s.Project = "";
+            }
+        }
+
         // What is left at the bottom is the prompt box - the one field here somebody
         // writes paragraphs in, and the one that gets squeezed when anything above grows.
         public override Vector2 InitialSize => new Vector2(560f, 660f);
