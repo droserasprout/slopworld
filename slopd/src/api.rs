@@ -517,6 +517,9 @@ struct RunReq {
     /// quoted raw path in `command`, so interactive and captured file actions agree.
     #[serde(default)]
     path: String,
+    /// Keep a file-action terminal open after its command exits so short output remains visible.
+    #[serde(default)]
+    hold: bool,
     #[serde(default)]
     text: String,
     /// Names the session and, through `slug`, the tmux session behind it. The errand's own
@@ -546,6 +549,11 @@ async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
             .map_err(|e| err(StatusCode::BAD_REQUEST, e))?
     };
     let command = command.trim();
+    let command = if q.hold && !q.path.trim().is_empty() {
+        crate::session::hold_action_command(command)
+    } else {
+        command.to_string()
+    };
     // A shell errand with nothing to run is a shell - `[defaults] shell` inside the sandbox,
     // `$SHELL` on the host - and saying so again here would be the caller guessing at this
     // machine's answer. Every other kind has to say: a prompt with no command is an agent
@@ -579,7 +587,7 @@ async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
         text: q.text,
         // None rather than an empty string: `session_for` reads "no command of its own" off
         // the Option, and that is what falls through to the preset.
-        command: (!command.is_empty()).then(|| command.to_string()),
+        command: (!command.is_empty()).then_some(command),
         builtin: false,
     };
 
