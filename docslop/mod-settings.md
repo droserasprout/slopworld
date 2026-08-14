@@ -18,6 +18,9 @@ selects left versus spent quota globally. `radio` is selected by the map jukebox
 mute and stop-on-exit are also exposed on Audio. Status-bar flags only hide readouts
 and doors; they do not disable polling, audio or map objects.
 
+`statusbarClockPosition` is `right`, `center` or `hidden`; the old `statusbarClock` boolean
+is retained as a compatibility read for profiles written before placement was added.
+
 `sidebar` is the layout mode, not daemon configuration. It is changed from the
 configuration page and gear menu, while that page's Save button belongs to the daemon
 file. Storage inventory is likewise an operation view: it reads daemon state and owns

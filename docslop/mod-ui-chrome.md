@@ -41,12 +41,14 @@ spacing, buttons, fields, headings and errors. Color names resolve through
 - `UsageReadout` draws daemon-reported quota, leading with remaining or spent values from
   the global Usage setting. Icon choices are stable per key and overrideable through
   `Settings.usageIcons`; enabled sources keep missing rows as placeholders. Freshness uses
-  the last successful poll, and the clock is the final resource before colony doors.
+  the last successful poll. The clock is right-aligned beside colony doors by default, or
+  reserved at the bar centre / omitted by the Appearance setting.
 - `TopBar` draws from a map component and, over a terminal, from `TerminalWindow`; only
-  one copy handles input. Appearance settings can hide Usage, Clock, Jukebox or the
-  Computer Core (`GM`) independently. Doors lay out right-to-left before quota, so
-  transient usage rows do not move them. Jukebox/core doors exist only when their objects
-  do.
+  one copy handles input. Appearance settings can hide Usage, place or hide Clock, or hide
+  the Jukebox or Computer Core (`GM`) independently. Doors lay out right-to-left before
+  quota, so transient usage rows do not move them. The top bar keeps the settings gear and
+  map-object doors; its right-most hamburger is gone. Jukebox/core doors exist only when
+  their objects do.
 - Top-bar hit tests use door rects, not `Mouse.IsOver`: the bar can be outside the active
   window and remains interactive over options. Map-click absorption keeps its stricter
   interaction gate.
