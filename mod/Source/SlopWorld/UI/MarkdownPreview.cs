@@ -7,7 +7,6 @@ using Markdig.Extensions.Tables;
 using Markdig.Extensions.TaskLists;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
-using System.Text.RegularExpressions;
 using UnityEngine;
 using Verse;
 
@@ -15,9 +14,9 @@ namespace SlopWorld
 {
     // A deliberately native Markdown reader. Markdig supplies the CommonMark/GFM parse tree;
     // this class supplies the small, scheme-coloured document layout that belongs in the game.
-    // It never turns Markdown into HTML: the small native renderer handles safe image tags
-    // itself, while other HTML remains literal, faint text. Links are checked again before
-    // they reach the daemon's external opener.
+    // It never turns Markdown into HTML: the small native renderer handles a deliberately
+    // narrow, safe HTML tag subset itself, while other HTML remains literal, faint text.
+    // Links are checked again before they reach the daemon or the local Files viewer.
     public sealed class MarkdownPreview : IContentView
     {
         enum BlockKind { Paragraph, Heading, Code, Quote, List, Item, Rule, Table, Raw }
@@ -29,12 +28,35 @@ namespace SlopWorld
             public bool Bold;
             public bool Italic;
             public bool Code;
+            public bool Strike;
             public bool Faint;
             public string Link;
+            public string LocalLink;
+            public bool IsImage;
+            public bool ImageFailed;
             public string ImagePath;
             public float ImageWidth;
             public float ImageHeight;
             public string ImageAlign;
+        }
+
+        sealed class HtmlState
+        {
+            public int Bold;
+            public int Italic;
+            public int Code;
+            public int Strike;
+            public string Link;
+            public string LocalLink;
+        }
+
+        sealed class HtmlTagInfo
+        {
+            public string Name;
+            public string Attributes;
+            public bool Closing;
+            public bool SelfClosing;
+            public bool Comment;
         }
 
         sealed class MarkdownBlock
@@ -119,11 +141,13 @@ namespace SlopWorld
         {
             public Rect Rect;
             public string Url;
+            public string LocalPath;
 
-            public LinkHit(Rect rect, string url)
+            public LinkHit(Rect rect, string url, string localPath)
             {
                 Rect = rect;
                 Url = url;
+                LocalPath = localPath;
             }
         }
 
@@ -165,6 +189,10 @@ namespace SlopWorld
                         richText = false,
                         wordWrap = false,
                     };
+                    // TerminalWindow reuses TerminalFont.Style and mutates its normal text
+                    // color for every ANSI run. Do not inherit the last terminal foreground;
+                    // DrawText applies the Markdown scheme color through GUI.color.
+                    Code.normal.textColor = Color.white;
                 }
                 finally
                 {
@@ -209,9 +237,7 @@ namespace SlopWorld
             .UseAutoLinks()
             .Build();
 
-        static readonly Regex ImageTag = new Regex(
-            @"<img\b(?<attrs>[^>]*)>", RegexOptions.IgnoreCase);
-
+        readonly string _project;
         readonly string _path;
         readonly string _name;
         readonly SmoothScroll _scroll = new SmoothScroll();
@@ -240,6 +266,7 @@ namespace SlopWorld
 
         public MarkdownPreview(string project, string path, string name)
         {
+            _project = project;
             _path = path;
             _name = string.IsNullOrEmpty(name) ? System.IO.Path.GetFileName(path) : name;
         }
@@ -403,11 +430,12 @@ namespace SlopWorld
         {
             foreach (var run in runs ?? new List<InlineRun>())
             {
-                if (string.IsNullOrWhiteSpace(run.ImagePath)) continue;
+                if (!run.IsImage || string.IsNullOrWhiteSpace(run.ImagePath)) continue;
                 string path = ResolveImagePath(run.ImagePath);
                 if (path == null)
                 {
                     run.ImagePath = null;
+                    run.ImageFailed = true;
                     continue;
                 }
                 run.ImagePath = path;
@@ -434,6 +462,7 @@ namespace SlopWorld
                         }
                         catch
                         {
+                            run.ImageFailed = true;
                             _failedImages.Add(path);
                         }
                     },
@@ -441,6 +470,7 @@ namespace SlopWorld
                     {
                         if (request != _request) return;
                         _pendingImages.Remove(path);
+                        run.ImageFailed = true;
                         _failedImages.Add(path);
                     });
             }
@@ -456,13 +486,21 @@ namespace SlopWorld
 
             string baseDir = System.IO.Path.GetDirectoryName(_path) ?? ".";
             string local = source.Replace('/', System.IO.Path.DirectorySeparatorChar);
-            return System.IO.Path.GetFullPath(System.IO.Path.IsPathRooted(local)
-                ? local : System.IO.Path.Combine(baseDir, local));
+            try
+            {
+                string candidate = System.IO.Path.GetFullPath(System.IO.Path.IsPathRooted(local)
+                    ? local : System.IO.Path.Combine(baseDir, local));
+                return IsInsideProject(candidate) ? candidate : null;
+            }
+            catch (ArgumentException)
+            {
+                return null;
+            }
         }
 
         Texture2D ImageFor(InlineRun image)
         {
-            if (image == null || string.IsNullOrEmpty(image.ImagePath)) return null;
+            if (image == null || !image.IsImage || string.IsNullOrEmpty(image.ImagePath)) return null;
             _images.TryGetValue(image.ImagePath, out var texture);
             return texture;
         }
@@ -546,10 +584,11 @@ namespace SlopWorld
 
             float textWidth = Mathf.Max(1f, width - imageWidth - SlopWidgets.GapS);
             var text = Wrap(textRuns, textWidth, 0);
+            bool right = image.ImageAlign == "right";
             _placements.Add(new Placement
             {
                 Kind = PlacementKind.Text,
-                X = x,
+                X = right ? x : x + imageWidth + SlopWidgets.GapS,
                 Y = y,
                 Width = textWidth,
                 Height = text.Height,
@@ -558,7 +597,7 @@ namespace SlopWorld
             _placements.Add(new Placement
             {
                 Kind = PlacementKind.Image,
-                X = x + width - imageWidth,
+                X = right ? x + width - imageWidth : x,
                 Y = y,
                 Width = imageWidth,
                 Height = imageHeight,
@@ -592,7 +631,7 @@ namespace SlopWorld
             image = null;
             foreach (var run in runs ?? new List<InlineRun>())
             {
-                if (!string.IsNullOrWhiteSpace(run.ImagePath))
+                if (run.IsImage)
                 {
                     if (image != null) return false;
                     image = run;
@@ -607,8 +646,9 @@ namespace SlopWorld
             image = null;
             foreach (var run in runs ?? new List<InlineRun>())
             {
-                if (string.IsNullOrWhiteSpace(run.ImagePath)) continue;
-                if (image != null || run.ImageAlign != "right") return false;
+                if (!run.IsImage) continue;
+                if (image != null || (run.ImageAlign != "left" && run.ImageAlign != "right"))
+                    return false;
                 image = run;
             }
             return image != null;
@@ -726,7 +766,7 @@ namespace SlopWorld
 
             foreach (var run in runs ?? new List<InlineRun>())
             {
-                if (!string.IsNullOrEmpty(run.ImagePath))
+                if (run.IsImage)
                 {
                     ImageMetrics(run, width, out float imageWidth, out float imageHeight);
                     if (line.Pieces.Count > 0 && line.Width + imageWidth > width)
@@ -836,7 +876,7 @@ namespace SlopWorld
         static void AddPiece(TextLine line, InlineRun run, string text,
                              GUIStyle style, float width, float height = 0f)
         {
-            if (string.IsNullOrEmpty(text) && string.IsNullOrEmpty(run.ImagePath)) return;
+            if (string.IsNullOrEmpty(text) && !run.IsImage) return;
             line.Pieces.Add(new TextPiece
             {
                 Text = text,
@@ -1034,7 +1074,7 @@ namespace SlopWorld
             var chars = new System.Text.StringBuilder();
             foreach (var piece in line.Pieces)
             {
-                if (!string.IsNullOrEmpty(piece.Run.ImagePath))
+                if (piece.Run.IsImage)
                 {
                     at += piece.Width;
                     continue;
@@ -1107,7 +1147,7 @@ namespace SlopWorld
                 foreach (var piece in line.Pieces)
                 {
                     var rect = new Rect(at, y, piece.Width, line.Height);
-                    if (!string.IsNullOrEmpty(piece.Run.ImagePath))
+                    if (piece.Run.IsImage)
                     {
                         var texture = ImageFor(piece.Run);
                         if (texture != null)
@@ -1124,7 +1164,7 @@ namespace SlopWorld
                             Text.Font = GameFont.Tiny;
                             Widgets.Label(new Rect(at + SlopWidgets.GapXS, y,
                                 Mathf.Max(1f, piece.Width - SlopWidgets.GapXS * 2f), piece.Height),
-                                "image loading…");
+                                piece.Run.ImageFailed ? "image unavailable" : "image loading…");
                             GUI.color = Color.white;
                         }
                         at += piece.Width;
@@ -1132,17 +1172,21 @@ namespace SlopWorld
                     }
 
                     var old = GUI.color;
-                    GUI.color = piece.Run.Link != null ? SlopWidgets.Accent
+                    GUI.color = piece.Run.Link != null || piece.Run.LocalLink != null
+                        ? SlopWidgets.Accent
                         : piece.Run.Faint ? SlopWidgets.Dim
                         : piece.Run.Code ? SlopWidgets.Lead
                         : heading ? SlopWidgets.Lead : SlopWidgets.Name;
                     GUI.Label(rect, piece.Text, piece.Style);
-                    if (piece.Run.Link != null)
+                    if (piece.Run.Link != null || piece.Run.LocalLink != null)
                     {
                         Slab.Hairline(new Rect(rect.x, rect.yMax - 1f, rect.width, 1f),
                             SlopWidgets.Accent);
-                        _links.Add(new LinkHit(rect, piece.Run.Link));
+                        _links.Add(new LinkHit(rect, piece.Run.Link, piece.Run.LocalLink));
                     }
+                    if (piece.Run.Strike)
+                        Slab.Hairline(new Rect(rect.x, rect.y + line.Height * .55f,
+                            rect.width, 1f), SlopWidgets.Dim);
                     GUI.color = old;
                     at += piece.Width;
                 }
@@ -1165,7 +1209,7 @@ namespace SlopWorld
             GUI.color = SlopWidgets.Dim;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;
-            Widgets.Label(rect, "image loading…");
+            Widgets.Label(rect, placement.Image.ImageFailed ? "image unavailable" : "image loading…");
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = Color.white;
         }
@@ -1214,16 +1258,35 @@ namespace SlopWorld
                 var screen = new Rect(body.x + hit.Rect.x,
                     body.y + hit.Rect.y - _scroll.Position.y, hit.Rect.width, hit.Rect.height);
                 if (Mouse.IsOver(screen))
-                    TooltipHandler.TipRegion(screen, hit.Url + "\n\nCtrl+click to open it on the host");
+                    TooltipHandler.TipRegion(screen, (hit.Url ?? hit.LocalPath) +
+                        "\n\nCtrl+click to open it");
                 if (e.rawType == EventType.MouseDown && e.button == 0 && e.control &&
                     screen.Contains(e.mousePosition))
                 {
-                    SlopClient.Post("/api/open", "{\"url\":" + JVal.Q(hit.Url) + "}",
+                    if (hit.LocalPath != null) OpenLocalLink(hit.LocalPath);
+                    else SlopClient.Post("/api/open", "{\"url\":" + JVal.Q(hit.Url) + "}",
                         null, SlopWidgets.Fail);
                     e.Use();
                     return;
                 }
             }
+        }
+
+        void OpenLocalLink(string path)
+        {
+            string name = System.IO.Path.GetFileName(path);
+            if (!FilesView.IsText(name))
+            {
+                SlopWidgets.Fail("binary local links are not previewable");
+                return;
+            }
+            if (FilesView.IsMarkdown(name))
+            {
+                MarkdownPreview.Open(_project, path, name);
+                return;
+            }
+
+            FilesView.ViewFile(_project, path, "link-" + name);
         }
 
         void HandleInput(Rect body)
@@ -1530,15 +1593,73 @@ namespace SlopWorld
             TerminalWindow.OpenOverPane(new SlopMenu(options));
         }
 
-        static bool AllowedLink(string url)
+        bool TryResolveLink(string source, out string external, out string local)
         {
-            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return false;
-            return string.Equals(uri.Scheme, "http", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(uri.Scheme, "mailto", StringComparison.OrdinalIgnoreCase);
+            external = null;
+            local = null;
+            source = HtmlDecode(source).Trim();
+            if (source.Length == 0 || source.StartsWith("#", StringComparison.Ordinal)) return false;
+
+            if (Uri.TryCreate(source, UriKind.Absolute, out var uri) &&
+                !string.IsNullOrEmpty(uri.Scheme))
+            {
+                if (string.Equals(uri.Scheme, "http", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(uri.Scheme, "mailto", StringComparison.OrdinalIgnoreCase))
+                {
+                    external = source;
+                    return true;
+                }
+                return false;
+            }
+
+            // Relative links are useful in project README files. Keep them inside the owning
+            // project so a document cannot turn a Ctrl+click into an arbitrary root-file read.
+            if (string.IsNullOrEmpty(_project)) return false;
+            string root = SessionHub.Instance.Project(_project)?.Dir;
+            if (string.IsNullOrEmpty(root)) return false;
+
+            int fragment = source.IndexOf('#');
+            if (fragment >= 0) source = source.Substring(0, fragment);
+            int query = source.IndexOf('?');
+            if (query >= 0) source = source.Substring(0, query);
+            if (source.Length == 0) return false;
+
+            try
+            {
+                string relative = source.Replace('/', System.IO.Path.DirectorySeparatorChar);
+                string candidate = System.IO.Path.GetFullPath(System.IO.Path.IsPathRooted(relative)
+                    ? relative : System.IO.Path.Combine(System.IO.Path.GetDirectoryName(_path) ?? root,
+                        relative));
+                if (!IsInsideProject(candidate)) return false;
+
+                local = candidate;
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
         }
 
-        static List<MarkdownBlock> Parse(string source)
+        bool IsInsideProject(string candidate)
+        {
+            if (string.IsNullOrEmpty(_project)) return false;
+            string root = SessionHub.Instance.Project(_project)?.Dir;
+            if (string.IsNullOrEmpty(root)) return false;
+            try
+            {
+                string normalizedRoot = System.IO.Path.GetFullPath(root).TrimEnd(
+                    System.IO.Path.DirectorySeparatorChar) + System.IO.Path.DirectorySeparatorChar;
+                return candidate.StartsWith(normalizedRoot, StringComparison.Ordinal);
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+        }
+
+        List<MarkdownBlock> Parse(string source)
         {
             var document = Markdown.Parse(source ?? "", Pipeline, null);
             var blocks = new List<MarkdownBlock>();
@@ -1546,7 +1667,7 @@ namespace SlopWorld
             return blocks;
         }
 
-        static void AddBlocks(ContainerBlock container, List<MarkdownBlock> target)
+        void AddBlocks(ContainerBlock container, List<MarkdownBlock> target)
         {
             foreach (Block block in container)
             {
@@ -1555,7 +1676,7 @@ namespace SlopWorld
             }
         }
 
-        static MarkdownBlock ConvertBlock(Block block)
+        MarkdownBlock ConvertBlock(Block block)
         {
             if (block is BlankLineBlock) return null;
 
@@ -1641,7 +1762,8 @@ namespace SlopWorld
 
             if (block is HtmlBlock html)
             {
-                var image = ParseImage(html.Lines.ToString());
+                string source = html.Lines.ToString();
+                var image = ParseImage(source);
                 if (image != null)
                     return new MarkdownBlock
                     {
@@ -1649,12 +1771,15 @@ namespace SlopWorld
                         Runs = new List<InlineRun> { image },
                     };
 
+                if (IsHtmlComment(source)) return null;
+                if (IsHtmlRule(source)) return new MarkdownBlock { Kind = BlockKind.Rule };
+
                 return new MarkdownBlock
                 {
                     Kind = BlockKind.Raw,
                     Runs = new List<InlineRun>
                     {
-                        new InlineRun { Text = html.Lines.ToString(), Faint = true },
+                        new InlineRun { Text = source, Faint = true },
                     },
                 };
             }
@@ -1676,113 +1801,307 @@ namespace SlopWorld
             };
         }
 
-        static List<InlineRun> ReadCell(TableCell cell)
+        List<InlineRun> ReadCell(TableCell cell)
         {
             var runs = new List<InlineRun>();
             foreach (Block child in cell)
             {
                 if (child is ParagraphBlock paragraph)
-                    AppendInlines(paragraph.Inline, runs, false, false, false, null);
+                    AppendInlines(paragraph.Inline, runs, false, false, false, null, null);
             }
             return runs;
         }
 
-        static List<InlineRun> ReadInlines(ContainerInline inline)
+        List<InlineRun> ReadInlines(ContainerInline inline)
         {
             var runs = new List<InlineRun>();
-            AppendInlines(inline, runs, false, false, false, null);
+            AppendInlines(inline, runs, false, false, false, null, null);
             return runs;
         }
 
-        static void AppendInlines(ContainerInline container, List<InlineRun> target,
-                                   bool bold, bool italic, bool code, string link)
+        void AppendInlines(ContainerInline container, List<InlineRun> target,
+                           bool bold, bool italic, bool code, string link, string localLink)
+        {
+            AppendInlines(container, target, bold, italic, code, false, link, localLink,
+                new HtmlState());
+        }
+
+        void AppendInlines(ContainerInline container, List<InlineRun> target,
+                           bool bold, bool italic, bool code, bool strike, string link,
+                           string localLink, HtmlState htmlState)
         {
             if (container == null) return;
             foreach (Inline inline in container)
             {
+                bool currentBold = bold || htmlState.Bold > 0;
+                bool currentItalic = italic || htmlState.Italic > 0;
+                bool currentCode = code || htmlState.Code > 0;
+                bool currentStrike = strike || htmlState.Strike > 0;
+                string currentLink = link ?? htmlState.Link;
+                string currentLocalLink = localLink ?? htmlState.LocalLink;
+
                 if (inline is LiteralInline literal)
                 {
-                    AddRun(target, literal.Content.ToString(), bold, italic, code, link);
+                    AddRun(target, HtmlDecode(literal.Content.ToString()), currentBold,
+                        currentItalic, currentCode, currentStrike, currentLink, currentLocalLink);
                 }
                 else if (inline is CodeInline codeInline)
                 {
-                    AddRun(target, codeInline.Content, bold, italic, true, link);
+                    AddRun(target, codeInline.Content, currentBold, currentItalic, true,
+                        currentStrike, currentLink, currentLocalLink);
                 }
                 else if (inline is EmphasisInline emphasis)
                 {
                     bool strong = emphasis.DelimiterCount >= 2;
-                    AppendInlines(emphasis, target, bold || strong, italic || !strong, code, link);
+                    AppendInlines(emphasis, target, currentBold || strong,
+                        currentItalic || !strong, currentCode, currentStrike, currentLink,
+                        currentLocalLink, htmlState);
                 }
                 else if (inline is LinkInline linkInline)
                 {
-                    string url = AllowedLink(linkInline.Url) ? linkInline.Url : null;
-                    AppendInlines(linkInline, target, bold, italic, code, url);
+                    TryResolveLink(linkInline.Url, out var url, out var local);
+                    AppendInlines(linkInline, target, currentBold, currentItalic, currentCode,
+                        currentStrike, url ?? currentLink, local ?? currentLocalLink, htmlState);
                 }
                 else if (inline is AutolinkInline auto)
                 {
-                    string url = AllowedLink(auto.Url) ? auto.Url : null;
-                    AddRun(target, auto.Url, bold, italic, code, url);
+                    TryResolveLink(auto.Url, out var url, out var local);
+                    AddRun(target, HtmlDecode(auto.Url), currentBold, currentItalic, currentCode,
+                        currentStrike, url ?? currentLink, local ?? currentLocalLink);
                 }
                 else if (inline is TaskList task)
                 {
-                    AddRun(target, task.Checked ? "[x] " : "[ ] ", bold, italic, code, link);
+                    AddRun(target, task.Checked ? "[x] " : "[ ] ", currentBold, currentItalic,
+                        currentCode, currentStrike, currentLink, currentLocalLink);
                 }
                 else if (inline is LineBreakInline)
                 {
-                    target.Add(new InlineRun { Text = "\n", Bold = bold, Italic = italic,
-                        Code = code, Link = link });
+                    target.Add(new InlineRun { Text = "\n", Bold = currentBold, Italic = currentItalic,
+                        Code = currentCode, Strike = currentStrike, Link = currentLink,
+                        LocalLink = currentLocalLink });
                 }
                 else if (inline is HtmlInline html)
                 {
-                    var image = ParseImage(html.Tag);
-                    if (image != null)
-                    {
-                        image.Bold = bold;
-                        image.Italic = italic;
-                        image.Code = code;
-                        image.Link = link;
-                        target.Add(image);
-                    }
-                    else AddRun(target, html.Tag, bold, italic, code, link);
+                    if (!HandleHtmlTag(html.Tag, target, htmlState, currentBold, currentItalic,
+                        currentCode, currentStrike, currentLink, currentLocalLink))
+                        AddRun(target, html.Tag, currentBold, currentItalic, currentCode,
+                            currentStrike, currentLink, currentLocalLink, faint: true);
                 }
                 else if (inline is ContainerInline nested)
                 {
-                    AppendInlines(nested, target, bold, italic, code, link);
+                    AppendInlines(nested, target, currentBold, currentItalic, currentCode,
+                        currentStrike, currentLink, currentLocalLink, htmlState);
                 }
                 else
                 {
-                    AddRun(target, inline.ToString(), bold, italic, code, link);
+                    AddRun(target, inline.ToString(), currentBold, currentItalic, currentCode,
+                        currentStrike, currentLink, currentLocalLink, faint: true);
                 }
             }
         }
 
+        static bool TryParseHtmlTag(string source, out HtmlTagInfo tag)
+        {
+            tag = null;
+            source = (source ?? "").Trim();
+            if (source.Length < 3 || source[0] != '<' || source[source.Length - 1] != '>')
+                return false;
+            if (source.StartsWith("<!--", StringComparison.Ordinal) &&
+                source.EndsWith("-->", StringComparison.Ordinal))
+            {
+                tag = new HtmlTagInfo { Comment = true };
+                return true;
+            }
+
+            int end = source.Length - 1;
+            int at = 1;
+            while (at < end && char.IsWhiteSpace(source[at])) at++;
+            bool closing = at < end && source[at] == '/';
+            if (closing) at++;
+            while (at < end && char.IsWhiteSpace(source[at])) at++;
+            int nameStart = at;
+            while (at < end && IsHtmlNameChar(source[at])) at++;
+            if (at == nameStart) return false;
+
+            int attrEnd = end;
+            while (attrEnd > at && char.IsWhiteSpace(source[attrEnd - 1])) attrEnd--;
+            bool selfClosing = attrEnd > at && source[attrEnd - 1] == '/';
+            if (selfClosing) attrEnd--;
+            while (attrEnd > at && char.IsWhiteSpace(source[attrEnd - 1])) attrEnd--;
+
+            tag = new HtmlTagInfo
+            {
+                Name = source.Substring(nameStart, at - nameStart).ToLowerInvariant(),
+                Attributes = source.Substring(at, Mathf.Max(0, attrEnd - at)).Trim(),
+                Closing = closing,
+                SelfClosing = selfClosing,
+            };
+            return true;
+        }
+
+        static bool IsHtmlNameChar(char c) =>
+            char.IsLetterOrDigit(c) || c == ':' || c == '-';
+
+        static bool IsHtmlRule(string source)
+        {
+            return TryParseHtmlTag(source, out var tag) && !tag.Comment && !tag.Closing &&
+                tag.Name == "hr";
+        }
+
+        static bool IsHtmlComment(string source)
+        {
+            return TryParseHtmlTag(source, out var tag) && tag.Comment;
+        }
+
+        bool HandleHtmlTag(string source, List<InlineRun> target, HtmlState state,
+                           bool bold, bool italic, bool code, bool strike, string link,
+                           string localLink)
+        {
+            if (!TryParseHtmlTag(source, out var tag)) return false;
+            if (tag.Comment) return true;
+
+            string name = tag.Name;
+            if (name == "img")
+            {
+                var image = ParseImage(source);
+                if (image == null || tag.Closing) return false;
+                image.Bold = bold;
+                image.Italic = italic;
+                image.Code = code;
+                image.Strike = strike;
+                image.Link = link;
+                image.LocalLink = localLink;
+                target.Add(image);
+                return true;
+            }
+
+            if (name == "br")
+            {
+                if (!tag.Closing)
+                    AddRun(target, "\n", bold, italic, code, strike, link, localLink);
+                return true;
+            }
+
+            if (name == "strong" || name == "b")
+            {
+                state.Bold = Math.Max(0, state.Bold + (tag.Closing ? -1 : 1));
+                return true;
+            }
+            if (name == "em" || name == "i")
+            {
+                state.Italic = Math.Max(0, state.Italic + (tag.Closing ? -1 : 1));
+                return true;
+            }
+            if (name == "code" || name == "kbd" || name == "samp")
+            {
+                state.Code = Math.Max(0, state.Code + (tag.Closing ? -1 : 1));
+                return true;
+            }
+            if (name == "del" || name == "s" || name == "strike")
+            {
+                state.Strike = Math.Max(0, state.Strike + (tag.Closing ? -1 : 1));
+                return true;
+            }
+            if (name == "a")
+            {
+                if (tag.Closing)
+                {
+                    state.Link = null;
+                    state.LocalLink = null;
+                }
+                else
+                {
+                    TryResolveLink(HtmlAttribute(tag.Attributes, "href"),
+                        out state.Link, out state.LocalLink);
+                }
+                return true;
+            }
+
+            // Span is intentionally style-free. It is common in generated Markdown and
+            // stripping only this structural tag is safe; CSS is deliberately not interpreted.
+            if (name == "span") return true;
+
+            return false;
+        }
+
         static InlineRun ParseImage(string html)
         {
-            var match = ImageTag.Match(html ?? "");
-            if (!match.Success) return null;
+            if (!TryParseHtmlTag(html, out var tag) || tag.Comment || tag.Closing ||
+                tag.Name != "img") return null;
 
-            string attrs = match.Groups["attrs"].Value;
-            string source = HtmlAttribute(attrs, "src");
+            string source = HtmlAttribute(tag.Attributes, "src");
             if (string.IsNullOrWhiteSpace(source)) return null;
 
             return new InlineRun
             {
+                IsImage = true,
                 ImagePath = HtmlDecode(source),
-                ImageWidth = HtmlDimension(HtmlAttribute(attrs, "width")),
-                ImageHeight = HtmlDimension(HtmlAttribute(attrs, "height")),
-                ImageAlign = (HtmlAttribute(attrs, "align") ?? "").Trim().ToLowerInvariant(),
+                ImageWidth = HtmlDimension(HtmlAttribute(tag.Attributes, "width")),
+                ImageHeight = HtmlDimension(HtmlAttribute(tag.Attributes, "height")),
+                ImageAlign = ImageAlignment(tag.Attributes),
             };
+        }
+
+        static string ImageAlignment(string attrs)
+        {
+            string align = (HtmlAttribute(attrs, "align") ?? "").Trim().ToLowerInvariant();
+            if (align.Length == 0)
+                align = (CssProperty(HtmlAttribute(attrs, "style"), "float") ?? "")
+                    .Trim().ToLowerInvariant();
+            if (align == "middle") align = "center";
+            return align == "left" || align == "right" || align == "center" ? align : "";
+        }
+
+        static string CssProperty(string style, string property)
+        {
+            foreach (string declaration in (style ?? "").Split(';'))
+            {
+                int colon = declaration.IndexOf(':');
+                if (colon < 0) continue;
+                string name = declaration.Substring(0, colon).Trim();
+                if (!string.Equals(name, property, StringComparison.OrdinalIgnoreCase)) continue;
+                return declaration.Substring(colon + 1).Trim();
+            }
+            return null;
         }
 
         static string HtmlAttribute(string attrs, string name)
         {
-            string pattern = "(?:^|\\s)" + Regex.Escape(name) +
-                "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))";
-            var match = Regex.Match(attrs ?? "", pattern, RegexOptions.IgnoreCase);
-            if (!match.Success) return null;
-            if (match.Groups[1].Success) return match.Groups[1].Value;
-            if (match.Groups[2].Success) return match.Groups[2].Value;
-            return match.Groups[3].Value;
+            attrs = attrs ?? "";
+            for (int at = 0; at < attrs.Length;)
+            {
+                while (at < attrs.Length && (char.IsWhiteSpace(attrs[at]) || attrs[at] == '/')) at++;
+                int keyStart = at;
+                while (at < attrs.Length && !char.IsWhiteSpace(attrs[at]) &&
+                    attrs[at] != '=' && attrs[at] != '>') at++;
+                if (at == keyStart)
+                {
+                    at++;
+                    continue;
+                }
+
+                string key = attrs.Substring(keyStart, at - keyStart);
+                while (at < attrs.Length && char.IsWhiteSpace(attrs[at])) at++;
+                if (at >= attrs.Length || attrs[at] != '=') continue;
+                at++;
+                while (at < attrs.Length && char.IsWhiteSpace(attrs[at])) at++;
+                if (at >= attrs.Length) return null;
+
+                char quote = attrs[at] == '\"' || attrs[at] == '\'' ? attrs[at++] : '\0';
+                int valueStart = at;
+                if (quote != '\0')
+                {
+                    while (at < attrs.Length && attrs[at] != quote) at++;
+                }
+                else
+                {
+                    while (at < attrs.Length && !char.IsWhiteSpace(attrs[at]) && attrs[at] != '>') at++;
+                }
+                string value = attrs.Substring(valueStart, at - valueStart);
+                if (quote != '\0' && at < attrs.Length) at++;
+                if (string.Equals(key, name, StringComparison.OrdinalIgnoreCase)) return value;
+            }
+            return null;
         }
 
         static float HtmlDimension(string value)
@@ -1809,7 +2128,8 @@ namespace SlopWorld
             .Replace("&apos;", "'");
 
         static void AddRun(List<InlineRun> target, string text, bool bold, bool italic,
-                           bool code, string link)
+                           bool code, bool strike, string link, string localLink,
+                           bool faint = false)
         {
             if (string.IsNullOrEmpty(text)) return;
             target.Add(new InlineRun
@@ -1818,7 +2138,10 @@ namespace SlopWorld
                 Bold = bold,
                 Italic = italic,
                 Code = code,
+                Strike = strike,
+                Faint = faint,
                 Link = link,
+                LocalLink = localLink,
             });
         }
     }
