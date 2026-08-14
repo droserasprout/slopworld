@@ -26,6 +26,20 @@
     <defaultKeyCodeA>P</defaultKeyCodeA>
   </KeyBindingDef>
 
+  <KeyBindingDef>
+    <defName>SlopEditSession</defName>
+    <label>edit selected agent</label>
+    <category>SelectionMisc</category>
+    <defaultKeyCodeA>E</defaultKeyCodeA>
+  </KeyBindingDef>
+
+  <KeyBindingDef>
+    <defName>SlopRemoveSession</defName>
+    <label>remove selected agent</label>
+    <category>SelectionMisc</category>
+    <defaultKeyCodeA>Delete</defaultKeyCodeA>
+  </KeyBindingDef>
+
   <!-- In and out of the terminal from anywhere. F12 because vanilla spends
        nothing on it; see TerminalHotkeys.cs. -->
   <KeyBindingDef>

@@ -24,6 +24,10 @@ second one over a colony still being written. Waiting also makes the launcher's
 lifetime the game's, which is what `slopworld-game.service` reports. It cannot be
 a script: a shebang puts `/bin/sh` in `argv[0]`.
 
+The launcher also holds a per-user kernel file lock for its entire lifetime. A second
+`slopworld` invocation, even with another profile argument, refuses before seeding or
+starting RimWorld; the lock is released automatically when the owner exits.
+
 ## Refusing to patch outside the profile
 
 `SlopProfile.Ok` = is there a `slopworld.profile` marker in

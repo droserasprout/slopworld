@@ -73,7 +73,7 @@ namespace SlopWorld
 
             if (info.Alive)
             {
-                yield return new Command_Action
+                yield return new SlopCommandAction(SlopWidgets.Btn.Default)
                 {
                     defaultLabel = "Terminal",
                     defaultDesc = $"Open the terminal for '{Session}'.\nState: {state.ToString().ToLower()}",
@@ -83,7 +83,7 @@ namespace SlopWorld
                     action = () => TerminalWindow.Open(Session),
                 };
 
-                yield return new Command_Action
+                yield return new SlopCommandAction(SlopWidgets.Btn.Default)
                 {
                     defaultLabel = "Stop",
                     defaultDesc = $"Stop '{Session}'. The colonist stays on the floor "
@@ -100,7 +100,7 @@ namespace SlopWorld
             }
             else
             {
-                yield return new Command_Action
+                yield return new SlopCommandAction(SlopWidgets.Btn.Default)
                 {
                     defaultLabel = "Start",
                     defaultDesc = $"Start '{Session}' and put its colonist back on its feet.",
@@ -110,6 +110,35 @@ namespace SlopWorld
                     action = () => SessionHub.Instance.Start(Session, SlopWidgets.Fail),
                 };
             }
+
+            yield return new SlopCommandAction(SlopWidgets.Btn.Default)
+            {
+                defaultLabel = "Edit",
+                defaultDesc = $"Edit '{Session}': name, project, command, or sandbox.",
+                icon = Icons.Edit,
+                defaultIconColor = SlopWidgets.Accent,
+                hotKey = SlopDefOf.SlopEditSession,
+                action = () =>
+                {
+                    var current = SessionHub.Instance.Get(Session);
+                    if (current != null) TerminalWindow.OpenOverPane(new EditSessionDialog(current));
+                    else Messages.Message($"SlopWorld: no session '{Session}' to edit.",
+                        MessageTypeDefOf.RejectInput, false);
+                },
+            };
+
+            yield return new SlopCommandAction(SlopWidgets.Btn.Default)
+            {
+                defaultLabel = "Remove",
+                defaultDesc = $"Remove '{Session}' and its private state.",
+                icon = Icons.Cross,
+                defaultIconColor = SlopWidgets.Bad,
+                hotKey = SlopDefOf.SlopRemoveSession,
+                action = () => Find.WindowStack.Add(SlopConfirmDialog.Create(
+                    $"Remove session '{Session}'? This kills it, drops it from config.toml, and moves " +
+                    "its private state to recoverable trash for 14 days.",
+                    () => SessionHub.Instance.Remove(Session, SlopWidgets.Fail), destructive: true)),
+            };
         }
 
         public string GetInspectString() => "";

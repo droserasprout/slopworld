@@ -4,7 +4,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Shift the bottom gizmo grid by the sidebar inset so it remains beside the shifted pane.
+    // Keep the bottom gizmo grid at least one shared gap beyond the sidebar.
     // `Active` distinguishes `DrawGizmoGridFor` from the architect tab's designator grid.
 
     [HarmonyPatch(typeof(GizmoGridDrawer), "DrawGizmoGridFor")]
@@ -33,7 +33,9 @@ namespace SlopWorld
             if (!Patch_GizmoGridFlag.Active) return;
             float inset = SlopLayout.LeftInset;
             if (inset <= 0f) return;
-            startX += inset;
+            startX = InspectPaneAgent.AgentSelectionActive
+                ? inset + SlopWidgets.GapS
+                : Mathf.Max(startX, inset + SlopWidgets.GapS);
         }
     }
 }
