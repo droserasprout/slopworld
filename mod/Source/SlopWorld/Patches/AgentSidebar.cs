@@ -214,7 +214,13 @@ namespace SlopWorld
 
         static void Show(string tab)
         {
-            if (Settings.SidebarTab == tab) return;
+            // Focusing Git is also the user's way to ask what changed since the last
+            // focus, including when Git is already the selected tab.
+            if (Settings.SidebarTab == tab)
+            {
+                if (tab == TabGit) GitView.Refresh();
+                return;
+            }
 
             if (tab != TabFiles) FilesView.ClearFocus();
             if (tab != TabFiles) FilesView.ReleaseViewer();
@@ -229,7 +235,8 @@ namespace SlopWorld
             s.sidebarTab = tab;
             s.Write();
 
-            if (tab == TabGit || tab == TabFiles) GitView.Entered();
+            if (tab == TabGit) GitView.Refresh();
+            else if (tab == TabFiles) GitView.Entered();
 
             if (tab == TabSearch) SearchView.Entered();
 
