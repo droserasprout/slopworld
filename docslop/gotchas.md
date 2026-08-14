@@ -39,5 +39,9 @@
 - Config UI uses `PUT /api/config/patch`; omitted fields survive, but new fields still
   need daemon patch-model validation. Wire renames require both halves; unknown states
   map to `Down`. Saves with removed defs are not migrated; start a new planet.
+- **Dropping a tokio `JoinHandle` detaches the task, it does not abort it.** A `Live`
+  removed from the session map must `.take()` and `.abort()` its reader first, or the
+  control-mode tmux attach outlives the session it was reading. Assigning over an
+  existing handle detaches the old one the same way; `Option::replace` and abort.
 - Unset variables must expand to an empty path, never an empty component. This prevents
   `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` from becoming `/`; `sandbox::refused` rejects `/` too.

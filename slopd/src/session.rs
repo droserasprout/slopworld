@@ -1158,11 +1158,7 @@ impl Manager {
     pub async fn set_usage(&self, snap: crate::usage::Snapshot) {
         {
             let mut cur = self.usage.write().await;
-            if cur.ok == snap.ok
-                && cur.error == snap.error
-                && cur.plan == snap.plan
-                && cur.windows == snap.windows
-            {
+            if cur.same_readout(&snap) {
                 *cur = snap;
                 return;
             }
@@ -1175,7 +1171,20 @@ impl Manager {
         let cfg = self.config().await;
         let mut live = self.live.write().await;
 
-        live.retain(|name, l| l.ephemeral || cfg.session(name).is_some());
+        // Dropping a `Live` only *detaches* its reader: `JoinHandle`'s own `Drop` lets the
+        // task run on, and it would keep a control-mode attach open against a session
+        // nothing points at any more. Every other removal path aborts, so this one does too.
+        live.retain(|name, l| {
+            if l.ephemeral || cfg.session(name).is_some() {
+                return true;
+            }
+            tracing::info!("agent {name} is gone from the config, ending its reader");
+            if let Some(h) = l.reader.take() {
+                h.abort();
+            }
+            self.forget_scroll(name);
+            false
+        });
 
         for s in &cfg.sessions {
             live.entry(s.name.clone())
@@ -1430,6 +1439,7 @@ impl Manager {
                 h.abort();
             }
         }
+        self.forget_scroll(name);
         Ok(())
     }
 
@@ -1450,6 +1460,7 @@ impl Manager {
                 None => return,
             }
         };
+        self.forget_scroll(name);
         if let Err(e) = crate::sandbox::remove_ephemeral_state(&session) {
             tracing::warn!("removing temporary private state for {name}: {e:#}");
         }
@@ -2066,6 +2077,10 @@ impl Manager {
             live.insert(new.to_string(), l);
             running
         };
+        // The cache is keyed by name, and the frames under the old one describe a pane that
+        // is about to be re-captured against a fresh emulator.
+        self.forget_scroll(old);
+        self.forget_scroll(new);
         if running && self.spawn_reader(new).await {
             let m = self.clone();
             let name = new.to_string();
@@ -2753,11 +2768,18 @@ impl Manager {
         {
             let mut live = self.live.write().await;
             match live.get_mut(name) {
-                Some(l) => {
+                // Re-checked under the write lock. The `has_emu` test above ran before a
+                // capture that awaits, so a second caller - an autostart sweep racing a
+                // manual start - can have installed its reader in the meantime. The loser
+                // ends its own attach instead of overwriting the winner's handle, which a
+                // plain assignment would merely detach.
+                Some(l) if l.emu.is_none() => {
                     l.emu = Some(emu.clone());
-                    l.reader = Some(handle);
+                    if let Some(stale) = l.reader.replace(handle) {
+                        stale.abort();
+                    }
                 }
-                None => {
+                _ => {
                     handle.abort();
                     return false;
                 }
@@ -2999,10 +3021,22 @@ impl Manager {
                 }
             }
         }
+        self.forget_scroll(name);
         if changed {
             let _ = self.events.send(Event::Sessions {
                 sessions: self.views().await,
             });
+        }
+    }
+
+    /// Drop a session's cached scrollback frame. Called wherever the emulator behind it goes
+    /// away: the cache is keyed by name and validated against a live `seq`, so without this
+    /// every name ever scrolled keeps a full screen alive for as long as the daemon runs -
+    /// and adopted errands mint fresh names, which makes that unbounded rather than merely
+    /// one entry per configured agent.
+    fn forget_scroll(&self, name: &str) {
+        if let Ok(mut c) = self.scroll_cache.lock() {
+            c.remove(name);
         }
     }
 
