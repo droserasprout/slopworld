@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using RimWorld;
@@ -45,23 +46,30 @@ namespace SlopWorld
         const float SelectionScale = 0.92f;
         public const float SelectionAlpha = 0.45f;
 
-        static MethodInfo _drawSelectionOverlay;
-        static MethodInfo _drawCaravanSelectionOverlay;
         static FieldInfo _deadColonistTex;
+
+        // Portraits are drawn inside AgentSidebar's scroll view. Queue selected faces so the
+        // brackets go down after every opaque portrait, while that same clipped group is open.
+        struct DeferredSelection
+        {
+            public object Target;
+            public Rect Face;
+            public float BarScale;
+        }
+
+        static readonly List<DeferredSelection> DeferredSelections =
+            new List<DeferredSelection>();
+        static readonly Vector2[] SelectionCorners = new Vector2[4];
 
         static bool _ready;
 
         static Patch_SidebarPortraitDraw()
         {
             var t = typeof(ColonistBarColonistDrawer);
-            _drawSelectionOverlay = t.GetMethod("DrawSelectionOverlayOnGUI",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            _drawCaravanSelectionOverlay = t.GetMethod("DrawCaravanSelectionOverlayOnGUI",
-                BindingFlags.Instance | BindingFlags.NonPublic);
             _deadColonistTex = t.GetField("DeadColonistTex",
                 BindingFlags.Static | BindingFlags.NonPublic);
 
-            _ready = _drawSelectionOverlay != null && _deadColonistTex != null;
+            _ready = _deadColonistTex != null;
             if (!_ready)
                 Log.Error("[SlopWorld] Patch_SidebarPortraitDraw: one or more private " +
                     "members not found; sidebar portraits will fall back to vanilla.");
@@ -125,8 +133,7 @@ namespace SlopWorld
             return new Vector3(FaceHorizontalOffset, 0f, z + FaceVerticalOffset);
         }
 
-        static bool Prefix(Rect rect, Pawn colonist, Map pawnMap, bool highlight, bool reordering,
-            ColonistBarColonistDrawer __instance)
+        static bool Prefix(Rect rect, Pawn colonist, Map pawnMap, bool highlight, bool reordering)
         {
             if (!_ready) return true;
             if (!AgentSidebar.Drawing) return true;
@@ -173,7 +180,10 @@ namespace SlopWorld
                 Widgets.DrawBox(face, thickness);
             }
 
-            DrawSelection(__instance, colonist, face);
+            if (AgentSidebar.AgentScrollOpen)
+                DeferSelection(colonist, face, bar.Scale);
+            else
+                DrawSelection(colonist, face, bar.Scale);
 
             if (colonist.Dead)
             {
@@ -189,53 +199,118 @@ namespace SlopWorld
             return false;
         }
 
-        static void DrawSelection(ColonistBarColonistDrawer drawer, Pawn colonist, Rect texRect)
+        static void DrawSelection(Pawn colonist, Rect texRect, float barScale)
         {
-            var selector = Find.Selector;
-            if (selector == null) return;
-
-            bool selected;
-            if (colonist.Dead)
-            {
-                selected = selector.SelectedObjects.Contains(colonist.Corpse);
-            }
-            else
-            {
-                selected = selector.SelectedObjects.Contains(colonist);
-            }
-
-            if (!selected) return;
+            object target;
+            if (!TrySelectionTarget(colonist, out target)) return;
 
             // Vanilla's brackets extend from the supplied rect. Put them over the visible
             // faceplate rather than around the transparent margin of the head texture.
             var corners = FaceplateRect(texRect).ContractedBy(SelectionInset);
-
-            if (WorldRendererUtility.WorldSelected)
-            {
-                var caravan = CaravanUtility.GetCaravan(colonist);
-                if (caravan == null) return;
-                var worldSelector = Find.WorldSelector;
-                if (worldSelector == null || !worldSelector.IsSelected(caravan)) return;
-
-                DrawSelectionOverlay(_drawCaravanSelectionOverlay, drawer, caravan, corners);
-                return;
-            }
-
-            DrawSelectionOverlay(_drawSelectionOverlay, drawer, colonist, corners);
+            DrawSelectionOverlay(target, corners, barScale);
         }
 
-        static void DrawSelectionOverlay(MethodInfo method, ColonistBarColonistDrawer drawer,
-            object target, Rect corners)
+        static void DeferSelection(Pawn colonist, Rect texRect, float barScale)
         {
+            object target;
+            if (!TrySelectionTarget(colonist, out target)) return;
+
+            DeferredSelections.Add(new DeferredSelection
+            {
+                Target = target,
+                Face = texRect,
+                BarScale = barScale,
+            });
+        }
+
+        // Match vanilla's map/world and corpse selection gates, and keep the selected object
+        // because its selection timestamp drives the original bracket jump animation.
+        static bool TrySelectionTarget(Pawn colonist, out object target)
+        {
+            target = colonist.Dead ? (object)colonist.Corpse : colonist;
+            var selector = Find.Selector;
+            if (selector == null) return false;
+
+            if (!selector.SelectedObjects.Contains(target)) return false;
+
+            if (!WorldRendererUtility.WorldSelected) return true;
+
+            var caravan = CaravanUtility.GetCaravan(colonist);
+            var worldSelector = Find.WorldSelector;
+            if (caravan == null || worldSelector == null || !worldSelector.IsSelected(caravan))
+                return false;
+
+            target = caravan;
+            return true;
+        }
+
+        public static void ClearDeferredSelection()
+        {
+            DeferredSelections.Clear();
+        }
+
+        public static void DrawDeferredSelection()
+        {
+            if (DeferredSelections.Count == 0) return;
+
+            try
+            {
+                // The queue is consumed while AgentScroll's group is still open. The face is
+                // therefore in exactly the same local coordinates as the portrait, with no
+                // second body/scroll conversion that could move the four brackets apart.
+                foreach (var selection in DeferredSelections)
+                {
+                    var corners = FaceplateRect(selection.Face).ContractedBy(SelectionInset);
+                    DrawSelectionOverlay(selection.Target, corners, selection.BarScale);
+                }
+            }
+            finally
+            {
+                ClearDeferredSelection();
+            }
+        }
+
+        static void DrawSelectionOverlay(object target, Rect corners, float barScale)
+        {
+            if (Event.current.type != EventType.Repaint) return;
+
+            var tex = SelectionDrawerUtility.SelectedTexGUI;
+            float scale = 0.4f * barScale;
+            var size = new Vector2(tex.width * scale, tex.height * scale);
+            SelectionDrawerUtility.CalculateSelectionBracketPositionsUI(
+                SelectionCorners, target, corners, SelectionDrawer.SelectTimes,
+                size, 20f * barScale);
+
             var oldColor = GUI.color;
             GUI.color = new Color(oldColor.r, oldColor.g, oldColor.b, SelectionAlpha);
             try
             {
-                method?.Invoke(drawer, new object[] { target, corners });
+                float angle = 90f;
+                for (int i = 0; i < SelectionCorners.Length; i++, angle += 90f)
+                    DrawSelectionCorner(SelectionCorners[i], size, tex, angle);
             }
             finally
             {
                 GUI.color = oldColor;
+            }
+        }
+
+        static void DrawSelectionCorner(Vector2 center, Vector2 size, Texture2D tex, float angle)
+        {
+            var rect = new Rect(center.x - size.x / 2f, center.y - size.y / 2f,
+                size.x, size.y);
+            var matrix = GUI.matrix;
+            try
+            {
+                // GUIUtility's rotation pivot is screen-global while the rect remains local
+                // to BeginScrollView. Converting exactly here preserves both the scroll
+                // transform and vanilla's rotated bracket texture.
+                GUIUtility.RotateAroundPivot(angle, GUIUtility.GUIToScreenPoint(center));
+                GUI.DrawTexture(rect, tex);
+            }
+            finally
+            {
+                GUI.matrix = matrix;
             }
         }
     }

@@ -105,6 +105,10 @@ namespace SlopWorld
         static readonly List<Row> ViewRows = new List<Row>();
         static readonly List<SessionInfo> Routed = new List<SessionInfo>();
 
+        static readonly SmoothScroll AgentScroll = new SmoothScroll();
+        static bool _agentScrollOpen;
+        static float _agentContentH;
+
         const string Loose = "no project";
 
         static HashSet<string> _folded;
@@ -354,14 +358,16 @@ namespace SlopWorld
         public static void ShowGit() => Show(TabGit);
         public static void ShowShortcuts() => Show(TabShortcuts);
 
-        public static Rect AddBar =>
-            new Rect(CellX, UI.screenHeight - Pad - AddH, Width - CellX * 2f, AddH);
-
-        // Extend the hit target to the panel edges, but stop before Grip: `Use` leaves
-        // `rawType` set, so overlap would resize and open the menu on one click.
-        static Rect AddHitBar =>
-            new Rect(0f, AddBar.y, Mathf.Max(0f, Width - GripW),
-                UI.screenHeight - AddBar.y);
+        // The add control owns the panel foot, but stops before Grip: `Use` leaves `rawType`
+        // set, so overlap would resize and open the menu on one click.
+        public static Rect AddBar
+        {
+            get
+            {
+                float y = UI.screenHeight - Pad - AddH;
+                return new Rect(0f, y, Mathf.Max(0f, Width - GripW), UI.screenHeight - y);
+            }
+        }
 
         public static Rect Body =>
             new Rect(0f, TabH, Width,
@@ -396,6 +402,8 @@ namespace SlopWorld
 
         public static bool Drawing { get; private set; }
 
+        public static bool AgentScrollOpen => _agentScrollOpen;
+
         public static bool FaceBox(Pawn pawn, out Rect box)
         {
             if (pawn != null)
@@ -420,15 +428,19 @@ namespace SlopWorld
                 return Nominal;
             }
 
-            float top = TabH + Pad;
-            float room = UI.screenHeight - top - Pad;
+            // Agent rows are content coordinates: DrawBack/DrawFront put them inside the
+            // shared scroll view, whose screen origin is Body. The chrome below is still
+            // screen-fixed and never enters this coordinate space.
+            float top = Pad;
+            float room = Body.height;
 
             int rows = 0;
             foreach (var key in Order)
                 if (!Folded.Contains(key) && Buckets.TryGetValue(key, out var b))
                     rows += b.Count;
 
-            float s = Fit(rows, Order.Count, plus, room, GhostRoom());
+            // Add is outside this viewport now, so the body already accounts for its height.
+            float s = Fit(rows, Order.Count, false, room, GhostRoom());
             float pitch = Pitch(s);
             float cell = ColonistBar.BaseSize.y * s;
             float face = ColonistBarColonistDrawer.PawnTextureSize.y * s;
@@ -484,6 +496,8 @@ namespace SlopWorld
                     y += pitch;
                 }
             }
+
+            _agentContentH = Mathf.Max(Body.height, y + Pad);
 
             return s;
         }
@@ -601,6 +615,59 @@ namespace SlopWorld
         static string Session(Pawn pawn) =>
             pawn == null ? null : AgentColony.Current?.SessionOf(pawn);
 
+        static void BeginAgentScroll()
+        {
+            var body = Body;
+            bool scrolls = _agentContentH > body.height;
+            var view = new Rect(0f, 0f,
+                body.width - (scrolls ? SlopWidgets.ScrollbarW : 0f), _agentContentH);
+            if (scrolls)
+            {
+                for (int i = 0; i < Heads.Count; i++)
+                {
+                    var h = Heads[i];
+                    h.Rect.width = view.width;
+                    Heads[i] = h;
+                }
+                for (int i = 0; i < Rows.Count; i++)
+                {
+                    var row = Rows[i];
+                    row.Line.width = view.width;
+                    row.Text.width = Mathf.Max(0f, view.width - row.Text.x - Pad);
+                    Rows[i] = row;
+                }
+            }
+            AgentScroll.Begin(body, view, scrolls);
+            _agentScrollOpen = true;
+        }
+
+        static void EndAgentScroll()
+        {
+            if (!_agentScrollOpen) return;
+            _agentScrollOpen = false;
+            AgentScroll.End();
+        }
+
+        static void DrawChromeAndClicks()
+        {
+            Tabs();
+            DrawAdd();
+
+            Grip();
+            if (AddClick()) return;
+            if (Files)
+            {
+                if (!ClickRouted()) FilesView.Clicks();
+            }
+            else if (Search) SearchView.Clicks();
+            else if (Git)
+            {
+                if (!ClickRouted()) GitView.Clicks();
+            }
+            else if (Shortcuts) ShortcutsView.Clicks();
+            else Menus();
+            Absorb();
+        }
 
         public static void DrawBack()
         {
@@ -614,10 +681,38 @@ namespace SlopWorld
                 return;
             }
             Drawing = true;
+            Patch_SidebarPortraitDraw.ClearDeferredSelection();
 
-            // Menus and the grip run here, before vanilla consumes portrait clicks.
+            // The panel, fixed chrome and menus run here, before vanilla consumes input.
+            // Only the agent body remains grouped around vanilla's portrait pass.
             var panel = Panel;
             Slab.Fill(panel, SlopWidgets.Panel);
+
+            if (Agents)
+            {
+                Tabs();
+                DrawAdd();
+                Grip();
+                AddClick();
+
+                BeginAgentScroll();
+
+                string currentSession = SessionSelectable.Current;
+                foreach (var row in Rows)
+                {
+                    bool current = row.Session != null && row.Session == currentSession;
+
+                    if (current) Slab.Fill(row.Line, SlopWidgets.RowOn);
+                    else SlopWidgets.HoverRow(row.Line);
+                }
+
+                foreach (var head in Heads) DrawHead(head);
+                // This must precede vanilla: its portrait handler consumes right-clicks.
+                // The scroll group also lets Menus use the content-local row geometry
+                // directly, just like portrait and label hit testing.
+                Menus();
+                return;
+            }
 
             if (Files)
             {
@@ -652,35 +747,19 @@ namespace SlopWorld
                 foreach (var head in Heads) DrawHead(head);
             }
 
-            Tabs();
-            DrawAdd();
-
-            Grip();
-            if (AddClick()) return;
-            if (Files)
-            {
-                if (!ClickRouted()) FilesView.Clicks();
-            }
-            else if (Search) SearchView.Clicks();
-            else if (Git)
-            {
-                if (!ClickRouted()) GitView.Clicks();
-            }
-            else if (Shortcuts) ShortcutsView.Clicks();
-            else Menus();
+            DrawChromeAndClicks();
         }
 
         static void DrawAdd()
         {
             var r = AddBar;
-            bool over = ColonistBarStrip.SidebarHover(r);
+            // Keep the button lit while its menu is stacked over the pane. The menu owns the
+            // press, but the pointer is still visibly over the control that opened it.
+            bool over = ColonistBarStrip.MouseOver(r);
 
-            if (over)
-            {
-                Slab.Fill(r, SlopWidgets.Hover);
-                TooltipHandler.TipRegion(r,
-                    "Add a project, an agent, a shortcut, a sandbox preset, a command or a host shell");
-            }
+            Slab.Fill(r, over ? SlopWidgets.Hover : SlopWidgets.ViewBg);
+            TooltipHandler.TipRegion(r,
+                "Add a project, an agent, a shortcut, a sandbox preset, a command or a host shell");
             Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), SlopWidgets.Edge);
 
             float d = AddIcon;
@@ -696,7 +775,7 @@ namespace SlopWorld
 
             var e = Event.current;
             if (e.rawType != EventType.MouseDown || e.button != 0) return false;
-            if (!ColonistBarStrip.MouseOver(AddHitBar)) return false;
+            if (!ColonistBarStrip.MouseOver(AddBar)) return false;
 
             e.Use();
 
@@ -905,86 +984,101 @@ namespace SlopWorld
                   "Click to fold, right-click for the project.");
         }
 
+        static void DrawRows()
+        {
+            var hub = SessionHub.Instance;
+            foreach (var row in Rows)
+            {
+                var info = row.Session == null ? null : hub.Get(row.Session);
+                var state = info?.State ?? AgentState.Down;
+                var tint = TerminalWindow.StateColor(state);
+
+                if (row.Ghost)
+                {
+                    Text.Font = GameFont.Small;
+                    var text = row.Text;
+
+                    var act = RowActions.Of(info);
+                    if (act != RowAct.None)
+                    {
+                        float d = Mathf.Min(GhostMarkW, text.height);
+                        GUI.color = SlopWidgets.Off;
+                        GUI.DrawTexture(
+                            new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
+                            RowActions.Tex(act));
+                        text.x += d + 4f;
+                        text.width -= d + 4f;
+                    }
+
+                    DrawGhostLabel(text, info, row.Session, hostIcon: true);
+                    GUI.color = Color.white;
+                    Click(row, info);
+                    continue;
+                }
+
+                DrawStateBadge(row.Face, row.Text, state);
+
+                Text.Font = GameFont.Small;
+                var name = new Rect(row.Text.x, row.Text.y, row.Text.width, NameH);
+                if (info != null && info.Bell)
+                {
+                    float d = Mathf.Min(BellW, NameH);
+                    GUI.color = SlopWidgets.Warn;
+                    GUI.DrawTexture(
+                        new Rect(name.xMax - d, name.y + (NameH - d) / 2f, d, d),
+                        Icons.Bell);
+                    name.width -= d + 3f;
+                }
+                GUI.color = tint;
+                SlopWidgets.RowLabel(name, row.Session ?? row.Pawn?.LabelShort ?? "?");
+
+                Text.Font = GameFont.Tiny;
+                var word = new Rect(row.Text.x, row.Text.y + NameH, row.Text.width, SubH);
+                string ago = state == AgentState.Down ? "" : Ago(info);
+                if (ago.Length > 0)
+                {
+                    GUI.color = SlopWidgets.Faint;
+                    SlopWidgets.RowLabel(word, ago, TextAnchor.MiddleRight);
+                    word.width -= Mathf.Ceil(SlopWidgets.Wide(ago)) + AgoGap;
+                }
+                GUI.color = SlopWidgets.Dim;
+                SlopWidgets.RowLabel(word, Word(state));
+
+                string title = Title(info);
+                GUI.color = title.Length > 0 ? SlopWidgets.Dim : SlopWidgets.Off;
+                if (title.Length == 0) title = Ground(info);
+                var line3 = new Rect(row.Text.x, row.Text.y + NameH + SubH,
+                    row.Text.width, SubH);
+                SlopWidgets.RowLabel(line3, title);
+                if (title.Length > 0 && SlopWidgets.Wide(title) > line3.width)
+                    TooltipHandler.TipRegion(line3, title);
+
+                GUI.color = Color.white;
+                Click(row, info);
+            }
+        }
+
         public static void DrawFront()
         {
             if (!Drawing) return;
             try
             {
-                var hub = SessionHub.Instance;
-                foreach (var row in Rows)
+                if (_agentScrollOpen)
                 {
-                    var info = row.Session == null ? null : hub.Get(row.Session);
-                    var state = info?.State ?? AgentState.Down;
-                    var tint = TerminalWindow.StateColor(state);
-
-                    if (row.Ghost)
-                    {
-                        Text.Font = GameFont.Small;
-                        var text = row.Text;
-
-                        var act = RowActions.Of(info);
-                        if (act != RowAct.None)
-                        {
-                            float d = Mathf.Min(GhostMarkW, text.height);
-                            GUI.color = SlopWidgets.Off;
-                            GUI.DrawTexture(
-                                new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
-                                RowActions.Tex(act));
-                            text.x += d + 4f;
-                            text.width -= d + 4f;
-                        }
-
-                        DrawGhostLabel(text, info, row.Session, hostIcon: true);
-                        GUI.color = Color.white;
-                        Click(row, info);
-                        continue;
-                    }
-
-                    DrawStateBadge(row.Face, row.Text, state);
-
-                    Text.Font = GameFont.Small;
-                    var name = new Rect(row.Text.x, row.Text.y, row.Text.width, NameH);
-                    if (info != null && info.Bell)
-                    {
-                        float d = Mathf.Min(BellW, NameH);
-                        GUI.color = SlopWidgets.Warn;
-                        GUI.DrawTexture(
-                            new Rect(name.xMax - d, name.y + (NameH - d) / 2f, d, d),
-                            Icons.Bell);
-                        name.width -= d + 3f;
-                    }
-                    GUI.color = tint;
-                    SlopWidgets.RowLabel(name, row.Session ?? row.Pawn?.LabelShort ?? "?");
-
-                    Text.Font = GameFont.Tiny;
-                    var word = new Rect(row.Text.x, row.Text.y + NameH, row.Text.width, SubH);
-                    string ago = state == AgentState.Down ? "" : Ago(info);
-                    if (ago.Length > 0)
-                    {
-                        GUI.color = SlopWidgets.Faint;
-                        SlopWidgets.RowLabel(word, ago, TextAnchor.MiddleRight);
-                        word.width -= Mathf.Ceil(SlopWidgets.Wide(ago)) + AgoGap;
-                    }
-                    GUI.color = SlopWidgets.Dim;
-                    SlopWidgets.RowLabel(word, Word(state));
-
-                    string title = Title(info);
-                    GUI.color = title.Length > 0 ? SlopWidgets.Dim : SlopWidgets.Off;
-                    if (title.Length == 0) title = Ground(info);
-                    var line3 = new Rect(row.Text.x, row.Text.y + NameH + SubH,
-                        row.Text.width, SubH);
-                    SlopWidgets.RowLabel(line3, title);
-                    if (title.Length > 0 && SlopWidgets.Wide(title) > line3.width)
-                        TooltipHandler.TipRegion(line3, title);
-
-                    GUI.color = Color.white;
-                    Click(row, info);
+                    DrawRows();
+                    Patch_SidebarPortraitDraw.DrawDeferredSelection();
+                    EndAgentScroll();
+                    Absorb();
+                    return;
                 }
+
+                DrawRows();
 
                 Absorb();
             }
             finally
             {
+                EndAgentScroll();
                 // This cleanup must also happen when label drawing throws.
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.UpperLeft;
@@ -1175,7 +1269,12 @@ namespace SlopWorld
         }
 
         // Called by the Harmony finalizer when vanilla prevents the normal front pass.
-        public static void EndDraw() => Drawing = false;
+        public static void EndDraw()
+        {
+            EndAgentScroll();
+            Patch_SidebarPortraitDraw.ClearDeferredSelection();
+            Drawing = false;
+        }
 
 
         static void Menus()
@@ -1183,7 +1282,10 @@ namespace SlopWorld
             if (!ColonistBarStrip.Interactive) return;
 
             var e = Event.current;
-            if (e.rawType != EventType.MouseDown) return;
+            // Fixed chrome runs first. Respect a press it consumed; rawType intentionally
+            // survives Use(), and could otherwise be reinterpreted after entering the
+            // agent scroll group's local coordinate space.
+            if (e.type != EventType.MouseDown) return;
             if (e.button != 0 && e.button != 1) return;
 
             foreach (var head in Heads)
