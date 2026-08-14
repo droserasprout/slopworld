@@ -73,6 +73,8 @@ slopctl logs --follow
 
 ## Tools (none run as part of a build)
 
+- `make scheme-report` - measures the three complete UI schemes, including alpha compositing,
+  and checks that Warm stays within 5% of SlopWorld's luminance/contrast hierarchy.
 - `tools/shot.sh` - grabs the game window. Needs the `x11` preset.
 - `python3 tools/loc.py` - counts code. `--docs` adds the markdown;
   `--comments` prints the C# and Rust comments instead of counting them, markers
