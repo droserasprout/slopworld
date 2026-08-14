@@ -403,10 +403,9 @@ namespace SlopWorld
             Push();
         }
 
-        // Every frame, menu and game alike, from Patch_Root_Update. Everything below the
-        // throttle runs one frame in ten: music state changes slowly - volume slider moves,
-        // station picks, reconnects - and a sixth of a second late is not something anyone
-        // hears. `Read()` stays above it, being the answer to what the daemon is playing.
+        // Every frame, menu and game alike, from Patch_Root_Update. Pending selections go out
+        // immediately; steady-state work runs one frame in ten because volume changes slowly.
+        // `Read()` stays above it, being the answer to what the daemon is playing.
         static int _updateSkip;
         const int UpdateInterval = 10;
 
@@ -415,12 +414,8 @@ namespace SlopWorld
             if (_quit) return;
             Read();
 
-            // Throttle: most frames change nothing.
-            if (++_updateSkip < UpdateInterval) return;
-            _updateSkip = 0;
-
-            // Disable vanilla music only while a game is active. Query the manager each time:
-            // a new colony creates it enabled, and Find.MusicManagerPlay is unsafe on menus.
+            // A fresh colony creates an enabled music manager, so stop vanilla music before
+            // the throttle gives it a chance to start an OST track.
             if (Current.ProgramState == ProgramState.Playing)
             {
                 try
@@ -442,13 +437,31 @@ namespace SlopWorld
             // that knows what was playing.
             if (!hub.Online) { _told = false; _sentVolume = -1f; return; }
 
+            // A pending selection is a control message, not steady-state work. In particular,
+            // send the muted stop on the first frame after a daemon restart.
+            if (!_told)
+            {
+                float pendingVolume = Volume();
+                string pending = Selection();
+                SendSelection(hub, pendingVolume);
+                _sent = pending;
+                _told = true;
+                _sentVolume = pendingVolume;
+                _updateSkip = 0;
+                return;
+            }
+
+            // Throttle steady-state work: most frames change nothing.
+            if (++_updateSkip < UpdateInterval) return;
+            _updateSkip = 0;
+
             string want = Selection();
-            if (!_told || want != _sent)
+            if (want != _sent)
             {
                 SendSelection(hub, Volume());
                 _sent = want;
-                _told = true;
                 _sentVolume = Volume();
+                _updateSkip = 0;
                 return;
             }
 
@@ -519,7 +532,9 @@ namespace SlopWorld
             // Whatever is on stays on or goes off here, and either way this is the end of
             // the conversation: the frames that follow have nothing left to say.
             _quit = true;
-            if (!_stopOnExit) return;
+            // Mute is an explicit silence request, so it takes precedence over leaving
+            // active audio running on exit.
+            if (!_stopOnExit && !_muted) return;
 
             var hub = SessionHub.Instance;
             if (hub == null || !hub.Online) return;

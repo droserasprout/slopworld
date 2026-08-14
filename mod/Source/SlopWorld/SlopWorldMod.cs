@@ -263,6 +263,9 @@ namespace SlopWorld
     {
         static void Postfix()
         {
+            // The jukebox has no MonoBehaviour of its own. Run it before the client's
+            // synchronous reconnect can block this frame while the daemon is restarting.
+            Radio.Update();
             SessionHub.Instance.Update();
             // Intercepts Alt+F4 / window close: shows the confirmation dialog on the
             // frame after the save completes.
@@ -272,10 +275,6 @@ namespace SlopWorld
             BackgroundFrames.Follow();
             // The pointer's own animation, which has nowhere else to run.
             DeadCursor.Tick();
-            // The jukebox's stream, for the reason the cursor is here: it has no
-            // MonoBehaviour of its own to pump it, and it has to be shut off on the menu
-            // as well as fed in the game.
-            Radio.Update();
             // Update and not OnGUI, so it fires per frame rather than per event, and below
             // HandleEventsHighPriority, where the clicks that count are used -
             // GetMouseButtonDown still sees them, that flag being Input's own.
