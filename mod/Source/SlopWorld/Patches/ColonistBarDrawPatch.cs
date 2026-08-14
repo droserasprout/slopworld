@@ -8,12 +8,13 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Replace vanilla's body-and-mood portrait with a 3:4 head portrait using the
+    // Replace vanilla's body-and-mood portrait with a square head portrait using the
     // sidebar's shared geometry. Patch_SidebarPawnLabel suppresses the vanilla label.
     [HarmonyPatch(typeof(ColonistBarColonistDrawer), nameof(ColonistBarColonistDrawer.DrawColonist))]
     public static class Patch_SidebarPortraitDraw
     {
-        // The portrait camera looks down -Y with world +Z up, so z pans to the head.
+        // The portrait camera looks down -Y with world +Z up, so z pans to the head and a
+        // positive x camera offset moves the pawn slightly left in the resulting image.
         const float HeadFallbackZ = 0.34f;
 
         // Slightly wider than a tight head crop so hair and clothing have breathing room.
@@ -21,11 +22,10 @@ namespace SlopWorld
 
         // Aim just above the head anchor to place the pawn slightly lower in the portrait.
         const float FaceVerticalOffset = 0.03f;
+        const float FaceHorizontalOffset = 0.04f;
 
-        // Hair and clothing are allowed to extend past the square face box. A sixth of the
-        // box at each end makes the full drawn portrait exactly 3:4.
-        const float PortraitAspect = 3f / 4f;
-        const float PortraitOverflow = (1f / PortraitAspect - 1f) / 2f;
+        // Keep the drawn portrait square with the face box. The close-up is framed on the
+        // head, so there is no body crop that needs extra vertical room.
 
         // Keep stopped agents recognizable while making their state obvious.
         static readonly Color DownTint = new Color(0.50f, 0.50f, 0.50f, 1f);
@@ -42,7 +42,8 @@ namespace SlopWorld
         const float PlateTop = 40f;
         const float PlateRight = 87.5f;
         const float PlateBottom = 89f;
-        const float SelectionScale = 1.2f;
+        const float SelectionScale = 1f;
+        const float SelectionAlpha = 0.55f;
 
         static MethodInfo _drawSelectionOverlay;
         static MethodInfo _drawCaravanSelectionOverlay;
@@ -66,18 +67,12 @@ namespace SlopWorld
                     "members not found; sidebar portraits will fall back to vanilla.");
         }
 
-        // What is actually on the screen, which is taller than the cell it is centred in.
-        // Anything hung off the pawn rather than off the row - the sidebar's state badge -
-        // wants this: the face box's lower edge is up at the chin.
-        public static Rect PortraitRect(Rect face) =>
-            new Rect(face.x, face.y - face.height * PortraitOverflow,
-                face.width, face.height * (1f + 2f * PortraitOverflow));
+        // Keep callers anchored to the drawn portrait rather than duplicating its geometry.
+        public static Rect PortraitRect(Rect face) => face;
 
-        // The face box that draws to a wanted height. The sidebar lays its rows out from
-        // the font and asks this what the portrait may be, so the pawn fills the row it is
-        // in rather than being a fixed square the text grows past.
-        public static float FaceForHeight(float height) =>
-            height / (1f + 2f * PortraitOverflow);
+        // The sidebar lays its rows out from the font and asks this what the portrait may be,
+        // so the square pawn portrait fills the row it is in.
+        public static float FaceForHeight(float height) => height;
 
         static Rect FaceplateRect(Rect face)
         {
@@ -94,16 +89,18 @@ namespace SlopWorld
             rect.size *= SelectionScale;
             rect.center = new Vector2(face.x + face.width * centerX / PlateFrame,
                 face.y + face.height * centerY / PlateFrame);
+            // Camera motion shifts the rendered image by offset * zoom / 2 of its width.
+            rect.center -= new Vector2(face.width * FaceHorizontalOffset * FaceZoom / 2f, 0f);
             return rect;
         }
 
-        // Keep cache parameters unscaled so compact layouts reuse the same portrait texture.
+        // Keep cache parameters unscaled so compact layouts reuse the same square texture.
         static Vector2 TextureSize
         {
             get
             {
                 float side = ColonistBarColonistDrawer.PawnTextureSize.y;
-                return new Vector2(side, side * (1f + 2f * PortraitOverflow));
+                return new Vector2(side, side);
             }
         }
 
@@ -125,7 +122,7 @@ namespace SlopWorld
             {
                 // Pawns mid-generation may not have a draw tracker yet.
             }
-            return new Vector3(0f, 0f, z + FaceVerticalOffset);
+            return new Vector3(FaceHorizontalOffset, 0f, z + FaceVerticalOffset);
         }
 
         static bool Prefix(Rect rect, Pawn colonist, Map pawnMap, bool highlight, bool reordering,
@@ -166,7 +163,7 @@ namespace SlopWorld
             GUI.DrawTexture(PortraitRect(face), renderTexture);
             GUI.color = Color.white;
 
-            // Both marks go down after the opaque portrait, the way vanilla ends its
+            // Both marks go down after the opaque square portrait, the way vanilla ends its
             // own draw: the corners so their inner arms remain visible, the hover box
             // because the portrait covers the rect it is drawn on.
             if (highlight)
@@ -213,18 +210,32 @@ namespace SlopWorld
             // faceplate rather than around the transparent margin of the head texture.
             var corners = FaceplateRect(texRect).ContractedBy(SelectionInset);
 
-            if (!WorldRendererUtility.WorldSelected)
-            {
-                _drawSelectionOverlay?.Invoke(drawer, new object[] { colonist, corners });
-            }
-            else
+            if (WorldRendererUtility.WorldSelected)
             {
                 var caravan = CaravanUtility.GetCaravan(colonist);
                 if (caravan == null) return;
                 var worldSelector = Find.WorldSelector;
-                if (worldSelector != null && worldSelector.IsSelected(caravan))
-                    _drawCaravanSelectionOverlay?.Invoke(drawer,
-                        new object[] { caravan, corners });
+                if (worldSelector == null || !worldSelector.IsSelected(caravan)) return;
+
+                DrawSelectionOverlay(_drawCaravanSelectionOverlay, drawer, caravan, corners);
+                return;
+            }
+
+            DrawSelectionOverlay(_drawSelectionOverlay, drawer, colonist, corners);
+        }
+
+        static void DrawSelectionOverlay(MethodInfo method, ColonistBarColonistDrawer drawer,
+            object target, Rect corners)
+        {
+            var oldColor = GUI.color;
+            GUI.color = new Color(oldColor.r, oldColor.g, oldColor.b, SelectionAlpha);
+            try
+            {
+                method?.Invoke(drawer, new object[] { target, corners });
+            }
+            finally
+            {
+                GUI.color = oldColor;
             }
         }
     }
