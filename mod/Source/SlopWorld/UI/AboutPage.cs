@@ -13,7 +13,7 @@ namespace SlopWorld
         public float ViewportMarginY = SlopWidgets.GapM;
         public float ContentPaddingX = 20f;
         public float ContentPaddingY = 16f;
-        public float HeroMargin = 24f;
+        public float HeroMargin = 36f;
         public float SectionMargin = 10f;
         public float SectionPadding = 7f;
         public float ColumnGap = SlopWidgets.GapL;
@@ -85,13 +85,13 @@ namespace SlopWorld
             new Credit("Rust", "daemon language", "https://www.rust-lang.org/"),
             new Credit("Alacritty Terminal", "terminal emulation", "https://alacritty.org/"),
             new Credit("Tokio", "async runtime", "https://tokio.rs/"),
-            new Credit("Rodio / CPAL / Symphonia", "audio playback and decoding", new[]
+            new Credit("Rodio / CPAL / Symphonia", "audio", new[]
             {
                 new CreditLink("Rodio", "https://github.com/RustAudio/rodio"),
                 new CreditLink("CPAL", "https://github.com/RustAudio/cpal"),
                 new CreditLink("Symphonia", "https://github.com/pdeljanov/Symphonia"),
             }),
-            new Credit("anyhow / futures / nix / regex / dirs", "support libraries", new[]
+            new Credit("anyhow / futures / nix / regex / dirs", "support", new[]
             {
                 new CreditLink("anyhow", "https://github.com/dtolnay/anyhow"),
                 new CreditLink("futures", "https://github.com/rust-lang/futures-rs"),
@@ -99,16 +99,16 @@ namespace SlopWorld
                 new CreditLink("regex", "https://github.com/rust-lang/regex"),
                 new CreditLink("dirs", "https://github.com/dirs-dev/dirs-rs"),
             }),
-            new Credit("Axum", "HTTP and WebSocket server", "https://github.com/tokio-rs/axum"),
+            new Credit("Axum", "HTTP/WebSocket server", "https://github.com/tokio-rs/axum"),
             new Credit("Tower HTTP", "HTTP middleware", "https://github.com/tower-rs/tower-http"),
-            new Credit("Tracing", "structured diagnostics", "https://github.com/tokio-rs/tracing"),
-            new Credit("Serde / TOML / JSON", "serialization and configuration", new[]
+            new Credit("Tracing", "diagnostics", "https://github.com/tokio-rs/tracing"),
+            new Credit("Serde / TOML / JSON", "serde and configs", new[]
             {
                 new CreditLink("Serde", "https://serde.rs/"),
                 new CreditLink("TOML", "https://github.com/toml-rs/toml"),
                 new CreditLink("JSON", "https://github.com/serde-rs/json"),
             }),
-            new Credit("ureq / rustls", "HTTP clients and TLS", new[]
+            new Credit("ureq / rustls", "HTTP and TLS", new[]
             {
                 new CreditLink("ureq", "https://github.com/algesten/ureq"),
                 new CreditLink("rustls", "https://github.com/rustls/rustls"),
@@ -123,13 +123,13 @@ namespace SlopWorld
 
         static readonly Credit[] Assets =
         {
-            new Credit("Codicons", "Microsoft / VS Code action icons",
+            new Credit("Codicons", "action icons",
                 "https://github.com/microsoft/vscode-codicons"),
-            new Credit("Nerd Fonts", "Codicons-patched build font",
+            new Credit("Nerd Fonts", "build font",
                 "https://www.nerdfonts.com/"),
-            new Credit("Material Icon Theme", "Material Extensions file icons",
+            new Credit("Material Icon Theme", "file icons",
                 "https://github.com/material-extensions/vscode-material-icon-theme"),
-            new Credit("Noto Color Emoji", "Google radio and rose artwork",
+            new Credit("Noto Color Emoji", "emojis",
                 "https://github.com/googlefonts/noto-emoji"),
         };
 
@@ -337,7 +337,6 @@ namespace SlopWorld
                 "https://rimworldgame.com/", RegularFont);
             y = InlineLinkLine(r, y, "", "Harmony mod by Andreas Pardeike", "",
                 "https://github.com/pardeike/HarmonyRimWorld", RegularFont);
-            y = InlineLinkLine(r, y, "", "Unity", "", "https://unity.com/", RegularFont);
 
             y = NextSection(r, y);
             y = SectionHeading(r, y, "Libraries");
@@ -362,8 +361,8 @@ namespace SlopWorld
 
             y = NextSection(r, y);
             y = Paragraph(r, y,
-                "SlopWorld is an independent project and is not affiliated with or endorsed " +
-                "by the games, vendors, projects, or services named above.",
+                "SlopWorld is an independent project not affiliated with or endorsed " +
+                "by anyone except me and friends.",
                 RegularFont, SlopWidgets.Dim, TextAnchor.UpperCenter,
                 Layout.BodyTextSize);
 
