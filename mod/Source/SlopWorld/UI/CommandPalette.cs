@@ -799,6 +799,13 @@ namespace SlopWorld
             });
             _commands.Add(new Entry
             {
+                Id = "view.command-presets",
+                Name = "Settings: Commands - Presets",
+                Category = "Settings",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.CommandPresetsCategory),
+            });
+            _commands.Add(new Entry
+            {
                 Id = "config.toml",
                 Name = "Configuration: Edit config.toml",
                 Category = "Configuration",
@@ -846,6 +853,13 @@ namespace SlopWorld
                 Name = "Settings: Audio",
                 Category = "Settings",
                 Execute = _ => SlopOptions.OpenCategory(SlopOptions.AudioCategory),
+            });
+            _commands.Add(new Entry
+            {
+                Id = "view.integrations",
+                Name = "Settings: Integrations",
+                Category = "Settings",
+                Execute = _ => SlopOptions.OpenCategory(SlopOptions.IntegrationsCategory),
             });
             _commands.Add(new Entry
             {

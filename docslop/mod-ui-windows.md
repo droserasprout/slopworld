@@ -8,7 +8,9 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   preset or literal command; an empty command uses `[defaults] agent`, and the resolved
   default is never saved. `EditProjectDialog` previews the resolved sandbox.
 - `PresetList` groups daemon presets, refreshes on open, and locks required entries.
-  `SandboxPage` edits copied/user presets; builtins are read-only until copied.
+  `Sandbox` edits copied/user sandbox presets; builtins are read-only until copied.
+  `Commands > Presets` edits the daemon's command definitions, which choose the sandbox
+  presets an agent receives.
 - `SlopConfirmDialog` and `SlopAlertDialog` own mod message surfaces instead of vanilla
   message boxes. They use the shared window/buttons and wrapped text; confirmations retain
   `OpenOverPane` layering and mark destructive actions with the danger button.
@@ -16,9 +18,10 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   owns the agent/shell preset defaults plus pager, editor, highlighter and URL opener
   templates. Undrawn daemon fields survive serialization. `StoragePage` inventories
   private state and owns reset/restore/delete actions.
-- `UsagePage` owns quota credentials, switches and polling; icon choices and left/spent
-  display remain mod settings and work offline. `SummariesPage` edits Codex/Pi title
-  policy; its OpenRouter key stays on Usage. Appearance is a heading with `Interface`
+- `IntegrationsPage` owns host-side credential paths. `UsagePage` owns provider switches,
+  quota polling and icon rows; left/spent display remains a mod setting and works offline.
+  `SummariesPage` edits Codex/Pi title policy and uses the OpenRouter key from Integrations.
+  Appearance is a heading with `Interface`
   and `Terminal` children: `AppearancePage` owns global scale, scheme, font and cursor,
   while `TerminalPage` owns pane font, theme and cursor color. Scale applies on release
   because live scaling moves the slider.
@@ -31,7 +34,8 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
 One prefix draws categories and one dispatches pages; unknown categories fall through
 to vanilla. Children indent and an empty parent opens its first child.
 
-Rows use `Round(LineH * 1.5)` plus `GapXS`; icons are capped at 20px. Vanilla passes
+Rows use `Round(LineH * 1.4)` plus `GapXS`; child rows use `Round(LineH * 1.15)`;
+icons are capped at 18px. Vanilla passes
 rows at `i * 50`, so `Slot` recovers the index and re-lays them. `MenuRowH` is a
 separate 22px floor for rows containing a tick box.
 

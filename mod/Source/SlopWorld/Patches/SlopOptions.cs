@@ -32,13 +32,14 @@ namespace SlopWorld
         // at startup.
         static readonly List<Tab> Column = new List<Tab>();
 
-        static Tab _config, _commands, _storage, _terminal, _appearance, _appearanceInterface,
-                   _audio, _integrations,
+        static Tab _config, _commands, _commandPresets, _storage, _terminal, _appearance,
+                   _appearanceInterface, _audio, _integrations,
                    _usage, _summaries, _sandbox, _keyboard, _rimworld,
                    _graphics, _interface, _controls, _about;
 
         public static OptionCategoryDef Category => _config?.Def;
         public static OptionCategoryDef CommandsCategory => _commands?.Def;
+        public static OptionCategoryDef CommandPresetsCategory => _commandPresets?.Def;
         public static OptionCategoryDef StorageCategory => _storage?.Def;
         public static OptionCategoryDef TerminalCategory => _terminal?.Def;
         public static OptionCategoryDef AppearanceCategory => _appearance?.Def;
@@ -59,10 +60,12 @@ namespace SlopWorld
         // time - is re-read rather than remembered.
         static ConfigPage _page;
         static CommandsPage _commandsPage;
+        static SandboxPage _commandPresetsPage;
         static StoragePage _storagePage;
         static TerminalPage _terminalPage;
         static AppearancePage _appearancePage;
         static AudioPage _audioPage;
+        static IntegrationsPage _integrationsPage;
         static UsagePage _usagePage;
         static SummariesPage _summariesPage;
         static SandboxPage _sandboxPage;
@@ -83,6 +86,8 @@ namespace SlopWorld
             _config = Add("SlopWorld_Config", "General", general, () => Icons.Gear, DrawConfig);
             _commands = Add("SlopWorld_Commands", "Commands", general, () => Icons.Terminal,
                 DrawCommands);
+            _commandPresets = Add("SlopWorld_CommandPresets", "Presets", general, null,
+                DrawCommandPresets, _commands);
             _storage = Add("SlopWorld_Storage", "Storage", general, () => Icons.Files,
                 DrawStorage);
             _appearance = Add("SlopWorld_Appearance", "Appearance", general, () => Icons.Type,
@@ -93,7 +98,7 @@ namespace SlopWorld
                 _appearance);
             _audio = Add("SlopWorld_Audio", "Audio", general, () => Icons.Bell, DrawAudio);
             _integrations = Add("SlopWorld_Integrations", "Integrations", general,
-                () => Icons.Usage, null);
+                () => Icons.Usage, DrawIntegrations);
             _usage = Add("SlopWorld_Usage", "Usage", general, null, DrawUsage, _integrations);
             _summaries = Add("SlopWorld_Summaries", "Summaries", general, null, DrawSummaries,
                 _integrations);
@@ -217,6 +222,16 @@ namespace SlopWorld
             _commandsPage.Draw(r);
         }
 
+        static void DrawCommandPresets(Rect r)
+        {
+            if (_commandPresetsPage == null)
+            {
+                _commandPresetsPage = new SandboxPage(SandboxPage.Section.Commands);
+                _commandPresetsPage.Load();
+            }
+            _commandPresetsPage.Draw(r);
+        }
+
         static void DrawTerminal(Rect r)
         {
             if (_terminalPage == null) _terminalPage = new TerminalPage();
@@ -233,6 +248,16 @@ namespace SlopWorld
         {
             if (_audioPage == null) _audioPage = new AudioPage();
             _audioPage.Draw(r);
+        }
+
+        static void DrawIntegrations(Rect r)
+        {
+            if (_integrationsPage == null)
+            {
+                _integrationsPage = new IntegrationsPage();
+                _integrationsPage.Load();
+            }
+            _integrationsPage.Draw(r);
         }
 
         static void DrawUsage(Rect r)
@@ -259,7 +284,7 @@ namespace SlopWorld
         {
             if (_sandboxPage == null)
             {
-                _sandboxPage = new SandboxPage();
+                _sandboxPage = new SandboxPage(SandboxPage.Section.Presets);
                 _sandboxPage.Load();
             }
             _sandboxPage.Draw(r);
@@ -270,7 +295,7 @@ namespace SlopWorld
             if (SandboxCategory == null) return;
             if (_sandboxPage == null)
             {
-                _sandboxPage = new SandboxPage();
+                _sandboxPage = new SandboxPage(SandboxPage.Section.Presets);
                 _sandboxPage.Load();
             }
             _sandboxPage.NewPreset();
@@ -279,14 +304,14 @@ namespace SlopWorld
 
         public static void OpenNewCommand()
         {
-            if (SandboxCategory == null) return;
-            if (_sandboxPage == null)
+            if (CommandPresetsCategory == null) return;
+            if (_commandPresetsPage == null)
             {
-                _sandboxPage = new SandboxPage();
-                _sandboxPage.Load();
+                _commandPresetsPage = new SandboxPage(SandboxPage.Section.Commands);
+                _commandPresetsPage.Load();
             }
-            _sandboxPage.NewCommand();
-            OpenCategory(SandboxCategory);
+            _commandPresetsPage.NewCommand();
+            OpenCategory(CommandPresetsCategory);
         }
 
         static void DrawKeyboard(Rect r)
@@ -367,19 +392,22 @@ namespace SlopWorld
         {
             if (_page != null) _page.Load();
             if (_commandsPage != null) _commandsPage.Load();
+            if (_integrationsPage != null) _integrationsPage.Load();
             if (_storagePage != null) _storagePage.Load();
             if (_usagePage != null) _usagePage.Load();
             if (_summariesPage != null) _summariesPage.Load();
             if (_sandboxPage != null) _sandboxPage.Load();
+            if (_commandPresetsPage != null) _commandPresetsPage.Load();
         }
 
         // Drop page instances and persist settings when the view/window closes.
         public static void Teardown()
         {
-            _page = null; _commandsPage = null; _storagePage = null; _terminalPage = null;
+            _page = null; _commandsPage = null; _commandPresetsPage = null;
+            _storagePage = null; _terminalPage = null;
             _appearancePage = null;
             _audioPage = null;
-            _usagePage = null; _summariesPage = null;
+            _integrationsPage = null; _usagePage = null; _summariesPage = null;
             _sandboxPage = null; _aboutPage = null; _keyBindingsPage = null;
             SlopWorldMod.Instance.settings.Write();
         }
@@ -417,13 +445,13 @@ namespace SlopWorld
         const float VanillaInset = 4f;
 
         // Vanilla reserves a 50px pitch, so top-level rows use the larger computed pitch.
-        static float RowH => Mathf.Round(SlopWidgets.LineH * 1.5f);
-        static float NestedRowH => Mathf.Round(SlopWidgets.LineH * 1.25f);
+        static float RowH => Mathf.Round(SlopWidgets.LineH * 1.4f);
+        static float NestedRowH => Mathf.Round(SlopWidgets.LineH * 1.15f);
         static float Pitch => RowH + SlopWidgets.GapXS;
         static float NestedPitch => NestedRowH + SlopWidgets.GapXS;
 
         // Limit the icon box to the row height.
-        static float IconBox => Mathf.Min(20f, RowH - 6f);
+        static float IconBox => Mathf.Min(18f, RowH - 6f);
         static float LabelX => RowPadX + IconBox + IconGap;
 
         // Recover the vanilla row index from r.y and recompute the compact row rectangle.

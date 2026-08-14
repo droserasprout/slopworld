@@ -5,9 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The title policies and models the daemon summarises prompts with - see
-    // docslop/agent-titles.md. A child tab of Integrations, beside Usage, because the
-    // request is an OpenRouter call that no quota poll is involved in.
+    // Title policies and models; see docslop/agent-titles.md.
     public class SummariesPage
     {
         SlopConfig _cfg;
@@ -91,9 +89,8 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "Both");
-            Note(l, "At most 2,000 characters of each eligible prompt are sent to OpenRouter. " +
-                    "The key is the one on the Usage tab, or $OPENROUTER_API_KEY; a summary " +
-                    "is independent of the credit-balance poll there.");
+            Note(l, "Up to 2,000 characters of each prompt go to OpenRouter. Summaries do not " +
+                    "depend on credit polling.");
 
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
@@ -108,8 +105,6 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        // Read by the Integrations page as well, which says what these are set to without
-        // offering the menu.
         public static string PolicyLabel(string policy)
         {
             switch (policy)
