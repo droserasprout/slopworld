@@ -62,7 +62,7 @@ namespace SlopWorld
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     "Name sessions: " + PolicyLabel(_cfg.AgentTitles)))
                 OpenPolicyMenu(false);
-            Note(l, "Names a Codex session from its submitted prompt.");
+            SlopWidgets.Note(l, "Names a Codex session from its submitted prompt.");
 
             if (_cfg.AgentTitles != "never")
             {
@@ -76,7 +76,7 @@ namespace SlopWorld
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     "Name sessions: " + PolicyLabel(_cfg.PiTitles)))
                 OpenPolicyMenu(true);
-            Note(l, "Pi defaults to every prompt. The daemon applies this setting before input " +
+            SlopWidgets.Note(l, "Pi defaults to every prompt. The daemon applies this setting before input " +
                     "reaches Pi, so it takes effect in the current session.");
 
             if (_cfg.PiTitles != "never")
@@ -89,7 +89,7 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "Both");
-            Note(l, "Up to 2,000 characters of each prompt go to OpenRouter. Summaries do not " +
+            SlopWidgets.Note(l, "Up to 2,000 characters of each prompt go to OpenRouter. Summaries do not " +
                     "depend on credit polling.");
 
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
@@ -98,12 +98,6 @@ namespace SlopWorld
             _scroll.End();
         }
 
-        static void Note(Listing_Standard l, string text)
-        {
-            GUI.color = SlopWidgets.Dim;
-            l.Label(text);
-            GUI.color = Color.white;
-        }
 
         public static string PolicyLabel(string policy)
         {

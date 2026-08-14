@@ -69,7 +69,7 @@ namespace SlopWorld
             l.Label("Key file");
             _cfg.OpenrouterKeyFile = SlopWidgets.Field(l, "integrations.openrouter.key",
                 _cfg.OpenrouterKeyFile);
-            Note(l, "Blank uses $OPENROUTER_API_KEY. The key stays on the host.");
+            SlopWidgets.Note(l, "Blank uses $OPENROUTER_API_KEY. The key stays on the host.");
 
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "OpenAI / Codex");
@@ -79,18 +79,11 @@ namespace SlopWorld
                 _cfg.OpenaiCredentials);
 
             l.Gap(SlopWidgets.GapL);
-            Note(l, "Credential files stay on the host.");
+            SlopWidgets.Note(l, "Credential files stay on the host.");
 
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
             _scroll.End();
-        }
-
-        static void Note(Listing_Standard l, string text)
-        {
-            GUI.color = SlopWidgets.Dim;
-            l.Label(text);
-            GUI.color = Color.white;
         }
 
         void DoFooter(Rect bar)

@@ -61,6 +61,7 @@ namespace SlopWorld
                     {
                         s.fontName = "";
                         TerminalFont.Invalidate();
+                        s.MarkDirty();
                     }),
                 };
                 foreach (var name in TerminalFont.Mono)
@@ -70,6 +71,7 @@ namespace SlopWorld
                     {
                         s.fontName = picked;
                         TerminalFont.Invalidate();
+                        s.MarkDirty();
                     }));
                 }
                 Find.WindowStack.Add(new SlopMenu(opts));
@@ -82,6 +84,7 @@ namespace SlopWorld
             {
                 s.fontSize = size;
                 TerminalFont.Invalidate();
+                s.MarkDirty();
             }
 
             l.Gap(SlopWidgets.GapM);
@@ -92,6 +95,7 @@ namespace SlopWorld
                     {
                         s.theme = t.Name;
                         TerminalTheme.Invalidate();
+                        s.MarkDirty();
                     }))
                     .ToList()));
 
@@ -99,7 +103,9 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapM);
             l.Label("Cursor color, #rrggbb (blank = the scheme's)");
+            string prevColor = s.cursorColor;
             s.cursorColor = SlopWidgets.Field(l, "term.cursor", s.cursorColor ?? "");
+            if (s.cursorColor != prevColor) s.MarkDirty();
 
             // Said rather than corrected: a half-typed "#8" is not a mistake yet, and a field
             // that rewrote itself under the cursor would be unusable.

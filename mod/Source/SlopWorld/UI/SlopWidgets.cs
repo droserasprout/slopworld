@@ -551,6 +551,13 @@ namespace SlopWorld
         public static void SectionHeading(Listing_Standard l, string text) =>
             SectionHeading(l.GetRect(RowH), text);
 
+        public static void Note(Listing_Standard l, string text)
+        {
+            GUI.color = Dim;
+            l.Label(text);
+            GUI.color = Color.white;
+        }
+
         public struct Bar
         {
             Rect _r;

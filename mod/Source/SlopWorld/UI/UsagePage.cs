@@ -127,13 +127,13 @@ namespace SlopWorld
                 Settings.UsageSpent);
             if (spent != Settings.UsageSpent)
                 Settings.S.usageSpent = spent;
-            Note(l, "Applies to every provider. Left is the amount remaining; spent is the " +
+            SlopWidgets.Note(l, "Applies to every provider. Left is the amount remaining; spent is the " +
                     "provider-facing percentage or amount used.");
 
             l.Gap(SlopWidgets.GapM);
             l.Label("Poll interval (s)");
             _pollSecs = SlopWidgets.Field(l, "usage.poll", _pollSecs);
-            Note(l, "A failed poll backs off on its own, doubling to half an hour, and each " +
+            SlopWidgets.Note(l, "A failed poll backs off on its own, doubling to half an hour, and each " +
                     "seller keeps its own place in that queue: one being down never takes " +
                     "the other's numbers off the screen.");
 
@@ -143,12 +143,6 @@ namespace SlopWorld
             _scroll.End();
         }
 
-        static void Note(Listing_Standard l, string text)
-        {
-            GUI.color = SlopWidgets.Dim;
-            l.Label(text);
-            GUI.color = Color.white;
-        }
 
         // ------------------------------------------------------------------ icon row
 
