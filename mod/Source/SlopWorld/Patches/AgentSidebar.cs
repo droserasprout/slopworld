@@ -940,7 +940,7 @@ namespace SlopWorld
                         continue;
                     }
 
-                    DrawStateBadge(row.Face, state);
+                    DrawStateBadge(row.Face, row.Text, state);
 
                     Text.Font = GameFont.Small;
                     var name = new Rect(row.Text.x, row.Text.y, row.Text.width, NameH);
@@ -995,9 +995,9 @@ namespace SlopWorld
 
         static string Word(AgentState state) => state.ToString().ToLower();
 
-        // Draw the status badge in the front pass at the portrait's lower corner, not the cell's;
-        // the dark ring keeps it legible over hair and clothing.
-        static void DrawStateBadge(Rect face, AgentState state)
+        // Draw the status badge at the portrait's right edge, vertically aligned with the
+        // third text line; the dark ring keeps it legible over hair and clothing.
+        static void DrawStateBadge(Rect face, Rect text, AgentState state)
         {
             if (face.width <= 0f) return;
 
@@ -1005,7 +1005,7 @@ namespace SlopWorld
                 Mathf.Round(face.width * BadgeShare));
             var portrait = Patch_SidebarPortraitDraw.PortraitRect(face);
             var center = new Vector2(portrait.xMax - d / 2f - BadgeInset,
-                portrait.yMax - d / 2f - BadgeInset);
+                text.y + NameH + SubH * 1.5f + 3f);
 
             GUI.color = SlopWidgets.ViewBg;
             GUI.DrawTexture(Icons.DotBox(center, d + BadgeRing * 2f), Icons.Dot);
