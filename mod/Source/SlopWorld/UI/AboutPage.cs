@@ -85,15 +85,23 @@ namespace SlopWorld
             new Credit("Rust", "daemon language", "https://www.rust-lang.org/"),
             new Credit("Alacritty Terminal", "terminal emulation", "https://alacritty.org/"),
             new Credit("Tokio", "async runtime", "https://tokio.rs/"),
-            new Credit("Axum", "HTTP and WebSocket server", "https://github.com/tokio-rs/axum"),
-            new Credit("Tower HTTP", "HTTP middleware", "https://github.com/tower-rs/tower-http"),
-            new Credit("Tracing", "structured diagnostics", "https://github.com/tokio-rs/tracing"),
             new Credit("Rodio / CPAL / Symphonia", "audio playback and decoding", new[]
             {
                 new CreditLink("Rodio", "https://github.com/RustAudio/rodio"),
                 new CreditLink("CPAL", "https://github.com/RustAudio/cpal"),
                 new CreditLink("Symphonia", "https://github.com/pdeljanov/Symphonia"),
             }),
+            new Credit("anyhow / futures / nix / regex / dirs", "support libraries", new[]
+            {
+                new CreditLink("anyhow", "https://github.com/dtolnay/anyhow"),
+                new CreditLink("futures", "https://github.com/rust-lang/futures-rs"),
+                new CreditLink("nix", "https://github.com/nix-rust/nix"),
+                new CreditLink("regex", "https://github.com/rust-lang/regex"),
+                new CreditLink("dirs", "https://github.com/dirs-dev/dirs-rs"),
+            }),
+            new Credit("Axum", "HTTP and WebSocket server", "https://github.com/tokio-rs/axum"),
+            new Credit("Tower HTTP", "HTTP middleware", "https://github.com/tower-rs/tower-http"),
+            new Credit("Tracing", "structured diagnostics", "https://github.com/tokio-rs/tracing"),
             new Credit("Serde / TOML / JSON", "serialization and configuration", new[]
             {
                 new CreditLink("Serde", "https://serde.rs/"),
@@ -104,14 +112,6 @@ namespace SlopWorld
             {
                 new CreditLink("ureq", "https://github.com/algesten/ureq"),
                 new CreditLink("rustls", "https://github.com/rustls/rustls"),
-            }),
-            new Credit("anyhow / futures / nix / regex / dirs", "support libraries", new[]
-            {
-                new CreditLink("anyhow", "https://github.com/dtolnay/anyhow"),
-                new CreditLink("futures", "https://github.com/rust-lang/futures-rs"),
-                new CreditLink("nix", "https://github.com/nix-rust/nix"),
-                new CreditLink("regex", "https://github.com/rust-lang/regex"),
-                new CreditLink("dirs", "https://github.com/dirs-dev/dirs-rs"),
             }),
             new Credit("tmux / bubblewrap / systemd", "sessions, isolation and service", new[]
             {
@@ -338,6 +338,10 @@ namespace SlopWorld
         {
             float y = r.y;
 
+            y = Line(r, y, "SlopWorld", GameFont.Medium, SlopWidgets.Lead,
+                TextAnchor.UpperCenter, Layout.TitleTextSize);
+            y += Layout.HeroMargin;
+
             y = SectionHeading(r, y, "Created by");
             y += Layout.ColumnPadding;
             y = InlineLinkLine(r, y, "Lev Gorodetskii (", "hire him!", ")",
@@ -401,7 +405,7 @@ namespace SlopWorld
         {
             float gap = Layout.ColumnGap;
             float columnWidth = Mathf.Max(1f, (rect.width - gap) / 2f);
-            int split = (credits.Length + 1) / 2;
+            int split = credits.Length / 2;
             var left = new Rect(rect.x, y, columnWidth, 1f);
             var right = new Rect(rect.x + columnWidth + gap, y, columnWidth, 1f);
             float leftHeight = CreditColumn(left, credits, 0, split);
@@ -437,7 +441,6 @@ namespace SlopWorld
             var detail = new Rect(rect.x, y, Mathf.Max(1f, half - middleGap), nameHeight);
             var name = new Rect(rect.x + half + middleGap, y,
                 Mathf.Max(1f, half - middleGap), nameHeight);
-            float detailLine = SlopWidgets.LineHOf(GameFont.Small);
 
             // Each half has its own axis: descriptions close against the axis from the
             // left, while the linked credit name opens away from it on the right. Roles
