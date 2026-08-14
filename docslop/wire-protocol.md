@@ -42,7 +42,8 @@ replacement tree.
 `POST /api/run` creates an unnamed errand. `host` runs outside bwrap with the tmux
 environment plus `TERM`, `COLORTERM` and `SLOPWORLD_*`; it is runtime state, not a
 config option. An empty shell command uses slopd's `$SHELL`; other empty commands are
-invalid. Files actions normalize their selected path before execution. Empty host
+invalid. Files actions normalize and expand their absolute path placeholder before execution. A file
+action terminal keeps an interactive shell after the command exits. Empty host
 labels are generated from project and shell, for example `slopworld-zsh`.
 
 ## Browse, Files, Git and Search
