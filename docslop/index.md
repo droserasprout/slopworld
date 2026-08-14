@@ -20,6 +20,8 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [daemon-projects](daemon-projects.md) - projects and sessions in `config.toml`.
 - [daemon-presets](daemon-presets.md) - the preset tables and the sandbox argv.
 - [sandbox-isolation](sandbox-isolation.md) - the bind guard, private state, marked ways out.
+- [sandbox-blast-radius](sandbox-blast-radius.md) - what an agent can and cannot delete of its own `$HOME`.
+- [known-limitations](known-limitations.md) - network handover hangs and their safe recovery.
 - [daemon-shortcuts](daemon-shortcuts.md) - errands, ephemeral agents, delivery.
 - [daemon-session-state](daemon-session-state.md) - state classification, clocks, the emulator.
 - [agent-titles](agent-titles.md) - planned prompt summaries: never/once/always and conversation boundaries.

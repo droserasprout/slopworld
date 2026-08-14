@@ -419,7 +419,12 @@ pub fn purge_trash() -> Result<usize> {
     let now = std::time::SystemTime::now();
     let mut purged = 0;
     for entry in entries.flatten() {
-        let Ok(meta) = entry.metadata() else { continue };
+        // Not `entry.metadata()`, which follows the link: a symlink here would be read as the
+        // directory it points at and then fail `remove_dir_all`, so it could never age out.
+        // The rest of this module stats trash the same way.
+        let Ok(meta) = std::fs::symlink_metadata(entry.path()) else {
+            continue;
+        };
         let Ok(modified) = meta.modified() else {
             continue;
         };
