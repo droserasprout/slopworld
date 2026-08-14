@@ -27,6 +27,17 @@ For SlopWorld: no, it only uses the core game assets. But if you play RimWorld, 
 
 ## Security
 
+### Is it safe?
+
+No. [link to sandboxing]
+
+### How can I go yolo?
+
+- Codex: user command preset "codex --yolo"
+- Claude: semi-yolo by-default since [release].
+
+TODO: yolo tab in settings to send Shift+Tab to fresh claude sessions (maybe it's in cli options?)
+
 ## "AI policy"
 
 ### Is this project vibecode?
