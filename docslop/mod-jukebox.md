@@ -52,6 +52,7 @@ opens it as a directory and plays a non-repeating shuffled bag. `Songs.xml` keep
 matching `SlopWorld_` defs because the vanilla-song patch expects them.
 `split_ost.py` stages exports; `install_ost.py` installs them and updates the catalog.
 
-Like appends normalized `artist - title` lines to
-`$XDG_DATA_HOME/slopworld/jukebox.toml`. The map texture is generated with
+Like appends `ISO-8601 UTC timestamp<TAB>artist - title` lines to
+`$XDG_DATA_HOME/slopworld/jukebox.toml`; Storage settings has a button to open it in the
+configured editor. The map texture is generated with
 `tools/emoji.py`; it is unrelated to station configuration.

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEngine;
 using Verse;
@@ -37,6 +38,7 @@ namespace SlopWorld
         bool _loading;
 
         const float Pitch = 58f;
+        const float LikesIconW = 22f;
 
         public void Load()
         {
@@ -56,7 +58,19 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            SlopWidgets.PageCaption(rect, "Private state storage");
+            var caption = new Rect(rect.x, rect.y,
+                Mathf.Max(0f, rect.width - LikesIconW - SlopWidgets.GapS), SlopWidgets.RowH);
+            SlopWidgets.PageCaption(caption, "Private state storage");
+
+            var likes = new Rect(rect.xMax - LikesIconW,
+                rect.y + (SlopWidgets.RowH - LikesIconW) / 2f, LikesIconW, LikesIconW);
+            if (Mouse.IsOver(likes)) Slab.Fill(likes, SlopWidgets.Hover);
+            var was = GUI.color;
+            GUI.color = Mouse.IsOver(likes) ? Color.white : SlopWidgets.Dim;
+            Widgets.ThingIcon(likes, SlopDefOf.SlopJukebox);
+            GUI.color = was;
+            TooltipHandler.TipRegion(likes, "Open liked songs in an editor.");
+            if (Widgets.ButtonInvisible(likes)) EditLikes();
 
             var body = SlopWidgets.PageBody(rect);
             SlopWidgets.Card(body);
@@ -91,6 +105,21 @@ namespace SlopWorld
                 GUI.color = SlopWidgets.Bad;
                 SlopWidgets.RowLabel(foot.Rest(), _error);
                 GUI.color = Color.white;
+            }
+        }
+
+        static void EditLikes()
+        {
+            try
+            {
+                string path = Radio.LikesPath();
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                FilesView.EditFile(null, path, "edit-jukebox.toml");
+            }
+            catch (Exception e)
+            {
+                Log.Error("[SlopWorld] jukebox: could not open liked songs: " + e);
+                SlopWidgets.Fail("could not open liked songs");
             }
         }
 
