@@ -36,39 +36,34 @@ namespace SlopWorld
     // Credits-style page with local primitives that match the shared settings chrome.
     public class AboutPage
     {
+        const GameFont RegularFont = GameFont.Medium;
+
         sealed class Credit
         {
             public readonly string Name;
             public readonly string Detail;
             public readonly CreditLink[] Links;
-            public readonly string LinkSeparator;
 
             public Credit(string name, string detail)
             {
                 Name = name;
                 Detail = detail;
                 Links = new CreditLink[0];
-                LinkSeparator = " / ";
             }
 
             public Credit(string name, string detail, string url)
             {
                 Name = name;
                 Detail = detail;
-                LinkSeparator = " / ";
                 Links = string.IsNullOrEmpty(url)
                     ? new CreditLink[0]
                     : new[] { new CreditLink(name, url) };
             }
 
             public Credit(string name, string detail, CreditLink[] links)
-                : this(name, detail, links, " / ") { }
-
-            public Credit(string name, string detail, CreditLink[] links, string linkSeparator)
             {
                 Name = name;
                 Detail = detail;
-                LinkSeparator = linkSeparator ?? " / ";
                 Links = links ?? new CreditLink[0];
             }
         }
@@ -136,7 +131,6 @@ namespace SlopWorld
                 "https://github.com/material-extensions/vscode-material-icon-theme"),
             new Credit("Noto Color Emoji", "Google radio and rose artwork",
                 "https://github.com/googlefonts/noto-emoji"),
-            new Credit("SlopWorld robot faceplate", "original SlopWorld artwork"),
         };
 
         static readonly Credit Soundtrack = new Credit("Terry Fail", "Soundtrack",
@@ -147,7 +141,7 @@ namespace SlopWorld
             {
                 new CreditLink("Strudel", "https://strudel.cc/"),
                 new CreditLink("Bitwig Studio", "https://www.bitwig.com/"),
-            }, ", ");
+            });
 
         const float AutoScrollSpeed = 7f;
         const float FirstPassHeight = 2000f;
@@ -347,16 +341,16 @@ namespace SlopWorld
             y = SectionHeading(r, y, "Created by");
             y += Layout.ColumnPadding;
             y = InlineLinkLine(r, y, "Lev Gorodetskii (", "hire him!", ")",
-                "mailto:job@drsr.io", GameFont.Small);
+                "mailto:job@drsr.io", RegularFont);
 
             y = NextSection(r, y);
             y = SectionHeading(r, y, "Based on");
             y += Layout.ColumnPadding;
             y = InlineLinkLine(r, y, "", "RimWorld by Ludeon", "",
-                "https://rimworldgame.com/", GameFont.Small);
+                "https://rimworldgame.com/", RegularFont);
             y = InlineLinkLine(r, y, "", "Harmony mod by Andreas Pardeike", "",
-                "https://github.com/pardeike/HarmonyRimWorld", GameFont.Small);
-            y = InlineLinkLine(r, y, "", "Unity", "", "https://unity.com/", GameFont.Small);
+                "https://github.com/pardeike/HarmonyRimWorld", RegularFont);
+            y = InlineLinkLine(r, y, "", "Unity", "", "https://unity.com/", RegularFont);
 
             y = NextSection(r, y);
             y = SectionHeading(r, y, "Libraries");
@@ -377,13 +371,13 @@ namespace SlopWorld
             y = NextSection(r, y);
             y = SectionHeading(r, y, "Assets");
             y += Layout.ColumnHeadingPadding;
-            y = CreditGrid(r, y, Assets);
+            y = CreditList(r, y, Assets);
 
             y = NextSection(r, y);
             y = Paragraph(r, y,
                 "SlopWorld is an independent project and is not affiliated with or endorsed " +
                 "by the games, vendors, projects, or services named above.",
-                GameFont.Small, SlopWidgets.Dim, TextAnchor.UpperCenter,
+                RegularFont, SlopWidgets.Dim, TextAnchor.UpperCenter,
                 Layout.BodyTextSize);
 
             // Leave a tail after the final line so it can reach the bottom of the viewport.
@@ -415,6 +409,14 @@ namespace SlopWorld
             return y + Mathf.Max(leftHeight, rightHeight);
         }
 
+        float CreditList(Rect rect, float y, Credit[] credits)
+        {
+            for (int i = 0; i < credits.Length; i++)
+                y = CreditRow(rect, y, credits[i]);
+
+            return y;
+        }
+
         float CreditColumn(Rect rect, Credit[] credits, int start, int end)
         {
             float top = rect.y;
@@ -427,31 +429,37 @@ namespace SlopWorld
 
         float CreditRow(Rect rect, float y, Credit credit)
         {
-            Text.Font = GameFont.Small;
-            float line = SlopWidgets.LineH;
+            Text.Font = RegularFont;
+            float line = SlopWidgets.LineHOf(RegularFont);
+            float nameHeight = line * Mathf.Max(1, credit.Links.Length);
             float middleGap = SlopWidgets.GapXS;
             float half = rect.width / 2f;
-            var detail = new Rect(rect.x, y, Mathf.Max(1f, half - middleGap), line);
+            var detail = new Rect(rect.x, y, Mathf.Max(1f, half - middleGap), nameHeight);
             var name = new Rect(rect.x + half + middleGap, y,
-                Mathf.Max(1f, half - middleGap), line);
+                Mathf.Max(1f, half - middleGap), nameHeight);
+            float detailLine = SlopWidgets.LineHOf(GameFont.Small);
 
             // Each half has its own axis: descriptions close against the axis from the
-            // left, while the linked credit name opens away from it on the right.
-            Line(detail, y, credit.Detail, GameFont.Tiny, SlopWidgets.Dim,
+            // left, while the linked credit name opens away from it on the right. Roles
+            // stay aligned with the first member when a credit expands into a stack.
+            Line(detail, y, credit.Detail, GameFont.Small,
+                SlopWidgets.Dim,
                 TextAnchor.UpperRight, Layout.KickerTextSize);
             if (credit.Links.Length == 0)
-                Line(name, y, credit.Name, GameFont.Small, SlopWidgets.Name,
+                Line(name, y, credit.Name, RegularFont, SlopWidgets.Name,
                     TextAnchor.UpperLeft, Layout.CreditTextSize);
             else
                 CreditNameWithLinks(name, y, credit);
 
-            return y + line + Layout.CreditMargin;
+            return y + nameHeight + Layout.CreditMargin;
         }
 
         void CreditNameWithLinks(Rect rect, float y, Credit credit)
         {
+            Text.Font = RegularFont;
             float x = rect.x;
             float remaining = rect.width;
+            float line = SlopWidgets.LineHOf(RegularFont);
             for (int i = 0; i < credit.Links.Length; i++)
             {
                 var link = credit.Links[i];
@@ -459,20 +467,8 @@ namespace SlopWorld
                 float width = Mathf.Min(SlopWidgets.Wide(label), remaining);
                 if (width <= 0f) break;
 
-                LinkAt(new Rect(x, y, width, SlopWidgets.LineH), label, link.Url,
-                    GameFont.Small);
-                x += width;
-                remaining -= width;
-
-                if (i + 1 >= credit.Links.Length) continue;
-
-                string separator = credit.LinkSeparator;
-                float separatorWidth = Mathf.Min(SlopWidgets.Wide(separator), remaining);
-                if (separatorWidth <= 0f) break;
-                LabelAt(new Rect(x, y, separatorWidth, SlopWidgets.LineH), separator,
-                    GameFont.Small, SlopWidgets.Name);
-                x += separatorWidth;
-                remaining -= separatorWidth;
+                LinkAt(new Rect(x, y + i * line, width, line), label, link.Url,
+                    RegularFont);
             }
         }
 
@@ -483,7 +479,7 @@ namespace SlopWorld
             {
                 return Paragraph(rect, y,
                     "Radio stations are supplied by slopd and will appear when its catalog is " +
-                    "available.", GameFont.Small, SlopWidgets.Dim, TextAnchor.UpperCenter,
+                    "available.", RegularFont, SlopWidgets.Dim, TextAnchor.UpperCenter,
                     Layout.BodyTextSize);
             }
 
@@ -513,8 +509,8 @@ namespace SlopWorld
             string name = station?.Name ?? "Unknown station";
             string donate = station?.Metadata?.Donate;
             bool hasDonate = !string.IsNullOrWhiteSpace(donate);
-            Text.Font = GameFont.Small;
-            float line = SlopWidgets.LineH;
+            Text.Font = RegularFont;
+            float line = SlopWidgets.LineHOf(RegularFont);
             float nameWidth = SlopWidgets.Wide(name);
             const string heart = "♥";
             float heartWidth = hasDonate ? SlopWidgets.Wide(heart) : 0f;
@@ -524,11 +520,11 @@ namespace SlopWorld
                 ? rect.xMax - totalWidth
                 : rect.x;
 
-            LabelAt(new Rect(x, y, nameWidth, line), name, GameFont.Small,
+            LabelAt(new Rect(x, y, nameWidth, line), name, RegularFont,
                 SlopWidgets.Name);
             if (hasDonate)
                 LinkAt(new Rect(x + nameWidth + gap, y, heartWidth, line), heart, donate,
-                    GameFont.Small);
+                    RegularFont);
 
             return y + line + Layout.CreditMargin;
         }
