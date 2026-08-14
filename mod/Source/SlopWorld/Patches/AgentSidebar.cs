@@ -358,20 +358,22 @@ namespace SlopWorld
         public static void ShowGit() => Show(TabGit);
         public static void ShowShortcuts() => Show(TabShortcuts);
 
-        // The add control owns the panel foot, but stops before Grip: `Use` leaves `rawType`
-        // set, so overlap would resize and open the menu on one click.
+        // The visual rect fills the panel while its hit rect stops before Grip so one consumed click cannot resize and open the menu.
         public static Rect AddBar
         {
             get
             {
-                float y = UI.screenHeight - Pad - AddH;
-                return new Rect(0f, y, Mathf.Max(0f, Width - GripW), UI.screenHeight - y);
+                float y = UI.screenHeight - AddH;
+                return new Rect(0f, y, Width, AddH);
             }
         }
 
+        static Rect AddHitBar =>
+            new Rect(AddBar.x, AddBar.y, Mathf.Max(0f, Width - GripW), AddBar.height);
+
         public static Rect Body =>
             new Rect(0f, TabH, Width,
-                Mathf.Max(0f, UI.screenHeight - TabH - AddH - Pad * 2f));
+                Mathf.Max(0f, UI.screenHeight - TabH - AddH));
 
         public static List<string> Sessions()
         {
@@ -618,26 +620,9 @@ namespace SlopWorld
         static void BeginAgentScroll()
         {
             var body = Body;
-            bool scrolls = _agentContentH > body.height;
-            var view = new Rect(0f, 0f,
-                body.width - (scrolls ? SlopWidgets.ScrollbarW : 0f), _agentContentH);
-            if (scrolls)
-            {
-                for (int i = 0; i < Heads.Count; i++)
-                {
-                    var h = Heads[i];
-                    h.Rect.width = view.width;
-                    Heads[i] = h;
-                }
-                for (int i = 0; i < Rows.Count; i++)
-                {
-                    var row = Rows[i];
-                    row.Line.width = view.width;
-                    row.Text.width = Mathf.Max(0f, view.width - row.Text.x - Pad);
-                    Rows[i] = row;
-                }
-            }
-            AgentScroll.Begin(body, view, scrolls);
+            // The full-width view keeps SmoothScroll active while omitting the gutter that narrows every row.
+            var view = new Rect(0f, 0f, body.width, _agentContentH);
+            AgentScroll.Begin(body, view, false);
             _agentScrollOpen = true;
         }
 
@@ -755,9 +740,9 @@ namespace SlopWorld
             var r = AddBar;
             // Keep the button lit while its menu is stacked over the pane. The menu owns the
             // press, but the pointer is still visibly over the control that opened it.
-            bool over = ColonistBarStrip.MouseOver(r);
+            bool over = ColonistBarStrip.MouseOver(AddHitBar);
 
-            Slab.Fill(r, over ? SlopWidgets.Hover : SlopWidgets.ViewBg);
+            Slab.Fill(r, over ? SlopWidgets.Hover : SlopWidgets.Panel);
             TooltipHandler.TipRegion(r,
                 "Add a project, an agent, a shortcut, a sandbox preset, a command or a host shell");
             Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), SlopWidgets.Edge);
@@ -775,7 +760,7 @@ namespace SlopWorld
 
             var e = Event.current;
             if (e.rawType != EventType.MouseDown || e.button != 0) return false;
-            if (!ColonistBarStrip.MouseOver(AddBar)) return false;
+            if (!ColonistBarStrip.MouseOver(AddHitBar)) return false;
 
             e.Use();
 
@@ -1068,6 +1053,7 @@ namespace SlopWorld
                     DrawRows();
                     Patch_SidebarPortraitDraw.DrawDeferredSelection();
                     EndAgentScroll();
+                    DrawAgentShadow();
                     Absorb();
                     return;
                 }
@@ -1084,6 +1070,23 @@ namespace SlopWorld
                 Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = Color.white;
                 Drawing = false;
+            }
+        }
+
+        // A soft edge marks the fixed add strip over the scrolling body without reserving a scrollbar gutter.
+        static void DrawAgentShadow()
+        {
+            if (_agentContentH <= Body.height) return;
+
+            const int Steps = 4;
+            const float Height = 12f;
+            float band = Height / Steps;
+            var add = AddBar;
+            for (int i = 0; i < Steps; i++)
+            {
+                float strength = 0.12f + 0.12f * i;
+                Slab.Fill(new Rect(0f, add.y - Height + i * band, Width, band),
+                    SlopWidgets.Fade(SlopWidgets.Scrim, strength));
             }
         }
 
