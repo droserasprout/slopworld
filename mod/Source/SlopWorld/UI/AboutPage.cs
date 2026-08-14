@@ -12,17 +12,17 @@ namespace SlopWorld
         public float ViewportMarginX = SlopWidgets.GapM;
         public float ViewportMarginY = SlopWidgets.GapM;
         public float ContentPaddingX = 20f;
-        public float ContentPaddingY = 20f;
+        public float ContentPaddingY = 16f;
         public float HeroMargin = 24f;
-        public float SectionMargin = 14f;
-        public float SectionPadding = 10f;
+        public float SectionMargin = 10f;
+        public float SectionPadding = 7f;
         public float ColumnGap = SlopWidgets.GapL;
-        public float ColumnPadding = 6f;
-        public float ColumnHeadingPadding = 8f;
-        public float CreditMargin = 8f;
+        public float ColumnPadding = 4f;
+        public float ColumnHeadingPadding = 5f;
+        public float CreditMargin = 5f;
         public float LinkMargin = 3f;
         public float ParagraphBottomPadding = 3f;
-        public float TailPadding = 48f;
+        public float TailPadding = 32f;
         public int KickerTextSize;
         public int TitleTextSize = 28;
         public int SubtitleTextSize = 17;
@@ -40,28 +40,35 @@ namespace SlopWorld
         {
             public readonly string Name;
             public readonly string Detail;
-            public readonly string Url;
-            public readonly string LinkLabel;
             public readonly CreditLink[] Links;
+            public readonly string LinkSeparator;
 
-            public Credit(string name, string detail, string url = null, string linkLabel = null)
+            public Credit(string name, string detail)
             {
                 Name = name;
                 Detail = detail;
-                Url = url;
-                LinkLabel = linkLabel;
+                Links = new CreditLink[0];
+                LinkSeparator = " / ";
+            }
+
+            public Credit(string name, string detail, string url)
+            {
+                Name = name;
+                Detail = detail;
+                LinkSeparator = " / ";
                 Links = string.IsNullOrEmpty(url)
                     ? new CreditLink[0]
-                    : new[] { new CreditLink(string.IsNullOrEmpty(linkLabel) ? name : linkLabel,
-                        url) };
+                    : new[] { new CreditLink(name, url) };
             }
 
             public Credit(string name, string detail, CreditLink[] links)
+                : this(name, detail, links, " / ") { }
+
+            public Credit(string name, string detail, CreditLink[] links, string linkSeparator)
             {
                 Name = name;
                 Detail = detail;
-                Url = null;
-                LinkLabel = null;
+                LinkSeparator = linkSeparator ?? " / ";
                 Links = links ?? new CreditLink[0];
             }
         }
@@ -81,9 +88,11 @@ namespace SlopWorld
         static readonly Credit[] Libraries =
         {
             new Credit("Rust", "daemon language", "https://www.rust-lang.org/"),
-            new Credit("Alacritty", "terminal emulation", "https://alacritty.org/"),
+            new Credit("Alacritty Terminal", "terminal emulation", "https://alacritty.org/"),
             new Credit("Tokio", "async runtime", "https://tokio.rs/"),
             new Credit("Axum", "HTTP and WebSocket server", "https://github.com/tokio-rs/axum"),
+            new Credit("Tower HTTP", "HTTP middleware", "https://github.com/tower-rs/tower-http"),
+            new Credit("Tracing", "structured diagnostics", "https://github.com/tokio-rs/tracing"),
             new Credit("Rodio / CPAL / Symphonia", "audio playback and decoding", new[]
             {
                 new CreditLink("Rodio", "https://github.com/RustAudio/rodio"),
@@ -100,6 +109,14 @@ namespace SlopWorld
             {
                 new CreditLink("ureq", "https://github.com/algesten/ureq"),
                 new CreditLink("rustls", "https://github.com/rustls/rustls"),
+            }),
+            new Credit("anyhow / futures / nix / regex / dirs", "support libraries", new[]
+            {
+                new CreditLink("anyhow", "https://github.com/dtolnay/anyhow"),
+                new CreditLink("futures", "https://github.com/rust-lang/futures-rs"),
+                new CreditLink("nix", "https://github.com/nix-rust/nix"),
+                new CreditLink("regex", "https://github.com/rust-lang/regex"),
+                new CreditLink("dirs", "https://github.com/dirs-dev/dirs-rs"),
             }),
             new Credit("tmux / bubblewrap / systemd", "sessions, isolation and service", new[]
             {
@@ -123,7 +140,14 @@ namespace SlopWorld
         };
 
         static readonly Credit Soundtrack = new Credit("Terry Fail", "Soundtrack",
-            "https://terryfail.bandcamp.com/", "bc");
+            "https://terryfail.bandcamp.com/");
+
+        static readonly Credit SoundtrackTools = new Credit("Strudel, Bitwig Studio", "made with",
+            new[]
+            {
+                new CreditLink("Strudel", "https://strudel.cc/"),
+                new CreditLink("Bitwig Studio", "https://www.bitwig.com/"),
+            }, ", ");
 
         const float AutoScrollSpeed = 7f;
         const float FirstPassHeight = 2000f;
@@ -332,6 +356,7 @@ namespace SlopWorld
                 "https://rimworldgame.com/", GameFont.Small);
             y = InlineLinkLine(r, y, "", "Harmony mod by Andreas Pardeike", "",
                 "https://github.com/pardeike/HarmonyRimWorld", GameFont.Small);
+            y = InlineLinkLine(r, y, "", "Unity", "", "https://unity.com/", GameFont.Small);
 
             y = NextSection(r, y);
             y = SectionHeading(r, y, "Libraries");
@@ -342,6 +367,7 @@ namespace SlopWorld
             y = SectionHeading(r, y, "Music");
             y += Layout.ColumnPadding;
             y = CreditRow(new Rect(r.x, y, r.width, 1f), y, Soundtrack);
+            y = CreditRow(new Rect(r.x, y, r.width, 1f), y, SoundtrackTools);
             y += Layout.ColumnHeadingPadding;
             y = Line(r, y, "Radio", GameFont.Small, SlopWidgets.Lead,
                 TextAnchor.UpperCenter, Layout.ColumnHeadingTextSize);
@@ -416,31 +442,10 @@ namespace SlopWorld
             if (credit.Links.Length == 0)
                 Line(name, y, credit.Name, GameFont.Small, SlopWidgets.Name,
                     TextAnchor.UpperLeft, Layout.CreditTextSize);
-            else if (!string.IsNullOrEmpty(credit.LinkLabel))
-                CreditNameWithLink(name, y, credit);
-            else if (credit.Links.Length == 1 && credit.Links[0].Label == credit.Name)
-                Link(name, y, credit.Name, credit.Links[0].Url, GameFont.Small,
-                    TextAnchor.UpperLeft, Layout.CreditTextSize);
             else
                 CreditNameWithLinks(name, y, credit);
 
             return y + line + Layout.CreditMargin;
-        }
-
-        void CreditNameWithLink(Rect rect, float y, Credit credit)
-        {
-            Text.Font = GameFont.Small;
-            float nameWidth = Mathf.Min(SlopWidgets.Wide(credit.Name), rect.width);
-            LabelAt(new Rect(rect.x, y, nameWidth, SlopWidgets.LineH), credit.Name,
-                GameFont.Small, SlopWidgets.Name);
-
-            string label = "(" + credit.LinkLabel + ")";
-            float linkWidth = Mathf.Min(SlopWidgets.Wide(label),
-                Mathf.Max(0f, rect.width - nameWidth - Layout.LinkMargin));
-            if (linkWidth <= 0f) return;
-
-            LinkAt(new Rect(rect.x + nameWidth + Layout.LinkMargin, y, linkWidth,
-                    SlopWidgets.LineH), label, credit.Url, GameFont.Small);
         }
 
         void CreditNameWithLinks(Rect rect, float y, Credit credit)
@@ -461,7 +466,7 @@ namespace SlopWorld
 
                 if (i + 1 >= credit.Links.Length) continue;
 
-                string separator = " / ";
+                string separator = credit.LinkSeparator;
                 float separatorWidth = Mathf.Min(SlopWidgets.Wide(separator), remaining);
                 if (separatorWidth <= 0f) break;
                 LabelAt(new Rect(x, y, separatorWidth, SlopWidgets.LineH), separator,
