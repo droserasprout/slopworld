@@ -174,6 +174,20 @@ namespace SlopWorld
             Find.WindowStack.Add(w);
         }
 
+        // Content views remain read-only, but a view opened over a pane can still offer the
+        // terminal's paste action to the agent behind it. A view opened from the map has no
+        // destination, so its Paste menu item is disabled.
+        public static bool CanPasteClipboardToAgent =>
+            Find.WindowStack?.WindowOfType<TerminalWindow>()?._name != null;
+
+        public static void PasteClipboardToAgent()
+        {
+            var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            if (window == null || window._name == null) return;
+            window.JumpToLive();
+            window.PasteClipboard();
+        }
+
         // PaneOverDraw reads this several times a frame, so the closed case costs one static
         // read. Open, it is checked against the stack: a flag left standing wrongly is a map
         // never drawn again.

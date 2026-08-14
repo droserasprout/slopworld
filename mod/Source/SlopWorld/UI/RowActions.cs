@@ -49,7 +49,7 @@ namespace SlopWorld
             float x = Left(right, acts);
             float y = row.y + (row.height - IconW) / 2f;
 
-            Draw(ref x, y, acts, RowAct.View, Icons.View, "View this file in a pager.");
+            Draw(ref x, y, acts, RowAct.View, Icons.View, "View this file.");
             Draw(ref x, y, acts, RowAct.Edit, Icons.Edit, "Open this file in an editor.");
             Draw(ref x, y, acts, RowAct.Diff, Icons.Diff,
                 "Show what this file has that the last commit does not.");

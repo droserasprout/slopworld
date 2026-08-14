@@ -22,9 +22,15 @@ can temporarily become the tree root.
 
 ## Viewer
 
-A text-file click starts or reopens one tracked `less -R --` pager above the tree.
-Binary extensions are excluded. Changing file, directory, project, view, terminal or
-pane closes it; Files owns view/edit sessions, while Git owns diffs opened from here.
+A Markdown-file click opens a native `MarkdownPreview` in the body; the daemon supplies
+bounded UTF-8 text through `/api/read`, and Markdig provides the CommonMark/GFM parse tree.
+Local HTML `<img>` tags resolve relative to the Markdown file through the bounded `/api/image`
+route and support width/height plus right or center alignment.
+Other text files still start or reopen one tracked `less -R --` pager above the tree.
+Binary extensions are excluded. Markdown's context menu exposes `View in pager` for the raw
+source when needed.
+Changing file, directory, project, view, terminal or pane closes the reader; Files owns
+view/edit sessions, while Git owns diffs opened from here.
 
 ## Icons
 

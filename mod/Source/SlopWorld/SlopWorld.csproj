@@ -24,6 +24,10 @@
       <HintPath>..\..\Assemblies\0Harmony.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Markdig">
+      <HintPath>..\..\Assemblies\Markdig.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>$(RimWorldManaged)\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>

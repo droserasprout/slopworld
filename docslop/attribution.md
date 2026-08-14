@@ -9,6 +9,8 @@ into the whole Cargo dependency graph.
 - RimWorld / Ludeon Studios: host game and mod API; Unity: runtime and UI/rendering.
 - Harmony, Andreas Pardeike and contributors: runtime patching. The bundled
   `0Harmony.dll` is assembly version 2.4.1.0 from Harmony RimWorld mod v2.4.2.0.
+- Markdig 0.18.3, Alexandre Mutel: native Markdown parsing in the mod, BSD-2-Clause;
+  the shipped notice is beside `Markdig.dll`.
 - Rust; Alacritty (`alacritty_terminal`): daemon and terminal emulator core.
 - Tokio and Axum: async runtime and HTTP/WebSocket server.
 - RustAudio's Rodio/CPAL and Symphonia: playback and audio decoding.

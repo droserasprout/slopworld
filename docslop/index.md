@@ -47,6 +47,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [mod-ui-chrome](mod-ui-chrome.md) - shared widgets, layout, usage readout, top bar.
 - [mod-ui-identity](mod-ui-identity.md) - dark rectangular instrument panel: shape, rhythm, and the color schemes.
 - [mod-ui-files](mod-ui-files.md) - the files view and its icons.
+- [mod-markdown](mod-markdown.md) - native Markdown previews and their file boundary.
 - [mod-ui-search](mod-ui-search.md) - workspace search and its result pager.
 - [mod-icons](mod-icons.md) - the Codicons bake out of a Nerd Font, and the Icons lookup.
 - [mod-ui-git](mod-ui-git.md) - the git view, the diff pager, and the third tab.
