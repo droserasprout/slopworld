@@ -30,6 +30,9 @@ namespace SlopWorld
         /// Hotkey on the selected agent's Edit gizmo.
         public static KeyBindingDef SlopEditSession;
 
+        /// Hotkey on the selected agent's Duplicate gizmo.
+        public static KeyBindingDef SlopDuplicateSession;
+
         /// Hotkey on the selected agent's Remove gizmo.
         public static KeyBindingDef SlopRemoveSession;
 

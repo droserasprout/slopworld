@@ -127,6 +127,19 @@ namespace SlopWorld
                 },
             };
 
+            if (!string.IsNullOrEmpty(info.Project))
+            {
+                yield return new SlopCommandAction(SlopWidgets.Btn.Default)
+                {
+                    defaultLabel = "Duplicate",
+                    defaultDesc = $"Duplicate '{Session}' as a new agent in {info.Project}.",
+                    icon = Icons.Add,
+                    defaultIconColor = SlopWidgets.Accent,
+                    hotKey = SlopDefOf.SlopDuplicateSession,
+                    action = () => TerminalWindow.OpenOverPane(EditSessionDialog.Copy(info)),
+                };
+            }
+
             yield return new SlopCommandAction(SlopWidgets.Btn.Default)
             {
                 defaultLabel = "Remove",

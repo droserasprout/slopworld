@@ -6,11 +6,12 @@
   `MainButtonWorker.InterfaceTryActivate` on the same `Visible` value. A button not in
   `Keep` is neither drawn nor activatable; hiding the button alone leaves the Architect
   menu reachable by another path.
-- **`StripKeys`** keeps only camera, colonist-bar navigation, `Accept`/`Cancel` and mod
-  bindings. It removes dropped bindings from the UI (`KeyBindingsPage` and conflicts)
-  and answers false on all four `KeyBindingDef` read paths (`KeyDownEvent`,
-  `IsDownEvent`, `JustPressed`, `IsDown`). The defs remain in `AllDefs` because
-  `KeyPrefs` indexes them there.
+- **`StripKeys`** keeps only arrow-key camera movement, colonist-bar navigation,
+  `Accept`/`Cancel` and mod bindings. It removes WASD from the four camera bindings,
+  including after restoring defaults, then removes dropped bindings from the UI
+  (`KeyBindingsPage` and conflicts) and answers false on all four `KeyBindingDef` read paths
+  (`KeyDownEvent`, `IsDownEvent`, `JustPressed`, `IsDown`). The defs remain in `AllDefs`
+  because `KeyPrefs` indexes them there.
 
   Answering the shared reads covers paths hiding cannot: `ScreenshotTaker` reads F10
   through `JustPressed` before a TUI can use the event, and
