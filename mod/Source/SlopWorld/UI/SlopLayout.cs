@@ -12,12 +12,7 @@ namespace SlopWorld
 
         public static float TopInset => Shown ? TopBar.H : 0f;
 
-        // Screenshot mode, F11. Vanilla filters its own chrome on this between the map
-        // interface and the window stack, and the sidebar rides ColonistBarOnGUI so it is
-        // already behind that gate. The top bar is drawn from a MapComponent and the Edit
-        // button off the inspect pane's ExtraOnGUI, both of which run *before* it, so each
-        // has to ask. Not folded into Shown: the insets are a layout answer and moving them
-        // for a hidden interface would shuffle everything on the frame the key is pressed.
+        // Screenshot mode filters vanilla chrome separately; the top bar and inspect controls run before that filter, so Hidden is independent of layout insets.
         public static bool Hidden => Find.ScreenshotModeHandler?.FiltersCurrentEvent ?? false;
     }
 }

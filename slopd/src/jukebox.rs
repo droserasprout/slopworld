@@ -1,9 +1,4 @@
-//! The jukebox catalog: station TOML, metadata for clients, and URL resolution for audio.
-//!
-//! The daemon owns this rather than the mod because it already has the TOML stack, is the
-//! process that opens the stream, and can reload user definitions without rebuilding either
-//! client. The mod receives station ids, stream keys and display metadata over its root socket;
-//! URLs never need to cross in the catalog or selection messages.
+//! Daemon-owned station catalog and URL resolver; it reads/reloads TOML and sends the mod only station, stream, and display metadata.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};

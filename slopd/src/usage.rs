@@ -1,8 +1,4 @@
-//! Polls subscription usage from Anthropic, OpenRouter, and OpenAI. Anthropic and OpenAI
-//! credentials are read fresh because another process refreshes them; OpenRouter reports
-//! money rather than a rate-limit window. Undocumented endpoints are parsed narrowly, and
-//! unknown responses produce no figures rather than false zeroes. Failures remain snapshots
-//! so the mod can keep the last figures and display the cause.
+//! Polls provider usage with fresh credentials, narrow parsing, and snapshot-preserving failures; unknown responses yield no figures rather than false zeroes.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -109,12 +105,7 @@ impl Snapshot {
         }
     }
 
-    /// Whether two snapshots would draw the same, which is what decides if a poll is worth
-    /// announcing to every client. `fetched_ms` moves on every lap and is deliberately not in
-    /// here - it ages the numbers rather than changing them. `sources` is, because the mod
-    /// draws a row per source it expects: a seller switched off in `config.toml` while the
-    /// others report what they reported last time changes nothing else in the snapshot, and
-    /// leaving it out of the comparison left its icon on screen after it was gone.
+    /// Compare only readout fields; fetched time ages values, while sources preserve placeholder rows when a provider is disabled or offline.
     pub fn same_readout(&self, other: &Snapshot) -> bool {
         self.ok == other.ok
             && self.error == other.error
@@ -491,11 +482,7 @@ fn retry_after<T>(res: &ureq::http::Response<T>) -> Option<u64> {
     Some(raw.trim().parse::<u64>().ok()?.min(6 * 3600))
 }
 
-/// The endpoint is nobody's published API, so this recognises rather than assumes: anything
-/// unrecognised leaves an empty list, being wrong having to read as "no numbers" and never as
-/// "0% used". Windows are picked out by family rather than name - one `five_hour` and a row
-/// of `seven_day*`, several null on any plan. Money comes through a door of its own, because
-/// `extra_usage` and `spend` carry a `utilization` too.
+/// Parse known window families and extra-usage money; unknown shapes produce an empty result rather than a false zero.
 fn parse(v: &Value, plan: String) -> Snapshot {
     let mut windows = Vec::new();
 

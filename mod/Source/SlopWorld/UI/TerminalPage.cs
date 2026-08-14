@@ -149,11 +149,7 @@ namespace SlopWorld
         const int PreviewRows = 5;
         const float PreviewPad = 5f;
 
-        // Both settings at once, which is the whole reason they share a page: the size
-        // and the palette are each half of what a pane looks like, and neither reads off a
-        // slider. Drawn the way the pane draws - same style, same cell, same rule under a
-        // link, same glyph put back over a block cursor - so what is judged here is what
-        // arrives there.
+        // Preview font and theme with the pane's cell, style, link, and cursor rendering so the preview matches the terminal.
         static void DrawPreview(Rect r, GUIStyle style)
         {
             var th = TerminalTheme.Current;

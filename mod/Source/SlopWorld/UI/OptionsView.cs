@@ -24,11 +24,7 @@ namespace SlopWorld
         // True for the length of this view's own call into the dialog.
         public static bool Drawing { get; private set; }
 
-        // What everything that used to ask `currentlyDrawnWindow is Dialog_Options` asks now
-        // - the OK suppression, the three vanilla rows StripOptions drops, the web links.
-        // That question stopped answering the moment the pages were drawn by the chrome's
-        // window instead of by the dialog's own, and the main menu still opens the real
-        // window, so both roads are asked.
+        // Shared options context for vanilla patches: true while this view draws or a Dialog_Options is the active window.
         public static bool Anywhere =>
             Drawing || Find.WindowStack?.currentlyDrawnWindow is Dialog_Options;
 
@@ -79,11 +75,7 @@ namespace SlopWorld
 
         public void Opened() { }
 
-        // What the dialog's PreClose did when it was a window: drop the pages so the next
-        // open re-reads config.toml, and write the settings file once, the way the terminal
-        // settings window it replaced did on close. The tab is handed over first - the view
-        // goes with the dialog that holds it, so this is the last moment anything knows
-        // which page was being read.
+        // On close, remember the selected tab, tear down pages so the next open rereads config.toml, and persist mod settings once.
         public void Closed()
         {
             SlopOptions.Remember(Category);

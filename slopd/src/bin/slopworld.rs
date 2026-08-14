@@ -1,9 +1,4 @@
-//! The supported launcher. It creates an isolated save-data profile, seeds Core plus this
-//! mod, and writes the marker required before the mod will patch an install.
-//!
-//! It waits instead of execing: `game.rs` identifies `daemon.game_cmd` by anchored argv[0],
-//! and the service must live exactly as long as the game. Execing RimWorld would make it
-//! invisible to restart detection and could launch a second process over an active colony.
+//! Creates an isolated profile and waits for the game so slopd can track its argv[0] and lifetime; execing would evade restart detection and allow a second game.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};

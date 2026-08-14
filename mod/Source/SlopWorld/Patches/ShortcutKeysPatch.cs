@@ -7,12 +7,7 @@ using Verse;
 namespace SlopWorld
 {
     /// <summary>
-    /// Replaces the vanilla comma/dot walk (PreviousColonist/NextColonist) with our own
-    /// session walk that follows <see cref="AgentSidebar.Rows"/> - ghosts included and
-    /// folds respected - because a walk follows the eye.
-    ///
-    /// With a pane open, bare comma/dot belong to the agent, so Alt+comma and Alt+period
-    /// are handled there; this prefix is only the map-layer walk.
+    /// Replaces vanilla colonist cycling with <see cref="AgentSidebar.Rows"/> order, including ghosts and folds; map-layer only because a pane owns bare comma/dot.
     /// </summary>
     [HarmonyPatch(typeof(ShortcutKeys), "ShortcutKeysOnGUI")]
     public static class Patch_ShortcutKeysOnGUI

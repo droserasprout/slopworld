@@ -1,54 +1,32 @@
-# `RowActions` - the buttons a row grows
+# `RowActions`
 
-Three errands - **view**, **edit**, **diff** - said as three 14px icons at the right
-end of a row, in both trees ([files](mod-ui-files.md), [git](mod-ui-git.md)) and to
-one geometry. Nothing new is offered: these are the same options the right-click
-menus have always carried, put where the eye already is.
+Rows expose **view**, **edit**, and **diff** as 14px icons in the files and git
+trees ([files](mod-ui-files.md), [git](mod-ui-git.md)), using the existing menu actions.
 
-- **Only under the mouse.** The strip stands where the row's own tail stands -
-  nothing in the files view, the mark and the `+n -n` in the git view - so an
-  unhovered row reads exactly as it did and the column does not jump. What it costs
-  is the end of one long name, on one row, while the mouse is on it.
-- `RowAct` is a **flags enum**, not a list: a row states what it offers once a frame
-  per visible row and an array there would be an allocation a row a frame. The order
-  drawn is the enum's own.
-- **Drawn by hand, not `Widgets.ButtonImage`.** Both trees take their clicks in a
-  second pass, after the tree is laid out and outside the scroll view's group; a
-  button that answered during the draw would fire *and* let the row's own MouseDown
-  through. So `Draw` only draws, `Hit` answers the click pass, and the click pass
-  asks `Hit` **first** - a press that landed on a button is not also a press on the
-  row.
-- The geometry is the row's own, which is why one `Hit` serves both coordinate
-  systems: the draw pass asks inside the group, the click pass asks with the rect
-  `Screen` moved into the panel and up by the scroll.
-- A button hovered registers **its** tooltip and the row declines its own, or the
-  two are drawn one under the other.
+- **Hover only.** The strip replaces the row's tail, so unhovered rows do not move;
+  only the end of a long name is obscured while the pointer is over that row.
+- `RowAct` is a flags enum; each visible row computes its offered actions without
+  allocating an array, and draw order follows enum order.
+- `Draw` renders without handling input. `Hit` runs in the second pass and is asked
+  before the row so a button click cannot also activate the row.
+- The row supplies geometry for both passes; the click pass uses the screen-adjusted
+  rect after scroll offset is applied.
+- A hovered button owns its tooltip and suppresses the row tooltip.
 
 ## Who offers what
 
-- A **directory** offers none in either tree. `less` on one is a listing nobody
-  asked for and `micro` on one is a file browser inside a game - the same line the
-  menus draw.
-- A **binary** file loses the pager, for the reason a left click on one in the files
-  view opens nothing.
-- **Diff** is offered in the files view only where the working tree has a change, and
-  that is the git view's answer to give: `GitView.Changed` / `DiffFor`, off the flat
-  `Changes` table that view now keeps beside its tree. Nothing is fetched on that
-  road - the question is asked once a frame per visible row - so arriving in the
-  **files** view asks `GitView.Entered()` too.
-- In the git view every row is a change, so diff is always there; a **deletion**
-  offers that alone, there being no file on disk to read or edit.
-- The files view's diff opens in **its own** pager, not the git view's: two views,
-  two pagers, and `Show` releases every pager but the arriving view's.
+- Directories offer no actions; `less` would list a directory and `micro` would open
+  a file browser. Binary files have no pager.
+- Files-view diff requires a working-tree change from `GitView.Changed`/`DiffFor`;
+  `GitView.Entered()` refreshes that table on arrival. Git-view rows always offer
+  diff; deletions offer only diff because no file remains to view or edit.
+- Files-view diffs use its own pager; `Show` releases other pagers.
 
 ## The icons
 
-`Icons.Edit` (a pencil) and `Icons.Diff` (git-compare) come off the icon bake
-with the rest ([mod-icons](mod-icons.md)). `Icons.View` **is** `Icons.Hidden`, the
-dotfile switch's eye: reading is what both are about and a second eye under another
-name is the same pixels. Neither is held to the tab strip's size and weight budget -
-they are marks inside a row, sized by the row, the
-way `Bell` and `Cross` are.
+`Icons.Edit` and `Icons.Diff` come from the icon bake ([mod-icons](mod-icons.md)).
+`Icons.View` reuses `Icons.Hidden`; all three are row-sized marks, independent of
+tab-strip sizing.
 
 The same three marks name an ephemeral pager in the agents view
 ([mod-sidebar](mod-sidebar.md)), read off the command with `RowActions.Of`.

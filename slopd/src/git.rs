@@ -150,11 +150,7 @@ async fn run(root: &Path, args: &[&str]) -> std::io::Result<String> {
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
-/// `status --porcelain=v1 -z`: two status characters, a space, then the path, NUL-terminated.
-/// A rename is that record followed by a *second* NUL-terminated field, the path it came from.
-/// `-z` rather than the quoted-and-escaped default, where a path with a newline or a quote in
-/// it is unparseable without undoing git's own escaping first. The old name of a rename is
-/// dropped: the row is about where the file is now.
+/// Parse `status --porcelain=v1 -z` without Git's quote escaping; discard a rename's old path and keep the current path.
 fn parse_porcelain(out: &str) -> Vec<(String, String)> {
     let mut rows = Vec::new();
     let mut fields = out.split('\0').filter(|s| !s.is_empty());

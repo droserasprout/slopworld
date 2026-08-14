@@ -138,11 +138,7 @@ namespace SlopWorld
 
         public EditProjectDialog(ProjectInfo existing) : this(existing, false) { }
 
-        // A second project built on the first: the presets are what took the work to get right,
-        // and ticking/copying all of them again by hand is the step that gets one wrong. The
-        // directory comes over with them - the same repo under a tighter sandbox is what this
-        // is for, and nothing refuses two projects on one directory. Only the name cannot, so
-        // it is the one field suggested rather than copied.
+        // Copy a project's directory and presets; only the name is regenerated because the daemon treats the result as new.
         public static EditProjectDialog Copy(ProjectInfo of) => new EditProjectDialog(of, true);
 
         EditProjectDialog(ProjectInfo existing, bool copy)

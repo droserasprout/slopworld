@@ -1,59 +1,41 @@
 # Surviving a redeploy
 
-`make install-daemon` restarts slopd under a live game. Whichever tmux command
-first needs a server forks it, and the server inherits that client's cgroup. Both
-of these are needed:
+`make install-daemon` restarts slopd while the game and tmux survive. Both services
+must be outside slopd's cgroup:
 
-- `Tmux::ensure_server` starts the server in `slopworld-tmux.service`, a transient
-  unit; `Manager::restart_game` does the same for the game. **`Type=forking`, not a
-  scope**: `tmux start-server` daemonises, so a scope tears itself down and the
-  next tmux command forks a server back into `slopd.service`. `ensure_server`
-  checks the socket afterwards rather than trusting an exit code.
-- **`KillMode=process`** in `slopd.service`, or stopping the unit takes any tmux
-  server in its cgroup with it. `install-daemon` does `daemon-reload` before
-  `restart`.
+- `Tmux::ensure_server` and `Manager::restart_game` use transient services.
+  `Type=forking` is required for tmux because `start-server` daemonises; the
+  helper verifies the socket after launch.
+- `slopd.service` needs `KillMode=process`, and `install-daemon` reloads units
+  before restarting. Otherwise stopping slopd kills its tmux server.
 
 ## Rebuilding the emulators
 
-A restart costs them. `spawn_reader` rebuilds one per running session from
-`capture-pane -e -S -<history_limit>`, then nudges the pane a column narrower and
-back; the SIGWINCH makes the app repaint and hand the fresh emulator the modes a
-text capture cannot carry - alternate screen, mouse reporting, cursor shape,
-bracketed paste. A **rename** takes the same nudge: the control reader is pinned
-to the name it attached with, so it is dropped and re-attached, and an idle agent
-has no other reason to repaint. The input queue is name-bound too; its sender is
-dropped during the handoff so the next key starts a worker aimed at the new name.
+`spawn_reader` rebuilds each running emulator from
+`capture-pane -e -S -<history_limit>` and nudges the pane to trigger SIGWINCH.
+This restores modes that capture cannot carry: alternate screen, mouse reporting,
+cursor shape, and bracketed paste. Renames rebuild the reader and input sender
+because both are bound to the old name.
 
-An alt-screen pane is seeded **either side of the `1049` switch**: a capture is
-the scrollback with the visible pane under it, and tmux hands back the *primary's*
-history even while the alt screen is up. So history goes onto the primary, where a
-wheel and a `1049l` will look for it, and only the visible rows into the alternate
-buffer, which has no scrollback of its own. Poured in whole instead, the history is
-swallowed by the alt buffer and the primary comes back empty the moment the app
-quits; skipping the switch leaves `alt_screen` false through a restart and the mod
-then walks its own scrollback where the app wanted arrow keys.
+Alt-screen seeding must happen on both sides of the `1049` switch. Capture returns
+primary scrollback plus visible rows; seed scrollback into the primary buffer and
+visible rows into the alternate buffer, which has no scrollback. Skipping the
+switch loses `alt_screen`; seeding everything into the alternate buffer loses
+scrollback when the app exits.
 
-The **title** is the one thing that repaint does *not* bring back - it is not on
-the screen, and an idle agent never sets one again. tmux parsed the original OSC
-for its own status line and the server outlives us, so `capture` asks for
-`#{pane_title}` on the same `display-message` as the cursor and the seed states it
-back as the OSC it arrived as. Taken as the tail of that line (titles have spaces
-in them) and stripped of control characters on the way in - it is fed to an
-emulator, so anything else would be an escape sequence somebody else's app got to
-write.
+Repaint does not restore titles because they are not screen content. Read
+`#{pane_title}` with the cursor from the surviving tmux server, then seed it as
+OSC text after taking the last field and stripping control characters.
 
-## Shape is tmux's answer, never ours
+## Shape synchronization
 
-`sync_from_config` asks `Tmux::size` before building the emulator, or the boot
-guess stated at a running app resizes it. `Manager::nudge_redraw` reads the size
-back after the shrink for the same reason from the other end: a window that
-reconnected mid-nudge has already stated its own shape, and the mod only resends
-while the frames disagree, so restoring the older figure strands the pane at it.
+`sync_from_config` reads `Tmux::size` before building the emulator, and
+`Manager::nudge_redraw` reads it again after the shrink. A pane that reconnects
+mid-nudge may already have a newer size, so the mod resends only while frames
+disagree.
 
-## tmux target trap
+## tmux target syntax
 
-Every window under our socket is called `bwrap`, and a tmux *window* target
-resolves by window name before session name - `resize-window -t b` prefix-matched
-a neighbour's `bwrap`. Anything taking a window or pane target writes `name:` or
-`name:.0`; a bare `name` is only safe for `kill-session`, `rename-session`,
-`attach`.
+Every window under our socket is named `bwrap`; tmux resolves window targets by
+window name before session name. Use `name:` or `name:.0` for window/pane targets;
+bare names are safe only for `kill-session`, `rename-session`, and `attach`.

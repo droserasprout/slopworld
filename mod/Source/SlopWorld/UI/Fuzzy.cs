@@ -24,9 +24,7 @@ namespace SlopWorld
         const string Mark = "#7FC8FF";
 
         /// <summary>
-        /// Score <paramref name="query"/> against <paramref name="text"/>. False if any
-        /// term is missing; otherwise <paramref name="hits"/> is the matched positions,
-        /// ascending and deduplicated.
+        /// Returns false if any query term is missing; otherwise fills sorted, deduplicated matched positions.
         /// </summary>
         public static bool Match(string text, string query, out int score, out List<int> hits)
         {
@@ -66,9 +64,7 @@ namespace SlopWorld
         }
 
         /// <summary>
-        /// <paramref name="text"/> with the characters at <paramref name="hits"/> wrapped
-        /// in color markup. Null hits give the text back untouched, so an unfiltered row
-        /// costs nothing.
+        /// Wraps hit positions in color markup; null or empty hits return the text unchanged.
         /// </summary>
         public static string Highlight(string text, List<int> hits)
         {

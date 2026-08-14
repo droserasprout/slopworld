@@ -39,12 +39,7 @@ namespace SlopWorld
                 { e.Use(); return; }
             }
 
-            // The strip's numbers, read on the map as well as over a pane, so the portrait
-            // under Alt+3 is the same portrait either way. Here it is what clicking that
-            // portrait does in vanilla - select and look at it - since there is no pane to
-            // point at; TerminalWindow.HandleKey holds the other half. Game components run
-            // ahead of the window stack in UIRootOnGUI, so the pane is asked about rather
-            // than trusted to have eaten the key first.
+            // Map-layer number keys mirror portrait selection because components run before the window stack; ask TerminalWindow first, then handle Alt+number with no pane.
             if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null) return;
             if (Event.current.type != EventType.KeyDown || !Event.current.alt) return;
             int slot = SlotKey(Event.current);

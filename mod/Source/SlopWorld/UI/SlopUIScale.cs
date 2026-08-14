@@ -3,11 +3,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The whole-interface zoom, ours rather than vanilla's. `Prefs.UIScale` is a plain float
-    // the game divides the screen by every frame, so nothing about the engine objects to 3x;
-    // what objects is the fixed ladder vanilla offers it through and the guard that resets
-    // anything leaving the scaled screen under 1024x768 (see UnlockUIScale). With that gone
-    // the setting is a slider over a continuous range, on the Appearance page beside the font.
+    // Exposes continuous Prefs.UIScale from 0.5x to 4x after removing vanilla's discrete ladder and low-resolution reset.
     public static class SlopUIScale
     {
         public const float Min = 0.5f;

@@ -2768,11 +2768,7 @@ impl Manager {
         {
             let mut live = self.live.write().await;
             match live.get_mut(name) {
-                // Re-checked under the write lock. The `has_emu` test above ran before a
-                // capture that awaits, so a second caller - an autostart sweep racing a
-                // manual start - can have installed its reader in the meantime. The loser
-                // ends its own attach instead of overwriting the winner's handle, which a
-                // plain assignment would merely detach.
+                // Recheck under the write lock because capture awaits; abort this attach if another caller installed the reader.
                 Some(l) if l.emu.is_none() => {
                     l.emu = Some(emu.clone());
                     if let Some(stale) = l.reader.replace(handle) {
@@ -3029,11 +3025,7 @@ impl Manager {
         }
     }
 
-    /// Drop a session's cached scrollback frame. Called wherever the emulator behind it goes
-    /// away: the cache is keyed by name and validated against a live `seq`, so without this
-    /// every name ever scrolled keeps a full screen alive for as long as the daemon runs -
-    /// and adopted errands mint fresh names, which makes that unbounded rather than merely
-    /// one entry per configured agent.
+    /// Remove cached scrollback when a session ends; adopted ephemeral names would otherwise retain one screen per name for the daemon's lifetime.
     fn forget_scroll(&self, name: &str) {
         if let Ok(mut c) = self.scroll_cache.lock() {
             c.remove(name);

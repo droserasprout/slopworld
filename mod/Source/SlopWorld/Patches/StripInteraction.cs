@@ -8,11 +8,7 @@ namespace SlopWorld
 {
     // The two remaining ways to "play" a pawn: selecting scenery, and drafting.
 
-    // Every select funnels through Selector.Select - single clicks, drag boxes, the
-    // colonist bar - so gating it here leaves colonists reachable and everything else
-    // unclickable. A click on a colony animal is swallowed like any other but pats it
-    // on the way past; selecting it would open an inspect pane full of a sim that is
-    // not running. While a scene plays, not even that.
+    // Gate Selector.Select so colonists remain selectable, colony animals are petted without selection, and cutscenes block all pawn selection.
     [HarmonyPatch(typeof(Selector), nameof(Selector.Select))]
     public static class Patch_Selectable_ColonistsOnly
     {

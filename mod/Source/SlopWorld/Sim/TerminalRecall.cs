@@ -3,13 +3,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // It lives in the save rather than in mod settings because the terminal belongs
-    // to a colony, and writing mod settings on every switch would mean a reconnect
-    // every time the player clicks the colonist strip.
-    //
-    // Reopening waits for the daemon: the game comes back long before the WebSocket
-    // has said what is running, and a terminal opened against a session the hub has
-    // never heard of closes itself on its first frame.
+    // Persist the terminal session in the save and reopen only after the daemon reports it; mod settings would reconnect on every colonist switch.
     public class TerminalRecall : GameComponent
     {
         const float WaitSeconds = 30f;

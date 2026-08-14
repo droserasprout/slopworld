@@ -113,13 +113,7 @@ namespace SlopWorld
         static bool Prefix() => !Cutscene.Playing && !ColonistBarStrip.Suppressed;
     }
 
-    // MainButtonWorker.Visible is virtual and overridden by several workers, so the base
-    // getter and every declared override are postfixed, from the bootstrap because the set is
-    // found by reflection.
-    //
-    // Hiding the button is not taking the tab away: MainButtonsRoot fires any def whose hotKey
-    // went down checking only Disabled, and HandleLowPriorityShortcuts opens Architect by name
-    // - both end at InterfaceTryActivate, which nothing overrides.
+    // Patch the base and reflected MainButtonWorker.Visible overrides; hidden buttons remain activatable through hotkeys unless InterfaceTryActivate is gated too.
     public static class Patch_MainButtons
     {
         // Every button this mod ships has to be named here; one missing does not appear at all.
