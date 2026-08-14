@@ -9,11 +9,10 @@ Entries keep their original indices for vanilla reordering. Hidden/folded entrie
 parked off-screen because the colonist bar shares locations for drawing and hit testing.
 `Rows` is the geometry source for labels, portraits, clicks and keyboard order.
 
-Portrait scale is derived from text: `Nominal` makes the drawn 3:4 portrait (square
-face plus equal vertical overflow) match the row's three text lines, and `RowGap` stays
-between portraits. The face also has a panel-width limit. Headings, routed rows and the
-add strip remain fixed; `Fit` shrinks crowded portraits and reserves the add strip at
-the bottom.
+Portrait scale is derived from text: `Nominal` makes the drawn square portrait match the
+row's three text lines, and `RowGap` stays between portraits. The face also has a
+panel-width limit. Headings, routed rows and the add strip remain fixed; `Fit` shrinks
+crowded portraits and reserves the add strip at the bottom.
 
 The portrait prefix replaces vanilla's complete draw, including its icon row. The
 front pass adds one badge, sized from the face so it survives shrinking and anchored to

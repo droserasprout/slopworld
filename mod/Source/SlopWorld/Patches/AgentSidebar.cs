@@ -13,8 +13,8 @@ namespace SlopWorld
         public static float Width => Mathf.Clamp(Settings.SidebarWidth, MinWidth,
             Mathf.Max(MinWidth, Mathf.Min(MaxWidth, UI.screenWidth * 0.4f)));
 
-        // Size portraits from the text row, then clamp them so the cached texture is neither
-        // upsampled nor reduced to a thumbnail.
+        // Size square portraits from the text row, then clamp them so the cached texture is
+        // neither upsampled nor reduced to a thumbnail.
         static float Nominal => Mathf.Clamp(
             Mathf.Min(Patch_SidebarPortraitDraw.FaceForHeight(TextH), Width * WidthShare)
                 / ColonistBarColonistDrawer.PawnTextureSize.y,
@@ -29,6 +29,8 @@ namespace SlopWorld
 
         const float AddIcon = SlopWidgets.IconW;
         const float Pad = SlopWidgets.GapS;
+        // Portraits touch the screen edge; CellX remains the inset for labels and chrome.
+        const float PortraitX = 0f;
         const float CellX = SlopWidgets.GapS;
         const float TextGap = SlopWidgets.GapS;
 
@@ -51,9 +53,10 @@ namespace SlopWorld
         const float AgoGap = 6f;
 
         // The state badge is a share of the portrait rather than a fixed size: the column
-        // shrinks to fit and a marker that did not would swallow a small face. The shared
-        // status marker is its floor, below which a circle is a speck.
-        const float BadgeShare = 0.22f;
+        // shrinks to fit and a marker that did not would swallow a small face. Keep its own
+        // smaller floor so the circle does not dominate a compact portrait.
+        const float BadgeShare = 0.18f;
+        const float BadgeMin = 6f;
         const float BadgeInset = 1f;
         const float BadgeRing = 1.5f;
 
@@ -461,9 +464,13 @@ namespace SlopWorld
 
                 foreach (int i in bucket)
                 {
-                    locs[i] = new Vector2(CellX + (face - cell) / 2f, y + (rowH - cell) / 2f);
+                    locs[i] = new Vector2(PortraitX + (face - cell) / 2f,
+                        y + (rowH - cell) / 2f);
 
-                    float tx = CellX + face + TextGap;
+                    // Keep the three text lines at the same gap from the portrait after the
+                    // portrait column moves to the screen edge; headings and chrome retain
+                    // their CellX inset.
+                    float tx = PortraitX + face + TextGap;
                     var line = new Rect(0f, y, width, rowH);
                     Rows.Add(new Row
                     {
@@ -471,7 +478,7 @@ namespace SlopWorld
                         Pawn = entries[i].pawn,
                         Line = line,
                         Text = new Rect(tx, y + (rowH - TextH) / 2f, width - tx - Pad, TextH),
-                        Face = new Rect(CellX, y + (rowH - face) / 2f, face, face),
+                        Face = new Rect(PortraitX, y + (rowH - face) / 2f, face, face),
                     });
 
                     y += pitch;
@@ -989,12 +996,12 @@ namespace SlopWorld
         static string Word(AgentState state) => state.ToString().ToLower();
 
         // Draw the status badge in the front pass at the portrait's lower corner, not the cell's;
-        // the dark ring keeps it legible over portrait overflow.
+        // the dark ring keeps it legible over hair and clothing.
         static void DrawStateBadge(Rect face, AgentState state)
         {
             if (face.width <= 0f) return;
 
-            float d = Mathf.Max(SlopWidgets.StatusMarker,
+            float d = Mathf.Max(BadgeMin,
                 Mathf.Round(face.width * BadgeShare));
             var portrait = Patch_SidebarPortraitDraw.PortraitRect(face);
             var center = new Vector2(portrait.xMax - d / 2f - BadgeInset,
