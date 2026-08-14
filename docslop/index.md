@@ -19,6 +19,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [profile](profile.md) - the save-data folder, the launcher, the refusal gates.
 - [daemon-files](daemon-files.md) - what each `slopd/src/*.rs` holds.
 - [daemon-projects](daemon-projects.md) - projects and sessions in `config.toml`.
+- [agent-worktrees](agent-worktrees.md) - the proposed small-scope Git worktree mode.
 - [daemon-presets](daemon-presets.md) - the preset tables and the sandbox argv.
 - [sandbox-isolation](sandbox-isolation.md) - the bind guard, private state, marked ways out.
 - [sandbox-blast-radius](sandbox-blast-radius.md) - what an agent can and cannot delete of its own `$HOME`.
