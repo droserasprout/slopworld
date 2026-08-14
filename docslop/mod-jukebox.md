@@ -49,7 +49,8 @@ MP3 streams with ICY metadata.
 
 The dated OST remains in `mod/Sounds/SlopWorld/OST/` as 192 kbps OGG, but the daemon
 opens it as a directory and plays a non-repeating shuffled bag. `Songs.xml` keeps the
-matching `SlopWorld_` defs because the vanilla-song patch expects them.
+matching `SlopWorld_` defs, which nothing plays while `Radio` holds the music manager
+disabled; what moving the tracks out would save is [startup-time](startup-time.md).
 `split_ost.py` stages exports; `install_ost.py` installs them and updates the catalog.
 
 Like appends `ISO-8601 UTC timestamp<TAB>artist - title` lines to
