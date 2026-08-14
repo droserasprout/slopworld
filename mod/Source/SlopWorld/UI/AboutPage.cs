@@ -82,8 +82,9 @@ namespace SlopWorld
 
         static readonly Credit[] Libraries =
         {
-            new Credit("Rust", "daemon language", "https://www.rust-lang.org/"),
-            new Credit("Alacritty Terminal", "terminal emulation", "https://alacritty.org/"),
+            // Column 1: 8 visual lines (1+1+1+3+2)
+            new Credit("Rust", "language", "https://www.rust-lang.org/"),
+            new Credit("Alacritty", "terminal", "https://alacritty.org/"),
             new Credit("Tokio", "async runtime", "https://tokio.rs/"),
             new Credit("Rodio / CPAL / Symphonia", "audio", new[]
             {
@@ -91,14 +92,12 @@ namespace SlopWorld
                 new CreditLink("CPAL", "https://github.com/RustAudio/cpal"),
                 new CreditLink("Symphonia", "https://github.com/pdeljanov/Symphonia"),
             }),
-            new Credit("anyhow / futures / nix / regex / dirs", "support", new[]
+            new Credit("ureq / rustls", "HTTP and TLS", new[]
             {
-                new CreditLink("anyhow", "https://github.com/dtolnay/anyhow"),
-                new CreditLink("futures", "https://github.com/rust-lang/futures-rs"),
-                new CreditLink("nix", "https://github.com/nix-rust/nix"),
-                new CreditLink("regex", "https://github.com/rust-lang/regex"),
-                new CreditLink("dirs", "https://github.com/dirs-dev/dirs-rs"),
+                new CreditLink("ureq", "https://github.com/algesten/ureq"),
+                new CreditLink("rustls", "https://github.com/rustls/rustls"),
             }),
+            // Column 2: 7 visual lines (1+1+1+3+1)
             new Credit("Axum", "HTTP/WebSocket server", "https://github.com/tokio-rs/axum"),
             new Credit("Tower HTTP", "HTTP middleware", "https://github.com/tower-rs/tower-http"),
             new Credit("Tracing", "diagnostics", "https://github.com/tokio-rs/tracing"),
@@ -108,16 +107,19 @@ namespace SlopWorld
                 new CreditLink("TOML", "https://github.com/toml-rs/toml"),
                 new CreditLink("JSON", "https://github.com/serde-rs/json"),
             }),
-            new Credit("ureq / rustls", "HTTP and TLS", new[]
+            new Credit("tmux", "sessions", "https://github.com/tmux/tmux/wiki"),
+            // Column 3: 8 visual lines (1+1+1+5)
+            new Credit("bubblewrap", "isolation",
+                "https://github.com/containers/bubblewrap"),
+            new Credit("systemd", "service", "https://systemd.io/"),
+            new Credit("passt", "networking", "https://passt.top/"),
+            new Credit("anyhow / futures / nix / regex / dirs", "support", new[]
             {
-                new CreditLink("ureq", "https://github.com/algesten/ureq"),
-                new CreditLink("rustls", "https://github.com/rustls/rustls"),
-            }),
-            new Credit("tmux / bubblewrap / systemd", "sessions, isolation and service", new[]
-            {
-                new CreditLink("tmux", "https://github.com/tmux/tmux/wiki"),
-                new CreditLink("bubblewrap", "https://github.com/containers/bubblewrap"),
-                new CreditLink("systemd", "https://systemd.io/"),
+                new CreditLink("anyhow", "https://github.com/dtolnay/anyhow"),
+                new CreditLink("futures", "https://github.com/rust-lang/futures-rs"),
+                new CreditLink("nix", "https://github.com/nix-rust/nix"),
+                new CreditLink("regex", "https://github.com/rust-lang/regex"),
+                new CreditLink("dirs", "https://github.com/dirs-dev/dirs-rs"),
             }),
         };
 
@@ -321,22 +323,27 @@ namespace SlopWorld
         {
             float y = r.y;
 
+            y += Layout.HeroMargin;
             y = Line(r, y, "SlopWorld", GameFont.Medium, SlopWidgets.Lead,
                 TextAnchor.UpperCenter, Layout.TitleTextSize);
             y += Layout.HeroMargin;
 
             y = SectionHeading(r, y, "Created by");
             y += Layout.ColumnPadding;
-            y = InlineLinkLine(r, y, "Lev Gorodetskii (", "hire him!", ")",
+            y = Line(r, y, "Lev Gorodetskii", RegularFont, SlopWidgets.Name,
+                TextAnchor.UpperCenter, 0);
+            y = InlineLinkLine(r, y, "(", "hire him!", ")",
                 "mailto:job@drsr.io", RegularFont);
 
             y = NextSection(r, y);
             y = SectionHeading(r, y, "Based on");
             y += Layout.ColumnPadding;
-            y = InlineLinkLine(r, y, "", "RimWorld by Ludeon", "",
+            y = InlineLinkLine(r, y, "", "RimWorld by Ludeon Studios", "",
                 "https://rimworldgame.com/", RegularFont);
             y = InlineLinkLine(r, y, "", "Harmony mod by Andreas Pardeike", "",
                 "https://github.com/pardeike/HarmonyRimWorld", RegularFont);
+            y = InlineLinkLine(r, y, "", "Unity by Unity Technologies", "",
+                "https://unity.com/", RegularFont);
 
             y = NextSection(r, y);
             y = SectionHeading(r, y, "Libraries");
@@ -386,13 +393,18 @@ namespace SlopWorld
         float CreditGrid(Rect rect, float y, Credit[] credits)
         {
             float gap = Layout.ColumnGap;
-            float columnWidth = Mathf.Max(1f, (rect.width - gap) / 2f);
-            int split = credits.Length / 2;
-            var left = new Rect(rect.x, y, columnWidth, 1f);
-            var right = new Rect(rect.x + columnWidth + gap, y, columnWidth, 1f);
-            float leftHeight = CreditColumn(left, credits, 0, split);
-            float rightHeight = CreditColumn(right, credits, split, credits.Length);
-            return y + Mathf.Max(leftHeight, rightHeight);
+            float colW = Mathf.Max(1f, (rect.width - gap * 2f) / 3f);
+            int third = credits.Length / 3;
+            int rem = credits.Length % 3;
+            int s1 = third + (rem > 0 ? 1 : 0);
+            int s2 = s1 + third + (rem > 1 ? 1 : 0);
+            var c1 = new Rect(rect.x, y, colW, 1f);
+            var c2 = new Rect(rect.x + colW + gap, y, colW, 1f);
+            var c3 = new Rect(rect.x + (colW + gap) * 2f, y, colW, 1f);
+            float h1 = CreditColumn(c1, credits, 0, s1);
+            float h2 = CreditColumn(c2, credits, s1, s2);
+            float h3 = CreditColumn(c3, credits, s2, credits.Length);
+            return y + Mathf.Max(h1, Mathf.Max(h2, h3));
         }
 
         float CreditList(Rect rect, float y, Credit[] credits)
@@ -469,14 +481,18 @@ namespace SlopWorld
             }
 
             float gap = Layout.ColumnGap;
-            float columnWidth = Mathf.Max(1f, (rect.width - gap) / 2f);
-            int split = (stations.Length + 1) / 2;
-            var left = new Rect(rect.x, y, columnWidth, 1f);
-            var right = new Rect(rect.x + columnWidth + gap, y, columnWidth, 1f);
-            float leftHeight = RadioColumn(left, stations, 0, split, TextAnchor.UpperRight);
-            float rightHeight = RadioColumn(right, stations, split, stations.Length,
-                TextAnchor.UpperLeft);
-            return y + Mathf.Max(leftHeight, rightHeight);
+            float colW = Mathf.Max(1f, (rect.width - gap * 2f) / 3f);
+            int third = stations.Length / 3;
+            int rem = stations.Length % 3;
+            int s1 = third + (rem > 0 ? 1 : 0);
+            int s2 = s1 + third + (rem > 1 ? 1 : 0);
+            var c1 = new Rect(rect.x, y, colW, 1f);
+            var c2 = new Rect(rect.x + colW + gap, y, colW, 1f);
+            var c3 = new Rect(rect.x + (colW + gap) * 2f, y, colW, 1f);
+            float h1 = RadioColumn(c1, stations, 0, s1, TextAnchor.UpperLeft);
+            float h2 = RadioColumn(c2, stations, s1, s2, TextAnchor.UpperLeft);
+            float h3 = RadioColumn(c3, stations, s2, stations.Length, TextAnchor.UpperLeft);
+            return y + Mathf.Max(h1, Mathf.Max(h2, h3));
         }
 
         float RadioColumn(Rect rect, Radio.Station[] stations, int start, int end,
@@ -500,10 +516,7 @@ namespace SlopWorld
             const string heart = "♥";
             float heartWidth = hasDonate ? SlopWidgets.Wide(heart) : 0f;
             float gap = hasDonate ? SlopWidgets.GapS : 0f;
-            float totalWidth = nameWidth + gap + heartWidth;
-            float x = anchor == TextAnchor.UpperRight
-                ? rect.xMax - totalWidth
-                : rect.x;
+            float x = rect.x;
 
             LabelAt(new Rect(x, y, nameWidth, line), name, RegularFont,
                 SlopWidgets.Name);
