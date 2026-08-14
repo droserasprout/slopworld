@@ -50,6 +50,10 @@ name. An unknown project key shows nothing rather than falling back to all. Agen
 Files and Shortcuts filter while drawing; Search and Git re-request their stored result
 when the filter changes.
 
+The shared add strip offers project and agent editors, a Shortcuts submenu for each
+shortcut kind, new sandbox presets and commands, and a host-shell submenu with `~` first,
+followed by projects.
+
 The filter menu is multi-select: each tick closes and reopens at its anchor instead of
 the cursor. The palette's `View: Filter Projects` uses the same keys and `TickBox`, with
 Space toggling without closing.

@@ -664,7 +664,8 @@ namespace SlopWorld
             if (over)
             {
                 Slab.Fill(r, SlopWidgets.Hover);
-                TooltipHandler.TipRegion(r, "Add a project, an agent or a shortcut");
+                TooltipHandler.TipRegion(r,
+                    "Add a project, an agent, a shortcut, a sandbox preset, a command or a host shell");
             }
             Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), SlopWidgets.Edge);
 
@@ -691,11 +692,43 @@ namespace SlopWorld
                     TerminalWindow.OpenOverPane(new EditProjectDialog(null))),
                 new FloatMenuOption("Agent...", () =>
                     TerminalWindow.OpenOverPane(new EditSessionDialog(null))),
-                new FloatMenuOption("Shortcut...", () =>
-                    TerminalWindow.OpenOverPane(new EditShortcutDialog(null))),
+                new SlopSubmenu("Shortcuts", ShortcutOptions),
+                new FloatMenuOption("Sandbox preset...", SlopOptions.OpenNewSandboxPreset),
+                new FloatMenuOption("Command...", SlopOptions.OpenNewCommand),
+                new SlopSubmenu("Host shell", HostShellOptions),
             };
             TerminalWindow.OpenOverPane(new SlopMenu(opts));
             return true;
+        }
+
+        static List<FloatMenuOption> ShortcutOptions() => new List<FloatMenuOption>
+        {
+            new FloatMenuOption("Prompt...", () =>
+                TerminalWindow.OpenOverPane(new EditShortcutDialog(ShortcutKind.Prompt))),
+            new FloatMenuOption("Breadcrumb...", () =>
+                TerminalWindow.OpenOverPane(new EditShortcutDialog(ShortcutKind.Breadcrumb))),
+            new FloatMenuOption("Shell...", () =>
+                TerminalWindow.OpenOverPane(new EditShortcutDialog(ShortcutKind.Shell))),
+            new FloatMenuOption("File Action...", () =>
+                TerminalWindow.OpenOverPane(new EditShortcutDialog(ShortcutKind.FileAction))),
+        };
+
+        static List<FloatMenuOption> HostShellOptions()
+        {
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("~", () =>
+                    SessionHub.Instance.RunHostShell("",
+                        session => TerminalWindow.Open(session), SlopWidgets.Fail)),
+            };
+            foreach (var p in SessionHub.Instance.Projects)
+            {
+                string name = p.Name;
+                options.Add(new FloatMenuOption($"{name}  -  {p.Dir}", () =>
+                    SessionHub.Instance.RunHostShell(name,
+                        session => TerminalWindow.Open(session), SlopWidgets.Fail)));
+            }
+            return options;
         }
 
         static void Tabs()
