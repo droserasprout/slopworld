@@ -12,7 +12,33 @@ parked off-screen because the colonist bar shares locations for drawing and hit 
 Portrait scale is derived from text: `Nominal` makes the drawn square portrait match the
 row's three text lines, and `RowGap` stays between portraits. The face also has a
 panel-width limit. Headings, routed rows and the add strip remain fixed; `Fit` shrinks
-crowded portraits and reserves the add strip at the bottom.
+crowded portraits until their text floor, then the agent rows and portraits scroll in the
+remaining body.
+
+Selected portrait corners are queued during the vanilla portrait pass and drawn later in the
+same scroll group, using the same local face rect as the portrait. The sidebar retains
+vanilla's bracket texture and selection-jump animation while keeping multi-selection and
+caravan selection aligned with the custom face crop during scrolling.
+
+### Selection-corner debugging history
+
+`Rows[*].Face` is content-local geometry. `SmoothScroll.Begin` opens a `Widgets.BeginScrollView`
+whose outer rect is `Body`; vanilla's `DrawColonist` prefix therefore runs inside that scroll
+group. Keep selection rendering in that same group and pass the local face rect directly.
+
+Several tempting fixes were wrong:
+
+- Drawing after `EndScrollView` and subtracting `AgentScroll.Position` applied a second
+  coordinate conversion. The corners moved with scrolling but were offset from the portrait.
+- Replaying vanilla's private `DrawSelectionOverlayOnGUI` remained unstable. Its
+  `Widgets.DrawTextureRotated` call treats a content-local corner as a global rotation pivot,
+  so different corners can stay fixed or jump in unrelated directions.
+
+The working solution keeps vanilla selection filtering, `SelectedTexGUI`, selection timestamps
+and `CalculateSelectionBracketPositionsUI`. It calculates into a private four-corner array, then
+draws each original rotated texture in the active scroll group with its local center converted
+by `GUIUtility.GUIToScreenPoint` only for `RotateAroundPivot`. The texture rect stays local. Do
+not subtract the scroll position or pass the local center to `Widgets.DrawTextureRotated`.
 
 The portrait prefix replaces vanilla's complete draw, including its icon row. The
 front pass adds one badge, sized from the face so it survives shrinking and anchored to
