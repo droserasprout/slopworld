@@ -56,11 +56,22 @@ namespace SlopWorld
                 case '{': return ParseObject(s, ref i);
                 case '[': return ParseArray(s, ref i);
                 case '"': return new JVal { Str = ParseString(s, ref i) };
-                case 't': i += 4; return new JVal { Bool = true };
-                case 'f': i += 5; return new JVal { Bool = false };
-                case 'n': i += 4; return Null;
+                // Matched rather than assumed: advancing past a literal that is not there
+                // lands the cursor mid-token, and the container loops read whatever it
+                // points at next as the separator - which turns one truncated value into a
+                // silently wrong object rather than a missing one.
+                case 't': return Literal(s, ref i, "true") ? new JVal { Bool = true } : Null;
+                case 'f': return Literal(s, ref i, "false") ? new JVal { Bool = false } : Null;
+                case 'n': Literal(s, ref i, "null"); return Null;
                 default: return ParseNumber(s, ref i);
             }
+        }
+
+        static bool Literal(string s, ref int i, string word)
+        {
+            if (string.CompareOrdinal(s, i, word, 0, word.Length) != 0) return false;
+            i += word.Length;
+            return true;
         }
 
         static JVal ParseObject(string s, ref int i)
