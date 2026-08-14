@@ -3,7 +3,7 @@ default_rate = 128
 
 [metadata]
 name = "WFMU Freeform Radio"
-donate = ""
+donate = "https://pledge.wfmu.org/donate?program=TA&step=landing"
 
 [[stream]]
 rate = 32

@@ -3,7 +3,7 @@ default_rate = 64
 
 [metadata]
 name = "Kiosk Radio"
-donate = ""
+donate = "https://www.paypal.com/donate/?hosted_button_id=A96NFX3WU8BE8"
 
 [[stream]]
 rate = 64

@@ -3,7 +3,7 @@ default_rate = 128
 
 [metadata]
 name = "KEXP"
-donate = ""
+donate = "https://kexp.org/donate/"
 
 [[stream]]
 rate = 128

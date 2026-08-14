@@ -12,17 +12,17 @@ namespace SlopWorld
         public float ViewportMarginX = SlopWidgets.GapM;
         public float ViewportMarginY = SlopWidgets.GapM;
         public float ContentPaddingX = 20f;
-        public float ContentPaddingY = 28f;
+        public float ContentPaddingY = 20f;
         public float HeroMargin = 24f;
-        public float SectionMargin = 22f;
-        public float SectionPadding = 20f;
+        public float SectionMargin = 14f;
+        public float SectionPadding = 10f;
         public float ColumnGap = SlopWidgets.GapL;
-        public float ColumnPadding = 10f;
-        public float ColumnHeadingPadding = 16f;
-        public float CreditMargin = 18f;
-        public float LinkMargin = 6f;
+        public float ColumnPadding = 6f;
+        public float ColumnHeadingPadding = 8f;
+        public float CreditMargin = 8f;
+        public float LinkMargin = 3f;
         public float ParagraphBottomPadding = 3f;
-        public float TailPadding = 120f;
+        public float TailPadding = 48f;
         public int KickerTextSize;
         public int TitleTextSize = 28;
         public int SubtitleTextSize = 17;
@@ -33,9 +33,98 @@ namespace SlopWorld
         public int LinkTextSize;
     }
 
-    // Temporary credits-style page with local primitives that can move to shared UI later.
+    // Credits-style page with local primitives that match the shared settings chrome.
     public class AboutPage
     {
+        sealed class Credit
+        {
+            public readonly string Name;
+            public readonly string Detail;
+            public readonly string Url;
+            public readonly string LinkLabel;
+            public readonly CreditLink[] Links;
+
+            public Credit(string name, string detail, string url = null, string linkLabel = null)
+            {
+                Name = name;
+                Detail = detail;
+                Url = url;
+                LinkLabel = linkLabel;
+                Links = string.IsNullOrEmpty(url)
+                    ? new CreditLink[0]
+                    : new[] { new CreditLink(string.IsNullOrEmpty(linkLabel) ? name : linkLabel,
+                        url) };
+            }
+
+            public Credit(string name, string detail, CreditLink[] links)
+            {
+                Name = name;
+                Detail = detail;
+                Url = null;
+                LinkLabel = null;
+                Links = links ?? new CreditLink[0];
+            }
+        }
+
+        sealed class CreditLink
+        {
+            public readonly string Label;
+            public readonly string Url;
+
+            public CreditLink(string label, string url)
+            {
+                Label = label;
+                Url = url;
+            }
+        }
+
+        static readonly Credit[] Libraries =
+        {
+            new Credit("Rust", "daemon language", "https://www.rust-lang.org/"),
+            new Credit("Alacritty", "terminal emulation", "https://alacritty.org/"),
+            new Credit("Tokio", "async runtime", "https://tokio.rs/"),
+            new Credit("Axum", "HTTP and WebSocket server", "https://github.com/tokio-rs/axum"),
+            new Credit("Rodio / CPAL / Symphonia", "audio playback and decoding", new[]
+            {
+                new CreditLink("Rodio", "https://github.com/RustAudio/rodio"),
+                new CreditLink("CPAL", "https://github.com/RustAudio/cpal"),
+                new CreditLink("Symphonia", "https://github.com/pdeljanov/Symphonia"),
+            }),
+            new Credit("Serde / TOML / JSON", "serialization and configuration", new[]
+            {
+                new CreditLink("Serde", "https://serde.rs/"),
+                new CreditLink("TOML", "https://github.com/toml-rs/toml"),
+                new CreditLink("JSON", "https://github.com/serde-rs/json"),
+            }),
+            new Credit("ureq / rustls", "HTTP clients and TLS", new[]
+            {
+                new CreditLink("ureq", "https://github.com/algesten/ureq"),
+                new CreditLink("rustls", "https://github.com/rustls/rustls"),
+            }),
+            new Credit("tmux / bubblewrap / systemd", "sessions, isolation and service", new[]
+            {
+                new CreditLink("tmux", "https://github.com/tmux/tmux/wiki"),
+                new CreditLink("bubblewrap", "https://github.com/containers/bubblewrap"),
+                new CreditLink("systemd", "https://systemd.io/"),
+            }),
+        };
+
+        static readonly Credit[] Assets =
+        {
+            new Credit("Codicons", "Microsoft / VS Code action icons",
+                "https://github.com/microsoft/vscode-codicons"),
+            new Credit("Nerd Fonts", "Codicons-patched build font",
+                "https://www.nerdfonts.com/"),
+            new Credit("Material Icon Theme", "Material Extensions file icons",
+                "https://github.com/material-extensions/vscode-material-icon-theme"),
+            new Credit("Noto Color Emoji", "Google radio and rose artwork",
+                "https://github.com/googlefonts/noto-emoji"),
+            new Credit("SlopWorld robot faceplate", "original SlopWorld artwork"),
+        };
+
+        static readonly Credit Soundtrack = new Credit("Terry Fail", "Soundtrack",
+            "https://terryfail.bandcamp.com/", "bc");
+
         const float AutoScrollSpeed = 7f;
         const float FirstPassHeight = 2000f;
 
@@ -61,7 +150,7 @@ namespace SlopWorld
         {
             Text.Font = GameFont.Small;
             SlopWidgets.PageCaption(rect,
-                "Lorem ipsum dolor sit amet, consectetur adipiscing elit.");
+                "Credits and third-party acknowledgements.");
 
             // About has no footer, so its card reclaims PageBody's hidden vanilla OK row.
             var body = SlopWidgets.PageBody(rect);
@@ -231,152 +320,265 @@ namespace SlopWorld
         {
             float y = r.y;
 
-            y = Line(r, y, "LOREM IPSUM", GameFont.Tiny,
-                SlopWidgets.Faint, TextAnchor.UpperCenter, Layout.KickerTextSize);
-            y += SlopWidgets.GapS;
-            y = Line(r, y, "DOLOR SIT AMET", GameFont.Medium,
-                SlopWidgets.Lead, TextAnchor.UpperCenter, Layout.TitleTextSize);
-            y = Line(r, y, "CONSECTETUR ADIPISCING ELIT", GameFont.Small,
-                SlopWidgets.Dim, TextAnchor.UpperCenter, Layout.SubtitleTextSize);
-            y += Layout.HeroMargin;
-
-            y = Paragraph(r, y,
-                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. " +
-                "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. " +
-                "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris " +
-                "nisi ut aliquip ex ea commodo consequat.",
-                GameFont.Small, SlopWidgets.Name, TextAnchor.UpperCenter,
-                Layout.BodyTextSize);
-            y += Layout.SectionMargin;
-            Rule(r, y);
-            y += Layout.SectionPadding;
-
-            y = Line(r, y, "LOREM IPSUM DOLOR", GameFont.Tiny,
-                SlopWidgets.Faint, TextAnchor.UpperCenter, Layout.KickerTextSize);
+            y = SectionHeading(r, y, "Created by");
             y += Layout.ColumnPadding;
+            y = InlineLinkLine(r, y, "Lev Gorodetskii (", "hire him!", ")",
+                "mailto:job@drsr.io", GameFont.Small);
 
-            float gap = Layout.ColumnGap;
-            float columnWidth = Mathf.Max(1f, (r.width - gap) / 2f);
-            var left = new Rect(r.x, y, columnWidth, 400f);
-            var right = new Rect(r.x + columnWidth + gap, y, columnWidth, 400f);
-            float leftHeight = CreditsColumn(left, TextAnchor.UpperRight,
-                "LOREM IPSUM", new[]
-                {
-                    "Lorem ipsum", "Dolor sit amet", "Consectetur adipiscing",
-                    "Sed do eiusmod"
-                }, new[]
-                {
-                    "tempor incididunt", "ut labore et dolore", "magna aliqua", "quis nostrud"
-                });
-            float rightHeight = CreditsColumn(right, TextAnchor.UpperLeft,
-                "DOLOR SIT AMET", new[]
-                {
-                    "Exercitation ullamco", "Laboris nisi", "Ut aliquip ex ea",
-                    "Commodo consequat"
-                }, new[]
-                {
-                    "Duis aute irure", "Dolor in reprehenderit", "Voluptate velit",
-                    "Esse cillum dolore"
-                });
-            y += Mathf.Max(leftHeight, rightHeight) + Layout.SectionMargin;
-
-            Rule(r, y);
-            y += Layout.SectionPadding;
-            y = Line(r, y, "CONSECTETUR ADIPISCING", GameFont.Medium,
-                SlopWidgets.Lead, TextAnchor.UpperCenter, Layout.SectionTextSize);
-            y += Layout.ColumnHeadingPadding;
-
-            gap = Layout.ColumnGap;
-            columnWidth = Mathf.Max(1f, (r.width - gap * 2f) / 3f);
-            var castLeft = new Rect(r.x, y, columnWidth, 420f);
-            var castMiddle = new Rect(r.x + columnWidth + gap, y, columnWidth, 420f);
-            var castRight = new Rect(r.x + (columnWidth + gap) * 2f, y, columnWidth, 420f);
-            float castLeftHeight = CreditsColumn(castLeft, TextAnchor.UpperLeft,
-                "LOREM", new[]
-                {
-                    "Lorem ipsum", "Dolor sit amet", "Consectetur elit",
-                    "Sed eiusmod"
-                }, new[]
-                {
-                    "Adipiscing", "Tempor incididunt", "Labore et dolore", "Magna aliqua"
-                });
-            float castMiddleHeight = CreditsColumn(castMiddle, TextAnchor.UpperCenter,
-                "IPSUM", new[]
-                {
-                    "Ut enim ad", "Minim veniam", "Quis nostrud", "Exercitation"
-                }, new[]
-                {
-                    "Ullamco laboris", "Nisi ut aliquip", "Ex ea commodo", "Consequat duis"
-                });
-            float castRightHeight = CreditsColumn(castRight, TextAnchor.UpperRight,
-                "DOLOR", new[]
-                {
-                    "Aute irure", "Dolor reprehenderit", "Voluptate velit",
-                    "Esse cillum"
-                }, new[]
-                {
-                    "Fugiat nulla", "Pariatur excepteur", "Sint occaecat", "Cupidatat"
-                });
-            y += Mathf.Max(castLeftHeight, Mathf.Max(castMiddleHeight, castRightHeight)) +
-                Layout.SectionMargin;
-
-            Rule(r, y);
-            y += Layout.SectionMargin;
-            y = Paragraph(r, y,
-                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. " +
-                "Suspendisse potenti. Integer at sem sed nulla commodo consequat. " +
-                "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum " +
-                "dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non " +
-                "proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
-                GameFont.Small, SlopWidgets.Dim, TextAnchor.UpperLeft,
-                Layout.BodyTextSize);
-            y += Layout.SectionMargin;
-
-            y = Line(r, y, "LOREM IPSUM", GameFont.Small,
-                SlopWidgets.Lead, TextAnchor.UpperCenter, Layout.SectionTextSize);
+            y = NextSection(r, y);
+            y = SectionHeading(r, y, "Based on");
             y += Layout.ColumnPadding;
-            y = Link(r, y, "DOLOR SIT AMET", "https://rimworldgame.com/backstory",
-                GameFont.Small, TextAnchor.UpperLeft, Layout.LinkTextSize);
-            y = Link(r, y, "CONSECTETUR", "https://ludeon.com/blog",
-                GameFont.Small, TextAnchor.UpperCenter, Layout.LinkTextSize);
-            y = Link(r, y, "ADIPISCING ELIT", "https://rimworldwiki.com",
-                GameFont.Small, TextAnchor.UpperRight, Layout.LinkTextSize);
-            y += Layout.SectionMargin;
+            y = InlineLinkLine(r, y, "", "RimWorld by Ludeon", "",
+                "https://rimworldgame.com/", GameFont.Small);
+            y = InlineLinkLine(r, y, "", "Harmony mod by Andreas Pardeike", "",
+                "https://github.com/pardeike/HarmonyRimWorld", GameFont.Small);
 
-            Rule(r, y);
-            y += Layout.SectionMargin;
-            y = Line(r, y, "LOREM IPSUM DOLOR SIT AMET", GameFont.Medium,
-                SlopWidgets.Lead, TextAnchor.UpperCenter, Layout.SectionTextSize);
+            y = NextSection(r, y);
+            y = SectionHeading(r, y, "Libraries");
             y += Layout.ColumnHeadingPadding;
+            y = CreditGrid(r, y, Libraries);
+
+            y = NextSection(r, y);
+            y = SectionHeading(r, y, "Music");
+            y += Layout.ColumnPadding;
+            y = CreditRow(new Rect(r.x, y, r.width, 1f), y, Soundtrack);
+            y += Layout.ColumnHeadingPadding;
+            y = Line(r, y, "Radio", GameFont.Small, SlopWidgets.Lead,
+                TextAnchor.UpperCenter, Layout.ColumnHeadingTextSize);
+            y += Layout.ColumnPadding;
+            y = RadioGrid(r, y);
+
+            y = NextSection(r, y);
+            y = SectionHeading(r, y, "Assets");
+            y += Layout.ColumnHeadingPadding;
+            y = CreditGrid(r, y, Assets);
+
+            y = NextSection(r, y);
             y = Paragraph(r, y,
-                "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod " +
-                "tempor incididunt ut labore et dolore magna aliqua.",
-                GameFont.Small, SlopWidgets.Name, TextAnchor.UpperCenter,
+                "SlopWorld is an independent project and is not affiliated with or endorsed " +
+                "by the games, vendors, projects, or services named above.",
+                GameFont.Small, SlopWidgets.Dim, TextAnchor.UpperCenter,
                 Layout.BodyTextSize);
 
             // Leave a tail after the final line so it can reach the bottom of the viewport.
             return y + Layout.TailPadding;
         }
 
-        float CreditsColumn(Rect rect, TextAnchor anchor, string heading,
-            string[] names, string[] roles)
+        float NextSection(Rect rect, float y)
+        {
+            y += Layout.SectionMargin;
+            Rule(rect, y);
+            return y + Layout.SectionPadding;
+        }
+
+        float SectionHeading(Rect rect, float y, string text)
+        {
+            return Line(rect, y, text, GameFont.Medium, SlopWidgets.Lead,
+                TextAnchor.UpperCenter, Layout.SectionTextSize);
+        }
+
+        float CreditGrid(Rect rect, float y, Credit[] credits)
+        {
+            float gap = Layout.ColumnGap;
+            float columnWidth = Mathf.Max(1f, (rect.width - gap) / 2f);
+            int split = (credits.Length + 1) / 2;
+            var left = new Rect(rect.x, y, columnWidth, 1f);
+            var right = new Rect(rect.x + columnWidth + gap, y, columnWidth, 1f);
+            float leftHeight = CreditColumn(left, credits, 0, split);
+            float rightHeight = CreditColumn(right, credits, split, credits.Length);
+            return y + Mathf.Max(leftHeight, rightHeight);
+        }
+
+        float CreditColumn(Rect rect, Credit[] credits, int start, int end)
         {
             float top = rect.y;
             float y = top;
-            y = Line(rect, y, heading, GameFont.Small, SlopWidgets.Lead, anchor,
-                Layout.ColumnHeadingTextSize);
-            y += 12f;
-
-            for (int i = 0; i < names.Length; i++)
-            {
-                y = Line(rect, y, names[i], GameFont.Small, SlopWidgets.Name, anchor,
-                    Layout.CreditTextSize);
-                y = Line(rect, y, roles[i], GameFont.Tiny, SlopWidgets.Dim, anchor,
-                    Layout.KickerTextSize);
-                y += Layout.CreditMargin;
-            }
+            for (int i = start; i < end; i++)
+                y = CreditRow(rect, y, credits[i]);
 
             return y - top;
+        }
+
+        float CreditRow(Rect rect, float y, Credit credit)
+        {
+            Text.Font = GameFont.Small;
+            float line = SlopWidgets.LineH;
+            float middleGap = SlopWidgets.GapXS;
+            float half = rect.width / 2f;
+            var detail = new Rect(rect.x, y, Mathf.Max(1f, half - middleGap), line);
+            var name = new Rect(rect.x + half + middleGap, y,
+                Mathf.Max(1f, half - middleGap), line);
+
+            // Each half has its own axis: descriptions close against the axis from the
+            // left, while the linked credit name opens away from it on the right.
+            Line(detail, y, credit.Detail, GameFont.Tiny, SlopWidgets.Dim,
+                TextAnchor.UpperRight, Layout.KickerTextSize);
+            if (credit.Links.Length == 0)
+                Line(name, y, credit.Name, GameFont.Small, SlopWidgets.Name,
+                    TextAnchor.UpperLeft, Layout.CreditTextSize);
+            else if (!string.IsNullOrEmpty(credit.LinkLabel))
+                CreditNameWithLink(name, y, credit);
+            else if (credit.Links.Length == 1 && credit.Links[0].Label == credit.Name)
+                Link(name, y, credit.Name, credit.Links[0].Url, GameFont.Small,
+                    TextAnchor.UpperLeft, Layout.CreditTextSize);
+            else
+                CreditNameWithLinks(name, y, credit);
+
+            return y + line + Layout.CreditMargin;
+        }
+
+        void CreditNameWithLink(Rect rect, float y, Credit credit)
+        {
+            Text.Font = GameFont.Small;
+            float nameWidth = Mathf.Min(SlopWidgets.Wide(credit.Name), rect.width);
+            LabelAt(new Rect(rect.x, y, nameWidth, SlopWidgets.LineH), credit.Name,
+                GameFont.Small, SlopWidgets.Name);
+
+            string label = "(" + credit.LinkLabel + ")";
+            float linkWidth = Mathf.Min(SlopWidgets.Wide(label),
+                Mathf.Max(0f, rect.width - nameWidth - Layout.LinkMargin));
+            if (linkWidth <= 0f) return;
+
+            LinkAt(new Rect(rect.x + nameWidth + Layout.LinkMargin, y, linkWidth,
+                    SlopWidgets.LineH), label, credit.Url, GameFont.Small);
+        }
+
+        void CreditNameWithLinks(Rect rect, float y, Credit credit)
+        {
+            float x = rect.x;
+            float remaining = rect.width;
+            for (int i = 0; i < credit.Links.Length; i++)
+            {
+                var link = credit.Links[i];
+                string label = link.Label ?? "";
+                float width = Mathf.Min(SlopWidgets.Wide(label), remaining);
+                if (width <= 0f) break;
+
+                LinkAt(new Rect(x, y, width, SlopWidgets.LineH), label, link.Url,
+                    GameFont.Small);
+                x += width;
+                remaining -= width;
+
+                if (i + 1 >= credit.Links.Length) continue;
+
+                string separator = " / ";
+                float separatorWidth = Mathf.Min(SlopWidgets.Wide(separator), remaining);
+                if (separatorWidth <= 0f) break;
+                LabelAt(new Rect(x, y, separatorWidth, SlopWidgets.LineH), separator,
+                    GameFont.Small, SlopWidgets.Name);
+                x += separatorWidth;
+                remaining -= separatorWidth;
+            }
+        }
+
+        float RadioGrid(Rect rect, float y)
+        {
+            var stations = Radio.Stations ?? new Radio.Station[0];
+            if (stations.Length == 0)
+            {
+                return Paragraph(rect, y,
+                    "Radio stations are supplied by slopd and will appear when its catalog is " +
+                    "available.", GameFont.Small, SlopWidgets.Dim, TextAnchor.UpperCenter,
+                    Layout.BodyTextSize);
+            }
+
+            float gap = Layout.ColumnGap;
+            float columnWidth = Mathf.Max(1f, (rect.width - gap) / 2f);
+            int split = (stations.Length + 1) / 2;
+            var left = new Rect(rect.x, y, columnWidth, 1f);
+            var right = new Rect(rect.x + columnWidth + gap, y, columnWidth, 1f);
+            float leftHeight = RadioColumn(left, stations, 0, split, TextAnchor.UpperRight);
+            float rightHeight = RadioColumn(right, stations, split, stations.Length,
+                TextAnchor.UpperLeft);
+            return y + Mathf.Max(leftHeight, rightHeight);
+        }
+
+        float RadioColumn(Rect rect, Radio.Station[] stations, int start, int end,
+            TextAnchor anchor)
+        {
+            float top = rect.y;
+            float y = top;
+            for (int i = start; i < end; i++)
+                y = RadioRow(rect, y, stations[i], anchor);
+            return y - top;
+        }
+
+        float RadioRow(Rect rect, float y, Radio.Station station, TextAnchor anchor)
+        {
+            string name = station?.Name ?? "Unknown station";
+            string donate = station?.Metadata?.Donate;
+            bool hasDonate = !string.IsNullOrWhiteSpace(donate);
+            Text.Font = GameFont.Small;
+            float line = SlopWidgets.LineH;
+            float nameWidth = SlopWidgets.Wide(name);
+            const string heart = "♥";
+            float heartWidth = hasDonate ? SlopWidgets.Wide(heart) : 0f;
+            float gap = hasDonate ? SlopWidgets.GapS : 0f;
+            float totalWidth = nameWidth + gap + heartWidth;
+            float x = anchor == TextAnchor.UpperRight
+                ? rect.xMax - totalWidth
+                : rect.x;
+
+            LabelAt(new Rect(x, y, nameWidth, line), name, GameFont.Small,
+                SlopWidgets.Name);
+            if (hasDonate)
+                LinkAt(new Rect(x + nameWidth + gap, y, heartWidth, line), heart, donate,
+                    GameFont.Small);
+
+            return y + line + Layout.CreditMargin;
+        }
+
+        float InlineLinkLine(Rect rect, float y, string before, string linked, string after,
+            string url, GameFont font)
+        {
+            Text.Font = font;
+            float h = SlopWidgets.LineHOf(font);
+            float beforeWidth = SlopWidgets.Wide(before);
+            float linkedWidth = SlopWidgets.Wide(linked);
+            float afterWidth = SlopWidgets.Wide(after);
+            float totalWidth = beforeWidth + linkedWidth + afterWidth;
+            float x = rect.x + Mathf.Max(0f, (rect.width - totalWidth) / 2f);
+
+            LabelAt(new Rect(x, y, beforeWidth, h), before, font, SlopWidgets.Name);
+            LinkAt(new Rect(x + beforeWidth, y, linkedWidth, h), linked, url, font);
+            LabelAt(new Rect(x + beforeWidth + linkedWidth, y, afterWidth, h), after, font,
+                SlopWidgets.Name);
+            return y + h;
+        }
+
+        void LabelAt(Rect rect, string text, GameFont font, Color color)
+        {
+            if (rect.width <= 0f) return;
+
+            var wasFont = Text.Font;
+            var wasColor = GUI.color;
+            Text.Font = font;
+            GUI.color = color;
+            SlopWidgets.RowLabel(rect, text, TextAnchor.UpperLeft);
+            GUI.color = wasColor;
+            Text.Font = wasFont;
+        }
+
+        void LinkAt(Rect rect, string label, string url, GameFont font)
+        {
+            if (rect.width <= 0f) return;
+
+            var wasFont = Text.Font;
+            var wasColor = GUI.color;
+            Text.Font = font;
+            bool over = Mouse.IsOver(rect);
+            GUI.color = over ? SlopWidgets.Lead : SlopWidgets.Accent;
+            SlopWidgets.RowLabel(rect, label, TextAnchor.UpperLeft);
+            Slab.Hairline(new Rect(rect.x, rect.yMax - 1f, rect.width, 1f), GUI.color);
+
+            if (Widgets.ButtonInvisible(rect))
+            {
+                SoundDefOf.Click.PlayOneShotOnCamera();
+                Application.OpenURL(url);
+            }
+
+            GUI.color = wasColor;
+            Text.Font = wasFont;
         }
 
         float Line(Rect r, float y, string text, GameFont font, Color color,
