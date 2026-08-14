@@ -5,7 +5,8 @@ Implemented hot-path reductions in the C# mod:
 - `RealClock` samples wall time once per 60 frames.
 - `Plague` walks the lister's plant list directly, shares one cached game tick
   across each batch, and reduces background work.
-- `Radio` checks state every 10 frames and stops vanilla music once.
+- `Radio` keeps vanilla music disabled each frame, checks steady-state audio every 10 frames,
+  and reconnects pending selections immediately.
 - `Aura` compares squared distances.
 - `Sgr.Autolink` rejects rows without `://` before building a full-row string.
 
