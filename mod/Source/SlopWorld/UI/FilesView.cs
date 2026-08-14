@@ -94,6 +94,14 @@ namespace SlopWorld
             return !BinaryExt.Contains(name.Substring(dot).ToLowerInvariant());
         }
 
+        public static bool IsMarkdown(string name)
+        {
+            int dot = (name ?? "").LastIndexOf('.');
+            if (dot < 0) return false;
+            string ext = name.Substring(dot).ToLowerInvariant();
+            return ext == ".md" || ext == ".markdown" || ext == ".mdx";
+        }
+
         // Laid out by Draw, read by the click pass, so the two can never disagree about where
         // a row is - the same reason AgentSidebar keeps a Row table.
         struct Line
@@ -562,6 +570,14 @@ namespace SlopWorld
             _selected = node.Path;
             // Marked, and nobody showing it: whatever was in the pane is not about this row.
             if (!IsText(node.Name)) { _showing = RowAct.None; Viewer.Release(); return; }
+            if (IsMarkdown(node.Name))
+            {
+                if (same && MarkdownPreview.IsShowing(node.Path)) return;
+                Viewer.Release();
+                _showing = RowAct.View;
+                MarkdownPreview.Open(node.Project, node.Path, node.Name);
+                return;
+            }
             if (!same || !Viewer.Reopen()) View(node);
         }
 
@@ -629,6 +645,8 @@ namespace SlopWorld
             if (!node.IsDir && IsText(node.Name))
             {
                 opts.Add(new FloatMenuOption("View", () => View(node)));
+                if (IsMarkdown(node.Name))
+                    opts.Add(new FloatMenuOption("View in pager", () => ViewSource(node)));
                 opts.Add(new FloatMenuOption("Edit", () => EditFile(node.Project, node.Path,
                     "edit-" + node.Name)));
             }
@@ -804,8 +822,15 @@ namespace SlopWorld
         }
 
         // ------------------------------------------------------------------ viewer
-        // Pager-backed `less` viewer; one file at a time, closed on replacement or leaving the tree.
+        // Markdown files use the native reader; other text files use the pager. The explicit
+        // source action below keeps raw Markdown available without changing the default preview.
         static void View(Node node) => ViewFile(node.Project, node.Path, "view-" + node.Name);
+
+        static void ViewSource(Node node)
+        {
+            MarkdownPreview.CloseIfShowing();
+            ViewSourceFile(node.Project, node.Path, "view-" + node.Name);
+        }
 
         // Public for GitView: viewing a changed file is a Files operation, regardless of
         // which tree supplied the click. The shared tab switch is done by the caller.
@@ -820,6 +845,19 @@ namespace SlopWorld
                 _selected = path;
                 _showing = RowAct.View;
             }
+            if (IsMarkdown(System.IO.Path.GetFileName(path)))
+            {
+                Viewer.Release();
+                MarkdownPreview.Open(project, path, System.IO.Path.GetFileName(path));
+                return;
+            }
+            Viewer.ViewFile(project, path, label);
+        }
+
+        static void ViewSourceFile(string project, string path, string label)
+        {
+            _selected = path;
+            _showing = RowAct.View;
             Viewer.ViewFile(project, path, label);
         }
 
@@ -845,6 +883,7 @@ namespace SlopWorld
         {
             ClearSelection();
             Viewer.Release();
+            MarkdownPreview.CloseIfShowing();
         }
 
         public static void CloseViewerIf(string session) => Viewer.CloseIf(session);

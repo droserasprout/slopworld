@@ -10,6 +10,7 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post, put};
 use axum::{Extension, Json, Router};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 
 use crate::grant::{Cap, Level};
 use futures::{SinkExt, StreamExt};
@@ -83,6 +84,8 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/audio", get(audio))
         .route("/api/jukebox", get(jukebox))
         .route("/api/browse", get(browse))
+        .route("/api/read", get(read_file))
+        .route("/api/image", get(read_image))
         .route(
             "/api/files",
             post(create_file).put(rename_file).delete(remove_file),
@@ -1055,6 +1058,19 @@ struct BrowseReq {
     limit: Option<usize>,
 }
 
+#[derive(Deserialize)]
+struct ReadReq {
+    path: String,
+}
+
+/// A preview is a UI document, not a file transfer. Keep the response bounded so a generated
+/// README cannot turn one click into an unbounded JSON allocation in the daemon or the game.
+const READ_LIMIT: u64 = 512 * 1024;
+
+/// Images are a bounded preview transfer, not a general file download. This leaves room for
+/// screenshots while keeping one Markdown page from allocating an unbounded JSON response.
+const IMAGE_LIMIT: u64 = 8 * 1024 * 1024;
+
 /// Enough to fill a column several screens deep, and short of the answer to
 /// `read_dir` on `.git` or `node_modules` being a reply nobody reads.
 const BROWSE_LIMIT: usize = 500;
@@ -1153,6 +1169,89 @@ async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult 
         "files": out.files,
         "truncated": out.truncated,
     })))
+}
+
+async fn read_file(State(_m): State<Mgr>, Query(q): Query<ReadReq>) -> ApiResult {
+    let path = q.path.trim();
+    if path.is_empty() {
+        return Err(err(StatusCode::BAD_REQUEST, "no path"));
+    }
+
+    let path = std::path::PathBuf::from(crate::config::expand(path));
+    let text = read_preview(&path)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({
+        "path": path,
+        "text": text,
+        "bytes": text.len(),
+    })))
+}
+
+async fn read_image(State(_m): State<Mgr>, Query(q): Query<ReadReq>) -> ApiResult {
+    let path = q.path.trim();
+    if path.is_empty() {
+        return Err(err(StatusCode::BAD_REQUEST, "no path"));
+    }
+
+    let path = std::path::PathBuf::from(crate::config::expand(path));
+    let bytes = read_image_bytes(&path)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({
+        "path": path,
+        "data": BASE64.encode(&bytes),
+        "bytes": bytes.len(),
+    })))
+}
+
+async fn read_image_bytes(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
+    let metadata = tokio::fs::metadata(path).await?;
+    if !metadata.is_file() {
+        bail!("path is not a file");
+    }
+    if metadata.len() > IMAGE_LIMIT {
+        bail!(
+            "image is larger than the {} MiB preview limit",
+            IMAGE_LIMIT / (1024 * 1024)
+        );
+    }
+
+    let bytes = tokio::fs::read(path).await?;
+    if bytes.len() as u64 > IMAGE_LIMIT {
+        bail!(
+            "image grew beyond the {} MiB preview limit",
+            IMAGE_LIMIT / (1024 * 1024)
+        );
+    }
+    Ok(bytes)
+}
+
+async fn read_preview(path: &std::path::Path) -> anyhow::Result<String> {
+    use tokio::io::AsyncReadExt;
+
+    let metadata = tokio::fs::metadata(path).await?;
+    if !metadata.is_file() {
+        bail!("path is not a file");
+    }
+    if metadata.len() > READ_LIMIT {
+        bail!(
+            "file is larger than the {} KiB preview limit",
+            READ_LIMIT / 1024
+        );
+    }
+
+    let mut file = tokio::fs::File::open(path).await?;
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    file.read_to_end(&mut bytes).await?;
+    if bytes.len() as u64 > READ_LIMIT {
+        bail!(
+            "file grew beyond the {} KiB preview limit",
+            READ_LIMIT / 1024
+        );
+    }
+
+    String::from_utf8(bytes).context("file is not valid UTF-8")
 }
 
 #[derive(Deserialize)]
@@ -1907,7 +2006,8 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use super::{
-        browse_limit, entry_name, file_path, list_dir, search_preview, SearchReq, SEARCH_TEXT_LIMIT,
+        browse_limit, entry_name, file_path, list_dir, read_image_bytes, read_preview,
+        search_preview, SearchReq, IMAGE_LIMIT, READ_LIMIT, SEARCH_TEXT_LIMIT,
     };
 
     /// Somewhere of our own under the machine's temp dir, cleared on the way in so a run
@@ -1944,6 +2044,37 @@ mod tests {
         let full = list_dir(&dir, true, false, 500).await.unwrap();
         assert_eq!(full.dirs, ["src"]);
         assert_eq!(full.files, ["Cargo.toml", "README.md"]);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn preview_reads_utf8_and_rejects_oversized_files() {
+        let dir = fixture("preview");
+        let path = dir.join("README.md");
+        std::fs::write(&path, "# hello\n\nworld\n").unwrap();
+        assert_eq!(read_preview(&path).await.unwrap(), "# hello\n\nworld\n");
+
+        let large = dir.join("large.md");
+        std::fs::write(&large, vec![b'x'; READ_LIMIT as usize + 1]).unwrap();
+        let error = read_preview(&large).await.unwrap_err().to_string();
+        assert!(error.contains("preview limit"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn image_reads_bytes_and_rejects_oversized_files() {
+        let dir = fixture("image");
+        let path = dir.join("work.png");
+        let bytes = vec![137u8, 80, 78, 71];
+        std::fs::write(&path, &bytes).unwrap();
+        assert_eq!(read_image_bytes(&path).await.unwrap(), bytes);
+
+        let large = dir.join("large.png");
+        std::fs::write(&large, vec![0u8; IMAGE_LIMIT as usize + 1]).unwrap();
+        let error = read_image_bytes(&large).await.unwrap_err().to_string();
+        assert!(error.contains("image") && error.contains("limit"));
 
         let _ = std::fs::remove_dir_all(&dir);
     }

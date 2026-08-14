@@ -25,9 +25,11 @@ Project JSON also carries optional tagged `dns` (`{"mode":"resolved"}` or
 `dns` plus nullable `dns_override`; session writes send only the nullable raw
 override. A missing DNS setting means the systemd-resolved stub.
 
-Query routes are `/api/usage`, `/api/presets`, `/api/jukebox`, `/api/browse`,
-`/api/search`, `/api/git`, `/api/audio` and `/api/game`. `/api/open` returns 400 for
-an invalid URL and 502 when its opener fails. `/api/file-action` runs a configured
+Query routes are `/api/usage`, `/api/presets`, `/api/jukebox`, `/api/browse`, `/api/read`,
+`/api/image`, `/api/search`, `/api/git`, `/api/audio` and `/api/game`. `/api/read` is root-only
+and returns bounded UTF-8 file text for native Markdown previews. `/api/image` is root-only and
+returns bounded base64 image bytes for local Markdown images. `/api/open` returns 400 for an invalid
+URL and 502 when its opener fails. `/api/file-action` runs a configured
 Files action inside a named project's sandbox and returns bounded output.
 
 Private-state routes are daemon-owned: reset moves state to 14-day trash; root-only
