@@ -108,6 +108,20 @@ impl Snapshot {
             ..prev.clone()
         }
     }
+
+    /// Whether two snapshots would draw the same, which is what decides if a poll is worth
+    /// announcing to every client. `fetched_ms` moves on every lap and is deliberately not in
+    /// here - it ages the numbers rather than changing them. `sources` is, because the mod
+    /// draws a row per source it expects: a seller switched off in `config.toml` while the
+    /// others report what they reported last time changes nothing else in the snapshot, and
+    /// leaving it out of the comparison left its icon on screen after it was gone.
+    pub fn same_readout(&self, other: &Snapshot) -> bool {
+        self.ok == other.ok
+            && self.error == other.error
+            && self.plan == other.plan
+            && self.windows == other.windows
+            && self.sources == other.sources
+    }
 }
 
 fn now_ms() -> u64 {
@@ -1367,6 +1381,41 @@ mod tests {
         // The plan is the subscription's, and only one source has one.
         assert_eq!(m.plan, "max");
         assert!(m.error.is_none());
+    }
+
+    /// Turning a seller off is a change the mod has to hear about even when every figure it
+    /// was already drawing stayed put: it draws a row per *expected* source, so a snapshot
+    /// that differs only in `sources` must not be swallowed as "nothing moved". `fetched_ms`
+    /// is the other way round - it moves every lap and is not worth a broadcast on its own.
+    #[test]
+    fn a_source_switched_off_is_not_the_same_readout() {
+        let base = Snapshot {
+            ok: true,
+            plan: "max".into(),
+            fetched_ms: 1_000,
+            sources: vec!["anthropic".into(), "openrouter".into()],
+            windows: vec![Window {
+                key: "five_hour".into(),
+                label: "5h".into(),
+                pct: 40.0,
+                unit: Unit::Pct,
+                amount: None,
+                limit: None,
+                resets_in: None,
+            }],
+            ..Default::default()
+        };
+
+        let mut aged = base.clone();
+        aged.fetched_ms = 99_000;
+        assert!(base.same_readout(&aged), "a newer poll of the same figures");
+
+        let mut dropped = base.clone();
+        dropped.sources = vec!["anthropic".into()];
+        assert!(
+            !base.same_readout(&dropped),
+            "openrouter was switched off and the readout must be told"
+        );
     }
 
     /// One source failing dims the readout and says which, and never empties the other's
