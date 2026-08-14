@@ -66,7 +66,9 @@ namespace SlopWorld
             closeOnCancel = false;
             forcePause = false;
             layer = WindowLayer.Super;
-            preventCameraMotion = false;
+            // PageUp/PageDown are vanilla map-zoom bindings. The palette owns those keys
+            // while it is open, so stop the camera pass from consuming them first.
+            preventCameraMotion = true;
             draggable = false;
             resizeable = false;
 
@@ -186,6 +188,34 @@ namespace SlopWorld
                         }
                         e.Use();
                         return;
+
+                    case KeyCode.PageUp:
+                        if (_mode == Mode.Sub)
+                        {
+                            _subIndex = Mathf.Max(0, _subIndex - PageSize);
+                            ScrollToSub();
+                        }
+                        else
+                        {
+                            _selectedIndex = Mathf.Max(0, _selectedIndex - PageSize);
+                            ScrollToSelected();
+                        }
+                        e.Use();
+                        return;
+
+                    case KeyCode.PageDown:
+                        if (_mode == Mode.Sub)
+                        {
+                            _subIndex = Mathf.Min(_subShown.Count - 1, _subIndex + PageSize);
+                            ScrollToSub();
+                        }
+                        else
+                        {
+                            _selectedIndex = Mathf.Min(_matches.Count - 1, _selectedIndex + PageSize);
+                            ScrollToSelected();
+                        }
+                        e.Use();
+                        return;
                 }
             }
 
@@ -295,6 +325,10 @@ namespace SlopWorld
             float y = _subIndex * RowH;
             _scroll.Reveal(y, RowH, _listH);
         }
+
+        // Page navigation follows the number of complete rows visible in the list. A page
+        // jump is still at least one row when the palette is shorter than a row.
+        int PageSize => Mathf.Max(1, Mathf.FloorToInt(_listH / RowH));
 
         // --------------------------------------------------------------- command list
 

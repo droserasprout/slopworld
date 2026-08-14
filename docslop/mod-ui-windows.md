@@ -42,10 +42,11 @@ separate 22px floor for rows containing a tick box.
 ## Command palette
 
 F1 opens the palette, with recent entries first; F12 and F1 are claimed by chrome.
-Subactions ask their next question in the same box, and Backspace on an empty filter
-returns. Checked suboptions redraw from command state: Space toggles and stays open,
-Enter toggles and closes. `Fuzzy` matches every query term as an ordered subsequence
-and ranks heads, boundaries, runs and whole terms.
+Up/Down move one row and PgUp/PgDown move one visible page. Subactions ask their next
+question in the same box, and Backspace on an empty filter returns. Checked suboptions
+redraw from command state: Space toggles and stays open, Enter toggles and closes.
+`Fuzzy` matches every query term as an ordered subsequence and ranks heads, boundaries,
+runs and whole terms.
 
 `View: Zoom In/Out` changes `SlopUIScale` by 0.25 and saves immediately. There is no
 separate sandbox toggle: all agents are sandboxed and project presets define access.
