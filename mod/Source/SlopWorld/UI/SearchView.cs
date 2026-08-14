@@ -39,8 +39,26 @@ namespace SlopWorld
             public Match Match;
         }
 
+        enum RowKind
+        {
+            Heading,
+            File,
+            Match,
+            Note,
+        }
+
+        struct LayoutRow
+        {
+            public RowKind Kind;
+            public Group Group;
+            public Match Match;
+            public string Text;
+            public Color Color;
+        }
+
         static readonly List<Group> Groups = new List<Group>();
         static readonly List<Hit> Hits = new List<Hit>();
+        static readonly List<LayoutRow> Layout = new List<LayoutRow>();
         static readonly SmoothScroll Scroll = new SmoothScroll();
         static readonly Pager Viewer = new Pager();
 
@@ -55,8 +73,8 @@ namespace SlopWorld
         static Match _selected;
         static Match _showing;
         static bool _focus;
-        static float _visibleTop;
-        static float _visibleBottom;
+        static bool _layoutDirty = true;
+        static float _contentHeight;
 
         public static void Entered() => _focus = true;
 
@@ -145,6 +163,7 @@ namespace SlopWorld
                 _pending = 0;
                 _loading = false;
                 Groups.Clear();
+                DirtyLayout();
                 Scroll.JumpTo(Vector2.zero);
                 ReleaseViewer();
                 return;
@@ -152,6 +171,7 @@ namespace SlopWorld
 
             ReleaseViewer();
             Groups.Clear();
+            DirtyLayout();
             _selected = null;
             _loading = true;
             Scroll.JumpTo(Vector2.zero);
@@ -195,72 +215,50 @@ namespace SlopWorld
                         return path != 0 ? path : a.Line.CompareTo(b.Line);
                     });
                     group.Truncated = j["truncated"].AsBool();
+                    DirtyLayout();
                     Done(generation);
                 }, msg =>
                 {
                     if (generation != _generation) return;
                     group.Error = msg;
+                    DirtyLayout();
                     Done(generation);
                 });
             }
         }
+
+        static void DirtyLayout() => _layoutDirty = true;
 
         static void Done(int generation)
         {
             if (generation != _generation) return;
             _pending--;
             if (_pending <= 0) _loading = false;
+            DirtyLayout();
         }
 
         static void DrawResults(Rect body)
         {
+            EnsureLayout();
             Hits.Clear();
-            float height = Measure();
+            float height = _contentHeight;
             var view = new Rect(0f, 0f,
                 body.width - (height > body.height ? SlopWidgets.ScrollbarW : 0f),
                 Mathf.Max(body.height, height));
             Scroll.Begin(body, view);
             try
             {
-                _visibleTop = Scroll.Position.y;
-                _visibleBottom = _visibleTop + body.height;
-                float y = Pad;
-                bool hasRows = false;
-                foreach (var group in Groups)
-                    if (group.Matches.Count > 0 || group.Error != null || group.Truncated)
-                    {
-                        hasRows = true;
-                        break;
-                    }
-
-                if (Groups.Count == 0 || (!_loading && !hasRows))
+                float visibleTop = Scroll.Position.y;
+                float visibleBottom = visibleTop + body.height;
+                int first = Mathf.Max(0,
+                    Mathf.FloorToInt((visibleTop - Pad) / RowH) - 1);
+                int last = Mathf.Min(Layout.Count,
+                    Mathf.CeilToInt((visibleBottom - Pad) / RowH) + 1);
+                for (int i = first; i < last; i++)
                 {
-                    Note(view.width, ref y, _loading ? "Searching…" :
-                        string.IsNullOrWhiteSpace(_query) ? "Type a query and press Enter."
-                        : "No results.", SlopWidgets.Faint);
+                    float y = Pad + i * RowH;
+                    DrawRow(view.width, ref y, Layout[i]);
                 }
-                foreach (var group in Groups)
-                {
-                    if (group.Matches.Count == 0 && group.Error == null && !_loading) continue;
-                    Heading(view.width, ref y, group);
-                    if (group.Error != null) Note(view.width, ref y, group.Error, SlopWidgets.Bad);
-                    else
-                    {
-                        string file = null;
-                        foreach (var match in group.Matches)
-                        {
-                            if (match.Path != file)
-                            {
-                                file = match.Path;
-                                FileHeading(view.width, ref y, file);
-                            }
-                            Result(view.width, ref y, match);
-                        }
-                    }
-                    if (group.Truncated)
-                        Note(view.width, ref y, "… more matches", SlopWidgets.Faint);
-                }
-                if (_loading) Note(view.width, ref y, "Searching…", SlopWidgets.Faint);
             }
             finally
             {
@@ -271,28 +269,101 @@ namespace SlopWorld
             }
         }
 
-        static float Measure()
+        static void EnsureLayout()
         {
-            float rows = 1f;
+            if (!_layoutDirty) return;
+
+            Layout.Clear();
+            bool hasRows = false;
             foreach (var g in Groups)
-                if (g.Matches.Count > 0 || g.Error != null || _loading)
-                    rows += 1f + g.Matches.Count + Files(g) + (g.Error != null ? 1f : 0f) +
-                        (g.Truncated ? 1f : 0f);
-            return Pad * 2f + rows * RowH;
+                if (g.Matches.Count > 0 || g.Error != null || g.Truncated)
+                {
+                    hasRows = true;
+                    break;
+                }
+
+            if (Groups.Count == 0 || (!_loading && !hasRows))
+                Layout.Add(new LayoutRow
+                {
+                    Kind = RowKind.Note,
+                    Text = _loading ? "Searching…" :
+                        string.IsNullOrWhiteSpace(_query) ? "Type a query and press Enter."
+                        : "No results.",
+                    Color = SlopWidgets.Faint,
+                });
+
+            foreach (var group in Groups)
+            {
+                if (group.Matches.Count == 0 && group.Error == null && !_loading) continue;
+                Layout.Add(new LayoutRow { Kind = RowKind.Heading, Group = group });
+                if (group.Error != null)
+                    Layout.Add(new LayoutRow
+                    {
+                        Kind = RowKind.Note,
+                        Text = group.Error,
+                        Color = SlopWidgets.Bad,
+                    });
+                else
+                {
+                    string file = null;
+                    foreach (var match in group.Matches)
+                    {
+                        if (match.Path != file)
+                        {
+                            file = match.Path;
+                            Layout.Add(new LayoutRow
+                            {
+                                Kind = RowKind.File,
+                                Text = file,
+                            });
+                        }
+                        Layout.Add(new LayoutRow { Kind = RowKind.Match, Match = match });
+                    }
+                }
+                if (group.Truncated)
+                    Layout.Add(new LayoutRow
+                    {
+                        Kind = RowKind.Note,
+                        Text = "… more matches",
+                        Color = SlopWidgets.Faint,
+                    });
+            }
+
+            // A loading row is only needed after project groups have been created; with no
+            // projects the empty note above already says what is happening.
+            if (_loading && Groups.Count > 0)
+                Layout.Add(new LayoutRow
+                {
+                    Kind = RowKind.Note,
+                    Text = "Searching…",
+                    Color = SlopWidgets.Faint,
+                });
+
+            _contentHeight = Pad * 2f + Layout.Count * RowH;
+            _layoutDirty = false;
         }
 
-        static int Files(Group group)
+        static void DrawRow(float width, ref float y, LayoutRow row)
         {
-            int count = 0;
-            string path = null;
-            foreach (var match in group.Matches)
-                if (match.Path != path) { path = match.Path; count++; }
-            return count;
+            switch (row.Kind)
+            {
+                case RowKind.Heading:
+                    Heading(width, ref y, row.Group);
+                    break;
+                case RowKind.File:
+                    FileHeading(width, ref y, row.Text);
+                    break;
+                case RowKind.Match:
+                    Result(width, ref y, row.Match);
+                    break;
+                case RowKind.Note:
+                    Note(width, ref y, row.Text, row.Color);
+                    break;
+            }
         }
 
         static void Heading(float width, ref float y, Group group)
         {
-            if (!Visible(y)) { y += RowH; return; }
             var r = new Rect(0f, y, width, RowH);
             GUI.color = SlopWidgets.Lead;
             Text.Font = GameFont.Tiny;
@@ -305,7 +376,6 @@ namespace SlopWorld
 
         static void FileHeading(float width, ref float y, string path)
         {
-            if (!Visible(y)) { y += RowH; return; }
             GUI.color = SlopWidgets.Name;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
@@ -317,7 +387,6 @@ namespace SlopWorld
 
         static void Result(float width, ref float y, Match match)
         {
-            if (!Visible(y)) { y += RowH; return; }
             var r = new Rect(0f, y, width, RowH);
             bool over = SlopWidgets.HoverRow(r);
             if (ReferenceEquals(match, _selected))
@@ -346,7 +415,6 @@ namespace SlopWorld
 
         static void Note(float width, ref float y, string text, Color color)
         {
-            if (!Visible(y)) { y += RowH; return; }
             GUI.color = color;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
@@ -354,8 +422,6 @@ namespace SlopWorld
             GUI.color = Color.white;
             y += RowH;
         }
-
-        static bool Visible(float y) => y + RowH >= _visibleTop && y <= _visibleBottom;
 
         public static void Clicks()
         {
