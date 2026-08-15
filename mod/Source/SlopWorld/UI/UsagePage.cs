@@ -5,7 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    public class UsagePage
+    public class UsagePage : IOptionPage
     {
         SlopConfig _cfg;
         string _error;

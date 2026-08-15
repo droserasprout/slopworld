@@ -6,7 +6,7 @@ namespace SlopWorld
 {
     // First options page for daemon/config values and game controls. Connection values remain
     // editable in mod settings when the socket is down; regex rules stay in raw TOML.
-    public class ConfigPage
+    public class ConfigPage : IOptionPage
     {
         SlopConfig _cfg;
         string _path = "";

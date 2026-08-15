@@ -6,7 +6,7 @@ using Verse;
 namespace SlopWorld
 {
     // Title policies and models; see docslop/agent-titles.md.
-    public class SummariesPage
+    public class SummariesPage : IOptionPage
     {
         SlopConfig _cfg;
         string _error;
