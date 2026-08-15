@@ -159,15 +159,7 @@ namespace SlopWorld
             string query = (_query ?? "").Trim();
             if (query.Length == 0)
             {
-                // Invalidate replies for the previous query before clearing its rows. Otherwise a
-                // slow request can repopulate the result list after the user erased the field.
-                ++_generation;
-                _pending = 0;
-                _loading = false;
-                Groups.Clear();
-                DirtyLayout();
-                Scroll.JumpTo(Vector2.zero);
-                ReleaseViewer();
+                ResetToEmpty();
                 return;
             }
 
@@ -179,11 +171,7 @@ namespace SlopWorld
             Scroll.JumpTo(Vector2.zero);
             int generation = ++_generation;
 
-            var projects = new List<ProjectInfo>();
-            foreach (var p in SessionHub.Instance.Projects)
-                if (!string.IsNullOrEmpty(p.Dir) && AgentSidebar.Passes(p.Name))
-                    projects.Add(p);
-            projects.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
+            var projects = SearchProjects();
             _pending = projects.Count;
             if (_pending == 0) { _loading = false; return; }
 
@@ -198,35 +186,63 @@ namespace SlopWorld
                     "&word=" + (_word ? "1" : "0") +
                     "&gitignore=" + (_includeIgnored ? "0" : "1") +
                     "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0");
-                SlopClient.Get(url, j =>
-                {
-                    if (generation != _generation) return;
-                    foreach (var row in j["matches"].Items)
-                        group.Matches.Add(new Match
-                        {
-                            Project = p.Name,
-                            Root = p.Dir,
-                            Path = row["path"].AsString(),
-                            Line = row["line"].AsInt(),
-                            Column = row["column"].AsInt(),
-                            Text = row["text"].AsString(),
-                        });
-                    group.Matches.Sort((a, b) =>
-                    {
-                        int path = string.CompareOrdinal(a.Path, b.Path);
-                        return path != 0 ? path : a.Line.CompareTo(b.Line);
-                    });
-                    group.Truncated = j["truncated"].AsBool();
-                    DirtyLayout();
-                    Done(generation);
-                }, msg =>
-                {
-                    if (generation != _generation) return;
-                    group.Error = msg;
-                    DirtyLayout();
-                    Done(generation);
-                });
+                SlopClient.Get(url, j => OnResults(group, p, generation, j),
+                    msg => OnError(group, generation, msg));
             }
+        }
+
+        static void ResetToEmpty()
+        {
+            // Invalidate replies for the previous query before clearing its rows. Otherwise a
+            // slow request can repopulate the result list after the user erased the field.
+            ++_generation;
+            _pending = 0;
+            _loading = false;
+            Groups.Clear();
+            DirtyLayout();
+            Scroll.JumpTo(Vector2.zero);
+            ReleaseViewer();
+        }
+
+        static List<ProjectInfo> SearchProjects()
+        {
+            var projects = new List<ProjectInfo>();
+            foreach (var p in SessionHub.Instance.Projects)
+                if (!string.IsNullOrEmpty(p.Dir) && AgentSidebar.Passes(p.Name))
+                    projects.Add(p);
+            projects.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
+            return projects;
+        }
+
+        static void OnResults(Group group, ProjectInfo project, int generation, JVal j)
+        {
+            if (generation != _generation) return;
+            foreach (var row in j["matches"].Items)
+                group.Matches.Add(new Match
+                {
+                    Project = project.Name,
+                    Root = project.Dir,
+                    Path = row["path"].AsString(),
+                    Line = row["line"].AsInt(),
+                    Column = row["column"].AsInt(),
+                    Text = row["text"].AsString(),
+                });
+            group.Matches.Sort((a, b) =>
+            {
+                int path = string.CompareOrdinal(a.Path, b.Path);
+                return path != 0 ? path : a.Line.CompareTo(b.Line);
+            });
+            group.Truncated = j["truncated"].AsBool();
+            DirtyLayout();
+            Done(generation);
+        }
+
+        static void OnError(Group group, int generation, string msg)
+        {
+            if (generation != _generation) return;
+            group.Error = msg;
+            DirtyLayout();
+            Done(generation);
         }
 
         static void DirtyLayout() => _layoutDirty = true;
