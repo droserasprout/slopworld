@@ -6,8 +6,10 @@ namespace SlopWorld
     // RimWorld's mixer, brought into the SlopWorld group and drawn in the same chrome as
     // the other pages. These remain Prefs rather than mod settings: the game's sound
     // engine observes the setters, and Dialog_Options persists them on close.
-    public class AudioPage
+    public class AudioPage : IOptionPage
     {
+        public void Load() { }
+
         public void Draw(Rect rect)
         {
             Text.Font = GameFont.Small;

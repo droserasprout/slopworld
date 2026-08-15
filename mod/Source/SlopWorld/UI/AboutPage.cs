@@ -34,9 +34,11 @@ namespace SlopWorld
     }
 
     // Credits-style page with local primitives that match the shared settings chrome.
-    public class AboutPage
+    public class AboutPage : IOptionPage
     {
         const GameFont RegularFont = GameFont.Medium;
+
+        public void Load() { }
 
         sealed class Credit
         {
