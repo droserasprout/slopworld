@@ -428,6 +428,9 @@ pub struct ProjectCfg {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionCfg {
     pub name: String,
+    /// A non-empty manual sidebar label disables automatic title summaries for this agent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
     /// Stable, daemon-owned identity of this agent's private state.  Names are UI and tmux
     /// handles and may change or be reused; this is deliberately neither.
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -468,6 +471,7 @@ impl Default for SessionCfg {
     fn default() -> Self {
         Self {
             name: String::new(),
+            label: None,
             state_id: uuid::Uuid::new_v4().to_string(),
             project: String::new(),
             command: String::new(),
@@ -1366,6 +1370,7 @@ token = \"not-a-daemon-token\"
         cfg.sessions.push(SessionCfg {
             name: "quiet".into(),
             project: "repo".into(),
+            label: Some("manual title".into()),
             network: Some(NetworkMode::None),
             ..Default::default()
         });
@@ -1378,6 +1383,10 @@ token = \"not-a-daemon-token\"
         assert_eq!(
             back.session("quiet").unwrap().network,
             Some(NetworkMode::None)
+        );
+        assert_eq!(
+            back.session("quiet").unwrap().label.as_deref(),
+            Some("manual title")
         );
         assert_eq!(back.commands.pager, "less");
         assert_eq!(back.commands.editor, "micro");

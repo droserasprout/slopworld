@@ -127,6 +127,17 @@ namespace SlopWorld
                 },
             };
 
+            yield return new SlopCommandAction(SlopWidgets.Btn.Default)
+            {
+                defaultLabel = "Label",
+                defaultDesc = string.IsNullOrWhiteSpace(info.Label)
+                    ? $"Set a manual summary label for '{Session}'. This disables automatic summaries."
+                    : $"Change or remove '{Session}'s manual label. Removing it re-enables automatic summaries.",
+                icon = Icons.Type,
+                defaultIconColor = SlopWidgets.Accent,
+                action = () => LabelDialog.Open(Session, info.Label),
+            };
+
             if (!string.IsNullOrEmpty(info.Project))
             {
                 yield return new SlopCommandAction(SlopWidgets.Btn.Default)

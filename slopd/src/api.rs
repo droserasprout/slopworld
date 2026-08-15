@@ -35,6 +35,7 @@ pub fn router(m: Mgr) -> Router {
         .route("/api/sessions/:name/start", post(start))
         .route("/api/sessions/:name/stop", post(stop))
         .route("/api/sessions/:name/restart", post(restart))
+        .route("/api/sessions/:name/label", put(set_label))
         .route("/api/sessions/:name/state/reset", post(reset_state))
         .route(
             "/api/tasks",
@@ -435,6 +436,21 @@ async fn restart(
 ) -> ApiResult {
     guard(&m, &cap, &name, Level::Rw).await?;
     ok_json(m.restart(&name).await)
+}
+
+#[derive(Debug, Deserialize)]
+struct LabelReq {
+    label: String,
+}
+
+async fn set_label(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    Path(name): Path<String>,
+    Json(q): Json<LabelReq>,
+) -> ApiResult {
+    guard(&m, &cap, &name, Level::Rw).await?;
+    ok_json(m.set_label(&name, q.label).await)
 }
 
 async fn list_projects(State(m): State<Mgr>) -> ApiResult {

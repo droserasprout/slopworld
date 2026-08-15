@@ -64,6 +64,7 @@ namespace SlopWorld
                         ? SlopWidgets.FreeName(existing.Name,
                             SessionHub.Instance.Sessions.Select(x => x.Name), "agent")
                         : existing.Name,
+                    Label = copy ? "" : existing.Label,
                     Project = existing.Project,
                     Command = existing.Command,
                     CommandPreset = existing.CommandPreset,

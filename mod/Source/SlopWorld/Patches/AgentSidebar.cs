@@ -1029,14 +1029,22 @@ namespace SlopWorld
                 GUI.color = SlopWidgets.Dim;
                 SlopWidgets.RowLabel(word, Word(state));
 
-                string title = Title(info);
-                GUI.color = title.Length > 0 ? SlopWidgets.Dim : SlopWidgets.Off;
-                if (title.Length == 0) title = Ground(info);
-                var line3 = new Rect(row.Text.x, row.Text.y + NameH + SubH,
-                    row.Text.width, SubH);
-                SlopWidgets.RowLabel(line3, title);
-                if (title.Length > 0 && SlopWidgets.Wide(title) > line3.width)
-                    TooltipHandler.TipRegion(line3, title);
+                // A stopped or newly started agent has no useful summary yet. Keep the row's
+                // three-line pitch stable, but leave its third line empty until a native or
+                // generated title exists.
+                if (state != AgentState.Down)
+                {
+                    string title = Title(info);
+                    if (title.Length > 0)
+                    {
+                        GUI.color = SlopWidgets.Dim;
+                        var line3 = new Rect(row.Text.x, row.Text.y + NameH + SubH,
+                            row.Text.width, SubH);
+                        SlopWidgets.RowLabel(line3, title);
+                        if (SlopWidgets.Wide(title) > line3.width)
+                            TooltipHandler.TipRegion(line3, title);
+                    }
+                }
 
                 GUI.color = Color.white;
                 Click(row, info);
@@ -1218,7 +1226,8 @@ namespace SlopWorld
         static string Title(SessionInfo info)
         {
             if (info == null) return "";
-            var t = info.Title ?? "";
+            var t = string.IsNullOrWhiteSpace(info.Label) ? info.Title : info.Label;
+            t = t ?? "";
             var font = Text.CurFontStyle?.font;
             var clean = new System.Text.StringBuilder(t.Length);
             foreach (char c in t)
@@ -1236,20 +1245,6 @@ namespace SlopWorld
             return string.Equals(title, System.Environment.MachineName,
                        System.StringComparison.OrdinalIgnoreCase)
                 || string.Equals(title, "localhost", System.StringComparison.OrdinalIgnoreCase);
-        }
-
-        static string Ground(SessionInfo info)
-        {
-            if (info == null) return "";
-            return info.Ephemeral ? info.Project : Leaf(info.Dir);
-        }
-
-        static string Leaf(string dir)
-        {
-            if (string.IsNullOrEmpty(dir)) return "";
-            string trimmed = dir.TrimEnd('/');
-            int cut = trimmed.LastIndexOf('/');
-            return cut < 0 ? trimmed : trimmed.Substring(cut + 1);
         }
 
         static void Click(Row row, SessionInfo info)
@@ -1327,6 +1322,13 @@ namespace SlopWorld
             var term = new FloatMenuOption("Terminal", () => TerminalWindow.Open(name));
             term.Disabled = !alive;
             opts.Add(term);
+
+            if (info != null)
+                opts.Add(new FloatMenuOption("Label", () =>
+                {
+                    var current = hub.Get(name);
+                    if (current != null) LabelDialog.Open(name, current.Label);
+                }));
 
             if (info != null && !info.Ephemeral)
                 opts.Add(new FloatMenuOption("Edit...", () =>
