@@ -136,6 +136,15 @@ struct OpenAiCreds {
     account_id: Option<String>,
 }
 
+/// The three credential shapes are different, but the poll loop only needs to pass one of
+/// them from the provider's reader to its fetcher. Keeping that difference here leaves the
+/// provider table below as data rather than three copies of the blocking workflow.
+enum ProviderCredentials {
+    Anthropic(Creds),
+    OpenRouter(String),
+    OpenAi(OpenAiCreds),
+}
+
 /// Retry one JSON parse after 50ms. A sandboxed Claude cannot rename over the shared
 /// credential bind mount, so its fallback truncates and rewrites the host inode in place.
 /// Readers can catch that brief invalid-JSON window. IO errors are persistent states and
@@ -195,6 +204,20 @@ fn read_openai_creds(path: &PathBuf) -> anyhow::Result<OpenAiCreds> {
     Ok(OpenAiCreds { token, account_id })
 }
 
+fn read_anthropic(d: &crate::config::Daemon) -> anyhow::Result<ProviderCredentials> {
+    let path = PathBuf::from(crate::config::expand(&d.claude_credentials));
+    read_creds(&path).map(ProviderCredentials::Anthropic)
+}
+
+fn read_openrouter(d: &crate::config::Daemon) -> anyhow::Result<ProviderCredentials> {
+    read_key(&d.openrouter_key_file).map(ProviderCredentials::OpenRouter)
+}
+
+fn read_openai(d: &crate::config::Daemon) -> anyhow::Result<ProviderCredentials> {
+    let path = PathBuf::from(crate::config::expand(&d.openai_credentials));
+    read_openai_creds(&path).map(ProviderCredentials::OpenAi)
+}
+
 /// Explain why polling cannot proceed. Timestamps are epoch milliseconds. An expired access
 /// token only needs any host or agent Claude command; Claude refreshes it lazily into the
 /// shared credential file. Only an expired refresh token requires `claude auth`.
@@ -231,6 +254,16 @@ impl std::fmt::Display for PollErr {
         f.write_str(&self.msg)
     }
 }
+
+struct ProviderResponse {
+    body: Value,
+    plan: Option<String>,
+}
+
+type ReadProvider = fn(&crate::config::Daemon) -> anyhow::Result<ProviderCredentials>;
+type FetchProvider = fn(ProviderCredentials) -> Result<ProviderResponse, PollErr>;
+type ParseProvider = fn(ProviderResponse) -> Snapshot;
+type PrepareProvider = fn(&crate::config::Daemon, &mut Poller, &mut Option<SystemTime>, Instant);
 
 /// What a 429 with no `Retry-After` is treated as asking for. A rate limit retried
 /// a minute later is usually just another rate limit.
@@ -370,6 +403,31 @@ fn fetch_openai(creds: &OpenAiCreds) -> Result<Value, PollErr> {
     res.body_mut().read_json::<Value>().map_err(PollErr::new)
 }
 
+fn fetch_anthropic(creds: ProviderCredentials) -> Result<ProviderResponse, PollErr> {
+    let ProviderCredentials::Anthropic(creds) = creds else {
+        return Err(PollErr::new("internal Anthropic credential mismatch"));
+    };
+    let plan = creds.plan.clone();
+    fetch(&creds).map(|body| ProviderResponse {
+        body,
+        plan: Some(plan),
+    })
+}
+
+fn fetch_openrouter(creds: ProviderCredentials) -> Result<ProviderResponse, PollErr> {
+    let ProviderCredentials::OpenRouter(key) = creds else {
+        return Err(PollErr::new("internal OpenRouter credential mismatch"));
+    };
+    fetch_credits(&key).map(|body| ProviderResponse { body, plan: None })
+}
+
+fn fetch_openai_provider(creds: ProviderCredentials) -> Result<ProviderResponse, PollErr> {
+    let ProviderCredentials::OpenAi(creds) = creds else {
+        return Err(PollErr::new("internal OpenAI credential mismatch"));
+    };
+    fetch_openai(&creds).map(|body| ProviderResponse { body, plan: None })
+}
+
 /// Codex's usage answer has the account plan plus primary and secondary windows. The names are
 /// deliberately ours: Anthropic has windows with the same cadence but they are separate pools.
 fn parse_openai(v: &Value) -> Snapshot {
@@ -415,6 +473,18 @@ fn parse_openai(v: &Value) -> Snapshot {
         windows,
         ..Default::default()
     }
+}
+
+fn parse_anthropic(response: ProviderResponse) -> Snapshot {
+    parse(&response.body, response.plan.unwrap_or_default())
+}
+
+fn parse_openrouter(response: ProviderResponse) -> Snapshot {
+    parse_credits(&response.body)
+}
+
+fn parse_openai_response(response: ProviderResponse) -> Snapshot {
+    parse_openai(&response.body)
 }
 
 /// One row, in money. `/credits` says `total_credits` and `total_usage`; the older
@@ -825,11 +895,95 @@ impl Poller {
     }
 }
 
+struct Provider<'a> {
+    source: &'static str,
+    enabled: fn(&crate::config::Daemon) -> bool,
+    poller: &'a mut Poller,
+    read: ReadProvider,
+    fetch: FetchProvider,
+    parse: ParseProvider,
+    /// Most providers need no work between laps. Anthropic alone watches its credential mtime.
+    prepare: Option<PrepareProvider>,
+}
+
+fn anthropic_enabled(d: &crate::config::Daemon) -> bool {
+    d.usage
+}
+
+fn openrouter_enabled(d: &crate::config::Daemon) -> bool {
+    d.openrouter
+}
+
+fn openai_enabled(d: &crate::config::Daemon) -> bool {
+    d.openai
+}
+
+/// A login renewed on the host is the one thing that can turn "expired" back into numbers, and
+/// the backoff a dead token earned is up to half an hour long - so the file is watched rather
+/// than waited out. This is an optional provider hook because the other credential sources do
+/// not have Claude's shared-file renewal behavior.
+fn watch_anthropic_stamp(
+    d: &crate::config::Daemon,
+    poller: &mut Poller,
+    creds_stamp: &mut Option<SystemTime>,
+    now: Instant,
+) {
+    let creds_path = PathBuf::from(crate::config::expand(&d.claude_credentials));
+    let stamp = std::fs::metadata(&creds_path)
+        .and_then(|md| md.modified())
+        .ok();
+    if stamp != *creds_stamp {
+        // Only while it is failing, and never on the first lap: this cuts a backoff short rather
+        // than being a second way to ask. Claude Code rewrites that file whenever it refreshes a
+        // token, and a healthy poller answering every rewrite would be a poll rate set by another
+        // program.
+        if creds_stamp.is_some() && poller.fails > 0 {
+            poller.fails = 0;
+            poller.due = now;
+        }
+        *creds_stamp = stamp;
+    }
+}
+
+/// Read, fetch, parse and settle one provider. The descriptor supplies the provider-specific
+/// functions; all scheduling, failure backoff and snapshot preservation stay here.
+async fn poll_one(
+    poller: &mut Poller,
+    d: &crate::config::Daemon,
+    now: Instant,
+    base: u64,
+    read: ReadProvider,
+    fetch: FetchProvider,
+    parse: ParseProvider,
+) -> bool {
+    if poller.due > now {
+        return false;
+    }
+
+    let prev = poller.snap.clone();
+    let config = d.clone();
+    let (next, asked) = tokio::task::spawn_blocking(move || match read(&config) {
+        Err(e) => (Snapshot::failed(&prev, e), None),
+        Ok(creds) => match fetch(creds) {
+            Err(e) => {
+                let asked = e.retry_after;
+                (Snapshot::failed(&prev, e), asked)
+            }
+            Ok(response) => (parse(response), None),
+        },
+    })
+    .await
+    .unwrap_or_default();
+
+    poller.settle(next, asked, base);
+    true
+}
+
 /// One list for the mod, which draws resources rather than sellers. `ok` is *every* live
 /// source being current, because a row nobody could tell from a live one is the one thing
 /// this must never draw; the errors are joined so the tooltip says which half is out. A
 /// source that is off contributes nothing at all, so switching one off is not a failure.
-fn merge(parts: [&Snapshot; 3]) -> Snapshot {
+fn merge<'a>(parts: impl IntoIterator<Item = &'a Snapshot>) -> Snapshot {
     let mut out = Snapshot {
         ok: true,
         ..Default::default()
@@ -883,125 +1037,81 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
             let now = Instant::now();
             let mut moved = false;
 
-            let creds_path = PathBuf::from(crate::config::expand(&d.claude_credentials));
+            let mut providers = [
+                Provider {
+                    source: "anthropic",
+                    enabled: anthropic_enabled,
+                    poller: &mut anth,
+                    read: read_anthropic,
+                    fetch: fetch_anthropic,
+                    parse: parse_anthropic,
+                    prepare: Some(watch_anthropic_stamp),
+                },
+                Provider {
+                    source: "openrouter",
+                    enabled: openrouter_enabled,
+                    poller: &mut cred,
+                    read: read_openrouter,
+                    fetch: fetch_openrouter,
+                    parse: parse_openrouter,
+                    prepare: None,
+                },
+                Provider {
+                    source: "openai",
+                    enabled: openai_enabled,
+                    poller: &mut openai,
+                    read: read_openai,
+                    fetch: fetch_openai_provider,
+                    parse: parse_openai_response,
+                    prepare: None,
+                },
+            ];
 
-            // A login renewed on the host is the one thing that can turn "expired" back into
-            // numbers, and the backoff a dead token earned is up to half an hour long - so the
-            // file is watched rather than waited out. A stat per lap, against a token read
-            // only when a poll is actually due.
-            let stamp = std::fs::metadata(&creds_path)
-                .and_then(|md| md.modified())
-                .ok();
-            if stamp != creds_stamp {
-                // Only while it is failing, and never on the first lap: this cuts a backoff
-                // short rather than being a second way to ask. Claude Code rewrites that file
-                // whenever it refreshes a token, and a healthy poller answering every rewrite
-                // would be a poll rate set by another program.
-                if creds_stamp.is_some() && anth.fails > 0 {
-                    anth.fails = 0;
-                    anth.due = now;
+            for provider in &mut providers {
+                if let Some(prepare) = provider.prepare {
+                    prepare(d, provider.poller, &mut creds_stamp, now);
                 }
-                creds_stamp = stamp;
-            }
 
-            if !d.usage {
-                // Off is a setting that can be turned back on without a restart, so this
-                // drops the rows rather than returning.
-                moved |= anth.clear();
-            } else if anth.due <= now {
-                let path = creds_path;
-                let prev = anth.snap.clone();
-                // Both halves are blocking: a file read and a TLS round trip.
-                let (next, asked) = tokio::task::spawn_blocking(move || match read_creds(&path) {
-                    Err(e) => (Snapshot::failed(&prev, e), None),
-                    Ok(creds) => match fetch(&creds) {
-                        Err(e) => {
-                            let asked = e.retry_after;
-                            (Snapshot::failed(&prev, e), asked)
-                        }
-                        Ok(body) => (parse(&body, creds.plan), None),
-                    },
-                })
-                .await
-                .unwrap_or_default();
+                if !(provider.enabled)(d) {
+                    // Off is a setting that can be turned back on without a restart, so this
+                    // drops the rows rather than returning.
+                    moved |= provider.poller.clear();
+                    continue;
+                }
 
-                anth.settle(next, asked, base);
-                moved = true;
-            }
-
-            if !d.openrouter {
-                moved |= cred.clear();
-            } else if cred.due <= now {
-                let file = d.openrouter_key_file.clone();
-                let prev = cred.snap.clone();
-                let (next, asked) = tokio::task::spawn_blocking(move || match read_key(&file) {
-                    Err(e) => (Snapshot::failed(&prev, e), None),
-                    Ok(key) => match fetch_credits(&key) {
-                        Err(e) => {
-                            let asked = e.retry_after;
-                            (Snapshot::failed(&prev, e), asked)
-                        }
-                        Ok(body) => (parse_credits(&body), None),
-                    },
-                })
-                .await
-                .unwrap_or_default();
-
-                cred.settle(next, asked, base);
-                moved = true;
-            }
-
-            if !d.openai {
-                moved |= openai.clear();
-            } else if openai.due <= now {
-                let path = PathBuf::from(crate::config::expand(&d.openai_credentials));
-                let prev = openai.snap.clone();
-                let (next, asked) =
-                    tokio::task::spawn_blocking(move || match read_openai_creds(&path) {
-                        Err(e) => (Snapshot::failed(&prev, e), None),
-                        Ok(creds) => match fetch_openai(&creds) {
-                            Err(e) => {
-                                let asked = e.retry_after;
-                                (Snapshot::failed(&prev, e), asked)
-                            }
-                            Ok(body) => (parse_openai(&body), None),
-                        },
-                    })
-                    .await
-                    .unwrap_or_default();
-
-                openai.settle(next, asked, base);
-                moved = true;
+                moved |= poll_one(
+                    provider.poller,
+                    d,
+                    now,
+                    base,
+                    provider.read,
+                    provider.fetch,
+                    provider.parse,
+                )
+                .await;
             }
 
             // One event for both, and only when something actually moved: `set_usage`
             // re-announces to every client.
             if moved {
-                let mut out = merge([&anth.snap, &cred.snap, &openai.snap]);
+                let mut out = merge(providers.iter().map(|provider| &provider.poller.snap));
                 // Said here rather than in `merge`, which knows about snapshots and not about
                 // switches. A seller that is on but has never answered is exactly the case
                 // this is for, so it goes on the list whatever its snapshot holds.
-                if d.usage {
-                    out.sources.push("anthropic".into());
-                }
-                if d.openrouter {
-                    out.sources.push("openrouter".into());
-                }
-                if d.openai {
-                    out.sources.push("openai".into());
-                }
+                out.sources.extend(
+                    providers
+                        .iter()
+                        .filter(|provider| (provider.enabled)(d))
+                        .map(|provider| provider.source.into()),
+                );
                 m.set_usage(out).await;
             }
 
-            let due = [
-                (d.usage, anth.due),
-                (d.openrouter, cred.due),
-                (d.openai, openai.due),
-            ]
-            .into_iter()
-            .filter(|(on, _)| *on)
-            .map(|(_, at)| at)
-            .min();
+            let due = providers
+                .iter()
+                .filter(|provider| (provider.enabled)(d))
+                .map(|provider| provider.poller.due)
+                .min();
 
             let wait = due
                 .map(|at| at.saturating_duration_since(Instant::now()))
