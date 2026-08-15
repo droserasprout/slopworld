@@ -34,119 +34,170 @@ namespace SlopWorld
 
         MarkdownBlock ConvertBlock(Block block)
         {
-            if (block is BlankLineBlock) return null;
+            switch (block)
+            {
+                case BlankLineBlock blank:
+                    return ConvertBlankLine(blank);
+                case LinkReferenceDefinition linkReference:
+                    return ConvertLinkReference(linkReference);
+                case HeadingBlock heading:
+                    return ConvertHeading(heading);
+                case ParagraphBlock paragraph:
+                    return ConvertParagraph(paragraph);
+                case FencedCodeBlock fenced:
+                    return ConvertFencedCode(fenced);
+                case CodeBlock code:
+                    return ConvertCode(code);
+                case QuoteBlock quote:
+                    return ConvertQuote(quote);
+                case ListBlock list:
+                    return ConvertList(list);
+                case ListItemBlock item:
+                    return ConvertListItem(item);
+                case ThematicBreakBlock rule:
+                    return ConvertThematicBreak(rule);
+                case Table table:
+                    return ConvertTable(table);
+                case HtmlBlock html:
+                    return ConvertHtml(html);
+                case ContainerBlock container:
+                    return ConvertContainer(container);
+                default:
+                    return ConvertRaw(block);
+            }
+        }
 
+        MarkdownBlock ConvertBlankLine(BlankLineBlock block)
+        {
+            return null;
+        }
+
+        MarkdownBlock ConvertLinkReference(LinkReferenceDefinition block)
+        {
             // AutoIdentifiers stores heading anchors as document-level link definitions.
             // They are parser metadata, not visible blocks; stringifying them would leak
             // names such as HeadingLinkReferenceDefinition into the preview.
-            if (block is LinkReferenceDefinition) return null;
+            return null;
+        }
 
-            if (block is HeadingBlock heading)
-                return new MarkdownBlock
+        MarkdownBlock ConvertHeading(HeadingBlock heading)
+        {
+            return new MarkdownBlock
+            {
+                Kind = BlockKind.Heading,
+                Level = Mathf.Clamp(heading.Level, 1, 4),
+                Runs = ReadInlines(heading.Inline),
+            };
+        }
+
+        MarkdownBlock ConvertParagraph(ParagraphBlock paragraph)
+        {
+            return new MarkdownBlock
+            {
+                Kind = BlockKind.Paragraph,
+                Runs = ReadInlines(paragraph.Inline),
+            };
+        }
+
+        MarkdownBlock ConvertFencedCode(FencedCodeBlock fenced)
+        {
+            return new MarkdownBlock
+            {
+                Kind = BlockKind.Code,
+                Code = fenced.Lines.ToString(),
+                Info = fenced.Info,
+            };
+        }
+
+        MarkdownBlock ConvertCode(CodeBlock code)
+        {
+            return new MarkdownBlock { Kind = BlockKind.Code, Code = code.Lines.ToString() };
+        }
+
+        MarkdownBlock ConvertQuote(QuoteBlock quote)
+        {
+            var children = new List<MarkdownBlock>();
+            AddBlocks(quote, children);
+            return new MarkdownBlock { Kind = BlockKind.Quote, Children = children };
+        }
+
+        MarkdownBlock ConvertList(ListBlock list)
+        {
+            var children = new List<MarkdownBlock>();
+            AddBlocks(list, children);
+            int start = 1;
+            int.TryParse(list.OrderedStart, out start);
+            return new MarkdownBlock
+            {
+                Kind = BlockKind.List,
+                Ordered = list.IsOrdered,
+                Start = start < 1 ? 1 : start,
+                Children = children,
+            };
+        }
+
+        MarkdownBlock ConvertListItem(ListItemBlock item)
+        {
+            var children = new List<MarkdownBlock>();
+            AddBlocks(item, children);
+            return new MarkdownBlock { Kind = BlockKind.Item, Children = children };
+        }
+
+        MarkdownBlock ConvertThematicBreak(ThematicBreakBlock rule)
+        {
+            return new MarkdownBlock { Kind = BlockKind.Rule };
+        }
+
+        MarkdownBlock ConvertTable(Table table)
+        {
+            var rows = new List<TableRow>();
+            foreach (Block child in table)
+            {
+                if (!(child is Markdig.Extensions.Tables.TableRow row)) continue;
+                var output = new TableRow { Header = row.IsHeader };
+                foreach (Block cellBlock in row)
                 {
-                    Kind = BlockKind.Heading,
-                    Level = Mathf.Clamp(heading.Level, 1, 4),
-                    Runs = ReadInlines(heading.Inline),
-                };
+                    if (!(cellBlock is TableCell cell)) continue;
+                    output.Cells.Add(ReadCell(cell));
+                }
+                rows.Add(output);
+            }
+            return new MarkdownBlock { Kind = BlockKind.Table, Rows = rows };
+        }
 
-            if (block is ParagraphBlock paragraph)
+        MarkdownBlock ConvertHtml(HtmlBlock html)
+        {
+            string source = html.Lines.ToString();
+            var image = ParseImage(source);
+            if (image != null)
                 return new MarkdownBlock
                 {
                     Kind = BlockKind.Paragraph,
-                    Runs = ReadInlines(paragraph.Inline),
+                    Runs = new List<InlineRun> { image },
                 };
 
-            if (block is FencedCodeBlock fenced)
-                return new MarkdownBlock
+            if (IsHtmlComment(source)) return null;
+            if (IsHtmlRule(source)) return new MarkdownBlock { Kind = BlockKind.Rule };
+
+            return new MarkdownBlock
+            {
+                Kind = BlockKind.Raw,
+                Runs = new List<InlineRun>
                 {
-                    Kind = BlockKind.Code,
-                    Code = fenced.Lines.ToString(),
-                    Info = fenced.Info,
-                };
+                    new InlineRun { Text = source, Faint = true },
+                },
+            };
+        }
 
-            if (block is CodeBlock code)
-                return new MarkdownBlock { Kind = BlockKind.Code, Code = code.Lines.ToString() };
+        MarkdownBlock ConvertContainer(ContainerBlock container)
+        {
+            var children = new List<MarkdownBlock>();
+            AddBlocks(container, children);
+            return new MarkdownBlock { Kind = BlockKind.Quote, Children = children };
+        }
 
-            if (block is QuoteBlock quote)
-            {
-                var children = new List<MarkdownBlock>();
-                AddBlocks(quote, children);
-                return new MarkdownBlock { Kind = BlockKind.Quote, Children = children };
-            }
-
-            if (block is ListBlock list)
-            {
-                var children = new List<MarkdownBlock>();
-                AddBlocks(list, children);
-                int start = 1;
-                int.TryParse(list.OrderedStart, out start);
-                return new MarkdownBlock
-                {
-                    Kind = BlockKind.List,
-                    Ordered = list.IsOrdered,
-                    Start = start < 1 ? 1 : start,
-                    Children = children,
-                };
-            }
-
-            if (block is ListItemBlock item)
-            {
-                var children = new List<MarkdownBlock>();
-                AddBlocks(item, children);
-                return new MarkdownBlock { Kind = BlockKind.Item, Children = children };
-            }
-
-            if (block is ThematicBreakBlock)
-                return new MarkdownBlock { Kind = BlockKind.Rule };
-
-            if (block is Table table)
-            {
-                var rows = new List<TableRow>();
-                foreach (Block child in table)
-                {
-                    if (!(child is Markdig.Extensions.Tables.TableRow row)) continue;
-                    var output = new TableRow { Header = row.IsHeader };
-                    foreach (Block cellBlock in row)
-                    {
-                        if (!(cellBlock is TableCell cell)) continue;
-                        output.Cells.Add(ReadCell(cell));
-                    }
-                    rows.Add(output);
-                }
-                return new MarkdownBlock { Kind = BlockKind.Table, Rows = rows };
-            }
-
-            if (block is HtmlBlock html)
-            {
-                string source = html.Lines.ToString();
-                var image = ParseImage(source);
-                if (image != null)
-                    return new MarkdownBlock
-                    {
-                        Kind = BlockKind.Paragraph,
-                        Runs = new List<InlineRun> { image },
-                    };
-
-                if (IsHtmlComment(source)) return null;
-                if (IsHtmlRule(source)) return new MarkdownBlock { Kind = BlockKind.Rule };
-
-                return new MarkdownBlock
-                {
-                    Kind = BlockKind.Raw,
-                    Runs = new List<InlineRun>
-                    {
-                        new InlineRun { Text = source, Faint = true },
-                    },
-                };
-            }
-
-            if (block is ContainerBlock container)
-            {
-                var children = new List<MarkdownBlock>();
-                AddBlocks(container, children);
-                return new MarkdownBlock { Kind = BlockKind.Quote, Children = children };
-            }
-
+        MarkdownBlock ConvertRaw(Block block)
+        {
             return new MarkdownBlock
             {
                 Kind = BlockKind.Raw,
