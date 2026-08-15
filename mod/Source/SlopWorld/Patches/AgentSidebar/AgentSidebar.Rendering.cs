@@ -143,6 +143,15 @@ namespace SlopWorld
             return false;
         }
 
+        struct PlacementMeasure
+        {
+            public float Scale;
+            public float Pitch;
+            public float Cell;
+            public float Face;
+            public float RowH;
+        }
+
         public static float Place(
             List<ColonistBar.Entry> entries, List<Vector2> locs, int count, bool plus)
         {
@@ -156,78 +165,107 @@ namespace SlopWorld
                 return Nominal;
             }
 
+            // Measure.
+            var measure = MeasurePlacement();
+
+            // Layout.
+            float y = LayoutAgents(entries, locs, measure);
+            Layout.AgentContentH = Mathf.Max(Body.height, y + Pad);
+
+            return measure.Scale;
+        }
+
+        static PlacementMeasure MeasurePlacement()
+        {
             // Agent rows are content coordinates: DrawBack/DrawFront put them inside the
             // shared scroll view, whose screen origin is Body. The chrome below is still
             // screen-fixed and never enters this coordinate space.
-            float top = Pad;
             float room = Body.height;
-
             int rows = 0;
             foreach (var key in Layout.Order)
                 if (!Folded.Contains(key) && Layout.Buckets.TryGetValue(key, out var b))
                     rows += b.Count;
 
             // Add is outside this viewport now, so the body already accounts for its height.
-            float s = Fit(rows, Layout.Order.Count, false, room, GhostRoom());
-            float pitch = Pitch(s);
-            float cell = ColonistBar.BaseSize.y * s;
-            float face = ColonistBarColonistDrawer.PawnTextureSize.y * s;
-            float rowH = Mathf.Max(face, TextH);
+            float scale = Fit(rows, Layout.Order.Count, false, room, GhostRoom());
+            float face = ColonistBarColonistDrawer.PawnTextureSize.y * scale;
+            return new PlacementMeasure
+            {
+                Scale = scale,
+                Pitch = Pitch(scale),
+                Cell = ColonistBar.BaseSize.y * scale,
+                Face = face,
+                RowH = Mathf.Max(face, TextH),
+            };
+        }
 
+        static float LayoutAgents(
+            List<ColonistBar.Entry> entries, List<Vector2> locs, PlacementMeasure measure)
+        {
             float width = Width;
-            float y = top;
-
+            float y = Pad;
             foreach (var g in Layout.TopGhosts) y = GhostRow(g, width, y);
 
             foreach (var key in Layout.Order)
+                y = LayoutGroup(key, entries, locs, width, y, measure);
+
+            return y;
+        }
+
+        static float LayoutGroup(
+            string key, List<ColonistBar.Entry> entries, List<Vector2> locs,
+            float width, float y, PlacementMeasure measure)
+        {
+            var bucket = Layout.Buckets.TryGetValue(key, out var b) ? b : Empty;
+            bool folded = Folded.Contains(key);
+            var ghosts = Layout.Ghosts.TryGetValue(key, out var gs) ? gs : EmptyGhosts;
+
+            Layout.Heads.Add(new Head
             {
-                var bucket = Layout.Buckets.TryGetValue(key, out var b) ? b : Empty;
-                bool folded = Folded.Contains(key);
-                var ghosts = Layout.Ghosts.TryGetValue(key, out var gs) ? gs : EmptyGhosts;
+                Label = key,
+                Rect = new Rect(0f, y, width, HeadH),
+                Count = bucket.Count + ghosts.Count,
+                Folded = folded,
+            });
+            y += HeadH;
 
-                Layout.Heads.Add(new Head
-                {
-                    Label = key,
-                    Rect = new Rect(0f, y, width, HeadH),
-                    Count = bucket.Count + ghosts.Count,
-                    Folded = folded,
-                });
-                y += HeadH;
-
-                if (folded)
-                {
-                    foreach (int i in bucket) locs[i] = Parked;
-                    continue;
-                }
-
-                foreach (var g in ghosts) y = GhostRow(g, width, y);
-
-                foreach (int i in bucket)
-                {
-                    locs[i] = new Vector2(PortraitX + (face - cell) / 2f,
-                        y + (rowH - cell) / 2f);
-
-                    // Keep the three text lines at the same gap from the portrait after the
-                    // portrait column moves to the screen edge; headings and chrome retain
-                    // their CellX inset.
-                    float tx = PortraitX + face + TextGap;
-                    var line = new Rect(0f, y, width, rowH);
-                    Layout.Rows.Add(new Row
-                    {
-                        Session = Session(entries[i].pawn),
-                        Pawn = entries[i].pawn,
-                        Line = line,
-                        Text = new Rect(tx, y + (rowH - TextH) / 2f, width - tx - Pad, TextH),
-                        Face = new Rect(PortraitX, y + (rowH - face) / 2f, face, face),
-                    });
-
-                    y += pitch;
-                }
+            if (folded)
+            {
+                foreach (int i in bucket) locs[i] = Parked;
+                return y;
             }
 
-            Layout.AgentContentH = Mathf.Max(Body.height, y + Pad);
+            foreach (var g in ghosts) y = GhostRow(g, width, y);
+            foreach (int i in bucket)
+            {
+                LayoutAgent(entries, locs, i, width, y, measure);
+                y += measure.Pitch;
+            }
+            return y;
+        }
 
-            return s;
+        static void LayoutAgent(
+            List<ColonistBar.Entry> entries, List<Vector2> locs, int index,
+            float width, float y, PlacementMeasure measure)
+        {
+            locs[index] = new Vector2(PortraitX + (measure.Face - measure.Cell) / 2f,
+                y + (measure.RowH - measure.Cell) / 2f);
+
+            // Keep the three text lines at the same gap from the portrait after the
+            // portrait column moves to the screen edge; headings and chrome retain
+            // their CellX inset.
+            float tx = PortraitX + measure.Face + TextGap;
+            var line = new Rect(0f, y, width, measure.RowH);
+            Layout.Rows.Add(new Row
+            {
+                Session = Session(entries[index].pawn),
+                Pawn = entries[index].pawn,
+                Line = line,
+                Text = new Rect(tx, y + (measure.RowH - TextH) / 2f,
+                    width - tx - Pad, TextH),
+                Face = new Rect(PortraitX, y + (measure.RowH - measure.Face) / 2f,
+                    measure.Face, measure.Face),
+            });
         }
 
         static float Pitch(float s) => Mathf.Max(
@@ -702,75 +740,98 @@ namespace SlopWorld
 
                 if (row.Ghost)
                 {
-                    Text.Font = GameFont.Small;
-                    var text = row.Text;
-
-                    var act = RowActions.Of(info);
-                    if (act != RowAct.None)
-                    {
-                        float d = Mathf.Min(GhostMarkW, text.height);
-                        GUI.color = SlopWidgets.Off;
-                        GUI.DrawTexture(
-                            new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
-                            RowActions.Tex(act));
-                        text.x += d + 4f;
-                        text.width -= d + 4f;
-                    }
-
-                    DrawGhostLabel(text, info, row.Session, hostIcon: true);
-                    GUI.color = Color.white;
-                    Click(row, info);
+                    DrawGhostRow(row, info);
                     continue;
                 }
 
-                DrawStateBadge(row.Face, row.Text, state);
-
-                Text.Font = GameFont.Small;
-                var name = new Rect(row.Text.x, row.Text.y, row.Text.width, NameH);
-                if (info != null && info.Bell)
-                {
-                    float d = Mathf.Min(BellW, NameH);
-                    GUI.color = SlopWidgets.Warn;
-                    GUI.DrawTexture(
-                        new Rect(name.xMax - d, name.y + (NameH - d) / 2f, d, d),
-                        Icons.Bell);
-                    name.width -= d + 3f;
-                }
-                GUI.color = tint;
-                SlopWidgets.RowLabel(name, row.Session ?? row.Pawn?.LabelShort ?? "?");
-
-                Text.Font = GameFont.Tiny;
-                // The summary gets the upper secondary line. Down or fresh agents have no
-                // useful summary yet, so it remains empty without falling back to the ground.
-                if (state != AgentState.Down)
-                {
-                    string title = Title(info);
-                    if (title.Length > 0)
-                    {
-                        GUI.color = SlopWidgets.Dim;
-                        var line2 = new Rect(row.Text.x, row.Text.y + NameH,
-                            row.Text.width, SubH);
-                        SlopWidgets.RowLabel(line2, title);
-                        if (SlopWidgets.Wide(title) > line2.width)
-                            TooltipHandler.TipRegion(line2, title);
-                    }
-                }
-
-                var word = new Rect(row.Text.x, row.Text.y + NameH + SubH,
-                    row.Text.width, SubH);
-                string ago = state == AgentState.Down ? "" : Ago(info);
-                if (ago.Length > 0)
-                {
-                    GUI.color = SlopWidgets.Faint;
-                    SlopWidgets.RowLabel(word, ago, TextAnchor.MiddleRight);
-                    word.width -= Mathf.Ceil(SlopWidgets.Wide(ago)) + AgoGap;
-                }
-                GUI.color = SlopWidgets.Faint;
-                SlopWidgets.RowLabel(word, Word(state));
-
-                GUI.color = Color.white;
-                Click(row, info);
+                DrawAgentRow(row, info, state, tint);
             }
+        }
+
+        // Draw: ghost rows emit their action mark, label and click target in that order.
+        static void DrawGhostRow(Row row, SessionInfo info)
+        {
+            Text.Font = GameFont.Small;
+            var text = row.Text;
+
+            var act = RowActions.Of(info);
+            if (act != RowAct.None)
+            {
+                float d = Mathf.Min(GhostMarkW, text.height);
+                GUI.color = SlopWidgets.Off;
+                GUI.DrawTexture(
+                    new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
+                    RowActions.Tex(act));
+                text.x += d + 4f;
+                text.width -= d + 4f;
+            }
+
+            DrawGhostLabel(text, info, row.Session, hostIcon: true);
+            GUI.color = Color.white;
+            Click(row, info);
+        }
+
+        // Draw: agent rows keep the badge, name, summary, status and click target ordered.
+        static void DrawAgentRow(Row row, SessionInfo info, AgentState state, Color tint)
+        {
+            DrawStateBadge(row.Face, row.Text, state);
+            DrawAgentName(row, info, tint);
+            DrawAgentSummary(row, info, state);
+            DrawAgentStatus(row, info, state);
+            GUI.color = Color.white;
+            Click(row, info);
+        }
+
+        static void DrawAgentName(Row row, SessionInfo info, Color tint)
+        {
+            Text.Font = GameFont.Small;
+            var name = new Rect(row.Text.x, row.Text.y, row.Text.width, NameH);
+            if (info != null && info.Bell)
+            {
+                float d = Mathf.Min(BellW, NameH);
+                GUI.color = SlopWidgets.Warn;
+                GUI.DrawTexture(
+                    new Rect(name.xMax - d, name.y + (NameH - d) / 2f, d, d),
+                    Icons.Bell);
+                name.width -= d + 3f;
+            }
+            GUI.color = tint;
+            SlopWidgets.RowLabel(name, row.Session ?? row.Pawn?.LabelShort ?? "?");
+        }
+
+        static void DrawAgentSummary(Row row, SessionInfo info, AgentState state)
+        {
+            Text.Font = GameFont.Tiny;
+            // The summary gets the upper secondary line. Down or fresh agents have no
+            // useful summary yet, so it remains empty without falling back to the ground.
+            if (state != AgentState.Down)
+            {
+                string title = Title(info);
+                if (title.Length > 0)
+                {
+                    GUI.color = SlopWidgets.Dim;
+                    var line2 = new Rect(row.Text.x, row.Text.y + NameH,
+                        row.Text.width, SubH);
+                    SlopWidgets.RowLabel(line2, title);
+                    if (SlopWidgets.Wide(title) > line2.width)
+                        TooltipHandler.TipRegion(line2, title);
+                }
+            }
+        }
+
+        static void DrawAgentStatus(Row row, SessionInfo info, AgentState state)
+        {
+            var word = new Rect(row.Text.x, row.Text.y + NameH + SubH,
+                row.Text.width, SubH);
+            string ago = state == AgentState.Down ? "" : Ago(info);
+            if (ago.Length > 0)
+            {
+                GUI.color = SlopWidgets.Faint;
+                SlopWidgets.RowLabel(word, ago, TextAnchor.MiddleRight);
+                word.width -= Mathf.Ceil(SlopWidgets.Wide(ago)) + AgoGap;
+            }
+            GUI.color = SlopWidgets.Faint;
+            SlopWidgets.RowLabel(word, Word(state));
         }
 
         public static void DrawFront()
