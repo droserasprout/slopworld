@@ -108,12 +108,16 @@ namespace SlopWorld
         public const float MenuPadY = 0f;
         public const float StatusMarker = 8f;
 
-        public static float RowBtnH => Mathf.Max(LineH + GapXS, 22f);
+        // Single-line controls share one compact hit target. Menus, fields and small row
+        // buttons used to differ by a pixel, which was enough to make a form and the menu
+        // opened from it feel like two widget kits.
+        public static float CompactH => Mathf.Max(LineH + GapXS, 22f);
+        public static float RowBtnH => CompactH;
 
         // A dropdown's rows carry one line each and are read as a block, so they sit as close
         // as the line will let them - a gap step tighter than the palette's, which is a list
         // scrolled and stepped through with the keyboard and wants the hit target.
-        public static float MenuRowH => Mathf.Max(LineH + GapXS, 22f);
+        public static float MenuRowH => CompactH;
         public static float PaletteRowH => Mathf.Max(LineH + GapS, 26f);
 
         public static float BtnW(string label, float floor) =>
@@ -230,7 +234,7 @@ namespace SlopWorld
 
         public static float LineH => LineHOf(GameFont.Small);
 
-        public static float FieldH => LineH + GapS;
+        public static float FieldH => CompactH;
         public static float RowH => LineH + GapXS + 2f;
 
         public static float HeaderH => LineHOf(GameFont.Medium) + GapS;
@@ -320,17 +324,14 @@ namespace SlopWorld
         public static string Field(Rect r, string name, string text, bool on = true)
         {
             bool focused = on && GUI.GetNameOfFocusedControl() == name;
-            Slab.Box(r, Well, focused ? Accent : BtnEdge);
-            // The one control in this file with real keyboard focus: the blue ring makes
-            // the active rectangular entry legible across a dark form.
-            if (focused) Slab.Ring(r, FocusRing);
+            InputBackground(r, on, focused);
 
-            var inner = r.ContractedBy(FieldPadX, 0f);
+            var inner = r.ContractedBy(FieldPadX, FieldPadY);
             // Do not create a control that accepts input only to discard it next frame.
             if (!on) return Stated(inner, text, TextAnchor.MiddleLeft);
 
             GUI.SetNextControlName(name);
-            return GUI.TextField(inner, text ?? "", Bare(Verse.Text.CurTextFieldStyle));
+            return TextEntry(inner, text, false, focused);
         }
 
         public static string Area(Rect r, string name, string text, bool on = true,
@@ -339,48 +340,126 @@ namespace SlopWorld
             bool focused = on && GUI.GetNameOfFocusedControl() == name;
             if (frame)
             {
-                Slab.Box(r, Well, focused ? Accent : BtnEdge);
-                if (focused) Slab.Ring(r, FocusRing);
+                InputBackground(r, on, focused);
             }
 
             var inner = frame ? r.ContractedBy(FieldPadX, FieldPadY * 2f) : r;
             if (!on) return Stated(inner, text, TextAnchor.UpperLeft);
 
             GUI.SetNextControlName(name);
-            return GUI.TextArea(inner, text ?? "", Bare(Verse.Text.CurTextAreaStyle));
+            return TextEntry(inner, text, true, focused);
         }
 
         // The entry's frame on its own, for a caller drawing one box round more than one
         // thing - the command palette puts a prompt and an input inside a single entry.
         public static void FieldFrame(Rect r, bool focused)
         {
-            Slab.Box(r, Well, focused ? Accent : BtnEdge);
-            if (focused) Slab.Ring(r, FocusRing);
+            InputBackground(r, true, focused);
         }
 
         // The text field with no frame of its own, for the same caller.
         public static string BareField(Rect r, string name, string text)
         {
             GUI.SetNextControlName(name);
-            return GUI.TextField(r, text ?? "", Bare(Verse.Text.CurTextFieldStyle));
+            return TextEntry(r, text, false,
+                GUI.GetNameOfFocusedControl() == name);
         }
 
-        static GUIStyle Bare(GUIStyle of)
+        static void InputBackground(Rect r, bool on, bool focused)
         {
-            var style = new GUIStyle(of) { normal = { background = null } };
-            style.focused.background = null;
+            bool over = on && Mouse.IsOver(r);
+            bool held = over && Input.GetMouseButton(0);
+
+            // Draw the well first, then the same translucent hover/press wash used by
+            // buttons and menu rows, and finally the edge. Keeping the edge last prevents
+            // the wash from making a field one pixel heavier than its neighbours.
+            Slab.Fill(r, on ? Well : Fade(Well, 0.5f));
+            if (on && over) Slab.Fill(r, held ? BtnDown : BtnHover);
+            Slab.Outline(r, focused ? Accent : BtnEdge);
+
+            // The one control with real keyboard focus: the ring makes the active entry
+            // legible even when its face is sitting inside a sidebar or popover.
+            if (focused) Slab.Ring(r, FocusRing);
+        }
+
+        static string TextEntry(Rect r, string text, bool area, bool focused)
+        {
+            var wasColor = GUI.color;
+            bool over = Mouse.IsOver(r);
+            // Most callers leave GUI.color white. Give ordinary entries the same quiet text
+            // ramp as menu and sidebar labels, while preserving deliberate placeholder/error
+            // tints supplied by a caller.
+            if (wasColor == Color.white)
+                GUI.color = focused || over ? Lead : Name;
+
+            try
+            {
+                var style = Bare(area ? Verse.Text.CurTextAreaStyle
+                                      : Verse.Text.CurTextFieldStyle, area);
+                return area
+                    ? GUI.TextArea(r, text ?? "", style)
+                    : GUI.TextField(r, text ?? "", style);
+            }
+            finally
+            {
+                GUI.color = wasColor;
+            }
+        }
+
+        static GUIStyle Bare(GUIStyle of, bool area)
+        {
+            var style = new GUIStyle(of);
+
+            // Vanilla's skin can leave an active/on-state texture behind even after the
+            // ordinary states are cleared. Strip every state so Slab is the only owner of
+            // field chrome, just as it is for buttons, checkboxes and context menus.
+            style.normal.background = null;
             style.hover.background = null;
+            style.active.background = null;
+            style.focused.background = null;
+            style.onNormal.background = null;
+            style.onHover.background = null;
+            style.onActive.background = null;
+            style.onFocused.background = null;
+
+            // The outer rect already supplies the rhythm. Vanilla text-entry padding and
+            // offsets otherwise make the same font sit differently in fields and menu rows.
+            style.border = new RectOffset();
+            style.margin = new RectOffset();
+            style.overflow = new RectOffset();
+            style.padding = new RectOffset();
+            style.contentOffset = Vector2.zero;
+            style.alignment = area ? TextAnchor.UpperLeft : TextAnchor.MiddleLeft;
+            style.wordWrap = area;
+
+            // Let GUI.color carry the scheme ramp (and caller placeholder tints); a skin
+            // with a dark-entry text color must not turn the same control black on a dark well.
+            style.normal.textColor = Color.white;
+            style.hover.textColor = Color.white;
+            style.active.textColor = Color.white;
+            style.focused.textColor = Color.white;
+            style.onNormal.textColor = Color.white;
+            style.onHover.textColor = Color.white;
+            style.onActive.textColor = Color.white;
+            style.onFocused.textColor = Color.white;
             return style;
         }
 
         static string Stated(Rect r, string text, TextAnchor anchor)
         {
             var wasAnchor = Verse.Text.Anchor;
+            var wasColor = GUI.color;
             Verse.Text.Anchor = anchor;
             GUI.color = Faint;
-            Widgets.Label(r, text ?? "");
-            GUI.color = Color.white;
-            Verse.Text.Anchor = wasAnchor;
+            try
+            {
+                Widgets.Label(r, text ?? "");
+            }
+            finally
+            {
+                GUI.color = wasColor;
+                Verse.Text.Anchor = wasAnchor;
+            }
             return text;
         }
 
@@ -417,7 +496,7 @@ namespace SlopWorld
             var box = TickBox(new Rect(r.x + 1f, r.y, TickW, r.height), on, locked);
 
             GUI.color = locked ? Faint : warn ? Warn : over ? Lead : Name;
-            RowLabel(new Rect(box.xMax + 8f, r.y, r.xMax - box.xMax - 8f, r.height), label);
+            RowLabel(new Rect(box.xMax + GapS, r.y, r.xMax - box.xMax - GapS, r.height), label);
             GUI.color = Color.white;
 
             if (locked || !Widgets.ButtonInvisible(r)) return on;
