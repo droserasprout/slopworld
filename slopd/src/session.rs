@@ -33,6 +33,7 @@ const UNWATCHED_MS: u64 = 200;
 
 const FILE_ACTION_TIMEOUT: Duration = Duration::from_secs(15);
 const FILE_ACTION_STREAM_LIMIT: usize = 4096;
+const MAX_MANUAL_LABEL_CHARS: usize = 60;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -46,6 +47,7 @@ pub enum State {
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionView {
     pub name: String,
+    pub label: String,
     pub project: String,
     pub dir: String,
     pub command: String,
@@ -252,6 +254,14 @@ fn title_agent(cfg: &Config, session: &SessionCfg) -> Option<TitleAgent> {
 }
 
 fn title_settings(cfg: &Config, session: &SessionCfg, host: bool) -> Option<(TitlePolicy, String)> {
+    if session
+        .label
+        .as_deref()
+        .is_some_and(|label| !label.trim().is_empty())
+    {
+        return None;
+    }
+
     if host {
         return cfg
             .daemon
@@ -2136,6 +2146,45 @@ impl Manager {
         Ok(())
     }
 
+    /// Set the optional manual sidebar label without making the edit dialog round-trip
+    /// read-only session fields. A non-empty label also invalidates a title request already
+    /// in flight; clearing it leaves any existing generated title in place and lets the next
+    /// prompt use the configured title policy again.
+    pub async fn set_label(self: &Arc<Self>, name: &str, label: String) -> Result<()> {
+        self.reload_if_changed().await;
+        let label = label.trim().to_string();
+        if label.chars().count() > MAX_MANUAL_LABEL_CHARS {
+            bail!("label must be at most {MAX_MANUAL_LABEL_CHARS} characters");
+        }
+
+        let saved = (!label.is_empty()).then_some(label.clone());
+        if !self.is_ephemeral(name).await {
+            let mut cfg = self.cfg.write().await;
+            let session = cfg
+                .sessions
+                .iter_mut()
+                .find(|session| session.name == name)
+                .ok_or_else(|| anyhow!("no such session: {name}"))?;
+            session.label = saved.clone();
+            self.save_cfg(&cfg)?;
+            drop(cfg);
+        }
+
+        {
+            let mut live = self.live.write().await;
+            let Some(live) = live.get_mut(name) else {
+                bail!("no such session: {name}");
+            };
+            live.cfg.label = saved;
+            live.title.generation = live.title.generation.wrapping_add(1);
+            live.title.pending = false;
+        }
+        let _ = self.events.send(Event::Sessions {
+            sessions: self.views().await,
+        });
+        Ok(())
+    }
+
     async fn readopt(self: &Arc<Self>, old: &str, new: &str) {
         // The control reader is attached by tmux name; renaming requires a fresh capture/emulator.
         let running = {
@@ -2358,6 +2407,7 @@ impl Manager {
                 let p = cfg.project_of(&l.cfg).or_else(|| temp.get(&l.cfg.project));
                 SessionView {
                     name: l.cfg.name.clone(),
+                    label: l.cfg.label.clone().unwrap_or_default(),
                     project: l.cfg.project.clone(),
                     dir: p.map(|p| p.dir.clone()).unwrap_or_default(),
                     command: l.cfg.command.clone(),
@@ -2385,9 +2435,11 @@ impl Manager {
                     last_change: l.last_change,
                     state_since: l.state_since,
                     title: l
-                        .title
-                        .override_title
+                        .cfg
+                        .label
                         .clone()
+                        .filter(|label| !label.trim().is_empty())
+                        .or_else(|| l.title.override_title.clone())
                         .or_else(|| l.screen.as_ref().map(|s| s.title.clone()))
                         .unwrap_or_default(),
                     bell: l.bell,
@@ -3524,6 +3576,13 @@ mod tests {
         };
         assert!(matches!(title_agent(&cfg, &pi), Some(TitleAgent::Pi)));
         assert_eq!(title_settings(&cfg, &pi, false).unwrap().1, "shared-title");
+
+        let labeled = SessionCfg {
+            label: Some("keep this name".into()),
+            cmd: Some("pi --model test".into()),
+            ..Default::default()
+        };
+        assert!(title_settings(&cfg, &labeled, false).is_none());
 
         let host = SessionCfg {
             cmd: Some("bash".into()),

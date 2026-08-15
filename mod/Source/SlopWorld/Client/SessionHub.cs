@@ -216,6 +216,10 @@ namespace SlopWorld
         // over OSC 0/2. Available for every agent, not only the subscribed pane.
         public string Title = "";
 
+        // A non-empty manual label is shown in place of the generated title and disables
+        // daemon-side title summaries for this session.
+        public string Label = "";
+
         // The app rang the bell and nobody has looked since. Cleared by the daemon the moment
         // a pane is subscribed to, so opening the terminal is what answers it.
         public bool Bell;
@@ -275,6 +279,7 @@ namespace SlopWorld
             Cols = j["cols"].AsInt(0),
             Rows = j["rows"].AsInt(0),
             Title = j["title"].AsString(),
+            Label = j["label"].AsString(),
             Bell = j["bell"].AsBool(false),
             LastChange = j["last_change"].AsLong(0),
             StateSince = j["state_since"].AsLong(0),
@@ -290,6 +295,7 @@ namespace SlopWorld
             $"\"cmd\":{(string.IsNullOrEmpty((Cmd ?? "").Trim()) ? "null" : JVal.Q(Cmd))}," +
             $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]," +
             $"\"breadcrumbs\":[{string.Join(",", Breadcrumbs.Select(JVal.Q).ToArray())}]," +
+            $"\"label\":{(string.IsNullOrEmpty((Label ?? "").Trim()) ? "null" : JVal.Q(Label))}," +
             $"\"network\":{(NetworkOverride.HasValue ? JVal.Q(NetworkModeText.Name(NetworkOverride.Value)) : "null")}," +
             $"\"dns\":{(DnsOverride == null ? "null" : DnsOverride.ToJson())}," +
             $"\"limits\":{Limits.ToJson()}," +
@@ -1148,6 +1154,13 @@ namespace SlopWorld
 
         public void ResetState(string name, Action<string> fail = null) =>
             SlopClient.Post($"/api/sessions/{name}/state/reset", null, _ => Refresh(), fail);
+
+        public void SetLabel(string name, string label, Action ok = null, Action<string> fail = null)
+        {
+            SlopClient.Put($"/api/sessions/{Esc(name)}/label",
+                $"{{\"label\":{JVal.Q(label ?? "")}}}",
+                _ => { Refresh(); ok?.Invoke(); }, fail);
+        }
 
         public void Remove(string name, Action<string> fail = null) =>
             SlopClient.Delete($"/api/sessions/{name}", _ => Refresh(), fail);
