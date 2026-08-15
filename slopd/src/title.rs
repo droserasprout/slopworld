@@ -496,6 +496,15 @@ mod tests {
         );
         assert_eq!(restored.latest("codex").as_deref(), Some("Fix parser"));
         assert!(restored.get("fix the parser", "other/model").is_none());
+
+        cache.clear_latest("codex").unwrap();
+        assert!(cache.latest("codex").is_none());
+        let cleared = SummaryCache::load(path.clone());
+        assert!(cleared.latest("codex").is_none());
+        assert_eq!(
+            cleared.get("fix the parser", "test/model").as_deref(),
+            Some("Fix parser")
+        );
         let _ = fs::remove_file(path);
     }
 }

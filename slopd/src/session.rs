@@ -1520,6 +1520,15 @@ impl Manager {
             }
         }
         self.forget_scroll(name);
+        if let Err(error) = self.title_cache.clear_latest(name) {
+            tracing::warn!(
+                target: "slopd::titles",
+                session = %name,
+                error = %error,
+                outcome = "cache_write_failed",
+                "could not clear session title"
+            );
+        }
         Ok(())
     }
 
@@ -2540,7 +2549,7 @@ impl Manager {
             let prompt = request.prompt.clone();
             let key_file = request.key_file.clone();
             let model = request.model.clone();
-            let result = if let Some(title) = m.title_cache.get(&prompt, &model) {
+            let (result, cache_hit) = if let Some(title) = m.title_cache.get(&prompt, &model) {
                 tracing::debug!(
                     target: "slopd::titles",
                     session = %name,
@@ -2549,16 +2558,7 @@ impl Manager {
                     outcome = "cache_hit",
                     "using cached session title"
                 );
-                if let Err(error) = m.title_cache.remember(&name, &title) {
-                    tracing::warn!(
-                        target: "slopd::titles",
-                        session = %name,
-                        error = %error,
-                        outcome = "cache_write_failed",
-                        "could not persist session title"
-                    );
-                }
-                Ok(title)
+                (Ok(title), true)
             } else {
                 tracing::debug!(
                     target: "slopd::titles",
@@ -2579,18 +2579,7 @@ impl Manager {
                     Ok(r) => r,
                     Err(e) => Err(anyhow!("title worker: {e}")),
                 };
-                if let Ok(title) = &result {
-                    if let Err(error) = m.title_cache.insert(&name, &prompt, &model, title) {
-                        tracing::warn!(
-                            target: "slopd::titles",
-                            session = %name,
-                            error = %error,
-                            outcome = "cache_write_failed",
-                            "could not persist session title cache"
-                        );
-                    }
-                }
-                result
+                (result, false)
             };
 
             let mut moved = false;
@@ -2608,6 +2597,22 @@ impl Manager {
                         "discarding stale session title response"
                     );
                     return;
+                }
+                if let Ok(title) = &result {
+                    let cache_result = if cache_hit {
+                        m.title_cache.remember(&name, title)
+                    } else {
+                        m.title_cache.insert(&name, &prompt, &model, title)
+                    };
+                    if let Err(error) = cache_result {
+                        tracing::warn!(
+                            target: "slopd::titles",
+                            session = %name,
+                            error = %error,
+                            outcome = "cache_write_failed",
+                            "could not persist session title cache"
+                        );
+                    }
                 }
                 l.title.pending = false;
                 match result {
@@ -3262,6 +3267,15 @@ impl Manager {
             }
         }
         self.forget_scroll(name);
+        if let Err(error) = self.title_cache.clear_latest(name) {
+            tracing::warn!(
+                target: "slopd::titles",
+                session = %name,
+                error = %error,
+                outcome = "cache_write_failed",
+                "could not clear session title"
+            );
+        }
         if changed {
             let _ = self.events.send(Event::Sessions {
                 sessions: self.views().await,
