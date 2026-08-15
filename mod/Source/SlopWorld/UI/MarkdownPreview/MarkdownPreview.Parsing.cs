@@ -283,9 +283,16 @@ namespace SlopWorld
                 }
                 else if (inline is LineBreakInline)
                 {
-                    target.Add(new InlineRun { Text = "\n", Bold = currentBold, Italic = currentItalic,
-                        Code = currentCode, Strike = currentStrike, Link = currentLink,
-                        LocalLink = currentLocalLink });
+                    target.Add(new InlineRun
+                    {
+                        Text = "\n",
+                        Bold = currentBold,
+                        Italic = currentItalic,
+                        Code = currentCode,
+                        Strike = currentStrike,
+                        Link = currentLink,
+                        LocalLink = currentLocalLink
+                    });
                 }
                 else if (inline is HtmlInline html)
                 {
@@ -551,5 +558,5 @@ namespace SlopWorld
                 LocalLink = localLink,
             });
         }
-        }
+    }
 }
