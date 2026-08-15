@@ -7,6 +7,33 @@ use crate::sandbox::build_argv;
 use anyhow::anyhow;
 use tokio::process::Command;
 
+impl Live {
+    fn new(cfg: SessionCfg, title: TitleCapture) -> Self {
+        Self {
+            cfg,
+            ephemeral: false,
+            host: false,
+            state: State::Down,
+            seq: 0,
+            retick_seq: 0,
+            hash: 0,
+            last_change: 0,
+            state_since: 0,
+            bell: false,
+            cols: BOOT_COLS,
+            rows: BOOT_ROWS,
+            plain: String::new(),
+            screen: None,
+            emu: None,
+            reader: None,
+            input: None,
+            breadcrumbs: Vec::new(),
+            breadcrumbs_pending: false,
+            title,
+        }
+    }
+}
+
 impl Manager {
     pub async fn new(cfg: Config, cfg_path: PathBuf) -> Arc<Self> {
         let (events, _) = broadcast::channel(256);
@@ -236,11 +263,30 @@ impl Manager {
 
     pub async fn sync_from_config(self: &Arc<Self>) {
         let cfg = self.config().await;
-        let mut live = self.live.write().await;
+        let removed = self.prune_removed(&cfg).await;
 
+        if !removed.is_empty() {
+            let mut grants = self.grants.write().await;
+            for name in &removed {
+                grants.revoke_grantor(name);
+            }
+        }
+
+        self.upsert_sessions(&cfg).await;
+        self.autostart(&cfg).await;
+
+        if self.adopt_orphans().await {
+            let _ = self.events.send(Event::Sessions {
+                sessions: self.views().await,
+            });
+        }
+    }
+
+    async fn prune_removed(&self, cfg: &Config) -> Vec<String> {
         // Dropping a `Live` only *detaches* its reader: `JoinHandle`'s own `Drop` lets the
         // task run on, and it would keep a control-mode attach open against a session
         // nothing points at any more. Every other removal path aborts, so this one does too.
+        let mut live = self.live.write().await;
         let mut removed = Vec::new();
         live.retain(|name, l| {
             if l.ephemeral || cfg.session(name).is_some() {
@@ -263,7 +309,11 @@ impl Manager {
             removed.push(name.clone());
             false
         });
+        removed
+    }
 
+    async fn upsert_sessions(&self, cfg: &Config) {
+        let mut live = self.live.write().await;
         for s in &cfg.sessions {
             let mut title = TitleCapture::default();
             title.override_title = self.title_cache.latest(&s.name);
@@ -275,38 +325,11 @@ impl Manager {
                         l.breadcrumbs_pending = false;
                     }
                 })
-                .or_insert(Live {
-                    cfg: s.clone(),
-                    ephemeral: false,
-                    host: false,
-                    state: State::Down,
-                    seq: 0,
-                    retick_seq: 0,
-                    hash: 0,
-                    last_change: 0,
-                    state_since: 0,
-                    bell: false,
-                    cols: BOOT_COLS,
-                    rows: BOOT_ROWS,
-                    plain: String::new(),
-                    screen: None,
-                    emu: None,
-                    reader: None,
-                    input: None,
-                    breadcrumbs: Vec::new(),
-                    breadcrumbs_pending: false,
-                    title,
-                });
+                .or_insert(Live::new(s.clone(), title));
         }
-        drop(live);
+    }
 
-        if !removed.is_empty() {
-            let mut grants = self.grants.write().await;
-            for name in &removed {
-                grants.revoke_grantor(name);
-            }
-        }
-
+    async fn autostart(self: &Arc<Self>, cfg: &Config) {
         for s in cfg.sessions.iter().filter(|s| s.autostart) {
             if !self.tmux.exists(&s.name).await {
                 if let Err(e) = self.start(&s.name).await {
@@ -314,38 +337,46 @@ impl Manager {
                 }
             }
         }
+    }
 
+    async fn adopt_orphans(self: &Arc<Self>) -> bool {
         let mut adopted = false;
         for name in self.tmux.list().await {
-            if !self.live.read().await.contains_key(&name) {
-                adopted |= self.adopt(&name).await;
+            let size = self.tmux.size(&name).await;
+            let mut live = self.live.write().await;
+            if !live.contains_key(&name) {
+                tracing::info!("adopting tmux session {name} as a temporary agent");
+                let now = now_ms();
+                let mut l = Live::new(
+                    SessionCfg {
+                        name: name.clone(),
+                        ..Default::default()
+                    },
+                    TitleCapture::default(),
+                );
+                l.ephemeral = true;
+                l.state = State::Working;
+                l.last_change = now;
+                l.state_since = now;
+                live.insert(name.clone(), l);
+                adopted = true;
             }
-            let fresh = !self
-                .live
-                .read()
-                .await
-                .get(&name)
-                .is_some_and(|l| l.emu.is_some());
-            if fresh {
-                if let Some((cols, rows)) = self.tmux.size(&name).await {
-                    if let Some(l) = self.live.write().await.get_mut(&name) {
+            if live.get(&name).is_some_and(|l| l.emu.is_none()) {
+                if let Some((cols, rows)) = size {
+                    if let Some(l) = live.get_mut(&name) {
                         l.cols = cols;
                         l.rows = rows;
                     }
                 }
             }
+            drop(live);
             if self.spawn_reader(&name).await {
                 let m = self.clone();
                 let name = name.clone();
                 tokio::spawn(async move { m.nudge_redraw(&name).await });
             }
         }
-
-        if adopted {
-            let _ = self.events.send(Event::Sessions {
-                sessions: self.views().await,
-            });
-        }
+        adopted
     }
 
     pub(super) async fn nudge_redraw(self: &Arc<Self>, name: &str) {
@@ -371,43 +402,6 @@ impl Manager {
 
     pub(super) async fn size_of(&self, name: &str) -> Option<(u16, u16)> {
         self.live.read().await.get(name).map(|l| (l.cols, l.rows))
-    }
-
-    pub(super) async fn adopt(self: &Arc<Self>, name: &str) -> bool {
-        let mut live = self.live.write().await;
-        if live.contains_key(name) {
-            return false;
-        }
-        tracing::info!("adopting tmux session {name} as a temporary agent");
-        live.insert(
-            name.to_string(),
-            Live {
-                cfg: SessionCfg {
-                    name: name.to_string(),
-                    ..Default::default()
-                },
-                ephemeral: true,
-                host: false,
-                state: State::Working,
-                seq: 0,
-                retick_seq: 0,
-                hash: 0,
-                last_change: now_ms(),
-                state_since: now_ms(),
-                bell: false,
-                cols: BOOT_COLS,
-                rows: BOOT_ROWS,
-                plain: String::new(),
-                screen: None,
-                emu: None,
-                reader: None,
-                input: None,
-                breadcrumbs: Vec::new(),
-                breadcrumbs_pending: false,
-                title: TitleCapture::default(),
-            },
-        );
-        true
     }
 
     pub(super) async fn session_cfg(&self, name: &str) -> Option<SessionCfg> {
@@ -997,31 +991,13 @@ impl Manager {
                 named
             };
 
-            live.insert(
-                name.clone(),
-                Live {
-                    cfg: cfg.session_for(&sc, name.clone(), project),
-                    ephemeral: true,
-                    host,
-                    state: State::Down,
-                    seq: 0,
-                    retick_seq: 0,
-                    hash: 0,
-                    last_change: 0,
-                    state_since: 0,
-                    bell: false,
-                    cols: BOOT_COLS,
-                    rows: BOOT_ROWS,
-                    plain: String::new(),
-                    screen: None,
-                    emu: None,
-                    reader: None,
-                    input: None,
-                    breadcrumbs: Vec::new(),
-                    breadcrumbs_pending: false,
-                    title: TitleCapture::default(),
-                },
+            let mut l = Live::new(
+                cfg.session_for(&sc, name.clone(), project),
+                TitleCapture::default(),
             );
+            l.ephemeral = true;
+            l.host = host;
+            live.insert(name.clone(), l);
             name
         };
 
