@@ -83,7 +83,7 @@ namespace SlopWorld
         // nothing tells it so, the agents being the ones doing the changing.
         public static void Refresh()
         {
-            foreach (var name in Projects()) Fetch(name);
+            foreach (var name in ViewChrome.Projects()) Fetch(name);
         }
 
         // Arriving in the view. Separate from Refresh only in what it does not do: a tree
@@ -91,7 +91,7 @@ namespace SlopWorld
         // and forth across a slow repository does not restart the read every time.
         public static void Entered()
         {
-            foreach (var name in Projects())
+            foreach (var name in ViewChrome.Projects())
                 if (!Get(name).Asked) Fetch(name);
         }
 
@@ -263,10 +263,10 @@ namespace SlopWorld
         {
             Lines.Clear();
 
-            var projects = Projects();
+            var projects = ViewChrome.Projects();
             if (projects.Count == 0)
             {
-                Empty(body);
+                ViewChrome.Empty(body);
                 return;
             }
 
@@ -297,32 +297,6 @@ namespace SlopWorld
                 Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = Color.white;
             }
-        }
-
-        static void Empty(Rect body)
-        {
-            var r = new Rect(CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
-            GUI.color = SlopWidgets.Faint;
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Widgets.Label(r, SessionHub.Instance.Online
-                ? "No project has a directory yet."
-                : $"daemon {SessionHub.Instance.Status}");
-            Text.Font = GameFont.Small;
-            GUI.color = Color.white;
-        }
-
-        // Every project with somewhere to look that the strip's filter lets through,
-        // ordered the way the other two views order their headings, so all three read as
-        // the same column with different contents in it.
-        static List<string> Projects()
-        {
-            var names = new List<string>();
-            foreach (var p in SessionHub.Instance.Projects)
-                if (!string.IsNullOrEmpty(p.Dir) && AgentSidebar.Passes(p.Name))
-                    names.Add(p.Name);
-            names.Sort(System.StringComparer.Ordinal);
-            return names;
         }
 
         // The height the whole thing wants, so the scroll view knows before anything is
@@ -404,13 +378,13 @@ namespace SlopWorld
         static float Body(float width, float y, string project, Repo repo)
         {
             if (repo.Loading && repo.Tree == null)
-                return Note(width, y, 0, "...", SlopWidgets.Faint);
+                return ViewChrome.Note(width, y, 0, "...", SlopWidgets.Faint);
             if (repo.Error != null)
-                return Note(width, y, 0, repo.Error, SlopWidgets.Bad);
+                return ViewChrome.Note(width, y, 0, repo.Error, SlopWidgets.Bad);
             if (!repo.Asked)
-                return Note(width, y, 0, "not read yet", SlopWidgets.Faint);
+                return ViewChrome.Note(width, y, 0, "not read yet", SlopWidgets.Faint);
             if (!repo.IsRepo)
-                return Note(width, y, 0, "not a git repository", SlopWidgets.Faint);
+                return ViewChrome.Note(width, y, 0, "not a git repository", SlopWidgets.Faint);
 
             y = State(width, y, repo);
             return Rows(width, y, repo, repo.Tree);
@@ -469,20 +443,6 @@ namespace SlopWorld
             SlopWidgets.RowLabel(new Rect(right - w, y, w, RowH), text,
                 TextAnchor.MiddleRight);
             return right - w - 5f;
-        }
-
-        static float Note(float width, float y, int depth, string text, Color color)
-        {
-            float x = CellX + depth * Indent;
-            GUI.color = color;
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            var r = new Rect(x, y, width - x - Pad, RowH);
-            SlopWidgets.RowLabel(r, text);
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.Font = GameFont.Small;
-            GUI.color = Color.white;
-            return y + RowH;
         }
 
         static float Rows(float width, float y, Repo repo, Node dir)

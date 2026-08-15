@@ -30,6 +30,24 @@ namespace SlopWorld
 
         const float CloseSize = 22f;
 
+        protected static float MessageHeight(string text, float width)
+        {
+            var wasFont = Text.Font;
+            var wasWrap = Text.WordWrap;
+            try
+            {
+                Text.Font = GameFont.Small;
+                Text.WordWrap = true;
+                return Mathf.Max(SlopWidgets.LineHOf(GameFont.Small),
+                    Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text, width));
+            }
+            finally
+            {
+                Text.WordWrap = wasWrap;
+                Text.Font = wasFont;
+            }
+        }
+
         public override void DoWindowContents(Rect rect)
         {
             Slab.Box(rect, SlopWidgets.WindowBg, SlopWidgets.Edge);

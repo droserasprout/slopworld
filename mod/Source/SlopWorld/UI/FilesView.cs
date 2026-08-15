@@ -176,10 +176,10 @@ namespace SlopWorld
                 return;
             }
 
-            var projects = Projects();
+            var projects = ViewChrome.Projects();
             if (projects.Count == 0)
             {
-                Empty(body);
+                ViewChrome.Empty(body);
                 return;
             }
 
@@ -232,32 +232,6 @@ namespace SlopWorld
                 Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = Color.white;
             }
-        }
-
-        static void Empty(Rect body)
-        {
-            var r = new Rect(CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
-            GUI.color = SlopWidgets.Faint;
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Widgets.Label(r, SessionHub.Instance.Online
-                ? "No project has a directory yet."
-                : $"daemon {SessionHub.Instance.Status}");
-            Text.Font = GameFont.Small;
-            GUI.color = Color.white;
-        }
-
-        // Every project with somewhere to look that the strip's filter lets through,
-        // ordered the way the agents view orders its headings, so the two read as the same
-        // column with different contents in it.
-        static List<string> Projects()
-        {
-            var names = new List<string>();
-            foreach (var p in SessionHub.Instance.Projects)
-                if (!string.IsNullOrEmpty(p.Dir) && AgentSidebar.Passes(p.Name))
-                    names.Add(p.Name);
-            names.Sort(System.StringComparer.Ordinal);
-            return names;
         }
 
         static Node Root(string project)
@@ -351,7 +325,7 @@ namespace SlopWorld
 
             if (parent.Kids == null)
             {
-                y = Note(width, y, parent.Depth + 1,
+                y = ViewChrome.Note(width, y, parent.Depth + 1,
                     parent.Error ?? "...", parent.Error != null ? SlopWidgets.Bad : SlopWidgets.Faint);
                 return y;
             }
@@ -365,23 +339,9 @@ namespace SlopWorld
             // What the cap left off is the daemon's business and it does not say how much: it
             // stopped reading, so it never counted the rest either.
             if (parent.More)
-                y = Note(width, y, parent.Depth + 1, "... more, not listed", SlopWidgets.Faint);
+                y = ViewChrome.Note(width, y, parent.Depth + 1, "... more, not listed", SlopWidgets.Faint);
 
             return y;
-        }
-
-        static float Note(float width, float y, int depth, string text, Color color)
-        {
-            float x = CellX + depth * Indent;
-            GUI.color = color;
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            var r = new Rect(x, y, width - x - Pad, RowH);
-            SlopWidgets.RowLabel(r, text);
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.Font = GameFont.Small;
-            GUI.color = Color.white;
-            return y + RowH;
         }
 
         static float Row(float width, float y, Node node)
