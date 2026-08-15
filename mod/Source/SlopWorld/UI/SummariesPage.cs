@@ -64,33 +64,28 @@ namespace SlopWorld
                 OpenPolicyMenu(false);
             SlopWidgets.Note(l, "Names a Codex session from its submitted prompt.");
 
-            if (_cfg.AgentTitles != "never")
-            {
-                l.Gap(SlopWidgets.GapS);
-                l.Label("Title model");
-                _cfg.TitleModel = SlopWidgets.Field(l, "usage.title.model", _cfg.TitleModel);
-            }
-
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "Pi");
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     "Name sessions: " + PolicyLabel(_cfg.PiTitles)))
                 OpenPolicyMenu(true);
             SlopWidgets.Note(l, "Pi defaults to every prompt. The daemon applies this setting before input " +
-                    "reaches Pi, so it takes effect in the current session.");
-
-            if (_cfg.PiTitles != "never")
-            {
-                l.Gap(SlopWidgets.GapS);
-                l.Label("Pi title model");
-                _cfg.PiTitleModel = SlopWidgets.Field(l, "usage.pi.title.model",
-                    _cfg.PiTitleModel);
-            }
+                "reaches Pi, so it takes effect in the current session.");
 
             l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "Both");
-            SlopWidgets.Note(l, "Up to 2,000 characters of each prompt go to OpenRouter. Summaries do not " +
-                    "depend on credit polling.");
+            SlopWidgets.SectionHeading(l, "Host");
+            _cfg.HostTitles = SlopWidgets.Checkbox(l, "Summarize host commands", _cfg.HostTitles,
+                "Names commands submitted in host terminals. Off leaves host terminal titles to " +
+                "the terminal application.");
+            SlopWidgets.Note(l, "Host terminals summarize each submitted command, independently of " +
+                "the Codex and Pi policies.");
+
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "All summaries");
+            l.Label("Model");
+            _cfg.TitleModel = SlopWidgets.Field(l, "usage.summary.model", _cfg.TitleModel);
+            SlopWidgets.Note(l, "Up to 2,000 characters of each prompt or command go to OpenRouter. " +
+                "Summaries do not depend on credit polling.");
 
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();

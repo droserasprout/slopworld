@@ -20,7 +20,8 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   private state and owns reset/restore/delete actions.
 - `IntegrationsPage` owns host-side credential paths. `UsagePage` owns provider switches,
   quota polling and icon rows; left/spent display remains a mod setting and works offline.
-  `SummariesPage` edits Codex/Pi title policy and uses the OpenRouter key from Integrations.
+  `SummariesPage` edits Codex/Pi title policy, host-command summaries and the shared summary
+  model; it uses the OpenRouter key from Integrations.
   Appearance is a heading with `Interface`
   and `Terminal` children: `AppearancePage` owns global scale, scheme, font and cursor,
   while `TerminalPage` owns pane font, theme and cursor color. Scale applies on release

@@ -1395,7 +1395,7 @@ mod tests {
     fn pi_extension_is_disabled_when_daemon_owns_titles() {
         let mut cfg = Config::default();
         cfg.daemon.pi_titles = crate::config::TitlePolicy::Once;
-        cfg.daemon.pi_title_model = "test/title-model".into();
+        cfg.daemon.title_model = "test/title-model".into();
         let s = SessionCfg {
             name: "pi".into(),
             project: "p".into(),

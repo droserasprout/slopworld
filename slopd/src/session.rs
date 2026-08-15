@@ -221,11 +221,10 @@ struct TitleCapture {
     conversation: u64,
     generation: u64,
     pending: bool,
+    // Once mode counts the first request, not only a successful response. This keeps a
+    // transient OpenRouter failure from turning every later prompt into another billable try.
+    once_requested: bool,
     override_title: Option<String>,
-    // In `once` mode, keep the newest real prompt entered while the first request is in
-    // flight. It becomes a fallback only if that request fails; a successful first title still
-    // owns the conversation.
-    deferred_prompt: Option<String>,
 }
 
 #[derive(Clone, Copy)]
@@ -252,11 +251,19 @@ fn title_agent(cfg: &Config, session: &SessionCfg) -> Option<TitleAgent> {
     }
 }
 
-fn title_settings(cfg: &Config, agent: TitleAgent) -> (TitlePolicy, String) {
-    match agent {
-        TitleAgent::Codex => (cfg.daemon.agent_titles, cfg.daemon.title_model.clone()),
-        TitleAgent::Pi => (cfg.daemon.pi_titles, cfg.daemon.pi_title_model.clone()),
+fn title_settings(cfg: &Config, session: &SessionCfg, host: bool) -> Option<(TitlePolicy, String)> {
+    if host {
+        return cfg
+            .daemon
+            .host_titles
+            .then(|| (TitlePolicy::Always, cfg.daemon.title_model.clone()));
     }
+
+    let agent = title_agent(cfg, session)?;
+    Some(match agent {
+        TitleAgent::Codex => (cfg.daemon.agent_titles, cfg.daemon.title_model.clone()),
+        TitleAgent::Pi => (cfg.daemon.pi_titles, cfg.daemon.title_model.clone()),
+    })
 }
 
 impl Default for TitleCapture {
@@ -266,9 +273,19 @@ impl Default for TitleCapture {
             conversation: 0,
             generation: 0,
             pending: false,
+            once_requested: false,
             override_title: None,
-            deferred_prompt: None,
         }
+    }
+}
+
+impl TitleCapture {
+    fn once_available(&self) -> bool {
+        !self.once_requested
+    }
+
+    fn consume_once(&mut self) {
+        self.once_requested = true;
     }
 }
 
@@ -2485,7 +2502,6 @@ impl Manager {
             };
 
             let mut moved = false;
-            let mut retry = None;
             {
                 let mut live = m.live.write().await;
                 let Some(l) = live.get_mut(&name) else { return };
@@ -2504,7 +2520,6 @@ impl Manager {
                 l.title.pending = false;
                 match result {
                     Ok(title) => {
-                        l.title.deferred_prompt = None;
                         l.title.override_title = Some(title);
                         moved = true;
                     }
@@ -2517,14 +2532,6 @@ impl Manager {
                             outcome = "request_failed",
                             "session title request failed"
                         );
-                        if let Some(prompt) = l.title.deferred_prompt.take() {
-                            retry = Some(begin_title_request(
-                                l,
-                                prompt,
-                                request.key_file.clone(),
-                                request.model.clone(),
-                            ));
-                        }
                     }
                 }
             }
@@ -2539,15 +2546,6 @@ impl Manager {
                     sessions: m.views().await,
                 });
             }
-            if let Some(next) = retry {
-                tracing::debug!(
-                    target: "slopd::titles",
-                    session = %name,
-                    outcome = "retry_deferred",
-                    "retrying deferred session title prompt"
-                );
-                m.spawn_title_request(name, next);
-            }
         });
     }
 
@@ -2559,10 +2557,9 @@ impl Manager {
         {
             let mut live = self.live.write().await;
             let Some(l) = live.get_mut(name) else { return };
-            let Some(agent) = title_agent(&cfg, &l.cfg) else {
+            let Some((policy, model)) = title_settings(&cfg, &l.cfg, l.host) else {
                 return;
             };
-            let (policy, model) = title_settings(&cfg, agent);
             if policy == TitlePolicy::Never {
                 return;
             }
@@ -2586,7 +2583,7 @@ impl Manager {
                     l.title.conversation = l.title.conversation.wrapping_add(1);
                     l.title.generation = l.title.generation.wrapping_add(1);
                     l.title.pending = false;
-                    l.title.deferred_prompt = None;
+                    l.title.once_requested = false;
                     l.title.override_title = native;
                     announce = true;
                 }
@@ -2602,24 +2599,18 @@ impl Manager {
                 }
                 Some(Submission::Prompt(prompt)) => match policy {
                     TitlePolicy::Never => {}
-                    TitlePolicy::Once if l.title.override_title.is_some() => {
+                    TitlePolicy::Once if !l.title.once_available() => {
                         tracing::debug!(
                             target: "slopd::titles",
                             session = %name,
                             outcome = "skipped_already_named",
-                            "session already has a once-mode title"
-                        );
-                    }
-                    TitlePolicy::Once if l.title.pending => {
-                        l.title.deferred_prompt = Some(prompt);
-                        tracing::debug!(
-                            target: "slopd::titles",
-                            session = %name,
-                            outcome = "deferred_while_pending",
-                            "deferring session title prompt while request is pending"
+                            "session already attempted its once-mode title"
                         );
                     }
                     TitlePolicy::Once | TitlePolicy::Always => {
+                        if policy == TitlePolicy::Once {
+                            l.title.consume_once();
+                        }
                         request = Some(begin_title_request(
                             l,
                             prompt,
@@ -2655,10 +2646,10 @@ impl Manager {
         let cfg = self.config().await;
         let mut live = self.live.write().await;
         let Some(l) = live.get_mut(name) else { return };
-        let Some(agent) = title_agent(&cfg, &l.cfg) else {
+        let Some((policy, _)) = title_settings(&cfg, &l.cfg, l.host) else {
             return;
         };
-        if title_settings(&cfg, agent).0 != TitlePolicy::Never {
+        if policy != TitlePolicy::Never {
             l.title.composer.paste(text);
         }
     }
@@ -3378,7 +3369,7 @@ mod tests {
         slug, strip_sgr, title_agent, title_settings, Composer, Input, Live, State, Submission,
         TemplateVars, TitleAgent, TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
     };
-    use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind};
+    use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, TitlePolicy};
 
     #[test]
     fn file_action_paths_normalize_and_replace_the_raw_quoted_path() {
@@ -3465,7 +3456,7 @@ mod tests {
     #[test]
     fn title_agents_cover_presets_and_explicit_commands() {
         let mut cfg = Config::default();
-        cfg.daemon.pi_title_model = "pi-title".into();
+        cfg.daemon.title_model = "shared-title".into();
 
         let codex = SessionCfg {
             cmd: Some("codex --yolo".into()),
@@ -3478,13 +3469,33 @@ mod tests {
             ..Default::default()
         };
         assert!(matches!(title_agent(&cfg, &pi), Some(TitleAgent::Pi)));
-        assert_eq!(title_settings(&cfg, TitleAgent::Pi).1, "pi-title");
+        assert_eq!(title_settings(&cfg, &pi, false).unwrap().1, "shared-title");
+
+        let host = SessionCfg {
+            cmd: Some("bash".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            title_settings(&cfg, &host, true).unwrap().0,
+            TitlePolicy::Always
+        );
+        cfg.daemon.host_titles = false;
+        assert!(title_settings(&cfg, &host, true).is_none());
 
         let other = SessionCfg {
             cmd: Some("opencode".into()),
             ..Default::default()
         };
         assert!(title_agent(&cfg, &other).is_none());
+    }
+
+    #[test]
+    fn once_title_is_consumed_before_the_worker_finishes() {
+        let mut capture = TitleCapture::default();
+        assert!(capture.once_available());
+        capture.consume_once();
+        assert!(!capture.once_available());
+        assert!(capture.override_title.is_none());
     }
 
     #[test]

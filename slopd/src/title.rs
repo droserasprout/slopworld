@@ -1,4 +1,4 @@
-//! Small, optional OpenRouter request used to name Codex work from its submitted prompt.
+//! Small, optional OpenRouter request used to name agent work or host commands.
 
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -32,7 +32,7 @@ struct CacheEntry {
 /// Persistent summaries live beside the daemon config, which also keeps a custom
 /// `SLOPD_CONFIG` installation self-contained.
 pub fn cache_path(config: &Path) -> PathBuf {
-    config.with_file_name("prompt-summaries.json")
+    config.with_file_name("prompt-summaries.toml")
 }
 
 /// A small, best-effort cache for successful prompt summaries. The prompt itself is never
@@ -45,18 +45,23 @@ pub struct SummaryCache {
 
 impl SummaryCache {
     pub fn load(path: PathBuf) -> Self {
+        let legacy = path.with_file_name("prompt-summaries.json");
+        let mut migrated = false;
+        let mut loaded_toml = false;
         let entries = match fs::read_to_string(&path) {
-            Ok(text) => match serde_json::from_str::<CacheFile>(&text) {
-                Ok(file) if file.version == CACHE_VERSION => file
-                    .entries
-                    .into_iter()
-                    .filter(|entry| !entry.key.is_empty() && !entry.title.trim().is_empty())
-                    .rev()
-                    .take(MAX_CACHE_ENTRIES)
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .rev()
-                    .collect(),
+            Ok(text) => match toml::from_str::<CacheFile>(&text) {
+                Ok(file) if file.version == CACHE_VERSION => {
+                    loaded_toml = true;
+                    file.entries
+                        .into_iter()
+                        .filter(|entry| !entry.key.is_empty() && !entry.title.trim().is_empty())
+                        .rev()
+                        .take(MAX_CACHE_ENTRIES)
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .rev()
+                        .collect()
+                }
                 Ok(file) => {
                     tracing::warn!(
                         path = %path.display(),
@@ -74,7 +79,51 @@ impl SummaryCache {
                     Vec::new()
                 }
             },
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                match fs::read_to_string(&legacy) {
+                    Ok(text) => match serde_json::from_str::<CacheFile>(&text) {
+                        Ok(file) if file.version == CACHE_VERSION => {
+                            migrated = true;
+                            file.entries
+                                .into_iter()
+                                .filter(|entry| {
+                                    !entry.key.is_empty() && !entry.title.trim().is_empty()
+                                })
+                                .rev()
+                                .take(MAX_CACHE_ENTRIES)
+                                .collect::<Vec<_>>()
+                                .into_iter()
+                                .rev()
+                                .collect()
+                        }
+                        Ok(file) => {
+                            tracing::warn!(
+                                path = %legacy.display(),
+                                version = file.version,
+                                "ignoring unsupported legacy prompt-summary cache"
+                            );
+                            Vec::new()
+                        }
+                        Err(error) => {
+                            tracing::warn!(
+                                path = %legacy.display(),
+                                %error,
+                                "ignoring invalid legacy prompt-summary cache"
+                            );
+                            Vec::new()
+                        }
+                    },
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+                    Err(error) => {
+                        tracing::warn!(
+                            path = %legacy.display(),
+                            %error,
+                            "ignoring unreadable legacy prompt-summary cache"
+                        );
+                        Vec::new()
+                    }
+                }
+            }
             Err(error) => {
                 tracing::warn!(
                     path = %path.display(),
@@ -84,10 +133,30 @@ impl SummaryCache {
                 Vec::new()
             }
         };
-        Self {
+        let cache = Self {
             path,
             entries: Mutex::new(entries),
+        };
+        if migrated {
+            let result = cache
+                .entries
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .clone();
+            match save_cache(&cache.path, &result) {
+                Ok(()) => {
+                    let _ = fs::remove_file(legacy);
+                }
+                Err(error) => tracing::warn!(
+                    path = %cache.path.display(),
+                    %error,
+                    "could not migrate prompt-summary cache"
+                ),
+            }
+        } else if loaded_toml && legacy.exists() {
+            let _ = fs::remove_file(legacy);
         }
+        cache
     }
 
     pub fn get(&self, prompt: &str, model: &str) -> Option<String> {
@@ -127,12 +196,12 @@ fn save_cache(path: &Path, entries: &[CacheEntry]) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let tmp = path.with_extension("json.tmp");
+    let tmp = path.with_extension("toml.tmp");
     let file = CacheFile {
         version: CACHE_VERSION,
         entries: entries.to_vec(),
     };
-    fs::write(&tmp, serde_json::to_vec_pretty(&file)?)?;
+    fs::write(&tmp, toml::to_string_pretty(&file)?)?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -187,7 +256,7 @@ pub fn summarize(prompt: &str, key_file: &str, model: &str) -> Result<String> {
 fn summarize_with_key(prompt: &str, key: &str, model: &str, endpoint: &str) -> Result<String> {
     let prompt: String = prompt.chars().take(MAX_PROMPT_CHARS).collect();
     let instruction = format!(
-        "Summarise this coding request in at most 6 words for a session title. \
+        "Summarise this coding request or shell command in at most 6 words for a session title. \
          Reply with only the title, without quotes, punctuation, or commentary.\n\n{prompt}"
     );
     let body = json!({
@@ -285,7 +354,7 @@ fn clean(raw: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{clean, message_content, summarize_with_key, SummaryCache};
+    use super::{clean, message_content, summarize_with_key, CacheFile, SummaryCache};
     use serde_json::json;
     use std::fs;
     use std::io::{Read, Write};
@@ -386,7 +455,7 @@ mod tests {
     #[test]
     fn summary_cache_round_trips_without_storing_the_prompt() {
         let path =
-            std::env::temp_dir().join(format!("slopd-title-cache-{}.json", std::process::id()));
+            std::env::temp_dir().join(format!("slopd-title-cache-{}.toml", std::process::id()));
         let _ = fs::remove_file(&path);
 
         let cache = SummaryCache::load(path.clone());
@@ -406,6 +475,29 @@ mod tests {
             Some("Fix parser")
         );
         assert!(restored.get("fix the parser", "other/model").is_none());
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn legacy_json_summary_cache_is_migrated_to_toml() {
+        let path = std::env::temp_dir().join(format!(
+            "slopd-title-cache-legacy-{}.toml",
+            std::process::id()
+        ));
+        let legacy = path.with_file_name("prompt-summaries.json");
+        let _ = fs::remove_file(&path);
+        let _ = fs::remove_file(&legacy);
+        fs::write(
+            &legacy,
+            r#"{"version":1,"entries":[{"key":"v1-key","title":"Old title"}]}"#,
+        )
+        .unwrap();
+
+        let cache = SummaryCache::load(path.clone());
+        assert_eq!(cache.entries.lock().unwrap().len(), 1);
+        assert!(path.exists());
+        assert!(!legacy.exists());
+        assert!(toml::from_str::<CacheFile>(&fs::read_to_string(&path).unwrap()).is_ok());
         let _ = fs::remove_file(path);
     }
 }
