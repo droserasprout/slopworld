@@ -1,6 +1,8 @@
 # Where things land
 
 - Daemon config: `~/.config/slopworld/config.toml`, seeded on first run.
+- Prompt-summary cache: `~/.config/slopworld/prompt-summaries.json` (beside `SLOPD_CONFIG` when
+  overridden), daemon-owned and mode `0600`.
 - Daemon endpoint: `~/.config/slopworld/endpoint.json` (`SLOPD_ENDPOINT` overrides),
   written while slopd is running with the effective URL and token, mode `0600`.
 - User presets: `~/.config/slopworld/presets/*.toml` (`SLOPD_PRESETS` overrides).
