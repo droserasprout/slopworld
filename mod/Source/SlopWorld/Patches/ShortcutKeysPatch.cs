@@ -46,7 +46,7 @@ namespace SlopWorld
                 // In the agents view an empty row list means every project is folded (or
                 // there is nothing to walk), so do not make hidden sessions selectable.
                 // Other views draw no agent rows at all and use the hub as their fallback.
-                if (AgentSidebar.Agents) return;
+                if (AgentSidebar.CurrentTab == SidebarTab.Agents) return;
                 var fallback = new List<string>();
                 foreach (var info in SessionHub.Instance.Sessions)
                     if (info.Alive) fallback.Add(info.Name);
