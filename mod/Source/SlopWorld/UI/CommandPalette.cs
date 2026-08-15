@@ -144,137 +144,15 @@ namespace SlopWorld
 
             // Handle navigation keys before the text field, which would otherwise consume
             // arrows, Escape and Enter for its own cursor motion and focus management.
-            if (isKeyDown)
-            {
-                switch (e.keyCode)
-                {
-                    case KeyCode.Escape:
-                        if (_mode == Mode.Sub) BackSub();
-                        else Close();
-                        e.Use();
-                        return;
-
-                    case KeyCode.Return:
-                    case KeyCode.KeypadEnter:
-                        if (_mode == Mode.Sub) ExecuteSub();
-                        else ExecuteSelected();
-                        e.Use();
-                        return;
-
-                    case KeyCode.UpArrow:
-                        if (_mode == Mode.Sub)
-                        {
-                            _subIndex = Mathf.Max(0, _subIndex - 1);
-                            ScrollToSub();
-                        }
-                        else
-                        {
-                            if (_matches.Count > 0)
-                            {
-                                _selectedIndex = _selectedIndex == 0
-                                    ? _matches.Count - 1
-                                    : _selectedIndex - 1;
-                                ScrollToSelected();
-                            }
-                        }
-                        e.Use();
-                        return;
-
-                    case KeyCode.DownArrow:
-                        if (_mode == Mode.Sub)
-                        {
-                            _subIndex = Mathf.Min(_subShown.Count - 1, _subIndex + 1);
-                            ScrollToSub();
-                        }
-                        else
-                        {
-                            if (_matches.Count > 0)
-                            {
-                                _selectedIndex = _selectedIndex == _matches.Count - 1
-                                    ? 0
-                                    : _selectedIndex + 1;
-                                ScrollToSelected();
-                            }
-                        }
-                        e.Use();
-                        return;
-
-                    case KeyCode.PageUp:
-                        if (_mode == Mode.Sub)
-                        {
-                            _subIndex = Mathf.Max(0, _subIndex - PageSize);
-                            ScrollToSub();
-                        }
-                        else
-                        {
-                            _selectedIndex = Mathf.Max(0, _selectedIndex - PageSize);
-                            ScrollToSelected();
-                        }
-                        e.Use();
-                        return;
-
-                    case KeyCode.PageDown:
-                        if (_mode == Mode.Sub)
-                        {
-                            _subIndex = Mathf.Min(_subShown.Count - 1, _subIndex + PageSize);
-                            ScrollToSub();
-                        }
-                        else
-                        {
-                            _selectedIndex = Mathf.Min(_matches.Count - 1, _selectedIndex + PageSize);
-                            ScrollToSelected();
-                        }
-                        e.Use();
-                        return;
-                }
-            }
+            if (isKeyDown && HandleNavigation(e)) return;
 
             if (_mode == Mode.Sub)
             {
-                // Prompt on the left, filter input on the right.
-                string prompt = _subPrompt + " ";
-                float promptW = SlopWidgets.Wide(prompt);
-                var labelRect = new Rect(inner.x, inner.y, promptW, inner.height);
-                var fieldRect = new Rect(inner.x + promptW, inner.y,
-                    inner.width - promptW, inner.height);
-
-                GUI.color = SlopWidgets.Dim;
-                SlopWidgets.RowLabel(labelRect, prompt);
-                GUI.color = Color.white;
-
-                bool hadFilter = _subHasFilter;
-                string wasSub = _subFilter;
-                _subFilter = SlopWidgets.BareField(fieldRect, "paletteInput", _subFilter);
-                _subHasFilter = !string.IsNullOrEmpty(_subFilter);
-                if (_subFilter != wasSub)
-                {
-                    RebuildSub();
-                    _subIndex = 0;
-                    _scroll.JumpTo(Vector2.zero);
-                    Resize();
-                }
-
-                // Backspace on empty filter in sub-mode: go back to command list.
-                // The text field was empty so it didn't consume the key; ours to take.
-                if (isKeyDown && e.keyCode == KeyCode.Backspace && !hadFilter)
-                {
-                    BackSub();
-                    e.Use();
-                    return;
-                }
+                if (DrawSubInput(inner, e, isKeyDown)) return;
             }
             else
             {
-                string was = _input;
-                _input = SlopWidgets.BareField(inner, "paletteInput", _input);
-                if (_input != was)
-                {
-                    _filter = _input.ToLowerInvariant();
-                    RebuildMatches();
-                    _selectedIndex = 0;
-                    _scroll.JumpTo(Vector2.zero);
-                    Resize();
-                }
+                DrawCommandInput(inner);
             }
 
             if (_focusInput)
@@ -282,6 +160,137 @@ namespace SlopWorld
                 GUI.FocusControl("paletteInput");
                 _focusInput = false;
             }
+        }
+
+        bool HandleNavigation(Event e)
+        {
+            switch (e.keyCode)
+            {
+                case KeyCode.Escape:
+                    if (_mode == Mode.Sub) BackSub();
+                    else Close();
+                    e.Use();
+                    return true;
+
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter:
+                    if (_mode == Mode.Sub) ExecuteSub();
+                    else ExecuteSelected();
+                    e.Use();
+                    return true;
+
+                case KeyCode.UpArrow:
+                    if (_mode == Mode.Sub)
+                    {
+                        _subIndex = Mathf.Max(0, _subIndex - 1);
+                        ScrollToSub();
+                    }
+                    else if (_matches.Count > 0)
+                    {
+                        _selectedIndex = _selectedIndex == 0
+                            ? _matches.Count - 1
+                            : _selectedIndex - 1;
+                        ScrollToSelected();
+                    }
+                    e.Use();
+                    return true;
+
+                case KeyCode.DownArrow:
+                    if (_mode == Mode.Sub)
+                    {
+                        _subIndex = Mathf.Min(_subShown.Count - 1, _subIndex + 1);
+                        ScrollToSub();
+                    }
+                    else if (_matches.Count > 0)
+                    {
+                        _selectedIndex = _selectedIndex == _matches.Count - 1
+                            ? 0
+                            : _selectedIndex + 1;
+                        ScrollToSelected();
+                    }
+                    e.Use();
+                    return true;
+
+                case KeyCode.PageUp:
+                    if (_mode == Mode.Sub)
+                    {
+                        _subIndex = Mathf.Max(0, _subIndex - PageSize);
+                        ScrollToSub();
+                    }
+                    else
+                    {
+                        _selectedIndex = Mathf.Max(0, _selectedIndex - PageSize);
+                        ScrollToSelected();
+                    }
+                    e.Use();
+                    return true;
+
+                case KeyCode.PageDown:
+                    if (_mode == Mode.Sub)
+                    {
+                        _subIndex = Mathf.Min(_subShown.Count - 1, _subIndex + PageSize);
+                        ScrollToSub();
+                    }
+                    else
+                    {
+                        _selectedIndex = Mathf.Min(_matches.Count - 1, _selectedIndex + PageSize);
+                        ScrollToSelected();
+                    }
+                    e.Use();
+                    return true;
+            }
+            return false;
+        }
+
+        bool DrawSubInput(Rect inner, Event e, bool isKeyDown)
+        {
+            // Prompt on the left, filter input on the right.
+            string prompt = _subPrompt + " ";
+            float promptW = SlopWidgets.Wide(prompt);
+            var labelRect = new Rect(inner.x, inner.y, promptW, inner.height);
+            var fieldRect = new Rect(inner.x + promptW, inner.y,
+                inner.width - promptW, inner.height);
+
+            GUI.color = SlopWidgets.Dim;
+            SlopWidgets.RowLabel(labelRect, prompt);
+            GUI.color = Color.white;
+
+            bool hadFilter = _subHasFilter;
+            string wasSub = _subFilter;
+            _subFilter = SlopWidgets.BareField(fieldRect, "paletteInput", _subFilter);
+            _subHasFilter = !string.IsNullOrEmpty(_subFilter);
+            if (_subFilter != wasSub)
+            {
+                RebuildSub();
+                _subIndex = 0;
+                _scroll.JumpTo(Vector2.zero);
+                Resize();
+            }
+
+            // Backspace on empty filter in sub-mode: go back to command list.
+            // The text field was empty so it didn't consume the key; ours to take.
+            if (isKeyDown && e.keyCode == KeyCode.Backspace && !hadFilter)
+            {
+                BackSub();
+                e.Use();
+                return true;
+            }
+            return false;
+        }
+
+        float DrawCommandInput(Rect inner)
+        {
+            string was = _input;
+            _input = SlopWidgets.BareField(inner, "paletteInput", _input);
+            if (_input != was)
+            {
+                _filter = _input.ToLowerInvariant();
+                RebuildMatches();
+                _selectedIndex = 0;
+                _scroll.JumpTo(Vector2.zero);
+                Resize();
+            }
+            return inner.height;
         }
 
         void BackToCommands()

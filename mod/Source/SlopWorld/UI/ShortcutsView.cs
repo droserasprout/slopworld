@@ -92,91 +92,7 @@ namespace SlopWorld
                 float y = Pad;
 
                 foreach (var key in Order)
-                {
-                    var bucket = Groups[key];
-                    bool folded = Folded.Contains(key);
-
-                    string label = key.Length == 0 ? LooseLabel : key;
-                    var headRect = new Rect(0f, y, view.width, HeadH);
-                    // The key, not the label: the fold set is keyed by the group and the
-                    // loose bucket's key is "" while its label reads "no project".
-                    Lines.Add(new Line { Head = true, Key = key, Rect = Screen(headRect) });
-
-                    // Heading
-                    SlopWidgets.HoverRow(headRect);
-
-                    GUI.color = SlopWidgets.Faint;
-                    var arrow = new Rect(CellX, headRect.y + (HeadH - ArrowW) / 2f,
-                        ArrowW, ArrowW);
-                    GUI.DrawTexture(arrow, folded ? TexButton.Reveal : TexButton.Collapse);
-
-                    Text.Font = GameFont.Tiny;
-                    Text.Anchor = TextAnchor.MiddleLeft;
-                    float lx = arrow.xMax + 4f;
-                    string tail = folded ? "  " + bucket.Count : "";
-                    var labelRect = new Rect(lx, headRect.y, view.width - lx - CellX, HeadH);
-                    SlopWidgets.RowLabel(labelRect, label + tail);
-
-                    GUI.color = Color.white;
-                    Text.Anchor = TextAnchor.UpperLeft;
-                    Text.Font = GameFont.Small;
-
-                    Slab.Hairline(new Rect(CellX, headRect.yMax - 1f,
-                        view.width - CellX * 2f, 1f), SlopWidgets.Edge);
-
-                    TooltipHandler.TipRegion(headRect,
-                        key.Length == 0
-                            ? "Shortcuts that don't belong to any project.\n\nClick to fold."
-                            : $"Click to fold, right-click for the project.");
-
-                    y += HeadH;
-                    if (folded) continue;
-
-                    foreach (var item in bucket)
-                    {
-                        var r = new Rect(0f, y, view.width, RowH);
-                        SlopWidgets.HoverRow(r);
-
-                        // The kind badge: prompt, shell, or an attached breadcrumb.
-                        float badgeW = 34f;
-                        GUI.color = item.Kind == ShortcutKind.Shell
-                            ? SlopWidgets.Warn
-                            : SlopWidgets.Info;
-                        // The whole row is Tiny, the way a row of the other two trees is: the
-                        // badge was, and the name and the sample beside it were Small in a row
-                        // laid out for Tiny - which on any face taller than the one it was
-                        // written against is a line with its descenders cut off.
-                        Text.Font = GameFont.Tiny;
-                        Text.Anchor = TextAnchor.MiddleLeft;
-                        SlopWidgets.RowLabel(new Rect(CellX, r.y, badgeW, RowH),
-                            item.Kind == ShortcutKind.Shell ? "sh" :
-                                item.Kind == ShortcutKind.Breadcrumb ? "bc" :
-                                item.Kind == ShortcutKind.FileAction ? "fa" : "pt");
-                        GUI.color = Color.white;
-
-                        float tx = CellX + badgeW + 4f;
-                        // The name comes first, then a sample of the text truncated.
-                        GUI.color = SlopWidgets.Lead;
-                        var nameW = SlopWidgets.Wide(item.Name);
-                        var nameRect = new Rect(tx, r.y, Mathf.Min(nameW + 6f,
-                            view.width * 0.35f), RowH);
-                        SlopWidgets.RowLabel(nameRect, item.Name);
-                        GUI.color = SlopWidgets.Dim;
-
-                        float restX = nameRect.xMax + 2f;
-                        var restW = r.xMax - 6f - restX;
-                        if (restW > 20f)
-                            SlopWidgets.RowLabel(new Rect(restX, r.y, restW, RowH),
-                                OneLine(item.Text));
-
-                        GUI.color = Color.white;
-                        Text.Anchor = TextAnchor.UpperLeft;
-                        Text.Font = GameFont.Small;
-
-                        Lines.Add(new Line { Item = item, Rect = Screen(r) });
-                        y += RowH;
-                    }
-                }
+                    y += DrawGroup(view, y, key, Groups[key]);
             }
             finally
             {
@@ -185,6 +101,102 @@ namespace SlopWorld
                 Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = Color.white;
             }
+        }
+
+        static float DrawGroup(Rect view, float y, string key, List<ShortcutInfo> bucket)
+        {
+            float start = y;
+            bool folded = Folded.Contains(key);
+            string label = key.Length == 0 ? LooseLabel : key;
+            var headRect = new Rect(0f, y, view.width, HeadH);
+            y += DrawHeading(view, headRect, key, label, bucket.Count, folded);
+            if (!folded)
+                foreach (var item in bucket)
+                {
+                    var row = new Rect(0f, y, view.width, RowH);
+                    y += DrawShortcutRow(view, row, item);
+                }
+            return y - start;
+        }
+
+        static float DrawHeading(Rect view, Rect headRect, string key, string label,
+            int count, bool folded)
+        {
+            // The key, not the label: the fold set is keyed by the group and the loose
+            // bucket's key is "" while its label reads "no project".
+            Lines.Add(new Line { Head = true, Key = key, Rect = Screen(headRect) });
+
+            SlopWidgets.HoverRow(headRect);
+
+            GUI.color = SlopWidgets.Faint;
+            var arrow = new Rect(CellX, headRect.y + (HeadH - ArrowW) / 2f,
+                ArrowW, ArrowW);
+            GUI.DrawTexture(arrow, folded ? TexButton.Reveal : TexButton.Collapse);
+
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            float lx = arrow.xMax + 4f;
+            string tail = folded ? "  " + count : "";
+            var labelRect = new Rect(lx, headRect.y, view.width - lx - CellX, HeadH);
+            SlopWidgets.RowLabel(labelRect, label + tail);
+
+            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.UpperLeft;
+            Text.Font = GameFont.Small;
+
+            Slab.Hairline(new Rect(CellX, headRect.yMax - 1f,
+                view.width - CellX * 2f, 1f), SlopWidgets.Edge);
+
+            TooltipHandler.TipRegion(headRect,
+                key.Length == 0
+                    ? "Shortcuts that don't belong to any project.\n\nClick to fold."
+                    : "Click to fold, right-click for the project.");
+
+            return HeadH;
+        }
+
+        static float DrawShortcutRow(Rect view, Rect r, ShortcutInfo item)
+        {
+            SlopWidgets.HoverRow(r);
+
+            // The kind badge: prompt, shell, or an attached breadcrumb.
+            float badgeW = 34f;
+            GUI.color = item.Kind == ShortcutKind.Shell
+                ? SlopWidgets.Warn
+                : SlopWidgets.Info;
+            // The whole row is Tiny, the way a row of the other two trees is: the badge was,
+            // and the name and the sample beside it were Small in a row laid out for Tiny -
+            // which on any face taller than the one it was written against is a line with its
+            // descenders cut off.
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            SlopWidgets.RowLabel(new Rect(CellX, r.y, badgeW, RowH),
+                item.Kind == ShortcutKind.Shell ? "sh" :
+                    item.Kind == ShortcutKind.Breadcrumb ? "bc" :
+                    item.Kind == ShortcutKind.FileAction ? "fa" : "pt");
+            GUI.color = Color.white;
+
+            float tx = CellX + badgeW + 4f;
+            // The name comes first, then a sample of the text truncated.
+            GUI.color = SlopWidgets.Lead;
+            var nameW = SlopWidgets.Wide(item.Name);
+            var nameRect = new Rect(tx, r.y, Mathf.Min(nameW + 6f,
+                view.width * 0.35f), RowH);
+            SlopWidgets.RowLabel(nameRect, item.Name);
+            GUI.color = SlopWidgets.Dim;
+
+            float restX = nameRect.xMax + 2f;
+            var restW = r.xMax - 6f - restX;
+            if (restW > 20f)
+                SlopWidgets.RowLabel(new Rect(restX, r.y, restW, RowH),
+                    OneLine(item.Text));
+
+            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.UpperLeft;
+            Text.Font = GameFont.Small;
+
+            Lines.Add(new Line { Item = item, Rect = Screen(r) });
+            return RowH;
         }
 
         // The height the rows want, measured off the same folds the draw reads.
@@ -483,8 +495,20 @@ namespace SlopWorld
                 : _isNew ? "New shortcut" : $"Edit '{_origName}'");
 
             float head = SlopWidgets.HeaderH + SlopWidgets.GapS;
+            float used = DrawFields(new Rect(rect.x, rect.y + head, rect.width, rect.height - head));
+            float y = rect.y + head + used + SlopWidgets.GapL;
+            DrawTextEditor(rect, y);
+            DrawFooter(rect);
+        }
+
+        float DrawFields(Rect rect)
+        {
+            // One column, on the room it has: a Listing_Standard begun on a rect too short
+            // for its contents does not overflow, it breaks to a column off the right-hand
+            // edge and puts CurHeight back to nearly zero - and the prompt box below is
+            // placed and sized from that number. See EditProjectDialog.DoFields.
             var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(new Rect(rect.x, rect.y + head, rect.width, rect.height - head));
+            l.Begin(rect);
 
             l.Label("Name (also what the temporary colonist is called)");
             _s.Name = SlopWidgets.Field(l, "shortcut.name", _s.Name);
@@ -576,8 +600,11 @@ namespace SlopWorld
 
             float used = l.CurHeight;
             l.End();
+            return used;
+        }
 
-            float y = rect.y + head + used + SlopWidgets.GapL;
+        float DrawTextEditor(Rect rect, float y)
+        {
             SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
                 _s.Kind == ShortcutKind.Shell || _s.Kind == ShortcutKind.FileAction ? "Command line" :
                 _s.Kind == ShortcutKind.Breadcrumb ? "Breadcrumb text" : "Prompt");
@@ -593,7 +620,11 @@ namespace SlopWorld
             {
                 _s.Text = "";
             }
+            return rect.yMax - y;
+        }
 
+        void DrawFooter(Rect rect)
+        {
             var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
             if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
             if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();

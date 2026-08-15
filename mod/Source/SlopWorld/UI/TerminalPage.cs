@@ -46,11 +46,34 @@ namespace SlopWorld
                 Mathf.Max(_fieldsH, form.height));
             _scroll.Begin(form, view);
 
-            // One column: a Listing_Standard given less height than its contents starts a
-            // second column off the right edge rather than overflowing, which drops a text
-            // field over the preview.
+            _fieldsH = DrawFields(view, s);
+
+            _scroll.End();
+
+            // Re-taken: moving the slider invalidated the style a few lines up, so the one
+            // from before it is a size out of date and the preview would sit a frame behind
+            // the number over it.
+            style = TerminalFont.Style;
+
+            Text.Font = GameFont.Small;
+            SlopWidgets.SectionHeading(caption, "Preview");
+
+            DrawPreview(preview, style);
+        }
+
+        float DrawFields(Rect rect, SlopSettings s)
+        {
+            float y = rect.y;
+            y += DrawFont(new Rect(rect.x, y, rect.width, 4000f), s);
+            y += DrawTheme(new Rect(rect.x, y, rect.width, 4000f), s);
+            y += DrawCursor(new Rect(rect.x, y, rect.width, 4000f), s);
+            return y - rect.y + SlopWidgets.GapS;
+        }
+
+        float DrawFont(Rect rect, SlopSettings s)
+        {
             var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(new Rect(0f, 0f, view.width, 4000f));
+            l.Begin(rect);
 
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     $"Font: {(s.fontName.NullOrEmpty() ? "Automatic" : s.fontName)}"))
@@ -86,8 +109,18 @@ namespace SlopWorld
                 TerminalFont.Invalidate();
                 s.MarkDirty();
             }
-
             l.Gap(SlopWidgets.GapM);
+
+            float used = l.CurHeight;
+            l.End();
+            return used;
+        }
+
+        float DrawTheme(Rect rect, SlopSettings s)
+        {
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(rect);
+
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     $"Color scheme: {TerminalTheme.Current.Label}"))
                 Find.WindowStack.Add(new SlopMenu(TerminalTheme.All
@@ -100,8 +133,18 @@ namespace SlopWorld
                     .ToList()));
 
             DrawSwatches(l.GetRect(18f));
-
             l.Gap(SlopWidgets.GapM);
+
+            float used = l.CurHeight;
+            l.End();
+            return used;
+        }
+
+        float DrawCursor(Rect rect, SlopSettings s)
+        {
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(rect);
+
             l.Label("Cursor color, #rrggbb (blank = the scheme's)");
             string prevColor = s.cursorColor;
             s.cursorColor = SlopWidgets.Field(l, "term.cursor", s.cursorColor ?? "");
@@ -117,20 +160,9 @@ namespace SlopWorld
                 GUI.color = Color.white;
             }
 
-            _fieldsH = l.CurHeight + SlopWidgets.GapS;
+            float used = l.CurHeight;
             l.End();
-
-            _scroll.End();
-
-            // Re-taken: moving the slider invalidated the style a few lines up, so the one
-            // from before it is a size out of date and the preview would sit a frame behind
-            // the number over it.
-            style = TerminalFont.Style;
-
-            Text.Font = GameFont.Small;
-            SlopWidgets.SectionHeading(caption, "Preview");
-
-            DrawPreview(preview, style);
+            return used;
         }
 
         // The scheme, drawn rather than described: sixteen ANSI slots over the background

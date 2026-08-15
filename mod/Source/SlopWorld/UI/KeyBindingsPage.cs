@@ -52,15 +52,7 @@ namespace SlopWorld
                 .ToDictionary(g => g.Key, g => g.OrderBy(b => b.defName).ToList());
 
             // Measure total content height.
-            float totalH = 0f;
-            foreach (var cat in cats)
-            {
-                List<KeyBindingDef> list;
-                if (!bindingsMap.TryGetValue(cat, out list) || list.Count == 0) continue;
-                totalH += CatH;
-                if (_folded.Contains(cat)) continue;
-                totalH += list.Count * RowH + Gap;
-            }
+            float totalH = MeasureCategories(cats, bindingsMap);
             // Room for the Restore Defaults button at the foot.
             totalH += SlopWidgets.BtnH + SlopWidgets.GapS + SlopWidgets.GapS;
 
@@ -75,114 +67,137 @@ namespace SlopWorld
             {
                 List<KeyBindingDef> list;
                 if (!bindingsMap.TryGetValue(cat, out list) || list.Count == 0) continue;
-
-                bool folded = _folded.Contains(cat);
-
-                var headRect = new Rect(0f, y, innerRect.width, CatH);
-                bool overHead = Mouse.IsOver(headRect);
-                if (overHead) Slab.Fill(headRect, SlopWidgets.Hover);
-
-                float arrowSize = 10f;
-                var arrowRect = new Rect(headRect.x, headRect.y + (CatH - arrowSize) / 2f,
-                    arrowSize, arrowSize);
-                GUI.color = SlopWidgets.Faint;
-                GUI.DrawTexture(arrowRect, folded ? TexButton.Reveal : TexButton.Collapse);
-
-                Text.Font = GameFont.Tiny;
-                Text.Anchor = TextAnchor.MiddleLeft;
-                float lx = arrowRect.xMax + 4f;
-                string tail = folded ? $"  {list.Count}" : "";
-                GUI.color = SlopWidgets.Dim;
-                SlopWidgets.RowLabel(
-                    new Rect(lx, headRect.y, innerRect.width - lx - Gap, CatH),
-                    cat.label + tail);
-                GUI.color = Color.white;
-                Text.Anchor = TextAnchor.UpperLeft;
-                Text.Font = GameFont.Small;
-
-                // Heading click: fold/unfold.
-                if (overHead && Event.current.rawType == EventType.MouseDown && Event.current.button == 0)
-                {
-                    if (!_folded.Remove(cat)) _folded.Add(cat);
-                    Event.current.Use();
-                }
-
-                y += CatH;
-                if (folded) continue;
-
-                foreach (var binding in list)
-                {
-                    float rh = RowH;
-                    var r = new Rect(Indent, y, innerRect.width - Indent, rh);
-
-                    bool over = Mouse.IsOver(r);
-                    if (over && _listening != binding)
-                        Slab.Fill(r, SlopWidgets.RowBg);
-
-                    // Label
-                    Text.Anchor = TextAnchor.MiddleLeft;
-                    GUI.color = SlopWidgets.Name;
-                    float labelW = r.width - KeyW - Gap;
-                    SlopWidgets.RowLabel(new Rect(r.x, r.y, labelW, rh), binding.label);
-                    GUI.color = Color.white;
-
-                    // Key button: click to rebind.
-                    var keyRect = new Rect(r.xMax - KeyW, r.y, KeyW, rh);
-                    if (_listening == binding)
-                    {
-                        // Listening state: show a primary-style button asking for input.
-                        SlopWidgets.Button(keyRect, "Press a key...", SlopWidgets.Btn.Primary);
-                    }
-                    else
-                    {
-                        string keyLabel = BindingLabel(binding);
-
-                        // Click side selects the main/alternate slot; do not choose the first
-                        // empty slot or a populated primary key could never be replaced.
-                        var ev = Event.current;
-                        if (Mouse.IsOver(keyRect) && ev.rawType == EventType.MouseDown
-                                                  && ev.button == 1)
-                        {
-                            _bindingSlot = KeyPrefs.BindingSlot.B;
-                            _listening = binding;
-                            ev.Use();
-                        }
-                        else if (SlopWidgets.Button(keyRect, keyLabel, SlopWidgets.Btn.Default))
-                        {
-                            _bindingSlot = KeyPrefs.BindingSlot.A;
-                            _listening = binding;
-                        }
-
-                        TooltipHandler.TipRegion(keyRect,
-                            "Click to set the main key, right-click for the alternate.\n\n" +
-                            "Esc cancels, Delete clears the slot.");
-                    }
-
-                    Text.Anchor = TextAnchor.UpperLeft;
-
-                    y += rh;
-                }
-
-                y += Gap;
+                y += DrawCategory(new Rect(0f, y, innerRect.width, innerRect.height - y),
+                    cat, list);
             }
 
             // "Restore defaults" at the bottom of the scroll content.
             y += SlopWidgets.GapS;
-            if (SlopWidgets.Button(
-                    new Rect(0f, y, innerRect.width, SlopWidgets.BtnH),
-                    "Restore defaults", SlopWidgets.Btn.Ghost))
-            {
-                KeyPrefs.KeyPrefsData.ResetToDefaults();
-                KeyPrefs.Save();
-                Messages.Message("SlopWorld: key bindings restored to defaults.",
-                    MessageTypeDefOf.TaskCompletion, false);
-            }
+            DrawRestoreDefaults(new Rect(0f, y, innerRect.width, SlopWidgets.BtnH));
 
             _scroll.End();
 
             // Handle key capture while listening — this catches keys the buttons miss.
             if (_listening != null)
                 CaptureKey();
+        }
+
+        float MeasureCategories(List<KeyBindingCategoryDef> cats,
+            Dictionary<KeyBindingCategoryDef, List<KeyBindingDef>> bindingsMap)
+        {
+            float height = 0f;
+            foreach (var cat in cats)
+            {
+                List<KeyBindingDef> list;
+                if (!bindingsMap.TryGetValue(cat, out list) || list.Count == 0) continue;
+                height += CatH;
+                if (!_folded.Contains(cat))
+                    height += list.Count * RowH + Gap;
+            }
+            return height;
+        }
+
+        float DrawCategory(Rect rect, KeyBindingCategoryDef cat, List<KeyBindingDef> list)
+        {
+            float y = rect.y;
+            bool folded = _folded.Contains(cat);
+
+            var headRect = new Rect(rect.x, y, rect.width, CatH);
+            bool overHead = Mouse.IsOver(headRect);
+            if (overHead) Slab.Fill(headRect, SlopWidgets.Hover);
+
+            float arrowSize = 10f;
+            var arrowRect = new Rect(headRect.x, headRect.y + (CatH - arrowSize) / 2f,
+                arrowSize, arrowSize);
+            GUI.color = SlopWidgets.Faint;
+            GUI.DrawTexture(arrowRect, folded ? TexButton.Reveal : TexButton.Collapse);
+
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            float lx = arrowRect.xMax + 4f;
+            string tail = folded ? $"  {list.Count}" : "";
+            GUI.color = SlopWidgets.Dim;
+            SlopWidgets.RowLabel(
+                new Rect(lx, headRect.y, rect.width - lx - Gap, CatH),
+                cat.label + tail);
+            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.UpperLeft;
+            Text.Font = GameFont.Small;
+
+            // Heading click: fold/unfold.
+            if (overHead && Event.current.rawType == EventType.MouseDown && Event.current.button == 0)
+            {
+                if (!_folded.Remove(cat)) _folded.Add(cat);
+                Event.current.Use();
+            }
+
+            y += CatH;
+            if (folded) return y - rect.y;
+
+            foreach (var binding in list)
+                y += DrawBinding(new Rect(Indent, y, rect.width - Indent, RowH), binding);
+            y += Gap;
+            return y - rect.y;
+        }
+
+        float DrawBinding(Rect rect, KeyBindingDef binding)
+        {
+            bool over = Mouse.IsOver(rect);
+            if (over && _listening != binding)
+                Slab.Fill(rect, SlopWidgets.RowBg);
+
+            Text.Anchor = TextAnchor.MiddleLeft;
+            GUI.color = SlopWidgets.Name;
+            float labelW = rect.width - KeyW - Gap;
+            SlopWidgets.RowLabel(new Rect(rect.x, rect.y, labelW, RowH), binding.label);
+            GUI.color = Color.white;
+
+            // Key button: click to rebind.
+            var keyRect = new Rect(rect.xMax - KeyW, rect.y, KeyW, RowH);
+            if (_listening == binding)
+            {
+                // Listening state: show a primary-style button asking for input.
+                SlopWidgets.Button(keyRect, "Press a key...", SlopWidgets.Btn.Primary);
+            }
+            else
+            {
+                string keyLabel = BindingLabel(binding);
+
+                // Click side selects the main/alternate slot; do not choose the first empty
+                // slot or a populated primary key could never be replaced.
+                var ev = Event.current;
+                if (Mouse.IsOver(keyRect) && ev.rawType == EventType.MouseDown
+                                          && ev.button == 1)
+                {
+                    _bindingSlot = KeyPrefs.BindingSlot.B;
+                    _listening = binding;
+                    ev.Use();
+                }
+                else if (SlopWidgets.Button(keyRect, keyLabel, SlopWidgets.Btn.Default))
+                {
+                    _bindingSlot = KeyPrefs.BindingSlot.A;
+                    _listening = binding;
+                }
+
+                TooltipHandler.TipRegion(keyRect,
+                    "Click to set the main key, right-click for the alternate.\n\n" +
+                    "Esc cancels, Delete clears the slot.");
+            }
+
+            Text.Anchor = TextAnchor.UpperLeft;
+            return RowH;
+        }
+
+        float DrawRestoreDefaults(Rect rect)
+        {
+            if (SlopWidgets.Button(rect, "Restore defaults", SlopWidgets.Btn.Ghost))
+            {
+                KeyPrefs.KeyPrefsData.ResetToDefaults();
+                KeyPrefs.Save();
+                Messages.Message("SlopWorld: key bindings restored to defaults.",
+                    MessageTypeDefOf.TaskCompletion, false);
+            }
+            return SlopWidgets.BtnH;
         }
 
         // Called at the end of the frame when we are waiting for a key. The key press
