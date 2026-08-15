@@ -43,22 +43,7 @@ namespace SlopWorld
                     var store = off > 0 ? _scrolls : _screens;
                     if (!store.TryGetValue(name, out var buf))
                         store[name] = buf = new ScreenBuf();
-
-                    buf.Seq = s["seq"].AsInt();
-                    buf.Cols = s["cols"].AsInt(80);
-                    buf.Rows = s["rows"].AsInt(24);
-                    buf.Cx = s["cx"].AsInt();
-                    buf.Cy = s["cy"].AsInt();
-                    buf.Off = off;
-                    buf.CursorShape = s["cursor_shape"].AsInt(0);
-                    buf.CursorBlink = s["cursor_blink"].AsBool(true);
-                    buf.AppMouse = s["app_mouse"].AsBool(false);
-                    buf.AppDrag = s["app_drag"].AsBool(false);
-                    buf.AltScreen = s["alt_screen"].AsBool(false);
-                    buf.Title = s["title"].AsString();
-                    buf.ScrollRequestId = (ulong)s["request_id"].AsLong(0);
-                    buf.Lines = s["lines"].Items.Select(l => l.AsString()).ToArray();
-                    buf.Runs = null; // force a re-parse on next draw
+                    buf.FromJson(s);
                     break;
             }
         }
