@@ -31,8 +31,9 @@ layout the window draws no header: `TopBar` owns the name, state and buttons.
 ## Keys
 
 `MapKey` uses tmux names (`C-Left`, `M-Up`, `S-Right`). Shift is sent only on the alt
-screen: editors use shifted arrows, while zsh/bash treat those sequences as undefined
-([zsh-terminal](zsh-terminal.md)).
+screen: editors use shifted arrows and page keys, while zsh/bash treat those sequences as
+undefined ([zsh-terminal](zsh-terminal.md)). On the primary screen, Shift+PgUp/PgDn move
+the mod's own scrollback by one viewport.
 
 These combos are hardcoded rather than `KeyBindingDef`s, so `KeyBindingsPage` does not
 list them and they cannot be rebound: Alt+comma/Alt+period walk the session list,

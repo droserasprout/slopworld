@@ -169,6 +169,28 @@ namespace SlopWorld
             return true;
         }
 
+        internal bool HandleHistoryKey(Event e)
+        {
+            if (!e.shift || e.control || e.alt ||
+                (e.keyCode != KeyCode.PageUp && e.keyCode != KeyCode.PageDown))
+                return false;
+
+            var live = SessionHub.Instance.Screen(_name);
+            // Alternate-screen applications own shifted page keys; the primary screen owns
+            // them for terminal scrollback, just like a normal terminal emulator.
+            if (_scrollOff == 0 && live != null && live.AltScreen) return false;
+
+            int page = _rows > 0 ? _rows : live != null ? live.Rows : 1;
+            page = Mathf.Max(1, page);
+            bool up = e.keyCode == KeyCode.PageUp;
+            ClearSelection();
+            if (up) _scrollOff += page;
+            else _scrollOff = Mathf.Max(0, _scrollOff - page);
+            QueueScroll(up);
+            e.Use();
+            return true;
+        }
+
         internal bool HandleControlC(Event e)
         {
             // Not a Ctrl chord: still a key the mapper may forward (e.g. Alt+C -> M-c).

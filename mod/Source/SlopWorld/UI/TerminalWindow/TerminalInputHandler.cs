@@ -19,6 +19,8 @@ namespace SlopWorld
             {
                 { KeyCode.Escape, window.HandleEscapeKey },
                 { KeyCode.Return, window.HandleReturnKey },
+                { KeyCode.PageUp, window.HandleHistoryKey },
+                { KeyCode.PageDown, window.HandleHistoryKey },
             };
             _terminal = new Dictionary<KeyCode, System.Func<Event, bool>>
             {
