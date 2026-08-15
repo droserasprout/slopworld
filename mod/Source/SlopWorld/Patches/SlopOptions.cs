@@ -18,59 +18,164 @@ namespace SlopWorld
         // OptionsView's: they are about the shape the pages are drawn in, and this file is
         // the column of categories and the pages themselves.
 
+        public enum PageId
+        {
+            Config,
+            Commands,
+            CommandPresets,
+            Storage,
+            Appearance,
+            AppearanceInterface,
+            Terminal,
+            Audio,
+            Integrations,
+            Usage,
+            Summaries,
+            Sandbox,
+            Keyboard,
+            RimWorld,
+            Graphics,
+            Interface,
+            Controls,
+            About,
+        }
+
+        sealed class TabSpec
+        {
+            public readonly PageId Key;
+            public readonly string DefName;
+            public readonly string Label;
+            public readonly Func<OptionCategoryDef> Existing;
+            public readonly Func<Texture2D> Icon;
+            public readonly Func<IOptionPage> PageFactory;
+            public readonly PageId? Parent;
+
+            public TabSpec(PageId key, string defName, string label,
+                Func<Texture2D> icon, Func<IOptionPage> pageFactory,
+                PageId? parent = null)
+            {
+                Key = key;
+                DefName = defName;
+                Label = label;
+                Existing = null;
+                Icon = icon;
+                PageFactory = pageFactory;
+                Parent = parent;
+            }
+
+            public TabSpec(PageId key, Func<OptionCategoryDef> existing, PageId? parent = null)
+            {
+                Key = key;
+                DefName = null;
+                Label = null;
+                Existing = existing;
+                Icon = null;
+                PageFactory = null;
+                Parent = parent;
+            }
+        }
+
+        // Column order matches the visible category order. Synthetic categories and their
+        // pages are data here; the only special case is a vanilla category supplied by DefOf.
+        static readonly TabSpec[] TabSpecs =
+        {
+            new TabSpec(PageId.Config, "SlopWorld_Config", "General", () => Icons.Gear,
+                () => new ConfigPage()),
+            new TabSpec(PageId.Commands, "SlopWorld_Commands", "Commands", () => Icons.Terminal,
+                () => new CommandsPage()),
+            new TabSpec(PageId.CommandPresets, "SlopWorld_CommandPresets", "Presets", null,
+                () => new SandboxPage(SandboxPage.Section.Commands), PageId.Commands),
+            new TabSpec(PageId.Storage, "SlopWorld_Storage", "Storage", () => Icons.Files,
+                () => new StoragePage()),
+            new TabSpec(PageId.Appearance, "SlopWorld_Appearance", "Appearance", () => Icons.Type,
+                null),
+            new TabSpec(PageId.AppearanceInterface, "SlopWorld_AppearanceInterface", "Interface",
+                null, () => new AppearancePage(), PageId.Appearance),
+            new TabSpec(PageId.Terminal, "SlopWorld_Terminal", "Terminal", null,
+                () => new TerminalPage(), PageId.Appearance),
+            new TabSpec(PageId.Audio, "SlopWorld_Audio", "Audio", () => Icons.Bell,
+                () => new AudioPage()),
+            new TabSpec(PageId.Integrations, "SlopWorld_Integrations", "Integrations",
+                () => Icons.Usage, () => new IntegrationsPage()),
+            new TabSpec(PageId.Usage, "SlopWorld_Usage", "Usage", null,
+                () => new UsagePage(), PageId.Integrations),
+            new TabSpec(PageId.Summaries, "SlopWorld_Summaries", "Summaries", null,
+                () => new SummariesPage(), PageId.Integrations),
+            new TabSpec(PageId.Sandbox, "SlopWorld_Sandbox", "Sandbox", () => Icons.Shield,
+                () => new SandboxPage(SandboxPage.Section.Presets)),
+            new TabSpec(PageId.Keyboard, "SlopWorld_Keyboard", "Keyboard", () => Icons.Keyboard,
+                () => new KeyBindingsPage()),
+            new TabSpec(PageId.RimWorld, "SlopWorld_RimWorld", "RimWorld", () => Icons.RimWorld,
+                () => new RimWorldPage()),
+            new TabSpec(PageId.Graphics, () => OptionCategoryDefOf.Graphics, PageId.RimWorld),
+            new TabSpec(PageId.Interface, () => OptionCategoryDefOf.Interface, PageId.RimWorld),
+            new TabSpec(PageId.Controls, () => OptionCategoryDefOf.Controls, PageId.RimWorld),
+            new TabSpec(PageId.About, "SlopWorld_About", "About", () => Icons.Trophy,
+                () => new AboutPage()),
+        };
+
         // A child row is indented and iconless; a page-less parent selects its first child.
         class Tab
         {
-            public OptionCategoryDef Def;
-            public Func<Texture2D> Icon;
-            public Action<Rect> Page;
-            public Tab Parent;
-            public bool Synthetic;
+            public readonly PageId Key;
+            public readonly OptionCategoryDef Def;
+            public readonly Func<Texture2D> Icon;
+            public readonly Func<IOptionPage> PageFactory;
+            public readonly Tab Parent;
+            public readonly bool Synthetic;
+
+            IOptionPage _page;
+
+            public Tab(PageId key, OptionCategoryDef def, Func<Texture2D> icon,
+                Func<IOptionPage> pageFactory, Tab parent, bool synthetic)
+            {
+                Key = key;
+                Def = def;
+                Icon = icon;
+                PageFactory = pageFactory;
+                Parent = parent;
+                Synthetic = synthetic;
+            }
+
+            public bool HasPage => PageFactory != null;
+
+            public IOptionPage Page
+            {
+                get
+                {
+                    if (_page == null && PageFactory != null)
+                    {
+                        _page = PageFactory();
+                        _page.Load();
+                    }
+                    return _page;
+                }
+            }
+
+            public void Draw(Rect rect) => Page?.Draw(rect);
+
+            public T PageOf<T>() where T : class, IOptionPage => Page as T;
+
+            public void Reread() => _page?.Load();
+
+            public void Teardown() => _page = null;
         }
 
         // Column order matches the visible category order, and synthetic entries are added
         // at startup.
         static readonly List<Tab> Column = new List<Tab>();
+        static readonly Dictionary<PageId, Tab> Tabs = new Dictionary<PageId, Tab>();
 
-        static Tab _config, _commands, _commandPresets, _storage, _terminal, _appearance,
-                   _appearanceInterface, _audio, _integrations,
-                   _usage, _summaries, _sandbox, _keyboard, _rimworld,
-                   _graphics, _interface, _controls, _about;
+        sealed class RimWorldPage : IOptionPage
+        {
+            readonly AboutPage _page = new AboutPage();
 
-        public static OptionCategoryDef Category => _config?.Def;
-        public static OptionCategoryDef CommandsCategory => _commands?.Def;
-        public static OptionCategoryDef CommandPresetsCategory => _commandPresets?.Def;
-        public static OptionCategoryDef StorageCategory => _storage?.Def;
-        public static OptionCategoryDef TerminalCategory => _terminal?.Def;
-        public static OptionCategoryDef AppearanceCategory => _appearance?.Def;
-        public static OptionCategoryDef AppearanceInterfaceCategory => _appearanceInterface?.Def;
-        public static OptionCategoryDef AudioCategory => _audio?.Def;
-        public static OptionCategoryDef IntegrationsCategory => _integrations?.Def;
-        public static OptionCategoryDef UsageCategory => _usage?.Def;
-        public static OptionCategoryDef SummariesCategory => _summaries?.Def;
-        public static OptionCategoryDef SandboxCategory => _sandbox?.Def;
-        public static OptionCategoryDef KeyboardCategory => _keyboard?.Def;
-        public static OptionCategoryDef RimWorldCategory => _rimworld?.Def;
-        public static OptionCategoryDef GraphicsCategory => _graphics?.Def;
-        public static OptionCategoryDef InterfaceCategory => _interface?.Def;
-        public static OptionCategoryDef ControlsCategory => _controls?.Def;
-        public static OptionCategoryDef AboutCategory => _about?.Def;
+            public void Load() { }
 
-        // Rebuilt per open, so a config edited elsewhere - or a daemon that was down last
-        // time - is re-read rather than remembered.
-        static ConfigPage _page;
-        static CommandsPage _commandsPage;
-        static SandboxPage _commandPresetsPage;
-        static StoragePage _storagePage;
-        static TerminalPage _terminalPage;
-        static AppearancePage _appearancePage;
-        static AudioPage _audioPage;
-        static IntegrationsPage _integrationsPage;
-        static UsagePage _usagePage;
-        static SummariesPage _summariesPage;
-        static SandboxPage _sandboxPage;
-        static AboutPage _aboutPage;
-        static KeyBindingsPage _keyBindingsPage;
+            public void Draw(Rect rect) => _page.DrawRimWorld(rect);
+        }
+
+        public static OptionCategoryDef CategoryFor(PageId key) => TabFor(key)?.Def;
 
         public static void Install()
         {
@@ -83,37 +188,8 @@ namespace SlopWorld
                 return;
             }
 
-            _config = Add("SlopWorld_Config", "General", general, () => Icons.Gear,
-                r => DrawLazy(ref _page, r));
-            _commands = Add("SlopWorld_Commands", "Commands", general, () => Icons.Terminal,
-                r => DrawLazy(ref _commandsPage, r));
-            _commandPresets = Add("SlopWorld_CommandPresets", "Presets", general, null,
-                DrawCommandPresets, _commands);
-            _storage = Add("SlopWorld_Storage", "Storage", general, () => Icons.Files,
-                r => DrawLazy(ref _storagePage, r));
-            _appearance = Add("SlopWorld_Appearance", "Appearance", general, () => Icons.Type,
-                null);
-            _appearanceInterface = Add("SlopWorld_AppearanceInterface", "Interface", general,
-                null, DrawAppearance, _appearance);
-            _terminal = Add("SlopWorld_Terminal", "Terminal", general, null, DrawTerminal,
-                _appearance);
-            _audio = Add("SlopWorld_Audio", "Audio", general, () => Icons.Bell, DrawAudio);
-            _integrations = Add("SlopWorld_Integrations", "Integrations", general,
-                () => Icons.Usage, r => DrawLazy(ref _integrationsPage, r));
-            _usage = Add("SlopWorld_Usage", "Usage", general, null,
-                r => DrawLazy(ref _usagePage, r), _integrations);
-            _summaries = Add("SlopWorld_Summaries", "Summaries", general, null,
-                r => DrawLazy(ref _summariesPage, r), _integrations);
-            _sandbox = Add("SlopWorld_Sandbox", "Sandbox", general, () => Icons.Shield,
-                DrawSandbox);
-            _keyboard = Add("SlopWorld_Keyboard", "Keyboard", general, () => Icons.Keyboard,
-                DrawKeyboard);
-            _rimworld = Add("SlopWorld_RimWorld", "RimWorld", general, () => Icons.RimWorld,
-                DrawRimWorld);
-            _graphics = Existing(OptionCategoryDefOf.Graphics, _rimworld);
-            _interface = Existing(OptionCategoryDefOf.Interface, _rimworld);
-            _controls = Existing(OptionCategoryDefOf.Controls, _rimworld);
-            _about = Add("SlopWorld_About", "About", general, () => Icons.Trophy, DrawAbout);
+            foreach (var spec in TabSpecs)
+                Add(spec, general);
 
             foreach (var tab in Column)
                 if (tab.Synthetic) DefDatabase<OptionCategoryDef>.Add(tab.Def);
@@ -132,27 +208,18 @@ namespace SlopWorld
             if (OptionCategoryDefOf.Audio != null) OptionCategoryDefOf.Audio.isDev = true;
         }
 
-        static Tab Add(string defName, string label, OptionCategoryDef general,
-            Func<Texture2D> icon, Action<Rect> page, Tab parent = null)
+        static Tab Add(TabSpec spec, OptionCategoryDef general)
         {
-            var tab = new Tab
-            {
-                Def = MakeDef(defName, label, general),
-                Icon = icon,
-                Page = page,
-                Parent = parent,
-                Synthetic = true,
-            };
-            Column.Add(tab);
-            return tab;
-        }
-
-        static Tab Existing(OptionCategoryDef def, Tab parent)
-        {
+            var def = spec.Existing != null
+                ? spec.Existing()
+                : MakeDef(spec.DefName, spec.Label, general);
             if (def == null) return null;
 
-            var tab = new Tab { Def = def, Parent = parent };
+            var parent = spec.Parent.HasValue ? TabFor(spec.Parent.Value) : null;
+            var tab = new Tab(spec.Key, def, spec.Icon, spec.PageFactory, parent,
+                spec.Existing == null);
             Column.Add(tab);
+            Tabs.Add(tab.Key, tab);
             return tab;
         }
 
@@ -187,91 +254,35 @@ namespace SlopWorld
             return null;
         }
 
+        static Tab TabFor(PageId key)
+        {
+            Tab tab;
+            return Tabs.TryGetValue(key, out tab) ? tab : null;
+        }
+
         // What a press on a row selects. A tab with no page of its own is a heading with
         // pages under it, so the press opens the first of them.
         static Tab Target(Tab tab) =>
-            tab == null || tab.Page != null ? tab : FirstChild(tab);
-
-        static void DrawCommandPresets(Rect r)
-            => LazyPage(ref _commandPresetsPage, SandboxPage.Section.Commands).Draw(r);
-
-        static void DrawTerminal(Rect r)
-        {
-            if (_terminalPage == null) _terminalPage = new TerminalPage();
-            _terminalPage.Draw(r);
-        }
-
-        static void DrawAppearance(Rect r)
-        {
-            if (_appearancePage == null) _appearancePage = new AppearancePage();
-            _appearancePage.Draw(r);
-        }
-
-        static void DrawAudio(Rect r)
-        {
-            if (_audioPage == null) _audioPage = new AudioPage();
-            _audioPage.Draw(r);
-        }
+            tab == null || tab.HasPage ? tab : FirstChild(tab);
 
         // ---------------------------------------------------------------- the pages
 
-        // Every config-backed page is built on first draw, loaded once, then handed the
-        // rect. The field is passed by ref so the one it built is remembered for Reread and
-        // Teardown; pages that take a constructor argument (Sandbox, Presets) keep their own
-        // wrapper below.
-        static void DrawLazy<T>(ref T page, Rect r) where T : class, IOptionPage, new()
-        {
-            if (page == null)
-            {
-                page = new T();
-                page.Load();
-            }
-            page.Draw(r);
-        }
-
-        static void DrawSandbox(Rect r)
-            => LazyPage(ref _sandboxPage, SandboxPage.Section.Presets).Draw(r);
-
-        static SandboxPage LazyPage(ref SandboxPage cache, SandboxPage.Section section)
-        {
-            if (cache == null)
-            {
-                cache = new SandboxPage(section);
-                cache.Load();
-            }
-            return cache;
-        }
-
         public static void OpenNewSandboxPreset()
         {
-            if (SandboxCategory == null) return;
-            LazyPage(ref _sandboxPage, SandboxPage.Section.Presets).NewPreset();
-            OpenCategory(SandboxCategory);
+            var tab = TabFor(PageId.Sandbox);
+            var page = tab?.PageOf<SandboxPage>();
+            if (page == null) return;
+            page.NewPreset();
+            OpenCategory(tab.Def);
         }
 
         public static void OpenNewCommand()
         {
-            if (CommandPresetsCategory == null) return;
-            LazyPage(ref _commandPresetsPage, SandboxPage.Section.Commands).NewCommand();
-            OpenCategory(CommandPresetsCategory);
-        }
-
-        static void DrawKeyboard(Rect r)
-        {
-            if (_keyBindingsPage == null) _keyBindingsPage = new KeyBindingsPage();
-            _keyBindingsPage.Draw(r);
-        }
-
-        static void DrawAbout(Rect r)
-        {
-            if (_aboutPage == null) _aboutPage = new AboutPage();
-            _aboutPage.Draw(r);
-        }
-
-        static void DrawRimWorld(Rect r)
-        {
-            if (_aboutPage == null) _aboutPage = new AboutPage();
-            _aboutPage.DrawRimWorld(r);
+            var tab = TabFor(PageId.CommandPresets);
+            var page = tab?.PageOf<SandboxPage>();
+            if (page == null) return;
+            page.NewCommand();
+            OpenCategory(tab.Def);
         }
 
         // Preserve the last page because each toggle rebuilds the view and reloads config.
@@ -288,7 +299,8 @@ namespace SlopWorld
         // rather than a window (see OptionsView): the menu is laid out inside the chrome, so
         // being a window over it was what took every press off the column underneath.
         public static void Toggle() =>
-            TerminalWindow.ToggleContent(() => new OptionsView(_lastCategory ?? Category));
+            TerminalWindow.ToggleContent(() => new OptionsView(_lastCategory
+                ?? CategoryFor(PageId.Config)));
 
         // A palette entry can name a page directly. Open the options view when it is not
         // already up, or swap the category in the existing view - the same two roads as the
@@ -308,13 +320,14 @@ namespace SlopWorld
         // The jukebox menu's Settings row opens our mixer directly.
         public static void OpenAudioTab()
         {
+            var category = CategoryFor(PageId.Audio);
             var v = TerminalWindow.ShowingAs<OptionsView>();
             if (v == null)
             {
-                TerminalWindow.OpenContent(new OptionsView(AudioCategory));
+                TerminalWindow.OpenContent(new OptionsView(category));
                 return;
             }
-            if (AudioCategory != null) v.Category = AudioCategory;
+            if (category != null) v.Category = category;
         }
 
         // A save is a write of the *whole* file - every page here PUTs the sections it knows
@@ -323,25 +336,13 @@ namespace SlopWorld
         // one that just saved, which costs a request and closes the hole.
         public static void Reread()
         {
-            if (_page != null) _page.Load();
-            if (_commandsPage != null) _commandsPage.Load();
-            if (_integrationsPage != null) _integrationsPage.Load();
-            if (_storagePage != null) _storagePage.Load();
-            if (_usagePage != null) _usagePage.Load();
-            if (_summariesPage != null) _summariesPage.Load();
-            if (_sandboxPage != null) _sandboxPage.Load();
-            if (_commandPresetsPage != null) _commandPresetsPage.Load();
+            foreach (var tab in Column) tab.Reread();
         }
 
         // Drop page instances and persist settings when the view/window closes.
         public static void Teardown()
         {
-            _page = null; _commandsPage = null; _commandPresetsPage = null;
-            _storagePage = null; _terminalPage = null;
-            _appearancePage = null;
-            _audioPage = null;
-            _integrationsPage = null; _usagePage = null; _summariesPage = null;
-            _sandboxPage = null; _aboutPage = null; _keyBindingsPage = null;
+            foreach (var tab in Column) tab.Teardown();
             SlopWorldMod.Instance.settings.Write();
         }
 
@@ -461,10 +462,10 @@ namespace SlopWorld
         {
             static bool Prefix(OptionCategoryDef category, Rect inRect)
             {
-                var page = Target(TabOf(category))?.Page;
-                if (page == null) return true;
+                var tab = Target(TabOf(category));
+                if (tab == null || !tab.HasPage) return true;
 
-                page(inRect);
+                tab.Draw(inRect);
                 return false;
             }
         }
@@ -479,7 +480,7 @@ namespace SlopWorld
             {
                 if (__instance.selectedCategory == OptionCategoryDefOf.General)
                 {
-                    __instance.selectedCategory = Category;
+                    __instance.selectedCategory = CategoryFor(PageId.Config);
                     __instance.selectedMod = null;
                 }
             }

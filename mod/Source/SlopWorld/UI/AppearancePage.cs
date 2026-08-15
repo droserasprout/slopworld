@@ -7,12 +7,14 @@ namespace SlopWorld
 {
     // Appearance page for global UI scale, scheme, fonts, and cursor; font changes affect every
     // `Widgets.Label`/`Text.CalcSize`, including vanilla dialogs. SlopOptions hosts the page.
-    public class AppearancePage
+    public class AppearancePage : IOptionPage
     {
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly SmoothScroll _pickScroll = new SmoothScroll();
         float _fieldsH;
         bool _pickingCursor;
+
+        public void Load() { }
 
         // The scale under the hand, while the hand is on it. Null when nothing is dragging.
         float? _scaleHeld;

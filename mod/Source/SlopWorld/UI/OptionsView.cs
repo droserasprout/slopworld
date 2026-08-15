@@ -30,7 +30,7 @@ namespace SlopWorld
 
         public OptionsView(OptionCategoryDef category = null)
         {
-            var c = category ?? SlopOptions.Category;
+            var c = category ?? SlopOptions.CategoryFor(SlopOptions.PageId.Config);
             _dlg = c != null ? new Dialog_Options(c) : new Dialog_Options();
         }
 

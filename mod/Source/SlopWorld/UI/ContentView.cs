@@ -20,9 +20,9 @@ namespace SlopWorld
         void Closed();
     }
 
-    // A settings page that reads config.toml on first draw. SlopOptions builds each one
-    // lazily, loads it once, then hands it the rect; the shared shape lets a single helper
-    // dispatch every category instead of a wrapper apiece.
+    // An options page is built lazily, loaded once, then handed its rect. Config-backed pages
+    // use Load to read their source, while local pages can make it a no-op; the shared shape
+    // lets SlopOptions dispatch every category from the same tab table.
     public interface IOptionPage
     {
         void Load();

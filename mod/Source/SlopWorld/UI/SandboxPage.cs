@@ -8,7 +8,7 @@ namespace SlopWorld
 {
     // The daemon's sandbox and command libraries. Each is a master/detail page: there are
     // many fields in one definition, but only one preset or command is being edited at once.
-    public class SandboxPage
+    public class SandboxPage : IOptionPage
     {
         public enum Section { Presets, Commands }
 

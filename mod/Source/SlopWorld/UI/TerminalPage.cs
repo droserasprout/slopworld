@@ -7,11 +7,13 @@ namespace SlopWorld
 {
     // Terminal appearance page with a live preview; controls invalidate the pane theme and save
     // on dialog close. SlopOptions hosts it as an `OptionCategoryDef` page.
-    public class TerminalPage
+    public class TerminalPage : IOptionPage
     {
         readonly SmoothScroll _scroll = new SmoothScroll();
         // Last frame's measured height for the field column, for the scroll view.
         float _fieldsH;
+
+        public void Load() { }
 
         static SlopSettings S => SlopWorldMod.Instance.settings;
 

@@ -8,8 +8,10 @@ namespace SlopWorld
 {
     // Lists `StripKeys.Kept` as an options page; clicking a key cell opens the listener.
     // It replaces vanilla's all-bindings Modify dialog, which would expose stripped keys.
-    public class KeyBindingsPage
+    public class KeyBindingsPage : IOptionPage
     {
+        public void Load() { }
+
         // A row holds a button, so it is a button's height; the category band is a tiny line.
         // Both off the font: written down, they crop their own labels on any face taller than
         // the one they were set against.
