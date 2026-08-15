@@ -109,6 +109,8 @@ namespace SlopWorld
         }
 
         static Station[] _stations = new Station[0];
+        // Before the first catalog, a null station can still be a saved radio selection.
+        static bool _catalogReady;
 
         // Stations in daemon catalog order. The last catalog remains in memory while the
         // socket reconnects, so a temporary daemon restart does not empty an open menu.
@@ -119,11 +121,11 @@ namespace SlopWorld
         public static void SetStations(JVal catalog)
         {
             if (catalog == null || catalog.IsNull || catalog["stations"].IsNull) return;
+            _catalogReady = true;
 
             string saved = null;
             if (_station != null) saved = _station.SelectionKey(_station.Rate);
             else if (_read) saved = Settings.Radio;
-            string previousSelection = _station?.SelectionKey(_station.Rate);
 
             var next = new List<Station>();
             foreach (var item in catalog["stations"].Items)
@@ -171,13 +173,14 @@ namespace SlopWorld
 
             _station = FindSelection(saved);
             string nextSelection = _station?.SelectionKey(_station.Rate);
-            if (previousSelection != null && nextSelection == null)
+            if (nextSelection == null && saved != null && saved != "ost")
             {
                 Save();
+                Push();
             }
             // This also covers the first catalog arriving after Read selected the OST
             // provisionally, and a reload that changes the URL behind the same stable key.
-            if (previousSelection != null || nextSelection != null) Push();
+            if (nextSelection != null) Push();
         }
 
         static Station FindSelection(string saved)
@@ -443,7 +446,7 @@ namespace SlopWorld
             {
                 float pendingVolume = Volume();
                 string pending = Selection();
-                SendSelection(hub, pendingVolume);
+                SendSelection(hub, pendingVolume, pending);
                 _sent = pending;
                 _told = true;
                 _sentVolume = pendingVolume;
@@ -458,7 +461,7 @@ namespace SlopWorld
             string want = Selection();
             if (want != _sent)
             {
-                SendSelection(hub, Volume());
+                SendSelection(hub, Volume(), want);
                 _sent = want;
                 _sentVolume = Volume();
                 _updateSkip = 0;
@@ -479,13 +482,16 @@ namespace SlopWorld
         {
             if (_muted) return "stop";
             if (_station != null) return "station:" + _station.SelectionKey(_station.Rate);
+            if (!_catalogReady && IsSavedStation()) return "stop";
             string path = OstPath();
             return path == null ? "stop" : "file:" + path;
         }
 
-        static void SendSelection(SessionHub hub, float volume)
+        static bool IsSavedStation() => !string.IsNullOrEmpty(Settings.Radio) && Settings.Radio != "ost";
+
+        static void SendSelection(SessionHub hub, float volume, string selection)
         {
-            if (_muted)
+            if (selection == "stop")
             {
                 hub.SendAudio(null, null, null, volume);
                 return;

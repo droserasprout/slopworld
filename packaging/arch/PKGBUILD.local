@@ -14,8 +14,8 @@ pkgdesc="RimWorld with the colony sim replaced by live AI coding agents"
 arch=('x86_64')
 url="https://github.com/droserasprout/slopworld"
 license=('custom')
-depends=('tmux' 'bubblewrap' 'mono' 'highlight')
-makedepends=('cargo' 'msbuild' 'git')
+depends=('tmux' 'bubblewrap' 'highlight')
+makedepends=('cargo' 'git' 'mono')
 optdepends=(
   'wl-clipboard: clipboard writes under Wayland (OSC 52)'
   'xclip: clipboard writes under X11'
@@ -61,9 +61,7 @@ build() {
   cd "$srcdir/slopworld"
   export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
   cargo build --release --frozen --manifest-path slopd/Cargo.toml
-  cd mod/Source/SlopWorld
-  msbuild -restore -v:minimal -p:Configuration=Release \
-    -p:RimWorldManaged="$_managed" SlopWorld.csproj
+  make BUILD=release RIMWORLD="$RIMWORLD" mod
 }
 
 check() {
