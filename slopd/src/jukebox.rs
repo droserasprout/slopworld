@@ -109,9 +109,7 @@ impl Catalog {
         if let Ok(dir) = std::env::var("SLOPD_JUKEBOX") {
             return PathBuf::from(dir);
         }
-        dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("slopworld/jukebox")
+        crate::paths::root(dirs::config_dir()).join("jukebox")
     }
 
     fn merge_dir(&mut self, dir: &Path) {

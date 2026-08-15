@@ -8,6 +8,7 @@ mod git;
 mod grant;
 mod jukebox;
 mod open;
+mod paths;
 mod presets;
 mod sandbox;
 mod session;
