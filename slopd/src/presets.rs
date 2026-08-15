@@ -143,10 +143,7 @@ impl Table {
     /// Alongside `config.toml`, because a preset is edited by hand the way the rest of
     /// that directory is; the shipped table is the binary's and lives in it.
     pub fn dir() -> PathBuf {
-        if let Ok(dir) = std::env::var("SLOPD_PRESETS") {
-            return PathBuf::from(dir);
-        }
-        crate::paths::root(dirs::config_dir()).join("presets")
+        crate::paths::dir("SLOPD_PRESETS", dirs::config_dir(), "presets")
     }
 
     pub fn load() -> Self {

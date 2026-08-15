@@ -107,10 +107,7 @@ fn session_name_for(project: &str, shell: Option<&str>) -> String {
 /// because what lives here is an agent's memory of itself and a reboot is not a reason to
 /// forget it. `SLOPD_STATE` moves it, which is what the tests use.
 pub fn state_root() -> PathBuf {
-    if let Ok(dir) = std::env::var("SLOPD_STATE") {
-        return PathBuf::from(dir);
-    }
-    crate::paths::root(dirs::data_dir()).join("sessions")
+    crate::paths::dir("SLOPD_STATE", dirs::data_dir(), "sessions")
 }
 
 /// The copy of `host` this session gets. The original's shape is kept rather than its

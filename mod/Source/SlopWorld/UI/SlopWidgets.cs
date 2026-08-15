@@ -865,7 +865,23 @@ namespace SlopWorld
     // Compatibility facade. The helpers remain addressable as SlopWidgets so the many
     // existing callers do not all have to change at once; the implementations live in the
     // field-cluster classes above.
-    public abstract class SlopWidgets : SlopLayout { }
+    public abstract class SlopWidgets : SlopLayout
+    {
+        public static void DrawRail<T>(Rect r, (string label, T tab)[] tabs, ref T active)
+        {
+            float y = r.y;
+            foreach (var tab in tabs)
+                y = RailTab(r, y, tab.label, tab.tab, ref active);
+        }
+
+        static float RailTab<T>(Rect r, float y, string label, T tab, ref T active)
+        {
+            if (Button(new Rect(r.x, y, r.width, BtnH), label,
+                    EqualityComparer<T>.Default.Equals(active, tab) ? Btn.Primary : Btn.Ghost))
+                active = tab;
+            return y + BtnH + GapS;
+        }
+    }
 
     public abstract class SlopListView<T> : IContentView
     {
