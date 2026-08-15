@@ -51,6 +51,7 @@ namespace SlopWorld
 
         static List<Entry> _commands;
         static readonly List<string> _recent = new List<string>();
+        static bool _recentLoaded;
 
         enum Mode { Commands, Sub }
         Mode _mode = Mode.Commands;
@@ -73,6 +74,7 @@ namespace SlopWorld
             resizeable = false;
 
             if (_commands == null) BuildCommands();
+            LoadRecent();
             RebuildMatches();
         }
 
@@ -1442,12 +1444,31 @@ namespace SlopWorld
 
         // --------------------------------------------------------------- recent tracking
 
+        static void LoadRecent()
+        {
+            if (_recentLoaded) return;
+            _recentLoaded = true;
+            _recent.Clear();
+
+            foreach (var id in (Settings.CommandPaletteHistory ?? "")
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (_recent.Count >= RecentMax) break;
+                if (_recent.Contains(id)) continue;
+                if (_commands.Any(e => e.Id == id)) _recent.Add(id);
+            }
+        }
+
         static void TrackRecent(string id)
         {
             if (string.IsNullOrEmpty(id)) return;
+            if (_recent.Count > 0 && _recent[0] == id) return;
             _recent.Remove(id);
             _recent.Insert(0, id);
             if (_recent.Count > RecentMax) _recent.RemoveAt(_recent.Count - 1);
+
+            Settings.S.commandPaletteHistory = string.Join("\n", _recent.ToArray());
+            Settings.S.Write();
         }
 
         // --------------------------------------------------------------- height

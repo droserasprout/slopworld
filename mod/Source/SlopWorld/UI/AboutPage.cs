@@ -98,7 +98,7 @@ namespace SlopWorld
                 new CreditLink("rustls", "https://github.com/rustls/rustls"),
             }),
             // Column 2: 7 visual lines (1+1+1+3+1)
-            new Credit("Axum", "HTTP/WebSocket server", "https://github.com/tokio-rs/axum"),
+            new Credit("Axum", "HTTP/WebSockets", "https://github.com/tokio-rs/axum"),
             new Credit("Tower HTTP", "HTTP middleware", "https://github.com/tower-rs/tower-http"),
             new Credit("Tracing", "diagnostics", "https://github.com/tokio-rs/tracing"),
             new Credit("Serde / TOML / JSON", "serde and configs", new[]

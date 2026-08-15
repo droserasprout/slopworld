@@ -69,6 +69,10 @@ namespace SlopWorld
         // AgentSidebar for what an unticked name and the `[none]` line mean.
         public string sidebarFilter = "";
 
+        // Command ids, newest first, one per line. The palette validates these against its
+        // current catalogue when it opens, so removed commands do not become dead rows.
+        public string commandPaletteHistory = "";
+
         // Per-install quota icon overrides, one `key=defName` per line; missing rows/defs fall
         // back to UsageReadout's default.
         public string usageIcons = "";
@@ -171,6 +175,7 @@ namespace SlopWorld
             String(text, "sidebarTab", sidebarTab);
             String(text, "sidebarShowHidden", sidebarShowHidden);
             String(text, "sidebarFilter", sidebarFilter);
+            String(text, "commandPaletteHistory", commandPaletteHistory);
             String(text, "usageIcons", usageIcons);
             String(text, "usageSpent", usageSpent);
             Number(text, "fontSize", fontSize);
@@ -215,6 +220,7 @@ namespace SlopWorld
             sidebarTab = Text(values, "sidebarTab", sidebarTab);
             sidebarShowHidden = Bool(values, "sidebarShowHidden", sidebarShowHidden);
             sidebarFilter = Text(values, "sidebarFilter", sidebarFilter);
+            commandPaletteHistory = Text(values, "commandPaletteHistory", commandPaletteHistory);
             usageIcons = Text(values, "usageIcons", usageIcons);
             usageSpent = Bool(values, "usageSpent", usageSpent);
             fontSize = Int(values, "fontSize", fontSize);
@@ -292,6 +298,7 @@ namespace SlopWorld
         public static string SidebarTab => S.sidebarTab ?? "";
         public static bool SidebarShowHidden => S.sidebarShowHidden;
         public static string SidebarFilter => S.sidebarFilter ?? "";
+        public static string CommandPaletteHistory => S.commandPaletteHistory ?? "";
         public static string UsageIcons => S.usageIcons ?? "";
         public static bool UsageSpent => S.usageSpent;
         public static int FontSize => S.fontSize;
