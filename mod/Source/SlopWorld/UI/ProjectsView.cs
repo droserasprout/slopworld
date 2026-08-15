@@ -112,7 +112,7 @@ namespace SlopWorld
     // never has to be kept in step with sandbox.rs by hand.
     public class EditProjectDialog : SlopWindow
     {
-        enum Tab { Edit, Preview }
+        enum Tab { General, Sandbox, Breadcrumbs, Preview }
 
         readonly bool _isNew;
         readonly ProjectInfo _p;
@@ -123,18 +123,19 @@ namespace SlopWorld
         // For the title. Null unless it is a duplicate: an edit already has `_origName`.
         readonly string _copiedFrom;
 
-        readonly SmoothScroll _scroll = new SmoothScroll();
         readonly SmoothScroll _presetScroll = new SmoothScroll();
         readonly SmoothScroll _breadcrumbScroll = new SmoothScroll();
         SmoothScroll _previewScroll = new SmoothScroll();
-        const float PresetsH = 152f;
-        const float BreadcrumbsH = 132f;
+        readonly SmoothScroll _generalScroll = new SmoothScroll();
+        readonly SmoothScroll _sandboxScroll = new SmoothScroll();
+        const float PresetsH = 240f;
         string _dnsServers;
         Tab _tab;
 
-        // Last frame's laid-out height, so the scroll view is sized by what the form
-        // actually drew rather than by a number that drifts as fields are added.
-        float _contentH = 690f;
+        // Last frame's content height per scrolling tab, so each can grow a scrollbar when its
+        // fields and fixed lists do not fit - the body width the rail leaves varies with UI scale.
+        float _generalH = 320f;
+        float _sandboxH = 400f;
 
         public EditProjectDialog(ProjectInfo existing) : this(existing, false) { }
 
@@ -167,7 +168,9 @@ namespace SlopWorld
             SessionHub.Instance.LoadPresets(fail: SlopWidgets.Fail);
         }
 
-        public override Vector2 InitialSize => new Vector2(680f, 680f);
+        // A left rail of short pages rather than one long form: the project, its sandbox, its
+        // breadcrumbs and the preview each get their own tab so none has to hold the others.
+        public override Vector2 InitialSize => new Vector2(780f, 680f);
 
         protected override void DoBody(Rect rect)
         {
@@ -175,23 +178,41 @@ namespace SlopWorld
                 ? $"Copy of '{_copiedFrom}'"
                 : _isNew ? "New project" : $"Edit '{_origName}'");
 
-            float tabsY = rect.y + SlopWidgets.HeaderH + SlopWidgets.GapS;
-            DrawTabs(new Rect(rect.x, tabsY, rect.width, SlopWidgets.BtnH));
-            float top = tabsY + SlopWidgets.BtnH + SlopWidgets.GapM;
-            var body = new Rect(rect.x, top, rect.width,
-                rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - top);
-            if (_tab == Tab.Edit)
+            float top = rect.y + SlopWidgets.HeaderH + SlopWidgets.GapS;
+            float bottom = rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS;
+
+            const float railW = 132f;
+            DrawRail(new Rect(rect.x, top, railW, bottom - top));
+            var body = new Rect(rect.x + railW + SlopWidgets.GapM, top,
+                rect.width - railW - SlopWidgets.GapM, bottom - top);
+
+            switch (_tab)
             {
-                var view = new Rect(0f, 0f, body.width - SlopWidgets.ScrollbarW,
-                    Mathf.Max(_contentH, body.height));
-                _scroll.Begin(body, view);
-                DoFields(view);
-                _scroll.End();
-            }
-            else
-            {
-                SandboxPreviewPanel.Draw(body, ref _previewScroll,
-                    SandboxPreviewData.ForProject(_p));
+                case Tab.General:
+                {
+                    var view = new Rect(0f, 0f, body.width - SlopWidgets.ScrollbarW,
+                        Mathf.Max(_generalH, body.height));
+                    _generalScroll.Begin(body, view);
+                    _generalH = DrawGeneral(view);
+                    _generalScroll.End();
+                    break;
+                }
+                case Tab.Sandbox:
+                {
+                    var view = new Rect(0f, 0f, body.width - SlopWidgets.ScrollbarW,
+                        Mathf.Max(_sandboxH, body.height));
+                    _sandboxScroll.Begin(body, view);
+                    _sandboxH = DrawSandbox(view);
+                    _sandboxScroll.End();
+                    break;
+                }
+                case Tab.Breadcrumbs:
+                    DrawBreadcrumbs(body);
+                    break;
+                case Tab.Preview:
+                    SandboxPreviewPanel.Draw(body, ref _previewScroll,
+                        SandboxPreviewData.ForProject(_p));
+                    break;
             }
 
             var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
@@ -199,26 +220,33 @@ namespace SlopWorld
             if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
         }
 
-        void DrawTabs(Rect r)
+        void DrawRail(Rect r)
         {
-            float gap = SlopWidgets.GapS;
-            float w = (r.width - gap) / 2f;
-            if (SlopWidgets.Button(new Rect(r.x, r.y, w, r.height), "Edit",
-                    _tab == Tab.Edit ? SlopWidgets.Btn.Primary : SlopWidgets.Btn.Ghost))
-                _tab = Tab.Edit;
-            if (SlopWidgets.Button(new Rect(r.x + w + gap, r.y, w, r.height), "Preview",
-                    _tab == Tab.Preview ? SlopWidgets.Btn.Primary : SlopWidgets.Btn.Ghost))
-                _tab = Tab.Preview;
+            float y = r.y;
+            y = RailTab(r, y, "General", Tab.General);
+            y = RailTab(r, y, "Sandbox", Tab.Sandbox);
+            y = RailTab(r, y, "Breadcrumbs", Tab.Breadcrumbs);
+            RailTab(r, y, "Preview", Tab.Preview);
         }
 
-        void DoFields(Rect r)
+        float RailTab(Rect r, float y, string label, Tab tab)
+        {
+            if (SlopWidgets.Button(new Rect(r.x, y, r.width, SlopWidgets.BtnH), label,
+                    _tab == tab ? SlopWidgets.Btn.Primary : SlopWidgets.Btn.Ghost))
+                _tab = tab;
+            return y + SlopWidgets.BtnH + SlopWidgets.GapS;
+        }
+
+        // The project itself: its name, directory and whether that directory is temporary.
+        // The other tabs refine the sandbox around it.
+        float DrawGeneral(Rect rect)
         {
             // Begun on the room it has and pinned to one column. Listing_Standard breaks to a
             // second column the moment a control would cross the bottom of the rect it was
             // begun on - curX past the whole width, so everything after is clipped away by
             // the group, and CurHeight back to nearly nothing.
             var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(new Rect(r.x, r.y, r.width, r.height));
+            l.Begin(rect);
 
             l.Label("Name");
             _p.Name = SlopWidgets.Field(l, "project.name", _p.Name);
@@ -244,7 +272,17 @@ namespace SlopWorld
                     TerminalWindow.OpenOverPane(new BrowseDialog(_p.Dir, d => _p.Dir = d));
             }
 
-            l.Gap(SlopWidgets.GapS);
+            float used = l.CurHeight;
+            l.End();
+            return used + SlopWidgets.GapS;
+        }
+
+        // The sandbox every agent in this project gets: network, DNS and the extra presets.
+        float DrawSandbox(Rect rect)
+        {
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(rect);
+
             l.Label("Network ceiling");
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), NetworkModeText.Label(_p.Network)))
                 PickNetwork();
@@ -277,22 +315,25 @@ namespace SlopWorld
             float used = l.CurHeight;
             l.End();
 
-            float y = r.y + used + SlopWidgets.GapL;
-            SlopWidgets.SectionHeading(new Rect(r.x, y, r.width, SlopWidgets.RowH),
+            float y = rect.y + used + SlopWidgets.GapL;
+            SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
                 "Sandbox presets");
             y += SlopWidgets.RowH + SlopWidgets.GapXS;
 
-            PresetList.Draw(new Rect(r.x, y, r.width, PresetsH), _p.Sandbox, _presetScroll);
-            y += PresetsH + SlopWidgets.GapXS;
+            PresetList.Draw(new Rect(rect.x, y, rect.width, PresetsH), _p.Sandbox, _presetScroll);
+            y += PresetsH + SlopWidgets.GapS;
 
-            SlopWidgets.SectionHeading(new Rect(r.x, y, r.width, SlopWidgets.RowH),
+            return y - rect.y + SlopWidgets.GapS;
+        }
+
+        void DrawBreadcrumbs(Rect rect)
+        {
+            float y = rect.y;
+            SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
                 "Prompt breadcrumbs");
             y += SlopWidgets.RowH + SlopWidgets.GapXS;
-            BreadcrumbList.Draw(new Rect(r.x, y, r.width, BreadcrumbsH), _p.Breadcrumbs,
-                _breadcrumbScroll);
-            y += BreadcrumbsH + SlopWidgets.GapXS;
-
-            _contentH = y - r.y + SlopWidgets.GapS;
+            BreadcrumbList.Draw(new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y)),
+                _p.Breadcrumbs, _breadcrumbScroll);
         }
 
         void PickNetwork()
