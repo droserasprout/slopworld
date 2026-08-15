@@ -6,7 +6,7 @@ namespace SlopWorld
 {
     // Settings pages that edit daemon config share the same caption, card, scrollable form
     // and footer. Subclasses only supply the fields that make up their row body.
-    public abstract class ListEditorPage
+    public abstract class ListEditorPage : IOptionPage
     {
         protected SlopConfig _cfg;
         protected string _path = "";

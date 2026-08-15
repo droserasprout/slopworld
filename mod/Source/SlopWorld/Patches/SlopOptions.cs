@@ -14,16 +14,6 @@ namespace SlopWorld
     // rect would not move them. See OptionsView and ChromeShift.
     public static class SlopOptions
     {
-        enum PageCategory
-        {
-            Config,
-            Storage,
-            Commands,
-            Integrations,
-            Usage,
-            Summaries,
-        }
-
         // The band, its width and the row taken off the foot for the OK button are
         // OptionsView's: they are about the shape the pages are drawn in, and this file is
         // the column of categories and the pages themselves.
@@ -94,13 +84,13 @@ namespace SlopWorld
             }
 
             _config = Add("SlopWorld_Config", "General", general, () => Icons.Gear,
-                PageCategory.Config);
+                r => DrawLazy(ref _page, r));
             _commands = Add("SlopWorld_Commands", "Commands", general, () => Icons.Terminal,
-                PageCategory.Commands);
+                r => DrawLazy(ref _commandsPage, r));
             _commandPresets = Add("SlopWorld_CommandPresets", "Presets", general, null,
                 DrawCommandPresets, _commands);
             _storage = Add("SlopWorld_Storage", "Storage", general, () => Icons.Files,
-                PageCategory.Storage);
+                r => DrawLazy(ref _storagePage, r));
             _appearance = Add("SlopWorld_Appearance", "Appearance", general, () => Icons.Type,
                 null);
             _appearanceInterface = Add("SlopWorld_AppearanceInterface", "Interface", general,
@@ -109,11 +99,11 @@ namespace SlopWorld
                 _appearance);
             _audio = Add("SlopWorld_Audio", "Audio", general, () => Icons.Bell, DrawAudio);
             _integrations = Add("SlopWorld_Integrations", "Integrations", general,
-                () => Icons.Usage, PageCategory.Integrations);
-            _usage = Add("SlopWorld_Usage", "Usage", general, null, PageCategory.Usage,
-                _integrations);
+                () => Icons.Usage, r => DrawLazy(ref _integrationsPage, r));
+            _usage = Add("SlopWorld_Usage", "Usage", general, null,
+                r => DrawLazy(ref _usagePage, r), _integrations);
             _summaries = Add("SlopWorld_Summaries", "Summaries", general, null,
-                PageCategory.Summaries, _integrations);
+                r => DrawLazy(ref _summariesPage, r), _integrations);
             _sandbox = Add("SlopWorld_Sandbox", "Sandbox", general, () => Icons.Shield,
                 DrawSandbox);
             _keyboard = Add("SlopWorld_Keyboard", "Keyboard", general, () => Icons.Keyboard,
@@ -156,10 +146,6 @@ namespace SlopWorld
             Column.Add(tab);
             return tab;
         }
-
-        static Tab Add(string defName, string label, OptionCategoryDef general,
-            Func<Texture2D> icon, PageCategory category, Tab parent = null) =>
-            Add(defName, label, general, icon, r => DrawCategory(r, category), parent);
 
         static Tab Existing(OptionCategoryDef def, Tab parent)
         {
@@ -236,59 +222,18 @@ namespace SlopWorld
 
         // ---------------------------------------------------------------- the pages
 
-        static void DrawCategory(Rect r, PageCategory category)
+        // Every config-backed page is built on first draw, loaded once, then handed the
+        // rect. The field is passed by ref so the one it built is remembered for Reread and
+        // Teardown; pages that take a constructor argument (Sandbox, Presets) keep their own
+        // wrapper below.
+        static void DrawLazy<T>(ref T page, Rect r) where T : class, IOptionPage, new()
         {
-            switch (category)
+            if (page == null)
             {
-                case PageCategory.Config:
-                    if (_page == null)
-                    {
-                        _page = new ConfigPage();
-                        _page.Load();
-                    }
-                    _page.Draw(r);
-                    return;
-                case PageCategory.Storage:
-                    if (_storagePage == null)
-                    {
-                        _storagePage = new StoragePage();
-                        _storagePage.Load();
-                    }
-                    _storagePage.Draw(r);
-                    return;
-                case PageCategory.Commands:
-                    if (_commandsPage == null)
-                    {
-                        _commandsPage = new CommandsPage();
-                        _commandsPage.Load();
-                    }
-                    _commandsPage.Draw(r);
-                    return;
-                case PageCategory.Integrations:
-                    if (_integrationsPage == null)
-                    {
-                        _integrationsPage = new IntegrationsPage();
-                        _integrationsPage.Load();
-                    }
-                    _integrationsPage.Draw(r);
-                    return;
-                case PageCategory.Usage:
-                    if (_usagePage == null)
-                    {
-                        _usagePage = new UsagePage();
-                        _usagePage.Load();
-                    }
-                    _usagePage.Draw(r);
-                    return;
-                case PageCategory.Summaries:
-                    if (_summariesPage == null)
-                    {
-                        _summariesPage = new SummariesPage();
-                        _summariesPage.Load();
-                    }
-                    _summariesPage.Draw(r);
-                    return;
+                page = new T();
+                page.Load();
             }
+            page.Draw(r);
         }
 
         static void DrawSandbox(Rect r)

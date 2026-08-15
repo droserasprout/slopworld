@@ -10,7 +10,7 @@ namespace SlopWorld
     // The inventory and destructive half of private-state retention. The daemon owns both
     // the paths and the classification; the game draws opaque entries and hands a selected
     // path to Files, so the game never needs to read the host data directory itself.
-    public class StoragePage
+    public class StoragePage : IOptionPage
     {
         class Entry
         {
