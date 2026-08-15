@@ -40,6 +40,51 @@ namespace SlopWorld
             public string ImageAlign;
         }
 
+        struct InlineStyle
+        {
+            public bool Bold;
+            public bool Italic;
+            public bool Code;
+            public bool Strike;
+            public string Link;
+            public string LocalLink;
+
+            public InlineStyle WithHtmlState(HtmlState state)
+            {
+                var result = this;
+                result.Bold = result.Bold || state.Bold > 0;
+                result.Italic = result.Italic || state.Italic > 0;
+                result.Code = result.Code || state.Code > 0;
+                result.Strike = result.Strike || state.Strike > 0;
+                result.Link = result.Link ?? state.Link;
+                result.LocalLink = result.LocalLink ?? state.LocalLink;
+                return result;
+            }
+
+            public InlineStyle WithEmphasis(bool strong)
+            {
+                var result = this;
+                result.Bold = result.Bold || strong;
+                result.Italic = result.Italic || !strong;
+                return result;
+            }
+
+            public InlineStyle WithCode()
+            {
+                var result = this;
+                result.Code = true;
+                return result;
+            }
+
+            public InlineStyle WithLink(string link, string localLink)
+            {
+                var result = this;
+                result.Link = link ?? result.Link;
+                result.LocalLink = localLink ?? result.LocalLink;
+                return result;
+            }
+        }
+
         sealed class HtmlState
         {
             public int Bold;
