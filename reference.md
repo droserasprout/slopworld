@@ -174,6 +174,7 @@ Routes declared by the daemon's Axum router. `scoped` routes are available to ap
 | Tool | Option | Source |
 | --- | --- | --- |
 | `slopworld` | `--game DIR — RimWorld install (default $SLOPWORLD_GAME, then the usual places)` | [`slopd/src/bin/slopworld.rs:38`](./slopd/src/bin/slopworld.rs#L38) |
+| `slopworld` | `--no-window-fix — omit SlopWorld's default X11/OpenGL window arguments` | [`slopd/src/bin/slopworld.rs:49`](./slopd/src/bin/slopworld.rs#L49) |
 | `slopworld` | `--print — print the argv this would run, and run nothing` | [`slopd/src/bin/slopworld.rs:42`](./slopd/src/bin/slopworld.rs#L42) |
 | `slopworld` | `--profile DIR — save data folder to use or create` | [`slopd/src/bin/slopworld.rs:39`](./slopd/src/bin/slopworld.rs#L39) |
 | `slopworld` | `--reset — rewrite the profile's mod list, discarding what is there` | [`slopd/src/bin/slopworld.rs:41`](./slopd/src/bin/slopworld.rs#L41) |
