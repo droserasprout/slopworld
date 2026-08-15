@@ -8,9 +8,9 @@ namespace SlopWorld
     // Mechanical split: AgentSidebar.Rendering methods.
     public static partial class AgentSidebar
     {
-        public static void DrawRouted(Rect body, string tab)
+        public static void DrawRouted(Rect body, SidebarTab tab)
         {
-            ViewRows.Clear();
+            Layout.ViewRows.Clear();
             float y = body.y;
             foreach (var info in RoutedFor(tab))
             {
@@ -23,7 +23,7 @@ namespace SlopWorld
                         body.width - CellX - ArrowW - 4f - Pad, NameH),
                     Face = Rect.zero,
                 };
-                ViewRows.Add(row);
+                Layout.ViewRows.Add(row);
                 DrawRoutedRow(row, info);
                 y += GhostH;
             }
@@ -58,7 +58,7 @@ namespace SlopWorld
             var e = Event.current;
             if (e.rawType != EventType.MouseDown || (e.button != 0 && e.button != 1))
                 return false;
-            foreach (var row in ViewRows)
+            foreach (var row in Layout.ViewRows)
             {
                 if (!ColonistBarStrip.MouseOver(row.Line)) continue;
                 if (e.button == 1)
@@ -78,12 +78,12 @@ namespace SlopWorld
             return false;
         }
 
-        public static void FocusTerminal() => Show(TabAgents);
+        public static void FocusTerminal() => Show(SidebarTab.Agents);
 
-        public static void ShowFiles() => Show(TabFiles);
-        public static void ShowSearch() => Show(TabSearch);
-        public static void ShowGit() => Show(TabGit);
-        public static void ShowShortcuts() => Show(TabShortcuts);
+        public static void ShowFiles() => Show(SidebarTab.Files);
+        public static void ShowSearch() => Show(SidebarTab.Search);
+        public static void ShowGit() => Show(SidebarTab.Git);
+        public static void ShowShortcuts() => Show(SidebarTab.Shortcuts);
 
         // The visual rect fills the panel while its hit rect stops before Grip so one consumed click cannot resize and open the menu.
         public static Rect AddBar
@@ -106,17 +106,17 @@ namespace SlopWorld
         {
             var order = new List<string>();
 
-            if (Agents)
+            if (CurrentTab == SidebarTab.Agents)
             {
-                foreach (var row in Rows)
+                foreach (var row in Layout.Rows)
                     if (row.Session != null && !row.Ghost) order.Add(row.Session);
                 return order;
             }
 
             // Tree views have no Rows, but Alt+number must still return to an agent.
-            foreach (var key in Order)
-                foreach (int i in Buckets[key])
-                    if (Named.TryGetValue(i, out var session) && session != null)
+            foreach (var key in Layout.Order)
+                foreach (int i in Layout.Buckets[key])
+                    if (Layout.Named.TryGetValue(i, out var session) && session != null)
                         order.Add(session);
             return order;
         }
@@ -124,19 +124,19 @@ namespace SlopWorld
         public static List<string> WalkOrder()
         {
             var order = new List<string>();
-            foreach (var row in Rows)
+            foreach (var row in Layout.Rows)
                 if (row.Session != null) order.Add(row.Session);
             return order;
         }
 
         public static bool Drawing { get; private set; }
 
-        public static bool AgentScrollOpen => _agentScrollOpen;
+        public static bool AgentScrollOpen => Layout.AgentScrollOpen;
 
         public static bool FaceBox(Pawn pawn, out Rect box)
         {
             if (pawn != null)
-                foreach (var row in Rows)
+                foreach (var row in Layout.Rows)
                     if (row.Pawn == pawn) { box = row.Face; return true; }
 
             box = Rect.zero;
@@ -146,11 +146,10 @@ namespace SlopWorld
         public static float Place(
             List<ColonistBar.Entry> entries, List<Vector2> locs, int count, bool plus)
         {
-            Rows.Clear();
-            Heads.Clear();
+            Layout.BeginFrame();
             Bucket(entries, locs, count);
 
-            if (!Agents)
+            if (CurrentTab != SidebarTab.Agents)
             {
                 // Skipping entries would leave invisible vanilla hit targets over the tree.
                 for (int i = 0; i < count && i < locs.Count; i++) locs[i] = Parked;
@@ -164,12 +163,12 @@ namespace SlopWorld
             float room = Body.height;
 
             int rows = 0;
-            foreach (var key in Order)
-                if (!Folded.Contains(key) && Buckets.TryGetValue(key, out var b))
+            foreach (var key in Layout.Order)
+                if (!Folded.Contains(key) && Layout.Buckets.TryGetValue(key, out var b))
                     rows += b.Count;
 
             // Add is outside this viewport now, so the body already accounts for its height.
-            float s = Fit(rows, Order.Count, false, room, GhostRoom());
+            float s = Fit(rows, Layout.Order.Count, false, room, GhostRoom());
             float pitch = Pitch(s);
             float cell = ColonistBar.BaseSize.y * s;
             float face = ColonistBarColonistDrawer.PawnTextureSize.y * s;
@@ -178,15 +177,15 @@ namespace SlopWorld
             float width = Width;
             float y = top;
 
-            foreach (var g in TopGhosts) y = GhostRow(g, width, y);
+            foreach (var g in Layout.TopGhosts) y = GhostRow(g, width, y);
 
-            foreach (var key in Order)
+            foreach (var key in Layout.Order)
             {
-                var bucket = Buckets.TryGetValue(key, out var b) ? b : Empty;
+                var bucket = Layout.Buckets.TryGetValue(key, out var b) ? b : Empty;
                 bool folded = Folded.Contains(key);
-                var ghosts = Ghosts.TryGetValue(key, out var gs) ? gs : EmptyGhosts;
+                var ghosts = Layout.Ghosts.TryGetValue(key, out var gs) ? gs : EmptyGhosts;
 
-                Heads.Add(new Head
+                Layout.Heads.Add(new Head
                 {
                     Label = key,
                     Rect = new Rect(0f, y, width, HeadH),
@@ -213,7 +212,7 @@ namespace SlopWorld
                     // their CellX inset.
                     float tx = PortraitX + face + TextGap;
                     var line = new Rect(0f, y, width, rowH);
-                    Rows.Add(new Row
+                    Layout.Rows.Add(new Row
                     {
                         Session = Session(entries[i].pawn),
                         Pawn = entries[i].pawn,
@@ -226,7 +225,7 @@ namespace SlopWorld
                 }
             }
 
-            _agentContentH = Mathf.Max(Body.height, y + Pad);
+            Layout.AgentContentH = Mathf.Max(Body.height, y + Pad);
 
             return s;
         }
@@ -250,12 +249,6 @@ namespace SlopWorld
 
         static void Bucket(List<ColonistBar.Entry> entries, List<Vector2> locs, int count)
         {
-            foreach (var list in Buckets.Values) list.Clear();
-            foreach (var list in Ghosts.Values) list.Clear();
-            Order.Clear();
-            Named.Clear();
-            TopGhosts.Clear();
-
             for (int i = 0; i < count && i < entries.Count; i++)
             {
                 var pawn = entries[i].pawn;
@@ -282,34 +275,34 @@ namespace SlopWorld
                 }
                 string key = string.IsNullOrEmpty(info?.Project) ? Loose : info.Project;
 
-                if (!Buckets.TryGetValue(key, out var list))
-                    Buckets[key] = list = new List<int>();
+                if (!Layout.Buckets.TryGetValue(key, out var list))
+                    Layout.Buckets[key] = list = new List<int>();
                 list.Add(i);
-                Named[i] = session;
+                Layout.Named[i] = session;
             }
 
             foreach (var s in SessionHub.Instance.Sessions)
             {
                 if (!s.Ephemeral || IsRouted(s) || !Passes(s.Project)) continue;
-                if (string.IsNullOrEmpty(s.Project)) { TopGhosts.Add(s); continue; }
+                if (string.IsNullOrEmpty(s.Project)) { Layout.TopGhosts.Add(s); continue; }
 
-                if (!Ghosts.TryGetValue(s.Project, out var list))
-                    Ghosts[s.Project] = list = new List<SessionInfo>();
+                if (!Layout.Ghosts.TryGetValue(s.Project, out var list))
+                    Layout.Ghosts[s.Project] = list = new List<SessionInfo>();
                 list.Add(s);
             }
 
-            foreach (var kv in Buckets)
-                if (kv.Value.Count > 0) Order.Add(kv.Key);
-            foreach (var kv in Ghosts)
-                if (kv.Value.Count > 0 && !Order.Contains(kv.Key)) Order.Add(kv.Key);
+            foreach (var kv in Layout.Buckets)
+                if (kv.Value.Count > 0) Layout.Order.Add(kv.Key);
+            foreach (var kv in Layout.Ghosts)
+                if (kv.Value.Count > 0 && !Layout.Order.Contains(kv.Key)) Layout.Order.Add(kv.Key);
 
-            Order.Sort((a, b) =>
+            Layout.Order.Sort((a, b) =>
                 a == Loose ? (b == Loose ? 0 : 1)
                 : b == Loose ? -1
                 : string.CompareOrdinal(a, b));
 
-            TopGhosts.Sort(ByName);
-            foreach (var list in Ghosts.Values) list.Sort(ByName);
+            Layout.TopGhosts.Sort(ByName);
+            foreach (var list in Layout.Ghosts.Values) list.Sort(ByName);
         }
 
         static readonly List<int> Empty = new List<int>();
@@ -318,7 +311,7 @@ namespace SlopWorld
         static float GhostRow(SessionInfo s, float width, float y)
         {
             float tx = CellX + ArrowW + 4f;
-            Rows.Add(new Row
+            Layout.Rows.Add(new Row
             {
                 Session = s.Name,
                 Pawn = null,
@@ -335,8 +328,8 @@ namespace SlopWorld
 
         static float GhostRoom()
         {
-            float h = TopGhosts.Count * GhostH;
-            foreach (var kv in Ghosts)
+            float h = Layout.TopGhosts.Count * GhostH;
+            foreach (var kv in Layout.Ghosts)
                 if (!Folded.Contains(kv.Key)) h += kv.Value.Count * GhostH;
             return h;
         }
@@ -348,16 +341,16 @@ namespace SlopWorld
         {
             var body = Body;
             // The full-width view keeps SmoothScroll active while omitting the gutter that narrows every row.
-            var view = new Rect(0f, 0f, body.width, _agentContentH);
-            AgentScroll.Begin(body, view, false);
-            _agentScrollOpen = true;
+            var view = new Rect(0f, 0f, body.width, Layout.AgentContentH);
+            Layout.AgentScroll.Begin(body, view, false);
+            Layout.AgentScrollOpen = true;
         }
 
         static void EndAgentScroll()
         {
-            if (!_agentScrollOpen) return;
-            _agentScrollOpen = false;
-            AgentScroll.End();
+            if (!Layout.AgentScrollOpen) return;
+            Layout.AgentScrollOpen = false;
+            Layout.AgentScroll.End();
         }
 
         static void DrawChromeAndClicks()
@@ -367,18 +360,50 @@ namespace SlopWorld
 
             Grip();
             if (AddClick()) return;
-            if (Files)
+            switch (CurrentTab)
             {
-                if (!ClickRouted()) FilesView.Clicks();
+                case SidebarTab.Files:
+                    if (!ClickRouted()) FilesView.Clicks();
+                    break;
+                case SidebarTab.Search:
+                    SearchView.Clicks();
+                    break;
+                case SidebarTab.Git:
+                    if (!ClickRouted()) GitView.Clicks();
+                    break;
+                case SidebarTab.Shortcuts:
+                    ShortcutsView.Clicks();
+                    break;
+                default:
+                    Menus();
+                    break;
             }
-            else if (Search) SearchView.Clicks();
-            else if (Git)
-            {
-                if (!ClickRouted()) GitView.Clicks();
-            }
-            else if (Shortcuts) ShortcutsView.Clicks();
-            else Menus();
             Absorb();
+        }
+
+        static void DrawAgentTab()
+        {
+            Tabs();
+            DrawAdd();
+            Grip();
+            AddClick();
+
+            BeginAgentScroll();
+
+            string currentSession = SessionSelectable.Current;
+            foreach (var row in Layout.Rows)
+            {
+                bool current = row.Session != null && row.Session == currentSession;
+
+                if (current) Slab.Fill(row.Line, SlopWidgets.RowOn);
+                else SlopWidgets.HoverRow(row.Line);
+            }
+
+            foreach (var head in Layout.Heads) DrawHead(head);
+            // This must precede vanilla: its portrait handler consumes right-clicks.
+            // The scroll group also lets Menus use the content-local row geometry
+            // directly, just like portrait and label hit testing.
+            Menus();
         }
 
         public static void DrawBack()
@@ -389,7 +414,7 @@ namespace SlopWorld
 
             if (!Wanted())
             {
-                _resizing = false;
+                Layout.Resizing = false;
                 return;
             }
             Drawing = true;
@@ -400,63 +425,25 @@ namespace SlopWorld
             var panel = Panel;
             Slab.Fill(panel, SlopWidgets.Panel);
 
-            if (Agents)
+            switch (CurrentTab)
             {
-                Tabs();
-                DrawAdd();
-                Grip();
-                AddClick();
-
-                BeginAgentScroll();
-
-                string currentSession = SessionSelectable.Current;
-                foreach (var row in Rows)
-                {
-                    bool current = row.Session != null && row.Session == currentSession;
-
-                    if (current) Slab.Fill(row.Line, SlopWidgets.RowOn);
-                    else SlopWidgets.HoverRow(row.Line);
-                }
-
-                foreach (var head in Heads) DrawHead(head);
-                // This must precede vanilla: its portrait handler consumes right-clicks.
-                // The scroll group also lets Menus use the content-local row geometry
-                // directly, just like portrait and label hit testing.
-                Menus();
-                return;
-            }
-
-            if (Files)
-            {
-                DrawRouted(Body, TabFiles);
-                FilesView.Draw(TreeBody(Body, TabFiles));
-            }
-            else if (Search)
-            {
-                SearchView.Draw(Body);
-            }
-            else if (Git)
-            {
-                DrawRouted(Body, TabGit);
-                GitView.Draw(TreeBody(Body, TabGit));
-            }
-            else if (Shortcuts)
-            {
-                ShortcutsView.Draw(Body);
-            }
-            else
-            {
-                string currentSession = SessionSelectable.Current;
-
-                foreach (var row in Rows)
-                {
-                    bool current = row.Session != null && row.Session == currentSession;
-
-                    if (current) Slab.Fill(row.Line, SlopWidgets.RowOn);
-                    else SlopWidgets.HoverRow(row.Line);
-                }
-
-                foreach (var head in Heads) DrawHead(head);
+                case SidebarTab.Agents:
+                    DrawAgentTab();
+                    return;
+                case SidebarTab.Files:
+                    DrawRouted(Body, SidebarTab.Files);
+                    FilesView.Draw(TreeBody(Body, SidebarTab.Files));
+                    break;
+                case SidebarTab.Search:
+                    SearchView.Draw(Body);
+                    break;
+                case SidebarTab.Git:
+                    DrawRouted(Body, SidebarTab.Git);
+                    GitView.Draw(TreeBody(Body, SidebarTab.Git));
+                    break;
+                case SidebarTab.Shortcuts:
+                    ShortcutsView.Draw(Body);
+                    break;
             }
 
             DrawChromeAndClicks();
@@ -546,22 +533,30 @@ namespace SlopWorld
 
             const float Gap = 3f;
             float x = CellX;
-            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Agents, Agents,
-                "Agents - every session, under the project it runs in", () => Show(TabAgents));
+            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Agents,
+                CurrentTab == SidebarTab.Agents,
+                "Agents - every session, under the project it runs in",
+                () => Show(SidebarTab.Agents));
             x += TabIcon + Gap;
-            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Files, Files,
-                "Files - every project's directory, as a tree", () => Show(TabFiles));
+            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Files,
+                CurrentTab == SidebarTab.Files,
+                "Files - every project's directory, as a tree",
+                () => Show(SidebarTab.Files));
             x += TabIcon + Gap;
-            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Search, Search,
-                "Search - find text across every project", () => Show(TabSearch));
+            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Search,
+                CurrentTab == SidebarTab.Search,
+                "Search - find text across every project",
+                () => Show(SidebarTab.Search));
             x += TabIcon + Gap;
-            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Git, Git,
+            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Git,
+                CurrentTab == SidebarTab.Git,
                 "Git - what every working tree has that its last commit does not",
-                () => Show(TabGit));
+                () => Show(SidebarTab.Git));
             x += TabIcon + Gap;
-            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Shortcuts, Shortcuts,
+            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Shortcuts,
+                CurrentTab == SidebarTab.Shortcuts,
                 "Shortcuts - one-shot errands you can run against any project",
-                () => Show(TabShortcuts));
+                () => Show(SidebarTab.Shortcuts));
 
             FilterButton();
 
@@ -579,7 +574,7 @@ namespace SlopWorld
         // see [HasActions], which has to agree with what this draws.
         static void Actions(Rect r)
         {
-            if (Files || Search)
+            if (CurrentTab == SidebarTab.Files || CurrentTab == SidebarTab.Search)
             {
                 bool showing = Settings.SidebarShowHidden;
                 Tab(r, Icons.Hidden, showing,
@@ -590,11 +585,11 @@ namespace SlopWorld
                     {
                         Settings.S.sidebarShowHidden = !showing;
                         Settings.S.Write();
-                        if (Files) FilesView.Reload();
+                        if (CurrentTab == SidebarTab.Files) FilesView.Reload();
                         else SearchView.Search();
                     });
             }
-            else if (Git)
+            else if (CurrentTab == SidebarTab.Git)
             {
                 Tab(r, Icons.Refresh, false,
                     "Read every working tree again.", GitView.Refresh);
@@ -699,7 +694,7 @@ namespace SlopWorld
         static void DrawRows()
         {
             var hub = SessionHub.Instance;
-            foreach (var row in Rows)
+            foreach (var row in Layout.Rows)
             {
                 var info = row.Session == null ? null : hub.Get(row.Session);
                 var state = info?.State ?? AgentState.Down;
@@ -783,7 +778,7 @@ namespace SlopWorld
             if (!Drawing) return;
             try
             {
-                if (_agentScrollOpen)
+                if (Layout.AgentScrollOpen)
                 {
                     DrawRows();
                     Patch_SidebarPortraitDraw.DrawDeferredSelection();
@@ -811,4 +806,3 @@ namespace SlopWorld
         // A soft edge marks the fixed add strip over the scrolling body without reserving a scrollbar gutter.
     }
 }
-

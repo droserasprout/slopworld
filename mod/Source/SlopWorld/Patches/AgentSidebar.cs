@@ -88,26 +88,7 @@ namespace SlopWorld
             public bool Folded;
         }
 
-        static readonly List<Row> Rows = new List<Row>();
-        static readonly List<Head> Heads = new List<Head>();
-
-        static readonly Dictionary<string, List<int>> Buckets =
-            new Dictionary<string, List<int>>();
-        static readonly List<string> Order = new List<string>();
-
-        static readonly Dictionary<int, string> Named = new Dictionary<int, string>();
-
-        static readonly Dictionary<string, List<SessionInfo>> Ghosts =
-            new Dictionary<string, List<SessionInfo>>();
-
-        static readonly List<SessionInfo> TopGhosts = new List<SessionInfo>();
-
-        static readonly List<Row> ViewRows = new List<Row>();
-        static readonly List<SessionInfo> Routed = new List<SessionInfo>();
-
-        static readonly SmoothScroll AgentScroll = new SmoothScroll();
-        static bool _agentScrollOpen;
-        static float _agentContentH;
+        static readonly SidebarLayout Layout = new SidebarLayout();
 
         const string Loose = "no project";
 
@@ -141,17 +122,36 @@ namespace SlopWorld
 
         public static Rect Panel => new Rect(0f, 0f, Width, UI.screenHeight);
 
-        public const string TabAgents = "agents", TabFiles = "files", TabSearch = "search",
-            TabGit = "git", TabShortcuts = "shortcuts";
+        public static SidebarTab CurrentTab => ParseTab(Settings.SidebarTab);
 
-        public static bool Files => Settings.SidebarTab == TabFiles;
-        public static bool Search => Settings.SidebarTab == TabSearch;
-        public static bool Git => Settings.SidebarTab == TabGit;
-        public static bool Shortcuts => Settings.SidebarTab == TabShortcuts;
-        public static bool Agents => !Files && !Search && !Git && !Shortcuts;
+        static SidebarTab ParseTab(string value)
+        {
+            switch (value)
+            {
+                case "files": return SidebarTab.Files;
+                case "search": return SidebarTab.Search;
+                case "git": return SidebarTab.Git;
+                case "shortcuts": return SidebarTab.Shortcuts;
+                default: return SidebarTab.Agents;
+            }
+        }
+
+        static string TabName(SidebarTab tab)
+        {
+            switch (tab)
+            {
+                case SidebarTab.Files: return "files";
+                case SidebarTab.Search: return "search";
+                case SidebarTab.Git: return "git";
+                case SidebarTab.Shortcuts: return "shortcuts";
+                default: return "agents";
+            }
+        }
 
         // Which views own a second row. Keep in step with what [Actions] draws.
-        static bool HasActions => Files || Search || Git;
+        static bool HasActions => CurrentTab == SidebarTab.Files
+            || CurrentTab == SidebarTab.Search
+            || CurrentTab == SidebarTab.Git;
 
         // Empty means all projects. Unknown project keys show no rows while the daemon list is
         // incomplete; the no-project bucket is a normal filter key.
@@ -215,39 +215,39 @@ namespace SlopWorld
             // The agents, files and shortcuts views read the filter as they draw. The other
             // two hold what they asked the daemon for, and a filter that widened is a
             // project they never asked about.
-            if (Search) SearchView.Search();
-            else if (Git) GitView.Refresh();
+            if (CurrentTab == SidebarTab.Search) SearchView.Search();
+            else if (CurrentTab == SidebarTab.Git) GitView.Refresh();
         }
 
-        static void Show(string tab)
+        static void Show(SidebarTab tab)
         {
             // Focusing Git is also the user's way to ask what changed since the last
             // focus, including when Git is already the selected tab.
-            if (Settings.SidebarTab == tab)
+            if (CurrentTab == tab)
             {
-                if (tab == TabGit) GitView.Refresh();
+                if (tab == SidebarTab.Git) GitView.Refresh();
                 return;
             }
 
-            if (tab != TabFiles) FilesView.ClearFocus();
-            if (tab != TabFiles) FilesView.ReleaseViewer();
-            if (tab != TabSearch)
+            if (tab != SidebarTab.Files) FilesView.ClearFocus();
+            if (tab != SidebarTab.Files) FilesView.ReleaseViewer();
+            if (tab != SidebarTab.Search)
             {
                 SearchView.ReleaseViewer();
                 SearchView.ReleaseFocus();
             }
-            if (tab != TabGit) GitView.ReleaseViewer();
+            if (tab != SidebarTab.Git) GitView.ReleaseViewer();
 
             var s = Settings.S;
-            s.sidebarTab = tab;
+            s.sidebarTab = TabName(tab);
             s.Write();
 
-            if (tab == TabGit) GitView.Refresh();
-            else if (tab == TabFiles) GitView.Entered();
+            if (tab == SidebarTab.Git) GitView.Refresh();
+            else if (tab == SidebarTab.Files) GitView.Entered();
 
-            if (tab == TabSearch) SearchView.Entered();
+            if (tab == SidebarTab.Search) SearchView.Entered();
 
-            if (tab == TabShortcuts) SessionHub.Instance.RefreshShortcuts();
+            if (tab == SidebarTab.Shortcuts) SessionHub.Instance.RefreshShortcuts();
         }
 
         static RowAct RoutedAction(SessionInfo info) => RowActions.Of(info);
@@ -258,32 +258,32 @@ namespace SlopWorld
             return (act & (RowAct.View | RowAct.Edit | RowAct.Diff)) != 0;
         }
 
-        static bool InTab(SessionInfo info, string tab)
+        static bool InTab(SessionInfo info, SidebarTab tab)
         {
             RowAct act = RoutedAction(info);
-            return tab == TabFiles
+            return tab == SidebarTab.Files
                 ? (act & (RowAct.View | RowAct.Edit)) != 0
-                : tab == TabGit && (act & RowAct.Diff) != 0;
+                : tab == SidebarTab.Git && (act & RowAct.Diff) != 0;
         }
 
-        static List<SessionInfo> RoutedFor(string tab)
+        static List<SessionInfo> RoutedFor(SidebarTab tab)
         {
-            Routed.Clear();
+            Layout.Routed.Clear();
             foreach (var info in SessionHub.Instance.Sessions)
-                if (InTab(info, tab) && Passes(info.Project)) Routed.Add(info);
-            Routed.Sort(ByName);
-            return Routed;
+                if (InTab(info, tab) && Passes(info.Project)) Layout.Routed.Add(info);
+            Layout.Routed.Sort(ByName);
+            return Layout.Routed;
         }
 
-        public static float RoutedHeight(string tab) => RoutedFor(tab).Count * GhostH;
+        public static float RoutedHeight(SidebarTab tab) => RoutedFor(tab).Count * GhostH;
 
-        public static Rect TreeBody(Rect body, string tab) =>
+        public static Rect TreeBody(Rect body, SidebarTab tab) =>
             new Rect(body.x, body.y + RoutedHeight(tab), body.width,
                 Mathf.Max(0f, body.height - RoutedHeight(tab)));
 
         static void DrawAgentShadow()
         {
-            if (_agentContentH <= Body.height) return;
+            if (Layout.AgentContentH <= Body.height) return;
 
             const int Steps = 4;
             const float Height = 12f;
@@ -485,7 +485,7 @@ namespace SlopWorld
             if (e.type != EventType.MouseDown) return;
             if (e.button != 0 && e.button != 1) return;
 
-            foreach (var head in Heads)
+            foreach (var head in Layout.Heads)
             {
                 if (!ColonistBarStrip.MouseOver(head.Rect)) continue;
                 if (e.button == 0) Fold(head.Label, !head.Folded);
@@ -495,7 +495,7 @@ namespace SlopWorld
             }
 
             if (e.button != 1) return;
-            foreach (var row in Rows)
+            foreach (var row in Layout.Rows)
             {
                 if (row.Session == null) continue;
                 if (!ColonistBarStrip.MouseOver(row.Line)) continue;
@@ -592,21 +592,18 @@ namespace SlopWorld
 
 
 
-        static bool _resizing;
-        static float _grab;
-
         static void Grip()
         {
             float w = Width;
             var grip = new Rect(w - GripW, 0f, GripW * 2f, UI.screenHeight);
-            if (!ColonistBarStrip.Interactive && _resizing)
+            if (!ColonistBarStrip.Interactive && Layout.Resizing)
             {
-                _resizing = false;
+                Layout.Resizing = false;
                 Settings.S.Write();
             }
 
             bool over = ColonistBarStrip.SidebarHover(grip);
-            bool lit = over || _resizing;
+            bool lit = over || Layout.Resizing;
 
             // The panel's right edge and the grip's own tell are the same line, and it is
             // drawn here alone: a second draw of [SlopWidgets.Edge] over this one composites
@@ -620,19 +617,19 @@ namespace SlopWorld
             var e = Event.current;
 
             // Poll Input: an absorbing window can prevent this layer from receiving MouseDown.
-            if (!_resizing)
+            if (!Layout.Resizing)
             {
                 if (!over || !Input.GetMouseButtonDown(0)) return;
-                _resizing = true;
-                _grab = w - e.mousePosition.x;
+                Layout.Resizing = true;
+                Layout.Grab = w - e.mousePosition.x;
             }
             else if (Input.GetMouseButton(0))
             {
-                SetWidth(e.mousePosition.x + _grab);
+                SetWidth(e.mousePosition.x + Layout.Grab);
             }
             else
             {
-                _resizing = false;
+                Layout.Resizing = false;
                 Settings.S.Write();
             }
 
