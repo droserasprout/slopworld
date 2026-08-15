@@ -7,6 +7,17 @@ use std::time::Instant;
 use crate::emu::{parse_output, MouseInput};
 use anyhow::anyhow;
 
+enum TitleCaptureAction {
+    New(Option<String>),
+    Request(TitleRequest),
+}
+
+enum ControlLine {
+    Output,
+    Exit,
+    Ignore,
+}
+
 impl Manager {
     pub async fn screen(&self, name: &str) -> Option<ScreenView> {
         self.live.read().await.get(name)?.screen.clone()
@@ -96,106 +107,126 @@ impl Manager {
     }
 
     pub(super) fn spawn_title_request(self: &Arc<Self>, name: String, request: TitleRequest) {
-        let m = self.clone();
-        tokio::spawn(async move {
-            let prompt = request.prompt.clone();
-            let key_file = request.key_file.clone();
-            let model = request.model.clone();
-            let (result, cache_hit) = if let Some(title) = m.title_cache.get(&prompt, &model) {
-                tracing::debug!(
-                    target: "slopd::titles",
-                    session = %name,
-                    generation = request.generation,
-                    model = %model,
-                    outcome = "cache_hit",
-                    "using cached session title"
-                );
-                (Ok(title), true)
-            } else {
-                tracing::debug!(
-                    target: "slopd::titles",
-                    session = %name,
-                    generation = request.generation,
-                    model = %model,
-                    outcome = "request_started",
-                    "generating session title"
-                );
-                let request_prompt = prompt.clone();
-                let request_key = key_file.clone();
-                let request_model = model.clone();
-                let result = tokio::task::spawn_blocking(move || {
-                    crate::title::summarize(&request_prompt, &request_key, &request_model)
-                })
-                .await;
-                let result = match result {
-                    Ok(r) => r,
-                    Err(e) => Err(anyhow!("title worker: {e}")),
-                };
-                (result, false)
-            };
+        let manager = self.clone();
+        tokio::spawn(async move { manager.run_title_request(name, request).await });
+    }
 
-            let mut moved = false;
-            {
-                let mut live = m.live.write().await;
-                let Some(l) = live.get_mut(&name) else { return };
-                if l.title.conversation != request.conversation
-                    || l.title.generation != request.generation
-                {
-                    tracing::debug!(
-                        target: "slopd::titles",
-                        session = %name,
-                        generation = request.generation,
-                        outcome = "stale_response",
-                        "discarding stale session title response"
-                    );
-                    return;
-                }
-                if let Ok(title) = &result {
-                    let cache_result = if cache_hit {
-                        m.title_cache.remember(&name, title)
-                    } else {
-                        m.title_cache.insert(&name, &prompt, &model, title)
-                    };
-                    if let Err(error) = cache_result {
-                        tracing::warn!(
-                            target: "slopd::titles",
-                            session = %name,
-                            error = %error,
-                            outcome = "cache_write_failed",
-                            "could not persist session title cache"
-                        );
-                    }
-                }
-                l.title.pending = false;
-                match result {
-                    Ok(title) => {
-                        l.title.override_title = Some(title);
-                        moved = true;
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            target: "slopd::titles",
-                            session = %name,
-                            generation = request.generation,
-                            error = %e,
-                            outcome = "request_failed",
-                            "session title request failed"
-                        );
-                    }
-                }
-            }
-            if moved {
-                tracing::debug!(
+    async fn run_title_request(self: Arc<Self>, name: String, request: TitleRequest) {
+        let (result, cache_hit) = self.resolve_title_request(&name, &request).await;
+        if self
+            .apply_title_result(&name, &request, result, cache_hit)
+            .await
+        {
+            tracing::debug!(
+                target: "slopd::titles",
+                session = %name,
+                outcome = "applied",
+                "session title applied"
+            );
+            let _ = self.events.send(Event::Sessions {
+                sessions: self.views().await,
+            });
+        }
+    }
+
+    async fn resolve_title_request(
+        &self,
+        name: &str,
+        request: &TitleRequest,
+    ) -> (Result<String>, bool) {
+        let prompt = &request.prompt;
+        let model = &request.model;
+        if let Some(title) = self.title_cache.get(prompt, model) {
+            tracing::debug!(
+                target: "slopd::titles",
+                session = %name,
+                generation = request.generation,
+                model = %model,
+                outcome = "cache_hit",
+                "using cached session title"
+            );
+            return (Ok(title), true);
+        }
+
+        tracing::debug!(
+            target: "slopd::titles",
+            session = %name,
+            generation = request.generation,
+            model = %model,
+            outcome = "request_started",
+            "generating session title"
+        );
+        let request_prompt = prompt.clone();
+        let request_key = request.key_file.clone();
+        let request_model = model.clone();
+        let result = tokio::task::spawn_blocking(move || {
+            crate::title::summarize(&request_prompt, &request_key, &request_model)
+        })
+        .await;
+        let result = match result {
+            Ok(r) => r,
+            Err(e) => Err(anyhow!("title worker: {e}")),
+        };
+        (result, false)
+    }
+
+    async fn apply_title_result(
+        &self,
+        name: &str,
+        request: &TitleRequest,
+        result: Result<String>,
+        cache_hit: bool,
+    ) -> bool {
+        let mut live = self.live.write().await;
+        let Some(l) = live.get_mut(name) else {
+            return false;
+        };
+        if l.title.conversation != request.conversation || l.title.generation != request.generation
+        {
+            tracing::debug!(
+                target: "slopd::titles",
+                session = %name,
+                generation = request.generation,
+                outcome = "stale_response",
+                "discarding stale session title response"
+            );
+            return false;
+        }
+        if let Ok(title) = &result {
+            let cache_result = if cache_hit {
+                self.title_cache.remember(name, title)
+            } else {
+                self.title_cache
+                    .insert(name, &request.prompt, &request.model, title)
+            };
+            if let Err(error) = cache_result {
+                tracing::warn!(
                     target: "slopd::titles",
                     session = %name,
-                    outcome = "applied",
-                    "session title applied"
+                    error = %error,
+                    outcome = "cache_write_failed",
+                    "could not persist session title cache"
                 );
-                let _ = m.events.send(Event::Sessions {
-                    sessions: m.views().await,
-                });
             }
-        });
+        }
+        l.title.pending = false;
+        match result {
+            Ok(title) => {
+                l.title.override_title = Some(title);
+                true
+            }
+            Err(e) => {
+                tracing::warn!(
+                    target: "slopd::titles",
+                    session = %name,
+                    generation = request.generation,
+                    error = %e,
+                    outcome = "request_failed",
+                    "session title request failed"
+                );
+                false
+            }
+        }
     }
 
     pub(super) async fn capture_title_keys(
@@ -206,10 +237,7 @@ impl Manager {
     ) {
         let cfg = self.config().await;
 
-        let mut request = None;
-        let mut announce = false;
-        let mut new_conversation: Option<Option<String>> = None;
-        {
+        let action = {
             let mut live = self.live.write().await;
             let Some(l) = live.get_mut(name) else { return };
             let Some((policy, model)) = title_settings(&cfg, &l.cfg, l.host) else {
@@ -218,99 +246,36 @@ impl Manager {
             if policy == TitlePolicy::Never {
                 return;
             }
+            title_capture_action(l, name, &cfg, policy, model, keys, literal)
+        };
 
-            let mut submission = None;
-            if literal {
-                for key in keys {
-                    l.title.composer.literal(key);
-                }
-            } else {
-                for key in keys {
-                    if let Some(s) = l.title.composer.key(key) {
-                        submission = Some(s);
-                    }
-                }
+        match action {
+            Some(TitleCaptureAction::New(native)) => {
+                self.persist_title_boundary(name, native.as_deref());
+                let _ = self.events.send(Event::Sessions {
+                    sessions: self.views().await,
+                });
             }
-            let uncertain = !l.title.composer.certain;
-
-            match submission {
-                Some(Submission::New(native)) => {
-                    l.title.conversation = l.title.conversation.wrapping_add(1);
-                    l.title.generation = l.title.generation.wrapping_add(1);
-                    l.title.pending = false;
-                    l.title.once_requested = false;
-                    l.title.override_title = native.clone();
-                    new_conversation = Some(native);
-                    announce = true;
-                }
-                Some(Submission::Prompt(prompt))
-                    if l.state == State::Waiting && is_dialog_answer(&prompt) =>
-                {
-                    tracing::debug!(
-                        target: "slopd::titles",
-                        session = %name,
-                        outcome = "skipped_dialog_answer",
-                        "skipping dialog answer as session title prompt"
-                    );
-                }
-                Some(Submission::Prompt(prompt)) => match policy {
-                    TitlePolicy::Never => {}
-                    TitlePolicy::Once if !l.title.once_available() => {
-                        tracing::debug!(
-                            target: "slopd::titles",
-                            session = %name,
-                            outcome = "skipped_already_named",
-                            "session already attempted its once-mode title"
-                        );
-                    }
-                    TitlePolicy::Once | TitlePolicy::Always => {
-                        if policy == TitlePolicy::Once {
-                            l.title.consume_once();
-                        }
-                        request = Some(begin_title_request(
-                            l,
-                            prompt,
-                            cfg.daemon.openrouter_key_file.clone(),
-                            model,
-                        ));
-                    }
-                },
-                None if uncertain => {
-                    tracing::debug!(
-                        target: "slopd::titles",
-                        session = %name,
-                        outcome = "skipped_uncertain_input",
-                        "skipping session title after unsupported editing input"
-                    );
-                }
-                None => {}
+            Some(TitleCaptureAction::Request(request)) => {
+                self.spawn_title_request(name.to_string(), request);
             }
+            None => {}
         }
-        drop(cfg);
+    }
 
-        if let Some(native) = new_conversation {
-            let cache_result = match native {
-                Some(ref title) => self.title_cache.remember(name, title),
-                None => self.title_cache.clear_latest(name),
-            };
-            if let Err(error) = cache_result {
-                tracing::warn!(
-                    target: "slopd::titles",
-                    session = %name,
-                    error = %error,
-                    outcome = "cache_write_failed",
-                    "could not update session title cache"
-                );
-            }
-        }
-
-        if announce {
-            let _ = self.events.send(Event::Sessions {
-                sessions: self.views().await,
-            });
-        }
-        if let Some(request) = request {
-            self.spawn_title_request(name.to_string(), request);
+    fn persist_title_boundary(&self, name: &str, native: Option<&str>) {
+        let cache_result = match native {
+            Some(title) => self.title_cache.remember(name, title),
+            None => self.title_cache.clear_latest(name),
+        };
+        if let Err(error) = cache_result {
+            tracing::warn!(
+                target: "slopd::titles",
+                session = %name,
+                error = %error,
+                outcome = "cache_write_failed",
+                "could not update session title cache"
+            );
         }
     }
 
@@ -561,31 +526,18 @@ impl Manager {
             }
         };
 
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
-        std::thread::spawn(move || {
-            use std::io::BufRead;
-            let mut reader = std::io::BufReader::new(master);
-            let mut line: Vec<u8> = Vec::new();
-            loop {
-                line.clear();
-                match reader.read_until(b'\n', &mut line) {
-                    Ok(0) => break, // EOF
-                    Ok(_) => {
-                        if line.last() == Some(&b'\n') {
-                            line.pop();
-                        }
-                        if line.last() == Some(&b'\r') {
-                            line.pop();
-                        }
-                        if tx.send(line.clone()).is_err() {
-                            break;
-                        }
-                    }
-                    Err(_) => break,
-                }
-            }
-        });
+        let rx = spawn_control_reader(master);
+        self.run_control_loop(&name, emu, rx).await;
 
+        self.mark_down(&name).await;
+    }
+
+    async fn run_control_loop(
+        &self,
+        name: &str,
+        emu: Arc<Mutex<SessionEmu>>,
+        mut rx: mpsc::UnboundedReceiver<Vec<u8>>,
+    ) {
         const FAST_TICK: Duration = Duration::from_millis(16);
         let slow_tick = Duration::from_millis(UNWATCHED_MS);
         let flush = tokio::time::sleep(FAST_TICK);
@@ -597,22 +549,11 @@ impl Manager {
         loop {
             tokio::select! {
                 line = rx.recv() => match line {
-                    Some(l) => {
-                        if let Some(bytes) = parse_output(&l) {
-                            let replies = {
-                                if let Ok(mut e) = emu.lock() {
-                                    e.feed(&bytes);
-                                    e.take_replies()
-                                } else {
-                                    Vec::new()
-                                }
-                            };
-                            if !replies.is_empty() {
-                                self.queue_input(&name, Input::Bytes(replies)).await;
-                            }
-                            dirty = true;
-                        } else if l.starts_with(b"%exit") {
-                            break;
+                    Some(line) => {
+                        match self.handle_control_line(name, &emu, line).await {
+                            ControlLine::Output => dirty = true,
+                            ControlLine::Exit => break,
+                            ControlLine::Ignore => {}
                         }
                         // Output may pull an existing deadline forward, never postpone it.
                         let soon = tokio::time::Instant::now() + FAST_TICK;
@@ -623,38 +564,74 @@ impl Manager {
                     None => break,
                 },
                 _ = flush.as_mut() => {
-                    let watched = self.watched(&name);
+                    let watched = self.watched(name);
                     flush.as_mut().reset(
                         tokio::time::Instant::now()
                             + if watched { FAST_TICK } else { slow_tick },
                     );
-
-                    let due = watched
-                        || drawn.is_none_or(|t| t.elapsed() >= Duration::from_millis(UNWATCHED_MS));
-                    if dirty && due {
-                        dirty = false;
-                        drawn = Some(Instant::now());
-                        self.render_and_broadcast(&name, &emu).await;
-                    }
-                    if watched && !copying.load(Ordering::Relaxed) {
-                        let clip = emu.lock().ok().and_then(|mut e| e.take_clip());
-                        if let Some(text) = clip {
-                            copying.store(true, Ordering::Relaxed);
-                            let done = copying.clone();
-                            let who = name.clone();
-                            tokio::spawn(async move {
-                                if let Err(e) = crate::clipboard::write(&text).await {
-                                    tracing::debug!("osc52 clipboard {who}: {e:#}");
-                                }
-                                done.store(false, Ordering::Relaxed);
-                            });
-                        }
-                    }
+                    self.handle_control_tick(name, &emu, watched, &mut dirty, &mut drawn, &copying)
+                        .await;
                 }
             }
         }
+    }
 
-        self.mark_down(&name).await;
+    async fn handle_control_line(
+        &self,
+        name: &str,
+        emu: &Arc<Mutex<SessionEmu>>,
+        line: Vec<u8>,
+    ) -> ControlLine {
+        if let Some(bytes) = parse_output(&line) {
+            let replies = {
+                if let Ok(mut e) = emu.lock() {
+                    e.feed(&bytes);
+                    e.take_replies()
+                } else {
+                    Vec::new()
+                }
+            };
+            if !replies.is_empty() {
+                self.queue_input(name, Input::Bytes(replies)).await;
+            }
+            ControlLine::Output
+        } else if line.starts_with(b"%exit") {
+            ControlLine::Exit
+        } else {
+            ControlLine::Ignore
+        }
+    }
+
+    async fn handle_control_tick(
+        &self,
+        name: &str,
+        emu: &Arc<Mutex<SessionEmu>>,
+        watched: bool,
+        dirty: &mut bool,
+        drawn: &mut Option<Instant>,
+        copying: &Arc<AtomicBool>,
+    ) {
+        let due =
+            watched || drawn.is_none_or(|t| t.elapsed() >= Duration::from_millis(UNWATCHED_MS));
+        if *dirty && due {
+            *dirty = false;
+            *drawn = Some(Instant::now());
+            self.render_and_broadcast(name, emu).await;
+        }
+        if watched && !copying.load(Ordering::Relaxed) {
+            let clip = emu.lock().ok().and_then(|mut e| e.take_clip());
+            if let Some(text) = clip {
+                copying.store(true, Ordering::Relaxed);
+                let done = copying.clone();
+                let who = name.to_string();
+                tokio::spawn(async move {
+                    if let Err(e) = crate::clipboard::write(&text).await {
+                        tracing::debug!("osc52 clipboard {who}: {e:#}");
+                    }
+                    done.store(false, Ordering::Relaxed);
+                });
+            }
+        }
     }
 
     pub(super) async fn render_and_broadcast(&self, name: &str, emu: &Mutex<SessionEmu>) {
@@ -854,4 +831,119 @@ impl Manager {
         }
         Some(view)
     }
+}
+
+fn title_capture_action(
+    live: &mut Live,
+    name: &str,
+    cfg: &Config,
+    policy: TitlePolicy,
+    model: String,
+    keys: &[String],
+    literal: bool,
+) -> Option<TitleCaptureAction> {
+    let (submission, uncertain) = build_title_submission(&mut live.title.composer, keys, literal);
+    match submission {
+        Some(Submission::New(native)) => {
+            live.title.conversation = live.title.conversation.wrapping_add(1);
+            live.title.generation = live.title.generation.wrapping_add(1);
+            live.title.pending = false;
+            live.title.once_requested = false;
+            live.title.override_title = native.clone();
+            Some(TitleCaptureAction::New(native))
+        }
+        Some(Submission::Prompt(prompt))
+            if live.state == State::Waiting && is_dialog_answer(&prompt) =>
+        {
+            tracing::debug!(
+                target: "slopd::titles",
+                session = %name,
+                outcome = "skipped_dialog_answer",
+                "skipping dialog answer as session title prompt"
+            );
+            None
+        }
+        Some(Submission::Prompt(prompt)) => match policy {
+            TitlePolicy::Never => None,
+            TitlePolicy::Once if !live.title.once_available() => {
+                tracing::debug!(
+                    target: "slopd::titles",
+                    session = %name,
+                    outcome = "skipped_already_named",
+                    "session already attempted its once-mode title"
+                );
+                None
+            }
+            TitlePolicy::Once | TitlePolicy::Always => {
+                if policy == TitlePolicy::Once {
+                    live.title.consume_once();
+                }
+                Some(TitleCaptureAction::Request(begin_title_request(
+                    live,
+                    prompt,
+                    cfg.daemon.openrouter_key_file.clone(),
+                    model,
+                )))
+            }
+        },
+        None if uncertain => {
+            tracing::debug!(
+                target: "slopd::titles",
+                session = %name,
+                outcome = "skipped_uncertain_input",
+                "skipping session title after unsupported editing input"
+            );
+            None
+        }
+        None => None,
+    }
+}
+
+fn build_title_submission(
+    composer: &mut Composer,
+    keys: &[String],
+    literal: bool,
+) -> (Option<Submission>, bool) {
+    let mut submission = None;
+    if literal {
+        for key in keys {
+            composer.literal(key);
+        }
+    } else {
+        for key in keys {
+            if let Some(s) = composer.key(key) {
+                submission = Some(s);
+            }
+        }
+    }
+    (submission, !composer.certain)
+}
+
+fn spawn_control_reader(master: std::fs::File) -> mpsc::UnboundedReceiver<Vec<u8>> {
+    let (tx, rx) = mpsc::unbounded_channel::<Vec<u8>>();
+    std::thread::spawn(move || {
+        use std::io::BufRead;
+
+        let mut reader = std::io::BufReader::new(master);
+        let mut line: Vec<u8> = Vec::new();
+        loop {
+            line.clear();
+            match reader.read_until(b'\n', &mut line) {
+                Ok(0) => break, // EOF
+                Ok(_) => {
+                    if line.last() == Some(&b'\n') {
+                        line.pop();
+                    }
+                    if line.last() == Some(&b'\r') {
+                        line.pop();
+                    }
+                    if tx.send(line.clone()).is_err() {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+    });
+    rx
 }
