@@ -5,9 +5,10 @@ mod gets a save-data folder of its own plus a launcher that makes it.
 
 `slopd/src/bin/slopworld.rs` finds the game (`--game`, `$SLOPWORLD_GAME`, four
 usual paths) and the profile (`--profile`, `$SLOPWORLD_PROFILE`, XDG), seeds it,
-runs `RimWorldLinux -savedatafolder=<profile>`. Our flags are `--long`, the
-game's are `-single`, so an unknown `--word` is a typo rather than something to
-forward; `--` ends ours.
+runs `RimWorldLinux -savedatafolder=<profile>` with the default window-fix arguments.
+Our flags are `--long`, the game's are `-single`, so an unknown `--word` is a typo
+rather than something to forward; `--` ends ours. `--no-window-fix` omits the
+defaults for an alternate windowing setup.
 
 Seeding writes `Config/ModsConfig.xml` (two mods, `knownExpansions` naming all
 five) only if absent; `--reset` overwrites. Two traps:

@@ -31,6 +31,10 @@ const EXPANSIONS: [&str; 5] = [
 
 const EXE: &str = "RimWorldLinux";
 
+/// The popup/OpenGL combination lets the mod manage fullscreen through the X11 window
+/// manager instead of Unity's Linux fullscreen path, which can freeze during Alt+Tab.
+const DEFAULT_GAME_ARGS: &[&str] = &["-popupwindow", "-screen-fullscreen", "0", "-force-opengl"];
+
 const USAGE: &str = "\
 slopworld - launch RimWorld into the SlopWorld profile
 
@@ -42,10 +46,11 @@ options:
                    (default $SLOPWORLD_PROFILE, then $XDG_DATA_HOME/slopworld/profile)
   --reset          rewrite the profile's mod list, discarding what is there
   --print          print the argv this would run, and run nothing
+  --no-window-fix  omit SlopWorld's default X11/OpenGL window arguments
   -h, --help       this
 
-Anything else is passed to the game, so `slopworld -popupwindow` works. A `--`
-ends our options for good, for a game argument that looks like one of ours.
+Anything else is passed to the game. A `--` ends our options for good, for a game
+argument that looks like one of ours.
 ";
 
 fn main() -> ExitCode {
@@ -105,7 +110,7 @@ fn run() -> Result<ExitCode, String> {
 
     seed(&profile, args.reset)?;
 
-    let argv = game_argv(&game, &profile, &args.rest);
+    let argv = game_argv(&game, &profile, &args.rest, args.no_window_fix);
     if args.print {
         for a in &argv {
             println!("{a}");
@@ -226,6 +231,7 @@ struct Args {
     profile: Option<String>,
     reset: bool,
     print: bool,
+    no_window_fix: bool,
     /// Passed on untouched.
     rest: Vec<String>,
 }
@@ -255,6 +261,7 @@ fn parse(args: &[String]) -> Result<Option<Args>, String> {
             "--profile" => out.profile = Some(value(&mut it)?),
             "--reset" => out.reset = true,
             "--print" => out.print = true,
+            "--no-window-fix" => out.no_window_fix = true,
             "--" => {
                 out.rest.extend(it.cloned());
                 break;
@@ -377,11 +384,14 @@ fn mods_config_xml() -> String {
     s
 }
 
-fn game_argv(game: &Path, profile: &Path, rest: &[String]) -> Vec<String> {
+fn game_argv(game: &Path, profile: &Path, rest: &[String], no_window_fix: bool) -> Vec<String> {
     let mut argv = vec![
         game.join(EXE).to_string_lossy().into_owned(),
         format!("-savedatafolder={}", profile.display()),
     ];
+    if !no_window_fix {
+        argv.extend(DEFAULT_GAME_ARGS.iter().map(|arg| (*arg).to_string()));
+    }
     argv.extend(rest.iter().cloned());
     argv
 }
@@ -433,6 +443,32 @@ mod tests {
     fn the_games_arguments_are_passed_through() {
         let a = parsed(&["-popupwindow", "-force-opengl"]);
         assert_eq!(a.rest, vec!["-popupwindow", "-force-opengl"]);
+    }
+
+    #[test]
+    fn the_window_fix_is_enabled_by_default() {
+        let a = game_argv(Path::new("/g"), Path::new("/p"), &[], false);
+        assert_eq!(
+            a,
+            vec![
+                "/g/RimWorldLinux",
+                "-savedatafolder=/p",
+                "-popupwindow",
+                "-screen-fullscreen",
+                "0",
+                "-force-opengl"
+            ]
+        );
+    }
+
+    #[test]
+    fn the_window_fix_can_be_disabled() {
+        let a = parsed(&["--no-window-fix"]);
+        assert!(a.no_window_fix);
+        assert_eq!(
+            game_argv(Path::new("/g"), Path::new("/p"), &[], a.no_window_fix),
+            vec!["/g/RimWorldLinux", "-savedatafolder=/p"]
+        );
     }
 
     /// A typo forwarded to the game is a profile that silently was not used.
@@ -532,10 +568,19 @@ mod tests {
             Path::new("/g"),
             Path::new("/p"),
             &["-popupwindow".to_string()],
+            false,
         );
         assert_eq!(
             argv,
-            vec!["/g/RimWorldLinux", "-savedatafolder=/p", "-popupwindow"]
+            vec![
+                "/g/RimWorldLinux",
+                "-savedatafolder=/p",
+                "-popupwindow",
+                "-screen-fullscreen",
+                "0",
+                "-force-opengl",
+                "-popupwindow"
+            ]
         );
     }
 
