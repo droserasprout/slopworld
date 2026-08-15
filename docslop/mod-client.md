@@ -18,4 +18,4 @@ The settings pages use `PUT /api/config/patch` with nested partial JSON. A field
 missing from the client remains untouched in `config.toml`, so adding a daemon
 setting no longer requires adding a hidden round-trip field to the mod.
 
-The mod's connection is resolved from the daemon's `endpoint.json` descriptor.
+The mod's connection is resolved from the daemon's `endpoint.toml` descriptor.

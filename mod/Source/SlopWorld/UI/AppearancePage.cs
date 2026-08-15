@@ -162,8 +162,7 @@ namespace SlopWorld
             SlopWidgets.SectionHeading(l, "Statusbar");
             bool u = SlopWidgets.Checkbox(l, "Show Usage in statusbar", S.statusbarUsage,
                 "Show quota readouts in the top statusbar.");
-            string clockPosition = StatusbarClockMode.Normalize(
-                S.statusbarClockPosition, S.statusbarClock);
+            string clockPosition = StatusbarClockMode.Normalize(S.statusbarClockPosition);
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     $"Clock position: {StatusbarClockMode.Label(clockPosition)}"))
             {
@@ -203,8 +202,6 @@ namespace SlopWorld
         static void SetClockPosition(string position)
         {
             S.statusbarClockPosition = position;
-            // Keep the old flag in sync for profiles written by the previous version.
-            S.statusbarClock = position != StatusbarClockMode.Hidden;
             S.MarkDirty();
         }
 

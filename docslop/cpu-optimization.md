@@ -13,7 +13,7 @@ Implemented hot-path reductions in the C# mod:
 These came from tracing `Root.Update`, component update/tick, and `OnGUI` paths.
 Treat the list as implementation history, not a current profile: measure before
 doing more. The remaining broad candidates are sidebar layout rebuilding, terminal
-parsing allocations, and `Endpoint.Resolve`, which reads and parses `endpoint.json`
+parsing allocations, and `Endpoint.Resolve`, which reads and parses `endpoint.toml`
 on every `Settings.Connection` and so runs from `SlopWidgets.Status` per event.
 
 Load time rather than frame time is [startup-time](startup-time.md).

@@ -44,7 +44,7 @@ grant = token  +  which sessions  +  level (ro | rw)
 
 A granted agent needs slopd's address and token at spawn time, via environment or a
 pre-`exec` file; a running sandbox cannot receive new environment variables. Injection
-into an already-running agent needs a daemon-written bound file. `endpoint.json` remains
+into an already-running agent needs a daemon-written bound file. `endpoint.toml` remains
 the mod's URL+token handoff.
 
 When the sandbox loses host loopback, use a **Unix socket bound only into granted sandboxes**;

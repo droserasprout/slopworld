@@ -1,7 +1,7 @@
 # Agent task mailboxes
 
 `slopctl` is the product-neutral delegation interface. `slopd` owns a durable
-`tasks.json` beside `config.toml`; sandboxes never share or edit that file.
+`tasks.toml` beside `config.toml`; sandboxes never share or edit that file.
 
 ```
 slopctl delegate AGENT TASK...
@@ -31,9 +31,9 @@ global and renders the shaped answer rather than the raw reply - a filtered task
 a name list, a status object - so a script gets what the reader got. Removal is
 shared, because the store holds one copy of a task and not one per side: a participant
 drops only what has stopped moving, the root reaches a task still in flight, and
-`prune --all` (root) is what stops `tasks.json` being append-only.
+`prune --all` (root) is what stops `tasks.toml` being append-only.
 
-The CLI reads `endpoint.json`, or `SLOPD_URL` and `SLOPD_TOKEN` when a scoped endpoint
+The CLI reads `endpoint.toml`, or `SLOPD_URL` and `SLOPD_TOKEN` when a scoped endpoint
 is injected. The latter is the seam for the Unix socket/private-network work described
 in [agent-grants](agent-grants.md): task IPC is built, but binding a daemon socket and
 credential into private sandboxes is not. Until then this works from the host and from

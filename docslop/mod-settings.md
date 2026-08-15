@@ -1,13 +1,12 @@
 # `SlopSettings`
 
 `SlopSettings` is RimWorld install/profile state, reached through the static `Settings`
-shim. It is written to `Config/Mod_SlopWorld_SlopWorldMod.xml` with `Scribe_Values`;
-it is not the daemon's machine-wide `config.toml`.
+shim. It is written to `Config/SlopWorld.toml`; it is not the daemon's machine-wide
+`config.toml`.
 
 The fields cover connection, sidebar state, quota display, terminal/UI fonts and
 themes, cursor, radio, status-bar readouts, Grandma mode and Eco mode. Adding one
-requires a field, `Scribe_Values.Look`, a shim property and a widget. Scribe omits
-defaults, so an otherwise empty settings element is valid.
+requires a field, a TOML read/write entry, a shim property and a widget.
 
 ## Fields without a Settings-page widget
 
@@ -18,8 +17,7 @@ selects left versus spent quota globally. `radio` is selected by the map jukebox
 mute and stop-on-exit are also exposed on Audio. Status-bar flags only hide readouts
 and doors; they do not disable polling, audio or map objects.
 
-`statusbarClockPosition` is `right`, `center` or `hidden`; the old `statusbarClock` boolean
-is retained as a compatibility read for profiles written before placement was added.
+`statusbarClockPosition` is `right`, `center` or `hidden`.
 
 `sidebar` is the layout mode, not daemon configuration. It is changed from the
 configuration page and gear menu, while that page's Save button belongs to the daemon
@@ -28,10 +26,10 @@ reset, restore and delete actions.
 
 ## Writing and invalidation
 
-The connection comes from `endpoint.json`. `AppearancePage` edits the global interface
+The connection comes from `endpoint.toml`. `AppearancePage` edits the global interface
 settings and `TerminalPage` edits pane settings; `ConfigPage` edits daemon configuration.
-Mod settings are written once in `PostClose` by `ModSettings.Write`, not through
-`Mod.WriteSettings`, because the latter reconnects.
+Mod settings are written atomically by `SlopSettings.Write`, including when the vanilla
+settings dialog closes through `SlopWorldMod.WriteSettings`.
 
 Font or size changes invalidate `TerminalFont`; terminal scheme changes invalidate
 `TerminalTheme`. Cursor and UI scheme resolve on read and need no cache invalidation.

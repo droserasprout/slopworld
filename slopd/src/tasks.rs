@@ -53,9 +53,9 @@ pub struct Tasks {
 
 impl Tasks {
     pub fn load(config: &Path) -> Result<Self> {
-        let path = config.with_file_name("tasks.json");
+        let path = config.with_file_name("tasks.toml");
         let file = match fs::read_to_string(&path) {
-            Ok(s) => match serde_json::from_str(&s) {
+            Ok(s) => match toml::from_str(&s) {
                 Ok(file) => file,
                 Err(e) => {
                     tracing::warn!("ignoring invalid task store {}: {e}", path.display());
@@ -75,11 +75,12 @@ impl Tasks {
             .filter_map(|(_, suffix)| u64::from_str_radix(suffix, 16).ok())
             .max()
             .unwrap_or(0);
-        Ok(Self {
+        let tasks = Self {
             path,
             file,
             sequence,
-        })
+        };
+        Ok(tasks)
     }
 
     pub fn create(&mut self, from: String, to: String, body: String) -> Result<Task> {
@@ -181,8 +182,8 @@ impl Tasks {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let tmp = self.path.with_extension("json.tmp");
-        fs::write(&tmp, serde_json::to_vec_pretty(&self.file)?)?;
+        let tmp = self.path.with_extension("toml.tmp");
+        fs::write(&tmp, toml::to_string_pretty(&self.file)?)?;
         fs::rename(&tmp, &self.path).with_context(|| format!("installing {}", self.path.display()))
     }
 }
@@ -266,7 +267,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let config = dir.join("config.toml");
-        fs::write(dir.join("tasks.json"), "{").unwrap();
+        fs::write(dir.join("tasks.toml"), "[").unwrap();
         assert!(Tasks::load(&config).unwrap().visible("anyone").is_empty());
 
         let mut tasks = Tasks::load(&config).unwrap();

@@ -16,18 +16,20 @@ pub fn path() -> PathBuf {
         .unwrap_or_else(|_| {
             dirs::config_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
-                .join("slopworld/endpoint.json")
+                .join("slopworld/endpoint.toml")
         })
 }
 
 pub fn write(bind: &str, token: &str) -> Result<()> {
+    let path = path();
     write_endpoint(
-        &path(),
+        &path,
         &Endpoint {
             url: url_for(bind),
             token: token.to_string(),
         },
-    )
+    )?;
+    Ok(())
 }
 
 /// Update only the secret after a live config edit. The listener's address is fixed until
@@ -40,7 +42,7 @@ pub fn update_token(token: &str) -> Result<()> {
     }
     let text = std::fs::read_to_string(&path)
         .with_context(|| format!("reading endpoint descriptor {}", path.display()))?;
-    let mut endpoint: Endpoint = serde_json::from_str(&text)
+    let mut endpoint: Endpoint = toml::from_str(&text)
         .with_context(|| format!("parsing endpoint descriptor {}", path.display()))?;
     endpoint.token = token.to_string();
     write_endpoint(&path, &endpoint)
@@ -55,8 +57,8 @@ fn write_endpoint(path: &Path, endpoint: &Endpoint) -> Result<()> {
         std::fs::create_dir_all(parent)?;
     }
 
-    let text = serde_json::to_string_pretty(endpoint)?;
-    let tmp = path.with_extension("json.tmp");
+    let text = toml::to_string_pretty(endpoint)?;
+    let tmp = path.with_extension("toml.tmp");
     std::fs::write(&tmp, text).with_context(|| format!("writing {}", tmp.display()))?;
 
     #[cfg(unix)]
@@ -91,7 +93,7 @@ fn url_for(bind: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::url_for;
+    use super::{url_for, Endpoint};
 
     #[test]
     fn loopback_url_is_written_for_wildcard_binds() {
@@ -102,5 +104,17 @@ mod tests {
     #[test]
     fn ipv6_urls_are_bracketed() {
         assert_eq!(url_for("[::1]:7717"), "http://[::1]:7717");
+    }
+
+    #[test]
+    fn descriptor_round_trips_through_toml() {
+        let endpoint = Endpoint {
+            url: "http://127.0.0.1:7717".into(),
+            token: "quotes \" and slash \\".into(),
+        };
+        let text = toml::to_string_pretty(&endpoint).unwrap();
+        let back: Endpoint = toml::from_str(&text).unwrap();
+        assert_eq!(back.url, endpoint.url);
+        assert_eq!(back.token, endpoint.token);
     }
 }

@@ -285,10 +285,9 @@ namespace SlopWorld
             }
         }
 
-        // The like list is deliberately separate from ModSettings: it belongs to the
-        // machine's music collection rather than to one RimWorld profile. One line per
-        // action keeps the file useful to the small tools that consume it, and the name is
-        // already in the artist-title shape the station metadata was normalized to above.
+        // The like list is deliberately separate from profile settings: it belongs to the
+        // machine's music collection rather than to one RimWorld profile. One TOML table per
+        // action keeps the file append-friendly while remaining readable by other tools.
         public static void Like()
         {
             string now = NowPlaying;
@@ -304,7 +303,10 @@ namespace SlopWorld
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
                 string stamp = DateTime.UtcNow.ToString(
                     "yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
-                File.AppendAllText(path, stamp + "\t" + now + Environment.NewLine);
+                File.AppendAllText(path,
+                    "[[like]]" + Environment.NewLine +
+                    "at = " + Toml.Quote(stamp) + Environment.NewLine +
+                    "title = " + Toml.Quote(now) + Environment.NewLine + Environment.NewLine);
                 Messages.Message($"Jukebox: liked {now}", MessageTypeDefOf.TaskCompletion, false);
             }
             catch (Exception e)

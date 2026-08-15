@@ -5,12 +5,12 @@ Where each half keeps its knobs, and the three places they rub. See
 
 | | Daemon | Mod |
 | --- | --- | --- |
-| File | `~/.config/slopworld/config.toml` | `<profile>/Config/Mod_SlopWorld_SlopWorldMod.xml` |
-| Path from | `dirs::config_dir()`, `SLOPD_CONFIG` overrides | the profile, named for the mod folder and the `Mod` subclass |
-| Format | TOML, one `toml::from_str` | RimWorld `Scribe_Values` |
+| File | `~/.config/slopworld/config.toml` | `<profile>/Config/SlopWorld.toml` |
+| Path from | `dirs::config_dir()`, `SLOPD_CONFIG` overrides | `GenFilePaths.SaveDataFolderPath` |
+| Format | TOML, one `toml::from_str` | TOML, flat scalar settings |
 | Scope | this **machine** | this **install** |
-| Written by | `Config::save`, and the HTTP routes | `ModSettings.Write` in `PostClose` |
-| Sidecar | `presets/*.toml` (`SLOPD_PRESETS`), `jukebox/*.toml` (`SLOPD_JUKEBOX`), `endpoint.json` (`SLOPD_ENDPOINT`) | none; the mod mirrors the daemon catalog |
+| Written by | `Config::save`, and the HTTP routes | `SlopSettings.Write` |
+| Sidecar | `presets/*.toml` (`SLOPD_PRESETS`), `jukebox/*.toml` (`SLOPD_JUKEBOX`), `endpoint.toml` (`SLOPD_ENDPOINT`), `tasks.toml`, `prompt-summaries.toml` | none; the mod mirrors the daemon catalog |
 
 The mod does not open daemon TOML. It uses HTTP (`GET /api/config`,
 `PUT /api/config/patch`), the raw-text route, and per-list routes. `slopd` reads
@@ -20,13 +20,13 @@ and sends only station/stream keys. See [wire-protocol](wire-protocol.md),
 
 ## Where it rubs
 
-1. **Endpoint:** the daemon atomically writes `endpoint.json` (`0600`) with `url`
+1. **Endpoint:** the daemon atomically writes `endpoint.toml` (`0600`) with `url`
    and `token`; the mod reads it instead of storing another connection config.
 2. **Patches:** settings pages send their read-model fields; the daemon deep-merges,
    validates TOML, and replaces the file atomically, preserving unknown fields.
 3. **Read model:** `SlopConfig` contains fields used by config, Commands, and usage
    pages, not endpoint, project, session, state-rule, or sandbox-preset data.
-4. **Lifetime:** daemon TOML survives profile rebuilds; mod settings remain editable
+4. **Lifetime:** daemon TOML survives profile rebuilds; profile TOML settings remain editable
    while the socket is down.
 
 Network policy is daemon-owned: `project.network` is the ceiling and
