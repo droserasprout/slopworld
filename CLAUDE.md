@@ -39,6 +39,5 @@ that depend on host `pgrep`/uptime, and two in `sandbox::` that assert on a sess
 name where the code now uses a `state_id` uuid. Compare counts against a clean tree
 rather than assuming a regression.
 
-`make mod` may fail with `tail: cannot open '/noconfig'` on a machine whose msbuild
-resolves the Roslyn compiler wrongly. `csc` with a response file compiles the same
-sources and is enough to check a C# change.
+`make mod` uses direct Mono `csc` because this machine's msbuild can resolve the
+Roslyn compiler wrongly; override `CSC` or `CSC_API` when those paths differ.

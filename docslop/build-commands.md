@@ -11,7 +11,7 @@ the release build. Suffixed targets are aliases. Both builds write
 | --- | --- |
 | `all` | Both halves. |
 | `daemon` | `cargo build` in `slopd/`, `--release` under `BUILD=release`. |
-| `mod` | msbuild into `mod/Assemblies/SlopWorld.dll`. |
+| `mod` | Direct Mono `csc` into `mod/Assemblies/SlopWorld.dll`. |
 | `test` | `cargo test`. The mod has no harness; it needs the game. |
 | `format` / `lint` | Both halves; `-daemon` and `-mod` variants exist. |
 | `install` | `install-daemon` (binary, unit, restart), `install-runner`, `install-mod`. |
@@ -45,8 +45,9 @@ emits newline-delimited objects for scripts.
 
 For C#, run `dotnet format` in folder mode with whitespace-only changes;
 `.editorconfig` preserves single-line statements. It needs SDK reference
-assemblies, while the mod compiler uses mono: `format-mod` stops without an SDK,
-and `lint-mod` still runs compiler warnings.
+assemblies, while the mod compiler uses direct Mono `csc`: `format-mod` stops without
+an SDK, and `lint-mod` still runs compiler warnings. Override `CSC` or `CSC_API` when
+the compiler or Mono reference assemblies live elsewhere.
 
 ## Diagnostics
 

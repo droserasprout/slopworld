@@ -21,11 +21,28 @@ PROFILE    ?=
 # Which half of the split every build, install and run target follows.
 BUILD      ?= debug
 CARGOFLAGS  = $(if $(filter release,$(BUILD)),--release)
-CONFIG      = $(if $(filter release,$(BUILD)),Release,Debug)
 TARGET      = slopd/target/$(BUILD)
 RUNNER      = $(TARGET)/slopworld
 SLOPCTL     = $(TARGET)/slopctl
-CSPROJ      = mod/Source/SlopWorld/SlopWorld.csproj
+CSC         ?= csc
+CSC_API     ?= /usr/lib/mono/4.7.2-api
+CSC_SOURCES := $(shell find mod/Source/SlopWorld -type f -name '*.cs' -not -path '*/obj/*' -print | sort)
+CSC_REFS    = \
+	-r:"$(CSC_API)/mscorlib.dll" \
+	-r:"$(CSC_API)/Facades/netstandard.dll" \
+	-r:"$(CSC_API)/System.dll" \
+	-r:"$(CSC_API)/System.Core.dll" \
+	-r:"$(CSC_API)/System.Xml.dll" \
+	-r:mod/Assemblies/0Harmony.dll \
+	-r:mod/Assemblies/Markdig.dll \
+	-r:"$(MANAGED)/Assembly-CSharp.dll" \
+	-r:"$(MANAGED)/UnityEngine.CoreModule.dll" \
+	-r:"$(MANAGED)/UnityEngine.IMGUIModule.dll" \
+	-r:"$(MANAGED)/UnityEngine.TextRenderingModule.dll" \
+	-r:"$(MANAGED)/UnityEngine.InputLegacyModule.dll" \
+	-r:"$(MANAGED)/UnityEngine.ImageConversionModule.dll"
+CSC_OPTIMIZE = $(if $(filter release,$(BUILD)),-optimize+,)
+CSC_WARNINGS ?=
 
 
 help:              ## Show this help (default)
@@ -42,8 +59,11 @@ daemon:            ## Build the daemon and the launcher
 	cd slopd && cargo build $(CARGOFLAGS)
 
 mod:               ## Build the mod against the game's assemblies
-	cd mod/Source/SlopWorld && msbuild -restore -v:minimal -p:Configuration=$(CONFIG) \
-		-p:RimWorldManaged="$(MANAGED)" SlopWorld.csproj
+	@test -f "$(CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(CSC_API)" >&2; exit 1; }
+	@test -f "$(MANAGED)/Assembly-CSharp.dll" || { echo "missing RimWorld assemblies under $(MANAGED)" >&2; exit 1; }
+	$(CSC) -nologo -noconfig -target:library -langversion:latest \
+		-out:mod/Assemblies/SlopWorld.dll $(CSC_OPTIMIZE) $(CSC_WARNINGS) \
+		$(CSC_REFS) $(CSC_SOURCES)
 
 ##
 
@@ -111,9 +131,7 @@ lint-daemon:       ## Check the daemon's formatting, then clippy, warnings as er
 	cd slopd && cargo clippy --all-targets -- -D warnings
 
 lint-mod:          ## Build the mod with warnings as errors, then check its formatting
-	cd mod/Source/SlopWorld && msbuild -restore -v:minimal -t:Rebuild \
-		-p:Configuration=Release -p:RimWorldManaged="$(MANAGED)" \
-		-p:TreatWarningsAsErrors=true SlopWorld.csproj
+	$(MAKE) BUILD=release CSC_WARNINGS=-warnaserror mod
 	dotnet format whitespace mod/Source/SlopWorld --folder --exclude obj --verify-no-changes;
 
 ##
