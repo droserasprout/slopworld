@@ -441,96 +441,122 @@ namespace SlopWorld
 
         internal void HandleMouse(Rect body, Event e)
         {
-            // The pane's own in every mode, whatever the app asked for: the menu has to be
-            // reachable from inside a full-screen TUI.
-            if (e.button == 1)
+            // The pane's own menu is reachable in every mode, including a full-screen TUI.
+            if (IsContextMenuEvent(e))
             {
-                if (e.type == EventType.MouseDown && body.Contains(e.mousePosition))
-                    OpenMenu(LinkUnder(body, e.mousePosition));
+                if (IsMouseDownInside(body, e)) OpenMenu(LinkUnder(body, e.mousePosition));
                 e.Use();
                 return;
             }
 
-            // Ahead of everything else a press does: a URL printed inside a TUI is over
-            // something that wants the mouse as often as not.
-            if (e.type == EventType.MouseDown && e.button == 0 && e.control)
+            // A URL printed inside a TUI is over something that wants the mouse as often as
+            // not, so Ctrl+click takes precedence over app mouse reporting.
+            if (IsLinkClick(body, e))
             {
-                string url = LinkUnder(body, e.mousePosition);
-                if (url != null)
-                {
-                    OpenUrl(url);
-                    e.Use();
-                    return;
-                }
-            }
-
-            // A double-click is the terminal's word gesture even when the app reports mouse
-            // clicks. Keeping it ahead of forwarding also leaves the second press armed for a
-            // drag, which is how a multi-line word selection starts.
-            if (e.type == EventType.MouseDown && e.button == 0 && e.clickCount >= 2 &&
-                body.Contains(e.mousePosition))
-            {
-                var cell = CellAt(body, e.mousePosition);
-                if (e.clickCount >= 3) TripleClickSelect(cell.y);
-                else DoubleClickSelect(cell);
+                OpenUrl(LinkUnder(body, e.mousePosition));
                 e.Use();
                 return;
             }
 
-            // Shift forces our own selection, like a real terminal.
+            // Double-click is the terminal's word gesture even when the app reports clicks.
+            if (IsWordSelection(body, e))
+            {
+                SelectClickedWord(body, e);
+                e.Use();
+                return;
+            }
+
             var live = SessionHub.Instance.Screen(_name);
-            if (live != null && live.AppMouse && !e.shift && HandleMouseForward(body, e))
-                return;
+            // Shift forces our own selection, like a real terminal.
+            if (ShouldForwardMouse(live, e) && HandleMouseForward(body, e)) return;
+            if (!IsPrimaryMouse(e)) return;
 
-            if (e.button != 0) return;
+            HandleSelectionMouse(body, e);
+        }
 
+        static bool IsContextMenuEvent(Event e) => e.button == 1;
+
+        static bool IsMouseDownInside(Rect body, Event e) =>
+            e.type == EventType.MouseDown && body.Contains(e.mousePosition);
+
+        bool IsLinkClick(Rect body, Event e) =>
+            e.type == EventType.MouseDown && e.button == 0 && e.control &&
+            body.Contains(e.mousePosition) && LinkUnder(body, e.mousePosition) != null;
+
+        static bool IsWordSelection(Rect body, Event e) =>
+            e.type == EventType.MouseDown && e.button == 0 && e.clickCount >= 2 &&
+            body.Contains(e.mousePosition);
+
+        static bool ShouldForwardMouse(ScreenBuf live, Event e) =>
+            live != null && live.AppMouse && !e.shift;
+
+        static bool IsPrimaryMouse(Event e) => e.button == 0;
+
+        void SelectClickedWord(Rect body, Event e)
+        {
+            var cell = CellAt(body, e.mousePosition);
+            if (e.clickCount >= 3) TripleClickSelect(cell.y);
+            else DoubleClickSelect(cell);
+        }
+
+        void HandleSelectionMouse(Rect body, Event e)
+        {
             switch (e.type)
             {
                 case EventType.MouseDown:
-                {
-                    if (!body.Contains(e.mousePosition)) return;
-                    var cell = CellAt(body, e.mousePosition);
-
-                    _selA = _selB = cell;
-                    _dragging = true;
-                    _wordDragging = false;
-                    _hasSel = false;
-                    e.Use();
+                    BeginSelection(body, e);
                     return;
-                }
-
                 case EventType.MouseDrag:
-                    if (!_dragging) return;
-                    var dragCell = CellAt(body, e.mousePosition);
-                    if (_wordDragging) UpdateWordSelection(dragCell);
-                    else
-                    {
-                        _selB = dragCell;
-                        _hasSel = _selA != _selB;
-                    }
-                    e.Use();
+                    ContinueSelection(body, e);
                     return;
-
                 case EventType.MouseUp:
-                    if (!_dragging) return;
-                    var upCell = CellAt(body, e.mousePosition);
-                    if (_wordDragging)
-                    {
-                        UpdateWordSelection(upCell);
-                        _wordDragging = false;
-                        _dragging = false;
-                        if (_hasSel) CopySelection();
-                    }
-                    else
-                    {
-                        _dragging = false;
-                        _selB = upCell;
-                        if (_selA != _selB) { _hasSel = true; CopySelection(); }
-                        else _hasSel = false;
-                    }
-                    e.Use();
+                    FinishSelection(body, e);
                     return;
             }
+        }
+
+        void BeginSelection(Rect body, Event e)
+        {
+            if (!body.Contains(e.mousePosition)) return;
+            _selA = _selB = CellAt(body, e.mousePosition);
+            _dragging = true;
+            _wordDragging = false;
+            _hasSel = false;
+            e.Use();
+        }
+
+        void ContinueSelection(Rect body, Event e)
+        {
+            if (!_dragging) return;
+            var cell = CellAt(body, e.mousePosition);
+            if (_wordDragging) UpdateWordSelection(cell);
+            else
+            {
+                _selB = cell;
+                _hasSel = _selA != _selB;
+            }
+            e.Use();
+        }
+
+        void FinishSelection(Rect body, Event e)
+        {
+            if (!_dragging) return;
+            var cell = CellAt(body, e.mousePosition);
+            if (_wordDragging)
+            {
+                UpdateWordSelection(cell);
+                _wordDragging = false;
+                _dragging = false;
+                if (_hasSel) CopySelection();
+            }
+            else
+            {
+                _dragging = false;
+                _selB = cell;
+                if (_selA != _selB) { _hasSel = true; CopySelection(); }
+                else _hasSel = false;
+            }
+            e.Use();
         }
 
         // An app in click-reporting mode (Claude Code is one) said nothing about motion, so a
@@ -582,6 +608,66 @@ namespace SlopWorld
         }
 
         void JumpToLive() { _scrollOff = 0; _wantedScrollOff = 0; _scrollPending = false; _nextScrollSend = 0f; }
+
+        void Flush()
+        {
+            if (_literal.Length == 0) return;
+            SessionHub.Instance.SendKeys(_name, new[] { _literal.ToString() }, true);
+            _literal.Length = 0;
+        }
+
+        static string MapKey(Event e, bool altScreen)
+        {
+            // Use tmux's modifier names; Shift is forwarded only on the alt screen because
+            // shells do not define the corresponding xterm sequences.
+            string mod = "";
+            if (e.control) mod += "C-";
+            if (e.alt) mod += "M-";
+            if (e.shift && altScreen) mod += "S-";
+
+            switch (e.keyCode)
+            {
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter: return "Enter";
+                case KeyCode.Escape: return "Escape";
+                case KeyCode.Backspace: return "BSpace";
+                case KeyCode.Tab: return e.shift ? "BTab" : "Tab";
+                case KeyCode.UpArrow: return mod + "Up";
+                case KeyCode.DownArrow: return mod + "Down";
+                case KeyCode.LeftArrow: return mod + "Left";
+                case KeyCode.RightArrow: return mod + "Right";
+                case KeyCode.Home: return mod + "Home";
+                case KeyCode.End: return mod + "End";
+                case KeyCode.PageUp: return mod + "PPage";
+                case KeyCode.PageDown: return mod + "NPage";
+                case KeyCode.Delete: return mod + "DC";
+                case KeyCode.Insert: return mod + "IC";
+                case KeyCode.F1: return "F1";
+                case KeyCode.F2: return "F2";
+                case KeyCode.F3: return "F3";
+                case KeyCode.F4: return "F4";
+                case KeyCode.F5: return "F5";
+                case KeyCode.F6: return "F6";
+                case KeyCode.F7: return "F7";
+                case KeyCode.F8: return "F8";
+                case KeyCode.F9: return "F9";
+                case KeyCode.F10: return "F10";
+                case KeyCode.F11: return "F11";
+                case KeyCode.F12: return "F12";
+            }
+
+            // Ctrl+V is a paste, handled by the caller, not a key to forward.
+            if (e.control && e.keyCode == KeyCode.V) return null;
+
+            if (e.keyCode >= KeyCode.A && e.keyCode <= KeyCode.Z)
+            {
+                char c = (char)('a' + (e.keyCode - KeyCode.A));
+                if (e.control) return "C-" + c;
+                if (e.alt) return "M-" + c;
+            }
+
+            return null;
+        }
 
     }
 }
