@@ -103,18 +103,25 @@ namespace SlopWorld
                     LimitLines(agent.Limits)));
             data.Fields.Add(new SandboxPreviewField("Read-only binds", ro));
             data.Fields.Add(new SandboxPreviewField("Read-write binds", rw));
-            data.Fields.Add(new SandboxPreviewField("Device binds",
-                Merge(presets, p => p.Dev, null)));
-            data.Fields.Add(new SandboxPreviewField("Private paths",
-                Merge(presets, p => p.Private, null)));
-            data.Fields.Add(new SandboxPreviewField("Seed paths",
-                Merge(presets, p => p.Seed, null)));
-            data.Fields.Add(new SandboxPreviewField("Skip paths",
-                Merge(presets, p => p.Skip, null)));
-            data.Fields.Add(new SandboxPreviewField("Shared files",
-                Merge(presets, p => p.Shared, null)));
-            data.Fields.Add(new SandboxPreviewField("Forwarded environment",
-                Merge(presets, p => p.Env, null)));
+
+            var presetFields = new[]
+            {
+                new KeyValuePair<string, Func<PresetInfo, List<string>>>("Device binds",
+                    p => p.Dev),
+                new KeyValuePair<string, Func<PresetInfo, List<string>>>("Private paths",
+                    p => p.Private),
+                new KeyValuePair<string, Func<PresetInfo, List<string>>>("Seed paths",
+                    p => p.Seed),
+                new KeyValuePair<string, Func<PresetInfo, List<string>>>("Skip paths",
+                    p => p.Skip),
+                new KeyValuePair<string, Func<PresetInfo, List<string>>>("Shared files",
+                    p => p.Shared),
+                new KeyValuePair<string, Func<PresetInfo, List<string>>>("Forwarded environment",
+                    p => p.Env),
+            };
+            foreach (var field in presetFields)
+                data.Fields.Add(new SandboxPreviewField(field.Key,
+                    Merge(presets, field.Value, null)));
             data.Fields.Add(new SandboxPreviewField("Set environment (final)",
                 FinalEnvironment(presets)));
             return data;
