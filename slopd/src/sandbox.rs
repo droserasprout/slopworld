@@ -1754,6 +1754,7 @@ mod tests {
         let cfg = Config::default();
         let s = SessionCfg {
             name: "a".into(),
+            state_id: "a".into(),
             project: "p".into(),
             command: "claude".into(),
             ..Default::default()
@@ -1788,6 +1789,7 @@ mod tests {
         let cfg = Config::default();
         let s = SessionCfg {
             name: "a".into(),
+            state_id: "a".into(),
             project: "p".into(),
             command: "claude".into(),
             ..Default::default()
