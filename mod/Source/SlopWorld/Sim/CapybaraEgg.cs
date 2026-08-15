@@ -12,8 +12,8 @@ namespace SlopWorld
         const float BubbleSeconds = 3f;
         // Keep the flag close to the capybara's on-map footprint rather than making a large
         // Keep it easy to miss at a glance and visibly floating above the capybara.
-        const float FlagSize = 12f;
-        const float FlagLift = 36f;
+        const float FlagSize = 24f;
+        const float FlagLift = 48f;
 
         readonly HashSet<Pawn> _immune = new HashSet<Pawn>();
         Pawn _bubblePawn;

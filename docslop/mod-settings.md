@@ -4,9 +4,10 @@
 shim. It is written to `Config/SlopWorld.toml`; it is not the daemon's machine-wide
 `config.toml`.
 
-The fields cover connection, sidebar state, quota display, terminal/UI fonts and
-themes, cursor, radio, status-bar readouts, Grandma mode and Eco mode. Adding one
-requires a field, a TOML read/write entry, a shim property and a widget.
+The fields cover connection, sidebar state, command-palette history, quota display,
+terminal/UI fonts and themes, cursor, radio, status-bar readouts, Grandma mode and
+Eco mode. Adding one requires a field, a TOML read/write entry, a shim property and
+a widget unless it is a screen cache such as command-palette history.
 
 ## Fields without a Settings-page widget
 
@@ -16,6 +17,9 @@ the current screen and must remain readable when the daemon is offline. `usageSp
 selects left versus spent quota globally. `radio` is selected by the map jukebox;
 mute and stop-on-exit are also exposed on Audio. Status-bar flags only hide readouts
 and doors; they do not disable polling, audio or map objects.
+
+Command-palette history stores up to eight command IDs, newest first, in the mod profile;
+the palette drops IDs that are no longer in its catalogue when it loads.
 
 `statusbarClockPosition` is `right`, `center` or `hidden`.
 
