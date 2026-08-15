@@ -26,7 +26,7 @@ namespace SlopWorld
             public bool Expanded = true; // a change tree is small, so it opens showing everything
             public List<Node> Kids;
             public string Status;       // the porcelain pair, files only
-            public int Added = -1;      // -1 is "git counted none": binary, or untracked
+            public int Added = -1;      // -1 is "git counted none": a binary file
             public int Deleted = -1;
             public int Depth;
         }
@@ -66,8 +66,10 @@ namespace SlopWorld
         static readonly SmoothScroll _scroll = new SmoothScroll();
 
         // The change the reader is looking at, and the ephemeral session paging its diff.
+        // The project is part of the identity because two repositories can have the same path.
         // `_selected` is what the tree highlights; `Viewer` is who is showing it.
         static string _selected;
+        static string _selectedProject;
         static readonly Pager Viewer = new Pager();
 
         // And which of the two things about that change it is showing: the diff, or the file
@@ -153,6 +155,11 @@ namespace SlopWorld
                     // tree under a message about why it could not be read is two answers. The
                     // flat table goes for the same reason - the files view would otherwise
                     // offer a diff off a reading that failed.
+                    repo.IsRepo = false;
+                    repo.Root = null;
+                    repo.Branch = null;
+                    repo.Changed = repo.Added = repo.Deleted = 0;
+                    repo.Truncated = false;
                     repo.Tree = null;
                     repo.Changes.Clear();
                 });
@@ -202,8 +209,8 @@ namespace SlopWorld
                     IsDir = false,
                     Depth = at.Depth + 1,
                     Status = f["status"].AsString(),
-                    // Null where git counted nothing - a binary file, or one it has no blob
-                    // for. Kept apart from zero, which is a real count and a different row.
+                    // Null where git counted nothing - a binary file. Kept apart from zero,
+                    // which is a real count and a different row.
                     Added = f["added"].IsNull ? -1 : f["added"].AsInt(),
                     Deleted = f["deleted"].IsNull ? -1 : f["deleted"].AsInt(),
                 });
@@ -557,7 +564,7 @@ namespace SlopWorld
         static Color MarkColor(string status)
         {
             if (string.IsNullOrEmpty(status) || status == "??") return SlopWidgets.Faint;
-            if (status[0] == 'U' || (status.Length > 1 && status[1] == 'U')) return SlopWidgets.Bad;
+            if (Unmerged(status)) return SlopWidgets.Bad;
             return status[0] != ' ' ? SlopWidgets.Yes : SlopWidgets.Warn;
         }
 
@@ -565,6 +572,7 @@ namespace SlopWorld
         {
             string s = node.Status ?? "";
             if (s == "??") return "untracked";
+            if (Unmerged(s)) return "unmerged";
 
             char staged = s.Length > 0 ? s[0] : ' ';
             char worktree = s.Length > 1 ? s[1] : ' ';
@@ -572,6 +580,15 @@ namespace SlopWorld
             if (staged != ' ') parts.Add(Word(staged) + ", staged");
             if (worktree != ' ') parts.Add(Word(worktree) + " since");
             return parts.Count == 0 ? s : string.Join("; ", parts.ToArray());
+        }
+
+        // Git uses DD and AA as unmerged pairs without a U character. Keep all seven
+        // porcelain conflict pairs red and describe them as one state rather than two
+        // ordinary staged/worktree operations.
+        static bool Unmerged(string status)
+        {
+            return status == "AA" || status == "DD" || status == "AU" || status == "UD" ||
+                status == "UA" || status == "DU" || status == "UU";
         }
 
         static string Word(char c)
@@ -668,8 +685,10 @@ namespace SlopWorld
         // the pager.
         static void Open(Node node, Repo repo)
         {
-            bool same = _selected == node.Rel && _showing == RowAct.Diff;
+            bool same = _selectedProject == repo.Project && _selected == node.Rel &&
+                _showing == RowAct.Diff;
             _selected = node.Rel;
+            _selectedProject = repo.Project;
             if (!same || !Viewer.Reopen()) Diff(node, repo);
         }
 
@@ -832,6 +851,7 @@ namespace SlopWorld
                 return;
             }
             _selected = rel;
+            _selectedProject = project;
             _showing = RowAct.Diff;
             Viewer.Open(project, DiffCmd(repo, rel, status), label);
         }
@@ -839,6 +859,7 @@ namespace SlopWorld
         static void Diff(Node node, Repo repo)
         {
             _selected = node.Rel;
+            _selectedProject = repo.Project;
             _showing = RowAct.Diff;
             Viewer.Open(repo.Project, DiffCmd(repo, node.Rel, node.Status), "diff-" + node.Name);
         }
@@ -852,10 +873,10 @@ namespace SlopWorld
             string git = "git -C " + Pager.Quote(repo.Root) +
                 " -c " + Pager.Quote("core.pager=LESS=R " + Pager.PipePager) + " --paginate";
 
-            // An untracked file has no blob to diff against, and `git diff` says nothing about
-            // one. `--no-index` against the empty file is how git itself shows it: the whole
-            // file as added, colored and paged like any other diff.
-            if (status == "??")
+            // An untracked or newly added file has no useful HEAD blob to diff against.
+            // `--no-index` against the empty file shows its current contents as added; it also
+            // works for staged additions in a repository with no commit yet.
+            if (status == "??" || (status != null && status.IndexOf('A') >= 0))
                 return git + " diff --color=always --no-index -- /dev/null " + Pager.Quote(rel);
 
             // Against HEAD rather than the index or the worktree alone: what a reader means by
@@ -878,6 +899,7 @@ namespace SlopWorld
         static void ClearSelection()
         {
             _selected = null;
+            _selectedProject = null;
             _showing = RowAct.None;
         }
     }
