@@ -214,7 +214,7 @@ namespace SlopWorld
             foreach (Block child in cell)
             {
                 if (child is ParagraphBlock paragraph)
-                    AppendInlines(paragraph.Inline, runs, false, false, false, null, null);
+                    AppendInlines(paragraph.Inline, runs, new InlineStyle(), new HtmlState());
             }
             return runs;
         }
@@ -222,94 +222,61 @@ namespace SlopWorld
         List<InlineRun> ReadInlines(ContainerInline inline)
         {
             var runs = new List<InlineRun>();
-            AppendInlines(inline, runs, false, false, false, null, null);
+            AppendInlines(inline, runs, new InlineStyle(), new HtmlState());
             return runs;
         }
 
         void AppendInlines(ContainerInline container, List<InlineRun> target,
-                           bool bold, bool italic, bool code, string link, string localLink)
-        {
-            AppendInlines(container, target, bold, italic, code, false, link, localLink,
-                new HtmlState());
-        }
-
-        void AppendInlines(ContainerInline container, List<InlineRun> target,
-                           bool bold, bool italic, bool code, bool strike, string link,
-                           string localLink, HtmlState htmlState)
+                           InlineStyle style, HtmlState htmlState)
         {
             if (container == null) return;
             foreach (Inline inline in container)
             {
-                bool currentBold = bold || htmlState.Bold > 0;
-                bool currentItalic = italic || htmlState.Italic > 0;
-                bool currentCode = code || htmlState.Code > 0;
-                bool currentStrike = strike || htmlState.Strike > 0;
-                string currentLink = link ?? htmlState.Link;
-                string currentLocalLink = localLink ?? htmlState.LocalLink;
+                InlineStyle currentStyle = style.WithHtmlState(htmlState);
 
                 if (inline is LiteralInline literal)
                 {
-                    AddRun(target, HtmlDecode(literal.Content.ToString()), currentBold,
-                        currentItalic, currentCode, currentStrike, currentLink, currentLocalLink);
+                    AddRun(target, HtmlDecode(literal.Content.ToString()), currentStyle);
                 }
                 else if (inline is CodeInline codeInline)
                 {
-                    AddRun(target, codeInline.Content, currentBold, currentItalic, true,
-                        currentStrike, currentLink, currentLocalLink);
+                    AddRun(target, codeInline.Content, currentStyle.WithCode());
                 }
                 else if (inline is EmphasisInline emphasis)
                 {
                     bool strong = emphasis.DelimiterCount >= 2;
-                    AppendInlines(emphasis, target, currentBold || strong,
-                        currentItalic || !strong, currentCode, currentStrike, currentLink,
-                        currentLocalLink, htmlState);
+                    AppendInlines(emphasis, target, currentStyle.WithEmphasis(strong), htmlState);
                 }
                 else if (inline is LinkInline linkInline)
                 {
                     TryResolveLink(linkInline.Url, out var url, out var local);
-                    AppendInlines(linkInline, target, currentBold, currentItalic, currentCode,
-                        currentStrike, url ?? currentLink, local ?? currentLocalLink, htmlState);
+                    AppendInlines(linkInline, target, currentStyle.WithLink(url, local), htmlState);
                 }
                 else if (inline is AutolinkInline auto)
                 {
                     TryResolveLink(auto.Url, out var url, out var local);
-                    AddRun(target, HtmlDecode(auto.Url), currentBold, currentItalic, currentCode,
-                        currentStrike, url ?? currentLink, local ?? currentLocalLink);
+                    AddRun(target, HtmlDecode(auto.Url), currentStyle.WithLink(url, local));
                 }
                 else if (inline is TaskList task)
                 {
-                    AddRun(target, task.Checked ? "[x] " : "[ ] ", currentBold, currentItalic,
-                        currentCode, currentStrike, currentLink, currentLocalLink);
+                    AddRun(target, task.Checked ? "[x] " : "[ ] ", currentStyle);
                 }
                 else if (inline is LineBreakInline)
                 {
-                    target.Add(new InlineRun
-                    {
-                        Text = "\n",
-                        Bold = currentBold,
-                        Italic = currentItalic,
-                        Code = currentCode,
-                        Strike = currentStrike,
-                        Link = currentLink,
-                        LocalLink = currentLocalLink
-                    });
+                    AddRun(target, "\n", currentStyle);
                 }
                 else if (inline is HtmlInline html)
                 {
-                    if (!HandleHtmlTag(html.Tag, target, htmlState, currentBold, currentItalic,
-                        currentCode, currentStrike, currentLink, currentLocalLink))
-                        AddRun(target, html.Tag, currentBold, currentItalic, currentCode,
-                            currentStrike, currentLink, currentLocalLink, faint: true);
+                    if (!HandleHtmlTag(html.Tag, target, htmlState, currentStyle))
+                        AddRun(target, html.Tag, currentStyle, faint: true);
                 }
                 else if (inline is ContainerInline nested)
                 {
-                    AppendInlines(nested, target, currentBold, currentItalic, currentCode,
-                        currentStrike, currentLink, currentLocalLink, htmlState);
+                    AppendInlines(nested, target, currentStyle, htmlState);
                 }
                 else
                 {
-                    AddRun(target, inline.ToString(), currentBold, currentItalic, currentCode,
-                        currentStrike, currentLink, currentLocalLink, faint: true);
+                    AddRun(target, inline.ToString(), currentStyle, faint: true);
                 }
             }
         }
@@ -368,8 +335,7 @@ namespace SlopWorld
         }
 
         bool HandleHtmlTag(string source, List<InlineRun> target, HtmlState state,
-                           bool bold, bool italic, bool code, bool strike, string link,
-                           string localLink)
+                           InlineStyle style)
         {
             if (!TryParseHtmlTag(source, out var tag)) return false;
             if (tag.Comment) return true;
@@ -379,12 +345,12 @@ namespace SlopWorld
             {
                 var image = ParseImage(source);
                 if (image == null || tag.Closing) return false;
-                image.Bold = bold;
-                image.Italic = italic;
-                image.Code = code;
-                image.Strike = strike;
-                image.Link = link;
-                image.LocalLink = localLink;
+                image.Bold = style.Bold;
+                image.Italic = style.Italic;
+                image.Code = style.Code;
+                image.Strike = style.Strike;
+                image.Link = style.Link;
+                image.LocalLink = style.LocalLink;
                 target.Add(image);
                 return true;
             }
@@ -392,7 +358,7 @@ namespace SlopWorld
             if (name == "br")
             {
                 if (!tag.Closing)
-                    AddRun(target, "\n", bold, italic, code, strike, link, localLink);
+                    AddRun(target, "\n", style);
                 return true;
             }
 
@@ -541,21 +507,20 @@ namespace SlopWorld
             .Replace("&#39;", "'")
             .Replace("&apos;", "'");
 
-        static void AddRun(List<InlineRun> target, string text, bool bold, bool italic,
-                           bool code, bool strike, string link, string localLink,
+        static void AddRun(List<InlineRun> target, string text, InlineStyle style,
                            bool faint = false)
         {
             if (string.IsNullOrEmpty(text)) return;
             target.Add(new InlineRun
             {
                 Text = text,
-                Bold = bold,
-                Italic = italic,
-                Code = code,
-                Strike = strike,
+                Bold = style.Bold,
+                Italic = style.Italic,
+                Code = style.Code,
+                Strike = style.Strike,
                 Faint = faint,
-                Link = link,
-                LocalLink = localLink,
+                Link = style.Link,
+                LocalLink = style.LocalLink,
             });
         }
     }
