@@ -7,7 +7,7 @@ using Verse;
 namespace SlopWorld
 {
     /// <summary>
-    /// Replaces vanilla colonist cycling with <see cref="AgentSidebar.Rows"/> order, including ghosts and folds; map-layer only because a pane owns bare comma/dot.
+    /// Replaces vanilla colonist cycling with the sidebar's row order, including ghosts and folds; map-layer only because a pane owns bare comma/dot.
     /// </summary>
     [HarmonyPatch(typeof(ShortcutKeys), "ShortcutKeysOnGUI")]
     public static class Patch_ShortcutKeysOnGUI
