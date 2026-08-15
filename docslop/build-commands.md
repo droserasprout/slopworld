@@ -12,7 +12,7 @@ the release build. Suffixed targets are aliases. Both builds write
 | `all` | Both halves. |
 | `daemon` | `cargo build` in `slopd/`, `--release` under `BUILD=release`. |
 | `mod` | Direct Mono `csc` into `mod/Assemblies/SlopWorld.dll`. |
-| `test` | `cargo test`. The mod has no harness; it needs the game. |
+| `test` | `cargo test` and the game-free C# tests in `mod/Tests/`. |
 | `format` / `lint` | Both halves; `-daemon` and `-mod` variants exist. |
 | `install` | `install-daemon` (binary, unit, restart), `install-runner`, `install-mod`. |
 | `uninstall` | Undoes those three. Config and profile are left alone. |

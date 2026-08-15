@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>SlopWorld.Tests</RootNamespace>
+    <AssemblyName>SlopWorld.Tests</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Keep the tests independent of the game-bound mod assembly. -->
+    <Compile Include="../Source/SlopWorld/Client/Json.cs" Link="Source/Client/Json.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Fuzzy.cs" Link="Source/UI/Fuzzy.cs" />
+  </ItemGroup>
+
+</Project>

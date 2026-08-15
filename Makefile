@@ -85,8 +85,9 @@ mod-debug:         ## Alias for BUILD=debug mod
 mod-release:       ## Alias for BUILD=release mod
 	$(MAKE) BUILD=release mod
 
-test:              ## Run the daemon's tests; the mod needs the game
+test:              ## Run the daemon and game-free mod tests
 	cd slopd && cargo test
+	dotnet run --project mod/Tests/SlopWorld.Tests.csproj --configuration Release
 
 appicon:           ## Regenerate the app icon (robot face + wilted rose)
 	python3 tools/appicon.py
