@@ -29,10 +29,10 @@ The generated title is a `Live` override separate from the emulator's OSC title.
 view prefers the override, so an agent redraw cannot replace it. Successful summaries are cached
 in the daemon config directory as `prompt-summaries.toml` (or beside the configured
 `SLOPD_CONFIG`), with a stable prompt/model digest rather than prompt text. The cache also keeps
-the latest title for each durable session, restoring it after a daemon or agent restart and
-clearing it on a new conversation or removed ephemeral session. It keeps the newest 1024 prompt
-summaries and is written atomically with mode `0600`; a cache failure never prevents a title from
-being applied.
+the latest title for each durable session, restoring it after a daemon restart and clearing it
+when the agent stops, starts a new conversation, or is removed as an ephemeral session. It keeps
+the newest 1024 prompt summaries and is written atomically with mode `0600`; a cache failure
+never prevents a title from being applied.
 
 ## Input and conversation boundaries
 
