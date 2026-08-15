@@ -1,7 +1,6 @@
 using HarmonyLib;
 using UnityEngine;
 using Verse;
-using Exception = System.Exception;
 
 namespace SlopWorld
 {
@@ -30,22 +29,7 @@ namespace SlopWorld
             if (now < _next) return;
 
             _next = now + Minutes * 60f;
-            SaveNow();
-        }
-
-        // Save failures must not block shutdown, but skip colonies pending NextPlanet so AutoResume cannot restore a discarded map.
-        public static void SaveNow()
-        {
-            try
-            {
-                if (NextPlanet.Pending) return;
-                if (Current.ProgramState != ProgramState.Playing) return;
-                Current.Game?.autosaver?.DoAutosave();
-            }
-            catch (Exception e)
-            {
-                Log.Error($"[SlopWorld] autosave failed: {e}");
-            }
+            SaveCoordinator.SaveNow();
         }
     }
 
@@ -59,8 +43,8 @@ namespace SlopWorld
             // Tells the interceptor that this quit is programmatic (the profile's Quit
             // button), so the wantsToQuit event that fires when
             // Root.Shutdown calls Application.Quit is let through rather than intercepted.
-            QuitInterceptor.NoteProgrammaticShutdown();
-            AutoSaver.SaveNow();
+            SaveCoordinator.NoteProgrammaticShutdown();
+            SaveCoordinator.SaveNow();
         }
     }
 
@@ -69,7 +53,7 @@ namespace SlopWorld
     [HarmonyPatch(typeof(GenScene), nameof(GenScene.GoToMainMenu))]
     public static class Patch_SaveOnMainMenu
     {
-        static void Prefix() => AutoSaver.SaveNow();
+        static void Prefix() => SaveCoordinator.SaveNow();
     }
 
     [HarmonyPatch(typeof(GameDataSaveLoader),

@@ -12,20 +12,10 @@ namespace SlopWorld
         // Set before calling Root.Shutdown, so the wantsToQuit event that fires when
         // Root.Shutdown calls Application.Quit is let through instead of looping.
         static bool _shuttingDown;
-        // Set by Patch_SaveOnShutdown: a programmatic Root.Shutdown (profile Quit
-        // button) should not be intercepted by the wantsToQuit handler.
-        static bool _programmatic;
 
         public static void Register()
         {
             Application.wantsToQuit += OnWantsToQuit;
-        }
-
-        // Called by Patch_SaveOnShutdown to mark that this Root.Shutdown is from the
-        // profile Quit button and should not be intercepted.
-        public static void NoteProgrammaticShutdown()
-        {
-            _programmatic = true;
         }
 
         // Called by Unity on the main thread when the OS wants to close the window.
@@ -37,11 +27,7 @@ namespace SlopWorld
             if (_state != null || _shuttingDown) return true;
 
             // Programmatic shutdown (profile Quit button): let it through.
-            if (_programmatic)
-            {
-                _programmatic = false;
-                return true;
-            }
+            if (SaveCoordinator.ConsumeProgrammaticShutdown()) return true;
 
             _state = "pending";
             // Cancel the OS quit; the save and clean shutdown happen on the next frame.
@@ -56,7 +42,7 @@ namespace SlopWorld
             _state = null;
 
             _shuttingDown = true;
-            AutoSaver.SaveNow();
+            SaveCoordinator.SaveNow();
             Root.Shutdown();
         }
     }
