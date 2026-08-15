@@ -1407,25 +1407,9 @@ fn search_preview(text: &str, column: usize) -> String {
     out
 }
 
-/// Search one project without putting a pattern or path through a shell. `rg --json` keeps
-/// filenames and matching text unambiguous; reading it a line at a time lets the endpoint
-/// stop the process once the UI-sized answer is full rather than collecting an unbounded
-/// repository search in memory.
-async fn search(State(_m): State<Mgr>, Query(q): Query<SearchReq>) -> ApiResult {
-    use tokio::io::{AsyncBufReadExt, BufReader};
-    use tokio::process::Command;
-
-    if q.path.is_empty() {
-        return Err(err(StatusCode::BAD_REQUEST, "no path"));
-    }
-    if q.q.is_empty() {
-        return Err(err(StatusCode::BAD_REQUEST, "no query"));
-    }
-
-    let dir = std::path::PathBuf::from(crate::config::expand(&q.path));
-    let limit = q.limit.unwrap_or(SEARCH_LIMIT).clamp(1, SEARCH_LIMIT);
-    let mut cmd = Command::new("rg");
-    cmd.current_dir(&dir)
+fn build_rg_command(path: &std::path::Path, q: &SearchReq) -> tokio::process::Command {
+    let mut cmd = tokio::process::Command::new("rg");
+    cmd.current_dir(path)
         .arg("--json")
         .arg("--line-number")
         .arg("--color=never")
@@ -1456,8 +1440,27 @@ async fn search(State(_m): State<Mgr>, Query(q): Query<SearchReq>) -> ApiResult 
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
         .kill_on_drop(true);
+    cmd
+}
 
-    let mut child = cmd
+/// Search one project without putting a pattern or path through a shell. `rg --json` keeps
+/// filenames and matching text unambiguous; reading it a line at a time lets the endpoint
+/// stop the process once the UI-sized answer is full rather than collecting an unbounded
+/// repository search in memory.
+async fn search(State(_m): State<Mgr>, Query(q): Query<SearchReq>) -> ApiResult {
+    use tokio::io::{AsyncBufReadExt, BufReader};
+
+    if q.path.is_empty() {
+        return Err(err(StatusCode::BAD_REQUEST, "no path"));
+    }
+    if q.q.is_empty() {
+        return Err(err(StatusCode::BAD_REQUEST, "no query"));
+    }
+
+    let dir = std::path::PathBuf::from(crate::config::expand(&q.path));
+    let limit = q.limit.unwrap_or(SEARCH_LIMIT).clamp(1, SEARCH_LIMIT);
+
+    let mut child = build_rg_command(&dir, &q)
         .spawn()
         .map_err(|e| err(StatusCode::BAD_REQUEST, format!("could not run rg: {e}")))?;
     let stdout = child.stdout.take().ok_or_else(|| {
