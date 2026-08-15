@@ -25,12 +25,13 @@ When `host_titles` is enabled, host terminals summarize every substantive comman
 Host commands have no agent conversation boundary, so the toggle is on/off rather than
 never/once/always.
 
-The generated title is a runtime-only `Live` override separate from the emulator's OSC title.
-The session view prefers the override, so an agent redraw cannot replace it. Persistence can
-follow if titles should survive a daemon restart. Successful summaries are now cached in the
-daemon config directory as `prompt-summaries.toml` (or beside the configured `SLOPD_CONFIG`),
-with a stable prompt/model digest rather than prompt text. The cache keeps the newest 1024
-entries and is written atomically with mode `0600`; a cache failure never prevents a title from
+The generated title is a `Live` override separate from the emulator's OSC title. The session
+view prefers the override, so an agent redraw cannot replace it. Successful summaries are cached
+in the daemon config directory as `prompt-summaries.toml` (or beside the configured
+`SLOPD_CONFIG`), with a stable prompt/model digest rather than prompt text. The cache also keeps
+the latest title for each durable session, restoring it after a daemon or agent restart and
+clearing it on a new conversation or removed ephemeral session. It keeps the newest 1024 prompt
+summaries and is written atomically with mode `0600`; a cache failure never prevents a title from
 being applied.
 
 ## Input and conversation boundaries
