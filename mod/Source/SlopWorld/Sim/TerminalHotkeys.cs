@@ -18,6 +18,7 @@ namespace SlopWorld
             if (SlopDefOf.SlopCommandPalette != null && SlopDefOf.SlopCommandPalette.KeyDownEvent)
             {
                 Event.current.Use();
+                SearchView.ReleaseFocus();
                 CommandPalette.Toggle();
                 return;
             }
@@ -33,7 +34,11 @@ namespace SlopWorld
 
             // All F-keys go through one gate: bare = ours, Shift+F = agent.
             var e = Event.current;
-            if (e.type == EventType.KeyDown)
+            // A focused Unity text field marks F1 Used before this component runs. rawType
+            // retains the function-key press, so the palette still gets its chrome key while
+            // ordinary text input remains untouched by the same gate.
+            if (e.type == EventType.KeyDown
+                || (e.type == EventType.Used && e.rawType == EventType.KeyDown))
             {
                 if (TerminalWindow.HandleFunctionKey(e))
                 { e.Use(); return; }

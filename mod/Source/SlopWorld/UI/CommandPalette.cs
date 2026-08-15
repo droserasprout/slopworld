@@ -973,16 +973,40 @@ namespace SlopWorld
                 Category = "Jukebox",
                 Execute = _ => Radio.Like(),
             });
+            _commands.Add(new Entry
+            {
+                Id = "jukebox.history",
+                Name = "Jukebox: History",
+                Category = "Jukebox",
+                Execute = _ => StoragePage.EditLikes(),
+            });
 
             // Game
             if (Current.ProgramState == ProgramState.Playing)
             {
                 _commands.Add(new Entry
                 {
-                    Id = "game.quickstart",
-                    Name = "Game: Quick Start",
+                    Id = "game.new-looks",
+                    Name = "Game: New looks",
                     Category = "Game",
-                    Execute = _ => QuickStart.Queue(),
+                    Execute = _ => CoreTip.NewLooks(),
+                });
+                if (!Settings.GrandmaMode)
+                {
+                    _commands.Add(new Entry
+                    {
+                        Id = "game.kill-something",
+                        Name = "Game: Kill something",
+                        Category = "Game",
+                        Execute = _ => CoreTip.KillSomething(),
+                    });
+                }
+                _commands.Add(new Entry
+                {
+                    Id = "game.hint",
+                    Name = "Game: Hint",
+                    Category = "Game",
+                    Execute = _ => CoreTip.ShowHint(),
                 });
                 _commands.Add(new Entry
                 {
@@ -1320,8 +1344,12 @@ namespace SlopWorld
                         _recentInList++;
                     }
                 }
-                foreach (var e in _commands)
-                    if (!Listed(e)) _matches.Add(new Hit { E = e, Label = e.Name });
+                // The catalogue is authored in feature order, not category order. Group the
+                // rows after recent entries so a category such as View does not split around
+                // the settings entries that happen to be registered beside it.
+                foreach (var category in _commands.GroupBy(e => e.Category))
+                    foreach (var e in category)
+                        if (!Listed(e)) _matches.Add(new Hit { E = e, Label = e.Name });
                 return;
             }
 
