@@ -9,6 +9,9 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   Small, and wrapping changes its measurement. `RowLabel` supplies the middle anchor
   and disables wrapping; use `Widgets.Label` directly only for wrapped or top-aligned
   blocks. Shared gaps are `GapXS`, `GapS`, `GapM` and `GapL`.
+- Single-line fields, menu rows and compact row buttons use `CompactH`; the field's
+  hover/press wash is the same button wash, and `Slab` owns every text-entry background,
+  edge and focus ring. `FieldFrame`/`BareField` are the composite-input escape hatch.
 - `Slab` draws every control (fill, outline, focus ring and hairline). It is texture-free
   and snaps to the screen pixel grid; GUI-coordinate snapping seams at non-integer UI
   scales. `TerminalWindow.SyncSnap` uses the same arithmetic. Rules sit inside the
