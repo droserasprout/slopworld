@@ -9,24 +9,27 @@
 
 pkgname=slopworld
 pkgver=0.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc="RimWorld with the colony sim replaced by live AI coding agents"
 arch=('x86_64')
 url="https://github.com/droserasprout/slopworld"
 license=('custom')
-depends=('tmux' 'bubblewrap' 'highlight')
-makedepends=('cargo' 'git' 'mono')
+depends=('systemd' 'tmux' 'bubblewrap' 'passt' 'ripgrep' 'git' 'less' 'micro'
+  'highlight' 'alsa-lib')
+makedepends=('cargo' 'git' 'mono' 'lld')
 optdepends=(
   'wl-clipboard: clipboard writes under Wayland (OSC 52)'
   'xclip: clipboard writes under X11'
+  'xsel: clipboard writes under X11 (fallback)'
   'xdg-utils: opening links from the terminal pane'
 )
 provides=('slopd')
 conflicts=('slopworld-git')
 options=('!strip' '!debug')
 source=()
+install=slopworld.install
 
-: "${RIMWORLD:=$HOME/RimWorld/game}"
+: "${RIMWORLD:=$HOME/GOG Games/RimWorld/game}"
 _managed="$RIMWORLD/RimWorldLinux_Data/Managed"
 _src="$(realpath "$startdir/../..")"
 
@@ -43,7 +46,11 @@ prepare() {
   # makepkg's own directories sit inside the tree being copied, this file living
   # in it, so the copy has to be told to walk around them or it walks into
   # itself. tar rather than cp, which has no way to say that.
-  local _skip=(--exclude=./.git --exclude=./slopd/target)
+  local _skip=(
+    --exclude=./.git
+    --exclude=./slopd/target
+    '--exclude=./packaging/arch/*.pkg.tar.*'
+  )
   local _d
   for _d in "$srcdir" "$pkgdir" "$startdir"/{src,pkg}; do
     [[ $_d == "$_src"/* ]] && _skip+=("--exclude=./${_d#"$_src"/}")
@@ -74,6 +81,7 @@ package() {
   cd "$srcdir/slopworld"
 
   install -Dm755 target/release/slopd "$pkgdir/usr/bin/slopd"
+  install -Dm755 target/release/slopctl "$pkgdir/usr/bin/slopctl"
   install -Dm755 target/release/slopworld "$pkgdir/usr/bin/slopworld"
 
   # The shipped unit runs the binary out of ~/.local/bin, which is where `make
@@ -83,7 +91,7 @@ package() {
     "$pkgdir/usr/lib/systemd/user/slopd.service"
 
   # RimWorld only loads mods from under its own install, which is not ours to
-  # write to. Staged here; link it in (see .install).
+  # write to. Staged here; the install hook prints the user-owned link command.
   local _mod="$pkgdir/usr/share/slopworld/SlopWorld"
   install -d "$_mod"
   cp -r mod/{About,Defs,Patches,Sounds,Textures,Assemblies} "$_mod/"

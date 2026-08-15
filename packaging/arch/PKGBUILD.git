@@ -8,16 +8,18 @@
 
 pkgname=slopworld-git
 pkgver=0.1.0.r0.gHEAD
-pkgrel=1
+pkgrel=2
 pkgdesc="RimWorld with the colony sim replaced by live AI coding agents (git)"
 arch=('x86_64')
 url="https://github.com/droserasprout/slopworld"
 license=('custom')
-depends=('tmux' 'bubblewrap' 'highlight')
-makedepends=('cargo' 'git' 'mono')
+depends=('systemd' 'tmux' 'bubblewrap' 'passt' 'ripgrep' 'git' 'less' 'micro'
+  'highlight' 'alsa-lib')
+makedepends=('cargo' 'git' 'mono' 'lld')
 optdepends=(
   'wl-clipboard: clipboard writes under Wayland (OSC 52)'
   'xclip: clipboard writes under X11'
+  'xsel: clipboard writes under X11 (fallback)'
   'xdg-utils: opening links from the terminal pane'
 )
 provides=('slopworld' 'slopd')
@@ -25,8 +27,9 @@ conflicts=('slopworld')
 options=('!strip' '!debug')
 source=("$pkgname::git+https://github.com/droserasprout/slopworld.git#branch=main")
 sha256sums=('SKIP')
+install=slopworld.install
 
-: "${RIMWORLD:=$HOME/RimWorld/game}"
+: "${RIMWORLD:=$HOME/GOG Games/RimWorld/game}"
 _managed="$RIMWORLD/RimWorldLinux_Data/Managed"
 
 pkgver() {
@@ -63,6 +66,7 @@ package() {
   cd "$srcdir/$pkgname"
 
   install -Dm755 target/release/slopd "$pkgdir/usr/bin/slopd"
+  install -Dm755 target/release/slopctl "$pkgdir/usr/bin/slopctl"
   install -Dm755 target/release/slopworld "$pkgdir/usr/bin/slopworld"
 
   install -Dm644 slopd/slopd.service "$pkgdir/usr/lib/systemd/user/slopd.service"
