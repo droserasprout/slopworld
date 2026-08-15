@@ -44,8 +44,8 @@ pub struct Frame {
     pub app_drag: bool,
     /// The app is on the alternate screen (no scrollback of its own).
     pub alt_screen: bool,
-    /// What the app called itself (OSC 0/2); empty until it says, and empty again
-    /// when it resets.
+    /// What the app called itself (OSC 0/2 or tmux's `ESC k` title form); empty until it says,
+    /// and empty again when it resets.
     pub title: String,
     /// The app rang BEL since the last live render. An event rather than a state, so it is
     /// true on exactly one frame and the session table is what holds it after that.
@@ -71,6 +71,16 @@ struct ReplySink {
     side: Arc<Mutex<Side>>,
 }
 
+// zsh's terminal-title hook uses tmux's private `ESC k title ESC \` sequence rather than
+// OSC 0/2. `vte` deliberately leaves that sequence unhandled, which would otherwise print the
+// title into the screen immediately before the command's output.
+enum TmuxTitleState {
+    Ground,
+    Escape,
+    Body(Vec<u8>),
+    BodyEscape(Vec<u8>),
+}
+
 impl EventListener for ReplySink {
     fn send_event(&self, event: Event) {
         let Ok(mut s) = self.side.lock() else { return };
@@ -88,10 +98,13 @@ impl EventListener for ReplySink {
 pub struct SessionEmu {
     term: Term<ReplySink>,
     parser: Processor,
+    tmux_title: TmuxTitleState,
     cols: u16,
     rows: u16,
     side: Arc<Mutex<Side>>,
 }
+
+const TMUX_TITLE_MAX: usize = 512;
 
 impl SessionEmu {
     pub fn new(cols: u16, rows: u16) -> Self {
@@ -113,6 +126,7 @@ impl SessionEmu {
         Self {
             term,
             parser: Processor::new(),
+            tmux_title: TmuxTitleState::Ground,
             cols,
             rows,
             side,
@@ -120,7 +134,66 @@ impl SessionEmu {
     }
 
     pub fn feed(&mut self, bytes: &[u8]) {
-        self.parser.advance(&mut self.term, bytes);
+        let mut plain = Vec::with_capacity(bytes.len());
+        for &byte in bytes {
+            let state = std::mem::replace(&mut self.tmux_title, TmuxTitleState::Ground);
+            self.tmux_title = match state {
+                TmuxTitleState::Ground if byte == 0x1b => TmuxTitleState::Escape,
+                TmuxTitleState::Ground => {
+                    plain.push(byte);
+                    TmuxTitleState::Ground
+                }
+                TmuxTitleState::Escape if byte == b'k' => {
+                    self.feed_plain(&plain);
+                    plain.clear();
+                    TmuxTitleState::Body(Vec::new())
+                }
+                TmuxTitleState::Escape if byte == 0x1b => {
+                    plain.push(0x1b);
+                    TmuxTitleState::Escape
+                }
+                TmuxTitleState::Escape => {
+                    plain.extend_from_slice(&[0x1b, byte]);
+                    TmuxTitleState::Ground
+                }
+                TmuxTitleState::Body(title) if byte == 0x1b => TmuxTitleState::BodyEscape(title),
+                TmuxTitleState::Body(mut title) => {
+                    push_tmux_title_byte(&mut title, byte);
+                    TmuxTitleState::Body(title)
+                }
+                TmuxTitleState::BodyEscape(title) if byte == b'\\' => {
+                    self.finish_tmux_title(title);
+                    TmuxTitleState::Ground
+                }
+                TmuxTitleState::BodyEscape(mut title) if byte == 0x1b => {
+                    push_tmux_title_byte(&mut title, 0x1b);
+                    TmuxTitleState::BodyEscape(title)
+                }
+                TmuxTitleState::BodyEscape(mut title) => {
+                    push_tmux_title_byte(&mut title, 0x1b);
+                    push_tmux_title_byte(&mut title, byte);
+                    TmuxTitleState::Body(title)
+                }
+            };
+        }
+        self.feed_plain(&plain);
+    }
+
+    fn feed_plain(&mut self, bytes: &[u8]) {
+        if !bytes.is_empty() {
+            self.parser.advance(&mut self.term, bytes);
+        }
+    }
+
+    fn finish_tmux_title(&mut self, bytes: Vec<u8>) {
+        let title: String = String::from_utf8_lossy(&bytes)
+            .chars()
+            .filter(|c| !c.is_control())
+            .take(TMUX_TITLE_MAX)
+            .collect();
+        if let Ok(mut side) = self.side.lock() {
+            side.title = if title.is_empty() { None } else { Some(title) };
+        }
     }
 
     /// The caller writes these back into the pane, so the app gets its answer.
@@ -327,6 +400,12 @@ impl SessionEmu {
             title: self.title(),
             bell: false,
         }
+    }
+}
+
+fn push_tmux_title_byte(title: &mut Vec<u8>, byte: u8) {
+    if title.len() < TMUX_TITLE_MAX {
+        title.push(byte);
     }
 }
 
@@ -759,6 +838,21 @@ mod tests {
         assert_eq!(e.render().title, "another");
         e.feed(b"\x1b]0;\x07");
         assert_eq!(e.render().title, "");
+    }
+
+    #[test]
+    fn takes_tmux_titles_without_printing_them() {
+        let mut e = SessionEmu::new(40, 2);
+        e.feed(b"\x1bkec");
+        e.feed(b"ho\x1b\\one two three");
+
+        let frame = e.render();
+        assert_eq!(frame.title, "echo");
+        assert!(frame.lines.iter().all(|line| !line.contains("echo")));
+        assert!(frame
+            .lines
+            .iter()
+            .any(|line| line.contains("one two three")));
     }
 
     #[test]

@@ -55,6 +55,15 @@ Or, for the sandboxed zsh preset, ensure these bindings are in place before
 `zsh` starts — either by providing a `.zshrc` in the sandbox home, or running
 `zsh -c "source ..."` with a setup file.
 
+## The oh-my-zsh command-title escape
+
+This `.zshrc` loads oh-my-zsh, whose `preexec` hook emits the tmux private
+`ESC k <command> ESC \\` title sequence before command output. A VT parser that
+does not recognize it displays the command name as screen text, so `echo one`
+can look like `echoone`. `slopd` consumes this sequence in `emu.rs`, stores the
+command as the pane title, and leaves only `one` in the screen output. No zshrc
+workaround is needed.
+
 ## Verified
 
 The `zsh -f` test in the sandbox and the host zsh both show the same behaviour:
