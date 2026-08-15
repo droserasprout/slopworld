@@ -23,7 +23,9 @@ It cannot be a script: a shebang puts `/bin/sh` in `argv[0]`.
 
 The launcher also holds a per-user kernel file lock for its entire lifetime. A second
 `slopworld` invocation, even with another profile argument, refuses before seeding or
-starting RimWorld; the lock is released automatically when the owner exits.
+starting RimWorld; the lock is released automatically when the owner exits. Before launch,
+it also refuses if any live `/proc` executable is named `RimWorldLinux`, including a copy
+started outside SlopWorld.
 
 ## Refusing to patch outside the profile
 

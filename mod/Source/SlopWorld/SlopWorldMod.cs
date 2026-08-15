@@ -53,6 +53,9 @@ namespace SlopWorld
         }
 
         public bool autoConnect = true;
+        // The Linux popup window starts borderless to avoid Unity's Alt+Tab freeze. Keep
+        // fullscreen on by default, but let the player return to that launch window.
+        public bool fullscreen = true;
         // The column's width, dragged rather than typed, and the projects rolled up in it.
         // Both are about this screen the way the layout itself is, so they live beside it -
         // and a project is the daemon's rather than a colony's, so neither belongs in a save.
@@ -170,6 +173,7 @@ namespace SlopWorld
 
             var text = new StringBuilder();
             String(text, "autoConnect", autoConnect);
+            String(text, "fullscreen", fullscreen);
             Number(text, "sidebarWidth", sidebarWidth);
             String(text, "foldedProjects", foldedProjects);
             String(text, "sidebarTab", sidebarTab);
@@ -215,6 +219,7 @@ namespace SlopWorld
         void Apply(Dictionary<string, string> values)
         {
             autoConnect = Bool(values, "autoConnect", autoConnect);
+            fullscreen = Bool(values, "fullscreen", fullscreen);
             sidebarWidth = Float(values, "sidebarWidth", sidebarWidth);
             foldedProjects = Text(values, "foldedProjects", foldedProjects);
             sidebarTab = Text(values, "sidebarTab", sidebarTab);
@@ -292,6 +297,7 @@ namespace SlopWorld
 
         public static ConnectionInfo Connection => Endpoint.Resolve();
         public static bool AutoConnect => S.autoConnect;
+        public static bool Fullscreen => S.fullscreen;
         // Unclamped: AgentSidebar owns what a usable column is, and it is the only reader.
         public static float SidebarWidth => S.sidebarWidth;
         public static string FoldedProjects => S.foldedProjects ?? "";
@@ -432,6 +438,7 @@ namespace SlopWorld
             // Drops the framerate while the window is behind something else. Here because
             // it has to hold on the menu too, and because focus is a per-frame question.
             BackgroundFrames.Follow();
+            WindowMaximizer.Follow();
             SlopWorldMod.Instance?.settings.FlushIfDue();
             DeadCursor.Tick();
             // Update and not OnGUI, so it fires per frame rather than per event, and below
