@@ -4,7 +4,10 @@
 | --- | --- |
 | `main.rs` | Startup, the retick loop, the token middleware. |
 | `api.rs` | Routes and the WebSocket pump. |
-| `session.rs` | `Manager`: live table, state classification, control readers. |
+| `session.rs` | Session data types, terminal input helpers and config validation. |
+| `manager/lifecycle.rs` | `Manager` construction, configuration, clocks, state transitions and session/project/shortcut lifecycle. |
+| `manager/capture.rs` | `Manager` terminal input, emulator readers, screen frames and scroll capture. |
+| `manager/caps.rs` | `Manager` capability and grant checks. |
 | `emu.rs` | `SessionEmu`, an `alacritty_terminal` per session. |
 | `tmux.rs` | Async wrapper over the tmux CLI. |
 | `sandbox.rs` | The bubblewrap argv, network modes, and pasta wrapper. |

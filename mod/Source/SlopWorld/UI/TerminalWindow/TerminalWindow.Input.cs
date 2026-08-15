@@ -1,0 +1,616 @@
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using RimWorld;
+using UnityEngine;
+using Verse;
+
+namespace SlopWorld
+{
+    // Mechanical split: TerminalWindow.Input methods.
+    public partial class TerminalWindow
+    {
+        void HandleInput(Rect body)
+        {
+            var e = Event.current;
+            // WindowStack's high-priority pass may mark a key Used before the window body
+            // runs. Keep the semicolon that pass swallowed: rawType retains the original
+            // KeyDown, and no other Used event is replayed here.
+            if (e.type == EventType.Used && e.rawType == EventType.KeyDown &&
+                (e.character == ';' || IsSemicolonKey(e.keyCode)))
+            {
+                HandleKey(e);
+                return;
+            }
+
+            switch (e.type)
+            {
+                case EventType.ScrollWheel:
+                    HandleWheel(body, e);
+                    return;
+                case EventType.MouseDown:
+                case EventType.MouseDrag:
+                case EventType.MouseUp:
+                    HandleMouse(body, e);
+                    return;
+                case EventType.KeyDown:
+                    HandleKey(e);
+                    return;
+            }
+        }
+
+        // Handle unshifted keys bound to the chrome. Read KeyBindingDefs so option-menu
+        // rebindings apply; shifted/unbound keys pass to the agent, and SlopMenu handles its
+        // own dismissal because absorbing windows consume keys before this body runs.
+        public static bool HandleFunctionKey(Event e)
+        {
+            // Shift+key = pass through to the agent/tui.
+            if (e.shift || e.keyCode == KeyCode.None) return false;
+
+            if (Bound(SlopDefOf.SlopCommandPalette, e))
+            {
+                SearchView.ReleaseFocus();
+                CommandPalette.Toggle();
+                return true;
+            }
+            if (Bound(SlopDefOf.SlopSidebarAgents, e))
+            {
+                AgentSidebar.FocusTerminal();
+                return true;
+            }
+            if (Bound(SlopDefOf.SlopSidebarFiles, e))
+            {
+                AgentSidebar.ShowFiles();
+                return true;
+            }
+            if (Bound(SlopDefOf.SlopSidebarSearch, e))
+            {
+                AgentSidebar.ShowSearch();
+                return true;
+            }
+            if (Bound(SlopDefOf.SlopSidebarGit, e))
+            {
+                AgentSidebar.ShowGit();
+                return true;
+            }
+            if (Bound(SlopDefOf.SlopSidebarShortcuts, e))
+            {
+                AgentSidebar.ShowShortcuts();
+                return true;
+            }
+            if (Bound(SlopDefOf.SlopQuickTerminal, e))
+            {
+                // Close if the window is open, open one if not (handles both map and
+                // pane contexts via the same check).
+                var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
+                if (w != null) w.Close();
+                else AgentSidebar.FocusTerminal();
+                return true;
+            }
+            return false;
+        }
+
+        // Whether this event's key is either of the def's two slots. Asked of the event
+        // rather than through KeyBindingDef.KeyDownEvent, because the caller has already
+        // taken the event and needs to know whether to Use it.
+        static bool Bound(KeyBindingDef def, Event e)
+        {
+            if (def == null) return false;
+            var data = KeyPrefs.KeyPrefsData;
+            if (data == null) return false;
+            return data.GetBoundKeyCode(def, KeyPrefs.BindingSlot.A) == e.keyCode
+                || data.GetBoundKeyCode(def, KeyPrefs.BindingSlot.B) == e.keyCode;
+        }
+
+        // Handle chrome keys while a content view owns the body; bare Escape leaves the view,
+        // while it remains an agent key in the pane.
+        void ChromeKeys(Event e)
+        {
+            if (e.type != EventType.KeyDown) return;
+
+            // All F-keys go through one gate: bare = ours, Shift+F = agent.
+            if (HandleFunctionKey(e)) { e.Use(); return; }
+
+            if (e.keyCode == KeyCode.Escape)
+            {
+                Leave();
+                e.Use();
+                return;
+            }
+
+            int slot = TerminalHotkeys.SlotKey(e);
+            if (slot >= 0 && e.alt)
+            {
+                SwitchToSlot(slot);
+                e.Use();
+                return;
+            }
+
+            // Alt+comma/Alt+period: walk the session list while a content view is up.
+            // With a content view, bare comma/dot would be eaten by the view; the alt
+            // prefix is what keeps them for the chrome.
+            if (e.alt && (e.keyCode == KeyCode.Comma || e.keyCode == KeyCode.Period))
+            {
+                WalkSession(e.keyCode == KeyCode.Period ? 1 : -1);
+                e.Use();
+            }
+        }
+
+        void HandleKey(Event e)
+        {
+            // Shift+Escape is the way out; a bare Escape must reach the agent.
+            if (e.keyCode == KeyCode.Escape && e.shift)
+            {
+                Close();
+                e.Use();
+                return;
+            }
+
+            // Shift+Enter: send the kitty keyboard protocol sequence for Shift+Enter
+            // (\e[13;2u) so apps like Claude Code can distinguish it from plain Enter
+            // and insert a newline rather than submitting.
+            if (e.keyCode == KeyCode.Return && e.shift)
+            {
+                JumpToLive();
+                Flush();
+                SessionHub.Instance.SendKeys(
+                    _name, new[] { "\u001b[13;2u" }, true);
+                e.Use();
+                return;
+            }
+
+            // Not in TerminalHotkeys: a window absorbing input makes
+            // WindowStack.HandleEventsHighPriority Use every KeyDown, and that runs earlier in
+            // UIRoot.UIRootOnGUI than any game component.
+            // All F-keys go through one gate: bare = ours, Shift+F = agent.
+            if (HandleFunctionKey(e)) { e.Use(); return; }
+
+            // Ahead of the offline check: switching is local and the subscription survives a
+            // dead socket, so a pane that will not change during a redeploy reads as hung.
+            int slot = TerminalHotkeys.SlotKey(e);
+            if (slot >= 0 && e.alt)
+            {
+                SwitchToSlot(slot);
+                e.Use();
+                return;
+            }
+
+            // Alt+comma/Alt+period: walk the session list while a pane is open. Bare
+            // comma/dot belong to the agent; the alt prefix is the chrome's own walk.
+            if (e.alt && (e.keyCode == KeyCode.Comma || e.keyCode == KeyCode.Period))
+            {
+                WalkSession(e.keyCode == KeyCode.Period ? 1 : -1);
+                e.Use();
+                return;
+            }
+
+            // Offline the hub drops sends, so count them for the banner rather than letting
+            // the terminal silently eat what was typed.
+            if (!SessionHub.Instance.Online)
+            {
+                if (e.keyCode != KeyCode.None || e.character != '\0')
+                {
+                    _droppedKeys++;
+                    e.Use();
+                }
+                return;
+            }
+
+            // Terminal convention: Ctrl+Shift+C is always copy, and Ctrl+C copies
+            // when text is selected (otherwise it passes through as SIGINT).
+            if (e.control && e.keyCode == KeyCode.C)
+            {
+                if (_hasSel)
+                {
+                    CopySelection();
+                    e.Use();
+                    return;
+                }
+                // No selection: Ctrl+Shift+C is a no-op; bare Ctrl+C falls through to SIGINT.
+                if (!e.shift)
+                {
+                    // Fall through to MapKey below.
+                }
+                else
+                {
+                    e.Use();
+                    return;
+                }
+            }
+
+            // On this Unity player the literal semicolon arrives with a spurious modifier,
+            // so the ordinary printable-input guard below rejects it. The character is the
+            // layout-resolved answer; trust it instead of the broken modifier flags.
+            if (e.character == ';')
+            {
+                AppendSemicolon();
+                e.Use();
+                return;
+            }
+
+            if (e.keyCode != KeyCode.None)
+            {
+                // Some backends instead omit the character-only event. Preserve the
+                // keyboard layout's shifted form before the named key is swallowed below.
+                if (IsSemicolonKey(e.keyCode) && e.character == '\0')
+                {
+                    if (e.shift)
+                    {
+                        JumpToLive();
+                        _literal.Append(':');
+                    }
+                    else AppendSemicolon();
+                    e.Use();
+                    return;
+                }
+
+                var keyScreen = SessionHub.Instance.Screen(_name);
+                string key = MapKey(e, keyScreen != null && keyScreen.AltScreen);
+                if (key != null)
+                {
+                    JumpToLive();
+                    Flush();
+                    // Tips ride the Enter that is about to have breadcrumbs pasted in front
+                    // of it, and nothing else: `BreadcrumbsPending` is the daemon's answer to
+                    // whether this is that Enter.
+                    var info = SessionHub.Instance.Get(_name);
+                    bool crumbs = key == "Enter" && info != null && info.BreadcrumbsPending;
+                    SessionHub.Instance.SendKeys(_name, new[] { key }, false,
+                        crumbs ? Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch) : null);
+                    e.Use();
+                    return;
+                }
+
+                if (e.control && e.keyCode == KeyCode.V)
+                {
+                    JumpToLive();
+                    PasteClipboard();
+                    e.Use();
+                    return;
+                }
+            }
+
+            // Unity delivers printable input as a second event carrying only the character.
+            if (e.character != '\0' && e.character != '\n' &&
+                e.character != '\r' && e.character != '\t' && !e.control && !e.alt)
+            {
+                JumpToLive();
+                _literal.Append(e.character);
+                e.Use();
+                return;
+            }
+
+            if (e.keyCode != KeyCode.None)
+                e.Use(); // swallow it so RimWorld hotkeys don't fire behind us
+        }
+
+        // IMGUI loses semicolon's KeyDown before it reaches this window on this player, but
+        // Unity's text-input stream still carries it (which is why ordinary game fields work).
+        // DoWindowContents runs more than once per frame, and a surviving KeyDown may follow,
+        // so the frame marker makes the two roads one keystroke.
+        void CaptureSemicolonInput()
+        {
+            if (_semicolonFrame == Time.frameCount || !SessionHub.Instance.Online) return;
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            string input = Input.inputString;
+            int count = shift || string.IsNullOrEmpty(input) ? 0 : input.Count(c => c == ';');
+            bool physical = !shift && Input.GetKeyDown(KeyCode.Semicolon);
+            if (count == 0 && !physical) return;
+
+            JumpToLive();
+            Flush();
+            SessionHub.Instance.Paste(_name, new string(';', count > 0 ? count : 1));
+            _semicolonFrame = Time.frameCount;
+        }
+
+        void AppendSemicolon()
+        {
+            if (_semicolonFrame == Time.frameCount) return;
+            JumpToLive();
+            Flush();
+            SessionHub.Instance.Paste(_name, ";");
+            _semicolonFrame = Time.frameCount;
+        }
+
+        static bool IsSemicolonKey(KeyCode key) =>
+            key == KeyCode.Semicolon || key == KeyCode.Colon;
+
+        // A slot past the end is a no-op rather than a wrap: the keys are muscle memory for a
+        // fixed portrait. A down agent is started, as clicking the portrait does.
+        void SwitchToSlot(int slot)
+        {
+            var order = AgentColony.InBarOrder();
+            if (slot >= order.Count) return;
+
+            string name = order[slot];
+            // The same agent while a view has the body is still a request to see it: the
+            // number points the window at a portrait, and the pane is what a portrait is.
+            if (name == _name && _content == null) return;
+
+            var info = SessionHub.Instance.Get(name);
+            if (info == null) return;
+
+            // Alt+Num while the pane is open is about an agent: switch the sidebar to the
+            // agents view, which releases whatever the view being left was showing.
+            AgentSidebar.FocusTerminal();
+
+            if (info.Gone) { SetContent(null); SessionHub.Instance.Start(name); }
+            else SwitchTo(name);
+        }
+
+        // Walk the session list by dir (-1 or 1). Used from Alt+comma/Alt+period in both
+        // ChromeKeys (content view up) and HandleKey (pane open). Sets the current session
+        // and switches the pane, or if the target has no process starts it.
+        static void WalkSession(int dir)
+        {
+            var order = AgentSidebar.WalkOrder();
+            if (order.Count == 0)
+            {
+                // Fallback: the hub's alive sessions.
+                var fallback = new List<string>();
+                foreach (var s in SessionHub.Instance.Sessions)
+                    if (s.Alive) fallback.Add(s.Name);
+                if (fallback.Count == 0) return;
+                order = fallback;
+            }
+
+            string current = SessionSelectable.Current;
+            int idx = -1;
+            if (current != null)
+                idx = order.IndexOf(current);
+
+            int next = idx < 0
+                ? (dir > 0 ? 0 : order.Count - 1)
+                : (idx + dir + order.Count) % order.Count;
+
+            string target = order[next];
+            if (target == null) return;
+
+            SessionSelectable.Current = target;
+            Find.Selector?.ClearSelection();
+            AgentSidebar.FocusTerminal();
+
+            var info = SessionHub.Instance.Get(target);
+            if (info == null) return;
+
+            // The same agent while a pane is open is already on screen. A different agent
+            // switches the pane.
+            var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            if (w != null && target == w._name) return;
+
+            if (info.Gone) { SessionHub.Instance.Start(target); }
+            else Open(target);
+        }
+
+
+        void HandleWheel(Rect body, Event e)
+        {
+            if (!body.Contains(e.mousePosition)) return;
+
+            // Clear the selection on any wheel event, wherever it goes: an app-backed
+            // scroll (arrow keys, mouse wheel) would otherwise leave the highlight at the
+            // old cell coordinates while the content moves under it.
+            ClearSelection();
+
+            var live = SessionHub.Instance.Screen(_name);
+            bool editor = IsEditorSession();
+            int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
+            bool up = e.delta.y < 0;
+
+            // Already in scrollback: stay there, whatever the live app is doing.
+            // The app mode check below would otherwise hijack the wheel and send it
+            // into the live app while the user is reading historical output.
+            if (_scrollOff > 0)
+            {
+                if (up) _scrollOff += step;
+                else _scrollOff = Mathf.Max(0, _scrollOff - step);
+                QueueScroll(up);
+                e.Use();
+                return;
+            }
+
+            // App wants the mouse: forward wheel reports at the pointer cell. Batched - `step`
+            // is one tmux write, not one tmux process per scrolled line.
+            if (live != null && live.AppMouse)
+            {
+                var cell = CellAt(body, e.mousePosition);
+                string act = up ? "wheelup" : "wheeldown";
+                SessionHub.Instance.SendMouse(_name, act, 0, cell.x, cell.y, step);
+                e.Use();
+                return;
+            }
+
+            // Alt-screen app with no mouse (less, man, git log): the terminal convention is
+            // to translate the wheel to arrow keys.
+            // The first frame after an editor errand starts can still be the shell frame:
+            // the command has been launched, but the screen event carrying AltScreen has not
+            // reached the client yet. Keep that race from turning the first wheel into the
+            // terminal's own scrollback; arrows are micro's native scroll path and are harmless
+            // while the shell is handing control to it.
+            if (editor || (live != null && live.AltScreen))
+            {
+                var keys = new string[step];
+                for (int k = 0; k < step; k++) keys[k] = up ? "Up" : "Down";
+                SessionHub.Instance.SendKeys(_name, keys, false);
+                e.Use();
+                return;
+            }
+
+            // Walk our own scrollback view.
+            if (up) _scrollOff += step;
+            else _scrollOff = Mathf.Max(0, _scrollOff - step);
+            QueueScroll(up);
+            e.Use();
+        }
+
+        bool IsEditorSession()
+        {
+            var info = SessionHub.Instance.Get(_name);
+            if (info == null) return false;
+            if (Pager.IsEditorCommand(info.Cmd)) return true;
+            return info.Ephemeral &&
+                (info.Name ?? "").StartsWith("edit-", System.StringComparison.Ordinal);
+        }
+
+        // Send the first wheel event immediately, then throttle repeats; direction changes
+        // bypass the delay so reversals respond in one round trip.
+        bool _lastWheelUp;
+
+        void QueueScroll(bool up)
+        {
+            float now = Time.realtimeSinceStartup;
+            _wantedScrollOff = _scrollOff;
+            _scrollPending = true;
+            bool fresh = up != _lastWheelUp || now >= _nextScrollSend;
+            _lastWheelUp = up;
+            if (fresh)
+                SendPendingScroll();
+        }
+
+        void HandleMouse(Rect body, Event e)
+        {
+            // The pane's own in every mode, whatever the app asked for: the menu has to be
+            // reachable from inside a full-screen TUI.
+            if (e.button == 1)
+            {
+                if (e.type == EventType.MouseDown && body.Contains(e.mousePosition))
+                    OpenMenu(LinkUnder(body, e.mousePosition));
+                e.Use();
+                return;
+            }
+
+            // Ahead of everything else a press does: a URL printed inside a TUI is over
+            // something that wants the mouse as often as not.
+            if (e.type == EventType.MouseDown && e.button == 0 && e.control)
+            {
+                string url = LinkUnder(body, e.mousePosition);
+                if (url != null)
+                {
+                    OpenUrl(url);
+                    e.Use();
+                    return;
+                }
+            }
+
+            // A double-click is the terminal's word gesture even when the app reports mouse
+            // clicks. Keeping it ahead of forwarding also leaves the second press armed for a
+            // drag, which is how a multi-line word selection starts.
+            if (e.type == EventType.MouseDown && e.button == 0 && e.clickCount >= 2 &&
+                body.Contains(e.mousePosition))
+            {
+                var cell = CellAt(body, e.mousePosition);
+                if (e.clickCount >= 3) TripleClickSelect(cell.y);
+                else DoubleClickSelect(cell);
+                e.Use();
+                return;
+            }
+
+            // Shift forces our own selection, like a real terminal.
+            var live = SessionHub.Instance.Screen(_name);
+            if (live != null && live.AppMouse && !e.shift && HandleMouseForward(body, e))
+                return;
+
+            if (e.button != 0) return;
+
+            switch (e.type)
+            {
+                case EventType.MouseDown:
+                {
+                    if (!body.Contains(e.mousePosition)) return;
+                    var cell = CellAt(body, e.mousePosition);
+
+                    _selA = _selB = cell;
+                    _dragging = true;
+                    _wordDragging = false;
+                    _hasSel = false;
+                    e.Use();
+                    return;
+                }
+
+                case EventType.MouseDrag:
+                    if (!_dragging) return;
+                    var dragCell = CellAt(body, e.mousePosition);
+                    if (_wordDragging) UpdateWordSelection(dragCell);
+                    else
+                    {
+                        _selB = dragCell;
+                        _hasSel = _selA != _selB;
+                    }
+                    e.Use();
+                    return;
+
+                case EventType.MouseUp:
+                    if (!_dragging) return;
+                    var upCell = CellAt(body, e.mousePosition);
+                    if (_wordDragging)
+                    {
+                        UpdateWordSelection(upCell);
+                        _wordDragging = false;
+                        _dragging = false;
+                        if (_hasSel) CopySelection();
+                    }
+                    else
+                    {
+                        _dragging = false;
+                        _selB = upCell;
+                        if (_selA != _selB) { _hasSel = true; CopySelection(); }
+                        else _hasSel = false;
+                    }
+                    e.Use();
+                    return;
+            }
+        }
+
+        // An app in click-reporting mode (Claude Code is one) said nothing about motion, so a
+        // drag across its output was never its to receive - forwarded anyway, it left no way
+        // to select text short of holding Shift. The press goes over as a press, and the
+        // moment it turns into a drag that click is closed and the rest taken as a selection.
+        bool HandleMouseForward(Rect body, Event e)
+        {
+            int btn = Mathf.Clamp(e.button, 0, 2);
+            var cell = CellAt(body, e.mousePosition);
+            var live = SessionHub.Instance.Screen(_name);
+
+            switch (e.type)
+            {
+                case EventType.MouseDown:
+                    if (!body.Contains(e.mousePosition)) return true;
+                    JumpToLive();
+                    ClearSelection();
+                    SessionHub.Instance.SendMouse(_name, "press", btn, cell.x, cell.y);
+                    _mouseFwd = true;
+                    _fwdCell = cell;
+                    e.Use();
+                    return true;
+
+                case EventType.MouseDrag:
+                    if (!_mouseFwd) return false;
+                    if (live != null && live.AppDrag)
+                    {
+                        SessionHub.Instance.SendMouse(_name, "drag", btn, cell.x, cell.y);
+                        e.Use();
+                        return true;
+                    }
+                    // Only the left button selects; anything else is swallowed.
+                    SessionHub.Instance.SendMouse(_name, "release", btn, _fwdCell.x, _fwdCell.y);
+                    _mouseFwd = false;
+                    if (btn != 0) { e.Use(); return true; }
+                    _selA = _fwdCell;
+                    _dragging = true;
+                    return false;
+
+                case EventType.MouseUp:
+                    if (!_mouseFwd) return false;
+                    SessionHub.Instance.SendMouse(_name, "release", btn, cell.x, cell.y);
+                    _mouseFwd = false;
+                    e.Use();
+                    return true;
+            }
+            return true;
+        }
+
+        void JumpToLive() { _scrollOff = 0; _wantedScrollOff = 0; _scrollPending = false; _nextScrollSend = 0f; }
+
+    }
+}
+
