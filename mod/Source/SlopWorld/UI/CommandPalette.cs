@@ -169,8 +169,13 @@ namespace SlopWorld
                         }
                         else
                         {
-                            _selectedIndex = Mathf.Max(0, _selectedIndex - 1);
-                            ScrollToSelected();
+                            if (_matches.Count > 0)
+                            {
+                                _selectedIndex = _selectedIndex == 0
+                                    ? _matches.Count - 1
+                                    : _selectedIndex - 1;
+                                ScrollToSelected();
+                            }
                         }
                         e.Use();
                         return;
@@ -183,8 +188,13 @@ namespace SlopWorld
                         }
                         else
                         {
-                            _selectedIndex = Mathf.Min(_matches.Count - 1, _selectedIndex + 1);
-                            ScrollToSelected();
+                            if (_matches.Count > 0)
+                            {
+                                _selectedIndex = _selectedIndex == _matches.Count - 1
+                                    ? 0
+                                    : _selectedIndex + 1;
+                                ScrollToSelected();
+                            }
                         }
                         e.Use();
                         return;
