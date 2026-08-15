@@ -13,6 +13,7 @@ namespace SlopWorld
     public class CommandsPage
     {
         SlopConfig _cfg;
+        string _path = "";
         string _error;
         bool _loaded;
         bool _agentCustom, _shellCustom, _pagerCustom, _editorCustom;
@@ -41,6 +42,7 @@ namespace SlopWorld
                     _cfg = SlopConfig.FromJson(j["values"]);
                     SessionHub.Instance.Config = _cfg;
                     SessionHub.Instance.LoadPresets();
+                    _path = j["path"].AsString();
                     _agentCustom = _shellCustom = _pagerCustom = _editorCustom = false;
                     _highlighterCustom = _openerCustom = false;
                     _loaded = true;
@@ -203,7 +205,9 @@ namespace SlopWorld
         {
             var foot = new SlopWidgets.Bar(bar);
             if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
-            if (foot.Left("Edit as TOML", SlopWidgets.Btn.Ghost)) ConfigWindow.Open();
+            if (foot.Left("Edit", SlopWidgets.Btn.Ghost,
+                    _loaded && !string.IsNullOrEmpty(_path)))
+                FilesView.EditFile(null, _path, "edit-config.toml");
             if (foot.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
 
             if (_error != null && _loaded)
