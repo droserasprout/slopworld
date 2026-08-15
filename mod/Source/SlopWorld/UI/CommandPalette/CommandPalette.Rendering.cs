@@ -1,0 +1,190 @@
+using RimWorld;
+using UnityEngine;
+using Verse;
+
+namespace SlopWorld
+{
+    public partial class CommandPalette
+    {
+        public override void DoWindowContents(Rect rect)
+        {
+            // A raised rectangular surface: this is an instrument panel, not a vanilla menu.
+            Slab.Box(rect, SlopWidgets.PopoverBg, SlopWidgets.Edge);
+
+            var inputRect = new Rect(rect.x + Pad, rect.y + Pad,
+                rect.width - Pad * 2, InputH);
+
+            float listTop = inputRect.yMax + SlopWidgets.GapXS;
+            var listRect = new Rect(rect.x + Pad, listTop,
+                rect.width - Pad * 2, rect.yMax - listTop - Pad);
+            // Set before DrawInput, which reads it when a key scrolls the selection.
+            _listH = listRect.height;
+
+            DrawInput(inputRect);
+
+            if (_mode == Mode.Sub) DrawSubList(listRect);
+            else DrawCommandList(listRect);
+        }
+
+        // --------------------------------------------------------------- command list
+
+        void DrawCommandList(Rect r)
+        {
+            if (_matches.Count == 0)
+            {
+                GUI.color = SlopWidgets.Faint;
+                SlopWidgets.RowLabel(r, _filter.Length > 0
+                    ? "No matching commands"
+                    : "No commands available", TextAnchor.MiddleCenter);
+                GUI.color = Color.white;
+                return;
+            }
+
+            // Total height, with a header where the group changes. Recent entries carry
+            // their own group so they read as one block ahead of the rest.
+            float totalH = 0f;
+            string prev = null;
+            for (int i = 0; i < _matches.Count; i++)
+            {
+                if (Grouped)
+                {
+                    string group = GroupOf(i);
+                    if (group != prev) { totalH += GroupH; prev = group; }
+                }
+                totalH += RowH;
+            }
+
+            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW, totalH);
+
+            _scroll.Begin(r, view);
+
+            float y = 0f;
+            prev = null;
+            for (int i = 0; i < _matches.Count; i++)
+            {
+                string group = Grouped ? GroupOf(i) : null;
+                if (group != null && group != prev)
+                {
+                    var header = new Rect(0f, y, view.width, GroupH);
+                    GUI.color = SlopWidgets.Faint;
+                    Text.Font = GameFont.Tiny;
+                    SlopWidgets.RowLabel(header, group.ToUpperInvariant());
+                    Text.Font = GameFont.Small;
+                    GUI.color = Color.white;
+                    y += GroupH;
+                    prev = group;
+                }
+
+                var row = new Rect(0f, y, view.width, RowH);
+                bool selected = i == _selectedIndex;
+
+                if (selected)
+                    Slab.Fill(row, SlopWidgets.Sel);
+                else
+                    if (Mouse.IsOver(row)) Slab.Fill(row, SlopWidgets.Hover);
+
+                if (Widgets.ButtonInvisible(row))
+                {
+                    _selectedIndex = i;
+                    if (_matches[i].Command.SubAction != null) EnterSub(_matches[i].Command);
+                    else Execute(_matches[i].Command);
+                }
+
+                GUI.color = selected ? SlopWidgets.Lead : SlopWidgets.Name;
+                SlopWidgets.RowLabel(
+                    new Rect(row.x + SlopWidgets.FieldPadX, row.y + SlopWidgets.FieldPadY,
+                        view.width - SlopWidgets.FieldPadX * 2f,
+                        RowH - SlopWidgets.FieldPadY * 2f),
+                    _matches[i].Label);
+                GUI.color = Color.white;
+
+                y += RowH;
+            }
+
+            _scroll.End();
+        }
+
+        // A filtered list is ranked rather than grouped: the answer is the top row, and a
+        // heading between every pair of rows is where that stops reading as an order.
+        bool Grouped => _filter.Length == 0;
+
+        // Recent entries (front of the list, no filter) group under "Recently"; everything
+        // else under its own category.
+        string GroupOf(int index) =>
+            index < _recentInList ? "Recently" : _matches[index].Command.Group;
+
+        // --------------------------------------------------------------- sub list
+
+        void DrawSubList(Rect r)
+        {
+            var options = _subShown;
+
+            if (options.Count == 0)
+            {
+                GUI.color = SlopWidgets.Faint;
+                SlopWidgets.RowLabel(r, _subHasFilter ? "No matches" : "Nothing available",
+                    TextAnchor.MiddleCenter);
+                GUI.color = Color.white;
+                return;
+            }
+
+            _subIndex = Mathf.Clamp(_subIndex, 0, options.Count - 1);
+
+            float totalH = options.Count * RowH;
+            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW, totalH);
+
+            _scroll.Begin(r, view);
+
+            float y = 0f;
+            for (int i = 0; i < options.Count; i++)
+            {
+                var row = new Rect(0f, y, view.width, RowH);
+                bool selected = i == _subIndex;
+
+                if (selected)
+                    Slab.Fill(row, SlopWidgets.Sel);
+                else
+                    if (Mouse.IsOver(row)) Slab.Fill(row, SlopWidgets.Hover);
+
+                if (Widgets.ButtonInvisible(row))
+                {
+                    _subIndex = i;
+                    ExecuteSub();
+                }
+
+                float left = row.x + SlopWidgets.FieldPadX;
+
+                // The checkbox goes before the label, the way a settings page draws one,
+                // and the label starts after it. Rows without one keep the whole line:
+                // a list is all ticks or none, so nothing is left hanging.
+                var box = options[i].O.Checked;
+                if (box.HasValue)
+                {
+                    SlopWidgets.TickBox(new Rect(left, row.y, SlopWidgets.TickW, RowH),
+                        box.Value);
+                    left += SlopWidgets.TickColW;
+                }
+
+                if (!options[i].O.Enabled)
+                {
+                    GUI.color = SlopWidgets.Off;
+                }
+                else
+                {
+                    GUI.color = selected ? SlopWidgets.Lead : SlopWidgets.Name;
+                }
+
+                SlopWidgets.RowLabel(
+                    new Rect(left, row.y + SlopWidgets.FieldPadY,
+                        row.xMax - SlopWidgets.FieldPadX - left,
+                        RowH - SlopWidgets.FieldPadY * 2f),
+                    options[i].Label);
+                GUI.color = Color.white;
+
+                y += RowH;
+            }
+
+            _scroll.End();
+        }
+    }
+}

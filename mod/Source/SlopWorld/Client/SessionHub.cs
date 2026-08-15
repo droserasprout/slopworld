@@ -162,7 +162,7 @@ namespace SlopWorld
         }
     }
 
-    public class SessionInfo
+    public partial class SessionInfo
     {
         public string Name = "";
         public string Project = "";
@@ -250,40 +250,6 @@ namespace SlopWorld
                 default: return AgentState.Down;
             }
         }
-
-        public static SessionInfo FromJson(JVal j) => new SessionInfo
-        {
-            Name = j["name"].AsString(),
-            Project = j["project"].AsString(),
-            Dir = j["dir"].AsString(),
-            Command = j["command"].AsString(),
-            CommandPreset = j["command_preset"].AsString(),
-            Cmd = j["cmd"].IsNull ? "" : j["cmd"].AsString(),
-            Sandbox = j["sandbox"].Items.Select(i => i.AsString()).ToList(),
-            Agent = j["agent"].AsString(),
-            State = ParseState(j["state"].AsString()),
-            Alive = j["alive"].AsBool(),
-            Network = NetworkModeText.Parse(j["network"].AsString("private")),
-            NetworkOverride = j["network_override"].IsNull
-                ? (NetworkMode?)null
-                : NetworkModeText.Parse(j["network_override"].AsString()),
-            Dns = DnsConfig.FromJson(j["dns"]),
-            DnsOverride = j["dns_override"].IsNull ? null : DnsConfig.FromJson(j["dns_override"]),
-            Limits = SessionLimits.FromJson(j["limits_override"]),
-            EffectiveLimits = SessionLimits.FromJson(j["limits"]),
-            Autostart = j["autostart"].AsBool(false),
-            BreadcrumbYolo = j["breadcrumb_yolo"].AsBool(true),
-            Breadcrumbs = j["breadcrumbs"].Items.Select(i => i.AsString()).ToList(),
-            BreadcrumbsPending = j["breadcrumbs_pending"].AsBool(false),
-            Ephemeral = j["ephemeral"].AsBool(false),
-            Cols = j["cols"].AsInt(0),
-            Rows = j["rows"].AsInt(0),
-            Title = j["title"].AsString(),
-            Label = j["label"].AsString(),
-            Bell = j["bell"].AsBool(false),
-            LastChange = j["last_change"].AsLong(0),
-            StateSince = j["state_since"].AsLong(0),
-        };
 
         // `Agent` never rides along: it is what the daemon resolved, and writing it back
         // would pin today's answer into the file forever. An empty override is sent as null
@@ -702,7 +668,7 @@ namespace SlopWorld
 
     // Owns the WebSocket, reconnects with backoff, and is pumped once per frame on
     // the main thread.
-    public class SessionHub
+    public partial class SessionHub
     {
         public static readonly SessionHub Instance = new SessionHub();
 
@@ -814,66 +780,6 @@ namespace SlopWorld
                 catch (Exception e) { Log.Warning($"[SlopWorld] bad event: {e.Message}"); }
             }
         }
-
-        void Handle(JVal ev)
-        {
-            switch (ev["t"].AsString())
-            {
-                case "sessions":
-                    Sessions = ev["sessions"].Items.Select(SessionInfo.FromJson).ToList();
-                    ForgetScreens();
-                    break;
-
-                case "projects":
-                    Projects = ev["projects"].Items.Select(ProjectInfo.FromJson).ToList();
-                    break;
-
-                case "shortcuts":
-                    Shortcuts = ev["shortcuts"].Items.Select(ShortcutInfo.FromJson).ToList();
-                    break;
-
-                case "jukebox":
-                    Radio.SetStations(ev["jukebox"]);
-                    break;
-
-                case "usage":
-                    Usage = UsageInfo.FromJson(ev["usage"], Usage);
-                    break;
-
-                case "audio":
-                    Radio.Report(ev["audio"]["playing"].AsBool(false),
-                        ev["audio"]["error"].AsString(null),
-                        ev["audio"]["title"].AsString(null));
-                    break;
-
-                case "screen":
-                    var s = ev["screen"];
-                    string name = s["name"].AsString();
-                    int off = s["off"].AsInt(0);
-                    // Scrolled frames answer one wheel request; kept apart from the live view.
-                    var store = off > 0 ? _scrolls : _screens;
-                    if (!store.TryGetValue(name, out var buf))
-                        store[name] = buf = new ScreenBuf();
-
-                    buf.Seq = s["seq"].AsInt();
-                    buf.Cols = s["cols"].AsInt(80);
-                    buf.Rows = s["rows"].AsInt(24);
-                    buf.Cx = s["cx"].AsInt();
-                    buf.Cy = s["cy"].AsInt();
-                    buf.Off = off;
-                    buf.CursorShape = s["cursor_shape"].AsInt(0);
-                    buf.CursorBlink = s["cursor_blink"].AsBool(true);
-                    buf.AppMouse = s["app_mouse"].AsBool(false);
-                    buf.AppDrag = s["app_drag"].AsBool(false);
-                    buf.AltScreen = s["alt_screen"].AsBool(false);
-                    buf.Title = s["title"].AsString();
-                    buf.ScrollRequestId = (ulong)s["request_id"].AsLong(0);
-                    buf.Lines = s["lines"].Items.Select(l => l.AsString()).ToArray();
-                    buf.Runs = null; // force a re-parse on next draw
-                    break;
-            }
-        }
-
 
         // Both stores are keyed by session name and nothing else ever drops from them, so an
         // agent that has been removed - or a temporary errand, which mints a fresh name every

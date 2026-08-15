@@ -8,7 +8,7 @@ using Verse;
 namespace SlopWorld
 {
     // F1 opens a filtered command palette; all window and button actions, including nested selections, are registered here.
-    public class CommandPalette : Window
+    public partial class CommandPalette : Window
     {
         const float Width = 520f;
         const float MaxH = 440f;
@@ -101,413 +101,6 @@ namespace SlopWorld
             SessionHub.Instance.LoadPresets();
 
             Find.WindowStack.Add(new CommandPalette());
-        }
-
-        public override void DoWindowContents(Rect rect)
-        {
-            // A raised rectangular surface: this is an instrument panel, not a vanilla menu.
-            Slab.Box(rect, SlopWidgets.PopoverBg, SlopWidgets.Edge);
-
-            var inputRect = new Rect(rect.x + Pad, rect.y + Pad,
-                rect.width - Pad * 2, InputH);
-
-            float listTop = inputRect.yMax + SlopWidgets.GapXS;
-            var listRect = new Rect(rect.x + Pad, listTop,
-                rect.width - Pad * 2, rect.yMax - listTop - Pad);
-            // Set before DrawInput, which reads it when a key scrolls the selection.
-            _listH = listRect.height;
-
-            DrawInput(inputRect);
-
-            if (_mode == Mode.Sub) DrawSubList(listRect);
-            else DrawCommandList(listRect);
-        }
-
-        void DrawInput(Rect r)
-        {
-            // One entry round the whole line, prompt included: in sub-mode the prompt is part
-            // of what is being typed into, not a label beside a second box.
-            SlopWidgets.FieldFrame(r, GUI.GetNameOfFocusedControl() == "paletteInput");
-            var inner = r.ContractedBy(SlopWidgets.FieldPadX, SlopWidgets.FieldPadY);
-
-            var e = Event.current;
-            bool isKeyDown = e.type == EventType.KeyDown;
-
-            // IMGUI emits Space as key and character events; consume both in checklist mode, but toggle only on the key event so Space is not typed into the filter.
-            if (isKeyDown && _mode == Mode.Sub && Checklist &&
-                (e.keyCode == KeyCode.Space || e.character == ' '))
-            {
-                if (e.keyCode == KeyCode.Space) ToggleSub();
-                e.Use();
-                return;
-            }
-
-            // Handle navigation keys before the text field, which would otherwise consume
-            // arrows, Escape and Enter for its own cursor motion and focus management.
-            if (isKeyDown && HandleNavigation(e)) return;
-
-            if (_mode == Mode.Sub)
-            {
-                if (DrawSubInput(inner, e, isKeyDown)) return;
-            }
-            else
-            {
-                DrawCommandInput(inner);
-            }
-
-            if (_focusInput)
-            {
-                GUI.FocusControl("paletteInput");
-                _focusInput = false;
-            }
-        }
-
-        bool HandleNavigation(Event e)
-        {
-            switch (e.keyCode)
-            {
-                case KeyCode.Escape:
-                    if (_mode == Mode.Sub) BackSub();
-                    else Close();
-                    e.Use();
-                    return true;
-
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    if (_mode == Mode.Sub) ExecuteSub();
-                    else ExecuteSelected();
-                    e.Use();
-                    return true;
-
-                case KeyCode.UpArrow:
-                    if (_mode == Mode.Sub)
-                    {
-                        _subIndex = Mathf.Max(0, _subIndex - 1);
-                        ScrollToSub();
-                    }
-                    else if (_matches.Count > 0)
-                    {
-                        _selectedIndex = _selectedIndex == 0
-                            ? _matches.Count - 1
-                            : _selectedIndex - 1;
-                        ScrollToSelected();
-                    }
-                    e.Use();
-                    return true;
-
-                case KeyCode.DownArrow:
-                    if (_mode == Mode.Sub)
-                    {
-                        _subIndex = Mathf.Min(_subShown.Count - 1, _subIndex + 1);
-                        ScrollToSub();
-                    }
-                    else if (_matches.Count > 0)
-                    {
-                        _selectedIndex = _selectedIndex == _matches.Count - 1
-                            ? 0
-                            : _selectedIndex + 1;
-                        ScrollToSelected();
-                    }
-                    e.Use();
-                    return true;
-
-                case KeyCode.PageUp:
-                    if (_mode == Mode.Sub)
-                    {
-                        _subIndex = Mathf.Max(0, _subIndex - PageSize);
-                        ScrollToSub();
-                    }
-                    else
-                    {
-                        _selectedIndex = Mathf.Max(0, _selectedIndex - PageSize);
-                        ScrollToSelected();
-                    }
-                    e.Use();
-                    return true;
-
-                case KeyCode.PageDown:
-                    if (_mode == Mode.Sub)
-                    {
-                        _subIndex = Mathf.Min(_subShown.Count - 1, _subIndex + PageSize);
-                        ScrollToSub();
-                    }
-                    else
-                    {
-                        _selectedIndex = Mathf.Min(_matches.Count - 1, _selectedIndex + PageSize);
-                        ScrollToSelected();
-                    }
-                    e.Use();
-                    return true;
-            }
-            return false;
-        }
-
-        bool DrawSubInput(Rect inner, Event e, bool isKeyDown)
-        {
-            // Prompt on the left, filter input on the right.
-            string prompt = _subPrompt + " ";
-            float promptW = SlopWidgets.Wide(prompt);
-            var labelRect = new Rect(inner.x, inner.y, promptW, inner.height);
-            var fieldRect = new Rect(inner.x + promptW, inner.y,
-                inner.width - promptW, inner.height);
-
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(labelRect, prompt);
-            GUI.color = Color.white;
-
-            bool hadFilter = _subHasFilter;
-            string wasSub = _subFilter;
-            _subFilter = SlopWidgets.BareField(fieldRect, "paletteInput", _subFilter);
-            _subHasFilter = !string.IsNullOrEmpty(_subFilter);
-            if (_subFilter != wasSub)
-            {
-                RebuildSub();
-                _subIndex = 0;
-                _scroll.JumpTo(Vector2.zero);
-                Resize();
-            }
-
-            // Backspace on empty filter in sub-mode: go back to command list.
-            // The text field was empty so it didn't consume the key; ours to take.
-            if (isKeyDown && e.keyCode == KeyCode.Backspace && !hadFilter)
-            {
-                BackSub();
-                e.Use();
-                return true;
-            }
-            return false;
-        }
-
-        float DrawCommandInput(Rect inner)
-        {
-            string was = _input;
-            _input = SlopWidgets.BareField(inner, "paletteInput", _input);
-            if (_input != was)
-            {
-                _filter = _input.ToLowerInvariant();
-                RebuildMatches();
-                _selectedIndex = 0;
-                _scroll.JumpTo(Vector2.zero);
-                Resize();
-            }
-            return inner.height;
-        }
-
-        void BackToCommands()
-        {
-            _mode = Mode.Commands;
-            _subCmd = null;
-            _subStack.Clear();
-            _subFilter = "";
-            _subHasFilter = false;
-            _input = "";
-            _filter = "";
-            _selectedIndex = 0;
-            _scroll.JumpTo(Vector2.zero);
-            _focusInput = true;
-            RebuildMatches();
-            Resize();
-        }
-
-        // The box is as tall as what is in it: filtered down to one answer, a palette
-        // holding its opening height is mostly empty dark. Lands next frame, this one's
-        // window group having been opened already.
-        void Resize()
-        {
-            float h = ContentHeight();
-            if (Mathf.Abs(windowRect.height - h) > 0.5f) windowRect.height = h;
-        }
-
-        // Walk the same order as DrawCommandList to find the y of the selected item,
-        // then scroll to keep it visible.
-        void ScrollToSelected()
-        {
-            if (_selectedIndex < 0 || _selectedIndex >= _matches.Count) return;
-
-            float y = 0f;
-            string prev = null;
-            for (int i = 0; i < _selectedIndex; i++)
-            {
-                if (Grouped)
-                {
-                    string group = GroupOf(i);
-                    if (group != prev) { y += GroupH; prev = group; }
-                }
-                y += RowH;
-            }
-
-            _scroll.Reveal(y, RowH, _listH);
-        }
-
-        void ScrollToSub()
-        {
-            float y = _subIndex * RowH;
-            _scroll.Reveal(y, RowH, _listH);
-        }
-
-        // Page navigation follows the number of complete rows visible in the list. A page
-        // jump is still at least one row when the palette is shorter than a row.
-        int PageSize => Mathf.Max(1, Mathf.FloorToInt(_listH / RowH));
-
-        // --------------------------------------------------------------- command list
-
-        void DrawCommandList(Rect r)
-        {
-            if (_matches.Count == 0)
-            {
-                GUI.color = SlopWidgets.Faint;
-                SlopWidgets.RowLabel(r, _filter.Length > 0
-                    ? "No matching commands"
-                    : "No commands available", TextAnchor.MiddleCenter);
-                GUI.color = Color.white;
-                return;
-            }
-
-            // Total height, with a header where the group changes. Recent entries carry
-            // their own group so they read as one block ahead of the rest.
-            float totalH = 0f;
-            string prev = null;
-            for (int i = 0; i < _matches.Count; i++)
-            {
-                if (Grouped)
-                {
-                    string group = GroupOf(i);
-                    if (group != prev) { totalH += GroupH; prev = group; }
-                }
-                totalH += RowH;
-            }
-
-            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW, totalH);
-
-            _scroll.Begin(r, view);
-
-            float y = 0f;
-            prev = null;
-            for (int i = 0; i < _matches.Count; i++)
-            {
-                string group = Grouped ? GroupOf(i) : null;
-                if (group != null && group != prev)
-                {
-                    var header = new Rect(0f, y, view.width, GroupH);
-                    GUI.color = SlopWidgets.Faint;
-                    Text.Font = GameFont.Tiny;
-                    SlopWidgets.RowLabel(header, group.ToUpperInvariant());
-                    Text.Font = GameFont.Small;
-                    GUI.color = Color.white;
-                    y += GroupH;
-                    prev = group;
-                }
-
-                var row = new Rect(0f, y, view.width, RowH);
-                bool selected = i == _selectedIndex;
-
-                if (selected)
-                    Slab.Fill(row, SlopWidgets.Sel);
-                else
-                    if (Mouse.IsOver(row)) Slab.Fill(row, SlopWidgets.Hover);
-
-                if (Widgets.ButtonInvisible(row))
-                {
-                    _selectedIndex = i;
-                    if (_matches[i].Command.SubAction != null) EnterSub(_matches[i].Command);
-                    else Execute(_matches[i].Command);
-                }
-
-                GUI.color = selected ? SlopWidgets.Lead : SlopWidgets.Name;
-                SlopWidgets.RowLabel(
-                    new Rect(row.x + SlopWidgets.FieldPadX, row.y + SlopWidgets.FieldPadY,
-                        view.width - SlopWidgets.FieldPadX * 2f,
-                        RowH - SlopWidgets.FieldPadY * 2f),
-                    _matches[i].Label);
-                GUI.color = Color.white;
-
-                y += RowH;
-            }
-
-            _scroll.End();
-        }
-
-        // A filtered list is ranked rather than grouped: the answer is the top row, and a
-        // heading between every pair of rows is where that stops reading as an order.
-        bool Grouped => _filter.Length == 0;
-
-        // Recent entries (front of the list, no filter) group under "Recently"; everything
-        // else under its own category.
-        string GroupOf(int index) =>
-            index < _recentInList ? "Recently" : _matches[index].Command.Group;
-
-        // --------------------------------------------------------------- sub list
-
-        void DrawSubList(Rect r)
-        {
-            var options = _subShown;
-
-            if (options.Count == 0)
-            {
-                GUI.color = SlopWidgets.Faint;
-                SlopWidgets.RowLabel(r, _subHasFilter ? "No matches" : "Nothing available",
-                    TextAnchor.MiddleCenter);
-                GUI.color = Color.white;
-                return;
-            }
-
-            _subIndex = Mathf.Clamp(_subIndex, 0, options.Count - 1);
-
-            float totalH = options.Count * RowH;
-            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW, totalH);
-
-            _scroll.Begin(r, view);
-
-            float y = 0f;
-            for (int i = 0; i < options.Count; i++)
-            {
-                var row = new Rect(0f, y, view.width, RowH);
-                bool selected = i == _subIndex;
-
-                if (selected)
-                    Slab.Fill(row, SlopWidgets.Sel);
-                else
-                    if (Mouse.IsOver(row)) Slab.Fill(row, SlopWidgets.Hover);
-
-                if (Widgets.ButtonInvisible(row))
-                {
-                    _subIndex = i;
-                    ExecuteSub();
-                }
-
-                float left = row.x + SlopWidgets.FieldPadX;
-
-                // The checkbox goes before the label, the way a settings page draws one,
-                // and the label starts after it. Rows without one keep the whole line:
-                // a list is all ticks or none, so nothing is left hanging.
-                var box = options[i].O.Checked;
-                if (box.HasValue)
-                {
-                    SlopWidgets.TickBox(new Rect(left, row.y, SlopWidgets.TickW, RowH),
-                        box.Value);
-                    left += SlopWidgets.TickColW;
-                }
-
-                if (!options[i].O.Enabled)
-                {
-                    GUI.color = SlopWidgets.Off;
-                }
-                else
-                {
-                    GUI.color = selected ? SlopWidgets.Lead : SlopWidgets.Name;
-                }
-
-                SlopWidgets.RowLabel(
-                    new Rect(left, row.y + SlopWidgets.FieldPadY,
-                        row.xMax - SlopWidgets.FieldPadX - left,
-                        RowH - SlopWidgets.FieldPadY * 2f),
-                    options[i].Label);
-                GUI.color = Color.white;
-
-                y += RowH;
-            }
-
-            _scroll.End();
         }
 
         // --------------------------------------------------------------- command model
@@ -684,37 +277,37 @@ namespace SlopWorld
                 _ => GitView.Refresh()),
 
             new CommandDef("view.config", "Settings: General", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.Category)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Config))),
             new CommandDef("view.storage", "Settings: Storage", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.StorageCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Storage))),
             new CommandDef("view.commands", "Settings: Commands", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CommandsCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Commands))),
             new CommandDef("view.command-presets", "Settings: Commands - Presets", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CommandPresetsCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.CommandPresets))),
             new CommandDef("view.terminal-settings", "Settings: Terminal", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.TerminalCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Terminal))),
             new CommandDef("view.appearance", "Settings: Appearance", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.AppearanceCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Appearance))),
             new CommandDef("view.audio", "Settings: Audio", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.AudioCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Audio))),
             new CommandDef("view.integrations", "Settings: Integrations", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.IntegrationsCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Integrations))),
             new CommandDef("view.usage", "Settings: Integrations - Usage", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.UsageCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Usage))),
             new CommandDef("view.summaries", "Settings: Integrations - Summaries", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.SummariesCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Summaries))),
             new CommandDef("view.sandbox", "Settings: Sandbox", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.SandboxCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Sandbox))),
             new CommandDef("view.shortcuts-settings", "Settings: Keyboard", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.KeyboardCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Keyboard))),
             new CommandDef("settings.graphics", "Settings: RimWorld - Graphics", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.GraphicsCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Graphics))),
             new CommandDef("settings.interface", "Settings: RimWorld - Interface", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.InterfaceCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Interface))),
             new CommandDef("settings.controls", "Settings: RimWorld - Controls", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.ControlsCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Controls))),
             new CommandDef("view.about", "Settings: About", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.AboutCategory)),
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.About))),
             new CommandDef("config.toml", "Configuration: Edit config.toml", "Configuration",
                 _ => ConfigWindow.Open()),
             new CommandDef("view.filter", "View: Filter Projects", "View",
