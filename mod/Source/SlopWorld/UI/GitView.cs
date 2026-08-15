@@ -9,26 +9,31 @@ namespace SlopWorld
     // back pass, while the daemon runs `git` outside the sessions' mount namespaces.
     public static class GitView
     {
-        // One column uses one font-derived row height.
-        static float RowH => SlopWidgets.TinyRowH;
-        const float IconW = 16f;
-        const float Indent = 11f;
-        const float Pad = SlopWidgets.GapS;
-        const float CellX = SlopWidgets.GapS;
-        const float ArrowW = 11f;
-
         // A directory holds children; a file holds the daemon's row.
-        class Node
+        class Node : IContentTreeNode
         {
             public string Name;
             public string Rel;          // relative to the repository root, which is what git takes back
+            public string Project;
             public bool IsDir;
             public bool Expanded = true; // a change tree is small, so it opens showing everything
             public List<Node> Kids;
+            public Repo Owner;
             public string Status;       // the porcelain pair, files only
             public int Added = -1;      // -1 is "git counted none": a binary file
             public int Deleted = -1;
             public int Depth;
+
+            string IContentTreeNode.Name => Name;
+            string IContentTreeNode.Key => Rel;
+            string IContentTreeNode.Project => Project;
+            bool IContentTreeNode.IsDirectory => IsDir;
+            int IContentTreeNode.Depth => Depth;
+            bool IContentTreeNode.CanExpand => IsDir;
+            bool IContentTreeNode.Loading => false;
+            string IContentTreeNode.Error => null;
+            bool IContentTreeNode.More => false;
+            IEnumerable<IContentTreeNode> IContentTreeNode.Children => Kids;
         }
 
         // One project's answer, as it stands. Keyed by project name for the reason the files
@@ -63,13 +68,8 @@ namespace SlopWorld
         // are about agents.
         static readonly HashSet<string> Shut = new HashSet<string>();
 
-        static readonly SmoothScroll _scroll = new SmoothScroll();
-
         // The change the reader is looking at, and the ephemeral session paging its diff.
-        // The project is part of the identity because two repositories can have the same path.
-        // `_selected` is what the tree highlights; `Viewer` is who is showing it.
-        static string _selected;
-        static string _selectedProject;
+        // The tree owns the selected row; the project remains part of its identity.
         static readonly Pager Viewer = new Pager();
 
         // And which of the two things about that change it is showing: the diff, or the file
@@ -77,6 +77,82 @@ namespace SlopWorld
         // path, so "click the one already open and its pane comes back" has to be about the
         // one that was clicked.
         static RowAct _showing;
+
+        static readonly ContentTreeView Tree = new ContentTreeView(new TreeSource());
+
+        sealed class TreeSource : ContentTreeSource
+        {
+            public override IList<ContentTreeGroup> Groups()
+            {
+                var groups = new List<ContentTreeGroup>();
+                foreach (var project in ViewChrome.Projects())
+                {
+                    var repo = Get(project);
+                    groups.Add(new ContentTreeGroup(project, project, repo.Dir, repo, repo.Tree));
+                }
+                return groups;
+            }
+
+            public override bool IsGroupCollapsed(ContentTreeGroup group) =>
+                Shut.Contains(group.Key);
+
+            public override void ToggleGroup(ContentTreeGroup group)
+            {
+                if (!Shut.Remove(group.Key)) Shut.Add(group.Key);
+            }
+
+            public override string GroupTooltip(ContentTreeGroup group) => group.Path;
+
+            public override float DrawGroupTail(Rect row, ContentTreeGroup group, float right)
+            {
+                var repo = (Repo)group.Value;
+                if (Shut.Contains(group.Key) && repo.IsRepo && repo.Changed > 0)
+                {
+                    GUI.color = SlopWidgets.Dim;
+                    var count = new Rect(row.width * 0.5f, row.y,
+                        right - row.width * 0.5f, row.height);
+                    SlopWidgets.RowLabel(count, repo.Changed.ToString(), TextAnchor.MiddleRight);
+                    GUI.color = SlopWidgets.Faint;
+                    return count.x - 4f;
+                }
+                return right;
+            }
+
+            public override float GroupBodyHeight(ContentTreeGroup group) =>
+                SlopWidgets.TinyRowH;
+
+            public override float DrawGroupBody(float width, float y, ContentTreeGroup group) =>
+                Body(width, y, (Repo)group.Value);
+
+            public override bool IsExpanded(IContentTreeNode node) =>
+                !((Node)node).Owner.Shut.Contains(((Node)node).Rel);
+
+            public override void ToggleNode(IContentTreeNode node)
+            {
+                var git = (Node)node;
+                if (!git.Owner.Shut.Remove(git.Rel)) git.Owner.Shut.Add(git.Rel);
+            }
+
+            public override RowAct Actions(IContentTreeNode node) => Acts((Node)node);
+
+            public override float DrawRowTail(Rect row, IContentTreeNode node, float right) =>
+                RowTail(row, (Node)node, right);
+
+            public override string RowTooltip(IContentTreeNode node)
+            {
+                var git = (Node)node;
+                return git.IsDir ? null : $"{git.Rel}\n\n{Says(git)}";
+            }
+
+            public override void Open(IContentTreeNode node) => GitView.Open((Node)node,
+                ((Node)node).Owner);
+            public override void Action(IContentTreeNode node, RowAct action) =>
+                GitView.Act((Node)node, ((Node)node).Owner, action);
+            public override List<FloatMenuOption> GroupMenu(ContentTreeGroup group) =>
+                HeadMenu(group.Key, (Repo)group.Value);
+            public override List<FloatMenuOption> RowMenu(IContentTreeNode node) =>
+                GitView.RowMenu((Node)node, ((Node)node).Owner);
+        }
 
         // ------------------------------------------------------------------ asking
 
@@ -171,7 +247,15 @@ namespace SlopWorld
         // which is the whole difference between this tree and the files view's.
         static Node Fold(Repo repo, JVal files)
         {
-            var root = new Node { IsDir = true, Depth = -1, Kids = new List<Node>(), Rel = "" };
+            var root = new Node
+            {
+                IsDir = true,
+                Depth = -1,
+                Kids = new List<Node>(),
+                Rel = "",
+                Project = repo.Project,
+                Owner = repo,
+            };
 
             foreach (var f in files.Items)
             {
@@ -196,6 +280,8 @@ namespace SlopWorld
                             Kids = new List<Node>(),
                             Depth = at.Depth + 1,
                             Rel = at.Rel.Length == 0 ? seg : at.Rel + "/" + seg,
+                            Project = repo.Project,
+                            Owner = repo,
                         };
                         at.Kids.Add(last);
                     }
@@ -213,6 +299,8 @@ namespace SlopWorld
                     // which is a real count and a different row.
                     Added = f["added"].IsNull ? -1 : f["added"].AsInt(),
                     Deleted = f["deleted"].IsNull ? -1 : f["deleted"].AsInt(),
+                    Project = repo.Project,
+                    Owner = repo,
                 });
             }
 
@@ -252,137 +340,9 @@ namespace SlopWorld
             foreach (var kid in dir.Kids) Depths(kid, depth + 1);
         }
 
-        // ------------------------------------------------------------------ drawing
-
-        // Laid out by Draw, read by the click pass, so the two can never disagree about where
-        // a row is - the same reason the files view keeps a Lines table.
-        struct Line
-        {
-            public Node Node;
-            public Repo Repo;
-            public string Project;   // set on a heading, null on a row of the tree
-            public Rect Rect;
-        }
-
-        static readonly List<Line> Lines = new List<Line>();
-
-        public static void Draw(Rect body)
-        {
-            Lines.Clear();
-
-            var projects = ViewChrome.Projects();
-            if (projects.Count == 0)
-            {
-                ViewChrome.Empty(body);
-                return;
-            }
-
-            float height = Measure(projects);
-            var view = new Rect(0f, 0f,
-                body.width - (height > body.height ? SlopWidgets.ScrollbarW : 0f),
-                height);
-
-            // GUI rather than GUILayout, so this is safe in a pass that declines Layout
-            // events - see AgentSidebar.DrawBack - and closed from a finally for the reason
-            // the files view closes its own: a group left open is every window drawn after
-            // it drawn somewhere else.
-            _scroll.Begin(body, view);
-            try
-            {
-                float y = Pad;
-                foreach (var name in projects)
-                {
-                    var repo = Get(name);
-                    y = Head(view.width, y, name, repo);
-                    if (!Shut.Contains(name)) y = Body(view.width, y, name, repo);
-                }
-            }
-            finally
-            {
-                _scroll.End();
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                GUI.color = Color.white;
-            }
-        }
-
-        // The height the whole thing wants, so the scroll view knows before anything is
-        // drawn. It walks only what is expanded, which is what is on screen.
-        static float Measure(List<string> projects)
-        {
-            float h = Pad * 2f;
-            foreach (var name in projects)
-            {
-                h += RowH;
-                if (Shut.Contains(name)) continue;
-
-                var repo = Get(name);
-                // The state line: the branch and the shortstat, or what went wrong, or the
-                // news that this is not a repository at all. Always one row.
-                h += RowH;
-                if (repo.Tree != null) h += Count(repo, repo.Tree) * RowH;
-            }
-            return h;
-        }
-
-        static float Count(Repo repo, Node dir)
-        {
-            float c = 0f;
-            foreach (var kid in dir.Kids)
-            {
-                c += 1f;
-                if (kid.IsDir && !repo.Shut.Contains(kid.Rel)) c += Count(repo, kid);
-            }
-            return c;
-        }
-
-        // The project band, the same shape the other two views' headings are - one column,
-        // one kind of heading, whichever body is under it.
-        static float Head(float width, float y, string project, Repo repo)
-        {
-            var r = new Rect(0f, y, width, RowH);
-            bool shut = Shut.Contains(project);
-
-            SlopWidgets.HoverRow(r);
-
-            GUI.color = SlopWidgets.Faint;
-            var arrow = new Rect(CellX, r.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW);
-            GUI.DrawTexture(arrow, shut ? TexButton.Reveal : TexButton.Collapse);
-
-            Text.Font = GameFont.Tiny;
-
-            // The count from the right, so the figures line up down the column the way the
-            // agents view's times do. Only where the heading is folded: with the tree open
-            // the rows are the count, and the state line under it says the rest.
-            float rx = r.width - CellX;
-            if (shut && repo.IsRepo && repo.Changed > 0)
-            {
-                GUI.color = SlopWidgets.Dim;
-                var count = new Rect(r.width * 0.5f, r.y, rx - r.width * 0.5f, RowH);
-                SlopWidgets.RowLabel(count, repo.Changed.ToString(), TextAnchor.MiddleRight);
-                rx = count.x - 4f;
-                GUI.color = SlopWidgets.Faint;
-            }
-
-            float lx = arrow.xMax + 4f;
-            var label = new Rect(lx, r.y, rx - lx, RowH);
-            SlopWidgets.RowLabel(label, project);
-
-            Slab.Hairline(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
-                SlopWidgets.Edge);
-
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.Font = GameFont.Small;
-
-            TooltipHandler.TipRegion(r, $"{repo.Dir}\n\nClick to fold.");
-            Lines.Add(new Line { Repo = repo, Project = project, Rect = r });
-            return y + RowH;
-        }
-
         // The state line and then the tree, or the state line alone where there is no tree to
         // draw. One row either way, which is what Measure counts.
-        static float Body(float width, float y, string project, Repo repo)
+        static float Body(float width, float y, Repo repo)
         {
             if (repo.Loading && repo.Tree == null)
                 return ViewChrome.Note(width, y, 0, "...", SlopWidgets.Faint);
@@ -394,22 +354,22 @@ namespace SlopWorld
                 return ViewChrome.Note(width, y, 0, "not a git repository", SlopWidgets.Faint);
 
             y = State(width, y, repo);
-            return Rows(width, y, repo, repo.Tree);
+            return y;
         }
 
         // The branch, and the shortstat beside it: `git diff --shortstat` said in the room a
         // column this narrow has, which is a figure each rather than a sentence.
         static float State(float width, float y, Repo repo)
         {
-            var r = new Rect(0f, y, width, RowH);
-            float x = CellX;
+            var r = new Rect(0f, y, width, SlopWidgets.TinyRowH);
+            float x = SlopWidgets.GapS;
 
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
 
             // From the right, so the branch takes whatever is left rather than pushing the
             // figures off the edge - a branch name is the long half of this line.
-            float rx = width - Pad;
+            float rx = width - SlopWidgets.GapS;
             if (repo.Changed == 0)
             {
                 rx = Tail(rx, y, "clean", SlopWidgets.Faint);
@@ -423,7 +383,7 @@ namespace SlopWorld
 
             GUI.color = SlopWidgets.Dim;
             Text.Anchor = TextAnchor.MiddleLeft;
-            var branch = new Rect(x, y, Mathf.Max(0f, rx - x - 4f), RowH);
+            var branch = new Rect(x, y, Mathf.Max(0f, rx - x - 4f), SlopWidgets.TinyRowH);
             SlopWidgets.RowLabel(branch, repo.Branch ?? "");
 
             GUI.color = Color.white;
@@ -435,7 +395,7 @@ namespace SlopWorld
                 : $"{repo.Root}\n\n{repo.Changed} changed, " +
                   $"{repo.Added} insertions(+), {repo.Deleted} deletions(-)" +
                   (repo.Truncated ? "\n\nThe tree shows the first 2,000 changes." : ""));
-            return y + RowH;
+            return y + SlopWidgets.TinyRowH;
         }
 
         // One figure laid out from the right, and the x the next one ends at. The anchor does
@@ -447,81 +407,24 @@ namespace SlopWorld
             // than its ink, which on a number is the whole of what there was to read.
             float w = SlopWidgets.Wide(text) + 2f;
             GUI.color = color;
-            SlopWidgets.RowLabel(new Rect(right - w, y, w, RowH), text,
+            SlopWidgets.RowLabel(new Rect(right - w, y, w, SlopWidgets.TinyRowH), text,
                 TextAnchor.MiddleRight);
             return right - w - 5f;
         }
 
-        static float Rows(float width, float y, Repo repo, Node dir)
+        static float RowTail(Rect row, Node node, float right)
         {
-            foreach (var node in dir.Kids)
+            if (node.IsDir) return right;
+            if (node.Added < 0)
+                right = Tail(right, row.y, "bin", SlopWidgets.Faint);
+            else
             {
-                y = Row(width, y, repo, node);
-                if (node.IsDir && !repo.Shut.Contains(node.Rel))
-                    y = Rows(width, y, repo, node);
+                if (node.Deleted > 0) right = Tail(right, row.y, "-" + node.Deleted,
+                    SlopWidgets.Bad);
+                if (node.Added > 0) right = Tail(right, row.y, "+" + node.Added,
+                    SlopWidgets.Yes);
             }
-            return y;
-        }
-
-        static float Row(float width, float y, Repo repo, Node node)
-        {
-            var r = new Rect(0f, y, width, RowH);
-            bool over = SlopWidgets.HoverRow(r);
-            if (!node.IsDir && node.Rel == _selected)
-                Slab.Fill(r, SlopWidgets.Hover);
-
-            float x = CellX + node.Depth * Indent;
-
-            if (node.IsDir)
-            {
-                GUI.color = SlopWidgets.Faint;
-                GUI.DrawTexture(new Rect(x, y + (RowH - ArrowW) / 2f, ArrowW, ArrowW),
-                    repo.Shut.Contains(node.Rel) ? TexButton.Reveal : TexButton.Collapse);
-                GUI.color = Color.white;
-            }
-            x += ArrowW + 3f;
-
-            var icon = FileIcons.Of(node.Name, node.IsDir);
-            if (icon != null)
-                GUI.DrawTexture(new Rect(x, y + (RowH - IconW) / 2f, IconW, IconW), icon);
-            x += IconW + 5f;
-
-            Text.Font = GameFont.Tiny;
-
-            // Right-align counts; row actions temporarily occupy the same tail space.
-            float rx = width - Pad;
-            var acts = over ? Acts(node) : RowAct.None;
-            if (acts != RowAct.None)
-            {
-                rx = RowActions.Draw(r, rx, acts) - 4f;
-            }
-            else if (!node.IsDir)
-            {
-                if (node.Added < 0)
-                    rx = Tail(rx, y, "bin", SlopWidgets.Faint);
-                else
-                {
-                    if (node.Deleted > 0) rx = Tail(rx, y, "-" + node.Deleted, SlopWidgets.Bad);
-                    if (node.Added > 0) rx = Tail(rx, y, "+" + node.Added, SlopWidgets.Yes);
-                }
-                rx = Tail(rx, y, Mark(node.Status), MarkColor(node.Status));
-            }
-
-            Text.Anchor = TextAnchor.MiddleLeft;
-            GUI.color = node.IsDir ? SlopWidgets.Lead : SlopWidgets.Name;
-            var label = new Rect(x, y, Mathf.Max(0f, rx - x - 2f), RowH);
-            SlopWidgets.RowLabel(label, node.Name);
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.Font = GameFont.Small;
-
-            // Not while the mouse is on one of the buttons: that one states what it does, and
-            // two tooltips over one row are drawn one under the other.
-            if (!node.IsDir && RowActions.Hit(r, width - Pad, acts) == RowAct.None)
-                TooltipHandler.TipRegion(r, $"{node.Rel}\n\n{Says(node)}");
-
-            Lines.Add(new Line { Node = node, Repo = repo, Rect = r });
-            return y + RowH;
+            return Tail(right, row.y, Mark(node.Status), MarkColor(node.Status));
         }
 
         // Every changed file offers Diff; existing files additionally offer Edit and text files
@@ -606,89 +509,16 @@ namespace SlopWorld
             }
         }
 
-        // ------------------------------------------------------------------ clicks
-        //
-        // Called after layout and Grip; row rects are screen-adjusted before hit-testing.
-        public static void Clicks()
-        {
-            if (!ColonistBarStrip.Interactive) return;
-
-            var e = Event.current;
-            if (e.rawType != EventType.MouseDown) return;
-            if (e.button != 0 && e.button != 1) return;
-
-            foreach (var line in Lines)
-            {
-                // Hit-test the scrolled, clipped row rect rather than its layout rect.
-                if (!ColonistBarStrip.MouseOver(Screen(line.Rect))) continue;
-
-                if (line.Project != null)
-                {
-                    if (e.button == 0) Fold(line.Project);
-                    else HeadMenu(line.Project, line.Repo);
-                    // A heading is not a change: the reader's focus has moved off whatever
-                    // diff was showing, so it goes.
-                    ClearSelection();
-                    Viewer.Release();
-                }
-                else if (e.button == 1)
-                {
-                    RowMenu(line.Node, line.Repo);
-                }
-                else
-                {
-                    // Row actions take precedence over the row; directories have none.
-                    var scr = Screen(line.Rect);
-                    var hit = RowActions.Hit(scr, scr.xMax - Pad, Acts(line.Node));
-
-                    if (hit != RowAct.None)
-                    {
-                        Act(line.Node, line.Repo, hit);
-                    }
-                    else if (line.Node.IsDir)
-                    {
-                        if (!line.Repo.Shut.Remove(line.Node.Rel))
-                            line.Repo.Shut.Add(line.Node.Rel);
-                        // A directory is not a diff selection.
-                        ClearSelection();
-                        Viewer.Release();
-                    }
-                    else
-                    {
-                        Open(line.Node, line.Repo);
-                    }
-                }
-
-                e.Use();
-                return;
-            }
-        }
-
-        // The view's own rect, moved into the panel and up by however far it is scrolled. The
-        // scroll view is clipped, so a row scrolled off the top would otherwise still answer a
-        // click in the strip above it.
-        static Rect Screen(Rect r)
-        {
-            var body = AgentSidebar.TreeBody(AgentSidebar.Body, AgentSidebar.TabGit);
-            var moved = new Rect(body.x + r.x - _scroll.Position.x, body.y + r.y - _scroll.Position.y,
-                r.width, r.height);
-            return moved.yMax <= body.y || moved.y >= body.yMax ? Rect.zero : moved;
-        }
-
-        static void Fold(string project)
-        {
-            if (!Shut.Remove(project)) Shut.Add(project);
-        }
+        public static void Draw(Rect body) => Tree.Draw(body);
+        public static void Clicks() => Tree.Clicks(ReleaseViewerForTree);
 
         // Left on a change: mark it and read its diff. Clicking the one already open just
         // brings its pane back - a focus change is a *different* row, and only that replaces
         // the pager.
         static void Open(Node node, Repo repo)
         {
-            bool same = _selectedProject == repo.Project && _selected == node.Rel &&
-                _showing == RowAct.Diff;
-            _selected = node.Rel;
-            _selectedProject = repo.Project;
+            bool same = Tree.IsSelected(node) && _showing == RowAct.Diff;
+            Tree.Select(node);
             if (!same || !Viewer.Reopen()) Diff(node, repo);
         }
 
@@ -769,7 +599,7 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ menus
 
-        static void HeadMenu(string project, Repo repo)
+        static List<FloatMenuOption> HeadMenu(string project, Repo repo)
         {
             var opts = new List<FloatMenuOption>
             {
@@ -795,10 +625,10 @@ namespace SlopWorld
                 SessionHub.Instance.RunHostShell(project,
                     session => TerminalWindow.Open(session), SlopWidgets.Fail)));
 
-            TerminalWindow.OpenOverPane(new SlopMenu(opts));
+            return opts;
         }
 
-        static void RowMenu(Node node, Repo repo)
+        static List<FloatMenuOption> RowMenu(Node node, Repo repo)
         {
             string project = repo.Project;
             string abs = Abs(repo, node);
@@ -822,11 +652,11 @@ namespace SlopWorld
                 // A directory's diff is every change under it and no one row's, so nothing
                 // is marked; a file's is the row itself.
                 if (node.IsDir) ClearSelection();
-                else _selected = node.Rel;
+                else Tree.Select(node);
                 Diff(node, repo);
             }));
 
-            TerminalWindow.OpenOverPane(new SlopMenu(opts));
+            return opts;
         }
 
         static void Copy(string text) =>
@@ -850,16 +680,14 @@ namespace SlopWorld
                 SlopWidgets.Fail($"nothing to diff in {System.IO.Path.GetFileName(abs)}");
                 return;
             }
-            _selected = rel;
-            _selectedProject = project;
+            Tree.SelectKey(ContentTreeView.SelectionKey(project, rel));
             _showing = RowAct.Diff;
             Viewer.Open(project, DiffCmd(repo, rel, status), label);
         }
 
         static void Diff(Node node, Repo repo)
         {
-            _selected = node.Rel;
-            _selectedProject = repo.Project;
+            Tree.Select(node);
             _showing = RowAct.Diff;
             Viewer.Open(repo.Project, DiffCmd(repo, node.Rel, node.Status), "diff-" + node.Name);
         }
@@ -894,12 +722,17 @@ namespace SlopWorld
             Viewer.Release();
         }
 
+        static void ReleaseViewerForTree()
+        {
+            _showing = RowAct.None;
+            Viewer.Release();
+        }
+
         public static void CloseViewerIf(string session) => Viewer.CloseIf(session);
 
         static void ClearSelection()
         {
-            _selected = null;
-            _selectedProject = null;
+            Tree.ClearSelection();
             _showing = RowAct.None;
         }
     }
