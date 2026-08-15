@@ -56,6 +56,14 @@
     <defaultKeyCodeA>F12</defaultKeyCodeA>
   </KeyBindingDef>
 
+  <!-- F11 toggles the window-manager fullscreen state. -->
+  <KeyBindingDef>
+    <defName>SlopToggleFullscreen</defName>
+    <label>toggle fullscreen</label>
+    <category>SelectionMisc</category>
+    <defaultKeyCodeA>F11</defaultKeyCodeA>
+  </KeyBindingDef>
+
   <!-- F2 through F6: focus the sidebar views. Bare key = sidebar;
        Shift+F = that F-key passes through to the agent/tui. -->
   <KeyBindingDef>
