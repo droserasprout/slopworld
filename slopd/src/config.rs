@@ -112,16 +112,17 @@ pub struct Daemon {
     /// OpenRouter. `once` names the first real prompt in each Codex conversation.
     #[serde(default)]
     pub agent_titles: TitlePolicy,
-    /// Kept configurable because OpenRouter model names have a shorter lifetime than this
-    /// config schema.
+    /// The OpenRouter model used for every prompt summary, including host commands.
     #[serde(default = "default_title_model")]
     pub title_model: String,
     /// Pi follows the daemon title path. It historically renamed on every prompt, so that
     /// remains its default.
     #[serde(default = "default_pi_title_policy")]
     pub pi_titles: TitlePolicy,
-    #[serde(default = "default_title_model")]
-    pub pi_title_model: String,
+    /// Host terminals summarize each submitted command when enabled. This is separate from
+    /// agent title policies because a host terminal has no conversation boundary.
+    #[serde(default = "yes")]
+    pub host_titles: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -175,7 +176,7 @@ impl Default for Daemon {
             agent_titles: TitlePolicy::Never,
             title_model: default_title_model(),
             pi_titles: default_pi_title_policy(),
-            pi_title_model: default_title_model(),
+            host_titles: true,
         }
     }
 }
@@ -973,12 +974,16 @@ mod tests {
     fn automatic_titles_are_opt_in_and_once_parses() {
         assert_eq!(Config::default().daemon.agent_titles, TitlePolicy::Never);
         assert_eq!(Config::default().daemon.pi_titles, TitlePolicy::Always);
+        assert!(Config::default().daemon.host_titles);
         let mut cfg = Config::default();
         cfg.daemon.agent_titles = TitlePolicy::Once;
         cfg.daemon.pi_titles = TitlePolicy::Never;
+        cfg.daemon.host_titles = false;
         let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
         assert_eq!(back.daemon.agent_titles, TitlePolicy::Once);
         assert_eq!(back.daemon.pi_titles, TitlePolicy::Never);
+        assert!(!back.daemon.host_titles);
+        assert_eq!(back.daemon.title_model, cfg.daemon.title_model);
     }
 
     /// What a client sees never carries the secret, and a token that is not set still reads as
