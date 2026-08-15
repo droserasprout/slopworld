@@ -15,8 +15,7 @@ pub struct Change {
     /// two characters git wrote rather than reduced to one, because "staged" and "modified
     /// since" are different rows to a reader and the same letter otherwise.
     pub status: String,
-    /// Lines, from the numstat. `None` where git said `-` (a binary file) or where there is
-    /// no diff to count - an untracked file has no blob to compare against.
+    /// Lines, from the numstat. `None` where git said `-` (a binary file).
     pub added: Option<u32>,
     pub deleted: Option<u32>,
 }
@@ -49,9 +48,6 @@ pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
     // Both readings are against the root rather than the directory asked about: a project
     // pointed at a subdirectory of a repository is still that repository, and a path relative
     // to the root is the one form `git diff` will take back without a second guess about cwd.
-    let branch = branch(&root).await;
-    let counts = numstat(&root).await;
-
     // Ask for every untracked file rather than Git's default one-row-per-directory
     // summary. The latter produces `?? path/`, which is not a file path and would
     // become an empty child when the client folds the list into its tree.
@@ -61,6 +57,8 @@ pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
     )
     .await?;
     let rows = parse_porcelain(&porcelain);
+    let branch = branch(&root).await;
+    let counts = numstat(&root, &rows).await;
     let changed = rows.len();
     let added = counts.values().filter_map(|c| c.0).sum();
     let deleted = counts.values().filter_map(|c| c.1).sum();
@@ -120,15 +118,59 @@ async fn branch(root: &Path) -> String {
 
 /// Lines added and deleted per path, staged and unstaged together - `HEAD` is the comparison
 /// a reader means by "what has changed here". A repository with no commit has no `HEAD` to
-/// compare against, and the fallback is the index, which is all such a repository can show.
-async fn numstat(root: &Path) -> HashMap<String, (Option<u32>, Option<u32>)> {
-    let out = match run(root, &["diff", "--numstat", "-z", "HEAD"]).await {
-        Ok(s) => s,
-        Err(_) => run(root, &["diff", "--numstat", "-z", "--cached"])
-            .await
-            .unwrap_or_default(),
+/// compare against, and the fallback is the index. Untracked paths have no blob for that
+/// comparison, so each gets the same no-index reading used by the diff pager. In an unborn
+/// repository, staged additions also need the no-index reading so later worktree edits are not
+/// lost behind the cached version.
+async fn numstat(
+    root: &Path,
+    rows: &[(String, String)],
+) -> HashMap<String, (Option<u32>, Option<u32>)> {
+    let (out, has_head) = match run(root, &["diff", "--numstat", "-z", "HEAD"]).await {
+        Ok(s) => (s, true),
+        Err(_) => (
+            run(root, &["diff", "--numstat", "-z", "--cached"])
+                .await
+                .unwrap_or_default(),
+            false,
+        ),
     };
-    parse_numstat(&out)
+    let mut counts = parse_numstat(&out);
+
+    for path in rows.iter().filter_map(|(path, status)| {
+        (status == "??" || (!has_head && status.contains('A'))).then_some(path)
+    }) {
+        if let Some(count) = no_index_numstat(root, path).await {
+            counts.insert(path.clone(), count);
+        }
+    }
+
+    counts
+}
+
+/// `git diff --no-index` exits one when the file differs from `/dev/null`, but its numstat is
+/// still the authoritative text/binary classification and line count. A failure to read the
+/// file leaves it absent from the map, just as an unavailable tracked diff does.
+async fn no_index_numstat(root: &Path, path: &str) -> Option<(Option<u32>, Option<u32>)> {
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["diff", "--no-index", "--numstat", "-z", "--", "/dev/null"])
+        .arg(path)
+        .env("GIT_PAGER", "cat")
+        .env("LC_ALL", "C")
+        .output()
+        .await
+        .ok()?;
+
+    if out.status.success() || out.status.code() == Some(1) {
+        return parse_numstat(&String::from_utf8_lossy(&out.stdout))
+            .into_iter()
+            .next()
+            .map(|(_, count)| count);
+    }
+
+    None
 }
 
 /// `git` in the repository, with its own environment kept out of the way: a pager here would
@@ -179,7 +221,10 @@ fn parse_numstat(out: &str) -> HashMap<String, (Option<u32>, Option<u32>)> {
     let mut map = HashMap::new();
     let mut fields = out.split('\0').filter(|s| !s.is_empty());
     while let Some(head) = fields.next() {
-        let mut parts = head.split('\t');
+        // The counts occupy the first two tab-separated fields; keep the rest intact because
+        // Git permits a tab in a filename. Renames use an empty third field and carry both
+        // names as their following NUL-separated fields.
+        let mut parts = head.splitn(3, '\t');
         let (Some(added), Some(deleted)) = (parts.next(), parts.next()) else {
             continue;
         };
@@ -248,6 +293,12 @@ mod tests {
         assert!(!map.contains_key("old.rs"));
     }
 
+    #[test]
+    fn numstat_keeps_tabs_in_a_filename() {
+        let map = parse_numstat("2\t0\ttab\tname.txt\0");
+        assert_eq!(map["tab\tname.txt"], (Some(2), Some(0)));
+    }
+
     #[tokio::test]
     async fn a_directory_that_is_no_repository_is_not_an_error() {
         let dir = std::env::temp_dir().join("slopd-git-none");
@@ -267,6 +318,15 @@ mod tests {
         tokio::fs::write(nested.join("file.txt"), "hello\n")
             .await
             .unwrap();
+        tokio::fs::write(nested.join("binary.bin"), [0_u8, 1_u8, 2_u8])
+            .await
+            .unwrap();
+        tokio::fs::write(nested.join("tab\tname.txt"), "one\ntwo\n")
+            .await
+            .unwrap();
+        tokio::fs::write(dir.join("staged.txt"), "before\n")
+            .await
+            .unwrap();
 
         let init = Command::new("git")
             .arg("init")
@@ -277,10 +337,51 @@ mod tests {
             .unwrap();
         assert!(init.success());
 
+        let add = Command::new("git")
+            .args(["add", "staged.txt"])
+            .current_dir(&dir)
+            .status()
+            .await
+            .unwrap();
+        assert!(add.success());
+        tokio::fs::write(dir.join("staged.txt"), "before\nafter\n")
+            .await
+            .unwrap();
+
         let answer = status(&dir).await.unwrap().unwrap();
-        assert_eq!(answer.changes.len(), 1);
-        assert_eq!(answer.changes[0].path, "untracked/nested/file.txt");
-        assert_eq!(answer.changes[0].status, "??");
+        assert_eq!(answer.changes.len(), 4);
+        let text = answer
+            .changes
+            .iter()
+            .find(|change| change.path == "untracked/nested/file.txt")
+            .unwrap();
+        assert_eq!(text.status, "??");
+        assert_eq!(text.added, Some(1));
+        assert_eq!(text.deleted, Some(0));
+        let binary = answer
+            .changes
+            .iter()
+            .find(|change| change.path == "untracked/nested/binary.bin")
+            .unwrap();
+        assert_eq!(binary.added, None);
+        assert_eq!(binary.deleted, None);
+        let tabbed = answer
+            .changes
+            .iter()
+            .find(|change| change.path == "untracked/nested/tab\tname.txt")
+            .unwrap();
+        assert_eq!(tabbed.added, Some(2));
+        assert_eq!(tabbed.deleted, Some(0));
+        let staged = answer
+            .changes
+            .iter()
+            .find(|change| change.path == "staged.txt")
+            .unwrap();
+        assert_eq!(staged.status, "AM");
+        assert_eq!(staged.added, Some(2));
+        assert_eq!(staged.deleted, Some(0));
+        assert_eq!(answer.added, 5);
+        assert_eq!(answer.deleted, 0);
 
         tokio::fs::remove_dir_all(&dir).await.unwrap();
     }

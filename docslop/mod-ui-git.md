@@ -18,8 +18,9 @@ namespaces isolate sessions from the game; `/api/browse` exists for the same bou
   `Changes` table serves Files' path lookup.
 - Right-clicking a project heading or changed-path row opens its context menu, including the
   project-relative File actions available to the Files tree.
-- Rows show the porcelain pair, numstat and right-aligned figures. Green is staged,
-  amber unstaged, red unmerged and faint untracked. Heading status uses
+- Rows show the porcelain pair, numstat and right-aligned figures. Untracked text files use a
+  no-index diff against `/dev/null`, so their additions count too; binaries remain uncounted.
+  Green is staged, amber unstaged, red unmerged and faint untracked. Heading status uses
   `git diff --shortstat` as branch plus three figures.
 - Errors clear the tree so `Measure` and `Body` agree with the visible rows.
 
@@ -27,7 +28,8 @@ namespaces isolate sessions from the game; `/api/browse` exists for the same bou
 
 A file click opens a diff in an ephemeral pager agent using the project's sandbox, so git
 sees the same tree as the editing agent. The diff row stays at the top of Git, not in
-Agents; directory menus diff their contents and heading menus diff the project.
+Agents; directory menus diff their tracked contents and heading menus diff the project.
+Untracked files need their individual row diff because one `git diff` cannot include them.
 
 `DiffCmd` builds argv rather than a shell:
 
