@@ -29,6 +29,81 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
+        // The pane keeps showing its last frame across a daemon restart, which without this
+        // is indistinguishable from an agent that has stopped answering.
+        void DrawOfflineBanner(Rect body)
+        {
+            var r = new Rect(body.x, body.y, body.width, SlopWidgets.LineH + 3f);
+            Slab.Box(r, SlopWidgets.OfflineBg, SlopWidgets.Edge);
+
+            string tail = _droppedKeys > 0
+                ? $" - {_droppedKeys} keystroke{(_droppedKeys == 1 ? "" : "s")} not delivered"
+                : "";
+
+            Text.Font = GameFont.Small;
+            var anchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.Label(r, $"daemon {SessionHub.Instance.Status} - reconnecting{tail}");
+            Text.Anchor = anchor;
+        }
+
+        void DrawCentered(Rect r, string msg)
+        {
+            Text.Anchor = TextAnchor.MiddleCenter;
+            GUI.color = SlopWidgets.Dim;
+            Widgets.Label(r, msg);
+            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.UpperLeft;
+        }
+
+        // The persona core's hint bubble, drawn here rather than on the map layer so it sits
+        // over this pane: the window fills the screen opaque and a bubble behind it cannot be
+        // seen. Only the current map's core holds a hint; elsewhere there is nothing to draw
+        // and this returns at once.
+        void DrawHint() => Find.CurrentMap?.GetComponent<CoreTip>()?.DrawHint();
+
+        void DrawSelection(Rect body, ScreenBuf buf)
+        {
+            // Not `_selA == _selB`: a one-character word is a selection, and drawn.
+            if (!_hasSel) return;
+            EnsureRuns(buf);
+            SyncSnap();
+
+            float cw = TerminalFont.CellW, ch = TerminalFont.CellH;
+            OrderedSel(out var a, out var b);
+            int rows = buf.Runs.Length;
+
+            for (int row = Mathf.Max(0, a.y); row <= Mathf.Min(rows - 1, b.y); row++)
+            {
+                int lineLen = ContentLen(RowText(buf, row));
+                int startCol = Mathf.Max(0, row == a.y ? a.x : 0);
+                int endCol = row == b.y ? b.x + 1 : lineLen;
+                endCol = Mathf.Clamp(endCol, startCol, lineLen);
+
+                float y = body.y + row * ch;
+                if (y > body.yMax) break;
+                if (endCol <= startCol) continue;
+
+                float l = SnapX(body.x + startCol * cw);
+                float r = SnapX(body.x + endCol * cw);
+                float t = SnapY(y);
+                float bot = SnapY(body.y + (row + 1) * ch);
+                Widgets.DrawBoxSolid(new Rect(l, t, r - l, bot - t),
+                    TerminalTheme.Current.Selection);
+            }
+        }
+
+        void DrawScrollHint(Rect body)
+        {
+            Text.Font = GameFont.Tiny;
+            GUI.color = SlopWidgets.Warn;
+            SlopWidgets.RowLabel(new Rect(body.x, body.y, body.width - 6f, SlopWidgets.TinyH),
+                $"scrollback -{_scrollOff}   type or scroll down to resume",
+                TextAnchor.MiddleRight);
+            GUI.color = Color.white;
+            Text.Font = GameFont.Small;
+        }
+
         // A pure function of the buffer, the rect and the font, which is what makes Blit's
         // cache possible.
         void Paint(Rect body, ScreenBuf buf, float cw, float ch)
@@ -438,4 +513,3 @@ namespace SlopWorld
 
     }
 }
-
