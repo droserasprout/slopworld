@@ -241,6 +241,7 @@ impl Manager {
         // Dropping a `Live` only *detaches* its reader: `JoinHandle`'s own `Drop` lets the
         // task run on, and it would keep a control-mode attach open against a session
         // nothing points at any more. Every other removal path aborts, so this one does too.
+        let mut removed = Vec::new();
         live.retain(|name, l| {
             if l.ephemeral || cfg.session(name).is_some() {
                 return true;
@@ -250,6 +251,16 @@ impl Manager {
                 h.abort();
             }
             self.forget_scroll(name);
+            if let Err(error) = self.title_cache.clear_latest(name) {
+                tracing::warn!(
+                    target: "slopd::titles",
+                    session = %name,
+                    error = %error,
+                    outcome = "cache_write_failed",
+                    "could not clear session title"
+                );
+            }
+            removed.push(name.clone());
             false
         });
 
@@ -288,6 +299,13 @@ impl Manager {
                 });
         }
         drop(live);
+
+        if !removed.is_empty() {
+            let mut grants = self.grants.write().await;
+            for name in &removed {
+                grants.revoke_grantor(name);
+            }
+        }
 
         for s in cfg.sessions.iter().filter(|s| s.autostart) {
             if !self.tmux.exists(&s.name).await {
@@ -1202,7 +1220,7 @@ impl Manager {
 
     pub(super) async fn readopt(self: &Arc<Self>, old: &str, new: &str) {
         // The control reader is attached by tmux name; renaming requires a fresh capture/emulator.
-        let running = {
+        let (running, title) = {
             let mut live = self.live.write().await;
             let mut l = match live.remove(old) {
                 Some(l) => l,
@@ -1216,14 +1234,19 @@ impl Manager {
             // it would silently route every later key to the vanished old session.
             l.input = None;
             let running = l.emu.take().is_some();
+            let title = l.title.override_title.clone();
             l.cfg.name = new.to_string();
             live.insert(new.to_string(), l);
-            running
+            (running, title)
         };
         // The cache is keyed by name, and the frames under the old one describe a pane that
         // is about to be re-captured against a fresh emulator.
         self.forget_scroll(old);
         self.forget_scroll(new);
+        let _ = self.title_cache.clear_latest(old);
+        if let Some(t) = title {
+            let _ = self.title_cache.remember(new, &t);
+        }
         if running && self.spawn_reader(new).await {
             let m = self.clone();
             let name = new.to_string();
@@ -1254,15 +1277,6 @@ impl Manager {
             return Err(e);
         }
         drop(cfg);
-        if let Err(error) = self.title_cache.clear_latest(name) {
-            tracing::warn!(
-                target: "slopd::titles",
-                session = %name,
-                error = %error,
-                outcome = "cache_write_failed",
-                "could not clear session title"
-            );
-        }
         if let Err(e) = crate::sandbox::purge_trash() {
             tracing::warn!("purging private-state trash: {e:#}");
         }

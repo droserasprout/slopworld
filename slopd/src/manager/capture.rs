@@ -208,7 +208,7 @@ impl Manager {
 
         let mut request = None;
         let mut announce = false;
-        let mut clear_latest = false;
+        let mut new_conversation: Option<Option<String>> = None;
         {
             let mut live = self.live.write().await;
             let Some(l) = live.get_mut(name) else { return };
@@ -239,8 +239,8 @@ impl Manager {
                     l.title.generation = l.title.generation.wrapping_add(1);
                     l.title.pending = false;
                     l.title.once_requested = false;
-                    l.title.override_title = native;
-                    clear_latest = true;
+                    l.title.override_title = native.clone();
+                    new_conversation = Some(native);
                     announce = true;
                 }
                 Some(Submission::Prompt(prompt))
@@ -288,14 +288,18 @@ impl Manager {
         }
         drop(cfg);
 
-        if clear_latest {
-            if let Err(error) = self.title_cache.clear_latest(name) {
+        if let Some(native) = new_conversation {
+            let cache_result = match native {
+                Some(ref title) => self.title_cache.remember(name, title),
+                None => self.title_cache.clear_latest(name),
+            };
+            if let Err(error) = cache_result {
                 tracing::warn!(
                     target: "slopd::titles",
                     session = %name,
                     error = %error,
                     outcome = "cache_write_failed",
-                    "could not clear session title"
+                    "could not update session title cache"
                 );
             }
         }
