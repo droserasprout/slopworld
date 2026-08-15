@@ -16,12 +16,15 @@ use crate::grant::{Cap, Level};
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use tokio::sync::Mutex;
+use tokio::sync::{broadcast, Mutex};
+use tokio::task::JoinHandle;
 
 use crate::config::{ProjectCfg, SessionCfg, ShortcutCfg};
 use crate::session::{Event, Manager, RunWhere, WatchGuard};
 
 type Mgr = Arc<Manager>;
+type WsTx = Arc<Mutex<futures::stream::SplitSink<WebSocket, Message>>>;
+type WsSubs = Arc<Mutex<HashMap<String, WatchGuard>>>;
 
 pub fn router(m: Mgr) -> Router {
     // Reachable by a scoped grant as well as the root. Each handler checks its own session and
@@ -1728,21 +1731,45 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
     let tx = Arc::new(Mutex::new(tx));
     // A `WatchGuard` apiece rather than bare names: the daemon renders a pane at a reader's
     // rate only while somebody is holding one, and this socket has several ways out.
-    let subs: Arc<Mutex<HashMap<String, WatchGuard>>> = Arc::new(Mutex::new(HashMap::new()));
-    let mut events = m.events.subscribe();
+    let subs: WsSubs = Arc::new(Mutex::new(HashMap::new()));
 
-    // Usage, projects and shortcuts ride along because they speak only on a change: a mod
-    // attaching between polls would otherwise draw nothing for a minute. Each goes through the
-    // same scope filter the pump uses, so a grant's socket gets its filtered session list and
-    // none of the mod's wider view - `scope_event` drops what it may not see.
+    if !send_initial_snapshot(&tx, &m, &cap).await {
+        return;
+    }
+
+    let pump = spawn_frame_pump(m.events.subscribe(), tx.clone(), subs.clone(), cap.clone());
+
+    while let Some(Ok(msg)) = rx.next().await {
+        let Message::Text(text) = msg else { continue };
+        let Ok(cm) = serde_json::from_str::<ClientMsg>(&text) else {
+            tracing::debug!("unparseable ws message: {text}");
+            continue;
+        };
+        if !handle_client_msg(cm, &m, &cap, &tx, &subs).await {
+            break;
+        }
+    }
+
+    // Explicitly, rather than with the table: the pump holds the other half of that `Arc` and
+    // an aborted task is dropped when the runtime gets round to it, which is not when the
+    // agent stopped being watched.
+    subs.lock().await.clear();
+    pump.abort();
+}
+
+/// Usage, projects and shortcuts ride along because they speak only on a change: a mod
+/// attaching between polls would otherwise draw nothing for a minute. Each goes through the
+/// same scope filter the pump uses, so a grant's socket gets its filtered session list and
+/// none of the mod's wider view - `scope_event` drops what it may not see.
+async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
     if let Some(ev) = scope_event(
-        &cap,
+        cap,
         Event::Sessions {
             sessions: m.views().await,
         },
     ) {
-        if send(&tx, &ev).await.is_err() {
-            return;
+        if send(tx, &ev).await.is_err() {
+            return false;
         }
     }
     for ev in [
@@ -1764,227 +1791,212 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
             jukebox: crate::jukebox::catalog(),
         },
     ] {
-        if let Some(ev) = scope_event(&cap, ev) {
-            let _ = send(&tx, &ev).await;
+        if let Some(ev) = scope_event(cap, ev) {
+            let _ = send(tx, &ev).await;
         }
     }
+    true
+}
 
-    // Coalesce screen frames per client to the monitor cadence: newest wins, and the pending
-    // frame flushes on the beat. Other event types remain uncoalesced.
+/// Coalesce screen frames per client to the monitor cadence: newest wins, and the pending
+/// frame flushes on the beat. Other event types remain uncoalesced.
+fn spawn_frame_pump(
+    mut events: broadcast::Receiver<Event>,
+    tx: WsTx,
+    subs: WsSubs,
+    cap: Cap,
+) -> JoinHandle<()> {
     const FRAME_COALESCE: Duration = Duration::from_millis(16);
 
-    let pump = {
+    tokio::spawn(async move {
         use tokio::time::{sleep_until, Instant as TokioInstant};
-        let tx = tx.clone();
-        let subs = subs.clone();
-        let cap = cap.clone();
-        tokio::spawn(async move {
-            let mut last_screen = TokioInstant::now() - FRAME_COALESCE;
-            // One slot per pane, not one global slot: a socket can subscribe to several
-            // panes, and a frame for one must not overwrite a held frame for another.
-            let mut pending: HashMap<String, Event> = HashMap::new();
-            loop {
-                // Only arm the beat when a frame is being held; otherwise the timer would
-                // fire on a past deadline and spin while nothing is pending.
-                let flush = async {
-                    if !pending.is_empty() {
-                        sleep_until(last_screen + FRAME_COALESCE).await;
-                    } else {
-                        std::future::pending::<()>().await;
-                    }
-                };
-                tokio::select! {
-                    ev = events.recv() => match ev {
-                        Ok(ev) => {
-                            // Filtered to this socket's capability before anything else looks at
-                            // it: a grant's pump never even coalesces a frame it may not see.
-                            let Some(ev) = scope_event(&cap, ev) else { continue };
-                            if let Event::Screen { ref screen } = ev {
-                                if !subs.lock().await.contains_key(&screen.name) {
-                                    continue;
-                                }
-                                let due = TokioInstant::now()
-                                    .saturating_duration_since(last_screen) >= FRAME_COALESCE;
-                                if due {
-                                    // Sending now, drop any held frame for this pane: it is
-                                    // older and must not flush after the newer one.
-                                    pending.remove(&screen.name);
-                                    if send(&tx, &ev).await.is_err() {
-                                        break;
-                                    }
-                                    last_screen = TokioInstant::now();
-                                } else {
-                                    // Newest wins for this pane; a still pane never reads stale.
-                                    pending.insert(screen.name.clone(), ev);
-                                }
-                            } else {
-                                // A non-screen event (sessions, usage, quit) must not wait
-                                // behind a stale frame, so anything held goes out first.
-                                if !pending.is_empty() {
-                                    for (_, pe) in std::mem::take(&mut pending) {
-                                        if send(&tx, &pe).await.is_err() {
-                                            break;
-                                        }
-                                    }
-                                    last_screen = TokioInstant::now();
-                                }
+
+        let mut last_screen = TokioInstant::now() - FRAME_COALESCE;
+        // One slot per pane, not one global slot: a socket can subscribe to several
+        // panes, and a frame for one must not overwrite a held frame for another.
+        let mut pending: HashMap<String, Event> = HashMap::new();
+        loop {
+            // Only arm the beat when a frame is being held; otherwise the timer would
+            // fire on a past deadline and spin while nothing is pending.
+            let flush = async {
+                if !pending.is_empty() {
+                    sleep_until(last_screen + FRAME_COALESCE).await;
+                } else {
+                    std::future::pending::<()>().await;
+                }
+            };
+            tokio::select! {
+                ev = events.recv() => match ev {
+                    Ok(ev) => {
+                        // Filtered to this socket's capability before anything else looks at
+                        // it: a grant's pump never even coalesces a frame it may not see.
+                        let Some(ev) = scope_event(&cap, ev) else { continue };
+                        if let Event::Screen { ref screen } = ev {
+                            if !subs.lock().await.contains_key(&screen.name) {
+                                continue;
+                            }
+                            let due = TokioInstant::now()
+                                .saturating_duration_since(last_screen) >= FRAME_COALESCE;
+                            if due {
+                                // Sending now, drop any held frame for this pane: it is
+                                // older and must not flush after the newer one.
+                                pending.remove(&screen.name);
                                 if send(&tx, &ev).await.is_err() {
                                     break;
                                 }
+                                last_screen = TokioInstant::now();
+                            } else {
+                                // Newest wins for this pane; a still pane never reads stale.
+                                pending.insert(screen.name.clone(), ev);
                             }
-                        }
-                        // A slow client misses frames; the next capture resyncs it.
-                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
-                        Err(_) => break,
-                    },
-                    _ = flush => {
-                        if !pending.is_empty() {
-                            for (_, pe) in std::mem::take(&mut pending) {
-                                if send(&tx, &pe).await.is_err() {
-                                    break;
-                                }
-                            }
-                            last_screen = TokioInstant::now();
-                        }
-                    }
-                }
-            }
-        })
-    };
-
-    while let Some(Ok(msg)) = rx.next().await {
-        let Message::Text(text) = msg else { continue };
-        let Ok(cm) = serde_json::from_str::<ClientMsg>(&text) else {
-            tracing::debug!("unparseable ws message: {text}");
-            continue;
-        };
-        // Require ro for pane reads, rw for input, and neither for host terminals; unauthorized
-        // messages are dropped silently.
-        match cm {
-            ClientMsg::Sub { name } => {
-                if !m.cap_ok(&cap, &name, Level::Ro).await {
-                    continue;
-                }
-                subs.lock().await.insert(name.clone(), m.watching(&name));
-                // Somebody is looking at this pane now, which is the whole of what a bell
-                // was asking for. Broadcast, not answered here: every client draws the mark.
-                m.clear_bell(&name).await;
-                if let Some(s) = m.screen(&name).await {
-                    let _ = send(&tx, &Event::Screen { screen: s }).await;
-                }
-            }
-            ClientMsg::Unsub { name } => {
-                subs.lock().await.remove(&name);
-            }
-            ClientMsg::Keys(k) => {
-                if !m.cap_ok(&cap, &k.name, Level::Rw).await {
-                    continue;
-                }
-                m.send_keys(&k.name, k.keys, k.literal, k.random_tips).await;
-            }
-            ClientMsg::Resize(r) => {
-                if !m.cap_ok(&cap, &r.name, Level::Rw).await {
-                    continue;
-                }
-                if let Err(e) = m.resize(&r.name, r.cols, r.rows).await {
-                    tracing::debug!("resize: {e:#}");
-                }
-            }
-            ClientMsg::Scroll(sr) => {
-                if !m.cap_ok(&cap, &sr.name, Level::Ro).await {
-                    continue;
-                }
-                // Answer this socket alone: a scrolled frame is private to the wheel request and
-                // must not reach live subscribers.
-                if let Some(s) = m.scroll_capture(&sr.name, sr.off, sr.request_id).await {
-                    let _ = send(&tx, &Event::Screen { screen: s }).await;
-                }
-            }
-            ClientMsg::Mouse(mr) => {
-                if !m.cap_ok(&cap, &mr.name, Level::Rw).await {
-                    continue;
-                }
-                let Some(action) = crate::emu::MouseAction::parse(&mr.action) else {
-                    tracing::debug!("unknown mouse action: {}", mr.action);
-                    continue;
-                };
-                let ev = crate::emu::MouseInput {
-                    action,
-                    button: mr.button,
-                    col: mr.col,
-                    row: mr.row,
-                };
-                m.send_mouse(&mr.name, ev, mr.count).await;
-            }
-            ClientMsg::Paste(pr) => {
-                if !m.cap_ok(&cap, &pr.name, Level::Rw).await {
-                    continue;
-                }
-                // A paste checks first, so anything left is a paste that did not land - and
-                // the only other sign of one is the operator noticing nothing arrived.
-                if let Err(e) = m.paste(&pr.name, &pr.text).await {
-                    tracing::warn!("paste to {}: {e:#}", pr.name);
-                }
-            }
-            ClientMsg::Breadcrumb(br) => {
-                if !m.cap_ok(&cap, &br.name, Level::Rw).await {
-                    continue;
-                }
-                if let Err(e) = m
-                    .paste_breadcrumb(&br.name, &br.breadcrumb, br.random_tips)
-                    .await
-                {
-                    tracing::warn!("breadcrumb to {}: {e:#}", br.name);
-                }
-            }
-            ClientMsg::Audio(ar) => {
-                if !cap.may_create() {
-                    continue;
-                }
-                match ar.selection {
-                    Some(Some(selection)) => {
-                        let source = match (selection.station, selection.stream, selection.file) {
-                            (Some(station), Some(stream), None) => {
-                                match crate::jukebox::catalog().resolve(&station, &stream) {
-                                    Ok(source) => Some(source),
-                                    Err(e) => {
-                                        let why = format!("jukebox selection rejected: {e:#}");
-                                        tracing::warn!("{why}");
-                                        m.audio.reject(why);
-                                        None
+                        } else {
+                            // A non-screen event (sessions, usage, quit) must not wait
+                            // behind a stale frame, so anything held goes out first.
+                            if !pending.is_empty() {
+                                for (_, pe) in std::mem::take(&mut pending) {
+                                    if send(&tx, &pe).await.is_err() {
+                                        break;
                                     }
                                 }
+                                last_screen = TokioInstant::now();
                             }
-                            (None, None, Some(file)) => Some(file),
-                            _ => {
-                                let why = "jukebox selection must name a station/stream or file";
-                                tracing::warn!("{why}");
-                                m.audio.reject(why);
-                                None
+                            if send(&tx, &ev).await.is_err() {
+                                break;
                             }
-                        };
-                        if let Some(source) = source {
-                            m.audio.play(&source, ar.volume);
                         }
                     }
-                    Some(None) => m.audio.stop(),
-                    None => m.audio.set_volume(ar.volume),
+                    // A slow client misses frames; the next capture resyncs it.
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(_) => break,
+                },
+                _ = flush => {
+                    if !pending.is_empty() {
+                        for (_, pe) in std::mem::take(&mut pending) {
+                            if send(&tx, &pe).await.is_err() {
+                                break;
+                            }
+                        }
+                        last_screen = TokioInstant::now();
+                    }
                 }
             }
         }
-    }
-
-    // Explicitly, rather than with the table: the pump holds the other half of that `Arc` and
-    // an aborted task is dropped when the runtime gets round to it, which is not when the
-    // agent stopped being watched.
-    subs.lock().await.clear();
-    pump.abort();
+    })
 }
 
-async fn send(
-    tx: &Arc<Mutex<futures::stream::SplitSink<WebSocket, Message>>>,
-    ev: &Event,
-) -> Result<(), axum::Error> {
+/// Handles one client message. Unauthorized messages are dropped silently; a failed direct
+/// response means the socket is gone and tells the caller to stop reading it.
+async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
+    // Require ro for pane reads, rw for input, and neither for host terminals.
+    match cm {
+        ClientMsg::Sub { name } => {
+            if !m.cap_ok(cap, &name, Level::Ro).await {
+                return true;
+            }
+            subs.lock().await.insert(name.clone(), m.watching(&name));
+            // Somebody is looking at this pane now, which is the whole of what a bell
+            // was asking for. Broadcast, not answered here: every client draws the mark.
+            m.clear_bell(&name).await;
+            if let Some(s) = m.screen(&name).await {
+                return send(tx, &Event::Screen { screen: s }).await.is_ok();
+            }
+        }
+        ClientMsg::Unsub { name } => {
+            subs.lock().await.remove(&name);
+        }
+        ClientMsg::Keys(k) => {
+            if !m.cap_ok(cap, &k.name, Level::Rw).await {
+                return true;
+            }
+            m.send_keys(&k.name, k.keys, k.literal, k.random_tips).await;
+        }
+        ClientMsg::Resize(r) => {
+            if !m.cap_ok(cap, &r.name, Level::Rw).await {
+                return true;
+            }
+            if let Err(e) = m.resize(&r.name, r.cols, r.rows).await {
+                tracing::debug!("resize: {e:#}");
+            }
+        }
+        ClientMsg::Scroll(sr) => {
+            if !m.cap_ok(cap, &sr.name, Level::Ro).await {
+                return true;
+            }
+            // Answer this socket alone: a scrolled frame is private to the wheel request and
+            // must not reach live subscribers.
+            if let Some(s) = m.scroll_capture(&sr.name, sr.off, sr.request_id).await {
+                return send(tx, &Event::Screen { screen: s }).await.is_ok();
+            }
+        }
+        ClientMsg::Mouse(mr) => {
+            if !m.cap_ok(cap, &mr.name, Level::Rw).await {
+                return true;
+            }
+            let Some(action) = crate::emu::MouseAction::parse(&mr.action) else {
+                tracing::debug!("unknown mouse action: {}", mr.action);
+                return true;
+            };
+            let ev = crate::emu::MouseInput {
+                action,
+                button: mr.button,
+                col: mr.col,
+                row: mr.row,
+            };
+            m.send_mouse(&mr.name, ev, mr.count).await;
+        }
+        ClientMsg::Paste(pr) => {
+            if !m.cap_ok(cap, &pr.name, Level::Rw).await {
+                return true;
+            }
+            // A paste checks first, so anything left is a paste that did not land - and
+            // the only other sign of one is the operator noticing nothing arrived.
+            if let Err(e) = m.paste(&pr.name, &pr.text).await {
+                tracing::warn!("paste to {}: {e:#}", pr.name);
+            }
+        }
+        ClientMsg::Breadcrumb(br) => {
+            if !m.cap_ok(cap, &br.name, Level::Rw).await {
+                return true;
+            }
+            if let Err(e) = m
+                .paste_breadcrumb(&br.name, &br.breadcrumb, br.random_tips)
+                .await
+            {
+                tracing::warn!("breadcrumb to {}: {e:#}", br.name);
+            }
+        }
+        ClientMsg::Audio(ar) => {
+            if !cap.may_create() {
+                return true;
+            }
+            match ar.selection {
+                Some(Some(selection)) => match resolve_audio_source(selection) {
+                    Ok(source) => m.audio.play(&source, ar.volume),
+                    Err(e) => {
+                        let why = format!("{e:#}");
+                        tracing::warn!("{why}");
+                        m.audio.reject(why);
+                    }
+                },
+                Some(None) => m.audio.stop(),
+                None => m.audio.set_volume(ar.volume),
+            }
+        }
+    }
+    true
+}
+
+fn resolve_audio_source(selection: AudioSelection) -> anyhow::Result<String> {
+    match (selection.station, selection.stream, selection.file) {
+        (Some(station), Some(stream), None) => crate::jukebox::catalog()
+            .resolve(&station, &stream)
+            .map_err(|e| anyhow::anyhow!("jukebox selection rejected: {e:#}")),
+        (None, None, Some(file)) => Ok(file),
+        _ => bail!("jukebox selection must name a station/stream or file"),
+    }
+}
+
+async fn send(tx: &WsTx, ev: &Event) -> Result<(), axum::Error> {
     let text = serde_json::to_string(ev).unwrap_or_default();
     tx.lock().await.send(Message::Text(text)).await
 }
