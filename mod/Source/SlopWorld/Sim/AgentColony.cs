@@ -27,9 +27,9 @@ namespace SlopWorld
         // ExposeData: references resolve in a later phase, so the pawns would still be null.
         bool _reindex = true;
 
-        // Not saved: a colony loading with its agents already stopped must not greet the
-        // player with a wall of sirens.
-        readonly Dictionary<string, AgentState> _seen = new Dictionary<string, AgentState>();
+        // Last state each session was reconciled at. Saved with the colony so a game restart
+        // does not turn an unchanged daemon state into a fresh transition.
+        Dictionary<string, AgentState> _seen = new Dictionary<string, AgentState>();
 
         // Agents still in the air. A pawn inside a pod is not spawned, so the haze waits on
         // the pod opening - watched every tick rather than on the reconcile's second, a puff
@@ -230,7 +230,7 @@ namespace SlopWorld
                 RobotFace.Apply(kv.Value);
 
                 var state = SessionHub.Instance.Get(kv.Key)?.State ?? AgentState.Down;
-                // The first sight of a session is not a move.
+                // A session with no saved history has not moved on its first sight.
                 AgentState? was = _seen.TryGetValue(kv.Key, out var seen)
                     ? seen : (AgentState?)null;
                 _seen[kv.Key] = state;
@@ -283,8 +283,8 @@ namespace SlopWorld
         }
 
         // The colonist goes down but stays a live pawn its process can get back up; killing it
-        // would mean a corpse and a fresh stranger on every restart. `was` is nothing on the
-        // first look, and only a state it *moved* into is worth a noise.
+        // would mean a corpse and a fresh stranger on every restart. `was` is absent only for
+        // a new session or an old save, and only a state it *moved* into is worth a noise.
         static void Reflect(Pawn pawn, AgentState state, AgentState? was)
         {
             if (pawn == null || !pawn.Spawned) return;
@@ -461,6 +461,8 @@ namespace SlopWorld
             Scribe_Collections.Look(ref _pawns, "agentPawns",
                 LookMode.Value, LookMode.Reference, ref _pawnKeys, ref _pawnBodies);
             if (_pawns == null) _pawns = new Dictionary<string, Pawn>();
+            Scribe_Collections.Look(ref _seen, "agentStates", LookMode.Value, LookMode.Value);
+            if (_seen == null) _seen = new Dictionary<string, AgentState>();
             Scribe_Values.Look(ref _jukeboxSent, "jukeboxSent", false);
             _reindex = true; // whatever the table is now, it is not what the index holds
         }
