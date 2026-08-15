@@ -34,7 +34,7 @@ namespace SlopWorld
         int _recentInList;
 
         // Sub-mode: a command that needs a second selection transitions here.
-        Entry _subCmd;
+        CommandDef _subCmd;
         string _subPrompt;
         string _subFilter = "";
         bool _subHasFilter;
@@ -49,7 +49,6 @@ namespace SlopWorld
         // Visible height of the list area, used by ScrollToSelection.
         float _listH;
 
-        static List<Entry> _commands;
         static readonly List<string> _recent = new List<string>();
         static bool _recentLoaded;
 
@@ -73,7 +72,6 @@ namespace SlopWorld
             draggable = false;
             resizeable = false;
 
-            if (_commands == null) BuildCommands();
             LoadRecent();
             RebuildMatches();
         }
@@ -402,8 +400,8 @@ namespace SlopWorld
                 if (Widgets.ButtonInvisible(row))
                 {
                     _selectedIndex = i;
-                    if (_matches[i].E.SubAction != null) EnterSub(_matches[i].E);
-                    else Execute(_matches[i].E);
+                    if (_matches[i].Command.SubAction != null) EnterSub(_matches[i].Command);
+                    else Execute(_matches[i].Command);
                 }
 
                 GUI.color = selected ? SlopWidgets.Lead : SlopWidgets.Name;
@@ -427,7 +425,7 @@ namespace SlopWorld
         // Recent entries (front of the list, no filter) group under "Recently"; everything
         // else under its own category.
         string GroupOf(int index) =>
-            index < _recentInList ? "Recently" : _matches[index].E.Category;
+            index < _recentInList ? "Recently" : _matches[index].Command.Group;
 
         // --------------------------------------------------------------- sub list
 
@@ -503,94 +501,55 @@ namespace SlopWorld
             _scroll.End();
         }
 
-        // --------------------------------------------------------------- entry model
+        // --------------------------------------------------------------- command model
 
-        class Entry
-        {
-            public string Id;
-            public string Name;
-            public string Category;
-            // If set, this command needs a sub-selection.
-            public Func<List<SubOption>> SubAction;
-            // The action to execute. Called with null for commands with no sub-action,
-            // or with the selected sub-option's value.
-            public Action<string> Execute;
-
-            public static Entry ForAgent(string id, string name,
-                Func<List<SubOption>> filter, Action<SessionInfo> action) =>
-                For(id, name, "Agent", filter, v => SessionHub.Instance.Get(v), action);
-
-            public static Entry ForProject(string id, string name,
-                Func<List<SubOption>> filter, Action<ProjectInfo> action) =>
-                For(id, name, "Project", filter, v => SessionHub.Instance.Project(v), action);
-
-            public static Entry ForShortcut(string id, string name,
-                Func<List<SubOption>> filter, Action<ShortcutInfo> action) =>
-                For(id, name, "Shortcut", filter, v => SessionHub.Instance.Shortcut(v), action);
-
-            static Entry For<T>(string id, string name, string category,
-                Func<List<SubOption>> filter, Func<string, T> resolve, Action<T> action)
-                where T : class
-            {
-                return new Entry
-                {
-                    Id = id,
-                    Name = name,
-                    Category = category,
-                    SubAction = filter,
-                    Execute = value =>
-                    {
-                        if (value == null) return;
-                        var item = resolve(value);
-                        if (item != null) action(item);
-                    },
-                };
-            }
-        }
-
-        class SettingCommand
+        sealed class CommandDef
         {
             public readonly string Id;
-            public readonly string Name;
-            public readonly Func<OptionCategoryDef> Category;
+            public readonly string Label;
+            public readonly string Group;
+            public readonly Func<bool> Enabled;
+            public readonly Func<List<SubOption>> SubAction;
+            public readonly Action<string> Action;
 
-            public SettingCommand(string id, string name, Func<OptionCategoryDef> category)
+            public CommandDef(string id, string label, string group, Action<string> action,
+                Func<bool> enabled = null, Func<List<SubOption>> subAction = null)
             {
                 Id = id;
-                Name = name;
-                Category = category;
+                Label = label;
+                Group = group;
+                Enabled = enabled ?? (() => true);
+                SubAction = subAction;
+                Action = action;
+            }
+
+            public bool IsEnabled => Enabled();
+
+            public static CommandDef ForAgent(string id, string label,
+                Func<List<SubOption>> filter, Action<SessionInfo> action, Func<bool> enabled = null) =>
+                For(id, label, "Agent", filter, v => SessionHub.Instance.Get(v), action, enabled);
+
+            public static CommandDef ForProject(string id, string label,
+                Func<List<SubOption>> filter, Action<ProjectInfo> action, Func<bool> enabled = null) =>
+                For(id, label, "Project", filter, v => SessionHub.Instance.Project(v), action, enabled);
+
+            public static CommandDef ForShortcut(string id, string label,
+                Func<List<SubOption>> filter, Action<ShortcutInfo> action, Func<bool> enabled = null) =>
+                For(id, label, "Shortcut", filter, v => SessionHub.Instance.Shortcut(v), action, enabled);
+
+            static CommandDef For<T>(string id, string label, string group,
+                Func<List<SubOption>> filter, Func<string, T> resolve, Action<T> action,
+                Func<bool> enabled)
+                where T : class
+            {
+                return new CommandDef(id, label, group, value =>
+                {
+                    if (value == null) return;
+                    var item = resolve(value);
+                    if (item != null) action(item);
+                }, enabled, filter);
             }
         }
-
-        static readonly SettingCommand[] SettingsCommands =
-        {
-            new SettingCommand("view.config", "Settings: General", () => SlopOptions.Category),
-            new SettingCommand("view.storage", "Settings: Storage", () => SlopOptions.StorageCategory),
-            new SettingCommand("view.commands", "Settings: Commands", () => SlopOptions.CommandsCategory),
-            new SettingCommand("view.command-presets", "Settings: Commands - Presets",
-                () => SlopOptions.CommandPresetsCategory),
-            new SettingCommand("view.terminal-settings", "Settings: Terminal",
-                () => SlopOptions.TerminalCategory),
-            new SettingCommand("view.appearance", "Settings: Appearance",
-                () => SlopOptions.AppearanceCategory),
-            new SettingCommand("view.audio", "Settings: Audio", () => SlopOptions.AudioCategory),
-            new SettingCommand("view.integrations", "Settings: Integrations",
-                () => SlopOptions.IntegrationsCategory),
-            new SettingCommand("view.usage", "Settings: Integrations - Usage",
-                () => SlopOptions.UsageCategory),
-            new SettingCommand("view.summaries", "Settings: Integrations - Summaries",
-                () => SlopOptions.SummariesCategory),
-            new SettingCommand("view.sandbox", "Settings: Sandbox", () => SlopOptions.SandboxCategory),
-            new SettingCommand("view.shortcuts-settings", "Settings: Keyboard",
-                () => SlopOptions.KeyboardCategory),
-            new SettingCommand("settings.graphics", "Settings: RimWorld - Graphics",
-                () => SlopOptions.GraphicsCategory),
-            new SettingCommand("settings.interface", "Settings: RimWorld - Interface",
-                () => SlopOptions.InterfaceCategory),
-            new SettingCommand("settings.controls", "Settings: RimWorld - Controls",
-                () => SlopOptions.ControlsCategory),
-            new SettingCommand("view.about", "Settings: About", () => SlopOptions.AboutCategory),
-        };
 
         class SubOption
         {
@@ -617,7 +576,7 @@ namespace SlopWorld
         // matched marked up. Built when the filter moves, not per frame.
         class Hit
         {
-            public Entry E;
+            public CommandDef Command;
             public string Label;
             public int Score;
         }
@@ -629,256 +588,157 @@ namespace SlopWorld
             public int Score;
         }
 
-        // --------------------------------------------------------------- command catalogue
+        // --------------------------------------------------------------- command table
 
-        static void BuildCommands()
+        // The palette is a catalogue of data. Availability is evaluated while the list is
+        // rebuilt, so game-state changes do not require rebuilding the definitions.
+        static readonly List<CommandDef> CommandTable = new List<CommandDef>
         {
-            _commands = new List<Entry>();
-
-            // Agent
-            _commands.Add(Entry.ForAgent("agent.start", "Agent: Start",
+            CommandDef.ForAgent("agent.start", "Agent: Start",
                 () => AgentsSub(AgentState.Down),
-                s => SessionHub.Instance.Start(s.Name, SlopWidgets.Fail)));
-            _commands.Add(Entry.ForAgent("agent.stop", "Agent: Stop",
+                s => SessionHub.Instance.Start(s.Name, SlopWidgets.Fail)),
+            CommandDef.ForAgent("agent.stop", "Agent: Stop",
                 () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
-                s => SessionHub.Instance.Stop(s.Name, SlopWidgets.Fail)));
-            _commands.Add(Entry.ForAgent("agent.restart", "Agent: Restart",
+                s => SessionHub.Instance.Stop(s.Name, SlopWidgets.Fail)),
+            CommandDef.ForAgent("agent.restart", "Agent: Restart",
                 () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
-                s => SessionHub.Instance.Restart(s.Name, SlopWidgets.Fail)));
-            _commands.Add(Entry.ForAgent("agent.edit", "Agent: Edit", AgentsSubAll,
-                s => Find.WindowStack.Add(new EditSessionDialog(s))));
-            _commands.Add(Entry.ForAgent("agent.terminal", "Agent: Open Terminal",
+                s => SessionHub.Instance.Restart(s.Name, SlopWidgets.Fail)),
+            CommandDef.ForAgent("agent.edit", "Agent: Edit", AgentsSubAll,
+                s => Find.WindowStack.Add(new EditSessionDialog(s))),
+            CommandDef.ForAgent("agent.terminal", "Agent: Open Terminal",
                 () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
-                s => { if (!s.Gone) TerminalWindow.Open(s.Name); }));
-            _commands.Add(Entry.ForAgent("agent.delete", "Agent: Delete", AgentsSubAll, s =>
+                s => { if (!s.Gone) TerminalWindow.Open(s.Name); }),
+            CommandDef.ForAgent("agent.delete", "Agent: Delete", AgentsSubAll, s =>
             {
                 var name = s.Name;
                 Find.WindowStack.Add(SlopConfirmDialog.Create(
                     $"Remove session '{name}'? This kills it, drops it from config.toml, and moves " +
                     "its private state to recoverable trash for 14 days.",
                     () => SessionHub.Instance.Remove(name, SlopWidgets.Fail), destructive: true));
-            }));
-            _commands.Add(Entry.ForAgent("agent.duplicate", "Agent: Duplicate", AgentsSubWithProject,
+            }),
+            CommandDef.ForAgent("agent.duplicate", "Agent: Duplicate", AgentsSubWithProject,
                 s =>
                 {
                     if (!string.IsNullOrEmpty(s.Project))
                         TerminalWindow.OpenOverPane(EditSessionDialog.Copy(s));
-                }));
+                }),
 
-            // Project
-            _commands.Add(new Entry
-            {
-                Id = "project.new",
-                Name = "Project: New",
-                Category = "Project",
-                Execute = _ => Find.WindowStack.Add(new EditProjectDialog(null)),
-            });
-            _commands.Add(Entry.ForProject("project.edit", "Project: Edit", ProjectsSub,
-                p => Find.WindowStack.Add(new EditProjectDialog(p))));
-            _commands.Add(Entry.ForProject("project.delete", "Project: Delete", ProjectsSub, p =>
+            new CommandDef("project.new", "Project: New", "Project",
+                _ => Find.WindowStack.Add(new EditProjectDialog(null))),
+            CommandDef.ForProject("project.edit", "Project: Edit", ProjectsSub,
+                p => Find.WindowStack.Add(new EditProjectDialog(p))),
+            CommandDef.ForProject("project.delete", "Project: Delete", ProjectsSub, p =>
             {
                 var name = p.Name;
                 Find.WindowStack.Add(SlopConfirmDialog.Create(
                     $"Remove project '{name}'? The directory is left alone; only the entry in config.toml goes.",
                     () => SessionHub.Instance.RemoveProject(name, SlopWidgets.Fail), destructive: true));
-            }));
-            _commands.Add(Entry.ForProject("project.duplicate", "Project: Duplicate", ProjectsSub,
-                p => TerminalWindow.OpenOverPane(EditProjectDialog.Copy(p))));
-            _commands.Add(Entry.ForProject("project.host-terminal", "Project: Open Host Terminal",
+            }),
+            CommandDef.ForProject("project.duplicate", "Project: Duplicate", ProjectsSub,
+                p => TerminalWindow.OpenOverPane(EditProjectDialog.Copy(p))),
+            CommandDef.ForProject("project.host-terminal", "Project: Open Host Terminal",
                 ProjectsSub,
                 p => SessionHub.Instance.RunHostShell(p.Name,
-                    session => TerminalWindow.Open(session), SlopWidgets.Fail)));
+                    session => TerminalWindow.Open(session), SlopWidgets.Fail)),
 
-            // Shortcut
-            _commands.Add(Entry.ForShortcut("shortcut.run", "Shortcut: Run", ShortcutsSub, s =>
+            CommandDef.ForShortcut("shortcut.run", "Shortcut: Run", ShortcutsSub, s =>
             {
                 if (s.Kind == ShortcutKind.Breadcrumb || s.Kind == ShortcutKind.FileAction) return;
                 if (s.Link == ShortcutLink.Ask) AskWhere(s);
                 else RunShortcutWith(s.Name);
-            }));
-            _commands.Add(new Entry
-            {
-                Id = "shortcut.new",
-                Name = "Shortcut: New",
-                Category = "Shortcut",
-                Execute = _ => Find.WindowStack.Add(new EditShortcutDialog(null)),
-            });
-            _commands.Add(Entry.ForShortcut("shortcut.edit", "Shortcut: Edit", ShortcutsSub,
-                s => Find.WindowStack.Add(new EditShortcutDialog(s))));
-            _commands.Add(Entry.ForShortcut("shortcut.delete", "Shortcut: Delete", ShortcutsSub, s =>
+            }),
+            new CommandDef("shortcut.new", "Shortcut: New", "Shortcut",
+                _ => Find.WindowStack.Add(new EditShortcutDialog(null))),
+            CommandDef.ForShortcut("shortcut.edit", "Shortcut: Edit", ShortcutsSub,
+                s => Find.WindowStack.Add(new EditShortcutDialog(s))),
+            CommandDef.ForShortcut("shortcut.delete", "Shortcut: Delete", ShortcutsSub, s =>
             {
                 var name = s.Name;
                 Find.WindowStack.Add(SlopConfirmDialog.Create(
                     $"Remove shortcut '{name}'? Anything it already started keeps running.",
                     () => SessionHub.Instance.RemoveShortcut(name, SlopWidgets.Fail), destructive: true));
-            }));
+            }),
 
-            // Daemon and data refresh
-            _commands.Add(new Entry
-            {
-                Id = "daemon.reconnect",
-                Name = "Daemon: Reconnect",
-                Category = "Daemon",
-                Execute = _ => SessionHub.Instance.Connect(),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "agents.refresh",
-                Name = "Agents: Refresh",
-                Category = "Refresh",
-                Execute = _ => SessionHub.Instance.Refresh(),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "projects.refresh",
-                Name = "Projects: Refresh",
-                Category = "Refresh",
-                Execute = _ => SessionHub.Instance.RefreshProjects(SlopWidgets.Fail),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "shortcuts.refresh",
-                Name = "Shortcuts: Refresh",
-                Category = "Refresh",
-                Execute = _ => SessionHub.Instance.RefreshShortcuts(SlopWidgets.Fail),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "files.reload",
-                Name = "Files: Reload",
-                Category = "Refresh",
-                Execute = _ => FilesView.Reload(),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "search.open",
-                Name = "Search: Find in Files",
-                Category = "View",
-                Execute = _ => AgentSidebar.ShowSearch(),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "git.refresh",
-                Name = "Git: Refresh",
-                Category = "Refresh",
-                Execute = _ => GitView.Refresh(),
-            });
+            new CommandDef("daemon.reconnect", "Daemon: Reconnect", "Daemon",
+                _ => SessionHub.Instance.Connect()),
+            new CommandDef("agents.refresh", "Agents: Refresh", "Refresh",
+                _ => SessionHub.Instance.Refresh()),
+            new CommandDef("projects.refresh", "Projects: Refresh", "Refresh",
+                _ => SessionHub.Instance.RefreshProjects(SlopWidgets.Fail)),
+            new CommandDef("shortcuts.refresh", "Shortcuts: Refresh", "Refresh",
+                _ => SessionHub.Instance.RefreshShortcuts(SlopWidgets.Fail)),
+            new CommandDef("files.reload", "Files: Reload", "Refresh",
+                _ => FilesView.Reload()),
+            new CommandDef("search.open", "Search: Find in Files", "View",
+                _ => AgentSidebar.ShowSearch()),
+            new CommandDef("git.refresh", "Git: Refresh", "Refresh",
+                _ => GitView.Refresh()),
 
-            // Settings
-            foreach (var setting in SettingsCommands)
-            {
-                _commands.Add(new Entry
-                {
-                    Id = setting.Id,
-                    Name = setting.Name,
-                    Category = "Settings",
-                    Execute = _ => SlopOptions.OpenCategory(setting.Category()),
-                });
-            }
-            _commands.Add(new Entry
-            {
-                Id = "config.toml",
-                Name = "Configuration: Edit config.toml",
-                Category = "Configuration",
-                Execute = _ => ConfigWindow.Open(),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.filter",
-                Name = "View: Filter Projects",
-                Category = "View",
-                SubAction = () => FilterSub(),
-                Execute = v => { if (v != null) AgentSidebar.ToggleFilter(v); },
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.zoom-in",
-                Name = "View: Zoom In",
-                Category = "View",
-                Execute = _ => SlopUIScale.Zoom(1),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.zoom-out",
-                Name = "View: Zoom Out",
-                Category = "View",
-                Execute = _ => SlopUIScale.Zoom(-1),
-            });
+            new CommandDef("view.config", "Settings: General", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.Category)),
+            new CommandDef("view.storage", "Settings: Storage", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.StorageCategory)),
+            new CommandDef("view.commands", "Settings: Commands", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.CommandsCategory)),
+            new CommandDef("view.command-presets", "Settings: Commands - Presets", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.CommandPresetsCategory)),
+            new CommandDef("view.terminal-settings", "Settings: Terminal", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.TerminalCategory)),
+            new CommandDef("view.appearance", "Settings: Appearance", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.AppearanceCategory)),
+            new CommandDef("view.audio", "Settings: Audio", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.AudioCategory)),
+            new CommandDef("view.integrations", "Settings: Integrations", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.IntegrationsCategory)),
+            new CommandDef("view.usage", "Settings: Integrations - Usage", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.UsageCategory)),
+            new CommandDef("view.summaries", "Settings: Integrations - Summaries", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.SummariesCategory)),
+            new CommandDef("view.sandbox", "Settings: Sandbox", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.SandboxCategory)),
+            new CommandDef("view.shortcuts-settings", "Settings: Keyboard", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.KeyboardCategory)),
+            new CommandDef("settings.graphics", "Settings: RimWorld - Graphics", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.GraphicsCategory)),
+            new CommandDef("settings.interface", "Settings: RimWorld - Interface", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.InterfaceCategory)),
+            new CommandDef("settings.controls", "Settings: RimWorld - Controls", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.ControlsCategory)),
+            new CommandDef("view.about", "Settings: About", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.AboutCategory)),
+            new CommandDef("config.toml", "Configuration: Edit config.toml", "Configuration",
+                _ => ConfigWindow.Open()),
+            new CommandDef("view.filter", "View: Filter Projects", "View",
+                v => { if (v != null) AgentSidebar.ToggleFilter(v); }, subAction: () => FilterSub()),
+            new CommandDef("view.zoom-in", "View: Zoom In", "View",
+                _ => SlopUIScale.Zoom(1)),
+            new CommandDef("view.zoom-out", "View: Zoom Out", "View",
+                _ => SlopUIScale.Zoom(-1)),
+            new CommandDef("window.fullscreen", "Window: Toggle Fullscreen", "View",
+                _ => WindowMaximizer.Toggle()),
 
-            // Jukebox
-            _commands.Add(new Entry
-            {
-                Id = "jukebox.mute",
-                Name = "Jukebox: Mute",
-                Category = "Jukebox",
-                Execute = _ => Radio.ToggleMute(),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "jukebox.random",
-                Name = "Jukebox: Random",
-                Category = "Jukebox",
-                Execute = _ => Radio.PickRandom(),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "jukebox.tune",
-                Name = "Jukebox: Tune",
-                Category = "Jukebox",
-                SubAction = JukeboxSub,
-                Execute = _ => { },
-            });
-            _commands.Add(new Entry
-            {
-                Id = "jukebox.like",
-                Name = "Jukebox: Like",
-                Category = "Jukebox",
-                Execute = _ => Radio.Like(),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "jukebox.history",
-                Name = "Jukebox: History",
-                Category = "Jukebox",
-                Execute = _ => StoragePage.EditLikes(),
-            });
+            new CommandDef("jukebox.mute", "Jukebox: Mute", "Jukebox",
+                _ => Radio.ToggleMute()),
+            new CommandDef("jukebox.random", "Jukebox: Random", "Jukebox",
+                _ => Radio.PickRandom()),
+            new CommandDef("jukebox.tune", "Jukebox: Tune", "Jukebox",
+                _ => { }, subAction: JukeboxSub),
+            new CommandDef("jukebox.like", "Jukebox: Like", "Jukebox",
+                _ => Radio.Like()),
+            new CommandDef("jukebox.history", "Jukebox: History", "Jukebox",
+                _ => StoragePage.EditLikes()),
 
-            // Game
-            if (Current.ProgramState == ProgramState.Playing)
-            {
-                _commands.Add(new Entry
-                {
-                    Id = "game.new-looks",
-                    Name = "Game: New looks",
-                    Category = "Game",
-                    Execute = _ => CoreTip.NewLooks(),
-                });
-                if (!Settings.GrandmaMode)
-                {
-                    _commands.Add(new Entry
-                    {
-                        Id = "game.kill-something",
-                        Name = "Game: Kill something",
-                        Category = "Game",
-                        Execute = _ => CoreTip.KillSomething(),
-                    });
-                }
-                _commands.Add(new Entry
-                {
-                    Id = "game.hint",
-                    Name = "Game: Hint",
-                    Category = "Game",
-                    Execute = _ => CoreTip.ShowHint(),
-                });
-                _commands.Add(new Entry
-                {
-                    Id = "game.nextplanet",
-                    Name = "Game: Next Planet",
-                    Category = "Game",
-                    Execute = _ => NextPlanet.Begin(),
-                });
-            }
-        }
+            new CommandDef("game.new-looks", "Game: New looks", "Game",
+                _ => CoreTip.NewLooks(), enabled: Playing),
+            new CommandDef("game.kill-something", "Game: Kill something", "Game",
+                _ => CoreTip.KillSomething(), enabled: () => Playing() && !Settings.GrandmaMode),
+            new CommandDef("game.hint", "Game: Hint", "Game",
+                _ => CoreTip.ShowHint(), enabled: Playing),
+            new CommandDef("game.nextplanet", "Game: Next Planet", "Game",
+                _ => NextPlanet.Begin(), enabled: Playing),
+        };
+
+        static bool Playing() => Current.ProgramState == ProgramState.Playing;
 
         // --------------------------------------------------------------- sub-option builders
 
@@ -1045,7 +905,7 @@ namespace SlopWorld
         void ExecuteSelected()
         {
             if (_selectedIndex < 0 || _selectedIndex >= _matches.Count) return;
-            var entry = _matches[_selectedIndex].E;
+            var entry = _matches[_selectedIndex].Command;
             if (entry.SubAction != null) EnterSub(entry);
             else Execute(entry);
         }
@@ -1063,7 +923,7 @@ namespace SlopWorld
             }
 
             if (opt.Select != null) opt.Select();
-            else _subCmd?.Execute(opt.Value);
+            else _subCmd?.Action(opt.Value);
             TrackRecent(_subCmd?.Id);
             Close();
         }
@@ -1086,7 +946,7 @@ namespace SlopWorld
             var opt = _subShown[_subIndex].O;
             if (!opt.Enabled || !opt.Checked.HasValue) return;
 
-            _subCmd?.Execute(opt.Value);
+            _subCmd?.Action(opt.Value);
             TrackRecent(_subCmd?.Id);
 
             // Asked for again rather than flipped in place: the boxes show the caller's
@@ -1097,22 +957,24 @@ namespace SlopWorld
             _subIndex = Mathf.Clamp(was, 0, Mathf.Max(0, _subShown.Count - 1));
         }
 
-        void Execute(Entry entry)
+        void Execute(CommandDef entry)
         {
             if (entry.SubAction != null) { EnterSub(entry); return; }
-            entry.Execute(null);
+            if (!entry.IsEnabled) return;
+            entry.Action(null);
             TrackRecent(entry.Id);
             Close();
         }
 
-        void EnterSub(Entry entry)
+        void EnterSub(CommandDef entry)
         {
+            if (!entry.IsEnabled) return;
             _mode = Mode.Sub;
             _subCmd = entry;
             _subStack.Clear();
             _subOptions = entry.SubAction();
             _subIndex = 0;
-            _subPrompt = entry.Name + ":";
+            _subPrompt = entry.Label + ":";
             _subFilter = "";
             _subHasFilter = false;
             _input = "";
@@ -1199,34 +1061,35 @@ namespace SlopWorld
             {
                 foreach (var id in _recent)
                 {
-                    var entry = _commands.FirstOrDefault(e => e.Id == id);
+                    var entry = CommandTable.FirstOrDefault(e => e.Id == id && e.IsEnabled);
                     if (entry != null && !Listed(entry))
                     {
-                        _matches.Add(new Hit { E = entry, Label = entry.Name });
+                        _matches.Add(new Hit { Command = entry, Label = entry.Label });
                         _recentInList++;
                     }
                 }
                 // The catalogue is authored in feature order, not category order. Group the
                 // rows after recent entries so a category such as View does not split around
                 // the settings entries that happen to be registered beside it.
-                foreach (var category in _commands.GroupBy(e => e.Category))
+                foreach (var category in CommandTable.Where(e => e.IsEnabled).GroupBy(e => e.Group))
                     foreach (var e in category)
-                        if (!Listed(e)) _matches.Add(new Hit { E = e, Label = e.Name });
+                        if (!Listed(e)) _matches.Add(new Hit { Command = e, Label = e.Label });
                 return;
             }
 
             var scored = new List<Hit>();
-            foreach (var e in _commands)
+            foreach (var e in CommandTable)
             {
+                if (!e.IsEnabled) continue;
                 int score;
                 List<int> hits;
 
-                if (Fuzzy.Match(e.Name, _filter, out score, out hits))
+                if (Fuzzy.Match(e.Label, _filter, out score, out hits))
                 {
                     scored.Add(new Hit
                     {
-                        E = e,
-                        Label = Fuzzy.Highlight(e.Name, hits),
+                        Command = e,
+                        Label = Fuzzy.Highlight(e.Label, hits),
                         Score = score + RecentBonus(e.Id),
                     });
                 }
@@ -1237,8 +1100,8 @@ namespace SlopWorld
                     // the row draws plain and ranks below anything the name itself found.
                     scored.Add(new Hit
                     {
-                        E = e,
-                        Label = e.Name,
+                        Command = e,
+                        Label = e.Label,
                         Score = score - IdCost + RecentBonus(e.Id),
                     });
                 }
@@ -1248,7 +1111,7 @@ namespace SlopWorld
             _matches.AddRange(scored.OrderByDescending(h => h.Score));
         }
 
-        bool Listed(Entry e) => _matches.Any(h => h.E == e);
+        bool Listed(CommandDef e) => _matches.Any(h => h.Command == e);
 
         // What a command was used recently is worth: enough to break a tie between two
         // equally good matches, never enough to outrank a better one.
@@ -1305,7 +1168,7 @@ namespace SlopWorld
             {
                 if (_recent.Count >= RecentMax) break;
                 if (_recent.Contains(id)) continue;
-                if (_commands.Any(e => e.Id == id)) _recent.Add(id);
+                if (CommandTable.Any(e => e.Id == id)) _recent.Add(id);
             }
         }
 
