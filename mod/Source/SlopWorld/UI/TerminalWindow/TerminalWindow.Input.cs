@@ -10,35 +10,6 @@ namespace SlopWorld
     // Mechanical split: TerminalWindow.Input methods.
     public partial class TerminalWindow
     {
-        void HandleInput(Rect body)
-        {
-            var e = Event.current;
-            // WindowStack's high-priority pass may mark a key Used before the window body
-            // runs. Keep the semicolon that pass swallowed: rawType retains the original
-            // KeyDown, and no other Used event is replayed here.
-            if (e.type == EventType.Used && e.rawType == EventType.KeyDown &&
-                (e.character == ';' || IsSemicolonKey(e.keyCode)))
-            {
-                HandleKey(e);
-                return;
-            }
-
-            switch (e.type)
-            {
-                case EventType.ScrollWheel:
-                    HandleWheel(body, e);
-                    return;
-                case EventType.MouseDown:
-                case EventType.MouseDrag:
-                case EventType.MouseUp:
-                    HandleMouse(body, e);
-                    return;
-                case EventType.KeyDown:
-                    HandleKey(e);
-                    return;
-            }
-        }
-
         // Handle unshifted keys bound to the chrome. Read KeyBindingDefs so option-menu
         // rebindings apply; shifted/unbound keys pass to the agent, and SlopMenu handles its
         // own dismissal because absorbing windows consume keys before this body runs.
@@ -102,45 +73,11 @@ namespace SlopWorld
                 || data.GetBoundKeyCode(def, KeyPrefs.BindingSlot.B) == e.keyCode;
         }
 
-        // Handle chrome keys while a content view owns the body; bare Escape leaves the view,
-        // while it remains an agent key in the pane.
-        void ChromeKeys(Event e)
-        {
-            if (e.type != EventType.KeyDown) return;
-
-            // All F-keys go through one gate: bare = ours, Shift+F = agent.
-            if (HandleFunctionKey(e)) { e.Use(); return; }
-
-            if (e.keyCode == KeyCode.Escape)
-            {
-                Leave();
-                e.Use();
-                return;
-            }
-
-            int slot = TerminalHotkeys.SlotKey(e);
-            if (slot >= 0 && e.alt)
-            {
-                SwitchToSlot(slot);
-                e.Use();
-                return;
-            }
-
-            // Alt+comma/Alt+period: walk the session list while a content view is up.
-            // With a content view, bare comma/dot would be eaten by the view; the alt
-            // prefix is what keeps them for the chrome.
-            if (e.alt && (e.keyCode == KeyCode.Comma || e.keyCode == KeyCode.Period))
-            {
-                WalkSession(e.keyCode == KeyCode.Period ? 1 : -1);
-                e.Use();
-            }
-        }
-
-        void HandleKey(Event e)
+        internal void HandleKey(Event e)
         {
             // Window actions run before the terminal's online check. A bare Escape or an
             // ordinary Return returns false from the same handler and is dispatched below.
-            if (TryHandle(_localKeyHandlers, e)) return;
+            if (_input.TryLocal(e)) return;
 
             // Not in TerminalHotkeys: a window absorbing input makes
             // WindowStack.HandleEventsHighPriority Use every KeyDown, and that runs earlier in
@@ -189,7 +126,7 @@ namespace SlopWorld
                 return;
             }
 
-            if (TryHandle(_keyHandlers, e)) return;
+            if (_input.TryTerminal(e)) return;
 
             // Unity delivers printable input as a second event carrying only the character.
             if (e.character != '\0' && e.character != '\n' &&
@@ -205,12 +142,7 @@ namespace SlopWorld
                 e.Use(); // swallow it so RimWorld hotkeys don't fire behind us
         }
 
-        bool TryHandle(Dictionary<KeyCode, System.Func<Event, bool>> handlers, Event e)
-        {
-            return handlers.TryGetValue(e.keyCode, out var handler) && handler(e);
-        }
-
-        bool HandleEscapeKey(Event e)
+        internal bool HandleEscapeKey(Event e)
         {
             // Shift+Escape is the way out; a bare Escape must reach the agent.
             if (!e.shift) return false;
@@ -219,7 +151,7 @@ namespace SlopWorld
             return true;
         }
 
-        bool HandleReturnKey(Event e)
+        internal bool HandleReturnKey(Event e)
         {
             // Shift+Enter: send the kitty keyboard protocol sequence for Shift+Enter
             // (\e[13;2u) so apps like Claude Code can distinguish it from plain Enter
@@ -232,7 +164,7 @@ namespace SlopWorld
             return true;
         }
 
-        bool HandleControlC(Event e)
+        internal bool HandleControlC(Event e)
         {
             if (!e.control) return false;
             // Terminal convention: Ctrl+Shift+C is always copy, and Ctrl+C copies
@@ -252,7 +184,7 @@ namespace SlopWorld
             return ForwardMappedKey(e);
         }
 
-        bool HandleControlV(Event e)
+        internal bool HandleControlV(Event e)
         {
             if (!e.control) return false;
             JumpToLive();
@@ -261,7 +193,7 @@ namespace SlopWorld
             return true;
         }
 
-        bool HandleSemicolonKey(Event e)
+        internal bool HandleSemicolonKey(Event e)
         {
             // Some backends omit the character-only event. Preserve the keyboard layout's
             // shifted form before the named key is swallowed below.
@@ -276,7 +208,7 @@ namespace SlopWorld
             return true;
         }
 
-        bool ForwardMappedKey(Event e)
+        internal bool ForwardMappedKey(Event e)
         {
             var keyScreen = SessionHub.Instance.Screen(_name);
             string key = MapKey(e, keyScreen != null && keyScreen.AltScreen);
@@ -299,7 +231,7 @@ namespace SlopWorld
         // Unity's text-input stream still carries it (which is why ordinary game fields work).
         // DoWindowContents runs more than once per frame, and a surviving KeyDown may follow,
         // so the frame marker makes the two roads one keystroke.
-        void CaptureSemicolonInput()
+        internal void CaptureSemicolonInput()
         {
             if (_semicolonFrame == Time.frameCount || !SessionHub.Instance.Online) return;
             bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
@@ -323,12 +255,12 @@ namespace SlopWorld
             _semicolonFrame = Time.frameCount;
         }
 
-        static bool IsSemicolonKey(KeyCode key) =>
+        internal static bool IsSemicolonKey(KeyCode key) =>
             key == KeyCode.Semicolon || key == KeyCode.Colon;
 
         // A slot past the end is a no-op rather than a wrap: the keys are muscle memory for a
         // fixed portrait. A down agent is started, as clicking the portrait does.
-        void SwitchToSlot(int slot)
+        internal void SwitchToSlot(int slot)
         {
             var order = AgentColony.InBarOrder();
             if (slot >= order.Count) return;
@@ -352,7 +284,7 @@ namespace SlopWorld
         // Walk the session list by dir (-1 or 1). Used from Alt+comma/Alt+period in both
         // ChromeKeys (content view up) and HandleKey (pane open). Sets the current session
         // and switches the pane, or if the target has no process starts it.
-        static void WalkSession(int dir)
+        internal static void WalkSession(int dir)
         {
             var order = AgentSidebar.WalkOrder();
             if (order.Count == 0)
@@ -394,7 +326,7 @@ namespace SlopWorld
         }
 
 
-        void HandleWheel(Rect body, Event e)
+        internal void HandleWheel(Rect body, Event e)
         {
             if (!body.Contains(e.mousePosition)) return;
 
@@ -478,7 +410,7 @@ namespace SlopWorld
                 SendPendingScroll();
         }
 
-        void HandleMouse(Rect body, Event e)
+        internal void HandleMouse(Rect body, Event e)
         {
             // The pane's own in every mode, whatever the app asked for: the menu has to be
             // reachable from inside a full-screen TUI.

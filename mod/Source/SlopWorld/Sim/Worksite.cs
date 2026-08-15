@@ -150,33 +150,58 @@ namespace SlopWorld
         static List<Errand> _errands;
         static bool _grandmaModeCached;
         static TerrainDef _plate;
-        ThingDef _blocks;
-        ThingDef _rock;
-        bool _quarried;
+        struct MaterialState
+        {
+            public ThingDef Blocks;
+            public ThingDef Rock;
+            public bool Quarried;
+        }
 
-        // Held for the length of a pass: asked once per candidate cell, fifty per square.
-        Plague _plague;
+        struct PlacementState
+        {
+            public Plague Plague;
+            public int Blocked;
+            public int Swept;
+            public int Laid;
+            public HashSet<Thing> Mine;
+        }
 
-        // The tick placement may be attempted again. Not saved.
-        int _blocked;
+        struct AssignmentState
+        {
+            public Dictionary<Pawn, Frame> Sent;
+            public HashSet<Frame> Shunned;
+            public List<Pawn> Hands;
+            public List<Pawn> Stale;
+        }
 
-        int _swept;
+        MaterialState _materials;
+        PlacementState _placement = new PlacementState
+        {
+            Mine = new HashSet<Thing>(),
+        };
+        AssignmentState _assignments = new AssignmentState
+        {
+            Sent = new Dictionary<Pawn, Frame>(),
+            Shunned = new HashSet<Frame>(),
+            Hands = new List<Pawn>(),
+            Stale = new List<Pawn>(),
+        };
 
-        // Cells the site has finished with. Scribed; printed by the plague's log line and
-        // nothing else - what the plague has is in the plague's own field.
-        int _laid;
-
-        // Track the last assigned frame and skipped frames; a new request means the previous
-        // assignment is no longer valid, so wait for the next sweep before reassigning.
-        readonly Dictionary<Pawn, Frame> _sent = new Dictionary<Pawn, Frame>();
-        readonly HashSet<Frame> _shunned = new HashSet<Frame>();
-
-        readonly List<Pawn> _hands = new List<Pawn>();
-        readonly List<Pawn> _stale = new List<Pawn>();
-
-        // The frames pitched so far in the sequence being laid. Fits lets these through
-        // its pad, or the second grave of a row is refused by the first.
-        readonly HashSet<Thing> _mine = new HashSet<Thing>();
+        // These aliases keep the domain logic readable while the state ownership stays in
+        // value structs: placement, assignment, and material selection do not share a bag of
+        // unrelated fields anymore.
+        ThingDef _blocks { get => _materials.Blocks; set => _materials.Blocks = value; }
+        ThingDef _rock { get => _materials.Rock; set => _materials.Rock = value; }
+        bool _quarried { get => _materials.Quarried; set => _materials.Quarried = value; }
+        Plague _plague { get => _placement.Plague; set => _placement.Plague = value; }
+        int _blocked { get => _placement.Blocked; set => _placement.Blocked = value; }
+        int _swept { get => _placement.Swept; set => _placement.Swept = value; }
+        int _laid { get => _placement.Laid; set => _placement.Laid = value; }
+        Dictionary<Pawn, Frame> _sent => _assignments.Sent;
+        HashSet<Frame> _shunned => _assignments.Shunned;
+        List<Pawn> _hands => _assignments.Hands;
+        List<Pawn> _stale => _assignments.Stale;
+        HashSet<Thing> _mine => _placement.Mine;
 
         // Passes between sweeps - once a second.
         const int SweepEvery = 4;
@@ -186,7 +211,9 @@ namespace SlopWorld
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Values.Look(ref _laid, "laid", 0);
+            int laid = _placement.Laid;
+            Scribe_Values.Look(ref laid, "laid", 0);
+            _placement.Laid = laid;
         }
 
         public override void MapComponentTick()

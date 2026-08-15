@@ -10,7 +10,7 @@ namespace SlopWorld
 {
     // Shared scheme-driven opaque chrome; Slab owns fills/edges and fixed gaps keep controls
     // on the screen pixel grid.
-    public static class SlopWidgets
+    public abstract class SlopTheme
     {
         // ---- Surfaces and semantic colors. These are named for SlopWorld's jobs rather
         // than for a borrowed toolkit's widgets, and they are the only names anything else
@@ -69,6 +69,51 @@ namespace SlopWorld
         public static Color StateDown => UIScheme.Current.StateDown;
         public static Color Info => UIScheme.Current.StateWorking;
 
+        public static readonly Color Clear = new Color(0f, 0f, 0f, 0f);
+
+        protected static Color Lighten(Color c, float by)
+        {
+            var to = by >= 0f ? Color.white : Color.black;
+            float t = Mathf.Abs(by);
+            return new Color(Mathf.Lerp(c.r, to.r, t), Mathf.Lerp(c.g, to.g, t),
+                Mathf.Lerp(c.b, to.b, t), c.a);
+        }
+
+        // Opacity is used only for disabled or overlaid states; base surfaces stay opaque.
+        public static Color Fade(Color c, float by) =>
+            new Color(c.r, c.g, c.b, c.a * by);
+
+        // Accent and destructive buttons use a lightness step; ordinary buttons use the
+        // same translucent white faces over every shared surface.
+        protected static Color Step(Color c, bool over, bool held) =>
+            held ? Lighten(c, -0.15f) : over ? Lighten(c, 0.10f) : c;
+
+        public static float LineH => LineHOf(GameFont.Small);
+
+        public static float FieldH => CompactH;
+        public static float RowH => LineH + GapXS + 2f;
+
+        public static float HeaderH => LineHOf(GameFont.Medium) + GapS;
+
+        public static float LineHOf(GameFont font) =>
+            Mathf.Ceil(Verse.Text.LineHeightOf(Real(font)));
+
+        // Verse silently promotes Tiny when the current language or display cannot support it.
+        public static GameFont Real(GameFont font) =>
+            font == GameFont.Tiny && !Verse.Text.TinyFontSupported ? GameFont.Small : font;
+
+        public static float TinyH => LineHOf(GameFont.Tiny);
+        public static float TinyRowH => TinyH + 2f;
+
+        public static float Wide(string text)
+        {
+            bool wrap = Verse.Text.WordWrap;
+            Verse.Text.WordWrap = false;
+            float w = Verse.Text.CalcSize(text ?? "").x;
+            Verse.Text.WordWrap = wrap;
+            return w;
+        }
+
         public enum Btn
         {
             Default,   // the ordinary press: Reload, Browse, Edit.
@@ -77,22 +122,22 @@ namespace SlopWorld
             Ghost,     // there, but not competing - a press beside a press that matters more.
         }
 
-        static Color BtnEdge => Edge;
+        protected static Color BtnEdge => Edge;
 
-        static Color BtnFace => UIScheme.Current.BtnFace;
-        static Color BtnHover => UIScheme.Current.BtnHover;
-        static Color BtnDown => UIScheme.Current.BtnDown;
+        protected static Color BtnFace => UIScheme.Current.BtnFace;
+        protected static Color BtnHover => UIScheme.Current.BtnHover;
+        protected static Color BtnDown => UIScheme.Current.BtnDown;
 
         // A ghost button has no face at rest; its rectangular hit area appears on hover.
-        static Color GhostFace => Clear;
+        protected static Color GhostFace => Clear;
 
-        static Color FocusRing => Accent;
+        protected static Color FocusRing => Accent;
 
-        static Color KnobFace => UIScheme.Current.Knob;
-        static Color CheckFace => UIScheme.Current.CheckFace;
+        protected static Color KnobFace => UIScheme.Current.Knob;
+        protected static Color CheckFace => UIScheme.Current.CheckFace;
 
-        static Color PrimeFace => Accent;
-        static Color DangerFace => Destructive;
+        protected static Color PrimeFace => Accent;
+        protected static Color DangerFace => Destructive;
 
         public const float BtnH = 30f;
         public const float ButtonPadX = 12f;
@@ -120,14 +165,15 @@ namespace SlopWorld
         public static float MenuRowH => CompactH;
         public static float PaletteRowH => Mathf.Max(LineH + GapS, 26f);
 
-        public static float BtnW(string label, float floor) =>
-            Mathf.Max(Wide(label) + ButtonPadX * 2f, floor);
-
         public const float GapXS = 4f;   // a label and the box it names
         public const float GapS = 8f;    // one control and the next
         public const float GapM = 16f;   // one group of controls and the next
         public const float GapL = 24f;   // one section and the next
 
+    }
+
+    public abstract class SlopButtons : SlopText
+    {
         public static bool Button(Rect r, string label, Btn kind = Btn.Default, bool on = true)
         {
             bool over = on && Mouse.IsOver(r);
@@ -213,51 +259,10 @@ namespace SlopWorld
             Slab.Box(r, face, edge);
         }
 
-        public static readonly Color Clear = new Color(0f, 0f, 0f, 0f);
+    }
 
-        static Color Lighten(Color c, float by)
-        {
-            var to = by >= 0f ? Color.white : Color.black;
-            float t = Mathf.Abs(by);
-            return new Color(Mathf.Lerp(c.r, to.r, t), Mathf.Lerp(c.g, to.g, t),
-                Mathf.Lerp(c.b, to.b, t), c.a);
-        }
-
-        // Opacity is used only for disabled or overlaid states; base surfaces stay opaque.
-        public static Color Fade(Color c, float by) =>
-            new Color(c.r, c.g, c.b, c.a * by);
-
-        // Accent and destructive buttons use a lightness step; ordinary buttons use the
-        // same translucent white faces over every shared surface.
-        static Color Step(Color c, bool over, bool held) =>
-            held ? Lighten(c, -0.15f) : over ? Lighten(c, 0.10f) : c;
-
-        public static float LineH => LineHOf(GameFont.Small);
-
-        public static float FieldH => CompactH;
-        public static float RowH => LineH + GapXS + 2f;
-
-        public static float HeaderH => LineHOf(GameFont.Medium) + GapS;
-
-        public static float LineHOf(GameFont font) =>
-            Mathf.Ceil(Verse.Text.LineHeightOf(Real(font)));
-
-        // Verse silently promotes Tiny when the current language or display cannot support it.
-        public static GameFont Real(GameFont font) =>
-            font == GameFont.Tiny && !Verse.Text.TinyFontSupported ? GameFont.Small : font;
-
-        public static float TinyH => LineHOf(GameFont.Tiny);
-        public static float TinyRowH => TinyH + 2f;
-
-        public static float Wide(string text)
-        {
-            bool wrap = Verse.Text.WordWrap;
-            Verse.Text.WordWrap = false;
-            float w = Verse.Text.CalcSize(text ?? "").x;
-            Verse.Text.WordWrap = wrap;
-            return w;
-        }
-
+    public abstract class SlopText : SlopTheme
+    {
         public static void RowLabel(Rect r, string text, TextAnchor anchor = TextAnchor.MiddleLeft)
         {
             // Truncate measures incorrectly while wrapping is enabled.
@@ -621,6 +626,15 @@ namespace SlopWorld
             return value;
         }
 
+    }
+
+    public abstract partial class SlopLayout : SlopButtons
+    {
+        // One measurement rule for every action row, kept beside the layout helpers rather
+        // than duplicated by individual windows.
+        public static float BtnW(string label, float floor) =>
+            Mathf.Max(Wide(label) + ButtonPadX * 2f, floor);
+
         // A page's ground: an opaque rectangular card with a structural edge.
         public static void Card(Rect r) => Slab.Box(r, WindowBg, Edge);
 
@@ -847,6 +861,11 @@ namespace SlopWorld
             return stem;
         }
     }
+
+    // Compatibility facade. The helpers remain addressable as SlopWidgets so the many
+    // existing callers do not all have to change at once; the implementations live in the
+    // field-cluster classes above.
+    public abstract class SlopWidgets : SlopLayout { }
 
     public abstract class SlopListView<T> : IContentView
     {

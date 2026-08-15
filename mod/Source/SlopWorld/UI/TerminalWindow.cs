@@ -24,13 +24,7 @@ namespace SlopWorld
         IContentView _content;
         readonly StringBuilder _literal = new StringBuilder();
         int _semicolonFrame = -1;
-
-        // Named terminal keys are a dispatch table rather than a second list of conditionals
-        // in the input method. The local table runs before the online check because closing and
-        // Shift+Enter are window actions; the full table runs once ordinary terminal input is
-        // known to have somewhere to go.
-        readonly Dictionary<KeyCode, System.Func<Event, bool>> _localKeyHandlers;
-        readonly Dictionary<KeyCode, System.Func<Event, bool>> _keyHandlers;
+        readonly TerminalInputHandler _input;
 
         int _cols, _rows;
         float _resizeAt;
@@ -242,69 +236,7 @@ namespace SlopWorld
         TerminalWindow(string name)
         {
             _name = name;
-            _localKeyHandlers = new Dictionary<KeyCode, System.Func<Event, bool>>
-            {
-                { KeyCode.Escape, HandleEscapeKey },
-                { KeyCode.Return, HandleReturnKey },
-            };
-            _keyHandlers = new Dictionary<KeyCode, System.Func<Event, bool>>
-            {
-                { KeyCode.Escape, ForwardMappedKey },
-                { KeyCode.Return, ForwardMappedKey },
-                { KeyCode.KeypadEnter, ForwardMappedKey },
-                { KeyCode.Backspace, ForwardMappedKey },
-                { KeyCode.Tab, ForwardMappedKey },
-                { KeyCode.UpArrow, ForwardMappedKey },
-                { KeyCode.DownArrow, ForwardMappedKey },
-                { KeyCode.LeftArrow, ForwardMappedKey },
-                { KeyCode.RightArrow, ForwardMappedKey },
-                { KeyCode.Home, ForwardMappedKey },
-                { KeyCode.End, ForwardMappedKey },
-                { KeyCode.PageUp, ForwardMappedKey },
-                { KeyCode.PageDown, ForwardMappedKey },
-                { KeyCode.Delete, ForwardMappedKey },
-                { KeyCode.Insert, ForwardMappedKey },
-                { KeyCode.F1, ForwardMappedKey },
-                { KeyCode.F2, ForwardMappedKey },
-                { KeyCode.F3, ForwardMappedKey },
-                { KeyCode.F4, ForwardMappedKey },
-                { KeyCode.F5, ForwardMappedKey },
-                { KeyCode.F6, ForwardMappedKey },
-                { KeyCode.F7, ForwardMappedKey },
-                { KeyCode.F8, ForwardMappedKey },
-                { KeyCode.F9, ForwardMappedKey },
-                { KeyCode.F10, ForwardMappedKey },
-                { KeyCode.F11, ForwardMappedKey },
-                { KeyCode.F12, ForwardMappedKey },
-                { KeyCode.C, HandleControlC },
-                { KeyCode.V, HandleControlV },
-                { KeyCode.Semicolon, HandleSemicolonKey },
-                { KeyCode.Colon, HandleSemicolonKey },
-                { KeyCode.A, ForwardMappedKey },
-                { KeyCode.B, ForwardMappedKey },
-                { KeyCode.D, ForwardMappedKey },
-                { KeyCode.E, ForwardMappedKey },
-                { KeyCode.F, ForwardMappedKey },
-                { KeyCode.G, ForwardMappedKey },
-                { KeyCode.H, ForwardMappedKey },
-                { KeyCode.I, ForwardMappedKey },
-                { KeyCode.J, ForwardMappedKey },
-                { KeyCode.K, ForwardMappedKey },
-                { KeyCode.L, ForwardMappedKey },
-                { KeyCode.M, ForwardMappedKey },
-                { KeyCode.N, ForwardMappedKey },
-                { KeyCode.O, ForwardMappedKey },
-                { KeyCode.P, ForwardMappedKey },
-                { KeyCode.Q, ForwardMappedKey },
-                { KeyCode.R, ForwardMappedKey },
-                { KeyCode.S, ForwardMappedKey },
-                { KeyCode.T, ForwardMappedKey },
-                { KeyCode.U, ForwardMappedKey },
-                { KeyCode.W, ForwardMappedKey },
-                { KeyCode.X, ForwardMappedKey },
-                { KeyCode.Y, ForwardMappedKey },
-                { KeyCode.Z, ForwardMappedKey },
-            };
+            _input = new TerminalInputHandler(this);
             doWindowBackground = false;
             doCloseButton = false;
             doCloseX = false;
@@ -404,7 +336,7 @@ namespace SlopWorld
             // but nothing is forwarded to an agent nobody is looking at.
             if (_content != null)
             {
-                if (input) ChromeKeys(Event.current);
+                if (input) _input.HandleChrome(Event.current);
                 _content.Draw(body);
                 DrawHint(); // the pane is opaque; a hint drawn from the map is behind it
                 return;
@@ -412,8 +344,8 @@ namespace SlopWorld
 
             if (input)
             {
-                CaptureSemicolonInput();
-                HandleInput(body);
+                _input.CaptureSemicolonInput();
+                _input.Handle(body);
             }
 
             var live = hub.Screen(_name);
