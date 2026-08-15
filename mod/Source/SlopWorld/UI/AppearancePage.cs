@@ -46,10 +46,34 @@ namespace SlopWorld
                 Mathf.Max(_fieldsH, form.height));
             _scroll.Begin(form, view);
 
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(new Rect(0f, 0f, view.width, 4000f));
+            _fieldsH = DrawFields(view);
 
-            // ---- ui scale
+            _scroll.End();
+
+            // ---- preview
+            SlopWidgets.SectionHeading(caption, "Preview");
+            DrawPreview(preview);
+
+            if (_pickingCursor)
+                DrawCursorPicker(rect);
+        }
+
+        float DrawFields(Rect rect)
+        {
+            float y = rect.y;
+            y += DrawScale(new Rect(rect.x, y, rect.width, 4000f));
+            y += DrawScheme(new Rect(rect.x, y, rect.width, 4000f));
+            y += DrawFont(new Rect(rect.x, y, rect.width, 4000f));
+            y += DrawCursor(new Rect(rect.x, y, rect.width, 4000f));
+            y += DrawStatusbar(new Rect(rect.x, y, rect.width, 4000f));
+            return y - rect.y + SlopWidgets.GapS;
+        }
+
+        float DrawScale(Rect rect)
+        {
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(rect);
+
             // The knob and the readout follow the hand; the scale itself is not moved until
             // the hand comes off, because this is the one row whose value decides where the
             // row is drawn. See SlopWidgets.Slider.
@@ -70,14 +94,21 @@ namespace SlopWorld
             SlopUIScale.Flush();
 
             l.Gap(SlopWidgets.GapM);
-
             bool fullscreen = SlopWidgets.Checkbox(l, "Fullscreen", S.fullscreen,
                 "Use window-manager fullscreen without changing Unity's render mode.");
             if (fullscreen != S.fullscreen) WindowMaximizer.Set(fullscreen);
-
             l.Gap(SlopWidgets.GapM);
 
-            // ---- color scheme
+            float used = l.CurHeight;
+            l.End();
+            return used;
+        }
+
+        float DrawScheme(Rect rect)
+        {
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(rect);
+
             // Nothing to invalidate on the way out: every color in the mod is read through
             // SlopWidgets on the frame it is drawn, so the page under the dropdown has
             // already changed by the time the menu closes over it. See UIScheme.
@@ -88,10 +119,18 @@ namespace SlopWorld
                     .ToList()));
 
             DrawSwatches(l.GetRect(18f));
-
             l.Gap(SlopWidgets.GapM);
 
-            // ---- font face
+            float used = l.CurHeight;
+            l.End();
+            return used;
+        }
+
+        float DrawFont(Rect rect)
+        {
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(rect);
+
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     $"Font: {(S.uiFontName.NullOrEmpty() ? "Automatic" : S.uiFontName)}"))
             {
@@ -127,33 +166,30 @@ namespace SlopWorld
                 S.MarkDirty();
             }
 
-            // A note about size 0 meaning "keep the built-in per-tier sizes".
-            if (S.uiFontSize == 0)
-            {
-                l.Gap(SlopWidgets.GapXS);
-                GUI.color = SlopWidgets.Faint;
-                l.Label("At 0pt the original per-tier sizes are kept (Tiny=11, " +
-                        "Small=13, Medium=15); only the face changes.");
-                GUI.color = Color.white;
-            }
-            else
-            {
-                l.Gap(SlopWidgets.GapXS);
-                GUI.color = SlopWidgets.Faint;
-                l.Label("Custom size anchors Small; Tiny and Medium stay 2pt below " +
-                        "and above it.");
-                GUI.color = Color.white;
-            }
+            l.Gap(SlopWidgets.GapXS);
+            GUI.color = SlopWidgets.Faint;
+            l.Label(S.uiFontSize == 0
+                ? "At 0pt the original per-tier sizes are kept (Tiny=11, Small=13, Medium=15); "
+                    + "only the face changes."
+                : "Custom size anchors Small; Tiny and Medium stay 2pt below and above it.");
+            GUI.color = Color.white;
 
             l.Gap(SlopWidgets.GapS);
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Rescan installed fonts"))
-            {
                 SlopUIFont.Rescan();
-            }
-
             l.Gap(SlopWidgets.GapM);
-            CursorRow(l);
 
+            float used = l.CurHeight;
+            l.End();
+            return used;
+        }
+
+        float DrawCursor(Rect rect)
+        {
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(rect);
+
+            CursorRow(l);
             l.Gap(SlopWidgets.GapS);
             bool grayscale = SlopWidgets.Checkbox(l, "Grayscale cursor", S.cursorGrayscale,
                 "Use neutral grey instead of each asset's original colors.");
@@ -163,8 +199,18 @@ namespace SlopWorld
                 DeadCursor.Apply();
                 S.MarkDirty();
             }
-
             l.Gap(SlopWidgets.GapM);
+
+            float used = l.CurHeight;
+            l.End();
+            return used;
+        }
+
+        float DrawStatusbar(Rect rect)
+        {
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(rect);
+
             SlopWidgets.SectionHeading(l, "Statusbar");
             bool u = SlopWidgets.Checkbox(l, "Show Usage in statusbar", S.statusbarUsage,
                 "Show quota readouts in the top statusbar.");
@@ -192,17 +238,9 @@ namespace SlopWorld
                 S.MarkDirty();
             }
 
-            _fieldsH = l.CurHeight + SlopWidgets.GapS;
+            float used = l.CurHeight;
             l.End();
-
-            _scroll.End();
-
-            // ---- preview
-            SlopWidgets.SectionHeading(caption, "Preview");
-            DrawPreview(preview);
-
-            if (_pickingCursor)
-                DrawCursorPicker(rect);
+            return used;
         }
 
         static void SetClockPosition(string position)

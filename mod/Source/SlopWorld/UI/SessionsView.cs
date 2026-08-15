@@ -46,12 +46,20 @@ namespace SlopWorld
         {
             SlopWidgets.RowChrome(r);
 
+            float y = r.y + DrawIdentity(r, s);
+            DrawLocation(new Rect(r.x, y, r.width, SlopWidgets.LineH), s);
+            DrawDialogActions(r, s);
+            DrawSessionActions(new Rect(r.x, y, r.width, SlopWidgets.RowBtnH), s);
+        }
+
+        float DrawIdentity(Rect r, SessionInfo s)
+        {
             // State chip, so the list scans the same way the map overlay does.
             var chip = new Rect(r.x + 6f, r.y + 6f, 10f, r.height - 12f);
             Slab.Fill(chip, TerminalWindow.StateColor(s.State));
 
             Text.Font = GameFont.Small;
-            float l1 = r.y + SlopWidgets.GapXS, l2 = l1 + SlopWidgets.LineH;
+            float l1 = r.y + SlopWidgets.GapXS;
 
             // The name's column and the state's beside it, off the font: at 200 and 230 the
             // pair held for one face at one size and overlapped at the next.
@@ -68,6 +76,11 @@ namespace SlopWorld
                 SlopWidgets.LineH), s.State.ToString().ToLower());
             GUI.color = SlopWidgets.Dim;
 
+            return SlopWidgets.GapXS + SlopWidgets.LineH;
+        }
+
+        float DrawLocation(Rect r, SessionInfo s)
+        {
             // The project first, because it answers where this agent runs and what it can
             // reach. A blank project is an entry pointing at one that has gone, which is
             // worth saying; a temporary agent says so instead, the interesting thing about
@@ -83,21 +96,25 @@ namespace SlopWorld
             // sentence that wrapped inside a one-line slot lost the bottom half of both lines
             // and the buttons' row with them.
             SlopWidgets.RowLabel(
-                new Rect(r.x + 24f, l2, Mathf.Max(60f, r.width - 340f), SlopWidgets.LineH),
+                new Rect(r.x + 24f, r.y, Mathf.Max(60f, r.width - 340f), SlopWidgets.LineH),
                 where);
             GUI.color = Color.white;
 
-            // The top line is the two buttons that open a dialog, the bottom one everything
-            // that acts on the agent directly, terminal last.
-            float top = r.y + 1f, bottom = l2;
+            return SlopWidgets.LineH;
+        }
+
+        float DrawDialogActions(Rect r, SessionInfo s)
+        {
+            float top = r.y + 1f;
             float right = r.xMax - 6f;
 
+            // The top line is the two buttons that open a dialog, the bottom one everything
+            // that acts on the agent directly, terminal last.
             // Every width here is measured, floored at the figure it used to be written as:
             // "Duplicate" in a box counted off one font is a word with both ends cut off in
             // the next, a press being centred in what it was given.
             float dupW = SlopWidgets.BtnW("Duplicate", 74f);
             float editW = SlopWidgets.BtnW("Edit", 96f);
-            float termW = SlopWidgets.RowBtnH;
 
             // Nothing in config.toml stands behind a temporary agent, so the dialog would
             // write an entry the daemon has never had and the save would be refused.
@@ -119,6 +136,15 @@ namespace SlopWorld
                 if (SlopWidgets.Button(dup, "Duplicate"))
                     TerminalWindow.OpenOverPane(EditSessionDialog.Copy(s));
             }
+
+            return SlopWidgets.RowBtnH;
+        }
+
+        float DrawSessionActions(Rect r, SessionInfo s)
+        {
+            float bottom = r.y;
+            float right = r.xMax - 6f;
+            float termW = SlopWidgets.RowBtnH;
 
             var term = new Rect(right - termW, bottom, termW, SlopWidgets.RowBtnH);
             TooltipHandler.TipRegion(term, s.Gone
@@ -167,6 +193,8 @@ namespace SlopWorld
                     () => SessionHub.Instance.Remove(name, SlopWidgets.Fail),
                     destructive: true));
             }
+
+            return SlopWidgets.RowBtnH;
         }
     }
 }
