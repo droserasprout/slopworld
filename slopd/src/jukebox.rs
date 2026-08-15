@@ -106,10 +106,7 @@ impl Catalog {
     /// Alongside `config.toml`, because station definitions are machine-wide user config rather
     /// than profile data. `SLOPD_JUKEBOX` is useful for tests and an alternate daemon instance.
     pub fn dir() -> PathBuf {
-        if let Ok(dir) = std::env::var("SLOPD_JUKEBOX") {
-            return PathBuf::from(dir);
-        }
-        crate::paths::root(dirs::config_dir()).join("jukebox")
+        crate::paths::dir("SLOPD_JUKEBOX", dirs::config_dir(), "jukebox")
     }
 
     fn merge_dir(&mut self, dir: &Path) {

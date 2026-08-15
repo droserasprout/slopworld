@@ -137,6 +137,31 @@ fn ok_json(r: anyhow::Result<()>) -> ApiResult {
     Ok(Json(json!({ "ok": true })))
 }
 
+macro_rules! rw_action {
+    ($($handler:ident => $method:ident),+ $(,)?) => {
+        $(
+            async fn $handler(
+                State(m): State<Mgr>,
+                Extension(cap): Extension<Cap>,
+                Path(name): Path<String>,
+            ) -> ApiResult {
+                guard(&m, &cap, &name, Level::Rw).await?;
+                ok_json(m.$method(&name).await)
+            }
+        )+
+    };
+}
+
+macro_rules! root_action {
+    ($($handler:ident => $method:ident),+ $(,)?) => {
+        $(
+            async fn $handler(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+                ok_json(m.$method(&name).await)
+            }
+        )+
+    };
+}
+
 /// 403 unless `cap` may touch `name` at `need` - the check every per-session route makes. Root
 /// passes everything; a grant passes only a session it names, and never the host. 403 rather
 /// than 404, since a scoped caller has no business learning whether the name it cannot touch
@@ -375,41 +400,13 @@ async fn update(
     ok_json(m.update(&name, s).await)
 }
 
-async fn destroy(
-    State(m): State<Mgr>,
-    Extension(cap): Extension<Cap>,
-    Path(name): Path<String>,
-) -> ApiResult {
-    guard(&m, &cap, &name, Level::Rw).await?;
-    ok_json(m.remove(&name).await)
-}
-
-async fn start(
-    State(m): State<Mgr>,
-    Extension(cap): Extension<Cap>,
-    Path(name): Path<String>,
-) -> ApiResult {
-    guard(&m, &cap, &name, Level::Rw).await?;
-    ok_json(m.start(&name).await)
-}
-
-async fn stop(
-    State(m): State<Mgr>,
-    Extension(cap): Extension<Cap>,
-    Path(name): Path<String>,
-) -> ApiResult {
-    guard(&m, &cap, &name, Level::Rw).await?;
-    ok_json(m.stop(&name).await)
-}
-
-async fn reset_state(
-    State(m): State<Mgr>,
-    Extension(cap): Extension<Cap>,
-    Path(name): Path<String>,
-) -> ApiResult {
-    guard(&m, &cap, &name, Level::Rw).await?;
-    ok_json(m.reset_state(&name).await)
-}
+rw_action!(
+    destroy => remove,
+    start => start,
+    stop => stop,
+    reset_state => reset_state,
+    restart => restart,
+);
 
 async fn stored_states(State(m): State<Mgr>) -> ApiResult {
     m.stored_states()
@@ -430,15 +427,6 @@ async fn restore_stored_state(State(m): State<Mgr>, Path(key): Path<String>) -> 
         .await
         .map(|session| Json(json!({ "ok": true, "session": session })))
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))
-}
-
-async fn restart(
-    State(m): State<Mgr>,
-    Extension(cap): Extension<Cap>,
-    Path(name): Path<String>,
-) -> ApiResult {
-    guard(&m, &cap, &name, Level::Rw).await?;
-    ok_json(m.restart(&name).await)
 }
 
 #[derive(Debug, Deserialize)]
@@ -481,9 +469,7 @@ async fn update_project(
     ok_json(m.update_project(&name, p).await)
 }
 
-async fn destroy_project(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
-    ok_json(m.remove_project(&name).await)
-}
+root_action!(destroy_project => remove_project, destroy_shortcut => remove_shortcut);
 
 async fn list_shortcuts(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!({ "shortcuts": m.shortcuts().await })))
@@ -499,10 +485,6 @@ async fn update_shortcut(
     Json(sc): Json<ShortcutCfg>,
 ) -> ApiResult {
     ok_json(m.update_shortcut(&name, sc).await)
-}
-
-async fn destroy_shortcut(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
-    ok_json(m.remove_shortcut(&name).await)
 }
 
 /// Answers with the temporary agent's name as soon as it is up; the text lands well past the

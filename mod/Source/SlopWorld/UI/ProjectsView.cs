@@ -220,22 +220,13 @@ namespace SlopWorld
             if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
         }
 
-        void DrawRail(Rect r)
+        void DrawRail(Rect r) => SlopWidgets.DrawRail(r, new[]
         {
-            float y = r.y;
-            y = RailTab(r, y, "General", Tab.General);
-            y = RailTab(r, y, "Sandbox", Tab.Sandbox);
-            y = RailTab(r, y, "Breadcrumbs", Tab.Breadcrumbs);
-            RailTab(r, y, "Preview", Tab.Preview);
-        }
-
-        float RailTab(Rect r, float y, string label, Tab tab)
-        {
-            if (SlopWidgets.Button(new Rect(r.x, y, r.width, SlopWidgets.BtnH), label,
-                    _tab == tab ? SlopWidgets.Btn.Primary : SlopWidgets.Btn.Ghost))
-                _tab = tab;
-            return y + SlopWidgets.BtnH + SlopWidgets.GapS;
-        }
+            ("General", Tab.General),
+            ("Sandbox", Tab.Sandbox),
+            ("Breadcrumbs", Tab.Breadcrumbs),
+            ("Preview", Tab.Preview),
+        }, ref _tab);
 
         // The project itself: its name, directory and whether that directory is temporary.
         // The other tabs refine the sandbox around it.
