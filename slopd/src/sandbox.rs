@@ -650,7 +650,12 @@ fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
 
 /// Returns existing `(private_copy, host_path)` pairs used to shadow private state under
 /// `$HOME`. Disk preparation happens in `prepare_network`.
-fn private_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec<(String, String)> {
+fn private_bind_paths(
+    cfg: &Config,
+    s: &SessionCfg,
+    p: &ProjectCfg,
+    t: &Table,
+) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = Vec::new();
     for pr in presets_for(cfg, s, p, t) {
         for path in &pr.private {
@@ -953,133 +958,174 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
     let dev = paths(&presets, |pr| &pr.dev);
     let tmux = presets.iter().any(|pr| pr.tmux);
 
-    let mut a: Vec<String> = vec!["bwrap".into()];
-    let mut push = |args: &[&str]| a.extend(args.iter().map(|x| x.to_string()));
+    let resolv = resolver_bind(network, &dns, &s.state_id);
 
+    let mut a = Vec::new();
+    push_skeleton(&mut a, network);
+    push_ro_binds(
+        &mut a,
+        &ro,
+        &rw,
+        &dev,
+        network,
+        resolv.as_ref(),
+        tmux,
+        &cfg.daemon.tmux_socket,
+    );
+    push_private_binds(&mut a, cfg, s, p, &table, &dir, network, resolv.as_ref());
+    push_env(&mut a, &home, s, p, &dir, &presets, &agent_argv);
+
+    a.push("--".into());
+    a.extend(agent_argv);
+
+    wrap_pasta(&mut a, network, &dns);
+    let limits = cfg.limits_of(s, p);
+    wrap_scope(&mut a, &limits);
+    Ok(a)
+}
+
+fn push_args(a: &mut Vec<String>, args: &[&str]) {
+    a.extend(args.iter().map(|arg| (*arg).to_string()));
+}
+
+/// Builds the bwrap namespace before any bind. Each later mount covers what is under it, so
+/// usr-merge symlinks and the proc/dev/tmpfs skeleton have to be in place first.
+fn push_skeleton(a: &mut Vec<String>, network: NetworkMode) {
     // Built back up rather than inherited: a variable naming a socket that is not there is
     // worse than its absence, a program reading it as "this host has one" and failing at the
     // far end of a connect().
-    push(&["--die-with-parent", "--unshare-all", "--clearenv"]);
+    push_args(
+        a,
+        &["bwrap", "--die-with-parent", "--unshare-all", "--clearenv"],
+    );
     if network != NetworkMode::None {
-        push(&["--share-net"]);
+        push_args(a, &["--share-net"]);
     }
 
-    // /etc/resolv.conf often points into unmounted /run; use resolved's stub when available so
-    // split-DNS routing is preserved.
-    let resolv = if network == NetworkMode::Host {
-        resolver_target().map(|target| match &dns {
-            DnsConfig::Resolved => {
-                let stub = "/run/systemd/resolve/stub-resolv.conf";
-                let src = if std::path::Path::new(stub).exists() {
-                    stub.to_string()
-                } else {
-                    target.clone()
-                };
-                (src, target)
-            }
-            DnsConfig::Servers { .. } => (
-                private_resolver_path(&s.state_id)
-                    .to_string_lossy()
-                    .into_owned(),
-                target,
-            ),
-        })
-    } else if network == NetworkMode::Private {
-        Some((
-            private_resolver_path(&s.state_id)
-                .to_string_lossy()
-                .into_owned(),
-            resolver_target().unwrap_or_else(|| "/etc/resolv.conf".into()),
-        ))
-    } else {
-        None
-    };
     // Usr-merge symlinks, otherwise nothing resolves inside the namespace.
-    push(&["--symlink", "usr/lib", "/lib"]);
-    push(&["--symlink", "usr/lib", "/lib64"]);
-    push(&["--symlink", "usr/bin", "/bin"]);
-    push(&["--symlink", "usr/bin", "/sbin"]);
+    push_args(a, &["--symlink", "usr/lib", "/lib"]);
+    push_args(a, &["--symlink", "usr/lib", "/lib64"]);
+    push_args(a, &["--symlink", "usr/bin", "/bin"]);
+    push_args(a, &["--symlink", "usr/bin", "/sbin"]);
 
     // The skeleton goes down before any bind: each of these covers what is under it and bwrap
     // mounts in the order given. `x11` binds /tmp/.X11-unix, this tmpfs buried it, and the
     // preset went on handing out a DISPLAY with no socket behind it.
-    push(&["--proc", "/proc"]);
-    push(&["--dev", "/dev"]);
-    push(&["--tmpfs", "/tmp"]);
+    push_args(a, &["--proc", "/proc"]);
+    push_args(a, &["--dev", "/dev"]);
+    push_args(a, &["--tmpfs", "/tmp"]);
+}
 
-    for path in &ro {
-        push(&["--ro-bind", path, path]);
+/// Adds ordinary preset and host capability binds. These all precede private state, while the
+/// host resolver deliberately remains above ordinary read-only binds in host network mode.
+fn push_ro_binds(
+    a: &mut Vec<String>,
+    ro: &[String],
+    rw: &[String],
+    dev: &[String],
+    network: NetworkMode,
+    resolv: Option<&(String, String)>,
+    tmux: bool,
+    tmux_socket: &str,
+) {
+    for path in ro {
+        push_args(a, &["--ro-bind", path, path]);
     }
     // Host mode keeps the old resolver ordering: it sits above the ordinary ro binds, while
     // a preset that explicitly binds a larger tree still gets the final say.
     if network == NetworkMode::Host {
-        if let Some((src, target)) = &resolv {
-            push(&["--ro-bind", src.as_str(), target.as_str()]);
+        if let Some((src, target)) = resolv {
+            push_args(a, &["--ro-bind", src, target]);
         }
     }
 
-    for path in &rw {
-        push(&["--bind", path, path]);
+    for path in rw {
+        push_args(a, &["--bind", path, path]);
     }
     // After the /dev tmpfs, or it would be mounted over.
-    for path in &dev {
-        push(&["--dev-bind", path, path]);
+    for path in dev {
+        push_args(a, &["--dev-bind", path, path]);
     }
 
     // The debug preset asks for this after the ordinary binds so a broad `/tmp` bind from
     // another preset cannot bury the socket. Inside bwrap the guest uid is 0, hence the target.
     if tmux {
-        if let Some((source, target)) = tmux_socket_bind(&cfg.daemon.tmux_socket) {
-            push(&["--ro-bind", source.as_str(), target.as_str()]);
+        if let Some((source, target)) = tmux_socket_bind(tmux_socket) {
+            push_args(a, &["--ro-bind", &source, &target]);
         }
     }
+}
 
+/// Adds mounts that must win over ordinary binds: private copies, shared files, the project,
+/// and finally private DNS. A shared file is a hole cut in private state, so it lands on top.
+fn push_private_binds(
+    a: &mut Vec<String>,
+    cfg: &Config,
+    s: &SessionCfg,
+    p: &ProjectCfg,
+    table: &Table,
+    dir: &str,
+    network: NetworkMode,
+    resolv: Option<&(String, String)>,
+) {
     // Last of the binds under $HOME, so the private copy wins over an ordinary preset bind:
     // the point of a private path is that there is no way to ask for the original, and an
     // earlier bind of the same target is one bwrap mounts over.
-    for (copy, host) in private_binds(cfg, s, p, &table) {
-        push(&["--bind", copy.as_str(), host.as_str()]);
+    for (copy, host) in private_bind_paths(cfg, s, p, table) {
+        push_args(a, &["--bind", &copy, &host]);
     }
 
     // After the private binds, and only ever inside one: a shared file is a hole cut in a
     // copy, so it has to be mounted over the copy rather than under it. bwrap makes the
     // mount point, which is why nothing seeds one.
-    for path in shared_binds(cfg, s, p, &table) {
-        push(&["--bind", path.as_str(), path.as_str()]);
+    for path in shared_binds(cfg, s, p, table) {
+        push_args(a, &["--bind", &path, &path]);
     }
 
-    push(&["--bind", &dir, &dir]);
+    push_args(a, &["--bind", dir, dir]);
     // Private mode's resolver must be the last bind at this target. A user preset or project
     // directory may bind /etc or a file below it, but neither should restore a host-loopback
     // resolver.
     if network == NetworkMode::Private {
-        if let Some((src, target)) = &resolv {
-            push(&["--ro-bind", src.as_str(), target.as_str()]);
+        if let Some((src, target)) = resolv {
+            push_args(a, &["--ro-bind", src, target]);
         }
     }
+}
 
-    push(&["--setenv", "HOME", &home]);
-    push(&["--setenv", "SLOPWORLD_SESSION", &s.name]);
-    push(&["--setenv", "SLOPWORLD_PROJECT", &p.name]);
-    push(&["--chdir", &dir]);
+/// Declares the complete environment after all mounts. The sandbox starts with --clearenv, so
+/// machine basics are selected explicitly and preset literals are the final word.
+fn push_env(
+    a: &mut Vec<String>,
+    home: &str,
+    s: &SessionCfg,
+    p: &ProjectCfg,
+    dir: &str,
+    presets: &[&SandboxPreset],
+    agent_argv: &[String],
+) {
+    push_args(a, &["--setenv", "HOME", home]);
+    push_args(a, &["--setenv", "SLOPWORLD_SESSION", &s.name]);
+    push_args(a, &["--setenv", "SLOPWORLD_PROJECT", &p.name]);
+    push_args(a, &["--chdir", dir]);
 
     // Stated rather than forwarded: the terminal is one slopd built, and a daemon has
     // none of its own to inherit.
-    push(&["--setenv", "TERM", PANE_TERM]);
-    push(&["--setenv", "COLORTERM", "truecolor"]);
+    push_args(a, &["--setenv", "TERM", PANE_TERM]);
+    push_args(a, &["--setenv", "COLORTERM", "truecolor"]);
 
     // Compiled in: a config written before --clearenv lists none of them, and an agent with
     // no PATH is a session that starts and dies.
     let mut passed: Vec<String> = Vec::new();
     for (k, v) in std::env::vars() {
         if BASE_ENV.contains(&k.as_str()) || k.starts_with("LC_") {
-            push(&["--setenv", k.as_str(), v.as_str()]);
+            push_args(a, &["--setenv", k.as_str(), v.as_str()]);
             passed.push(k);
         }
     }
 
     let mut env: Vec<&str> = Vec::new();
-    for pr in &presets {
+    for pr in presets {
         env.extend(pr.env.iter().map(String::as_str));
     }
 
@@ -1089,15 +1135,15 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
         }
         passed.push(k.to_string());
         if let Ok(v) = std::env::var(k) {
-            push(&["--setenv", k, &v]);
+            push_args(a, &["--setenv", k, &v]);
         }
     }
 
     // Last, so a preset that knows what a value must be inside the sandbox beats
     // whatever slopd inherited for the same name.
-    for pr in &presets {
+    for pr in presets {
         for (k, v) in &pr.setenv {
-            push(&["--setenv", k.as_str(), v.as_str()]);
+            push_args(a, &["--setenv", k.as_str(), v.as_str()]);
         }
     }
 
@@ -1109,29 +1155,65 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
             .file_name()
             .is_some_and(|name| name == "pi")
     }) {
-        push(&["--setenv", "SLOPWORLD_PI_TITLES", "never"]);
+        push_args(a, &["--setenv", "SLOPWORLD_PI_TITLES", "never"]);
     }
+}
 
-    a.push("--".into());
-    a.extend(agent_argv);
-
-    let a = if network == NetworkMode::Private {
-        let mut pasta = pasta_prefix(&dns);
-        pasta.extend(a);
-        pasta
+/// `/etc/resolv.conf` often points into unmounted /run; use resolved's stub when available so
+/// split-DNS routing is preserved.
+fn resolver_bind(
+    network: NetworkMode,
+    dns: &DnsConfig,
+    state_id: &str,
+) -> Option<(String, String)> {
+    if network == NetworkMode::Host {
+        resolver_target().map(|target| match dns {
+            DnsConfig::Resolved => {
+                let stub = "/run/systemd/resolve/stub-resolv.conf";
+                let src = if Path::new(stub).exists() {
+                    stub.to_string()
+                } else {
+                    target.clone()
+                };
+                (src, target)
+            }
+            DnsConfig::Servers { .. } => (
+                private_resolver_path(state_id)
+                    .to_string_lossy()
+                    .into_owned(),
+                target,
+            ),
+        })
+    } else if network == NetworkMode::Private {
+        Some((
+            private_resolver_path(state_id)
+                .to_string_lossy()
+                .into_owned(),
+            resolver_target().unwrap_or_else(|| "/etc/resolv.conf".into()),
+        ))
     } else {
-        a
-    };
+        None
+    }
+}
 
-    // The scope goes outermost, so pasta and bwrap and the agent all count against the caps.
-    let limits = cfg.limits_of(s, p);
+/// Pasta wraps bwrap for private networking; its prefix must be the outer command.
+fn wrap_pasta(a: &mut Vec<String>, network: NetworkMode, dns: &DnsConfig) {
+    if network != NetworkMode::Private {
+        return;
+    }
+    let mut pasta = pasta_prefix(dns);
+    pasta.append(a);
+    *a = pasta;
+}
+
+/// The scope goes outermost, so pasta, bwrap and the agent all count against the caps.
+fn wrap_scope(a: &mut Vec<String>, limits: &Limits) {
     if limits.is_empty() {
-        Ok(a)
-    } else {
-        let mut scoped = scope_prefix(&limits);
-        scoped.extend(a);
-        Ok(scoped)
+        return;
     }
+    let mut scoped = scope_prefix(limits);
+    scoped.append(a);
+    *a = scoped;
 }
 
 /// Expanded, dropped if they are not on this host, and deduplicated.
