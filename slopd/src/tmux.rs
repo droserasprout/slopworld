@@ -7,7 +7,6 @@ use tokio::process::{Child, Command};
 #[derive(Clone)]
 pub struct Tmux {
     socket: String,
-    history_limit: u32,
 }
 
 pub struct Screen {
@@ -26,10 +25,9 @@ pub struct Screen {
 }
 
 impl Tmux {
-    pub fn new(socket: impl Into<String>, history_limit: u32) -> Self {
+    pub fn new(socket: impl Into<String>) -> Self {
         Self {
             socket: socket.into(),
-            history_limit,
         }
     }
 
@@ -135,7 +133,7 @@ impl Tmux {
 
         // Panes inherit this at creation, so it has to be in place before the first
         // session is spawned.
-        let limit = self.history_limit.to_string();
+        let limit = crate::config::SCROLLBACK_LINES.to_string();
         self.run(&["set-option", "-g", "history-limit", &limit])
             .await
             .ok();
@@ -155,7 +153,7 @@ impl Tmux {
 
         // Again here rather than only in ensure_server, which is a no-op against a server
         // someone else already started.
-        let limit = self.history_limit.to_string();
+        let limit = crate::config::SCROLLBACK_LINES.to_string();
         self.run(&["set-option", "-g", "history-limit", &limit])
             .await
             .ok();

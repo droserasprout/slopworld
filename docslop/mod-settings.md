@@ -32,8 +32,8 @@ reset, restore and delete actions.
 
 The connection comes from `endpoint.toml`. `AppearancePage` edits the global interface
 settings and `TerminalPage` edits pane settings; `ConfigPage` edits daemon configuration.
-Mod settings are written atomically by `SlopSettings.Write`, including when the vanilla
-settings dialog closes through `SlopWorldMod.WriteSettings`.
+Mod settings are written atomically by `SlopSettings.Write` when the Settings view closes,
+and dirty values also flush periodically.
 
 Font or size changes invalidate `TerminalFont`; terminal scheme changes invalidate
 `TerminalTheme`. Cursor and UI scheme resolve on read and need no cache invalidation.

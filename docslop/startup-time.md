@@ -58,8 +58,8 @@ than fatal.
 ## Daemon restart
 
 `Manager::sync_from_config` rebuilds sessions one after another, and each
-`spawn_reader` spawns two tmux processes and feeds up to `history_limit` lines through
-the emulator. The sessions are independent of each other. One `list-panes -a` answers
+`spawn_reader` spawns two tmux processes and feeds up to the fixed 10,000-line scrollback
+through the emulator. The sessions are independent of each other. One `list-panes -a` answers
 the per-session size and cursor queries together, and the mod shows one pane at a
 time, so full scrollback can wait for a subscribe. What the rebuild has to restore is
 [daemon-redeploy](daemon-redeploy.md).

@@ -340,39 +340,6 @@ namespace SlopWorld
             Instance = this;
             settings = SlopSettings.Load();
         }
-
-        public override string SettingsCategory() => "SlopWorld";
-
-        public override void DoSettingsWindowContents(Rect rect)
-        {
-            var l = new Listing_Standard();
-            l.Begin(rect);
-
-            l.Label($"Daemon: {SlopClient.BaseUrl}  [{SessionHub.Instance.Status}]");
-            l.Gap(SlopWidgets.GapM);
-
-            l.Label("Connection: daemon endpoint");
-
-            l.Gap(SlopWidgets.GapM);
-            settings.autoConnect =
-                SlopWidgets.Checkbox(l, "Auto-connect and reconnect", settings.autoConnect);
-
-            l.Gap(SlopWidgets.GapM);
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Reconnect now"))
-                SessionHub.Instance.Connect();
-
-            l.End();
-        }
-
-        public override void WriteSettings()
-        {
-            settings.Write();
-            TerminalFont.Invalidate();
-            TerminalTheme.Invalidate();
-            SlopUIFont.Apply();
-            if (Settings.AutoConnect) SessionHub.Instance.Connect();
-            else SessionHub.Instance.Disconnect();
-        }
     }
 
     [StaticConstructorOnStartup]

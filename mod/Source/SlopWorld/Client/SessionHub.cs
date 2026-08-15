@@ -489,7 +489,7 @@ namespace SlopWorld
 
         // Every path and env var the preset asks for, for the tooltip.
         public List<string> Gives =>
-            (Tmux ? new[] { "configured tmux socket" } : Enumerable.Empty<string>())
+            (Tmux ? new[] { "SlopWorld tmux socket" } : Enumerable.Empty<string>())
                 .Concat(Ro).Concat(Rw).Concat(Dev).Concat(Shared).Concat(Private).Concat(Env)
                 .Concat(Setenv.Select(x => $"{x.Key}={x.Value}")).ToList();
 

@@ -12,7 +12,7 @@ must be outside slopd's cgroup:
 ## Rebuilding the emulators
 
 `spawn_reader` rebuilds each running emulator from
-`capture-pane -e -S -<history_limit>` and nudges the pane to trigger SIGWINCH.
+`capture-pane -e -S -10000` and nudges the pane to trigger SIGWINCH.
 This restores modes that capture cannot carry: alternate screen, mouse reporting,
 cursor shape, and bracketed paste. Renames rebuild the reader and input sender
 because both are bound to the old name.

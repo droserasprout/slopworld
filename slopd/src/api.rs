@@ -167,11 +167,11 @@ fn guard_create(cap: &Cap) -> Result<(), (StatusCode, Json<serde_json::Value>)> 
     }
 }
 
-async fn health(State(m): State<Mgr>) -> ApiResult {
+async fn health(State(_m): State<Mgr>) -> ApiResult {
     Ok(Json(json!({
         "ok": true,
         "version": env!("CARGO_PKG_VERSION"),
-        "tmux_socket": m.config().await.daemon.tmux_socket,
+        "tmux_socket": crate::config::TMUX_SOCKET,
     })))
 }
 

@@ -60,13 +60,13 @@ async fn main() -> Result<()> {
     drop(jukebox);
 
     let bind = cfg.daemon.bind.clone();
-    let poll_ms = cfg.daemon.poll_ms.max(200);
     let m = Manager::new(cfg, cfg_path).await;
 
     let poller = {
         let m: Arc<Manager> = m.clone();
         tokio::spawn(async move {
-            let mut tick = tokio::time::interval(Duration::from_millis(poll_ms));
+            let mut tick =
+                tokio::time::interval(Duration::from_millis(crate::config::STATE_TICK_MS));
             tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
                 tick.tick().await;

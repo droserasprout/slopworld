@@ -29,13 +29,11 @@ some values apply live but are written when the Settings view closes.
 | Mod/UI, live and written on interaction | Sidebar width, project folds, sidebar tab/filter/hidden state, usage icon choices, radio station/mute/stop-on-exit, cursor choice | Apply immediately; write the mod settings file on the interaction's release/click. |
 | Mod/UI, live and written on Settings close | Auto-connect, usage spent/left display, terminal font/size/theme/cursor color, UI scheme/font/size, cursor grayscale, status-bar visibility, Grandma mode, Eco mode/dimming | The current screen or simulation reads the changed value immediately; `SlopSettings.Write` runs when Settings closes. There is no per-field Cancel. |
 | RimWorld-owned, live and written by RimWorld | Master/game/music/ambient/UI volume and UI scale | The engine responds immediately. UI scale is written after the slider is released; the other audio preferences follow RimWorld's Settings lifecycle. |
-| Daemon settings, explicit Save | Provider switches and credentials, polling, title policies, host-command summaries, shared summary model, daemon values exposed by General, and the Commands page's preset/app templates | Pages stage edits locally. Save sends a partial patch, validates it, updates the daemon, and rereads the pages. The daemon reloads ordinary live values; startup-only values still need a daemon restart. |
+| Daemon settings, explicit Save | Provider switches and credentials, polling, title policies, host-command summaries, shared summary model, and the Commands page's preset/app templates | Pages stage edits locally. Save sends a partial patch, validates it, updates the daemon, and rereads the pages. The daemon reloads ordinary live values; startup-only values still need a daemon restart. |
 | Raw daemon configuration, explicit Save | The complete redacted `config.toml` text, including fields not represented by the GUI | Save sends the replacement text. TOML parsing and validation happen before the file is replaced. |
 | Presets, agents, projects, shortcuts | Durable daemon objects rather than simple settings | Each editor has its own Save/apply action. Existing agent processes are not silently rebuilt from changed defaults, projects, or sandbox presets. |
 
-The daemon values that require a restart are the listener bind address, tmux
-socket, state tick interval, and tmux history limit. The General page already
-warns about the startup-only group.
+The listener bind address remains available through the raw configuration editor.
 
 Confirmation dialogs are reserved for destructive or externally consequential
 operations: killing/removing agents or projects, and resetting, restoring, or

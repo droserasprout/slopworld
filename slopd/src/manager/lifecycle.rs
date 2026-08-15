@@ -15,7 +15,7 @@ impl Manager {
             .unwrap_or_else(|e| panic!("task store {}: {e:#}", cfg_path.display()));
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
         let m = Arc::new(Self {
-            tmux: Tmux::new(cfg.daemon.tmux_socket.clone(), cfg.daemon.history_limit),
+            tmux: Tmux::new(crate::config::TMUX_SOCKET),
             cfg_path,
             rules: RwLock::new(compile_rules(&cfg)),
             live: RwLock::new(HashMap::new()),

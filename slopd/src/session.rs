@@ -951,10 +951,6 @@ fn validate_config(cfg: &Config) -> Result<()> {
         .bind
         .parse::<std::net::SocketAddr>()
         .with_context(|| format!("bad bind address {:?}", cfg.daemon.bind))?;
-    if cfg.daemon.tmux_socket.trim().is_empty() {
-        bail!("tmux socket name must not be empty");
-    }
-
     let table = crate::presets::table();
     for (field, name) in [
         ("agent", &cfg.defaults.agent),
@@ -1232,8 +1228,6 @@ mod tests {
 [daemon]
 bind = "127.0.0.1:7717"
 token = "secret"
-tmux_socket = "slopworld"
-poll_ms = 80
 future = "keep"
 
 [defaults]
@@ -1244,12 +1238,15 @@ shell = "shell"
         .expect("config parses");
 
         let patch = json_to_toml(serde_json::json!({
-            "daemon": { "poll_ms": 120 },
+            "daemon": { "usage_poll_secs": 120 },
         }))
         .expect("patch converts");
         merge_toml(&mut document, patch);
 
-        assert_eq!(document["daemon"]["poll_ms"].as_integer(), Some(120));
+        assert_eq!(
+            document["daemon"]["usage_poll_secs"].as_integer(),
+            Some(120)
+        );
         assert_eq!(document["daemon"]["future"].as_str(), Some("keep"));
         assert_eq!(document["defaults"]["agent"].as_str(), Some("claude"));
         assert_eq!(document["daemon"]["token"].as_str(), Some("secret"));
