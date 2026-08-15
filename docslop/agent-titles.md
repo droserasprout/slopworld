@@ -21,7 +21,11 @@ Both Codex and Pi use the daemon path. Explicit command lines such as `codex --y
 
 The generated title is a runtime-only `Live` override separate from the emulator's OSC title.
 The session view prefers the override, so an agent redraw cannot replace it. Persistence can
-follow if titles should survive a daemon restart.
+follow if titles should survive a daemon restart. Successful summaries are now cached in the
+daemon config directory as `prompt-summaries.json` (or beside the configured `SLOPD_CONFIG`),
+with a stable prompt/model digest rather than prompt text. The cache keeps the newest 1024
+entries and is written atomically with mode `0600`; a cache failure never prevents a title from
+being applied.
 
 ## Input and conversation boundaries
 

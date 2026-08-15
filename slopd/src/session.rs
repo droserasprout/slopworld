@@ -520,6 +520,7 @@ pub struct Manager {
     pub events: broadcast::Sender<Event>,
     grants: RwLock<crate::grant::Grants>,
     tasks: Mutex<crate::tasks::Tasks>,
+    title_cache: crate::title::SummaryCache,
 }
 
 struct CachedScroll {
@@ -924,6 +925,7 @@ impl Manager {
         let mtime = disk_mtime(&cfg_path);
         let tasks = crate::tasks::Tasks::load(&cfg_path)
             .unwrap_or_else(|e| panic!("task store {}: {e:#}", cfg_path.display()));
+        let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
         let m = Arc::new(Self {
             tmux: Tmux::new(cfg.daemon.tmux_socket.clone(), cfg.daemon.history_limit),
             cfg_path,
@@ -944,6 +946,7 @@ impl Manager {
             events,
             grants: RwLock::new(crate::grant::Grants::default()),
             tasks: Mutex::new(tasks),
+            title_cache,
         });
         if let Ok(n) = crate::sandbox::purge_trash() {
             if n > 0 {
@@ -2437,21 +2440,48 @@ impl Manager {
             let prompt = request.prompt.clone();
             let key_file = request.key_file.clone();
             let model = request.model.clone();
-            tracing::debug!(
-                target: "slopd::titles",
-                session = %name,
-                generation = request.generation,
-                model = %model,
-                outcome = "request_started",
-                "generating session title"
-            );
-            let result = tokio::task::spawn_blocking(move || {
-                crate::title::summarize(&prompt, &key_file, &model)
-            })
-            .await;
-            let result = match result {
-                Ok(r) => r,
-                Err(e) => Err(anyhow!("title worker: {e}")),
+            let result = if let Some(title) = m.title_cache.get(&prompt, &model) {
+                tracing::debug!(
+                    target: "slopd::titles",
+                    session = %name,
+                    generation = request.generation,
+                    model = %model,
+                    outcome = "cache_hit",
+                    "using cached session title"
+                );
+                Ok(title)
+            } else {
+                tracing::debug!(
+                    target: "slopd::titles",
+                    session = %name,
+                    generation = request.generation,
+                    model = %model,
+                    outcome = "request_started",
+                    "generating session title"
+                );
+                let request_prompt = prompt.clone();
+                let request_key = key_file.clone();
+                let request_model = model.clone();
+                let result = tokio::task::spawn_blocking(move || {
+                    crate::title::summarize(&request_prompt, &request_key, &request_model)
+                })
+                .await;
+                let result = match result {
+                    Ok(r) => r,
+                    Err(e) => Err(anyhow!("title worker: {e}")),
+                };
+                if let Ok(title) = &result {
+                    if let Err(error) = m.title_cache.insert(&prompt, &model, title) {
+                        tracing::warn!(
+                            target: "slopd::titles",
+                            session = %name,
+                            error = %error,
+                            outcome = "cache_write_failed",
+                            "could not persist session title cache"
+                        );
+                    }
+                }
+                result
             };
 
             let mut moved = false;
