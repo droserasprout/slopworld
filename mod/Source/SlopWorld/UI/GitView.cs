@@ -810,6 +810,8 @@ namespace SlopWorld
                     }));
             }
 
+            FilesView.AddFileActions(opts, project, repo.Dir, project);
+
             opts.Add(new FloatMenuOption("Terminal (host)", () =>
                 SessionHub.Instance.RunHostShell(project,
                     session => TerminalWindow.Open(session), SlopWidgets.Fail)));
@@ -826,6 +828,8 @@ namespace SlopWorld
                 new FloatMenuOption("Copy path", () => Copy(abs)),
                 new FloatMenuOption("Copy relative path", () => Copy(node.Rel)),
             };
+
+            FilesView.AddFileActions(opts, project, abs, node.Name);
 
             if (!node.IsDir && Present(node.Status))
                 opts.Add(new FloatMenuOption("Edit", () =>
