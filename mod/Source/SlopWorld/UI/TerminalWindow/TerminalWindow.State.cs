@@ -319,6 +319,10 @@ namespace SlopWorld
         // no-op. The frame carries the emulator's dimensions, so that closes the loop.
         void NegotiateSize(Rect body, ScreenBuf buf)
         {
+            // The getter builds or refreshes the font and, as part of that, measures the
+            // cells. Reading CellW/CellH first sees zero on the first pane and stale values
+            // after a font setting changes.
+            var style = TerminalFont.Style;
             if (TerminalFont.CellW <= 0.01f) return;
 
             int cols = Mathf.Clamp(

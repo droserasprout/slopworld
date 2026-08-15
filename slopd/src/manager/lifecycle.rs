@@ -342,34 +342,34 @@ impl Manager {
     async fn adopt_orphans(self: &Arc<Self>) -> bool {
         let mut adopted = false;
         for name in self.tmux.list().await {
-            let size = self.tmux.size(&name).await;
-            let mut live = self.live.write().await;
-            if !live.contains_key(&name) {
-                tracing::info!("adopting tmux session {name} as a temporary agent");
-                let now = now_ms();
-                let mut l = Live::new(
-                    SessionCfg {
-                        name: name.clone(),
-                        ..Default::default()
-                    },
-                    TitleCapture::default(),
-                );
-                l.ephemeral = true;
-                l.state = State::Working;
-                l.last_change = now;
-                l.state_since = now;
-                live.insert(name.clone(), l);
-                adopted = true;
-            }
-            if live.get(&name).is_some_and(|l| l.emu.is_none()) {
-                if let Some((cols, rows)) = size {
-                    if let Some(l) = live.get_mut(&name) {
-                        l.cols = cols;
-                        l.rows = rows;
-                    }
+            let needs_size = {
+                let mut live = self.live.write().await;
+                if !live.contains_key(&name) {
+                    tracing::info!("adopting tmux session {name} as a temporary agent");
+                    let now = now_ms();
+                    let mut l = Live::new(
+                        SessionCfg {
+                            name: name.clone(),
+                            ..Default::default()
+                        },
+                        TitleCapture::default(),
+                    );
+                    l.ephemeral = true;
+                    l.state = State::Working;
+                    l.last_change = now;
+                    l.state_since = now;
+                    live.insert(name.clone(), l);
+                    adopted = true;
                 }
+                live.get(&name).is_some_and(|l| l.emu.is_none())
+            };
+
+            // An established reader already knows its dimensions. Query tmux only for a
+            // newly adopted or reader-less session, and do not hold the live-table lock
+            // across the subprocess await.
+            if needs_size {
+                self.refresh_readerless_size(&name).await;
             }
-            drop(live);
             if self.spawn_reader(&name).await {
                 let m = self.clone();
                 let name = name.clone();
@@ -377,6 +377,17 @@ impl Manager {
             }
         }
         adopted
+    }
+
+    async fn refresh_readerless_size(&self, name: &str) {
+        let Some((cols, rows)) = self.tmux.size(name).await else {
+            return;
+        };
+        let mut live = self.live.write().await;
+        if let Some(l) = live.get_mut(name).filter(|l| l.emu.is_none()) {
+            l.cols = cols;
+            l.rows = rows;
+        }
     }
 
     pub(super) async fn nudge_redraw(self: &Arc<Self>, name: &str) {

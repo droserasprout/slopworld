@@ -157,22 +157,40 @@ impl SessionEmu {
                     TmuxTitleState::Ground
                 }
                 TmuxTitleState::Body(title) if byte == 0x1b => TmuxTitleState::BodyEscape(title),
+                TmuxTitleState::Body(_) if matches!(byte, 0x18 | 0x1a) => TmuxTitleState::Ground,
                 TmuxTitleState::Body(mut title) => {
-                    push_tmux_title_byte(&mut title, byte);
-                    TmuxTitleState::Body(title)
+                    if title.len() < TMUX_TITLE_MAX {
+                        title.push(byte);
+                        TmuxTitleState::Body(title)
+                    } else {
+                        recover_tmux_title(&mut plain, title, &[byte]);
+                        TmuxTitleState::Ground
+                    }
                 }
                 TmuxTitleState::BodyEscape(title) if byte == b'\\' => {
                     self.finish_tmux_title(title);
                     TmuxTitleState::Ground
                 }
+                TmuxTitleState::BodyEscape(_) if matches!(byte, 0x18 | 0x1a) => {
+                    TmuxTitleState::Ground
+                }
                 TmuxTitleState::BodyEscape(mut title) if byte == 0x1b => {
-                    push_tmux_title_byte(&mut title, 0x1b);
-                    TmuxTitleState::BodyEscape(title)
+                    if title.len() < TMUX_TITLE_MAX {
+                        title.push(0x1b);
+                        TmuxTitleState::BodyEscape(title)
+                    } else {
+                        recover_tmux_title(&mut plain, title, &[0x1b, 0x1b]);
+                        TmuxTitleState::Ground
+                    }
                 }
                 TmuxTitleState::BodyEscape(mut title) => {
-                    push_tmux_title_byte(&mut title, 0x1b);
-                    push_tmux_title_byte(&mut title, byte);
-                    TmuxTitleState::Body(title)
+                    if title.len().saturating_add(2) <= TMUX_TITLE_MAX {
+                        title.extend_from_slice(&[0x1b, byte]);
+                        TmuxTitleState::Body(title)
+                    } else {
+                        recover_tmux_title(&mut plain, title, &[0x1b, byte]);
+                        TmuxTitleState::Ground
+                    }
                 }
             };
         }
@@ -403,10 +421,12 @@ impl SessionEmu {
     }
 }
 
-fn push_tmux_title_byte(title: &mut Vec<u8>, byte: u8) {
-    if title.len() < TMUX_TITLE_MAX {
-        title.push(byte);
-    }
+fn recover_tmux_title(plain: &mut Vec<u8>, title: Vec<u8>, suffix: &[u8]) {
+    // A malformed private title must not turn into a permanent output sink. Give the bytes
+    // back to the ordinary VT parser, matching the behavior before ESC-k support was added.
+    plain.extend_from_slice(b"\x1bk");
+    plain.extend_from_slice(&title);
+    plain.extend_from_slice(suffix);
 }
 
 pub(crate) enum Slot {
@@ -853,6 +873,33 @@ mod tests {
             .lines
             .iter()
             .any(|line| line.contains("one two three")));
+    }
+
+    #[test]
+    fn an_unterminated_tmux_title_eventually_returns_to_terminal_output() {
+        let mut e = SessionEmu::new(80, 4);
+        let mut bytes = b"\x1bk".to_vec();
+        bytes.extend(std::iter::repeat_n(b'x', TMUX_TITLE_MAX));
+        bytes.extend_from_slice(b" visible-after-bad-title");
+        e.feed(&bytes);
+
+        let frame = e.render();
+        assert_eq!(frame.title, "");
+        assert!(frame
+            .lines
+            .iter()
+            .any(|line| line.contains("visible-after-bad-title")));
+    }
+
+    #[test]
+    fn cancel_abandons_an_unterminated_tmux_title() {
+        let mut e = SessionEmu::new(40, 2);
+        e.feed(b"\x1bkbroken\x18visible");
+
+        let frame = e.render();
+        assert_eq!(frame.title, "");
+        assert!(frame.lines.iter().any(|line| line.contains("visible")));
+        assert!(frame.lines.iter().all(|line| !line.contains("broken")));
     }
 
     #[test]
