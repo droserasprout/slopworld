@@ -32,6 +32,25 @@ namespace SlopWorld.Tests
                                     $"got [{string.Join(", ", right)}]");
         }
 
+        public static T Throws<T>(Action action, string message) where T : Exception
+        {
+            try
+            {
+                action();
+            }
+            catch (T exception)
+            {
+                return exception;
+            }
+            catch (Exception exception)
+            {
+                throw new Exception($"{message}: expected {typeof(T).Name}, " +
+                                    $"got {exception.GetType().Name}");
+            }
+
+            throw new Exception($"{message}: expected {typeof(T).Name}");
+        }
+
         static string Format<T>(T value) => value == null ? "<null>" : value.ToString();
     }
 }
