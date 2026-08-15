@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
@@ -431,6 +432,95 @@ namespace SlopWorld
     // that will run is on screen even when nothing here chose it.
     public class EditShortcutDialog : SlopWindow
     {
+        sealed class ShortcutKindDescriptor
+        {
+            public readonly string ButtonLabel;
+            public readonly bool ShowWhere;
+            public readonly Func<EditShortcutDialog, bool> ShowProject;
+            public readonly Func<EditShortcutDialog, string> ProjectLabel;
+            public readonly Func<EditShortcutDialog, string> ProjectValue;
+            public readonly Action<EditShortcutDialog> PickProject;
+            public readonly Func<EditShortcutDialog, ProjectInfo, string> ExplainText;
+            public readonly string CommandLabel;
+            public readonly Func<EditShortcutDialog, string> CommandPlaceholder;
+
+            public ShortcutKindDescriptor(string buttonLabel, bool showWhere,
+                Func<EditShortcutDialog, bool> showProject,
+                Func<EditShortcutDialog, string> projectLabel,
+                Func<EditShortcutDialog, string> projectValue,
+                Action<EditShortcutDialog> pickProject,
+                Func<EditShortcutDialog, ProjectInfo, string> explainText,
+                string commandLabel, Func<EditShortcutDialog, string> commandPlaceholder)
+            {
+                ButtonLabel = buttonLabel;
+                ShowWhere = showWhere;
+                ShowProject = showProject;
+                ProjectLabel = projectLabel;
+                ProjectValue = projectValue;
+                PickProject = pickProject;
+                ExplainText = explainText;
+                CommandLabel = commandLabel;
+                CommandPlaceholder = commandPlaceholder;
+            }
+        }
+
+        static readonly Dictionary<ShortcutKind, ShortcutKindDescriptor> KindDescriptors =
+            new Dictionary<ShortcutKind, ShortcutKindDescriptor>
+            {
+                {
+                    ShortcutKind.Prompt,
+                    new ShortcutKindDescriptor(
+                        "Prompt - say something to an agent", true,
+                        dialog => dialog._s.Link != ShortcutLink.Ask,
+                        dialog => dialog._s.Link == ShortcutLink.Temp
+                            ? "Sandbox to copy (blank = plain: private network, no presets)"
+                            : "Project (the directory and sandbox it runs in)",
+                        dialog => string.IsNullOrEmpty(dialog._s.Project)
+                            ? (dialog._s.Link == ShortcutLink.Temp ? "None" : "Pick a project...")
+                            : dialog._s.Project,
+                        dialog => dialog.PickProject(),
+                        (dialog, project) => dialog.Explain(project),
+                        "Agent (blank = the default)", dialog => dialog._agentDefault)
+                },
+                {
+                    ShortcutKind.Shell,
+                    new ShortcutKindDescriptor(
+                        "Shell - run a command", true,
+                        dialog => dialog._s.Link != ShortcutLink.Ask,
+                        dialog => dialog._s.Link == ShortcutLink.Temp
+                            ? "Sandbox to copy (blank = plain: private network, no presets)"
+                            : "Project (the directory and sandbox it runs in)",
+                        dialog => string.IsNullOrEmpty(dialog._s.Project)
+                            ? (dialog._s.Link == ShortcutLink.Temp ? "None" : "Pick a project...")
+                            : dialog._s.Project,
+                        dialog => dialog.PickProject(),
+                        (dialog, project) => dialog.Explain(project),
+                        "Shell (blank = the default)", dialog => dialog._shellDefault)
+                },
+                {
+                    ShortcutKind.Breadcrumb,
+                    new ShortcutKindDescriptor(
+                        "Breadcrumb - append to the first prompt", false,
+                        dialog => true,
+                        dialog => "Project (attach to every agent in this project)",
+                        dialog => string.IsNullOrEmpty(dialog._s.Project) ? "None" : dialog._s.Project,
+                        dialog => dialog.PickBreadcrumbProject(),
+                        (dialog, project) =>
+                            "Attach this text to projects and agents; it is not runnable.",
+                        null, null)
+                },
+                {
+                    ShortcutKind.FileAction,
+                    new ShortcutKindDescriptor(
+                        "File action - run on a Files row", false,
+                        dialog => false,
+                        null, null, null,
+                        (dialog, project) =>
+                            "This command is offered by the Files sidebar; use {{ absolute_path }} or {{ relative_path }}.",
+                        "Command (path is appended unless substituted)", dialog => dialog._agentDefault)
+                },
+            };
+
         readonly bool _isNew;
         readonly ShortcutInfo _s;
         // The edit is addressed to it, and a changed name in the field is a rename.
@@ -515,71 +605,43 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapS);
             l.Label("Kind");
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
-                    _s.Kind == ShortcutKind.Shell
-                        ? "Shell - run a command"
-                        : _s.Kind == ShortcutKind.Breadcrumb
-                            ? "Breadcrumb - append to the first prompt"
-                            : _s.Kind == ShortcutKind.FileAction
-                                ? "File action - run on a Files row"
-                            : "Prompt - say something to an agent"))
+            var kind = KindDescriptors[_s.Kind];
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), kind.ButtonLabel))
                 PickKind();
 
             l.Gap(SlopWidgets.GapS);
-            if (_s.Kind != ShortcutKind.Breadcrumb && _s.Kind != ShortcutKind.FileAction)
+            if (kind.ShowWhere)
             {
                 l.Label("Where it runs");
                 if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), LinkLabel(_s.Link)))
                     PickLink();
             }
 
-            // A breadcrumb is not run itself, but a project can opt into it directly here.
-            // Agent attachments remain editable from the agent dialog.
-            if (_s.Kind == ShortcutKind.Breadcrumb)
-            {
-                l.Gap(SlopWidgets.GapS);
-                l.Label("Project (attach to every agent in this project)");
-                if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
-                        string.IsNullOrEmpty(_s.Project) ? "None" : _s.Project))
-                    PickBreadcrumbProject();
-            }
-
-            // The project dropdown stays up for two of the three, because in temp mode it
-            // still answers something - which sandbox the scratch project is given - and a
+            // The project dropdown stays up for every kind that uses a project. In temp mode
+            // it still answers something - which sandbox the scratch project is given - and a
             // field that vanished would read as a setting that does not exist.
-            if (_s.Kind != ShortcutKind.Breadcrumb && _s.Kind != ShortcutKind.FileAction && _s.Link != ShortcutLink.Ask)
+            if (kind.ShowProject(this))
             {
                 l.Gap(SlopWidgets.GapS);
-                l.Label(_s.Link == ShortcutLink.Temp
-                    ? "Sandbox to copy (blank = plain: private network, no presets)"
-                    : "Project (the directory and sandbox it runs in)");
+                l.Label(kind.ProjectLabel(this));
                 if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
-                        string.IsNullOrEmpty(_s.Project)
-                            ? (_s.Link == ShortcutLink.Temp ? "None" : "Pick a project...")
-                            : _s.Project))
-                    PickProject();
+                        kind.ProjectValue(this)))
+                    kind.PickProject(this);
             }
 
             var project = SessionHub.Instance.Project(_s.Project);
             GUI.color = SlopWidgets.Dim;
-            l.Label(_s.Kind == ShortcutKind.Breadcrumb
-                ? "Attach this text to projects and agents; it is not runnable."
-                : _s.Kind == ShortcutKind.FileAction
-                    ? "This command is offered by the Files sidebar; use {{ absolute_path }} or {{ relative_path }}."
-                : Explain(project));
+            l.Label(kind.ExplainText(this, project));
             GUI.color = Color.white;
 
             l.Gap(SlopWidgets.GapS);
-            if (_s.Kind != ShortcutKind.Breadcrumb)
+            if (kind.CommandLabel != null)
             {
-                l.Label(_s.Kind == ShortcutKind.FileAction ? "Command (path is appended unless substituted)" :
-                    _s.Kind == ShortcutKind.Shell ? "Shell (blank = the default)"
-                                                      : "Agent (blank = the default)");
+                l.Label(kind.CommandLabel);
                 var box = l.GetRect(SlopWidgets.FieldH);
                 if (string.IsNullOrEmpty((_s.Command ?? "").Trim()))
                 {
-                    string placeholder =
-                        _s.Kind == ShortcutKind.Shell ? _shellDefault : _agentDefault;
+                    string placeholder = kind.CommandPlaceholder(this);
                     GUI.color = SlopWidgets.Faint;
                     string shown = SlopWidgets.Field(box, "shortcut.command", placeholder);
                     GUI.color = Color.white;
