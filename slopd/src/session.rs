@@ -1244,6 +1244,9 @@ impl Manager {
         });
 
         for s in &cfg.sessions {
+            let mut title = TitleCapture::default();
+            title.override_title = self.title_cache.latest(&s.name);
+            title.once_requested = title.override_title.is_some();
             live.entry(s.name.clone())
                 .and_modify(|l| {
                     l.cfg = s.clone();
@@ -1271,7 +1274,7 @@ impl Manager {
                     input: None,
                     breadcrumbs: Vec::new(),
                     breadcrumbs_pending: false,
-                    title: TitleCapture::default(),
+                    title,
                 });
         }
         drop(live);
@@ -1463,15 +1466,25 @@ impl Manager {
             .into_iter()
             .map(|text| render_template_with(&text, &[], Some(&vars)))
             .collect();
+        let restored_title = self.title_cache.latest(name);
+        let announced_title = restored_title.is_some();
         let mut live = self.live.write().await;
         if let Some(l) = live.get_mut(name) {
             l.title = TitleCapture::default();
+            l.title.override_title = restored_title;
+            l.title.once_requested = l.title.override_title.is_some();
             l.breadcrumbs.clear();
             l.breadcrumbs_pending = false;
             if !host && s.breadcrumb_yolo && !crumbs.is_empty() {
                 l.breadcrumbs = breadcrumb_block(&crumbs).into_bytes();
                 l.breadcrumbs_pending = true;
             }
+        }
+        drop(live);
+        if announced_title {
+            let _ = self.events.send(Event::Sessions {
+                sessions: self.views().await,
+            });
         }
         Ok(())
     }
@@ -1518,6 +1531,15 @@ impl Manager {
             }
         };
         self.forget_scroll(name);
+        if let Err(error) = self.title_cache.clear_latest(name) {
+            tracing::warn!(
+                target: "slopd::titles",
+                session = %name,
+                error = %error,
+                outcome = "cache_write_failed",
+                "could not clear session title"
+            );
+        }
         if let Err(e) = crate::sandbox::remove_ephemeral_state(&session) {
             tracing::warn!("removing temporary private state for {name}: {e:#}");
         }
@@ -2168,6 +2190,15 @@ impl Manager {
             return Err(e);
         }
         drop(cfg);
+        if let Err(error) = self.title_cache.clear_latest(name) {
+            tracing::warn!(
+                target: "slopd::titles",
+                session = %name,
+                error = %error,
+                outcome = "cache_write_failed",
+                "could not clear session title"
+            );
+        }
         if let Err(e) = crate::sandbox::purge_trash() {
             tracing::warn!("purging private-state trash: {e:#}");
         }
@@ -2466,6 +2497,15 @@ impl Manager {
                     outcome = "cache_hit",
                     "using cached session title"
                 );
+                if let Err(error) = m.title_cache.remember(&name, &title) {
+                    tracing::warn!(
+                        target: "slopd::titles",
+                        session = %name,
+                        error = %error,
+                        outcome = "cache_write_failed",
+                        "could not persist session title"
+                    );
+                }
                 Ok(title)
             } else {
                 tracing::debug!(
@@ -2488,7 +2528,7 @@ impl Manager {
                     Err(e) => Err(anyhow!("title worker: {e}")),
                 };
                 if let Ok(title) = &result {
-                    if let Err(error) = m.title_cache.insert(&prompt, &model, title) {
+                    if let Err(error) = m.title_cache.insert(&name, &prompt, &model, title) {
                         tracing::warn!(
                             target: "slopd::titles",
                             session = %name,
@@ -2554,6 +2594,7 @@ impl Manager {
 
         let mut request = None;
         let mut announce = false;
+        let mut clear_latest = false;
         {
             let mut live = self.live.write().await;
             let Some(l) = live.get_mut(name) else { return };
@@ -2585,6 +2626,7 @@ impl Manager {
                     l.title.pending = false;
                     l.title.once_requested = false;
                     l.title.override_title = native;
+                    clear_latest = true;
                     announce = true;
                 }
                 Some(Submission::Prompt(prompt))
@@ -2631,6 +2673,18 @@ impl Manager {
             }
         }
         drop(cfg);
+
+        if clear_latest {
+            if let Err(error) = self.title_cache.clear_latest(name) {
+                tracing::warn!(
+                    target: "slopd::titles",
+                    session = %name,
+                    error = %error,
+                    outcome = "cache_write_failed",
+                    "could not clear session title"
+                );
+            }
+        }
 
         if announce {
             let _ = self.events.send(Event::Sessions {

@@ -21,11 +21,19 @@ const MAX_CACHE_ENTRIES: usize = 1024;
 struct CacheFile {
     version: u32,
     entries: Vec<CacheEntry>,
+    #[serde(default)]
+    latest: Vec<LatestEntry>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct CacheEntry {
     key: String,
+    title: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct LatestEntry {
+    session: String,
     title: String,
 }
 
@@ -41,29 +49,23 @@ pub fn cache_path(config: &Path) -> PathBuf {
 pub struct SummaryCache {
     path: PathBuf,
     entries: Mutex<Vec<CacheEntry>>,
+    latest: Mutex<Vec<LatestEntry>>,
 }
 
 impl SummaryCache {
     pub fn load(path: PathBuf) -> Self {
-        let entries = match fs::read_to_string(&path) {
+        let (entries, latest) = match fs::read_to_string(&path) {
             Ok(text) => match toml::from_str::<CacheFile>(&text) {
-                Ok(file) if file.version == CACHE_VERSION => file
-                    .entries
-                    .into_iter()
-                    .filter(|entry| !entry.key.is_empty() && !entry.title.trim().is_empty())
-                    .rev()
-                    .take(MAX_CACHE_ENTRIES)
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .rev()
-                    .collect(),
+                Ok(file) if file.version == CACHE_VERSION => {
+                    (trim_entries(file.entries), trim_latest(file.latest))
+                }
                 Ok(file) => {
                     tracing::warn!(
                         path = %path.display(),
                         version = file.version,
                         "ignoring unsupported prompt-summary cache"
                     );
-                    Vec::new()
+                    (Vec::new(), Vec::new())
                 }
                 Err(error) => {
                     tracing::warn!(
@@ -71,24 +73,33 @@ impl SummaryCache {
                         %error,
                         "ignoring invalid prompt-summary cache"
                     );
-                    Vec::new()
+                    (Vec::new(), Vec::new())
                 }
             },
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => (Vec::new(), Vec::new()),
             Err(error) => {
                 tracing::warn!(
                     path = %path.display(),
                     %error,
                     "ignoring unreadable prompt-summary cache"
                 );
-                Vec::new()
+                (Vec::new(), Vec::new())
             }
         };
-        let cache = Self {
+        Self {
             path,
             entries: Mutex::new(entries),
-        };
-        cache
+            latest: Mutex::new(latest),
+        }
+    }
+
+    pub fn latest(&self, session: &str) -> Option<String> {
+        self.latest
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .iter()
+            .find(|entry| entry.session == session)
+            .map(|entry| entry.title.clone())
     }
 
     pub fn get(&self, prompt: &str, model: &str) -> Option<String> {
@@ -104,7 +115,7 @@ impl SummaryCache {
         Some(title)
     }
 
-    pub fn insert(&self, prompt: &str, model: &str, title: &str) -> Result<()> {
+    pub fn insert(&self, session: &str, prompt: &str, model: &str, title: &str) -> Result<()> {
         let key = cache_key(prompt, model);
         let mut entries = self
             .entries
@@ -120,11 +131,86 @@ impl SummaryCache {
         if entries.len() > MAX_CACHE_ENTRIES {
             entries.remove(0);
         }
-        save_cache(&self.path, &entries)
+        let mut latest = self
+            .latest
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        set_latest(&mut latest, session, title);
+        save_cache(&self.path, &entries, &latest)
+    }
+
+    pub fn remember(&self, session: &str, title: &str) -> Result<()> {
+        let entries = self
+            .entries
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut latest = self
+            .latest
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        set_latest(&mut latest, session, title);
+        save_cache(&self.path, &entries, &latest)
+    }
+
+    pub fn clear_latest(&self, session: &str) -> Result<()> {
+        let entries = self
+            .entries
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut latest = self
+            .latest
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let before = latest.len();
+        latest.retain(|entry| entry.session != session);
+        if latest.len() == before {
+            return Ok(());
+        }
+        save_cache(&self.path, &entries, &latest)
     }
 }
 
-fn save_cache(path: &Path, entries: &[CacheEntry]) -> Result<()> {
+fn trim_entries(entries: Vec<CacheEntry>) -> Vec<CacheEntry> {
+    entries
+        .into_iter()
+        .filter(|entry| !entry.key.is_empty() && !entry.title.trim().is_empty())
+        .rev()
+        .take(MAX_CACHE_ENTRIES)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect()
+}
+
+fn trim_latest(entries: Vec<LatestEntry>) -> Vec<LatestEntry> {
+    let mut latest: Vec<LatestEntry> = Vec::new();
+    for entry in entries
+        .into_iter()
+        .filter(|entry| !entry.session.is_empty() && !entry.title.trim().is_empty())
+    {
+        if let Some(at) = latest.iter().position(|old| old.session == entry.session) {
+            latest.remove(at);
+        }
+        latest.push(entry);
+    }
+    if latest.len() > MAX_CACHE_ENTRIES {
+        latest.drain(..latest.len() - MAX_CACHE_ENTRIES);
+    }
+    latest
+}
+
+fn set_latest(latest: &mut Vec<LatestEntry>, session: &str, title: &str) {
+    latest.retain(|entry| entry.session != session);
+    latest.push(LatestEntry {
+        session: session.to_string(),
+        title: title.to_string(),
+    });
+    if latest.len() > MAX_CACHE_ENTRIES {
+        latest.remove(0);
+    }
+}
+
+fn save_cache(path: &Path, entries: &[CacheEntry], latest: &[LatestEntry]) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -132,6 +218,7 @@ fn save_cache(path: &Path, entries: &[CacheEntry]) -> Result<()> {
     let file = CacheFile {
         version: CACHE_VERSION,
         entries: entries.to_vec(),
+        latest: latest.to_vec(),
     };
     fs::write(&tmp, toml::to_string_pretty(&file)?)?;
     #[cfg(unix)]
@@ -392,7 +479,7 @@ mod tests {
 
         let cache = SummaryCache::load(path.clone());
         cache
-            .insert("fix the parser", "test/model", "Fix parser")
+            .insert("codex", "fix the parser", "test/model", "Fix parser")
             .unwrap();
         let raw = fs::read_to_string(&path).unwrap();
         assert!(!raw.contains("fix the parser"));
@@ -400,12 +487,14 @@ mod tests {
             cache.get("fix the parser", "test/model").as_deref(),
             Some("Fix parser")
         );
+        assert_eq!(cache.latest("codex").as_deref(), Some("Fix parser"));
 
         let restored = SummaryCache::load(path.clone());
         assert_eq!(
             restored.get("fix the parser", "test/model").as_deref(),
             Some("Fix parser")
         );
+        assert_eq!(restored.latest("codex").as_deref(), Some("Fix parser"));
         assert!(restored.get("fix the parser", "other/model").is_none());
         let _ = fs::remove_file(path);
     }
