@@ -969,6 +969,7 @@ namespace SlopWorld
 
             if (Bound(SlopDefOf.SlopCommandPalette, e))
             {
+                SearchView.ReleaseFocus();
                 CommandPalette.Toggle();
                 return true;
             }

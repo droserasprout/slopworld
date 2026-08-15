@@ -108,7 +108,7 @@ namespace SlopWorld
             }
         }
 
-        static void EditLikes()
+        public static void EditLikes()
         {
             try
             {

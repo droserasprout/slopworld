@@ -95,6 +95,13 @@ namespace SlopWorld
             var field = new Rect(r.x, r.y, r.width - buttonW - SlopWidgets.GapS,
                 SlopWidgets.FieldH);
             var e = Event.current;
+
+            // TextField consumes function keys while it owns focus. Release the Find field
+            // before it is drawn so bare F1 can reach the command-palette dispatcher; Shift+F1
+            // remains an agent key.
+            if (e.rawType == EventType.KeyDown && e.keyCode == KeyCode.F1 && !e.shift)
+                ReleaseFocus();
+
             string was = _query;
             _query = SlopWidgets.Field(field, "search.query", _query);
             if (_focus)

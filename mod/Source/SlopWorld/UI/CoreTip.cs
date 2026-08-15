@@ -152,6 +152,39 @@ namespace SlopWorld
             comp.Open(Event.current.mousePosition, Cell(map));
         }
 
+        // Palette commands do not have the core's opening click to supply an anchor. Use the
+        // current pointer and the current core, which keeps the same bubble visible over the
+        // map or an opaque terminal.
+        public static void ShowHint()
+        {
+            var map = Find.CurrentMap;
+            var comp = map?.GetComponent<CoreTip>();
+            if (comp == null) return;
+
+            comp._clickPos = UI.MousePositionOnUIInverted;
+            comp._menuCell = Cell(map);
+            comp.HintAction();
+        }
+
+        public static void KillSomething()
+        {
+            if (Settings.GrandmaMode) return;
+            Find.CurrentMap?.GetComponent<CoreTip>()?.KillAction();
+        }
+
+        public static void NewLooks()
+        {
+            var colony = AgentColony.Current;
+            if (colony == null) return;
+
+            foreach (var kv in colony.All)
+            {
+                var pawn = kv.Value;
+                if (pawn == null || pawn.Destroyed) continue;
+                AgentLook.Reroll(pawn);
+            }
+        }
+
         void Open(Vector2 at, IntVec3 cell)
         {
             _clickPos = at;
@@ -213,15 +246,7 @@ namespace SlopWorld
         // Reroll the visible parts of every agent at once.
         void NewLookAction()
         {
-            var colony = AgentColony.Current;
-            if (colony == null) return;
-
-            foreach (var kv in colony.All)
-            {
-                var pawn = kv.Value;
-                if (pawn == null || pawn.Destroyed) continue;
-                AgentLook.Reroll(pawn);
-            }
+            NewLooks();
         }
 
         // Pick a random spawned pawn (humanlike or animal) or tree on the map.
