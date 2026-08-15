@@ -962,16 +962,7 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
 
     let mut a = Vec::new();
     push_skeleton(&mut a, network);
-    push_ro_binds(
-        &mut a,
-        &ro,
-        &rw,
-        &dev,
-        network,
-        resolv.as_ref(),
-        tmux,
-        &cfg.daemon.tmux_socket,
-    );
+    push_ro_binds(&mut a, &ro, &rw, &dev, network, resolv.as_ref(), tmux);
     push_private_binds(&mut a, cfg, s, p, &table, &dir, network, resolv.as_ref());
     push_env(&mut a, &home, s, p, &dir, &presets, &agent_argv);
 
@@ -1026,7 +1017,6 @@ fn push_ro_binds(
     network: NetworkMode,
     resolv: Option<&(String, String)>,
     tmux: bool,
-    tmux_socket: &str,
 ) {
     for path in ro {
         push_args(a, &["--ro-bind", path, path]);
@@ -1050,7 +1040,7 @@ fn push_ro_binds(
     // The debug preset asks for this after the ordinary binds so a broad `/tmp` bind from
     // another preset cannot bury the socket. Inside bwrap the guest uid is 0, hence the target.
     if tmux {
-        if let Some((source, target)) = tmux_socket_bind(tmux_socket) {
+        if let Some((source, target)) = tmux_socket_bind(crate::config::TMUX_SOCKET) {
             push_args(a, &["--ro-bind", &source, &target]);
         }
     }

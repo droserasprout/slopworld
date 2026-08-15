@@ -54,7 +54,7 @@ pub struct SandboxPreset {
     /// the forwarded ones, so the preset's answer beats how slopd was launched.
     #[serde(default)]
     pub setenv: BTreeMap<String, String>,
-    /// Bind slopd's configured tmux socket into the sandbox's uid-0 socket directory. This
+    /// Bind slopd's private tmux socket into the sandbox's uid-0 socket directory. This
     /// is deliberately opt-in: the socket is a live control channel to host terminals.
     #[serde(default)]
     pub tmux: bool,

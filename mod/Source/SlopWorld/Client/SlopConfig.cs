@@ -9,14 +9,6 @@ namespace SlopWorld
     // remain untouched on the server.
     public class SlopConfig
     {
-        // Read-only status for the connection note. The actual connection comes from the
-        // daemon endpoint descriptor or the mod's explicit override.
-        public string Bind = "127.0.0.1:7717";
-        public string TmuxSocket = "slopworld";
-        public int PollMs = 80;
-        // Scrollback tmux keeps per pane, and so the ceiling on how much history survives
-        // a daemon restart.
-        public int HistoryLimit = 5000;
         // Off means the daemon never reads the credentials file.
         public bool Usage = true;
         public int UsagePollSecs = 60;
@@ -56,10 +48,6 @@ namespace SlopWorld
             var c = v["commands"];
             return new SlopConfig
             {
-                Bind = d["bind"].AsString("127.0.0.1:7717"),
-                TmuxSocket = d["tmux_socket"].AsString("slopworld"),
-                PollMs = d["poll_ms"].AsInt(80),
-                HistoryLimit = d["history_limit"].AsInt(5000),
                 Usage = d["usage"].AsBool(true),
                 UsagePollSecs = d["usage_poll_secs"].AsInt(60),
                 ClaudeCredentials =
@@ -86,8 +74,6 @@ namespace SlopWorld
         // presets. The daemon deep-merges this object before validating it.
         public string ToPatchJson() =>
             "{\"daemon\":{" +
-            $"\"tmux_socket\":{JVal.Q(TmuxSocket)},\"poll_ms\":{PollMs}," +
-            $"\"history_limit\":{HistoryLimit}," +
             $"\"usage\":{JVal.B(Usage)},\"usage_poll_secs\":{UsagePollSecs}," +
             $"\"claude_credentials\":{JVal.Q(ClaudeCredentials)}," +
             $"\"openrouter\":{JVal.B(Openrouter)}," +

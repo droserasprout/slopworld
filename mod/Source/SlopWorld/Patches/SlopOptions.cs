@@ -305,15 +305,6 @@ namespace SlopWorld
             else v.Category = category;
         }
 
-        // From the General page, jump to the Terminal child in the view that is already up.
-        // The shortcut used to open a floating window; with the pane's settings in this
-        // options view, the honest answer to the press is a tab swap.
-        public static void OpenTerminalTab()
-        {
-            var v = TerminalWindow.ShowingAs<OptionsView>();
-            if (v != null) v.Category = TerminalCategory;
-        }
-
         // The jukebox menu's Settings row opens our mixer directly.
         public static void OpenAudioTab()
         {

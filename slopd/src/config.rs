@@ -34,6 +34,12 @@ pub struct Config {
 /// string is an explicit change.
 pub const TOKEN_REDACTED: &str = "<redacted>";
 
+// These are daemon identity and scheduling policy, not user configuration. The private tmux
+// name is part of the sandbox/debug contract; the state tick only drives idle reclassification.
+pub const TMUX_SOCKET: &str = "slopworld";
+pub const STATE_TICK_MS: u64 = 1_000;
+pub const SCROLLBACK_LINES: u32 = 10_000;
+
 /// Redacts only a non-empty `[daemon] token` in raw config text, preserving comments and blanks;
 /// `Manager::replace_config` restores the real value when the sentinel is written back.
 pub fn redact_token_text(text: &str) -> String {
@@ -71,16 +77,6 @@ pub struct Daemon {
     /// restores it - see `redact_token_text` and `Manager::replace_config`.
     #[serde(default)]
     pub token: String,
-    /// Dedicated, so we never collide with the user's own tmux and `tmux -L slopworld
-    /// attach` still works from a real terminal.
-    pub tmux_socket: String,
-    /// How often the state tick decays working -> idle. Screen content itself arrives
-    /// event-driven from the control readers, not by polling.
-    pub poll_ms: u64,
-    /// Also all we have to reseed an emulator from when slopd restarts under a session
-    /// that kept running, so it is the ceiling on history surviving a redeploy.
-    #[serde(default = "default_history_limit")]
-    pub history_limit: u32,
     /// Off means slopd never reads the credentials file and never leaves the machine.
     #[serde(default = "yes")]
     pub usage: bool,
@@ -134,10 +130,6 @@ pub enum TitlePolicy {
     Always,
 }
 
-fn default_history_limit() -> u32 {
-    5000
-}
-
 fn default_usage_poll() -> u64 {
     60
 }
@@ -163,9 +155,6 @@ impl Default for Daemon {
         Self {
             bind: "127.0.0.1:7717".into(),
             token: String::new(),
-            tmux_socket: "slopworld".into(),
-            poll_ms: 80,
-            history_limit: default_history_limit(),
             usage: true,
             usage_poll_secs: default_usage_poll(),
             claude_credentials: default_credentials(),
@@ -1011,7 +1000,6 @@ mod tests {
 [daemon]
 bind = \"127.0.0.1:7717\"
 token = \"s3cr3t\"
-tmux_socket = \"slopworld\"
 
 [[shortcuts]]
 name = \"x\"
@@ -1034,7 +1022,7 @@ token = \"not-a-daemon-token\"
     #[test]
     fn the_sentinel_round_trips_as_itself() {
         let cfg = Config::parse(&format!(
-            "[daemon]\nbind = \"127.0.0.1:7717\"\ntoken = \"{TOKEN_REDACTED}\"\ntmux_socket = \"slopworld\"\npoll_ms = 80\n"
+            "[daemon]\nbind = \"127.0.0.1:7717\"\ntoken = \"{TOKEN_REDACTED}\"\n"
         ))
         .expect("config with the sentinel should parse");
         assert_eq!(cfg.daemon.token, TOKEN_REDACTED);
@@ -1360,7 +1348,6 @@ token = \"not-a-daemon-token\"
     #[test]
     fn config_round_trips_through_toml() {
         let mut cfg = Config::default();
-        cfg.daemon.history_limit = 200;
         cfg.projects.push(ProjectCfg {
             name: "repo".into(),
             dir: "/home/you/repo".into(),
@@ -1378,7 +1365,6 @@ token = \"not-a-daemon-token\"
         let text = toml::to_string_pretty(&cfg).unwrap();
         let back = Config::parse(&text).unwrap();
 
-        assert_eq!(back.daemon.history_limit, 200);
         assert_eq!(back.project("repo").unwrap().network, NetworkMode::Host);
         assert_eq!(
             back.session("quiet").unwrap().network,
