@@ -79,66 +79,84 @@ namespace SlopWorld
             switch (e.type)
             {
                 case EventType.MouseDown:
-                    if (!body.Contains(e.mousePosition)) return;
-                    var point = SelectionPointAt(body, e.mousePosition);
-                    if (e.clickCount >= 3)
-                    {
-                        SelectLine(point.y);
-                        e.Use();
-                        return;
-                    }
-                    if (e.clickCount >= 2)
-                    {
-                        DoubleClickSelect(point);
-                        e.Use();
-                        return;
-                    }
-
-                    bool extend = e.shift && _hasSel;
-                    _selA = extend ? _selA : point;
-                    _selB = point;
-                    _dragging = true;
-                    _wordDragging = false;
-                    _hasSel = extend && _selA != _selB;
-                    e.Use();
+                    HandleMouseDown(body, e);
                     return;
 
                 case EventType.MouseDrag:
-                    if (!_dragging) return;
-                    var drag = SelectionPointAt(body, e.mousePosition);
-                    if (_wordDragging) UpdateWordSelection(drag);
-                    else
-                    {
-                        _selB = drag;
-                        _hasSel = _selA != _selB;
-                    }
-                    e.Use();
+                    HandleMouseDrag(body, e);
                     return;
 
                 case EventType.MouseUp:
-                    if (!_dragging) return;
-                    var up = SelectionPointAt(body, e.mousePosition);
-                    if (_wordDragging)
-                    {
-                        UpdateWordSelection(up);
-                        _wordDragging = false;
-                        _dragging = false;
-                        if (_hasSel) CopySelection();
-                    }
-                    else
-                    {
-                        _dragging = false;
-                        _selB = up;
-                        if (_selA != _selB)
-                        {
-                            _hasSel = true;
-                            CopySelection();
-                        }
-                        else _hasSel = false;
-                    }
-                    e.Use();
+                    HandleMouseUp(body, e);
                     return;
             }
+        }
+
+        void HandleMouseDown(Rect body, Event e)
+        {
+            if (!body.Contains(e.mousePosition)) return;
+            var point = SelectionPointAt(body, e.mousePosition);
+            if (e.clickCount >= 3)
+            {
+                SelectLine(point.y);
+                e.Use();
+                return;
+            }
+            if (e.clickCount >= 2)
+            {
+                DoubleClickSelect(point);
+                e.Use();
+                return;
+            }
+
+            bool extend = e.shift && _hasSel;
+            _selA = extend ? _selA : point;
+            _selB = point;
+            _dragging = true;
+            _wordDragging = false;
+            _hasSel = extend && _selA != _selB;
+            e.Use();
+            return;
+        }
+
+        void HandleMouseDrag(Rect body, Event e)
+        {
+            if (!_dragging) return;
+            var drag = SelectionPointAt(body, e.mousePosition);
+            if (_wordDragging) UpdateWordSelection(drag);
+            else
+            {
+                _selB = drag;
+                _hasSel = _selA != _selB;
+            }
+            e.Use();
+            return;
+        }
+
+        void HandleMouseUp(Rect body, Event e)
+        {
+            if (!_dragging) return;
+            var up = SelectionPointAt(body, e.mousePosition);
+            if (_wordDragging)
+            {
+                UpdateWordSelection(up);
+                _wordDragging = false;
+                _dragging = false;
+                if (_hasSel) CopySelection();
+            }
+            else
+            {
+                _dragging = false;
+                _selB = up;
+                if (_selA != _selB)
+                {
+                    _hasSel = true;
+                    CopySelection();
+                }
+                else _hasSel = false;
+            }
+            e.Use();
+            return;
         }
 
         void HandleKey(Event e)
@@ -428,4 +446,3 @@ namespace SlopWorld
 
     }
 }
-
