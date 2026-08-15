@@ -195,7 +195,7 @@ uninstall-mod:     ## Remove the installed mod folder
 run:               ## Launch the game through the runner
 	$(MAKE) daemon
 	$(RUNNER) --game "$(RIMWORLD)" $(if $(PROFILE),--profile "$(PROFILE)") \
-		-popupwindow -force-opengl
+		-popupwindow -screen-fullscreen 0 -force-opengl
 
 ##
 ##-> Misc

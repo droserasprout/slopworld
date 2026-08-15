@@ -1,5 +1,6 @@
 //! Creates an isolated profile and waits for the game so slopd can track its argv[0] and lifetime; execing would evade restart detection and allow a second game.
 
+use std::ffi::OsStr;
 use std::fs::{File, OpenOptions};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -90,9 +91,17 @@ fn run() -> Result<ExitCode, String> {
     }
 
     // One launcher owns the SlopWorld profile, daemon-facing game process, shared log and
-    // tmux namespace. Acquire this before seeding so a second process cannot rewrite the
-    // profile while the first game is running. The kernel releases it if the owner crashes.
+    // tmux namespace. Acquire this before checking/spawning so two launchers cannot pass the
+    // process check at once. The kernel releases it if the owner crashes.
     let _instance = InstanceLock::acquire(&launcher_lock_path())?;
+
+    if !args.print {
+        if let Some(pid) = game_process_running()? {
+            return Err(format!(
+                "RimWorldLinux is already running as PID {pid}; refusing to launch a second copy"
+            ));
+        }
+    }
 
     seed(&profile, args.reset)?;
 
@@ -165,6 +174,50 @@ fn launcher_lock_path() -> PathBuf {
         .or_else(|| dirs::config_dir())
         .unwrap_or_else(|| PathBuf::from(expand("~/.config")));
     root.join("slopworld").join(LOCK_FILE)
+}
+
+/// The lock stops SlopWorld launchers racing each other. This second guard also covers a
+/// game started outside the launcher, which cannot hold our lock. Fail closed if `/proc`
+/// cannot be inspected: starting another copy is worse than refusing a launch.
+#[cfg(target_os = "linux")]
+fn game_process_running() -> Result<Option<u32>, String> {
+    let entries = std::fs::read_dir("/proc")
+        .map_err(|e| format!("checking for an existing RimWorld process: {e}"))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("checking for an existing RimWorld process: {e}"))?;
+        let name = entry.file_name();
+        let Some(pid) = name.to_str().and_then(|s| s.parse::<u32>().ok()) else {
+            continue;
+        };
+
+        let is_game = match std::fs::read_link(entry.path().join("exe")) {
+            Ok(path) => path.file_name() == Some(OsStr::new(EXE)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                let cmdline = match std::fs::read(entry.path().join("cmdline")) {
+                    Ok(bytes) => bytes,
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+                    Err(e) => return Err(format!("checking command line for PID {pid}: {e}")),
+                };
+                let argv0 = cmdline.split(|byte| *byte == 0).next().unwrap_or_default();
+                Path::new(std::str::from_utf8(argv0).unwrap_or("")).file_name()
+                    == Some(OsStr::new(EXE))
+            }
+            Err(e) => return Err(format!("checking executable for PID {pid}: {e}")),
+        };
+
+        if is_game {
+            return Ok(Some(pid));
+        }
+    }
+
+    Ok(None)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn game_process_running() -> Result<Option<u32>, String> {
+    Ok(None)
 }
 
 #[derive(Debug, Default, PartialEq)]

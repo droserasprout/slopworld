@@ -71,6 +71,12 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapM);
 
+            bool fullscreen = SlopWidgets.Checkbox(l, "Fullscreen", S.fullscreen,
+                "Use window-manager fullscreen without changing Unity's render mode.");
+            if (fullscreen != S.fullscreen) WindowMaximizer.Set(fullscreen);
+
+            l.Gap(SlopWidgets.GapM);
+
             // ---- color scheme
             // Nothing to invalidate on the way out: every color in the mod is read through
             // SlopWidgets on the frame it is drawn, so the page under the dropdown has
