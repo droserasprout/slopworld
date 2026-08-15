@@ -1,4 +1,9 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Reflection;
+using System.Text;
 using HarmonyLib;
 using UnityEngine;
 using Verse;
@@ -12,14 +17,11 @@ namespace SlopWorld
         public const string Center = "center";
         public const string Hidden = "hidden";
 
-        // The boolean is the setting used before clock placement existed. An old false
-        // therefore means Hidden while a missing or invalid placement keeps the old visible
-        // default on the right.
-        public static string Normalize(string mode, bool legacyVisible)
+        public static string Normalize(string mode)
         {
             if (mode == Center) return Center;
             if (mode == Hidden) return Hidden;
-            return legacyVisible ? Right : Hidden;
+            return Right;
         }
 
         public static string Label(string mode)
@@ -32,7 +34,7 @@ namespace SlopWorld
 
     // Loading enables the mod unconditionally; settings cover daemon connection and UI
     // appearance, with terminal values sharing this settings file and endpoint discovery.
-    public class SlopSettings : ModSettings
+    public class SlopSettings
     {
         int _dirtyAge = -1;
         const int FlushAfter = 120;
@@ -112,8 +114,6 @@ namespace SlopWorld
         // preferences rather than the things' own switches: hiding the Computer Core does
         // not remove it from the map, and hiding Usage does not stop the daemon polling.
         public bool statusbarUsage = true;
-        // Kept for profiles written before the clock gained placement choices.
-        public bool statusbarClock = true;
         public string statusbarClockPosition = StatusbarClockMode.Right;
         public bool statusbarJukebox = true;
         public bool statusbarGM = true;
@@ -138,39 +138,145 @@ namespace SlopWorld
         // and not a constant. See Eco.Shade.
         public float ecoDim = 0.45f;
 
-        public override void ExposeData()
+        public static SlopSettings Load()
         {
-            base.ExposeData();
-            Scribe_Values.Look(ref autoConnect, "autoConnect", true);
-            Scribe_Values.Look(ref sidebarWidth, "sidebarWidth", 210f);
-            Scribe_Values.Look(ref foldedProjects, "foldedProjects", "");
-            Scribe_Values.Look(ref sidebarTab, "sidebarTab", "agents");
-            Scribe_Values.Look(ref sidebarShowHidden, "sidebarShowHidden", false);
-            Scribe_Values.Look(ref sidebarFilter, "sidebarFilter", "");
-            Scribe_Values.Look(ref usageIcons, "usageIcons", "");
-            Scribe_Values.Look(ref usageSpent, "usageSpent", false);
-            Scribe_Values.Look(ref fontSize, "fontSize", 14);
-            Scribe_Values.Look(ref fontName, "fontName", "");
-            Scribe_Values.Look(ref uiFontSize, "uiFontSize", 0);
-            Scribe_Values.Look(ref uiFontName, "uiFontName", "");
-            Scribe_Values.Look(ref uiScheme, "uiScheme", "slopworld");
-            Scribe_Values.Look(ref theme, "theme", "slopworld");
-            Scribe_Values.Look(ref cursorColor, "cursorColor", "");
-            Scribe_Values.Look(ref cursor, "cursor", "tame");
-            Scribe_Values.Look(ref cursorGrayscale, "cursorGrayscale", true);
-            Scribe_Values.Look(ref radio, "radio", "ost");
-            Scribe_Values.Look(ref radioMute, "radioMute", false);
-            Scribe_Values.Look(ref statusbarUsage, "statusbarUsage", true);
-            Scribe_Values.Look(ref statusbarClock, "statusbarClock", true);
-            Scribe_Values.Look(ref statusbarClockPosition, "statusbarClockPosition",
-                StatusbarClockMode.Right);
-            Scribe_Values.Look(ref statusbarJukebox, "statusbarJukebox", true);
-            Scribe_Values.Look(ref statusbarGM, "statusbarGM", true);
-            Scribe_Values.Look(ref radioStopOnExit, "radioStopOnExit", true);
-            Scribe_Values.Look(ref grandmaMode, "grandmaMode", false);
-            Scribe_Values.Look(ref ecoMode, "ecoMode", false);
-            Scribe_Values.Look(ref ecoDim, "ecoDim", 0.45f);
+            var settings = new SlopSettings();
+            string path = FilePath();
+            try
+            {
+                if (File.Exists(path))
+                {
+                    settings.Apply(Toml.ParseFlat(File.ReadAllText(path)));
+                    return settings;
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Error("[SlopWorld] could not load TOML settings: " + e);
+            }
+            return settings;
         }
+
+        public void Write()
+        {
+            string path = FilePath();
+            string directory = Path.GetDirectoryName(path);
+            if (string.IsNullOrEmpty(directory)) directory = ".";
+            Directory.CreateDirectory(directory);
+
+            var text = new StringBuilder();
+            String(text, "autoConnect", autoConnect);
+            Number(text, "sidebarWidth", sidebarWidth);
+            String(text, "foldedProjects", foldedProjects);
+            String(text, "sidebarTab", sidebarTab);
+            String(text, "sidebarShowHidden", sidebarShowHidden);
+            String(text, "sidebarFilter", sidebarFilter);
+            String(text, "usageIcons", usageIcons);
+            String(text, "usageSpent", usageSpent);
+            Number(text, "fontSize", fontSize);
+            String(text, "fontName", fontName);
+            Number(text, "uiFontSize", uiFontSize);
+            String(text, "uiFontName", uiFontName);
+            String(text, "uiScheme", uiScheme);
+            String(text, "theme", theme);
+            String(text, "cursorColor", cursorColor);
+            String(text, "cursor", cursor);
+            String(text, "cursorGrayscale", cursorGrayscale);
+            String(text, "radio", radio);
+            String(text, "radioMute", radioMute);
+            String(text, "statusbarUsage", statusbarUsage);
+            String(text, "statusbarClockPosition", statusbarClockPosition);
+            String(text, "statusbarJukebox", statusbarJukebox);
+            String(text, "statusbarGM", statusbarGM);
+            String(text, "radioStopOnExit", radioStopOnExit);
+            String(text, "grandmaMode", grandmaMode);
+            String(text, "ecoMode", ecoMode);
+            Number(text, "ecoDim", ecoDim);
+
+            string temporary = path + ".tmp";
+            File.WriteAllText(temporary, text.ToString(), new UTF8Encoding(false));
+            try
+            {
+                if (File.Exists(path)) File.Replace(temporary, path, null);
+                else File.Move(temporary, path);
+            }
+            catch
+            {
+                if (File.Exists(path)) File.Delete(path);
+                File.Move(temporary, path);
+            }
+        }
+
+        void Apply(Dictionary<string, string> values)
+        {
+            autoConnect = Bool(values, "autoConnect", autoConnect);
+            sidebarWidth = Float(values, "sidebarWidth", sidebarWidth);
+            foldedProjects = Text(values, "foldedProjects", foldedProjects);
+            sidebarTab = Text(values, "sidebarTab", sidebarTab);
+            sidebarShowHidden = Bool(values, "sidebarShowHidden", sidebarShowHidden);
+            sidebarFilter = Text(values, "sidebarFilter", sidebarFilter);
+            usageIcons = Text(values, "usageIcons", usageIcons);
+            usageSpent = Bool(values, "usageSpent", usageSpent);
+            fontSize = Int(values, "fontSize", fontSize);
+            fontName = Text(values, "fontName", fontName);
+            uiFontSize = Int(values, "uiFontSize", uiFontSize);
+            uiFontName = Text(values, "uiFontName", uiFontName);
+            uiScheme = Text(values, "uiScheme", uiScheme);
+            theme = Text(values, "theme", theme);
+            cursorColor = Text(values, "cursorColor", cursorColor);
+            cursor = Text(values, "cursor", cursor);
+            cursorGrayscale = Bool(values, "cursorGrayscale", cursorGrayscale);
+            radio = Text(values, "radio", radio);
+            radioMute = Bool(values, "radioMute", radioMute);
+            statusbarUsage = Bool(values, "statusbarUsage", statusbarUsage);
+            statusbarClockPosition = Text(values, "statusbarClockPosition", statusbarClockPosition);
+            statusbarJukebox = Bool(values, "statusbarJukebox", statusbarJukebox);
+            statusbarGM = Bool(values, "statusbarGM", statusbarGM);
+            radioStopOnExit = Bool(values, "radioStopOnExit", radioStopOnExit);
+            grandmaMode = Bool(values, "grandmaMode", grandmaMode);
+            ecoMode = Bool(values, "ecoMode", ecoMode);
+            ecoDim = Float(values, "ecoDim", ecoDim);
+        }
+
+        static string FilePath()
+        {
+            string profile;
+            try { profile = GenFilePaths.SaveDataFolderPath; }
+            catch { profile = ""; }
+            if (string.IsNullOrEmpty(profile)) return Path.Combine("Config", "SlopWorld.toml");
+            return Path.Combine(profile, "Config", "SlopWorld.toml");
+        }
+
+        static string Text(Dictionary<string, string> values, string key, string fallback) =>
+            values.TryGetValue(key, out string value) ? value : fallback;
+
+        static bool Bool(Dictionary<string, string> values, string key, bool fallback) =>
+            values.TryGetValue(key, out string value) && bool.TryParse(value, out bool result)
+                ? result : fallback;
+
+        static int Int(Dictionary<string, string> values, string key, int fallback) =>
+            values.TryGetValue(key, out string value) && int.TryParse(value,
+                NumberStyles.Integer, CultureInfo.InvariantCulture, out int result)
+                    ? result : fallback;
+
+        static float Float(Dictionary<string, string> values, string key, float fallback) =>
+            values.TryGetValue(key, out string value) && float.TryParse(value,
+                NumberStyles.Float, CultureInfo.InvariantCulture, out float result)
+                    ? result : fallback;
+
+        static void String(StringBuilder text, string key, string value) =>
+            text.Append(key).Append(" = ").Append(Toml.Quote(value)).AppendLine();
+
+        static void String(StringBuilder text, string key, bool value) =>
+            text.Append(key).Append(" = ").Append(value ? "true" : "false").AppendLine();
+
+        static void Number(StringBuilder text, string key, int value) =>
+            text.Append(key).Append(" = ").Append(value.ToString(CultureInfo.InvariantCulture))
+                .AppendLine();
+
+        static void Number(StringBuilder text, string key, float value) =>
+            text.Append(key).Append(" = ").Append(value.ToString("R", CultureInfo.InvariantCulture))
+                .AppendLine();
     }
 
     // Static shorthand so call sites don't reach through the Mod instance.
@@ -201,7 +307,7 @@ namespace SlopWorld
         public static bool RadioMute => S.radioMute;
         public static bool StatusbarUsage => S.statusbarUsage;
         public static string StatusbarClockPosition =>
-            StatusbarClockMode.Normalize(S.statusbarClockPosition, S.statusbarClock);
+            StatusbarClockMode.Normalize(S.statusbarClockPosition);
         public static bool StatusbarClock => StatusbarClockPosition != StatusbarClockMode.Hidden;
         public static bool StatusbarJukebox => S.statusbarJukebox;
         public static bool StatusbarGM => S.statusbarGM;
@@ -219,7 +325,7 @@ namespace SlopWorld
         public SlopWorldMod(ModContentPack content) : base(content)
         {
             Instance = this;
-            settings = GetSettings<SlopSettings>();
+            settings = SlopSettings.Load();
         }
 
         public override string SettingsCategory() => "SlopWorld";
@@ -247,7 +353,7 @@ namespace SlopWorld
 
         public override void WriteSettings()
         {
-            base.WriteSettings();
+            settings.Write();
             TerminalFont.Invalidate();
             TerminalTheme.Invalidate();
             SlopUIFont.Apply();

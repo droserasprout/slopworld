@@ -54,7 +54,7 @@ accepted anywhere and prints the answer as JSON instead of for a reader.
 
 SLOPWORLD_SESSION identifies the caller, and defaults to `host` - the user at the
 keyboard - which the daemon accepts only from the root token. SLOPD_ENDPOINT
-selects endpoint.json; SLOPD_URL and SLOPD_TOKEN override it.
+selects endpoint.toml; SLOPD_URL and SLOPD_TOKEN override it.
 ";
 
 #[derive(Deserialize)]
@@ -85,7 +85,7 @@ fn run() -> Result<(), String> {
     args.retain(|a| a != "--json");
 
     // Logs are deliberately local: they remain useful when slopd is down and do not need the
-    // endpoint token. Dispatch before loading endpoint.json for that reason.
+    // endpoint token. Dispatch before loading endpoint.toml for that reason.
     if args[0] == "logs" {
         if args[1..]
             .iter()
@@ -661,11 +661,11 @@ fn load_endpoint() -> Result<Endpoint, String> {
         .unwrap_or_else(|_| {
             dirs::config_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
-                .join("slopworld/endpoint.json")
+                .join("slopworld/endpoint.toml")
         });
     let text =
         std::fs::read_to_string(&path).map_err(|e| format!("reading {}: {e}", path.display()))?;
-    serde_json::from_str(&text).map_err(|e| format!("parsing {}: {e}", path.display()))
+    toml::from_str(&text).map_err(|e| format!("parsing {}: {e}", path.display()))
 }
 
 fn request(

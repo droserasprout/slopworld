@@ -20,7 +20,7 @@ namespace SlopWorld
     }
 
     // The daemon owns the live endpoint. The mod discovers its address and token from
-    // endpoint.json instead of keeping a second connection configuration.
+    // endpoint.toml instead of keeping a second connection configuration.
     public static class Endpoint
     {
         const string DefaultHost = "127.0.0.1";
@@ -31,13 +31,13 @@ namespace SlopWorld
             try
             {
                 var text = File.ReadAllText(Path());
-                var value = JVal.Parse(text);
-                var uri = new Uri(value["url"].AsString(), UriKind.Absolute);
+                var value = Toml.ParseFlat(text);
+                var uri = new Uri(value["url"], UriKind.Absolute);
                 if (!string.Equals(uri.Scheme, "http", StringComparison.OrdinalIgnoreCase) ||
                     uri.Port <= 0)
                     return Fallback();
 
-                return new ConnectionInfo(uri.Host, uri.Port, value["token"].AsString());
+                return new ConnectionInfo(uri.Host, uri.Port, value["token"]);
             }
             catch
             {
@@ -56,7 +56,7 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(root))
                 root = System.Environment.GetFolderPath(
                     Environment.SpecialFolder.UserProfile) + "/.config";
-            return System.IO.Path.Combine(root, "slopworld", "endpoint.json");
+            return System.IO.Path.Combine(root, "slopworld", "endpoint.toml");
         }
     }
 }

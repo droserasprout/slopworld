@@ -53,7 +53,7 @@ matching `SlopWorld_` defs, which nothing plays while `Radio` holds the music ma
 disabled; what moving the tracks out would save is [startup-time](startup-time.md).
 `split_ost.py` stages exports; `install_ost.py` installs them and updates the catalog.
 
-Like appends `ISO-8601 UTC timestamp<TAB>artist - title` lines to
-`$XDG_DATA_HOME/slopworld/jukebox.toml`; Storage settings has a button to open it in the
+Like appends a `[[like]]` table with `at` and `title` fields to
+`$XDG_DATA_HOME/slopworld/jukebox.toml`. Storage settings has a button to open it in the
 configured editor. The map texture is generated with
 `tools/emoji.py`; it is unrelated to station configuration.
