@@ -1,0 +1,21 @@
+# shellcheck shell=bash
+
+post_install() {
+  cat <<'EOF'
+SlopWorld is installed.
+
+The mod is staged at /usr/share/slopworld/SlopWorld. RimWorld loads mods from
+inside its own install, so attach it as your normal user (not root):
+
+  RIMWORLD=/path/to/RimWorld/game
+  ln -s /usr/share/slopworld/SlopWorld "$RIMWORLD/Mods/SlopWorld"
+
+Then start the daemon for your user:
+
+  systemctl --user enable --now slopd.service
+EOF
+}
+
+post_upgrade() {
+  post_install
+}
