@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -12,7 +11,7 @@ namespace SlopWorld
     // (Plague.Bloom), and the ring of living ground the site works in is opened by its own
     // work (Roam). The one system here that leaves its effects to the vanilla job driver;
     // the map has no economy, so a frame arrives with its stone already in it (Fill).
-    public class Worksite : MapComponent
+    public partial class Worksite : MapComponent
     {
         // Four times a second, off AgentColony's own second so the reconcile and the
         // errands never land on the same tick. A plate takes less than a tick to lay and
@@ -105,51 +104,6 @@ namespace SlopWorld
         const float LargeBloom = 8f;
         const float MonumentBloom = 11f;
 
-        // A run is Least..Most items in Lines rows with Gap cells between them. The whole
-        // run is pitched in one pass so its frames reserve the ground before construction;
-        // spacing comes from the rotated footprint rather than duplicated def dimensions.
-        struct Run
-        {
-            public int Least, Most, Lines, Gap;
-        }
-
-        struct Errand
-        {
-            public BuildableDef What;
-            public float Seconds;
-            public float Weight;
-            public float Bloom; // cells of plague the finished thing seeds
-            public Run Run; // how many go down at once, and in what shape
-        }
-
-        // Keyed on what is being built, not on the frame, which is gone by the time
-        // anything asks twice. Static: Patch_ErrandWork has no map to ask.
-        static readonly Dictionary<BuildableDef, float> Work = new Dictionary<BuildableDef, float>();
-        static readonly Dictionary<BuildableDef, float> Blooms = new Dictionary<BuildableDef, float>();
-
-        // Ensure() here rather than at the next errand: a load comes back with frames on
-        // the board and pawns already swinging, and the first thing to ask about one is
-        // Patch_ErrandWork. An empty table there is a plate costing vanilla's 1100 ticks.
-        public static float WorkFor(BuildableDef def)
-        {
-            if (def == null) return 0f;
-            Ensure();
-            return Work.TryGetValue(def, out float w) ? w : 0f;
-        }
-
-        public static float BloomFor(BuildableDef def)
-        {
-            if (def == null) return 0f;
-            Ensure();
-            return Blooms.TryGetValue(def, out float r) ? r : 0f;
-        }
-
-        static void Ensure() { if (_errands == null) { var _ = Errands; } }
-
-        // Nothing on the list is the map's; the stone is, and Blocks() settles that.
-        static List<Errand> _errands;
-        static bool _grandmaModeCached;
-        static TerrainDef _plate;
         struct MaterialState
         {
             public ThingDef Blocks;
@@ -732,144 +686,6 @@ namespace SlopWorld
 
             _blocks = _rock != null ? Named("Blocks" + _rock.defName) : null;
             return _blocks;
-        }
-
-        static List<Errand> Errands
-        {
-            get
-            {
-                bool grandma = Settings.GrandmaMode;
-                if (_errands != null && _grandmaModeCached == grandma) return _errands;
-                _grandmaModeCached = grandma;
-                _errands = new List<Errand>();
-
-                // Metal plate rather than the tile's flagstone, which read as a garden path
-                // through a dead world.
-                _plate = DefDatabase<TerrainDef>.GetNamedSilentFail("MetalTile");
-
-                Add(_plate, PavingSeconds, PavingOdds, PavingBloom,
-                    new Run { Least = PavingSide, Most = PavingSide, Lines = PavingSide });
-
-                if (grandma)
-                {
-                    // Grandma mode: furniture and flower pots instead of graves and obelisks.
-                    Add(Named("FlowerPot"), SmallSeconds, 5f, SmallBloom,
-                        new Run { Least = 3, Most = 6, Gap = 1 });
-                    Add(Named("Chair"), SmallSeconds, 3f, SmallBloom,
-                        new Run { Least = 2, Most = 5, Gap = 1 });
-                    Add(Named("Armchair"), SmallSeconds, 2f, SmallBloom);
-                    Add(Named("Table1x2c"), SmallSeconds, 2f, SmallBloom);
-                    Add(Named("EndTable"), SmallSeconds, 2f, SmallBloom);
-                    Add(Named("Bookshelf"), MediumSeconds, 2f, MediumBloom);
-                    Add(Named("Dresser"), MediumSeconds, 2f, MediumBloom);
-                    Add(Named("Lamp"), SmallSeconds, 3f, SmallBloom);
-                    Add(Named("Bed"), MediumSeconds, 2f, MediumBloom);
-                }
-                else
-                {
-                    Add(Named("Column"), SmallSeconds, ColumnOdds, SmallBloom);
-                    Add(Named("Grave"), SmallSeconds, GraveOdds, SmallBloom,
-                        new Run { Least = GraveRowLeast, Most = GraveRowMost, Gap = GraveAisle });
-                    Add(Named("Sarcophagus"), MediumSeconds, SarcophagusOdds, MediumBloom);
-                    Add(Named("SteleLarge"), LargeSeconds, SteleLargeOdds, LargeBloom);
-                    Add(Named("SteleGrand"), MonumentSeconds, SteleGrandOdds, MonumentBloom);
-                }
-
-                // Ruin scenery vanilla lets no player build; Patches/AncientBuildings.xml is
-                // what hands them a frame. They cost nothing and want no skill. The lamp is
-                // the only one that is not decoration - a CompGlower with neither a power
-                // comp nor a fuel one, the one light in the game that simply burns.
-                Add(Named("AncientLamp"), SmallSeconds, LampOdds, SmallBloom);
-                Add(Named("AncientLamppost"), SmallSeconds, LamppostOdds, SmallBloom);
-                Add(Named("AncientSystemRack"), MediumSeconds, RackOdds, MediumBloom);
-                Add(Named("AncientDisplayBank"), MediumSeconds, ScreensOdds, MediumBloom);
-                Add(Named("AncientLockerBank"), MediumSeconds, LockersOdds, MediumBloom);
-                Add(Named("AncientGenerator"), MediumSeconds, GeneratorOdds, MediumBloom);
-                Add(Named("AncientMachine"), MonumentSeconds, MachineOdds, MonumentBloom);
-
-                if (_errands.Count == 0)
-                    Log.Warning("[SlopWorld] no errands this build knows how to build; agents will stand about");
-
-                return _errands;
-            }
-        }
-
-        static void Add(BuildableDef what, float seconds, float weight, float bloom,
-                        Run run = default(Run))
-        {
-            if (what == null || what.frameDef == null) return;
-
-            // So an omitted run is one thing on its own rather than none of it.
-            run.Least = Mathf.Max(1, run.Least);
-            run.Most = Mathf.Max(run.Least, run.Most);
-            run.Lines = Mathf.Max(1, run.Lines);
-            run.Gap = Mathf.Max(0, run.Gap);
-
-            _errands.Add(new Errand
-            {
-                What = what,
-                Seconds = seconds,
-                Weight = weight,
-                Bloom = bloom,
-                Run = run,
-            });
-            Work[what] = seconds * RealClock.TicksPerRealSecond * WorkPerTick;
-            Blooms[what] = bloom;
-        }
-
-        static ThingDef Named(string name) => DefDatabase<ThingDef>.GetNamedSilentFail(name);
-
-        // Vanilla's figures are an economy's; the errand table states seconds of an agent's
-        // working time and this is where that lands. Anything off the table keeps vanilla's
-        // number, WorkFor answering zero for it.
-        [HarmonyPatch(typeof(Frame), nameof(Frame.WorkToBuild), MethodType.Getter)]
-        public static class Patch_ErrandWork
-        {
-            static void Postfix(Frame __instance, ref float __result)
-            {
-                float work = WorkFor(__instance?.def?.entityDefToBuild);
-                if (work > 0f) __result = work;
-            }
-        }
-
-        // Where a finished thing becomes plague. A prefix, because after CompleteConstruction
-        // the frame is despawned and has neither a map nor the footprint - and the footprint
-        // is the point, a five-by-three machine being a source that wide rather than a point.
-        [HarmonyPatch(typeof(Frame), nameof(Frame.CompleteConstruction))]
-        public static class Patch_ErrandDone
-        {
-            static void Prefix(Frame __instance)
-            {
-                if (__instance == null || !__instance.Spawned) return;
-
-                var what = __instance.def?.entityDefToBuild;
-                if (WorkFor(what) <= 0f) return;
-
-                var map = __instance.Map;
-                var rect = __instance.OccupiedRect();
-                map?.GetComponent<Worksite>()?.Count(rect.Area);
-
-                float bloom = BloomFor(what);
-                if (bloom <= 0f) return;
-
-                var plague = map?.GetComponent<Plague>();
-                if (plague == null) return;
-                foreach (var c in rect) plague.Bloom(c, bloom);
-            }
-        }
-
-        // A terrain frame draws four white corner brackets, and paving is queued a square at
-        // a time, so ahead of the agents that is a grid over most of the board saying
-        // nothing anybody can act on. Anything with a shape keeps its frame.
-        // By name: the override is not public, so nameof would not compile.
-        [HarmonyPatch(typeof(Frame), "DrawAt", new[] { typeof(Vector3), typeof(bool) })]
-        public static class Patch_HideFloorFrames
-        {
-            static bool Prefix(Frame __instance)
-            {
-                var what = __instance?.def?.entityDefToBuild;
-                return !(what is TerrainDef) || WorkFor(what) <= 0f;
-            }
         }
     }
 }
