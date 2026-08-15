@@ -639,7 +639,7 @@ namespace SlopWorld
         };
     }
 
-    public class ScreenBuf
+    public partial class ScreenBuf
     {
         public int Seq = -1;
         public int Cols, Rows, Cx, Cy;
