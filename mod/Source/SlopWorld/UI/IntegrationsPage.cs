@@ -4,61 +4,14 @@ using Verse;
 
 namespace SlopWorld
 {
-    public class IntegrationsPage
+    public class IntegrationsPage : ListEditorPage
     {
-        SlopConfig _cfg;
-        string _path = "";
-        string _error;
-        bool _loaded;
+        protected override string Caption => "Credentials used by the daemon.";
 
-        readonly SmoothScroll _scroll = new SmoothScroll();
-        float _fieldsH;
+        protected override string SavedMessage => "integration settings saved.";
 
-        public void Load()
+        protected override void DrawFields(Listing_Standard l)
         {
-            SlopClient.Get("/api/config",
-                j =>
-                {
-                    _cfg = SlopConfig.FromJson(j["values"]);
-                    SessionHub.Instance.Config = _cfg;
-                    _path = j["path"].AsString();
-                    _loaded = true;
-                    _error = null;
-                },
-                msg => { _error = msg; _loaded = false; });
-        }
-
-        public void Draw(Rect rect)
-        {
-            SlopWidgets.PageCaption(rect, "Credentials used by the daemon.");
-
-            var body = SlopWidgets.PageBody(rect);
-            SlopWidgets.Card(body);
-            var inner = body.ContractedBy(SlopWidgets.GapM);
-
-            if (!_loaded)
-            {
-                GUI.color = _error != null ? SlopWidgets.Bad : SlopWidgets.Dim;
-                Widgets.Label(inner, _error ?? "Waiting for the daemon...");
-                GUI.color = Color.white;
-            }
-            else
-            {
-                DoFields(inner);
-            }
-
-            DoFooter(SlopWidgets.FooterBar(rect));
-        }
-
-        void DoFields(Rect r)
-        {
-            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
-                Mathf.Max(_fieldsH, r.height));
-            _scroll.Begin(r, view);
-
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(new Rect(0f, 0f, view.width, 4000f));
-
             SlopWidgets.SectionHeading(l, "Anthropic");
             l.Gap(SlopWidgets.GapS);
             l.Label("Credentials file");
@@ -82,43 +35,6 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.Note(l, "Credential files stay on the host.");
-
-            _fieldsH = l.CurHeight + SlopWidgets.GapS;
-            l.End();
-            _scroll.End();
-        }
-
-        void DoFooter(Rect bar)
-        {
-            var foot = new SlopWidgets.Bar(bar);
-            if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
-            if (foot.Left("Edit", SlopWidgets.Btn.Ghost,
-                    _loaded && !string.IsNullOrEmpty(_path)))
-                FilesView.EditFile(null, _path, "edit-config.toml");
-            if (foot.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
-
-            if (_error != null && _loaded)
-            {
-                GUI.color = SlopWidgets.Bad;
-                SlopWidgets.RowLabel(foot.Rest(), _error);
-                GUI.color = Color.white;
-            }
-        }
-
-        void Save()
-        {
-            if (!_loaded) return;
-
-            SlopClient.Put("/api/config/patch", _cfg.ToPatchJson(),
-                _ =>
-                {
-                    _error = null;
-                    SessionHub.Instance.Config = _cfg;
-                    SlopOptions.Reread();
-                    Messages.Message("SlopWorld: integration settings saved.",
-                        MessageTypeDefOf.TaskCompletion, false);
-                },
-                msg => _error = msg);
         }
     }
 }
