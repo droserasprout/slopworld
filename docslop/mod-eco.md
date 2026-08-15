@@ -28,8 +28,9 @@ What it does, one owner each:
   `MaterialPool` keys on color.
 - **The things**: `Eco.Things` restores visible agent pawns and the colony cat through
   vanilla's three `DrawPhase`s, then draws the jukebox and computer core directly because
-  their map-mesh draw is stood down. A shared extra angle sways all four kinds by 60 degrees
-  over twenty seconds and back; saved `Rot4`s do not change.
+  their map-mesh draw is stood down. Each thing gets a stable phase, direction and speed for
+  its 60-degree sway; pawn render-tree nodes rotate around the pawn root, so heads stay attached
+  to bodies. Saved `Rot4`s do not change.
 - **The labels**: `ThingOverlays` is *not* in the draw chain that stands down - it
   runs off `MapInterfaceOnGUI_BeforeMainTabs` and writes out every name on the map.
   A prefix on `Pawn.DrawGUIOverlay` keeps the agents' and drops the rest, which

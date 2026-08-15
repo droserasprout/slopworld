@@ -47,20 +47,135 @@ namespace SlopWorld
 
         // A barely visible sway for the objects eco puts back on the board. This is an
         // extra draw angle, not a Thing rotation, so save data and gameplay-facing facing stay
-        // unchanged.
+        // unchanged. The seed is stable per thing, so a redraw cannot reshuffle the scene.
         const float WobbleDegrees = 60f;
         const float WobbleSeconds = 20f;
+        const float WobbleSlow = 0.65f;
+        const float WobbleFast = 1.45f;
+        const float TwoPi = Mathf.PI * 2f;
         static bool _drawingThings;
+        static bool _drawingPawnTree;
+        static Pawn _activePawn;
+        static float _activePawnWobble;
 
-        static float Wobble => WobbleDegrees *
-            Mathf.Sin(Time.realtimeSinceStartup * 2f * Mathf.PI / WobbleSeconds);
+        static uint Mix(uint value)
+        {
+            unchecked
+            {
+                value ^= value >> 16;
+                value *= 0x7feb352d;
+                value ^= value >> 15;
+                value *= 0x846ca68b;
+                return value ^ (value >> 16);
+            }
+        }
+
+        static float Unit(ref uint seed)
+        {
+            seed = Mix(seed + 0x9e3779b9);
+            return (seed & 0x00ffffff) / 16777215f;
+        }
+
+        static float Wobble(Thing thing)
+        {
+            if (thing == null) return 0f;
+
+            uint seed = (uint)thing.thingIDNumber;
+            if (seed == 0) seed = (uint)thing.GetHashCode();
+
+            float phase = Unit(ref seed) * TwoPi;
+            float speed = Mathf.Lerp(WobbleSlow, WobbleFast, Unit(ref seed));
+            float direction = Unit(ref seed) < 0.5f ? -1f : 1f;
+            return WobbleDegrees * direction *
+                Mathf.Sin(Time.realtimeSinceStartup * TwoPi * speed / WobbleSeconds + phase);
+        }
+
+        static float Wobble(Pawn pawn) => Wobble((Thing)pawn);
+
+        static float PawnWobble(Pawn pawn) => pawn == _activePawn ? _activePawnWobble : Wobble(pawn);
+
+        static Matrix4x4 RotateAround(Matrix4x4 matrix, Vector3 pivot, float angle)
+        {
+            return Matrix4x4.TRS(pivot, Quaternion.AngleAxis(angle, Vector3.up), Vector3.one)
+                * Matrix4x4.Translate(-pivot) * matrix;
+        }
 
         [HarmonyPatch(typeof(Graphic), nameof(Graphic.Draw))]
         public static class Patch_ThingWobble
         {
             static void Prefix(Thing thing, ref float extraRotation)
             {
-                if (_drawingThings && thing != null) extraRotation += Wobble;
+                if (_drawingThings && thing != null) extraRotation += Wobble(thing);
+            }
+        }
+
+        // PawnRenderTree has already made one matrix per body/head/apparel node by this point.
+        // Rotate each around the pawn's root, rather than rotating each node around its own
+        // center. That keeps the head attached to the body while preserving node offsets.
+        [HarmonyPatch(typeof(PawnRenderTree), nameof(PawnRenderTree.TryGetMatrix))]
+        public static class Patch_PawnTreeMatrixWobble
+        {
+            static void Postfix(PawnRenderTree __instance, PawnDrawParms parms,
+                ref Matrix4x4 matrix, bool __result)
+            {
+                if (!_drawingThings || !__result || __instance.pawn == null) return;
+
+                Vector3 pivot = parms.matrix.GetColumn(3);
+                matrix = RotateAround(matrix, pivot, PawnWobble(__instance.pawn));
+            }
+        }
+
+        // The matrices above already contain the pawn's complete sway. Leave the low-level
+        // hooks alone for the cached single-mesh path, but do not apply them a second time to
+        // every node in the render tree.
+        [HarmonyPatch(typeof(PawnRenderTree), nameof(PawnRenderTree.Draw))]
+        public static class Patch_PawnTreeDraw
+        {
+            static void Prefix(ref bool __state)
+            {
+                __state = _drawingThings;
+                if (__state) _drawingPawnTree = true;
+            }
+
+            static void Finalizer(bool __state)
+            {
+                if (__state) _drawingPawnTree = false;
+            }
+        }
+
+        // DynamicDrawPhaseAt wraps both the pre-draw matrix build and the draw. Its context
+        // gives the cached path a pawn identity without changing the pawn's saved rotation.
+        [HarmonyPatch(typeof(PawnRenderer), nameof(PawnRenderer.DynamicDrawPhaseAt))]
+        public static class Patch_PawnDrawContext
+        {
+            static void Prefix(PawnRenderer __instance, ref PawnDrawState __state)
+            {
+                if (!_drawingThings) return;
+
+                __state = new PawnDrawState
+                {
+                    PreviousPawn = _activePawn,
+                    PreviousTree = _drawingPawnTree,
+                    PreviousWobble = _activePawnWobble
+                };
+                _activePawn = __instance.renderTree?.pawn;
+                _activePawnWobble = Wobble(_activePawn);
+                _drawingPawnTree = false;
+            }
+
+            static void Finalizer(PawnDrawState __state)
+            {
+                if (__state == null) return;
+                _activePawn = __state.PreviousPawn;
+                _drawingPawnTree = __state.PreviousTree;
+                _activePawnWobble = __state.PreviousWobble;
+            }
+
+            sealed class PawnDrawState
+            {
+                public Pawn PreviousPawn;
+                public bool PreviousTree;
+                public float PreviousWobble;
             }
         }
 
@@ -71,7 +186,8 @@ namespace SlopWorld
         {
             static void Prefix(ref Quaternion quat)
             {
-                if (_drawingThings) quat = Quaternion.AngleAxis(Wobble, Vector3.up) * quat;
+                if (_drawingThings && !_drawingPawnTree && _activePawn != null)
+                    quat = Quaternion.AngleAxis(_activePawnWobble, Vector3.up) * quat;
             }
         }
 
@@ -82,11 +198,10 @@ namespace SlopWorld
         {
             static void Prefix(ref Matrix4x4 matrix)
             {
-                if (!_drawingThings) return;
+                if (!_drawingThings || _drawingPawnTree || _activePawn == null) return;
 
                 var at = matrix.GetColumn(3);
-                matrix = Matrix4x4.TRS(at, Quaternion.AngleAxis(Wobble, Vector3.up), Vector3.one)
-                    * Matrix4x4.Translate(-at) * matrix;
+                matrix = RotateAround(matrix, at, _activePawnWobble);
             }
         }
 
