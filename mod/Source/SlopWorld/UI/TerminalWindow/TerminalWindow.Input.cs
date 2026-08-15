@@ -58,6 +58,11 @@ namespace SlopWorld
                 else AgentSidebar.FocusTerminal();
                 return true;
             }
+            if (Bound(SlopDefOf.SlopToggleFullscreen, e))
+            {
+                WindowMaximizer.Toggle();
+                return true;
+            }
             return false;
         }
 

@@ -39,6 +39,9 @@ namespace SlopWorld
         /// Opens and closes the terminal from anywhere, agent selected or not.
         public static KeyBindingDef SlopQuickTerminal;
 
+        /// Toggles the window-manager fullscreen state.
+        public static KeyBindingDef SlopToggleFullscreen;
+
         /// F1: command palette, VSCode-style.
         public static KeyBindingDef SlopCommandPalette;
 
