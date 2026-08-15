@@ -171,7 +171,8 @@ namespace SlopWorld
 
         internal bool HandleControlC(Event e)
         {
-            if (!e.control) return false;
+            // Not a Ctrl chord: still a key the mapper may forward (e.g. Alt+C -> M-c).
+            if (!e.control) return ForwardMappedKey(e);
             // Terminal convention: Ctrl+Shift+C is always copy, and Ctrl+C copies
             // when text is selected (otherwise it passes through as SIGINT).
             if (_hasSel)
@@ -191,7 +192,8 @@ namespace SlopWorld
 
         internal bool HandleControlV(Event e)
         {
-            if (!e.control) return false;
+            // Not a Ctrl chord: still a key the mapper may forward (e.g. Alt+V -> M-v).
+            if (!e.control) return ForwardMappedKey(e);
             JumpToLive();
             PasteClipboard();
             e.Use();
