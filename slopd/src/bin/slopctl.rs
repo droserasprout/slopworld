@@ -1,6 +1,6 @@
 use std::io::{self, BufRead, BufReader, LineWriter, Read, Write};
 use std::path::PathBuf;
-use std::process::{Command, ExitCode, Stdio};
+use std::process::{Command as ProcessCommand, ExitCode, Stdio};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -81,20 +81,24 @@ fn run() -> Result<(), String> {
     }
     // A global: it changes how an answer is rendered, never which answer is asked for, so it is
     // taken out of the argument list before any command has to think about it.
-    let json = args.iter().any(|a| a == "--json");
-    args.retain(|a| a != "--json");
+    let json = take_json_flag(&mut args);
+    if args.is_empty() {
+        print!("{USAGE}");
+        return Ok(());
+    }
 
+    let command = parse_command(&args)?;
     // Logs are deliberately local: they remain useful when slopd is down and do not need the
     // endpoint token. Dispatch before loading endpoint.toml for that reason.
-    if args[0] == "logs" {
-        if args[1..]
+    if let Command::Logs { ref args } = command {
+        if args
             .iter()
             .any(|a| matches!(a.as_str(), "-h" | "--help" | "help"))
         {
             print!("{LOGS_USAGE}");
             return Ok(());
         }
-        return run_logs(&args[1..], json);
+        return run_logs(args, json);
     }
 
     let endpoint = load_endpoint()?;
@@ -105,111 +109,249 @@ fn run() -> Result<(), String> {
         .filter(|s| !s.trim().is_empty())
         .unwrap_or_else(|| HOST.to_string());
 
-    match args[0].as_str() {
-        "delegate" => {
-            let to = arg(&args, 1, "delegate needs the agent to send to")?;
-            let body = rest(&args, 2, "delegate needs a task body")?;
-            let v = request(
-                &endpoint,
-                &session,
-                "POST",
-                "/api/tasks",
-                Some(json!({"to": to, "body": body})),
-            )?;
-            emit(&v, json);
+    command.run(&endpoint, &session, json)
+}
+
+fn take_json_flag(args: &mut Vec<String>) -> bool {
+    let json = args.iter().any(|a| a == "--json");
+    args.retain(|a| a != "--json");
+    json
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Command {
+    Logs {
+        args: Vec<String>,
+    },
+    Delegate {
+        to: String,
+        body: String,
+    },
+    Inbox {
+        filter: InboxFilter,
+    },
+    Task {
+        id: String,
+    },
+    Update {
+        action: UpdateAction,
+        id: String,
+        note: Option<String>,
+    },
+    Remove {
+        id: String,
+    },
+    Prune {
+        all: bool,
+    },
+    Peers,
+    Status,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum UpdateAction {
+    Accept,
+    Progress,
+    Finish,
+    Fail,
+}
+
+impl UpdateAction {
+    fn status(&self) -> &'static str {
+        match self {
+            Self::Accept => "accepted",
+            Self::Progress => "working",
+            Self::Finish => "done",
+            Self::Fail => "failed",
         }
-        "inbox" => {
-            let filter = InboxFilter::parse(&args[1..])?;
-            let v = request(&endpoint, &session, "GET", "/api/tasks", None)?;
-            let tasks = filter.apply(&v, &session);
-            if json {
-                print_json(&Value::Array(tasks.into_iter().cloned().collect()));
-            } else if tasks.is_empty() {
-                // stderr, so an empty inbox stays an empty stdout for whatever is reading it.
-                eprintln!("no tasks");
-            } else {
-                tasks.iter().for_each(|t| print_task(t));
-            }
-        }
+    }
+}
+
+fn parse_command(args: &[String]) -> Result<Command, String> {
+    let command = args
+        .first()
+        .map(String::as_str)
+        .ok_or_else(|| format!("missing command\n\n{USAGE}"))?;
+    match command {
+        "logs" => Ok(Command::Logs {
+            args: args[1..].to_vec(),
+        }),
+        "delegate" => Ok(Command::Delegate {
+            to: arg(args, 1, "delegate needs the agent to send to")?.to_string(),
+            body: rest(args, 2, "delegate needs a task body")?,
+        }),
+        "inbox" => Ok(Command::Inbox {
+            filter: InboxFilter::parse(&args[1..])?,
+        }),
         "task" => {
-            let id = arg(&args, 1, "task needs a task id")?;
-            only(&args, 2)?;
-            let v = request(
-                &endpoint,
-                &session,
-                "GET",
-                &format!("/api/tasks/{id}"),
-                None,
-            )?;
-            emit(&v, json);
+            let id = arg(args, 1, "task needs a task id")?.to_string();
+            only(args, 2)?;
+            Ok(Command::Task { id })
         }
-        command @ ("accept" | "progress" | "finish" | "fail") => {
-            let id = arg(&args, 1, &format!("{command} needs a task id"))?;
-            let status = match command {
-                "accept" => "accepted",
-                "progress" => "working",
-                "finish" => "done",
-                _ => "failed",
+        "accept" | "progress" | "finish" | "fail" => {
+            let id = arg(args, 1, &format!("{command} needs a task id"))?.to_string();
+            let action = match command {
+                "accept" => UpdateAction::Accept,
+                "progress" => UpdateAction::Progress,
+                "finish" => UpdateAction::Finish,
+                _ => UpdateAction::Fail,
             };
             let note = (args.len() > 2).then(|| args[2..].join(" "));
-            let v = request(
-                &endpoint,
-                &session,
-                "POST",
-                &format!("/api/tasks/{id}"),
-                Some(json!({"status": status, "note": note})),
-            )?;
-            emit(&v, json);
+            Ok(Command::Update { action, id, note })
         }
         "rm" => {
-            let id = arg(&args, 1, "rm needs a task id")?;
-            only(&args, 2)?;
-            let v = request(
-                &endpoint,
-                &session,
-                "DELETE",
-                &format!("/api/tasks/{id}"),
-                None,
-            )?;
-            emit(&v, json);
+            let id = arg(args, 1, "rm needs a task id")?.to_string();
+            only(args, 2)?;
+            Ok(Command::Remove { id })
         }
         "prune" => {
-            let path = match args.get(1).map(String::as_str) {
-                None => "/api/tasks",
-                Some("--all") => "/api/tasks?all=true",
+            let all = match args.get(1).map(String::as_str) {
+                None => false,
+                Some("--all") => true,
                 Some(flag) => return Err(format!("unknown flag: {flag}\n\n{USAGE}")),
             };
-            only(&args, 2)?;
-            let v = request(&endpoint, &session, "DELETE", path, None)?;
-            if json {
-                print_json(&v);
-            } else {
-                println!("removed {}", v["removed"].as_u64().unwrap_or(0));
-            }
+            only(args, 2)?;
+            Ok(Command::Prune { all })
         }
         "peers" => {
-            only(&args, 1)?;
-            let v = request(&endpoint, &session, "GET", "/api/sessions", None)?;
-            let names = peer_names(&v);
-            if json {
-                print_json(&json!(names));
-            } else {
-                for name in names {
-                    let mark = if name == session { " (you)" } else { "" };
-                    println!("{name}{mark}");
-                }
-            }
+            only(args, 1)?;
+            Ok(Command::Peers)
         }
         "status" => {
-            only(&args, 1)?;
-            let v = status_value(&endpoint, &session);
-            if json {
-                print_json(&v);
-            } else {
-                print_status(&v);
-            }
+            only(args, 1)?;
+            Ok(Command::Status)
         }
-        command => return Err(format!("unknown command: {command}\n\n{USAGE}")),
+        command => Err(format!("unknown command: {command}\n\n{USAGE}")),
+    }
+}
+
+impl Command {
+    fn run(self, endpoint: &Endpoint, session: &str, json: bool) -> Result<(), String> {
+        match self {
+            Self::Logs { .. } => unreachable!("local commands are dispatched before endpoint load"),
+            Self::Delegate { to, body } => run_delegate(endpoint, session, json, &to, &body),
+            Self::Inbox { filter } => run_inbox(endpoint, session, json, filter),
+            Self::Task { id } => run_task(endpoint, session, json, &id),
+            Self::Update { action, id, note } => {
+                run_update(endpoint, session, json, &action, &id, note.as_deref())
+            }
+            Self::Remove { id } => run_remove(endpoint, session, json, &id),
+            Self::Prune { all } => run_prune(endpoint, session, json, all),
+            Self::Peers => run_peers(endpoint, session, json),
+            Self::Status => run_status(endpoint, session, json),
+        }
+    }
+}
+
+fn run_delegate(
+    endpoint: &Endpoint,
+    session: &str,
+    json: bool,
+    to: &str,
+    body: &str,
+) -> Result<(), String> {
+    let v = request(
+        endpoint,
+        session,
+        "POST",
+        "/api/tasks",
+        Some(json!({ "to": to, "body": body })),
+    )?;
+    emit(&v, json);
+    Ok(())
+}
+
+fn run_inbox(
+    endpoint: &Endpoint,
+    session: &str,
+    json: bool,
+    filter: InboxFilter,
+) -> Result<(), String> {
+    let v = request(endpoint, session, "GET", "/api/tasks", None)?;
+    let tasks = filter.apply(&v, session);
+    if json {
+        print_json(&Value::Array(tasks.into_iter().cloned().collect()));
+    } else if tasks.is_empty() {
+        // stderr, so an empty inbox stays an empty stdout for whatever is reading it.
+        eprintln!("no tasks");
+    } else {
+        tasks.iter().for_each(|t| print_task(t));
+    }
+    Ok(())
+}
+
+fn run_task(endpoint: &Endpoint, session: &str, json: bool, id: &str) -> Result<(), String> {
+    let v = request(endpoint, session, "GET", &format!("/api/tasks/{id}"), None)?;
+    emit(&v, json);
+    Ok(())
+}
+
+fn run_update(
+    endpoint: &Endpoint,
+    session: &str,
+    json: bool,
+    action: &UpdateAction,
+    id: &str,
+    note: Option<&str>,
+) -> Result<(), String> {
+    let v = request(
+        endpoint,
+        session,
+        "POST",
+        &format!("/api/tasks/{id}"),
+        Some(json!({ "status": action.status(), "note": note })),
+    )?;
+    emit(&v, json);
+    Ok(())
+}
+
+fn run_remove(endpoint: &Endpoint, session: &str, json: bool, id: &str) -> Result<(), String> {
+    let v = request(
+        endpoint,
+        session,
+        "DELETE",
+        &format!("/api/tasks/{id}"),
+        None,
+    )?;
+    emit(&v, json);
+    Ok(())
+}
+
+fn run_prune(endpoint: &Endpoint, session: &str, json: bool, all: bool) -> Result<(), String> {
+    let path = if all {
+        "/api/tasks?all=true"
+    } else {
+        "/api/tasks"
+    };
+    let v = request(endpoint, session, "DELETE", path, None)?;
+    if json {
+        print_json(&v);
+    } else {
+        println!("removed {}", v["removed"].as_u64().unwrap_or(0));
+    }
+    Ok(())
+}
+
+fn run_peers(endpoint: &Endpoint, session: &str, json: bool) -> Result<(), String> {
+    let v = request(endpoint, session, "GET", "/api/sessions", None)?;
+    let names = peer_names(&v);
+    if json {
+        print_json(&json!(names));
+    } else {
+        for name in names {
+            let mark = if name == session { " (you)" } else { "" };
+            println!("{name}{mark}");
+        }
+    }
+    Ok(())
+}
+
+fn run_status(endpoint: &Endpoint, session: &str, json: bool) -> Result<(), String> {
+    let v = status_value(endpoint, session);
+    if json {
+        print_json(&v);
+    } else {
+        print_status(&v);
     }
     Ok(())
 }
@@ -351,10 +493,10 @@ fn daemon_unit() -> String {
         .unwrap_or_else(|| "slopd.service".to_string())
 }
 
-fn source_command(source: LogSource, options: LogsOptions) -> Result<Command, String> {
+fn source_command(source: LogSource, options: LogsOptions) -> Result<ProcessCommand, String> {
     let mut command = match source {
         LogSource::Game => {
-            let mut command = Command::new("tail");
+            let mut command = ProcessCommand::new("tail");
             command.arg("--lines").arg(options.lines.to_string());
             if options.follow {
                 // -F follows the name, so restarting RimWorld or replacing Player.log does not
@@ -365,7 +507,7 @@ fn source_command(source: LogSource, options: LogsOptions) -> Result<Command, St
             command
         }
         LogSource::Daemon => {
-            let mut command = Command::new("journalctl");
+            let mut command = ProcessCommand::new("journalctl");
             command
                 .args(["--user", "--no-pager", "--output=short-iso", "--lines"])
                 .arg(options.lines.to_string())
@@ -730,7 +872,7 @@ fn request(
 
 /// What `inbox` was asked to leave out. The store hands back everything the caller is party to,
 /// in the order it was written; the shaping is here, where the person reading it is.
-#[derive(Default)]
+#[derive(Debug, Default, PartialEq, Eq)]
 struct InboxFilter {
     all: bool,
     sent: bool,
@@ -921,6 +1063,53 @@ mod tests {
 
     fn words(text: &str) -> Vec<String> {
         text.split_whitespace().map(str::to_string).collect()
+    }
+
+    #[test]
+    fn command_parser_builds_delegation_and_update_commands() {
+        assert_eq!(
+            parse_command(&words("delegate agent fix the pane")),
+            Ok(Command::Delegate {
+                to: "agent".to_string(),
+                body: "fix the pane".to_string(),
+            })
+        );
+        assert_eq!(
+            parse_command(&words("finish task-7 shipped safely")),
+            Ok(Command::Update {
+                action: UpdateAction::Finish,
+                id: "task-7".to_string(),
+                note: Some("shipped safely".to_string()),
+            })
+        );
+    }
+
+    #[test]
+    fn command_parser_validates_fixed_arity_and_flags() {
+        assert_eq!(
+            parse_command(&words("peers now")).unwrap_err(),
+            "unexpected argument: now\n\n".to_string() + USAGE
+        );
+        assert!(parse_command(&words("task")).is_err());
+        assert!(parse_command(&words("prune --wat")).is_err());
+        assert!(parse_command(&words("inbox --status")).is_err());
+    }
+
+    #[test]
+    fn global_json_flag_is_removed_before_command_parsing() {
+        let mut args = words("--json inbox --all --json");
+        assert!(take_json_flag(&mut args));
+        assert_eq!(
+            parse_command(&args),
+            Ok(Command::Inbox {
+                filter: InboxFilter {
+                    all: true,
+                    sent: false,
+                    received: false,
+                    status: None,
+                },
+            })
+        );
     }
 
     #[test]

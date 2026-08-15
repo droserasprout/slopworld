@@ -1887,101 +1887,129 @@ fn spawn_frame_pump(
 /// Handles one client message. Unauthorized messages are dropped silently; a failed direct
 /// response means the socket is gone and tells the caller to stop reading it.
 async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
-    // Require ro for pane reads, rw for input, and neither for host terminals.
     match cm {
-        ClientMsg::Sub { name } => {
-            if !m.cap_ok(cap, &name, Level::Ro).await {
-                return true;
+        ClientMsg::Sub { name } => handle_sub(name, m, cap, tx, subs).await,
+        ClientMsg::Unsub { name } => handle_unsub(name, subs).await,
+        ClientMsg::Keys(req) => handle_keys(req, m, cap).await,
+        ClientMsg::Resize(req) => handle_resize(req, m, cap).await,
+        ClientMsg::Scroll(req) => handle_scroll(req, m, cap, tx).await,
+        ClientMsg::Mouse(req) => handle_mouse(req, m, cap).await,
+        ClientMsg::Paste(req) => handle_paste(req, m, cap).await,
+        ClientMsg::Breadcrumb(req) => handle_breadcrumb(req, m, cap).await,
+        ClientMsg::Audio(req) => handle_audio(req, m, cap).await,
+    }
+}
+
+async fn handle_sub(name: String, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
+    // Require read access for pane subscriptions. A failed direct response means the socket is
+    // gone and tells the caller to stop reading it.
+    if !m.cap_ok(cap, &name, Level::Ro).await {
+        return true;
+    }
+    subs.lock().await.insert(name.clone(), m.watching(&name));
+    // Somebody is looking at this pane now, which is the whole of what a bell was asking for.
+    // Broadcast, not answered here: every client draws the mark.
+    m.clear_bell(&name).await;
+    if let Some(s) = m.screen(&name).await {
+        return send(tx, &Event::Screen { screen: s }).await.is_ok();
+    }
+    true
+}
+
+async fn handle_unsub(name: String, subs: &WsSubs) -> bool {
+    subs.lock().await.remove(&name);
+    true
+}
+
+async fn handle_keys(req: KeysReq, m: &Mgr, cap: &Cap) -> bool {
+    if !m.cap_ok(cap, &req.name, Level::Rw).await {
+        return true;
+    }
+    m.send_keys(&req.name, req.keys, req.literal, req.random_tips)
+        .await;
+    true
+}
+
+async fn handle_resize(req: ResizeReq, m: &Mgr, cap: &Cap) -> bool {
+    if !m.cap_ok(cap, &req.name, Level::Rw).await {
+        return true;
+    }
+    if let Err(e) = m.resize(&req.name, req.cols, req.rows).await {
+        tracing::debug!("resize: {e:#}");
+    }
+    true
+}
+
+async fn handle_scroll(req: ScrollReq, m: &Mgr, cap: &Cap, tx: &WsTx) -> bool {
+    if !m.cap_ok(cap, &req.name, Level::Ro).await {
+        return true;
+    }
+    // Answer this socket alone: a scrolled frame is private to the wheel request and must not
+    // reach live subscribers.
+    if let Some(s) = m.scroll_capture(&req.name, req.off, req.request_id).await {
+        return send(tx, &Event::Screen { screen: s }).await.is_ok();
+    }
+    true
+}
+
+async fn handle_mouse(req: MouseReq, m: &Mgr, cap: &Cap) -> bool {
+    if !m.cap_ok(cap, &req.name, Level::Rw).await {
+        return true;
+    }
+    let Some(action) = crate::emu::MouseAction::parse(&req.action) else {
+        tracing::debug!("unknown mouse action: {}", req.action);
+        return true;
+    };
+    let ev = crate::emu::MouseInput {
+        action,
+        button: req.button,
+        col: req.col,
+        row: req.row,
+    };
+    m.send_mouse(&req.name, ev, req.count).await;
+    true
+}
+
+async fn handle_paste(req: PasteReq, m: &Mgr, cap: &Cap) -> bool {
+    if !m.cap_ok(cap, &req.name, Level::Rw).await {
+        return true;
+    }
+    // A paste checks first, so anything left is a paste that did not land - and the only other
+    // sign of one is the operator noticing nothing arrived.
+    if let Err(e) = m.paste(&req.name, &req.text).await {
+        tracing::warn!("paste to {}: {e:#}", req.name);
+    }
+    true
+}
+
+async fn handle_breadcrumb(req: BreadcrumbReq, m: &Mgr, cap: &Cap) -> bool {
+    if !m.cap_ok(cap, &req.name, Level::Rw).await {
+        return true;
+    }
+    if let Err(e) = m
+        .paste_breadcrumb(&req.name, &req.breadcrumb, req.random_tips)
+        .await
+    {
+        tracing::warn!("breadcrumb to {}: {e:#}", req.name);
+    }
+    true
+}
+
+async fn handle_audio(req: AudioReq, m: &Mgr, cap: &Cap) -> bool {
+    if !cap.may_create() {
+        return true;
+    }
+    match req.selection {
+        Some(Some(selection)) => match resolve_audio_source(selection) {
+            Ok(source) => m.audio.play(&source, req.volume),
+            Err(e) => {
+                let why = format!("{e:#}");
+                tracing::warn!("{why}");
+                m.audio.reject(why);
             }
-            subs.lock().await.insert(name.clone(), m.watching(&name));
-            // Somebody is looking at this pane now, which is the whole of what a bell
-            // was asking for. Broadcast, not answered here: every client draws the mark.
-            m.clear_bell(&name).await;
-            if let Some(s) = m.screen(&name).await {
-                return send(tx, &Event::Screen { screen: s }).await.is_ok();
-            }
-        }
-        ClientMsg::Unsub { name } => {
-            subs.lock().await.remove(&name);
-        }
-        ClientMsg::Keys(k) => {
-            if !m.cap_ok(cap, &k.name, Level::Rw).await {
-                return true;
-            }
-            m.send_keys(&k.name, k.keys, k.literal, k.random_tips).await;
-        }
-        ClientMsg::Resize(r) => {
-            if !m.cap_ok(cap, &r.name, Level::Rw).await {
-                return true;
-            }
-            if let Err(e) = m.resize(&r.name, r.cols, r.rows).await {
-                tracing::debug!("resize: {e:#}");
-            }
-        }
-        ClientMsg::Scroll(sr) => {
-            if !m.cap_ok(cap, &sr.name, Level::Ro).await {
-                return true;
-            }
-            // Answer this socket alone: a scrolled frame is private to the wheel request and
-            // must not reach live subscribers.
-            if let Some(s) = m.scroll_capture(&sr.name, sr.off, sr.request_id).await {
-                return send(tx, &Event::Screen { screen: s }).await.is_ok();
-            }
-        }
-        ClientMsg::Mouse(mr) => {
-            if !m.cap_ok(cap, &mr.name, Level::Rw).await {
-                return true;
-            }
-            let Some(action) = crate::emu::MouseAction::parse(&mr.action) else {
-                tracing::debug!("unknown mouse action: {}", mr.action);
-                return true;
-            };
-            let ev = crate::emu::MouseInput {
-                action,
-                button: mr.button,
-                col: mr.col,
-                row: mr.row,
-            };
-            m.send_mouse(&mr.name, ev, mr.count).await;
-        }
-        ClientMsg::Paste(pr) => {
-            if !m.cap_ok(cap, &pr.name, Level::Rw).await {
-                return true;
-            }
-            // A paste checks first, so anything left is a paste that did not land - and
-            // the only other sign of one is the operator noticing nothing arrived.
-            if let Err(e) = m.paste(&pr.name, &pr.text).await {
-                tracing::warn!("paste to {}: {e:#}", pr.name);
-            }
-        }
-        ClientMsg::Breadcrumb(br) => {
-            if !m.cap_ok(cap, &br.name, Level::Rw).await {
-                return true;
-            }
-            if let Err(e) = m
-                .paste_breadcrumb(&br.name, &br.breadcrumb, br.random_tips)
-                .await
-            {
-                tracing::warn!("breadcrumb to {}: {e:#}", br.name);
-            }
-        }
-        ClientMsg::Audio(ar) => {
-            if !cap.may_create() {
-                return true;
-            }
-            match ar.selection {
-                Some(Some(selection)) => match resolve_audio_source(selection) {
-                    Ok(source) => m.audio.play(&source, ar.volume),
-                    Err(e) => {
-                        let why = format!("{e:#}");
-                        tracing::warn!("{why}");
-                        m.audio.reject(why);
-                    }
-                },
-                Some(None) => m.audio.stop(),
-                None => m.audio.set_volume(ar.volume),
-            }
-        }
+        },
+        Some(None) => m.audio.stop(),
+        None => m.audio.set_volume(req.volume),
     }
     true
 }

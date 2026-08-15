@@ -138,26 +138,9 @@ namespace SlopWorld
 
         void HandleKey(Event e)
         {
-            // Shift+Escape is the way out; a bare Escape must reach the agent.
-            if (e.keyCode == KeyCode.Escape && e.shift)
-            {
-                Close();
-                e.Use();
-                return;
-            }
-
-            // Shift+Enter: send the kitty keyboard protocol sequence for Shift+Enter
-            // (\e[13;2u) so apps like Claude Code can distinguish it from plain Enter
-            // and insert a newline rather than submitting.
-            if (e.keyCode == KeyCode.Return && e.shift)
-            {
-                JumpToLive();
-                Flush();
-                SessionHub.Instance.SendKeys(
-                    _name, new[] { "\u001b[13;2u" }, true);
-                e.Use();
-                return;
-            }
+            // Window actions run before the terminal's online check. A bare Escape or an
+            // ordinary Return returns false from the same handler and is dispatched below.
+            if (TryHandle(_localKeyHandlers, e)) return;
 
             // Not in TerminalHotkeys: a window absorbing input makes
             // WindowStack.HandleEventsHighPriority Use every KeyDown, and that runs earlier in
@@ -196,28 +179,6 @@ namespace SlopWorld
                 return;
             }
 
-            // Terminal convention: Ctrl+Shift+C is always copy, and Ctrl+C copies
-            // when text is selected (otherwise it passes through as SIGINT).
-            if (e.control && e.keyCode == KeyCode.C)
-            {
-                if (_hasSel)
-                {
-                    CopySelection();
-                    e.Use();
-                    return;
-                }
-                // No selection: Ctrl+Shift+C is a no-op; bare Ctrl+C falls through to SIGINT.
-                if (!e.shift)
-                {
-                    // Fall through to MapKey below.
-                }
-                else
-                {
-                    e.Use();
-                    return;
-                }
-            }
-
             // On this Unity player the literal semicolon arrives with a spurious modifier,
             // so the ordinary printable-input guard below rejects it. The character is the
             // layout-resolved answer; trust it instead of the broken modifier flags.
@@ -228,47 +189,7 @@ namespace SlopWorld
                 return;
             }
 
-            if (e.keyCode != KeyCode.None)
-            {
-                // Some backends instead omit the character-only event. Preserve the
-                // keyboard layout's shifted form before the named key is swallowed below.
-                if (IsSemicolonKey(e.keyCode) && e.character == '\0')
-                {
-                    if (e.shift)
-                    {
-                        JumpToLive();
-                        _literal.Append(':');
-                    }
-                    else AppendSemicolon();
-                    e.Use();
-                    return;
-                }
-
-                var keyScreen = SessionHub.Instance.Screen(_name);
-                string key = MapKey(e, keyScreen != null && keyScreen.AltScreen);
-                if (key != null)
-                {
-                    JumpToLive();
-                    Flush();
-                    // Tips ride the Enter that is about to have breadcrumbs pasted in front
-                    // of it, and nothing else: `BreadcrumbsPending` is the daemon's answer to
-                    // whether this is that Enter.
-                    var info = SessionHub.Instance.Get(_name);
-                    bool crumbs = key == "Enter" && info != null && info.BreadcrumbsPending;
-                    SessionHub.Instance.SendKeys(_name, new[] { key }, false,
-                        crumbs ? Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch) : null);
-                    e.Use();
-                    return;
-                }
-
-                if (e.control && e.keyCode == KeyCode.V)
-                {
-                    JumpToLive();
-                    PasteClipboard();
-                    e.Use();
-                    return;
-                }
-            }
+            if (TryHandle(_keyHandlers, e)) return;
 
             // Unity delivers printable input as a second event carrying only the character.
             if (e.character != '\0' && e.character != '\n' &&
@@ -282,6 +203,96 @@ namespace SlopWorld
 
             if (e.keyCode != KeyCode.None)
                 e.Use(); // swallow it so RimWorld hotkeys don't fire behind us
+        }
+
+        bool TryHandle(Dictionary<KeyCode, System.Func<Event, bool>> handlers, Event e)
+        {
+            return handlers.TryGetValue(e.keyCode, out var handler) && handler(e);
+        }
+
+        bool HandleEscapeKey(Event e)
+        {
+            // Shift+Escape is the way out; a bare Escape must reach the agent.
+            if (!e.shift) return false;
+            Close();
+            e.Use();
+            return true;
+        }
+
+        bool HandleReturnKey(Event e)
+        {
+            // Shift+Enter: send the kitty keyboard protocol sequence for Shift+Enter
+            // (\e[13;2u) so apps like Claude Code can distinguish it from plain Enter
+            // and insert a newline rather than submitting.
+            if (!e.shift) return false;
+            JumpToLive();
+            Flush();
+            SessionHub.Instance.SendKeys(_name, new[] { "\u001b[13;2u" }, true);
+            e.Use();
+            return true;
+        }
+
+        bool HandleControlC(Event e)
+        {
+            if (!e.control) return false;
+            // Terminal convention: Ctrl+Shift+C is always copy, and Ctrl+C copies
+            // when text is selected (otherwise it passes through as SIGINT).
+            if (_hasSel)
+            {
+                CopySelection();
+                e.Use();
+                return true;
+            }
+            // No selection: Ctrl+Shift+C is a no-op; bare Ctrl+C falls through to MapKey.
+            if (e.shift)
+            {
+                e.Use();
+                return true;
+            }
+            return ForwardMappedKey(e);
+        }
+
+        bool HandleControlV(Event e)
+        {
+            if (!e.control) return false;
+            JumpToLive();
+            PasteClipboard();
+            e.Use();
+            return true;
+        }
+
+        bool HandleSemicolonKey(Event e)
+        {
+            // Some backends omit the character-only event. Preserve the keyboard layout's
+            // shifted form before the named key is swallowed below.
+            if (e.character != '\0') return false;
+            if (e.shift)
+            {
+                JumpToLive();
+                _literal.Append(':');
+            }
+            else AppendSemicolon();
+            e.Use();
+            return true;
+        }
+
+        bool ForwardMappedKey(Event e)
+        {
+            var keyScreen = SessionHub.Instance.Screen(_name);
+            string key = MapKey(e, keyScreen != null && keyScreen.AltScreen);
+            if (key == null) return false;
+
+            JumpToLive();
+            Flush();
+            // Tips ride the Enter that is about to have breadcrumbs pasted in front of it, and
+            // nothing else: `BreadcrumbsPending` is the daemon's answer to whether this is that
+            // Enter.
+            var info = SessionHub.Instance.Get(_name);
+            bool crumbs = key == "Enter" && info != null && info.BreadcrumbsPending;
+            SessionHub.Instance.SendKeys(_name, new[] { key }, false,
+                crumbs ? Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch) : null);
+            e.Use();
+            return true;
         }
 
         // IMGUI loses semicolon's KeyDown before it reaches this window on this player, but
@@ -613,4 +624,3 @@ namespace SlopWorld
 
     }
 }
-
