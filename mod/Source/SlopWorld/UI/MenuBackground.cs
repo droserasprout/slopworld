@@ -159,14 +159,42 @@ namespace SlopWorld
         // Remove cache directories unused for this long.
         const int KeepDays = 30;
 
-        static Texture2D[] _frames;
-        // The cache key, and how a background switched in Options is noticed.
-        static Texture2D _src;
-        static string _srcKey;
-        // Preset used by the resident set, which can lag the current setting during reload.
-        static Preset _preset;
-        // So the ramp has a zero. Negative until the first draw.
-        static float _began = -1f;
+        // The resident set is a layout concern; animation never needs to know how it was
+        // loaded or which source texture produced it.
+        struct LayoutState
+        {
+            public Texture2D[] Frames;
+            public Texture2D Source;
+            public string SourceKey;
+            public Preset Preset;
+        }
+
+        // The ramp and phase walk are one small state machine. Keeping them together prevents
+        // a preset reload from accidentally preserving half of the old animation.
+        struct AnimationState
+        {
+            public float Began;
+            public float Depth;
+            public int Phase;
+            public float WalkAt;
+            public float PhaseAt;
+            public System.Random WalkRng;
+        }
+
+        static LayoutState _layout;
+        static AnimationState _animation = new AnimationState
+        {
+            Began = -1f,
+            WalkRng = new System.Random(),
+        };
+
+        // These aliases keep the animation and bake code readable while making the ownership
+        // explicit in the two state structs above.
+        static Texture2D[] _frames { get => _layout.Frames; set => _layout.Frames = value; }
+        static Texture2D _src { get => _layout.Source; set => _layout.Source = value; }
+        static string _srcKey { get => _layout.SourceKey; set => _layout.SourceKey = value; }
+        static Preset _preset { get => _layout.Preset; set => _layout.Preset = value; }
+        static float _began { get => _animation.Began; set => _animation.Began = value; }
 
         public static bool HasFrames => _frames != null;
 
@@ -208,13 +236,13 @@ namespace SlopWorld
 
         // Stepped off absolute times rather than a delta, so a frame that asks twice gets one
         // answer - the menu patch and eco both call Current.
-        static float _depth;
-        static int _phase;
-        static float _walkAt;
-        static float _phaseAt;
+        static float _depth { get => _animation.Depth; set => _animation.Depth = value; }
+        static int _phase { get => _animation.Phase; set => _animation.Phase = value; }
+        static float _walkAt { get => _animation.WalkAt; set => _animation.WalkAt = value; }
+        static float _phaseAt { get => _animation.PhaseAt; set => _animation.PhaseAt = value; }
         // Time-seeded, unlike everything the bake rolls: the frames are meant to match across
         // installs and the path across them is meant not to.
-        static readonly System.Random _walkRng = new System.Random();
+        static System.Random _walkRng => _animation.WalkRng;
 
         // Three uniforms sum to a bounded bell, which is what a walk that must not bolt wants.
         static float Gauss() =>

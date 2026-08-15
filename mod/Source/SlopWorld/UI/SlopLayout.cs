@@ -2,7 +2,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    public static class SlopLayout
+    public abstract partial class SlopLayout
     {
         // A scene has the board and everything else stands down, so the room goes back
         // rather than leaving a button row indented against nothing.
