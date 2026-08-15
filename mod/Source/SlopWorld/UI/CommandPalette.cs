@@ -515,7 +515,82 @@ namespace SlopWorld
             // The action to execute. Called with null for commands with no sub-action,
             // or with the selected sub-option's value.
             public Action<string> Execute;
+
+            public static Entry ForAgent(string id, string name,
+                Func<List<SubOption>> filter, Action<SessionInfo> action) =>
+                For(id, name, "Agent", filter, v => SessionHub.Instance.Get(v), action);
+
+            public static Entry ForProject(string id, string name,
+                Func<List<SubOption>> filter, Action<ProjectInfo> action) =>
+                For(id, name, "Project", filter, v => SessionHub.Instance.Project(v), action);
+
+            public static Entry ForShortcut(string id, string name,
+                Func<List<SubOption>> filter, Action<ShortcutInfo> action) =>
+                For(id, name, "Shortcut", filter, v => SessionHub.Instance.Shortcut(v), action);
+
+            static Entry For<T>(string id, string name, string category,
+                Func<List<SubOption>> filter, Func<string, T> resolve, Action<T> action)
+                where T : class
+            {
+                return new Entry
+                {
+                    Id = id,
+                    Name = name,
+                    Category = category,
+                    SubAction = filter,
+                    Execute = value =>
+                    {
+                        if (value == null) return;
+                        var item = resolve(value);
+                        if (item != null) action(item);
+                    },
+                };
+            }
         }
+
+        class SettingCommand
+        {
+            public readonly string Id;
+            public readonly string Name;
+            public readonly Func<OptionCategoryDef> Category;
+
+            public SettingCommand(string id, string name, Func<OptionCategoryDef> category)
+            {
+                Id = id;
+                Name = name;
+                Category = category;
+            }
+        }
+
+        static readonly SettingCommand[] SettingsCommands =
+        {
+            new SettingCommand("view.config", "Settings: General", () => SlopOptions.Category),
+            new SettingCommand("view.storage", "Settings: Storage", () => SlopOptions.StorageCategory),
+            new SettingCommand("view.commands", "Settings: Commands", () => SlopOptions.CommandsCategory),
+            new SettingCommand("view.command-presets", "Settings: Commands - Presets",
+                () => SlopOptions.CommandPresetsCategory),
+            new SettingCommand("view.terminal-settings", "Settings: Terminal",
+                () => SlopOptions.TerminalCategory),
+            new SettingCommand("view.appearance", "Settings: Appearance",
+                () => SlopOptions.AppearanceCategory),
+            new SettingCommand("view.audio", "Settings: Audio", () => SlopOptions.AudioCategory),
+            new SettingCommand("view.integrations", "Settings: Integrations",
+                () => SlopOptions.IntegrationsCategory),
+            new SettingCommand("view.usage", "Settings: Integrations - Usage",
+                () => SlopOptions.UsageCategory),
+            new SettingCommand("view.summaries", "Settings: Integrations - Summaries",
+                () => SlopOptions.SummariesCategory),
+            new SettingCommand("view.sandbox", "Settings: Sandbox", () => SlopOptions.SandboxCategory),
+            new SettingCommand("view.shortcuts-settings", "Settings: Keyboard",
+                () => SlopOptions.KeyboardCategory),
+            new SettingCommand("settings.graphics", "Settings: RimWorld - Graphics",
+                () => SlopOptions.GraphicsCategory),
+            new SettingCommand("settings.interface", "Settings: RimWorld - Interface",
+                () => SlopOptions.InterfaceCategory),
+            new SettingCommand("settings.controls", "Settings: RimWorld - Controls",
+                () => SlopOptions.ControlsCategory),
+            new SettingCommand("view.about", "Settings: About", () => SlopOptions.AboutCategory),
+        };
 
         class SubOption
         {
@@ -561,88 +636,34 @@ namespace SlopWorld
             _commands = new List<Entry>();
 
             // Agent
-            _commands.Add(new Entry
+            _commands.Add(Entry.ForAgent("agent.start", "Agent: Start",
+                () => AgentsSub(AgentState.Down),
+                s => SessionHub.Instance.Start(s.Name, SlopWidgets.Fail)));
+            _commands.Add(Entry.ForAgent("agent.stop", "Agent: Stop",
+                () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
+                s => SessionHub.Instance.Stop(s.Name, SlopWidgets.Fail)));
+            _commands.Add(Entry.ForAgent("agent.restart", "Agent: Restart",
+                () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
+                s => SessionHub.Instance.Restart(s.Name, SlopWidgets.Fail)));
+            _commands.Add(Entry.ForAgent("agent.edit", "Agent: Edit", AgentsSubAll,
+                s => Find.WindowStack.Add(new EditSessionDialog(s))));
+            _commands.Add(Entry.ForAgent("agent.terminal", "Agent: Open Terminal",
+                () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
+                s => { if (!s.Gone) TerminalWindow.Open(s.Name); }));
+            _commands.Add(Entry.ForAgent("agent.delete", "Agent: Delete", AgentsSubAll, s =>
             {
-                Id = "agent.start",
-                Name = "Agent: Start",
-                Category = "Agent",
-                SubAction = () => AgentsSub(AgentState.Down),
-                Execute = v => { if (v != null) SessionHub.Instance.Start(v, SlopWidgets.Fail); },
-            });
-            _commands.Add(new Entry
-            {
-                Id = "agent.stop",
-                Name = "Agent: Stop",
-                Category = "Agent",
-                SubAction = () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
-                Execute = v => { if (v != null) SessionHub.Instance.Stop(v, SlopWidgets.Fail); },
-            });
-            _commands.Add(new Entry
-            {
-                Id = "agent.restart",
-                Name = "Agent: Restart",
-                Category = "Agent",
-                SubAction = () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
-                Execute = v => { if (v != null) SessionHub.Instance.Restart(v, SlopWidgets.Fail); },
-            });
-            _commands.Add(new Entry
-            {
-                Id = "agent.edit",
-                Name = "Agent: Edit",
-                Category = "Agent",
-                SubAction = () => AgentsSubAll(),
-                Execute = v =>
-                {
-                    if (v == null) return;
-                    var info = SessionHub.Instance.Get(v);
-                    if (info != null) Find.WindowStack.Add(new EditSessionDialog(info));
-                },
-            });
-            _commands.Add(new Entry
-            {
-                Id = "agent.terminal",
-                Name = "Agent: Open Terminal",
-                Category = "Agent",
-                SubAction = () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
-                Execute = v =>
-                {
-                    if (v != null)
-                    {
-                        var info = SessionHub.Instance.Get(v);
-                        if (info != null && !info.Gone) TerminalWindow.Open(v);
-                    }
-                },
-            });
-            _commands.Add(new Entry
-            {
-                Id = "agent.delete",
-                Name = "Agent: Delete",
-                Category = "Agent",
-                SubAction = () => AgentsSubAll(),
-                Execute = v =>
-                {
-                    if (v == null) return;
-                    var name = v;
-                    Find.WindowStack.Add(SlopConfirmDialog.Create(
+                var name = s.Name;
+                Find.WindowStack.Add(SlopConfirmDialog.Create(
                     $"Remove session '{name}'? This kills it, drops it from config.toml, and moves " +
                     "its private state to recoverable trash for 14 days.",
-                        () => SessionHub.Instance.Remove(name, SlopWidgets.Fail), destructive: true));
-                },
-            });
-            _commands.Add(new Entry
-            {
-                Id = "agent.duplicate",
-                Name = "Agent: Duplicate",
-                Category = "Agent",
-                SubAction = () => AgentsSubWithProject(),
-                Execute = v =>
+                    () => SessionHub.Instance.Remove(name, SlopWidgets.Fail), destructive: true));
+            }));
+            _commands.Add(Entry.ForAgent("agent.duplicate", "Agent: Duplicate", AgentsSubWithProject,
+                s =>
                 {
-                    if (v == null) return;
-                    var info = SessionHub.Instance.Get(v);
-                    if (info != null && !string.IsNullOrEmpty(info.Project))
-                        TerminalWindow.OpenOverPane(EditSessionDialog.Copy(info));
-                },
-            });
+                    if (!string.IsNullOrEmpty(s.Project))
+                        TerminalWindow.OpenOverPane(EditSessionDialog.Copy(s));
+                }));
 
             // Project
             _commands.Add(new Entry
@@ -652,79 +673,29 @@ namespace SlopWorld
                 Category = "Project",
                 Execute = _ => Find.WindowStack.Add(new EditProjectDialog(null)),
             });
-            _commands.Add(new Entry
+            _commands.Add(Entry.ForProject("project.edit", "Project: Edit", ProjectsSub,
+                p => Find.WindowStack.Add(new EditProjectDialog(p))));
+            _commands.Add(Entry.ForProject("project.delete", "Project: Delete", ProjectsSub, p =>
             {
-                Id = "project.edit",
-                Name = "Project: Edit",
-                Category = "Project",
-                SubAction = () => ProjectsSub(),
-                Execute = v =>
-                {
-                    if (v == null) return;
-                    var p = SessionHub.Instance.Project(v);
-                    if (p != null) Find.WindowStack.Add(new EditProjectDialog(p));
-                },
-            });
-            _commands.Add(new Entry
-            {
-                Id = "project.delete",
-                Name = "Project: Delete",
-                Category = "Project",
-                SubAction = () => ProjectsSub(),
-                Execute = v =>
-                {
-                    if (v == null) return;
-                    var name = v;
-                    Find.WindowStack.Add(SlopConfirmDialog.Create(
-                        $"Remove project '{name}'? The directory is left alone; only the entry in config.toml goes.",
-                        () => SessionHub.Instance.RemoveProject(name, SlopWidgets.Fail), destructive: true));
-                },
-            });
-            _commands.Add(new Entry
-            {
-                Id = "project.duplicate",
-                Name = "Project: Duplicate",
-                Category = "Project",
-                SubAction = () => ProjectsSub(),
-                Execute = v =>
-                {
-                    if (v == null) return;
-                    var project = SessionHub.Instance.Project(v);
-                    if (project != null)
-                        TerminalWindow.OpenOverPane(EditProjectDialog.Copy(project));
-                },
-            });
-            _commands.Add(new Entry
-            {
-                Id = "project.host-terminal",
-                Name = "Project: Open Host Terminal",
-                Category = "Project",
-                SubAction = () => ProjectsSub(),
-                Execute = v =>
-                {
-                    if (v == null) return;
-                    SessionHub.Instance.RunHostShell(v,
-                        session => TerminalWindow.Open(session), SlopWidgets.Fail);
-                },
-            });
+                var name = p.Name;
+                Find.WindowStack.Add(SlopConfirmDialog.Create(
+                    $"Remove project '{name}'? The directory is left alone; only the entry in config.toml goes.",
+                    () => SessionHub.Instance.RemoveProject(name, SlopWidgets.Fail), destructive: true));
+            }));
+            _commands.Add(Entry.ForProject("project.duplicate", "Project: Duplicate", ProjectsSub,
+                p => TerminalWindow.OpenOverPane(EditProjectDialog.Copy(p))));
+            _commands.Add(Entry.ForProject("project.host-terminal", "Project: Open Host Terminal",
+                ProjectsSub,
+                p => SessionHub.Instance.RunHostShell(p.Name,
+                    session => TerminalWindow.Open(session), SlopWidgets.Fail)));
 
             // Shortcut
-            _commands.Add(new Entry
+            _commands.Add(Entry.ForShortcut("shortcut.run", "Shortcut: Run", ShortcutsSub, s =>
             {
-                Id = "shortcut.run",
-                Name = "Shortcut: Run",
-                Category = "Shortcut",
-                SubAction = () => ShortcutsSub(),
-                Execute = v =>
-                {
-                    if (v == null) return;
-                    var info = SessionHub.Instance.Shortcut(v);
-                    if (info == null || info.Kind == ShortcutKind.Breadcrumb ||
-                        info.Kind == ShortcutKind.FileAction) return;
-                    if (info.Link == ShortcutLink.Ask) AskWhere(info);
-                    else RunShortcutWith(v);
-                },
-            });
+                if (s.Kind == ShortcutKind.Breadcrumb || s.Kind == ShortcutKind.FileAction) return;
+                if (s.Link == ShortcutLink.Ask) AskWhere(s);
+                else RunShortcutWith(s.Name);
+            }));
             _commands.Add(new Entry
             {
                 Id = "shortcut.new",
@@ -732,34 +703,15 @@ namespace SlopWorld
                 Category = "Shortcut",
                 Execute = _ => Find.WindowStack.Add(new EditShortcutDialog(null)),
             });
-            _commands.Add(new Entry
+            _commands.Add(Entry.ForShortcut("shortcut.edit", "Shortcut: Edit", ShortcutsSub,
+                s => Find.WindowStack.Add(new EditShortcutDialog(s))));
+            _commands.Add(Entry.ForShortcut("shortcut.delete", "Shortcut: Delete", ShortcutsSub, s =>
             {
-                Id = "shortcut.edit",
-                Name = "Shortcut: Edit",
-                Category = "Shortcut",
-                SubAction = () => ShortcutsSub(),
-                Execute = v =>
-                {
-                    if (v == null) return;
-                    var info = SessionHub.Instance.Shortcut(v);
-                    if (info != null) Find.WindowStack.Add(new EditShortcutDialog(info));
-                },
-            });
-            _commands.Add(new Entry
-            {
-                Id = "shortcut.delete",
-                Name = "Shortcut: Delete",
-                Category = "Shortcut",
-                SubAction = () => ShortcutsSub(),
-                Execute = v =>
-                {
-                    if (v == null) return;
-                    var name = v;
-                    Find.WindowStack.Add(SlopConfirmDialog.Create(
-                        $"Remove shortcut '{name}'? Anything it already started keeps running.",
-                        () => SessionHub.Instance.RemoveShortcut(name, SlopWidgets.Fail), destructive: true));
-                },
-            });
+                var name = s.Name;
+                Find.WindowStack.Add(SlopConfirmDialog.Create(
+                    $"Remove shortcut '{name}'? Anything it already started keeps running.",
+                    () => SessionHub.Instance.RemoveShortcut(name, SlopWidgets.Fail), destructive: true));
+            }));
 
             // Daemon and data refresh
             _commands.Add(new Entry
@@ -813,34 +765,16 @@ namespace SlopWorld
             });
 
             // Settings
-            _commands.Add(new Entry
+            foreach (var setting in SettingsCommands)
             {
-                Id = "view.config",
-                Name = "Settings: General",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.Category),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.storage",
-                Name = "Settings: Storage",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.StorageCategory),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.commands",
-                Name = "Settings: Commands",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.CommandsCategory),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.command-presets",
-                Name = "Settings: Commands - Presets",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.CommandPresetsCategory),
-            });
+                _commands.Add(new Entry
+                {
+                    Id = setting.Id,
+                    Name = setting.Name,
+                    Category = "Settings",
+                    Execute = _ => SlopOptions.OpenCategory(setting.Category()),
+                });
+            }
             _commands.Add(new Entry
             {
                 Id = "config.toml",
@@ -858,20 +792,6 @@ namespace SlopWorld
             });
             _commands.Add(new Entry
             {
-                Id = "view.terminal-settings",
-                Name = "Settings: Terminal",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.TerminalCategory),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.appearance",
-                Name = "Settings: Appearance",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.AppearanceCategory),
-            });
-            _commands.Add(new Entry
-            {
                 Id = "view.zoom-in",
                 Name = "View: Zoom In",
                 Category = "View",
@@ -883,76 +803,6 @@ namespace SlopWorld
                 Name = "View: Zoom Out",
                 Category = "View",
                 Execute = _ => SlopUIScale.Zoom(-1),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.audio",
-                Name = "Settings: Audio",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.AudioCategory),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.integrations",
-                Name = "Settings: Integrations",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.IntegrationsCategory),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.usage",
-                Name = "Settings: Integrations - Usage",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.UsageCategory),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.summaries",
-                Name = "Settings: Integrations - Summaries",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.SummariesCategory),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.sandbox",
-                Name = "Settings: Sandbox",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.SandboxCategory),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.shortcuts-settings",
-                Name = "Settings: Keyboard",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.KeyboardCategory),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "settings.graphics",
-                Name = "Settings: RimWorld - Graphics",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.GraphicsCategory),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "settings.interface",
-                Name = "Settings: RimWorld - Interface",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.InterfaceCategory),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "settings.controls",
-                Name = "Settings: RimWorld - Controls",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.ControlsCategory),
-            });
-            _commands.Add(new Entry
-            {
-                Id = "view.about",
-                Name = "Settings: About",
-                Category = "Settings",
-                Execute = _ => SlopOptions.OpenCategory(SlopOptions.AboutCategory),
             });
 
             // Jukebox
