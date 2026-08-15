@@ -429,19 +429,15 @@ impl Manager {
         self.temp.read().await.get(&s.project).cloned()
     }
 
-    pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
-        self.ensure_state_id(name).await?;
-        let cfg = self.config().await;
-        let configured = cfg.session(name).cloned();
-        let s = match configured.as_ref() {
+    async fn resolve_target(&self, cfg: &Config, name: &str) -> Result<(SessionCfg, ProjectCfg)> {
+        let s = match cfg.session(name) {
             Some(s) => s.clone(),
             None => self
                 .session_cfg(name)
                 .await
                 .ok_or_else(|| anyhow!("no such session: {name}"))?,
         };
-
-        let p = self.project_for(&cfg, &s).await.ok_or_else(|| {
+        let p = self.project_for(cfg, &s).await.ok_or_else(|| {
             if s.project.is_empty() {
                 anyhow!("session {name} belongs to no project")
             } else {
@@ -451,17 +447,10 @@ impl Manager {
                 )
             }
         })?;
-        cfg.network_of(&s, &p)?;
+        Ok((s, p))
+    }
 
-        if self.tmux.exists(name).await {
-            bail!("session {name} is already running");
-        }
-        if cfg.command_of(&s).trim().is_empty() {
-            bail!(
-                "session {name} names command preset {:?}, which has no file",
-                s.command
-            );
-        }
+    fn validate_dir(p: &ProjectCfg) -> Result<String> {
         let dir = expand(&p.dir);
         if p.temp {
             std::fs::create_dir_all(&dir).with_context(|| format!("making {dir}"))?;
@@ -472,21 +461,18 @@ impl Manager {
         if let Some(what) = crate::sandbox::refused(&dir) {
             bail!("project {} cannot live at {dir}: it reaches {what}", p.name);
         }
+        Ok(dir)
+    }
 
-        let (cols, rows, host) = match self.live.read().await.get(name) {
-            Some(l) => (l.cols, l.rows, l.host),
-            None => (BOOT_COLS, BOOT_ROWS, false),
-        };
-        let argv = if host {
-            crate::sandbox::host_argv(&cfg, &s, &p)
-        } else {
-            crate::sandbox::prepare_network(&cfg, &s, &p)?;
-            build_argv(&cfg, &s, &p)?
-        };
-        tracing::info!("starting {name}: {}", argv.join(" "));
-        self.tmux.spawn(name, &dir, cols, rows, &argv).await?;
-        self.spawn_reader(name).await;
-        let command = cfg.command_of(&s);
+    async fn wire_live_state(
+        &self,
+        name: &str,
+        cfg: &Config,
+        s: &SessionCfg,
+        p: &ProjectCfg,
+        host: bool,
+    ) {
+        let command = cfg.command_of(s);
         let directory = expand(&p.dir);
         let vars = TemplateVars {
             agent: &s.name,
@@ -495,7 +481,7 @@ impl Manager {
             command: &command,
         };
         let crumbs: Vec<String> = cfg
-            .breadcrumbs_of(&s, &p)
+            .breadcrumbs_of(s, p)
             .into_iter()
             .map(|text| render_template_with(&text, &[], Some(&vars)))
             .collect();
@@ -519,6 +505,39 @@ impl Manager {
                 sessions: self.views().await,
             });
         }
+    }
+
+    pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
+        self.ensure_state_id(name).await?;
+        let cfg = self.config().await;
+        let (s, p) = self.resolve_target(&cfg, name).await?;
+        cfg.network_of(&s, &p)?;
+
+        if self.tmux.exists(name).await {
+            bail!("session {name} is already running");
+        }
+        if cfg.command_of(&s).trim().is_empty() {
+            bail!(
+                "session {name} names command preset {:?}, which has no file",
+                s.command
+            );
+        }
+        let dir = Self::validate_dir(&p)?;
+
+        let (cols, rows, host) = match self.live.read().await.get(name) {
+            Some(l) => (l.cols, l.rows, l.host),
+            None => (BOOT_COLS, BOOT_ROWS, false),
+        };
+        let argv = if host {
+            crate::sandbox::host_argv(&cfg, &s, &p)
+        } else {
+            crate::sandbox::prepare_network(&cfg, &s, &p)?;
+            build_argv(&cfg, &s, &p)?
+        };
+        tracing::info!("starting {name}: {}", argv.join(" "));
+        self.tmux.spawn(name, &dir, cols, rows, &argv).await?;
+        self.spawn_reader(name).await;
+        self.wire_live_state(name, &cfg, &s, &p, host).await;
         Ok(())
     }
 
@@ -840,14 +859,12 @@ impl Manager {
         self.run_errand(sc, want, false).await
     }
 
-    pub async fn file_action(
-        self: &Arc<Self>,
+    fn resolve_file_action(
+        cfg: &Config,
         project: &str,
         raw_path: &str,
         command: &str,
-    ) -> Result<String> {
-        self.reload_if_changed().await;
-        let cfg = self.config().await;
+    ) -> Result<(ProjectCfg, SessionCfg)> {
         let p = cfg
             .project(project.trim())
             .cloned()
@@ -857,7 +874,6 @@ impl Manager {
             bail!("file action has no command");
         }
         let command = normalize_action_command(raw_path, &path, command);
-
         let s = SessionCfg {
             name: "file-action".into(),
             project: p.name.clone(),
@@ -865,65 +881,93 @@ impl Manager {
             cmd: Some(command),
             ..Default::default()
         };
+        Ok((p, s))
+    }
 
-        let result = async {
-            crate::sandbox::prepare_network(&cfg, &s, &p)?;
-            let argv = build_argv(&cfg, &s, &p)?;
-            let mut child = Command::new(&argv[0])
-                .args(&argv[1..])
-                .kill_on_drop(true)
-                .stdin(Stdio::null())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-                .context("starting file action")?;
-            let stdout = child
-                .stdout
-                .take()
-                .context("capturing file action stdout")?;
-            let stderr = child
-                .stderr
-                .take()
-                .context("capturing file action stderr")?;
+    async fn run_file_action_command(
+        argv: &[String],
+    ) -> Result<((Vec<u8>, bool), (Vec<u8>, bool), std::process::ExitStatus)> {
+        let mut child = Command::new(&argv[0])
+            .args(&argv[1..])
+            .kill_on_drop(true)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .context("starting file action")?;
+        let stdout = child
+            .stdout
+            .take()
+            .context("capturing file action stdout")?;
+        let stderr = child
+            .stderr
+            .take()
+            .context("capturing file action stderr")?;
 
-            let collected = tokio::time::timeout(FILE_ACTION_TIMEOUT, async {
-                let stdout = read_action_output(stdout);
-                let stderr = read_action_output(stderr);
-                let status = child.wait();
-                let (stdout, stderr, status) = tokio::join!(stdout, stderr, status);
-                Ok::<_, anyhow::Error>((stdout?, stderr?, status?))
-            })
-            .await;
-
-            let ((stdout, stdout_truncated), (stderr, stderr_truncated), status) = match collected {
-                Ok(result) => result?,
-                Err(_) => {
-                    let _ = child.kill().await;
-                    let _ = child.wait().await;
-                    bail!("file action timed out")
-                }
-            };
-
-            let mut text = String::from_utf8_lossy(&stdout).into_owned();
-            if !stderr.is_empty() {
-                if !text.is_empty() && !text.ends_with('\n') {
-                    text.push('\n');
-                }
-                text.push_str(&String::from_utf8_lossy(&stderr));
-            }
-            if stdout_truncated || stderr_truncated {
-                text.push_str("\n[output truncated]");
-            }
-            if !status.success() {
-                bail!("file action failed: {}", text.trim());
-            }
-            Ok::<_, anyhow::Error>(if text.trim().is_empty() {
-                "(no output)".into()
-            } else {
-                text.trim_end().into()
-            })
-        }
+        let collected = tokio::time::timeout(FILE_ACTION_TIMEOUT, async {
+            let stdout = read_action_output(stdout);
+            let stderr = read_action_output(stderr);
+            let status = child.wait();
+            let (stdout, stderr, status) = tokio::join!(stdout, stderr, status);
+            Ok::<_, anyhow::Error>((stdout?, stderr?, status?))
+        })
         .await;
+
+        match collected {
+            Ok(result) => result,
+            Err(_) => {
+                let _ = child.kill().await;
+                let _ = child.wait().await;
+                bail!("file action timed out")
+            }
+        }
+    }
+
+    fn format_file_action_result(
+        stdout: Vec<u8>,
+        stderr: Vec<u8>,
+        stdout_truncated: bool,
+        stderr_truncated: bool,
+        status: std::process::ExitStatus,
+    ) -> Result<String> {
+        let mut text = String::from_utf8_lossy(&stdout).into_owned();
+        if !stderr.is_empty() {
+            if !text.is_empty() && !text.ends_with('\n') {
+                text.push('\n');
+            }
+            text.push_str(&String::from_utf8_lossy(&stderr));
+        }
+        if stdout_truncated || stderr_truncated {
+            text.push_str("\n[output truncated]");
+        }
+        if !status.success() {
+            bail!("file action failed: {}", text.trim());
+        }
+        Ok(if text.trim().is_empty() {
+            "(no output)".into()
+        } else {
+            text.trim_end().into()
+        })
+    }
+
+    async fn execute_file_action(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<String> {
+        crate::sandbox::prepare_network(cfg, s, p)?;
+        let argv = build_argv(cfg, s, p)?;
+        let ((stdout, stdout_truncated), (stderr, stderr_truncated), status) =
+            Self::run_file_action_command(&argv).await?;
+        Self::format_file_action_result(stdout, stderr, stdout_truncated, stderr_truncated, status)
+    }
+
+    pub async fn file_action(
+        self: &Arc<Self>,
+        project: &str,
+        raw_path: &str,
+        command: &str,
+    ) -> Result<String> {
+        self.reload_if_changed().await;
+        let cfg = self.config().await;
+        let (p, s) = Self::resolve_file_action(&cfg, project, raw_path, command)?;
+        let result = Self::execute_file_action(&cfg, &s, &p).await;
 
         if let Err(e) = crate::sandbox::remove_ephemeral_state(&s) {
             tracing::warn!("removing file action private state: {e:#}");
@@ -947,19 +991,21 @@ impl Manager {
         Ok(normalize_action_command(raw_path, &path, command))
     }
 
-    pub async fn run_errand(
-        self: &Arc<Self>,
-        sc: ShortcutCfg,
-        want: RunWhere,
+    fn validate_errand(sc: &ShortcutCfg) -> Result<()> {
+        if matches!(sc.kind, ShortcutKind::Breadcrumb | ShortcutKind::FileAction) {
+            bail!("shortcut {} is not runnable as an agent errand", sc.name);
+        }
+        Ok(())
+    }
+
+    async fn create_errand_session(
+        &self,
+        cfg: &Config,
+        sc: &ShortcutCfg,
+        want: &RunWhere,
         host: bool,
     ) -> Result<String> {
-        self.reload_if_changed().await;
-        let cfg = self.config().await;
         let name = sc.name.as_str();
-        if matches!(sc.kind, ShortcutKind::Breadcrumb | ShortcutKind::FileAction) {
-            bail!("shortcut {name} is not runnable as an agent errand");
-        }
-
         let asked = match want.project.as_deref().map(str::trim) {
             Some(p) if !p.is_empty() => Some(p.to_string()),
             _ => None,
@@ -980,37 +1026,58 @@ impl Manager {
         }
         let template = cfg.project(&sc.project).cloned().unwrap_or_default();
 
-        let session = {
-            let mut live = self.live.write().await;
-            let name = free_name(&live, &cfg, &slug(&sc.name));
-            check_name(&name)?;
+        let mut live = self.live.write().await;
+        let name = free_name(&live, cfg, &slug(&sc.name));
+        check_name(&name)?;
 
-            let project = if fresh {
-                let mut temp = self.temp.write().await;
-                let pname = free_project_name(&cfg, &temp, &name);
-                temp.insert(
-                    pname.clone(),
-                    ProjectCfg {
-                        name: pname.clone(),
-                        dir: crate::config::temp_dir(&pname),
-                        temp: true,
-                        ..template
-                    },
-                );
-                pname
-            } else {
-                named
-            };
-
-            let mut l = Live::new(
-                cfg.session_for(&sc, name.clone(), project),
-                TitleCapture::default(),
+        let project = if fresh {
+            let mut temp = self.temp.write().await;
+            let pname = free_project_name(cfg, &temp, &name);
+            temp.insert(
+                pname.clone(),
+                ProjectCfg {
+                    name: pname.clone(),
+                    dir: crate::config::temp_dir(&pname),
+                    temp: true,
+                    ..template
+                },
             );
-            l.ephemeral = true;
-            l.host = host;
-            live.insert(name.clone(), l);
-            name
+            pname
+        } else {
+            named
         };
+
+        let mut l = Live::new(
+            cfg.session_for(sc, name.clone(), project),
+            TitleCapture::default(),
+        );
+        l.ephemeral = true;
+        l.host = host;
+        live.insert(name.clone(), l);
+        Ok(name)
+    }
+
+    fn queue_errand_delivery(self: &Arc<Self>, session: &str, sc: &ShortcutCfg, want: &RunWhere) {
+        let text = render_template(&sc.text, &want.random_tips);
+        if text.trim().is_empty() {
+            return;
+        }
+        let m = self.clone();
+        let target = session.to_string();
+        let tips = want.random_tips.clone();
+        tokio::spawn(async move { m.deliver(&target, &text, tips).await });
+    }
+
+    pub async fn run_errand(
+        self: &Arc<Self>,
+        sc: ShortcutCfg,
+        want: RunWhere,
+        host: bool,
+    ) -> Result<String> {
+        self.reload_if_changed().await;
+        let cfg = self.config().await;
+        Self::validate_errand(&sc)?;
+        let session = self.create_errand_session(&cfg, &sc, &want, host).await?;
 
         if let Err(e) = self.start(&session).await {
             self.forget(&session).await;
@@ -1020,14 +1087,7 @@ impl Manager {
         let _ = self.events.send(Event::Sessions {
             sessions: self.views().await,
         });
-
-        let text = render_template(&sc.text, &want.random_tips);
-        if !text.trim().is_empty() {
-            let m = self.clone();
-            let target = session.clone();
-            let tips = want.random_tips.clone();
-            tokio::spawn(async move { m.deliver(&target, &text, tips).await });
-        }
+        self.queue_errand_delivery(&session, &sc, &want);
 
         Ok(session)
     }
