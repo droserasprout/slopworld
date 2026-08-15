@@ -6,7 +6,6 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
-using Preset = SlopWorld.MenuBackground.Preset;
 using static SlopWorld.MenuBackgroundTuning;
 
 namespace SlopWorld
@@ -46,7 +45,7 @@ namespace SlopWorld
         // it is what makes that switch rebake. The preset is in here for the same reason and
         // one more: both sets survive on disk, so turning the setting back is a load rather
         // than a second bake.
-        internal static string Key(Texture2D src, Preset preset)
+        internal static string Key(Texture2D src, MenuBackgroundPreset preset)
         {
             string name = string.IsNullOrEmpty(src.name) ? "bg" : src.name;
             return $"{name}-{src.width}x{src.height}-{preset.Name}{preset.Total}-{Tuning}-v{MenuBackgroundTuning.Version}";
@@ -124,7 +123,7 @@ namespace SlopWorld
             }
         }
 
-        internal static Texture2D[] Load(string key, Preset preset)
+        internal static Texture2D[] Load(string key, MenuBackgroundPreset preset)
         {
             string dir = Dir(key);
             if (!Directory.Exists(dir)) return null;
@@ -162,14 +161,14 @@ namespace SlopWorld
             public Spark[] Sparks;      // glow: where the stars are
         }
 
-        static Shared Prep(Preset preset, Color[] clean, int w, int h) =>
-            preset == MenuBackground.Sparkling
+        static Shared Prep(MenuBackgroundPreset preset, Color[] clean, int w, int h) =>
+            preset == MenuBackgroundPresets.Sparkling
                 ? new Shared { Haze = Haze(w, h), Sparks = Constellation(w, h) }
                 : new Shared { Fuel = Fuel(clean, w, h) };
 
         // How far into the preset a stage has arrived, and which draw of the moving part it
         // holds. The ramp's phase keeps moving, so the fire is alive while the picture arrives.
-        static void Where(Preset preset, int stage, out float k, out int phase)
+        static void Where(MenuBackgroundPreset preset, int stage, out float k, out int phase)
         {
             bool breathes = preset.Depths > 1;
 
@@ -188,17 +187,17 @@ namespace SlopWorld
                 : 1f;
         }
 
-        static void Stage(Preset preset, Color[] clean, Color[] dst, Shared shared,
+        static void Stage(MenuBackgroundPreset preset, Color[] clean, Color[] dst, Shared shared,
                           int w, int h, int stage)
         {
             Where(preset, stage, out float k, out int phase);
-            if (preset == MenuBackground.Sparkling)
+            if (preset == MenuBackgroundPresets.Sparkling)
                 Sparkle(clean, dst, shared.Haze, shared.Sparks, w, h, phase / (float)preset.Phases, k);
             else
                 Rot(clean, dst, shared.Fuel, w, h, k, phase);
         }
 
-        internal static Texture2D[] Bake(Texture2D src, string key, Preset preset)
+        internal static Texture2D[] Bake(Texture2D src, string key, MenuBackgroundPreset preset)
         {
             int w = src.width, h = src.height;
             float scale = Mathf.Min(1f, (float)MaxSide / Mathf.Max(w, h));

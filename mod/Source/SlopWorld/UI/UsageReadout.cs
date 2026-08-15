@@ -6,9 +6,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // TopBar quota readout. A MapComponent keeps it behind windows; the daemon supplies the
-    // figures while this class computes remaining amounts and the off-frame countdown.
-    public class UsageReadout : MapComponent
+    // TopBar quota readout. The daemon supplies the figures while this class computes remaining
+    // amounts and the off-frame countdown; TopBarMapComponent owns the map-layer draw call.
+    public static class UsageReadout
     {
         const float IconSize = 27f;
 
@@ -26,15 +26,6 @@ namespace SlopWorld
         static int _next;
 
         static ThingDef[] _pool;
-
-        public UsageReadout(Map map) : base(map) { }
-
-        public override void MapComponentOnGUI()
-        {
-            if (Cutscene.Playing) return; // a scene plays bare
-
-            TopBar.DrawOnMap();
-        }
 
         public static float ClockWidth(DateTime now) =>
             ClockIconSize + 2f + SlopWidgets.Wide(now.ToString("HH:mm")) + 2f;

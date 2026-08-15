@@ -5,6 +5,20 @@ using Verse;
 
 namespace SlopWorld
 {
+    // Draw the bar from the map layer so it stays behind windows and remains interactive over
+    // them. The readout itself is only the quota/clock renderer; keeping this component here
+    // leaves the dependency pointing from the bar to the readout.
+    public class TopBarMapComponent : MapComponent
+    {
+        public TopBarMapComponent(Map map) : base(map) { }
+
+        public override void MapComponentOnGUI()
+        {
+            if (Cutscene.Playing) return;
+            TopBar.DrawOnMap();
+        }
+    }
+
     public static class TopBar
     {
         // Fit the current row height while preserving the shipped 26px minimum.
@@ -21,7 +35,7 @@ namespace SlopWorld
         public static Rect Rect =>
             new Rect(SlopLayout.LeftInset, 0f, UI.screenWidth - SlopLayout.LeftInset, H);
 
-        // From UsageReadout, which is a MapComponent and so sits behind every window.
+        // From the map component above, which sits behind every window.
         public static void DrawOnMap()
         {
             if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null) return;
