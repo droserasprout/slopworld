@@ -41,11 +41,12 @@ spacing, buttons, fields, headings and errors. Color names resolve through
 
 ## Usage and top bar
 
-- `UsageReadout` draws daemon-reported quota, leading with remaining or spent values from
-  the global Usage setting. Icon choices are stable per key and overrideable through
-  `Settings.usageIcons`; enabled sources keep missing rows as placeholders. Freshness uses
-  the last successful poll. The clock is right-aligned beside colony doors by default, or
-  reserved at the bar centre / omitted by the Appearance setting.
+- `TopBarMapComponent` draws the bar from the map layer while `UsageReadout` supplies daemon-
+  reported quota, leading with remaining or spent values from the global Usage setting. Icon
+  choices are stable per key and overrideable through `Settings.usageIcons`; enabled sources
+  keep missing rows as placeholders. Freshness uses the last successful poll. The clock is
+  right-aligned beside colony doors by default, or reserved at the bar centre / omitted by the
+  Appearance setting.
 - `TopBar` draws from a map component and, over a terminal, from `TerminalWindow`; only
   one copy handles input. Appearance settings can hide Usage, place or hide Clock, or hide
   the Jukebox or Computer Core (`GM`) independently. Doors lay out right-to-left before

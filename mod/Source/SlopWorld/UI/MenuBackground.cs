@@ -11,28 +11,7 @@ namespace SlopWorld
     [StaticConstructorOnStartup]
     public static class MenuBackground
     {
-        // Preset parameters and the frame set shape; adding one also requires bake support.
-        internal sealed class Preset
-        {
-            public readonly string Name;
-            // A single depth has no moving layer.
-            public readonly int Depths;
-            public readonly int Phases;
-            // Closed motion must be played in phase order; independent noise does not.
-            public readonly bool Closed;
-
-            public Preset(string name, int depths, int phases, bool closed)
-            {
-                Name = name; Depths = depths; Phases = phases; Closed = closed;
-            }
-
-            public int Total => Onset + Depths * Phases;
-        }
-
-        static readonly Preset Rotting = new Preset("rot", 5, 8, false);
-        internal static readonly Preset Sparkling = new Preset("glow", 1, 24, true);
-
-        static Preset Chosen => Settings.GrandmaMode ? Sparkling : Rotting;
+        static MenuBackgroundPreset Chosen => MenuBackgroundPresets.Chosen;
 
         // The resident frame set and its source are runtime layout state; animation never needs
         // to know how the set was loaded or which cache directory produced it.
@@ -41,7 +20,7 @@ namespace SlopWorld
             public Texture2D[] Frames;
             public Texture2D Source;
             public string SourceKey;
-            public Preset Preset;
+            public MenuBackgroundPreset Preset;
         }
 
         // The ramp and phase walk are one small state machine. Keeping them together prevents
@@ -68,7 +47,11 @@ namespace SlopWorld
         static Texture2D[] _frames { get => _layout.Frames; set => _layout.Frames = value; }
         static Texture2D _src { get => _layout.Source; set => _layout.Source = value; }
         static string _srcKey { get => _layout.SourceKey; set => _layout.SourceKey = value; }
-        static Preset _preset { get => _layout.Preset; set => _layout.Preset = value; }
+        static MenuBackgroundPreset _preset
+        {
+            get => _layout.Preset;
+            set => _layout.Preset = value;
+        }
         static float _began { get => _animation.Began; set => _animation.Began = value; }
 
         public static bool HasFrames => _frames != null;
@@ -159,7 +142,7 @@ namespace SlopWorld
         {
             if (source == null) return false;
 
-            Preset preset = Chosen;
+            MenuBackgroundPreset preset = Chosen;
             string key = MenuBackgroundBake.Key(source, preset);
             if (_frames != null && _srcKey == key) return true;
 
