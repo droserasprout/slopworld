@@ -156,7 +156,9 @@ namespace SlopWorld
             var foot = new SlopWidgets.Bar(bar);
 
             if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
-            if (foot.Left("Edit as TOML", SlopWidgets.Btn.Ghost)) ConfigWindow.Open();
+            if (foot.Left("Edit", SlopWidgets.Btn.Ghost,
+                    _loaded && !string.IsNullOrEmpty(_path)))
+                FilesView.EditFile(null, _path, "edit-config.toml");
             if (foot.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
 
             // Between the two ends, which is where the room actually is - the offsets that

@@ -7,6 +7,7 @@ namespace SlopWorld
     public class IntegrationsPage
     {
         SlopConfig _cfg;
+        string _path = "";
         string _error;
         bool _loaded;
 
@@ -20,6 +21,7 @@ namespace SlopWorld
                 {
                     _cfg = SlopConfig.FromJson(j["values"]);
                     SessionHub.Instance.Config = _cfg;
+                    _path = j["path"].AsString();
                     _loaded = true;
                     _error = null;
                 },
@@ -90,7 +92,9 @@ namespace SlopWorld
         {
             var foot = new SlopWidgets.Bar(bar);
             if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
-            if (foot.Left("Edit as TOML", SlopWidgets.Btn.Ghost)) ConfigWindow.Open();
+            if (foot.Left("Edit", SlopWidgets.Btn.Ghost,
+                    _loaded && !string.IsNullOrEmpty(_path)))
+                FilesView.EditFile(null, _path, "edit-config.toml");
             if (foot.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
 
             if (_error != null && _loaded)
