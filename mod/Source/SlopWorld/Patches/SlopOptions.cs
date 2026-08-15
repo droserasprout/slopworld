@@ -193,14 +193,7 @@ namespace SlopWorld
             tab == null || tab.Page != null ? tab : FirstChild(tab);
 
         static void DrawCommandPresets(Rect r)
-        {
-            if (_commandPresetsPage == null)
-            {
-                _commandPresetsPage = new SandboxPage(SandboxPage.Section.Commands);
-                _commandPresetsPage.Load();
-            }
-            _commandPresetsPage.Draw(r);
-        }
+            => LazyPage(ref _commandPresetsPage, SandboxPage.Section.Commands).Draw(r);
 
         static void DrawTerminal(Rect r)
         {
@@ -237,36 +230,29 @@ namespace SlopWorld
         }
 
         static void DrawSandbox(Rect r)
+            => LazyPage(ref _sandboxPage, SandboxPage.Section.Presets).Draw(r);
+
+        static SandboxPage LazyPage(ref SandboxPage cache, SandboxPage.Section section)
         {
-            if (_sandboxPage == null)
+            if (cache == null)
             {
-                _sandboxPage = new SandboxPage(SandboxPage.Section.Presets);
-                _sandboxPage.Load();
+                cache = new SandboxPage(section);
+                cache.Load();
             }
-            _sandboxPage.Draw(r);
+            return cache;
         }
 
         public static void OpenNewSandboxPreset()
         {
             if (SandboxCategory == null) return;
-            if (_sandboxPage == null)
-            {
-                _sandboxPage = new SandboxPage(SandboxPage.Section.Presets);
-                _sandboxPage.Load();
-            }
-            _sandboxPage.NewPreset();
+            LazyPage(ref _sandboxPage, SandboxPage.Section.Presets).NewPreset();
             OpenCategory(SandboxCategory);
         }
 
         public static void OpenNewCommand()
         {
             if (CommandPresetsCategory == null) return;
-            if (_commandPresetsPage == null)
-            {
-                _commandPresetsPage = new SandboxPage(SandboxPage.Section.Commands);
-                _commandPresetsPage.Load();
-            }
-            _commandPresetsPage.NewCommand();
+            LazyPage(ref _commandPresetsPage, SandboxPage.Section.Commands).NewCommand();
             OpenCategory(CommandPresetsCategory);
         }
 

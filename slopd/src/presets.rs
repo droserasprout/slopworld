@@ -146,9 +146,7 @@ impl Table {
         if let Ok(dir) = std::env::var("SLOPD_PRESETS") {
             return PathBuf::from(dir);
         }
-        dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("slopworld/presets")
+        crate::paths::root(dirs::config_dir()).join("presets")
     }
 
     pub fn load() -> Self {

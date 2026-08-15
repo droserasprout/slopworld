@@ -110,9 +110,7 @@ pub fn state_root() -> PathBuf {
     if let Ok(dir) = std::env::var("SLOPD_STATE") {
         return PathBuf::from(dir);
     }
-    dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("slopworld/sessions")
+    crate::paths::root(dirs::data_dir()).join("sessions")
 }
 
 /// The copy of `host` this session gets. The original's shape is kept rather than its
