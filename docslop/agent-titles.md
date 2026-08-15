@@ -27,11 +27,12 @@ follow if titles should survive a daemon restart.
 
 Input is mirrored while being forwarded normally; the summary request never delays Codex.
 Printable keys, paste, backspace/delete, cursor movement, common line kills and multiline
-input need enough composer state to recover the submitted prompt. Unrecognised editing marks
-the capture uncertain and skips naming. Empty input, slash commands, approval answers and
-dialog selections are not prompts: accidentally sending auth or approval input to OpenRouter
-is worse than missing a title. A substantive prompt is still captured if the stale screen
-classification says waiting.
+input need enough composer state to recover the submitted prompt. Common readline aliases are
+handled too; an unsupported editing control clears the mirror and marks the capture uncertain,
+so cancelled or history input cannot bleed into the next prompt. Empty input, slash commands,
+approval answers and dialog selections are not prompts: accidentally sending auth or approval
+input to OpenRouter is worse than missing a title. A substantive prompt is still captured if
+the stale screen classification says waiting.
 
 A tmux process can hold more than one conversation. Each live session has a conversation
 epoch and the title adapter recognizes `/new`.
@@ -41,9 +42,11 @@ make the capture uncertain and skip that submission.
 
 Every summary request gets a generation number. A response applies only when both its
 conversation epoch and generation are still current. This prevents late responses from an
-older prompt or conversation replacing a newer title. A failed `once` request may re-arm the
-next real prompt. Recognizable approval or dialog answers submitted while the session is
-`waiting` are not sent; a substantive prompt is still named.
+older prompt or conversation replacing a newer title. Requests retry transient OpenRouter
+failures and emit structured title outcomes under `slopd::titles`; prompts entered while a
+`once` request is pending are deferred and used only as a fallback when that request fails.
+Recognizable approval or dialog answers submitted while the session is `waiting` are not sent;
+a substantive prompt is still named.
 
 ## Remaining adapters
 

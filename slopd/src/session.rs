@@ -222,6 +222,10 @@ struct TitleCapture {
     generation: u64,
     pending: bool,
     override_title: Option<String>,
+    // In `once` mode, keep the newest real prompt entered while the first request is in
+    // flight. It becomes a fallback only if that request fails; a successful first title still
+    // owns the conversation.
+    deferred_prompt: Option<String>,
 }
 
 #[derive(Clone, Copy)]
@@ -263,6 +267,7 @@ impl Default for TitleCapture {
             generation: 0,
             pending: false,
             override_title: None,
+            deferred_prompt: None,
         }
     }
 }
@@ -318,6 +323,9 @@ impl Composer {
     fn key(&mut self, key: &str) -> Option<Submission> {
         match key {
             "Enter" => return self.submit(),
+            // Codex's line editor accepts these readline-style aliases as well as the named
+            // cursor keys emitted by the terminal window.
+            "C-j" | "C-m" => return self.submit(),
             "BSpace" if self.cursor > 0 => {
                 self.cursor -= 1;
                 self.text.remove(self.cursor);
@@ -327,6 +335,20 @@ impl Composer {
             }
             "Left" if self.cursor > 0 => self.cursor -= 1,
             "Right" if self.cursor < self.text.len() => self.cursor += 1,
+            "C-b" if self.cursor > 0 => self.cursor -= 1,
+            "C-f" if self.cursor < self.text.len() => self.cursor += 1,
+            "C-d" if self.cursor < self.text.len() => {
+                self.text.remove(self.cursor);
+            }
+            "C-h" if self.cursor > 0 => {
+                self.cursor -= 1;
+                self.text.remove(self.cursor);
+            }
+            "C-Left" | "M-Left" => self.word_left(),
+            "C-Right" | "M-Right" => self.word_right(),
+            "C-DC" | "M-DC" => self.delete_word_right(),
+            "M-b" => self.word_left(),
+            "M-f" => self.word_right(),
             "Home" | "C-a" => self.cursor = 0,
             "End" | "C-e" => self.cursor = self.text.len(),
             "C-u" => {
@@ -347,10 +369,42 @@ impl Composer {
             // An interrupt cancels the input rather than making the next Enter submit stale text.
             "C-c" => *self = Self::ready(),
             // History, completion, word-wise movement and TUI controls mean our mirror no
-            // longer proves what Codex will receive. Keep forwarding, but skip this submission.
-            _ => self.certain = false,
+            // longer proves what Codex will receive. Clear the stale mirror as well: if Escape
+            // cancelled the editor, the next prompt must not inherit the cancelled text.
+            _ => self.invalidate(),
         }
         None
+    }
+
+    fn word_left(&mut self) {
+        while self.cursor > 0 && self.text[self.cursor - 1].is_whitespace() {
+            self.cursor -= 1;
+        }
+        while self.cursor > 0 && !self.text[self.cursor - 1].is_whitespace() {
+            self.cursor -= 1;
+        }
+    }
+
+    fn word_right(&mut self) {
+        while self.cursor < self.text.len() && self.text[self.cursor].is_whitespace() {
+            self.cursor += 1;
+        }
+        while self.cursor < self.text.len() && !self.text[self.cursor].is_whitespace() {
+            self.cursor += 1;
+        }
+    }
+
+    fn delete_word_right(&mut self) {
+        let start = self.cursor;
+        self.word_right();
+        self.text.drain(start..self.cursor);
+        self.cursor = start;
+    }
+
+    fn invalidate(&mut self) {
+        self.text.clear();
+        self.cursor = 0;
+        self.certain = false;
     }
 
     fn submit(&mut self) -> Option<Submission> {
@@ -387,6 +441,23 @@ struct TitleRequest {
     generation: u64,
     key_file: String,
     model: String,
+}
+
+fn begin_title_request(
+    live: &mut Live,
+    prompt: String,
+    key_file: String,
+    model: String,
+) -> TitleRequest {
+    live.title.generation = live.title.generation.wrapping_add(1);
+    live.title.pending = true;
+    TitleRequest {
+        prompt,
+        conversation: live.title.conversation,
+        generation: live.title.generation,
+        key_file,
+        model,
+    }
 }
 
 enum Input {
@@ -2360,6 +2431,96 @@ impl Manager {
         }
     }
 
+    fn spawn_title_request(self: &Arc<Self>, name: String, request: TitleRequest) {
+        let m = self.clone();
+        tokio::spawn(async move {
+            let prompt = request.prompt.clone();
+            let key_file = request.key_file.clone();
+            let model = request.model.clone();
+            tracing::debug!(
+                target: "slopd::titles",
+                session = %name,
+                generation = request.generation,
+                model = %model,
+                outcome = "request_started",
+                "generating session title"
+            );
+            let result = tokio::task::spawn_blocking(move || {
+                crate::title::summarize(&prompt, &key_file, &model)
+            })
+            .await;
+            let result = match result {
+                Ok(r) => r,
+                Err(e) => Err(anyhow!("title worker: {e}")),
+            };
+
+            let mut moved = false;
+            let mut retry = None;
+            {
+                let mut live = m.live.write().await;
+                let Some(l) = live.get_mut(&name) else { return };
+                if l.title.conversation != request.conversation
+                    || l.title.generation != request.generation
+                {
+                    tracing::debug!(
+                        target: "slopd::titles",
+                        session = %name,
+                        generation = request.generation,
+                        outcome = "stale_response",
+                        "discarding stale session title response"
+                    );
+                    return;
+                }
+                l.title.pending = false;
+                match result {
+                    Ok(title) => {
+                        l.title.deferred_prompt = None;
+                        l.title.override_title = Some(title);
+                        moved = true;
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            target: "slopd::titles",
+                            session = %name,
+                            generation = request.generation,
+                            error = %e,
+                            outcome = "request_failed",
+                            "session title request failed"
+                        );
+                        if let Some(prompt) = l.title.deferred_prompt.take() {
+                            retry = Some(begin_title_request(
+                                l,
+                                prompt,
+                                request.key_file.clone(),
+                                request.model.clone(),
+                            ));
+                        }
+                    }
+                }
+            }
+            if moved {
+                tracing::debug!(
+                    target: "slopd::titles",
+                    session = %name,
+                    outcome = "applied",
+                    "session title applied"
+                );
+                let _ = m.events.send(Event::Sessions {
+                    sessions: m.views().await,
+                });
+            }
+            if let Some(next) = retry {
+                tracing::debug!(
+                    target: "slopd::titles",
+                    session = %name,
+                    outcome = "retry_deferred",
+                    "retrying deferred session title prompt"
+                );
+                m.spawn_title_request(name, next);
+            }
+        });
+    }
+
     async fn capture_title_keys(self: &Arc<Self>, name: &str, keys: &[String], literal: bool) {
         let cfg = self.config().await;
 
@@ -2388,34 +2549,62 @@ impl Manager {
                     }
                 }
             }
+            let uncertain = !l.title.composer.certain;
 
             match submission {
                 Some(Submission::New(native)) => {
                     l.title.conversation = l.title.conversation.wrapping_add(1);
                     l.title.generation = l.title.generation.wrapping_add(1);
                     l.title.pending = false;
+                    l.title.deferred_prompt = None;
                     l.title.override_title = native;
                     announce = true;
                 }
                 Some(Submission::Prompt(prompt))
-                    if l.state == State::Waiting && is_dialog_answer(&prompt) => {}
-                Some(Submission::Prompt(prompt)) => {
-                    let armed = match policy {
-                        TitlePolicy::Never => false,
-                        TitlePolicy::Once => l.title.override_title.is_none() && !l.title.pending,
-                        TitlePolicy::Always => true,
-                    };
-                    if armed {
-                        l.title.generation = l.title.generation.wrapping_add(1);
-                        l.title.pending = true;
-                        request = Some(TitleRequest {
-                            prompt,
-                            conversation: l.title.conversation,
-                            generation: l.title.generation,
-                            key_file: cfg.daemon.openrouter_key_file.clone(),
-                            model,
-                        });
+                    if l.state == State::Waiting && is_dialog_answer(&prompt) =>
+                {
+                    tracing::debug!(
+                        target: "slopd::titles",
+                        session = %name,
+                        outcome = "skipped_dialog_answer",
+                        "skipping dialog answer as session title prompt"
+                    );
+                }
+                Some(Submission::Prompt(prompt)) => match policy {
+                    TitlePolicy::Never => {}
+                    TitlePolicy::Once if l.title.override_title.is_some() => {
+                        tracing::debug!(
+                            target: "slopd::titles",
+                            session = %name,
+                            outcome = "skipped_already_named",
+                            "session already has a once-mode title"
+                        );
                     }
+                    TitlePolicy::Once if l.title.pending => {
+                        l.title.deferred_prompt = Some(prompt);
+                        tracing::debug!(
+                            target: "slopd::titles",
+                            session = %name,
+                            outcome = "deferred_while_pending",
+                            "deferring session title prompt while request is pending"
+                        );
+                    }
+                    TitlePolicy::Once | TitlePolicy::Always => {
+                        request = Some(begin_title_request(
+                            l,
+                            prompt,
+                            cfg.daemon.openrouter_key_file.clone(),
+                            model,
+                        ));
+                    }
+                },
+                None if uncertain => {
+                    tracing::debug!(
+                        target: "slopd::titles",
+                        session = %name,
+                        outcome = "skipped_uncertain_input",
+                        "skipping session title after unsupported editing input"
+                    );
                 }
                 None => {}
             }
@@ -2428,45 +2617,7 @@ impl Manager {
             });
         }
         if let Some(request) = request {
-            let m = self.clone();
-            let name = name.to_string();
-            tokio::spawn(async move {
-                let prompt = request.prompt.clone();
-                let key_file = request.key_file.clone();
-                let model = request.model.clone();
-                let result = tokio::task::spawn_blocking(move || {
-                    crate::title::summarize(&prompt, &key_file, &model)
-                })
-                .await;
-                let result = match result {
-                    Ok(r) => r,
-                    Err(e) => Err(anyhow!("title worker: {e}")),
-                };
-
-                let mut moved = false;
-                {
-                    let mut live = m.live.write().await;
-                    let Some(l) = live.get_mut(&name) else { return };
-                    if l.title.conversation != request.conversation
-                        || l.title.generation != request.generation
-                    {
-                        return;
-                    }
-                    l.title.pending = false;
-                    match result {
-                        Ok(title) => {
-                            l.title.override_title = Some(title);
-                            moved = true;
-                        }
-                        Err(e) => tracing::debug!("title for {name}: {e:#}"),
-                    }
-                }
-                if moved {
-                    let _ = m.events.send(Event::Sessions {
-                        sessions: m.views().await,
-                    });
-                }
-            });
+            self.spawn_title_request(name.to_string(), request);
         }
     }
 
@@ -3248,6 +3399,27 @@ mod tests {
 
         c.literal("history entry");
         c.key("Up");
+        assert!(c.key("Enter").is_none());
+        c.literal("fresh prompt");
+        assert!(matches!(c.key("Enter"), Some(Submission::Prompt(_))));
+    }
+
+    #[test]
+    fn codex_composer_handles_common_controls_and_resynchronizes() {
+        let mut c = Composer::ready();
+        c.literal("fix parser");
+        c.key("Home");
+        c.key("C-f");
+        c.key("C-d");
+        c.literal("i");
+        let Some(Submission::Prompt(prompt)) = c.key("C-j") else {
+            panic!("expected Ctrl-J to submit")
+        };
+        assert_eq!(prompt, "fix parser");
+
+        c.literal("stale input");
+        c.key("Escape");
+        c.literal("replacement");
         assert!(c.key("Enter").is_none());
         c.literal("fresh prompt");
         assert!(matches!(c.key("Enter"), Some(Submission::Prompt(_))));
