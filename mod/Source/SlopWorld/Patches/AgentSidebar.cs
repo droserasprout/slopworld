@@ -1018,7 +1018,24 @@ namespace SlopWorld
                 SlopWidgets.RowLabel(name, row.Session ?? row.Pawn?.LabelShort ?? "?");
 
                 Text.Font = GameFont.Tiny;
-                var word = new Rect(row.Text.x, row.Text.y + NameH, row.Text.width, SubH);
+                // The summary gets the upper secondary line. Down or fresh agents have no
+                // useful summary yet, so it remains empty without falling back to the ground.
+                if (state != AgentState.Down)
+                {
+                    string title = Title(info);
+                    if (title.Length > 0)
+                    {
+                        GUI.color = SlopWidgets.Dim;
+                        var line2 = new Rect(row.Text.x, row.Text.y + NameH,
+                            row.Text.width, SubH);
+                        SlopWidgets.RowLabel(line2, title);
+                        if (SlopWidgets.Wide(title) > line2.width)
+                            TooltipHandler.TipRegion(line2, title);
+                    }
+                }
+
+                var word = new Rect(row.Text.x, row.Text.y + NameH + SubH,
+                    row.Text.width, SubH);
                 string ago = state == AgentState.Down ? "" : Ago(info);
                 if (ago.Length > 0)
                 {
@@ -1026,25 +1043,8 @@ namespace SlopWorld
                     SlopWidgets.RowLabel(word, ago, TextAnchor.MiddleRight);
                     word.width -= Mathf.Ceil(SlopWidgets.Wide(ago)) + AgoGap;
                 }
-                GUI.color = SlopWidgets.Dim;
+                GUI.color = SlopWidgets.Faint;
                 SlopWidgets.RowLabel(word, Word(state));
-
-                // A stopped or newly started agent has no useful summary yet. Keep the row's
-                // three-line pitch stable, but leave its third line empty until a native or
-                // generated title exists.
-                if (state != AgentState.Down)
-                {
-                    string title = Title(info);
-                    if (title.Length > 0)
-                    {
-                        GUI.color = SlopWidgets.Dim;
-                        var line3 = new Rect(row.Text.x, row.Text.y + NameH + SubH,
-                            row.Text.width, SubH);
-                        SlopWidgets.RowLabel(line3, title);
-                        if (SlopWidgets.Wide(title) > line3.width)
-                            TooltipHandler.TipRegion(line3, title);
-                    }
-                }
 
                 GUI.color = Color.white;
                 Click(row, info);
