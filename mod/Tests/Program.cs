@@ -18,6 +18,16 @@ namespace SlopWorld.Tests
                 tests.Add(("SlopConfig: " + test.Name, test.Body));
             foreach (var test in EndpointTests.Cases())
                 tests.Add(("Endpoint: " + test.Name, test.Body));
+            foreach (var test in NetworkModeTests.Cases())
+                tests.Add(("NetworkMode: " + test.Name, test.Body));
+            foreach (var test in DnsConfigTests.Cases())
+                tests.Add(("DnsConfig: " + test.Name, test.Body));
+            foreach (var test in SessionLimitsTests.Cases())
+                tests.Add(("SessionLimits: " + test.Name, test.Body));
+            foreach (var test in SessionInfoTests.Cases())
+                tests.Add(("SessionInfo: " + test.Name, test.Body));
+            foreach (var test in ScreenBufTests.Cases())
+                tests.Add(("ScreenBuf: " + test.Name, test.Body));
             int failed = 0;
 
             foreach (var test in tests)
