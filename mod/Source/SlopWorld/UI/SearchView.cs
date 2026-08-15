@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -428,11 +429,18 @@ namespace SlopWorld
         {
             if (!ColonistBarStrip.Interactive) return;
             var e = Event.current;
-            if (e.rawType != EventType.MouseDown || e.button != 0) return;
+            if (e.rawType != EventType.MouseDown || (e.button != 0 && e.button != 1)) return;
             foreach (var hit in Hits)
             {
                 var scr = Screen(hit.Rect);
                 if (!ColonistBarStrip.MouseOver(scr)) continue;
+
+                if (e.button == 1)
+                {
+                    Menu(hit.Match);
+                    e.Use();
+                    return;
+                }
 
                 var act = RowActions.Hit(scr, scr.xMax - Pad, RowAct.View | RowAct.Edit);
                 if (act != RowAct.None) Act(hit.Match, act);
@@ -444,6 +452,23 @@ namespace SlopWorld
                 e.Use();
                 return;
             }
+        }
+
+        static void Menu(Match match)
+        {
+            string path = match.Root.TrimEnd('/') + "/" + match.Path;
+            var opts = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Copy path", () => Copy(path)),
+                new FloatMenuOption("Copy relative path", () => Copy(match.Path)),
+            };
+
+            FilesView.AddFileActions(opts, match.Project, path, Leaf(match.Path), match.Path);
+
+            opts.Add(new FloatMenuOption("View", () => Open(match)));
+            opts.Add(new FloatMenuOption("Edit", () => FilesView.EditFile(
+                match.Project, path, "edit-" + Leaf(match.Path), match.Line)));
+            TerminalWindow.OpenOverPane(new SlopMenu(opts));
         }
 
         static Rect Screen(Rect r)
@@ -495,6 +520,12 @@ namespace SlopWorld
             int slash = path.LastIndexOf('/');
             return slash < 0 ? path : path.Substring(slash + 1);
         }
+
+        static void Copy(string text) =>
+            SlopClient.Post("/api/clipboard", "{" + $"\"text\":{JVal.Q(text)}" + "}",
+                _ => Messages.Message($"SlopWorld: copied {text}", MessageTypeDefOf.SilentInput,
+                    false),
+                SlopWidgets.Fail);
 
         public static void ReleaseViewer()
         {

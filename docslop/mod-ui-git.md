@@ -16,6 +16,8 @@ namespaces isolate sessions from the game; `/api/browse` exists for the same bou
 - Hover replaces row figures with the view/edit/diff strip
   ([mod-ui-rowactions](mod-ui-rowactions.md)); tooltips retain the state. The separate
   `Changes` table serves Files' path lookup.
+- Right-clicking a project heading or changed-path row opens its context menu, including the
+  project-relative File actions available to the Files tree.
 - Rows show the porcelain pair, numstat and right-aligned figures. Green is staged,
   amber unstaged, red unmerged and faint untracked. Heading status uses
   `git diff --shortstat` as branch plus three figures.

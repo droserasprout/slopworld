@@ -15,5 +15,6 @@ match when a generated line is longer. No query or path passes through a shell.
 
 Clicking a match opens a tracked `less` at that line in the project's sandbox. Hovering a
 result also offers the Files-style View and Edit buttons at its right edge; Edit opens
-`micro` at the matching line. Search owns that pager, as Files owns file viewers and Git
-owns diffs, so leaving the tab or closing the pane stops only the reader Search created.
+`micro` at the matching line. Right-clicking a match opens its context menu, including the
+project-relative path and File actions. Search owns that pager, as Files owns file viewers
+and Git owns diffs, so leaving the tab or closing the pane stops only the reader Search created.
