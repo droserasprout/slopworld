@@ -40,10 +40,13 @@ namespace SlopWorld.Tests
                            "the pipe pager strips file/line placeholders");
             AssertEx.Equal("less", PagerCommands.PipePager(""), "an empty pager falls back to less");
 
-            AssertEx.Equal("micro -- '/f'", PagerCommands.EditorCommand("micro", "/f"),
-                           "an editor with no line is templated like a file");
-            AssertEx.Equal("micro '/f' +5", PagerCommands.EditorCommand("micro", "/f", 5),
+            AssertEx.Equal("micro -clipboard terminal -- '/f'", PagerCommands.EditorCommand("micro", "/f"),
+                           "micro uses OSC 52 for the sidebar host clipboard");
+            AssertEx.Equal("micro -clipboard terminal '/f' +5", PagerCommands.EditorCommand("micro", "/f", 5),
                            "the +line selector follows the file for micro");
+            AssertEx.Equal("micro -clipboard internal -- '/f'",
+                           PagerCommands.EditorCommand("micro -clipboard internal", "/f"),
+                           "an explicit micro clipboard backend is respected");
             AssertEx.Equal("code -g '/f':5", PagerCommands.EditorCommand("code -g {file}:{line}", "/f", 5),
                            "an editor with placeholders keeps its own ordering");
         }
