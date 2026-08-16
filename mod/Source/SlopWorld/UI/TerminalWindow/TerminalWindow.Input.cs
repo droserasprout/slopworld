@@ -362,6 +362,52 @@ namespace SlopWorld
             else Open(target);
         }
 
+        // Advance after the pane's process exits. Unlike the keyboard walk, a dead target is
+        // not useful here: starting it would leave the window bound to the departed session
+        // until another daemon event arrives. A host shell may already be absent from the
+        // sidebar order, in which case the sorted fallback preserves the same next-session
+        // behavior.
+        static bool FocusNextSession(string departed)
+        {
+            var order = AgentSidebar.WalkOrder();
+            if (order.Count == 0 || !order.Contains(departed))
+            {
+                order = new List<string>();
+                foreach (var info in SessionHub.Instance.Sessions)
+                    if (info.Alive) order.Add(info.Name);
+                order.Sort(System.StringComparer.Ordinal);
+
+                // A host shell is removed before this window gets its next draw. Put the old
+                // name back into the sorted fallback long enough to preserve "next" rather
+                // than always jumping to the first session.
+                int insert = order.FindIndex(name =>
+                    string.CompareOrdinal(name, departed) > 0);
+                if (insert < 0) insert = order.Count;
+                order.Insert(insert, departed);
+            }
+
+            if (order.Count == 0) return false;
+
+            int index = order.IndexOf(departed);
+            for (int step = 1; step <= order.Count; step++)
+            {
+                int at = index < 0
+                    ? step - 1
+                    : (index + step) % order.Count;
+                string target = order[at];
+                var info = SessionHub.Instance.Get(target);
+                if (info == null || !info.Alive) continue;
+
+                SessionSelectable.Current = target;
+                Find.Selector?.ClearSelection();
+                AgentSidebar.FocusTerminal();
+                Open(target);
+                return true;
+            }
+
+            return false;
+        }
+
 
         internal void HandleWheel(Rect body, Event e)
         {
