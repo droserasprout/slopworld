@@ -191,10 +191,11 @@ namespace SlopWorld
             int page = _rows > 0 ? _rows : live != null ? live.Rows : 1;
             page = Mathf.Max(1, page);
             bool up = e.keyCode == KeyCode.PageUp;
+            bool fromLive = _scrollOff <= 0;
             ClearSelection();
             if (up) _scrollOff += page;
             else _scrollOff = Mathf.Max(0, _scrollOff - page);
-            QueueScroll(up);
+            QueueScroll(up, fromLive);
             e.Use();
             return true;
         }
@@ -463,9 +464,10 @@ namespace SlopWorld
             }
 
             // Walk our own scrollback view.
+            bool fromLive = _scrollOff <= 0;
             if (up) _scrollOff += step;
             else _scrollOff = Mathf.Max(0, _scrollOff - step);
-            QueueScroll(up);
+            QueueScroll(up, fromLive);
             e.Use();
         }
 
@@ -478,17 +480,23 @@ namespace SlopWorld
                 (info.Name ?? "").StartsWith("edit-", System.StringComparison.Ordinal);
         }
 
-        // Send the first wheel event immediately, then throttle repeats; direction changes
-        // bypass the delay so reversals respond in one round trip.
+        // Send the first event immediately, then throttle repeats; direction changes bypass
+        // the delay so reversals respond in one round trip. `fromLive` matters after a pane
+        // has been in app-owned scrolling or has switched sessions: neither path necessarily
+        // reset the old wheel direction, but the first event entering our history is still a
+        // new gesture.
         bool _lastWheelUp;
+        bool _hasWheelDirection;
 
-        void QueueScroll(bool up)
+        void QueueScroll(bool up, bool fromLive = false)
         {
             float now = Time.realtimeSinceStartup;
             _wantedScrollOff = _scrollOff;
             _scrollPending = true;
-            bool fresh = up != _lastWheelUp || now >= _nextScrollSend;
+            bool fresh = fromLive || !_hasWheelDirection || up != _lastWheelUp ||
+                now >= _nextScrollSend;
             _lastWheelUp = up;
+            _hasWheelDirection = true;
             if (fresh)
                 SendPendingScroll();
         }
@@ -661,7 +669,14 @@ namespace SlopWorld
             return true;
         }
 
-        void JumpToLive() { _scrollOff = 0; _wantedScrollOff = 0; _scrollPending = false; _nextScrollSend = 0f; }
+        void JumpToLive()
+        {
+            _scrollOff = 0;
+            _wantedScrollOff = 0;
+            _scrollPending = false;
+            _nextScrollSend = 0f;
+            _hasWheelDirection = false;
+        }
 
         void Flush()
         {
