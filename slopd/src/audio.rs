@@ -2,8 +2,8 @@
 
 use std::io::{self, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -16,8 +16,11 @@ use serde::Serialize;
 /// Samples per feeder hop; small enough for prompt stops without making the channel the work.
 const CHUNK: usize = 4096;
 
-/// Ring capacity in hops: about six seconds at 44.1kHz stereo, pacing downloads to playback.
-const RING: usize = 64;
+/// Ring capacity in hops: about twelve seconds at 44.1kHz stereo, pacing downloads to playback.
+const RING: usize = 256;
+
+/// Do not consume a live source until the feeder has a second of decoded audio ahead of us.
+const PREFILL_SECS: usize = 1;
 
 /// Samples per mixer span before frame alignment; see `Ring::current_span_len`.
 const SPAN: usize = 8192;
@@ -28,7 +31,13 @@ const CONNECT: Duration = Duration::from_secs(15);
 
 /// Delay before reopening a dry file or reconnecting a dropped station.
 const REOPEN_PAUSE: Duration = Duration::from_secs(2);
-const REOPEN_TRIES: u32 = 20;
+
+/// A live server is already pacing data in real time; avoid spending the whole prebuffer on an
+/// artificial retry delay. The prebuffer still absorbs the connect and decoder startup time.
+const STREAM_REOPEN_PAUSE: Duration = Duration::from_millis(100);
+
+/// How often a feeder checks whether a full ring has been retired by a station switch.
+const QUEUE_POLL: Duration = Duration::from_millis(5);
 
 /// State sent to the mod; errors persist for reporting, and directory playback reports the
 /// current local file stem as its title.
@@ -322,6 +331,7 @@ fn start(source: &str, player: &rodio::Player, state: &Arc<Mutex<AudioState>>) -
     };
 
     let (tx, rx) = sync_channel::<Vec<Sample>>(RING);
+    let ready = Arc::new(AtomicBool::new(false));
     player.append(Ring {
         rx,
         held: Vec::new(),
@@ -329,21 +339,25 @@ fn start(source: &str, player: &rodio::Player, state: &Arc<Mutex<AudioState>>) -
         channels: format.channels,
         rate: format.rate,
         generation,
+        ready: ready.clone(),
     });
 
     let source = source.to_string();
     std::thread::Builder::new()
         .name("slopd audio feed".into())
-        .spawn(move || feed(first, source, playlist, format, tx, generation, title))
+        .spawn(move || {
+            feed(
+                first, source, playlist, format, tx, generation, title, ready,
+            )
+        })
         .context("starting the feeder")?;
 
     Ok(())
 }
 
 /// Decodes into the ring until the source runs dry. A file loops, a directory advances through
-/// its shuffled bag, and a station that dropped reconnects. Stops for good when the run it
-/// belongs to has been superseded, when the ring's other end has gone, or when the source will
-/// not come back.
+/// its shuffled bag, and a station that dropped reconnects. A selected source keeps retrying
+/// until the run is superseded or the ring's other end has gone.
 fn feed(
     first: Box<dyn Source + Send>,
     source: String,
@@ -352,9 +366,13 @@ fn feed(
     tx: SyncSender<Vec<Sample>>,
     generation: u64,
     title: TitleSink,
+    ready: Arc<AtomicBool>,
 ) {
+    let _ready_on_exit = ReadyOnDrop(ready.clone());
+    let prefill_samples =
+        format.rate.get() as usize * format.channels.get() as usize * PREFILL_SECS;
+    let mut sent_samples = 0usize;
     let mut current = Some(first);
-    let mut tries = 0;
 
     loop {
         let decoded = match current.take() {
@@ -373,22 +391,23 @@ fn feed(
                 }
             }
             None => {
-                if tries >= REOPEN_TRIES {
-                    tracing::warn!("audio: {source} would not come back");
-                    return;
-                }
-                tries += 1;
-                std::thread::sleep(REOPEN_PAUSE);
+                let pause = if source.starts_with("http://") || source.starts_with("https://") {
+                    STREAM_REOPEN_PAUSE
+                } else {
+                    REOPEN_PAUSE
+                };
+                std::thread::sleep(pause);
                 if generation != GENERATION.load(Ordering::SeqCst) {
                     return;
                 }
                 match open_source(&source, &title) {
                     Ok(d) if d.channels() == format.channels && d.sample_rate() == format.rate => d,
-                    // A file that came back as something else would play at the wrong
-                    // speed, which is worse than stopping and saying so.
                     Ok(_) => {
-                        tracing::warn!("audio: {source} came back in another format");
-                        return;
+                        // Keep the ring alive while a station changes encoders or a local file
+                        // is replaced. Playing it through the old shape would be wrong, but
+                        // dropping the selected source is worse; the next retry may match.
+                        tracing::warn!("audio: {source} came back in another format; retrying");
+                        continue;
                     }
                     Err(e) => {
                         tracing::debug!("audio: reopening {source}: {e:#}");
@@ -397,9 +416,6 @@ fn feed(
                 }
             }
         };
-
-        // A source that played is a source worth waiting for again.
-        tries = 0;
 
         let mut chunk = Vec::with_capacity(CHUNK);
         for sample in decoded {
@@ -412,13 +428,74 @@ fn feed(
             }
             // Blocks on a full ring, which is the whole of the rate limiting: the
             // download runs exactly as fast as the speakers empty it.
-            if tx
-                .send(std::mem::replace(&mut chunk, Vec::with_capacity(CHUNK)))
-                .is_err()
-            {
+            let full = std::mem::replace(&mut chunk, Vec::with_capacity(CHUNK));
+            if !enqueue_chunk(
+                &tx,
+                full,
+                &ready,
+                &mut sent_samples,
+                prefill_samples,
+                generation,
+            ) {
                 return;
             }
         }
+
+        // A dropped connection or a short local file can end between chunk boundaries. Keep
+        // the tail instead of throwing it away before the reconnect or playlist handoff.
+        if !chunk.is_empty()
+            && !enqueue_chunk(
+                &tx,
+                chunk,
+                &ready,
+                &mut sent_samples,
+                prefill_samples,
+                generation,
+            )
+        {
+            return;
+        }
+    }
+}
+
+fn enqueue_chunk(
+    tx: &SyncSender<Vec<Sample>>,
+    chunk: Vec<Sample>,
+    ready: &AtomicBool,
+    sent_samples: &mut usize,
+    prefill_samples: usize,
+    generation: u64,
+) -> bool {
+    let len = chunk.len();
+    let mut chunk = chunk;
+    loop {
+        match tx.try_send(chunk) {
+            Ok(()) => break,
+            Err(TrySendError::Disconnected(_)) => return false,
+            Err(TrySendError::Full(returned)) => {
+                if generation != GENERATION.load(Ordering::SeqCst) {
+                    return false;
+                }
+                chunk = returned;
+                std::thread::sleep(QUEUE_POLL);
+            }
+        }
+    }
+
+    if !ready.load(Ordering::Relaxed) {
+        *sent_samples = sent_samples.saturating_add(len);
+        if *sent_samples >= prefill_samples {
+            ready.store(true, Ordering::Release);
+        }
+    }
+    true
+}
+
+struct ReadyOnDrop(Arc<AtomicBool>);
+
+impl Drop for ReadyOnDrop {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::Release);
     }
 }
 
@@ -558,7 +635,6 @@ fn open_stream(url: &str, title: &TitleSink) -> Result<Box<dyn Source + Send>> {
 
     let response = agent
         .get(url)
-        .header("User-Agent", "SlopWorld")
         .header("Icy-MetaData", "1")
         .call()
         .with_context(|| format!("connecting to {url}"))?;
@@ -713,6 +789,8 @@ struct Ring {
     /// The run this belongs to. Ending on a bump is how a station switch happens: the
     /// player finishes this source and moves to the one appended behind it.
     generation: u64,
+    /// Playback waits here while the feeder builds a small amount of live headroom.
+    ready: Arc<AtomicBool>,
 }
 
 impl Iterator for Ring {
@@ -723,6 +801,9 @@ impl Iterator for Ring {
         // clear pauses the player and blocks on a source that never ends.
         if self.generation != GENERATION.load(Ordering::SeqCst) {
             return None;
+        }
+        if !self.ready.load(Ordering::Acquire) {
+            return Some(0.0);
         }
         if self.at >= self.held.len() {
             match self.rx.try_recv() {
@@ -782,6 +863,7 @@ mod tests {
                 // Whatever run the suite is on: only the ignored tests move it, and
                 // those do not run beside these.
                 generation: GENERATION.load(Ordering::SeqCst),
+                ready: Arc::new(AtomicBool::new(true)),
             },
         )
     }
@@ -822,6 +904,7 @@ mod tests {
                 channels: ChannelCount::new(channels).unwrap(),
                 rate: SampleRate::new(rate).unwrap(),
                 generation: GENERATION.load(Ordering::SeqCst),
+                ready: Arc::new(AtomicBool::new(true)),
             });
 
             // The ramp starts at FLOOR rather than at zero, so its first sample can be told
@@ -893,6 +976,45 @@ mod tests {
         let (_tx, mut r) = ring();
         assert_eq!(r.next(), Some(0.0));
         assert_eq!(r.next(), Some(0.0));
+    }
+
+    #[test]
+    fn ring_does_not_consume_until_prefill_is_ready() {
+        let (tx, mut r) = ring();
+        r.ready.store(false, Ordering::Release);
+        tx.send(vec![0.75]).unwrap();
+
+        assert_eq!(r.next(), Some(0.0));
+        r.ready.store(true, Ordering::Release);
+        assert_eq!(r.next(), Some(0.75));
+    }
+
+    #[test]
+    fn queued_prefill_releases_playback_at_the_threshold() {
+        let (tx, rx) = sync_channel(2);
+        let ready = AtomicBool::new(false);
+        let mut sent = 0;
+        let generation = GENERATION.load(Ordering::SeqCst);
+
+        assert!(enqueue_chunk(
+            &tx,
+            vec![0.1; 4],
+            &ready,
+            &mut sent,
+            5,
+            generation,
+        ));
+        assert!(!ready.load(Ordering::Acquire));
+        assert!(enqueue_chunk(
+            &tx,
+            vec![0.2; 1],
+            &ready,
+            &mut sent,
+            5,
+            generation,
+        ));
+        assert!(ready.load(Ordering::Acquire));
+        assert_eq!(rx.try_iter().flatten().count(), 5);
     }
 
     /// A feeder that has gone is the one thing that does end it.
