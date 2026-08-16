@@ -33,9 +33,10 @@ Untracked files need their individual row diff because one `git diff` cannot inc
 
 `DiffCmd` builds argv rather than a shell:
 
-- `--paginate` uses git's `core.pager`.
-- Git's pager runs `LESS=R less`; keep `X` off the alternate screen and `F` off so short
-  diffs stay open. The terminal wheel path depends on `AltScreen`.
+- `--paginate` uses delta as git's pager, with delta's own paging forced on so a short diff keeps
+  its ephemeral terminal open.
+- Git's pager runs `LESS=R delta --paging=always`; keep less's `X` off the alternate screen and
+  `F` off so short diffs stay open. The terminal wheel path depends on `AltScreen`.
 - `--color=always` keeps color through the pager.
 - `-C <root>` handles projects rooted below the repository.
 - Untracked files use `--no-index` against `/dev/null`, displaying the whole file as added.

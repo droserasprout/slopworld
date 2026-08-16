@@ -55,8 +55,6 @@ pub struct Frame {
 /// Everything the VT engine hands *back* rather than draws.
 #[derive(Default)]
 struct Side {
-    /// Answers owed to the pane, written back down the pty.
-    replies: Vec<u8>,
     /// The last OSC 52 store. One slot rather than a queue: a clipboard holds one thing.
     clip: Option<String>,
     title: Option<String>,
@@ -64,10 +62,11 @@ struct Side {
     bell: bool,
 }
 
-/// Handles terminal replies and side effects: cursor/device queries, title, clipboard store,
-/// and BEL. OSC 52 remains copy-only so apps cannot read the operator's clipboard.
+/// Handles side effects from the mirrored screen: title, clipboard store, and BEL. tmux is the
+/// pane's terminal and answers terminal queries itself, so `PtyWrite` must not be sent back.
+/// OSC 52 remains copy-only so apps cannot read the operator's clipboard.
 #[derive(Clone)]
-struct ReplySink {
+struct SideSink {
     side: Arc<Mutex<Side>>,
 }
 
@@ -81,11 +80,11 @@ enum TmuxTitleState {
     BodyEscape(Vec<u8>),
 }
 
-impl EventListener for ReplySink {
+impl EventListener for SideSink {
     fn send_event(&self, event: Event) {
         let Ok(mut s) = self.side.lock() else { return };
         match event {
-            Event::PtyWrite(text) => s.replies.extend_from_slice(text.as_bytes()),
+            Event::PtyWrite(_) => {}
             Event::ClipboardStore(ClipboardType::Clipboard, text) => s.clip = Some(text),
             Event::Title(t) => s.title = Some(t),
             Event::ResetTitle => s.title = None,
@@ -96,7 +95,7 @@ impl EventListener for ReplySink {
 }
 
 pub struct SessionEmu {
-    term: Term<ReplySink>,
+    term: Term<SideSink>,
     parser: Processor,
     tmux_title: TmuxTitleState,
     cols: u16,
@@ -122,7 +121,7 @@ impl SessionEmu {
             ..Config::default()
         };
         let side = Arc::new(Mutex::new(Side::default()));
-        let term = Term::new(config, &dims, ReplySink { side: side.clone() });
+        let term = Term::new(config, &dims, SideSink { side: side.clone() });
         Self {
             term,
             parser: Processor::new(),
@@ -211,14 +210,6 @@ impl SessionEmu {
             .collect();
         if let Ok(mut side) = self.side.lock() {
             side.title = if title.is_empty() { None } else { Some(title) };
-        }
-    }
-
-    /// The caller writes these back into the pane, so the app gets its answer.
-    pub fn take_replies(&mut self) -> Vec<u8> {
-        match self.side.lock() {
-            Ok(mut s) => std::mem::take(&mut s.replies),
-            Err(_) => Vec::new(),
         }
     }
 
@@ -938,19 +929,12 @@ mod tests {
     }
 
     #[test]
-    fn answers_cursor_position_report() {
-        let mut e = SessionEmu::new(20, 5);
-        // Move to row 3, col 5 (CUP), then ask for the position (DSR 6).
-        e.feed(b"\x1b[3;5H\x1b[6n");
-        assert_eq!(e.take_replies(), b"\x1b[3;5R");
-        // Draining is one-shot.
-        assert!(e.take_replies().is_empty());
-    }
-
-    #[test]
-    fn answers_primary_device_attributes() {
-        let mut e = SessionEmu::new(20, 5);
-        e.feed(b"\x1b[c");
-        assert_eq!(e.take_replies(), b"\x1b[?6c");
+    fn terminal_queries_are_only_mirrored() {
+        let mut e = SessionEmu::new(20, 2);
+        // tmux, not this mirror, owns the pane and answers both queries.
+        e.feed(b"\x1b[c\x1b[6n");
+        let f = e.render();
+        assert_eq!(f.lines, ["\x1b[0m", "\x1b[0m"]);
+        assert_eq!((f.cx, f.cy), (0, 0));
     }
 }
