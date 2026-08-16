@@ -1,49 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
 
+  <KeyBindingCategoryDef>
+    <defName>SlopAgent</defName>
+    <label>Agent</label>
+    <description>Actions for the selected agent.</description>
+  </KeyBindingCategoryDef>
+
+  <KeyBindingCategoryDef>
+    <defName>SlopNavigation</defName>
+    <label>Navigation</label>
+    <description>Move between agents and sidebar views.</description>
+  </KeyBindingCategoryDef>
+
+  <KeyBindingCategoryDef>
+    <defName>SlopInterface</defName>
+    <label>Interface</label>
+    <description>Controls for the SlopWorld interface.</description>
+  </KeyBindingCategoryDef>
+
   <!-- T also toggles vanilla's beauty overlay, which a colony of agents has no
        use for. -->
   <KeyBindingDef>
     <defName>SlopOpenTerminal</defName>
-    <label>open agent terminal</label>
-    <category>SelectionMisc</category>
+    <label>Open agent terminal</label>
+    <category>SlopAgent</category>
     <defaultKeyCodeA>T</defaultKeyCodeA>
   </KeyBindingDef>
 
   <!-- F1: command palette, VSCode-style. -->
   <KeyBindingDef>
     <defName>SlopCommandPalette</defName>
-    <label>command palette</label>
-    <category>SelectionMisc</category>
+    <label>Command palette</label>
+    <category>SlopInterface</category>
     <defaultKeyCodeA>F1</defaultKeyCodeA>
   </KeyBindingDef>
 
   <!-- S is free after StripKeys leaves only arrow keys on the camera. -->
   <KeyBindingDef>
     <defName>SlopToggleSession</defName>
-    <label>start/stop agent</label>
-    <category>SelectionMisc</category>
+    <label>Start/stop agent</label>
+    <category>SlopAgent</category>
     <defaultKeyCodeA>S</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
     <defName>SlopEditSession</defName>
-    <label>edit selected agent</label>
-    <category>SelectionMisc</category>
+    <label>Edit selected agent</label>
+    <category>SlopAgent</category>
     <defaultKeyCodeA>E</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
     <defName>SlopDuplicateSession</defName>
-    <label>duplicate selected agent</label>
-    <category>SelectionMisc</category>
+    <label>Duplicate selected agent</label>
+    <category>SlopAgent</category>
     <defaultKeyCodeA>D</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
     <defName>SlopRemoveSession</defName>
-    <label>remove selected agent</label>
-    <category>SelectionMisc</category>
+    <label>Remove selected agent</label>
+    <category>SlopAgent</category>
     <defaultKeyCodeA>Delete</defaultKeyCodeA>
   </KeyBindingDef>
 
@@ -51,16 +69,16 @@
        nothing on it; see TerminalHotkeys.cs. -->
   <KeyBindingDef>
     <defName>SlopQuickTerminal</defName>
-    <label>open/close agent terminal</label>
-    <category>SelectionMisc</category>
+    <label>Open/close agent terminal</label>
+    <category>SlopInterface</category>
     <defaultKeyCodeA>F12</defaultKeyCodeA>
   </KeyBindingDef>
 
   <!-- F11 toggles the window-manager fullscreen state. -->
   <KeyBindingDef>
     <defName>SlopToggleFullscreen</defName>
-    <label>toggle fullscreen</label>
-    <category>SelectionMisc</category>
+    <label>Toggle fullscreen</label>
+    <category>SlopInterface</category>
     <defaultKeyCodeA>F11</defaultKeyCodeA>
   </KeyBindingDef>
 
@@ -68,36 +86,36 @@
        Shift+F = that F-key passes through to the agent/tui. -->
   <KeyBindingDef>
     <defName>SlopSidebarAgents</defName>
-    <label>sidebar: agents view</label>
-    <category>SelectionMisc</category>
+    <label>Sidebar: agents view</label>
+    <category>SlopNavigation</category>
     <defaultKeyCodeA>F2</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
     <defName>SlopSidebarFiles</defName>
-    <label>sidebar: files view</label>
-    <category>SelectionMisc</category>
+    <label>Sidebar: files view</label>
+    <category>SlopNavigation</category>
     <defaultKeyCodeA>F3</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
     <defName>SlopSidebarGit</defName>
-    <label>sidebar: git view</label>
-    <category>SelectionMisc</category>
+    <label>Sidebar: Git view</label>
+    <category>SlopNavigation</category>
     <defaultKeyCodeA>F4</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
     <defName>SlopSidebarShortcuts</defName>
-    <label>sidebar: shortcuts view</label>
-    <category>SelectionMisc</category>
+    <label>Sidebar: shortcuts view</label>
+    <category>SlopNavigation</category>
     <defaultKeyCodeA>F5</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
     <defName>SlopSidebarSearch</defName>
-    <label>sidebar: search view</label>
-    <category>SelectionMisc</category>
+    <label>Sidebar: search view</label>
+    <category>SlopNavigation</category>
     <defaultKeyCodeA>F6</defaultKeyCodeA>
   </KeyBindingDef>
 
@@ -107,15 +125,15 @@
        NextColonist. -->
   <KeyBindingDef>
     <defName>SlopPrevSession</defName>
-    <label>previous session</label>
-    <category>SelectionMisc</category>
+    <label>Previous session</label>
+    <category>SlopNavigation</category>
     <defaultKeyCodeA>Comma</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
     <defName>SlopNextSession</defName>
-    <label>next session</label>
-    <category>SelectionMisc</category>
+    <label>Next session</label>
+    <category>SlopNavigation</category>
     <defaultKeyCodeA>Period</defaultKeyCodeA>
   </KeyBindingDef>
 
