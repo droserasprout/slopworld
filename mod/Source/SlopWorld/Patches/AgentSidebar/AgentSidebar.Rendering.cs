@@ -349,7 +349,9 @@ namespace SlopWorld
 
         static float GhostRow(SessionInfo s, float width, float y)
         {
-            float tx = CellX + ArrowW + 4f;
+            // Agent ghost rows draw their own leading mark, if any. The routed view owns the
+            // separate action-slot layout; reserving it here needlessly shortens host paths.
+            float tx = CellX;
             Layout.Rows.Add(new Row
             {
                 Session = s.Name,

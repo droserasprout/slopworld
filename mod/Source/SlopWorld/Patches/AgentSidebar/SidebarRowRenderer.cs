@@ -13,6 +13,7 @@ namespace SlopWorld
             RowAct act = RowActions.Of(info);
             string title = GhostTitle(info, fallback, act);
             string context = GhostContext(info, title, act);
+            GameFont oldFont = Text.Font;
 
             if (hostIcon && info?.Ephemeral == true)
             {
@@ -28,12 +29,23 @@ namespace SlopWorld
                 r.width -= d + 4f;
             }
 
+            // Host paths are useful even when the sidebar is narrow. Keep the normal row
+            // font when it fits, but reclaim the compact font's width before truncating it.
+            if (hostIcon && info?.Ephemeral == true && context.Length > 0)
+            {
+                float contextWidth = SlopWidgets.Wide(context);
+                float titleW = SlopWidgets.Wide(title);
+                float available = r.width - contextWidth - SlopWidgets.GapS;
+                if (titleW > available) Text.Font = GameFont.Tiny;
+            }
+
             Text.Anchor = TextAnchor.MiddleLeft;
             if (context.Length == 0)
             {
                 GUI.color = SlopWidgets.Lead;
                 SlopWidgets.RowLabel(r, title);
                 Text.Anchor = TextAnchor.UpperLeft;
+                Text.Font = oldFont;
                 return;
             }
 
@@ -43,10 +55,28 @@ namespace SlopWorld
                 r.height);
 
             GUI.color = SlopWidgets.Lead;
-            SlopWidgets.RowLabel(strong, title);
+            string shownTitle = hostIcon && info?.Ephemeral == true
+                ? KeepStart(title, strong.width)
+                : title;
+            SlopWidgets.RowLabel(strong, shownTitle);
             GUI.color = SlopWidgets.Dim;
             SlopWidgets.RowLabel(quiet, context);
             Text.Anchor = TextAnchor.UpperLeft;
+            Text.Font = oldFont;
+        }
+
+        static string KeepStart(string text, float width)
+        {
+            text = text ?? "";
+            if (SlopWidgets.Wide(text) <= width) return text;
+
+            const string ellipsis = "..";
+            if (SlopWidgets.Wide(ellipsis) > width) return "";
+
+            int length = text.Length;
+            while (length > 0 && SlopWidgets.Wide(text.Substring(0, length) + ellipsis) > width)
+                length--;
+            return text.Substring(0, length) + ellipsis;
         }
 
         public static void DrawAgentText(Rect text, string session, SessionInfo info,
@@ -138,9 +168,26 @@ namespace SlopWorld
             if (act != RowAct.None) return project;
 
             string name = info?.Name ?? "";
+            if (info?.Ephemeral == true)
+            {
+                string process = ProcessName(info);
+                return process.Length > 0 && title != process ? process : "";
+            }
             if (title != name && name.Length > 0)
+            {
                 return project.Length > 0 ? name + "  ·  " + project : name;
+            }
             return project;
+        }
+
+        static string ProcessName(SessionInfo info)
+        {
+            string name = info?.Name ?? "";
+            string project = info?.Project ?? "";
+            string prefix = project.Length == 0 ? "" : project + "-";
+            return prefix.Length > 0 && name.StartsWith(prefix, System.StringComparison.Ordinal)
+                ? name.Substring(prefix.Length)
+                : name;
         }
 
         static string ActionWord(RowAct act)

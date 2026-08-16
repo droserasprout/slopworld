@@ -14,6 +14,8 @@ namespace SlopWorld
 
         readonly Dictionary<string, ScreenBuf> _screens = new Dictionary<string, ScreenBuf>();
         readonly Dictionary<string, ScreenBuf> _scrolls = new Dictionary<string, ScreenBuf>();
+        long _sessionsVersion;
+        int _refreshSerial;
 
         public SessionInfo Get(string name) => Sessions.FirstOrDefault(s => s.Name == name);
 
@@ -26,6 +28,12 @@ namespace SlopWorld
         // The socket's "sessions" event: replace the list, then drop the screens of sessions
         // that no longer exist.
         public void ApplySessions(JVal ev)
+        {
+            _sessionsVersion++;
+            ReplaceSessions(ev);
+        }
+
+        void ReplaceSessions(JVal ev)
         {
             Sessions = ev["sessions"].Items.Select(SessionInfo.FromJson).ToList();
             ForgetScreens();
@@ -64,9 +72,20 @@ namespace SlopWorld
             foreach (var name in gone) store.Remove(name);
         }
 
-        public void Refresh() =>
-            SlopClient.Get("/api/sessions",
-                j => Sessions = j["sessions"].Items.Select(SessionInfo.FromJson).ToList());
+        public void Refresh(Action done = null, Action<string> fail = null)
+        {
+            long version = _sessionsVersion;
+            int serial = ++_refreshSerial;
+            SlopClient.Get("/api/sessions", j =>
+            {
+                // A websocket event is newer than an HTTP snapshot requested before it, and a
+                // later refresh supersedes an earlier one. Applying either stale answer can
+                // briefly hide a newly created session or resurrect one that just stopped.
+                if (version == _sessionsVersion && serial == _refreshSerial)
+                    ReplaceSessions(j);
+                done?.Invoke();
+            }, fail);
+        }
 
         // Run an ephemeral shell/prompt without creating a shortcut; refresh Sessions before
         // the callback so a newly opened pane is visible next frame.
@@ -111,11 +130,7 @@ namespace SlopWorld
         void Started(JVal j, Action<string> started, Action<string> fail)
         {
             string session = j["session"].AsString();
-            SlopClient.Get("/api/sessions", list =>
-            {
-                Sessions = list["sessions"].Items.Select(SessionInfo.FromJson).ToList();
-                started?.Invoke(session);
-            }, fail);
+            Refresh(() => started?.Invoke(session), fail);
         }
 
         public void Start(string name, Action<string> fail = null) =>

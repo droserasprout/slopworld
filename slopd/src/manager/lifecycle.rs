@@ -1590,10 +1590,18 @@ impl Manager {
             .values()
             .map(|l| {
                 let p = cfg.project_of(&l.cfg).or_else(|| temp.get(&l.cfg.project));
+                // An unassigned host shell uses a disposable project only to own its
+                // working directory. Keep that implementation detail out of sidebar
+                // grouping so it remains in the top host-terminal rows.
+                let display_project = if l.host && temp.contains_key(&l.cfg.project) {
+                    String::new()
+                } else {
+                    l.cfg.project.clone()
+                };
                 SessionView {
                     name: l.cfg.name.clone(),
                     label: l.cfg.label.clone().unwrap_or_default(),
-                    project: l.cfg.project.clone(),
+                    project: display_project,
                     dir: p.map(|p| p.dir.clone()).unwrap_or_default(),
                     command: l.cfg.command.clone(),
                     command_preset: cfg.command_name(&l.cfg),
