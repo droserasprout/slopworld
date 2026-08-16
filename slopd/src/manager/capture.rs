@@ -18,6 +18,77 @@ enum ControlLine {
     Ignore,
 }
 
+#[derive(Default, PartialEq, Eq)]
+struct FrameMeta {
+    cursor_shape: u8,
+    cursor_blink: bool,
+    app_mouse: bool,
+    app_drag: bool,
+    alt_screen: bool,
+    title: String,
+}
+
+struct FrameSnapshot {
+    hash: u64,
+    state: State,
+    last_change: u64,
+    seq: u64,
+    cursor: (u16, u16),
+    meta: FrameMeta,
+    cols: u16,
+    rows: u16,
+    initial: bool,
+}
+
+impl FrameSnapshot {
+    fn from_live(l: &Live) -> Self {
+        let (cursor, meta) = l
+            .screen
+            .as_ref()
+            .map(|s| {
+                (
+                    (s.cx, s.cy),
+                    FrameMeta {
+                        cursor_shape: s.cursor_shape,
+                        cursor_blink: s.cursor_blink,
+                        app_mouse: s.app_mouse,
+                        app_drag: s.app_drag,
+                        alt_screen: s.alt_screen,
+                        title: s.title.clone(),
+                    },
+                )
+            })
+            .unwrap_or_default();
+
+        Self {
+            hash: l.hash,
+            state: l.state,
+            last_change: l.last_change,
+            seq: l.seq,
+            cursor,
+            meta,
+            cols: l.cols,
+            rows: l.rows,
+            initial: l.screen.is_none(),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct ActivityDelta {
+    state: State,
+}
+
+struct FrameDelta {
+    hash: u64,
+    plain: String,
+    screen_changed: bool,
+    next_state: State,
+    title_moved: bool,
+    bell: bool,
+    activity: Option<ActivityDelta>,
+}
+
 impl Manager {
     pub async fn screen(&self, name: &str) -> Option<ScreenView> {
         self.live.read().await.get(name)?.screen.clone()
@@ -705,101 +776,104 @@ impl Manager {
         self.apply_frame(name, frame).await;
     }
 
-    pub(super) async fn apply_frame(&self, name: &str, frame: Frame) {
+    /// Derive all consequences of a frame before taking the write lock. This keeps frame
+    /// comparison and classification separate from live-state mutation and its side effects.
+    async fn frame_delta(&self, previous: &FrameSnapshot, frame: &Frame) -> FrameDelta {
         let hash = hash_lines(&frame.lines);
-        let (prev_hash, prev_state, prev_change, seq, prev_cursor, prev_meta, cols, rows, initial) = {
-            let live = self.live.read().await;
-            let Some(l) = live.get(name) else { return };
-            let cur = l.screen.as_ref().map(|s| (s.cx, s.cy)).unwrap_or((0, 0));
-            let meta = l
-                .screen
-                .as_ref()
-                .map(|s| {
-                    (
-                        s.cursor_shape,
-                        s.cursor_blink,
-                        s.app_mouse,
-                        s.app_drag,
-                        s.alt_screen,
-                        s.title.clone(),
-                    )
-                })
-                .unwrap_or_default();
-            (
-                l.hash,
-                l.state,
-                l.last_change,
-                l.seq,
-                cur,
-                meta,
-                l.cols,
-                l.rows,
-                l.screen.is_none(),
-            )
+        let meta = FrameMeta {
+            cursor_shape: frame.cursor_shape,
+            cursor_blink: frame.cursor_blink,
+            app_mouse: frame.app_mouse,
+            app_drag: frame.app_drag,
+            alt_screen: frame.alt_screen,
+            title: frame.title.clone(),
         };
-
-        let meta = (
-            frame.cursor_shape,
-            frame.cursor_blink,
-            frame.app_mouse,
-            frame.app_drag,
-            frame.alt_screen,
-            frame.title.clone(),
-        );
-        let changed = !initial
-            && (hash != prev_hash || (frame.cx, frame.cy) != prev_cursor || meta != prev_meta);
-        let title_moved = meta.5 != prev_meta.5;
-        let rang = frame.bell;
+        let changed = !previous.initial
+            && (hash != previous.hash
+                || (frame.cx, frame.cy) != previous.cursor
+                || meta != previous.meta);
         let plain = strip_sgr(&frame.lines.join("\n"));
-        let state = if initial {
-            self.classify_initial(prev_state, &plain).await
+        let next_state = if previous.initial {
+            self.classify_initial(previous.state, &plain).await
         } else {
-            self.classify(changed, prev_change, &plain).await
+            self.classify(changed, previous.last_change, &plain).await
         };
 
-        let screen_changed = initial || changed;
-        if !screen_changed && state == prev_state && !rang {
+        FrameDelta {
+            hash,
+            plain,
+            screen_changed: previous.initial || changed,
+            next_state,
+            title_moved: meta.title != previous.meta.title,
+            bell: frame.bell,
+            activity: (next_state != previous.state).then_some(ActivityDelta { state: next_state }),
+        }
+    }
+
+    pub(super) async fn apply_frame(&self, name: &str, frame: Frame) {
+        let previous = {
+            let live = self.live.read().await;
+            live.get(name).map(FrameSnapshot::from_live)
+        };
+
+        let Some(previous) = previous else { return };
+        let delta = self.frame_delta(&previous, &frame).await;
+        if !delta.screen_changed && delta.next_state == previous.state && !delta.bell {
             return;
         }
 
-        let view = ScreenView::from_frame(name, seq + 1, cols, rows, 0, frame, 0);
+        let view = ScreenView::from_frame(
+            name,
+            previous.seq + 1,
+            previous.cols,
+            previous.rows,
+            0,
+            frame,
+            0,
+        );
 
         let mut dirty_list = false;
         let mut activity = None;
         {
             let mut live = self.live.write().await;
             let Some(l) = live.get_mut(name) else { return };
-            l.hash = hash;
+            l.hash = delta.hash;
             l.seq += 1;
-            if changed {
+            if delta.screen_changed && !previous.initial {
                 l.last_change = now_ms();
-            } else if initial {
+            } else if previous.initial {
                 // The first capture is a snapshot, not a new pane update. Keep the cached
                 // state age, but give working classification a fresh decay sample because
                 // there is no prior frame to compare with after a daemon restart.
-                l.last_change = if state == State::Idle { 0 } else { now_ms() };
+                l.last_change = if delta.next_state == State::Idle {
+                    0
+                } else {
+                    now_ms()
+                };
             }
-            if l.set_state(state) {
+            if l.set_state(delta.next_state) {
                 dirty_list = true;
-                if !l.ephemeral {
-                    activity = Some((l.state, l.state_since));
+                if let Some(activity_delta) = delta.activity {
+                    if !l.ephemeral {
+                        activity = Some((activity_delta.state, l.state_since));
+                    }
                 }
             }
-            if title_moved {
+            if delta.title_moved {
                 dirty_list = true;
             }
-            if rang && !l.bell {
+            if delta.bell && !l.bell {
                 l.bell = true;
                 dirty_list = true;
             }
             l.screen = Some(view.clone());
-            l.plain = plain;
+            l.plain = delta.plain.clone();
         }
 
         if let Some((state, state_since)) = activity {
             self.persist_activity(name, state, state_since).await;
         }
-        if screen_changed {
+        if delta.screen_changed {
             let _ = self.events.send(Event::Screen { screen: view });
         }
         if dirty_list {
