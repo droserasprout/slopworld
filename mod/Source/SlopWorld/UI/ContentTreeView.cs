@@ -333,7 +333,8 @@ namespace SlopWorld
                     {
                         _source.ToggleNode(line.Node);
                         ClearSelection();
-                        releaseViewer?.Invoke();
+                        // Expanding or collapsing a directory only changes the tree shape;
+                        // keep a file preview open while the user navigates around it.
                     }
                     else
                     {
