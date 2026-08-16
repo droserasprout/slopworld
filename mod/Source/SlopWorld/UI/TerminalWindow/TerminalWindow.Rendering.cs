@@ -437,6 +437,15 @@ namespace SlopWorld
             return LinkAt(body, buf, m);
         }
 
+        string RelativePathUnder(Rect body, Vector2 m)
+        {
+            var buf = DisplayedBuf();
+            if (buf == null || buf.Lines == null || !body.Contains(m)) return null;
+            var cell = CellAt(body, m);
+            if (cell.y < 0 || cell.y >= buf.Lines.Length) return null;
+            return RelativePathScan.At(RowText(buf, cell.y), cell.x);
+        }
+
         void DrawHover(Rect body)
         {
             if (_hoverUrl == null) return;
