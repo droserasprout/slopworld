@@ -26,6 +26,12 @@ namespace SlopWorld
         float _resizeAt;
         bool _sizeDirty;
 
+        // Every terminal window is fullscreen and shares the same pane geometry. Keep the
+        // last measured shape outside the window instance so a fresh pager can start there
+        // instead of drawing once at slopd's boot size and making less redraw on the first
+        // resize.
+        static int _cachedCols, _cachedRows;
+
         // Mouse-wheel scrollback: lines scrolled up from the live bottom.
         int _scrollOff;
         // Leading-edge throttle: the first wheel event sends immediately, then the rest ride
@@ -210,14 +216,11 @@ namespace SlopWorld
                 TerminalRecall.Remember(_name);
                 SelectAgent(_name);
             }
+            PrimeCachedSize();
             _scrollOff = 0;
             _wantedScrollOff = 0;
             _scrollPending = false;
             ClearSelection();
-            // The negotiated size belonged to the session we just left. Kept, it would read
-            // as "already the right shape" for a pane still at the daemon's boot size.
-            _cols = _rows = 0;
-            _sizeDirty = false;
         }
 
         // Clearing first: the brackets' jump-out is an animation off SelectionDrawer's select
@@ -242,6 +245,7 @@ namespace SlopWorld
             if (_name == null) return;
             SessionHub.Instance.Subscribe(_name);
             SelectAgent(_name);
+            PrimeCachedSize();
         }
 
         public override void PostClose()
@@ -314,6 +318,20 @@ namespace SlopWorld
         // The daemon's own limits, so what we ask for is always something it can answer with.
         const int MinCols = 20, MaxCols = 500, MinRows = 5, MaxRows = 200;
 
+        void PrimeCachedSize()
+        {
+            if (_cols <= 0 && _cachedCols > 0 && _cachedRows > 0)
+            {
+                _cols = _cachedCols;
+                _rows = _cachedRows;
+            }
+
+            // A pending geometry change still needs its debounce; otherwise a new session
+            // would get both the old request and this one.
+            if (_name == null || _sizeDirty || _cols <= 0 || !SessionHub.Instance.Online) return;
+            SessionHub.Instance.Resize(_name, _cols, _rows);
+        }
+
         // A loop rather than a statement: a resize is one fire-and-forget message over a
         // socket that may be down, and the daemon answers a size it already holds with a
         // no-op. The frame carries the emulator's dimensions, so that closes the loop.
@@ -334,6 +352,8 @@ namespace SlopWorld
             {
                 _cols = cols;
                 _rows = rows;
+                _cachedCols = cols;
+                _cachedRows = rows;
                 // Debounce: dragging the game window otherwise spams SIGWINCH, and Claude Code
                 // redraws its whole TUI on every one.
                 _resizeAt = Time.realtimeSinceStartup + 0.2f;
