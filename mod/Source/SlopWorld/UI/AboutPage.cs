@@ -162,14 +162,7 @@ namespace SlopWorld
         public void Draw(Rect rect)
         {
             Text.Font = GameFont.Small;
-            SlopWidgets.PageCaption(rect,
-                "Credits and third-party acknowledgements.");
-
-            // About has no footer, so its card reclaims PageBody's hidden vanilla OK row.
-            var body = SlopWidgets.PageBody(rect);
-            body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
-            SlopWidgets.Card(body);
-            var inner = body.ContractedBy(Layout.ViewportMarginX, Layout.ViewportMarginY);
+            var inner = rect.ContractedBy(Layout.ViewportMarginX, Layout.ViewportMarginY);
 
             float viewWidth = Mathf.Max(1f, inner.width - SlopWidgets.ScrollbarW);
             float viewHeight = Mathf.Max(inner.height,
@@ -433,8 +426,20 @@ namespace SlopWorld
         {
             float gap = Layout.ColumnGap;
             columns = Mathf.Max(1, columns);
-            float colW = Mathf.Max(1f, (rect.width - gap * (columns - 1)) / columns);
             int rows = (credits.Length + columns - 1) / columns;
+            var widths = new float[columns];
+            float naturalWidth = gap * (columns - 1);
+            for (int column = 0; column < columns; column++)
+            {
+                int start = column * rows;
+                int end = Mathf.Min(credits.Length, start + rows);
+                widths[column] = CreditColumnWidth(credits, start, end);
+                naturalWidth += widths[column];
+            }
+
+            bool fits = naturalWidth <= rect.width;
+            float colW = Mathf.Max(1f, (rect.width - gap * (columns - 1)) / columns);
+            float x = fits ? rect.center.x - naturalWidth / 2f : rect.x;
             float maxHeight = 0f;
             for (int column = 0; column < columns; column++)
             {
@@ -442,11 +447,43 @@ namespace SlopWorld
                 int end = Mathf.Min(credits.Length, start + rows);
                 if (start >= end) continue;
 
-                var columnRect = new Rect(rect.x + (colW + gap) * column, y, colW, 1f);
+                float width = fits ? widths[column] : colW;
+                var columnRect = new Rect(x, y, width, 1f);
                 maxHeight = Mathf.Max(maxHeight, CreditColumn(columnRect, credits, start, end));
+                x += width + gap;
             }
 
             return y + maxHeight;
+        }
+
+        float CreditColumnWidth(Credit[] credits, int start, int end)
+        {
+            float detailWidth = 0f;
+            float nameWidth = 0f;
+            var wasFont = Text.Font;
+
+            Text.Font = GameFont.Small;
+            for (int i = start; i < end; i++)
+                detailWidth = Mathf.Max(detailWidth, SlopWidgets.Wide(credits[i].Detail));
+
+            Text.Font = RegularFont;
+            for (int i = start; i < end; i++)
+            {
+                var credit = credits[i];
+                if (credit.Links.Length == 0)
+                {
+                    nameWidth = Mathf.Max(nameWidth, SlopWidgets.Wide(credit.Name));
+                    continue;
+                }
+
+                for (int link = 0; link < credit.Links.Length; link++)
+                    nameWidth = Mathf.Max(nameWidth,
+                        SlopWidgets.Wide(credit.Links[link].Label));
+            }
+
+            Text.Font = wasFont;
+            float sideWidth = Mathf.Max(detailWidth, nameWidth);
+            return Mathf.Max(1f, sideWidth * 2f + Layout.RowGap * 2f);
         }
 
         float CreditColumn(Rect rect, Credit[] credits, int start, int end)
