@@ -1,24 +1,24 @@
-using System.Linq;
-
 namespace SlopWorld
 {
     public partial class SessionHub
     {
+        // The coordinator's one job on the socket: route each pushed event to the store that
+        // owns it. The stores apply their own updates; Usage and the jukebox are small enough
+        // to land here.
         void Handle(JVal ev)
         {
             switch (ev["t"].AsString())
             {
                 case "sessions":
-                    Sessions = ev["sessions"].Items.Select(SessionInfo.FromJson).ToList();
-                    ForgetScreens();
+                    _sessions.ApplySessions(ev);
                     break;
 
                 case "projects":
-                    Projects = ev["projects"].Items.Select(ProjectInfo.FromJson).ToList();
+                    _catalog.ApplyProjects(ev);
                     break;
 
                 case "shortcuts":
-                    Shortcuts = ev["shortcuts"].Items.Select(ShortcutInfo.FromJson).ToList();
+                    _catalog.ApplyShortcuts(ev);
                     break;
 
                 case "jukebox":
@@ -36,14 +36,7 @@ namespace SlopWorld
                     break;
 
                 case "screen":
-                    var s = ev["screen"];
-                    string name = s["name"].AsString();
-                    int off = s["off"].AsInt(0);
-                    // Scrolled frames answer one wheel request; kept apart from the live view.
-                    var store = off > 0 ? _scrolls : _screens;
-                    if (!store.TryGetValue(name, out var buf))
-                        store[name] = buf = new ScreenBuf();
-                    buf.FromJson(s);
+                    _sessions.ApplyScreen(ev["screen"]);
                     break;
             }
         }
