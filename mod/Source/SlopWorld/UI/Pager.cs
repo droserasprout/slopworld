@@ -22,84 +22,26 @@ namespace SlopWorld
             }
         }
 
-        // The env vars for a persistent `less` that pipes every file through `highlight`.
-        // `%s` is less's own placeholder for the filename, expanded on every `:e`.
-        static string LessEnv
-        {
-            get
-            {
-                string highlighter = (SessionHub.Instance.Config.Highlighter ?? "").Trim();
-                if (highlighter.Length == 0) return "LESS=-R";
-                if (!highlighter.Contains("%s")) highlighter += " %s";
-                return "LESSOPEN=" + Quote("|" + highlighter) + " LESS=-R";
-            }
-        }
-
-        static string App(string value, string fallback) =>
-            string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
-
-        static string Executable(string value, string fallback)
-        {
-            string command = App(value, fallback);
-            int end = command.IndexOfAny(new[] { ' ', '\t' });
-            return end < 0 ? command : command.Substring(0, end);
-        }
-
         // Git feeds its diff to the pager on stdin, so it needs the configured command
         // without file/line placeholders or the normal file argument.
         public static string PipePager =>
-            App(SessionHub.Instance.Config.Pager, "less")
-                .Replace("{file}", "").Replace("{line}", "").Trim();
+            PagerCommands.PipePager(SessionHub.Instance.Config.Pager);
 
-        public static bool IsPagerCommand(string command)
-        {
-            string exe = Executable(SessionHub.Instance.Config.Pager, "less");
-            return command == exe || command.StartsWith(exe + " ") ||
-                (command.StartsWith("env ") && command.Contains(" " + exe + " "));
-        }
+        public static bool IsPagerCommand(string command) =>
+            PagerCommands.IsPagerCommand(SessionHub.Instance.Config.Pager, command);
 
-        public static bool IsEditorCommand(string command)
-        {
-            string exe = Executable(SessionHub.Instance.Config.Editor, "micro");
-            return command == exe || command.StartsWith(exe + " ");
-        }
+        public static bool IsEditorCommand(string command) =>
+            PagerCommands.IsEditorCommand(SessionHub.Instance.Config.Editor, command);
 
-        public static string FileCommand(string value, string fallback, string file, int line = 0)
-        {
-            string template = App(value, fallback);
-            bool hasFile = template.Contains("{file}");
-            bool hasLine = template.Contains("{line}");
-            string command = template
-                .Replace("{file}", Quote(file))
-                .Replace("{line}", (line < 1 ? 1 : line).ToString());
-            if (!hasFile)
-            {
-                if (line > 0 && !hasLine) command += " +" + (line < 1 ? 1 : line);
-                command += " -- " + Quote(file);
-            }
-            return command;
-        }
+        public static string FileCommand(string value, string fallback, string file, int line = 0) =>
+            PagerCommands.FileCommand(value, fallback, file, line);
 
         public static string PagerCommand(string file, int line = 0) =>
-            "env " + LessEnv + " " +
-            FileCommand(SessionHub.Instance.Config.Pager, "less", file, line);
+            PagerCommands.PagerCommand(
+                SessionHub.Instance.Config.Pager, SessionHub.Instance.Config.Highlighter, file, line);
 
-        // micro's +LINE selector follows the file. FileCommand puts a pager's selector before
-        // its `-- FILE`, which makes +LINE look like a buffer name to micro.
-        public static string EditorCommand(string file, int line = 0)
-        {
-            string template = App(SessionHub.Instance.Config.Editor, "micro");
-            if (line < 1) return FileCommand(template, "micro", file);
-
-            bool hasFile = template.Contains("{file}");
-            bool hasLine = template.Contains("{line}");
-            string command = template
-                .Replace("{file}", Quote(file))
-                .Replace("{line}", line.ToString());
-            if (!hasFile) command += " " + Quote(file);
-            if (!hasLine) command += " +" + line;
-            return command;
-        }
+        public static string EditorCommand(string file, int line = 0) =>
+            PagerCommands.EditorCommand(SessionHub.Instance.Config.Editor, file, line);
 
         // Open a file in the persistent pager. Reuses the existing tmux session only when it
         // is still alive and already showing this file. A different file gets a fresh session
@@ -251,9 +193,6 @@ namespace SlopWorld
             if (info != null && info.Alive) SessionHub.Instance.Stop(session);
         }
 
-        // The daemon splits a command line into an argv the way a shell would, so a path with
-        // a space in it is two arguments unless it says otherwise. Both views build command
-        // lines out of paths they were handed, so the quoting lives here.
-        public static string Quote(string s) => "'" + (s ?? "").Replace("'", "'\\''") + "'";
+        public static string Quote(string s) => PagerCommands.Quote(s);
     }
 }
