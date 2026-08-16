@@ -510,7 +510,11 @@ namespace SlopWorld
         }
 
         public static void Draw(Rect body) => Tree.Draw(body);
-        public static void Clicks() => Tree.Clicks(ReleaseViewerForTree);
+        // Folding the change tree only changes navigation; keep the active diff visible while
+        // the reader opens or closes directories around it.
+        public static void Clicks() => Tree.Clicks();
+
+        public static bool IsViewerSession(string session) => Viewer.Session == session;
 
         // Left on a change: mark it and read its diff. Clicking the one already open just
         // brings its pane back - a focus change is a *different* row, and only that replaces
@@ -719,12 +723,6 @@ namespace SlopWorld
         public static void ReleaseViewer()
         {
             ClearSelection();
-            Viewer.Release();
-        }
-
-        static void ReleaseViewerForTree()
-        {
-            _showing = RowAct.None;
             Viewer.Release();
         }
 
