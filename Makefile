@@ -142,15 +142,23 @@ lint-mod:          ## Build the mod with warnings as errors, then check its form
 install:           ## Install all three
 	$(MAKE) install-daemon install-runner install-mod
 
-install-daemon:    ## Install the binary and the unit, restart the service
+install-daemon:    ## Install the binary and the unit, restarting only when needed
 	$(MAKE) daemon
-	install -Dm755 $(TARGET)/slopd $(BIN)/slopd
-	install -Dm755 $(SLOPCTL) $(BIN)/slopctl
-	install -Dm644 slopd/slopd.service $(UNITS)/slopd.service
-	systemctl --user daemon-reload
-	systemctl --user enable --now slopd.service
-	systemctl --user restart slopd.service
-	@systemctl --user --no-pager status slopd.service | head -3
+	@restart=yes; \
+	if systemctl --user is-active --quiet slopd.service; then \
+		pid=$$(systemctl --user show --property=MainPID --value slopd.service); \
+		if test "$$pid" -gt 0 2>/dev/null && cmp -s "$(TARGET)/slopd" "/proc/$$pid/exe"; then \
+			restart=no; \
+			echo "slopd already runs the latest $(BUILD) build; skipping restart"; \
+		fi; \
+	fi; \
+	install -Dm755 $(TARGET)/slopd $(BIN)/slopd; \
+	install -Dm755 $(SLOPCTL) $(BIN)/slopctl; \
+	install -Dm644 slopd/slopd.service $(UNITS)/slopd.service; \
+	systemctl --user daemon-reload; \
+	systemctl --user enable --now slopd.service; \
+	if test "$$restart" = yes; then systemctl --user restart slopd.service; fi; \
+	systemctl --user --no-pager status slopd.service | head -3
 
 install-runner:    ## Install the launcher beside the daemon
 	$(MAKE) daemon
