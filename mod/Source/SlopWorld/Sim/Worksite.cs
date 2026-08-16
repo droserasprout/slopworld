@@ -104,37 +104,17 @@ namespace SlopWorld
         const float LargeBloom = 8f;
         const float MonumentBloom = 11f;
 
-        struct MaterialState
-        {
-            public ThingDef Blocks;
-            public ThingDef Rock;
-            public bool Quarried;
-        }
+        readonly WorksiteRuntime _runtime = new WorksiteRuntime();
+        int _laid;
 
-        struct PlacementState
-        {
-            public Plague Plague;
-            public int Blocked;
-            public int Swept;
-            public int Laid;
-            public HashSet<Thing> Mine;
-        }
-
-        MaterialState _materials;
-        PlacementState _placement = new PlacementState
-        {
-            Mine = new HashSet<Thing>(),
-        };
-
-        // Keep the domain logic readable while the state ownership stays in value structs.
-        ThingDef _blocks { get => _materials.Blocks; set => _materials.Blocks = value; }
-        ThingDef _rock { get => _materials.Rock; set => _materials.Rock = value; }
-        bool _quarried { get => _materials.Quarried; set => _materials.Quarried = value; }
-        Plague _plague { get => _placement.Plague; set => _placement.Plague = value; }
-        int _blocked { get => _placement.Blocked; set => _placement.Blocked = value; }
-        int _swept { get => _placement.Swept; set => _placement.Swept = value; }
-        int _laid { get => _placement.Laid; set => _placement.Laid = value; }
-        HashSet<Thing> _mine => _placement.Mine;
+        // Keep the domain logic readable while the runtime cache owns transient state.
+        ThingDef _blocks { get => _runtime.Blocks; set => _runtime.Blocks = value; }
+        ThingDef _rock { get => _runtime.Rock; set => _runtime.Rock = value; }
+        bool _quarried { get => _runtime.Quarried; set => _runtime.Quarried = value; }
+        Plague _plague { get => _runtime.Plague; set => _runtime.Plague = value; }
+        int _blocked { get => _runtime.Blocked; set => _runtime.Blocked = value; }
+        int _swept { get => _runtime.Swept; set => _runtime.Swept = value; }
+        HashSet<Thing> _mine => _runtime.Mine;
 
         // Passes between sweeps - once a second.
         const int SweepEvery = 4;
@@ -144,9 +124,7 @@ namespace SlopWorld
         public override void ExposeData()
         {
             base.ExposeData();
-            int laid = _placement.Laid;
-            Scribe_Values.Look(ref laid, "laid", 0);
-            _placement.Laid = laid;
+            Scribe_Values.Look(ref _laid, "laid", 0);
         }
 
         public override void MapComponentTick()

@@ -593,76 +593,84 @@ namespace SlopWorld
 
         float DrawFields(Rect rect)
         {
-            // One column, on the room it has: a Listing_Standard begun on a rect too short
-            // for its contents does not overflow, it breaks to a column off the right-hand
-            // edge and puts CurHeight back to nearly zero - and the prompt box below is
-            // placed and sized from that number. See EditProjectDialog.DoFields.
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            l.Label("Name (also what the temporary colonist is called)");
-            _s.Name = SlopWidgets.Field(l, "shortcut.name", _s.Name);
-
-            l.Gap(SlopWidgets.GapS);
-            l.Label("Kind");
             var kind = KindDescriptors[_s.Kind];
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), kind.ButtonLabel))
-                PickKind();
-
-            l.Gap(SlopWidgets.GapS);
-            if (kind.ShowWhere)
-            {
-                l.Label("Where it runs");
-                if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), LinkLabel(_s.Link)))
-                    PickLink();
-            }
-
-            // The project dropdown stays up for every kind that uses a project. In temp mode
-            // it still answers something - which sandbox the scratch project is given - and a
-            // field that vanished would read as a setting that does not exist.
-            if (kind.ShowProject(this))
-            {
-                l.Gap(SlopWidgets.GapS);
-                l.Label(kind.ProjectLabel(this));
-                if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
-                        kind.ProjectValue(this)))
-                    kind.PickProject(this);
-            }
-
-            var project = SessionHub.Instance.Project(_s.Project);
-            GUI.color = SlopWidgets.Dim;
-            l.Label(kind.ExplainText(this, project));
-            GUI.color = Color.white;
-
-            l.Gap(SlopWidgets.GapS);
-            if (kind.CommandLabel != null)
-            {
-                l.Label(kind.CommandLabel);
-                var box = l.GetRect(SlopWidgets.FieldH);
-                if (string.IsNullOrEmpty((_s.Command ?? "").Trim()))
-                {
-                    string placeholder = kind.CommandPlaceholder(this);
-                    GUI.color = SlopWidgets.Faint;
-                    string shown = SlopWidgets.Field(box, "shortcut.command", placeholder);
-                    GUI.color = Color.white;
-                    if (shown != placeholder) _s.Command = shown;
-                }
-                else
-                {
-                    _s.Command = SlopWidgets.Field(box, "shortcut.command", _s.Command);
-                }
-            }
-            else
-            {
-                // Breadcrumbs have one text editor below, just like prompts. Keeping a
-                // second Area here caused the lower editor to overwrite this value and made
-                // Save appear broken.
-                _s.Command = "";
-            }
+            DrawName(l);
+            DrawKindAndLink(l, kind);
+            DrawProject(l, kind);
+            DrawExplanation(l, kind);
+            DrawCommand(l, kind);
 
             float used = l.CurHeight;
             l.End();
             return used;
+        }
+
+        void DrawName(Listing_Standard l)
+        {
+            l.Label("Name (also what the temporary colonist is called)");
+            _s.Name = SlopWidgets.Field(l, "shortcut.name", _s.Name);
+        }
+
+        void DrawKindAndLink(Listing_Standard l, ShortcutKindDescriptor kind)
+        {
+            l.Gap(SlopWidgets.GapS);
+            l.Label("Kind");
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), kind.ButtonLabel))
+                PickKind();
+
+            if (!kind.ShowWhere) return;
+            l.Gap(SlopWidgets.GapS);
+            l.Label("Where it runs");
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), LinkLabel(_s.Link)))
+                PickLink();
+        }
+
+        void DrawProject(Listing_Standard l, ShortcutKindDescriptor kind)
+        {
+            // The project dropdown stays up for every kind that uses a project. In temp mode
+            // it still answers which sandbox the scratch project is given.
+            if (!kind.ShowProject(this)) return;
+            l.Gap(SlopWidgets.GapS);
+            l.Label(kind.ProjectLabel(this));
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), kind.ProjectValue(this)))
+                kind.PickProject(this);
+        }
+
+        void DrawExplanation(Listing_Standard l, ShortcutKindDescriptor kind)
+        {
+            var project = SessionHub.Instance.Project(_s.Project);
+            GUI.color = SlopWidgets.Dim;
+            l.Label(kind.ExplainText(this, project));
+            GUI.color = Color.white;
+        }
+
+        void DrawCommand(Listing_Standard l, ShortcutKindDescriptor kind)
+        {
+            l.Gap(SlopWidgets.GapS);
+            if (kind.CommandLabel == null)
+            {
+                // Breadcrumbs have one text editor below, just like prompts. Keeping a
+                // second Area here caused the lower editor to overwrite this value.
+                _s.Command = "";
+                return;
+            }
+
+            l.Label(kind.CommandLabel);
+            var box = l.GetRect(SlopWidgets.FieldH);
+            if (!string.IsNullOrEmpty((_s.Command ?? "").Trim()))
+            {
+                _s.Command = SlopWidgets.Field(box, "shortcut.command", _s.Command);
+                return;
+            }
+
+            string placeholder = kind.CommandPlaceholder(this);
+            GUI.color = SlopWidgets.Faint;
+            string shown = SlopWidgets.Field(box, "shortcut.command", placeholder);
+            GUI.color = Color.white;
+            if (shown != placeholder) _s.Command = shown;
         }
 
         float DrawTextEditor(Rect rect, float y)

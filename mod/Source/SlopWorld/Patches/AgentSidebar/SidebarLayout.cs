@@ -23,12 +23,7 @@ namespace SlopWorld
             public readonly List<Row> ViewRows = new List<Row>();
             public readonly List<SessionInfo> Routed = new List<SessionInfo>();
 
-            public readonly SmoothScroll AgentScroll = new SmoothScroll();
-            public bool AgentScrollOpen;
             public float AgentContentH;
-
-            public bool Resizing;
-            public float Grab;
 
             public void BeginFrame()
             {
@@ -44,7 +39,6 @@ namespace SlopWorld
                 TopGhosts.Clear();
 
                 AgentContentH = 0f;
-                AgentScrollOpen = false;
             }
         }
     }

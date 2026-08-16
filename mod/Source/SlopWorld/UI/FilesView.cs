@@ -353,51 +353,62 @@ namespace SlopWorld
         // the other.
         static List<FloatMenuOption> Menu(Node node, string project = null)
         {
-            var opts = new List<FloatMenuOption>
+            return MenuBuilder.Build(node, project);
+        }
+
+        // Menu construction is a separate concern from tree state. It consumes a node
+        // snapshot and points actions back at FilesView for the lifecycle-sensitive work.
+        static class MenuBuilder
+        {
+            public static List<FloatMenuOption> Build(Node node, string project = null)
             {
-                new FloatMenuOption("Copy path", () => Copy(node.Path)),
+                var opts = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Copy path", () => FilesView.Copy(node.Path)),
             };
 
-            string rel = Relative(node);
-            if (rel != null)
-                opts.Add(new FloatMenuOption("Copy relative path", () => Copy(rel)));
+                string rel = FilesView.Relative(node);
+                if (rel != null)
+                    opts.Add(new FloatMenuOption("Copy relative path", () => FilesView.Copy(rel)));
 
-            if (project != null && SessionHub.Instance.Project(project) != null)
-                opts.Add(new FloatMenuOption("Terminal (host)", () =>
-                    SessionHub.Instance.RunHostShell(project,
-                    session => TerminalWindow.Open(session), SlopWidgets.Fail)));
+                if (project != null && SessionHub.Instance.Project(project) != null)
+                    opts.Add(new FloatMenuOption("Terminal (host)", () =>
+                        SessionHub.Instance.RunHostShell(project,
+                        session => TerminalWindow.Open(session), SlopWidgets.Fail)));
 
-            AddFileActions(opts, node.Project, node.Path, node.Name, Relative(node));
+                FilesView.AddFileActions(opts, node.Project, node.Path, node.Name,
+                    FilesView.Relative(node));
 
-            // Only files, and only because a directory in `less` is a listing nobody asked
-            // for and a directory in `micro` is a file browser inside a game. The left
-            // button views a text file; the menu's View routes through the same tracked
-            // viewer so it is replaced or closed like any other.
-            if (!node.IsDir && IsText(node.Name))
-            {
-                opts.Add(new FloatMenuOption("View", () => View(node)));
-                if (IsMarkdown(node.Name))
-                    opts.Add(new FloatMenuOption("View in pager", () => ViewSource(node)));
-                opts.Add(new FloatMenuOption("Edit", () => EditFile(node.Project, node.Path,
-                    "edit-" + node.Name)));
+                // Only files, and only because a directory in `less` is a listing nobody asked
+                // for and a directory in `micro` is a file browser inside a game. The left
+                // button views a text file; the menu's View routes through the same tracked
+                // viewer so it is replaced or closed like any other.
+                if (!node.IsDir && FilesView.IsText(node.Name))
+                {
+                    opts.Add(new FloatMenuOption("View", () => FilesView.View(node)));
+                    if (FilesView.IsMarkdown(node.Name))
+                        opts.Add(new FloatMenuOption("View in pager", () => FilesView.ViewSource(node)));
+                    opts.Add(new FloatMenuOption("Edit", () => FilesView.EditFile(node.Project, node.Path,
+                        "edit-" + node.Name)));
+                }
+
+                if (!FilesView.IsRoot(node))
+                {
+                    opts.Add(SlopMenu.Separator());
+                    opts.Add(new FloatMenuOption("Rename", () => FilesView.Rename(node)));
+                    opts.Add(new FloatMenuOption("Remove", () => FilesView.Remove(node)));
+                }
+
+                if (node.IsDir)
+                {
+                    opts.Add(SlopMenu.Separator());
+                    opts.Add(new FloatMenuOption("New file", () => FilesView.Create(node, "file")));
+                    opts.Add(new FloatMenuOption("New folder", () => FilesView.Create(node, "folder")));
+                    opts.Add(new FloatMenuOption("Terminal here", () => FilesView.TerminalHere(node)));
+                }
+
+                return opts;
             }
-
-            if (!IsRoot(node))
-            {
-                opts.Add(SlopMenu.Separator());
-                opts.Add(new FloatMenuOption("Rename", () => Rename(node)));
-                opts.Add(new FloatMenuOption("Remove", () => Remove(node)));
-            }
-
-            if (node.IsDir)
-            {
-                opts.Add(SlopMenu.Separator());
-                opts.Add(new FloatMenuOption("New file", () => Create(node, "file")));
-                opts.Add(new FloatMenuOption("New folder", () => Create(node, "folder")));
-                opts.Add(new FloatMenuOption("Terminal here", () => TerminalHere(node)));
-            }
-
-            return opts;
         }
 
         // File actions belong to a project-backed path, but the path can come from any of the

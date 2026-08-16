@@ -89,35 +89,16 @@ namespace SlopWorld
         }
 
         static readonly SidebarLayout Layout = new SidebarLayout();
+        static readonly SidebarInteraction Interaction = new SidebarInteraction();
+        static readonly SidebarProjectState Projects = new SidebarProjectState();
 
         const string Loose = "no project";
 
-        static HashSet<string> _folded;
-
-        static HashSet<string> Folded
-        {
-            get
-            {
-                if (_folded == null)
-                {
-                    _folded = new HashSet<string>();
-                    foreach (var name in Settings.FoldedProjects.Split('\n'))
-                        if (name.Length > 0) _folded.Add(name);
-                }
-                return _folded;
-            }
-        }
+        static HashSet<string> Folded => Projects.Folded;
 
         static void Fold(string key, bool on)
         {
-            if (on) Folded.Add(key);
-            else Folded.Remove(key);
-
-            var names = new List<string>(Folded);
-            names.Sort(System.StringComparer.Ordinal);
-            var s = Settings.S;
-            s.foldedProjects = string.Join("\n", names.ToArray());
-            s.Write();
+            Projects.SetFolded(key, on);
         }
 
         public static Rect Panel => new Rect(0f, 0f, Width, UI.screenHeight);
@@ -155,33 +136,13 @@ namespace SlopWorld
 
         // Empty means all projects. Unknown project keys show no rows while the daemon list is
         // incomplete; the no-project bucket is a normal filter key.
-        public const string NoProject = "[none]";
+        public const string NoProject = SidebarProjectState.NoProject;
 
-        static HashSet<string> _filter;
+        public static bool Filtering => Projects.Filtering;
 
-        static HashSet<string> Ticks
-        {
-            get
-            {
-                if (_filter == null)
-                {
-                    _filter = new HashSet<string>();
-                    foreach (var name in Settings.SidebarFilter.Split('\n'))
-                        if (name.Length > 0) _filter.Add(name);
-                }
-                return _filter;
-            }
-        }
+        public static bool Ticked(string key) => Projects.Ticked(key);
 
-        public static bool Filtering => Ticks.Count > 0;
-
-        public static bool Ticked(string key) => Ticks.Contains(key);
-
-        static string Key(string project) =>
-            string.IsNullOrEmpty(project) ? NoProject : project;
-
-        public static bool Passes(string project) =>
-            !Filtering || Ticks.Contains(Key(project));
+        public static bool Passes(string project) => Projects.Passes(project);
 
         // What the filter is, for a tooltip or an empty line: the name when it is one name,
         // and a count when it is more.
@@ -189,9 +150,7 @@ namespace SlopWorld
         {
             get
             {
-                if (Ticks.Count != 1) return Ticks.Count + " projects";
-                foreach (var key in Ticks) return key;
-                return "";
+                return Projects.FilterLabel;
             }
         }
 
@@ -199,18 +158,7 @@ namespace SlopWorld
         // than every name ticked, so a project made later is in it too.
         public static void ToggleFilter(string key)
         {
-            if (key.Length == 0)
-            {
-                if (!Filtering) return;
-                Ticks.Clear();
-            }
-            else if (!Ticks.Remove(key)) Ticks.Add(key);
-
-            var names = new List<string>(Ticks);
-            names.Sort(System.StringComparer.Ordinal);
-            var s = Settings.S;
-            s.sidebarFilter = string.Join("\n", names.ToArray());
-            s.Write();
+            Projects.ToggleFilter(key);
 
             // The agents, files and shortcuts views read the filter as they draw. The other
             // two hold what they asked the daemon for, and a filter that widened is a
@@ -315,132 +263,6 @@ namespace SlopWorld
             GUI.color = new Color(stateColor.r, stateColor.g, stateColor.b, BadgeAlpha);
             GUI.DrawTexture(Icons.DotBox(center, d), Icons.Dot);
             GUI.color = Color.white;
-        }
-
-        static string Ago(SessionInfo info)
-        {
-            if (info == null || info.StateSince <= 0) return "";
-            long s = (SessionInfo.NowMs - info.StateSince) / 1000L;
-            if (s < 0L) return "";
-            if (s < 60L) return "<1m";
-            if (s < 3600L) return s / 60L + "m";
-            if (s < 86400L) return s / 3600L + "h";
-            return s / 86400L + "d";
-        }
-
-        // Ghosts have only one line, so give the eye one strong answer and one quiet piece of
-        // context instead of dimming the whole row. Routed file actions do not use the pane's
-        // native title: a shell commonly calls itself `bash` or `less`, which says less than
-        // the action and the session name the daemon already gave us.
-        static void DrawGhostLabel(Rect r, SessionInfo info, string fallback,
-                                    bool hostIcon = false)
-        {
-            RowAct act = RowActions.Of(info);
-            string title = GhostTitle(info, fallback, act);
-            string context = GhostContext(info, title, act);
-
-            if (hostIcon && info?.Ephemeral == true)
-            {
-                float d = Mathf.Min(GhostMarkW, r.height);
-                var icon = new Rect(r.x, r.y + (r.height - d) / 2f, d, d);
-                GUI.color = SlopWidgets.Off;
-                GUI.DrawTexture(icon, Icons.Terminal);
-                string project = info.Project ?? "";
-                TooltipHandler.TipRegion(icon, project.Length > 0
-                    ? "Host session in " + project
-                    : "Host session");
-                r.x += d + 4f;
-                r.width -= d + 4f;
-            }
-
-            Text.Anchor = TextAnchor.MiddleLeft;
-            if (context.Length == 0)
-            {
-                GUI.color = SlopWidgets.Lead;
-                SlopWidgets.RowLabel(r, title);
-                Text.Anchor = TextAnchor.UpperLeft;
-                return;
-            }
-
-            float contextW = Mathf.Min(SlopWidgets.Wide(context), r.width * 0.42f);
-            var quiet = new Rect(r.xMax - contextW, r.y, contextW, r.height);
-            var strong = new Rect(r.x, r.y, Mathf.Max(0f, quiet.x - SlopWidgets.GapS - r.x),
-                r.height);
-
-            GUI.color = SlopWidgets.Lead;
-            SlopWidgets.RowLabel(strong, title);
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(quiet, context);
-            Text.Anchor = TextAnchor.UpperLeft;
-        }
-
-        static string GhostTitle(SessionInfo info, string fallback, RowAct act)
-        {
-            if (act != RowAct.None)
-            {
-                string name = info?.Name ?? fallback;
-                string prefix = ActionWord(act) + "-";
-                string subject = name.StartsWith(prefix, System.StringComparison.Ordinal)
-                    ? name.Substring(prefix.Length)
-                    : name;
-                return ActionWord(act) + " " + subject;
-            }
-
-            string title = Title(info);
-            return title.Length > 0 ? title : info?.Name ?? fallback;
-        }
-
-        static string GhostContext(SessionInfo info, string title, RowAct act)
-        {
-            string project = info?.Project ?? "";
-            if (act != RowAct.None)
-                return project;
-
-            string name = info?.Name ?? "";
-            if (title != name && name.Length > 0)
-            {
-                if (project.Length > 0) return name + "  ·  " + project;
-                return name;
-            }
-            if (info?.Ephemeral == true) return project;
-            return project;
-        }
-
-        static string ActionWord(RowAct act)
-        {
-            switch (act)
-            {
-                case RowAct.View: return "view";
-                case RowAct.Edit: return "edit";
-                case RowAct.Diff: return "diff";
-                default: return "";
-            }
-        }
-
-        // Replace control or unsupported title characters before drawing; Unity otherwise
-        // advances for missing glyphs and leaves unexplained gaps.
-        static string Title(SessionInfo info)
-        {
-            if (info == null) return "";
-            var t = string.IsNullOrWhiteSpace(info.Label) ? info.Title : info.Label;
-            t = t ?? "";
-            var font = Text.CurFontStyle?.font;
-            var clean = new System.Text.StringBuilder(t.Length);
-            foreach (char c in t)
-                clean.Append(char.IsControl(c) || (font != null && !font.HasCharacter(c))
-                    ? ' '
-                    : c);
-            var title = clean.ToString().Trim();
-            // Ignore default OSC host titles: they are environment metadata, not task titles.
-            if (title.Length == 0 || IsHostTitle(title)) return "";
-            return title;
-        }
-
-        static bool IsHostTitle(string title)
-        {
-            return string.Equals(title, System.Environment.MachineName,
-                       System.StringComparison.OrdinalIgnoreCase)
-                || string.Equals(title, "localhost", System.StringComparison.OrdinalIgnoreCase);
         }
 
         static void Click(Row row, SessionInfo info)
@@ -593,14 +415,14 @@ namespace SlopWorld
         {
             float w = Width;
             var grip = new Rect(w - GripW, 0f, GripW * 2f, UI.screenHeight);
-            if (!ColonistBarStrip.Interactive && Layout.Resizing)
+            if (!ColonistBarStrip.Interactive && Interaction.Resizing)
             {
-                Layout.Resizing = false;
+                Interaction.Resizing = false;
                 Settings.S.Write();
             }
 
             bool over = ColonistBarStrip.SidebarHover(grip);
-            bool lit = over || Layout.Resizing;
+            bool lit = over || Interaction.Resizing;
 
             // The panel's right edge and the grip's own tell are the same line, and it is
             // drawn here alone: a second draw of [SlopWidgets.Edge] over this one composites
@@ -614,19 +436,19 @@ namespace SlopWorld
             var e = Event.current;
 
             // Poll Input: an absorbing window can prevent this layer from receiving MouseDown.
-            if (!Layout.Resizing)
+            if (!Interaction.Resizing)
             {
                 if (!over || !Input.GetMouseButtonDown(0)) return;
-                Layout.Resizing = true;
-                Layout.Grab = w - e.mousePosition.x;
+                Interaction.Resizing = true;
+                Interaction.Grab = w - e.mousePosition.x;
             }
             else if (Input.GetMouseButton(0))
             {
-                SetWidth(e.mousePosition.x + Layout.Grab);
+                SetWidth(e.mousePosition.x + Interaction.Grab);
             }
             else
             {
-                Layout.Resizing = false;
+                Interaction.Resizing = false;
                 Settings.S.Write();
             }
 
