@@ -490,7 +490,10 @@ namespace SlopWorld
             // carries cursor coordinates from the render snapshot.
             if (buf.Off > 0) return;
             if (buf.Cy >= buf.Rows) return;
-            if (buf.CursorBlink && (int)(Time.realtimeSinceStartup * 2f) % 2 != 0)
+            // Keyboard activity restarts the visible half of the blink cycle, so typing or
+            // moving the cursor never leaves it hidden until the next global beat.
+            if (buf.CursorBlink &&
+                (int)((Time.realtimeSinceStartup - _cursorBlinkAt) * 2f) % 2 != 0)
                 return;
 
             float x = body.x + buf.Cx * cw;

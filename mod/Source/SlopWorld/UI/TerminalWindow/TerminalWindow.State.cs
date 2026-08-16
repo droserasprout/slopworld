@@ -25,6 +25,7 @@ namespace SlopWorld
         int _cols, _rows;
         float _resizeAt;
         bool _sizeDirty;
+        float _cursorBlinkAt;
 
         // Every terminal window is fullscreen and shares the same pane geometry. Keep the
         // last measured shape outside the window instance so a fresh pager can start there
@@ -246,6 +247,7 @@ namespace SlopWorld
             _nextScrollSend = 0f;
             _hasWheelDirection = false;
             ClearSelection();
+            ResetCursorBlink();
         }
 
         // Clearing first: the brackets' jump-out is an animation off SelectionDrawer's select
