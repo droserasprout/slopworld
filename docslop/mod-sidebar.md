@@ -10,16 +10,18 @@ parked off-screen because the colonist bar shares locations for drawing and hit 
 `Rows` is the geometry source for labels, portraits, clicks and keyboard order.
 
 Portrait scale is derived from text: `Nominal` makes the drawn square portrait match the
-row's three text lines, and `RowGap` stays between portraits. The face also has a
-panel-width limit. Headings, routed rows and the add strip remain fixed; `Fit` shrinks
-crowded portraits until their text floor, then the agent rows and portraits scroll in the
-remaining body. The body keeps its full panel width without a scrollbar gutter; overflow is
-marked by a soft shadow above the fixed add strip.
+row's normal three-line height, while compact view reserves only the name and summary;
+`RowGap` stays between portraits. The face also has a panel-width limit. Headings, routed
+rows and the add strip remain fixed; `Fit` shrinks crowded portraits until their text floor,
+then the agent rows and portraits scroll in the remaining body. The body keeps its full
+panel width without a scrollbar gutter; overflow is marked by a soft shadow above the fixed
+add strip.
 
 Selected portrait corners are queued during the vanilla portrait pass and drawn later in the
-same scroll group, using the same local face rect as the portrait. The sidebar retains
+same scroll group, using the same local face rect as the portrait. The full view retains
 vanilla's bracket texture and selection-jump animation while keeping multi-selection and
-caravan selection aligned with the custom face crop during scrolling.
+caravan selection aligned with the custom face crop during scrolling; compact view omits
+the corners and state badge.
 
 ### Selection-corner debugging history
 
@@ -42,9 +44,9 @@ by `GUIUtility.GUIToScreenPoint` only for `RotateAroundPivot`. The texture rect 
 not subtract the scroll position or pass the local center to `Widgets.DrawTextureRotated`.
 
 The portrait prefix replaces vanilla's complete draw, including its icon row. The
-front pass adds one badge, sized from the face so it survives shrinking and anchored to
-the drawn portrait rather than the cell. `Patch_AgentNeverIdle` remains active so
-vanilla does not report an agent idle after the replacement.
+front pass adds one badge in full view, sized from the face so it survives shrinking and
+anchored to the drawn portrait rather than the cell. `Patch_AgentNeverIdle` remains active
+so vanilla does not report an agent idle after the replacement.
 
 Ephemeral host shells are one-line ghost rows with no pawn/state. Agent rows show the
 terminal icon and project; ghost rows emphasize the title/action/file identity and dim
@@ -66,9 +68,9 @@ agents from visible order.
 ## The tab strip
 
 Every view has two possible rows: five tabs plus the project filter, then a right-aligned
-view control (dotfiles for Files/Search, refresh for Git). Views without a control have
-no second band. `TabH` is the complete strip height used by both the body and the
-colonist-bar layout.
+view control (Compact view for Agents, dotfiles for Files/Search, refresh for Git). Views
+without a control have no second band. `TabH` is the complete strip height used by both the
+body and the colonist-bar layout.
 
 The project filter is a set of ticked keys read through `AgentSidebar.Passes`; empty
 means all. `[none]` represents unassigned projects, including a real project with that

@@ -47,7 +47,10 @@ namespace SlopWorld
         static float NameH => SlopWidgets.LineHOf(GameFont.Small);
         static float SubH => SlopWidgets.TinyH;
 
-        static float TextH => NameH + SubH * 2f;
+        // Compact rows keep the name and summary, but do not reserve the unused third line.
+        static float TextH => NameH + SubH * (CompactView ? 1f : 2f);
+
+        public static bool CompactView => Settings.SidebarCompact;
 
         const float BellW = 13f;
 
@@ -130,7 +133,8 @@ namespace SlopWorld
         }
 
         // Which views own a second row. Keep in step with what [Actions] draws.
-        static bool HasActions => CurrentTab == SidebarTab.Files
+        static bool HasActions => CurrentTab == SidebarTab.Agents
+            || CurrentTab == SidebarTab.Files
             || CurrentTab == SidebarTab.Search
             || CurrentTab == SidebarTab.Git;
 
@@ -259,6 +263,7 @@ namespace SlopWorld
         // lower text band; the dark ring keeps it legible over hair and clothing.
         static void DrawStateBadge(Rect face, Rect text, AgentState state)
         {
+            if (CompactView) return;
             if (face.width <= 0f) return;
 
             float d = Mathf.Max(BadgeMin,
