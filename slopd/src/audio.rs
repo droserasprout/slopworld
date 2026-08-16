@@ -2,7 +2,7 @@
 
 use std::io::{self, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -31,10 +31,6 @@ const CONNECT: Duration = Duration::from_secs(15);
 
 /// Delay before reopening a dry file or reconnecting a dropped station.
 const REOPEN_PAUSE: Duration = Duration::from_secs(2);
-
-/// A live server is already pacing data in real time; avoid spending the whole prebuffer on an
-/// artificial retry delay. The prebuffer still absorbs the connect and decoder startup time.
-const STREAM_REOPEN_PAUSE: Duration = Duration::from_millis(100);
 
 /// How often a feeder checks whether a full ring has been retired by a station switch.
 const QUEUE_POLL: Duration = Duration::from_millis(5);
@@ -332,6 +328,9 @@ fn start(source: &str, player: &rodio::Player, state: &Arc<Mutex<AudioState>>) -
 
     let (tx, rx) = sync_channel::<Vec<Sample>>(RING);
     let ready = Arc::new(AtomicBool::new(false));
+    let queued = Arc::new(AtomicUsize::new(0));
+    let prefill_samples =
+        format.rate.get() as usize * format.channels.get() as usize * PREFILL_SECS;
     player.append(Ring {
         rx,
         held: Vec::new(),
@@ -340,6 +339,8 @@ fn start(source: &str, player: &rodio::Player, state: &Arc<Mutex<AudioState>>) -
         rate: format.rate,
         generation,
         ready: ready.clone(),
+        queued: queued.clone(),
+        prefill_samples,
     });
 
     let source = source.to_string();
@@ -347,7 +348,7 @@ fn start(source: &str, player: &rodio::Player, state: &Arc<Mutex<AudioState>>) -
         .name("slopd audio feed".into())
         .spawn(move || {
             feed(
-                first, source, playlist, format, tx, generation, title, ready,
+                first, source, playlist, format, tx, generation, title, ready, queued,
             )
         })
         .context("starting the feeder")?;
@@ -367,11 +368,11 @@ fn feed(
     generation: u64,
     title: TitleSink,
     ready: Arc<AtomicBool>,
+    queued: Arc<AtomicUsize>,
 ) {
     let _ready_on_exit = ReadyOnDrop(ready.clone());
     let prefill_samples =
         format.rate.get() as usize * format.channels.get() as usize * PREFILL_SECS;
-    let mut sent_samples = 0usize;
     let mut current = Some(first);
 
     loop {
@@ -391,13 +392,11 @@ fn feed(
                 }
             }
             None => {
-                let pause = if source.starts_with("http://") || source.starts_with("https://") {
-                    STREAM_REOPEN_PAUSE
-                } else {
-                    REOPEN_PAUSE
-                };
-                std::thread::sleep(pause);
-                if generation != GENERATION.load(Ordering::SeqCst) {
+                // Ordinary HTTP body breaks are repaired below the decoder by `Reconnect`.
+                // Reaching here means the decoder itself stopped, so do not rebuild it in a
+                // tight loop and repeatedly play a relay's connection-opening buffer.
+                tracing::warn!("audio: decoder for {source} ended; rebuilding after a pause");
+                if !wait_for_retry(REOPEN_PAUSE, generation, &GENERATION) {
                     return;
                 }
                 match open_source(&source, &title) {
@@ -429,14 +428,7 @@ fn feed(
             // Blocks on a full ring, which is the whole of the rate limiting: the
             // download runs exactly as fast as the speakers empty it.
             let full = std::mem::replace(&mut chunk, Vec::with_capacity(CHUNK));
-            if !enqueue_chunk(
-                &tx,
-                full,
-                &ready,
-                &mut sent_samples,
-                prefill_samples,
-                generation,
-            ) {
+            if !enqueue_chunk(&tx, full, &ready, &queued, prefill_samples, generation) {
                 return;
             }
         }
@@ -444,35 +436,48 @@ fn feed(
         // A dropped connection or a short local file can end between chunk boundaries. Keep
         // the tail instead of throwing it away before the reconnect or playlist handoff.
         if !chunk.is_empty()
-            && !enqueue_chunk(
-                &tx,
-                chunk,
-                &ready,
-                &mut sent_samples,
-                prefill_samples,
-                generation,
-            )
+            && !enqueue_chunk(&tx, chunk, &ready, &queued, prefill_samples, generation)
         {
             return;
         }
     }
 }
 
+fn wait_for_retry(pause: Duration, generation: u64, active: &AtomicU64) -> bool {
+    let mut left = pause;
+    while !left.is_zero() {
+        let sleep = left.min(QUEUE_POLL);
+        std::thread::sleep(sleep);
+        if generation != active.load(Ordering::SeqCst) {
+            return false;
+        }
+        left = left.saturating_sub(sleep);
+    }
+    true
+}
+
 fn enqueue_chunk(
     tx: &SyncSender<Vec<Sample>>,
     chunk: Vec<Sample>,
     ready: &AtomicBool,
-    sent_samples: &mut usize,
+    queued: &AtomicUsize,
     prefill_samples: usize,
     generation: u64,
 ) -> bool {
     let len = chunk.len();
     let mut chunk = chunk;
     loop {
+        // Publish the count before the chunk: an active consumer may receive immediately after a
+        // successful send. Failed sends roll it back before retrying.
+        queued.fetch_add(len, Ordering::AcqRel);
         match tx.try_send(chunk) {
             Ok(()) => break,
-            Err(TrySendError::Disconnected(_)) => return false,
+            Err(TrySendError::Disconnected(_)) => {
+                queued.fetch_sub(len, Ordering::AcqRel);
+                return false;
+            }
             Err(TrySendError::Full(returned)) => {
+                queued.fetch_sub(len, Ordering::AcqRel);
                 if generation != GENERATION.load(Ordering::SeqCst) {
                     return false;
                 }
@@ -483,8 +488,7 @@ fn enqueue_chunk(
     }
 
     if !ready.load(Ordering::Relaxed) {
-        *sent_samples = sent_samples.saturating_add(len);
-        if *sent_samples >= prefill_samples {
+        if queued.load(Ordering::Acquire) >= prefill_samples {
             ready.store(true, Ordering::Release);
         }
     }
@@ -622,58 +626,24 @@ fn next_playlist_source(
 }
 
 fn open_stream(url: &str, title: &TitleSink) -> Result<Box<dyn Source + Send>> {
-    // `Icy-MetaData: 1` asks for the titles, which arrive *inside* the body - see `Icy`.
-    // Nothing else may see those bytes: handed to the decoder they are audio, and they are
-    // not. No body timeout either - the body never ends.
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_connect(Some(CONNECT))
-        .timeout_recv_response(Some(CONNECT))
-        .timeout_recv_body(None)
-        .timeout_global(None)
-        .build()
-        .into();
-
-    let response = agent
-        .get(url)
-        .header("Icy-MetaData", "1")
-        .call()
+    let mut connector = StreamConnector::new(url, title.clone());
+    let first = connector
+        .connect()
         .with_context(|| format!("connecting to {url}"))?;
-
-    // Absent, or nonsense, means the station is not splicing anything in and the body is
-    // audio from end to end. Which is also what happens when it ignores the request header.
-    let metaint = response
-        .headers()
-        .get("icy-metaint")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.trim().parse::<usize>().ok())
-        .filter(|n| *n > 0);
-
-    let mime = response
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("audio/mpeg")
-        .split(';')
-        .next()
-        .unwrap_or("audio/mpeg")
-        .trim()
-        .to_string();
-
-    // The unpicking happens on the raw body, before any buffering: `Icy` counts the bytes
-    // it hands on, and a reader that had already swallowed some would put it out of step.
-    let raw: Box<dyn Read + Send> = match metaint {
-        Some(n) => {
-            tracing::debug!("audio: {url} splices titles every {n} bytes");
-            Box::new(Icy {
-                inner: response.into_body().into_reader(),
-                metaint: n,
-                left: n,
-                title: title.clone(),
-            })
-        }
-        None => Box::new(response.into_body().into_reader()),
+    let mime = connector
+        .mime
+        .clone()
+        .expect("a successful stream connection records its MIME type");
+    let generation = title.generation;
+    let source = url.to_string();
+    let live = Reconnect {
+        inner: first,
+        reopen: move || connector.connect(),
+        source,
+        generation,
+        read_since_open: false,
     };
-    let body = BufReader::with_capacity(64 * 1024, raw);
+    let body = BufReader::with_capacity(64 * 1024, live);
 
     let decoded = rodio::Decoder::builder()
         .with_data(Feed(Mutex::new(body)))
@@ -683,6 +653,171 @@ fn open_stream(url: &str, title: &TitleSink) -> Result<Box<dyn Source + Send>> {
         .with_context(|| format!("decoding {mime} from {url}"))?;
 
     Ok(Box::new(decoded))
+}
+
+type StreamBody = Box<dyn Read + Send>;
+
+/// Makes one HTTP response reader. Reconnects reuse the same agent and must retain the MIME type
+/// the decoder was probed with. ICY state is per response because every response begins at a new
+/// metadata interval.
+struct StreamConnector {
+    agent: ureq::Agent,
+    url: String,
+    title: TitleSink,
+    mime: Option<String>,
+}
+
+impl StreamConnector {
+    fn new(url: &str, title: TitleSink) -> Self {
+        // A live response has no response/body/global deadline. In ureq 3.3, `RecvBody` checks
+        // the preceding `RecvResponse` timer too, despite the latter being documented as headers
+        // only; setting it to `CONNECT` killed every stream body after exactly fifteen seconds.
+        // The socket/TLS connection itself remains bounded.
+        let agent = ureq::Agent::config_builder()
+            .timeout_connect(Some(CONNECT))
+            .timeout_recv_response(None)
+            .timeout_recv_body(None)
+            .timeout_global(None)
+            .build()
+            .into();
+        Self {
+            agent,
+            url: url.to_string(),
+            title,
+            mime: None,
+        }
+    }
+
+    fn connect(&mut self) -> io::Result<StreamBody> {
+        // `Icy-MetaData: 1` asks for titles inside the body. Those bytes must be removed before
+        // buffering or decoding, and a fresh `Icy` starts its count at each HTTP response.
+        let response = self
+            .agent
+            .get(&self.url)
+            .header("Icy-MetaData", "1")
+            .call()
+            .map_err(|e| io::Error::other(format!("connecting to {}: {e}", self.url)))?;
+
+        let metaint = response
+            .headers()
+            .get("icy-metaint")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.trim().parse::<usize>().ok())
+            .filter(|n| *n > 0);
+        let mime = response
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("audio/mpeg")
+            .split(';')
+            .next()
+            .unwrap_or("audio/mpeg")
+            .trim()
+            .to_string();
+
+        match self.mime.as_ref() {
+            Some(expected) if !expected.eq_ignore_ascii_case(&mime) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("stream changed MIME type from {expected} to {mime}"),
+                ));
+            }
+            None => self.mime = Some(mime),
+            _ => {}
+        }
+
+        let raw: StreamBody = match metaint {
+            Some(n) => {
+                tracing::debug!("audio: {} splices titles every {n} bytes", self.url);
+                Box::new(Icy {
+                    inner: response.into_body().into_reader(),
+                    metaint: n,
+                    left: n,
+                    title: self.title.clone(),
+                })
+            }
+            None => Box::new(response.into_body().into_reader()),
+        };
+        Ok(raw)
+    }
+}
+
+/// Keeps transport boundaries below the decoder. Rebuilding a decoder for every short HTTP body
+/// loses its compressed-audio history and can replay the relay's connection-opening buffer. A
+/// body that carried audio is replaced immediately; an empty/rejected response waits so a broken
+/// endpoint cannot be hammered. The decoded ring supplies headroom while this blocks.
+struct Reconnect<F> {
+    inner: StreamBody,
+    reopen: F,
+    source: String,
+    generation: u64,
+    read_since_open: bool,
+}
+
+impl<F> Reconnect<F>
+where
+    F: FnMut() -> io::Result<StreamBody>,
+{
+    fn replace(&mut self, why: &str) -> io::Result<bool> {
+        tracing::info!("audio: stream body {why}; reconnecting {}", self.source);
+        let mut wait = !self.read_since_open;
+
+        loop {
+            if wait && !wait_for_retry(REOPEN_PAUSE, self.generation, &GENERATION) {
+                return Ok(false);
+            }
+            if self.generation != GENERATION.load(Ordering::SeqCst) {
+                return Ok(false);
+            }
+
+            match (self.reopen)() {
+                Ok(next) => {
+                    self.inner = next;
+                    self.read_since_open = false;
+                    return Ok(true);
+                }
+                Err(e) => {
+                    tracing::debug!("audio: reconnecting {}: {e}", self.source);
+                    wait = true;
+                }
+            }
+        }
+    }
+}
+
+impl<F> Read for Reconnect<F>
+where
+    F: FnMut() -> io::Result<StreamBody>,
+{
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+
+        loop {
+            match self.inner.read(buf) {
+                Ok(0) => {
+                    if !self.replace("ended")? {
+                        return Ok(0);
+                    }
+                }
+                Ok(n) => {
+                    self.read_since_open = true;
+                    return Ok(n);
+                }
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                // The existing decoder cannot consume a new codec. Let it end so the outer
+                // feeder can probe a fresh decoder and validate its sample shape.
+                Err(e) if e.kind() == io::ErrorKind::InvalidData => return Err(e),
+                Err(e) => {
+                    let why = format!("failed ({e})");
+                    if !self.replace(&why)? {
+                        return Ok(0);
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Removes ICY metadata blocks from a station stream while passing audio bytes through.
@@ -791,6 +926,10 @@ struct Ring {
     generation: u64,
     /// Playback waits here while the feeder builds a small amount of live headroom.
     ready: Arc<AtomicBool>,
+    /// Samples still in the channel, excluding `held`; used only at chunk boundaries so the audio
+    /// callback does not perform an atomic operation per sample.
+    queued: Arc<AtomicUsize>,
+    prefill_samples: usize,
 }
 
 impl Iterator for Ring {
@@ -808,12 +947,29 @@ impl Iterator for Ring {
         if self.at >= self.held.len() {
             match self.rx.try_recv() {
                 Ok(next) => {
+                    let len = next.len();
+                    // Direct test senders do not publish a count; production always does. Keep
+                    // the accounting saturating without adding work to every sample callback.
+                    let _ = self
+                        .queued
+                        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+                            Some(n.saturating_sub(len))
+                        });
                     self.held = next;
                     self.at = 0;
                 }
                 // An underrun. The feeder is still there and will catch up; a None here
                 // would end the source and the music with it.
-                Err(TryRecvError::Empty) => return Some(0.0),
+                Err(TryRecvError::Empty) => {
+                    // Stop chasing the feeder one chunk at a time. Rebuild the original headroom
+                    // before resuming, otherwise a single long reconnect leaves playback riding
+                    // the underrun edge indefinitely.
+                    self.ready.store(false, Ordering::Release);
+                    if self.queued.load(Ordering::Acquire) >= self.prefill_samples {
+                        self.ready.store(true, Ordering::Release);
+                    }
+                    return Some(0.0);
+                }
                 Err(TryRecvError::Disconnected) => return None,
             }
         }
@@ -849,6 +1005,9 @@ impl Source for Ring {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::VecDeque;
+    use std::io::{BufRead, Write};
+    use std::net::TcpListener;
 
     fn ring() -> (SyncSender<Vec<Sample>>, Ring) {
         let (tx, rx) = sync_channel(RING);
@@ -864,6 +1023,8 @@ mod tests {
                 // those do not run beside these.
                 generation: GENERATION.load(Ordering::SeqCst),
                 ready: Arc::new(AtomicBool::new(true)),
+                queued: Arc::new(AtomicUsize::new(0)),
+                prefill_samples: 1,
             },
         )
     }
@@ -905,6 +1066,8 @@ mod tests {
                 rate: SampleRate::new(rate).unwrap(),
                 generation: GENERATION.load(Ordering::SeqCst),
                 ready: Arc::new(AtomicBool::new(true)),
+                queued: Arc::new(AtomicUsize::new(0)),
+                prefill_samples: 1,
             });
 
             // The ramp starts at FLOOR rather than at zero, so its first sample can be told
@@ -993,14 +1156,14 @@ mod tests {
     fn queued_prefill_releases_playback_at_the_threshold() {
         let (tx, rx) = sync_channel(2);
         let ready = AtomicBool::new(false);
-        let mut sent = 0;
+        let queued = AtomicUsize::new(0);
         let generation = GENERATION.load(Ordering::SeqCst);
 
         assert!(enqueue_chunk(
             &tx,
             vec![0.1; 4],
             &ready,
-            &mut sent,
+            &queued,
             5,
             generation,
         ));
@@ -1009,12 +1172,249 @@ mod tests {
             &tx,
             vec![0.2; 1],
             &ready,
-            &mut sent,
+            &queued,
             5,
             generation,
         ));
         assert!(ready.load(Ordering::Acquire));
         assert_eq!(rx.try_iter().flatten().count(), 5);
+    }
+
+    #[test]
+    fn a_live_body_has_no_inherited_response_deadline() {
+        let connector = StreamConnector::new(
+            "http://127.0.0.1/unused-local-fixture",
+            TitleSink {
+                state: None,
+                generation: GENERATION.load(Ordering::SeqCst),
+            },
+        );
+        let timeouts = connector.agent.config().timeouts();
+
+        assert_eq!(timeouts.connect, Some(CONNECT));
+        assert_eq!(timeouts.recv_response, None);
+        assert_eq!(timeouts.recv_body, None);
+        assert_eq!(timeouts.global, None);
+    }
+
+    #[test]
+    fn an_underrun_rebuilds_headroom_before_resuming() {
+        let (tx, rx) = sync_channel(4);
+        let ready = Arc::new(AtomicBool::new(true));
+        let queued = Arc::new(AtomicUsize::new(0));
+        let generation = GENERATION.load(Ordering::SeqCst);
+        let mut ring = Ring {
+            rx,
+            held: Vec::new(),
+            at: 0,
+            channels: ChannelCount::new(1).unwrap(),
+            rate: SampleRate::new(5).unwrap(),
+            generation,
+            ready: ready.clone(),
+            queued: queued.clone(),
+            prefill_samples: 5,
+        };
+
+        assert!(enqueue_chunk(
+            &tx,
+            vec![0.1],
+            &ready,
+            &queued,
+            5,
+            generation,
+        ));
+        assert_eq!(ring.next(), Some(0.1));
+        assert_eq!(ring.next(), Some(0.0));
+        assert!(!ready.load(Ordering::Acquire));
+
+        assert!(enqueue_chunk(
+            &tx,
+            vec![0.2; 4],
+            &ready,
+            &queued,
+            5,
+            generation,
+        ));
+        assert_eq!(ring.next(), Some(0.0));
+        assert!(enqueue_chunk(
+            &tx,
+            vec![0.3],
+            &ready,
+            &queued,
+            5,
+            generation,
+        ));
+        assert!(ready.load(Ordering::Acquire));
+        assert_eq!(ring.next(), Some(0.2));
+    }
+
+    #[test]
+    fn retry_wait_can_be_cancelled_by_a_new_selection() {
+        let generation = GENERATION.load(Ordering::SeqCst);
+        let active = AtomicU64::new(generation.wrapping_add(1));
+        assert!(!wait_for_retry(
+            Duration::from_secs(30),
+            generation,
+            &active
+        ));
+    }
+
+    #[test]
+    fn a_stream_body_break_is_hidden_from_its_consumer() {
+        let mut rest: VecDeque<StreamBody> = [b"def".as_slice(), b"ghi".as_slice()]
+            .into_iter()
+            .map(|bytes| Box::new(io::Cursor::new(bytes.to_vec())) as StreamBody)
+            .collect();
+        let mut stream = Reconnect {
+            inner: Box::new(io::Cursor::new(b"abc".to_vec())),
+            reopen: move || {
+                rest.pop_front()
+                    .ok_or_else(|| io::Error::other("synthetic stream exhausted"))
+            },
+            source: "synthetic fixture".to_string(),
+            generation: GENERATION.load(Ordering::SeqCst),
+            read_since_open: false,
+        };
+
+        let mut out = [0u8; 9];
+        stream.read_exact(&mut out).unwrap();
+        assert_eq!(&out, b"abcdefghi");
+    }
+
+    struct FailsAfterBytes {
+        bytes: io::Cursor<Vec<u8>>,
+    }
+
+    impl Read for FailsAfterBytes {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            let n = self.bytes.read(buf)?;
+            if n == 0 {
+                Err(io::Error::new(
+                    io::ErrorKind::ConnectionReset,
+                    "synthetic reset",
+                ))
+            } else {
+                Ok(n)
+            }
+        }
+    }
+
+    #[test]
+    fn a_stream_read_failure_is_hidden_from_its_consumer() {
+        let mut next = Some(Box::new(io::Cursor::new(b"after".to_vec())) as StreamBody);
+        let mut stream = Reconnect {
+            inner: Box::new(FailsAfterBytes {
+                bytes: io::Cursor::new(b"before".to_vec()),
+            }),
+            reopen: move || {
+                next.take()
+                    .ok_or_else(|| io::Error::other("synthetic stream exhausted"))
+            },
+            source: "synthetic fixture".to_string(),
+            generation: GENERATION.load(Ordering::SeqCst),
+            read_since_open: false,
+        };
+
+        let mut out = [0u8; 11];
+        stream.read_exact(&mut out).unwrap();
+        assert_eq!(&out, b"beforeafter");
+    }
+
+    /// This is the complete HTTP/ICY reconnect path, deliberately bound to loopback. Each finite
+    /// response has its own metadata interval; the consumer sees one uninterrupted audio reader.
+    #[test]
+    fn loopback_http_responses_share_one_audio_reader() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        assert!(address.ip().is_loopback());
+
+        let server = std::thread::spawn(move || {
+            for audio in [b"abc", b"def"] {
+                let (mut socket, peer) = listener.accept().unwrap();
+                assert!(peer.ip().is_loopback());
+                let mut request = BufReader::new(socket.try_clone().unwrap());
+                let mut headers = String::new();
+                loop {
+                    let mut line = String::new();
+                    request.read_line(&mut line).unwrap();
+                    if line == "\r\n" {
+                        break;
+                    }
+                    headers.push_str(&line);
+                }
+                assert!(headers.to_ascii_lowercase().contains("icy-metadata: 1\r\n"));
+
+                socket
+                    .write_all(
+                        b"HTTP/1.1 200 OK\r\n\
+                          Content-Type: audio/mpeg\r\n\
+                          icy-metaint: 3\r\n\
+                          Content-Length: 4\r\n\
+                          Connection: close\r\n\r\n",
+                    )
+                    .unwrap();
+                socket.write_all(audio).unwrap();
+                socket.write_all(&[0]).unwrap();
+            }
+        });
+
+        let title = TitleSink {
+            state: None,
+            generation: GENERATION.load(Ordering::SeqCst),
+        };
+        let mut connector = StreamConnector::new(&format!("http://{address}"), title);
+        let first = connector.connect().unwrap();
+        let mut stream = Reconnect {
+            inner: first,
+            reopen: move || connector.connect(),
+            source: "loopback fixture".to_string(),
+            generation: GENERATION.load(Ordering::SeqCst),
+            read_since_open: false,
+        };
+
+        let mut out = [0u8; 6];
+        stream.read_exact(&mut out).unwrap();
+        assert_eq!(&out, b"abcdef");
+        server.join().unwrap();
+    }
+
+    /// The transport fix is below the real decoder, not merely a byte-concatenation trick. Split
+    /// a repository OGG at awkward offsets and require the decoder to produce the same number of
+    /// samples as the uninterrupted file. This fixture and every reader above are local-only.
+    #[test]
+    fn decoder_survives_synthetic_body_breaks() {
+        let encoded = include_bytes!("../../mod/Sounds/SlopWorld/silent.ogg");
+        let uninterrupted = rodio::Decoder::builder()
+            .with_data(io::Cursor::new(encoded.as_slice()))
+            .with_mime_type("audio/ogg")
+            .build()
+            .unwrap()
+            .count();
+        assert!(uninterrupted > 0);
+
+        let cuts = [731, 2_017];
+        let mut rest: VecDeque<StreamBody> = [&encoded[cuts[0]..cuts[1]], &encoded[cuts[1]..]]
+            .into_iter()
+            .map(|bytes| Box::new(io::Cursor::new(bytes.to_vec())) as StreamBody)
+            .collect();
+        let stream = Reconnect {
+            inner: Box::new(io::Cursor::new(encoded[..cuts[0]].to_vec())),
+            reopen: move || {
+                rest.pop_front()
+                    .ok_or_else(|| io::Error::other("synthetic stream exhausted"))
+            },
+            source: "local OGG fixture".to_string(),
+            generation: GENERATION.load(Ordering::SeqCst),
+            read_since_open: false,
+        };
+        let decoded = rodio::Decoder::builder()
+            .with_data(Feed(Mutex::new(stream)))
+            .with_mime_type("audio/ogg")
+            .with_seekable(false)
+            .build()
+            .unwrap();
+
+        assert_eq!(decoded.take(uninterrupted).count(), uninterrupted);
     }
 
     /// A feeder that has gone is the one thing that does end it.
