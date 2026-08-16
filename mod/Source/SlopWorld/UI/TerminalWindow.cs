@@ -12,6 +12,7 @@ namespace SlopWorld
         TerminalWindow(string name)
         {
             _name = name;
+            ResetCursorBlink();
             _input = new TerminalInputHandler(this);
             doWindowBackground = false;
             doCloseButton = false;

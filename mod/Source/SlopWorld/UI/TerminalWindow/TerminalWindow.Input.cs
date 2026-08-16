@@ -621,7 +621,10 @@ namespace SlopWorld
             _scrollPending = false;
             _nextScrollSend = 0f;
             _hasWheelDirection = false;
+            ResetCursorBlink();
         }
+
+        void ResetCursorBlink() => _cursorBlinkAt = Time.realtimeSinceStartup;
 
         void Flush()
         {
