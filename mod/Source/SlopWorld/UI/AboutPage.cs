@@ -13,24 +13,23 @@ namespace SlopWorld
         public float ViewportMarginY = SlopWidgets.GapM;
         public float ContentPaddingX = 20f;
         public float ContentPaddingY = 16f;
-        public float HeroMargin = 36f;
-        public float SectionMargin = 10f;
-        public float SectionPadding = 7f;
+        public float HeroMargin = SlopWidgets.GapS;
+        public float HeroIconSize = 88f;
+        public float HeroIconGap = SlopWidgets.GapXS;
+        public float HeroTitleGap = SlopWidgets.GapL;
+        public float HeadingGap = SlopWidgets.GapM;
+        public float GroupGap = SlopWidgets.GapS;
+        public float RowGap = SlopWidgets.GapXS;
         public float ColumnGap = SlopWidgets.GapL;
-        public float ColumnPadding = 4f;
-        public float ColumnHeadingPadding = 5f;
-        public float CreditMargin = 5f;
-        public float LinkMargin = 3f;
-        public float ParagraphBottomPadding = 3f;
-        public float TailPadding = 32f;
-        public int KickerTextSize;
+        public float DisclaimerGap = SlopWidgets.GapL * 2f;
+        public float DisclaimerRuleWidth = SlopWidgets.GapL * 3f;
+        public float TailPadding = SlopWidgets.GapL;
         public int TitleTextSize = 28;
-        public int SubtitleTextSize = 17;
-        public int SectionTextSize = 21;
-        public int ColumnHeadingTextSize = 17;
-        public int BodyTextSize;
-        public int CreditTextSize;
-        public int LinkTextSize;
+        public int SectionTextSize = 14;
+        public int SubheadingTextSize = 14;
+        public int LeadTextSize = 22;
+        public int MetaTextSize = 14;
+        public int BodyTextSize = 15;
     }
 
     // Credits-style page with local primitives that match the shared settings chrome.
@@ -84,10 +83,11 @@ namespace SlopWorld
 
         static readonly Credit[] Libraries =
         {
-            // Column 1: 8 visual lines (1+1+1+3+2)
             new Credit("Rust", "language", "https://www.rust-lang.org/"),
             new Credit("Alacritty", "terminal", "https://alacritty.org/"),
             new Credit("Tokio", "async runtime", "https://tokio.rs/"),
+            new Credit("Markdig", "markdown",
+                "https://github.com/xoofx/markdig"),
             new Credit("Rodio / CPAL / Symphonia", "audio", new[]
             {
                 new CreditLink("Rodio", "https://github.com/RustAudio/rodio"),
@@ -99,7 +99,6 @@ namespace SlopWorld
                 new CreditLink("ureq", "https://github.com/algesten/ureq"),
                 new CreditLink("rustls", "https://github.com/rustls/rustls"),
             }),
-            // Column 2: 7 visual lines (1+1+1+3+1)
             new Credit("Axum", "HTTP/WebSockets", "https://github.com/tokio-rs/axum"),
             new Credit("Tower HTTP", "HTTP middleware", "https://github.com/tower-rs/tower-http"),
             new Credit("Tracing", "diagnostics", "https://github.com/tokio-rs/tracing"),
@@ -110,7 +109,6 @@ namespace SlopWorld
                 new CreditLink("JSON", "https://github.com/serde-rs/json"),
             }),
             new Credit("tmux", "sessions", "https://github.com/tmux/tmux/wiki"),
-            // Column 3: 8 visual lines (1+1+1+5)
             new Credit("bubblewrap", "isolation",
                 "https://github.com/containers/bubblewrap"),
             new Credit("systemd", "service", "https://systemd.io/"),
@@ -137,15 +135,8 @@ namespace SlopWorld
                 "https://github.com/googlefonts/noto-emoji"),
         };
 
-        static readonly Credit Soundtrack = new Credit("Terry Fail", "Soundtrack",
+        static readonly Credit Soundtrack = new Credit("Terry Fail", "Music By",
             "https://terryfail.bandcamp.com/");
-
-        static readonly Credit SoundtrackTools = new Credit("Strudel, Bitwig Studio", "made with",
-            new[]
-            {
-                new CreditLink("Strudel", "https://strudel.cc/"),
-                new CreditLink("Bitwig Studio", "https://www.bitwig.com/"),
-            });
 
         const float AutoScrollSpeed = 7f;
         const float FirstPassHeight = 2000f;
@@ -325,114 +316,137 @@ namespace SlopWorld
         {
             float y = r.y;
 
-            y += Layout.HeroMargin;
-            y = Line(r, y, "SlopWorld", GameFont.Medium, SlopWidgets.Lead,
-                TextAnchor.UpperCenter, Layout.TitleTextSize);
-            y += Layout.HeroMargin;
-            y = DrawCreatedBy(r, y);
+            y = DrawHero(r, y);
+            y = DrawMusic(r, y);
             y = DrawBasedOn(r, y);
             y = DrawLibraries(r, y);
-            y = DrawMusic(r, y);
             y = DrawAssets(r, y);
+            y = DrawRadio(r, y);
             y = DrawDisclaimer(r, y);
 
             // Leave a tail after the final line so it can reach the bottom of the viewport.
             return y + Layout.TailPadding;
         }
 
-        float DrawCreatedBy(Rect r, float y)
+        float DrawHero(Rect r, float y)
         {
-            y = SectionHeading(r, y, "Created by") + Layout.ColumnPadding;
-            y = Line(r, y, "Lev Gorodetskii", RegularFont, SlopWidgets.Name,
-                TextAnchor.UpperCenter, 0);
-            return InlineLinkLine(r, y, "(", "hire him!", ")",
-                "mailto:job@drsr.io", RegularFont);
+            y += Layout.HeroMargin;
+
+            var icon = ContentFinder<Texture2D>.Get("SlopWorld/SlopWorld_icon", false);
+            if (icon != null)
+            {
+                var iconRect = new Rect(r.center.x - Layout.HeroIconSize / 2f, y,
+                    Layout.HeroIconSize, Layout.HeroIconSize);
+                var wasColor = GUI.color;
+                GUI.color = Color.white;
+                GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit, true);
+                GUI.color = wasColor;
+                y += Layout.HeroIconSize + Layout.HeroIconGap;
+            }
+
+            y = Line(r, y, "SlopWorld", GameFont.Medium, SlopWidgets.Lead,
+                TextAnchor.UpperCenter, Layout.TitleTextSize);
+            y += Layout.HeroTitleGap;
+            y = ByLine(r, y, "CREATED BY", "Lev Gorodetskii",
+                "https://drsr.io/projects");
+            return y + Layout.HeroMargin;
+        }
+
+        float ByLine(Rect r, float y, string role, string name, string url,
+            int roleTextSize = 0)
+        {
+            y = Line(r, y, role, GameFont.Small, SlopWidgets.Dim,
+                TextAnchor.UpperCenter,
+                roleTextSize > 0 ? roleTextSize : Layout.MetaTextSize);
+            return Link(r, y, name, url, RegularFont,
+                TextAnchor.UpperCenter, Layout.LeadTextSize);
         }
 
         float DrawBasedOn(Rect r, float y)
         {
-            y = NextSection(r, y);
-            y = SectionHeading(r, y, "Based on") + Layout.ColumnPadding;
+            y = NextSection(y);
+            y = SectionHeading(r, y, "Built with") + Layout.HeadingGap;
             y = InlineLinkLine(r, y, "", "RimWorld by Ludeon Studios", "",
                 "https://rimworldgame.com/", RegularFont);
-            y = InlineLinkLine(r, y, "", "Harmony mod by Andreas Pardeike", "",
+            y = InlineLinkLine(r, y, "", "Harmony by Andreas Pardeike", "",
                 "https://github.com/pardeike/HarmonyRimWorld", RegularFont);
             return InlineLinkLine(r, y, "", "Unity by Unity Technologies", "",
                 "https://unity.com/", RegularFont);
         }
 
-        float DrawLibraries(Rect r, float y)
-        {
-            y = NextSection(r, y);
-            y = SectionHeading(r, y, "Libraries") + Layout.ColumnHeadingPadding;
-            return CreditGrid(r, y, Libraries);
-        }
-
         float DrawMusic(Rect r, float y)
         {
-            y = NextSection(r, y);
-            y = SectionHeading(r, y, "Music") + Layout.ColumnPadding;
-            y = CreditRow(new Rect(r.x, y, r.width, 1f), y, Soundtrack);
-            y = CreditRow(new Rect(r.x, y, r.width, 1f), y, SoundtrackTools);
-            y += Layout.ColumnHeadingPadding;
-            y = Line(r, y, "Radio", GameFont.Small, SlopWidgets.Lead,
-                TextAnchor.UpperCenter, Layout.ColumnHeadingTextSize);
-            return RadioGrid(r, y + Layout.ColumnPadding);
+            y = NextSection(y);
+            y = ByLine(r, y, "MUSIC BY", Soundtrack.Name, Soundtrack.Links[0].Url);
+            return y + Layout.GroupGap;
+        }
+
+        float DrawLibraries(Rect r, float y)
+        {
+            y = NextSection(y);
+            y = SectionHeading(r, y, "Libraries", Layout.SubheadingTextSize)
+                + Layout.HeadingGap;
+            return CreditGrid(r, y, Libraries, 3);
         }
 
         float DrawAssets(Rect r, float y)
         {
-            y = NextSection(r, y);
-            y = SectionHeading(r, y, "Assets") + Layout.ColumnHeadingPadding;
-            return CreditList(r, y, Assets);
+            y = NextSection(y);
+            y = SectionHeading(r, y, "Assets") + Layout.HeadingGap;
+            return CreditGrid(r, y, Assets, 2);
+        }
+
+        float DrawRadio(Rect r, float y)
+        {
+            y = NextSection(y);
+            y = SectionHeading(r, y, "Radio") + Layout.HeadingGap;
+            return RadioGrid(r, y);
         }
 
         float DrawDisclaimer(Rect r, float y)
         {
-            y = NextSection(r, y);
+            y = NextSection(y) + Layout.DisclaimerGap;
+            float ruleWidth = Mathf.Min(Layout.DisclaimerRuleWidth, r.width);
+            Slab.Hairline(new Rect(r.center.x - ruleWidth / 2f, y, ruleWidth, 1f),
+                SlopWidgets.Dim);
+            y += Layout.GroupGap;
             return Paragraph(r, y,
-                "SlopWorld is an independent project not affiliated with or endorsed " +
-                "by anyone except me and friends.",
+                "An independent project; not affiliated with, endorsed by, etc.",
                 RegularFont, SlopWidgets.Dim, TextAnchor.UpperCenter,
                 Layout.BodyTextSize);
         }
 
-        float NextSection(Rect rect, float y)
+        float NextSection(float y)
         {
-            y += Layout.SectionMargin;
-            Rule(rect, y);
-            return y + Layout.SectionPadding;
+            return y + Layout.HeadingGap;
         }
 
-        float SectionHeading(Rect rect, float y, string text)
+        float SectionHeading(Rect rect, float y, string text, int textSize = 0)
         {
-            return Line(rect, y, text, GameFont.Medium, SlopWidgets.Lead,
-                TextAnchor.UpperCenter, Layout.SectionTextSize);
+            return Line(rect, y, (text ?? "").ToUpperInvariant(), GameFont.Medium,
+                SlopWidgets.Dim,
+                TextAnchor.UpperCenter,
+                textSize > 0 ? textSize : Layout.SectionTextSize);
         }
 
-        float CreditGrid(Rect rect, float y, Credit[] credits)
+        float CreditGrid(Rect rect, float y, Credit[] credits, int columns)
         {
             float gap = Layout.ColumnGap;
-            float colW = Mathf.Max(1f, (rect.width - gap * 2f) / 3f);
-            int third = credits.Length / 3;
-            int rem = credits.Length % 3;
-            int s1 = third + (rem > 0 ? 1 : 0);
-            int s2 = s1 + third + (rem > 1 ? 1 : 0);
-            var c1 = new Rect(rect.x, y, colW, 1f);
-            var c2 = new Rect(rect.x + colW + gap, y, colW, 1f);
-            var c3 = new Rect(rect.x + (colW + gap) * 2f, y, colW, 1f);
-            float h1 = CreditColumn(c1, credits, 0, s1);
-            float h2 = CreditColumn(c2, credits, s1, s2);
-            float h3 = CreditColumn(c3, credits, s2, credits.Length);
-            return y + Mathf.Max(h1, Mathf.Max(h2, h3));
-        }
+            columns = Mathf.Max(1, columns);
+            float colW = Mathf.Max(1f, (rect.width - gap * (columns - 1)) / columns);
+            int rows = (credits.Length + columns - 1) / columns;
+            float maxHeight = 0f;
+            for (int column = 0; column < columns; column++)
+            {
+                int start = column * rows;
+                int end = Mathf.Min(credits.Length, start + rows);
+                if (start >= end) continue;
 
-        float CreditList(Rect rect, float y, Credit[] credits)
-        {
-            for (int i = 0; i < credits.Length; i++)
-                y = CreditRow(rect, y, credits[i]);
+                var columnRect = new Rect(rect.x + (colW + gap) * column, y, colW, 1f);
+                maxHeight = Mathf.Max(maxHeight, CreditColumn(columnRect, credits, start, end));
+            }
 
-            return y;
+            return y + maxHeight;
         }
 
         float CreditColumn(Rect rect, Credit[] credits, int start, int end)
@@ -450,7 +464,7 @@ namespace SlopWorld
             Text.Font = RegularFont;
             float line = SlopWidgets.LineHOf(RegularFont);
             float nameHeight = line * Mathf.Max(1, credit.Links.Length);
-            float middleGap = SlopWidgets.GapXS;
+            float middleGap = Layout.RowGap;
             float half = rect.width / 2f;
             var detail = new Rect(rect.x, y, Mathf.Max(1f, half - middleGap), nameHeight);
             var name = new Rect(rect.x + half + middleGap, y,
@@ -460,15 +474,14 @@ namespace SlopWorld
             // left, while the linked credit name opens away from it on the right. Roles
             // stay aligned with the first member when a credit expands into a stack.
             Line(detail, y, credit.Detail, GameFont.Small,
-                SlopWidgets.Dim,
-                TextAnchor.UpperRight, Layout.KickerTextSize);
+                SlopWidgets.Dim, TextAnchor.UpperRight, Layout.MetaTextSize);
             if (credit.Links.Length == 0)
                 Line(name, y, credit.Name, RegularFont, SlopWidgets.Name,
-                    TextAnchor.UpperLeft, Layout.CreditTextSize);
+                    TextAnchor.UpperLeft, Layout.BodyTextSize);
             else
                 CreditNameWithLinks(name, y, credit);
 
-            return y + nameHeight + Layout.CreditMargin;
+            return y + nameHeight + Layout.RowGap;
         }
 
         void CreditNameWithLinks(Rect rect, float y, Credit credit)
@@ -489,6 +502,9 @@ namespace SlopWorld
             }
         }
 
+        const int RadioItemsPerLine = 3;
+        const string RadioSeparator = "  ·  ";
+
         float RadioGrid(Rect rect, float y)
         {
             var stations = Radio.Stations ?? new Radio.Station[0];
@@ -500,51 +516,66 @@ namespace SlopWorld
                     Layout.BodyTextSize);
             }
 
-            float gap = Layout.ColumnGap;
-            float colW = Mathf.Max(1f, (rect.width - gap * 2f) / 3f);
-            int third = stations.Length / 3;
-            int rem = stations.Length % 3;
-            int s1 = third + (rem > 0 ? 1 : 0);
-            int s2 = s1 + third + (rem > 1 ? 1 : 0);
-            var c1 = new Rect(rect.x, y, colW, 1f);
-            var c2 = new Rect(rect.x + colW + gap, y, colW, 1f);
-            var c3 = new Rect(rect.x + (colW + gap) * 2f, y, colW, 1f);
-            float h1 = RadioColumn(c1, stations, 0, s1, TextAnchor.UpperLeft);
-            float h2 = RadioColumn(c2, stations, s1, s2, TextAnchor.UpperLeft);
-            float h3 = RadioColumn(c3, stations, s2, stations.Length, TextAnchor.UpperLeft);
-            return y + Mathf.Max(h1, Mathf.Max(h2, h3));
+            int start = 0;
+            while (start < stations.Length)
+            {
+                int count = Mathf.Min(RadioItemsPerLine, stations.Length - start);
+                while (count > 1 && RadioCloudWidth(stations, start, count) > rect.width)
+                    count--;
+
+                y = RadioCloudLine(rect, y, stations, start, count);
+                start += count;
+            }
+
+            return y;
         }
 
-        float RadioColumn(Rect rect, Radio.Station[] stations, int start, int end,
-            TextAnchor anchor)
+        float RadioCloudWidth(Radio.Station[] stations, int start, int count)
         {
-            float top = rect.y;
-            float y = top;
-            for (int i = start; i < end; i++)
-                y = RadioRow(rect, y, stations[i], anchor);
-            return y - top;
+            Text.Font = RegularFont;
+            float width = 0f;
+            for (int i = 0; i < count; i++)
+            {
+                string name = stations[start + i]?.Name ?? "Unknown station";
+                width += SlopWidgets.Wide(name);
+                if (i < count - 1) width += SlopWidgets.Wide(RadioSeparator);
+            }
+
+            return width;
         }
 
-        float RadioRow(Rect rect, float y, Radio.Station station, TextAnchor anchor)
+        float RadioCloudLine(Rect rect, float y, Radio.Station[] stations, int start,
+            int count)
         {
-            string name = station?.Name ?? "Unknown station";
-            string donate = station?.Metadata?.Donate;
-            bool hasDonate = !string.IsNullOrWhiteSpace(donate);
             Text.Font = RegularFont;
             float line = SlopWidgets.LineHOf(RegularFont);
-            float nameWidth = SlopWidgets.Wide(name);
-            const string heart = "♥";
-            float heartWidth = hasDonate ? SlopWidgets.Wide(heart) : 0f;
-            float gap = hasDonate ? SlopWidgets.GapS : 0f;
-            float x = rect.x;
+            float total = RadioCloudWidth(stations, start, count);
+            float x = rect.x + Mathf.Max(0f, (rect.width - total) / 2f);
 
-            LabelAt(new Rect(x, y, nameWidth, line), name, RegularFont,
-                SlopWidgets.Name);
-            if (hasDonate)
-                LinkAt(new Rect(x + nameWidth + gap, y, heartWidth, line), heart, donate,
-                    RegularFont);
+            for (int i = 0; i < count; i++)
+            {
+                var station = stations[start + i];
+                string name = station?.Name ?? "Unknown station";
+                string donate = station?.Metadata?.Donate;
+                float nameWidth = Mathf.Min(SlopWidgets.Wide(name), rect.width);
 
-            return y + line + Layout.CreditMargin;
+                if (!string.IsNullOrWhiteSpace(donate))
+                    LinkAt(new Rect(x, y, nameWidth, line), name, donate, RegularFont);
+                else
+                    LabelAt(new Rect(x, y, nameWidth, line), name, RegularFont,
+                        SlopWidgets.Name);
+
+                x += nameWidth;
+                if (i < count - 1)
+                {
+                    float separatorWidth = SlopWidgets.Wide(RadioSeparator);
+                    LabelAt(new Rect(x, y, separatorWidth, line), RadioSeparator,
+                        RegularFont, SlopWidgets.Dim);
+                    x += separatorWidth;
+                }
+            }
+
+            return y + line + Layout.RowGap;
         }
 
         float InlineLinkLine(Rect rect, float y, string before, string linked, string after,
@@ -588,8 +619,6 @@ namespace SlopWorld
             bool over = Mouse.IsOver(rect);
             GUI.color = over ? SlopWidgets.Lead : SlopWidgets.Accent;
             SlopWidgets.RowLabel(rect, label, TextAnchor.UpperLeft);
-            Slab.Hairline(new Rect(rect.x, rect.yMax - 1f, rect.width, 1f), GUI.color);
-
             if (Widgets.ButtonInvisible(rect))
             {
                 SoundDefOf.Click.PlayOneShotOnCamera();
@@ -639,7 +668,7 @@ namespace SlopWorld
                 var style = SizedStyle(font, textSize, anchor, true);
                 float largeH = Mathf.Max(1f,
                     style.CalcHeight(new GUIContent(text ?? ""), r.width)) +
-                    Layout.ParagraphBottomPadding;
+                    Layout.RowGap;
                 var largeColor = GUI.color;
                 GUI.color = color;
                 GUI.Label(new Rect(r.x, y, r.width, largeH), text ?? "", style);
@@ -656,7 +685,7 @@ namespace SlopWorld
             Text.Anchor = anchor;
             GUI.color = color;
             float h = Mathf.Max(SlopWidgets.LineHOf(font), Text.CalcHeight(text, r.width)) +
-                Layout.ParagraphBottomPadding;
+                Layout.RowGap;
             Widgets.Label(new Rect(r.x, y, r.width, h), text);
             Text.Anchor = wasAnchor;
             Text.WordWrap = wasWrap;
@@ -688,8 +717,6 @@ namespace SlopWorld
             GUI.color = over ? SlopWidgets.Lead : SlopWidgets.Accent;
             if (textSize > 0) GUI.Label(hit, label ?? "", style);
             else SlopWidgets.RowLabel(hit, label, TextAnchor.UpperLeft);
-            Slab.Hairline(new Rect(hit.x, hit.yMax - 1f, hit.width, 1f), GUI.color);
-
             if (Widgets.ButtonInvisible(hit))
             {
                 SoundDefOf.Click.PlayOneShotOnCamera();
@@ -698,7 +725,7 @@ namespace SlopWorld
 
             GUI.color = wasColor;
             Text.Font = wasFont;
-            return y + h + Layout.LinkMargin;
+            return y + h + Layout.RowGap;
         }
 
         static GUIStyle SizedStyle(GameFont font, int textSize, TextAnchor anchor, bool wrap)
@@ -716,7 +743,5 @@ namespace SlopWorld
             return style;
         }
 
-        static void Rule(Rect r, float y) =>
-            Slab.Hairline(new Rect(r.x, y, r.width, 1f), SlopWidgets.Edge);
     }
 }
