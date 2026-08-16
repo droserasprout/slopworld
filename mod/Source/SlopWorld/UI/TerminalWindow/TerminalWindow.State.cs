@@ -268,12 +268,21 @@ namespace SlopWorld
         bool EnsureSession(SessionHub hub)
         {
             var info = hub.Get(_name);
-            // An agent that has gone takes its pane with it - but not the window, while the
-            // window is showing something else. The chrome closes when there is nothing left
-            // in it, which is what Leave says too.
+            // An agent that has gone takes its pane with it. A pane advances to the next live
+            // session; content views keep the window so their chrome can remain visible.
             if (_name != null && (info == null || info.Gone))
             {
-                if (_content == null) { Close(); return false; }
+                if (_content == null)
+                {
+                    // Ctrl+C/D can be the last input an agent receives. Keep the terminal
+                    // focused on the next live session instead of dropping back to the map;
+                    // ephemeral host shells take this path too, after they disappear from the
+                    // daemon's session list.
+                    string departed = _name;
+                    if (FocusNextSession(departed)) return true;
+                    Close();
+                    return false;
+                }
                 hub.Unsubscribe(_name);
                 _name = null;
             }
