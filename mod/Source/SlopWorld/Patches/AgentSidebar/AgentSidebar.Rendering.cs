@@ -613,7 +613,20 @@ namespace SlopWorld
         // see [HasActions], which has to agree with what this draws.
         static void Actions(Rect r)
         {
-            if (CurrentTab == SidebarTab.Files || CurrentTab == SidebarTab.Search)
+            if (CurrentTab == SidebarTab.Agents)
+            {
+                bool compact = CompactView;
+                Tab(r, Icons.Type, compact,
+                    compact
+                        ? "Compact view is on. Click to show full agent rows."
+                        : "Compact view. Hide the third line, state dots and selection corners.",
+                    () =>
+                    {
+                        Settings.S.sidebarCompact = !compact;
+                        Settings.S.Write();
+                    });
+            }
+            else if (CurrentTab == SidebarTab.Files || CurrentTab == SidebarTab.Search)
             {
                 bool showing = Settings.SidebarShowHidden;
                 Tab(r, Icons.Hidden, showing,

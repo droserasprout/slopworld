@@ -180,10 +180,13 @@ namespace SlopWorld
                 Widgets.DrawBox(face, thickness);
             }
 
-            if (AgentSidebar.AgentScrollOpen)
-                DeferSelection(colonist, face, bar.Scale);
-            else
-                DrawSelection(colonist, face, bar.Scale);
+            if (!AgentSidebar.CompactView)
+            {
+                if (AgentSidebar.AgentScrollOpen)
+                    DeferSelection(colonist, face, bar.Scale);
+                else
+                    DrawSelection(colonist, face, bar.Scale);
+            }
 
             if (colonist.Dead)
             {
