@@ -11,7 +11,7 @@ Environment=SLOPD_LOG=slopd=info
 
 # Stop slopd, not everything under it. Any tmux command forks the server if it is
 # not up, into this cgroup, where the default KillMode=control-group would SIGTERM
-# it on every `make install-daemon` and take every agent with it.
+# it on a daemon restart and take every agent with it.
 # Tmux::ensure_server normally keeps the server out of here; this covers the one
 # forked some other way.
 KillMode=process

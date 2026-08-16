@@ -1,6 +1,7 @@
 # Surviving a redeploy
 
-`make install-daemon` restarts slopd while the game and tmux survive. Both services
+`make install-daemon` restarts slopd when its build changes while the game and tmux
+survive. Both services
 must be outside slopd's cgroup:
 
 - `Tmux::ensure_server` uses a transient service. `Type=forking` is required for
