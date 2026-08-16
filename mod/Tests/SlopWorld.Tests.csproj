@@ -26,6 +26,7 @@
     <Compile Include="../Source/SlopWorld/Client/SessionHub/ScreenBuf.cs" Link="Source/Client/SessionHub/ScreenBuf.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/ScreenBuf.Json.cs" Link="Source/Client/SessionHub/ScreenBuf.Json.cs" />
     <Compile Include="../Source/SlopWorld/UI/Fuzzy.cs" Link="Source/UI/Fuzzy.cs" />
+    <Compile Include="../Source/SlopWorld/UI/SessionNavigation.cs" Link="Source/UI/SessionNavigation.cs" />
     <Compile Include="../Source/SlopWorld/UI/UrlScan.cs" Link="Source/UI/UrlScan.cs" />
     <Compile Include="../Source/SlopWorld/UI/PagerCommands.cs" Link="Source/UI/PagerCommands.cs" />
   </ItemGroup>
