@@ -38,6 +38,25 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "Jukebox");
+
+            var picked = Radio.Picked;
+            string source = Radio.Muted ? "Muted" : picked == null
+                ? "OST" : $"{picked.Name} {Radio.RateLabel(picked.Rate)}";
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Tune: " + source))
+                Find.WindowStack.Add(new SlopMenu(Jukebox.StationOptions()));
+
+            string now = Radio.NowPlaying;
+            SlopWidgets.Note(l, string.IsNullOrEmpty(now)
+                ? "Nothing is playing."
+                : "Now playing: " + now);
+
+            l.Gap(SlopWidgets.GapS);
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Random"))
+                Radio.PickRandom();
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Like current song"))
+                Radio.Like();
+
+            l.Gap(SlopWidgets.GapS);
             bool mute = SlopWidgets.Checkbox(l, "Mute", Radio.Muted,
                 "Stop playback without downloading unheard audio.");
             if (mute != Radio.Muted) Radio.ToggleMute();
