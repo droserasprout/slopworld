@@ -3,7 +3,11 @@
 | File | Holds |
 | --- | --- |
 | `main.rs` | Startup, the retick loop, the token middleware. |
-| `api.rs` | Routes and the WebSocket pump. |
+| `api/mod.rs` | API module façade and shared request helpers. |
+| `api/router.rs` | Axum routes and root-only middleware. |
+| `api/handlers.rs` | HTTP handlers and their co-located tests. |
+| `api/types.rs` | HTTP and WebSocket wire request types. |
+| `api/ws.rs` | WebSocket upgrade, message handling, and frame pump. |
 | `session.rs` | Session data types, terminal input helpers and config validation. |
 | `manager/lifecycle.rs` | `Manager` construction, configuration, clocks, state transitions and session/project/shortcut lifecycle. |
 | `manager/capture.rs` | `Manager` terminal input, emulator readers, screen frames and scroll capture. |

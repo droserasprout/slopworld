@@ -1,136 +1,16 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
-
 use anyhow::{bail, Context};
-use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{Path, Query, Request, State};
+use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::middleware::{self, Next};
-use axum::response::{IntoResponse, Response};
-use axum::routing::{delete, get, post, put};
-use axum::{Extension, Json, Router};
+use axum::{Extension, Json};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-
-use crate::grant::{Cap, Level};
-use futures::{SinkExt, StreamExt};
-use serde::Deserialize;
 use serde_json::{json, Value};
-use tokio::sync::{broadcast, Mutex};
-use tokio::task::JoinHandle;
 
 use crate::config::{ProjectCfg, SessionCfg, ShortcutCfg};
-use crate::session::{Event, Manager, RunWhere, WatchGuard};
+use crate::grant::{Cap, Level};
+use crate::session::RunWhere;
 
-type Mgr = Arc<Manager>;
-type WsTx = Arc<Mutex<futures::stream::SplitSink<WebSocket, Message>>>;
-type WsSubs = Arc<Mutex<HashMap<String, WatchGuard>>>;
-
-pub fn router(m: Mgr) -> Router {
-    // Reachable by a scoped grant as well as the root. Each handler checks its own session and
-    // level (`guard`), the list is filtered, and `/ws` gates every message - so a grant reaches
-    // exactly the sessions it names, at the level it was given, and the host through none of it.
-    // Creating a session (`POST /api/sessions`) is root-only even here, by `guard_create`.
-    let scoped = Router::new()
-        .route("/api/health", get(health))
-        .route("/api/sessions", get(list).post(create))
-        .route("/api/sessions/:name", get(one).put(update).delete(destroy))
-        .route("/api/sessions/:name/start", post(start))
-        .route("/api/sessions/:name/stop", post(stop))
-        .route("/api/sessions/:name/restart", post(restart))
-        .route("/api/sessions/:name/label", put(set_label))
-        .route("/api/sessions/:name/state/reset", post(reset_state))
-        .route(
-            "/api/tasks",
-            get(list_tasks).post(create_task).delete(prune_tasks),
-        )
-        .route(
-            "/api/tasks/:id",
-            get(one_task).post(update_task).delete(remove_task),
-        )
-        .route("/ws", get(ws_upgrade));
-
-    // The mod's own: the file, the projects, the machine, and minting grants itself. Default
-    // deny - a grant reaches none of it, and a route added here is root-only until someone
-    // moves it into `scoped` on purpose. The layer reads the capability `auth` already hung on
-    // the request.
-    let root = Router::new()
-        .route("/api/projects", get(list_projects).post(create_project))
-        .route(
-            "/api/projects/:name",
-            get(one_project).put(update_project).delete(destroy_project),
-        )
-        .route("/api/shortcuts", get(list_shortcuts).post(create_shortcut))
-        .route(
-            "/api/shortcuts/:name",
-            put(update_shortcut).delete(destroy_shortcut),
-        )
-        .route("/api/shortcuts/:name/run", post(run_shortcut))
-        .route("/api/run", post(run))
-        .route("/api/file-action", post(file_action))
-        .route("/api/grants", get(list_grants).post(mint_grant))
-        .route("/api/grants/:grantor", delete(revoke_grants))
-        .route("/api/state", get(stored_states))
-        .route("/api/state/:kind/:key", delete(delete_stored_state))
-        .route("/api/state/trash/:key/restore", post(restore_stored_state))
-        .route("/api/presets", get(presets))
-        .route(
-            "/api/presets/:kind/:name",
-            put(update_preset).delete(delete_preset),
-        )
-        .route("/api/presets/:kind/:name/copy", post(copy_preset))
-        .route("/api/config", get(get_config))
-        .route("/api/config", put(put_config))
-        .route("/api/config/patch", put(put_config_patch))
-        .route("/api/clipboard", get(clip_read).post(clip_write))
-        .route("/api/open", post(open_url))
-        .route("/api/usage", get(usage))
-        .route("/api/audio", get(audio))
-        .route("/api/jukebox", get(jukebox))
-        .route("/api/browse", get(browse))
-        .route("/api/read", get(read_file))
-        .route("/api/image", get(read_image))
-        .route(
-            "/api/files",
-            post(create_file).put(rename_file).delete(remove_file),
-        )
-        .route("/api/search", get(search))
-        .route("/api/git", get(git_status))
-        .layer(middleware::from_fn(require_root));
-
-    scoped.merge(root).with_state(m)
-}
-
-/// The default-deny half of the API: everything but the session read/drive routes is the mod's,
-/// so a scoped grant gets 403 here before a handler runs. The capability was resolved and hung
-/// on the request by `auth`, which is the outer layer, so it is always present by now.
-async fn require_root(Extension(cap): Extension<Cap>, req: Request, next: Next) -> Response {
-    if cap.may_create() {
-        next.run(req).await
-    } else {
-        err(
-            StatusCode::FORBIDDEN,
-            "this route needs the daemon's own token",
-        )
-        .into_response()
-    }
-}
-
-fn err(code: StatusCode, e: impl std::fmt::Display) -> (StatusCode, Json<serde_json::Value>) {
-    (code, Json(json!({ "error": e.to_string() })))
-}
-
-/// The token a request presents, if any. What `Manager::resolve_cap` weighs against the root
-/// and the live grants. Shared with the `/ws` upgrade, which reads it itself because the header
-/// rides only on the upgrade request.
-pub fn presented_token(headers: &HeaderMap) -> Option<String> {
-    headers
-        .get("x-slop-token")
-        .and_then(|v| v.to_str().ok())
-        .map(str::to_string)
-}
-
-type ApiResult = Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)>;
+use super::types::*;
+use super::{err, ApiResult, Mgr};
 
 fn ok_json(r: anyhow::Result<()>) -> ApiResult {
     r.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
@@ -140,7 +20,7 @@ fn ok_json(r: anyhow::Result<()>) -> ApiResult {
 macro_rules! rw_action {
     ($($handler:ident => $method:ident),+ $(,)?) => {
         $(
-            async fn $handler(
+            pub(super) async fn $handler(
                 State(m): State<Mgr>,
                 Extension(cap): Extension<Cap>,
                 Path(name): Path<String>,
@@ -155,7 +35,7 @@ macro_rules! rw_action {
 macro_rules! root_action {
     ($($handler:ident => $method:ident),+ $(,)?) => {
         $(
-            async fn $handler(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+            pub(super) async fn $handler(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
                 ok_json(m.$method(&name).await)
             }
         )+
@@ -166,7 +46,7 @@ macro_rules! root_action {
 /// passes everything; a grant passes only a session it names, and never the host. 403 rather
 /// than 404, since a scoped caller has no business learning whether the name it cannot touch
 /// exists (a missing name and a forbidden one read the same to it).
-async fn guard(
+pub(super) async fn guard(
     m: &Mgr,
     cap: &Cap,
     name: &str,
@@ -181,7 +61,7 @@ async fn guard(
 
 /// 403 unless `cap` is the root: creating a session - a new agent, an errand - is the mod's,
 /// never a grant's. A grant is a handle on what already exists.
-fn guard_create(cap: &Cap) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+pub(super) fn guard_create(cap: &Cap) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
     if cap.may_create() {
         Ok(())
     } else {
@@ -192,7 +72,7 @@ fn guard_create(cap: &Cap) -> Result<(), (StatusCode, Json<serde_json::Value>)> 
     }
 }
 
-async fn health(State(_m): State<Mgr>) -> ApiResult {
+pub(super) async fn health(State(_m): State<Mgr>) -> ApiResult {
     Ok(Json(json!({
         "ok": true,
         "version": env!("CARGO_PKG_VERSION"),
@@ -200,7 +80,10 @@ async fn health(State(_m): State<Mgr>) -> ApiResult {
     })))
 }
 
-fn task_principal(cap: &Cap, headers: &HeaderMap) -> Result<String, (StatusCode, Json<Value>)> {
+pub(super) fn task_principal(
+    cap: &Cap,
+    headers: &HeaderMap,
+) -> Result<String, (StatusCode, Json<Value>)> {
     let who = cap
         .principal()
         .map(str::to_string)
@@ -233,17 +116,11 @@ fn task_principal(cap: &Cap, headers: &HeaderMap) -> Result<String, (StatusCode,
 /// `guard`, because it is not a session: it has no host-ness flag to look up, appears in no
 /// grant's scope, and names nothing a scoped caller could learn from reaching it. An agent
 /// reporting back to the user is what the mailbox is for.
-async fn task_endpoint_known(m: &Mgr, who: &str) -> bool {
+pub(super) async fn task_endpoint_known(m: &Mgr, who: &str) -> bool {
     who == crate::tasks::HOST || m.session_known(who).await
 }
 
-#[derive(Deserialize)]
-struct CreateTaskReq {
-    to: String,
-    body: String,
-}
-
-async fn create_task(
+pub(super) async fn create_task(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
@@ -271,7 +148,7 @@ async fn create_task(
     Ok(Json(json!({ "task": task })))
 }
 
-async fn list_tasks(
+pub(super) async fn list_tasks(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
@@ -280,7 +157,7 @@ async fn list_tasks(
     Ok(Json(json!({ "tasks": m.tasks_for(&who) })))
 }
 
-async fn one_task(
+pub(super) async fn one_task(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
@@ -292,14 +169,7 @@ async fn one_task(
         .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such task: {id}")))
 }
 
-#[derive(Deserialize)]
-struct UpdateTaskReq {
-    status: crate::tasks::Status,
-    #[serde(default)]
-    note: Option<String>,
-}
-
-async fn update_task(
+pub(super) async fn update_task(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
@@ -313,15 +183,7 @@ async fn update_task(
     Ok(Json(json!({ "task": task })))
 }
 
-#[derive(Deserialize)]
-struct PruneTasksQuery {
-    /// Every finished task in the store rather than the caller's own. Root-only: it reaches
-    /// mailboxes the caller is not party to.
-    #[serde(default)]
-    all: bool,
-}
-
-async fn prune_tasks(
+pub(super) async fn prune_tasks(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
@@ -340,7 +202,7 @@ async fn prune_tasks(
     Ok(Json(json!({ "removed": removed })))
 }
 
-async fn remove_task(
+pub(super) async fn remove_task(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
@@ -353,7 +215,7 @@ async fn remove_task(
     Ok(Json(json!({ "task": task })))
 }
 
-async fn list(State(m): State<Mgr>, Extension(cap): Extension<Cap>) -> ApiResult {
+pub(super) async fn list(State(m): State<Mgr>, Extension(cap): Extension<Cap>) -> ApiResult {
     // Filtered to what the caller may see: a grant lists the sessions it names and no others, so
     // a name it cannot touch is a name it never learns. Host-ness is not carried on a view and
     // is not needed here - a grant never names a host session, so `can_see` refuses it by
@@ -367,7 +229,7 @@ async fn list(State(m): State<Mgr>, Extension(cap): Extension<Cap>) -> ApiResult
     Ok(Json(json!({ "sessions": sessions })))
 }
 
-async fn one(
+pub(super) async fn one(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
@@ -381,7 +243,7 @@ async fn one(
         .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such session: {name}")))
 }
 
-async fn create(
+pub(super) async fn create(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     Json(s): Json<SessionCfg>,
@@ -390,7 +252,7 @@ async fn create(
     ok_json(m.add(s).await)
 }
 
-async fn update(
+pub(super) async fn update(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
@@ -408,33 +270,31 @@ rw_action!(
     restart => restart,
 );
 
-async fn stored_states(State(m): State<Mgr>) -> ApiResult {
+pub(super) async fn stored_states(State(m): State<Mgr>) -> ApiResult {
     m.stored_states()
         .await
         .map(|entries| Json(json!({ "entries": entries })))
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))
 }
 
-async fn delete_stored_state(
+pub(super) async fn delete_stored_state(
     State(m): State<Mgr>,
     Path((kind, key)): Path<(String, String)>,
 ) -> ApiResult {
     ok_json(m.delete_stored_state(&kind, &key).await)
 }
 
-async fn restore_stored_state(State(m): State<Mgr>, Path(key): Path<String>) -> ApiResult {
+pub(super) async fn restore_stored_state(
+    State(m): State<Mgr>,
+    Path(key): Path<String>,
+) -> ApiResult {
     m.restore_stored_state(&key)
         .await
         .map(|session| Json(json!({ "ok": true, "session": session })))
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))
 }
 
-#[derive(Debug, Deserialize)]
-struct LabelReq {
-    label: String,
-}
-
-async fn set_label(
+pub(super) async fn set_label(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
@@ -444,11 +304,11 @@ async fn set_label(
     ok_json(m.set_label(&name, q.label).await)
 }
 
-async fn list_projects(State(m): State<Mgr>) -> ApiResult {
+pub(super) async fn list_projects(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!({ "projects": m.projects().await })))
 }
 
-async fn one_project(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+pub(super) async fn one_project(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
     m.projects()
         .await
         .into_iter()
@@ -457,11 +317,11 @@ async fn one_project(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResul
         .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such project: {name}")))
 }
 
-async fn create_project(State(m): State<Mgr>, Json(p): Json<ProjectCfg>) -> ApiResult {
+pub(super) async fn create_project(State(m): State<Mgr>, Json(p): Json<ProjectCfg>) -> ApiResult {
     ok_json(m.add_project(p).await)
 }
 
-async fn update_project(
+pub(super) async fn update_project(
     State(m): State<Mgr>,
     Path(name): Path<String>,
     Json(p): Json<ProjectCfg>,
@@ -471,15 +331,18 @@ async fn update_project(
 
 root_action!(destroy_project => remove_project, destroy_shortcut => remove_shortcut);
 
-async fn list_shortcuts(State(m): State<Mgr>) -> ApiResult {
+pub(super) async fn list_shortcuts(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!({ "shortcuts": m.shortcuts().await })))
 }
 
-async fn create_shortcut(State(m): State<Mgr>, Json(sc): Json<ShortcutCfg>) -> ApiResult {
+pub(super) async fn create_shortcut(
+    State(m): State<Mgr>,
+    Json(sc): Json<ShortcutCfg>,
+) -> ApiResult {
     ok_json(m.add_shortcut(sc).await)
 }
 
-async fn update_shortcut(
+pub(super) async fn update_shortcut(
     State(m): State<Mgr>,
     Path(name): Path<String>,
     Json(sc): Json<ShortcutCfg>,
@@ -491,7 +354,7 @@ async fn update_shortcut(
 /// point this client would have given up waiting. The body says where to run -
 /// `{"project":"..."}` or `{"temp":true}` - and `Option<Json<_>>` is so a bodyless curl still
 /// runs the errands that already know.
-async fn run_shortcut(
+pub(super) async fn run_shortcut(
     State(m): State<Mgr>,
     Path(name): Path<String>,
     want: Option<Json<RunWhere>>,
@@ -503,45 +366,7 @@ async fn run_shortcut(
     Ok(Json(json!({ "ok": true, "session": session })))
 }
 
-/// An errand nobody wrote down: the same temporary agent `/api/shortcuts/NAME/run` makes,
-/// spelled out in the body instead of looked up. `text` is optional here where it is
-/// required of an entry - `less` on a file is a command with nothing to type after it.
-#[derive(Deserialize)]
-struct RunReq {
-    #[serde(default)]
-    project: String,
-    #[serde(default)]
-    kind: crate::config::ShortcutKind,
-    /// A preset name or a command line, read exactly as a shortcut's is.
-    #[serde(default)]
-    command: String,
-    /// Raw selected Files-sidebar path. When present, the daemon expands it and replaces the
-    /// quoted raw path in `command`, so interactive and captured file actions agree.
-    #[serde(default)]
-    path: String,
-    /// Keep a file-action terminal open after its command exits so short output remains visible.
-    #[serde(default)]
-    hold: bool,
-    #[serde(default)]
-    text: String,
-    /// Names the session and, through `slug`, the tmux session behind it. The errand's own
-    /// word for itself, since there is no entry to take one from. Empty with `host` set is
-    /// the one case the daemon answers instead - see `sandbox::host_session_name`.
-    #[serde(default)]
-    label: String,
-    #[serde(default)]
-    temp: bool,
-    /// The game supplies loading-screen tips for `{{ random_tip }}`, already distinct: one is
-    /// spent per mention, so a text with five bullets gets five different lines.
-    #[serde(default)]
-    random_tips: Vec<String>,
-    /// Outside the sandbox: the sidebar's "Terminal (host)". Only an errand can ask - there
-    /// is no such key on a session or a shortcut.
-    #[serde(default)]
-    host: bool,
-}
-
-async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
+pub(super) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
     let project = q.project.trim();
     let command = if q.path.trim().is_empty() {
         q.command.trim().to_string()
@@ -610,20 +435,10 @@ async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
     Ok(Json(json!({ "ok": true, "session": session })))
 }
 
-#[derive(Deserialize)]
-struct FileActionReq {
-    #[serde(default)]
-    project: String,
-    path: String,
-    command: String,
-    #[serde(default)]
-    host: bool,
-}
-
 /// Run a non-interactive Files action and return a small result for a game message. Project
 /// paths use their normal sandbox; private-state paths explicitly ask for the host. Interactive
 /// actions use `/api/run`, since their terminal needs a tmux session and a persistent screen.
-async fn file_action(State(m): State<Mgr>, Json(q): Json<FileActionReq>) -> ApiResult {
+pub(super) async fn file_action(State(m): State<Mgr>, Json(q): Json<FileActionReq>) -> ApiResult {
     let output = m
         .file_action(&q.project, &q.path, &q.command, q.host)
         .await
@@ -635,16 +450,7 @@ async fn file_action(State(m): State<Mgr>, Json(q): Json<FileActionReq>) -> ApiR
 /// so only the mod asks. The daemon refuses a host session in the scope - the one line the
 /// whole scheme is for - and refuses a grantor or target that is not there. The token comes
 /// back once and is never stored on the file; losing it means minting another.
-#[derive(Deserialize)]
-struct GrantReq {
-    grantor: String,
-    #[serde(default)]
-    sessions: Vec<String>,
-    /// `ro` to watch, `rw` to drive.
-    level: String,
-}
-
-async fn mint_grant(State(m): State<Mgr>, Json(q): Json<GrantReq>) -> ApiResult {
+pub(super) async fn mint_grant(State(m): State<Mgr>, Json(q): Json<GrantReq>) -> ApiResult {
     let level = match q.level.trim() {
         "ro" => Level::Ro,
         "rw" => Level::Rw,
@@ -664,12 +470,12 @@ async fn mint_grant(State(m): State<Mgr>, Json(q): Json<GrantReq>) -> ApiResult 
 
 /// How many grants are live, for the mod's readout. Not the tokens themselves: those are
 /// bearer secrets and leave the daemon once, at the mint.
-async fn list_grants(State(m): State<Mgr>) -> ApiResult {
+pub(super) async fn list_grants(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!({ "grants": m.grant_count().await })))
 }
 
 /// Drop every grant a session minted, by hand rather than by its exit. The mod's revoke.
-async fn revoke_grants(State(m): State<Mgr>, Path(grantor): Path<String>) -> ApiResult {
+pub(super) async fn revoke_grants(State(m): State<Mgr>, Path(grantor): Path<String>) -> ApiResult {
     m.revoke_grants(&grantor).await;
     Ok(Json(json!({ "ok": true })))
 }
@@ -678,7 +484,7 @@ async fn revoke_grants(State(m): State<Mgr>, Path(grantor): Path<String>) -> Api
 /// somebody keeps in step by hand. Both tables are files, so this is also how the mod
 /// learns about one that was added while it was running. `source` is explicit because a
 /// merged table alone cannot tell a built-in from a user override.
-async fn presets(State(_m): State<Mgr>) -> ApiResult {
+pub(super) async fn presets(State(_m): State<Mgr>) -> ApiResult {
     let effective = crate::presets::table();
     let builtins = crate::presets::Table::builtins();
     let users = crate::presets::Table::users();
@@ -701,7 +507,7 @@ async fn presets(State(_m): State<Mgr>) -> ApiResult {
     })))
 }
 
-fn source(has_builtin: bool, has_user: bool) -> &'static str {
+pub(super) fn source(has_builtin: bool, has_user: bool) -> &'static str {
     match (has_builtin, has_user) {
         (true, true) => "override",
         (true, false) => "system",
@@ -710,7 +516,7 @@ fn source(has_builtin: bool, has_user: bool) -> &'static str {
     }
 }
 
-fn sandbox_json(
+pub(super) fn sandbox_json(
     p: &crate::presets::SandboxPreset,
     builtins: &crate::presets::Table,
     users: &crate::presets::Table,
@@ -735,7 +541,7 @@ fn sandbox_json(
     })
 }
 
-fn command_json(
+pub(super) fn command_json(
     c: &crate::presets::CommandPreset,
     builtins: &crate::presets::Table,
     users: &crate::presets::Table,
@@ -750,13 +556,7 @@ fn command_json(
     })
 }
 
-#[derive(Deserialize)]
-struct CopyPresetReq {
-    #[serde(default)]
-    name: String,
-}
-
-fn valid_kind(kind: &str) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+pub(super) fn valid_kind(kind: &str) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
     if kind == "sandbox" || kind == "command" {
         Ok(())
     } else {
@@ -767,7 +567,7 @@ fn valid_kind(kind: &str) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
     }
 }
 
-async fn copy_preset(
+pub(super) async fn copy_preset(
     State(m): State<Mgr>,
     Path((kind, old_name)): Path<(String, String)>,
     body: Option<Json<CopyPresetReq>>,
@@ -827,7 +627,7 @@ async fn copy_preset(
     Ok(Json(json!({ "ok": true })))
 }
 
-async fn update_preset(
+pub(super) async fn update_preset(
     State(m): State<Mgr>,
     Path((kind, name)): Path<(String, String)>,
     body: axum::body::Bytes,
@@ -869,7 +669,7 @@ async fn update_preset(
     Ok(Json(json!({ "ok": true })))
 }
 
-async fn delete_preset(
+pub(super) async fn delete_preset(
     State(m): State<Mgr>,
     Path((kind, name)): Path<(String, String)>,
 ) -> ApiResult {
@@ -919,7 +719,7 @@ async fn delete_preset(
 
 /// Text for the raw editor, parsed for the settings GUI, so a mod can offer either
 /// without parsing TOML.
-async fn get_config(State(m): State<Mgr>) -> ApiResult {
+pub(super) async fn get_config(State(m): State<Mgr>) -> ApiResult {
     // Keep the raw text and parsed values from different snapshots when a user edits the file
     // outside the daemon.
     m.reload_if_changed().await;
@@ -936,107 +736,55 @@ async fn get_config(State(m): State<Mgr>) -> ApiResult {
     })))
 }
 
-#[derive(Deserialize)]
-struct ConfigReq {
-    text: String,
-}
-
-async fn put_config(State(m): State<Mgr>, Json(req): Json<ConfigReq>) -> ApiResult {
+pub(super) async fn put_config(State(m): State<Mgr>, Json(req): Json<ConfigReq>) -> ApiResult {
     ok_json(m.replace_config(&req.text).await)
 }
 
 /// Apply only the fields named by the client, leaving unmentioned fields untouched.
-async fn put_config_patch(State(m): State<Mgr>, Json(req): Json<Value>) -> ApiResult {
+pub(super) async fn put_config_patch(State(m): State<Mgr>, Json(req): Json<Value>) -> ApiResult {
     ok_json(m.patch_config(req).await)
 }
 
-async fn usage(State(m): State<Mgr>) -> ApiResult {
+pub(super) async fn usage(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!(m.usage().await)))
 }
 
 /// What the jukebox is doing, for anything that would rather ask than listen - which in
 /// practice means a person with `curl` and a suspicion. The mod hears the same thing as an
 /// event; nothing needs this route to work.
-async fn audio(State(m): State<Mgr>) -> ApiResult {
+pub(super) async fn audio(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!(m.audio.state())))
 }
 
 /// The station catalog for clients that draw the jukebox. URLs stay daemon-side; this carries
 /// only ids, stream keys, rates and the metadata a UI may render.
-async fn jukebox() -> ApiResult {
+pub(super) async fn jukebox() -> ApiResult {
     Ok(Json(json!(crate::jukebox::catalog())))
-}
-
-#[derive(Deserialize)]
-struct ClipReq {
-    #[serde(default)]
-    text: String,
 }
 
 /// A tool that is missing or wedged is a 502 rather than a 400, because nothing
 /// about the request was wrong.
-async fn clip_read() -> ApiResult {
+pub(super) async fn clip_read() -> ApiResult {
     let text = crate::clipboard::read()
         .await
         .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
     Ok(Json(json!({ "text": text })))
 }
 
-async fn clip_write(Json(q): Json<ClipReq>) -> ApiResult {
+pub(super) async fn clip_write(Json(q): Json<ClipReq>) -> ApiResult {
     crate::clipboard::write(&q.text)
         .await
         .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
     Ok(Json(json!({ "ok": true })))
 }
 
-#[derive(Deserialize)]
-struct OpenReq {
-    #[serde(default)]
-    url: String,
-}
-
-async fn open_url(State(m): State<Mgr>, Json(q): Json<OpenReq>) -> ApiResult {
+pub(super) async fn open_url(State(m): State<Mgr>, Json(q): Json<OpenReq>) -> ApiResult {
     crate::open::check(q.url.trim()).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let opener = m.config().await.commands.opener;
     crate::open::url(&opener, &q.url)
         .await
         .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
     Ok(Json(json!({ "ok": true })))
-}
-
-/// `?files=1` and `?files=true` are the same answer. serde's own bool takes only the
-/// second, and half of what this endpoint is for is being asked by hand from a shell.
-/// A word that is neither is refused rather than read as "on": a typo silently turning
-/// a switch on is worse than a 400 saying so.
-fn flag<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
-    use serde::de::Error;
-    let s = String::deserialize(d)?;
-    match s.trim() {
-        "" | "0" | "false" | "no" | "off" => Ok(false),
-        "1" | "true" | "yes" | "on" => Ok(true),
-        other => Err(D::Error::custom(format!(
-            "expected a yes or a no, got {other:?}"
-        ))),
-    }
-}
-
-#[derive(Deserialize)]
-struct BrowseReq {
-    #[serde(default)]
-    path: String,
-    /// Opt-in, so the project-dir picker - which wants directories and nothing else -
-    /// pays neither the read nor the wire for a directory full of files.
-    #[serde(default, deserialize_with = "flag")]
-    files: bool,
-    #[serde(default, deserialize_with = "flag")]
-    hidden: bool,
-    #[serde(default)]
-    limit: Option<usize>,
-}
-
-#[derive(Deserialize)]
-struct ReadReq {
-    path: String,
 }
 
 /// A preview is a UI document, not a file transfer. Keep the response bounded so a generated
@@ -1051,7 +799,7 @@ const IMAGE_LIMIT: u64 = 8 * 1024 * 1024;
 /// `read_dir` on `.git` or `node_modules` being a reply nobody reads.
 const BROWSE_LIMIT: usize = 500;
 
-fn browse_limit(requested: Option<usize>) -> usize {
+pub(super) fn browse_limit(requested: Option<usize>) -> usize {
     requested.unwrap_or(BROWSE_LIMIT).clamp(1, BROWSE_LIMIT)
 }
 
@@ -1126,7 +874,7 @@ async fn list_dir(
 /// So the dialog can pick a project dir, and the files view can draw a tree, without
 /// the mod touching the host filesystem itself. `dirs` is what it always was; `files`
 /// is asked for.
-async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult {
+pub(super) async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult {
     let base = if q.path.is_empty() {
         dirs::home_dir().unwrap_or_else(|| "/".into())
     } else {
@@ -1147,7 +895,7 @@ async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult 
     })))
 }
 
-async fn read_file(State(_m): State<Mgr>, Query(q): Query<ReadReq>) -> ApiResult {
+pub(super) async fn read_file(State(_m): State<Mgr>, Query(q): Query<ReadReq>) -> ApiResult {
     let path = q.path.trim();
     if path.is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "no path"));
@@ -1164,7 +912,7 @@ async fn read_file(State(_m): State<Mgr>, Query(q): Query<ReadReq>) -> ApiResult
     })))
 }
 
-async fn read_image(State(_m): State<Mgr>, Query(q): Query<ReadReq>) -> ApiResult {
+pub(super) async fn read_image(State(_m): State<Mgr>, Query(q): Query<ReadReq>) -> ApiResult {
     let path = q.path.trim();
     if path.is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "no path"));
@@ -1181,7 +929,7 @@ async fn read_image(State(_m): State<Mgr>, Query(q): Query<ReadReq>) -> ApiResul
     })))
 }
 
-async fn read_image_bytes(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
+pub(super) async fn read_image_bytes(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
     let metadata = tokio::fs::metadata(path).await?;
     if !metadata.is_file() {
         bail!("path is not a file");
@@ -1203,7 +951,7 @@ async fn read_image_bytes(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
     Ok(bytes)
 }
 
-async fn read_preview(path: &std::path::Path) -> anyhow::Result<String> {
+pub(super) async fn read_preview(path: &std::path::Path) -> anyhow::Result<String> {
     use tokio::io::AsyncReadExt;
 
     let metadata = tokio::fs::metadata(path).await?;
@@ -1230,16 +978,7 @@ async fn read_preview(path: &std::path::Path) -> anyhow::Result<String> {
     String::from_utf8(bytes).context("file is not valid UTF-8")
 }
 
-#[derive(Deserialize)]
-struct FileReq {
-    path: String,
-    #[serde(default)]
-    name: String,
-    #[serde(default)]
-    kind: String,
-}
-
-fn file_path(path: &str) -> anyhow::Result<std::path::PathBuf> {
+pub(super) fn file_path(path: &str) -> anyhow::Result<std::path::PathBuf> {
     let path = crate::config::expand(path);
     if path.trim().is_empty() {
         bail!("no path");
@@ -1252,7 +991,7 @@ fn file_path(path: &str) -> anyhow::Result<std::path::PathBuf> {
     Ok(path)
 }
 
-fn entry_name(name: &str) -> anyhow::Result<&str> {
+pub(super) fn entry_name(name: &str) -> anyhow::Result<&str> {
     let name = name.trim();
     if name.is_empty() || name == "." || name == ".." {
         bail!("name is empty");
@@ -1263,7 +1002,7 @@ fn entry_name(name: &str) -> anyhow::Result<&str> {
     Ok(name)
 }
 
-async fn create_file(Json(q): Json<FileReq>) -> ApiResult {
+pub(super) async fn create_file(Json(q): Json<FileReq>) -> ApiResult {
     let parent = file_path(&q.path).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let name = entry_name(&q.name).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let meta = tokio::fs::metadata(&parent)
@@ -1305,7 +1044,7 @@ async fn create_file(Json(q): Json<FileReq>) -> ApiResult {
     Ok(Json(json!({ "ok": true })))
 }
 
-async fn rename_file(Json(q): Json<FileReq>) -> ApiResult {
+pub(super) async fn rename_file(Json(q): Json<FileReq>) -> ApiResult {
     let source = file_path(&q.path).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let name = entry_name(&q.name).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let parent = source
@@ -1331,7 +1070,7 @@ async fn rename_file(Json(q): Json<FileReq>) -> ApiResult {
     Ok(Json(json!({ "ok": true })))
 }
 
-async fn remove_file(Json(q): Json<FileReq>) -> ApiResult {
+pub(super) async fn remove_file(Json(q): Json<FileReq>) -> ApiResult {
     let path = file_path(&q.path).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let meta = tokio::fs::symlink_metadata(&path)
         .await
@@ -1355,33 +1094,13 @@ async fn remove_file(Json(q): Json<FileReq>) -> ApiResult {
     Ok(Json(json!({ "ok": true })))
 }
 
-#[derive(Deserialize)]
-struct SearchReq {
-    #[serde(default)]
-    path: String,
-    #[serde(default)]
-    q: String,
-    #[serde(default, deserialize_with = "flag")]
-    regex: bool,
-    #[serde(default, deserialize_with = "flag")]
-    case: bool,
-    #[serde(default, deserialize_with = "flag")]
-    word: bool,
-    #[serde(default, deserialize_with = "flag")]
-    hidden: bool,
-    #[serde(deserialize_with = "flag")]
-    gitignore: bool,
-    #[serde(default)]
-    limit: Option<usize>,
-}
-
 const SEARCH_LIMIT: usize = 200;
 // `rg --max-columns` controls its human output, but JSON match records still carry the whole
 // line. A generated or minified asset can therefore turn one sidebar row into tens of thousands
 // of glyphs. Keep the answer a preview, centred near the first match when there is room.
 const SEARCH_TEXT_LIMIT: usize = 1_000;
 
-fn search_preview(text: &str, column: usize) -> String {
+pub(super) fn search_preview(text: &str, column: usize) -> String {
     let text = text.trim_end_matches(['\r', '\n']);
     if text.len() <= SEARCH_TEXT_LIMIT {
         return text.to_string();
@@ -1410,7 +1129,7 @@ fn search_preview(text: &str, column: usize) -> String {
     out
 }
 
-fn build_rg_command(path: &std::path::Path, q: &SearchReq) -> tokio::process::Command {
+pub(super) fn build_rg_command(path: &std::path::Path, q: &SearchReq) -> tokio::process::Command {
     let mut cmd = tokio::process::Command::new("rg");
     cmd.current_dir(path)
         .arg("--json")
@@ -1450,7 +1169,7 @@ fn build_rg_command(path: &std::path::Path, q: &SearchReq) -> tokio::process::Co
 /// filenames and matching text unambiguous; reading it a line at a time lets the endpoint
 /// stop the process once the UI-sized answer is full rather than collecting an unbounded
 /// repository search in memory.
-async fn search(State(_m): State<Mgr>, Query(q): Query<SearchReq>) -> ApiResult {
+pub(super) async fn search(State(_m): State<Mgr>, Query(q): Query<SearchReq>) -> ApiResult {
     use tokio::io::{AsyncBufReadExt, BufReader};
 
     if q.path.is_empty() {
@@ -1529,15 +1248,9 @@ async fn search(State(_m): State<Mgr>, Query(q): Query<SearchReq>) -> ApiResult 
     })))
 }
 
-#[derive(Deserialize)]
-struct GitReq {
-    #[serde(default)]
-    path: String,
-}
-
 /// Returns a project's changed files for the git view; the game cannot run `git` inside agent
 /// mount namespaces. Non-repositories return 200 with `repo: false`.
-async fn git_status(State(_m): State<Mgr>, Query(q): Query<GitReq>) -> ApiResult {
+pub(super) async fn git_status(State(_m): State<Mgr>, Query(q): Query<GitReq>) -> ApiResult {
     if q.path.is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "no path"));
     }
@@ -1568,459 +1281,6 @@ async fn git_status(State(_m): State<Mgr>, Query(q): Query<GitReq>) -> ApiResult
     })))
 }
 
-#[derive(Deserialize)]
-#[serde(tag = "t", rename_all = "lowercase")]
-enum ClientMsg {
-    Sub { name: String },
-    Unsub { name: String },
-    Keys(KeysReq),
-    Resize(ResizeReq),
-    Scroll(ScrollReq),
-    Mouse(MouseReq),
-    Paste(PasteReq),
-    Breadcrumb(BreadcrumbReq),
-    Audio(AudioReq),
-}
-
-/// The jukebox. `selection` is absent for a volume-only update, null for silence, a station
-/// id/stream key for a catalog entry, or a file/directory path for the mod's OST.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct AudioReq {
-    #[serde(default, deserialize_with = "some_option")]
-    selection: Option<Option<AudioSelection>>,
-    volume: f32,
-}
-
-#[derive(Deserialize)]
-struct AudioSelection {
-    #[serde(default)]
-    station: Option<String>,
-    #[serde(default)]
-    stream: Option<String>,
-    #[serde(default)]
-    file: Option<String>,
-}
-
-/// Tells "the key was absent" from "the key was null", which is the difference between a
-/// volume change and a stop.
-fn some_option<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Option::deserialize(d).map(Some)
-}
-
-#[derive(Deserialize)]
-struct PasteReq {
-    name: String,
-    text: String,
-}
-
-#[derive(Deserialize)]
-struct BreadcrumbReq {
-    name: String,
-    breadcrumb: String,
-    #[serde(default)]
-    random_tips: Vec<String>,
-}
-
-#[derive(Deserialize)]
-struct MouseReq {
-    name: String,
-    /// press | release | drag | wheelup | wheeldown
-    action: String,
-    /// 0/1/2 = left/middle/right; ignored for the wheel.
-    #[serde(default)]
-    button: u8,
-    col: u16,
-    row: u16,
-    /// How many times to repeat the report. The mod batches wheel events so a single
-    /// gesture notch does not spawn one tmux process per scrolled line.
-    #[serde(default)]
-    count: u8,
-}
-
-#[derive(Deserialize)]
-struct ScrollReq {
-    name: String,
-    /// Lines scrolled up into scrollback; 0 returns to the live bottom.
-    off: u32,
-    /// Echoed back in the response so the mod can reject a stale reply to an older request.
-    #[serde(default)]
-    request_id: u64,
-}
-
-#[derive(Deserialize)]
-struct KeysReq {
-    name: String,
-    /// tmux key names (Enter, C-c, Up) unless `literal`, in which case raw text.
-    keys: Vec<String>,
-    #[serde(default)]
-    literal: bool,
-    /// The game supplies loading-screen tips for `{{ random_tip }}`, already distinct: one is
-    /// spent per mention, so a text with five bullets gets five different lines.
-    #[serde(default)]
-    random_tips: Vec<String>,
-}
-
-#[derive(Deserialize)]
-struct ResizeReq {
-    name: String,
-    cols: u16,
-    rows: u16,
-}
-
-async fn ws_upgrade(
-    State(m): State<Mgr>,
-    headers: HeaderMap,
-    ws: WebSocketUpgrade,
-) -> impl IntoResponse {
-    // The header rides on the upgrade only, so the capability is resolved here and carried into
-    // the pump rather than read off a request per message. A grant drives what it may from the
-    // same socket the mod uses; a bad token never upgrades.
-    let cap = match m.resolve_cap(presented_token(&headers).as_deref()).await {
-        Some(c) => c,
-        None => return err(StatusCode::UNAUTHORIZED, "bad token").into_response(),
-    };
-    ws.on_upgrade(move |socket| ws_run(socket, m, cap))
-        .into_response()
-}
-
-/// Filters events for a socket capability. Root sees all; scoped grants see named sessions and
-/// screens, but not projects, shortcuts, usage, audio, or jukebox catalog data.
-fn scope_event(cap: &Cap, ev: Event) -> Option<Event> {
-    match cap {
-        Cap::Root => Some(ev),
-        Cap::Scoped(_) => match ev {
-            Event::Sessions { sessions } => Some(Event::Sessions {
-                sessions: sessions
-                    .into_iter()
-                    .filter(|s| cap.can_see(&s.name, false))
-                    .collect(),
-            }),
-            Event::Screen { .. } => Some(ev),
-            Event::Projects { .. }
-            | Event::Shortcuts { .. }
-            | Event::Usage { .. }
-            | Event::Audio { .. }
-            | Event::Jukebox { .. } => None,
-        },
-    }
-}
-
-async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
-    // Held for the life of the pump so the manager knows how many clients are
-    // attached.
-    let _client = m.client_joined();
-
-    let (tx, mut rx) = socket.split();
-    let tx = Arc::new(Mutex::new(tx));
-    // A `WatchGuard` apiece rather than bare names: the daemon renders a pane at a reader's
-    // rate only while somebody is holding one, and this socket has several ways out.
-    let subs: WsSubs = Arc::new(Mutex::new(HashMap::new()));
-
-    // Subscribe before sending the initial snapshot. A session can be created while the
-    // snapshot is being assembled; subscribing after it would lose that live update until
-    // the client reconnects.
-    let events = m.events.subscribe();
-    if !send_initial_snapshot(&tx, &m, &cap).await {
-        return;
-    }
-
-    let pump = spawn_frame_pump(events, tx.clone(), subs.clone(), cap.clone());
-
-    while let Some(Ok(msg)) = rx.next().await {
-        let Message::Text(text) = msg else { continue };
-        let Ok(cm) = serde_json::from_str::<ClientMsg>(&text) else {
-            tracing::debug!("unparseable ws message: {text}");
-            continue;
-        };
-        if !handle_client_msg(cm, &m, &cap, &tx, &subs).await {
-            break;
-        }
-    }
-
-    // Explicitly, rather than with the table: the pump holds the other half of that `Arc` and
-    // an aborted task is dropped when the runtime gets round to it, which is not when the
-    // agent stopped being watched.
-    subs.lock().await.clear();
-    pump.abort();
-}
-
-/// Usage, projects and shortcuts ride along because they speak only on a change: a mod
-/// attaching between polls would otherwise draw nothing for a minute. Each goes through the
-/// same scope filter the pump uses, so a grant's socket gets its filtered session list and
-/// none of the mod's wider view - `scope_event` drops what it may not see.
-async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
-    if let Some(ev) = scope_event(
-        cap,
-        Event::Sessions {
-            sessions: m.views().await,
-        },
-    ) {
-        if send(tx, &ev).await.is_err() {
-            return false;
-        }
-    }
-    for ev in [
-        Event::Usage {
-            usage: m.usage().await,
-        },
-        Event::Projects {
-            projects: m.projects().await,
-        },
-        Event::Shortcuts {
-            shortcuts: m.shortcuts().await,
-        },
-        // On connect too, and for the same reason: a game that has just come up has to learn
-        // whether the music it asked for last time is playing.
-        Event::Audio {
-            audio: m.audio.state(),
-        },
-        Event::Jukebox {
-            jukebox: crate::jukebox::catalog(),
-        },
-    ] {
-        if let Some(ev) = scope_event(cap, ev) {
-            let _ = send(tx, &ev).await;
-        }
-    }
-    true
-}
-
-/// Coalesce screen frames per client to the monitor cadence: newest wins, and the pending
-/// frame flushes on the beat. Other event types remain uncoalesced.
-fn spawn_frame_pump(
-    mut events: broadcast::Receiver<Event>,
-    tx: WsTx,
-    subs: WsSubs,
-    cap: Cap,
-) -> JoinHandle<()> {
-    const FRAME_COALESCE: Duration = Duration::from_millis(16);
-
-    tokio::spawn(async move {
-        use tokio::time::{sleep_until, Instant as TokioInstant};
-
-        let mut last_screen = TokioInstant::now() - FRAME_COALESCE;
-        // One slot per pane, not one global slot: a socket can subscribe to several
-        // panes, and a frame for one must not overwrite a held frame for another.
-        let mut pending: HashMap<String, Event> = HashMap::new();
-        loop {
-            // Only arm the beat when a frame is being held; otherwise the timer would
-            // fire on a past deadline and spin while nothing is pending.
-            let flush = async {
-                if !pending.is_empty() {
-                    sleep_until(last_screen + FRAME_COALESCE).await;
-                } else {
-                    std::future::pending::<()>().await;
-                }
-            };
-            tokio::select! {
-                ev = events.recv() => match ev {
-                    Ok(ev) => {
-                        // Filtered to this socket's capability before anything else looks at
-                        // it: a grant's pump never even coalesces a frame it may not see.
-                        let Some(ev) = scope_event(&cap, ev) else { continue };
-                        if let Event::Screen { ref screen } = ev {
-                            if !subs.lock().await.contains_key(&screen.name) {
-                                continue;
-                            }
-                            let due = TokioInstant::now()
-                                .saturating_duration_since(last_screen) >= FRAME_COALESCE;
-                            if due {
-                                // Sending now, drop any held frame for this pane: it is
-                                // older and must not flush after the newer one.
-                                pending.remove(&screen.name);
-                                if send(&tx, &ev).await.is_err() {
-                                    break;
-                                }
-                                last_screen = TokioInstant::now();
-                            } else {
-                                // Newest wins for this pane; a still pane never reads stale.
-                                pending.insert(screen.name.clone(), ev);
-                            }
-                        } else {
-                            // A non-screen event (sessions, usage, quit) must not wait
-                            // behind a stale frame, so anything held goes out first.
-                            if !pending.is_empty() {
-                                for (_, pe) in std::mem::take(&mut pending) {
-                                    if send(&tx, &pe).await.is_err() {
-                                        break;
-                                    }
-                                }
-                                last_screen = TokioInstant::now();
-                            }
-                            if send(&tx, &ev).await.is_err() {
-                                break;
-                            }
-                        }
-                    }
-                    // A slow client misses frames; the next capture resyncs it.
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
-                    Err(_) => break,
-                },
-                _ = flush => {
-                    if !pending.is_empty() {
-                        for (_, pe) in std::mem::take(&mut pending) {
-                            if send(&tx, &pe).await.is_err() {
-                                break;
-                            }
-                        }
-                        last_screen = TokioInstant::now();
-                    }
-                }
-            }
-        }
-    })
-}
-
-/// Handles one client message. Unauthorized messages are dropped silently; a failed direct
-/// response means the socket is gone and tells the caller to stop reading it.
-async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
-    match cm {
-        ClientMsg::Sub { name } => handle_sub(name, m, cap, tx, subs).await,
-        ClientMsg::Unsub { name } => handle_unsub(name, subs).await,
-        ClientMsg::Keys(req) => handle_keys(req, m, cap).await,
-        ClientMsg::Resize(req) => handle_resize(req, m, cap).await,
-        ClientMsg::Scroll(req) => handle_scroll(req, m, cap, tx).await,
-        ClientMsg::Mouse(req) => handle_mouse(req, m, cap).await,
-        ClientMsg::Paste(req) => handle_paste(req, m, cap).await,
-        ClientMsg::Breadcrumb(req) => handle_breadcrumb(req, m, cap).await,
-        ClientMsg::Audio(req) => handle_audio(req, m, cap).await,
-    }
-}
-
-async fn handle_sub(name: String, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
-    // Require read access for pane subscriptions. A failed direct response means the socket is
-    // gone and tells the caller to stop reading it.
-    if !m.cap_ok(cap, &name, Level::Ro).await {
-        return true;
-    }
-    subs.lock().await.insert(name.clone(), m.watching(&name));
-    // Somebody is looking at this pane now, which is the whole of what a bell was asking for.
-    // Broadcast, not answered here: every client draws the mark.
-    m.clear_bell(&name).await;
-    if let Some(s) = m.screen(&name).await {
-        return send(tx, &Event::Screen { screen: s }).await.is_ok();
-    }
-    true
-}
-
-async fn handle_unsub(name: String, subs: &WsSubs) -> bool {
-    subs.lock().await.remove(&name);
-    true
-}
-
-async fn handle_keys(req: KeysReq, m: &Mgr, cap: &Cap) -> bool {
-    if !m.cap_ok(cap, &req.name, Level::Rw).await {
-        return true;
-    }
-    m.send_keys(&req.name, req.keys, req.literal, req.random_tips)
-        .await;
-    true
-}
-
-async fn handle_resize(req: ResizeReq, m: &Mgr, cap: &Cap) -> bool {
-    if !m.cap_ok(cap, &req.name, Level::Rw).await {
-        return true;
-    }
-    if let Err(e) = m.resize(&req.name, req.cols, req.rows).await {
-        tracing::debug!("resize: {e:#}");
-    }
-    true
-}
-
-async fn handle_scroll(req: ScrollReq, m: &Mgr, cap: &Cap, tx: &WsTx) -> bool {
-    if !m.cap_ok(cap, &req.name, Level::Ro).await {
-        return true;
-    }
-    // Answer this socket alone: a scrolled frame is private to the wheel request and must not
-    // reach live subscribers.
-    if let Some(s) = m.scroll_capture(&req.name, req.off, req.request_id).await {
-        return send(tx, &Event::Screen { screen: s }).await.is_ok();
-    }
-    true
-}
-
-async fn handle_mouse(req: MouseReq, m: &Mgr, cap: &Cap) -> bool {
-    if !m.cap_ok(cap, &req.name, Level::Rw).await {
-        return true;
-    }
-    let Some(action) = crate::emu::MouseAction::parse(&req.action) else {
-        tracing::debug!("unknown mouse action: {}", req.action);
-        return true;
-    };
-    let ev = crate::emu::MouseInput {
-        action,
-        button: req.button,
-        col: req.col,
-        row: req.row,
-    };
-    m.send_mouse(&req.name, ev, req.count).await;
-    true
-}
-
-async fn handle_paste(req: PasteReq, m: &Mgr, cap: &Cap) -> bool {
-    if !m.cap_ok(cap, &req.name, Level::Rw).await {
-        return true;
-    }
-    // A paste checks first, so anything left is a paste that did not land - and the only other
-    // sign of one is the operator noticing nothing arrived.
-    if let Err(e) = m.paste(&req.name, &req.text).await {
-        tracing::warn!("paste to {}: {e:#}", req.name);
-    }
-    true
-}
-
-async fn handle_breadcrumb(req: BreadcrumbReq, m: &Mgr, cap: &Cap) -> bool {
-    if !m.cap_ok(cap, &req.name, Level::Rw).await {
-        return true;
-    }
-    if let Err(e) = m
-        .paste_breadcrumb(&req.name, &req.breadcrumb, req.random_tips)
-        .await
-    {
-        tracing::warn!("breadcrumb to {}: {e:#}", req.name);
-    }
-    true
-}
-
-async fn handle_audio(req: AudioReq, m: &Mgr, cap: &Cap) -> bool {
-    if !cap.may_create() {
-        return true;
-    }
-    match req.selection {
-        Some(Some(selection)) => match resolve_audio_source(selection) {
-            Ok(source) => m.audio.play(&source, req.volume),
-            Err(e) => {
-                let why = format!("{e:#}");
-                tracing::warn!("{why}");
-                m.audio.reject(why);
-            }
-        },
-        Some(None) => m.audio.stop(),
-        None => m.audio.set_volume(req.volume),
-    }
-    true
-}
-
-fn resolve_audio_source(selection: AudioSelection) -> anyhow::Result<String> {
-    match (selection.station, selection.stream, selection.file) {
-        (Some(station), Some(stream), None) => crate::jukebox::catalog()
-            .resolve(&station, &stream)
-            .map_err(|e| anyhow::anyhow!("jukebox selection rejected: {e:#}")),
-        (None, None, Some(file)) => Ok(file),
-        _ => bail!("jukebox selection must name a station/stream or file"),
-    }
-}
-
-async fn send(tx: &WsTx, ev: &Event) -> Result<(), axum::Error> {
-    let text = serde_json::to_string(ev).unwrap_or_default();
-    tx.lock().await.send(Message::Text(text)).await
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::{Path, PathBuf};
@@ -2033,25 +1293,25 @@ mod tests {
     /// Somewhere of our own under the machine's temp dir, cleared on the way in so a run
     /// that died before its cleanup does not poison the next one. No dev-dependency for
     /// this: one directory of empty files is not worth a crate.
-    fn fixture(tag: &str) -> PathBuf {
+    pub(super) fn fixture(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("slopd-browse-{tag}"));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
 
-    fn touch(dir: &Path, name: &str) {
+    pub(super) fn touch(dir: &Path, name: &str) {
         std::fs::write(dir.join(name), b"").unwrap();
     }
 
-    fn subdir(dir: &Path, name: &str) {
+    pub(super) fn subdir(dir: &Path, name: &str) {
         std::fs::create_dir_all(dir.join(name)).unwrap();
     }
 
     /// The dir picker asked for none, so it is handed none, and a directory full of files
     /// is still just its directories - which is also what keeps the cap off it.
     #[tokio::test]
-    async fn files_are_opt_in() {
+    pub(super) async fn files_are_opt_in() {
         let dir = fixture("optin");
         subdir(&dir, "src");
         touch(&dir, "Cargo.toml");
@@ -2069,7 +1329,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn preview_reads_utf8_and_rejects_oversized_files() {
+    pub(super) async fn preview_reads_utf8_and_rejects_oversized_files() {
         let dir = fixture("preview");
         let path = dir.join("README.md");
         std::fs::write(&path, "# hello\n\nworld\n").unwrap();
@@ -2084,7 +1344,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn image_reads_bytes_and_rejects_oversized_files() {
+    pub(super) async fn image_reads_bytes_and_rejects_oversized_files() {
         let dir = fixture("image");
         let path = dir.join("work.png");
         let bytes = vec![137u8, 80, 78, 71];
@@ -2101,7 +1361,7 @@ mod tests {
 
     /// Both lists, and a dot directory is as hidden as a dot file.
     #[tokio::test]
-    async fn dotfiles_are_hidden_until_they_are_asked_for() {
+    pub(super) async fn dotfiles_are_hidden_until_they_are_asked_for() {
         let dir = fixture("hidden");
         subdir(&dir, "src");
         subdir(&dir, ".git");
@@ -2124,7 +1384,7 @@ mod tests {
     /// nowhere stays in neither, which is the one case where that is the right answer.
     #[cfg(unix)]
     #[tokio::test]
-    async fn a_symlinked_directory_is_a_directory() {
+    pub(super) async fn a_symlinked_directory_is_a_directory() {
         let dir = fixture("links");
         subdir(&dir, "real");
         touch(&dir, "file.txt");
@@ -2142,7 +1402,7 @@ mod tests {
     /// The cap says so rather than lying about a short directory, and it is a cap on what
     /// was read - the answer is that many entries, not that many sorted ones.
     #[tokio::test]
-    async fn a_long_directory_is_cut_short_and_says_so() {
+    pub(super) async fn a_long_directory_is_cut_short_and_says_so() {
         let dir = fixture("cap");
         for i in 0..20 {
             touch(&dir, &format!("f{i:02}"));
@@ -2160,7 +1420,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn exactly_the_limit_is_not_truncated() {
+    pub(super) async fn exactly_the_limit_is_not_truncated() {
         let dir = fixture("exact-cap");
         for i in 0..5 {
             touch(&dir, &format!("f{i:02}"));
@@ -2184,7 +1444,7 @@ mod tests {
     }
 
     #[test]
-    fn browse_limit_is_bounded() {
+    pub(super) fn browse_limit_is_bounded() {
         assert_eq!(browse_limit(None), 500);
         assert_eq!(browse_limit(Some(0)), 1);
         assert_eq!(browse_limit(Some(12)), 12);
@@ -2192,7 +1452,7 @@ mod tests {
     }
 
     #[test]
-    fn file_names_are_one_component() {
+    pub(super) fn file_names_are_one_component() {
         assert_eq!(entry_name("note.md").unwrap(), "note.md");
         assert!(entry_name("").is_err());
         assert!(entry_name(".").is_err());
@@ -2201,7 +1461,7 @@ mod tests {
     }
 
     #[test]
-    fn file_paths_keep_whitespace_in_a_real_filename() {
+    pub(super) fn file_paths_keep_whitespace_in_a_real_filename() {
         assert_eq!(
             file_path("/tmp/ notes.txt ").unwrap(),
             Path::new("/tmp/ notes.txt ")
@@ -2209,7 +1469,7 @@ mod tests {
     }
 
     #[test]
-    fn search_preview_caps_a_long_line_around_its_match() {
+    pub(super) fn search_preview_caps_a_long_line_around_its_match() {
         let text = format!("{}test{}", "x".repeat(2_000), "y".repeat(2_000));
         let preview = search_preview(&text, 2_001);
 
@@ -2220,7 +1480,7 @@ mod tests {
     }
 
     #[test]
-    fn search_preview_preserves_utf8_boundaries() {
+    pub(super) fn search_preview_preserves_utf8_boundaries() {
         let text = format!("{}test{}", "é".repeat(800), "é".repeat(800));
         let preview = search_preview(&text, 1_601);
 
@@ -2229,7 +1489,7 @@ mod tests {
     }
 
     #[test]
-    fn search_filters_gitignored_files_by_default() {
+    pub(super) fn search_filters_gitignored_files_by_default() {
         let missing: Result<SearchReq, _> = serde_json::from_value(serde_json::json!({
             "path": "/tmp/project",
             "q": "needle"
@@ -2251,28 +1511,5 @@ mod tests {
         }))
         .unwrap();
         assert!(!include.gitignore);
-    }
-
-    #[test]
-    fn audio_selection_has_distinct_stop_volume_and_catalog_shapes() {
-        let station: super::AudioReq = serde_json::from_str(
-            r#"{"selection":{"station":"fixture","stream":"local"},"volume":0.5}"#,
-        )
-        .unwrap();
-        let selected = station.selection.unwrap().unwrap();
-        assert_eq!(selected.station.as_deref(), Some("fixture"));
-        assert_eq!(selected.stream.as_deref(), Some("local"));
-
-        let stop: super::AudioReq =
-            serde_json::from_str(r#"{"selection":null,"volume":0.5}"#).unwrap();
-        assert!(stop.selection.is_some_and(|selection| selection.is_none()));
-
-        let volume: super::AudioReq = serde_json::from_str(r#"{"volume":0.5}"#).unwrap();
-        assert!(volume.selection.is_none());
-
-        assert!(serde_json::from_str::<super::AudioReq>(
-            r#"{"source":"/tmp/old.ogg","volume":0.5}"#
-        )
-        .is_err());
     }
 }
