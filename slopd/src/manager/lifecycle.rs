@@ -573,15 +573,8 @@ impl Manager {
             .into_iter()
             .map(|text| render_template_with(&text, &[], Some(&vars)))
             .collect();
-        let restored_title = title_settings(cfg, s, host)
-            .filter(|(policy, _)| *policy != TitlePolicy::Never)
-            .and(self.title_cache.latest(name));
-        let announced_title = restored_title.is_some();
         let mut live = self.live.write().await;
         if let Some(l) = live.get_mut(name) {
-            l.title = TitleCapture::default();
-            l.title.override_title = restored_title;
-            l.title.once_requested = l.title.override_title.is_some();
             l.breadcrumbs.clear();
             l.breadcrumbs_pending = false;
             if !host && s.breadcrumb_yolo && !crumbs.is_empty() {
@@ -590,11 +583,6 @@ impl Manager {
             }
         }
         drop(live);
-        if announced_title {
-            let _ = self.events.send(Event::Sessions {
-                sessions: self.views().await,
-            });
-        }
     }
 
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
@@ -627,10 +615,29 @@ impl Manager {
         tracing::info!("starting {name}: {}", argv.join(" "));
         self.tmux.spawn(name, &dir, cols, rows, &argv, host).await?;
         self.clear_activity(name).await;
-        if let Some(l) = self.live.write().await.get_mut(name) {
+        let title_was_cleared = if let Some(l) = self.live.write().await.get_mut(name) {
+            let had_title = l.title.override_title.is_some();
             l.state = State::Down;
             l.last_change = 0;
             l.state_since = 0;
+            l.title = TitleCapture::default();
+            had_title
+        } else {
+            false
+        };
+        if let Err(error) = self.title_cache.clear_latest(name) {
+            tracing::warn!(
+                target: "slopd::titles",
+                session = %name,
+                error = %error,
+                outcome = "cache_write_failed",
+                "could not clear session title before start"
+            );
+        }
+        if title_was_cleared {
+            let _ = self.events.send(Event::Sessions {
+                sessions: self.views().await,
+            });
         }
         self.spawn_reader(name).await;
         self.wire_live_state(name, &cfg, &s, &p, host).await;
