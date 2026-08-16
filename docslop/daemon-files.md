@@ -11,7 +11,9 @@
 | `session/mod.rs` | Session state/data types, terminal input helpers and config validation façade. |
 | `session/view.rs` | `SessionView` and `ScreenView` wire serialization. |
 | `session/ctrl.rs` | `Manager` storage and client/watch guards. |
-| `manager/lifecycle.rs` | `Manager` construction, configuration, clocks, state transitions and session/project/shortcut lifecycle. |
+| `manager/config.rs` | `Manager` construction, configuration synchronization, clocks and activity persistence. |
+| `manager/sessions.rs` | Session targets, lifecycle, stored state, state classification and views. |
+| `manager/shortcuts.rs` | Projects, shortcuts, file actions and temporary errands. |
 | `manager/capture.rs` | `Manager` terminal input, emulator readers, screen frames and scroll capture. |
 | `manager/caps.rs` | `Manager` capability and grant checks. |
 | `emu.rs` | `SessionEmu`, an `alacritty_terminal` per session. |
