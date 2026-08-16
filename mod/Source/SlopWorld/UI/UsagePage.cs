@@ -166,15 +166,7 @@ namespace SlopWorld
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            SlopWidgets.SectionHeading(l, "Both");
-            bool spent = SlopWidgets.Checkbox(l, "Show spent instead of left",
-                Settings.UsageSpent);
-            if (spent != Settings.UsageSpent)
-                Settings.S.usageSpent = spent;
-            SlopWidgets.Note(l, "Applies to every provider. Left is the amount remaining; spent is the " +
-                    "provider-facing percentage or amount used.");
-
-            l.Gap(SlopWidgets.GapM);
+            SlopWidgets.SectionHeading(l, "All providers");
             l.Label("Poll interval (s)");
             _pollSecs = SlopWidgets.Field(l, "usage.poll", _pollSecs);
             SlopWidgets.Note(l, "A failed poll backs off on its own, doubling to half an hour, and each " +

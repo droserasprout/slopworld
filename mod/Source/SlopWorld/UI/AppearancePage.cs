@@ -216,6 +216,10 @@ namespace SlopWorld
             SlopWidgets.SectionHeading(l, "Statusbar");
             bool u = SlopWidgets.Checkbox(l, "Show Usage in statusbar", S.statusbarUsage,
                 "Show quota readouts in the top statusbar.");
+            bool spent = SlopWidgets.Checkbox(l, "Show spent instead of left",
+                Settings.UsageSpent,
+                "Applies to every provider. Left is the amount remaining; spent is the " +
+                "provider-facing percentage or amount used.");
             string clockPosition = StatusbarClockMode.Normalize(S.statusbarClockPosition);
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
                     $"Clock position: {StatusbarClockMode.Label(clockPosition)}"))
@@ -231,10 +235,11 @@ namespace SlopWorld
                 "Show the jukebox door when a jukebox is present.");
             bool g = SlopWidgets.Checkbox(l, "Show GM in statusbar", S.statusbarGM,
                 "Show the Computer Core door when the core is present.");
-            if (u != S.statusbarUsage
+            if (u != S.statusbarUsage || spent != Settings.UsageSpent
                 || j != S.statusbarJukebox || g != S.statusbarGM)
             {
                 S.statusbarUsage = u;
+                S.usageSpent = spent;
                 S.statusbarJukebox = j;
                 S.statusbarGM = g;
                 S.MarkDirty();

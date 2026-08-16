@@ -9,8 +9,8 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   default is never saved. `EditProjectDialog` previews the resolved sandbox.
 - `PresetList` groups daemon presets, refreshes on open, and locks required entries.
   `Sandbox` edits copied/user sandbox presets; builtins are read-only until copied.
-  `Commands > Presets` edits the daemon's command definitions, which choose the sandbox
-  presets an agent receives.
+  `Commands > Defaults` edits machine-wide command defaults; `Commands > Presets` edits the
+  daemon's command definitions, which choose the sandbox presets an agent receives.
 - `SlopConfirmDialog` and `SlopAlertDialog` own mod message surfaces instead of vanilla
   message boxes. They use the shared window/buttons and wrapped text; confirmations retain
   `OpenOverPane` layering and mark destructive actions with the danger button.
@@ -18,8 +18,9 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   owns the agent/shell preset defaults plus pager, editor, highlighter and URL opener
   templates. Undrawn daemon fields survive serialization. `StoragePage` inventories
   private state and owns reset/restore/delete actions.
-- `IntegrationsPage` owns host-side credential paths. `UsagePage` owns provider switches,
-  quota polling and icon rows; left/spent display remains a mod setting and works offline.
+- `Integrations` is a heading with a `Credentials` child for host-side credential paths.
+  `UsagePage` owns provider switches, quota polling and icon rows; left/spent display is an
+  Appearance > Interface > Statusbar setting and works offline.
   `SummariesPage` edits Codex/Pi title policy, host-command summaries and the shared summary
   model; it uses the OpenRouter key from Integrations.
   Appearance is a heading with `Interface`

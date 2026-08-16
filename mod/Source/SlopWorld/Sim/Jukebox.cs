@@ -49,7 +49,7 @@ namespace SlopWorld
         {
             TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
             {
-                new SlopSubmenu(PlayRow(), Stations),
+                new SlopSubmenu(PlayRow(), StationOptions),
                 new FloatMenuOption("Like", Radio.Like),
                 SlopWidgets.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
                 SlopWidgets.MenuToggle("Stop on exit", Radio.StopOnExit, Radio.ToggleStopOnExit),
@@ -101,7 +101,7 @@ namespace SlopWorld
         // box grew settings; they are behind a row of their own now so that what is played
         // and how it is played are not one list. The OST leads because it is the one thing
         // here that is not a station and needs no network to play.
-        static List<FloatMenuOption> Stations()
+        public static List<FloatMenuOption> StationOptions()
         {
             var options = new List<FloatMenuOption>
             {
