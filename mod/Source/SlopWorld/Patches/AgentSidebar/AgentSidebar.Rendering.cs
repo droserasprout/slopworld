@@ -299,6 +299,14 @@ namespace SlopWorld
 
                 var session = Session(pawn);
                 var info = session == null ? null : SessionHub.Instance.Get(session);
+                if (info == null)
+                {
+                    // The daemon's list can drop a removed session before the colony sweep
+                    // unbinds its pawn. Do not mistake that stale pawn for a real no-project
+                    // agent while the two views catch up.
+                    locs[i] = Parked;
+                    continue;
+                }
                 if (IsRouted(info))
                 {
                     // Reconciliation may leave a routed permanent session's pawn for one tick.
