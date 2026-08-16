@@ -29,7 +29,7 @@ namespace SlopWorld
 
         SessionHub()
         {
-            _catalog = new HubCatalog(_sessions.Refresh);
+            _catalog = new HubCatalog(() => _sessions.Refresh());
             _terminal = new TerminalIO(_transport);
             _audio = new AudioBus(_transport);
             _transport.OnConnected = () => { RefreshConfig(); _terminal.Resubscribe(); };
