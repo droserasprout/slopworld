@@ -716,7 +716,7 @@ impl Manager {
 
     pub(super) async fn apply_frame(&self, name: &str, frame: Frame) {
         let hash = hash_lines(&frame.lines);
-        let (prev_hash, prev_state, prev_change, seq, prev_cursor, prev_meta, cols, rows) = {
+        let (prev_hash, prev_state, prev_change, seq, prev_cursor, prev_meta, cols, rows, initial) = {
             let live = self.live.read().await;
             let Some(l) = live.get(name) else { return };
             let cur = l.screen.as_ref().map(|s| (s.cx, s.cy)).unwrap_or((0, 0));
@@ -743,6 +743,7 @@ impl Manager {
                 meta,
                 l.cols,
                 l.rows,
+                l.screen.is_none(),
             )
         };
 
@@ -754,19 +755,26 @@ impl Manager {
             frame.alt_screen,
             frame.title.clone(),
         );
-        let changed = hash != prev_hash || (frame.cx, frame.cy) != prev_cursor || meta != prev_meta;
+        let changed = !initial
+            && (hash != prev_hash || (frame.cx, frame.cy) != prev_cursor || meta != prev_meta);
         let title_moved = meta.5 != prev_meta.5;
         let rang = frame.bell;
         let plain = strip_sgr(&frame.lines.join("\n"));
-        let state = self.classify(changed, prev_change, &plain).await;
+        let state = if initial {
+            self.classify_initial(prev_state, &plain).await
+        } else {
+            self.classify(changed, prev_change, &plain).await
+        };
 
-        if !changed && state == prev_state && !rang {
+        let screen_changed = initial || changed;
+        if !screen_changed && state == prev_state && !rang {
             return;
         }
 
         let view = ScreenView::from_frame(name, seq + 1, cols, rows, 0, frame, 0);
 
         let mut dirty_list = false;
+        let mut activity = None;
         {
             let mut live = self.live.write().await;
             let Some(l) = live.get_mut(name) else { return };
@@ -774,9 +782,17 @@ impl Manager {
             l.seq += 1;
             if changed {
                 l.last_change = now_ms();
+            } else if initial {
+                // The first capture is a snapshot, not a new pane update. Keep the cached
+                // state age, but give working classification a fresh decay sample because
+                // there is no prior frame to compare with after a daemon restart.
+                l.last_change = if state == State::Idle { 0 } else { now_ms() };
             }
             if l.set_state(state) {
                 dirty_list = true;
+                if !l.ephemeral {
+                    activity = Some((l.state, l.state_since));
+                }
             }
             if title_moved {
                 dirty_list = true;
@@ -789,7 +805,10 @@ impl Manager {
             l.plain = plain;
         }
 
-        if changed {
+        if let Some((state, state_since)) = activity {
+            self.persist_activity(name, state, state_since).await;
+        }
+        if screen_changed {
             let _ = self.events.send(Event::Screen { screen: view });
         }
         if dirty_list {
@@ -825,6 +844,7 @@ impl Manager {
             }
         }
         self.forget_scroll(name);
+        self.clear_activity(name).await;
         if let Err(error) = self.title_cache.clear_latest(name) {
             tracing::warn!(
                 target: "slopd::titles",

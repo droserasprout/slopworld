@@ -3,6 +3,9 @@
 - Daemon config: `~/.config/slopworld/config.toml`, seeded on first run.
 - Prompt-summary cache: `~/.config/slopworld/prompt-summaries.toml` (beside `SLOPD_CONFIG` when
   overridden), daemon-owned and mode `0600`.
+- Session activity fallback: `~/.config/slopworld/session-activity.toml` (beside `SLOPD_CONFIG`
+  when overridden), a daemon-owned fallback for state ages. The authoritative ages live in
+  private options on the surviving tmux server; this file is mode `0600`.
 - Daemon endpoint: `~/.config/slopworld/endpoint.toml` (`SLOPD_ENDPOINT` overrides),
   written while slopd is running with the effective URL and token, mode `0600`.
 - User presets: `~/.config/slopworld/presets/*.toml` (`SLOPD_PRESETS` overrides).

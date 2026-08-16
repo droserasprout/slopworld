@@ -10,7 +10,7 @@ Where each half keeps its knobs, and the three places they rub. See
 | Format | TOML, one `toml::from_str` | TOML, flat scalar settings |
 | Scope | this **machine** | this **install** |
 | Written by | `Config::save`, and the HTTP routes | `SlopSettings.Write` |
-| Sidecar | `presets/*.toml` (`SLOPD_PRESETS`), `jukebox/*.toml` (`SLOPD_JUKEBOX`), `endpoint.toml` (`SLOPD_ENDPOINT`), `tasks.toml`, `prompt-summaries.toml` | none; the mod mirrors the daemon catalog |
+| Sidecar | `presets/*.toml` (`SLOPD_PRESETS`), `jukebox/*.toml` (`SLOPD_JUKEBOX`), `endpoint.toml` (`SLOPD_ENDPOINT`), `tasks.toml`, `prompt-summaries.toml`, `session-activity.toml` | none; the mod mirrors the daemon catalog |
 
 The mod does not open daemon TOML. It uses HTTP (`GET /api/config`,
 `PUT /api/config/patch`), the raw-text route, and per-list routes. `slopd` reads

@@ -41,6 +41,8 @@ impl Manager {
         let tasks = crate::tasks::Tasks::load(&cfg_path)
             .unwrap_or_else(|e| panic!("task store {}: {e:#}", cfg_path.display()));
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
+        let activity_cache =
+            crate::activity::ActivityCache::load(crate::activity::cache_path(&cfg_path));
         let m = Arc::new(Self {
             tmux: Tmux::new(crate::config::TMUX_SOCKET),
             cfg_path,
@@ -57,6 +59,7 @@ impl Manager {
             clients_since: AtomicU64::new(0),
             watchers: Mutex::new(HashMap::new()),
             scroll_cache: Mutex::new(HashMap::new()),
+            activity_cache,
             audio: crate::audio::Audio::new(),
             events,
             grants: RwLock::new(crate::grant::Grants::default()),
@@ -311,6 +314,10 @@ impl Manager {
             removed.push(name.clone());
             false
         });
+        drop(live);
+        for name in &removed {
+            self.clear_activity(name).await;
+        }
         removed
     }
 
@@ -345,6 +352,12 @@ impl Manager {
         let mut adopted = false;
         for name in self.tmux.list().await {
             let host = self.tmux.is_host(&name).await || Self::legacy_host_session(&name, cfg);
+            let activity = self
+                .tmux
+                .activity(&name)
+                .await
+                .map(|(state, state_since)| crate::activity::Activity { state, state_since })
+                .or_else(|| self.activity_cache.get(&name));
             let needs_size = {
                 let mut live = self.live.write().await;
                 if !live.contains_key(&name) {
@@ -367,6 +380,8 @@ impl Manager {
                     l.state_since = now;
                     live.insert(name.clone(), l);
                     adopted = true;
+                } else if let Some(l) = live.get_mut(&name) {
+                    self.restore_activity(l, activity);
                 }
                 live.get(&name).is_some_and(|l| l.emu.is_none())
             };
@@ -384,6 +399,61 @@ impl Manager {
             }
         }
         adopted
+    }
+
+    fn restore_activity(&self, l: &mut Live, activity: Option<crate::activity::Activity>) {
+        if l.ephemeral || l.state != State::Down {
+            return;
+        }
+        let Some(activity) = activity else { return };
+        l.state = activity.state;
+        l.state_since = activity.state_since;
+        // Working classification uses pane activity as a decay clock. A daemon restart has
+        // no frame to compare against, so let the first live frame/ten-second decay establish
+        // a fresh last-change sample while preserving the user-visible state age above.
+        l.last_change = if activity.state == State::Working {
+            now_ms()
+        } else {
+            0
+        };
+    }
+
+    pub(super) async fn clear_activity(&self, name: &str) {
+        if let Err(error) = self.activity_cache.clear(name) {
+            tracing::warn!(
+                target: "slopd::activity",
+                session = %name,
+                %error,
+                "could not clear session activity cache"
+            );
+        }
+        if let Err(error) = self.tmux.clear_activity(name).await {
+            tracing::debug!(
+                target: "slopd::activity",
+                session = %name,
+                %error,
+                "could not clear tmux session activity"
+            );
+        }
+    }
+
+    pub(super) async fn persist_activity(&self, name: &str, state: State, state_since: u64) {
+        if let Err(error) = self.activity_cache.remember(name, state, state_since) {
+            tracing::warn!(
+                target: "slopd::activity",
+                session = %name,
+                %error,
+                "could not persist session activity"
+            );
+        }
+        if let Err(error) = self.tmux.set_activity(name, state, state_since).await {
+            tracing::warn!(
+                target: "slopd::activity",
+                session = %name,
+                %error,
+                "could not persist tmux session activity"
+            );
+        }
     }
 
     /// Host markers were added after host terminals could outlive the daemon. Recognize the
@@ -556,6 +626,12 @@ impl Manager {
         };
         tracing::info!("starting {name}: {}", argv.join(" "));
         self.tmux.spawn(name, &dir, cols, rows, &argv, host).await?;
+        self.clear_activity(name).await;
+        if let Some(l) = self.live.write().await.get_mut(name) {
+            l.state = State::Down;
+            l.last_change = 0;
+            l.state_since = 0;
+        }
         self.spawn_reader(name).await;
         self.wire_live_state(name, &cfg, &s, &p, host).await;
         Ok(())
@@ -582,6 +658,7 @@ impl Manager {
             }
         }
         self.forget_scroll(name);
+        self.clear_activity(name).await;
         if let Err(error) = self.title_cache.clear_latest(name) {
             tracing::warn!(
                 target: "slopd::titles",
@@ -612,6 +689,7 @@ impl Manager {
             }
         };
         self.forget_scroll(name);
+        self.clear_activity(name).await;
         if let Err(error) = self.title_cache.clear_latest(name) {
             tracing::warn!(
                 target: "slopd::titles",
@@ -1310,6 +1388,15 @@ impl Manager {
         // is about to be re-captured against a fresh emulator.
         self.forget_scroll(old);
         self.forget_scroll(new);
+        if let Err(error) = self.activity_cache.rename(old, new) {
+            tracing::warn!(
+                target: "slopd::activity",
+                old = %old,
+                new = %new,
+                %error,
+                "could not rename session activity cache"
+            );
+        }
         let _ = self.title_cache.clear_latest(old);
         if let Some(t) = title {
             let _ = self.title_cache.remember(new, &t);
@@ -1560,6 +1647,17 @@ impl Manager {
         }
     }
 
+    pub(super) async fn classify_initial(&self, previous: State, text: &str) -> State {
+        if let Some(state) = match_rules(&self.rules.read().await, text) {
+            return state;
+        }
+        if previous != State::Down {
+            previous
+        } else {
+            State::Working
+        }
+    }
+
     pub async fn retick(self: &Arc<Self>) {
         self.reload_if_due().await;
 
@@ -1589,12 +1687,20 @@ impl Manager {
         let mut dirty_list = false;
         for (name, last_change, plain) in snapshot {
             let state = self.classify(false, last_change, &plain).await;
+            let mut activity = None;
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(&name) {
                 l.retick_seq = l.seq;
                 if l.set_state(state) {
                     dirty_list = true;
+                    if !l.ephemeral {
+                        activity = Some((l.state, l.state_since));
+                    }
                 }
+            }
+            drop(live);
+            if let Some((state, state_since)) = activity {
+                self.persist_activity(&name, state, state_since).await;
             }
         }
 

@@ -27,6 +27,12 @@ want` a page ago is idle, not waiting.
 
 Every road to a new state goes through `set_state` for exactly that reason.
 
+`state_since` is also written to private options on the tmux server when a durable session
+changes state. If its tmux pane survives a daemon restart, the first capture is treated as a
+snapshot and restores that age; `session-activity.toml` is only a fallback when those options
+are absent. An intentional stop, start, exit or removal clears the record; a rename carries it
+with the tmux session and moves the fallback entry. Ephemeral sessions are never cached.
+
 ## The emulator
 
 A control-mode client (`tmux -C attach`, on a pty) feeds `%output` into the

@@ -541,6 +541,7 @@ pub struct Manager {
     clients_since: AtomicU64,
     watchers: Mutex<HashMap<String, usize>>,
     scroll_cache: Mutex<HashMap<String, CachedScroll>>,
+    activity_cache: crate::activity::ActivityCache,
     pub audio: crate::audio::Audio,
     pub events: broadcast::Sender<Event>,
     grants: RwLock<crate::grant::Grants>,

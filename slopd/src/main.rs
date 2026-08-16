@@ -1,3 +1,4 @@
+mod activity;
 mod api;
 mod audio;
 mod clipboard;

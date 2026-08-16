@@ -3,6 +3,11 @@ use std::process::Stdio;
 use anyhow::{bail, Context, Result};
 use tokio::process::{Child, Command};
 
+use crate::session::State;
+
+const ACTIVITY_STATE: &str = "@slopworld_state";
+const ACTIVITY_SINCE: &str = "@slopworld_state_since";
+
 /// Pinned to a private server socket, so it never collides with the user's tmux.
 #[derive(Clone)]
 pub struct Tmux {
@@ -203,6 +208,57 @@ impl Tmux {
         self.run(&["show-options", "-qv", "-t", name, "@slopworld_host"])
             .await
             .is_ok_and(|value| value.trim() == "1")
+    }
+
+    /// State ages live on the tmux server as well as in slopd's fallback file cache. The
+    /// server is the durable owner for a pane that survives a daemon redeploy, just like the
+    /// host marker and the pane title.
+    pub async fn activity(&self, name: &str) -> Option<(State, u64)> {
+        let state = self
+            .run(&["show-options", "-qv", "-t", name, ACTIVITY_STATE])
+            .await
+            .ok()?
+            .trim()
+            .to_string();
+        let state = match state.as_str() {
+            "working" => State::Working,
+            "waiting" => State::Waiting,
+            "idle" => State::Idle,
+            _ => return None,
+        };
+        let since = self
+            .run(&["show-options", "-qv", "-t", name, ACTIVITY_SINCE])
+            .await
+            .ok()?
+            .trim()
+            .parse()
+            .ok()?;
+        Some((state, since))
+    }
+
+    pub async fn set_activity(&self, name: &str, state: State, since: u64) -> Result<()> {
+        let state = match state {
+            State::Working => "working",
+            State::Waiting => "waiting",
+            State::Idle => "idle",
+            State::Down => return self.clear_activity(name).await,
+        };
+        let since = since.to_string();
+        self.run(&["set-option", "-t", name, ACTIVITY_STATE, state])
+            .await?;
+        self.run(&["set-option", "-t", name, ACTIVITY_SINCE, &since])
+            .await?;
+        Ok(())
+    }
+
+    pub async fn clear_activity(&self, name: &str) -> Result<()> {
+        self.run(&["set-option", "-uq", "-t", name, ACTIVITY_STATE])
+            .await
+            .ok();
+        self.run(&["set-option", "-uq", "-t", name, ACTIVITY_SINCE])
+            .await
+            .ok();
+        Ok(())
     }
 
     pub async fn kill(&self, name: &str) -> Result<()> {

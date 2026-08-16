@@ -14,6 +14,7 @@
 | `presets.rs` | The preset tables: builtin TOML plus the user's. |
 | `jukebox.rs` | The station catalog: builtin/user TOML, metadata, and daemon-side URL resolution. |
 | `config.rs` | `config.toml` load, save, and seed. |
+| `activity.rs` | Persists the fallback file for state ages when the tmux server has no activity options. |
 | `usage.rs` | Polls Anthropic and OpenRouter for what is left of each. |
 | `audio.rs` | The jukebox's sound, because the game cannot play it. |
 | `clipboard.rs` | The host clipboard. |
