@@ -8,7 +8,7 @@ namespace SlopWorld
     // The persona core: LMB opens a context menu. "Hint" shows a tip bubble that
     // fades after three seconds; "Kill something" strikes 5-10 lightnings at a
     // random human, animal or tree on the map, and is not offered when grandma is
-    // visiting; "Next planet" burns the map and lands a new colony.
+    // visiting or eco mode is on; "Next planet" burns the map and lands a new colony.
     public class CoreTip : MapComponent
     {
         // How long the sticky hint stays up before dismissing itself.
@@ -168,7 +168,7 @@ namespace SlopWorld
 
         public static void KillSomething()
         {
-            if (Settings.GrandmaMode) return;
+            if (Settings.GrandmaMode || Settings.EcoMode) return;
             Find.CurrentMap?.GetComponent<CoreTip>()?.KillAction();
         }
 
@@ -194,11 +194,12 @@ namespace SlopWorld
             {
                 new FloatMenuOption("Hint", HintAction),
             };
-            // Grandma mode: no fun allowed.
-            if (!Settings.GrandmaMode)
+            // Grandma and eco modes: no destruction allowed.
+            if (!Settings.GrandmaMode && !Settings.EcoMode)
                 options.Add(new FloatMenuOption("Kill something", KillAction));
             options.Add(new FloatMenuOption("New look", NewLookAction));
-            options.Add(new FloatMenuOption("Next planet", NextPlanet.Begin));
+            if (!Settings.EcoMode)
+                options.Add(new FloatMenuOption("Next planet", NextPlanet.Begin));
 
             // OpenOverPane rather than a plain Add: the status bar is drawn over a terminal
             // as well as over the map, and a menu opened from it belongs above both.
@@ -231,6 +232,8 @@ namespace SlopWorld
         // Strike a random living thing with 5-10 lightnings.
         void KillAction()
         {
+            if (Settings.GrandmaMode || Settings.EcoMode) return;
+
             var target = PickTarget();
             if (target == null)
             {

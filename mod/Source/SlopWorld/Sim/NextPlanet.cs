@@ -75,6 +75,7 @@ namespace SlopWorld
         public static void Begin()
         {
             if (Current.ProgramState != ProgramState.Playing) return;
+            if (Settings.EcoMode) return;
             if (Leaving) return;
             Current.Game?.GetComponent<NextPlanet>()?.Start();
         }
