@@ -771,30 +771,53 @@ namespace SlopWorld
             Click(row, info);
         }
 
-        // Draw: agent rows keep the badge, name, summary, status and click target ordered.
+        // Draw: agent rows keep the badge, name/time, summary and click target ordered.
         static void DrawAgentRow(Row row, SessionInfo info, AgentState state, Color tint)
         {
             DrawStateBadge(row.Face, row.Text, state);
-            DrawAgentName(row, info, tint);
+            DrawAgentName(row, info, state, tint);
             DrawAgentSummary(row, info, state);
-            DrawAgentStatus(row, info, state);
             GUI.color = Color.white;
             Click(row, info);
         }
 
-        static void DrawAgentName(Row row, SessionInfo info, Color tint)
+        static void DrawAgentName(Row row, SessionInfo info, AgentState state, Color tint)
         {
-            Text.Font = GameFont.Small;
-            var name = new Rect(row.Text.x, row.Text.y, row.Text.width, NameH);
+            var line = new Rect(row.Text.x, row.Text.y, row.Text.width, NameH);
+
+            Text.Font = GameFont.Tiny;
+            string ago = state == AgentState.Down ? "" : Ago(info);
+            float ageW = ago.Length == 0 ? 0f : SlopWidgets.Wide(ago);
+
+            float bellW = info != null && info.Bell ? Mathf.Min(BellW, NameH) : 0f;
+            float timeX = line.xMax - ageW;
+            float bellX = timeX - (bellW > 0f ? SlopWidgets.GapXS + bellW : 0f);
+            float nameRight = bellW > 0f ? bellX : timeX;
+            var name = new Rect(line.x, line.y,
+                Mathf.Max(0f, nameRight - line.x -
+                    (ageW > 0f || bellW > 0f ? SlopWidgets.GapXS : 0f)), line.height);
+
             if (info != null && info.Bell)
             {
-                float d = Mathf.Min(BellW, NameH);
                 GUI.color = SlopWidgets.Warn;
                 GUI.DrawTexture(
-                    new Rect(name.xMax - d, name.y + (NameH - d) / 2f, d, d),
+                    new Rect(bellX, line.y + (NameH - bellW) / 2f, bellW, bellW),
                     Icons.Bell);
-                name.width -= d + 3f;
             }
+
+            if (ageW > 0f)
+            {
+                var time = new Rect(timeX, line.y, ageW, line.height);
+                GUI.color = SlopWidgets.Faint;
+                SlopWidgets.RowLabel(time, ago, TextAnchor.MiddleRight);
+
+                string stateName = state == AgentState.Waiting
+                    ? "waiting for input"
+                    : state.ToString().ToLowerInvariant();
+                TooltipHandler.TipRegion(time, $"{stateName} for {ago}");
+            }
+
+            Text.Font = GameFont.Small;
             GUI.color = tint;
             SlopWidgets.RowLabel(name, row.Session ?? row.Pawn?.LabelShort ?? "?");
         }
@@ -817,21 +840,6 @@ namespace SlopWorld
                         TooltipHandler.TipRegion(line2, title);
                 }
             }
-        }
-
-        static void DrawAgentStatus(Row row, SessionInfo info, AgentState state)
-        {
-            var word = new Rect(row.Text.x, row.Text.y + NameH + SubH,
-                row.Text.width, SubH);
-            string ago = state == AgentState.Down ? "" : Ago(info);
-            if (ago.Length > 0)
-            {
-                GUI.color = SlopWidgets.Faint;
-                SlopWidgets.RowLabel(word, ago, TextAnchor.MiddleRight);
-                word.width -= Mathf.Ceil(SlopWidgets.Wide(ago)) + AgoGap;
-            }
-            GUI.color = SlopWidgets.Faint;
-            SlopWidgets.RowLabel(word, Word(state));
         }
 
         public static void DrawFront()

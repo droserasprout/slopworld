@@ -50,7 +50,6 @@ namespace SlopWorld
         static float TextH => NameH + SubH * 2f;
 
         const float BellW = 13f;
-        const float AgoGap = 6f;
 
         // The state badge is a share of the portrait rather than a fixed size: the column
         // shrinks to fit and a marker that did not would swallow a small face. Keep its own
@@ -59,6 +58,7 @@ namespace SlopWorld
         const float BadgeMin = 6f;
         const float BadgeInset = 1f;
         const float BadgeRing = 1.5f;
+        const float BadgeAlpha = 0.8f;
 
         const float GhostMarkW = 12f;
 
@@ -297,10 +297,8 @@ namespace SlopWorld
             }
         }
 
-        static string Word(AgentState state) => state.ToString().ToLower();
-
         // Draw the status badge at the portrait's right edge, vertically aligned with the
-        // third text line; the dark ring keeps it legible over hair and clothing.
+        // lower text band; the dark ring keeps it legible over hair and clothing.
         static void DrawStateBadge(Rect face, Rect text, AgentState state)
         {
             if (face.width <= 0f) return;
@@ -314,8 +312,7 @@ namespace SlopWorld
             GUI.color = SlopWidgets.ViewBg;
             GUI.DrawTexture(Icons.DotBox(center, d + BadgeRing * 2f), Icons.Dot);
             var stateColor = TerminalWindow.StateColor(state);
-            GUI.color = new Color(stateColor.r, stateColor.g, stateColor.b,
-                Patch_SidebarPortraitDraw.SelectionAlpha);
+            GUI.color = new Color(stateColor.r, stateColor.g, stateColor.b, BadgeAlpha);
             GUI.DrawTexture(Icons.DotBox(center, d), Icons.Dot);
             GUI.color = Color.white;
         }
