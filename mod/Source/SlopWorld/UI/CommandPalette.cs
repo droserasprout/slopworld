@@ -333,11 +333,12 @@ namespace SlopWorld
             new CommandDef("game.new-looks", "Game: New looks", "Game",
                 _ => CoreTip.NewLooks(), enabled: Playing),
             new CommandDef("game.kill-something", "Game: Kill something", "Game",
-                _ => CoreTip.KillSomething(), enabled: () => Playing() && !Settings.GrandmaMode),
+                _ => CoreTip.KillSomething(), enabled: () => Playing()
+                    && !Settings.GrandmaMode && !Settings.EcoMode),
             new CommandDef("game.hint", "Game: Hint", "Game",
                 _ => CoreTip.ShowHint(), enabled: Playing),
             new CommandDef("game.nextplanet", "Game: Next Planet", "Game",
-                _ => NextPlanet.Begin(), enabled: Playing),
+                _ => NextPlanet.Begin(), enabled: () => Playing() && !Settings.EcoMode),
         };
 
         static bool Playing() => Current.ProgramState == ProgramState.Playing;
