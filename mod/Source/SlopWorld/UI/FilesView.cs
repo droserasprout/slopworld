@@ -411,16 +411,16 @@ namespace SlopWorld
             }
         }
 
-        // File actions belong to a project-backed path, but the path can come from any of the
-        // sidebar trees. Keep the menu and its two execution modes here so Files, Git and Find
-        // all substitute paths and start sandboxed commands in exactly the same way.
+        // File actions can come from any sidebar tree. Project paths run in that project's
+        // sandbox; a focused private-state path has no project and uses a disposable host
+        // errand, like its viewer and editor.
         public static void AddFileActions(List<FloatMenuOption> opts, string project, string path,
             string name, string relative = null)
         {
             var actions = SessionHub.Instance.Shortcuts
                 .Where(s => s.Kind == ShortcutKind.FileAction)
                 .ToList();
-            if (actions.Count == 0 || string.IsNullOrEmpty(project)) return;
+            if (actions.Count == 0) return;
             if (relative == null) relative = ProjectRelative(project, path);
 
             opts.Add(new SlopSubmenu("File actions", () => FileActionOptions(
@@ -432,11 +432,7 @@ namespace SlopWorld
         {
             return actions.Select(action => new FloatMenuOption(action.Name, () =>
             {
-                if (string.IsNullOrEmpty(project))
-                {
-                    SlopWidgets.Fail("file actions need a project-backed sidebar row");
-                    return;
-                }
+                bool host = string.IsNullOrEmpty(project);
                 var command = FileActionCommand(action.Command, path, relative);
                 TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
                 {
@@ -445,7 +441,8 @@ namespace SlopWorld
                         SlopClient.Post("/api/file-action", "{" +
                             $"\"project\":{JVal.Q(project)}," +
                             $"\"path\":{JVal.Q(path)}," +
-                            $"\"command\":{JVal.Q(command)}" +
+                            $"\"command\":{JVal.Q(command)}," +
+                            $"\"host\":{JVal.B(host)}" +
                             "}", j =>
                             {
                                 string output = j["output"].AsString("(no output)");
@@ -460,7 +457,7 @@ namespace SlopWorld
                     new FloatMenuOption("Open terminal", () =>
                         SessionHub.Instance.Run(project, command, "fa-" + name,
                             session => TerminalWindow.Open(session), SlopWidgets.Fail,
-                            path: path, hold: true)),
+                            host: host, temp: host, path: path, hold: true)),
                 }));
             })).ToList();
         }
