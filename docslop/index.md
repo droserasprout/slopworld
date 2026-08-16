@@ -38,6 +38,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [mod-easter-eggs](mod-easter-eggs.md) - small hidden interactions.
 - [mod-worksite](mod-worksite.md) - what a working agent builds.
 - [mod-jukebox](mod-jukebox.md) - the box that came down with the first clanker, and what it plays.
+- [more-radio](more-radio.md) - candidate independent, eclectic and chill stations for the jukebox.
 - [mod-patches-strip](mod-patches-strip.md) - stripping the sim, the UI and the options menu.
 - [mod-patches-agents](mod-patches-agents.md) - agents are not colonists; the colonist bar.
 - [mod-sidebar](mod-sidebar.md) - `AgentSidebar` and what it does to the rest of the chrome.

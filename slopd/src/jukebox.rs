@@ -71,18 +71,10 @@ const BUILTIN: &[(&str, &str)] = &[
     ("05-wfmu", include_str!("../jukebox/05-wfmu.toml")),
     ("06-dublab", include_str!("../jukebox/06-dublab.toml")),
     (
-        "07-somafm-secret-agent",
-        include_str!("../jukebox/07-somafm-secret-agent.toml"),
-    ),
-    (
         "08-nts-radio-1",
         include_str!("../jukebox/08-nts-radio-1.toml"),
     ),
     ("09-kexp", include_str!("../jukebox/09-kexp.toml")),
-    (
-        "10-somafm-groove-salad",
-        include_str!("../jukebox/10-somafm-groove-salad.toml"),
-    ),
 ];
 
 impl Catalog {
@@ -246,7 +238,7 @@ mod tests {
     #[test]
     fn builtins_parse_in_menu_order_and_keep_metadata() {
         let catalog = Catalog::builtins();
-        assert_eq!(catalog.stations.len(), 10);
+        assert_eq!(catalog.stations.len(), 8);
         assert_eq!(catalog.stations[0].id, "radio-paradise");
         assert_eq!(
             catalog.stations[0].metadata.donate,

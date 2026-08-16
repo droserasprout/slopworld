@@ -42,7 +42,7 @@ audio status events. Tests use local deterministic fixtures and never contact st
 
 The daemon is required because Unity/FMOD cannot reliably handle the target HTTPS,
 AAC, Icecast and unknown-length streams. Shipped sources include Radio Paradise,
-WEFUNK, WALM, Kiosk Radio, WFMU, dublab, SomaFM, NTS and KEXP; prefer direct HTTPS
+WEFUNK, WALM, Kiosk Radio, WFMU, dublab, NTS and KEXP; prefer direct HTTPS
 MP3 streams with ICY metadata.
 
 ## Local audio and likes

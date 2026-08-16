@@ -27,7 +27,7 @@ into the whole Cargo dependency graph.
 - Noto Color Emoji, Google: the rasterized radio and wilted-rose glyph artwork.
 - Terry Fail: `pace`, `dive`, `hime` and `dawn` soundtrack export.
 - Radio Paradise, WEFUNK Radio, WALM / Classic Vinyl HD, Kiosk Radio, WFMU, dublab,
-  SomaFM, NTS Radio and KEXP: jukebox stream sources.
+  NTS Radio and KEXP: jukebox stream sources.
 
 The procedural robot faceplate is SlopWorld's own art.
 
