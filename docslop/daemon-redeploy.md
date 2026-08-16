@@ -27,6 +27,10 @@ Repaint does not restore titles because they are not screen content. Read
 `#{pane_title}` with the cursor from the surviving tmux server, then seed it as
 OSC text after taking the last field and stripping control characters.
 
+The tmux server also carries each durable session's state and `state_since` in private
+`@slopworld_*` options. These are authoritative across a daemon redeploy; slopd falls back to
+`session-activity.toml` only when the options are absent.
+
 ## Shape synchronization
 
 `sync_from_config` reads `Tmux::size` before building the emulator, and
