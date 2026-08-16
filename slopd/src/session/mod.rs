@@ -13,9 +13,15 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinHandle;
 
+mod ctrl;
+mod view;
+
+pub(super) use ctrl::CachedScroll;
+pub use ctrl::{ClientGuard, Manager, WatchGuard};
+pub use view::{ScreenView, SessionView};
+
 use crate::config::{
-    expand, Config, DnsConfig, Limits, NetworkMode, ProjectCfg, SessionCfg, ShortcutCfg,
-    ShortcutKind, ShortcutLink, TitlePolicy,
+    expand, Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink, TitlePolicy,
 };
 use crate::emu::{Frame, SessionEmu};
 use crate::tmux::Tmux;
@@ -41,51 +47,6 @@ pub enum State {
     Idle,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct SessionView {
-    pub name: String,
-    pub label: String,
-    pub project: String,
-    pub dir: String,
-    pub command: String,
-    /// The command preset after `[defaults] agent` is resolved. Empty means the session
-    /// supplies its own command line, so it has no command preset's sandbox.
-    pub command_preset: String,
-    pub cmd: Option<String>,
-    pub sandbox: Vec<String>,
-    pub breadcrumbs: Vec<String>,
-    pub breadcrumb_yolo: bool,
-    // Lets the client attach tips only to the Enter that will consume breadcrumbs.
-    pub breadcrumbs_pending: bool,
-    pub agent: String,
-    pub state: State,
-    pub alive: bool,
-    pub cols: u16,
-    pub rows: u16,
-    /// The effective project ceiling or agent reduction.
-    pub network: NetworkMode,
-    /// Null means the agent inherits the project setting.
-    pub network_override: Option<NetworkMode>,
-    /// The effective DNS source, resolved from the project and agent settings.
-    pub dns: DnsConfig,
-    /// Null means the agent inherits the project's DNS setting.
-    pub dns_override: Option<DnsConfig>,
-    /// The caps this agent runs under, its own merged over its project's.
-    pub limits: Limits,
-    /// This agent's own caps before project inheritance - what the editor edits.
-    pub limits_override: Limits,
-    pub autostart: bool,
-    // Ephemeral sessions have no editable config entry and die with their process.
-    pub ephemeral: bool,
-    pub last_change: u64,
-    // Separate from output activity so a continuously-redrawing worker can still age.
-    pub state_since: u64,
-    pub title: String,
-    // Sticky until someone subscribes, rather than tied to the frame that rang.
-    pub bell: bool,
-    pub seq: u64,
-}
-
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct RunWhere {
     #[serde(default)]
@@ -94,66 +55,6 @@ pub struct RunWhere {
     pub temp: bool,
     #[serde(default)]
     pub random_tips: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ScreenView {
-    pub name: String,
-    pub seq: u64,
-    pub cols: u16,
-    pub rows: u16,
-    pub cx: u16,
-    pub cy: u16,
-    #[serde(default)]
-    pub off: u32,
-    #[serde(default)]
-    pub cursor_shape: u8,
-    #[serde(default)]
-    pub cursor_blink: bool,
-    #[serde(default)]
-    pub app_mouse: bool,
-    // Distinguishes application mouse drags from terminal text selection.
-    #[serde(default)]
-    pub app_drag: bool,
-    // Alternate screens have no scrollback; clients route wheel input differently.
-    #[serde(default)]
-    pub alt_screen: bool,
-    #[serde(default)]
-    pub title: String,
-    // Echoes a one-off scroll request; live broadcasts use zero.
-    #[serde(default)]
-    pub request_id: u64,
-    pub lines: Vec<String>,
-}
-
-impl ScreenView {
-    fn from_frame(
-        name: &str,
-        seq: u64,
-        cols: u16,
-        rows: u16,
-        off: u32,
-        frame: Frame,
-        request_id: u64,
-    ) -> Self {
-        Self {
-            name: name.to_string(),
-            seq,
-            cols,
-            rows,
-            cx: frame.cx,
-            cy: frame.cy,
-            off,
-            request_id,
-            cursor_shape: frame.cursor_shape,
-            cursor_blink: frame.cursor_blink,
-            app_mouse: frame.app_mouse,
-            app_drag: frame.app_drag,
-            alt_screen: frame.alt_screen,
-            title: frame.title,
-            lines: frame.lines,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -525,62 +426,6 @@ fn merge_input(items: Vec<Input>) -> Vec<Input> {
     out
 }
 
-pub struct Manager {
-    pub tmux: Tmux,
-    pub cfg_path: PathBuf,
-    cfg: RwLock<Config>,
-    live: RwLock<HashMap<String, Live>>,
-    temp: RwLock<HashMap<String, ProjectCfg>>,
-    rules: RwLock<Vec<(State, Regex)>>,
-    cfg_mtime: Mutex<Option<SystemTime>>,
-    presets_mtime: Mutex<Option<SystemTime>>,
-    jukebox_mtime: Mutex<Option<SystemTime>>,
-    cfg_checked: AtomicU64,
-    usage: RwLock<crate::usage::Snapshot>,
-    clients: AtomicUsize,
-    clients_since: AtomicU64,
-    watchers: Mutex<HashMap<String, usize>>,
-    scroll_cache: Mutex<HashMap<String, CachedScroll>>,
-    activity_cache: crate::activity::ActivityCache,
-    pub audio: crate::audio::Audio,
-    pub events: broadcast::Sender<Event>,
-    grants: RwLock<crate::grant::Grants>,
-    tasks: Mutex<crate::tasks::Tasks>,
-    title_cache: crate::title::SummaryCache,
-}
-
-struct CachedScroll {
-    live_seq: u64,
-    off: u32,
-    cols: u16,
-    rows: u16,
-    view: ScreenView,
-}
-
-pub struct ClientGuard(Arc<Manager>);
-
-impl Drop for ClientGuard {
-    fn drop(&mut self) {
-        self.0.clients.fetch_sub(1, Ordering::Relaxed);
-    }
-}
-
-pub struct WatchGuard(Arc<Manager>, String);
-
-impl Drop for WatchGuard {
-    fn drop(&mut self) {
-        let Ok(mut w) = self.0.watchers.lock() else {
-            return;
-        };
-        if let Some(n) = w.get_mut(&self.1) {
-            *n -= 1;
-            if *n == 0 {
-                w.remove(&self.1);
-            }
-        }
-    }
-}
-
 const CFG_CHECK_MS: u64 = 2_000;
 
 const BOOT_COLS: u16 = 120;
@@ -945,7 +790,7 @@ async fn read_action_output<R: AsyncRead + Unpin>(mut stream: R) -> Result<(Vec<
     Ok((output, truncated))
 }
 
-#[path = "manager/mod.rs"]
+#[path = "../manager/mod.rs"]
 mod manager;
 
 fn validate_config(cfg: &Config) -> Result<()> {
