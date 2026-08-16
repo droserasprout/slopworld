@@ -140,22 +140,7 @@ namespace SlopWorld
         // rather than ticks. See Pack.
         bool _relative;
 
-        // Last twentieth of the map logged, so there is no line every three seconds.
-        int _logged = -1;
-
-        // Refilled when it runs off the end, which is also how regrowth gets caught.
-        readonly List<Plant> _plants = new List<Plant>();
-        int _plantIdx;
-
-        // Where the flowerbed sweep left off. Not saved: it is a position in a walk, and any
-        // cell it would have missed comes round again in under a minute.
-        int _sowIdx;
-
-        // Effects walks a copy: an effect can despawn the pawn it lands on.
-        readonly List<Pawn> _rolling = new List<Pawn>();
-
-        Aura _aura;
-        Thing _core;
+        readonly PlagueRuntime _runtime = new PlagueRuntime();
 
         public Plague(Map map) : base(map) { }
 
@@ -212,21 +197,21 @@ namespace SlopWorld
         // slice so newly grown plants are included without restarting the sweep every tick.
         void StepPlants()
         {
-            if (_plantIdx >= _plants.Count)
+            if (_runtime.PlantIndex >= _runtime.Plants.Count)
             {
-                _plants.Clear();
+                _runtime.Plants.Clear();
                 var all = map.listerThings.ThingsInGroup(ThingRequestGroup.Plant);
                 for (int i = 0; i < all.Count; i++)
-                    if (all[i] is Plant p) _plants.Add(p);
-                _plantIdx = 0;
+                    if (all[i] is Plant p) _runtime.Plants.Add(p);
+                _runtime.PlantIndex = 0;
                 return; // keep the refill off the same tick as the work
             }
 
             int budget = PlantsPerTick;
             int now = Find.TickManager.TicksGame;
-            while (_plantIdx < _plants.Count && budget-- > 0)
+            while (_runtime.PlantIndex < _runtime.Plants.Count && budget-- > 0)
             {
-                var p = _plants[_plantIdx++];
+                var p = _runtime.Plants[_runtime.PlantIndex++];
                 if (p == null || p.Destroyed || !p.Spawned) continue;
                 if (p.def.plant == null) continue;
 
@@ -300,14 +285,14 @@ namespace SlopWorld
 
         void Vent()
         {
-            if (_core == null || _core.Destroyed || !_core.Spawned)
+            if (_runtime.Core == null || _runtime.Core.Destroyed || !_runtime.Core.Spawned)
             {
                 var found = map.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore);
-                _core = found != null && found.Count > 0 ? found[0] : null;
-                if (_core == null) return;
+                _runtime.Core = found != null && found.Count > 0 ? found[0] : null;
+                if (_runtime.Core == null) return;
             }
 
-            PlagueFx.Vent(_core);
+            PlagueFx.Vent(_runtime.Core);
         }
 
         // Out of bounds would read somebody else's row.
@@ -405,7 +390,7 @@ namespace SlopWorld
         // Asked of a thing rather than a cell: the grace outlives the cat walking away, so it
         // belongs to what was standing there.
         bool Spared(Thing t) => CapybaraEgg.IsImmune(t as Pawn)
-            || (_aura ?? (_aura = Aura.Of(map)))?.Spares(t) == true;
+            || (_runtime.Aura ?? (_runtime.Aura = Aura.Of(map)))?.Spares(t) == true;
 
         public bool Active => _active;
 
@@ -422,9 +407,9 @@ namespace SlopWorld
         void Progress()
         {
             int twentieth = _reached * 20 / Mathf.Max(map.Area, 1);
-            if (twentieth == _logged) return;
+            if (twentieth == _runtime.Logged) return;
 
-            _logged = twentieth;
+            _runtime.Logged = twentieth;
             Log.Message($"[SlopWorld] the plague has {_reached * 100f / map.Area:F0}% of the map, " +
                         $"{Girth:F0} cells of it as a circle, " +
                         $"on {Worksite.LaidOn(map)} cells of finished ground");
@@ -461,8 +446,8 @@ namespace SlopWorld
 
             for (int budget = SowPerSweep; budget > 0; budget--)
             {
-                if (_sowIdx >= cells.Length) _sowIdx = 0;
-                int k = _sowIdx++;
+                if (_runtime.SowIndex >= cells.Length) _runtime.SowIndex = 0;
+                int k = _runtime.SowIndex++;
 
                 // The cheapest of the three questions, and the one that is false for most of
                 // the map for most of a colony.
@@ -519,10 +504,10 @@ namespace SlopWorld
         void Effects()
         {
             int now = Find.TickManager.TicksGame;
-            _rolling.Clear();
-            _rolling.AddRange(map.mapPawns.AllPawnsSpawned);
+            _runtime.Rolling.Clear();
+            _runtime.Rolling.AddRange(map.mapPawns.AllPawnsSpawned);
 
-            foreach (var pawn in _rolling)
+            foreach (var pawn in _runtime.Rolling)
             {
                 if (!Infectable(pawn) || !Marked(pawn)) continue;
 

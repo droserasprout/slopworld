@@ -48,7 +48,7 @@ namespace SlopWorld
             }
 
             Text.Font = GameFont.Small;
-            DrawGhostLabel(text, info, row.Session);
+            SidebarRowRenderer.DrawGhostLabel(text, info, row.Session, false, GhostMarkW);
             GUI.color = Color.white;
         }
 
@@ -131,7 +131,7 @@ namespace SlopWorld
 
         public static bool Drawing { get; private set; }
 
-        public static bool AgentScrollOpen => Layout.AgentScrollOpen;
+        public static bool AgentScrollOpen => Interaction.AgentScrollOpen;
 
         public static bool FaceBox(Pawn pawn, out Rect box)
         {
@@ -156,6 +156,7 @@ namespace SlopWorld
             List<ColonistBar.Entry> entries, List<Vector2> locs, int count, bool plus)
         {
             Layout.BeginFrame();
+            Interaction.BeginFrame();
             Bucket(entries, locs, count);
 
             if (CurrentTab != SidebarTab.Agents)
@@ -380,15 +381,15 @@ namespace SlopWorld
             var body = Body;
             // The full-width view keeps SmoothScroll active while omitting the gutter that narrows every row.
             var view = new Rect(0f, 0f, body.width, Layout.AgentContentH);
-            Layout.AgentScroll.Begin(body, view, false);
-            Layout.AgentScrollOpen = true;
+            Interaction.AgentScroll.Begin(body, view, false);
+            Interaction.AgentScrollOpen = true;
         }
 
         static void EndAgentScroll()
         {
-            if (!Layout.AgentScrollOpen) return;
-            Layout.AgentScrollOpen = false;
-            Layout.AgentScroll.End();
+            if (!Interaction.AgentScrollOpen) return;
+            Interaction.AgentScrollOpen = false;
+            Interaction.AgentScroll.End();
         }
 
         static void DrawChromeAndClicks()
@@ -452,7 +453,7 @@ namespace SlopWorld
 
             if (!Wanted())
             {
-                Layout.Resizing = false;
+                Interaction.Resizing = false;
                 return;
             }
             Drawing = true;
@@ -766,7 +767,7 @@ namespace SlopWorld
                 text.width -= d + 4f;
             }
 
-            DrawGhostLabel(text, info, row.Session, hostIcon: true);
+            SidebarRowRenderer.DrawGhostLabel(text, info, row.Session, true, GhostMarkW);
             GUI.color = Color.white;
             Click(row, info);
         }
@@ -775,71 +776,11 @@ namespace SlopWorld
         static void DrawAgentRow(Row row, SessionInfo info, AgentState state, Color tint)
         {
             DrawStateBadge(row.Face, row.Text, state);
-            DrawAgentName(row, info, state, tint);
-            DrawAgentSummary(row, info, state);
+            SidebarRowRenderer.DrawAgentText(row.Text,
+                row.Session ?? row.Pawn?.LabelShort ?? "?", info, state, tint,
+                NameH, SubH, BellW);
             GUI.color = Color.white;
             Click(row, info);
-        }
-
-        static void DrawAgentName(Row row, SessionInfo info, AgentState state, Color tint)
-        {
-            var line = new Rect(row.Text.x, row.Text.y, row.Text.width, NameH);
-
-            Text.Font = GameFont.Tiny;
-            string ago = state == AgentState.Down ? "" : Ago(info);
-            float ageW = ago.Length == 0 ? 0f : SlopWidgets.Wide(ago);
-
-            float bellW = info != null && info.Bell ? Mathf.Min(BellW, NameH) : 0f;
-            float timeX = line.xMax - ageW;
-            float bellX = timeX - (bellW > 0f ? SlopWidgets.GapXS + bellW : 0f);
-            float nameRight = bellW > 0f ? bellX : timeX;
-            var name = new Rect(line.x, line.y,
-                Mathf.Max(0f, nameRight - line.x -
-                    (ageW > 0f || bellW > 0f ? SlopWidgets.GapXS : 0f)), line.height);
-
-            if (info != null && info.Bell)
-            {
-                GUI.color = SlopWidgets.Warn;
-                GUI.DrawTexture(
-                    new Rect(bellX, line.y + (NameH - bellW) / 2f, bellW, bellW),
-                    Icons.Bell);
-            }
-
-            if (ageW > 0f)
-            {
-                var time = new Rect(timeX, line.y, ageW, line.height);
-                GUI.color = SlopWidgets.Faint;
-                SlopWidgets.RowLabel(time, ago, TextAnchor.MiddleRight);
-
-                string stateName = state == AgentState.Waiting
-                    ? "waiting for input"
-                    : state.ToString().ToLowerInvariant();
-                TooltipHandler.TipRegion(time, $"{stateName} for {ago}");
-            }
-
-            Text.Font = GameFont.Small;
-            GUI.color = tint;
-            SlopWidgets.RowLabel(name, row.Session ?? row.Pawn?.LabelShort ?? "?");
-        }
-
-        static void DrawAgentSummary(Row row, SessionInfo info, AgentState state)
-        {
-            Text.Font = GameFont.Tiny;
-            // The summary gets the upper secondary line. Down or fresh agents have no
-            // useful summary yet, so it remains empty without falling back to the ground.
-            if (state != AgentState.Down)
-            {
-                string title = Title(info);
-                if (title.Length > 0)
-                {
-                    GUI.color = SlopWidgets.Dim;
-                    var line2 = new Rect(row.Text.x, row.Text.y + NameH,
-                        row.Text.width, SubH);
-                    SlopWidgets.RowLabel(line2, title);
-                    if (SlopWidgets.Wide(title) > line2.width)
-                        TooltipHandler.TipRegion(line2, title);
-                }
-            }
         }
 
         public static void DrawFront()
@@ -847,7 +788,7 @@ namespace SlopWorld
             if (!Drawing) return;
             try
             {
-                if (Layout.AgentScrollOpen)
+                if (Interaction.AgentScrollOpen)
                 {
                     DrawRows();
                     Patch_SidebarPortraitDraw.DrawDeferredSelection();

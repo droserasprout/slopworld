@@ -230,6 +230,19 @@ namespace SlopWorld
 
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
+            DrawNetworkFields(l, project);
+            float used = l.CurHeight;
+            l.End();
+
+            float y = rect.y + used + SlopWidgets.GapL;
+            y = DrawExtraPresets(rect, y, project, preset);
+            y += DrawLimits(new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y)));
+
+            return y - rect.y + SlopWidgets.GapS;
+        }
+
+        void DrawNetworkFields(Listing_Standard l, ProjectInfo project)
+        {
             l.Label("Network");
             var ceiling = project?.Network ?? NetworkMode.Private;
             var inheritedDns = project?.Dns ?? _s.Dns;
@@ -247,8 +260,7 @@ namespace SlopWorld
             string dnsLabel = _s.DnsOverride == null
                 ? "Inherit project (" + inheritedDns.Label + ")"
                 : _s.DnsOverride.Label;
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), dnsLabel))
-                PickDns();
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), dnsLabel)) PickDns();
             if (_s.DnsOverride?.Mode == DnsMode.Servers)
             {
                 _dnsServers = SlopWidgets.Field(l, "agent.dns", _dnsServers ?? "");
@@ -262,31 +274,23 @@ namespace SlopWorld
                 l.Label("System resolver uses the stable systemd-resolved stub.");
                 GUI.color = Color.white;
             }
-            float used = l.CurHeight;
-            l.End();
+        }
 
-            float y = rect.y + used + SlopWidgets.GapL;
-
+        float DrawExtraPresets(Rect rect, float y, ProjectInfo project, CommandInfo preset)
+        {
             SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
                 "Extra sandbox presets");
             y += SlopWidgets.RowH + SlopWidgets.GapXS;
 
-            // Its command's are ticked and refused here; its project's are the project's to
-            // edit there, so both inherited sets are ticked and refused here. What is left is
-            // what this one agent adds.
             var inheritedPresets = new List<string>();
             if (preset != null) inheritedPresets.AddRange(preset.Sandbox);
             if (project != null) inheritedPresets.AddRange(project.Sandbox);
             PresetList.Draw(new Rect(rect.x, y, rect.width, PresetsH), _s.Sandbox,
                 _presetScroll, inheritedPresets);
             y += PresetsH + SlopWidgets.GapL;
-
             SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
                 "Resource limits");
-            y += SlopWidgets.RowH + SlopWidgets.GapXS;
-            y += DrawLimits(new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y)));
-
-            return y - rect.y + SlopWidgets.GapS;
+            return y + SlopWidgets.RowH + SlopWidgets.GapXS;
         }
 
         // Per-agent resource caps the daemon enforces with a systemd scope. Edited as strings;

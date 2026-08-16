@@ -254,8 +254,16 @@ namespace SlopWorld
                 Mathf.Max(PresetEditorHeight(p, r.width - SlopWidgets.ScrollbarW), r.height));
             _editorScroll.Begin(r, view);
             float y = 0f;
-            // Put the cost before the identity and all the fields. A warning at the bottom is
-            // something a long editor makes the player discover after deciding to use it.
+            y = DrawPresetFields(view, y, p, editable);
+            EditorButtons(view, y, editable, p.Source, "sandbox", p.Name,
+                () => SessionHub.Instance.SavePreset(p, () => { _newEntry = false; _error = null; }, msg => _error = msg),
+                () => Remove("sandbox", p.Name));
+            _editorScroll.End();
+        }
+
+        float DrawPresetFields(Rect view, float y, PresetInfo p, bool editable)
+        {
+            // Keep an escape warning above the identity so a long editor does not hide it.
             if (!string.IsNullOrEmpty(p.Escapes))
             {
                 GUI.color = SlopWidgets.Warn;
@@ -266,27 +274,36 @@ namespace SlopWorld
                 y += warningH + SlopWidgets.GapM;
             }
             EditorTitle(view, ref y, p.Name, p.Source, editable, "sandbox");
-            y = EditorField(view, y, "Name", "preset.name", p.Name, _newEntry, v => p.Name = v);
-            y = EditorField(view, y, "Category", "preset.category", p.Category, editable, v => p.Category = v);
-            y = EditorArea(view, y, "Description", "preset.description", p.Description, editable, 44f, v => p.Description = v);
+            y = EditorField(view, y, "Name", "preset.name", p.Name, _newEntry,
+                v => p.Name = v);
+            y = EditorField(view, y, "Category", "preset.category", p.Category, editable,
+                v => p.Category = v);
+            y = EditorArea(view, y, "Description", "preset.description", p.Description,
+                editable, 44f, v => p.Description = v);
             y = EditorList(view, y, "Requires", "preset.requires", p.Requires, editable);
             y = Rule(view.width, y + SlopWidgets.GapXS);
+            y = DrawBindFields(view, y, p, editable);
+            y = DrawPathFields(view, y, p, editable);
+            y = Rule(view.width, y);
+            y = EditorList(view, y, "Forwarded environment", "preset.env", p.Env, editable);
+            return EditorArea(view, y, "Set environment (KEY=VALUE)", "preset.setenv",
+                SetenvLines(p), editable, 48f, v => { _setenvText = v; ParseSetenv(p); });
+        }
+
+        float DrawBindFields(Rect view, float y, PresetInfo p, bool editable)
+        {
             y = EditorList(view, y, "Read-only binds", "preset.ro", p.Ro, editable);
             y = EditorList(view, y, "Read-write binds", "preset.rw", p.Rw, editable);
             y = EditorList(view, y, "Device binds", "preset.dev", p.Dev, editable);
-            y = Rule(view.width, y);
+            return Rule(view.width, y);
+        }
+
+        float DrawPathFields(Rect view, float y, PresetInfo p, bool editable)
+        {
             y = EditorList(view, y, "Private paths", "preset.private", p.Private, editable);
             y = EditorList(view, y, "Seed paths", "preset.seed", p.Seed, editable);
             y = EditorList(view, y, "Skip paths", "preset.skip", p.Skip, editable);
-            y = EditorList(view, y, "Shared files", "preset.shared", p.Shared, editable);
-            y = Rule(view.width, y);
-            y = EditorList(view, y, "Forwarded environment", "preset.env", p.Env, editable);
-            y = EditorArea(view, y, "Set environment (KEY=VALUE)", "preset.setenv",
-                SetenvLines(p), editable, 48f, v => { _setenvText = v; ParseSetenv(p); });
-            EditorButtons(view, y, editable, p.Source, "sandbox", p.Name,
-                () => SessionHub.Instance.SavePreset(p, () => { _newEntry = false; _error = null; }, msg => _error = msg),
-                () => Remove("sandbox", p.Name));
-            _editorScroll.End();
+            return EditorList(view, y, "Shared files", "preset.shared", p.Shared, editable);
         }
 
         string _setenvText;

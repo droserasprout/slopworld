@@ -329,54 +329,72 @@ namespace SlopWorld
             y = Line(r, y, "SlopWorld", GameFont.Medium, SlopWidgets.Lead,
                 TextAnchor.UpperCenter, Layout.TitleTextSize);
             y += Layout.HeroMargin;
+            y = DrawCreatedBy(r, y);
+            y = DrawBasedOn(r, y);
+            y = DrawLibraries(r, y);
+            y = DrawMusic(r, y);
+            y = DrawAssets(r, y);
+            y = DrawDisclaimer(r, y);
 
-            y = SectionHeading(r, y, "Created by");
-            y += Layout.ColumnPadding;
+            // Leave a tail after the final line so it can reach the bottom of the viewport.
+            return y + Layout.TailPadding;
+        }
+
+        float DrawCreatedBy(Rect r, float y)
+        {
+            y = SectionHeading(r, y, "Created by") + Layout.ColumnPadding;
             y = Line(r, y, "Lev Gorodetskii", RegularFont, SlopWidgets.Name,
                 TextAnchor.UpperCenter, 0);
-            y = InlineLinkLine(r, y, "(", "hire him!", ")",
+            return InlineLinkLine(r, y, "(", "hire him!", ")",
                 "mailto:job@drsr.io", RegularFont);
+        }
 
+        float DrawBasedOn(Rect r, float y)
+        {
             y = NextSection(r, y);
-            y = SectionHeading(r, y, "Based on");
-            y += Layout.ColumnPadding;
+            y = SectionHeading(r, y, "Based on") + Layout.ColumnPadding;
             y = InlineLinkLine(r, y, "", "RimWorld by Ludeon Studios", "",
                 "https://rimworldgame.com/", RegularFont);
             y = InlineLinkLine(r, y, "", "Harmony mod by Andreas Pardeike", "",
                 "https://github.com/pardeike/HarmonyRimWorld", RegularFont);
-            y = InlineLinkLine(r, y, "", "Unity by Unity Technologies", "",
+            return InlineLinkLine(r, y, "", "Unity by Unity Technologies", "",
                 "https://unity.com/", RegularFont);
+        }
 
+        float DrawLibraries(Rect r, float y)
+        {
             y = NextSection(r, y);
-            y = SectionHeading(r, y, "Libraries");
-            y += Layout.ColumnHeadingPadding;
-            y = CreditGrid(r, y, Libraries);
+            y = SectionHeading(r, y, "Libraries") + Layout.ColumnHeadingPadding;
+            return CreditGrid(r, y, Libraries);
+        }
 
+        float DrawMusic(Rect r, float y)
+        {
             y = NextSection(r, y);
-            y = SectionHeading(r, y, "Music");
-            y += Layout.ColumnPadding;
+            y = SectionHeading(r, y, "Music") + Layout.ColumnPadding;
             y = CreditRow(new Rect(r.x, y, r.width, 1f), y, Soundtrack);
             y = CreditRow(new Rect(r.x, y, r.width, 1f), y, SoundtrackTools);
             y += Layout.ColumnHeadingPadding;
             y = Line(r, y, "Radio", GameFont.Small, SlopWidgets.Lead,
                 TextAnchor.UpperCenter, Layout.ColumnHeadingTextSize);
-            y += Layout.ColumnPadding;
-            y = RadioGrid(r, y);
+            return RadioGrid(r, y + Layout.ColumnPadding);
+        }
 
+        float DrawAssets(Rect r, float y)
+        {
             y = NextSection(r, y);
-            y = SectionHeading(r, y, "Assets");
-            y += Layout.ColumnHeadingPadding;
-            y = CreditList(r, y, Assets);
+            y = SectionHeading(r, y, "Assets") + Layout.ColumnHeadingPadding;
+            return CreditList(r, y, Assets);
+        }
 
+        float DrawDisclaimer(Rect r, float y)
+        {
             y = NextSection(r, y);
-            y = Paragraph(r, y,
+            return Paragraph(r, y,
                 "SlopWorld is an independent project not affiliated with or endorsed " +
                 "by anyone except me and friends.",
                 RegularFont, SlopWidgets.Dim, TextAnchor.UpperCenter,
                 Layout.BodyTextSize);
-
-            // Leave a tail after the final line so it can reach the bottom of the viewport.
-            return y + Layout.TailPadding;
         }
 
         float NextSection(Rect rect, float y)

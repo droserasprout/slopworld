@@ -316,74 +316,74 @@ namespace SlopWorld
                 pickRect.y = pageRect.y + 8f;
 
             Find.WindowStack.ImmediateWindow(0x51_0F_1100, pickRect, WindowLayer.Super,
-                () =>
+                () => DrawCursorPickerWindow(pickW, pickH), true, false, 1f);
+        }
+
+        void DrawCursorPickerWindow(float width, float height)
+        {
+            var r = new Rect(0f, 0f, width, height);
+            Text.Font = GameFont.Small;
+            SlopWidgets.RowLabel(
+                new Rect(r.x + 8f, r.y + 4f, r.width - 60f, SlopWidgets.LineH),
+                "Mouse cursor");
+
+            if (SlopWidgets.Button(
+                    new Rect(r.width - 48f, r.y + 2f, 44f, SlopWidgets.RowBtnH),
+                    "X", SlopWidgets.Btn.Ghost))
+                _pickingCursor = false;
+
+            const float cell = 38f;
+            int count = DeadCursor.Choices.Length;
+            int perLine = Mathf.Max(1, Mathf.FloorToInt(
+                (r.width - SlopWidgets.GapM) / cell));
+            float gridTop = r.y + 4f + SlopWidgets.LineH + SlopWidgets.GapS;
+            float gridH = r.height - gridTop - SlopWidgets.GapS;
+            int rows = Mathf.CeilToInt(count / (float)perLine);
+            float totalH = rows * cell;
+            bool scroll = totalH > gridH;
+            float gridW = scroll
+                ? perLine * cell - SlopWidgets.ScrollbarW
+                : perLine * cell;
+            perLine = Mathf.Max(1, Mathf.FloorToInt(gridW / cell));
+            rows = Mathf.CeilToInt(count / (float)perLine);
+            totalH = rows * cell;
+
+            var gridRect = new Rect(r.x + (r.width - gridW) / 2f, gridTop, gridW, gridH);
+            var view = new Rect(0f, 0f, gridW, Mathf.Max(totalH, gridH));
+            _pickScroll.Begin(gridRect, view);
+            DrawCursorGrid(view, perLine, count, cell);
+            _pickScroll.End();
+        }
+
+        void DrawCursorGrid(Rect view, int perLine, int count, float cell)
+        {
+            const float iconSize = 30f;
+            for (int i = 0; i < count; i++)
+            {
+                int col = i % perLine;
+                int row = i / perLine;
+                var slot = new Rect(view.x + col * cell, view.y + row * cell,
+                    cell, cell);
+                var choice = DeadCursor.Choices[i];
+                string key = choice.Key;
+
+                if (DeadCursor.CurrentKey == key) Slab.Fill(slot, SlopWidgets.RowOn);
+                if (Mouse.IsOver(slot)) Slab.Fill(slot, SlopWidgets.Hover);
+                var tex = DeadCursor.Preview(choice);
+                if (tex != null)
+                    GUI.DrawTexture(new Rect(slot.x + (cell - iconSize) / 2f,
+                        slot.y + (cell - iconSize) / 2f, iconSize, iconSize),
+                        tex, ScaleMode.ScaleToFit, true);
+
+                TooltipHandler.TipRegion(slot, new TipSignal(
+                    choice.Label + "\n" + choice.TexturePath,
+                    0x51_0F_0120 ^ key.GetHashCode()));
+                if (Widgets.ButtonInvisible(slot))
                 {
-                    var r = new Rect(0f, 0f, pickW, pickH);
-                    Text.Font = GameFont.Small;
-                    SlopWidgets.RowLabel(
-                        new Rect(r.x + 8f, r.y + 4f, r.width - 60f, SlopWidgets.LineH),
-                        "Mouse cursor");
-
-                    if (SlopWidgets.Button(
-                            new Rect(r.width - 48f, r.y + 2f, 44f, SlopWidgets.RowBtnH),
-                            "X", SlopWidgets.Btn.Ghost))
-                    {
-                        _pickingCursor = false;
-                    }
-
-                    const float Cell = 38f;
-                    const float IconSize = 30f;
-                    int perLine = Mathf.Max(1, Mathf.FloorToInt(
-                        (r.width - SlopWidgets.GapM) / Cell));
-                    int count = DeadCursor.Choices.Length;
-                    float gridTop = r.y + 4f + SlopWidgets.LineH + SlopWidgets.GapS;
-                    float gridH = r.height - gridTop - SlopWidgets.GapS;
-                    int rows = Mathf.CeilToInt(count / (float)perLine);
-                    float totalH = rows * Cell;
-                    bool scroll = totalH > gridH;
-                    float gridW2 = scroll
-                        ? perLine * Cell - SlopWidgets.ScrollbarW
-                        : perLine * Cell;
-                    perLine = Mathf.Max(1, Mathf.FloorToInt(gridW2 / Cell));
-                    rows = Mathf.CeilToInt(count / (float)perLine);
-                    totalH = rows * Cell;
-
-                    var gridRect = new Rect(r.x + (r.width - gridW2) / 2f, gridTop,
-                        gridW2, gridH);
-                    var view = new Rect(0f, 0f, gridW2, Mathf.Max(totalH, gridH));
-                    _pickScroll.Begin(gridRect, view);
-
-                    for (int i = 0; i < count; i++)
-                    {
-                        int col = i % perLine;
-                        int row = i / perLine;
-                        var cell = new Rect(view.x + col * Cell, view.y + row * Cell,
-                            Cell, Cell);
-                        var choice = DeadCursor.Choices[i];
-                        string key = choice.Key;
-                        bool selected = DeadCursor.CurrentKey == key;
-
-                        if (selected) Slab.Fill(cell, SlopWidgets.RowOn);
-                        if (Mouse.IsOver(cell)) Slab.Fill(cell, SlopWidgets.Hover);
-                        var tex = DeadCursor.Preview(choice);
-                        var icon = new Rect(cell.x + (Cell - IconSize) / 2f,
-                            cell.y + (Cell - IconSize) / 2f, IconSize, IconSize);
-                        if (tex != null)
-                        {
-                            GUI.DrawTexture(icon, tex, ScaleMode.ScaleToFit, true);
-                        }
-
-                        TooltipHandler.TipRegion(cell, new TipSignal(
-                            choice.Label + "\n" + choice.TexturePath,
-                            0x51_0F_0120 ^ key.GetHashCode()));
-                        if (Widgets.ButtonInvisible(cell))
-                        {
-                            DeadCursor.Choose(key);
-                            _pickingCursor = false;
-                        }
-                    }
-                    _pickScroll.End();
-                }, true, false, 1f);
+                    DeadCursor.Choose(key);
+                    _pickingCursor = false;
+                }
+            }
         }
 
         // A live preview of the three UI tiers and the semantic colors they carry, drawn

@@ -1,41 +1,56 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace SlopWorld
 {
     public partial class SessionInfo
     {
-        public static SessionInfo FromJson(JVal j) => new SessionInfo
+        // Keep wire names in one table. A new daemon field is added as one mapping entry
+        // instead of making the object initializer grow another protocol-shaped block.
+        static readonly Action<SessionInfo, JVal>[] WireFields =
         {
-            Name = j["name"].AsString(),
-            Project = j["project"].AsString(),
-            Dir = j["dir"].AsString(),
-            Command = j["command"].AsString(),
-            CommandPreset = j["command_preset"].AsString(),
-            Cmd = j["cmd"].IsNull ? "" : j["cmd"].AsString(),
-            Sandbox = j["sandbox"].Items.Select(i => i.AsString()).ToList(),
-            Agent = j["agent"].AsString(),
-            State = ParseState(j["state"].AsString()),
-            Alive = j["alive"].AsBool(),
-            Network = NetworkModeText.Parse(j["network"].AsString("private")),
-            NetworkOverride = j["network_override"].IsNull
+            (s, j) => s.Name = j["name"].AsString(),
+            (s, j) => s.Project = j["project"].AsString(),
+            (s, j) => s.Dir = j["dir"].AsString(),
+            (s, j) => s.Command = j["command"].AsString(),
+            (s, j) => s.CommandPreset = j["command_preset"].AsString(),
+            (s, j) => s.Cmd = j["cmd"].IsNull ? "" : j["cmd"].AsString(),
+            (s, j) => s.Sandbox = Strings(j["sandbox"]),
+            (s, j) => s.Agent = j["agent"].AsString(),
+            (s, j) => s.State = ParseState(j["state"].AsString()),
+            (s, j) => s.Alive = j["alive"].AsBool(),
+            (s, j) => s.Network = NetworkModeText.Parse(j["network"].AsString("private")),
+            (s, j) => s.NetworkOverride = j["network_override"].IsNull
                 ? (NetworkMode?)null
                 : NetworkModeText.Parse(j["network_override"].AsString()),
-            Dns = DnsConfig.FromJson(j["dns"]),
-            DnsOverride = j["dns_override"].IsNull ? null : DnsConfig.FromJson(j["dns_override"]),
-            Limits = SessionLimits.FromJson(j["limits_override"]),
-            EffectiveLimits = SessionLimits.FromJson(j["limits"]),
-            Autostart = j["autostart"].AsBool(false),
-            BreadcrumbYolo = j["breadcrumb_yolo"].AsBool(true),
-            Breadcrumbs = j["breadcrumbs"].Items.Select(i => i.AsString()).ToList(),
-            BreadcrumbsPending = j["breadcrumbs_pending"].AsBool(false),
-            Ephemeral = j["ephemeral"].AsBool(false),
-            Cols = j["cols"].AsInt(0),
-            Rows = j["rows"].AsInt(0),
-            Title = j["title"].AsString(),
-            Label = j["label"].AsString(),
-            Bell = j["bell"].AsBool(false),
-            LastChange = j["last_change"].AsLong(0),
-            StateSince = j["state_since"].AsLong(0),
+            (s, j) => s.Dns = DnsConfig.FromJson(j["dns"]),
+            (s, j) => s.DnsOverride = j["dns_override"].IsNull
+                ? null : DnsConfig.FromJson(j["dns_override"]),
+            (s, j) => s.Limits = SessionLimits.FromJson(j["limits_override"]),
+            (s, j) => s.EffectiveLimits = SessionLimits.FromJson(j["limits"]),
+            (s, j) => s.Autostart = j["autostart"].AsBool(false),
+            (s, j) => s.BreadcrumbYolo = j["breadcrumb_yolo"].AsBool(true),
+            (s, j) => s.Breadcrumbs = Strings(j["breadcrumbs"]),
+            (s, j) => s.BreadcrumbsPending = j["breadcrumbs_pending"].AsBool(false),
+            (s, j) => s.Ephemeral = j["ephemeral"].AsBool(false),
+            (s, j) => s.Cols = j["cols"].AsInt(0),
+            (s, j) => s.Rows = j["rows"].AsInt(0),
+            (s, j) => s.Title = j["title"].AsString(),
+            (s, j) => s.Label = j["label"].AsString(),
+            (s, j) => s.Bell = j["bell"].AsBool(false),
+            (s, j) => s.LastChange = j["last_change"].AsLong(0),
+            (s, j) => s.StateSince = j["state_since"].AsLong(0),
         };
+
+        public static SessionInfo FromJson(JVal j)
+        {
+            var session = new SessionInfo();
+            foreach (var read in WireFields) read(session, j);
+            return session;
+        }
+
+        static List<string> Strings(JVal array) =>
+            array.Items.Select(i => i.AsString()).ToList();
     }
 }
