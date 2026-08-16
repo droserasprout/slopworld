@@ -72,3 +72,6 @@ roles are pane adaptations rather than claims that a source palette defines thos
 - `TrackHover`/`LinkAt` share lookup for highlight, tooltip and click. Ctrl+click uses
   `POST /api/open`; `open.rs` permits only http/https/mailto and tries `xdg-open`, `gio`
   and `wslview`, with `Application.OpenURL` as fallback.
+- Ctrl+click on an explicit relative path (`./x`, `../x`, or a token containing `/`) reveals
+  it in Files. Recognition scans only the clicked row; Files lazily fetches its ancestors, so
+  neither terminal repaint nor pointer hover pays for path navigation.

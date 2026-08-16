@@ -86,6 +86,8 @@ namespace SlopWorld
         readonly List<Line> _lines = new List<Line>();
         Rect _body;
         string _selected;
+        string _reveal;
+        float _revealTop = -1f;
 
         struct Line
         {
@@ -117,6 +119,11 @@ namespace SlopWorld
             float height = Measure(groups);
             var view = new Rect(0f, 0f,
                 body.width - (height > body.height ? SlopWidgets.ScrollbarW : 0f), height);
+            if (_revealTop >= 0f)
+            {
+                _scroll.Reveal(_revealTop, RowH, body.height);
+                _revealTop = -1f;
+            }
 
             // GUI rather than GUILayout: AgentSidebar calls this during its non-Layout back
             // pass. The finally is important because a missed End would move every later
@@ -264,6 +271,13 @@ namespace SlopWorld
                 TooltipHandler.TipRegion(row, _source.RowTooltip(node));
 
             _lines.Add(new Line { Node = node, Rect = row });
+            if (_reveal != null && _reveal == _source.SelectionKey(node))
+            {
+                // Apply before Begin on the next pass. Changing the scroll transform inside
+                // its GUI group would make this pass's drawing and hit testing disagree.
+                _revealTop = row.y;
+                _reveal = null;
+            }
             return y + RowH;
         }
 
@@ -274,7 +288,17 @@ namespace SlopWorld
             _selected = node == null ? null : _source.SelectionKey(node);
 
         public void SelectKey(string key) => _selected = key;
-        public void ClearSelection() => _selected = null;
+        public void RevealKey(string key)
+        {
+            _selected = key;
+            _reveal = key;
+        }
+        public void ClearSelection()
+        {
+            _selected = null;
+            _reveal = null;
+            _revealTop = -1f;
+        }
         public void JumpTo(Vector2 position) => _scroll.JumpTo(position);
 
         public void Clicks(Action releaseViewer = null)

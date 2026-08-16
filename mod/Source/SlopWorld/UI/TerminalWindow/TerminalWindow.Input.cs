@@ -494,6 +494,16 @@ namespace SlopWorld
                 return;
             }
 
+            if (IsRelativePathClick(body, e, out string relative))
+            {
+                var session = SessionHub.Instance.Get(_name);
+                if (session != null && FilesView.FocusPath(session.Project, relative))
+                {
+                    e.Use();
+                    return;
+                }
+            }
+
             // Double-click is the terminal's word gesture even when the app reports clicks.
             if (IsWordSelection(body, e))
             {
@@ -518,6 +528,15 @@ namespace SlopWorld
         bool IsLinkClick(Rect body, Event e) =>
             e.type == EventType.MouseDown && e.button == 0 && e.control &&
             body.Contains(e.mousePosition) && LinkUnder(body, e.mousePosition) != null;
+
+        bool IsRelativePathClick(Rect body, Event e, out string relative)
+        {
+            relative = null;
+            if (e.type != EventType.MouseDown || e.button != 0 || !e.control ||
+                !body.Contains(e.mousePosition)) return false;
+            relative = RelativePathUnder(body, e.mousePosition);
+            return relative != null;
+        }
 
         static bool IsWordSelection(Rect body, Event e) =>
             e.type == EventType.MouseDown && e.button == 0 && e.clickCount >= 2 &&

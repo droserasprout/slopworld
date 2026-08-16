@@ -31,6 +31,7 @@ namespace SlopWorld
             public int Depth;
             // Invalidates a listing already in flight when Reload forgets this node.
             public int ListingVersion;
+            public List<System.Action> Loaded;
 
             string IContentTreeNode.Name => Name;
             string IContentTreeNode.Key => Path;
@@ -158,6 +159,63 @@ namespace SlopWorld
         }
 
         static readonly ContentTreeView Tree = new ContentTreeView(new TreeSource());
+        static int _focusVersion;
+
+        // Resolve against the session's project root, then open only the ancestor listings
+        // needed to reveal the row. No filesystem work happens until the click asks for it.
+        public static bool FocusPath(string project, string relative)
+        {
+            var info = SessionHub.Instance.Project(project);
+            if (info == null || string.IsNullOrEmpty(info.Dir)) return false;
+            var parts = NormalizeRelative(relative);
+            if (parts == null || parts.Count == 0) return false;
+
+            ClearFocus();
+            ReleaseViewer();
+            Shut.Remove(project);
+            if (AgentSidebar.Filtering && !AgentSidebar.Ticked(project))
+                AgentSidebar.ToggleFilter(project);
+            AgentSidebar.ShowFiles();
+
+            int version = ++_focusVersion;
+            Reveal(Root(project), parts, 0, version);
+            return true;
+        }
+
+        static List<string> NormalizeRelative(string path)
+        {
+            var parts = new List<string>();
+            foreach (string part in (path ?? "").Replace('\\', '/').Split('/'))
+            {
+                if (part.Length == 0 || part == ".") continue;
+                if (part == "..")
+                {
+                    if (parts.Count == 0) return null;
+                    parts.RemoveAt(parts.Count - 1);
+                }
+                else parts.Add(part);
+            }
+            return parts;
+        }
+
+        static void Reveal(Node parent, List<string> parts, int at, int version)
+        {
+            if (version != _focusVersion) return;
+            parent.Expanded = true;
+            Fetch(parent, () =>
+            {
+                if (version != _focusVersion || parent.Kids == null) return;
+                var child = parent.Kids.FirstOrDefault(n => n.Name == parts[at]);
+                if (child == null) { SlopWidgets.Fail($"path not found: {string.Join("/", parts)}"); return; }
+                if (at + 1 < parts.Count)
+                {
+                    if (!child.IsDir) { SlopWidgets.Fail($"not a directory: {child.Name}"); return; }
+                    Reveal(child, parts, at + 1, version);
+                    return;
+                }
+                Tree.RevealKey(ContentTreeView.SelectionKey(project: child.Project, path: child.Path));
+            });
+        }
 
         // Everything listed was listed under the old answer about dotfiles, so it is dropped;
         // what the reader arranged - which projects are open, and how deep - is kept.
@@ -205,6 +263,7 @@ namespace SlopWorld
             n.More = false;
             n.Error = null;
             n.Loading = false;
+            n.Loaded = null;
             n.ListingVersion++;
             // Not Expanded: that is the shape, and it is what asks for the listing again on
             // the next frame this draws.
@@ -254,8 +313,15 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ listing
 
-        static void Fetch(Node node)
+        static void Fetch(Node node, System.Action done = null)
         {
+            if (node.Kids != null) { done?.Invoke(); return; }
+            if (done != null)
+            {
+                if (node.Loaded == null) node.Loaded = new List<System.Action>();
+                node.Loaded.Add(done);
+            }
+            if (node.Loading) return;
             node.Loading = true;
             node.Error = null;
 
@@ -276,12 +342,17 @@ namespace SlopWorld
 
                     node.Kids = kids;
                     node.More = j["truncated"].AsBool();
+                    var loaded = node.Loaded;
+                    node.Loaded = null;
+                    if (loaded != null)
+                        foreach (var callback in loaded) callback();
                 },
                 msg =>
                 {
                     if (node.Path != path || node.ListingVersion != version) return;
                     node.Loading = false;
                     node.Error = msg;
+                    node.Loaded = null;
                 });
         }
 
