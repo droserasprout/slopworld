@@ -6,9 +6,9 @@ the only clients, so a handler with no caller in either is reachable by hand onl
 ## Grants
 
 `GET /api/grants`, `POST /api/grants` and `DELETE /api/grants/:grantor` have no
-caller. `Sessions::mint_grant` is reached only from the `api.rs` handler, so a
+caller. `Sessions::mint_grant` is reached only from the `api/handlers.rs` handler, so a
 grant exists only after someone POSTs with the root token. The handler comment at
-`api.rs:628` calls revocation "the mod's revoke"; that UI was never built. The
+`api/handlers.rs` calls revocation "the mod's revoke"; that UI was never built. The
 model in [agent-grants](agent-grants.md) is implemented and untriggered.
 
 `GET /api/health` reports the live grant count and is called by `slopctl status`.
