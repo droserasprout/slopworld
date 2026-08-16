@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
+using UrlSpan = SlopWorld.UrlScan.Span;
 
 namespace SlopWorld
 {
@@ -121,7 +122,7 @@ namespace SlopWorld
                            !(line[j] == '\x1b' && j + 1 < line.Length && line[j + 1] == '\\')) j++;
 
                     Flush(runs, sb, attr, runStart, url);
-                    url = Osc(line.Substring(i + 2, Mathf.Min(j, line.Length) - (i + 2))) ?? url;
+                    url = UrlScan.Osc(line.Substring(i + 2, Mathf.Min(j, line.Length) - (i + 2))) ?? url;
                     if (j < line.Length && line[j] == '\x1b') i = j + 2;
                     else i = j + 1;
                     continue;
@@ -135,16 +136,6 @@ namespace SlopWorld
 
             Flush(runs, sb, attr, runStart, url);
             return runs;
-        }
-
-        // The empty URI is how OSC 8 closes a link, so "no link from here" and "this OSC
-        // was about something else" have to be different answers: the first is an empty
-        // string, the second null, which leaves the caller's link standing.
-        static string Osc(string body)
-        {
-            if (body == null || !body.StartsWith("8;")) return null;
-            var parts = body.Split(new[] { ';' }, 3);
-            return parts.Length < 3 ? "" : parts[2];
         }
 
         static void Flush(List<SgrRun> runs, StringBuilder sb, Attr a, int col, string url)
@@ -281,19 +272,6 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ links
 
-        struct UrlSpan
-        {
-            public int Start, End;
-            public string Url;
-
-            public UrlSpan(int start, int end, string url)
-            {
-                Start = start;
-                End = end;
-                Url = url;
-            }
-        }
-
         // Scan characters rather than SGR runs, because a plain URL may cross colors. The
         // screen-wide overload also joins only physical row edges; a blank tail still breaks.
         static void Autolink(List<SgrRun> runs)
@@ -313,7 +291,7 @@ namespace SlopWorld
                     if (c >= 0 && c < width) chars[c] = r.Text[k];
                 }
 
-            var spans = FindUrls(new string(chars));
+            var spans = UrlScan.FindUrls(new string(chars));
             if (spans != null) Split(runs, spans);
         }
 
@@ -334,7 +312,7 @@ namespace SlopWorld
                 text.CopyTo(0, chars, row * width, width);
             }
 
-            var global = FindUrls(new string(chars));
+            var global = UrlScan.FindUrls(new string(chars));
             if (global == null) return;
 
             var local = new List<UrlSpan>[rows.Length];
@@ -355,39 +333,6 @@ namespace SlopWorld
                 if (local[row] != null) Split(rows[row], local[row]);
         }
 
-        static List<UrlSpan> FindUrls(string text)
-        {
-            if (string.IsNullOrEmpty(text) || text.IndexOf("://", StringComparison.Ordinal) < 0)
-                return null;
-
-            List<UrlSpan> spans = null;
-            int at = 0;
-            while (at < text.Length)
-            {
-                int sep = text.IndexOf("://", at, StringComparison.Ordinal);
-                if (sep < 0) break;
-
-                int start = sep;
-                while (start > 0 && IsScheme(text[start - 1])) start--;
-                string scheme = text.Substring(start, sep - start).ToLowerInvariant();
-                if (scheme != "http" && scheme != "https") { at = sep + 3; continue; }
-
-                int end = sep + 3;
-                while (end < text.Length && IsUrl(text[end])) end++;
-                end = TrimTail(text, sep + 3, end);
-
-                // "https://" and nothing after it is not a link, it is the word.
-                if (end > sep + 3)
-                {
-                    if (spans == null) spans = new List<UrlSpan>();
-                    spans.Add(new UrlSpan(start, end, text.Substring(start, end - start)));
-                }
-                at = Mathf.Max(end, sep + 3);
-            }
-
-            return spans;
-        }
-
         static int RowWidth(List<SgrRun> row)
         {
             int width = 0;
@@ -406,61 +351,6 @@ namespace SlopWorld
                     if (col >= 0 && col < width) chars[col] = run.Text[k];
                 }
             return new string(chars);
-        }
-
-        static bool IsScheme(char c) =>
-            (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
-
-        // The printable ASCII a URL is allowed to be made of, less the brackets and
-        // quotes text wraps them in.
-        static bool IsUrl(char c)
-        {
-            if (c <= ' ' || c > '~') return false;
-            switch (c)
-            {
-                case '<':
-                case '>':
-                case '"':
-                case '`':
-                case '{':
-                case '}':
-                case '|':
-                case '\\':
-                case '^':
-                    return false;
-                default:
-                    return true;
-            }
-        }
-
-        // A URL at the end of a sentence takes the full stop with it, and one in
-        // parentheses takes the closing bracket. Both are the prose's, not the link's -
-        // unless the link opened a bracket of its own, which is how a wiki URL reads.
-        static int TrimTail(string text, int from, int end)
-        {
-            while (end > from)
-            {
-                char c = text[end - 1];
-                if (c == '.' || c == ',' || c == ';' || c == ':' || c == '!' ||
-                    c == '?' || c == '\'' || c == '*' || c == '_')
-                {
-                    end--;
-                    continue;
-                }
-                if (c == ')' || c == ']')
-                {
-                    char open = c == ')' ? '(' : '[';
-                    int depth = 0;
-                    for (int i = from; i < end; i++)
-                    {
-                        if (text[i] == open) depth++;
-                        else if (text[i] == c) depth--;
-                    }
-                    if (depth < 0) { end--; continue; }
-                }
-                break;
-            }
-            return end;
         }
 
         // Runs are cut where the spans cross them, so a link that starts mid-word or ends
