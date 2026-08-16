@@ -40,6 +40,10 @@ emulator, which renders on an **8ms coalescing tick**. `%output` is the pane's
 bytes *raw* - tmux parses them for its own screen and copies them to control
 clients untouched - so escapes an app aims at its terminal arrive here.
 
+tmux is the pane's terminal and answers terminal queries itself. The local mirror ignores its
+VT engine's `PtyWrite` events: injecting a second device-attributes response after tmux's answer
+leaves the duplicate in the shell input queue (visible as `?6c`).
+
 `emu.rs`'s `Side`:
 
 - **OSC 0/2 (title)** onto `Frame::title`, and it counts toward a frame being

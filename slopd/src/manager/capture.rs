@@ -37,7 +37,7 @@ impl Manager {
     }
 
     pub(super) async fn queue_input(&self, name: &str, item: Input) {
-        // One consumer preserves ordering across keys, mouse reports, replies, and paste.
+        // One consumer preserves ordering across keys, mouse reports, and paste.
         let mut spawn_rx = None;
         let mut item = Some(item);
         {
@@ -622,7 +622,7 @@ impl Manager {
             tokio::select! {
                 line = rx.recv() => match line {
                     Some(line) => {
-                        match self.handle_control_line(name, &emu, line).await {
+                        match self.handle_control_line(&emu, line).await {
                             ControlLine::Output => dirty = true,
                             ControlLine::Exit => break,
                             ControlLine::Ignore => {}
@@ -650,21 +650,12 @@ impl Manager {
 
     async fn handle_control_line(
         &self,
-        name: &str,
         emu: &Arc<Mutex<SessionEmu>>,
         line: Vec<u8>,
     ) -> ControlLine {
         if let Some(bytes) = parse_output(&line) {
-            let replies = {
-                if let Ok(mut e) = emu.lock() {
-                    e.feed(&bytes);
-                    e.take_replies()
-                } else {
-                    Vec::new()
-                }
-            };
-            if !replies.is_empty() {
-                self.queue_input(name, Input::Bytes(replies)).await;
+            if let Ok(mut e) = emu.lock() {
+                e.feed(&bytes);
             }
             ControlLine::Output
         } else if line.starts_with(b"%exit") {

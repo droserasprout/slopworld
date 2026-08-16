@@ -696,14 +696,14 @@ namespace SlopWorld
             Viewer.Open(repo.Project, DiffCmd(repo, node.Rel, node.Status), "diff-" + node.Name);
         }
 
-        // Use git's pager because daemon errands are argv, not shell pipelines. Force color
-        // and LESS=R: git's default X avoids the alternate screen, preventing the pane from
-        // sending wheel input to less; F would quit on short diffs. `-C` anchors paths when a
-        // project points below the repository root.
+        // Use delta as git's pager because daemon errands are argv, not shell pipelines. Force
+        // color and LESS=R: git's default X avoids the alternate screen, preventing the pane
+        // from sending wheel input to less; F would quit on short diffs. `-C` anchors paths
+        // when a project points below the repository root.
         static string DiffCmd(Repo repo, string rel, string status)
         {
             string git = "git -C " + Pager.Quote(repo.Root) +
-                " -c " + Pager.Quote("core.pager=LESS=R " + Pager.PipePager) + " --paginate";
+                " -c " + Pager.Quote("core.pager=LESS=R delta --paging=always") + " --paginate";
 
             // An untracked or newly added file has no useful HEAD blob to diff against.
             // `--no-index` against the empty file shows its current contents as added; it also
