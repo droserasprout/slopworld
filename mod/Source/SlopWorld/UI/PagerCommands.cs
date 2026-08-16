@@ -1,3 +1,6 @@
+using System;
+using System.IO;
+
 namespace SlopWorld
 {
     // The command-line construction half of Pager, carved out because it is pure string
@@ -19,6 +22,23 @@ namespace SlopWorld
             string command = App(value, fallback);
             int end = command.IndexOfAny(new[] { ' ', '\t' });
             return end < 0 ? command : command.Substring(0, end);
+        }
+
+        // Sidebar editors run through slopd, so micro's external clipboard backend cannot
+        // reach the host display from a project sandbox. Its terminal backend emits OSC 52,
+        // which slopd already delivers to the host clipboard. Respect an explicit clipboard
+        // choice in a configured micro command.
+        static string MicroTerminalClipboard(string command)
+        {
+            string executable = Executable(command, "micro");
+            if (!string.Equals(Path.GetFileName(executable), "micro", StringComparison.Ordinal) ||
+                command.IndexOf("-clipboard", StringComparison.Ordinal) >= 0)
+                return command;
+
+            int end = command.IndexOfAny(new[] { ' ', '\t' });
+            return end < 0
+                ? command + " -clipboard terminal"
+                : command.Insert(end, " -clipboard terminal");
         }
 
         // The env vars for a persistent `less` that pipes every file through `highlight`.
@@ -72,7 +92,7 @@ namespace SlopWorld
         // its `-- FILE`, which makes +LINE look like a buffer name to micro.
         public static string EditorCommand(string editor, string file, int line = 0)
         {
-            string template = App(editor, "micro");
+            string template = MicroTerminalClipboard(App(editor, "micro"));
             if (line < 1) return FileCommand(template, "micro", file);
 
             bool hasFile = template.Contains("{file}");
