@@ -18,6 +18,7 @@ namespace SlopWorld
             if (SlopDefOf.SlopCommandPalette != null && SlopDefOf.SlopCommandPalette.KeyDownEvent)
             {
                 Event.current.Use();
+                SlopMenu.CloseAll();
                 SearchView.ReleaseFocus();
                 CommandPalette.Toggle();
                 return;
@@ -28,6 +29,7 @@ namespace SlopWorld
                 // KeyDownEvent already refuses a search widget that has focus, so this cannot
                 // steal the key from someone typing a session name.
                 Event.current.Use();
+                SlopMenu.CloseAll();
                 Toggle();
                 return;
             }

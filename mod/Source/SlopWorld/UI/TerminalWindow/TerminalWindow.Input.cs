@@ -11,8 +11,8 @@ namespace SlopWorld
     public partial class TerminalWindow
     {
         // Handle unshifted keys bound to the chrome. Read KeyBindingDefs so option-menu
-        // rebindings apply; shifted/unbound keys pass to the agent, and SlopMenu handles its
-        // own dismissal because absorbing windows consume keys before this body runs.
+        // rebindings apply; shifted/unbound keys pass to the agent. A chrome transition also
+        // explicitly closes menus because it may replace focus before their body runs.
         public static bool HandleFunctionKey(Event e)
         {
             // Shift+key = pass through to the agent/tui.
@@ -20,32 +20,38 @@ namespace SlopWorld
 
             if (Bound(SlopDefOf.SlopCommandPalette, e))
             {
+                SlopMenu.CloseAll();
                 SearchView.ReleaseFocus();
                 CommandPalette.Toggle();
                 return true;
             }
             if (Bound(SlopDefOf.SlopSidebarAgents, e))
             {
+                SlopMenu.CloseAll();
                 AgentSidebar.FocusTerminal();
                 return true;
             }
             if (Bound(SlopDefOf.SlopSidebarFiles, e))
             {
+                SlopMenu.CloseAll();
                 AgentSidebar.ShowFiles();
                 return true;
             }
             if (Bound(SlopDefOf.SlopSidebarSearch, e))
             {
+                SlopMenu.CloseAll();
                 AgentSidebar.ShowSearch();
                 return true;
             }
             if (Bound(SlopDefOf.SlopSidebarGit, e))
             {
+                SlopMenu.CloseAll();
                 AgentSidebar.ShowGit();
                 return true;
             }
             if (Bound(SlopDefOf.SlopSidebarShortcuts, e))
             {
+                SlopMenu.CloseAll();
                 AgentSidebar.ShowShortcuts();
                 return true;
             }
@@ -53,6 +59,7 @@ namespace SlopWorld
             {
                 // Close if the window is open, open one if not (handles both map and
                 // pane contexts via the same check).
+                SlopMenu.CloseAll();
                 var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
                 if (w != null) w.Close();
                 else AgentSidebar.FocusTerminal();
@@ -60,6 +67,7 @@ namespace SlopWorld
             }
             if (Bound(SlopDefOf.SlopToggleFullscreen, e))
             {
+                SlopMenu.CloseAll();
                 WindowMaximizer.Toggle();
                 return true;
             }

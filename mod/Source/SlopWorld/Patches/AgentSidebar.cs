@@ -169,6 +169,10 @@ namespace SlopWorld
 
         static void Show(SidebarTab tab)
         {
+            // The tab is a new focus target even when it is already selected (Git refreshes
+            // on that path), so a menu opened by the previous view must not survive it.
+            SlopMenu.CloseAll();
+
             // Focusing Git is also the user's way to ask what changed since the last
             // focus, including when Git is already the selected tab.
             if (CurrentTab == tab)

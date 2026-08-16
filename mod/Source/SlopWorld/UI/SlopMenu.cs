@@ -128,6 +128,11 @@ namespace SlopWorld
         public static void Open(List<FloatMenuOption> options) =>
             Find.WindowStack.Add(new SlopMenu(options));
 
+        // Focus changes can happen before the window stack gets a chance to dismiss a menu.
+        // Callers that replace the screen explicitly close the whole chain rather than
+        // leaving a menu owned by the old focus standing behind it.
+        public static void CloseAll() => Sweep(null);
+
         // A separator is a structural row, not a disabled action. It needs its own type
         // because FloatMenuOption turns an empty label into "(missing label)" in its setter.
         // Keeping it in the same list preserves the menu's simple measurement and lets
