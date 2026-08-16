@@ -35,15 +35,17 @@ namespace SlopWorld
         // Mouse-wheel scrollback: lines scrolled up from the live bottom.
         int _scrollOff;
         // Leading-edge throttle: the first wheel event sends immediately, then the rest ride
-        // a 50ms beat. `_wantedScrollOff` is the user's desired offset (updated by every wheel
-        // event), `_sentScrollOff` is what was last sent to the daemon. Responses are accepted
-        // only when they answer the latest request, so a stale reply cannot clamp the offset.
+        // the display beat. `_wantedScrollOff` is the user's desired offset (updated by every
+        // wheel event), `_sentScrollOff` is what was last sent to the daemon. Responses are
+        // accepted only when they answer the latest request, so a stale reply cannot clamp the
+        // offset. History needs this cadence because returning to the live frame is otherwise a
+        // local operation and makes the opposite direction look faster.
         int _wantedScrollOff;
         int _sentScrollOff;
         float _nextScrollSend;
         bool _scrollPending;
         ulong _scrollRequestId;
-        const float ScrollBeat = 0.05f;
+        const float ScrollBeat = 1f / 60f;
 
         // Drag selection, in cell coordinates of the drawn buffer.
         bool _dragging;
@@ -220,6 +222,8 @@ namespace SlopWorld
             _scrollOff = 0;
             _wantedScrollOff = 0;
             _scrollPending = false;
+            _nextScrollSend = 0f;
+            _hasWheelDirection = false;
             ClearSelection();
         }
 
