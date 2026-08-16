@@ -273,9 +273,11 @@ impl Manager {
         }
 
         self.upsert_sessions(&cfg).await;
+        let titles_changed = self.reconcile_title_settings(&cfg).await;
         self.autostart(&cfg).await;
 
-        if self.adopt_orphans().await {
+        let adopted = self.adopt_orphans(&cfg).await;
+        if titles_changed || adopted {
             let _ = self.events.send(Event::Sessions {
                 sessions: self.views().await,
             });
@@ -339,13 +341,17 @@ impl Manager {
         }
     }
 
-    async fn adopt_orphans(self: &Arc<Self>) -> bool {
+    async fn adopt_orphans(self: &Arc<Self>, cfg: &Config) -> bool {
         let mut adopted = false;
         for name in self.tmux.list().await {
+            let host = self.tmux.is_host(&name).await || Self::legacy_host_session(&name, cfg);
             let needs_size = {
                 let mut live = self.live.write().await;
                 if !live.contains_key(&name) {
-                    tracing::info!("adopting tmux session {name} as a temporary agent");
+                    tracing::info!(
+                        "adopting tmux session {name} as a temporary {}",
+                        if host { "host terminal" } else { "agent" }
+                    );
                     let now = now_ms();
                     let mut l = Live::new(
                         SessionCfg {
@@ -355,6 +361,7 @@ impl Manager {
                         TitleCapture::default(),
                     );
                     l.ephemeral = true;
+                    l.host = host;
                     l.state = State::Working;
                     l.last_change = now;
                     l.state_since = now;
@@ -377,6 +384,17 @@ impl Manager {
             }
         }
         adopted
+    }
+
+    /// Host markers were added after host terminals could outlive the daemon. Recognize the
+    /// deterministic old names once so a pre-marker host does not get one agent-policy prompt
+    /// sent to the summarizer before it is closed and recreated.
+    fn legacy_host_session(name: &str, cfg: &Config) -> bool {
+        crate::sandbox::host_session_name("") == name
+            || cfg
+                .projects
+                .iter()
+                .any(|p| crate::sandbox::host_session_name(&p.name) == name)
     }
 
     async fn refresh_readerless_size(&self, name: &str) {
@@ -485,7 +503,9 @@ impl Manager {
             .into_iter()
             .map(|text| render_template_with(&text, &[], Some(&vars)))
             .collect();
-        let restored_title = self.title_cache.latest(name);
+        let restored_title = title_settings(cfg, s, host)
+            .filter(|(policy, _)| *policy != TitlePolicy::Never)
+            .and(self.title_cache.latest(name));
         let announced_title = restored_title.is_some();
         let mut live = self.live.write().await;
         if let Some(l) = live.get_mut(name) {
@@ -535,7 +555,7 @@ impl Manager {
             build_argv(&cfg, &s, &p)?
         };
         tracing::info!("starting {name}: {}", argv.join(" "));
-        self.tmux.spawn(name, &dir, cols, rows, &argv).await?;
+        self.tmux.spawn(name, &dir, cols, rows, &argv, host).await?;
         self.spawn_reader(name).await;
         self.wire_live_state(name, &cfg, &s, &p, host).await;
         Ok(())
@@ -1583,5 +1603,26 @@ impl Manager {
                 sessions: self.views().await,
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Manager;
+    use crate::config::{Config, ProjectCfg};
+
+    #[test]
+    fn legacy_host_names_are_recognized_during_adoption() {
+        let cfg = Config {
+            projects: vec![ProjectCfg {
+                name: "repo".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let host = crate::sandbox::host_session_name("repo");
+
+        assert!(Manager::legacy_host_session(&host, &cfg));
+        assert!(!Manager::legacy_host_session("ordinary-agent", &cfg));
     }
 }

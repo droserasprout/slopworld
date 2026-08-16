@@ -112,6 +112,16 @@ impl Manager {
     }
 
     async fn run_title_request(self: Arc<Self>, name: String, request: TitleRequest) {
+        if !self.title_request_enabled(&name).await {
+            tracing::debug!(
+                target: "slopd::titles",
+                session = %name,
+                generation = request.generation,
+                outcome = "skipped_disabled",
+                "discarding title request after its policy was disabled"
+            );
+            return;
+        }
         let (result, cache_hit) = self.resolve_title_request(&name, &request).await;
         if self
             .apply_title_result(&name, &request, result, cache_hit)
@@ -127,6 +137,14 @@ impl Manager {
                 sessions: self.views().await,
             });
         }
+    }
+
+    async fn title_request_enabled(&self, name: &str) -> bool {
+        let cfg = self.config().await;
+        let live = self.live.read().await;
+        live.get(name)
+            .and_then(|l| title_settings(&cfg, &l.cfg, l.host))
+            .is_some_and(|(policy, _)| policy != TitlePolicy::Never)
     }
 
     async fn resolve_title_request(
@@ -177,6 +195,7 @@ impl Manager {
         result: Result<String>,
         cache_hit: bool,
     ) -> bool {
+        let cfg = self.config().await;
         let mut live = self.live.write().await;
         let Some(l) = live.get_mut(name) else {
             return false;
@@ -189,6 +208,19 @@ impl Manager {
                 generation = request.generation,
                 outcome = "stale_response",
                 "discarding stale session title response"
+            );
+            return false;
+        }
+        if !title_settings(&cfg, &l.cfg, l.host)
+            .is_some_and(|(policy, _)| policy != TitlePolicy::Never)
+        {
+            l.title.pending = false;
+            tracing::debug!(
+                target: "slopd::titles",
+                session = %name,
+                generation = request.generation,
+                outcome = "stale_disabled",
+                "discarding title response after its policy was disabled"
             );
             return false;
         }
@@ -261,6 +293,46 @@ impl Manager {
             }
             None => {}
         }
+    }
+
+    /// A settings change must invalidate title work already captured for a session. Otherwise a
+    /// request queued just before turning summaries off can still reach OpenRouter or overwrite
+    /// the host terminal's native title after the save has completed.
+    pub(super) async fn reconcile_title_settings(&self, cfg: &Config) -> bool {
+        let mut clear = Vec::new();
+        let mut changed = false;
+        {
+            let mut live = self.live.write().await;
+            for (name, l) in live.iter_mut() {
+                let enabled = title_settings(cfg, &l.cfg, l.host)
+                    .is_some_and(|(policy, _)| policy != TitlePolicy::Never);
+                if enabled {
+                    continue;
+                }
+
+                if l.title.pending || l.title.override_title.is_some() {
+                    l.title.generation = l.title.generation.wrapping_add(1);
+                    changed = true;
+                }
+                l.title.pending = false;
+                l.title.composer = Composer::ready();
+                l.title.override_title = None;
+                clear.push(name.clone());
+            }
+        }
+
+        for name in clear {
+            if let Err(error) = self.title_cache.clear_latest(&name) {
+                tracing::warn!(
+                    target: "slopd::titles",
+                    session = %name,
+                    error = %error,
+                    outcome = "cache_write_failed",
+                    "could not clear disabled session title"
+                );
+            }
+        }
+        changed
     }
 
     fn persist_title_boundary(&self, name: &str, native: Option<&str>) {
