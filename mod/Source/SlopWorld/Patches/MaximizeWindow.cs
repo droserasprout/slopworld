@@ -18,6 +18,10 @@ namespace SlopWorld
     {
         const float RetrySeconds = 1f;
         const float StartupSettleSeconds = 1.5f;
+        // Poll fast between the surface rebuild and the fullscreen request so the windowed
+        // resize has landed but the intermediate state is on screen only for a beat.
+        const float ResyncPollSeconds = 0.05f;
+        const float ResyncTimeoutSeconds = 0.5f;
         const int ClientMessage = 33;
         const long SubstructureNotifyMask = 1L << 19;
         const long SubstructureRedirectMask = 1L << 20;
@@ -25,6 +29,10 @@ namespace SlopWorld
         static bool? _applied;
         static float _nextTry;
         static float _readySince = -1f;
+        // When the initial surface rebuild was requested, or <0 before it has been. The
+        // fullscreen request is held back until the windowed resize it triggers has landed,
+        // so fullscreen is the last geometry change and the window never drops below it.
+        static float _resyncedAt = -1f;
         static bool _warned;
 
         public static void Follow()
@@ -37,9 +45,14 @@ namespace SlopWorld
             float now = Time.realtimeSinceStartup;
             if (_applied == null && !Ready(now)) return;
             if (now < _nextTry) return;
-            _nextTry = now + RetrySeconds;
 
-            if (TrySet(want)) _applied = want;
+            bool done = TrySet(want);
+            if (done) _applied = want;
+            // While the surface rebuild is settling between the two initial phases, poll
+            // fast so fullscreen lands the moment the windowed resize arrives rather than a
+            // full RetrySeconds later; otherwise back off to the slow retry.
+            bool resyncing = !done && _applied == null && _resyncedAt >= 0f;
+            _nextTry = Time.realtimeSinceStartup + (resyncing ? ResyncPollSeconds : RetrySeconds);
         }
 
         public static void Set(bool fullscreen)
@@ -54,16 +67,37 @@ namespace SlopWorld
 
         public static void Toggle() => Set(!Settings.Fullscreen);
 
+        // Apply during the loading screen. The old gate waited for LongEventHandler to
+        // drain plus a settle, because a fullscreen request sent mid-load left the top of
+        // the client stale until a toggle forced another resize. ResyncSurface now induces
+        // that resize itself, so the only wait left is a short settle from the first frame
+        // to let the window get mapped and sized; FindGameWindow retries until it appears.
         static bool Ready(float now)
         {
-            if (LongEventHandler.AnyEventNowOrWaiting)
-            {
-                _readySince = -1f;
-                return false;
-            }
-
             if (_readySince < 0f) _readySince = now;
             return now - _readySince >= StartupSettleSeconds;
+        }
+
+        // The game resetting its own geometry is what clears the stale upper client region
+        // after an external resize: Screen.SetResolution rebuilds Unity's render surface at
+        // the monitor size, so the EWMH fullscreen request lands on a correctly sized surface
+        // even mid-load. Windowed mode keeps this off Unity's frozen fullscreen path.
+        static void ResyncSurface()
+        {
+            int w = Display.main.systemWidth;
+            int h = Display.main.systemHeight;
+            if (w <= 0 || h <= 0) return;
+            Screen.SetResolution(w, h, FullScreenMode.Windowed);
+        }
+
+        // True once the windowed resize ResyncSurface requested has taken effect, which
+        // Unity applies a frame later. Screen reaching the monitor size is the signal; a
+        // timeout covers the frame going unreported so fullscreen is never held back forever.
+        static bool ResyncLanded(float now)
+        {
+            bool sized = Screen.width >= Display.main.systemWidth
+                && Screen.height >= Display.main.systemHeight;
+            return sized || now - _resyncedAt >= ResyncTimeoutSeconds;
         }
 
         // True means the request was sent or the platform cannot service it, false means the
@@ -102,13 +136,26 @@ namespace SlopWorld
                 bool ok;
                 if (fullscreen)
                 {
-                    // Establish maximize before the first fullscreen request. Mutter retains
-                    // that state underneath fullscreen, so later exit is one clean transition
-                    // back to the complete workarea instead of restoring Unity's old size.
-                    ok = true;
-                    if (initial)
-                        ok &= SendState(display, root, window, state, 1, horizontal, vertical);
-                    ok &= SendState(display, root, window, state, 1, fullscreenAtom, IntPtr.Zero);
+                    // Two phases on the first application. Phase one rebuilds Unity's surface
+                    // at monitor size and establishes maximize underneath; Mutter retains that
+                    // state under fullscreen, so later exit is one clean transition back to the
+                    // complete workarea instead of restoring Unity's old size. Fullscreen is
+                    // held for phase two, after the windowed resize from ResyncSurface has
+                    // landed, so it is the last geometry change and the window never flickers
+                    // down to the windowed size the resize passes through. RaiseAndActivate and
+                    // XFlush below still run in phase one, so the client is raised meanwhile.
+                    if (initial && _resyncedAt < 0f)
+                    {
+                        ResyncSurface();
+                        _resyncedAt = Time.realtimeSinceStartup;
+                        SendState(display, root, window, state, 1, horizontal, vertical);
+                        RaiseAndActivate(display, root, window);
+                        XFlush(display);
+                        return false;
+                    }
+                    if (initial && !ResyncLanded(Time.realtimeSinceStartup)) return false;
+
+                    ok = SendState(display, root, window, state, 1, fullscreenAtom, IntPtr.Zero);
                 }
                 else
                 {
