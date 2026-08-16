@@ -210,35 +210,7 @@ namespace SlopWorld
                     _cacheCh = ch;
                 }
 
-                // Where the pane sits in the texture is where it sits on the screen - SnapX's
-                // sum, run forwards.
-                float x0 = body.x * _snapSx + _snapOx;
-                float y0 = body.y * _snapSy + _snapOy;
-                float w = body.width * _snapSx;
-                float h = body.height * _snapSy;
-
-                float u0 = x0 / pw, u1 = (x0 + w) / pw;
-
-                // texCoords y counts from the destination's bottom either way; which end of
-                // the texture that is, is where the API put the target's first row.
-                float v0, v1;
-                if (SystemInfo.graphicsUVStartsAtTop)
-                {
-                    v0 = (y0 + h) / ph;
-                    v1 = y0 / ph;
-                }
-                else
-                {
-                    v0 = 1f - (y0 + h) / ph;
-                    v1 = 1f - y0 / ph;
-                }
-
-                var tint = GUI.color;
-                GUI.color = Color.white;
-                GUI.DrawTextureWithTexCoords(
-                    body, _cache, new Rect(u0, v0, u1 - u0, v1 - v0));
-                GUI.color = tint;
-                return true;
+                return BlitCached(body);
             }
             catch (System.Exception e)
             {
@@ -247,6 +219,50 @@ namespace SlopWorld
                 Log.Warning($"[SlopWorld] pane cache off, drawing straight to the screen: {e}");
                 return false;
             }
+        }
+
+        // Draw the last complete pane frame. During a session handoff the new reader can exist
+        // before its first screen arrives; keeping this frame avoids exposing that transport gap
+        // as a close-and-reopen of the terminal.
+        bool BlitCached(Rect body)
+        {
+            if (_cache == null || !_cache.IsCreated()) return false;
+            if (Event.current.type != EventType.Repaint) return true;
+
+            int pw = Screen.width, ph = Screen.height;
+            if (pw <= 0 || ph <= 0 || _cache.width != pw || _cache.height != ph)
+            {
+                Drop();
+                return false;
+            }
+
+            SyncSnap();
+            float x0 = body.x * _snapSx + _snapOx;
+            float y0 = body.y * _snapSy + _snapOy;
+            float w = body.width * _snapSx;
+            float h = body.height * _snapSy;
+            float u0 = x0 / pw, u1 = (x0 + w) / pw;
+
+            // texCoords y counts from the destination's bottom either way; which end of
+            // the texture that is, is where the API put the target's first row.
+            float v0, v1;
+            if (SystemInfo.graphicsUVStartsAtTop)
+            {
+                v0 = (y0 + h) / ph;
+                v1 = y0 / ph;
+            }
+            else
+            {
+                v0 = 1f - (y0 + h) / ph;
+                v1 = 1f - y0 / ph;
+            }
+
+            var tint = GUI.color;
+            GUI.color = Color.white;
+            GUI.DrawTextureWithTexCoords(
+                body, _cache, new Rect(u0, v0, u1 - u0, v1 - v0));
+            GUI.color = tint;
+            return true;
         }
 
         void Drop()

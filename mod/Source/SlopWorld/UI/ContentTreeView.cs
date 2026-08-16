@@ -277,7 +277,7 @@ namespace SlopWorld
         public void ClearSelection() => _selected = null;
         public void JumpTo(Vector2 position) => _scroll.JumpTo(position);
 
-        public void Clicks(Action releaseViewer)
+        public void Clicks(Action releaseViewer = null)
         {
             if (!ColonistBarStrip.Interactive) return;
             var e = Event.current;
@@ -292,7 +292,7 @@ namespace SlopWorld
                     if (e.button == 0) _source.ToggleGroup(line.Group);
                     else OpenMenu(_source.GroupMenu(line.Group));
                     ClearSelection();
-                    releaseViewer();
+                    releaseViewer?.Invoke();
                 }
                 else if (e.button == 1)
                 {
@@ -309,11 +309,12 @@ namespace SlopWorld
                     {
                         _source.ToggleNode(line.Node);
                         ClearSelection();
-                        releaseViewer();
+                        releaseViewer?.Invoke();
                     }
                     else
                     {
-                        Select(line.Node);
+                        // The source owns selection because its Open method needs to compare
+                        // the old row with the clicked one before replacing the viewer.
                         _source.Open(line.Node);
                     }
                 }

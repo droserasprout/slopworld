@@ -218,7 +218,13 @@ namespace SlopWorld
         {
             Layout.Routed.Clear();
             foreach (var info in SessionHub.Instance.Sessions)
-                if (InTab(info, tab) && Passes(info.Project)) Layout.Routed.Add(info);
+            {
+                if (!InTab(info, tab) || !Passes(info.Project)) continue;
+                // Git owns one replaceable pager. Keep its old routed row until the new session
+                // is handed to the terminal, so replacing a diff cannot resize the tree twice.
+                if (tab == SidebarTab.Git && !GitView.IsViewerSession(info.Name)) continue;
+                Layout.Routed.Add(info);
+            }
             Layout.Routed.Sort(ByName);
             return Layout.Routed;
         }

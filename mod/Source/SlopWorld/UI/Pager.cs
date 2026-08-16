@@ -70,7 +70,9 @@ namespace SlopWorld
             // First time, or project changed, or session died: create a new one.
             int operation = ++_operation;
             string oldSession = _session;
-            _session = null;
+            // Keep the old session as the visible one until the replacement is ready. Git's
+            // sidebar uses this identity for its routed row, so clearing it here makes the old
+            // row disappear before the new one arrives and causes a layout jump.
             _project = null;
             _filePath = null;
 
@@ -125,7 +127,8 @@ namespace SlopWorld
             // has something to show — no blink of the game map between the two.
             int operation = ++_operation;
             string oldSession = _session;
-            _session = null;
+            // Keep the old session as the visible one until the replacement is ready; see the
+            // matching handoff in ViewFile above.
             _project = null;
             _filePath = null;
 
