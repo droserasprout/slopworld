@@ -130,6 +130,27 @@ namespace SlopWorld
             }
         }
 
+        // A successful rename must not go through Open: that would reset the pane and can
+        // briefly bind it to the old name while the sessions snapshot catches up. Keep the
+        // existing window, scrollback and selection, changing only the session handle.
+        internal static void RenameActive(string oldName, string newName)
+        {
+            if (string.IsNullOrEmpty(oldName) || string.IsNullOrEmpty(newName) ||
+                oldName == newName) return;
+
+            var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            bool active = window != null && window._name == oldName;
+            if (active)
+            {
+                window._name = newName;
+                TerminalRecall.Remember(newName);
+            }
+
+            if (!active && SessionSelectable.Current != oldName) return;
+            SessionSelectable.Current = newName;
+            if (active && window._content == null) SelectAgent(newName);
+        }
+
         // What the chrome is showing, for anything that has to know which it is. Null is the
         // pane, and null window is neither.
         public static IContentView Showing =>

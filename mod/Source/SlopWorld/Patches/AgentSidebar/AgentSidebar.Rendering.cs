@@ -328,6 +328,14 @@ namespace SlopWorld
                 Layout.Named[i] = session;
             }
 
+            // Vanilla's entry order is only refreshed when the colony reconciles. A rename,
+            // project move, or add can therefore leave the visible rows in the old order for
+            // several seconds. Sort the indices here rather than waiting for displayOrder;
+            // the indices still point at the original entries, so vanilla draws the right
+            // pawn at each new location and hit-testing remains aligned.
+            foreach (var list in Layout.Buckets.Values)
+                list.Sort((a, b) => AgentColony.CompareNames(Layout.Named[a], Layout.Named[b]));
+
             foreach (var s in SessionHub.Instance.Sessions)
             {
                 if (!s.Ephemeral || IsRouted(s) || !Passes(s.Project)) continue;

@@ -137,7 +137,12 @@ namespace SlopWorld
 
         public void Save(SessionInfo s, bool isNew, string origName, Action ok,
                          Action<string> fail) =>
-            _sessions.Save(s, isNew, origName, ok, fail);
+            _sessions.Save(s, isNew, origName, () =>
+            {
+                if (!isNew && origName != s.Name)
+                    _terminal.Rename(origName, s.Name);
+                ok?.Invoke();
+            }, fail);
 
         // ---- projects, shortcuts, presets ----------------------------------------------
 

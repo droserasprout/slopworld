@@ -244,7 +244,7 @@ namespace SlopWorld
         void Reorder()
         {
             var names = _pawns.Keys.ToList();
-            names.Sort(Alphanum);
+            names.Sort(CompareNames);
             for (int i = 0; i < names.Count; i++)
             {
                 var settings = _pawns[names[i]]?.playerSettings;
@@ -252,7 +252,7 @@ namespace SlopWorld
             }
         }
 
-        static int Alphanum(string a, string b)
+        internal static int CompareNames(string a, string b)
         {
             int i = 0, j = 0;
             while (i < a.Length && j < b.Length)

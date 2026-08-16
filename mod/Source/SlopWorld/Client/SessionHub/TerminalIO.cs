@@ -28,6 +28,15 @@ namespace SlopWorld
             _transport.Send($"{{\"t\":\"unsub\",\"name\":{JVal.Q(name)}}}");
         }
 
+        public void Rename(string oldName, string newName)
+        {
+            if (oldName == newName) return;
+            if (_subs.Remove(oldName))
+                _transport.Send($"{{\"t\":\"unsub\",\"name\":{JVal.Q(oldName)}}}");
+            if (_subs.Add(newName))
+                _transport.Send($"{{\"t\":\"sub\",\"name\":{JVal.Q(newName)}}}");
+        }
+
         // A reconnect must not silently drop the terminal the player has open, so every live
         // subscription is restated on the fresh socket.
         public void Resubscribe()
