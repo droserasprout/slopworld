@@ -26,7 +26,8 @@ stream. Stable station/stream keys are saved in `SlopSettings.radio`; URLs stay 
 the daemon. Catalogs arrive as the root `jukebox`
 WebSocket event and through `GET /api/jukebox`; the mod retains the last catalog while
 reconnecting. `metadata.title_regex` normalizes ICY titles; `donate` is retained for
-the future donation action.
+the future donation action. A user file may omit `id`; its filename stem becomes the station
+key. The daemon keeps retrying a selected source after a drop until the selection changes.
 
 Mute sends `selection: null` so unheard audio is not downloaded. Stop-on-exit sends the
 same during shutdown; `Radio.Quit` latches because Unity may run frames after
@@ -35,10 +36,11 @@ existing audio settings.
 
 ## Daemon audio
 
-The daemon decodes MP3 with Symphonia, resamples to the device format and feeds a
-bounded CPAL queue; the callback never blocks. A selection generation prevents an old
-decoder from publishing after replacement. ICY headers and in-stream metadata become
-audio status events. Tests use local deterministic fixtures and never contact stations.
+The daemon decodes MP3 with Symphonia, resamples to the device format and feeds a bounded
+CPAL queue; live playback waits for one second of decoded headroom before consuming it, and
+the callback never blocks. A selection generation prevents an old decoder from publishing
+after replacement. ICY headers and in-stream metadata become audio status events. Tests use
+local deterministic fixtures and never contact stations.
 
 The daemon is required because Unity/FMOD cannot reliably handle the target HTTPS,
 AAC, Icecast and unknown-length streams. Shipped sources include Radio Paradise,

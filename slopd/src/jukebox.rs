@@ -36,6 +36,7 @@ pub struct Stream {
 /// One station file, and the public catalog entry sent to the mod.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Station {
+    #[serde(default)]
     pub id: String,
     #[serde(default)]
     pub default_rate: u32,
@@ -43,13 +44,56 @@ pub struct Station {
     pub metadata: Metadata,
     /// `[[stream]]` in TOML, `streams` on the wire: an array of tables reads as the singular
     /// in a definition file, and as the plural in the catalog the mod is handed.
-    #[serde(rename(serialize = "streams", deserialize = "stream"), default)]
+    #[serde(
+        rename(serialize = "streams", deserialize = "stream"),
+        alias = "streams",
+        default
+    )]
     pub streams: Vec<Stream>,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct Catalog {
     pub stations: Vec<Station>,
+}
+
+// Keep the file reader a little more permissive than the wire shape. The first daemon-side
+// reader accepted the compact host/path/rates form, and users may still have those files even
+// though new files should use explicit stream URLs.
+#[derive(Debug, Deserialize)]
+struct FileStation {
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    default_rate: u32,
+    #[serde(default)]
+    metadata: Metadata,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    donate: String,
+    #[serde(default)]
+    host: String,
+    #[serde(default)]
+    path: String,
+    #[serde(default)]
+    rates: Vec<u32>,
+    #[serde(rename = "stream", alias = "streams", default)]
+    streams: Vec<FileStream>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FileStream {
+    #[serde(default)]
+    rate: u32,
+    #[serde(default)]
+    key: String,
+    #[serde(default)]
+    url: String,
+    #[serde(default)]
+    host: String,
+    #[serde(default)]
+    path: String,
 }
 
 // Compiled in rather than installed: shipped definitions need to agree with the daemon binary
@@ -79,8 +123,12 @@ const BUILTIN: &[(&str, &str)] = &[
 
 impl Catalog {
     pub fn load() -> Self {
+        Self::load_from(&Self::dir())
+    }
+
+    fn load_from(dir: &Path) -> Self {
         let mut catalog = Self::builtins();
-        catalog.merge_dir(&Self::dir());
+        catalog.merge_dir(dir);
         catalog
     }
 
@@ -107,7 +155,10 @@ impl Catalog {
         };
         let mut files: Vec<PathBuf> = entries
             .filter_map(|e| e.ok().map(|e| e.path()))
-            .filter(|p| p.extension().is_some_and(|x| x == "toml"))
+            .filter(|p| {
+                p.extension()
+                    .is_some_and(|x| x.to_string_lossy().eq_ignore_ascii_case("toml"))
+            })
             .collect();
         files.sort();
 
@@ -154,8 +205,45 @@ impl Catalog {
 }
 
 fn parse(text: &str, path: &Path) -> Result<Station> {
-    let mut station: Station =
+    let raw: FileStation =
         toml::from_str(text).with_context(|| format!("parsing {}", path.display()))?;
+
+    let mut station = Station {
+        id: raw.id,
+        default_rate: raw.default_rate,
+        metadata: raw.metadata,
+        streams: raw
+            .streams
+            .into_iter()
+            .map(|stream| Stream {
+                rate: stream.rate,
+                key: if stream.key.is_empty() {
+                    if stream.path.is_empty() {
+                        stream.rate.to_string()
+                    } else {
+                        stream.path.replace("{rate}", &stream.rate.to_string())
+                    }
+                } else {
+                    stream.key
+                },
+                url: if stream.url.is_empty() {
+                    let host = if stream.host.is_empty() {
+                        &raw.host
+                    } else {
+                        &stream.host
+                    };
+                    let template = if stream.path.is_empty() {
+                        &raw.path
+                    } else {
+                        &stream.path
+                    };
+                    host.to_string() + &template.replace("{rate}", &stream.rate.to_string())
+                } else {
+                    stream.url
+                },
+            })
+            .collect(),
+    };
 
     if station.id.trim().is_empty() {
         station.id = path
@@ -168,7 +256,24 @@ fn parse(text: &str, path: &Path) -> Result<Station> {
         bail!("missing id");
     }
     if station.metadata.name.trim().is_empty() {
-        station.metadata.name = station.id.clone();
+        station.metadata.name = if raw.name.trim().is_empty() {
+            station.id.clone()
+        } else {
+            raw.name
+        };
+    }
+    if station.metadata.donate.trim().is_empty() && !raw.donate.trim().is_empty() {
+        station.metadata.donate = raw.donate;
+    }
+    if station.streams.is_empty() && !raw.path.is_empty() && !raw.rates.is_empty() {
+        for rate in raw.rates {
+            let path = raw.path.replace("{rate}", &rate.to_string());
+            station.streams.push(Stream {
+                rate,
+                key: path.clone(),
+                url: raw.host.clone() + &path,
+            });
+        }
     }
     if station.streams.is_empty() {
         bail!("no [[stream]] entries");
@@ -289,6 +394,24 @@ url = "https://example.org/stream"
     }
 
     #[test]
+    fn legacy_personal_shape_still_expands_streams() {
+        let station = parse(
+            r#"
+name = "Legacy Radio"
+host = "https://example.org/"
+path = "stream-{rate}"
+rates = [64, 128]
+"#,
+            Path::new("legacy.toml"),
+        )
+        .unwrap();
+        assert_eq!(station.id, "legacy");
+        assert_eq!(station.metadata.name, "Legacy Radio");
+        assert_eq!(station.streams[1].key, "stream-128");
+        assert_eq!(station.streams[1].url, "https://example.org/stream-128");
+    }
+
+    #[test]
     fn resolves_a_local_fixture_without_fetching_it() {
         let station = parse(
             r#"
@@ -339,5 +462,39 @@ url = "http://127.0.0.1:9/not-a-server"
         .unwrap_err()
         .to_string();
         assert!(error.contains("positive"));
+    }
+
+    #[test]
+    fn personal_files_are_appended_and_can_omit_the_id() {
+        let dir = std::env::temp_dir().join(format!(
+            "slopworld-jukebox-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("personal.TOML"),
+            r#"
+[metadata]
+name = "Personal Radio"
+
+[[stream]]
+rate = 96
+url = "https://example.org/personal"
+"#,
+        )
+        .unwrap();
+
+        let catalog = Catalog::load_from(&dir);
+        assert_eq!(catalog.stations.len(), BUILTIN.len() + 1);
+        let personal = catalog.stations.last().unwrap();
+        assert_eq!(personal.id, "personal");
+        assert_eq!(personal.metadata.name, "Personal Radio");
+        assert_eq!(personal.streams[0].key, "96");
+
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }
