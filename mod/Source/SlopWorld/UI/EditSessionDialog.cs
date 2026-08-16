@@ -511,7 +511,11 @@ namespace SlopWorld
                 {
                     // The daemon took the rename, so carry the colonist over before the next
                     // reconcile sees a name it doesn't know and retires it.
-                    if (!_isNew && from != to) AgentColony.Current?.Rename(from, to);
+                    if (!_isNew && from != to)
+                    {
+                        AgentColony.Current?.Rename(from, to);
+                        TerminalWindow.RenameActive(from, to);
+                    }
                     Close();
                 },
                 fail: SlopWidgets.Fail);

@@ -25,6 +25,35 @@ namespace SlopWorld
         public ScreenBuf ScrollScreen(string name) =>
             _scrolls.TryGetValue(name, out var s) ? s : null;
 
+        // Apply the local half of a successful rename before the refresh it starts. The
+        // terminal can then change its binding immediately without EnsureSession mistaking
+        // the new name for an unknown session while the HTTP snapshot is in flight.
+        public void Rename(string oldName, string newName)
+        {
+            if (string.IsNullOrEmpty(oldName) || string.IsNullOrEmpty(newName) ||
+                oldName == newName) return;
+
+            bool found = false;
+            foreach (var session in Sessions)
+            {
+                if (session.Name != oldName) continue;
+                session.Name = newName;
+                found = true;
+                break;
+            }
+
+            Move(_screens, oldName, newName);
+            Move(_scrolls, oldName, newName);
+            if (found) _sessionsVersion++;
+        }
+
+        static void Move(Dictionary<string, ScreenBuf> store, string oldName, string newName)
+        {
+            if (!store.TryGetValue(oldName, out var screen)) return;
+            store.Remove(oldName);
+            if (!store.ContainsKey(newName)) store[newName] = screen;
+        }
+
         // The socket's "sessions" event: replace the list, then drop the screens of sessions
         // that no longer exist.
         public void ApplySessions(JVal ev)
@@ -159,7 +188,12 @@ namespace SlopWorld
         // heard of, which is how a rename is spelled.
         public void Save(SessionInfo s, bool isNew, string origName, Action ok, Action<string> fail)
         {
-            Action<JVal> done = _ => { Refresh(); ok?.Invoke(); };
+            Action<JVal> done = _ =>
+            {
+                if (!isNew && origName != s.Name) Rename(origName, s.Name);
+                Refresh();
+                ok?.Invoke();
+            };
             if (isNew) SlopClient.Post("/api/sessions", s.ToJson(), done, fail);
             else SlopClient.Put($"/api/sessions/{origName}", s.ToJson(), done, fail);
         }
