@@ -2,4 +2,6 @@
 
 mod caps;
 mod capture;
-mod lifecycle;
+mod config;
+mod sessions;
+mod shortcuts;
