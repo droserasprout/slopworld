@@ -3,8 +3,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Intercept wheel input and ease a target toward the drawn position, smoothing touchpad
-    // bursts while preserving Unity's 20px-per-wheel-unit travel.
+    // Move directly by XInput's fractional touchpad distance where Linux exposes it, with
+    // Unity's logical wheel packet as the portable fallback. Unity's stepped scroll view
+    // stays out of the path either way.
     public sealed class SmoothScroll
     {
         // Pixels per unit of wheel delta. Unity's own figure, and matching it is the point:
@@ -12,13 +13,10 @@ namespace SlopWorld
         // once.
         const float Speed = 20f;
 
-        // Seconds for the remaining distance to fall to 1/e of itself. Long enough to read
-        // as motion, short enough that a click on a row that has just arrived lands on it.
-        const float Tau = 0.05f;
-
-        // Below this the ease is over. A position that only ever approaches its target
-        // keeps the window repainting for nothing.
-        const float Snap = 0.5f;
+        // XInput's increment is one wheel detent. Unity reports that detent as a delta of
+        // two on Linux, so this preserves the ordinary wheel's established travel while
+        // retaining every fractional touchpad movement inside the detent.
+        const float X11Speed = Speed * 2f;
 
         // The bar's own geometry, kept from `Begin` because it is drawn in `End` - outside
         // the scroll view's group, which is the only place the outer rect means what it says.
@@ -31,15 +29,6 @@ namespace SlopWorld
         float _grab;
 
         Vector2 _pos;
-        Vector2 _target;
-
-        // What the scroll view was handed this frame, so its own writes through the `ref`
-        // - a scrollbar drag, or a clamp against content that shrank - can be told from
-        // our easing and taken as the new target.
-        Vector2 _drawn;
-
-        // IMGUI runs several event passes per frame and the ease gets one step of them.
-        int _frame = -1;
 
         public Vector2 Position => _pos;
 
@@ -47,7 +36,7 @@ namespace SlopWorld
         // not a scroll and should not be animated into one.
         public void JumpTo(Vector2 pos)
         {
-            _pos = _target = pos;
+            _pos = pos;
         }
 
         // The least travel that puts a row inside the viewport, and none at all if it is
@@ -67,35 +56,31 @@ namespace SlopWorld
                 Mathf.Max(0f, view.width - outer.width),
                 Mathf.Max(0f, view.height - outer.height));
 
-            // Content can shrink under a target that was valid when it was set.
-            _target.x = Mathf.Clamp(_target.x, 0f, max.x);
-            _target.y = Mathf.Clamp(_target.y, 0f, max.y);
+            // Content can shrink under a position that was valid on the previous frame.
+            _pos.x = Mathf.Clamp(_pos.x, 0f, max.x);
+            _pos.y = Mathf.Clamp(_pos.y, 0f, max.y);
 
+            ClaimPrecise(outer, max);
             ClaimWheel(outer, max);
-            Ease();
 
             _outer = outer;
             _max = max;
             _bar = showScrollbars;
 
-            _drawn = _pos;
-            // Always false: the bar is drawn in `End`. Handing `true` here is what put the
-            // Unity skin's bar - the last vanilla widget in the mod - inside every list.
-            Widgets.BeginScrollView(outer, ref _pos, view, false);
+            // Do the clip and translation ourselves. Unity's scroll view processes wheel
+            // input inside its native implementation, and can write a one-notch position
+            // through its ref even after we consumed the event. Keeping it out of this path
+            // makes `_pos` the only scroll state and leaves the wheel entirely to our input.
+            GUI.BeginGroup(outer);
+            GUI.BeginGroup(new Rect(view.x - _pos.x, view.y - _pos.y, view.width, view.height));
         }
 
         public void End()
         {
-            bool wheel = SpendWheel();
-            // Wheel ownership is resolved here so an inner list can win, but that is after
-            // Begin's easing step. Move once now as well, or the repaint for this event
-            // draws the old position and the gesture starts a frame late.
-            if (wheel) Ease(true);
-            Widgets.EndScrollView();
-
-            // The scroll view moved it. That is where the list now is, and easing back
-            // toward a target from before it would fight the hand on the bar.
-            if (!wheel && _pos != _drawn) _target = _pos;
+            SpendPrecise();
+            SpendWheel();
+            GUI.EndGroup();
+            GUI.EndGroup();
 
             if (_bar) DrawBar();
         }
@@ -166,23 +151,63 @@ namespace SlopWorld
                 track.width - ThumbPad * 2f, h);
         }
 
-        // A hand on the bar is not a gesture to ease: the list goes where the thumb is put,
-        // this frame, and the target goes with it so the ease has nothing left to do.
+        // A hand on the bar is direct manipulation: the list goes where the thumb is put,
+        // this frame, with no leftover motion.
         void DragTo(float mouseY, Rect track, float h)
         {
             float span = track.height - h;
             float t = span <= 0f ? 0f : Mathf.Clamp01((mouseY - _grab - track.y) / span);
-            _pos.y = _target.y = t * _max.y;
+            _pos.y = t * _max.y;
         }
 
-        // Nested scroll views register in draw order; the last Begin claim is the innermost box and receives the wheel.
+        // Nested scroll views register in draw order; the last Begin claim is the innermost
+        // box and receives the wheel. The event is muted before any content is drawn, so
+        // no native widget can apply its own stepped wheel movement.
         static SmoothScroll _claim;
-        static Vector2 _claimDelta;
+        static Vector2 _claimAmount;
+        static bool _claimHasAmount;
+        static Event _wheelEvent;
+
+        // XInput is sampled once per rendered frame rather than once per IMGUI pass. The
+        // same draw-order ownership rule as wheel events lets a nested list replace its
+        // enclosing list before End spends the movement.
+        static int _preciseFrame = -1;
+        static bool _preciseAvailable;
+        static bool _preciseSpent;
+        static Vector2 _preciseAmount;
+        static SmoothScroll _preciseClaim;
+
+        void ClaimPrecise(Rect outer, Vector2 max)
+        {
+            int frame = Time.frameCount;
+            if (_preciseFrame != frame)
+            {
+                _preciseFrame = frame;
+                _preciseClaim = null;
+                _preciseSpent = false;
+                Vector2 units;
+                _preciseAvailable = X11ScrollInput.TryRead(out units);
+                _preciseAmount = units * X11Speed;
+            }
+
+            if (!_preciseAvailable || _preciseSpent ||
+                _preciseAmount.sqrMagnitude <= 0.000001f) return;
+            if (max.x <= 0f && max.y <= 0f) return;
+            if (!outer.Contains(Event.current.mousePosition)) return;
+            _preciseClaim = this;
+        }
 
         void ClaimWheel(Rect outer, Vector2 max)
         {
             var e = Event.current;
-            if (e.type != EventType.ScrollWheel) return;
+            if (e.type == EventType.ScrollWheel)
+            {
+                _claim = null;
+                _claimHasAmount = false;
+                _wheelEvent = e;
+            }
+            else if (e.type != EventType.Used || e.rawType != EventType.ScrollWheel ||
+                !ReferenceEquals(_wheelEvent, e)) return;
 
             // Nothing to scroll: leave the event for whatever is underneath. A box that
             // swallowed the wheel while showing its whole content would pin the page
@@ -191,39 +216,64 @@ namespace SlopWorld
             if (!outer.Contains(e.mousePosition)) return;
 
             _claim = this;
-            _claimDelta = e.delta;
+            // The first Begin reads the input. Nested Begins see the same Used event and
+            // replace only the owner, not the already decoded pixel amount.
+            if (!_claimHasAmount)
+            {
+                if (_preciseAvailable)
+                {
+                    // XInput already supplied this packet, including any sub-step parts.
+                    _claimAmount = Vector2.zero;
+                }
+                else
+                {
+                    var raw = Input.mouseScrollDelta;
+                    _claimAmount = new Vector2(PrecisionDelta(e.delta.x, raw.x),
+                        PrecisionDelta(e.delta.y, raw.y)) * Speed;
+                }
+                _claimHasAmount = true;
+            }
+            e.Use();
         }
 
-        // `End` runs innermost first, so the claimant is settled by the time it is reached.
-        // Spent before `GUI.EndScrollView` gets the event - ours and the scroll view's
-        // handling would otherwise both land and the list would move twice as far - and
-        // using it there also keeps every enclosing view off the same gesture.
-        bool SpendWheel()
+        bool SpendPrecise()
         {
-            var e = Event.current;
-            if (_claim != this || e.type != EventType.ScrollWheel) return false;
+            if (_preciseClaim != this || _preciseSpent) return false;
 
-            _claim = null;
-            _target.x = Mathf.Clamp(_target.x + _claimDelta.x * Speed, 0f, _max.x);
-            _target.y = Mathf.Clamp(_target.y + _claimDelta.y * Speed, 0f, _max.y);
-            e.Use();
+            _preciseSpent = true;
+            _preciseClaim = null;
+            _pos = new Vector2(
+                Mathf.Clamp(_pos.x + _preciseAmount.x, 0f, _max.x),
+                Mathf.Clamp(_pos.y + _preciseAmount.y, 0f, _max.y));
             return true;
         }
 
-        void Ease(bool force = false)
+        static float PrecisionDelta(float eventDelta, float rawDelta)
         {
-            if (!force && _frame == Time.frameCount) return;
-            _frame = Time.frameCount;
+            if (Mathf.Abs(rawDelta) <= 0.0001f) return eventDelta;
+            if (Mathf.Abs(eventDelta) > 0.0001f &&
+                Mathf.Sign(rawDelta) != Mathf.Sign(eventDelta)) return eventDelta;
+            return Mathf.Abs(rawDelta) <= Mathf.Abs(eventDelta) + 0.0001f
+                ? rawDelta : eventDelta;
+        }
 
-            var d = _target - _pos;
-            if (d.sqrMagnitude <= Snap * Snap)
-            {
-                _pos = _target;
-                return;
-            }
+        // `End` runs innermost first, so the claimant is settled by the time it is reached.
+        // Spent before the frame is finished so the next repaint sees the input immediately,
+        // and using it there also keeps every enclosing view off the same gesture.
+        bool SpendWheel()
+        {
+            var e = Event.current;
+            if (_claim != this || !ReferenceEquals(_wheelEvent, e) ||
+                (e.type != EventType.ScrollWheel && e.type != EventType.Used)) return false;
 
-            // Unscaled: the game being paused is not the list standing still.
-            _pos += d * (1f - Mathf.Exp(-Time.unscaledDeltaTime / Tau));
+            _claim = null;
+            _claimHasAmount = false;
+            _wheelEvent = null;
+            _pos = new Vector2(
+                Mathf.Clamp(_pos.x + _claimAmount.x, 0f, _max.x),
+                Mathf.Clamp(_pos.y + _claimAmount.y, 0f, _max.y));
+            e.Use();
+            return true;
         }
     }
 }
