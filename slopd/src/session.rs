@@ -179,7 +179,8 @@ enum Ready {
 struct Live {
     cfg: SessionCfg,
     ephemeral: bool,
-    // Never persisted: config entries are not allowed to request host execution.
+    // Never persisted in config: host errands carry this through a private tmux option so the
+    // daemon can recover it when tmux outlives a daemon restart.
     host: bool,
     state: State,
     seq: u64,

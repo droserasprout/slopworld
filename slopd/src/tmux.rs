@@ -146,6 +146,7 @@ impl Tmux {
         cols: u16,
         rows: u16,
         argv: &[String],
+        host: bool,
     ) -> Result<()> {
         // Never let `new-session` be the command that forks the server: it would land in
         // slopd's own cgroup.
@@ -185,7 +186,23 @@ impl Tmux {
         self.run(&["set-option", "-t", name, "status", "off"])
             .await
             .ok();
+        self.run(&[
+            "set-option",
+            "-t",
+            name,
+            "@slopworld_host",
+            if host { "1" } else { "0" },
+        ])
+        .await?;
         Ok(())
+    }
+
+    /// Host-ness is runtime state, but the tmux server outlives slopd. Keep a private session
+    /// option so orphan adoption does not mistake a surviving host shell for an agent.
+    pub async fn is_host(&self, name: &str) -> bool {
+        self.run(&["show-options", "-qv", "-t", name, "@slopworld_host"])
+            .await
+            .is_ok_and(|value| value.trim() == "1")
     }
 
     pub async fn kill(&self, name: &str) -> Result<()> {

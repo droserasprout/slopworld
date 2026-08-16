@@ -1718,11 +1718,15 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
     // rate only while somebody is holding one, and this socket has several ways out.
     let subs: WsSubs = Arc::new(Mutex::new(HashMap::new()));
 
+    // Subscribe before sending the initial snapshot. A session can be created while the
+    // snapshot is being assembled; subscribing after it would lose that live update until
+    // the client reconnects.
+    let events = m.events.subscribe();
     if !send_initial_snapshot(&tx, &m, &cap).await {
         return;
     }
 
-    let pump = spawn_frame_pump(m.events.subscribe(), tx.clone(), subs.clone(), cap.clone());
+    let pump = spawn_frame_pump(events, tx.clone(), subs.clone(), cap.clone());
 
     while let Some(Ok(msg)) = rx.next().await {
         let Message::Text(text) = msg else { continue };
