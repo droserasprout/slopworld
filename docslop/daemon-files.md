@@ -8,7 +8,9 @@
 | `api/handlers.rs` | HTTP handlers and their co-located tests. |
 | `api/types.rs` | HTTP and WebSocket wire request types. |
 | `api/ws.rs` | WebSocket upgrade, message handling, and frame pump. |
-| `session.rs` | Session data types, terminal input helpers and config validation. |
+| `session/mod.rs` | Session state/data types, terminal input helpers and config validation façade. |
+| `session/view.rs` | `SessionView` and `ScreenView` wire serialization. |
+| `session/ctrl.rs` | `Manager` storage and client/watch guards. |
 | `manager/lifecycle.rs` | `Manager` construction, configuration, clocks, state transitions and session/project/shortcut lifecycle. |
 | `manager/capture.rs` | `Manager` terminal input, emulator readers, screen frames and scroll capture. |
 | `manager/caps.rs` | `Manager` capability and grant checks. |
@@ -20,7 +22,9 @@
 | `config.rs` | `config.toml` load, save, and seed. |
 | `activity.rs` | Persists the fallback file for state ages when the tmux server has no activity options. |
 | `usage.rs` | Polls Anthropic and OpenRouter for what is left of each. |
-| `audio.rs` | The jukebox's sound, because the game cannot play it. |
+| `audio/mod.rs` | The public audio handle, command worker, generation control and state events. |
+| `audio/station.rs` | Local playlists, URL/file decoding, stream reconnects and ICY metadata. |
+| `audio/playback.rs` | Output-device selection, feeder pacing and callback-safe sample rings. |
 | `clipboard.rs` | The host clipboard. |
 | `git.rs` | What a working tree has that its last commit does not. |
 | `open.rs` | Opening a URL on the host. |
