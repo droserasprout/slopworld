@@ -11,8 +11,9 @@ selected absolute path is appended; `{{ absolute_path }}` and `{{ relative_path 
 quoted absolute path and project-relative path respectively. A project root's relative path is
 `.`. It is offered from a file or directory context menu as captured output in the SlopWorld
 alert window or an interactive temporary terminal; terminal runs leave a shell open after the
-command so short output remains readable. File actions are not agent errands and do not attach
-through `breadcrumbs`.
+command so short output remains readable. Project paths use their sandbox; private-state storage
+paths use an explicit disposable host errand. File actions are not agent errands and do not
+attach through `breadcrumbs`.
 
 - `builtin` entries come from `config::builtin_shortcuts`, are not written to
   `config.toml`, and cannot be updated/removed. A file entry with the same name shadows

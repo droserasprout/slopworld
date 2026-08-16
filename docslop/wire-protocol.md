@@ -30,7 +30,8 @@ Query routes are `/api/usage`, `/api/presets`, `/api/jukebox`, `/api/browse`, `/
 and returns bounded UTF-8 file text for native Markdown previews. `/api/image` is root-only and
 returns bounded base64 image bytes for local Markdown images. `/api/open` returns 400 for an invalid
 URL and 502 when its opener fails. `/api/file-action` runs a configured
-Files action inside a named project's sandbox and returns bounded output.
+Files action inside a named project's sandbox, or explicitly on the host for private-state
+storage, and returns bounded output.
 
 Private-state routes are daemon-owned: reset moves state to 14-day trash; root-only
 state inventory reports active/orphan/trash entries and sizes; permanent deletion is

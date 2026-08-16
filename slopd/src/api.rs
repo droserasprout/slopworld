@@ -546,7 +546,7 @@ async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
     let command = if q.path.trim().is_empty() {
         q.command.trim().to_string()
     } else {
-        m.file_action_command(project, &q.path, q.command.trim())
+        m.file_action_command(project, &q.path, q.command.trim(), q.host)
             .await
             .map_err(|e| err(StatusCode::BAD_REQUEST, e))?
     };
@@ -612,17 +612,20 @@ async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
 
 #[derive(Deserialize)]
 struct FileActionReq {
+    #[serde(default)]
     project: String,
     path: String,
     command: String,
+    #[serde(default)]
+    host: bool,
 }
 
-/// Run a non-interactive Files action in the project's normal sandbox and return a small
-/// result for a game message. Interactive actions use `/api/run`, since their terminal needs
-/// a tmux session and a persistent screen.
+/// Run a non-interactive Files action and return a small result for a game message. Project
+/// paths use their normal sandbox; private-state paths explicitly ask for the host. Interactive
+/// actions use `/api/run`, since their terminal needs a tmux session and a persistent screen.
 async fn file_action(State(m): State<Mgr>, Json(q): Json<FileActionReq>) -> ApiResult {
     let output = m
-        .file_action(&q.project, &q.path, &q.command)
+        .file_action(&q.project, &q.path, &q.command, q.host)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "ok": true, "output": output })))

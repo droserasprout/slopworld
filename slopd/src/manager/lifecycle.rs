@@ -969,12 +969,18 @@ impl Manager {
         project: &str,
         raw_path: &str,
         command: &str,
+        host: bool,
     ) -> Result<(ProjectCfg, SessionCfg)> {
-        let p = cfg
-            .project(project.trim())
-            .cloned()
-            .ok_or_else(|| anyhow!("no such project: {project}"))?;
-        let path = project_action_path(&p, raw_path)?;
+        let (p, path) = if host {
+            (ProjectCfg::default(), absolute_path(raw_path)?)
+        } else {
+            let p = cfg
+                .project(project.trim())
+                .cloned()
+                .ok_or_else(|| anyhow!("no such project: {project}"))?;
+            let path = project_action_path(&p, raw_path)?;
+            (p, path)
+        };
         if command.trim().is_empty() {
             bail!("file action has no command");
         }
@@ -1055,9 +1061,18 @@ impl Manager {
         })
     }
 
-    async fn execute_file_action(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<String> {
-        crate::sandbox::prepare_network(cfg, s, p)?;
-        let argv = build_argv(cfg, s, p)?;
+    async fn execute_file_action(
+        cfg: &Config,
+        s: &SessionCfg,
+        p: &ProjectCfg,
+        host: bool,
+    ) -> Result<String> {
+        let argv = if host {
+            crate::sandbox::host_argv(cfg, s, p)
+        } else {
+            crate::sandbox::prepare_network(cfg, s, p)?;
+            build_argv(cfg, s, p)?
+        };
         let ((stdout, stdout_truncated), (stderr, stderr_truncated), status) =
             Self::run_file_action_command(&argv).await?;
         Self::format_file_action_result(stdout, stderr, stdout_truncated, stderr_truncated, status)
@@ -1068,14 +1083,17 @@ impl Manager {
         project: &str,
         raw_path: &str,
         command: &str,
+        host: bool,
     ) -> Result<String> {
         self.reload_if_changed().await;
         let cfg = self.config().await;
-        let (p, s) = Self::resolve_file_action(&cfg, project, raw_path, command)?;
-        let result = Self::execute_file_action(&cfg, &s, &p).await;
+        let (p, s) = Self::resolve_file_action(&cfg, project, raw_path, command, host)?;
+        let result = Self::execute_file_action(&cfg, &s, &p, host).await;
 
-        if let Err(e) = crate::sandbox::remove_ephemeral_state(&s) {
-            tracing::warn!("removing file action private state: {e:#}");
+        if !host {
+            if let Err(e) = crate::sandbox::remove_ephemeral_state(&s) {
+                tracing::warn!("removing file action private state: {e:#}");
+            }
         }
         result
     }
@@ -1085,14 +1103,18 @@ impl Manager {
         project: &str,
         raw_path: &str,
         command: &str,
+        host: bool,
     ) -> Result<String> {
         self.reload_if_changed().await;
         let cfg = self.config().await;
-        let p = cfg
-            .project(project.trim())
-            .cloned()
-            .ok_or_else(|| anyhow!("no such project: {project}"))?;
-        let path = project_action_path(&p, raw_path)?;
+        let path = if host {
+            absolute_path(raw_path)?
+        } else {
+            let p = cfg
+                .project(project.trim())
+                .ok_or_else(|| anyhow!("no such project: {project}"))?;
+            project_action_path(p, raw_path)?
+        };
         Ok(normalize_action_command(raw_path, &path, command))
     }
 
@@ -1745,5 +1767,26 @@ mod tests {
 
         assert!(Manager::legacy_host_session(&host, &cfg));
         assert!(!Manager::legacy_host_session("ordinary-agent", &cfg));
+    }
+
+    #[test]
+    fn host_file_actions_do_not_need_a_project() {
+        let cfg = Config::default();
+        let (project, session) = Manager::resolve_file_action(
+            &cfg,
+            "",
+            "/tmp/private state/file",
+            "du -sh '/tmp/private state/file'",
+            true,
+        )
+        .expect("host file action");
+
+        assert!(project.name.is_empty());
+        assert_eq!(
+            session.cmd.as_deref(),
+            Some("du -sh '/tmp/private state/file'")
+        );
+        let argv = crate::sandbox::host_argv(&cfg, &session, &project);
+        assert!(!argv.iter().any(|part| part == "bwrap"));
     }
 }
