@@ -16,10 +16,10 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   and snaps to the screen pixel grid; GUI-coordinate snapping seams at non-integer UI
   scales. `TerminalWindow.SyncSnap` uses the same arithmetic. Rules sit inside the
   control they close, on its last pixel.
-- `SmoothScroll` is the mod's only scroll view and scrollbar. It consumes wheel events
-  before IMGUI, eases with unscaled time, draws the bar in `End` outside the scroll
-  group, and reserves `ScrollbarW`; `Reveal` jumps a selected row into view. Vertical
-  scroll only.
+- `SmoothScroll` is the mod's only scroll view and scrollbar. On X11 it reads XInput 2.1's
+  fractional scroll valuator directly; Unity's logical wheel packet is the fallback. It
+  draws the bar in `End` outside the scroll group and reserves `ScrollbarW`; `Reveal`
+  jumps a selected row into view. Vertical scroll only.
 - `SlopWindow` supplies the frame, border and close corner. `Margin` is zero because
   vanilla translates contents into a group instead of providing padding; bodies use
   `Pad`.
