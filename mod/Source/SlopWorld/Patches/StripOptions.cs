@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using HarmonyLib;
 using RimWorld;
+using UnityEngine;
 using Verse;
 
 namespace SlopWorld
@@ -31,6 +32,17 @@ namespace SlopWorld
             // (see SlopUIScale); two doors to one pref, disagreeing about its span, is one
             // door too many.
             () => "UIScale".Translate(),
+
+            // Resolution and borderless fullscreen are not useful in this window: the former
+            // changes the render surface, while the latter is a launch-option notice rather
+            // than a setting. The mod owns the live fullscreen toggle on Appearance.
+            () => "Resolution".Translate(),
+            () => "BorderlessFullscreen".Translate(),
+
+            // These two vanilla Interface rows have native controls on the mod's General and
+            // Appearance > Interface pages, so leave no duplicate behind in the old category.
+            () => "DisableTinyText".Translate(),
+            () => "TemperatureMode".Translate(),
 
             // The rest are rows this mod has already taken the last reader away from. A
             // preference nothing consults is worse than an absent one: it is a knob that
@@ -104,6 +116,21 @@ namespace SlopWorld
             {
                 if (!Drops(label)) return true;
                 __result = false;
+                return false;
+            }
+        }
+
+        // Borderless fullscreen is emitted as a plain Label rather than a button: it is a
+        // launch-option notice shown after the resolution button, so the button filter cannot
+        // reach it. Return an empty rect so Listing_Standard does not leave a blank row.
+        [HarmonyPatch(typeof(Listing_Standard), nameof(Listing_Standard.Label),
+            new[] { typeof(TaggedString), typeof(float), typeof(string) })]
+        public static class Patch_OptionLabel
+        {
+            static bool Prefix(TaggedString label, ref Rect __result)
+            {
+                if (!Drops(label.ToString())) return true;
+                __result = default(Rect);
                 return false;
             }
         }
