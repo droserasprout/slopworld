@@ -45,16 +45,31 @@ namespace SlopWorld
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Tune: " + source))
                 Find.WindowStack.Add(new SlopMenu(Jukebox.StationOptions()));
 
-            string now = Radio.NowPlaying;
-            SlopWidgets.Note(l, string.IsNullOrEmpty(now)
-                ? "Nothing is playing."
-                : "Now playing: " + now);
+            // Show the station's own line and any Shazam match as two rows, so a recognized
+            // track never silently overwrites what the station actually reported.
+            if (Radio.Muted)
+            {
+                SlopWidgets.Note(l, "Muted.");
+            }
+            else
+            {
+                string station = Radio.StationLine;
+                SlopWidgets.Note(l, "Now playing: "
+                    + (string.IsNullOrEmpty(station) ? "nothing" : station));
+                if (Radio.Recognized)
+                    SlopWidgets.Note(l, "Recognized: " + Radio.RecognizedLine);
+            }
+
+            l.Gap(SlopWidgets.GapS);
+            DrawRecognition(l);
 
             l.Gap(SlopWidgets.GapS);
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Random"))
                 Radio.PickRandom();
             if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Like current song"))
                 Radio.Like();
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "History"))
+                JukeboxHistoryView.Open();
 
             l.Gap(SlopWidgets.GapS);
             bool mute = SlopWidgets.Checkbox(l, "Mute", Radio.Muted,
@@ -66,6 +81,39 @@ namespace SlopWorld
             if (stop != Radio.StopOnExit) Radio.ToggleStopOnExit();
 
             l.End();
+        }
+
+        // The recognition control makes the background lookup legible: a transient recognizing
+        // state that names its input and can be cancelled, or a Recognize/Retry button that
+        // surfaces the last failure instead of leaving it in a vanished toast.
+        static void DrawRecognition(Listing_Standard l)
+        {
+            if (Radio.Recognizing)
+            {
+                if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Cancel recognition"))
+                    Radio.CancelRecognition();
+                string input = Radio.RecognizingInput;
+                SlopWidgets.Note(l, string.IsNullOrEmpty(input)
+                    ? "Recognizing…"
+                    : "Recognizing via " + input + "…");
+                return;
+            }
+
+            string error = Radio.RecognitionError;
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+                    string.IsNullOrEmpty(error) ? "Recognize" : "Retry recognition"))
+                Radio.Recognize();
+
+            if (!string.IsNullOrEmpty(error))
+            {
+                GUI.color = SlopWidgets.Bad;
+                l.Label(error);
+                GUI.color = Color.white;
+            }
+            else if (!string.IsNullOrEmpty(Radio.RecognizingInput))
+            {
+                SlopWidgets.Note(l, "Input: " + Radio.RecognizingInput);
+            }
         }
     }
 }

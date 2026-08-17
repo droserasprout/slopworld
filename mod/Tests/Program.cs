@@ -36,6 +36,10 @@ namespace SlopWorld.Tests
                 tests.Add(("PagerCommands: " + test.Name, test.Body));
             foreach (var test in SessionNavigationTests.Cases())
                 tests.Add(("SessionNavigation: " + test.Name, test.Body));
+            foreach (var test in SongRecognizerTests.Cases())
+                tests.Add(("SongRecognizer: " + test.Name, test.Body));
+            foreach (var test in JukeboxHistoryTests.Cases())
+                tests.Add(("JukeboxHistory: " + test.Name, test.Body));
             int failed = 0;
 
             foreach (var test in tests)

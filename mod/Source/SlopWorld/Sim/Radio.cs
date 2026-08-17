@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -85,19 +86,28 @@ namespace SlopWorld
 
             internal string FormatTitle(string title)
             {
-                if (_titleRegex == null || string.IsNullOrEmpty(title)) return title;
+                string artist;
+                string song;
+                return TryTitleParts(title, out artist, out song)
+                    ? artist + " - " + song
+                    : title;
+            }
+
+            internal bool TryTitleParts(string title, out string artist, out string song)
+            {
+                artist = null;
+                song = title;
+                if (_titleRegex == null || string.IsNullOrEmpty(title)) return false;
                 Match match = _titleRegex.Match(title);
-                if (!match.Success) return title;
+                if (!match.Success) return false;
 
-                Group artist = match.Groups["artist"];
-                Group song = match.Groups["title"];
-                if (!artist.Success || !song.Success) return title;
+                Group artistGroup = match.Groups["artist"];
+                Group titleGroup = match.Groups["title"];
+                if (!artistGroup.Success || !titleGroup.Success) return false;
 
-                string artistText = artist.Value.Trim();
-                string songText = song.Value.Trim();
-                return string.IsNullOrEmpty(artistText) || string.IsNullOrEmpty(songText)
-                    ? title
-                    : artistText + " - " + songText;
+                artist = artistGroup.Value.Trim();
+                song = titleGroup.Value.Trim();
+                return !string.IsNullOrEmpty(artist) && !string.IsNullOrEmpty(song);
             }
 
             int Find(int rate)
@@ -236,11 +246,24 @@ namespace SlopWorld
         // put the station straight back on: the music stopped for a second and returned.
         static bool _quit;
 
-        // What the station says it is playing. The daemon's, not a setting: it is true for
-        // the next three minutes and belongs to nothing that outlives the process.
-        static string _title;
+        // The daemon's raw title. It is deliberately kept beside the recognized override so a
+        // like can record what the station actually sent, without regex normalization leaking
+        // into the history.
+        static string _rawTitle;
+        static bool _playing;
+        static string _recognizedArtist;
+        static string _recognizedTitle;
+        static int _trackVersion;
 
-
+        // Recognition is a background lookup; the gate serialises its state across the worker
+        // thread and the UI. Input and error are kept for the UI to make the operation legible:
+        // where it listened, and why it came back empty. The token source lets a cancel action
+        // stop a slow Shazam call.
+        static readonly object RecognitionGate = new object();
+        static bool _recognizing;
+        static string _recognitionInput;
+        static string _recognitionError;
+        static CancellationTokenSource _recognitionCancel;
 
         // A slider moved by a hair is not worth a packet.
         const float VolumeStep = 0.01f;
@@ -272,17 +295,80 @@ namespace SlopWorld
         // "Artist - Song", or null when there is nothing to say: muted, or a station that
         // has not named itself yet - a title is spliced into the audio and so arrives a
         // second or two behind the pick, and never at all if the host stops sending
-        // `icy-metaint`. The daemon names the OST file it is currently feeding.
+        // `icy-metaint`. A successful SongRec lookup temporarily supplies the artist/title
+        // pair; the station's raw title remains available to Like.
         public static string NowPlaying
         {
             get
             {
                 Read();
                 if (_muted) return null;
-                return _station != null
-                    ? FormatTitle(_station, _title)
-                    : string.IsNullOrEmpty(_title) ? "Terry Fail - OST" : "Terry Fail - " + _title;
+                if (HasRecognition()) return _recognizedArtist + " - " + _recognizedTitle;
+                return StationNowPlaying();
             }
+        }
+
+        // The station's own line, ignoring any recognition override, so the UI can show what
+        // the station reported beside what Shazam heard rather than silently replacing it.
+        static string StationNowPlaying()
+        {
+            return _station != null
+                ? FormatTitle(_station, _rawTitle)
+                : string.IsNullOrEmpty(_rawTitle)
+                    ? "Terry Fail - OST" : "Terry Fail - " + _rawTitle;
+        }
+
+        public static string Artist
+        {
+            get { Read(); string artist, title; CurrentParts(out artist, out title); return artist; }
+        }
+
+        public static string Title
+        {
+            get { Read(); string artist, title; CurrentParts(out artist, out title); return title; }
+        }
+
+        public static string Source
+        {
+            get { Read(); return SourceLabel(); }
+        }
+
+        // The UI's window onto the background lookup. Read under the gate because the worker
+        // thread writes them; each answers one question the recognizing state needs to show.
+        public static bool Recognizing
+        {
+            get { lock (RecognitionGate) return _recognizing; }
+        }
+
+        public static string RecognizingInput
+        {
+            get { lock (RecognitionGate) return _recognitionInput; }
+        }
+
+        public static string RecognitionError
+        {
+            get { lock (RecognitionGate) return _recognitionError; }
+        }
+
+        // Whether a Shazam lookup is currently overriding the station's line, and that line
+        // itself, so the UI can present the two provenances side by side.
+        public static bool Recognized
+        {
+            get { Read(); return HasRecognition(); }
+        }
+
+        public static string RecognizedLine
+        {
+            get
+            {
+                Read();
+                return HasRecognition() ? _recognizedArtist + " - " + _recognizedTitle : null;
+            }
+        }
+
+        public static string StationLine
+        {
+            get { Read(); return _muted ? null : StationNowPlaying(); }
         }
 
         // The like list is deliberately separate from profile settings: it belongs to the
@@ -301,12 +387,20 @@ namespace SlopWorld
             {
                 string path = LikesPath();
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
+                string artist;
+                string title;
+                CurrentParts(out artist, out title);
                 string stamp = DateTime.UtcNow.ToString(
                     "yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
                 File.AppendAllText(path,
                     "[[like]]" + Environment.NewLine +
                     "at = " + Toml.Quote(stamp) + Environment.NewLine +
-                    "title = " + Toml.Quote(now) + Environment.NewLine + Environment.NewLine);
+                    "source = " + Toml.Quote(SourceLabel()) + Environment.NewLine +
+                    "artist = " + Toml.Quote(artist) + Environment.NewLine +
+                    "title = " + Toml.Quote(title) + Environment.NewLine +
+                    "original_artist = " + Toml.Quote(OriginalArtist()) + Environment.NewLine +
+                    "original_title = " + Toml.Quote(_rawTitle) + Environment.NewLine +
+                    Environment.NewLine);
                 Messages.Message($"Jukebox: liked {now}", MessageTypeDefOf.TaskCompletion, false);
             }
             catch (Exception e)
@@ -323,6 +417,153 @@ namespace SlopWorld
                 root = Path.Combine(Environment.GetFolderPath(
                     Environment.SpecialFolder.UserProfile), ".local", "share");
             return Path.Combine(root, "slopworld", "jukebox.toml");
+        }
+
+        // Start one lookup at a time. SongRecognizer owns the capture device, the child process,
+        // its JSON and its timeout; this keeps it off the Unity thread so a slow Shazam response
+        // cannot freeze the game, and binds the result to the track that was heard. Duplicate
+        // requests are refused rather than queued: two Shazam calls on one song help nobody.
+        public static void Recognize()
+        {
+            Read();
+            if (_muted || !_playing || string.IsNullOrEmpty(NowPlaying))
+            {
+                SlopWidgets.Fail("nothing is playing");
+                return;
+            }
+
+            int version;
+            string source;
+            CancellationToken token;
+            lock (RecognitionGate)
+            {
+                if (_recognizing)
+                {
+                    SlopWidgets.Fail("recognition is already running");
+                    return;
+                }
+                _recognizing = true;
+                _recognitionError = null;
+                _recognitionInput = null;
+                _recognitionCancel = new CancellationTokenSource();
+                token = _recognitionCancel.Token;
+                version = _trackVersion;
+                source = SourceLabel();
+            }
+
+            Messages.Message("Jukebox: recognizing...", MessageTypeDefOf.NeutralEvent, false);
+            ThreadPool.QueueUserWorkItem(_ => RunRecognition(version, source, token));
+        }
+
+        // Cancel an in-flight lookup. The worker's result then comes back Canceled and is
+        // dropped without a toast, because the player already knows they stopped it.
+        public static void CancelRecognition()
+        {
+            CancellationTokenSource cancel;
+            lock (RecognitionGate)
+            {
+                if (!_recognizing || _recognitionCancel == null) return;
+                cancel = _recognitionCancel;
+            }
+            try { cancel.Cancel(); } catch { }
+        }
+
+        static void RunRecognition(int version, string source, CancellationToken token)
+        {
+            var recognizer = new SongRecognizer(new SystemProcessRunner());
+            RecognitionResult result;
+            try
+            {
+                // Choose the input first and publish its label so the recognizing state can
+                // name where it is listening while the slow lookup runs.
+                AudioInput input = recognizer.SelectInput(token);
+                SlopClient.OnMainThread(() => SetRecognitionInput(input.Label));
+                result = recognizer.Recognize(input, token);
+            }
+            catch (Exception e)
+            {
+                result = new RecognitionResult
+                {
+                    Status = RecognitionStatus.Error,
+                    Message = e.Message,
+                };
+            }
+
+            SlopClient.OnMainThread(() => FinishRecognition(version, source, result));
+        }
+
+        static void SetRecognitionInput(string label)
+        {
+            lock (RecognitionGate)
+                if (_recognizing) _recognitionInput = label;
+        }
+
+        // Apply a result only if it still belongs to what is playing: SongRec heard a snippet,
+        // and by the time it answers the station may have moved on or the source been switched.
+        static void FinishRecognition(int version, string source, RecognitionResult result)
+        {
+            lock (RecognitionGate)
+            {
+                _recognizing = false;
+                _recognitionCancel?.Dispose();
+                _recognitionCancel = null;
+                if (result != null && !string.IsNullOrEmpty(result.Input))
+                    _recognitionInput = result.Input;
+            }
+
+            if (result == null || result.Status == RecognitionStatus.Canceled) return;
+
+            if (version != _trackVersion || source != SourceLabel())
+            {
+                SetRecognitionError("track changed before recognition finished");
+                return;
+            }
+            if (!result.Ok)
+            {
+                SetRecognitionError(string.IsNullOrEmpty(result.Message)
+                    ? "recognition failed" : result.Message);
+                return;
+            }
+
+            lock (RecognitionGate) _recognitionError = null;
+            _recognizedArtist = result.Artist;
+            _recognizedTitle = result.Title;
+            Messages.Message("Jukebox: recognized " + _recognizedArtist + " - "
+                + _recognizedTitle, MessageTypeDefOf.TaskCompletion, false);
+        }
+
+        static void SetRecognitionError(string message)
+        {
+            lock (RecognitionGate) _recognitionError = message;
+            SlopWidgets.Fail(message);
+        }
+
+        static bool HasRecognition() => !string.IsNullOrEmpty(_recognizedArtist)
+            && !string.IsNullOrEmpty(_recognizedTitle);
+
+        static string SourceLabel() => _station == null ? "SlopWorld OST" : _station.Name;
+
+        static string OriginalArtist() => "";
+
+        static void CurrentParts(out string artist, out string title)
+        {
+            if (HasRecognition())
+            {
+                artist = _recognizedArtist;
+                title = _recognizedTitle;
+                return;
+            }
+
+            if (_station != null)
+            {
+                if (_station.TryTitleParts(_rawTitle, out artist, out title)) return;
+                artist = "";
+                title = _rawTitle;
+                return;
+            }
+
+            artist = "Terry Fail";
+            title = string.IsNullOrEmpty(_rawTitle) ? "OST" : _rawTitle;
         }
 
         // A station may provide metadata.title_regex with named `artist` and `title` groups.
@@ -514,7 +755,15 @@ namespace SlopWorld
             // The station's own, spliced into its audio and unpicked out there: it arrives
             // a second or so after a pick and changes on its own thereafter. Taken even
             // while muted, the mute being about the speakers rather than about the wire.
-            _title = string.IsNullOrEmpty(title) ? null : title;
+            string raw = string.IsNullOrEmpty(title) ? null : title;
+            if (_rawTitle != raw)
+            {
+                _rawTitle = raw;
+                _recognizedArtist = null;
+                _recognizedTitle = null;
+                _trackVersion++;
+            }
+            _playing = playing;
 
             // Muted, "not playing" is the answer that was asked for, and the error beside
             // it is whatever last went wrong before the box was turned off.
@@ -556,7 +805,11 @@ namespace SlopWorld
         static void Push()
         {
             _told = false;
-            _title = null;
+            _playing = false;
+            _rawTitle = null;
+            _recognizedArtist = null;
+            _recognizedTitle = null;
+            _trackVersion++;
         }
 
         // Saved as "station-id:stream-key" - or "ost". The stream key keeps the setting

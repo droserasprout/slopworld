@@ -63,7 +63,22 @@ matching `SlopWorld_` defs, which nothing plays while `Radio` holds the music ma
 disabled; what moving the tracks out would save is [startup-time](startup-time.md).
 `split_ost.py` stages exports; `install_ost.py` installs them and updates the catalog.
 
-Like appends a `[[like]]` table with `at` and `title` fields to
-`$XDG_DATA_HOME/slopworld/jukebox.toml`. Storage settings has a button to open it in the
-configured editor. The map texture is generated with
-`tools/emoji.py`; it is unrelated to station configuration.
+Like appends a `[[like]]` table with `at`, `source`, effective `artist`/`title`, and raw
+`original_artist`/`original_title` fields to `$XDG_DATA_HOME/slopworld/jukebox.toml`.
+Because ICY supplies one raw title string, `original_artist` is empty until a source supplies
+structured artist metadata; the raw station string is always retained in `original_title`.
+Recognition lives in `SongRecognizer` (Sim/), a Unity-free service with an injected process
+runner so its device pick, JSON, timeout and cancellation are unit-tested with a fake. It runs
+`songrec` with a 30-second timeout, selecting the current PipeWire/Pulse default sink's
+`.monitor` source when `pactl` names one and falling back to SongRec's default input otherwise.
+`Radio` runs it off the Unity thread, refuses a second concurrent lookup, and applies the result
+only when the source and track generation still match. The UI (Jukebox menu, palette, audio
+page) shows a transient recognizing state that names the input and can be cancelled or retried,
+and presents the recognized pair beside the station's own line rather than replacing it.
+`History` opens a maximized, newest-first table with search, per-field copy, a detail panel for
+long original metadata, local-time stamps and empty/error states; its file reader is
+`JukeboxHistory` (UI/), kept apart from rendering and sharing one reading of the format with
+`tools/migrate_jukebox.py`, which converts old files to `./jukebox.new.toml` and never
+overwrites it without `--force`. Storage settings has a button to open the likes file in the
+configured editor. The map texture is generated with `tools/emoji.py`; it is unrelated to
+station configuration.

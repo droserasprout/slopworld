@@ -50,11 +50,32 @@ namespace SlopWorld
             TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
             {
                 new SlopSubmenu(PlayRow(), StationOptions),
+                RecognizeRow(),
                 new FloatMenuOption("Like", Radio.Like),
+                new FloatMenuOption("History", JukeboxHistoryView.Open),
                 SlopWidgets.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
                 SlopWidgets.MenuToggle("Stop on exit", Radio.StopOnExit, Radio.ToggleStopOnExit),
                 new FloatMenuOption("Settings", SlopOptions.OpenAudioTab),
             }));
+        }
+
+        // While a lookup runs the row cancels it and names the input; otherwise it starts one,
+        // offering a retry when the last attempt left an error behind. A float menu is a
+        // snapshot, so this reflects the state at the moment the menu was opened.
+        static FloatMenuOption RecognizeRow()
+        {
+            if (Radio.Recognizing)
+            {
+                string input = Radio.RecognizingInput;
+                string label = string.IsNullOrEmpty(input)
+                    ? "Cancel recognizing\u2026"
+                    : "Cancel recognizing (" + input + ")";
+                return new FloatMenuOption(label, Radio.CancelRecognition);
+            }
+
+            return new FloatMenuOption(
+                string.IsNullOrEmpty(Radio.RecognitionError) ? "Recognize" : "Recognize (retry)",
+                Radio.Recognize);
         }
 
         // Hover text names the current track; empty/muted playback has no tooltip.
