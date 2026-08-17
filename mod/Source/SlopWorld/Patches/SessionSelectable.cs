@@ -282,6 +282,11 @@ namespace SlopWorld
     [HarmonyPatch(typeof(MapGizmoUtility), nameof(MapGizmoUtility.MapUIOnGUI))]
     public static class Patch_MapUIOnGUI_SessionSelection
     {
+        // MapUIOnGUI owns the bottom action-button pass. The rest of the map chrome already
+        // follows Cutscene.Playing, so stop this pass too rather than leaving selected-session
+        // gizmos visible (and clickable) over a scene.
+        static bool Prefix() => !Cutscene.Playing;
+
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) =>
             SessionGizmoSelection.InjectIntoMapUI(instructions);
     }
