@@ -25,7 +25,8 @@
 - **`SlopScenario`** removes Crashlanded starting assets. **`RobotFace`** supplies
   dynamic agent render nodes, metal skin, generated looks and reroll actions;
   `tools/roboface.py` bakes its textures.
-- **`StatusOverlay`**, **`QuickStart`** and **`SlopDefOf`** provide the remaining glue.
+- **`StatusOverlay`** remains as an empty compatibility component; agent map names carry
+  state colors now. **`QuickStart`** and **`SlopDefOf`** provide the remaining glue.
 
 An exception in `AgentColony.GameComponentTick` aborts the whole reconcile, not just
 one pawn.
