@@ -69,8 +69,8 @@ namespace SlopWorld
             GUI.color = Mouse.IsOver(likes) ? Color.white : SlopWidgets.Dim;
             Widgets.ThingIcon(likes, SlopDefOf.SlopJukebox);
             GUI.color = was;
-            TooltipHandler.TipRegion(likes, "Open liked songs in an editor.");
-            if (Widgets.ButtonInvisible(likes)) EditLikes();
+            TooltipHandler.TipRegion(likes, "Open jukebox history.");
+            if (Widgets.ButtonInvisible(likes)) JukeboxHistoryView.Open();
 
             var body = SlopWidgets.PageBody(rect);
             SlopWidgets.Card(body);

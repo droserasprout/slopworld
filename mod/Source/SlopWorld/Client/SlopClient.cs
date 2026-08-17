@@ -32,6 +32,13 @@ namespace SlopWorld
                                   Action<string> fail = null) =>
             Send("DELETE", path, body ?? "{}", ok, fail);
 
+        // Background integrations use the same completion lane as HTTP so their callbacks
+        // can safely update Unity and RimWorld state.
+        public static void OnMainThread(Action action)
+        {
+            if (action != null) Completions.Enqueue(action);
+        }
+
         public static void Send(string method, string path, string body,
                                 Action<JVal> ok, Action<string> fail)
         {
