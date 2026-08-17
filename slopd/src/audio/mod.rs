@@ -119,6 +119,16 @@ fn run(rx: Receiver<Cmd>, state: Arc<Mutex<AudioState>>) {
     while let Ok(cmd) = rx.recv() {
         match cmd {
             Cmd::Play { source, volume } => {
+                // A reconnecting game replays its selection after the daemon has already
+                // accepted it. Keep the existing feeder and playlist in that case: opening
+                // the same directory or stream again would reset its position.
+                if let Some((_, player)) = device.as_ref() {
+                    if active_source(&state, &source) {
+                        player.set_volume(volume);
+                        state.lock().unwrap_or_else(|p| p.into_inner()).volume = volume;
+                        continue;
+                    }
+                }
                 GENERATION.fetch_add(1, Ordering::SeqCst);
 
                 if device.is_none() {
@@ -175,6 +185,11 @@ fn run(rx: Receiver<Cmd>, state: Arc<Mutex<AudioState>>) {
     }
 }
 
+fn active_source(state: &Arc<Mutex<AudioState>>, source: &str) -> bool {
+    let s = state.lock().unwrap_or_else(|p| p.into_inner());
+    s.playing && s.source.as_deref() == Some(source)
+}
+
 fn fail(state: &Arc<Mutex<AudioState>>, why: String) {
     tracing::warn!("audio: {why}");
     let mut s = state.lock().unwrap_or_else(|p| p.into_inner());
@@ -222,6 +237,21 @@ mod tests {
     use std::sync::mpsc::{sync_channel, SyncSender};
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
+
+    #[test]
+    fn active_source_only_matches_the_current_playing_source() {
+        let state = Arc::new(Mutex::new(AudioState {
+            playing: true,
+            source: Some("same".to_string()),
+            ..Default::default()
+        }));
+
+        assert!(super::active_source(&state, "same"));
+        assert!(!super::active_source(&state, "other"));
+
+        state.lock().unwrap().playing = false;
+        assert!(!super::active_source(&state, "same"));
+    }
 
     fn ring() -> (SyncSender<Vec<Sample>>, Ring) {
         let (tx, rx) = sync_channel(RING);

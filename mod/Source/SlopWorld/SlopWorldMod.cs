@@ -127,10 +127,9 @@ namespace SlopWorld
         public bool statusbarJukebox = true;
         public bool statusbarGM = true;
 
-        // Whether the daemon is told to go quiet on the way out. On by default: slopd
-        // outlives the game, and music playing on a machine with nothing on screen to stop
-        // it from is the surprise, not the feature.
-        public bool radioStopOnExit = true;
+        // Whether the daemon is told to go quiet on the way out. Off by default because slopd
+        // outlives the game and should carry the jukebox through a game restart.
+        public bool radioStopOnExit;
 
         // Grandma mode removes gore, harmful tips, and destructive/easter-egg effects; the
         // background becomes sparkles/rainbows and plague arrivals grow flowers.

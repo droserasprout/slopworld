@@ -223,7 +223,7 @@ namespace SlopWorld
         // Null is the OST, which is the one thing played that is not a station.
         static Station _station;
         static bool _muted;
-        static bool _stopOnExit = true;
+        static bool _stopOnExit;
 
         // The settings string is read once, because the mod's settings are not loaded when
         // this class is first touched.
