@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -97,6 +99,18 @@ namespace SlopWorld
                 SlopWidgets.Note(l, "How far the picture behind the agents is taken down. At zero it is " +
                         "the menu's own background at full strength.");
                 if (dim != s.ecoDim) { s.ecoDim = dim; s.MarkDirty(); }
+            }
+
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "RimWorld");
+            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+                    "TemperatureMode".Translate() + ": " + Prefs.TemperatureMode.ToStringHuman()))
+            {
+                Find.WindowStack.Add(new SlopMenu(Enum.GetValues(typeof(TemperatureDisplayMode))
+                    .Cast<TemperatureDisplayMode>()
+                    .Select(mode => new FloatMenuOption(mode.ToStringHuman(),
+                        () => Prefs.TemperatureMode = mode))
+                    .ToList()));
             }
 
             _fieldsH = l.CurHeight + SlopWidgets.GapS;

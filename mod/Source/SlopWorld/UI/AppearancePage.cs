@@ -64,6 +64,7 @@ namespace SlopWorld
         {
             float y = rect.y;
             y += DrawScale(new Rect(rect.x, y, rect.width, 4000f));
+            y += DrawInterface(new Rect(rect.x, y, rect.width, 4000f));
             y += DrawScheme(new Rect(rect.x, y, rect.width, 4000f));
             y += DrawFont(new Rect(rect.x, y, rect.width, 4000f));
             y += DrawCursor(new Rect(rect.x, y, rect.width, 4000f));
@@ -99,6 +100,30 @@ namespace SlopWorld
             bool fullscreen = SlopWidgets.Checkbox(l, "Fullscreen", S.fullscreen,
                 "Use window-manager fullscreen without changing Unity's render mode.");
             if (fullscreen != S.fullscreen) WindowMaximizer.Set(fullscreen);
+            l.Gap(SlopWidgets.GapM);
+
+            float used = l.CurHeight;
+            l.End();
+            return used;
+        }
+
+        float DrawInterface(Rect rect)
+        {
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(rect);
+
+            bool disableTiny = SlopWidgets.Checkbox(l, "DisableTinyText".Translate(),
+                Prefs.DisableTinyText,
+                "Use the Small font everywhere instead of the game's Tiny font.");
+            if (disableTiny != Prefs.DisableTinyText)
+            {
+                Prefs.DisableTinyText = disableTiny;
+                Widgets.ClearLabelCache();
+                GenUI.ClearLabelWidthCache();
+                if (Current.ProgramState == ProgramState.Playing)
+                    Find.ColonistBar.drawer.ClearLabelCache();
+            }
+
             l.Gap(SlopWidgets.GapM);
 
             float used = l.CurHeight;
