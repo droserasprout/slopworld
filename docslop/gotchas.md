@@ -12,7 +12,7 @@
 - Draw order is map interface, window `ExtraOnGUI`, then window contents. The terminal
   fills the screen, so over-pane UI belongs in `DoWindowContents` after the fill.
   F11 does not hide map components, window extras or map overlays; ask `SlopLayout.Hidden`
-  except for intentional overlays such as `StatusOverlay`.
+  except for intentional overlays such as `CoreTip`.
 - Keyboard dispatch precedes component input when a window absorbs keys. Read a hotkey
   in the window too if it must work there. An absorbing window also blocks lower-window
   `MouseDown`; sample `Input.GetMouseButton*`, latch drags through offscreen release,

@@ -500,6 +500,34 @@ namespace SlopWorld
                 typeof(bool) })]
     public static class Patch_SidebarPawnLabel
     {
-        static bool Prefix() => !AgentSidebar.Drawing;
+        static bool Prefix(Pawn pawn) => !AgentSidebar.Drawing && !PlayerPawn.IsPlayer(pawn);
+    }
+
+    // GenMapUI has a second overload that accepts the final background rect. Keep the player
+    // label hidden when another map path enters at that overload directly.
+    [HarmonyLib.HarmonyPatch(typeof(GenMapUI), nameof(GenMapUI.DrawPawnLabel),
+        new[] { typeof(Pawn), typeof(Rect), typeof(float), typeof(float),
+                typeof(Dictionary<string, string>), typeof(GameFont), typeof(bool),
+                typeof(bool) })]
+    public static class Patch_SidebarPawnLabelRect
+    {
+        static bool Prefix(Pawn pawn) => !AgentSidebar.Drawing && !PlayerPawn.IsPlayer(pawn);
+    }
+
+    // Vanilla asks this utility for the map name color. Reuse the state palette already used
+    // by the sidebar and terminal, so a name remains useful after the state word is gone.
+    [HarmonyLib.HarmonyPatch(typeof(PawnNameColorUtility), nameof(PawnNameColorUtility.PawnNameColorOf))]
+    public static class Patch_AgentPawnNameColor
+    {
+        static void Postfix(Pawn pawn, ref Color __result)
+        {
+            if (!AgentColony.IsAgent(pawn)) return;
+
+            string session = AgentColony.Current?.SessionOf(pawn);
+            var state = session == null
+                ? AgentState.Down
+                : SessionHub.Instance.Get(session)?.State ?? AgentState.Down;
+            __result = TerminalWindow.StateColor(state);
+        }
     }
 }

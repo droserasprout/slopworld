@@ -36,7 +36,7 @@ What it does, one owner each:
   A prefix on `Pawn.DrawGUIOverlay` keeps the agents' and drops the rest, which
   would otherwise be words hanging in the picture with nothing under them.
 - **The map's cosmetics**: `Eco.Bare` (`Cutscene.Playing || Resting`) is what
-  `StatusOverlay`, `CoreTip` and `Jukebox` ask - the agents and the column say
+  `CoreTip` and `Jukebox` ask - the agents' name colors and the column say
   between them what a state plate would. `UsageReadout` keeps asking
   `Cutscene.Playing` alone: the top bar is chrome, and in eco it is most of what is
   left.
