@@ -75,6 +75,9 @@ namespace SlopWorld
         /// The radio set that comes down with the first clanker.
         public static ThingDef SlopJukebox;
 
+        /// The player pawn's fireball projectile.
+        public static ThingDef SlopFireball;
+
         // Not on SoundDefOf - vanilla only ever reaches it through a LetterDef - so it
         // gets a field here.
         public static SoundDef LetterArrive_BadUrgent;
