@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
@@ -500,7 +501,21 @@ namespace SlopWorld
                 typeof(bool) })]
     public static class Patch_SidebarPawnLabel
     {
-        static bool Prefix(Pawn pawn) => !AgentSidebar.Drawing && !PlayerPawn.IsPlayer(pawn);
+        // The map label rect is deliberately much taller than one line. With a custom large
+        // font, Widgets.Label's default wrapping turns a pawn name into a two-line label.
+        // Keep map names single-line, and restore the shared text state even if drawing fails.
+        static bool Prefix(Pawn pawn, out bool __state)
+        {
+            __state = Text.WordWrap;
+            Text.WordWrap = false;
+            return !AgentSidebar.Drawing && !PlayerPawn.IsPlayer(pawn);
+        }
+
+        static Exception Finalizer(Exception __exception, bool __state)
+        {
+            Text.WordWrap = __state;
+            return __exception;
+        }
     }
 
     // GenMapUI has a second overload that accepts the final background rect. Keep the player
@@ -511,7 +526,18 @@ namespace SlopWorld
                 typeof(bool) })]
     public static class Patch_SidebarPawnLabelRect
     {
-        static bool Prefix(Pawn pawn) => !AgentSidebar.Drawing && !PlayerPawn.IsPlayer(pawn);
+        static bool Prefix(Pawn pawn, out bool __state)
+        {
+            __state = Text.WordWrap;
+            Text.WordWrap = false;
+            return !AgentSidebar.Drawing && !PlayerPawn.IsPlayer(pawn);
+        }
+
+        static Exception Finalizer(Exception __exception, bool __state)
+        {
+            Text.WordWrap = __state;
+            return __exception;
+        }
     }
 
     // Vanilla asks this utility for the map name color. Reuse the state palette already used
