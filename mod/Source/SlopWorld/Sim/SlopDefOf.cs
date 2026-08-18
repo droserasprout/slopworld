@@ -78,6 +78,9 @@ namespace SlopWorld
         /// The player pawn's fireball projectile.
         public static ThingDef SlopFireball;
 
+        /// The player pawn's water-ball projectile.
+        public static ThingDef SlopWaterBall;
+
         // Not on SoundDefOf - vanilla only ever reaches it through a LetterDef - so it
         // gets a field here.
         public static SoundDef LetterArrive_BadUrgent;

@@ -10,11 +10,15 @@ namespace SlopWorld
         const int RetargetFrames = 15;
         const float MinRetargetDist = 3f;
         const float FireballCooldown = 0.5f;
+        const float AutopilotIdleDelay = 10f;
 
         Pawn _pawn;
         IntVec3 _lastTarget;
+        IntVec3 _lastCameraCenter;
         int _frame;
-        float _lastFireball;
+        float _lastAction;
+        float _autopilotResumeAt;
+        bool _autopilotPathing;
 
         readonly Game _game;
 
@@ -46,8 +50,23 @@ namespace SlopWorld
             if (_pawn == null || !_pawn.Spawned) return;
             if (_pawn.Map != map) return;
 
+            var now = Time.realtimeSinceStartup;
+            var centre = Find.CameraDriver.CurrentViewRect.CenterCell;
+            if (_lastCameraCenter.IsValid
+                && centre.InBounds(map)
+                && centre.DistanceTo(_lastCameraCenter) >= MinRetargetDist)
+                _autopilotResumeAt = now + AutopilotIdleDelay;
+            if (centre.InBounds(map)) _lastCameraCenter = centre;
+
+            if (_autopilotPathing && _pawn.CurJobDef != JobDefOf.Goto)
+            {
+                _autopilotPathing = false;
+                _autopilotResumeAt = now + AutopilotIdleDelay;
+            }
+
             if (++_frame < RetargetFrames) return;
             _frame = 0;
+            if (now < _autopilotResumeAt) return;
 
             WalkToCenter();
         }
@@ -61,11 +80,15 @@ namespace SlopWorld
 
             var e = Event.current;
             if (e.type != EventType.KeyDown) return;
-            if (e.keyCode != KeyCode.Alpha1) return;
+            if (e.keyCode != KeyCode.Alpha1 && e.keyCode != KeyCode.Alpha2
+                && e.keyCode != KeyCode.Alpha3) return;
             if (e.alt || e.control || e.shift || e.command) return;
 
             e.Use();
-            CastFireball();
+            _autopilotResumeAt = Time.realtimeSinceStartup + AutopilotIdleDelay;
+            if (e.keyCode == KeyCode.Alpha1) CastFireball();
+            else if (e.keyCode == KeyCode.Alpha2) CastWaterBall();
+            else TeleportToCursor();
         }
 
         void EnsurePawn(Map map)
@@ -110,6 +133,7 @@ namespace SlopWorld
             var job = JobMaker.MakeJob(JobDefOf.Goto, target);
             job.locomotionUrgency = LocomotionUrgency.Jog;
             _pawn.jobs?.StartJob(job, JobCondition.InterruptForced);
+            _autopilotPathing = true;
         }
 
         static IntVec3 Walkable(Map map, IntVec3 near)
@@ -125,9 +149,39 @@ namespace SlopWorld
 
         void CastFireball()
         {
+            Cast(SlopDefOf.SlopFireball);
+        }
+
+        void CastWaterBall()
+        {
+            Cast(SlopDefOf.SlopWaterBall);
+        }
+
+        void TeleportToCursor()
+        {
+            var map = _pawn.Map;
+            if (map == null || map != Find.CurrentMap) return;
+
+            var target = UI.MouseMapPosition().ToIntVec3();
+            if (!target.InBounds(map)) return;
+
+            target = Walkable(map, target);
+            if (!target.IsValid) return;
+
+            _pawn.Position = target;
+            _pawn.Notify_Teleported();
+            _autopilotPathing = false;
+
+            // The normal follow-camera job should not immediately undo the teleport.
+            var centre = Find.CameraDriver.CurrentViewRect.CenterCell;
+            if (centre.InBounds(map)) _lastTarget = centre;
+        }
+
+        void Cast(ThingDef projectileDef)
+        {
             float now = Time.realtimeSinceStartup;
-            if (now - _lastFireball < FireballCooldown) return;
-            _lastFireball = now;
+            if (now - _lastAction < FireballCooldown) return;
+            _lastAction = now;
 
             var map = _pawn.Map;
             if (map == null || map != Find.CurrentMap) return;
@@ -137,7 +191,7 @@ namespace SlopWorld
             if (!targetCell.InBounds(map)) return;
 
             var projectile = (Projectile)GenSpawn.Spawn(
-                SlopDefOf.SlopFireball, _pawn.Position, map);
+                projectileDef, _pawn.Position, map);
             projectile.Launch(
                 _pawn,
                 _pawn.DrawPos,
