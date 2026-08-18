@@ -9,7 +9,8 @@ namespace SlopWorld
 {
     // The two remaining ways to "play" a pawn: selecting scenery, and drafting.
 
-    // Gate Selector.Select so colonists remain selectable, colony animals are petted without selection, and cutscenes block all pawn selection.
+    // Gate Selector.Select so agent colonists remain selectable, the player pawn and colony
+    // animals are not selected, and cutscenes block all pawn selection.
     [HarmonyPatch(typeof(Selector), nameof(Selector.Select))]
     public static class Patch_Selectable_ColonistsOnly
     {
@@ -17,6 +18,7 @@ namespace SlopWorld
         {
             if (Cutscene.Playing) return false;
             if (!(obj is Pawn p)) return false;
+            if (PlayerPawn.IsPlayer(p)) return false;
             if (p.IsColonist)
             {
                 var selector = Find.Selector;
@@ -46,7 +48,7 @@ namespace SlopWorld
 
             int agents = bar.MapColonistsOrCorpsesInScreenRect(dragBox.ScreenRect)
                 .OfType<Pawn>()
-                .Count(p => p.IsColonist);
+                .Count(p => p.IsColonist && !PlayerPawn.IsPlayer(p));
             return agents < 2;
         }
     }
