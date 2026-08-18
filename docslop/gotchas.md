@@ -28,7 +28,8 @@
   rect and `maxOneColumn = true`.
 - Missing glyphs still advance a line; test with `Font.HasCharacter` and replace them
   before drawing. Dynamic fonts and generated textures need `DontUnloadUnusedAsset`.
-  Bake replacement fonts at display size and use `SlopUIFont`/`RowLabel`; snap labels
+  `SlopUIFont` supplies bottom safety space and overflow clipping for label/field styles;
+  bake replacement fonts at display size and use `SlopUIFont`/`RowLabel`; snap labels
   with `Slab.SnapY`.
 - `Prefs.UIScale` is reset by a resolution watchdog. `UnlockUIScale` removes vanilla's
   cap, but the slider must apply on release because live scale moves the track.
