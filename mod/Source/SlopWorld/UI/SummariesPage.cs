@@ -29,11 +29,7 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            SlopWidgets.PageCaption(rect,
-                "What each agent's sessions are named after, and who names them.");
-
             var body = SlopWidgets.PageBody(rect);
-            SlopWidgets.Card(body);
             DoFields(body.ContractedBy(SlopWidgets.GapM));
 
             DoFooter(SlopWidgets.FooterBar(rect));

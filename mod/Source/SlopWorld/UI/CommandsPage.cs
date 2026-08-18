@@ -15,9 +15,6 @@ namespace SlopWorld
         bool _agentCustom, _shellCustom, _pagerCustom, _editorCustom;
         bool _highlighterCustom, _openerCustom;
 
-        protected override string Caption =>
-            "Defaults for sessions, file viewers, editors and desktop links.";
-
         protected override string SavedMessage => "command settings saved.";
 
         class Choice

@@ -6,8 +6,6 @@ namespace SlopWorld
 {
     public class IntegrationsPage : ListEditorPage
     {
-        protected override string Caption => "Credentials used by the daemon.";
-
         protected override string SavedMessage => "integration settings saved.";
 
         protected override void DrawFields(Listing_Standard l)

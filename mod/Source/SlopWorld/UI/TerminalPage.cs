@@ -22,14 +22,11 @@ namespace SlopWorld
             var s = S;
             Text.Font = GameFont.Small;
 
-            SlopWidgets.PageCaption(rect, "The pane's look - font, palette and cursor.");
-
             // The one page of the four with no footer - nothing here is saved by a press, the
             // settings file is written when the dialog closes - so its body takes the bar's
             // room as well.
             var body = SlopWidgets.PageBody(rect);
             body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
-            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             // Taken first: the cell size the preview is laid out from is settled inside the
@@ -89,16 +86,12 @@ namespace SlopWorld
                         s.MarkDirty();
                     }),
                 };
-                foreach (var name in TerminalFont.Mono)
+                opts.AddRange(SlopWidgets.GroupedFontOptions(TerminalFont.Mono, name =>
                 {
-                    var picked = name;
-                    opts.Add(new FloatMenuOption(picked, () =>
-                    {
-                        s.fontName = picked;
-                        TerminalFont.Invalidate();
-                        s.MarkDirty();
-                    }));
-                }
+                    s.fontName = name;
+                    TerminalFont.Invalidate();
+                    s.MarkDirty();
+                }));
                 Find.WindowStack.Add(new SlopMenu(opts));
             }
 
