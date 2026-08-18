@@ -371,3 +371,204 @@ async fn send(tx: &WsTx, ev: &Event) -> Result<(), axum::Error> {
     let text = serde_json::to_string(ev).unwrap_or_default();
     tx.lock().await.send(Message::Text(text)).await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::grant::Grant;
+    use crate::session::{ScreenView, SessionView, State};
+    use std::collections::HashSet;
+
+    /// The only field `scope_event` reads off a session is its name, so the rest is filler that
+    /// keeps a `SessionView` compiling without pulling in a whole live manager.
+    fn view(name: &str) -> SessionView {
+        SessionView {
+            name: name.to_string(),
+            label: String::new(),
+            project: String::new(),
+            dir: String::new(),
+            command: String::new(),
+            command_preset: String::new(),
+            cmd: None,
+            sandbox: Vec::new(),
+            breadcrumbs: Vec::new(),
+            breadcrumb_yolo: false,
+            breadcrumbs_pending: false,
+            agent: String::new(),
+            state: State::Idle,
+            alive: true,
+            cols: 80,
+            rows: 24,
+            network: Default::default(),
+            network_override: None,
+            dns: Default::default(),
+            dns_override: None,
+            limits: Default::default(),
+            limits_override: Default::default(),
+            autostart: false,
+            ephemeral: false,
+            last_change: 0,
+            state_since: 0,
+            title: String::new(),
+            bell: false,
+            seq: 0,
+        }
+    }
+
+    fn scoped(sessions: &[&str], level: Level) -> Cap {
+        Cap::Scoped(Grant {
+            grantor: "g".to_string(),
+            sessions: sessions
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<HashSet<_>>(),
+            level,
+        })
+    }
+
+    fn names(ev: &Event) -> Vec<String> {
+        match ev {
+            Event::Sessions { sessions } => sessions.iter().map(|s| s.name.clone()).collect(),
+            other => panic!("expected a sessions event, got {other:?}"),
+        }
+    }
+
+    /// Root is the mod: every event reaches it, and a session list is handed on whole.
+    #[test]
+    fn root_sees_every_event_unfiltered() {
+        let sessions = Event::Sessions {
+            sessions: vec![view("a"), view("b")],
+        };
+        assert_eq!(
+            names(&scope_event(&Cap::Root, sessions).expect("root keeps the event")),
+            vec!["a".to_string(), "b".to_string()]
+        );
+
+        // Categories a scoped grant never sees still reach root untouched.
+        for ev in [
+            Event::Projects {
+                projects: Vec::new(),
+            },
+            Event::Usage {
+                usage: Default::default(),
+            },
+            Event::Jukebox {
+                jukebox: Default::default(),
+            },
+        ] {
+            assert!(scope_event(&Cap::Root, ev).is_some());
+        }
+    }
+
+    /// A scoped grant's session list is cut down to the names it may see; the rest never
+    /// reach the socket, so the holder does not even learn they exist.
+    #[test]
+    fn a_scoped_grant_sees_only_the_sessions_it_names() {
+        let cap = scoped(&["a", "c"], Level::Ro);
+        let ev = Event::Sessions {
+            sessions: vec![view("a"), view("b"), view("c"), view("d")],
+        };
+        assert_eq!(
+            names(&scope_event(&cap, ev).expect("a filtered list is still an event")),
+            vec!["a".to_string(), "c".to_string()]
+        );
+    }
+
+    /// A grant that names nothing present gets an empty list rather than nothing at all - the
+    /// socket still hears that a sessions update happened.
+    #[test]
+    fn a_scoped_grant_with_no_matches_gets_an_empty_list() {
+        let cap = scoped(&["x"], Level::Rw);
+        let ev = Event::Sessions {
+            sessions: vec![view("a"), view("b")],
+        };
+        assert!(names(&scope_event(&cap, ev).expect("still an event")).is_empty());
+    }
+
+    /// The grant subscribes to a session's screen and must keep receiving it; screens are the
+    /// one non-session category a scoped socket is allowed to see.
+    #[test]
+    fn a_scoped_grant_still_receives_screens() {
+        let cap = scoped(&["a"], Level::Ro);
+        let screen = ScreenView {
+            name: "a".to_string(),
+            seq: 1,
+            cols: 80,
+            rows: 24,
+            cx: 0,
+            cy: 0,
+            off: 0,
+            cursor_shape: 0,
+            cursor_blink: false,
+            app_mouse: false,
+            app_drag: false,
+            alt_screen: false,
+            title: String::new(),
+            request_id: 0,
+            lines: Vec::new(),
+        };
+        assert!(scope_event(&cap, Event::Screen { screen }).is_some());
+    }
+
+    /// Everything that is neither a session nor a screen - projects, shortcuts, usage, audio,
+    /// the jukebox catalog - is host-wide state a scoped grant has no business seeing.
+    #[test]
+    fn a_scoped_grant_is_denied_host_wide_categories() {
+        let cap = scoped(&["a"], Level::Ro);
+        let denied = [
+            Event::Projects {
+                projects: Vec::new(),
+            },
+            Event::Shortcuts {
+                shortcuts: Vec::new(),
+            },
+            Event::Usage {
+                usage: Default::default(),
+            },
+            Event::Audio {
+                audio: Default::default(),
+            },
+            Event::Jukebox {
+                jukebox: Default::default(),
+            },
+        ];
+        for ev in denied {
+            assert!(scope_event(&cap, ev).is_none());
+        }
+    }
+
+    /// A jukebox pick names a station and a stream together, or names a plain file, and nothing
+    /// in between; a plain file passes straight through.
+    #[test]
+    fn resolve_audio_accepts_a_plain_file() {
+        let selection = AudioSelection {
+            station: None,
+            stream: None,
+            file: Some("/tmp/song.mp3".to_string()),
+        };
+        assert_eq!(resolve_audio_source(selection).unwrap(), "/tmp/song.mp3");
+    }
+
+    /// Every half-formed or contradictory combination is refused before it can reach a source.
+    #[test]
+    fn resolve_audio_rejects_malformed_selections() {
+        let cases = [
+            (None, None, None),
+            (Some("s"), None, None),
+            (None, Some("t"), None),
+            (Some("s"), Some("t"), Some("f")),
+            (None, Some("t"), Some("f")),
+        ];
+        for (station, stream, file) in cases {
+            let selection = AudioSelection {
+                station: station.map(str::to_string),
+                stream: stream.map(str::to_string),
+                file: file.map(str::to_string),
+            };
+            assert!(
+                resolve_audio_source(selection).is_err(),
+                "expected {station:?}/{stream:?}/{file:?} to be rejected"
+            );
+        }
+    }
+}
