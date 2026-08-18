@@ -124,16 +124,35 @@ namespace SlopWorld
         {
             var rows = new List<string>();
             foreach (var w in usage.Windows)
-                if (!rows.Contains(w.Key)) rows.Add(w.Key);
+                if (ItemPolled(w.Key) && !rows.Contains(w.Key)) rows.Add(w.Key);
 
             foreach (string seller in usage.Sources)
                 foreach (string key in Owed(seller))
-                    if (!rows.Contains(key)) Place(rows, key);
+                    if (ItemPolled(key) && !rows.Contains(key)) Place(rows, key);
 
             // Pollers answer independently, so arrival order is not display order. Keep the
             // shared pools in one fixed left-to-right run even when a source comes back late.
             rows.Sort((a, b) => Rank(a).CompareTo(Rank(b)));
             return rows;
+        }
+
+        // The daemon may still be holding a previous snapshot when a Settings row is toggled,
+        // and enabled sources also contribute placeholder rows. Filter both paths from the
+        // client-side config so the status bar reacts immediately instead of waiting for the
+        // next provider poll.
+        static bool ItemPolled(string key)
+        {
+            var cfg = SessionHub.Instance.Config;
+            if (cfg == null) return true;
+
+            if (cfg.UsageItems != null && cfg.UsageItems.TryGetValue(key, out var item)
+                && item != null)
+                return item.Poll;
+
+            if (key.StartsWith("claude_")) return cfg.Usage;
+            if (key.StartsWith("openrouter_")) return cfg.Openrouter;
+            if (key.StartsWith("openai_")) return cfg.Openai;
+            return true;
         }
 
         // The rows a seller is expected to answer with. Only the ones every account of that

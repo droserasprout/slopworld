@@ -19,6 +19,7 @@ namespace SlopWorld.Tests
 
             AssertEx.True(config.Usage, "usage default");
             AssertEx.Equal(60, config.UsagePollSecs, "usage poll default");
+            AssertEx.Equal(0, config.UsageItems.Count, "usage item defaults");
             AssertEx.Equal("~/.claude/.credentials.json", config.ClaudeCredentials,
                            "Claude credentials default");
             AssertEx.False(config.Openrouter, "OpenRouter default");
@@ -46,6 +47,19 @@ namespace SlopWorld.Tests
             {
                 Usage = false,
                 UsagePollSecs = 17,
+                UsageItems = new Dictionary<string, SlopConfig.UsageItemConfig>
+                {
+                    ["claude_session"] = new SlopConfig.UsageItemConfig
+                    {
+                        Poll = false,
+                        IntervalSecs = 15,
+                    },
+                    ["openrouter_balance"] = new SlopConfig.UsageItemConfig
+                    {
+                        Poll = true,
+                        IntervalSecs = 0,
+                    },
+                },
                 ClaudeCredentials = "~/.config/claude \"credentials\"",
                 Openrouter = true,
                 OpenrouterKeyFile = "/run/user/1000/openrouter.key",
@@ -66,6 +80,12 @@ namespace SlopWorld.Tests
 
             AssertEx.True(!actual.Usage, "usage round trip");
             AssertEx.Equal(expected.UsagePollSecs, actual.UsagePollSecs, "poll round trip");
+            AssertEx.False(actual.UsageItems["claude_session"].Poll,
+                           "usage item poll round trip");
+            AssertEx.Equal(15, actual.UsageItems["claude_session"].IntervalSecs,
+                           "usage item interval round trip");
+            AssertEx.Equal(0, actual.UsageItems["openrouter_balance"].IntervalSecs,
+                           "usage item inherited interval round trip");
             AssertEx.Equal(expected.ClaudeCredentials, actual.ClaudeCredentials,
                            "Claude credentials round trip");
             AssertEx.Equal(expected.Openrouter, actual.Openrouter, "OpenRouter round trip");

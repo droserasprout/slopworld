@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
 
 namespace SlopWorld
 {
@@ -14,6 +15,8 @@ namespace SlopWorld
         // A free-text mirror, so a half-typed number is not clamped out from under the
         // player mid-keystroke.
         string _pollSecs;
+        readonly Dictionary<string, string> _itemIntervals =
+            new Dictionary<string, string>();
 
         readonly SmoothScroll _scroll = new SmoothScroll();
         float _fieldsH;
@@ -30,6 +33,8 @@ namespace SlopWorld
                     _cfg = SlopConfig.FromJson(j["values"]);
                     SessionHub.Instance.Config = _cfg;
                     _pollSecs = _cfg.UsagePollSecs.ToString();
+                    _itemIntervals.Clear();
+                    EnsureBaseItems();
                     _loaded = true;
                     _error = null;
                 },
@@ -75,128 +80,149 @@ namespace SlopWorld
 
         float DrawUsageFields(Rect rect)
         {
-            float y = rect.y;
-            y += DrawAnthropic(new Rect(rect.x, y, rect.width, 4000f));
-            y += DrawOpenRouter(new Rect(rect.x, y, rect.width, 4000f));
-            y += DrawOpenAI(new Rect(rect.x, y, rect.width, 4000f));
-            y += DrawBoth(new Rect(rect.x, y, rect.width, 4000f));
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(new Rect(rect.x, rect.y, rect.width, 4000f));
+            SlopWidgets.SectionHeading(l, "Usage");
+            l.Label("Global poll interval (s)");
+            _pollSecs = SlopWidgets.Field(l, "usage.poll", _pollSecs);
+            SlopWidgets.Note(l, "Every row uses this interval unless its interval is set below. " +
+                "A failed poll backs off on its own, doubling to half an hour.");
+            float y = rect.y + l.CurHeight + SlopWidgets.GapM;
+            l.End();
+
+            y += DrawTable(new Rect(rect.x, y, rect.width, 4000f));
             return y - rect.y + SlopWidgets.GapS;
         }
 
-        float DrawAnthropic(Rect rect)
+        static readonly string[] BaseKeys =
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
+            "claude_session", "claude_week", "claude_spend",
+            "openrouter_balance", "openai_session", "openai_week",
+        };
 
-            SlopWidgets.SectionHeading(l, "Anthropic");
-            _cfg.Usage = SlopWidgets.Checkbox(l, "Poll Claude usage",
-                _cfg.Usage,
-                "The daemon reads the OAuth token Claude Code keeps on this machine and " +
-                "asks Anthropic. Off means it never touches that file.");
-            if (_cfg.Usage)
+        void EnsureBaseItems()
+        {
+            foreach (string key in BaseKeys)
+                EnsureItem(key);
+        }
+
+        SlopConfig.UsageItemConfig EnsureItem(string key)
+        {
+            if (!_cfg.UsageItems.TryGetValue(key, out var item) || item == null)
             {
-                l.Gap(SlopWidgets.GapM);
-                // The extra-usage row is here rather than under OpenRouter because it is the
-                // one Claude Code's own /usage answers with.
-                IconRow(l, "claude_session", "5-hour window");
-                IconRow(l, "claude_week", "Weekly limit");
-                // Any per-model weekly limits the daemon reports.
-                foreach (var key in LiveKeys())
-                    if (key.StartsWith("claude_week_"))
-                        IconRow(l, key, null);
-                IconRow(l, "claude_spend", "Extra usage");
+                item = new SlopConfig.UsageItemConfig { Poll = DefaultPoll(key) };
+                _cfg.UsageItems[key] = item;
             }
-            l.Gap(SlopWidgets.GapL);
 
-            float used = l.CurHeight;
-            l.End();
-            return used;
+            if (!_itemIntervals.ContainsKey(key))
+                _itemIntervals[key] = item.IntervalSecs > 0
+                    ? item.IntervalSecs.ToString()
+                    : "";
+            return item;
         }
 
-        float DrawOpenRouter(Rect rect)
+        bool DefaultPoll(string key)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
+            if (key.StartsWith("claude_")) return _cfg.Usage;
+            if (key.StartsWith("openrouter_")) return _cfg.Openrouter;
+            if (key.StartsWith("openai_")) return _cfg.Openai;
+            return false;
+        }
 
-            SlopWidgets.SectionHeading(l, "OpenRouter");
-            _cfg.Openrouter = SlopWidgets.Checkbox(l, "Poll credit balance",
-                _cfg.Openrouter,
-                "Credits bought less credits spent, which is what the pi agent draws down. " +
-                "Off means the daemon never reads the key and never calls OpenRouter.");
-            if (_cfg.Openrouter)
+        List<string> TableKeys()
+        {
+            var keys = new List<string>();
+            foreach (string key in BaseKeys) keys.Add(key);
+            foreach (var pair in _cfg.UsageItems)
+                if (!keys.Contains(pair.Key)) keys.Add(pair.Key);
+            foreach (var w in SessionHub.Instance.Usage.Windows)
+                if (!keys.Contains(w.Key)) keys.Add(w.Key);
+
+            keys.Sort((a, b) => UsageRank(a).CompareTo(UsageRank(b)));
+            return keys;
+        }
+
+        static int UsageRank(string key)
+        {
+            if (key == "claude_session") return 0;
+            if (key == "claude_week") return 1;
+            if (key.StartsWith("claude_week_")) return 2;
+            if (key == "claude_spend") return 3;
+            if (key == "openrouter_balance") return 4;
+            if (key == "openai_session") return 5;
+            if (key == "openai_week") return 6;
+            return 7;
+        }
+
+        float DrawTable(Rect rect)
+        {
+            var keys = TableKeys();
+            float rowH = SlopWidgets.RowH;
+            float headerH = rowH;
+            float intervalW = Mathf.Min(120f, Mathf.Max(92f, rect.width * .16f));
+            float pollW = 64f;
+            float iconW = 54f;
+            float nameW = Mathf.Max(120f, rect.width - intervalW - pollW - iconW);
+            float iconX = rect.x + nameW;
+            float pollX = iconX + iconW;
+            float intervalX = pollX + pollW;
+
+            var header = new Rect(rect.x, rect.y, rect.width, headerH);
+            Slab.Fill(header, SlopWidgets.RowBg);
+            SlopWidgets.RowLabel(new Rect(rect.x + SlopWidgets.GapS, rect.y,
+                nameW - SlopWidgets.GapS, headerH), "Name");
+            SlopWidgets.RowLabel(new Rect(iconX, rect.y, iconW, headerH), "Icon",
+                TextAnchor.MiddleCenter);
+            SlopWidgets.RowLabel(new Rect(pollX, rect.y, pollW, headerH), "Poll",
+                TextAnchor.MiddleCenter);
+            SlopWidgets.RowLabel(new Rect(intervalX, rect.y, intervalW, headerH), "Interval (s)",
+                TextAnchor.MiddleCenter);
+            Slab.Hairline(new Rect(rect.x, header.yMax - 1f, rect.width, 1f),
+                SlopWidgets.Edge);
+
+            float y = header.yMax;
+            foreach (string key in keys)
             {
-                l.Gap(SlopWidgets.GapM);
-                IconRow(l, "openrouter_balance", "Credit balance");
+                var item = EnsureItem(key);
+                var row = new Rect(rect.x, y, rect.width, rowH);
+                if (Mouse.IsOver(row)) Slab.Fill(row, SlopWidgets.Hover);
+
+                SlopWidgets.RowLabel(new Rect(row.x + SlopWidgets.GapS, row.y,
+                    nameW - SlopWidgets.GapS, row.height), UsageReadout.Long(key));
+                DrawIconButton(new Rect(iconX, row.y, iconW, row.height), key);
+
+                var poll = new Rect(pollX, row.y, pollW, row.height);
+                if (Mouse.IsOver(poll)) Slab.Fill(poll, SlopWidgets.Hover);
+                SlopWidgets.TickBox(
+                    new Rect(poll.center.x - SlopWidgets.TickW / 2f, poll.y,
+                        SlopWidgets.TickW, poll.height), item.Poll);
+                TooltipHandler.TipRegion(poll, new TipSignal(
+                    item.Poll ? "Stop polling this usage window." : "Poll this usage window.",
+                    0x51_0F_0010 ^ key.GetHashCode()));
+                if (Widgets.ButtonInvisible(poll))
+                {
+                    item.Poll = !item.Poll;
+                    SoundDefOf.Click.PlayOneShotOnCamera();
+                }
+
+                var field = new Rect(intervalX + SlopWidgets.GapXS,
+                    row.y + (row.height - SlopWidgets.FieldH) / 2f,
+                    intervalW - SlopWidgets.GapXS * 2f, SlopWidgets.FieldH);
+                _itemIntervals[key] = SlopWidgets.Field(field, "usage.item." + key,
+                    _itemIntervals[key], true);
+
+                Slab.Hairline(new Rect(row.x, row.yMax - 1f, row.width, 1f),
+                    SlopWidgets.Edge);
+                y = row.yMax;
             }
-            l.Gap(SlopWidgets.GapL);
-
-            float used = l.CurHeight;
-            l.End();
-            return used;
+            return y - rect.y + SlopWidgets.GapS;
         }
 
-        float DrawOpenAI(Rect rect)
+        void DrawIconButton(Rect area, string key)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
-            SlopWidgets.SectionHeading(l, "OpenAI / Codex");
-            _cfg.Openai = SlopWidgets.Checkbox(l, "Poll Codex usage", _cfg.Openai,
-                "The daemon reads Codex's ChatGPT login and asks for the primary and " +
-                "secondary usage windows. Off means it never touches that file.");
-            if (_cfg.Openai)
-            {
-                l.Gap(SlopWidgets.GapM);
-                IconRow(l, "openai_session", "Primary window");
-                IconRow(l, "openai_week", "Secondary window");
-            }
-            l.Gap(SlopWidgets.GapL);
-
-            float used = l.CurHeight;
-            l.End();
-            return used;
-        }
-
-        float DrawBoth(Rect rect)
-        {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
-            SlopWidgets.SectionHeading(l, "All providers");
-            l.Label("Poll interval (s)");
-            _pollSecs = SlopWidgets.Field(l, "usage.poll", _pollSecs);
-            SlopWidgets.Note(l, "A failed poll backs off on its own, doubling to half an hour, and each " +
-                    "seller keeps its own place in that queue: one being down never takes " +
-                    "the other's numbers off the screen.");
-
-            float used = l.CurHeight;
-            l.End();
-            return used;
-        }
-
-
-        // ------------------------------------------------------------------ icon row
-
-        // Each provider row uses the icon itself as the button; the picker starts with Auto.
-        void IconRow(Listing_Standard l, string key, string hint)
-        {
-            var row = l.GetRect(SlopWidgets.RowH);
-
-            float boxW = SlopWidgets.RowH - 2f;
-            // A column rather than hard against the label, so the buttons line up down the
-            // page the way the sidebar's times do. Clamped, a narrow page being one where the
-            // label gives way rather than the thing that is clicked.
-            float col = Mathf.Min(230f, row.width - boxW - SlopWidgets.GapXS);
-
-            // If hint is given it is a fallback short label, so the row works even when the
-            // daemon is not reporting this key yet.
-            SlopWidgets.RowLabel(new Rect(row.x, row.y, col - SlopWidgets.GapXS, row.height),
-                UsageReadout.Long(key, hint ?? key));
-
-            var box = new Rect(row.x + col, row.y + (row.height - boxW) / 2f, boxW, boxW);
-
-            // A plate under it, or an icon on the page's own background is a picture rather
-            // than something to press. The same well every other box here sits in.
+            float boxW = Mathf.Min(area.height - 2f, area.width - SlopWidgets.GapS);
+            var box = new Rect(area.center.x - boxW / 2f,
+                area.y + (area.height - boxW) / 2f, boxW, boxW);
             Slab.Box(box, SlopWidgets.Well, SlopWidgets.Edge);
 
             var icon = UsageReadout.IconFor(key);
@@ -206,34 +232,15 @@ namespace SlopWorld
                 GUI.color = Color.white;
             }
             else
-            {
-                // No icon at all: a key past the end of the pool, which draws its number and
-                // nothing else up there. Said as an empty plate rather than as the cross,
-                // which in the grid below means "let the mod choose" and not "nothing".
                 Slab.Fill(box.ContractedBy(SlopWidgets.GapS - 1f), SlopWidgets.Off);
-            }
 
             if (Mouse.IsOver(box)) Slab.Fill(box, SlopWidgets.Hover);
-
-            // Whose pick this is, is the one thing the row no longer says by itself.
             TooltipHandler.TipRegion(box, new TipSignal(
                 UsageReadout.Chosen(key) != null
                     ? "This row's icon, chosen. Click to change it."
                     : "This row's icon, picked automatically. Click to choose one.",
                 0x51_0F_0003 ^ key.GetHashCode()));
-
-            if (Widgets.ButtonInvisible(box))
-                _pickingKey = key;
-        }
-
-        // The keys the daemon is currently reporting, so we can show icon rows for any
-        // per-model windows that appear.
-        static List<string> LiveKeys()
-        {
-            var keys = new List<string>();
-            foreach (var w in SessionHub.Instance.Usage.Windows)
-                if (!keys.Contains(w.Key)) keys.Add(w.Key);
-            return keys;
+            if (Widgets.ButtonInvisible(box)) _pickingKey = key;
         }
 
 
@@ -441,6 +448,22 @@ namespace SlopWorld
             if (int.TryParse(_pollSecs, out int s))
                 _cfg.UsagePollSecs = Mathf.Clamp(s, 10, 3600);
 
+            foreach (var pair in _itemIntervals)
+            {
+                var item = EnsureItem(pair.Key);
+                string text = (pair.Value ?? "").Trim();
+                if (text.Length == 0)
+                    item.IntervalSecs = 0;
+                else if (int.TryParse(text, out int seconds))
+                    item.IntervalSecs = Mathf.Clamp(seconds, 10, 3600);
+            }
+
+            // Keep the legacy provider switches meaningful for raw-config readers and older
+            // daemon versions: they are the aggregate of the row toggles in this table.
+            _cfg.Usage = AnyItem("claude_");
+            _cfg.Openrouter = AnyItem("openrouter_");
+            _cfg.Openai = AnyItem("openai_");
+
             SlopClient.Put("/api/config/patch", _cfg.ToPatchJson(),
                 _ =>
                 {
@@ -450,6 +473,14 @@ namespace SlopWorld
                         MessageTypeDefOf.TaskCompletion, false);
                 },
                 msg => _error = msg);
+        }
+
+        bool AnyItem(string prefix)
+        {
+            foreach (var pair in _cfg.UsageItems)
+                if (pair.Key.StartsWith(prefix) && pair.Value != null && pair.Value.Poll)
+                    return true;
+            return false;
         }
     }
 }

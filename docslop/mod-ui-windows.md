@@ -19,8 +19,9 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   templates. Undrawn daemon fields survive serialization. `StoragePage` inventories
   private state and owns reset/restore/delete actions.
 - `Integrations` is a heading with a `Credentials` child for host-side credential paths.
-  `UsagePage` owns provider switches, quota polling and icon rows; left/spent display is an
-  Appearance > Interface > Statusbar setting and works offline.
+  `UsagePage` owns one table of usage windows with name, icon picker, poll toggle and optional
+  per-row interval; its global interval is the fallback for blank rows. Left/spent display is
+  an Appearance > Interface > Statusbar setting and works offline.
   `SummariesPage` edits Codex/Pi title policy, host-command summaries and the shared summary
   model; it uses the OpenRouter key from Integrations.
   Appearance is a heading with `Interface`

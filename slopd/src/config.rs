@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -83,6 +84,10 @@ pub struct Daemon {
     /// The windows it reports move in minutes; floored at 10 in the poller.
     #[serde(default = "default_usage_poll")]
     pub usage_poll_secs: u64,
+    /// Per-window usage settings. A missing entry inherits the provider switch and global
+    /// interval; an explicit `interval_secs` overrides only the global interval.
+    #[serde(default)]
+    pub usage_items: BTreeMap<String, UsageItem>,
     /// Read fresh each time and never copied, so a refresh behind us is picked up.
     #[serde(default = "default_credentials")]
     pub claude_credentials: String,
@@ -121,6 +126,17 @@ pub struct Daemon {
     pub host_titles: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UsageItem {
+    /// Whether this individual usage window should be fetched and displayed.
+    #[serde(default = "yes")]
+    pub poll: bool,
+    /// Empty in the UI is represented by None (or zero from a patch), meaning
+    /// `daemon.usage_poll_secs`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interval_secs: Option<u64>,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TitlePolicy {
@@ -157,6 +173,7 @@ impl Default for Daemon {
             token: String::new(),
             usage: true,
             usage_poll_secs: default_usage_poll(),
+            usage_items: BTreeMap::new(),
             claude_credentials: default_credentials(),
             openrouter: false,
             openrouter_key_file: String::new(),
