@@ -36,9 +36,6 @@ namespace SlopWorld
             Sandbox,
             Keyboard,
             RimWorld,
-            Graphics,
-            Interface,
-            Controls,
             About,
         }
 
@@ -113,9 +110,6 @@ namespace SlopWorld
                 () => new KeyBindingsPage()),
             new TabSpec(PageId.RimWorld, "SlopWorld_RimWorld", "RimWorld", () => Icons.RimWorld,
                 () => new RimWorldPage()),
-            new TabSpec(PageId.Graphics, () => OptionCategoryDefOf.Graphics, PageId.RimWorld),
-            new TabSpec(PageId.Interface, () => OptionCategoryDefOf.Interface, PageId.RimWorld),
-            new TabSpec(PageId.Controls, () => OptionCategoryDefOf.Controls, PageId.RimWorld),
             new TabSpec(PageId.About, "SlopWorld_About", "About", () => Icons.Trophy,
                 () => new AboutPage()),
         };
@@ -197,6 +191,13 @@ namespace SlopWorld
             foreach (var spec in TabSpecs)
                 Add(spec, general);
 
+            // Graphics, Interface and Controls are sections of the RimWorld page now, rather
+            // than destinations of their own. Keep the vanilla defs available to the renderer,
+            // but keep them out of Dialog_Options' category rail.
+            HideMergedCategory(OptionCategoryDefOf.Graphics);
+            HideMergedCategory(OptionCategoryDefOf.Interface);
+            HideMergedCategory(OptionCategoryDefOf.Controls);
+
             foreach (var tab in Column)
                 if (tab.Synthetic) DefDatabase<OptionCategoryDef>.Add(tab.Def);
 
@@ -212,6 +213,11 @@ namespace SlopWorld
             // Its five controls live on our Audio page now. Keep the def in the database,
             // as with Gameplay, but omit its duplicate row from the ordinary options list.
             if (OptionCategoryDefOf.Audio != null) OptionCategoryDefOf.Audio.isDev = true;
+        }
+
+        static void HideMergedCategory(OptionCategoryDef category)
+        {
+            if (category != null) category.isDev = true;
         }
 
         static Tab Add(TabSpec spec, OptionCategoryDef general)
