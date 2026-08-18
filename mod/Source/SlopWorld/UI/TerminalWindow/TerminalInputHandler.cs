@@ -114,6 +114,10 @@ namespace SlopWorld
         {
             if (e.type != EventType.KeyDown) return;
 
+            // A pending Keyboard-page binding owns the next key, including keys normally
+            // claimed by the sidebar or terminal chrome. Keep Escape as the chrome escape.
+            if (SlopOptions.KeyboardCaptureActive && e.keyCode != KeyCode.Escape) return;
+
             if (TerminalWindow.HandleFunctionKey(e)) { e.Use(); return; }
 
             if (e.keyCode == KeyCode.Escape)
