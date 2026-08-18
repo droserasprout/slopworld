@@ -259,7 +259,7 @@ namespace SlopWorld
             else
             {
                 _p.Dir = SlopWidgets.Field(l, "project.dir", _p.Dir);
-                if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Browse..."))
+                if (SlopWidgets.Button(l, "Browse..."))
                     TerminalWindow.OpenOverPane(new BrowseDialog(_p.Dir, d => _p.Dir = d));
             }
 
@@ -275,7 +275,7 @@ namespace SlopWorld
             l.Begin(rect);
 
             l.Label("Network ceiling");
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), NetworkModeText.Label(_p.Network)))
+            if (SlopWidgets.Button(l, NetworkModeText.Label(_p.Network)))
                 PickNetwork();
             GUI.color = SlopWidgets.Dim;
             l.Label(_p.Network == NetworkMode.Host
@@ -287,7 +287,7 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapS);
             l.Label("DNS");
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), _p.Dns.Label))
+            if (SlopWidgets.Button(l, _p.Dns.Label))
                 PickDns();
             if (_p.Dns.Mode == DnsMode.Servers)
             {

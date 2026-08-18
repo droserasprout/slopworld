@@ -42,7 +42,7 @@ namespace SlopWorld
             var picked = Radio.Picked;
             string source = Radio.Muted ? "Muted" : picked == null
                 ? "OST" : $"{picked.Name} {Radio.RateLabel(picked.Rate)}";
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Tune: " + source))
+            if (SlopWidgets.Button(l, "Tune: " + source))
                 Find.WindowStack.Add(new SlopMenu(Jukebox.StationOptions()));
 
             // Show the station's own line and any Shazam match as two rows, so a recognized
@@ -64,11 +64,11 @@ namespace SlopWorld
             DrawRecognition(l);
 
             l.Gap(SlopWidgets.GapS);
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Random"))
+            if (SlopWidgets.Button(l, "Random"))
                 Radio.PickRandom();
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Like current song"))
+            if (SlopWidgets.Button(l, "Like current song"))
                 Radio.Like();
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "History"))
+            if (SlopWidgets.Button(l, "History"))
                 JukeboxHistoryView.Open();
 
             l.Gap(SlopWidgets.GapS);
@@ -90,7 +90,7 @@ namespace SlopWorld
         {
             if (Radio.Recognizing)
             {
-                if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Cancel recognition"))
+                if (SlopWidgets.Button(l, "Cancel recognition"))
                     Radio.CancelRecognition();
                 string input = Radio.RecognizingInput;
                 SlopWidgets.Note(l, string.IsNullOrEmpty(input)
@@ -100,7 +100,7 @@ namespace SlopWorld
             }
 
             string error = Radio.RecognitionError;
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+            if (SlopWidgets.Button(l,
                     string.IsNullOrEmpty(error) ? "Recognize" : "Retry recognition"))
                 Radio.Recognize();
 

@@ -618,13 +618,13 @@ namespace SlopWorld
         {
             l.Gap(SlopWidgets.GapS);
             l.Label("Kind");
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), kind.ButtonLabel))
+            if (SlopWidgets.Button(l, kind.ButtonLabel))
                 PickKind();
 
             if (!kind.ShowWhere) return;
             l.Gap(SlopWidgets.GapS);
             l.Label("Where it runs");
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), LinkLabel(_s.Link)))
+            if (SlopWidgets.Button(l, LinkLabel(_s.Link)))
                 PickLink();
         }
 
@@ -635,7 +635,7 @@ namespace SlopWorld
             if (!kind.ShowProject(this)) return;
             l.Gap(SlopWidgets.GapS);
             l.Label(kind.ProjectLabel(this));
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), kind.ProjectValue(this)))
+            if (SlopWidgets.Button(l, kind.ProjectValue(this)))
                 kind.PickProject(this);
         }
 
