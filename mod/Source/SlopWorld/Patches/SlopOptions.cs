@@ -177,6 +177,19 @@ namespace SlopWorld
 
         public static OptionCategoryDef CategoryFor(PageId key) => TabFor(key)?.Def;
 
+        // The in-game options view gives the terminal chrome first chance at key events.
+        // While the Keyboard page is waiting for a binding, that chance must be yielded so
+        // F-keys and other chrome bindings can reach KeyBindingsPage.CaptureKey().
+        public static bool KeyboardCaptureActive
+        {
+            get
+            {
+                var view = TerminalWindow.ShowingAs<OptionsView>();
+                if (view == null || view.Category != CategoryFor(PageId.Keyboard)) return false;
+                return TabFor(PageId.Keyboard)?.PageOf<KeyBindingsPage>()?.Listening == true;
+            }
+        }
+
         public static void Install()
         {
             if (Column.Count > 0) return;

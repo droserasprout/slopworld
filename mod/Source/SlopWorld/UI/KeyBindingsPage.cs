@@ -32,6 +32,10 @@ namespace SlopWorld
         KeyBindingDef _listening;
         KeyPrefs.BindingSlot _bindingSlot;
 
+        // The terminal chrome checks this before dispatching its own hotkeys. A binding
+        // page must be able to receive a key that is normally one of those hotkeys.
+        internal bool Listening => _listening != null;
+
         // The scroll position for the whole page.
         readonly SmoothScroll _scroll = new SmoothScroll();
 
