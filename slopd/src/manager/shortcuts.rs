@@ -575,7 +575,110 @@ impl Manager {
 #[cfg(test)]
 mod tests {
     use super::Manager;
-    use crate::config::Config;
+    use crate::config::{Config, ShortcutCfg, ShortcutKind};
+    use std::os::unix::process::ExitStatusExt;
+    use std::process::ExitStatus;
+
+    /// A normal exit with the given code, the way the OS hands it back: the low byte is the
+    /// signal (none here) and the code sits above it.
+    fn exit(code: i32) -> ExitStatus {
+        ExitStatus::from_raw(code << 8)
+    }
+
+    /// stdout alone comes back trimmed of its trailing newline; empty output is spelled out
+    /// rather than handed back blank.
+    #[test]
+    fn file_action_result_returns_trimmed_stdout() {
+        assert_eq!(
+            Manager::format_file_action_result(
+                b"4.0K\tfile\n".to_vec(),
+                Vec::new(),
+                false,
+                false,
+                exit(0),
+            )
+            .unwrap(),
+            "4.0K\tfile"
+        );
+        assert_eq!(
+            Manager::format_file_action_result(Vec::new(), Vec::new(), false, false, exit(0))
+                .unwrap(),
+            "(no output)"
+        );
+        assert_eq!(
+            Manager::format_file_action_result(
+                b"   \n".to_vec(),
+                Vec::new(),
+                false,
+                false,
+                exit(0)
+            )
+            .unwrap(),
+            "(no output)"
+        );
+    }
+
+    /// stderr is appended below stdout, with a separating newline inserted only when stdout did
+    /// not already end in one.
+    #[test]
+    fn file_action_result_appends_stderr_below_stdout() {
+        assert_eq!(
+            Manager::format_file_action_result(
+                b"out".to_vec(),
+                b"warn".to_vec(),
+                false,
+                false,
+                exit(0),
+            )
+            .unwrap(),
+            "out\nwarn"
+        );
+        assert_eq!(
+            Manager::format_file_action_result(
+                b"out\n".to_vec(),
+                b"warn".to_vec(),
+                false,
+                false,
+                exit(0),
+            )
+            .unwrap(),
+            "out\nwarn"
+        );
+    }
+
+    /// A truncation marker is tacked on when either stream was cut short.
+    #[test]
+    fn file_action_result_flags_truncation() {
+        let out =
+            Manager::format_file_action_result(b"body".to_vec(), Vec::new(), true, false, exit(0))
+                .unwrap();
+        assert!(out.contains("[output truncated]"), "got {out:?}");
+    }
+
+    /// A non-zero exit is an error, and the combined output rides along in the message rather
+    /// than being returned as success.
+    #[test]
+    fn file_action_result_fails_on_nonzero_exit() {
+        let err =
+            Manager::format_file_action_result(Vec::new(), b"boom".to_vec(), false, false, exit(1))
+                .unwrap_err();
+        assert!(err.to_string().contains("boom"), "got {err}");
+    }
+
+    /// Breadcrumb and file-action shortcuts are handles on something, not runnable prompts; only
+    /// prompt and shell shortcuts may be launched as an agent errand.
+    #[test]
+    fn only_runnable_shortcuts_pass_the_errand_guard() {
+        let sc = |kind| ShortcutCfg {
+            name: "x".into(),
+            kind,
+            ..Default::default()
+        };
+        assert!(Manager::validate_errand(&sc(ShortcutKind::Prompt)).is_ok());
+        assert!(Manager::validate_errand(&sc(ShortcutKind::Shell)).is_ok());
+        assert!(Manager::validate_errand(&sc(ShortcutKind::Breadcrumb)).is_err());
+        assert!(Manager::validate_errand(&sc(ShortcutKind::FileAction)).is_err());
+    }
 
     #[test]
     fn host_file_actions_do_not_need_a_project() {
