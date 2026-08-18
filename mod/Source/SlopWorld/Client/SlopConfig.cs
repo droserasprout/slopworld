@@ -38,7 +38,7 @@ namespace SlopWorld
         // Both name a command preset: what an agent that names none of its own runs, and
         // what a shell errand runs. What each one *is* is a TOML file the daemon reads.
         public string Agent = "claude";
-        public string Shell = "shell";
+        public string Shell = "bash";
         public string Pager = "less";
         public string Editor = "micro";
         public string Highlighter = "highlight --out-format=xterm256";
@@ -66,7 +66,7 @@ namespace SlopWorld
                 HostTitles = d["host_titles"].AsBool(true),
 
                 Agent = f["agent"].AsString("claude"),
-                Shell = f["shell"].AsString("shell"),
+                Shell = f["shell"].AsString("bash"),
                 Pager = c["pager"].AsString("less"),
                 Editor = c["editor"].AsString("micro"),
                 Highlighter = c["highlighter"].AsString("highlight --out-format=xterm256"),

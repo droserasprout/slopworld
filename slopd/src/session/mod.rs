@@ -1079,7 +1079,7 @@ future = "keep"
 
 [defaults]
 agent = "claude"
-shell = "shell"
+shell = "bash"
 "#,
         )
         .expect("config parses");

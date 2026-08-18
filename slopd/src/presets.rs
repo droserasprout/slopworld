@@ -93,8 +93,25 @@ const BUILTIN: &[(&str, &str)] = &[
     ("opencode", include_str!("../presets/opencode.toml")),
     ("pi", include_str!("../presets/pi.toml")),
     ("psql", include_str!("../presets/psql.toml")),
-    ("shell", include_str!("../presets/shell.toml")),
+    ("bash", include_str!("../presets/bash.toml")),
     ("zsh", include_str!("../presets/zsh.toml")),
+    ("fish", include_str!("../presets/fish.toml")),
+    ("nu", include_str!("../presets/nu.toml")),
+    ("pwsh", include_str!("../presets/pwsh.toml")),
+    (
+        "bash-userdata",
+        include_str!("../presets/bash-userdata.toml"),
+    ),
+    ("zsh-userdata", include_str!("../presets/zsh-userdata.toml")),
+    (
+        "fish-userdata",
+        include_str!("../presets/fish-userdata.toml"),
+    ),
+    ("nu-userdata", include_str!("../presets/nu-userdata.toml")),
+    (
+        "pwsh-userdata",
+        include_str!("../presets/pwsh-userdata.toml"),
+    ),
     ("dbus", include_str!("../presets/dbus.toml")),
     ("systemd", include_str!("../presets/systemd.toml")),
     ("x11", include_str!("../presets/x11.toml")),
@@ -425,10 +442,16 @@ mod tests {
             t.merge(f);
         }
 
-        // The three kinds that used to be an enum, and the shell shortcuts run.
-        for name in ["claude", "opencode", "pi", "shell"] {
+        // The command presets used by built-in shortcuts, including the shells.
+        for name in [
+            "claude", "opencode", "pi", "bash", "zsh", "fish", "nu", "pwsh",
+        ] {
             assert!(t.command(name).is_some(), "no {name} command preset");
         }
+        assert!(
+            t.command("shell").is_none(),
+            "old shell command preset remains"
+        );
         assert_eq!(t.command("claude").unwrap().sandbox, vec!["claude"]);
         assert_eq!(
             t.sandbox("systemd").unwrap().setenv["SYSTEMCTL_FORCE_BUS"],
@@ -468,6 +491,22 @@ mod tests {
             ("ruby-cache", "ruby"),
         ] {
             assert_eq!(t.sandbox(cache).unwrap().requires, vec![tool]);
+        }
+
+        // Shell userdata is opt-in: the command only selects the executable, while the
+        // matching sandbox is a separate checkbox that brings in host dotfiles and history.
+        for name in ["bash", "zsh", "fish", "nu", "pwsh"] {
+            assert!(
+                t.command(name).unwrap().sandbox.is_empty(),
+                "{name} command unexpectedly shares userdata by default"
+            );
+            let userdata = format!("{name}-userdata");
+            let preset = t
+                .sandbox(&userdata)
+                .unwrap_or_else(|| panic!("no {userdata} sandbox preset"));
+            assert_eq!(preset.category, "shell");
+            assert!(!preset.ro.is_empty(), "{userdata} has no config paths");
+            assert!(!preset.rw.is_empty(), "{userdata} has no userdata paths");
         }
     }
 

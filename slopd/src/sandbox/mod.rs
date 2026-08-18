@@ -654,7 +654,7 @@ mod tests {
         let s = SessionCfg {
             name: "a".into(),
             project: "p".into(),
-            command: "shell".into(),
+            command: "bash".into(),
             sandbox: vec!["x11".into()],
             ..Default::default()
         };

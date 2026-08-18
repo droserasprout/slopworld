@@ -32,6 +32,9 @@ a project checkbox; copying it creates the user `global` override.
 - The mod learns both tables from `GET /api/presets`; files added while the game runs
   become settings-page entries without rebuilding. `global` is shown first/highlighted,
   followed by sandbox definitions and command definitions with dependencies.
+- Builtin shell commands are `bash`, `zsh`, `fish`, `nu` (Nushell), and `pwsh`; their matching
+  `*-userdata` sandbox presets are separate and opt-in. They expose startup/config files
+  read-only and history/data paths read-write, so choosing a shell does not share host dotfiles.
 
 ## Sandbox (bubblewrap) rules
 

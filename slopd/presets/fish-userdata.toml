@@ -1,0 +1,8 @@
+# Optional shell userdata: fish configuration is shared read-only, while universal variables
+# and history can be updated by fish inside the sandbox.
+[[sandbox]]
+name = "fish-userdata"
+category = "shell"
+description = "fish configuration, universal variables and command history"
+ro = ["~/.config/fish"]
+rw = ["~/.config/fish/fish_variables", "~/.local/share/fish"]
