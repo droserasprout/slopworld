@@ -342,6 +342,32 @@ namespace SlopWorld
             }
         }
 
+        // A rejuvenation clears the arrival record itself, not only the current symptoms. The
+        // plague therefore does not return to these cells after the aura's temporary grace ends.
+        public void Rejuvenate(IntVec3 centre, float radius)
+        {
+            if (!_active || radius <= 0f) return;
+
+            var cells = Cells;
+            var idx = map.cellIndices;
+            int count = GenRadial.NumCellsInRadius(
+                Mathf.Min(radius, GenRadial.MaxRadialPatternRadius - 1f));
+
+            for (int i = 0; i < count; i++)
+            {
+                var c = centre + GenRadial.RadialPattern[i];
+                if (!c.InBounds(map)) continue;
+
+                int k = idx.CellToIndex(c);
+                if (cells[k] == Never) continue;
+
+                cells[k] = Never;
+                if (_reached > 0) _reached--;
+            }
+
+            _runtime.Logged = -1;
+        }
+
         // Use deterministic cell-seeded rolls for stable sweep/reload results without mutating
         // the global RNG state.
         float Grit(IntVec3 cell) => Grit(cell, 0);

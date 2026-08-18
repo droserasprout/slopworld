@@ -7,7 +7,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Pets.Poke reverses Plague locally: clears filth, fire, and marks, bypasses no-regrowth, restores one plant, and heals the animal; neither table is saved.
+    // Pets.Poke reverses Plague locally; WaterBall uses the same pulse for a larger restorative
+    // spell. The pulse and grace tables are transient, while the terrain spell is saved by the map.
     public class Aura : MapComponent
     {
         // Aimed: the handful of cells under the animal rather than a weather front.
@@ -97,12 +98,42 @@ namespace SlopWorld
             if (Rand.Value < ReviveChance) Revive(pet.Position, now);
         }
 
+        // WaterBall uses the same restorative ground pulse as the pet aura, but without the
+        // aura's chance gate: nearby pawns and plants should all get the rejuvenation.
+        public void Rejuvenate(IntVec3 centre)
+        {
+            if (!centre.InBounds(map)) return;
+
+            int now = Find.TickManager.TicksGame;
+            _pulses.Add(new Pulse { At = centre, Tick = now });
+            Sweep(centre, now);
+
+            int cells = GenRadial.NumCellsInRadius(Radius);
+            for (int i = 0; i < cells; i++)
+            {
+                var c = centre + GenRadial.RadialPattern[i];
+                if (!c.InBounds(map)) continue;
+
+                var plant = c.GetPlant(map);
+                if (plant == null || plant.Destroyed || plant.def?.plant == null) continue;
+
+                if (plant.LeaflessNow || plant.Growth < ReviveGrowth) Mend(plant, now);
+                else _grace[plant.thingIDNumber] = now;
+            }
+
+            Sow(centre, now);
+        }
+
         // Every bad hediff, injuries and pain included: with health ticks stripped nothing
         // heals by itself, so a cat cut in the intro would carry it for the life of the
         // colony. A mental state goes through vanilla's own recovery path, which puts the job
         // tracker back the way it found it.
         static void Comfort(Pawn pet)
         {
+            if (pet == null || pet.Dead || pet.health == null) return;
+
+            HealthUtility.HealNonPermanentInjuriesAndRestoreLegs(pet);
+
             var set = pet.health?.hediffSet;
             if (set != null)
             {
@@ -143,7 +174,11 @@ namespace SlopWorld
                         t.Destroy(DestroyMode.Vanish);
                     }
                     else if (t is Plant plant) _grace[plant.thingIDNumber] = now;
-                    else if (t is Pawn pawn) Unmark(pawn, now);
+                    else if (t is Pawn pawn)
+                    {
+                        Comfort(pawn);
+                        Unmark(pawn, now);
+                    }
                 }
             }
         }
