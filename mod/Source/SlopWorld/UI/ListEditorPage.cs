@@ -4,8 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Settings pages that edit daemon config share the same caption, card, scrollable form
-    // and footer. Subclasses only supply the fields that make up their row body.
+    // Settings pages that edit daemon config share the same scrollable form and footer.
+    // Subclasses only supply the fields that make up their row body.
     public abstract class ListEditorPage : IOptionPage
     {
         protected SlopConfig _cfg;
@@ -16,7 +16,6 @@ namespace SlopWorld
         readonly SmoothScroll _scroll = new SmoothScroll();
         float _fieldsH;
 
-        protected abstract string Caption { get; }
         protected abstract string SavedMessage { get; }
 
         protected abstract void DrawFields(Listing_Standard l);
@@ -40,10 +39,7 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            SlopWidgets.PageCaption(rect, Caption);
-
             var body = SlopWidgets.PageBody(rect);
-            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             if (!_loaded)

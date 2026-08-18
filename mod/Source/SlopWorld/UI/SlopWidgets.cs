@@ -745,9 +745,6 @@ namespace SlopWorld
             return Button(r, label, kind, on);
         }
 
-        // A page's ground: an opaque rectangular card with a structural edge.
-        public static void Card(Rect r) => Slab.Box(r, WindowBg, Edge);
-
         // An icon that answers to a press, in the chrome's own rectangular hover surface.
         //
         // `tint` is the icon's color at rest - a disabled errand hands over a faded one -
@@ -853,6 +850,42 @@ namespace SlopWorld
             return opt;
         }
 
+        // OS font lists often expose a whole foundry under one leading word: Noto alone can
+        // account for dozens of faces. Keep those families behind one menu while leaving
+        // names with no siblings as one-click choices.
+        public static IEnumerable<FloatMenuOption> GroupedFontOptions(IEnumerable<string> names,
+                                                                       Action<string> choose)
+        {
+            var groups = (names ?? Enumerable.Empty<string>())
+                .Where(name => !string.IsNullOrEmpty(name))
+                .GroupBy(FontFamily, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var group in groups)
+            {
+                var faces = group.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList();
+                if (faces.Count == 1)
+                {
+                    yield return FontOption(faces[0], choose);
+                    continue;
+                }
+
+                var family = group.Key;
+                yield return new SlopSubmenu(family, () => faces
+                    .Select(name => FontOption(name, choose))
+                    .ToList());
+            }
+        }
+
+        static string FontFamily(string name)
+        {
+            int space = name.IndexOf(' ');
+            return space > 0 ? name.Substring(0, space) : name;
+        }
+
+        static FloatMenuOption FontOption(string name, Action<string> choose) =>
+            new FloatMenuOption(name, () => choose(name));
+
         static bool DrawTick(Rect r, bool on)
         {
             TickBox(r, on);
@@ -910,11 +943,10 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        public static Rect PageBody(Rect page)
-        {
-            float top = page.y + RowH + GapXS;
-            return new Rect(page.x, top, page.width, page.yMax - BtnH - GapS - top);
-        }
+        // Settings pages leave room for their footer, but otherwise use the tab's whole
+        // content area. The old caption and card chrome are intentionally gone.
+        public static Rect PageBody(Rect page) =>
+            new Rect(page.x, page.y, page.width, page.height - BtnH - GapS);
 
         public static Rect FooterBar(Rect rect) =>
             new Rect(rect.x, rect.yMax - BtnH, rect.width, BtnH);

@@ -41,10 +41,7 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            SlopWidgets.PageCaption(rect, "Keyboard shortcuts  \u2013  click a key to rebind");
-
             var body = SlopWidgets.PageBody(rect);
-            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             // Build the content model once per frame.

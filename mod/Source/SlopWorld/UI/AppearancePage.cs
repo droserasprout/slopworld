@@ -24,13 +24,8 @@ namespace SlopWorld
         public void Draw(Rect rect)
         {
             Text.Font = GameFont.Small;
-            SlopWidgets.PageCaption(rect,
-                "The mod's look — scale, colors, font, and the pointer that follows "
-                + "your hand, plus what stays in the statusbar.");
-
             var body = SlopWidgets.PageBody(rect);
             body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
-            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             // The preview sits at the foot; the form scrolls above it.
@@ -172,16 +167,12 @@ namespace SlopWorld
                         S.MarkDirty();
                     }),
                 };
-                foreach (var name in SlopUIFont.All)
+                opts.AddRange(SlopWidgets.GroupedFontOptions(SlopUIFont.All, name =>
                 {
-                    var picked = name;
-                    opts.Add(new FloatMenuOption(picked, () =>
-                    {
-                        S.uiFontName = picked;
-                        SlopUIFont.Apply();
-                        S.MarkDirty();
-                    }));
-                }
+                    S.uiFontName = name;
+                    SlopUIFont.Apply();
+                    S.MarkDirty();
+                }));
                 Find.WindowStack.Add(new SlopMenu(opts, SlopWidgets.MenuAt(fontBox)));
             }
 

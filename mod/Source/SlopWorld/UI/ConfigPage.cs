@@ -34,14 +34,9 @@ namespace SlopWorld
                 msg => { _error = msg; _loaded = false; });
         }
 
-        // The category row is the title, so all this needs of the top of its rect is to
-        // say which file is being edited.
         public void Draw(Rect rect)
         {
-            SlopWidgets.PageCaption(rect, _loaded ? _path : "loading...");
-
             var body = SlopWidgets.PageBody(rect);
-            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             if (!_loaded)

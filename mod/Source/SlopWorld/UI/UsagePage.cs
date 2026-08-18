@@ -38,11 +38,7 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            SlopWidgets.PageCaption(rect,
-                "What the daemon asks about, and what it looks like up there.");
-
             var body = SlopWidgets.PageBody(rect);
-            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             // The icons are not the daemon's, so the fields are drawn whether or not it

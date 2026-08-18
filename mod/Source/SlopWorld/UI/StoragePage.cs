@@ -58,10 +58,6 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            var caption = new Rect(rect.x, rect.y,
-                Mathf.Max(0f, rect.width - LikesIconW - SlopWidgets.GapS), SlopWidgets.RowH);
-            SlopWidgets.PageCaption(caption, "Private state storage");
-
             var likes = new Rect(rect.xMax - LikesIconW,
                 rect.y + (SlopWidgets.RowH - LikesIconW) / 2f, LikesIconW, LikesIconW);
             if (Mouse.IsOver(likes)) Slab.Fill(likes, SlopWidgets.Hover);
@@ -73,7 +69,6 @@ namespace SlopWorld
             if (Widgets.ButtonInvisible(likes)) JukeboxHistoryView.Open();
 
             var body = SlopWidgets.PageBody(rect);
-            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             GUI.color = SlopWidgets.Dim;

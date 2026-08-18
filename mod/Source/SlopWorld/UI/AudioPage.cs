@@ -13,12 +13,8 @@ namespace SlopWorld
         public void Draw(Rect rect)
         {
             Text.Font = GameFont.Small;
-            SlopWidgets.PageCaption(rect,
-                "Sound levels for RimWorld and the colony's jukebox.");
-
             var body = SlopWidgets.PageBody(rect);
             body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
-            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             var l = new Listing_Standard { maxOneColumn = true };

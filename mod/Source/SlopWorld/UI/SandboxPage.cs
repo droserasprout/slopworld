@@ -91,11 +91,7 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            SlopWidgets.PageCaption(rect, _section == Section.Presets
-                ? "Sandbox presets that add to the base every project runs on."
-                : "Commands that say what an agent runs and which presets it requires.");
             var body = SlopWidgets.PageBody(rect);
-            SlopWidgets.Card(body);
             var inner = body.ContractedBy(SlopWidgets.GapM);
 
             if (!_loaded)
