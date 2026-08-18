@@ -59,14 +59,14 @@ namespace SlopWorld
             l.Begin(new Rect(0f, 0f, view.width, 4000f));
 
             SlopWidgets.SectionHeading(l, "Codex");
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+            if (SlopWidgets.Button(l,
                     "Name sessions: " + PolicyLabel(_cfg.AgentTitles)))
                 OpenPolicyMenu(false);
             SlopWidgets.Note(l, "Names a Codex session from its submitted prompt.");
 
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "Pi");
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+            if (SlopWidgets.Button(l,
                     "Name sessions: " + PolicyLabel(_cfg.PiTitles)))
                 OpenPolicyMenu(true);
             SlopWidgets.Note(l, "Pi defaults to every prompt. The daemon applies this setting before input " +

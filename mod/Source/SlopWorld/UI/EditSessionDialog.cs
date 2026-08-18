@@ -183,7 +183,7 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapS);
             l.Label("Project (the directory and sandbox it works in)");
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+            if (SlopWidgets.Button(l,
                     string.IsNullOrEmpty(_s.Project) ? "Pick a project..." : _s.Project))
                 PickProject();
 
@@ -201,7 +201,7 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapS);
             l.Label("Command");
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), CommandLabel(preset)))
+            if (SlopWidgets.Button(l, CommandLabel(preset)))
                 PickCommand();
 
             // Editable whichever it is: a preset says what an agent is, and this box says
@@ -249,7 +249,7 @@ namespace SlopWorld
             string networkLabel = _s.NetworkOverride.HasValue
                 ? NetworkModeText.Label(_s.NetworkOverride.Value)
                 : "Inherit project (" + NetworkModeText.ShortLabel(ceiling) + ")";
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), networkLabel))
+            if (SlopWidgets.Button(l, networkLabel))
                 PickNetwork(ceiling);
             GUI.color = SlopWidgets.Dim;
             l.Label("The project is the ceiling; this agent can only reduce its network reach.");
@@ -260,7 +260,7 @@ namespace SlopWorld
             string dnsLabel = _s.DnsOverride == null
                 ? "Inherit project (" + inheritedDns.Label + ")"
                 : _s.DnsOverride.Label;
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), dnsLabel)) PickDns();
+            if (SlopWidgets.Button(l, dnsLabel)) PickDns();
             if (_s.DnsOverride?.Mode == DnsMode.Servers)
             {
                 _dnsServers = SlopWidgets.Field(l, "agent.dns", _dnsServers ?? "");

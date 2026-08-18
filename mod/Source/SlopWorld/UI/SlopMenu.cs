@@ -139,6 +139,23 @@ namespace SlopWorld
         // callers put a rule exactly between related groups of actions.
         public static FloatMenuOption Separator() => new SeparatorOption();
 
+        // The width a plain labelled picker gets when its menu contains the same labels. Keep
+        // this beside InitialSize so the control and the opened list do not disagree about
+        // padding, minimums or the screen's maximum readable width.
+        public static float WidthFor(IEnumerable<string> labels)
+        {
+            var was = Text.Font;
+            Text.Font = GameFont.Small;
+            float widest = 0f;
+            if (labels != null)
+            {
+                foreach (var label in labels)
+                    widest = Mathf.Max(widest, SlopWidgets.Wide(label));
+            }
+            Text.Font = was;
+            return Mathf.Clamp(widest + PadX * 2f, MinW, MaxW);
+        }
+
         static float Height(FloatMenuOption option) =>
             option is SeparatorOption ? SeparatorH : RowH;
 

@@ -195,11 +195,11 @@ namespace SlopWorld
                     text = over ? UIScheme.TextOn(face) : UIScheme.Current.DestructiveText;
                     break;
                 case Btn.Ghost:
-                    face = held ? BtnDown : over ? BtnFace : GhostFace;
+                    face = held ? BtnDown : over ? BtnHover : GhostFace;
                     text = over ? Lead : Name;
                     break;
                 default:
-                    face = held ? BtnDown : over ? BtnHover : BtnFace;
+                    face = held ? BtnDown : over ? BtnHover : Well;
                     text = Lead; break;
             }
 
@@ -218,7 +218,7 @@ namespace SlopWorld
 
         public static void ButtonBackground(Rect r, Btn kind, bool on, bool over, bool held)
         {
-            ButtonBackground(r, kind, on, over, held, BtnFace);
+            ButtonBackground(r, kind, on, over, held, Well);
         }
 
         // Session gizmos sit over the map beside the sidebar. Give their resting face the
@@ -242,7 +242,7 @@ namespace SlopWorld
                     face = Step(DangerFace, over, held);
                     break;
                 case Btn.Ghost:
-                    face = held ? BtnDown : over ? BtnFace : GhostFace;
+                    face = held ? BtnDown : over ? BtnHover : GhostFace;
                     break;
                 default:
                     face = held ? BtnDown : over ? BtnHover : defaultFace;
@@ -532,6 +532,106 @@ namespace SlopWorld
         public static bool Checkbox(Listing_Standard l, string label, bool on, string tip = null) =>
             Checkbox(l.GetRect(RowH), label, on, tip);
 
+        // A dropdown caret. TexButton.Reveal is vanilla's right-pointing triangle; a quarter
+        // turn points it down at rest and up while the menu is open. Rotated through GUI.matrix
+        // because DrawTexture cannot turn a texture itself.
+        static void Chevron(Rect r, Color c, bool open)
+        {
+            var wasColor = GUI.color;
+            var wasMatrix = GUI.matrix;
+            try
+            {
+                GUI.color = c;
+                // RotateAroundPivot takes a screen-global pivot. The rect is local to the
+                // options page's nested GUI groups, so using r.center directly shifts the
+                // arrow away from its box as soon as the page is offset or scrolled.
+                GUIUtility.RotateAroundPivot(open ? -90f : 90f,
+                    GUIUtility.GUIToScreenPoint(r.center));
+                GUI.DrawTexture(r, TexButton.Reveal);
+            }
+            finally
+            {
+                GUI.matrix = wasMatrix;
+                GUI.color = wasColor;
+            }
+        }
+
+        // A labelled combobox: caption on one line, then a framed value box with the current
+        // value and a down-chevron. Unlike Button it reads as a chooser - caption and value
+        // stay apart, and the chevron says the value opens a list rather than firing an action.
+        // `box` comes back in the current GUI group so the caller can anchor its menu with
+        // `MenuAt(box)`.
+        public static bool Select(Rect r, string caption, string value, out Rect box,
+                                  string tip = null, bool on = true, bool open = false,
+                                  float forcedWidth = 0f)
+        {
+            float labelH = LineH;
+            var label = new Rect(r.x, r.y, r.width, labelH);
+            float chevron = Mathf.Round(LineH * 0.55f);
+            float boxW = forcedWidth > 0f
+                ? Mathf.Min(r.width, forcedWidth)
+                : Mathf.Min(r.width,
+                    Mathf.Max(Wide(value) + ButtonPadX * 2f, ButtonMinW)
+                        + chevron + GapS);
+            box = new Rect(r.x, r.y + labelH + GapXS, boxW, CompactH);
+
+            GUI.color = on ? Name : Fade(Name, 0.5f);
+            RowLabel(label, caption);
+
+            bool over = on && Mouse.IsOver(box);
+            bool held = over && Input.GetMouseButton(0);
+            if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
+
+            var face = !on ? Fade(Well, 0.5f) : held ? BtnDown : over ? BtnHover : Well;
+            Slab.Box(box, face, on ? BtnEdge : Fade(BtnEdge, 0.5f));
+            if (open) Slab.Ring(box, Accent);
+
+            // A hairline splits the value from the chevron, mirroring the submenu marker SlopMenu
+            // draws on a nested row.
+            float caretX = box.xMax - ButtonPadX - chevron;
+            Slab.VHairline(new Rect(caretX - GapS, box.y + GapXS, 1f, box.height - GapXS * 2f),
+                           on ? BtnEdge : Fade(BtnEdge, 0.5f));
+            Chevron(new Rect(caretX, box.y + (box.height - chevron) / 2f, chevron, chevron),
+                    !on ? Fade(Faint, 0.5f) : over ? Accent : Faint, open);
+
+            GUI.color = !on ? Fade(Lead, 0.5f) : over ? Lead : Name;
+            float textX = box.x + ButtonPadX;
+            RowLabel(new Rect(textX, box.y, Mathf.Max(0f, caretX - GapS - textX), box.height),
+                     value);
+            GUI.color = Color.white;
+
+            if (!on || !Widgets.ButtonInvisible(box)) return false;
+            SoundDefOf.Click.PlayOneShotOnCamera();
+            return true;
+        }
+
+        public static bool Select(Rect r, string caption, string value,
+                                  IEnumerable<string> choices, out Rect box,
+                                  string tip = null, bool on = true, bool open = false)
+        {
+            var labels = new List<string> { value };
+            if (choices != null) labels.AddRange(choices);
+
+            float width = SlopMenu.WidthFor(labels);
+            return Select(r, caption, value, out box, tip, on, open, width);
+        }
+
+        public static bool Select(Listing_Standard l, string caption, string value,
+                                  out Rect box, string tip = null, bool on = true) =>
+            Select(l.GetRect(LineH + GapXS + CompactH), caption, value, out box, tip, on);
+
+        public static bool Select(Listing_Standard l, string caption, string value,
+                                  IEnumerable<string> choices, out Rect box,
+                                  string tip = null, bool on = true) =>
+            Select(l.GetRect(LineH + GapXS + CompactH), caption, value, choices,
+                out box, tip, on);
+
+        // `r` is local to the active GUI group; SlopMenu's root position is in UI screen
+        // coordinates. Convert while the group is still active, before the caller adds the
+        // menu to the window stack.
+        public static Vector2 MenuAt(Rect r) =>
+            UI.GUIToScreenPoint(new Vector2(r.x, r.yMax));
+
         // A slider in the same flat chrome as the fields and checkboxes. The label is part
         // of the control rather than a separate Listing_Standard row, so a page of several
         // levels reads as one compact mixer. Mouse capture belongs to IMGUI's hot control:
@@ -634,6 +734,16 @@ namespace SlopWorld
         // than duplicated by individual windows.
         public static float BtnW(string label, float floor) =>
             Mathf.Max(Wide(label) + ButtonPadX * 2f, floor);
+
+        // Form buttons use their content width; callers that own fixed geometry (row action
+        // clusters, key cells, footer bars) continue to use Button(Rect, ...).
+        public static bool Button(Listing_Standard l, string label, Btn kind = Btn.Default,
+                                  bool on = true)
+        {
+            var r = l.GetRect(BtnH);
+            r.width = Mathf.Min(r.width, BtnW(label, ButtonMinW));
+            return Button(r, label, kind, on);
+        }
 
         // A page's ground: an opaque rectangular card with a structural edge.
         public static void Card(Rect r) => Slab.Box(r, WindowBg, Edge);

@@ -103,7 +103,7 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "RimWorld");
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+            if (SlopWidgets.Button(l,
                     "TemperatureMode".Translate() + ": " + Prefs.TemperatureMode.ToStringHuman()))
             {
                 Find.WindowStack.Add(new SlopMenu(Enum.GetValues(typeof(TemperatureDisplayMode))

@@ -139,11 +139,11 @@ namespace SlopWorld
             // Nothing to invalidate on the way out: every color in the mod is read through
             // SlopWidgets on the frame it is drawn, so the page under the dropdown has
             // already changed by the time the menu closes over it. See UIScheme.
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
-                    $"Color scheme: {UIScheme.Current.Label}"))
+            if (SlopWidgets.Select(l, "Color scheme", UIScheme.Current.Label,
+                    UIScheme.All.Select(s => s.Label), out var schemeBox))
                 Find.WindowStack.Add(new SlopMenu(UIScheme.All
                     .Select(s => new FloatMenuOption(s.Label, () => { S.uiScheme = s.Id; S.MarkDirty(); }))
-                    .ToList()));
+                    .ToList(), SlopWidgets.MenuAt(schemeBox)));
 
             DrawSwatches(l.GetRect(18f));
             l.Gap(SlopWidgets.GapM);
@@ -158,8 +158,10 @@ namespace SlopWorld
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
-                    $"Font: {(S.uiFontName.NullOrEmpty() ? "Automatic" : S.uiFontName)}"))
+            if (SlopWidgets.Select(l, "Font",
+                    S.uiFontName.NullOrEmpty() ? "Automatic" : S.uiFontName,
+                    new[] { "Automatic (system default)" }.Concat(SlopUIFont.All),
+                    out var fontBox))
             {
                 var opts = new List<FloatMenuOption>
                 {
@@ -180,7 +182,7 @@ namespace SlopWorld
                         S.MarkDirty();
                     }));
                 }
-                Find.WindowStack.Add(new SlopMenu(opts));
+                Find.WindowStack.Add(new SlopMenu(opts, SlopWidgets.MenuAt(fontBox)));
             }
 
             l.Gap(SlopWidgets.GapS);
@@ -202,7 +204,7 @@ namespace SlopWorld
             GUI.color = Color.white;
 
             l.Gap(SlopWidgets.GapS);
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH), "Rescan installed fonts"))
+            if (SlopWidgets.Button(l, "Rescan installed fonts"))
                 SlopUIFont.Rescan();
             l.Gap(SlopWidgets.GapM);
 
@@ -246,16 +248,14 @@ namespace SlopWorld
                 "Applies to every provider. Left is the amount remaining; spent is the " +
                 "provider-facing percentage or amount used.");
             string clockPosition = StatusbarClockMode.Normalize(S.statusbarClockPosition);
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
-                    $"Clock position: {StatusbarClockMode.Label(clockPosition)}"))
-            {
+            if (SlopWidgets.Select(l, "Clock position", StatusbarClockMode.Label(clockPosition),
+                    new[] { "Right", "Center", "Hidden" }, out var clockBox))
                 Find.WindowStack.Add(new SlopMenu(new List<FloatMenuOption>
                 {
                     new FloatMenuOption("Right", () => SetClockPosition(StatusbarClockMode.Right)),
                     new FloatMenuOption("Center", () => SetClockPosition(StatusbarClockMode.Center)),
                     new FloatMenuOption("Hidden", () => SetClockPosition(StatusbarClockMode.Hidden)),
-                }));
-            }
+                }, SlopWidgets.MenuAt(clockBox)));
             bool j = SlopWidgets.Checkbox(l, "Show Jukebox in statusbar", S.statusbarJukebox,
                 "Show the jukebox door when a jukebox is present.");
             bool g = SlopWidgets.Checkbox(l, "Show GM in statusbar", S.statusbarGM,

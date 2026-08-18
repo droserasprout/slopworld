@@ -77,7 +77,7 @@ namespace SlopWorld
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+            if (SlopWidgets.Button(l,
                     $"Font: {(s.fontName.NullOrEmpty() ? "Automatic" : s.fontName)}"))
             {
                 var opts = new List<FloatMenuOption>
@@ -123,7 +123,7 @@ namespace SlopWorld
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            if (SlopWidgets.Button(l.GetRect(SlopWidgets.BtnH),
+            if (SlopWidgets.Button(l,
                     $"Color scheme: {TerminalTheme.Current.Label}"))
                 Find.WindowStack.Add(new SlopMenu(TerminalTheme.All
                     .Select(t => new FloatMenuOption(t.Label, () =>
