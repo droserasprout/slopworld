@@ -10,6 +10,12 @@ namespace SlopWorld
     // `GUIStyle.fontSize` zero so measurement and drawing use each tier's native baked size.
     public static class SlopUIFont
     {
+        // Unity's text generator can report a line one or two pixels shorter than the
+        // dynamic font's actual ink. Keep that slack in the style so CalcSize/CalcHeight
+        // callers (notably ActiveTip) allocate it too, and do not clip a glyph that lands
+        // on the final pixel of an otherwise correctly measured rect.
+        const int BottomSafety = 2;
+
         // Default proportional faces for the "Automatic" fallback chain. Listed in
         // preference order, so the first one installed on the system becomes the face.
         static readonly string[] Candidates =
@@ -252,6 +258,15 @@ namespace SlopWorld
                 styles[i].font = fonts[i];
                 // The font is already baked at the requested size.
                 styles[i].fontSize = 0;
+
+                // Keep one shared policy for labels, tooltips and vanilla controls. The
+                // padding is idempotent because Apply() also runs while the font picker is
+                // open; Overflow is what saves a final descender when a caller supplied a
+                // rect measured before the dynamic atlas finished warming up.
+                styles[i].clipping = TextClipping.Overflow;
+                var p = styles[i].padding;
+                if (p != null && p.bottom < BottomSafety)
+                    styles[i].padding = new RectOffset(p.left, p.right, p.top, BottomSafety);
             }
         }
 

@@ -452,6 +452,10 @@ namespace SlopWorld
             style.contentOffset = Vector2.zero;
             style.alignment = area ? TextAnchor.UpperLeft : TextAnchor.MiddleLeft;
             style.wordWrap = area;
+            // Dynamic faces can put a descender below the height reported by IMGUI. Keep
+            // input text from losing its bottom pixel while the outer Slab still owns the
+            // field's exact geometry.
+            style.clipping = TextClipping.Overflow;
 
             // Let GUI.color carry the scheme ramp (and caller placeholder tints); a skin
             // with a dark-entry text color must not turn the same control black on a dark well.
