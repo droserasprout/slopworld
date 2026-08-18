@@ -48,6 +48,14 @@ figures. Rows are `openai_session` and `openai_week`; 401/403 says `codex login`
 
 - Each source has its own `Poller`, due time and failure count. A 429 or bad login does
   not stall other sources; disabling one clears only its rows.
+- The Settings > Integrations > Usage table stores per-window entries under
+  `[daemon.usage_items.<key>]`. Each entry has `poll = true/false` and an optional
+  `interval_secs`; an omitted or zero interval inherits `daemon.usage_poll_secs`.
+  Providers still keep their legacy switches as a master compatibility setting, and the GUI
+  keeps them in sync with the row toggles.
+- A provider request can answer several windows at once. The daemon schedules that request at
+  the fastest enabled row interval, while each window keeps its own due time and disabled rows
+  are removed from the merged snapshot immediately.
 - `merge` exposes one wire `windows` list. `ok` requires every enabled source to be
   current; errors are joined. With no source enabled, the snapshot draws nothing.
 - `sources` records enabled sellers even before they answer, allowing the mod to hold

@@ -1,5 +1,6 @@
 //! Polls provider usage with fresh credentials, narrow parsing, and snapshot-preserving failures; unknown responses yield no figures rather than false zeroes.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -822,6 +823,9 @@ struct Poller {
     /// When this source is next due. Now, on the first lap and whenever it is switched back
     /// on, so a setting turned on in the GUI answers rather than serving out a backoff.
     due: Instant,
+    /// Provider responses contain several windows, so each returned window keeps its own
+    /// schedule even though the request itself is shared.
+    item_due: HashMap<String, Instant>,
 }
 
 impl Poller {
@@ -831,6 +835,7 @@ impl Poller {
             snap: Snapshot::default(),
             fails: 0,
             due: Instant::now(),
+            item_due: HashMap::new(),
         }
     }
 
@@ -839,6 +844,7 @@ impl Poller {
     fn clear(&mut self) -> bool {
         self.fails = 0;
         self.due = Instant::now();
+        self.item_due.clear();
         if self.snap == Snapshot::default() {
             return false;
         }
@@ -907,15 +913,129 @@ struct Provider<'a> {
 }
 
 fn anthropic_enabled(d: &crate::config::Daemon) -> bool {
-    d.usage
+    provider_enabled(d, "anthropic", d.usage)
 }
 
 fn openrouter_enabled(d: &crate::config::Daemon) -> bool {
-    d.openrouter
+    provider_enabled(d, "openrouter", d.openrouter)
 }
 
 fn openai_enabled(d: &crate::config::Daemon) -> bool {
-    d.openai
+    provider_enabled(d, "openai", d.openai)
+}
+
+fn source_for_key(key: &str) -> Option<&'static str> {
+    if key.starts_with("claude_") {
+        Some("anthropic")
+    } else if key.starts_with("openrouter_") {
+        Some("openrouter")
+    } else if key.starts_with("openai_") {
+        Some("openai")
+    } else {
+        None
+    }
+}
+
+/// A missing row is deliberately backward-compatible: old config files only have the
+/// provider switch, so every row in that provider inherits it until the table is saved.
+fn item_enabled(d: &crate::config::Daemon, source: &str, key: &str, fallback: bool) -> bool {
+    if source_for_key(key) != Some(source) {
+        return false;
+    }
+    d.usage_items
+        .get(key)
+        .map(|item| item.poll)
+        .unwrap_or(fallback)
+}
+
+/// Once a table exists for a provider, turning every row off also turns the provider off. This
+/// avoids keeping credentials and network polling alive for a table that visibly has no rows.
+fn provider_enabled(d: &crate::config::Daemon, source: &str, fallback: bool) -> bool {
+    if !fallback {
+        return false;
+    }
+
+    let rows: Vec<_> = d
+        .usage_items
+        .iter()
+        .filter(|(key, _)| source_for_key(key) == Some(source))
+        .collect();
+    rows.is_empty() || rows.iter().any(|(_, item)| item.poll)
+}
+
+/// Providers answer several windows in one request. Poll at the fastest enabled row interval;
+/// each row's toggle is still applied to the merged snapshot, while a slow row never makes a
+/// faster row wait for it.
+fn provider_interval(d: &crate::config::Daemon, source: &str, fallback: u64) -> u64 {
+    d.usage_items
+        .iter()
+        .filter(|(key, item)| source_for_key(key) == Some(source) && item.poll)
+        .map(|(_, item)| {
+            item.interval_secs
+                .filter(|seconds| *seconds > 0)
+                .unwrap_or(fallback)
+                .max(10)
+        })
+        .min()
+        .unwrap_or(fallback.max(10))
+}
+
+fn filter_snapshot(
+    poller: &mut Poller,
+    mut snapshot: Snapshot,
+    d: &crate::config::Daemon,
+    source: &str,
+    fallback: bool,
+    now: Instant,
+) -> Snapshot {
+    if !snapshot.ok {
+        return snapshot;
+    }
+
+    poller
+        .item_due
+        .retain(|key, _| item_enabled(d, source, key, fallback));
+
+    let previous = poller.snap.windows.clone();
+    let mut seen = Vec::new();
+    let mut windows = Vec::new();
+    for window in snapshot.windows.drain(..) {
+        if !item_enabled(d, source, &window.key, fallback) {
+            continue;
+        }
+
+        let interval = d
+            .usage_items
+            .get(&window.key)
+            .and_then(|item| item.interval_secs)
+            .filter(|seconds| *seconds > 0)
+            .unwrap_or(d.usage_poll_secs)
+            .max(10);
+        let due = poller.item_due.entry(window.key.clone()).or_insert(now);
+        if *due > now + Duration::from_secs(interval) {
+            *due = now;
+        }
+        if *due <= now {
+            *due = now + Duration::from_secs(interval);
+            windows.push(window.clone());
+        } else if let Some(old) = previous.iter().find(|old| old.key == window.key) {
+            windows.push(old.clone());
+        }
+        seen.push(window.key);
+    }
+
+    // An optional window may disappear from a valid response. Keep its last value until that
+    // row's own interval is due, then let it disappear instead of showing an old figure forever.
+    for old in previous {
+        if seen.iter().any(|key| key == &old.key) || !item_enabled(d, source, &old.key, fallback) {
+            continue;
+        }
+        if poller.item_due.get(&old.key).is_some_and(|due| *due > now) {
+            windows.push(old);
+        }
+    }
+    snapshot.windows = windows;
+    snapshot
 }
 
 /// A login renewed on the host is the one thing that can turn "expired" back into numbers, and
@@ -952,6 +1072,8 @@ async fn poll_one(
     d: &crate::config::Daemon,
     now: Instant,
     base: u64,
+    source: &str,
+    fallback: bool,
     read: ReadProvider,
     fetch: FetchProvider,
     parse: ParseProvider,
@@ -975,6 +1097,7 @@ async fn poll_one(
     .await
     .unwrap_or_default();
 
+    let next = filter_snapshot(poller, next, d, source, fallback, now);
     poller.settle(next, asked, base);
     true
 }
@@ -1079,11 +1202,35 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
                     continue;
                 }
 
+                // A row toggle should disappear from the wire immediately, even when this
+                // provider is between network polls. Its next enabled poll will repopulate it.
+                let before = provider.poller.snap.windows.len();
+                provider
+                    .poller
+                    .item_due
+                    .retain(|key, _| item_enabled(d, provider.source, key, true));
+                provider
+                    .poller
+                    .snap
+                    .windows
+                    .retain(|window| item_enabled(d, provider.source, &window.key, true));
+                moved |= before != provider.poller.snap.windows.len();
+
+                let interval = provider_interval(d, provider.source, base);
+                // A newly shortened interval should take effect on the next loop rather than
+                // waiting out the old, longer due time. Increasing it naturally takes effect
+                // after the next poll.
+                if provider.poller.due > now + Duration::from_secs(interval) {
+                    provider.poller.due = now;
+                }
+
                 moved |= poll_one(
                     provider.poller,
                     d,
                     now,
-                    base,
+                    interval,
+                    provider.source,
+                    true,
                     provider.read,
                     provider.fetch,
                     provider.parse,

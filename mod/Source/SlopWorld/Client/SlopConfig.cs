@@ -12,6 +12,9 @@ namespace SlopWorld
         // Off means the daemon never reads the credentials file.
         public bool Usage = true;
         public int UsagePollSecs = 60;
+        // One entry per usage window. A zero interval means the global interval applies.
+        public Dictionary<string, UsageItemConfig> UsageItems =
+            new Dictionary<string, UsageItemConfig>();
         // Where the daemon looks for Claude Code's OAuth token.
         public string ClaudeCredentials = "~/.claude/.credentials.json";
         // The other subscription, and off unless somebody says otherwise: there is no login
@@ -50,6 +53,7 @@ namespace SlopWorld
             {
                 Usage = d["usage"].AsBool(true),
                 UsagePollSecs = d["usage_poll_secs"].AsInt(60),
+                UsageItems = UsageItemsFromJson(d["usage_items"]),
                 ClaudeCredentials =
                     d["claude_credentials"].AsString("~/.claude/.credentials.json"),
                 Openrouter = d["openrouter"].AsBool(false),
@@ -70,11 +74,33 @@ namespace SlopWorld
             };
         }
 
+        public class UsageItemConfig
+        {
+            public bool Poll = true;
+            // Zero is the client-side representation of an omitted TOML interval.
+            public int IntervalSecs;
+        }
+
+        static Dictionary<string, UsageItemConfig> UsageItemsFromJson(JVal value)
+        {
+            var items = new Dictionary<string, UsageItemConfig>();
+            if (value.Obj == null) return items;
+
+            foreach (var pair in value.Obj)
+                items[pair.Key] = new UsageItemConfig
+                {
+                    Poll = pair.Value["poll"].AsBool(true),
+                    IntervalSecs = pair.Value["interval_secs"].AsInt(0),
+                };
+            return items;
+        }
+
         // This deliberately omits bind, token, projects, sessions, state rules and sandbox
         // presets. The daemon deep-merges this object before validating it.
         public string ToPatchJson() =>
             "{\"daemon\":{" +
             $"\"usage\":{JVal.B(Usage)},\"usage_poll_secs\":{UsagePollSecs}," +
+            $"\"usage_items\":{UsageItemsJson()}," +
             $"\"claude_credentials\":{JVal.Q(ClaudeCredentials)}," +
             $"\"openrouter\":{JVal.B(Openrouter)}," +
             $"\"openrouter_key_file\":{JVal.Q(OpenrouterKeyFile)}," +
@@ -92,6 +118,23 @@ namespace SlopWorld
             $"\"pager\":{JVal.Q(Pager)},\"editor\":{JVal.Q(Editor)}," +
             $"\"highlighter\":{JVal.Q(Highlighter)},\"opener\":{JVal.Q(Opener)}" +
             "}}";
+
+        string UsageItemsJson()
+        {
+            var parts = new List<string>();
+            foreach (var pair in UsageItems)
+            {
+                var item = pair.Value ?? new UsageItemConfig();
+                // Zero is explicit here so a previously saved per-item override can be
+                // cleared through the daemon's deep-merge patch.
+                string interval = item.IntervalSecs > 0
+                    ? item.IntervalSecs.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    : "0";
+                parts.Add(JVal.Q(pair.Key) + ":{\"poll\":" + JVal.B(item.Poll) +
+                    ",\"interval_secs\":" + interval + "}");
+            }
+            return "{" + string.Join(",", parts.ToArray()) + "}";
+        }
 
         // One entry per line, which is how the GUI edits these lists.
         public static string Lines(List<string> items) =>
