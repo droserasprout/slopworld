@@ -204,7 +204,7 @@ fn default_agent() -> String {
 }
 
 fn default_shell() -> String {
-    "shell".into()
+    "bash".into()
 }
 
 impl Default for Defaults {
@@ -1067,7 +1067,7 @@ token = \"not-a-daemon-token\"
             r#"
             [defaults]
             agent = "pi"
-            shell = "shell"
+            shell = "bash"
 
             [[shortcut]]
             name = "review diff"
@@ -1102,7 +1102,7 @@ token = \"not-a-daemon-token\"
         assert_eq!(prompt.project, "slopworld");
 
         let shell = cfg.session_for(cfg.shortcut("tests").unwrap(), "tests".into(), "x".into());
-        assert_eq!(shell.command, "shell");
+        assert_eq!(shell.command, "bash");
         assert_eq!(cfg.command_of(&shell), "bash");
 
         // A command line rather than a preset name: run as it stands, with only the implicit
@@ -1122,7 +1122,7 @@ token = \"not-a-daemon-token\"
     fn preset_dependencies_arrive_before_the_preset_that_needs_them() {
         let cfg = Config::default();
         let session = SessionCfg {
-            command: "shell".into(),
+            command: "bash".into(),
             sandbox: vec!["systemd".into()],
             ..Default::default()
         };

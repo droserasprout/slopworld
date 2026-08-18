@@ -37,7 +37,7 @@ keys, cursor position, and any text copied from the pane.
 ## Why it matters most in the host terminal
 
 The host terminal runs `$SHELL` = zsh. The sandboxed "shell" errand runs bash
-(`[defaults] shell` = `shell.toml`). So the user's bash session works fine and
+(`[defaults] shell` = `bash.toml`). So the user's bash session works fine and
 the zsh host session is the one with the unbound keys.
 
 ## Fix

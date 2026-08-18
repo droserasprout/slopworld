@@ -33,7 +33,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("always", config.PiTitles, "Pi title default");
             AssertEx.True(config.HostTitles, "host title default");
             AssertEx.Equal("claude", config.Agent, "agent command default");
-            AssertEx.Equal("shell", config.Shell, "shell command default");
+            AssertEx.Equal("bash", config.Shell, "shell command default");
             AssertEx.Equal("less", config.Pager, "pager default");
             AssertEx.Equal("micro", config.Editor, "editor default");
             AssertEx.Equal("highlight --out-format=xterm256", config.Highlighter,
