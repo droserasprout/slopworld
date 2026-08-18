@@ -66,6 +66,21 @@ namespace SlopWorld
         /// Period: walk to the next session in the sidebar order.
         public static KeyBindingDef SlopNextSession;
 
+        /// Player pawn action: path to the cursor.
+        public static KeyBindingDef SlopPlayerGo;
+
+        /// Player pawn action: launch a fireball at the cursor.
+        public static KeyBindingDef SlopPlayerFireball;
+
+        /// Player pawn action: launch a rejuvenating water ball at the cursor.
+        public static KeyBindingDef SlopPlayerRejuvenate;
+
+        /// Player pawn action: teleport to the cursor.
+        public static KeyBindingDef SlopPlayerTeleport;
+
+        /// Player pawn action: call the cat to the cursor.
+        public static KeyBindingDef SlopPlayerCatWhistle;
+
         /// The colony's one and only pet.
         public static PawnKindDef Cat;
 

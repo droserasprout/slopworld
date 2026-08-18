@@ -19,6 +19,47 @@
     <description>Controls for the SlopWorld interface.</description>
   </KeyBindingCategoryDef>
 
+  <KeyBindingCategoryDef>
+    <defName>SlopPlayer</defName>
+    <label>Player</label>
+    <description>Actions for the player pawn.</description>
+  </KeyBindingCategoryDef>
+
+  <KeyBindingDef>
+    <defName>SlopPlayerGo</defName>
+    <label>Go</label>
+    <category>SlopPlayer</category>
+    <defaultKeyCodeA>Alpha1</defaultKeyCodeA>
+  </KeyBindingDef>
+
+  <KeyBindingDef>
+    <defName>SlopPlayerFireball</defName>
+    <label>Fireball</label>
+    <category>SlopPlayer</category>
+    <defaultKeyCodeA>Alpha2</defaultKeyCodeA>
+  </KeyBindingDef>
+
+  <KeyBindingDef>
+    <defName>SlopPlayerRejuvenate</defName>
+    <label>Rejuvenate</label>
+    <category>SlopPlayer</category>
+    <defaultKeyCodeA>Alpha3</defaultKeyCodeA>
+  </KeyBindingDef>
+
+  <KeyBindingDef>
+    <defName>SlopPlayerTeleport</defName>
+    <label>Teleport</label>
+    <category>SlopPlayer</category>
+    <defaultKeyCodeA>Alpha4</defaultKeyCodeA>
+  </KeyBindingDef>
+
+  <KeyBindingDef>
+    <defName>SlopPlayerCatWhistle</defName>
+    <label>Cat whistle</label>
+    <category>SlopPlayer</category>
+    <defaultKeyCodeA>Alpha5</defaultKeyCodeA>
+  </KeyBindingDef>
+
   <!-- T also toggles vanilla's beauty overlay, which a colony of agents has no
        use for. -->
   <KeyBindingDef>
