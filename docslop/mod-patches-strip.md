@@ -30,7 +30,8 @@
   either way), both clocks and the mood bar and portrait weapon (GlobalControls and
   the colonist-bar drawer), gravship cutscenes, zoom-to-switch-layer and the
   remembered draw style (no gravship, no planet view, no Architect menu). Graphics,
-  Interface, Controls and Mods are what remain of the RimWorld group.
+  Interface and Controls are merged into the RimWorld page under small section
+  headings; Mods is the remaining separate vanilla category.
 
 ## `SlopOptions` - our categories in vanilla's options window
 

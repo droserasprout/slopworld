@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
@@ -140,8 +141,12 @@ namespace SlopWorld
 
         const float AutoScrollSpeed = 7f;
         const float FirstPassHeight = 2000f;
+        const float FirstRimWorldHeight = 1800f;
 
         readonly SmoothScroll _scroll = new SmoothScroll();
+        readonly SmoothScroll _rimWorldScroll = new SmoothScroll();
+        readonly Dialog_Options _rimWorldOptions = new Dialog_Options();
+        float _rimWorldContentHeight;
         List<ListableOption> _links;
         float _contentHeight;
         int _autoScrollFrame = -1;
@@ -155,8 +160,74 @@ namespace SlopWorld
 
         public void DrawRimWorld(Rect rect)
         {
-            float y = DrawVersionInfo(rect, rect.y);
-            DrawWebLinks(rect, y);
+            Text.Font = GameFont.Small;
+            var inner = rect.ContractedBy(Layout.ViewportMarginX, Layout.ViewportMarginY);
+
+            float viewWidth = Mathf.Max(1f, inner.width - SlopWidgets.ScrollbarW);
+            float viewHeight = Mathf.Max(inner.height,
+                _rimWorldContentHeight > 0f ? _rimWorldContentHeight : FirstRimWorldHeight);
+            var view = new Rect(0f, 0f, viewWidth, viewHeight);
+
+            _rimWorldScroll.Begin(inner, view);
+            var content = new Rect(Layout.ContentPaddingX, Layout.ContentPaddingY,
+                Mathf.Max(1f, view.width - Layout.ContentPaddingX * 2f),
+                Mathf.Max(1f, view.height - Layout.ContentPaddingY * 2f));
+
+            float y = DrawRimWorldHeader(content);
+            y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Graphics,
+                "DoVideoOptions");
+            y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Interface,
+                "DoUIOptions");
+            y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Controls,
+                "DoControlsOptions");
+
+            _rimWorldContentHeight = y + Layout.ContentPaddingY;
+            _rimWorldScroll.End();
+        }
+
+        float DrawRimWorldHeader(Rect rect)
+        {
+            float gap = Layout.ColumnGap;
+            float columnWidth = Mathf.Max(1f, (rect.width - gap) / 2f);
+            var build = new Rect(rect.x, rect.y, columnWidth, rect.height);
+            var links = new Rect(rect.x + columnWidth + gap, rect.y, columnWidth, rect.height);
+
+            float buildBottom = DrawVersionInfo(build, build.y);
+            float linksBottom = DrawWebLinks(links, links.y);
+            return Mathf.Max(buildBottom, linksBottom) + Layout.HeadingGap;
+        }
+
+        float DrawRimWorldSection(Rect rect, float y, OptionCategoryDef category,
+            string methodName)
+        {
+            if (category == null) return y;
+
+            var method = typeof(Dialog_Options).GetMethod(methodName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (method == null) return y;
+
+            SlopWidgets.SectionHeading(
+                new Rect(rect.x, y, rect.width, SlopWidgets.RowH), category.LabelCap);
+            y += SlopWidgets.RowH + SlopWidgets.GapXS;
+
+            // The vanilla helpers only accept a Listing_Standard. Give each one a very tall,
+            // single-column listing so the sections can share this page's scroll view.
+            var listing = new Listing_Standard { maxOneColumn = true };
+            listing.Begin(new Rect(rect.x, y, rect.width, 10000f));
+            listing.verticalSpacing = 5f;
+            listing.Gap(12f);
+            try
+            {
+                method.Invoke(_rimWorldOptions, new object[] { listing });
+                float used = listing.CurHeight;
+                listing.End();
+                return y + used + Layout.HeadingGap;
+            }
+            catch
+            {
+                listing.End();
+                throw;
+            }
         }
 
         public void Draw(Rect rect)
@@ -234,11 +305,11 @@ namespace SlopWorld
             return y + 12f;
         }
 
-        void DrawWebLinks(Rect r, float y)
+        float DrawWebLinks(Rect r, float y)
         {
             if (_links == null) _links = BuildLinks();
 
-            OptionListingUtility.DrawOptionListing(
+            return y + OptionListingUtility.DrawOptionListing(
                 new Rect(r.x, y, r.width, 1000f), _links);
         }
 
