@@ -1,7 +1,14 @@
 # Building and running
 
 Use the Makefile; `make` prints its target list. `RIMWORLD` defaults to
-`~/RimWorld/game` and must point to a real install because the mod uses its assemblies.
+`~/GOG Games/RimWorld/game` and must point to a real install because the mod uses its assemblies.
+
+For a GOG copy, `make gogdl-install` downloads the native Linux build into
+`GOGDL_PATH` (default `~/GOG Games`), and `make gogdl-update` updates the existing
+`RIMWORLD` directory. Both include owned DLCs. Set `GOGDL_AUTH` if the gogdl token
+file is elsewhere; the default is Heroic's `heroic/gog_store/auth.json`. Run
+`make gogdl-login` to open the GOG login page, paste its authorization code, and save
+the token before downloading.
 
 `BUILD` is `debug` (default) or `release`; `make BUILD=release install` installs
 the release build. Suffixed targets are aliases. Both builds write
@@ -16,6 +23,9 @@ the release build. Suffixed targets are aliases. Both builds write
 | `format` / `lint` | Both halves; `-daemon` and `-mod` variants exist. |
 | `install` | `install-daemon` (binary, unit, conditional restart), `install-runner`, `install-mod`. |
 | `uninstall` | Undoes those three. Config and profile are left alone. |
+| `gogdl-login` | Opens GOG's login page and saves the gogdl token. |
+| `gogdl-install` | Installs the native Linux RimWorld copy from GOG with gogdl. |
+| `gogdl-update` | Updates the existing native Linux RimWorld copy with gogdl. |
 | `run` | Launches through the runner. `PROFILE` picks the folder. |
 | `logs` | Tails `Player.log`. |
 | `check-reqs` | Reports required host dependencies and detected optional integrations/tools. |

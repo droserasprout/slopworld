@@ -19,3 +19,14 @@ monuments use `Bloom`, gated by `Worksite.Patch_ErrandDone`.
   excluding trees.
 - State is scribed with `MapExposeUtility.ExposeUshort` as a signed seconds offset
   and rebased in `FinalizeInit`; old saves restore only the core region.
+
+## Defs
+
+`Defs/Hediffs.xml` defines two hediffs: `SlopOffline` caps consciousness at 0.1 to
+down a pawn whose process is not running (the same colonist gets up when the session
+returns), and `SlopPlague` is a tag with no severity ticker — the plague drives every
+effect itself. `Defs/Flecks.xml` defines the gas clouds: three hues of plague gas
+(`SlopPlagueGas`, `Deep`, `Warm`) rolled per cloud so the map varies without
+shimmering, and `SlopCleanAir` for the aura. These use `FleckBase_Thrown` with slow
+rise; `graphicData.color` sets alpha rather than `instanceColor` because the latter
+combines with a separately computed fade.

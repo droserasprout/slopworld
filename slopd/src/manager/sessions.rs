@@ -167,6 +167,11 @@ impl Manager {
             }
         }
         self.forget_scroll(name);
+        // Removal is the visible transition. Publish it before filesystem, sandbox and tmux
+        // cleanup so a dead ephemeral pane cannot hold the client on its old session list.
+        let _ = self.events.send(Event::Sessions {
+            sessions: self.views().await,
+        });
         self.clear_activity(name).await;
         if let Err(error) = self.title_cache.clear_latest(name) {
             tracing::warn!(
@@ -213,9 +218,6 @@ impl Manager {
         }
         self.temp.write().await.remove(&project);
         self.grants.write().await.revoke_grantor(name);
-        let _ = self.events.send(Event::Sessions {
-            sessions: self.views().await,
-        });
         if let Some(h) = handle {
             h.abort();
         }

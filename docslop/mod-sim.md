@@ -11,14 +11,18 @@
   rewrites `gameStartAbsTick` so calendar effects track one real day per game day.
   The epoch is scribed; tick units differ ([gotchas](gotchas.md)).
 - **`ColonyNames`**, **`SpawnSpot`** and **`LandingSite`** answer naming and legal spawn
-  choices. **`IntroDirector`** owns hidden UI, selection and landing transitions;
-  **`Outskirts`** keeps the uninfected rim populated; **`Pets`** protects colony animals.
+  choices. `Patches/NoMountains.xml` removes `RocksFromGrid` from the player map
+  generator (profile-gated by `PatchOperationInProfile`). **`IntroDirector`** owns
+  hidden UI, selection and landing transitions; **`Outskirts`** keeps the uninfected
+  rim populated; **`Pets`** protects colony animals.
 - **`Aura`** is the player action: it clears local filth/fire, unmarks things, mends a
   plant and heals the cat, with temporary grace and revive chance. **`QuitInterceptor`**
   saves after OS close requests before allowing shutdown.
 - **`AutoResume`**, **`AutoSaver`** and **`TerminalRecall`** make restarts cheap. Saves
   use real-minute intervals and stop after the next-planet sequence; cold start loads
-  the newest save or queues QuickStart.
+  the newest save or queues QuickStart. **`SaveCoordinator`** is the shared seam:
+  either autosave or window-close can request a save without knowing about the other,
+  and it skips colonies pending NextPlanet so AutoResume cannot restore a discarded map.
 - **`NextPlanet`** replaces the relevant option rows and drives the closing scene;
   Grandma mode skips to `Leave` but still discards the colony. **`Cutscene`** is the
   single board-ownership predicate and **`TerminalHotkeys`** supplies global F12.
