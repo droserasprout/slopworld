@@ -17,6 +17,19 @@
   frame's materials and everything done to it. Added to the def at startup rather
   than patched into the driver: the roll is what wants changing, not the job.
 
+## Session cycling and action gizmos
+
+- **`ShortcutKeysPatch`** replaces vanilla comma/dot colonist cycling with the
+  sidebar's walk order. On the map layer it reads `SlopPrevSession`/`SlopNextSession`
+  keybindings directly; over a pane, bare comma/dot belong to the agent so the patch
+  falls through. An empty walk order in a non-Agents tab falls back to the hub's
+  live session list.
+- **`SlopCommandAction`** is the `Command_Action` subclass for agent gizmo buttons.
+  It draws a clear background with `ActionButtonBackground` and normalizes six icon
+  glyphs to a common 23px visual size through per-icon scale factors.
+  `Patch_SlopCommandShortcutLabel` transpiles `Command.GizmoOnGUIInt` to shift the
+  shortcut label two pixels higher for these gizmos only.
+
 # The colonist bar, kept and extended
 
 `ColonistBarStrip`, `ColonistBarAddButton`, `ColonistBarStateIcon`,

@@ -660,7 +660,7 @@ impl Manager {
                 return;
             }
         };
-        let (_child, master) = match self.tmux.control_attach(&name, cols, rows) {
+        let (child, master) = match self.tmux.control_attach(&name, cols, rows) {
             Ok(c) => c,
             Err(e) => {
                 tracing::error!("control attach {name}: {e:#}");
@@ -672,6 +672,10 @@ impl Manager {
         let rx = spawn_control_reader(master);
         self.run_control_loop(&name, emu, rx).await;
 
+        // Stop the control client before touching the session in mark_down. The child owns
+        // the PTY slave; keeping it alive makes cleanup race the same tmux control client that
+        // just reported %exit, and can leave tmux waiting while Ctrl+D appears to hang.
+        drop(child);
         self.mark_down(&name).await;
     }
 
@@ -889,13 +893,12 @@ impl Manager {
             return;
         }
 
-        let mut changed = false;
+        let mut found = false;
         {
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(name) {
-                if l.set_state(State::Down) {
-                    changed = true;
-                }
+                found = true;
+                l.set_state(State::Down);
                 l.bell = false;
                 l.screen = None;
                 l.emu = None;
@@ -909,6 +912,14 @@ impl Manager {
             }
         }
         self.forget_scroll(name);
+        // The process is already gone. Publish that fact before cleanup: clearing activity
+        // may ask tmux about a session that disappeared with the process, and must not delay
+        // the client's next session snapshot.
+        if found {
+            let _ = self.events.send(Event::Sessions {
+                sessions: self.views().await,
+            });
+        }
         self.clear_activity(name).await;
         if let Err(error) = self.title_cache.clear_latest(name) {
             tracing::warn!(
@@ -918,11 +929,6 @@ impl Manager {
                 outcome = "cache_write_failed",
                 "could not clear session title"
             );
-        }
-        if changed {
-            let _ = self.events.send(Event::Sessions {
-                sessions: self.views().await,
-            });
         }
     }
 

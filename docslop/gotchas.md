@@ -44,5 +44,7 @@
   removed from the session map must `.take()` and `.abort()` its reader first, or the
   control-mode tmux attach outlives the session it was reading. Assigning over an
   existing handle detaches the old one the same way; `Option::replace` and abort.
+  After the control loop reports `%exit`, drop its `Child` before `mark_down` runs tmux
+  cleanup, so cleanup does not race the dying control client.
 - Unset variables must expand to an empty path, never an empty component. This prevents
   `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` from becoming `/`; `sandbox::refused` rejects `/` too.

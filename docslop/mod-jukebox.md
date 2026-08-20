@@ -1,7 +1,9 @@
 # The jukebox
 
-`Sim/Jukebox.cs` owns the building and menus; `Sim/Radio.cs` owns selection and
-reports it to `slopd`. The daemon owns the station catalog. Shipped stations are
+`Defs/Jukebox.xml` defines `SlopJukebox`: a non-selectable, non-edifice building
+with no hit points, zero flammability and `Standable` passability — scenery with one
+click target. `Sim/Jukebox.cs` owns the building and menus; `Sim/Radio.cs` owns
+selection and reports it to `slopd`. The daemon owns the station catalog. Shipped stations are
 compiled from `slopd/jukebox/`; user files are one-station TOMLs under
 `$XDG_CONFIG_HOME/slopworld/jukebox/` (`SLOPD_JUKEBOX` overrides). A matching `id`
 replaces a shipped station; new ids append in filename order.

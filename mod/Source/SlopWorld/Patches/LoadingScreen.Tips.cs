@@ -146,6 +146,15 @@ namespace SlopWorld
             "They have no interest in ending the Tyranny of the Gods - they simply wish to replace them.",
             "Struggle is the natural form of creation. This is the chaos of the primordial womb.",
             "We are against unnecessary cruelty. Which means somebody has to decide when cruelty is necessary. (",
+            // Postal
+            "The Earth is hungry. Its heart throbs and demands cleansing. The Earth is also thirsty. (",
+            "Next stop: Armageddon, the River Styx, Hades... and all points in between! All aboard! (",
+            "Keep your head, hands, arms, legs, and feet inside the ride at all times.",
+            "The source of the corruption has been corked, laid in a body bag and dragged to the outskirts of existence. (",
+            // Blade
+            "When you understand the nature of a thing, you know what it's capable of.",
+            "Some motherfuckers are always trying to ice-skate uphill. (",
+            "You took my arm, man. Remember? But its cool. I got a new one. Think I'll ever play piano again? (",
             // Kaczynski
             "All work will be done by vast, highly organized systems of machines and no human effort will be necessary.",
             // Google Search
