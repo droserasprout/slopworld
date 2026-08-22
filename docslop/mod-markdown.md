@@ -11,8 +11,8 @@ tags, `span` wrappers and links. Images honor left/right/center (including `midd
 `style="float: ..."`. This is deliberately a tag scanner, not an HTML parser;
 CSS, scripts, forms, remote images and unknown tags are not interpreted. It supports headings,
 emphasis, links, lists, quotes, fenced code, tables and task markers, and uses the existing
-scheme, font and `SmoothScroll`. External links use terminal-style Ctrl+click and go back
-through `/api/open`; relative links stay inside the owning project and open another native
+scheme, font and `SmoothScroll`. External links use terminal-style Ctrl+click and call
+Unity's `Application.OpenURL`; relative links stay inside the owning project and open another native
 preview or the existing pager. Rendered text supports drag, double-click word, triple-click
 line, Ctrl+C, Ctrl+A and a right-click menu. Ctrl+V pastes to the agent pane behind the preview
 when one exists; the preview itself remains read-only. Markdown's context menu retains an

@@ -120,6 +120,7 @@ namespace SlopWorld
 
                 if (node.IsDir)
                 {
+                    opts.Add(new FloatMenuOption("Open in...", () => FilesView.OpenIn(node.Path)));
                     opts.Add(SlopMenu.Separator());
                     opts.Add(new FloatMenuOption("New file", () => FilesView.Create(node, "file")));
                     opts.Add(new FloatMenuOption("New folder", () => FilesView.Create(node, "folder")));
@@ -128,6 +129,17 @@ namespace SlopWorld
 
                 return opts;
             }
+        }
+
+        static void OpenIn(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return;
+            string command = FileActionCommand("xdg-open", path, null);
+            SlopClient.Post("/api/file-action", "{" +
+                $"\"path\":{JVal.Q(path)}," +
+                $"\"command\":{JVal.Q(command)}," +
+                "\"host\":true" +
+                "}", null, SlopWidgets.Fail);
         }
 
         // File actions can come from any sidebar tree. Project paths run in that project's

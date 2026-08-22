@@ -42,7 +42,6 @@ namespace SlopWorld
         public string Pager = "less";
         public string Editor = "micro";
         public string Highlighter = "highlight --out-format=xterm256";
-        public string Opener = "xdg-open {url}";
 
         public static SlopConfig FromJson(JVal v)
         {
@@ -70,7 +69,6 @@ namespace SlopWorld
                 Pager = c["pager"].AsString("less"),
                 Editor = c["editor"].AsString("micro"),
                 Highlighter = c["highlighter"].AsString("highlight --out-format=xterm256"),
-                Opener = c["opener"].AsString("xdg-open {url}"),
             };
         }
 
@@ -116,7 +114,7 @@ namespace SlopWorld
             "}," +
             "\"commands\":{" +
             $"\"pager\":{JVal.Q(Pager)},\"editor\":{JVal.Q(Editor)}," +
-            $"\"highlighter\":{JVal.Q(Highlighter)},\"opener\":{JVal.Q(Opener)}" +
+            $"\"highlighter\":{JVal.Q(Highlighter)}" +
             "}}";
 
         string UsageItemsJson()

@@ -12,10 +12,10 @@ can temporarily become the tree root.
   offscreen rows; do not hit-test against drawing-time geometry.
 - Empty directories remain right-clickable rows. Hover exposes view/edit/diff actions;
   diff is offered only for paths already present in Git's working-tree result.
-- Context menus support copy paths, `less -R`, `micro`, rename/remove, new file/folder
-  and terminal here. Root-only Files mutations use create, one-component rename and
-  recursive delete. View/edit and file actions run through the project sandbox; storage
-  roots use disposable host errands.
+- Context menus support copy paths, native `xdg-open` for directories, `less -R`, `micro`,
+  rename/remove, new file/folder and terminal here. Root-only Files mutations use create,
+  one-component rename and recursive delete. View/edit and file actions run through the
+  project sandbox; storage roots use disposable host errands.
 - Project headings also offer a host terminal. `fa` shortcuts show bounded output in the
   SlopWorld alert window (vanilla message toasts are hidden) or open a temporary project
   terminal; path markers are quoted and normalized by the daemon.

@@ -28,8 +28,7 @@ override. A missing DNS setting means the systemd-resolved stub.
 Query routes are `/api/usage`, `/api/presets`, `/api/jukebox`, `/api/browse`, `/api/read`,
 `/api/image`, `/api/search`, `/api/git` and `/api/audio`. `/api/read` is root-only
 and returns bounded UTF-8 file text for native Markdown previews. `/api/image` is root-only and
-returns bounded base64 image bytes for local Markdown images. `/api/open` returns 400 for an invalid
-URL and 502 when its opener fails. `/api/file-action` runs a configured
+returns bounded base64 image bytes for local Markdown images. `/api/file-action` runs a configured
 Files action inside a named project's sandbox, or explicitly on the host for private-state
 storage, and returns bounded output.
 

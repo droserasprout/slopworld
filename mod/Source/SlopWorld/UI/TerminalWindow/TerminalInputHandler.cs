@@ -104,6 +104,14 @@ namespace SlopWorld
                 case EventType.MouseUp:
                     _window.HandleMouse(body, e);
                     return;
+                case EventType.Used:
+                    // WindowStack can consume a mouse event during its high-priority pass
+                    // before the fullscreen window body gets to inspect it. rawType keeps the
+                    // original gesture, just as it does for the semicolon key path above.
+                    if (e.rawType == EventType.MouseDown || e.rawType == EventType.MouseDrag ||
+                        e.rawType == EventType.MouseUp)
+                        _window.HandleMouse(body, e);
+                    return;
                 case EventType.KeyDown:
                     _window.HandleKey(e);
                     return;

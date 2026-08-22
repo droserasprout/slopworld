@@ -154,13 +154,13 @@ required_command 'default shell' bash
 required_command 'default pager' less
 required_command 'pager syntax highlighting' highlight
 required_command 'default editor' micro
+required_command 'desktop directory opener' xdg-open
 required_library 'daemon audio backend' libasound.so.2
 required_any 'agent CLI (one of)' claude codex opencode pi
 
 printf '\n%s\n' 'Optional: integrations'
 optional_all 'Wayland clipboard' wl-copy wl-paste
 optional_any 'X11 clipboard' xclip xsel
-optional_any 'URL opener' xdg-open gio wslview
 
 printf '\n%s\n' 'Optional: developer tools'
 optional_command 'redeploy helper' curl

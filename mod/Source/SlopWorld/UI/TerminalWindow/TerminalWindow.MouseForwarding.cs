@@ -15,7 +15,7 @@ namespace SlopWorld
             var cell = CellAt(body, e.mousePosition);
             var live = SessionHub.Instance.Screen(_name);
 
-            switch (e.type)
+            switch (MouseType(e))
             {
                 case EventType.MouseDown:
                     if (!body.Contains(e.mousePosition)) return true;

@@ -38,7 +38,6 @@ namespace SlopWorld.Tests
             AssertEx.Equal("micro", config.Editor, "editor default");
             AssertEx.Equal("highlight --out-format=xterm256", config.Highlighter,
                            "highlighter default");
-            AssertEx.Equal("xdg-open {url}", config.Opener, "opener default");
         }
 
         static void RoundTripsEveryPatchField()
@@ -74,7 +73,6 @@ namespace SlopWorld.Tests
                 Pager = "less -R",
                 Editor = "micro --no-help",
                 Highlighter = "highlight --out-format=xterm256",
-                Opener = "xdg-open {url} --new-window",
             };
             var actual = SlopConfig.FromJson(JVal.Parse(expected.ToPatchJson()));
 
@@ -105,7 +103,6 @@ namespace SlopWorld.Tests
             AssertEx.Equal(expected.Editor, actual.Editor, "editor round trip");
             AssertEx.Equal(expected.Highlighter, actual.Highlighter,
                            "highlighter round trip");
-            AssertEx.Equal(expected.Opener, actual.Opener, "opener round trip");
         }
 
         static void SplitsAndJoinsLineLists()

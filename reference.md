@@ -82,7 +82,6 @@ Routes declared by the daemon's Axum router. `scoped` routes are available to ap
 | `POST` | `/api/grants` | `mint_grant` | `root-only` | [`slopd/src/api.rs:58`](./slopd/src/api.rs#L58) |
 | `DELETE` | `/api/grants/:grantor` | `revoke_grants` | `root-only` | [`slopd/src/api.rs:59`](./slopd/src/api.rs#L59) |
 | `GET` | `/api/health` | `health` | `scoped` | [`slopd/src/api.rs:30`](./slopd/src/api.rs#L30) |
-| `POST` | `/api/open` | `open_url` | `root-only` | [`slopd/src/api.rs:73`](./slopd/src/api.rs#L73) |
 | `GET` | `/api/presets` | `presets` | `root-only` | [`slopd/src/api.rs:63`](./slopd/src/api.rs#L63) |
 | `DELETE` | `/api/presets/:kind/:name` | `delete_preset` | `root-only` | [`slopd/src/api.rs:64`](./slopd/src/api.rs#L64) |
 | `PUT` | `/api/presets/:kind/:name` | `update_preset` | `root-only` | [`slopd/src/api.rs:64`](./slopd/src/api.rs#L64) |

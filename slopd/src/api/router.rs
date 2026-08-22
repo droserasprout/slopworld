@@ -68,7 +68,6 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route("/api/config", put(put_config))
         .route("/api/config/patch", put(put_config_patch))
         .route("/api/clipboard", get(clip_read).post(clip_write))
-        .route("/api/open", post(open_url))
         .route("/api/usage", get(usage))
         .route("/api/audio", get(audio))
         .route("/api/jukebox", get(jukebox))

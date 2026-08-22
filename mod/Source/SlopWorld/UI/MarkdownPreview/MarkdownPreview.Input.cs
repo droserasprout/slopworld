@@ -31,8 +31,7 @@ namespace SlopWorld
                     screen.Contains(e.mousePosition))
                 {
                     if (hit.LocalPath != null) OpenLocalLink(hit.LocalPath);
-                    else SlopClient.Post("/api/open", "{\"url\":" + JVal.Q(hit.Url) + "}",
-                        null, SlopWidgets.Fail);
+                    else if (!string.IsNullOrEmpty(hit.Url)) Application.OpenURL(hit.Url);
                     e.Use();
                     return;
                 }
