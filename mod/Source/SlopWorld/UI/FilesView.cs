@@ -118,6 +118,32 @@ namespace SlopWorld
         // as every expansion below it.
         static readonly HashSet<string> Shut = new HashSet<string>();
 
+        public static bool AllFolded
+        {
+            get
+            {
+                var groups = new TreeSource().Groups();
+                return groups.Count > 0 && groups.All(g => Shut.Contains(g.Key));
+            }
+        }
+
+        public static void SetAllFolded(bool folded)
+        {
+            Shut.Clear();
+            if (folded)
+                foreach (var group in new TreeSource().Groups()) Shut.Add(group.Key);
+            foreach (var root in Roots.Values) SetExpanded(root, !folded);
+            if (_focusedRoot != null) SetExpanded(_focusedRoot, !folded);
+        }
+
+        static void SetExpanded(Node node, bool expanded)
+        {
+            if (node.Depth > 0) node.Expanded = expanded;
+            if (node.Kids == null) return;
+            foreach (var child in node.Kids)
+                if (child.IsDir) SetExpanded(child, expanded);
+        }
+
         // The file the reader is looking at, and the ephemeral session running `less` on it.
         // The tree owns the selected row; the pager owns the ephemeral session showing it.
         static readonly Pager Viewer = new Pager();

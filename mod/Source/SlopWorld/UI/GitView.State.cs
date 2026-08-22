@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -67,6 +68,34 @@ namespace SlopWorld
         // reason: a tree's shape lives no longer than the process, and the agents view's folds
         // are about agents.
         static readonly HashSet<string> Shut = new HashSet<string>();
+
+        public static bool AllFolded
+        {
+            get
+            {
+                var groups = new TreeSource().Groups();
+                return groups.Count > 0 && groups.All(g => Shut.Contains(g.Key));
+            }
+        }
+
+        public static void SetAllFolded(bool folded)
+        {
+            Shut.Clear();
+            foreach (var group in new TreeSource().Groups())
+            {
+                if (folded) Shut.Add(group.Key);
+                var repo = (Repo)group.Value;
+                repo.Shut.Clear();
+                if (folded && repo.Tree != null) FoldDirectories(repo.Tree, repo.Shut);
+            }
+        }
+
+        static void FoldDirectories(Node node, HashSet<string> shut)
+        {
+            if (node.IsDir && node.Depth > 0) shut.Add(node.Rel);
+            if (node.Kids == null) return;
+            foreach (var child in node.Kids) FoldDirectories(child, shut);
+        }
 
         // The change the reader is looking at, and the ephemeral session paging its diff.
         // The tree owns the selected row; the project remains part of its identity.

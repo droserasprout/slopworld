@@ -561,6 +561,14 @@ namespace SlopWorld
         // see [HasActions], which has to agree with what this draws.
         static void Actions(Rect r)
         {
+            if (CurrentTab != SidebarTab.Search)
+            {
+                bool folded = AllFolded();
+                Tab(r, folded ? TexButton.Reveal : TexButton.Collapse, folded,
+                    folded ? "Unfold all." : "Fold all.", ToggleAllFolds);
+                r.x -= TabIcon + 3f;
+            }
+
             if (CurrentTab == SidebarTab.Agents)
             {
                 bool compact = CompactView;
@@ -593,6 +601,33 @@ namespace SlopWorld
             {
                 Tab(r, Icons.Refresh, false,
                     "Read every working tree again.", GitView.Refresh);
+            }
+        }
+
+        static bool AllFolded()
+        {
+            switch (CurrentTab)
+            {
+                case SidebarTab.Agents:
+                    return Layout.Order.Count > 0 && Layout.Order.TrueForAll(Folded.Contains);
+                case SidebarTab.Files: return FilesView.AllFolded;
+                case SidebarTab.Git: return GitView.AllFolded;
+                case SidebarTab.Shortcuts: return ShortcutsView.AllFolded;
+                default: return false;
+            }
+        }
+
+        static void ToggleAllFolds()
+        {
+            bool fold = !AllFolded();
+            switch (CurrentTab)
+            {
+                case SidebarTab.Agents:
+                    foreach (var key in Layout.Order) Fold(key, fold);
+                    break;
+                case SidebarTab.Files: FilesView.SetAllFolded(fold); break;
+                case SidebarTab.Git: GitView.SetAllFolded(fold); break;
+                case SidebarTab.Shortcuts: ShortcutsView.SetAllFolded(fold); break;
             }
         }
 

@@ -137,7 +137,8 @@ namespace SlopWorld
         static bool HasActions => CurrentTab == SidebarTab.Agents
             || CurrentTab == SidebarTab.Files
             || CurrentTab == SidebarTab.Search
-            || CurrentTab == SidebarTab.Git;
+            || CurrentTab == SidebarTab.Git
+            || CurrentTab == SidebarTab.Shortcuts;
 
         // Empty means all projects. Unknown project keys show no rows while the daemon list is
         // incomplete; the no-project bucket is a normal filter key.
