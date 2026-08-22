@@ -67,10 +67,11 @@ agents from visible order.
 
 ## The tab strip
 
-Every view has two possible rows: five tabs plus the project filter, then a right-aligned
-view control (Compact view for Agents, dotfiles for Files/Search, refresh for Git). Views
-without a control have no second band. `TabH` is the complete strip height used by both the
-body and the colonist-bar layout.
+Every view has two possible rows: five tabs plus the project filter, then right-aligned
+view controls. Foldable views offer fold/unfold all; Agents also has Compact view,
+Files has dotfiles, and Git has refresh. Search has dotfiles alone. Views without a control
+have no second band. `TabH` is the complete strip height used by both the body and the
+colonist-bar layout.
 
 The project filter is a set of ticked keys read through `AgentSidebar.Passes`; empty
 means all. `[none]` represents unassigned projects, including a real project with that

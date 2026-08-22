@@ -32,6 +32,15 @@ namespace SlopWorld
         // colony, so it does not belong in a save.
         static readonly HashSet<string> Folded = new HashSet<string>();
 
+        public static bool AllFolded => Order.Count > 0 && Order.All(Folded.Contains);
+
+        public static void SetAllFolded(bool folded)
+        {
+            Folded.Clear();
+            if (folded)
+                foreach (var key in Order) Folded.Add(key);
+        }
+
         // The selected row, for the RMB menu.
         static ShortcutInfo _selected;
 
