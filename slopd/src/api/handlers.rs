@@ -778,15 +778,6 @@ pub(super) async fn clip_write(Json(q): Json<ClipReq>) -> ApiResult {
     Ok(Json(json!({ "ok": true })))
 }
 
-pub(super) async fn open_url(State(m): State<Mgr>, Json(q): Json<OpenReq>) -> ApiResult {
-    crate::open::check(q.url.trim()).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    let opener = m.config().await.commands.opener;
-    crate::open::url(&opener, &q.url)
-        .await
-        .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
-    Ok(Json(json!({ "ok": true })))
-}
-
 /// A preview is a UI document, not a file transfer. Keep the response bounded so a generated
 /// README cannot turn one click into an unbounded JSON allocation in the daemon or the game.
 const READ_LIMIT: u64 = 512 * 1024;

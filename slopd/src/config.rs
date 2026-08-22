@@ -216,9 +216,8 @@ impl Default for Defaults {
     }
 }
 
-/// Host applications used by the mod for transient file and URL actions. These are command
-/// templates, split into argv without a shell; the client expands `{file}`, `{line}` and
-/// `{url}` where the relevant action supports them.
+/// Host applications used by the mod for transient file actions. These are command templates,
+/// split into argv without a shell; the client expands `{file}` and `{line}` where supported.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandDefaults {
     /// Pager command. The client appends the file unless `{file}` is present.
@@ -230,10 +229,6 @@ pub struct CommandDefaults {
     /// Command used by less's LESSOPEN hook. `%s` is replaced by less with the file path.
     #[serde(default = "default_highlighter")]
     pub highlighter: String,
-    /// Desktop URL opener. The URL is appended unless `{url}` is present; blank uses host
-    /// fallbacks (`xdg-open`, `gio`, then `wslview`).
-    #[serde(default = "default_opener")]
-    pub opener: String,
 }
 
 fn default_pager() -> String {
@@ -248,17 +243,12 @@ fn default_highlighter() -> String {
     "highlight --out-format=xterm256".into()
 }
 
-fn default_opener() -> String {
-    "xdg-open {url}".into()
-}
-
 impl Default for CommandDefaults {
     fn default() -> Self {
         Self {
             pager: default_pager(),
             editor: default_editor(),
             highlighter: default_highlighter(),
-            opener: default_opener(),
         }
     }
 }
@@ -1393,7 +1383,6 @@ token = \"not-a-daemon-token\"
         );
         assert_eq!(back.commands.pager, "less");
         assert_eq!(back.commands.editor, "micro");
-        assert_eq!(back.commands.opener, "xdg-open {url}");
     }
 
     #[test]

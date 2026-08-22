@@ -9,11 +9,11 @@ namespace SlopWorld
 {
     // Machine-wide command defaults. Preset names stay separate from executable templates:
     // Agent and Shell select daemon command files, while the other fields are host apps the
-    // mod starts for a file or URL.
+    // mod starts for file actions.
     public class CommandsPage : ListEditorPage
     {
         bool _agentCustom, _shellCustom, _pagerCustom, _editorCustom;
-        bool _highlighterCustom, _openerCustom;
+        bool _highlighterCustom;
 
         protected override string SavedMessage => "command settings saved.";
 
@@ -33,7 +33,7 @@ namespace SlopWorld
         {
             SessionHub.Instance.LoadPresets();
             _agentCustom = _shellCustom = _pagerCustom = _editorCustom = false;
-            _highlighterCustom = _openerCustom = false;
+            _highlighterCustom = false;
         }
 
         protected override void DrawFields(Listing_Standard l)
@@ -53,17 +53,13 @@ namespace SlopWorld
             ChoiceRow(l, "Syntax highlighter", "commands.highlighter", _cfg.Highlighter,
                 HighlighterChoices(), _highlighterCustom, value => _cfg.Highlighter = value,
                 value => _highlighterCustom = value);
-            ChoiceRow(l, "URL opener", "commands.opener", _cfg.Opener, OpenerChoices(),
-                _openerCustom, value => _cfg.Opener = value, value => _openerCustom = value);
 
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "Template legend");
             SlopWidgets.Note(l, "{file} is replaced with a quoted file path; {line} with a search result " +
                 "line. Without {file}, file commands receive -- and the path.");
-            SlopWidgets.Note(l, "{url} is replaced with the URL. Without it, URL commands receive the " +
-                "URL as their final argument.");
             SlopWidgets.Note(l, "%s is less's filename placeholder for the syntax highlighter. A blank " +
-                "highlighter disables it; a blank URL opener uses host fallbacks.");
+                "highlighter disables it.");
             SlopWidgets.Note(l, "Templates are split into arguments without a shell.");
         }
 
@@ -100,14 +96,6 @@ namespace SlopWorld
             new Choice("highlight (256 colors)", "highlight --out-format=xterm256"),
             new Choice("bat (always color)", "bat --color=always --paging=never"),
             new Choice("Off", ""),
-        };
-
-        static List<Choice> OpenerChoices() => new List<Choice>
-        {
-            new Choice("xdg-open", "xdg-open {url}"),
-            new Choice("gio", "gio open {url}"),
-            new Choice("wslview", "wslview {url}"),
-            new Choice("Automatic (host fallback)", ""),
         };
 
         void ChoiceRow(Listing_Standard l, string label, string fieldName, string value,

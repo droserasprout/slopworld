@@ -98,12 +98,6 @@ pub(crate) struct ClipReq {
     pub(crate) text: String,
 }
 
-#[derive(Deserialize)]
-pub(crate) struct OpenReq {
-    #[serde(default)]
-    pub(crate) url: String,
-}
-
 /// `?files=1` and `?files=true` are the same answer. serde's own bool takes only the
 /// second, and half of what this endpoint is for is being asked by hand from a shell.
 /// A word that is neither is refused rather than read as "on": a typo silently turning

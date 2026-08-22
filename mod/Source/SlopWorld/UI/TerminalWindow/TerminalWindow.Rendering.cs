@@ -470,17 +470,9 @@ namespace SlopWorld
             }
         }
 
-        // Through the daemon: the game is a Unity player under Wine as often as not, and
-        // slopd is the half on the host with a desktop to hand the URL to.
         static void OpenUrl(string url)
         {
-            if (string.IsNullOrEmpty(url)) return;
-            SlopClient.Post("/api/open", "{\"url\":" + JVal.Q(url) + "}", null,
-                msg =>
-                {
-                    Log.Warning($"[SlopWorld] open {url}: {msg}");
-                    Application.OpenURL(url);
-                });
+            if (!string.IsNullOrEmpty(url)) Application.OpenURL(url);
         }
 
         // Blinks on a half-second beat unless the app asked for a steady cursor.

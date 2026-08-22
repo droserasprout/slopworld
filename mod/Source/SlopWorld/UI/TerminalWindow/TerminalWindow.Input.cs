@@ -523,29 +523,39 @@ namespace SlopWorld
         static bool IsContextMenuEvent(Event e) => e.button == 1;
 
         static bool IsMouseDownInside(Rect body, Event e) =>
-            e.type == EventType.MouseDown && body.Contains(e.mousePosition);
+            MouseType(e) == EventType.MouseDown && body.Contains(e.mousePosition);
 
         bool IsLinkClick(Rect body, Event e) =>
-            e.type == EventType.MouseDown && e.button == 0 && e.control &&
+            MouseType(e) == EventType.MouseDown && e.button == 0 && ControlHeld(e) &&
             body.Contains(e.mousePosition) && LinkUnder(body, e.mousePosition) != null;
 
         bool IsRelativePathClick(Rect body, Event e, out string relative)
         {
             relative = null;
-            if (e.type != EventType.MouseDown || e.button != 0 || !e.control ||
+            if (MouseType(e) != EventType.MouseDown || e.button != 0 || !ControlHeld(e) ||
                 !body.Contains(e.mousePosition)) return false;
             relative = RelativePathUnder(body, e.mousePosition);
             return relative != null;
         }
 
         static bool IsWordSelection(Rect body, Event e) =>
-            e.type == EventType.MouseDown && e.button == 0 && e.clickCount >= 2 &&
+            MouseType(e) == EventType.MouseDown && e.button == 0 && e.clickCount >= 2 &&
             body.Contains(e.mousePosition);
 
         static bool ShouldForwardMouse(ScreenBuf live, Event e) =>
             live != null && live.AppMouse && !e.shift;
 
         static bool IsPrimaryMouse(Event e) => e.button == 0;
+
+        // A window can receive a mouse event after WindowStack has marked it Used. Keep the
+        // original type for all terminal gesture dispatch; otherwise Ctrl+clicks (and ordinary
+        // selection presses) disappear before the pane sees them.
+        static EventType MouseType(Event e) =>
+            e.type == EventType.Used ? e.rawType : e.type;
+
+        static bool ControlHeld(Event e) =>
+            e.control || e.command || Input.GetKey(KeyCode.LeftControl) ||
+            Input.GetKey(KeyCode.RightControl);
 
         void SelectClickedWord(Rect body, Event e)
         {
@@ -556,7 +566,7 @@ namespace SlopWorld
 
         void HandleSelectionMouse(Rect body, Event e)
         {
-            switch (e.type)
+            switch (MouseType(e))
             {
                 case EventType.MouseDown:
                     BeginSelection(body, e);
