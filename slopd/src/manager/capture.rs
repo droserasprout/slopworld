@@ -660,7 +660,7 @@ impl Manager {
                 return;
             }
         };
-        let (child, master) = match self.tmux.control_attach(&name, cols, rows) {
+        let (mut child, master) = match self.tmux.control_attach(&name, cols, rows) {
             Ok(c) => c,
             Err(e) => {
                 tracing::error!("control attach {name}: {e:#}");
@@ -672,10 +672,13 @@ impl Manager {
         let rx = spawn_control_reader(master);
         self.run_control_loop(&name, emu, rx).await;
 
-        // Stop the control client before touching the session in mark_down. The child owns
-        // the PTY slave; keeping it alive makes cleanup race the same tmux control client that
-        // just reported %exit, and can leave tmux waiting while Ctrl+D appears to hang.
-        drop(child);
+        // Stop and reap the control client before touching the session in mark_down. The child
+        // owns the PTY slave; kill_on_drop only starts an asynchronous kill, so merely dropping
+        // it can leave cleanup racing the same tmux client that just reported %exit. That race
+        // makes a shell's Ctrl+D appear to hang until tmux times the client out.
+        if let Err(error) = child.kill().await {
+            tracing::debug!("stopping control client for {name}: {error}");
+        }
         self.mark_down(&name).await;
     }
 
