@@ -410,10 +410,8 @@ impl Manager {
     async fn adopt_orphans(self: &Arc<Self>, cfg: &Config) -> bool {
         let mut adopted = false;
         for name in self.tmux.list().await {
-            let legacy_project = Self::legacy_host_project(&name, cfg);
             let saved_host = cfg.host_terminals.iter().find(|tab| tab.name == name);
-            let host =
-                self.tmux.is_host(&name).await || saved_host.is_some() || legacy_project.is_some();
+            let host = self.tmux.is_host(&name).await || saved_host.is_some();
             let tmux_host = host.then(|| self.tmux.host_metadata(&name));
             let tmux_host = match tmux_host {
                 Some(future) => future.await,
@@ -423,7 +421,6 @@ impl Manager {
                 .as_ref()
                 .and_then(|(project, _)| (!project.is_empty()).then_some(project.clone()))
                 .or_else(|| saved_host.map(|tab| tab.project.clone()))
-                .or(legacy_project)
                 .unwrap_or_default();
             let host_path = tmux_host
                 .as_ref()
@@ -581,13 +578,6 @@ impl Manager {
         }
     }
 
-    fn legacy_host_project(name: &str, cfg: &Config) -> Option<String> {
-        cfg.projects
-            .iter()
-            .find(|p| crate::sandbox::host_session_name(&p.name) == name)
-            .map(|p| p.name.clone())
-    }
-
     async fn refresh_readerless_size(&self, name: &str) {
         let Some((cols, rows)) = self.tmux.size(name).await else {
             return;
@@ -672,29 +662,5 @@ impl Manager {
         self.announce_projects().await;
         self.announce_shortcuts().await;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Manager;
-    use crate::config::{Config, ProjectCfg};
-
-    #[test]
-    fn legacy_host_names_are_recognized_during_adoption() {
-        let cfg = Config {
-            projects: vec![ProjectCfg {
-                name: "repo".into(),
-                ..Default::default()
-            }],
-            ..Default::default()
-        };
-        let host = crate::sandbox::host_session_name("repo");
-
-        assert_eq!(
-            Manager::legacy_host_project(&host, &cfg).as_deref(),
-            Some("repo")
-        );
-        assert!(Manager::legacy_host_project("ordinary-agent", &cfg).is_none());
     }
 }
