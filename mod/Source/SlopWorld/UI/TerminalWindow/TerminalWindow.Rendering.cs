@@ -75,7 +75,7 @@ namespace SlopWorld
 
             for (int row = Mathf.Max(0, a.y); row <= Mathf.Min(rows - 1, b.y); row++)
             {
-                int lineLen = ContentLen(RowText(buf, row));
+                int lineLen = TerminalColumns.ContentColumns(TerminalColumns.Cells(buf.Runs[row]));
                 int startCol = Mathf.Max(0, row == a.y ? a.x : 0);
                 int endCol = row == b.y ? b.x + 1 : lineLen;
                 endCol = Mathf.Clamp(endCol, startCol, lineLen);
@@ -441,9 +441,12 @@ namespace SlopWorld
         {
             var buf = DisplayedBuf();
             if (buf == null || buf.Lines == null || !body.Contains(m)) return null;
+            EnsureRuns(buf);
             var cell = CellAt(body, m);
-            if (cell.y < 0 || cell.y >= buf.Lines.Length) return null;
-            return RelativePathScan.At(RowText(buf, cell.y), cell.x);
+            if (cell.y < 0 || cell.y >= buf.Runs.Length) return null;
+            // A column-indexed line so cell.x (a screen column) points at the right char.
+            return RelativePathScan.At(
+                TerminalColumns.Line(TerminalColumns.Cells(buf.Runs[cell.y])), cell.x);
         }
 
         void DrawHover(Rect body)
