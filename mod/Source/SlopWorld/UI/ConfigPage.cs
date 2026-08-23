@@ -97,7 +97,7 @@ namespace SlopWorld
             }
 
             l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "RimWorld");
+            SlopWidgets.SectionHeading(l, "Locale");
             if (SlopWidgets.Button(l,
                     "TemperatureMode".Translate() + ": " + Prefs.TemperatureMode.ToStringHuman()))
             {
@@ -108,10 +108,26 @@ namespace SlopWorld
                     .ToList()));
             }
 
+            if (SlopWidgets.Button(l, "Time format: " + TimeFormat.Label(s.timeFormat)))
+            {
+                Find.WindowStack.Add(new SlopMenu(new[]
+                {
+                    new FloatMenuOption("24-hour", () => SetTimeFormat(TimeFormat.TwentyFourHour)),
+                    new FloatMenuOption("12-hour", () => SetTimeFormat(TimeFormat.TwelveHour))
+                }.ToList()));
+            }
+
             _fieldsH = l.CurHeight + SlopWidgets.GapS;
             l.End();
 
             _scroll.End();
+        }
+
+        static void SetTimeFormat(string format)
+        {
+            var settings = SlopWorldMod.Instance.settings;
+            settings.timeFormat = format;
+            settings.MarkDirty();
         }
 
         void DoFooter(Rect bar)

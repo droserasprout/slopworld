@@ -32,6 +32,24 @@ namespace SlopWorld
         }
     }
 
+    public static class TimeFormat
+    {
+        public const string TwentyFourHour = "24-hour";
+        public const string TwelveHour = "12-hour";
+
+        public static string Normalize(string format) =>
+            format == TwelveHour ? TwelveHour : TwentyFourHour;
+
+        public static string Label(string format) =>
+            Normalize(format) == TwelveHour ? "12-hour" : "24-hour";
+
+        public static string Short(DateTime time) =>
+            time.ToString(Normalize(Settings.TimeFormat) == TwelveHour ? "h:mm tt" : "HH:mm");
+
+        public static string Long(DateTime time) =>
+            time.ToString(Normalize(Settings.TimeFormat) == TwelveHour ? "h:mm:ss tt" : "HH:mm:ss");
+    }
+
     // Loading enables the mod unconditionally; settings cover daemon connection and UI
     // appearance, with terminal values sharing this settings file and endpoint discovery.
     public class SlopSettings
@@ -124,6 +142,7 @@ namespace SlopWorld
         // not remove it from the map, and hiding Usage does not stop the daemon polling.
         public bool statusbarUsage = true;
         public string statusbarClockPosition = StatusbarClockMode.Right;
+        public string timeFormat = TimeFormat.TwentyFourHour;
         public bool statusbarJukebox = true;
         public bool statusbarGM = true;
 
@@ -197,6 +216,7 @@ namespace SlopWorld
             String(text, "radioMute", radioMute);
             String(text, "statusbarUsage", statusbarUsage);
             String(text, "statusbarClockPosition", statusbarClockPosition);
+            String(text, "timeFormat", timeFormat);
             String(text, "statusbarJukebox", statusbarJukebox);
             String(text, "statusbarGM", statusbarGM);
             String(text, "radioStopOnExit", radioStopOnExit);
@@ -244,6 +264,7 @@ namespace SlopWorld
             radioMute = Bool(values, "radioMute", radioMute);
             statusbarUsage = Bool(values, "statusbarUsage", statusbarUsage);
             statusbarClockPosition = Text(values, "statusbarClockPosition", statusbarClockPosition);
+            timeFormat = Text(values, "timeFormat", timeFormat);
             statusbarJukebox = Bool(values, "statusbarJukebox", statusbarJukebox);
             statusbarGM = Bool(values, "statusbarGM", statusbarGM);
             radioStopOnExit = Bool(values, "radioStopOnExit", radioStopOnExit);
@@ -325,6 +346,7 @@ namespace SlopWorld
         public static bool StatusbarUsage => S.statusbarUsage;
         public static string StatusbarClockPosition =>
             StatusbarClockMode.Normalize(S.statusbarClockPosition);
+        public static string TimeFormat => SlopWorld.TimeFormat.Normalize(S.timeFormat);
         public static bool StatusbarClock => StatusbarClockPosition != StatusbarClockMode.Hidden;
         public static bool StatusbarJukebox => S.statusbarJukebox;
         public static bool StatusbarGM => S.statusbarGM;

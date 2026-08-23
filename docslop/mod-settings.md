@@ -21,7 +21,8 @@ and doors; they do not disable polling, audio or map objects.
 Command-palette history stores up to eight command IDs, newest first, in the mod profile;
 the palette drops IDs that are no longer in its catalogue when it loads.
 
-`statusbarClockPosition` is `right`, `center` or `hidden`.
+`statusbarClockPosition` is `right`, `center` or `hidden`. `timeFormat` is `24-hour`
+or `12-hour` and controls the status-bar clock and its tooltip.
 
 `sidebar` is the layout mode, not daemon configuration. It is changed from the
 configuration page and gear menu, while that page's Save button belongs to the daemon

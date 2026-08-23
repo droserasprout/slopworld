@@ -28,7 +28,7 @@ namespace SlopWorld
         static ThingDef[] _pool;
 
         public static float ClockWidth(DateTime now) =>
-            ClockIconSize + 2f + SlopWidgets.Wide(now.ToString("HH:mm")) + 2f;
+            ClockIconSize + 2f + SlopWidgets.Wide(TimeFormat.Short(now)) + 2f;
 
         public static void DrawClock(Rect row, DateTime now)
         {
@@ -36,10 +36,10 @@ namespace SlopWorld
                 ClockIconSize, ClockIconSize);
             GUI.DrawTexture(icon, Icons.Time);
             SlopWidgets.RowLabel(new Rect(icon.xMax + 2f, row.y,
-                row.width - ClockIconSize - 2f, row.height), now.ToString("HH:mm"));
+                row.width - ClockIconSize - 2f, row.height), TimeFormat.Short(now));
 
             TooltipHandler.TipRegion(row, new TipSignal(
-                now.ToString("dddd, d MMMM yyyy") + "\n" + now.ToString("HH:mm:ss"),
+                now.ToString("dddd, d MMMM yyyy") + "\n" + TimeFormat.Long(now),
                 0x51_0F_0001));
         }
 
