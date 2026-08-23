@@ -272,6 +272,19 @@ namespace SlopWorld
 
         public override void DoWindowContents(Rect rect)
         {
+            // A submenu can be populated by an asynchronous host query after it opens. Its
+            // list is shared with the caller, so measure it again and let the child follow its
+            // parent row when the application entries arrive.
+            if (_parent != null)
+            {
+                var want = InitialSize;
+                if (want != _want)
+                {
+                    _want = want;
+                    Place();
+                }
+            }
+
             if (Keyed()) return;
 
             Slab.Box(rect, SlopWidgets.PopoverBg, SlopWidgets.Edge);

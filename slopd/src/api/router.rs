@@ -53,6 +53,7 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route("/api/shortcuts/:name/run", post(run_shortcut))
         .route("/api/run", post(run))
         .route("/api/file-action", post(file_action))
+        .route("/api/open-apps", get(open_apps))
         .route("/api/grants", get(list_grants).post(mint_grant))
         .route("/api/grants/:grantor", delete(revoke_grants))
         .route("/api/state", get(stored_states))

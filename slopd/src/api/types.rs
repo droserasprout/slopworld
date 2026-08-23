@@ -73,6 +73,11 @@ pub(crate) struct FileActionReq {
 }
 
 #[derive(Deserialize)]
+pub(crate) struct OpenAppsQuery {
+    pub(crate) path: String,
+}
+
+#[derive(Deserialize)]
 pub(crate) struct GrantReq {
     pub(crate) grantor: String,
     #[serde(default)]

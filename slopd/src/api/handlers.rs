@@ -446,6 +446,17 @@ pub(super) async fn file_action(State(m): State<Mgr>, Json(q): Json<FileActionRe
     Ok(Json(json!({ "ok": true, "output": output })))
 }
 
+/// List the host desktop applications associated with a file. This is root-only because the
+/// query runs outside every project sandbox, in the same desktop environment that will launch
+/// the selected application.
+pub(super) async fn open_apps(State(m): State<Mgr>, Query(q): Query<OpenAppsQuery>) -> ApiResult {
+    let apps = m
+        .open_apps(&q.path)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "apps": apps })))
+}
+
 /// Mint a grant: let `grantor` watch or drive the named `sessions`. Root-only by the router,
 /// so only the mod asks. The daemon refuses a host session in the scope - the one line the
 /// whole scheme is for - and refuses a grantor or target that is not there. The token comes

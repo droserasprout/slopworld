@@ -12,7 +12,8 @@ can temporarily become the tree root.
   offscreen rows; do not hit-test against drawing-time geometry.
 - Empty directories remain right-clickable rows. Hover exposes view/edit/diff actions;
   diff is offered only for paths already present in Git's working-tree result.
-- Context menus support copy paths, native `xdg-open` for directories, `less -R`, `micro`,
+- Context menus support copy paths, MIME-associated host applications for files and
+  directories, the desktop portal's `Other...` chooser, `less -R`, `micro`,
   rename/remove, new file/folder and terminal here. Root-only Files mutations use create,
   one-component rename and recursive delete. View/edit and file actions run through the
   project sandbox; storage roots use disposable host errands.

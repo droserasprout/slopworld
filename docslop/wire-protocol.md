@@ -26,9 +26,10 @@ Project JSON also carries optional tagged `dns` (`{"mode":"resolved"}` or
 override. A missing DNS setting means the systemd-resolved stub.
 
 Query routes are `/api/usage`, `/api/presets`, `/api/jukebox`, `/api/browse`, `/api/read`,
-`/api/image`, `/api/search`, `/api/git` and `/api/audio`. `/api/read` is root-only
+`/api/image`, `/api/open-apps`, `/api/search`, `/api/git` and `/api/audio`. `/api/read` is root-only
 and returns bounded UTF-8 file text for native Markdown previews. `/api/image` is root-only and
-returns bounded base64 image bytes for local Markdown images. `/api/file-action` runs a configured
+returns bounded base64 image bytes for local Markdown images. `/api/open-apps` lists the host
+desktop applications associated with a path, and `/api/file-action` runs a configured
 Files action inside a named project's sandbox, or explicitly on the host for private-state
 storage, and returns bounded output.
 
