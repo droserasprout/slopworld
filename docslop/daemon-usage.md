@@ -4,7 +4,8 @@
 
 Polls Claude Code's `/usage` endpoint with the OAuth token in
 `~/.claude/.credentials.json`, re-read each poll and never copied or logged.
-`[daemon] usage = false` disables it; `SLOPD_USAGE_URL` overrides the endpoint.
+Anthropic rows are enabled by default; a row under `[daemon.usage_items.<key>]` can disable
+individual windows. `SLOPD_USAGE_URL` overrides the endpoint.
 
 - `parse` rejects unknown payloads as no windows plus an error; a failed poll keeps the
   last good windows. `expiresAt`, `refreshTokenExpiresAt` and `now_ms()` use epoch
@@ -25,10 +26,10 @@ Polls Claude Code's `/usage` endpoint with the OAuth token in
 
 ## OpenRouter
 
-`[daemon] openrouter = true` polls `/api/v1/credits` (override with
-`SLOPD_CREDITS_URL`) and exposes `openrouter_balance`: credits bought are `limit`, spent
-credits are `amount`. It is off by default because there is no host login from which to
-infer a key.
+An enabled `[daemon.usage_items.openrouter_balance]` row polls `/api/v1/credits` (override
+with `SLOPD_CREDITS_URL`) and exposes `openrouter_balance`: credits bought are `limit`, spent
+credits are `amount`. OpenRouter is off until that row is enabled because there is no host
+login from which to infer a key.
 
 - `openrouter_key_file` reads fresh each poll; blank uses `OPENROUTER_API_KEY` from
   slopd's environment. Neither path logs, copies or writes the key.
@@ -38,9 +39,9 @@ infer a key.
 
 ## OpenAI / Codex
 
-`[daemon] openai = true` reads the current Codex token and optional account ID from
-`~/.codex/auth.json` (`openai_credentials` overrides) and polls the primary/secondary
-windows. It never uses the refresh token or sends file contents. The endpoint is
+Enabled OpenAI rows read the current Codex token and optional account ID from `~/.codex/auth.json`
+(`openai_credentials` overrides) and poll the primary/secondary windows. They never use the
+refresh token or send file contents. The endpoint is
 undocumented, so `SLOPD_OPENAI_USAGE_URL` supports fixtures and unknown payloads draw no
 figures. Rows are `openai_session` and `openai_week`; 401/403 says `codex login`.
 
@@ -51,8 +52,8 @@ figures. Rows are `openai_session` and `openai_week`; 401/403 says `codex login`
 - The Settings > Integrations > Usage table stores per-window entries under
   `[daemon.usage_items.<key>]`. Each entry has `poll = true/false` and an optional
   `interval_secs`; an omitted or zero interval inherits `daemon.usage_poll_secs`.
-  Providers still keep their legacy switches as a master compatibility setting, and the GUI
-  keeps them in sync with the row toggles.
+  Anthropic and OpenAI rows default to enabled; OpenRouter rows default to disabled. Once rows
+  for a source are present, the source is enabled when any of its rows is enabled.
 - A provider request can answer several windows at once. The daemon schedules that request at
   the fastest enabled row interval, while each window keeps its own due time and disabled rows
   are removed from the merged snapshot immediately.

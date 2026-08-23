@@ -9,23 +9,16 @@ namespace SlopWorld
     // remain untouched on the server.
     public class SlopConfig
     {
-        // Off means the daemon never reads the credentials file.
-        public bool Usage = true;
         public int UsagePollSecs = 60;
         // One entry per usage window. A zero interval means the global interval applies.
         public Dictionary<string, UsageItemConfig> UsageItems =
             new Dictionary<string, UsageItemConfig>();
         // Where the daemon looks for Claude Code's OAuth token.
         public string ClaudeCredentials = "~/.claude/.credentials.json";
-        // The other subscription, and off unless somebody says otherwise: there is no login
-        // on the host to read a key out of. Shares the poll interval above - a balance moves
-        // slower than a rate limit, never faster.
-        public bool Openrouter;
         // Blank means the daemon reads OPENROUTER_API_KEY out of its own environment.
         public string OpenrouterKeyFile = "";
         // Codex's ChatGPT login carries the token the usage endpoint needs. Unlike a key,
         // it is a live login file that the daemon reads fresh and never sends to the mod.
-        public bool Openai = true;
         public string OpenaiCredentials = "~/.codex/auth.json";
         // Prompt- and command-derived titles use a separate OpenRouter request.
         public string AgentTitles = "never";
@@ -50,14 +43,11 @@ namespace SlopWorld
             var c = v["commands"];
             return new SlopConfig
             {
-                Usage = d["usage"].AsBool(true),
                 UsagePollSecs = d["usage_poll_secs"].AsInt(60),
                 UsageItems = UsageItemsFromJson(d["usage_items"]),
                 ClaudeCredentials =
                     d["claude_credentials"].AsString("~/.claude/.credentials.json"),
-                Openrouter = d["openrouter"].AsBool(false),
                 OpenrouterKeyFile = d["openrouter_key_file"].AsString(),
-                Openai = d["openai"].AsBool(true),
                 OpenaiCredentials = d["openai_credentials"].AsString("~/.codex/auth.json"),
                 AgentTitles = d["agent_titles"].AsString("never"),
                 TitleModel = d["title_model"].AsString("google/gemini-3.1-flash-lite"),
@@ -97,12 +87,10 @@ namespace SlopWorld
         // presets. The daemon deep-merges this object before validating it.
         public string ToPatchJson() =>
             "{\"daemon\":{" +
-            $"\"usage\":{JVal.B(Usage)},\"usage_poll_secs\":{UsagePollSecs}," +
+            $"\"usage_poll_secs\":{UsagePollSecs}," +
             $"\"usage_items\":{UsageItemsJson()}," +
             $"\"claude_credentials\":{JVal.Q(ClaudeCredentials)}," +
-            $"\"openrouter\":{JVal.B(Openrouter)}," +
             $"\"openrouter_key_file\":{JVal.Q(OpenrouterKeyFile)}," +
-            $"\"openai\":{JVal.B(Openai)}," +
             $"\"openai_credentials\":{JVal.Q(OpenaiCredentials)}," +
             $"\"agent_titles\":{JVal.Q(AgentTitles)}," +
             $"\"title_model\":{JVal.Q(TitleModel)}," +

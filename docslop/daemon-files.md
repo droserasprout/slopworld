@@ -29,7 +29,7 @@
 | `title.rs` | Prompt summaries - see [agent-titles](agent-titles.md). |
 | `tasks.rs` | Durable task mailboxes - see [agent-tasks](agent-tasks.md). |
 | `activity.rs` | Persists the fallback file for state ages when the tmux server has no activity options. |
-| `usage.rs` | Polls Anthropic and OpenRouter for what is left of each. |
+| `usage.rs` | Polls Anthropic, OpenRouter and OpenAI for what is left of each. |
 | `audio/mod.rs` | The public audio handle, command worker, generation control and state events. |
 | `audio/station.rs` | Local playlists, URL/file decoding, stream reconnects and ICY metadata. |
 | `audio/playback.rs` | Output-device selection, feeder pacing and callback-safe sample rings. |

@@ -123,9 +123,9 @@ namespace SlopWorld
 
         bool DefaultPoll(string key)
         {
-            if (key.StartsWith("claude_")) return _cfg.Usage;
-            if (key.StartsWith("openrouter_")) return _cfg.Openrouter;
-            if (key.StartsWith("openai_")) return _cfg.Openai;
+            if (key.StartsWith("claude_")) return true;
+            if (key.StartsWith("openrouter_")) return false;
+            if (key.StartsWith("openai_")) return true;
             return false;
         }
 
@@ -458,12 +458,6 @@ namespace SlopWorld
                     item.IntervalSecs = Mathf.Clamp(seconds, 10, 3600);
             }
 
-            // Keep the legacy provider switches meaningful for raw-config readers and older
-            // daemon versions: they are the aggregate of the row toggles in this table.
-            _cfg.Usage = AnyItem("claude_");
-            _cfg.Openrouter = AnyItem("openrouter_");
-            _cfg.Openai = AnyItem("openai_");
-
             SlopClient.Put("/api/config/patch", _cfg.ToPatchJson(),
                 _ =>
                 {
@@ -475,12 +469,5 @@ namespace SlopWorld
                 msg => _error = msg);
         }
 
-        bool AnyItem(string prefix)
-        {
-            foreach (var pair in _cfg.UsageItems)
-                if (pair.Key.StartsWith(prefix) && pair.Value != null && pair.Value.Poll)
-                    return true;
-            return false;
-        }
     }
 }

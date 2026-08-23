@@ -149,10 +149,8 @@ namespace SlopWorld
                 && item != null)
                 return item.Poll;
 
-            if (key.StartsWith("claude_")) return cfg.Usage;
-            if (key.StartsWith("openrouter_")) return cfg.Openrouter;
-            if (key.StartsWith("openai_")) return cfg.Openai;
-            return true;
+            if (key.StartsWith("openrouter_")) return false;
+            return key.StartsWith("claude_") || key.StartsWith("openai_");
         }
 
         // The rows a seller is expected to answer with. Only the ones every account of that

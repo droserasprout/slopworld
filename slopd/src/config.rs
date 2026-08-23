@@ -87,25 +87,16 @@ pub struct Daemon {
     /// restores it - see `redact_token_text` and `Manager::replace_config`.
     #[serde(default)]
     pub token: String,
-    /// Off means slopd never reads the credentials file and never leaves the machine.
-    #[serde(default = "yes")]
-    pub usage: bool,
     /// The windows it reports move in minutes; floored at 10 in the poller.
     #[serde(default = "default_usage_poll")]
     pub usage_poll_secs: u64,
-    /// Per-window usage settings. A missing entry inherits the provider switch and global
-    /// interval; an explicit `interval_secs` overrides only the global interval.
+    /// Per-window usage settings. An explicit `interval_secs` overrides only the global
+    /// interval; source defaults apply until a source's rows are configured.
     #[serde(default)]
     pub usage_items: BTreeMap<String, UsageItem>,
     /// Read fresh each time and never copied, so a refresh behind us is picked up.
     #[serde(default = "default_credentials")]
     pub claude_credentials: String,
-    /// The other subscription this machine spends, and off by default: unlike Claude's,
-    /// there is no login on the host to infer one from - a key is either given to slopd
-    /// or it is not. Shares `usage_poll_secs`; a balance moves slower than a rate limit,
-    /// never faster.
-    #[serde(default)]
-    pub openrouter: bool,
     /// Blank reads `OPENROUTER_API_KEY` out of slopd's own environment. A path here is read
     /// fresh per request and trimmed, the way the credentials file is, and neither is ever
     /// logged or written back.
@@ -115,9 +106,6 @@ pub struct Daemon {
     /// Claude credentials this is read fresh, never copied or sent over the wire.
     #[serde(default = "default_openai_credentials")]
     pub openai_credentials: String,
-    /// Off means slopd never reads Codex's auth file or asks ChatGPT for its limits.
-    #[serde(default = "yes")]
-    pub openai: bool,
     /// Automatic task titles are opt-in because a title request sends part of a prompt to
     /// OpenRouter. `once` names the first real prompt in each Codex conversation.
     #[serde(default)]
@@ -180,14 +168,11 @@ impl Default for Daemon {
         Self {
             bind: "127.0.0.1:7717".into(),
             token: String::new(),
-            usage: true,
             usage_poll_secs: default_usage_poll(),
             usage_items: BTreeMap::new(),
             claude_credentials: default_credentials(),
-            openrouter: false,
             openrouter_key_file: String::new(),
             openai_credentials: default_openai_credentials(),
-            openai: true,
             agent_titles: TitlePolicy::Never,
             title_model: default_title_model(),
             pi_titles: default_pi_title_policy(),
@@ -645,7 +630,18 @@ impl Config {
     }
 
     pub fn parse(text: &str) -> Result<Self> {
-        toml::from_str(text).context("parsing config.toml")
+        let document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
+        if let Some(daemon) = document.get("daemon").and_then(toml::Value::as_table) {
+            for key in ["usage", "openrouter", "openai"] {
+                if daemon.contains_key(key) {
+                    bail!(
+                        "[daemon] {key} was removed; configure usage rows under [daemon.usage_items.*]"
+                    );
+                }
+            }
+        }
+        let cfg: Self = document.try_into().context("parsing config.toml")?;
+        Ok(cfg)
     }
 
     pub fn save(&self, path: &Path) -> Result<()> {
@@ -1463,5 +1459,13 @@ token = \"not-a-daemon-token\"
 
         // New in-memory sessions, including short-lived errands, always have an identity.
         assert!(!SessionCfg::default().state_id.is_empty());
+    }
+
+    #[test]
+    fn config_rejects_removed_usage_switches() {
+        for key in ["usage", "openrouter", "openai"] {
+            let text = format!("[daemon]\nbind = \"127.0.0.1:7717\"\n{key} = true\n");
+            assert!(Config::parse(&text).is_err(), "removed {key} should fail");
+        }
     }
 }
