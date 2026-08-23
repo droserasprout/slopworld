@@ -1,0 +1,62 @@
+{
+  "sections": [
+    {
+      "title": "Required: build dependencies",
+      "required": true,
+      "checks": [
+        {"label": "Rust/Cargo", "kind": "command", "commands": ["cargo"]},
+        {"label": "C# builder", "kind": "command", "commands": ["msbuild"]},
+        {"label": "RimWorld reference assemblies", "kind": "rimworld_assemblies"}
+      ]
+    },
+    {
+      "title": "Required: runtime dependencies",
+      "required": true,
+      "checks": [
+        {"label": "native RimWorld executable", "kind": "rimworld_executable"},
+        {"label": "session multiplexer", "kind": "command", "commands": ["tmux"]},
+        {"label": "sandbox isolation", "kind": "command", "commands": ["bwrap"]},
+        {"label": "private networking", "kind": "command", "commands": ["pasta"]},
+        {"label": "user service control", "kind": "command", "commands": ["systemctl"]},
+        {"label": "user scopes", "kind": "command", "commands": ["systemd-run"]},
+        {"label": "game process lookup", "kind": "command", "commands": ["pgrep"]},
+        {"label": "workspace search", "kind": "command", "commands": ["rg"]},
+        {"label": "Git view", "kind": "command", "commands": ["git"]},
+        {"label": "default shell", "kind": "command", "commands": ["bash"]},
+        {"label": "default pager", "kind": "command", "commands": ["less"]},
+        {"label": "pager syntax highlighting", "kind": "command", "commands": ["highlight"]},
+        {"label": "default editor", "kind": "command", "commands": ["micro"]},
+        {"label": "desktop application associations", "kind": "command", "commands": ["gio"]},
+        {"label": "native application chooser", "kind": "command", "commands": ["gdbus"]},
+        {"label": "daemon audio backend", "kind": "library", "value": "libasound.so.2"},
+        {"label": "agent CLI (one of)", "kind": "any_command", "commands": ["claude", "codex", "opencode", "pi"]}
+      ]
+    },
+    {
+      "title": "Optional: integrations",
+      "required": false,
+      "checks": [
+        {"label": "Wayland clipboard", "kind": "all_commands", "commands": ["wl-copy", "wl-paste"]},
+        {"label": "X11 clipboard", "kind": "any_command", "commands": ["xclip", "xsel"]}
+      ]
+    },
+    {
+      "title": "Optional: developer tools",
+      "required": false,
+      "checks": [
+        {"label": "redeploy helper", "kind": "command", "commands": ["curl"]},
+        {"label": "C# formatting/linting", "kind": "command", "commands": ["dotnet"]},
+        {"label": "human docs", "kind": "command", "commands": ["mdbook"]},
+        {"label": "game screenshot", "kind": "all_commands", "commands": ["xdotool", "import"]},
+        {"label": "OST audio conversion", "kind": "command", "commands": ["ffmpeg"]},
+        {"label": "Python tooling", "kind": "command", "commands": ["python3"]},
+        {"label": "Python image modules", "kind": "python_modules", "modules": ["numpy", "PIL"], "display": "numpy + Pillow"},
+        {"label": "Python Pango modules", "kind": "python_modules", "modules": ["cairo", "gi"], "display": "Pycairo + PyGObject"},
+        {"label": "SVG rasterizer", "kind": "any_command", "commands": ["rsvg-convert"]},
+        {"label": "SVG rasterizer fallback", "kind": "python_modules", "modules": ["cairosvg"], "display": "CairoSVG"},
+        {"label": "Emoji font", "kind": "font_match", "value": "Noto Color Emoji"},
+        {"label": "Codicon bake font", "kind": "font_list", "value": "Nerd Font"}
+      ]
+    }
+  ]
+}
