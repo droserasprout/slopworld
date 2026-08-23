@@ -85,7 +85,11 @@ namespace SlopWorld
             // reach. A blank project is an entry pointing at one that has gone, which is
             // worth saying; a temporary agent says so instead, the interesting thing about
             // that row being that it is on its way out.
-            string where = string.IsNullOrEmpty(s.Project)
+            string where = s.Host
+                ? (string.IsNullOrEmpty(s.Project)
+                    ? $"host terminal  -  {s.Dir}"
+                    : $"host terminal in {s.Project}  -  {s.Dir}")
+                : string.IsNullOrEmpty(s.Project)
                 ? (s.Ephemeral
                     ? "temporary - adopted from tmux, and it goes when it exits"
                     : "no project - it will not start")
@@ -118,7 +122,7 @@ namespace SlopWorld
 
             // Nothing in config.toml stands behind a temporary agent, so the dialog would
             // write an entry the daemon has never had and the save would be refused.
-            if (!s.Ephemeral &&
+            if (!s.Ephemeral && !s.Host &&
                 SlopWidgets.Button(
                     new Rect(right - dupW - SlopWidgets.GapXS - editW, top, editW,
                         SlopWidgets.RowBtnH), "Edit"))
@@ -127,7 +131,7 @@ namespace SlopWorld
             // Next to Edit rather than down with Del and Start, because what it does is open
             // the same dialog. It is the one of the two that still means something for a
             // temporary agent - "keep this one".
-            if (!string.IsNullOrEmpty(s.Project))
+            if (!s.Host && !string.IsNullOrEmpty(s.Project))
             {
                 var dup = new Rect(right - dupW, top, dupW, SlopWidgets.RowBtnH);
                 TooltipHandler.TipRegion(dup, s.Ephemeral

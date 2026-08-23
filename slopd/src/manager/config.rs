@@ -8,6 +8,7 @@ impl Live {
             cfg,
             ephemeral: false,
             host: false,
+            host_path: String::new(),
             state: State::Down,
             seq: 0,
             retick_seq: 0,
@@ -271,8 +272,10 @@ impl Manager {
         }
 
         self.upsert_sessions(&cfg).await;
+        self.upsert_host_terminals(&cfg).await;
         let titles_changed = self.reconcile_title_settings(&cfg).await;
         self.autostart(&cfg).await;
+        self.autostart_host_terminals(&cfg).await;
 
         let adopted = self.adopt_orphans(&cfg).await;
         if titles_changed || adopted {
@@ -289,7 +292,8 @@ impl Manager {
         let mut live = self.live.write().await;
         let mut removed = Vec::new();
         live.retain(|name, l| {
-            if l.ephemeral || cfg.session(name).is_some() {
+            let saved_host = l.host && cfg.host_terminals.iter().any(|tab| tab.name == *name);
+            if (l.ephemeral && (!l.host || saved_host)) || cfg.session(name).is_some() {
                 return true;
             }
             tracing::info!("agent {name} is gone from the config, ending its reader");
@@ -333,6 +337,56 @@ impl Manager {
         }
     }
 
+    async fn upsert_host_terminals(&self, cfg: &Config) {
+        let mut live = self.live.write().await;
+        for tab in &cfg.host_terminals {
+            if let Err(error) = crate::session::check_name(&tab.name) {
+                tracing::warn!("ignoring invalid host terminal {}: {error:#}", tab.name);
+                continue;
+            }
+            if cfg.session(&tab.name).is_some() {
+                tracing::warn!(
+                    "ignoring host terminal {} because an agent has the same name",
+                    tab.name
+                );
+                continue;
+            }
+            let mut session = SessionCfg {
+                name: tab.name.clone(),
+                project: tab.project.clone(),
+                command: cfg.defaults.shell.clone(),
+                ..Default::default()
+            };
+            let path = if tab.path.trim().is_empty() {
+                cfg.project(&tab.project)
+                    .map(|p| crate::config::expand(&p.dir))
+                    .unwrap_or_default()
+            } else {
+                crate::config::expand(&tab.path)
+            };
+            session.autostart = tab.autostart;
+            let mut title = TitleCapture::default();
+            title.override_title = self.title_cache.latest(&tab.name);
+            title.once_requested = title.override_title.is_some();
+            live.entry(tab.name.clone())
+                .and_modify(|l| {
+                    if l.host {
+                        l.cfg = session.clone();
+                        l.host_path = path.clone();
+                    }
+                })
+                .or_insert_with(|| {
+                    let mut l = Live::new(session, title);
+                    // Host tabs use the ghost-row presentation but remain in the durable
+                    // host-terminal catalog rather than disappearing when the shell exits.
+                    l.ephemeral = true;
+                    l.host = true;
+                    l.host_path = path;
+                    l
+                });
+        }
+    }
+
     async fn autostart(self: &Arc<Self>, cfg: &Config) {
         for s in cfg.sessions.iter().filter(|s| s.autostart) {
             if !self.tmux.exists(&s.name).await {
@@ -343,10 +397,39 @@ impl Manager {
         }
     }
 
+    async fn autostart_host_terminals(self: &Arc<Self>, cfg: &Config) {
+        for tab in cfg.host_terminals.iter().filter(|tab| tab.autostart) {
+            if !self.tmux.exists(&tab.name).await {
+                if let Err(error) = self.start(&tab.name).await {
+                    tracing::error!("autostart host terminal {}: {error:#}", tab.name);
+                }
+            }
+        }
+    }
+
     async fn adopt_orphans(self: &Arc<Self>, cfg: &Config) -> bool {
         let mut adopted = false;
         for name in self.tmux.list().await {
-            let host = self.tmux.is_host(&name).await || Self::legacy_host_session(&name, cfg);
+            let legacy_project = Self::legacy_host_project(&name, cfg);
+            let saved_host = cfg.host_terminals.iter().find(|tab| tab.name == name);
+            let host =
+                self.tmux.is_host(&name).await || saved_host.is_some() || legacy_project.is_some();
+            let tmux_host = host.then(|| self.tmux.host_metadata(&name));
+            let tmux_host = match tmux_host {
+                Some(future) => future.await,
+                None => None,
+            };
+            let host_project = tmux_host
+                .as_ref()
+                .and_then(|(project, _)| (!project.is_empty()).then_some(project.clone()))
+                .or_else(|| saved_host.map(|tab| tab.project.clone()))
+                .or(legacy_project)
+                .unwrap_or_default();
+            let host_path = tmux_host
+                .as_ref()
+                .and_then(|(_, path)| (!path.is_empty()).then_some(path.clone()))
+                .or_else(|| saved_host.map(|tab| tab.path.clone()))
+                .unwrap_or_default();
             let activity = self
                 .tmux
                 .activity(&name)
@@ -364,18 +447,33 @@ impl Manager {
                     let mut l = Live::new(
                         SessionCfg {
                             name: name.clone(),
+                            project: host_project.clone(),
+                            command: if host {
+                                cfg.defaults.shell.clone()
+                            } else {
+                                String::new()
+                            },
                             ..Default::default()
                         },
                         TitleCapture::default(),
                     );
                     l.ephemeral = true;
                     l.host = host;
+                    l.host_path = host_path.clone();
                     l.state = State::Working;
                     l.last_change = now;
                     l.state_since = now;
                     live.insert(name.clone(), l);
                     adopted = true;
                 } else if let Some(l) = live.get_mut(&name) {
+                    if host && l.host {
+                        if !host_project.is_empty() {
+                            l.cfg.project = host_project.clone();
+                        }
+                        if !host_path.is_empty() {
+                            l.host_path = host_path.clone();
+                        }
+                    }
                     self.restore_activity(l, activity);
                 }
                 live.get(&name).is_some_and(|l| l.emu.is_none())
@@ -391,6 +489,38 @@ impl Manager {
                 let m = self.clone();
                 let name = name.clone();
                 tokio::spawn(async move { m.nudge_redraw(&name).await });
+            }
+            if host {
+                let current_path = self.tmux.current_path(&name).await;
+                if saved_host.is_none() {
+                    let project = self
+                        .live
+                        .read()
+                        .await
+                        .get(&name)
+                        .filter(|l| l.host)
+                        .map(|l| l.cfg.project.clone())
+                        .unwrap_or_default();
+                    let path = current_path
+                        .clone()
+                        .filter(|path| !path.trim().is_empty())
+                        .or_else(|| (!host_path.trim().is_empty()).then_some(host_path.clone()))
+                        .unwrap_or_default();
+                    // A nameless host shell is still a runtime-only errand. Project shells
+                    // are the durable sidebar tabs; only those can restore grouping on reboot.
+                    if !project.trim().is_empty() {
+                        if let Err(error) =
+                            self.remember_host_terminal(&name, &project, &path).await
+                        {
+                            tracing::warn!(
+                                "could not save adopted host terminal {name}: {error:#}"
+                            );
+                        }
+                    }
+                }
+                if let Some(path) = current_path {
+                    self.remember_host_path(&name, &path).await;
+                }
             }
         }
         adopted
@@ -451,15 +581,11 @@ impl Manager {
         }
     }
 
-    /// Host markers were added after host terminals could outlive the daemon. Recognize the
-    /// deterministic old names once so a pre-marker host does not get one agent-policy prompt
-    /// sent to the summarizer before it is closed and recreated.
-    fn legacy_host_session(name: &str, cfg: &Config) -> bool {
-        crate::sandbox::host_session_name("") == name
-            || cfg
-                .projects
-                .iter()
-                .any(|p| crate::sandbox::host_session_name(&p.name) == name)
+    fn legacy_host_project(name: &str, cfg: &Config) -> Option<String> {
+        cfg.projects
+            .iter()
+            .find(|p| crate::sandbox::host_session_name(&p.name) == name)
+            .map(|p| p.name.clone())
     }
 
     async fn refresh_readerless_size(&self, name: &str) {
@@ -565,7 +691,10 @@ mod tests {
         };
         let host = crate::sandbox::host_session_name("repo");
 
-        assert!(Manager::legacy_host_session(&host, &cfg));
-        assert!(!Manager::legacy_host_session("ordinary-agent", &cfg));
+        assert_eq!(
+            Manager::legacy_host_project(&host, &cfg).as_deref(),
+            Some("repo")
+        );
+        assert!(Manager::legacy_host_project("ordinary-agent", &cfg).is_none());
     }
 }

@@ -25,6 +25,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [sandbox-blast-radius](sandbox-blast-radius.md) - what an agent can and cannot delete of its own `$HOME`.
 - [known-limitations](known-limitations.md) - network handover hangs and their safe recovery.
 - [daemon-shortcuts](daemon-shortcuts.md) - errands, ephemeral agents, delivery.
+- [host-terminals](host-terminals.md) - durable host tabs, tmux metadata and cwd recovery.
 - [daemon-session-state](daemon-session-state.md) - state classification, clocks, the emulator.
 - [agent-titles](agent-titles.md) - planned prompt summaries: never/once/always and conversation boundaries.
 - [daemon-redeploy](daemon-redeploy.md) - surviving a daemon restart; tmux traps.

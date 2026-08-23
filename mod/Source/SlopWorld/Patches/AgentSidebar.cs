@@ -358,22 +358,30 @@ namespace SlopWorld
             term.Disabled = !alive;
             opts.Add(term);
 
-            if (info != null)
+            if (info != null && !info.Host)
                 opts.Add(new FloatMenuOption("Label", () =>
                 {
                     var current = hub.Get(name);
                     if (current != null) LabelDialog.Open(name, current.Label);
                 }));
 
-            if (info != null && !info.Ephemeral)
+            if (info != null && !info.Ephemeral && !info.Host)
                 opts.Add(new FloatMenuOption("Edit...", () =>
                     TerminalWindow.OpenOverPane(new EditSessionDialog(info))));
 
-            if (info != null && !string.IsNullOrEmpty(info.Project))
+            if (info != null && !info.Host && !string.IsNullOrEmpty(info.Project))
                 opts.Add(new FloatMenuOption("Duplicate...", () =>
                     TerminalWindow.OpenOverPane(EditSessionDialog.Copy(info))));
 
-            if (info != null && !info.Ephemeral)
+            if (info != null && info.Host)
+                opts.Add(new FloatMenuOption("Remove", () =>
+                    TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
+                        $"Remove host terminal '{name}'? This kills its tmux pane and forgets " +
+                        "the saved sidebar tab.",
+                        () => hub.Remove(name, SlopWidgets.Fail),
+                        destructive: true))));
+
+            if (info != null && !info.Ephemeral && !info.Host)
                 opts.Add(new FloatMenuOption("Remove", () =>
                     TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
                         $"Remove session '{name}'? This kills it, drops it from config.toml, and moves " +
