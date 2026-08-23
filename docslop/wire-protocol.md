@@ -45,11 +45,13 @@ replacement tree.
 ## Ephemeral run
 
 `POST /api/run` creates an unnamed errand. `host` runs outside bwrap with the tmux
-environment plus `TERM`, `COLORTERM` and `SLOPWORLD_*`; it is runtime state, not a
-config option. An empty shell command uses slopd's `$SHELL`; other empty commands are
-invalid. Files actions normalize and expand their absolute path placeholder before execution. A file
-action terminal keeps an interactive shell after the command exits. Empty host
-labels are generated from project and shell, for example `slopworld-zsh`.
+environment plus `TERM`, `COLORTERM` and `SLOPWORLD_*`. A project shell opened through
+the host-shell route becomes a durable `[[host_terminal]]` tab; file actions, temporary
+projects and other host errands remain runtime-only. An empty shell command uses slopd's
+`$SHELL`; other empty commands are invalid. Files actions normalize and expand their
+absolute path placeholder before execution. A file action terminal keeps an interactive
+shell after the command exits. Empty host labels are generated from project and shell,
+for example `slopworld-zsh`.
 
 ## Browse, Files, Git and Search
 

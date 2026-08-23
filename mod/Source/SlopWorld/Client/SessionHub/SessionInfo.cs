@@ -47,8 +47,12 @@ namespace SlopWorld
         public bool BreadcrumbsPending;
 
         // A shortcut's errand or a tmux session started by hand: it leaves the colony when its
-        // process exits, and there is no entry to edit or delete.
+        // process exits, and there is no entry to edit or delete. Durable host tabs also use
+        // the ghost-row presentation, but are identified separately by Host.
         public bool Ephemeral;
+        // A durable host shell tab. It uses the ghost-row presentation but is not a sandboxed
+        // agent and remains in the sidebar when its shell is down.
+        public bool Host;
 
         // Read-only here: the terminal window measures itself and sends the resize.
         public int Cols;

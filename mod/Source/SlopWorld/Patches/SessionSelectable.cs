@@ -80,6 +80,8 @@ namespace SlopWorld
                 yield return BuildStartGizmo();
             }
 
+            if (info.Host) yield break;
+
             yield return BuildEditGizmo();
             yield return BuildLabelGizmo(info.Label);
 

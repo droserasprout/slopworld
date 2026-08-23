@@ -48,11 +48,12 @@ front pass adds one badge in full view, sized from the face so it survives shrin
 anchored to the drawn portrait rather than the cell. `Patch_AgentNeverIdle` remains active
 so vanilla does not report an agent idle after the replacement.
 
-Ephemeral host shells are one-line ghost rows with no pawn/state. Agent rows show the
-terminal icon and project; ghost rows emphasize the title/action/file identity and dim
-context. Viewer, editor and diff sessions use explicit prefixes because native titles
-are often `bash` or `less`, and route to Files/Git. Permanent routed sessions are parked
-immediately; reconciliation may otherwise leave their pawn for one tick.
+Host shells are one-line ghost rows with no pawn/state; durable project-heading shells
+stay in that row after their pane stops. Agent rows show the terminal icon and project;
+ghost rows emphasize the title/action/file identity and dim context. Viewer, editor and
+diff sessions use explicit prefixes because native titles are often `bash` or `less`, and
+route to Files/Git. Permanent routed sessions are parked immediately; reconciliation may
+otherwise leave their pawn for one tick.
 
 The grip polls `Input.GetMouseButton*`, not IMGUI events: absorbing windows can hide the
 initial press and off-screen release. It saves settings on release, owns the panel's

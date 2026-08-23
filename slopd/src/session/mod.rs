@@ -83,6 +83,8 @@ struct Live {
     // Never persisted in config: host errands carry this through a private tmux option so the
     // daemon can recover it when tmux outlives a daemon restart.
     host: bool,
+    // Host shells keep their last tmux cwd separately from the project's configured root.
+    host_path: String,
     state: State,
     seq: u64,
     // Last sequence classified by retick; equal means only idle decay can change state.
@@ -538,7 +540,7 @@ fn compile_rules(cfg: &Config) -> Vec<(State, Regex)> {
         .collect()
 }
 
-fn check_name(name: &str) -> Result<()> {
+pub(super) fn check_name(name: &str) -> Result<()> {
     if name.is_empty() || name.contains(|c: char| c.is_whitespace() || c == ':' || c == '.') {
         bail!("session name must be non-empty and free of whitespace, ':' and '.'");
     }
@@ -1234,6 +1236,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             cfg: SessionCfg::default(),
             ephemeral: true,
             host: false,
+            host_path: String::new(),
             state: State::Down,
             seq: 0,
             retick_seq: 0,

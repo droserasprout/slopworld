@@ -7,6 +7,8 @@ use crate::session::State;
 
 const ACTIVITY_STATE: &str = "@slopworld_state";
 const ACTIVITY_SINCE: &str = "@slopworld_state_since";
+const HOST_PROJECT: &str = "@slopworld_host_project";
+const HOST_PATH: &str = "@slopworld_host_path";
 
 /// Pinned to a private server socket, so it never collides with the user's tmux.
 #[derive(Clone)]
@@ -208,6 +210,45 @@ impl Tmux {
         self.run(&["show-options", "-qv", "-t", name, "@slopworld_host"])
             .await
             .is_ok_and(|value| value.trim() == "1")
+    }
+
+    /// Host tabs carry their project and last known working directory on the tmux server too.
+    /// The config copy covers a machine reboot; these options are authoritative while the
+    /// server survives a daemon redeploy and let adoption recover a shell that has `cd`'d.
+    pub async fn set_host_metadata(&self, name: &str, project: &str, path: &str) -> Result<()> {
+        self.run(&["set-option", "-t", name, HOST_PROJECT, project])
+            .await?;
+        self.run(&["set-option", "-t", name, HOST_PATH, path])
+            .await?;
+        Ok(())
+    }
+
+    pub async fn host_metadata(&self, name: &str) -> Option<(String, String)> {
+        let project = self.option(name, HOST_PROJECT).await?;
+        let path = self.option(name, HOST_PATH).await?;
+        Some((project, path))
+    }
+
+    pub async fn current_path(&self, name: &str) -> Option<String> {
+        self.run(&[
+            "display-message",
+            "-p",
+            "-t",
+            &format!("{name}:.0"),
+            "#{pane_current_path}",
+        ])
+        .await
+        .ok()
+        .map(|path| path.trim().to_string())
+        .filter(|path| !path.is_empty())
+    }
+
+    async fn option(&self, name: &str, option: &str) -> Option<String> {
+        self.run(&["show-options", "-qv", "-t", name, option])
+            .await
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
     }
 
     /// State ages live on the tmux server as well as in slopd's fallback file cache. The

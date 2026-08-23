@@ -16,7 +16,25 @@ impl Manager {
         if let Some(p) = cfg.project_of(s) {
             return Some(p.clone());
         }
-        self.temp.read().await.get(&s.project).cloned()
+        if let Some(p) = self.temp.read().await.get(&s.project).cloned() {
+            return Some(p);
+        }
+        // A host tab may outlive the project entry that created it. Its last tmux cwd is
+        // still a safe host starting point, so keep the tab usable and ungrouped instead of
+        // making it impossible to restart.
+        let path = self
+            .live
+            .read()
+            .await
+            .get(&s.name)
+            .filter(|l| l.host)
+            .map(|l| l.host_path.clone())
+            .filter(|path| !path.trim().is_empty())?;
+        Some(ProjectCfg {
+            name: s.project.clone(),
+            dir: path,
+            ..Default::default()
+        })
     }
 
     async fn resolve_target(&self, cfg: &Config, name: &str) -> Result<(SessionCfg, ProjectCfg)> {
@@ -102,12 +120,23 @@ impl Manager {
                 s.command
             );
         }
-        let dir = Self::validate_dir(&p)?;
-
-        let (cols, rows, host) = match self.live.read().await.get(name) {
-            Some(l) => (l.cols, l.rows, l.host),
-            None => (BOOT_COLS, BOOT_ROWS, false),
+        let (cols, rows, host, host_path) = match self.live.read().await.get(name) {
+            Some(l) => (l.cols, l.rows, l.host, l.host_path.clone()),
+            None => (BOOT_COLS, BOOT_ROWS, false, String::new()),
         };
+        let dir = if host && !host_path.trim().is_empty() {
+            let remembered = expand(&host_path);
+            if std::path::Path::new(&remembered).is_dir() {
+                remembered
+            } else {
+                Self::validate_dir(&p)?
+            }
+        } else {
+            Self::validate_dir(&p)?
+        };
+        if !std::path::Path::new(&dir).is_dir() {
+            bail!("{dir} is not a directory");
+        }
         let argv = if host {
             crate::sandbox::host_argv(&cfg, &s, &p)
         } else {
@@ -116,6 +145,12 @@ impl Manager {
         };
         tracing::info!("starting {name}: {}", argv.join(" "));
         self.tmux.spawn(name, &dir, cols, rows, &argv, host).await?;
+        if host {
+            if let Err(error) = self.tmux.set_host_metadata(name, &s.project, &dir).await {
+                tracing::warn!("could not persist host metadata for {name}: {error:#}");
+            }
+            self.remember_host_path(name, &dir).await;
+        }
         self.clear_activity(name).await;
         let title_was_cleared = if let Some(l) = self.live.write().await.get_mut(name) {
             let had_title = l.title.override_title.is_some();
@@ -150,7 +185,7 @@ impl Manager {
         if self.tmux.exists(name).await {
             self.tmux.kill(name).await?;
         }
-        if self.is_ephemeral(name).await {
+        if self.is_ephemeral(name).await && !self.is_host(name).await {
             self.forget(name).await;
             return Ok(());
         }
@@ -192,6 +227,103 @@ impl Manager {
             .get(name)
             .map(|l| l.ephemeral)
             .unwrap_or(false)
+    }
+
+    pub(super) async fn is_host(&self, name: &str) -> bool {
+        self.live
+            .read()
+            .await
+            .get(name)
+            .map(|l| l.host)
+            .unwrap_or(false)
+    }
+
+    pub(super) async fn remember_host_terminal(
+        &self,
+        name: &str,
+        project: &str,
+        path: &str,
+    ) -> Result<()> {
+        let mut cfg = self.cfg.write().await;
+        if cfg.session(name).is_some() {
+            bail!("host terminal {name} conflicts with an agent session");
+        }
+        if let Some(tab) = cfg.host_terminals.iter_mut().find(|tab| tab.name == name) {
+            tab.project = project.to_string();
+            tab.path = path.to_string();
+        } else {
+            cfg.host_terminals.push(crate::config::HostTerminalCfg {
+                name: name.to_string(),
+                project: project.to_string(),
+                path: path.to_string(),
+                autostart: true,
+            });
+        }
+        self.save_cfg(&cfg)?;
+        Ok(())
+    }
+
+    pub(super) async fn remember_host_path(&self, name: &str, path: &str) -> bool {
+        if path.trim().is_empty() {
+            return false;
+        }
+        let live_changed = {
+            let mut live = self.live.write().await;
+            live.get_mut(name)
+                .filter(|l| l.host && l.host_path != path)
+                .map(|l| {
+                    l.host_path = path.to_string();
+                    true
+                })
+                .unwrap_or(false)
+        };
+
+        let (project, cfg_changed) = {
+            let mut changed = false;
+            let mut project = None;
+            let mut cfg = self.cfg.write().await;
+            if let Some(tab) = cfg.host_terminals.iter_mut().find(|tab| tab.name == name) {
+                project = Some(tab.project.clone());
+                if tab.path != path {
+                    tab.path = path.to_string();
+                    changed = true;
+                }
+            }
+            if changed {
+                if let Err(error) = self.save_cfg(&cfg) {
+                    tracing::warn!("could not persist host path for {name}: {error:#}");
+                }
+            }
+            (project, changed)
+        };
+
+        if live_changed || cfg_changed {
+            if let Some(project) = project {
+                if let Err(error) = self.tmux.set_host_metadata(name, &project, path).await {
+                    tracing::debug!("could not refresh host metadata for {name}: {error:#}");
+                }
+            }
+        }
+        live_changed || cfg_changed
+    }
+
+    async fn refresh_host_paths(&self) -> bool {
+        let names: Vec<String> = self
+            .live
+            .read()
+            .await
+            .values()
+            .filter(|l| l.host && l.state != State::Down)
+            .map(|l| l.cfg.name.clone())
+            .collect();
+        let mut changed = false;
+        for name in names {
+            let Some(path) = self.tmux.current_path(&name).await else {
+                continue;
+            };
+            changed |= self.remember_host_path(&name, &path).await;
+        }
+        changed
     }
 
     pub(super) async fn forget(self: &Arc<Self>, name: &str) {
@@ -380,6 +512,29 @@ impl Manager {
 
     pub async fn remove(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
+        if self.is_host(name).await {
+            self.stop(name).await.ok();
+
+            let mut cfg = self.cfg.write().await;
+            let old_hosts = cfg.host_terminals.clone();
+            let saved = cfg.host_terminals.iter().any(|tab| tab.name == name);
+            cfg.host_terminals.retain(|tab| tab.name != name);
+            if saved {
+                if let Err(error) = self.save_cfg(&cfg) {
+                    cfg.host_terminals = old_hosts;
+                    return Err(error);
+                }
+            }
+            drop(cfg);
+
+            // Host rows have no private agent state to trash. Forget both durable tabs and
+            // unnamed runtime-only host errands after the pane has been stopped.
+            self.forget(name).await;
+            let _ = self.events.send(Event::Sessions {
+                sessions: self.views().await,
+            });
+            return Ok(());
+        }
         if self.is_ephemeral(name).await {
             return self.stop(name).await;
         }
@@ -522,7 +677,11 @@ impl Manager {
                     name: l.cfg.name.clone(),
                     label: l.cfg.label.clone().unwrap_or_default(),
                     project: display_project,
-                    dir: p.map(|p| p.dir.clone()).unwrap_or_default(),
+                    dir: if l.host && !l.host_path.trim().is_empty() {
+                        l.host_path.clone()
+                    } else {
+                        p.map(|p| p.dir.clone()).unwrap_or_default()
+                    },
                     command: l.cfg.command.clone(),
                     command_preset: cfg.command_name(&l.cfg),
                     cmd: l.cfg.cmd.clone(),
@@ -545,6 +704,7 @@ impl Manager {
                     limits_override: l.cfg.limits,
                     autostart: l.cfg.autostart,
                     ephemeral: l.ephemeral,
+                    host: l.host,
                     last_change: l.last_change,
                     state_since: l.state_since,
                     title: l
@@ -589,6 +749,8 @@ impl Manager {
     pub async fn retick(self: &Arc<Self>) {
         self.reload_if_due().await;
 
+        let host_paths_changed = self.refresh_host_paths().await;
+
         let now = now_ms();
 
         // Classification awaits the rules lock, so snapshot before releasing the live lock.
@@ -632,7 +794,7 @@ impl Manager {
             }
         }
 
-        if dirty_list {
+        if dirty_list || host_paths_changed {
             let _ = self.events.send(Event::Sessions {
                 sessions: self.views().await,
             });

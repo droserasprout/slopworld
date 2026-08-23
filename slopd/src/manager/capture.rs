@@ -891,7 +891,7 @@ impl Manager {
     }
 
     pub(super) async fn mark_down(self: &Arc<Self>, name: &str) {
-        if self.is_ephemeral(name).await {
+        if self.is_ephemeral(name).await && !self.is_host(name).await {
             self.forget(name).await;
             return;
         }

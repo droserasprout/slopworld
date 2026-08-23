@@ -101,7 +101,23 @@ fn host_command(cfg: &Config, s: &SessionCfg, shell: Option<&str>) -> String {
 
 /// Names a host session `<project>-<shell>`, or just the shell when no project is set.
 pub fn host_session_name(project: &str) -> String {
-    session_name_for(project, host_shell().as_deref())
+    let raw = session_name_for(project, host_shell().as_deref());
+    let mut out = String::with_capacity(raw.len());
+    for ch in raw.chars() {
+        if ch.is_whitespace() || ch == ':' || ch == '.' || ch == '/' {
+            if !out.ends_with('-') {
+                out.push('-');
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    let out = out.trim_matches('-').to_string();
+    if out.is_empty() {
+        "shell".into()
+    } else {
+        out
+    }
 }
 
 fn session_name_for(project: &str, shell: Option<&str>) -> String {
@@ -717,6 +733,7 @@ mod tests {
         );
         assert_eq!(session_name_for("tmp", Some("/bin/bash")), "tmp-bash");
         assert_eq!(session_name_for("tmp", Some("fish")), "tmp-fish");
+        assert!(!host_session_name("my.project").contains('.'));
         // No shell to read, and no project to open on: both fall back on their own.
         assert_eq!(session_name_for("tmp", None), "tmp-shell");
         assert_eq!(session_name_for("", Some("/usr/bin/zsh")), "zsh");

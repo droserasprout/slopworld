@@ -34,6 +34,7 @@ namespace SlopWorld
             (s, j) => s.Breadcrumbs = Strings(j["breadcrumbs"]),
             (s, j) => s.BreadcrumbsPending = j["breadcrumbs_pending"].AsBool(false),
             (s, j) => s.Ephemeral = j["ephemeral"].AsBool(false),
+            (s, j) => s.Host = j["host"].AsBool(false),
             (s, j) => s.Cols = j["cols"].AsInt(0),
             (s, j) => s.Rows = j["rows"].AsInt(0),
             (s, j) => s.Title = j["title"].AsString(),

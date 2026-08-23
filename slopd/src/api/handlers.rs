@@ -228,7 +228,7 @@ pub(super) async fn list(State(m): State<Mgr>, Extension(cap): Extension<Cap>) -
         .views()
         .await
         .into_iter()
-        .filter(|s| cap.can_see(&s.name, false))
+        .filter(|s| cap.can_see(&s.name, s.host))
         .collect();
     Ok(Json(json!({ "sessions": sessions })))
 }
@@ -432,8 +432,13 @@ pub(super) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResul
         temp: q.temp || (q.host && project.is_empty()),
         random_tips: q.random_tips,
     };
+    let persistent_host = q.host
+        && q.kind == crate::config::ShortcutKind::Shell
+        && !project.is_empty()
+        && q.path.trim().is_empty()
+        && !q.temp;
     let session = m
-        .run_errand(sc, want, q.host)
+        .run_errand(sc, want, q.host, persistent_host)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "ok": true, "session": session })))

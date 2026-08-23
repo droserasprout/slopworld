@@ -27,6 +27,15 @@ pub struct Config {
     /// process does.
     #[serde(default, rename = "shortcut")]
     pub shortcuts: Vec<ShortcutCfg>,
+    /// Host shells opened from a project heading. These are deliberately separate from
+    /// `session`: a host terminal is allowed only through the explicit host-shell route and
+    /// never becomes an agent merely because a config entry was edited.
+    #[serde(
+        default,
+        rename = "host_terminal",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub host_terminals: Vec<HostTerminalCfg>,
     #[serde(default, rename = "state_rule")]
     pub state_rules: Vec<StateRule>,
 }
@@ -461,6 +470,33 @@ pub struct SessionCfg {
     pub limits: Limits,
     #[serde(default)]
     pub autostart: bool,
+}
+
+/// A durable host terminal tab. The daemon owns this small record so a game or daemon restart
+/// can put the shell back in the sidebar without making host execution a property of an agent.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HostTerminalCfg {
+    pub name: String,
+    #[serde(default)]
+    pub project: String,
+    /// The last directory observed from tmux. It is kept separately from the project's root so
+    /// a shell that `cd`s somewhere remains there after the next daemon start.
+    #[serde(default)]
+    pub path: String,
+    /// Recreate the tmux shell when slopd starts after the machine has rebooted.
+    #[serde(default = "yes", skip_serializing_if = "is_true")]
+    pub autostart: bool,
+}
+
+impl Default for HostTerminalCfg {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            project: String::new(),
+            path: String::new(),
+            autostart: true,
+        }
+    }
 }
 
 impl Default for SessionCfg {
@@ -910,8 +946,9 @@ pub fn expand(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        expand, redact_token_text, temp_dir, Config, DnsConfig, NetworkMode, ProjectCfg,
-        SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink, TitlePolicy, TOKEN_REDACTED,
+        expand, redact_token_text, temp_dir, Config, DnsConfig, HostTerminalCfg, NetworkMode,
+        ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink, TitlePolicy,
+        TOKEN_REDACTED,
     };
 
     #[test]
@@ -1383,6 +1420,29 @@ token = \"not-a-daemon-token\"
         );
         assert_eq!(back.commands.pager, "less");
         assert_eq!(back.commands.editor, "micro");
+    }
+
+    #[test]
+    fn host_terminal_records_round_trip_and_default_to_autostart() {
+        let cfg = Config {
+            host_terminals: vec![HostTerminalCfg {
+                name: "repo-bash".into(),
+                project: "repo".into(),
+                path: "/home/you/repo/src".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let text = toml::to_string_pretty(&cfg).unwrap();
+        assert!(text.contains("[[host_terminal]]"));
+        assert!(!text.contains("autostart"));
+
+        let back = Config::parse(&text).unwrap();
+        let tab = &back.host_terminals[0];
+        assert_eq!(tab.name, "repo-bash");
+        assert_eq!(tab.project, "repo");
+        assert_eq!(tab.path, "/home/you/repo/src");
+        assert!(tab.autostart);
     }
 
     #[test]

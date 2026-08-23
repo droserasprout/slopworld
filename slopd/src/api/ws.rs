@@ -48,7 +48,7 @@ fn scope_event(cap: &Cap, ev: Event) -> Option<Event> {
             Event::Sessions { sessions } => Some(Event::Sessions {
                 sessions: sessions
                     .into_iter()
-                    .filter(|s| cap.can_see(&s.name, false))
+                    .filter(|s| cap.can_see(&s.name, s.host))
                     .collect(),
             }),
             Event::Screen { .. } => Some(ev),
@@ -407,6 +407,7 @@ mod tests {
             limits_override: Default::default(),
             autostart: false,
             ephemeral: false,
+            host: false,
             last_change: 0,
             state_since: 0,
             title: String::new(),

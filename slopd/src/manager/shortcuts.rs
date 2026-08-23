@@ -245,7 +245,7 @@ impl Manager {
             bail!("shortcut {} is not runnable as an agent errand", sc.name);
         }
         drop(cfg);
-        self.run_errand(sc, want, false).await
+        self.run_errand(sc, want, false, false).await
     }
 
     fn resolve_file_action(
@@ -415,6 +415,7 @@ impl Manager {
         sc: &ShortcutCfg,
         want: &RunWhere,
         host: bool,
+        persistent_host: bool,
     ) -> Result<String> {
         let name = sc.name.as_str();
         let asked = match want.project.as_deref().map(str::trim) {
@@ -437,9 +438,47 @@ impl Manager {
         }
         let template = cfg.project(&sc.project).cloned().unwrap_or_default();
 
-        let mut live = self.live.write().await;
-        let name = free_name(&live, cfg, &slug(&sc.name));
+        let name = if persistent_host {
+            crate::sandbox::host_session_name(&named)
+        } else {
+            let live = self.live.read().await;
+            free_name(&live, cfg, &slug(&sc.name))
+        };
         check_name(&name)?;
+
+        {
+            let live = self.live.read().await;
+            if let Some(existing) = live.get(&name) {
+                if existing.host == host {
+                    if persistent_host {
+                        let path = cfg
+                            .project(&named)
+                            .map(|p| crate::config::expand(&p.dir))
+                            .unwrap_or_default();
+                        drop(live);
+                        self.remember_host_terminal(&name, &named, &path).await?;
+                    }
+                    return Ok(name);
+                }
+                bail!("session {name} already exists");
+            }
+        }
+
+        if persistent_host {
+            let path = cfg
+                .project(&named)
+                .map(|p| crate::config::expand(&p.dir))
+                .ok_or_else(|| anyhow!("no such project: {named}"))?;
+            self.remember_host_terminal(&name, &named, &path).await?;
+        }
+
+        let mut live = self.live.write().await;
+        if let Some(existing) = live.get(&name) {
+            if existing.host == host {
+                return Ok(name);
+            }
+            bail!("session {name} already exists");
+        }
 
         let project = if fresh {
             let mut temp = self.temp.write().await;
@@ -464,6 +503,12 @@ impl Manager {
         );
         l.ephemeral = true;
         l.host = host;
+        if persistent_host {
+            l.host_path = cfg
+                .project(&l.cfg.project)
+                .map(|p| crate::config::expand(&p.dir))
+                .unwrap_or_default();
+        }
         live.insert(name.clone(), l);
         Ok(name)
     }
@@ -484,15 +529,22 @@ impl Manager {
         sc: ShortcutCfg,
         want: RunWhere,
         host: bool,
+        persistent_host: bool,
     ) -> Result<String> {
         self.reload_if_changed().await;
         let cfg = self.config().await;
         Self::validate_errand(&sc)?;
-        let session = self.create_errand_session(&cfg, &sc, &want, host).await?;
+        let session = self
+            .create_errand_session(&cfg, &sc, &want, host, persistent_host)
+            .await?;
 
-        if let Err(e) = self.start(&session).await {
-            self.forget(&session).await;
-            return Err(e);
+        if !self.tmux.exists(&session).await {
+            if let Err(e) = self.start(&session).await {
+                if !persistent_host {
+                    self.forget(&session).await;
+                }
+                return Err(e);
+            }
         }
 
         let _ = self.events.send(Event::Sessions {
