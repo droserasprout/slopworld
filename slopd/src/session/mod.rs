@@ -105,6 +105,9 @@ struct Live {
     // Spliced immediately before the first Enter after process start.
     breadcrumbs: Vec<u8>,
     breadcrumbs_pending: bool,
+    // Distinguishes successive processes under the same durable session name. Startup input
+    // captured for an old process must not land in a quick stop/start replacement.
+    run_id: u64,
     title: TitleCapture,
 }
 
@@ -1256,6 +1259,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             input: None,
             breadcrumbs: Vec::new(),
             breadcrumbs_pending: false,
+            run_id: 0,
             title: TitleCapture::default(),
         }
     }

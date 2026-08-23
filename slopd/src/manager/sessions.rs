@@ -151,15 +151,19 @@ impl Manager {
             self.remember_host_path(name, &dir).await;
         }
         self.clear_activity(name).await;
-        let title_was_cleared = if let Some(l) = self.live.write().await.get_mut(name) {
-            let had_title = l.title.override_title.is_some();
-            l.state = State::Down;
-            l.last_change = 0;
-            l.state_since = 0;
-            l.title = TitleCapture::default();
-            had_title
-        } else {
-            false
+        let (title_was_cleared, run_id) = {
+            let mut live = self.live.write().await;
+            if let Some(l) = live.get_mut(name) {
+                let had_title = l.title.override_title.is_some();
+                l.state = State::Down;
+                l.last_change = 0;
+                l.state_since = 0;
+                l.title = TitleCapture::default();
+                l.run_id = l.run_id.wrapping_add(1);
+                (had_title, l.run_id)
+            } else {
+                (false, 0)
+            }
         };
         if let Err(error) = self.title_cache.clear_latest(name) {
             tracing::warn!(
@@ -177,6 +181,9 @@ impl Manager {
         }
         self.spawn_reader(name).await;
         self.wire_live_state(name, &cfg, &s, &p, host).await;
+        if !host && s.auto_resume {
+            self.queue_auto_resume(name, run_id);
+        }
         Ok(())
     }
 
@@ -685,6 +692,7 @@ impl Manager {
                     limits: p.map(|p| cfg.limits_of(&l.cfg, p)).unwrap_or(l.cfg.limits),
                     limits_override: l.cfg.limits,
                     autostart: l.cfg.autostart,
+                    auto_resume: l.cfg.auto_resume,
                     ephemeral: l.ephemeral,
                     host: l.host,
                     last_change: l.last_change,

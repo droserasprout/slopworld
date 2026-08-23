@@ -582,7 +582,37 @@ impl Manager {
             .await;
     }
 
+    pub(super) fn queue_auto_resume(self: &Arc<Self>, name: &str, run_id: u64) {
+        let manager = self.clone();
+        let name = name.to_string();
+        tokio::spawn(async move { manager.auto_resume(&name, run_id).await });
+    }
+
+    async fn auto_resume(&self, name: &str, run_id: u64) {
+        match self.wait_ready_for(name, Some(run_id)).await {
+            Ready::Gone => return,
+            Ready::Timeout => {
+                tracing::warn!(
+                    "{name} never went quiet after {}ms; skipping auto-resume",
+                    READY_MS
+                );
+                return;
+            }
+            Ready::Settled => {}
+        }
+
+        // This is startup control input, not the agent's first prompt. Keep it out of title
+        // capture and the breadcrumb Enter hook; breadcrumbs remain pending for the user's prompt.
+        for input in auto_resume_inputs() {
+            self.queue_input(name, input).await;
+        }
+    }
+
     pub(super) async fn wait_ready(&self, name: &str) -> Ready {
+        self.wait_ready_for(name, None).await
+    }
+
+    async fn wait_ready_for(&self, name: &str, run_id: Option<u64>) -> Ready {
         let deadline = now_ms() + READY_MS;
         let mut last_seq = u64::MAX;
         let mut still_since = 0u64;
@@ -596,13 +626,13 @@ impl Manager {
                         .as_ref()
                         .map(|s| s.lines.iter().any(|x| !strip_sgr(x).trim().is_empty()))
                         .unwrap_or(false);
-                    (l.seq, printed, l.state)
+                    (l.seq, printed, l.state, l.run_id)
                 })
             };
-            let Some((seq, printed, state)) = snap else {
+            let Some((seq, printed, state, current_run_id)) = snap else {
                 return Ready::Gone;
             };
-            if state == State::Down {
+            if state == State::Down || run_id.is_some_and(|expected| expected != current_run_id) {
                 return Ready::Gone;
             }
 
@@ -624,10 +654,27 @@ impl Manager {
     }
 }
 
+fn auto_resume_inputs() -> Vec<Input> {
+    vec![
+        Input::Paste(b"/resume".to_vec()),
+        Input::Gap(Duration::from_millis(ENTER_GAP_MS)),
+        Input::Keys {
+            keys: vec!["Enter".into()],
+            literal: false,
+        },
+        Input::Gap(Duration::from_millis(ENTER_GAP_MS)),
+        Input::Keys {
+            keys: vec!["Enter".into()],
+            literal: false,
+        },
+    ]
+}
+
 #[cfg(test)]
 mod tests {
-    use super::Manager;
+    use super::{auto_resume_inputs, Manager};
     use crate::config::{Config, ShortcutCfg, ShortcutKind};
+    use crate::session::Input;
     use std::os::unix::process::ExitStatusExt;
     use std::process::ExitStatus;
 
@@ -635,6 +682,23 @@ mod tests {
     /// signal (none here) and the code sits above it.
     fn exit(code: i32) -> ExitStatus {
         ExitStatus::from_raw(code << 8)
+    }
+
+    #[test]
+    fn auto_resume_types_the_command_and_two_enters_in_order() {
+        let input = auto_resume_inputs();
+        assert_eq!(input.len(), 5);
+        assert!(matches!(&input[0], Input::Paste(text) if text == b"/resume"));
+        assert!(matches!(&input[1], Input::Gap(_)));
+        assert!(matches!(
+            &input[2],
+            Input::Keys { keys, literal: false } if keys == &["Enter"]
+        ));
+        assert!(matches!(&input[3], Input::Gap(_)));
+        assert!(matches!(
+            &input[4],
+            Input::Keys { keys, literal: false } if keys == &["Enter"]
+        ));
     }
 
     /// stdout alone comes back trimmed of its trailing newline; empty output is spelled out

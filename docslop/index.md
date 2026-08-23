@@ -28,6 +28,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [host-terminals](host-terminals.md) - durable host tabs, tmux metadata and cwd recovery.
 - [daemon-session-state](daemon-session-state.md) - state classification, clocks, the emulator.
 - [agent-titles](agent-titles.md) - planned prompt summaries: never/once/always and conversation boundaries.
+- [agent-auto-resume](agent-auto-resume.md) - per-agent startup resume and input ordering.
 - [daemon-redeploy](daemon-redeploy.md) - surviving a daemon restart; tmux traps.
 - [daemon-usage](daemon-usage.md) - Anthropic, OpenRouter and OpenAI quota polling.
 - [wire-protocol](wire-protocol.md) - WS events, client messages, HTTP routes.

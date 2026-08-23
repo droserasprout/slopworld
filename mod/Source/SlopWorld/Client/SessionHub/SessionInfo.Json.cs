@@ -30,6 +30,7 @@ namespace SlopWorld
             (s, j) => s.Limits = SessionLimits.FromJson(j["limits_override"]),
             (s, j) => s.EffectiveLimits = SessionLimits.FromJson(j["limits"]),
             (s, j) => s.Autostart = j["autostart"].AsBool(false),
+            (s, j) => s.AutoResume = j["auto_resume"].AsBool(false),
             (s, j) => s.BreadcrumbYolo = j["breadcrumb_yolo"].AsBool(true),
             (s, j) => s.Breadcrumbs = Strings(j["breadcrumbs"]),
             (s, j) => s.BreadcrumbsPending = j["breadcrumbs_pending"].AsBool(false),

@@ -37,6 +37,7 @@ pub struct SessionView {
     /// This agent's own caps before project inheritance - what the editor edits.
     pub limits_override: Limits,
     pub autostart: bool,
+    pub auto_resume: bool,
     // Temporary sessions have no editable config entry. Durable host tabs also use the
     // ghost-row presentation, but are identified separately by `host`.
     pub ephemeral: bool,
