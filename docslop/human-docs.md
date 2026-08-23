@@ -1,16 +1,16 @@
 # Human docs (`docs/`)
 
 mdBook, `make docs` / `make docs-serve`, output committed under `docs/book/`.
-Agents never write prose there ([docs/AGENTS.md](../docs/AGENTS.md)); stubs and
-`SUMMARY.md` moves are chores. This note is the raw material a person draws on
-when filling a page, not a draft of the page.
+Agents may write prose there when explicitly asked. This note is source material
+for the book, not a draft to copy without checking the current implementation.
 
 ## Who owns which fact
 
-- Tour pages are narrative: short, screenshot-led, "here is what you are looking
-  at". No option tables, no config keys, no troubleshooting.
-- FAQ owns every fact - knobs, paths, failure modes, "why does it do that".
-- A fact written twice is deleted from the tour, which links to FAQ instead.
+- Tour pages are short narrative introductions. No option tables, config keys,
+  or troubleshooting.
+- Each fact has one canonical topical page. Tours and the FAQ link to that page
+  instead of repeating reference material.
+- FAQ contains recurring questions rather than serving as the complete reference.
 - Give FAQ questions explicit anchors (`### ... {#not-patched}`) so wording can
   change without breaking tour links and bookmarks.
 - Split `faq.md` into a folder only when one section alone justifies a page;
@@ -55,11 +55,9 @@ failures surface in `Player.log` at runtime as `patching incomplete:`.
 
 ## Open decisions
 
-- README currently carries the install steps. Two copies drift; pick the book as
-  canonical and cut README to pitch, warning, screenshots, link.
-- mdBook only copies files under `src/`, so the tour needs `docs/src/images/`.
-  README's `screenshots/*.png` do not exist in the repo at all.
+- README currently carries the install steps. Two copies drift; make the book
+  canonical and cut README to pitch, warning, quickstart, and links.
+- Images can be added later under `docs/src/images/`; none are required for the
+  first revision.
 - `docs/book/` is committed output: rebuild before committing `src/` changes, or
   the published book lags.
-- `Build` before `Install` in `SUMMARY.md` is the inherited order; most readers
-  install and never build.
