@@ -15,5 +15,5 @@ explicit later: speaker monitor, microphone, or automatic, with the automatic ch
 
 History should become a real browsing surface rather than a raw likes-file table: filter/search,
 copyable cells, clearer timestamp/source formatting, empty/error states, and a compact detail view
-for long original metadata. Keep the file parser and migration logic separate from rendering, and
-add fixtures covering legacy lines, mixed TOML, recognized likes, and missing original fields.
+for long original metadata. Keep the current-table parser separate from rendering, and add
+fixtures covering recognized likes, malformed tables, and missing original fields.

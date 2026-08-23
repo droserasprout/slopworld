@@ -79,8 +79,6 @@ page) shows a transient recognizing state that names the input and can be cancel
 and presents the recognized pair beside the station's own line rather than replacing it.
 `History` opens a maximized, newest-first table with search, per-field copy, a detail panel for
 long original metadata, local-time stamps and empty/error states; its file reader is
-`JukeboxHistory` (UI/), kept apart from rendering and sharing one reading of the format with
-`tools/migrate_jukebox.py`, which converts old files to `./jukebox.new.toml` and never
-overwrites it without `--force`. Storage settings has a button to open the likes file in the
-configured editor. The map texture is generated with `tools/emoji.py`; it is unrelated to
-station configuration.
+`JukeboxHistory` (UI/), which reads the current structured `[[like]]` tables apart from
+rendering. Storage settings has a button to open the likes file in the configured editor. The
+map texture is generated with `tools/emoji.py`; it is unrelated to station configuration.

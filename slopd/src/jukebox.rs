@@ -44,11 +44,7 @@ pub struct Station {
     pub metadata: Metadata,
     /// `[[stream]]` in TOML, `streams` on the wire: an array of tables reads as the singular
     /// in a definition file, and as the plural in the catalog the mod is handed.
-    #[serde(
-        rename(serialize = "streams", deserialize = "stream"),
-        alias = "streams",
-        default
-    )]
+    #[serde(rename(serialize = "streams", deserialize = "stream"), default)]
     pub streams: Vec<Stream>,
 }
 
@@ -57,9 +53,6 @@ pub struct Catalog {
     pub stations: Vec<Station>,
 }
 
-// Keep the file reader a little more permissive than the wire shape. The first daemon-side
-// reader accepted the compact host/path/rates form, and users may still have those files even
-// though new files should use explicit stream URLs.
 #[derive(Debug, Deserialize)]
 struct FileStation {
     #[serde(default)]
@@ -68,17 +61,7 @@ struct FileStation {
     default_rate: u32,
     #[serde(default)]
     metadata: Metadata,
-    #[serde(default)]
-    name: String,
-    #[serde(default)]
-    donate: String,
-    #[serde(default)]
-    host: String,
-    #[serde(default)]
-    path: String,
-    #[serde(default)]
-    rates: Vec<u32>,
-    #[serde(rename = "stream", alias = "streams", default)]
+    #[serde(rename = "stream", default)]
     streams: Vec<FileStream>,
 }
 
@@ -90,10 +73,6 @@ struct FileStream {
     key: String,
     #[serde(default)]
     url: String,
-    #[serde(default)]
-    host: String,
-    #[serde(default)]
-    path: String,
 }
 
 // Compiled in rather than installed: shipped definitions need to agree with the daemon binary
@@ -218,29 +197,11 @@ fn parse(text: &str, path: &Path) -> Result<Station> {
             .map(|stream| Stream {
                 rate: stream.rate,
                 key: if stream.key.is_empty() {
-                    if stream.path.is_empty() {
-                        stream.rate.to_string()
-                    } else {
-                        stream.path.replace("{rate}", &stream.rate.to_string())
-                    }
+                    stream.rate.to_string()
                 } else {
                     stream.key
                 },
-                url: if stream.url.is_empty() {
-                    let host = if stream.host.is_empty() {
-                        &raw.host
-                    } else {
-                        &stream.host
-                    };
-                    let template = if stream.path.is_empty() {
-                        &raw.path
-                    } else {
-                        &stream.path
-                    };
-                    host.to_string() + &template.replace("{rate}", &stream.rate.to_string())
-                } else {
-                    stream.url
-                },
+                url: stream.url,
             })
             .collect(),
     };
@@ -256,24 +217,7 @@ fn parse(text: &str, path: &Path) -> Result<Station> {
         bail!("missing id");
     }
     if station.metadata.name.trim().is_empty() {
-        station.metadata.name = if raw.name.trim().is_empty() {
-            station.id.clone()
-        } else {
-            raw.name
-        };
-    }
-    if station.metadata.donate.trim().is_empty() && !raw.donate.trim().is_empty() {
-        station.metadata.donate = raw.donate;
-    }
-    if station.streams.is_empty() && !raw.path.is_empty() && !raw.rates.is_empty() {
-        for rate in raw.rates {
-            let path = raw.path.replace("{rate}", &rate.to_string());
-            station.streams.push(Stream {
-                rate,
-                key: path.clone(),
-                url: raw.host.clone() + &path,
-            });
-        }
+        station.metadata.name = station.id.clone();
     }
     if station.streams.is_empty() {
         bail!("no [[stream]] entries");
@@ -391,24 +335,6 @@ url = "https://example.org/stream"
         assert!(!json.contains("example.org/stream"));
         assert!(json.contains("custom96"));
         assert!(json.contains("title_regex"));
-    }
-
-    #[test]
-    fn legacy_personal_shape_still_expands_streams() {
-        let station = parse(
-            r#"
-name = "Legacy Radio"
-host = "https://example.org/"
-path = "stream-{rate}"
-rates = [64, 128]
-"#,
-            Path::new("legacy.toml"),
-        )
-        .unwrap();
-        assert_eq!(station.id, "legacy");
-        assert_eq!(station.metadata.name, "Legacy Radio");
-        assert_eq!(station.streams[1].key, "stream-128");
-        assert_eq!(station.streams[1].url, "https://example.org/stream-128");
     }
 
     #[test]

@@ -14,8 +14,7 @@
   or `SLOPD_JUKEBOX` overrides). The shipped definitions are compiled into `slopd` from
   `slopd/jukebox/`.
 - Jukebox likes: `~/.local/share/slopworld/jukebox.toml` (`XDG_DATA_HOME` overrides),
-  containing structured `[[like]]` tables. `tools/migrate_jukebox.py` writes a converted
-  copy to `./jukebox.new.toml`.
+  containing structured `[[like]]` tables.
 - Profile: `$XDG_DATA_HOME/slopworld/profile`. Saves, screenshots, `Config/`.
 - Session state: `$XDG_DATA_HOME/slopworld/sessions/<state-id>/` (`SLOPD_STATE`
   overrides). The daemon assigns the opaque state id when an agent is created,
