@@ -913,15 +913,15 @@ struct Provider<'a> {
 }
 
 fn anthropic_enabled(d: &crate::config::Daemon) -> bool {
-    provider_enabled(d, "anthropic", d.usage)
+    provider_enabled(d, "anthropic")
 }
 
 fn openrouter_enabled(d: &crate::config::Daemon) -> bool {
-    provider_enabled(d, "openrouter", d.openrouter)
+    provider_enabled(d, "openrouter")
 }
 
 fn openai_enabled(d: &crate::config::Daemon) -> bool {
-    provider_enabled(d, "openai", d.openai)
+    provider_enabled(d, "openai")
 }
 
 fn source_for_key(key: &str) -> Option<&'static str> {
@@ -936,48 +936,50 @@ fn source_for_key(key: &str) -> Option<&'static str> {
     }
 }
 
-/// A missing row is deliberately backward-compatible: old config files only have the
-/// provider switch, so every row in that provider inherits it until the table is saved.
-fn item_enabled(d: &crate::config::Daemon, source: &str, key: &str, fallback: bool) -> bool {
+fn default_source_enabled(source: &str) -> bool {
+    matches!(source, "anthropic" | "openai")
+}
+
+fn item_enabled(d: &crate::config::Daemon, source: &str, key: &str) -> bool {
     if source_for_key(key) != Some(source) {
         return false;
     }
     d.usage_items
         .get(key)
         .map(|item| item.poll)
-        .unwrap_or(fallback)
+        .unwrap_or_else(|| default_source_enabled(source))
 }
 
 /// Once a table exists for a provider, turning every row off also turns the provider off. This
 /// avoids keeping credentials and network polling alive for a table that visibly has no rows.
-fn provider_enabled(d: &crate::config::Daemon, source: &str, fallback: bool) -> bool {
-    if !fallback {
-        return false;
-    }
-
+fn provider_enabled(d: &crate::config::Daemon, source: &str) -> bool {
     let rows: Vec<_> = d
         .usage_items
         .iter()
         .filter(|(key, _)| source_for_key(key) == Some(source))
         .collect();
-    rows.is_empty() || rows.iter().any(|(_, item)| item.poll)
+    if rows.is_empty() {
+        default_source_enabled(source)
+    } else {
+        rows.iter().any(|(_, item)| item.poll)
+    }
 }
 
 /// Providers answer several windows in one request. Poll at the fastest enabled row interval;
 /// each row's toggle is still applied to the merged snapshot, while a slow row never makes a
 /// faster row wait for it.
-fn provider_interval(d: &crate::config::Daemon, source: &str, fallback: u64) -> u64 {
+fn provider_interval(d: &crate::config::Daemon, source: &str) -> u64 {
     d.usage_items
         .iter()
         .filter(|(key, item)| source_for_key(key) == Some(source) && item.poll)
         .map(|(_, item)| {
             item.interval_secs
                 .filter(|seconds| *seconds > 0)
-                .unwrap_or(fallback)
+                .unwrap_or(d.usage_poll_secs)
                 .max(10)
         })
         .min()
-        .unwrap_or(fallback.max(10))
+        .unwrap_or(d.usage_poll_secs.max(10))
 }
 
 fn filter_snapshot(
@@ -985,7 +987,6 @@ fn filter_snapshot(
     mut snapshot: Snapshot,
     d: &crate::config::Daemon,
     source: &str,
-    fallback: bool,
     now: Instant,
 ) -> Snapshot {
     if !snapshot.ok {
@@ -994,13 +995,13 @@ fn filter_snapshot(
 
     poller
         .item_due
-        .retain(|key, _| item_enabled(d, source, key, fallback));
+        .retain(|key, _| item_enabled(d, source, key));
 
     let previous = poller.snap.windows.clone();
     let mut seen = Vec::new();
     let mut windows = Vec::new();
     for window in snapshot.windows.drain(..) {
-        if !item_enabled(d, source, &window.key, fallback) {
+        if !item_enabled(d, source, &window.key) {
             continue;
         }
 
@@ -1027,7 +1028,7 @@ fn filter_snapshot(
     // An optional window may disappear from a valid response. Keep its last value until that
     // row's own interval is due, then let it disappear instead of showing an old figure forever.
     for old in previous {
-        if seen.iter().any(|key| key == &old.key) || !item_enabled(d, source, &old.key, fallback) {
+        if seen.iter().any(|key| key == &old.key) || !item_enabled(d, source, &old.key) {
             continue;
         }
         if poller.item_due.get(&old.key).is_some_and(|due| *due > now) {
@@ -1073,7 +1074,6 @@ async fn poll_one(
     now: Instant,
     base: u64,
     source: &str,
-    fallback: bool,
     read: ReadProvider,
     fetch: FetchProvider,
     parse: ParseProvider,
@@ -1097,7 +1097,7 @@ async fn poll_one(
     .await
     .unwrap_or_default();
 
-    let next = filter_snapshot(poller, next, d, source, fallback, now);
+    let next = filter_snapshot(poller, next, d, source, now);
     poller.settle(next, asked, base);
     true
 }
@@ -1156,7 +1156,6 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
         loop {
             let cfg = m.config().await;
             let d = &cfg.daemon;
-            let base = d.usage_poll_secs.max(10);
             let now = Instant::now();
             let mut moved = false;
 
@@ -1208,15 +1207,15 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
                 provider
                     .poller
                     .item_due
-                    .retain(|key, _| item_enabled(d, provider.source, key, true));
+                    .retain(|key, _| item_enabled(d, provider.source, key));
                 provider
                     .poller
                     .snap
                     .windows
-                    .retain(|window| item_enabled(d, provider.source, &window.key, true));
+                    .retain(|window| item_enabled(d, provider.source, &window.key));
                 moved |= before != provider.poller.snap.windows.len();
 
-                let interval = provider_interval(d, provider.source, base);
+                let interval = provider_interval(d, provider.source);
                 // A newly shortened interval should take effect on the next loop rather than
                 // waiting out the old, longer due time. Increasing it naturally takes effect
                 // after the next poll.
@@ -1230,7 +1229,6 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
                     now,
                     interval,
                     provider.source,
-                    true,
                     provider.read,
                     provider.fetch,
                     provider.parse,
@@ -1290,6 +1288,32 @@ mod tests {
         "spend": {"percent": 21, "severity": "normal"},
         "member_dashboard_available": false
     }"#;
+
+    #[test]
+    fn usage_sources_use_rows_without_provider_switches() {
+        let mut daemon = crate::config::Daemon::default();
+        assert!(provider_enabled(&daemon, "anthropic"));
+        assert!(!provider_enabled(&daemon, "openrouter"));
+        assert!(provider_enabled(&daemon, "openai"));
+
+        daemon.usage_items.insert(
+            "openrouter_balance".into(),
+            crate::config::UsageItem {
+                poll: true,
+                interval_secs: None,
+            },
+        );
+        daemon.usage_items.insert(
+            "claude_session".into(),
+            crate::config::UsageItem {
+                poll: false,
+                interval_secs: None,
+            },
+        );
+        assert!(provider_enabled(&daemon, "openrouter"));
+        assert!(!provider_enabled(&daemon, "anthropic"));
+        assert!(!item_enabled(&daemon, "anthropic", "claude_session"));
+    }
 
     #[test]
     fn reads_the_shape_the_endpoint_speaks() {

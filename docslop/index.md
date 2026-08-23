@@ -29,7 +29,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [daemon-session-state](daemon-session-state.md) - state classification, clocks, the emulator.
 - [agent-titles](agent-titles.md) - planned prompt summaries: never/once/always and conversation boundaries.
 - [daemon-redeploy](daemon-redeploy.md) - surviving a daemon restart; tmux traps.
-- [daemon-usage](daemon-usage.md) - Anthropic and OpenRouter quota polling.
+- [daemon-usage](daemon-usage.md) - Anthropic, OpenRouter and OpenAI quota polling.
 - [wire-protocol](wire-protocol.md) - WS events, client messages, HTTP routes.
 - [unreached-surfaces](unreached-surfaces.md) - routes and tables no client in this repo asks for.
 - [mod-client](mod-client.md) - `Client/`: hub, socket, JSON, config mirror.

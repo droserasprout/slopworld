@@ -17,14 +17,11 @@ namespace SlopWorld.Tests
         {
             var config = SlopConfig.FromJson(JVal.Parse("{}"));
 
-            AssertEx.True(config.Usage, "usage default");
             AssertEx.Equal(60, config.UsagePollSecs, "usage poll default");
             AssertEx.Equal(0, config.UsageItems.Count, "usage item defaults");
             AssertEx.Equal("~/.claude/.credentials.json", config.ClaudeCredentials,
                            "Claude credentials default");
-            AssertEx.False(config.Openrouter, "OpenRouter default");
             AssertEx.Equal("", config.OpenrouterKeyFile, "OpenRouter key default");
-            AssertEx.True(config.Openai, "OpenAI default");
             AssertEx.Equal("~/.codex/auth.json", config.OpenaiCredentials,
                            "OpenAI credentials default");
             AssertEx.Equal("never", config.AgentTitles, "agent title default");
@@ -44,7 +41,6 @@ namespace SlopWorld.Tests
         {
             var expected = new SlopConfig
             {
-                Usage = false,
                 UsagePollSecs = 17,
                 UsageItems = new Dictionary<string, SlopConfig.UsageItemConfig>
                 {
@@ -60,9 +56,7 @@ namespace SlopWorld.Tests
                     },
                 },
                 ClaudeCredentials = "~/.config/claude \"credentials\"",
-                Openrouter = true,
                 OpenrouterKeyFile = "/run/user/1000/openrouter.key",
-                Openai = false,
                 OpenaiCredentials = "~/.config/codex/auth.json",
                 AgentTitles = "once",
                 TitleModel = "provider/model:flash",
@@ -76,7 +70,6 @@ namespace SlopWorld.Tests
             };
             var actual = SlopConfig.FromJson(JVal.Parse(expected.ToPatchJson()));
 
-            AssertEx.True(!actual.Usage, "usage round trip");
             AssertEx.Equal(expected.UsagePollSecs, actual.UsagePollSecs, "poll round trip");
             AssertEx.False(actual.UsageItems["claude_session"].Poll,
                            "usage item poll round trip");
@@ -86,10 +79,8 @@ namespace SlopWorld.Tests
                            "usage item inherited interval round trip");
             AssertEx.Equal(expected.ClaudeCredentials, actual.ClaudeCredentials,
                            "Claude credentials round trip");
-            AssertEx.Equal(expected.Openrouter, actual.Openrouter, "OpenRouter round trip");
             AssertEx.Equal(expected.OpenrouterKeyFile, actual.OpenrouterKeyFile,
                            "OpenRouter key round trip");
-            AssertEx.Equal(expected.Openai, actual.Openai, "OpenAI round trip");
             AssertEx.Equal(expected.OpenaiCredentials, actual.OpenaiCredentials,
                            "OpenAI credentials round trip");
             AssertEx.Equal(expected.AgentTitles, actual.AgentTitles,
