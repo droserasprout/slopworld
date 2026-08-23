@@ -470,8 +470,39 @@ mod tests {
         assert!(t.sandbox("slopworld-debug").unwrap().tmux);
         assert_eq!(
             t.sandbox("slopworld-debug").unwrap().requires,
-            vec!["systemd", "x11"]
+            vec![
+                "systemd",
+                "x11",
+                "wayland",
+                "gpu",
+                "audio",
+                "git",
+                "rust-cache",
+                "nuget-cache",
+                "ccache",
+                "python"
+            ]
         );
+        let debug = t.sandbox("slopworld-debug").unwrap();
+        for path in [
+            "$SLOPWORLD_GAME",
+            "~/GOG Games/RimWorld/game",
+            "~/.local/share/slopworld/profile",
+            "~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios",
+            "~/.local/bin",
+            "~/.config/systemd/user",
+        ] {
+            assert!(
+                debug.rw.iter().any(|seen| seen == path),
+                "debug lacks {path}"
+            );
+        }
+        for path in ["/proc", "/sys", "/run/udev", "~/.local/share/applications"] {
+            assert!(
+                debug.ro.iter().any(|seen| seen == path),
+                "debug lacks {path}"
+            );
+        }
         assert_eq!(
             t.sandbox("global").unwrap().ro,
             vec!["/usr", "/etc", "/opt", "~/.local/bin"]
