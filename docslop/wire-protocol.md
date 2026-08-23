@@ -33,6 +33,10 @@ desktop applications associated with a path, and `/api/file-action` runs a confi
 Files action inside a named project's sandbox, or explicitly on the host for private-state
 storage, and returns bounded output.
 
+Root-only `POST /api/highlight` accepts bounded code and a fenced language name, invokes the
+configured host highlighter without a shell, and returns bounded ANSI-colored UTF-8. A missing,
+disabled or failing tool leaves the Markdown preview's existing plain code in place.
+
 Private-state routes are daemon-owned: reset moves state to 14-day trash; root-only
 state inventory reports active/orphan/trash entries and sizes; permanent deletion is
 limited to orphan/trash; restore works only while the agent still exists without a

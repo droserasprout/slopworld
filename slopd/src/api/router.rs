@@ -74,6 +74,7 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route("/api/jukebox", get(jukebox))
         .route("/api/browse", get(browse))
         .route("/api/read", get(read_file))
+        .route("/api/highlight", post(highlight))
         .route("/api/image", get(read_image))
         .route(
             "/api/files",

@@ -139,6 +139,13 @@ pub(crate) struct ReadReq {
 }
 
 #[derive(Deserialize)]
+pub(crate) struct HighlightReq {
+    pub(crate) text: String,
+    #[serde(default)]
+    pub(crate) language: String,
+}
+
+#[derive(Deserialize)]
 pub(crate) struct FileReq {
     pub(crate) path: String,
     #[serde(default)]
