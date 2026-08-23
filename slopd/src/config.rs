@@ -113,6 +113,10 @@ pub struct Daemon {
     /// The OpenRouter model used for every prompt summary, including host commands.
     #[serde(default = "default_title_model")]
     pub title_model: String,
+    /// Prompts and host commands shorter than this are not worth an external title request.
+    /// Count Unicode characters so the setting does not depend on UTF-8 byte width.
+    #[serde(default = "default_title_min_chars")]
+    pub title_min_chars: usize,
     /// Pi follows the daemon title path. It historically renamed on every prompt, so that
     /// remains its default.
     #[serde(default = "default_pi_title_policy")]
@@ -159,6 +163,10 @@ fn default_title_model() -> String {
     "google/gemini-3.1-flash-lite".into()
 }
 
+fn default_title_min_chars() -> usize {
+    20
+}
+
 fn default_pi_title_policy() -> TitlePolicy {
     TitlePolicy::Always
 }
@@ -175,6 +183,7 @@ impl Default for Daemon {
             openai_credentials: default_openai_credentials(),
             agent_titles: TitlePolicy::Never,
             title_model: default_title_model(),
+            title_min_chars: default_title_min_chars(),
             pi_titles: default_pi_title_policy(),
             host_titles: true,
         }
@@ -1008,15 +1017,18 @@ mod tests {
         assert_eq!(Config::default().daemon.agent_titles, TitlePolicy::Never);
         assert_eq!(Config::default().daemon.pi_titles, TitlePolicy::Always);
         assert!(Config::default().daemon.host_titles);
+        assert_eq!(Config::default().daemon.title_min_chars, 20);
         let mut cfg = Config::default();
         cfg.daemon.agent_titles = TitlePolicy::Once;
         cfg.daemon.pi_titles = TitlePolicy::Never;
         cfg.daemon.host_titles = false;
+        cfg.daemon.title_min_chars = 42;
         let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
         assert_eq!(back.daemon.agent_titles, TitlePolicy::Once);
         assert_eq!(back.daemon.pi_titles, TitlePolicy::Never);
         assert!(!back.daemon.host_titles);
         assert_eq!(back.daemon.title_model, cfg.daemon.title_model);
+        assert_eq!(back.daemon.title_min_chars, 42);
     }
 
     /// What a client sees never carries the secret, and a token that is not set still reads as

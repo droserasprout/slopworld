@@ -27,6 +27,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("never", config.AgentTitles, "agent title default");
             AssertEx.Equal("google/gemini-3.1-flash-lite", config.TitleModel,
                            "title model default");
+            AssertEx.Equal(20, config.TitleMinChars, "title minimum prompt length default");
             AssertEx.Equal("always", config.PiTitles, "Pi title default");
             AssertEx.True(config.HostTitles, "host title default");
             AssertEx.Equal("claude", config.Agent, "agent command default");
@@ -60,6 +61,7 @@ namespace SlopWorld.Tests
                 OpenaiCredentials = "~/.config/codex/auth.json",
                 AgentTitles = "once",
                 TitleModel = "provider/model:flash",
+                TitleMinChars = 42,
                 PiTitles = "never",
                 HostTitles = false,
                 Agent = "codex --full-auto",
@@ -86,6 +88,8 @@ namespace SlopWorld.Tests
             AssertEx.Equal(expected.AgentTitles, actual.AgentTitles,
                            "agent titles round trip");
             AssertEx.Equal(expected.TitleModel, actual.TitleModel, "title model round trip");
+            AssertEx.Equal(expected.TitleMinChars, actual.TitleMinChars,
+                           "title minimum prompt length round trip");
             AssertEx.Equal(expected.PiTitles, actual.PiTitles, "Pi titles round trip");
             AssertEx.Equal(expected.HostTitles, actual.HostTitles, "host titles round trip");
             AssertEx.Equal(expected.Agent, actual.Agent, "agent round trip");

@@ -222,6 +222,10 @@ fn is_dialog_answer(prompt: &str) -> bool {
     )
 }
 
+fn prompt_is_long_enough(prompt: &str, minimum: usize) -> bool {
+    prompt.chars().count() >= minimum
+}
+
 impl Composer {
     fn ready() -> Self {
         Self {
@@ -930,9 +934,10 @@ mod tests {
     use super::{
         breadcrumb_block, check_breadcrumbs, check_name, check_shortcut, compile_rules, free_name,
         free_project_name, hold_action_command, json_to_toml, match_rules, merge_input, merge_toml,
-        normalize_action_command, normalize_path, render_template, render_template_with, settle,
-        slug, strip_sgr, title_agent, title_settings, Composer, Input, Live, State, Submission,
-        TemplateVars, TitleAgent, TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
+        normalize_action_command, normalize_path, prompt_is_long_enough, render_template,
+        render_template_with, settle, slug, strip_sgr, title_agent, title_settings, Composer,
+        Input, Live, State, Submission, TemplateVars, TitleAgent, TitleCapture, BOOT_COLS,
+        BOOT_ROWS, INPUT_BATCH,
     };
     use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, TitlePolicy};
 
@@ -1016,6 +1021,14 @@ mod tests {
         assert!(super::is_dialog_answer(" yes "));
         assert!(super::is_dialog_answer("1"));
         assert!(!super::is_dialog_answer("fix the parser"));
+    }
+
+    #[test]
+    fn prompt_minimum_counts_unicode_characters() {
+        assert!(prompt_is_long_enough("commit", 0));
+        assert!(prompt_is_long_enough("12345678901234567890", 20));
+        assert!(prompt_is_long_enough("áéíóú", 5));
+        assert!(!prompt_is_long_enough("commit", 20));
     }
 
     #[test]

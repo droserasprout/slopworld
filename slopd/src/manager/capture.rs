@@ -183,7 +183,7 @@ impl Manager {
     }
 
     async fn run_title_request(self: Arc<Self>, name: String, request: TitleRequest) {
-        if !self.title_request_enabled(&name).await {
+        if !self.title_request_enabled(&name, &request).await {
             tracing::debug!(
                 target: "slopd::titles",
                 session = %name,
@@ -210,12 +210,15 @@ impl Manager {
         }
     }
 
-    async fn title_request_enabled(&self, name: &str) -> bool {
+    async fn title_request_enabled(&self, name: &str, request: &TitleRequest) -> bool {
         let cfg = self.config().await;
         let live = self.live.read().await;
         live.get(name)
             .and_then(|l| title_settings(&cfg, &l.cfg, l.host))
-            .is_some_and(|(policy, _)| policy != TitlePolicy::Never)
+            .is_some_and(|(policy, _)| {
+                policy != TitlePolicy::Never
+                    && prompt_is_long_enough(&request.prompt, cfg.daemon.title_min_chars)
+            })
     }
 
     async fn resolve_title_request(
@@ -282,9 +285,10 @@ impl Manager {
             );
             return false;
         }
-        if !title_settings(&cfg, &l.cfg, l.host)
-            .is_some_and(|(policy, _)| policy != TitlePolicy::Never)
-        {
+        if !title_settings(&cfg, &l.cfg, l.host).is_some_and(|(policy, _)| {
+            policy != TitlePolicy::Never
+                && prompt_is_long_enough(&request.prompt, cfg.daemon.title_min_chars)
+        }) {
             l.title.pending = false;
             tracing::debug!(
                 target: "slopd::titles",
@@ -1026,6 +1030,19 @@ fn title_capture_action(
                 session = %name,
                 outcome = "skipped_dialog_answer",
                 "skipping dialog answer as session title prompt"
+            );
+            None
+        }
+        Some(Submission::Prompt(prompt))
+            if !prompt_is_long_enough(&prompt, cfg.daemon.title_min_chars) =>
+        {
+            tracing::debug!(
+                target: "slopd::titles",
+                session = %name,
+                prompt_chars = prompt.chars().count(),
+                minimum_chars = cfg.daemon.title_min_chars,
+                outcome = "skipped_short_prompt",
+                "skipping short session title prompt"
             );
             None
         }
