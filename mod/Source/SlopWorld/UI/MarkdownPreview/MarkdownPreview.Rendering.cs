@@ -17,7 +17,7 @@ namespace SlopWorld
 
                 case PlacementKind.Code:
                     Slab.Box(new Rect(placement.X, placement.Y, placement.Width, placement.Height),
-                        SlopWidgets.Well, SlopWidgets.Edge);
+                        TerminalTheme.Current.Bg, SlopWidgets.Edge);
                     DrawInlineCodeBackgrounds(placement.Text, placement.X + SlopWidgets.GapS,
                         placement.Y + SlopWidgets.GapS +
                         (string.IsNullOrWhiteSpace(placement.Label)
@@ -265,6 +265,7 @@ namespace SlopWorld
                     GUI.color = piece.Run.Link != null || piece.Run.LocalLink != null
                         ? SlopWidgets.Accent
                         : piece.Run.Faint ? SlopWidgets.Dim
+                        : piece.Run.Code && piece.Run.HasColor ? piece.Run.Color
                         : piece.Run.Code ? SlopWidgets.Lead
                         : heading ? SlopWidgets.Lead : SlopWidgets.Name;
                     GUI.Label(rect, piece.Text, piece.Style);

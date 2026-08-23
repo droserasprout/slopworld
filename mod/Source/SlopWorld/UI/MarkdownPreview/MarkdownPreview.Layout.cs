@@ -34,6 +34,33 @@ namespace SlopWorld
                 RequestImages(block, request);
         }
 
+        void RequestHighlights(List<MarkdownBlock> blocks, int request)
+        {
+            foreach (var block in blocks ?? new List<MarkdownBlock>())
+                RequestHighlights(block, request);
+        }
+
+        void RequestHighlights(MarkdownBlock block, int request)
+        {
+            if (block == null) return;
+            if (block.Kind == BlockKind.Code && !string.IsNullOrWhiteSpace(block.Info))
+            {
+                string body = "{" + $"\"text\":{JVal.Q(block.Code ?? "")}," +
+                    $"\"language\":{JVal.Q(block.Info)}" + "}";
+                SlopClient.Post("/api/highlight", body,
+                    j =>
+                    {
+                        if (request != _request) return;
+                        block.Highlighted = j["text"].AsString();
+                        _width = -1f;
+                    },
+                    _ => { });
+            }
+            if (block.Children != null)
+                foreach (var child in block.Children)
+                    RequestHighlights(child, request);
+        }
+
         void RequestImages(MarkdownBlock block, int request)
         {
             if (block == null) return;
@@ -294,10 +321,7 @@ namespace SlopWorld
 
         float PlaceCode(MarkdownBlock block, float x, float y, float width)
         {
-            var runs = new List<InlineRun>
-            {
-                new InlineRun { Text = block.Code ?? "", Code = true },
-            };
+            var runs = CodeRuns(block);
             var text = Wrap(runs, Mathf.Max(1f, width - SlopWidgets.GapS * 2f), 0);
             float labelHeight = string.IsNullOrWhiteSpace(block.Info)
                 ? 0f : SlopWidgets.TinyH + SlopWidgets.GapXS;
@@ -313,6 +337,32 @@ namespace SlopWorld
                 Label = block.Info,
             });
             return y + h + SlopWidgets.GapS;
+        }
+
+        static List<InlineRun> CodeRuns(MarkdownBlock block)
+        {
+            var runs = new List<InlineRun>();
+            if (string.IsNullOrEmpty(block.Highlighted))
+            {
+                runs.Add(new InlineRun { Text = block.Code ?? "", Code = true });
+                return runs;
+            }
+
+            string[] lines = block.Highlighted.Replace("\r\n", "\n").Split('\n');
+            for (int i = 0; i < lines.Length; i++)
+            {
+                foreach (var run in Sgr.ParseLine(lines[i]))
+                    runs.Add(new InlineRun
+                    {
+                        Text = run.Text,
+                        Code = true,
+                        HasColor = true,
+                        Color = run.Fg,
+                    });
+                if (i + 1 < lines.Length)
+                    runs.Add(new InlineRun { Text = "\n", Code = true });
+            }
+            return runs;
         }
 
         float PlaceQuote(MarkdownBlock block, float x, float y, float width)
@@ -360,9 +410,9 @@ namespace SlopWorld
                 float innerWidth = Mathf.Max(1f, width - SlopWidgets.GapL);
                 foreach (var child in item.Children)
                     itemY = Place(child, innerX, itemY, innerWidth);
-                y = Mathf.Max(itemY, y + bulletText.Height) + SlopWidgets.GapXS;
+                y = Mathf.Max(itemY - SlopWidgets.GapS, y + bulletText.Height) + 1f;
             }
-            return y + SlopWidgets.GapXS;
+            return y + 1f;
         }
 
         float PlaceTable(MarkdownBlock block, float x, float y, float width)

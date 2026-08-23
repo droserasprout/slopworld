@@ -30,6 +30,8 @@ namespace SlopWorld
             public bool Code;
             public bool Strike;
             public bool Faint;
+            public bool HasColor;
+            public Color Color;
             public string Link;
             public string LocalLink;
             public bool IsImage;
@@ -112,6 +114,7 @@ namespace SlopWorld
             public int Start;
             public string Code;
             public string Info;
+            public string Highlighted;
             public List<InlineRun> Runs;
             public List<MarkdownBlock> Children;
             public List<TableRow> Rows;
@@ -346,6 +349,7 @@ namespace SlopWorld
                     {
                         _blocks = Parse(j["text"].AsString());
                         RequestImages(_blocks, request);
+                        RequestHighlights(_blocks, request);
                         _loading = false;
                         _error = null;
                         _scroll.JumpTo(Vector2.zero);

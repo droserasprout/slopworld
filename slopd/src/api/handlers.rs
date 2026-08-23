@@ -4,6 +4,10 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::{Extension, Json};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde_json::{json, Value};
+use std::process::Stdio;
+use std::time::Duration;
+use tokio::io::AsyncReadExt;
+use tokio::process::Command;
 
 use crate::config::{ProjectCfg, SessionCfg, ShortcutCfg};
 use crate::grant::{Cap, Level};
@@ -914,6 +918,134 @@ pub(super) async fn read_file(State(_m): State<Mgr>, Query(q): Query<ReadReq>) -
     })))
 }
 
+const HIGHLIGHT_LIMIT: usize = READ_LIMIT as usize * 4;
+const HIGHLIGHT_TIMEOUT: Duration = Duration::from_secs(3);
+
+pub(super) async fn highlight(State(m): State<Mgr>, Json(q): Json<HighlightReq>) -> ApiResult {
+    if q.text.len() as u64 > READ_LIMIT {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "code is larger than the preview limit",
+        ));
+    }
+    let command = m.config().await.commands.highlighter;
+    let text = highlight_text(&command, &q.language, &q.text)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "text": text, "bytes": text.len() })))
+}
+
+async fn highlight_text(command: &str, language: &str, text: &str) -> anyhow::Result<String> {
+    if command.trim().is_empty() {
+        bail!("syntax highlighter is disabled");
+    }
+
+    let dir = std::path::PathBuf::from(crate::config::temp_dir("highlight"));
+    tokio::fs::create_dir_all(&dir).await?;
+    let extension: String = language
+        .trim()
+        .trim_start_matches('.')
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '_'))
+        .take(24)
+        .collect();
+    let extension = if extension.is_empty() {
+        "txt"
+    } else {
+        &extension
+    };
+    let path = dir.join(format!("{}.{}", uuid::Uuid::new_v4(), extension));
+    tokio::fs::write(&path, text).await?;
+
+    let result = run_highlighter(command, &path).await;
+    let _ = tokio::fs::remove_file(&path).await;
+    result
+}
+
+fn highlighter_argv(command: &str, path: &std::path::Path) -> anyhow::Result<Vec<String>> {
+    let mut argv = crate::sandbox::shell_split(command);
+    if argv.is_empty() {
+        bail!("syntax highlighter is disabled");
+    }
+    let path = path
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("highlight path is not valid UTF-8"))?;
+    let mut replaced = false;
+    for arg in &mut argv {
+        if arg.contains("%s") {
+            *arg = arg.replace("%s", path);
+            replaced = true;
+        }
+    }
+    if !replaced {
+        argv.push(path.to_string());
+    }
+    Ok(argv)
+}
+
+async fn run_highlighter(command: &str, path: &std::path::Path) -> anyhow::Result<String> {
+    let argv = highlighter_argv(command, path)?;
+    let mut child = Command::new(&argv[0])
+        .args(&argv[1..])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .context("starting syntax highlighter")?;
+    let stdout = child
+        .stdout
+        .take()
+        .context("capturing highlighter stdout")?;
+    let stderr = child
+        .stderr
+        .take()
+        .context("capturing highlighter stderr")?;
+
+    let collected = tokio::time::timeout(HIGHLIGHT_TIMEOUT, async {
+        let out = read_highlight_output(stdout, HIGHLIGHT_LIMIT);
+        let err = read_highlight_output(stderr, 16 * 1024);
+        let status = child.wait();
+        let (out, err, status) = tokio::join!(out, err, status);
+        Ok::<_, anyhow::Error>((out?, err?, status?))
+    })
+    .await;
+    let (stdout, stderr, status) = match collected {
+        Ok(result) => result?,
+        Err(_) => {
+            let _ = child.kill().await;
+            let _ = child.wait().await;
+            bail!("syntax highlighter timed out");
+        }
+    };
+    if stdout.1 {
+        bail!("syntax highlighter output exceeded the preview limit");
+    }
+    if !status.success() {
+        bail!(
+            "syntax highlighter failed: {}",
+            String::from_utf8_lossy(&stderr.0).trim()
+        );
+    }
+    String::from_utf8(stdout.0).context("syntax highlighter output is not valid UTF-8")
+}
+
+async fn read_highlight_output<R: tokio::io::AsyncRead + Unpin>(
+    reader: R,
+    limit: usize,
+) -> anyhow::Result<(Vec<u8>, bool)> {
+    let mut bytes = Vec::new();
+    reader
+        .take(limit as u64 + 1)
+        .read_to_end(&mut bytes)
+        .await?;
+    let truncated = bytes.len() > limit;
+    if truncated {
+        bytes.truncate(limit);
+    }
+    Ok((bytes, truncated))
+}
+
 pub(super) async fn read_image(State(_m): State<Mgr>, Query(q): Query<ReadReq>) -> ApiResult {
     let path = q.path.trim();
     if path.is_empty() {
@@ -954,8 +1086,6 @@ pub(super) async fn read_image_bytes(path: &std::path::Path) -> anyhow::Result<V
 }
 
 pub(super) async fn read_preview(path: &std::path::Path) -> anyhow::Result<String> {
-    use tokio::io::AsyncReadExt;
-
     let metadata = tokio::fs::metadata(path).await?;
     if !metadata.is_file() {
         bail!("path is not a file");
@@ -1288,8 +1418,8 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use super::{
-        browse_limit, entry_name, file_path, list_dir, read_image_bytes, read_preview,
-        search_preview, SearchReq, IMAGE_LIMIT, READ_LIMIT, SEARCH_TEXT_LIMIT,
+        browse_limit, entry_name, file_path, highlighter_argv, list_dir, read_image_bytes,
+        read_preview, search_preview, SearchReq, IMAGE_LIMIT, READ_LIMIT, SEARCH_TEXT_LIMIT,
     };
 
     /// Somewhere of our own under the machine's temp dir, cleared on the way in so a run
@@ -1343,6 +1473,23 @@ mod tests {
         assert!(error.contains("preview limit"));
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    pub(super) fn highlighter_command_appends_or_expands_the_file() {
+        let path = Path::new("/tmp/slopworld/highlight/code file.rs");
+        assert_eq!(
+            highlighter_argv("highlight --out-format=xterm256", path).unwrap(),
+            [
+                "highlight",
+                "--out-format=xterm256",
+                "/tmp/slopworld/highlight/code file.rs"
+            ]
+        );
+        assert_eq!(
+            highlighter_argv("tool --file=%s", path).unwrap(),
+            ["tool", "--file=/tmp/slopworld/highlight/code file.rs"]
+        );
     }
 
     #[tokio::test]
