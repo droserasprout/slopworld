@@ -46,6 +46,7 @@ separate 22px floor for rows containing a tick box.
 ## Command palette
 
 F1 opens the palette, with recent entries first; F12 and F1 are claimed by chrome.
+Clicking outside closes it without passing the click through to the map.
 Up/Down move one row and PgUp/PgDown move one visible page. Subactions ask their next
 question in the same box, and Backspace on an empty filter returns. Checked suboptions
 redraw from command state: Space toggles and stays open, Enter toggles and closes.

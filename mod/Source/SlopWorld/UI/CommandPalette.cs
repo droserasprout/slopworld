@@ -62,6 +62,7 @@ namespace SlopWorld
             doWindowBackground = false;
             drawShadow = false;
             absorbInputAroundWindow = true;
+            closeOnClickedOutside = true;
             closeOnAccept = false;
             closeOnCancel = false;
             forcePause = false;
