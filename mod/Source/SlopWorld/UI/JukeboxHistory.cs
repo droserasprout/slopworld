@@ -4,10 +4,8 @@ using System.Collections.Generic;
 namespace SlopWorld
 {
     // The likes-file reader, kept apart from the history view so the file format can be
-    // exercised without Unity, and so this and tools/migrate_jukebox.py agree on one reading of
-    // the same bytes. The file mixes three shapes: the first implementation's plain-title lines,
-    // a later timestamp<TAB>title form, and the current TOML [[like]] tables. All remain
-    // readable; a malformed table is dropped rather than shown as broken.
+    // exercised without Unity. The daemon appends current TOML [[like]] tables; a malformed
+    // table is dropped rather than shown as broken.
     public static class JukeboxHistory
     {
         public sealed class Entry
@@ -51,7 +49,6 @@ namespace SlopWorld
                     table.Add(line);
                     continue;
                 }
-                Legacy(entries, line);
             }
             FinishTable(entries, table);
             entries.Reverse();
@@ -71,9 +68,7 @@ namespace SlopWorld
                     Artist = Value(values, "artist"),
                     Title = Value(values, "title"),
                     OriginalArtist = Value(values, "original_artist"),
-                    // Files written before recognition carried only `title`; treat it as the
-                    // original when no explicit original_title is present.
-                    OriginalTitle = Value(values, "original_title", Value(values, "title")),
+                    OriginalTitle = Value(values, "original_title"),
                 });
             }
             catch
@@ -83,23 +78,7 @@ namespace SlopWorld
             }
         }
 
-        static void Legacy(List<Entry> entries, string line)
-        {
-            string value = line.Trim();
-            if (string.IsNullOrEmpty(value) || value == "-" || value.StartsWith("#")) return;
-
-            string at = "";
-            int tab = line.IndexOf('\t');
-            if (tab > 0)
-            {
-                at = line.Substring(0, tab).Trim();
-                value = line.Substring(tab + 1).Trim();
-            }
-            if (string.IsNullOrEmpty(value)) return;
-            entries.Add(new Entry { At = at, Title = value, OriginalTitle = value });
-        }
-
-        static string Value(Dictionary<string, string> values, string key, string fallback = "") =>
-            values.TryGetValue(key, out var value) ? value : fallback;
+        static string Value(Dictionary<string, string> values, string key) =>
+            values.TryGetValue(key, out var value) ? value : "";
     }
 }
