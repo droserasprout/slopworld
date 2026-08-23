@@ -78,6 +78,7 @@ namespace SlopWorld
                     Limits = existing.Limits,
                     Agent = existing.Agent,
                     Autostart = existing.Autostart,
+                    AutoResume = existing.AutoResume,
                     BreadcrumbYolo = existing.BreadcrumbYolo,
                 };
 
@@ -213,6 +214,8 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapS);
             _s.Autostart = SlopWidgets.Checkbox(l, "Start with the daemon", _s.Autostart);
+            _s.AutoResume = SlopWidgets.Checkbox(l, "Auto-resume last conversation", _s.AutoResume,
+                "After startup settles, send /resume and choose the latest conversation.");
 
             float used = l.CurHeight;
             l.End();

@@ -464,6 +464,9 @@ pub struct SessionCfg {
     pub limits: Limits,
     #[serde(default)]
     pub autostart: bool,
+    /// After a fresh process reaches its first settled prompt, select its latest conversation.
+    #[serde(default)]
+    pub auto_resume: bool,
 }
 
 /// A durable host terminal tab. The daemon owns this small record so a game or daemon restart
@@ -509,6 +512,7 @@ impl Default for SessionCfg {
             dns: None,
             limits: Limits::default(),
             autostart: false,
+            auto_resume: false,
         }
     }
 }
@@ -1319,6 +1323,20 @@ token = \"not-a-daemon-token\"
         assert!(toml::to_string(&opted_out)
             .unwrap()
             .contains("breadcrumb_yolo = false"));
+    }
+
+    #[test]
+    fn auto_resume_is_an_opt_in_session_setting() {
+        let old: SessionCfg = toml::from_str("name = 'Ada'").unwrap();
+        assert!(!old.auto_resume);
+
+        let enabled = SessionCfg {
+            auto_resume: true,
+            ..Default::default()
+        };
+        let text = toml::to_string(&enabled).unwrap();
+        assert!(text.contains("auto_resume = true"));
+        assert!(toml::from_str::<SessionCfg>(&text).unwrap().auto_resume);
     }
 
     /// A shipped breadcrumb is offered like any other and written down like none of them:

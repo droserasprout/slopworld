@@ -38,6 +38,7 @@ namespace SlopWorld
         // The effective caps after project inheritance. Read-only here.
         public SessionLimits EffectiveLimits;
         public bool Autostart;
+        public bool AutoResume;
         // YOLO mode folds every effective breadcrumb into the first submitted prompt.
         public bool BreadcrumbYolo = true;
         public List<string> Breadcrumbs = new List<string>();
@@ -112,6 +113,7 @@ namespace SlopWorld
             $"\"dns\":{(DnsOverride == null ? "null" : DnsOverride.ToJson())}," +
             $"\"limits\":{Limits.ToJson()}," +
             $"\"autostart\":{JVal.B(Autostart)}," +
+            $"\"auto_resume\":{JVal.B(AutoResume)}," +
             $"\"breadcrumb_yolo\":{JVal.B(BreadcrumbYolo)}}}";
     }
 }

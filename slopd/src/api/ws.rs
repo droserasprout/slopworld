@@ -406,6 +406,7 @@ mod tests {
             limits: Default::default(),
             limits_override: Default::default(),
             autostart: false,
+            auto_resume: false,
             ephemeral: false,
             host: false,
             last_change: 0,

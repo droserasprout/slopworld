@@ -25,7 +25,7 @@ namespace SlopWorld.Tests
                 "\"dns_override\":{\"mode\":\"resolved\"}, " +
                 "\"limits_override\":{\"memory_mb\":512,\"cpu_pct\":75}, " +
                 "\"limits\":{\"memory_mb\":1024,\"pids\":64}, " +
-                "\"autostart\":true,\"breadcrumb_yolo\":false, " +
+                "\"autostart\":true,\"auto_resume\":true,\"breadcrumb_yolo\":false, " +
                 "\"breadcrumbs\":[\"tip one\"],\"breadcrumbs_pending\":true, " +
                 "\"ephemeral\":true,\"cols\":120,\"rows\":40, " +
                 "\"title\":\"working title\",\"label\":\"manual label\",\"bell\":true, " +
@@ -53,6 +53,7 @@ namespace SlopWorld.Tests
                            "effective memory limit");
             AssertEx.Equal(64, session.EffectiveLimits.Pids.Value, "effective pids limit");
             AssertEx.True(session.Autostart, "autostart");
+            AssertEx.True(session.AutoResume, "auto resume");
             AssertEx.False(session.BreadcrumbYolo, "breadcrumb yolo");
             AssertEx.Sequence(new[] { "tip one" }, session.Breadcrumbs, "breadcrumbs");
             AssertEx.True(session.BreadcrumbsPending, "breadcrumbs pending");
@@ -86,6 +87,7 @@ namespace SlopWorld.Tests
                 },
                 Limits = new SessionLimits { MemoryMb = 512 },
                 Autostart = true,
+                AutoResume = true,
                 BreadcrumbYolo = false,
             };
             var json = JVal.Parse(session.ToJson());
@@ -101,6 +103,7 @@ namespace SlopWorld.Tests
                            "written DNS override");
             AssertEx.Equal(512, json["limits"]["memory_mb"].AsInt(), "written memory limit");
             AssertEx.True(json["autostart"].AsBool(), "written autostart");
+            AssertEx.True(json["auto_resume"].AsBool(), "written auto resume");
             AssertEx.False(json["breadcrumb_yolo"].AsBool(true), "written breadcrumb yolo");
             AssertEx.True(json["agent"].IsNull, "resolved agent is not written");
         }
@@ -114,6 +117,7 @@ namespace SlopWorld.Tests
             AssertEx.True(session.Gone, "dead session is gone");
             AssertEx.Equal(0, session.Cols, "missing columns default");
             AssertEx.Equal(0, session.Rows, "missing rows default");
+            AssertEx.False(session.AutoResume, "auto resume default");
             AssertEx.True(session.BreadcrumbYolo, "breadcrumb yolo default");
         }
     }
