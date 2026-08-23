@@ -11,6 +11,7 @@ namespace SlopWorld
         SlopConfig _cfg;
         string _error;
         bool _loaded;
+        string _minPromptChars;
 
         readonly SmoothScroll _scroll = new SmoothScroll();
         float _fieldsH;
@@ -21,6 +22,7 @@ namespace SlopWorld
                 j =>
                 {
                     _cfg = SlopConfig.FromJson(j["values"]);
+                    _minPromptChars = _cfg.TitleMinChars.ToString();
                     _loaded = true;
                     _error = null;
                 },
@@ -78,6 +80,11 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "All summaries");
+            l.Label("Minimum prompt length");
+            _minPromptChars = SlopWidgets.Field(l, "usage.summary.minimum", _minPromptChars);
+            SlopWidgets.Note(l, "Prompts and host commands shorter than this many characters " +
+                "are not summarized. Short prompts do not use up a first-prompt title attempt.");
+            l.Gap(SlopWidgets.GapM);
             l.Label("Model");
             _cfg.TitleModel = SlopWidgets.Field(l, "usage.summary.model", _cfg.TitleModel);
             SlopWidgets.Note(l, "Up to 2,000 characters of each prompt or command go to OpenRouter. " +
@@ -135,6 +142,9 @@ namespace SlopWorld
         void Save()
         {
             if (!_loaded) return;
+
+            if (int.TryParse(_minPromptChars, out int minimum))
+                _cfg.TitleMinChars = Mathf.Clamp(minimum, 0, 2000);
 
             SlopClient.Put("/api/config/patch", _cfg.ToPatchJson(),
                 _ =>

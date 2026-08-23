@@ -8,11 +8,13 @@ how to read the OpenRouter key without exposing it inside an agent sandbox.
 sends prompt text to OpenRouter. `[daemon] host_titles` defaults to `true` and controls
 summaries for commands entered in host terminals. `title_model` is the one model used by all
 summaries; `openrouter_key_file`, or slopd's `OPENROUTER_API_KEY` when it is blank, supplies
-the key.
+the key. `title_min_chars` defaults to 20 Unicode characters and skips shorter prompts and host
+commands before they consume a `once` attempt or make a request.
 
 The Summaries settings page exposes the Codex and Pi title policies, the host-command toggle,
-and one shared model field. Its key is the Usage page's OpenRouter key file, which is editable
-with credit polling off because title generation does not need polling. Pi defaults to `always`.
+minimum prompt length, and one shared model field. Its key is the Usage page's OpenRouter key
+file, which is editable with credit polling off because title generation does not need polling.
+Pi defaults to `always`.
 
 Both Codex and Pi use the daemon path. Explicit command lines such as `codex --yolo` and
 `pi --model …` are recognized as well as named presets:
