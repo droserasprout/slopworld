@@ -19,7 +19,9 @@ mounts are ordinary final binds, so a preset cannot recover the host original.
 
 Reset/delete moves state to 14-day `.trash`; configured-but-down agents are not
 age-pruned. Temporary errands remove private state on exit. Orphaned name-keyed
-folders are visible in the storage inventory and require explicit deletion.
+folders are visible in the storage inventory and require explicit deletion. Configured sessions
+must carry a daemon-owned state id; entries without one are rejected rather than assigned an id
+on first use.
 
 ## Credentials and escapes
 

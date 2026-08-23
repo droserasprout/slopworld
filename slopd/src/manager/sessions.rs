@@ -106,7 +106,6 @@ impl Manager {
     }
 
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
-        self.ensure_state_id(name).await?;
         let cfg = self.config().await;
         let (s, p) = self.resolve_target(&cfg, name).await?;
         cfg.network_of(&s, &p)?;
@@ -538,7 +537,6 @@ impl Manager {
         if self.is_ephemeral(name).await {
             return self.stop(name).await;
         }
-        self.ensure_state_id(name).await?;
         self.stop(name).await.ok();
         let mut cfg = self.cfg.write().await;
         let session = cfg
@@ -571,7 +569,6 @@ impl Manager {
         if self.is_ephemeral(name).await {
             bail!("temporary session {name} has no resettable private state");
         }
-        self.ensure_state_id(name).await?;
         self.stop(name).await.ok();
         let cfg = self.config().await;
         let session = cfg
@@ -640,21 +637,6 @@ impl Manager {
         drop(cfg);
         self.sync_from_config().await;
         Ok(session.name)
-    }
-
-    /// Fill in a config entry written before state identities existed. It deliberately receives
-    /// a fresh tree; any unclaimed name-keyed directory is an orphan in the storage inventory.
-
-    pub(super) async fn ensure_state_id(&self, name: &str) -> Result<()> {
-        let mut cfg = self.cfg.write().await;
-        let Some(idx) = cfg.sessions.iter().position(|s| s.name == name) else {
-            return Ok(()); // temporary/session-adopted agent: its in-memory Default owns a key.
-        };
-        if cfg.sessions[idx].state_id.is_empty() {
-            cfg.sessions[idx].state_id = uuid::Uuid::new_v4().to_string();
-            self.save_cfg(&cfg)?;
-        }
-        Ok(())
     }
 
     pub async fn views(&self) -> Vec<SessionView> {
