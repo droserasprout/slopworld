@@ -650,6 +650,14 @@ impl Config {
             }
         }
         let cfg: Self = document.try_into().context("parsing config.toml")?;
+        for session in &cfg.sessions {
+            if session.state_id.trim().is_empty() {
+                bail!(
+                    "session {:?} has no private-state identity; recreate the session entry",
+                    session.name
+                );
+            }
+        }
         Ok(cfg)
     }
 
@@ -971,6 +979,7 @@ mod tests {
             [[session]]
             name = "agent"
             project = "repo"
+            state_id = "agent-state"
 
             [session.dns]
             mode = "resolved"
@@ -1241,11 +1250,13 @@ token = \"not-a-daemon-token\"
             name = "safe"
             project = "repo"
             network = "none"
+            state_id = "safe-state"
 
             [[session]]
             name = "too-wide"
             project = "repo"
             network = "host"
+            state_id = "too-wide-state"
             "#,
         )
         .expect("network modes should parse");
@@ -1454,8 +1465,8 @@ token = \"not-a-daemon-token\"
     }
 
     #[test]
-    fn old_session_entries_can_lack_a_state_identity() {
-        let old = Config::parse(
+    fn config_rejects_sessions_without_a_state_identity() {
+        let result = Config::parse(
             r#"
                 [[project]]
                 name = "repo"
@@ -1465,9 +1476,8 @@ token = \"not-a-daemon-token\"
                 name = "agent"
                 project = "repo"
             "#,
-        )
-        .unwrap();
-        assert!(old.session("agent").unwrap().state_id.is_empty());
+        );
+        assert!(result.is_err());
 
         // New in-memory sessions, including short-lived errands, always have an identity.
         assert!(!SessionCfg::default().state_id.is_empty());
