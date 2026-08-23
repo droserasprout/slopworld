@@ -1,0 +1,13 @@
+id = "classic-vinyl"
+default_rate = 320
+
+[metadata]
+name = "Classic Vinyl HD"
+donate = "https://walmradio.com/"
+# ICY says: "Song by Artist - Classic Vinyl on walmradio.com".
+title_regex = '^\s*(?<title>.+?)\s+by\s+(?<artist>.+?)\s+-\s+Classic Vinyl on walmradio\.com\s*$'
+
+[[stream]]
+rate = 320
+key = "classic"
+url = "https://icecast.walmradio.com:8443/classic"

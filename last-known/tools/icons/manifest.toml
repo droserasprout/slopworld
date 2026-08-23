@@ -1,0 +1,139 @@
+# The mod's action icons, and which glyph each slot wears.
+#
+# The key is the slot - the name UI/Icons.cs looks up and the name the bake writes -
+# and a row added here is a row added there and nowhere else.
+#
+# Every glyph is a Codicon, VS Code's icon set, taken out of a Nerd Font. `glyph` is
+# the Nerd Fonts name and `code` is where that name sits in the private use area;
+# the name is documentation and the codepoint is what the bake actually reads, so
+# tools/icons.py needs no network and no glyphnames.json. Both come off the Nerd
+# Fonts cheat sheet: https://www.nerdfonts.com/cheat-sheet
+#
+# One set on purpose. Codicons is drawn on a 16px grid for a code editor, so the
+# glyphs already agree about weight and size and the bake scales all of them by one
+# factor rather than fitting each to a box - the relative sizes here are the set's own
+# and are worth keeping. `note` is why this glyph and not the obvious one.
+
+[terminal]
+glyph = "cod-terminal"
+code = "ea85"
+
+[gear]
+glyph = "cod-gear"
+code = "eaf8"
+note = "the options row and the top bar's config door, one glyph for both"
+
+[shield]
+glyph = "cod-shield"
+code = "eb53"
+note = "plain, not shield-check: the tick is noise at 18px"
+
+[play]
+glyph = "cod-play"
+code = "eb2c"
+
+[stop]
+glyph = "cod-debug_stop"
+code = "ead7"
+note = "not primitive_square, which Codicons draws small for inline use and which would read as a pebble next to play"
+
+[check]
+glyph = "cod-check"
+code = "eab2"
+
+[cross]
+glyph = "cod-close"
+code = "ea76"
+
+[dot]
+glyph = "cod-circle_filled"
+code = "ea71"
+note = "small on purpose - this is Codicons' inline status dot, and the sidebar's state badge draws it through Icons.DotBox because of that"
+
+[agents]
+glyph = "cod-robot"
+code = "ec20"
+note = "an actual robot at last; RobotFace_south is a pawn's faceplate, colored, and a blob when tinted flat at this size"
+
+[files]
+glyph = "cod-folder"
+code = "ea83"
+
+[search]
+glyph = "cod-search"
+code = "ea6d"
+
+[git]
+glyph = "cod-git_branch"
+code = "ec6f"
+
+[shortcuts]
+glyph = "cod-symbol_event"
+code = "ea86"
+note = "Codicons draws symbol-event as the lightning bolt; there is no `zap` in the set the Nerd Font bundles"
+
+[usage]
+glyph = "cod-credit_card"
+code = "eac9"
+note = "the Usage options row, which used to draw a lump of ThingDefOf.Silver: money, but the game's money, on a page about what an API bills"
+
+[time]
+glyph = "cod-clockface"
+code = "ec75"
+note = "the real clock as the last resource on the top bar"
+
+[keyboard]
+glyph = "cod-keyboard"
+code = "ea65"
+note = "the Keyboard options row. The lightning of `shortcuts` belongs to the sidebar's errands, and one bolt for both was the tab being misread"
+
+[eye]
+glyph = "cod-eye"
+code = "ea70"
+note = "the dotfile switch and a row's view action, same glyph twice"
+
+[refresh]
+glyph = "cod-refresh"
+code = "eb37"
+
+[bell]
+glyph = "cod-bell"
+code = "eaa2"
+
+[menu]
+glyph = "cod-menu"
+code = "eb94"
+
+[edit]
+glyph = "cod-edit"
+code = "ea73"
+
+[diff]
+glyph = "cod-git_compare"
+code = "eafd"
+note = "FileIcons has its own unrelated diff.png for .diff/.patch files, off the Material Icon Theme bake - the two do not share"
+
+[type]
+glyph = "cod-text_size"
+code = "eb69"
+note = "the appearance row's Aa"
+
+[trophy]
+glyph = "cod-star_full"
+code = "eb59"
+note = "the About row. Codicons has no trophy, and a star is the same joke at 20px"
+
+[rimworld]
+glyph = "cod-game"
+code = "ec17"
+note = "the vanilla RimWorld settings group"
+
+[add]
+glyph = "cod-add"
+code = "ea60"
+note = "the sidebar's one add button. Codicons' plus is drawn heavier than a font's \"+\", which is why the button wears a glyph now"
+
+[filter]
+glyph = "cod-filter"
+code = "eaa5"
+note = "the sidebar's project filter. The outline funnel, not cod-filter_filled, which is a solid wedge at 20px and reads as a play button lying down"

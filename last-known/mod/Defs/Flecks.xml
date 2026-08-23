@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <!--
+    Every cloud on this map, modelled on Fleck_ToxGasSmall. Smoke is the wrong def:
+    it is solid for six seconds and fades for another three, so a tint on it leaves
+    hard colored decals lying about the map instead of a haze passing over it.
+
+    The color lives here rather than in FleckCreationData.instanceColor because
+    alpha is the whole point: instanceColor is combined with a separately computed
+    fade alpha, where graphicData's is baked into the material. That is also why
+    the plague's hue is three defs below rather than a roll on one - a color this
+    side of the fence can only vary by being another def.
+
+    The rise is gentle for the same reason the flecks are slow (PlagueFx): the
+    acceleration is what carries a cloud up-map, and a haze that climbs faster than
+    it spreads reads as exhaust.
+  -->
+  <FleckDef Name="SlopGasBase" ParentName="FleckBase_Thrown" Abstract="True">
+    <altitudeLayer>MoteOverhead</altitudeLayer>
+    <fadeInTime>0.3</fadeInTime>
+    <solidTime>0</solidTime>
+    <fadeOutTime>1.8</fadeOutTime>
+    <growthRate>0.5</growthRate>
+    <acceleration>(0, 0, 1.4)</acceleration>
+    <graphicData>
+      <texPath>Things/Gas/GasCloudThickA</texPath>
+      <shaderType>TransparentPostLight</shaderType>
+    </graphicData>
+  </FleckDef>
+
+  <!-- The plague's tell, and the middle of its three hues. -->
+  <FleckDef ParentName="SlopGasBase">
+    <defName>SlopPlagueGas</defName>
+    <graphicData>
+      <color>(184, 88, 200, 38)</color>
+    </graphicData>
+  </FleckDef>
+
+  <!--
+    The other two, rolled per cloud rather than per fleck: a puff is one shade and
+    the map is three, which is the difference between a color that shimmers and
+    weather that varies. Both sit within a hand's width of the first - the spread
+    has to read as the same gas seen twice, not as a second thing arriving.
+  -->
+  <FleckDef ParentName="SlopGasBase">
+    <defName>SlopPlagueGasDeep</defName>
+    <graphicData>
+      <color>(146, 76, 212, 38)</color>
+    </graphicData>
+  </FleckDef>
+
+  <FleckDef ParentName="SlopGasBase">
+    <defName>SlopPlagueGasWarm</defName>
+    <graphicData>
+      <color>(212, 96, 186, 38)</color>
+    </graphicData>
+  </FleckDef>
+
+  <!--
+    The cat's tell: deliberately the same cloud in the other color, so the two
+    read as one weather with two directions. A cleaning mote would say a chore was
+    done, where this has to say what the violet says. Paler, the aura being a
+    handful of cells against a circle that eats the map. One hue, not three: it
+    only ever puts up one puff at a time.
+  -->
+  <FleckDef ParentName="SlopGasBase">
+    <defName>SlopCleanAir</defName>
+    <graphicData>
+      <color>(148, 226, 160, 15)</color>
+    </graphicData>
+  </FleckDef>
+
+</Defs>

@@ -1,0 +1,276 @@
+# What the files view draws beside a name, and what earns each icon.
+#
+# One table per icon. The key is the upstream SVG's name in the Material Icon Theme
+# (see LICENSE beside this file) and the name of the PNG the bake writes, which is
+# also the string FileIcons.cs looks up - so a row added here is a row added there
+# and nowhere else.
+#
+#   ext   = extensions, without the dot, matched case-insensitively and
+#           longest-first, so `tar.gz` beats `gz`.
+#   names = whole filenames, matched before any extension is considered.
+#
+# The two reserved names are `folder-base`, the directory, and `document`, which is
+# also what a file nothing else claims comes out as.
+
+[folder-base]
+
+[document]
+ext = ["txt", "text", "rtf", "doc", "docx", "odt"]
+
+# ---------------------------------------------------------------- languages
+
+[rust]
+ext = ["rs"]
+
+[python]
+ext = ["py", "pyi", "pyw"]
+
+[typescript]
+ext = ["ts", "mts", "cts"]
+
+[react]
+ext = ["tsx", "jsx"]
+
+[javascript]
+ext = ["js", "mjs", "cjs"]
+
+[go]
+ext = ["go"]
+names = ["go.mod", "go.sum"]
+
+[csharp]
+ext = ["cs", "csx"]
+
+[c]
+ext = ["c"]
+
+[h]
+ext = ["h", "hh", "hpp", "hxx"]
+
+[cpp]
+ext = ["cpp", "cc", "cxx", "c++"]
+
+[java]
+ext = ["java", "class", "jar"]
+
+[kotlin]
+ext = ["kt", "kts"]
+
+[swift]
+ext = ["swift"]
+
+[ruby]
+ext = ["rb", "gemspec"]
+names = ["Gemfile", "Rakefile"]
+
+[php]
+ext = ["php"]
+
+[lua]
+ext = ["lua"]
+
+[zig]
+ext = ["zig"]
+
+[elixir]
+ext = ["ex", "exs"]
+
+[haskell]
+ext = ["hs", "lhs"]
+
+[scala]
+ext = ["scala", "sc"]
+
+[dart]
+ext = ["dart"]
+
+[perl]
+ext = ["pl", "pm", "t"]
+
+[julia]
+ext = ["jl"]
+
+[ocaml]
+ext = ["ml", "mli"]
+
+[clojure]
+ext = ["clj", "cljs", "cljc", "edn"]
+
+[nim]
+ext = ["nim", "nims"]
+
+[crystal]
+ext = ["cr"]
+
+[solidity]
+ext = ["sol"]
+
+[r]
+ext = ["r", "rmd"]
+
+[assembly]
+ext = ["asm", "s"]
+
+[vue]
+ext = ["vue"]
+
+[svelte]
+ext = ["svelte"]
+
+[astro]
+ext = ["astro"]
+
+[console]
+ext = ["sh", "bash", "zsh", "fish", "ksh"]
+names = [".bashrc", ".zshrc", ".profile", ".bash_profile"]
+
+[powershell]
+ext = ["ps1", "psm1", "psd1"]
+
+[tex]
+ext = ["tex", "bib", "cls", "sty"]
+
+# ---------------------------------------------------------------- markup and data
+
+[markdown]
+ext = ["md", "mdx", "markdown"]
+
+[html]
+ext = ["html", "htm", "xhtml"]
+
+[css]
+ext = ["css"]
+
+[sass]
+ext = ["scss", "sass", "less", "styl"]
+
+[json]
+ext = ["json", "jsonc", "json5", "jsonl", "ndjson"]
+
+[yaml]
+ext = ["yaml", "yml"]
+
+[toml]
+ext = ["toml"]
+
+[xml]
+ext = ["xml", "xsd", "xsl", "xslt", "plist", "svg-xml"]
+
+[graphql]
+ext = ["graphql", "gql"]
+
+[proto]
+ext = ["proto"]
+
+[prisma]
+ext = ["prisma"]
+
+[table]
+ext = ["csv", "tsv", "xls", "xlsx", "ods"]
+
+[database]
+ext = ["sql", "db", "sqlite", "sqlite3", "duckdb"]
+
+[log]
+ext = ["log"]
+
+[diff]
+ext = ["diff", "patch"]
+
+[url]
+ext = ["url", "webloc", "desktop"]
+
+[email]
+ext = ["eml", "mbox"]
+
+# ---------------------------------------------------------------- opaque
+
+[image]
+ext = ["png", "jpg", "jpeg", "gif", "bmp", "webp", "svg", "ico", "tga", "avif", "tiff"]
+
+[video]
+ext = ["mp4", "mkv", "webm", "mov", "avi", "m4v"]
+
+[audio]
+ext = ["mp3", "ogg", "wav", "flac", "opus", "m4a", "aac"]
+
+[pdf]
+ext = ["pdf"]
+
+[zip]
+ext = ["zip", "tar", "tgz", "gz", "xz", "zst", "bz2", "7z", "rar", "tar.gz", "tar.xz", "tar.zst"]
+
+[exe]
+ext = ["exe", "dll", "so", "dylib", "bin", "o", "a", "wasm", "pyc", "app"]
+
+[font]
+ext = ["ttf", "otf", "woff", "woff2", "eot"]
+
+# ---------------------------------------------------------------- named files
+
+[lock]
+ext = ["lock"]
+names = ["Cargo.lock", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "uv.lock", "flake.lock", "bun.lockb", "composer.lock"]
+
+[git]
+names = [".gitignore", ".gitattributes", ".gitmodules", ".gitconfig", ".gitkeep", ".mailmap"]
+
+[docker]
+names = ["Dockerfile", ".dockerignore", "docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"]
+ext = ["dockerfile"]
+
+[makefile]
+ext = ["mk", "mak"]
+names = ["Makefile", "makefile", "GNUmakefile", "justfile", "Justfile"]
+
+[cmake]
+ext = ["cmake"]
+names = ["CMakeLists.txt"]
+
+[gradle]
+ext = ["gradle"]
+names = ["gradlew", "gradle.properties"]
+
+[nix]
+ext = ["nix"]
+
+[terraform]
+ext = ["tf", "tfvars", "tfstate", "hcl"]
+
+[nodejs]
+names = ["package.json", ".nvmrc", ".node-version"]
+
+[npm]
+names = [".npmrc", ".npmignore", ".yarnrc"]
+
+[tsconfig]
+names = ["tsconfig.json", "jsconfig.json"]
+
+[license]
+names = ["LICENSE", "LICENCE", "LICENSE.md", "LICENSE.txt", "COPYING", "COPYING.LESSER", "NOTICE", "UNLICENSE"]
+
+[readme]
+names = ["README", "README.md", "README.txt", "README.rst", "AGENTS.md", "CLAUDE.md"]
+
+[changelog]
+names = ["CHANGELOG", "CHANGELOG.md", "CHANGES.md", "HISTORY.md", "NEWS.md"]
+
+[contributing]
+names = ["CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "SECURITY.md"]
+
+[todo]
+names = ["TODO", "TODO.md", "TODOS.md"]
+
+[settings]
+ext = ["ini", "cfg", "conf", "config", "properties", "editorconfig", "env"]
+names = [".editorconfig", ".env", ".env.local", ".env.example", ".direnv", ".envrc", ".clang-format"]
+
+[certificate]
+ext = ["pem", "crt", "cer", "der", "p12", "pfx"]
+
+[key]
+ext = ["key", "pub", "gpg", "asc", "kdbx"]
+
+[vim]
+ext = ["vim"]
+names = [".vimrc", ".nvimrc"]

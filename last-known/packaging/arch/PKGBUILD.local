@@ -1,0 +1,108 @@
+# Maintainer: Lev Gorodetskii <aur@drsr.io>
+#
+# Builds the working tree this file sits in. From packaging/arch:
+#
+#   makepkg -p PKGBUILD.local -si
+#
+# The mod half links against the game's own assemblies, so RIMWORLD must point at
+# a real Linux install (default ~/RimWorld/game, override in the environment).
+
+pkgname=slopworld
+pkgver=0.1.0
+pkgrel=2
+pkgdesc="RimWorld with the colony sim replaced by live AI coding agents"
+arch=('x86_64')
+url="https://github.com/droserasprout/slopworld"
+license=('custom')
+depends=('systemd' 'tmux' 'bubblewrap' 'passt' 'ripgrep' 'git' 'less' 'micro'
+  'highlight' 'alsa-lib')
+makedepends=('cargo' 'git' 'mono' 'lld')
+optdepends=(
+  'wl-clipboard: clipboard writes under Wayland (OSC 52)'
+  'xclip: clipboard writes under X11'
+  'xsel: clipboard writes under X11 (fallback)'
+  'xdg-utils: opening links from the terminal pane'
+)
+provides=('slopd')
+conflicts=('slopworld-git')
+options=('!strip' '!debug')
+source=()
+install=slopworld.install
+
+: "${RIMWORLD:=$HOME/GOG Games/RimWorld/game}"
+_managed="$RIMWORLD/RimWorldLinux_Data/Managed"
+_src="$(realpath "$startdir/../..")"
+
+pkgver() {
+  cd "$_src"
+  grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2
+}
+
+prepare() {
+  [ -f "$_managed/Assembly-CSharp.dll" ] || {
+    echo "no RimWorld install at $RIMWORLD; set RIMWORLD=<path>" >&2
+    return 1
+  }
+  # makepkg's own directories sit inside the tree being copied, this file living
+  # in it, so the copy has to be told to walk around them or it walks into
+  # itself. tar rather than cp, which has no way to say that.
+  local _skip=(
+    --exclude=./.git
+    --exclude=./slopd/target
+    '--exclude=./packaging/arch/*.pkg.tar.*'
+  )
+  local _d
+  for _d in "$srcdir" "$pkgdir" "$startdir"/{src,pkg}; do
+    [[ $_d == "$_src"/* ]] && _skip+=("--exclude=./${_d#"$_src"/}")
+  done
+
+  rm -rf "$srcdir/slopworld"
+  mkdir -p "$srcdir/slopworld"
+  tar -C "$_src" -cf - "${_skip[@]}" . | tar -C "$srcdir/slopworld" -xf -
+  cd "$srcdir/slopworld"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --manifest-path slopd/Cargo.toml --locked
+}
+
+build() {
+  cd "$srcdir/slopworld"
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
+  cargo build --release --frozen --manifest-path slopd/Cargo.toml
+  make BUILD=release RIMWORLD="$RIMWORLD" mod
+}
+
+check() {
+  cd "$srcdir/slopworld"
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
+  cargo test --release --frozen --manifest-path slopd/Cargo.toml
+}
+
+package() {
+  cd "$srcdir/slopworld"
+
+  install -Dm755 target/release/slopd "$pkgdir/usr/bin/slopd"
+  install -Dm755 target/release/slopctl "$pkgdir/usr/bin/slopctl"
+  install -Dm755 target/release/slopworld "$pkgdir/usr/bin/slopworld"
+
+  # The shipped unit runs the binary out of ~/.local/bin, which is where `make
+  # install-daemon` puts it; a packaged one lives on PATH.
+  install -Dm644 slopd/slopd.service "$pkgdir/usr/lib/systemd/user/slopd.service"
+  sed -i 's|%h/.local/bin/slopd|/usr/bin/slopd|' \
+    "$pkgdir/usr/lib/systemd/user/slopd.service"
+
+  # RimWorld only loads mods from under its own install, which is not ours to
+  # write to. Staged here; the install hook prints the user-owned link command.
+  local _mod="$pkgdir/usr/share/slopworld/SlopWorld"
+  install -d "$_mod"
+  cp -r mod/{About,Defs,Patches,Sounds,Textures,Assemblies} "$_mod/"
+  find "$_mod" -type d -exec chmod 755 {} +
+  find "$_mod" -type f -exec chmod 644 {} +
+
+  install -Dm644 packaging/slopworld.desktop \
+    "$pkgdir/usr/share/applications/slopworld.desktop"
+  # The colonists' own face, with a wilted rose growing from the skull.
+  install -Dm644 mod/Textures/SlopWorld/SlopWorld_icon.png \
+    "$pkgdir/usr/share/icons/hicolor/128x128/apps/slopworld.png"
+
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

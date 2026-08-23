@@ -1,0 +1,6 @@
+# No sandbox preset of its own: a shell reaches whatever its project does.
+[[command]]
+name = "fish"
+category = "shell"
+description = "an interactive fish shell in the project's sandbox"
+cmd = "fish"

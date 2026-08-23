@@ -1,0 +1,32 @@
+# Private for the same reason `claude` is.
+#
+# `agent/` is the whole of pi's state - the model selection in `models-store.json`, what it
+# trusts, and 21MB of session transcripts under `sessions/`. Seeded whole and cut back, rather
+# than named file by file: the first attempt here guessed at `agents`, `extensions` and
+# `prompts`, none of which pi has ever made, and the agent came up having forgotten which model
+# it was. What is left out is the transcripts, which are the one thing a session should not
+# inherit from the user or from its predecessor anyway.
+[[sandbox]]
+name = "pi"
+category = "agent"
+description = "pi coding agent's own state, config and credentials, one copy per session"
+private = ["~/.pi"]
+seed = ["~/.pi/agent"]
+skip = ["~/.pi/agent/sessions"]
+env = [
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_BASE_URL",
+    "OPENAI_API_KEY",
+    "OPENROUTER_API_KEY",
+    "GEMINI_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "XAI_API_KEY",
+    "MISTRAL_API_KEY",
+]
+
+[[command]]
+name = "pi"
+category = "agent"
+description = "pi coding agent"
+cmd = "pi"
+sandbox = ["pi"]

@@ -1,0 +1,11 @@
+# The cache directories by name rather than ~/.local/share/NuGet, which also holds plugin state.
+[[sandbox]]
+name = "nuget-cache"
+category = "dev"
+description = "writable NuGet package and download caches (requires dotnet)"
+requires = ["dotnet"]
+rw = [
+    "~/.nuget/packages",
+    "~/.local/share/NuGet/http-cache",
+    "~/.local/share/NuGet/plugins-cache",
+]

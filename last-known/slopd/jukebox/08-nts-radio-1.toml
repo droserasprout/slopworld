@@ -1,0 +1,11 @@
+id = "nts-radio-1"
+default_rate = 128
+
+[metadata]
+name = "NTS Radio 1"
+donate = "https://www.nts.live/friends"
+
+[[stream]]
+rate = 128
+key = "stream"
+url = "https://stream-relay-geo.ntslive.net/stream"

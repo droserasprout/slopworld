@@ -1,0 +1,21 @@
+[[sandbox]]
+name = "psql"
+category = "database"
+description = "PostgreSQL client config: credentials, psqlrc, and SSL certs"
+ro = [
+    "~/.psqlrc",
+    "~/.pgpass",
+    "~/.config/postgresql",
+]
+env = [
+    "PGHOST",
+    "PGPORT",
+    "PGDATABASE",
+    "PGUSER",
+    "PGPASSWORD",
+    "PGSSLMODE",
+    "PGSSLROOTCERT",
+    "PGSSLCERT",
+    "PGSSLKEY",
+    "DATABASE_URL",
+]

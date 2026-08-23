@@ -1,0 +1,6 @@
+[[sandbox]]
+name = "git"
+category = "dev"
+description = "global git identity and config"
+ro = ["~/.gitconfig", "~/.config/git"]
+env = ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "EMAIL"]
