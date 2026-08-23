@@ -14,7 +14,8 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
 - `SlopConfirmDialog` and `SlopAlertDialog` own mod message surfaces instead of vanilla
   message boxes. They use the shared window/buttons and wrapped text; confirmations retain
   `OpenOverPane` layering and mark destructive actions with the danger button.
-- `ConfigPage` edits daemon/game values and uses a tall single column. `CommandsPage`
+- `ConfigPage` edits daemon/game values and uses a tall single column. Its Locale section
+  owns the temperature unit and status-bar time format. `CommandsPage`
   owns the agent/shell preset defaults plus pager, editor and highlighter
   templates. Undrawn daemon fields survive serialization. `StoragePage` inventories
   private state and owns reset/restore/delete actions.
