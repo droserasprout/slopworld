@@ -154,7 +154,8 @@ required_command 'default shell' bash
 required_command 'default pager' less
 required_command 'pager syntax highlighting' highlight
 required_command 'default editor' micro
-required_command 'desktop directory opener' xdg-open
+required_command 'desktop application associations' gio
+required_command 'native application chooser' gdbus
 required_library 'daemon audio backend' libasound.so.2
 required_any 'agent CLI (one of)' claude codex opencode pi
 

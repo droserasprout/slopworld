@@ -12,6 +12,7 @@
 | `session/view.rs` | `SessionView` and `ScreenView` wire serialization. |
 | `session/ctrl.rs` | `Manager` storage and client/watch guards. |
 | `manager/config.rs` | `Manager` construction, configuration synchronization, clocks and activity persistence. |
+| `manager/desktop.rs` | Host MIME associations and desktop-file display names for Files' Open in menu. |
 | `manager/sessions.rs` | Session targets, lifecycle, stored state, state classification and views. |
 | `manager/shortcuts.rs` | Projects, shortcuts, file actions and temporary errands. |
 | `manager/capture.rs` | `Manager` terminal input, emulator readers, screen frames and scroll capture. |

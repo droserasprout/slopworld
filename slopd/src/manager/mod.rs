@@ -3,5 +3,6 @@
 mod caps;
 mod capture;
 mod config;
+mod desktop;
 mod sessions;
 mod shortcuts;

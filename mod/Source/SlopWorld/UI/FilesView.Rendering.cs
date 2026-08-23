@@ -118,9 +118,13 @@ namespace SlopWorld
                     opts.Add(new FloatMenuOption("Remove", () => FilesView.Remove(node)));
                 }
 
+                // Files and directories use the same host application picker. The desktop MIME
+                // database knows that a directory is an inode/directory and returns file
+                // managers, while a regular file returns its associated editors/viewers.
+                opts.Add(new SlopSubmenu("Open in...", () => FilesView.OpenInOptions(node.Path)));
+
                 if (node.IsDir)
                 {
-                    opts.Add(new FloatMenuOption("Open in...", () => FilesView.OpenIn(node.Path)));
                     opts.Add(SlopMenu.Separator());
                     opts.Add(new FloatMenuOption("New file", () => FilesView.Create(node, "file")));
                     opts.Add(new FloatMenuOption("New folder", () => FilesView.Create(node, "folder")));
@@ -131,10 +135,67 @@ namespace SlopWorld
             }
         }
 
-        static void OpenIn(string path)
+        static List<FloatMenuOption> OpenInOptions(string path)
+        {
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Loading applications...", null),
+            };
+
+            SlopClient.Get("/api/open-apps?path=" + System.Uri.EscapeDataString(path), j =>
+            {
+                options.Clear();
+                foreach (var app in j["apps"].Items)
+                {
+                    string id = app["id"].AsString();
+                    string name = app["name"].AsString(id);
+                    if (string.IsNullOrEmpty(id)) continue;
+                    string appId = id;
+                    options.Add(new FloatMenuOption(name, () => OpenInApp(path, appId)));
+                }
+
+                if (options.Count == 0)
+                    options.Add(new FloatMenuOption("No associated applications", null));
+                options.Add(SlopMenu.Separator());
+                options.Add(new FloatMenuOption("Other...", () => OpenInOther(path)));
+            }, msg =>
+            {
+                options.Clear();
+                SlopWidgets.Fail("Open in: " + msg);
+                options.Add(new FloatMenuOption("Could not load applications", null));
+                options.Add(SlopMenu.Separator());
+                options.Add(new FloatMenuOption("Other...", () => OpenInOther(path)));
+            });
+            return options;
+        }
+
+        static void OpenInApp(string path, string appId)
+        {
+            if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(appId)) return;
+            string command = FileActionCommand(
+                "gio launch " + Pager.Quote(appId) + " {{ absolute_path }}", path, null);
+            HostFileAction(path, command);
+        }
+
+        static void OpenInOther(string path)
         {
             if (string.IsNullOrEmpty(path)) return;
-            string command = FileActionCommand("xdg-open", path, null);
+            // OpenFile with ask=true is the desktop portal's native "choose an application"
+            // gdbus' `3<FILE` form is shell redirection that opens fd 3; the daemon normally
+            // launches argv directly, so put only this command behind bash. The nested quotes
+            // keep spaces and shell characters in the selected path intact.
+            string script =
+                "gdbus call --session --dest org.freedesktop.portal.Desktop " +
+                "--object-path /org/freedesktop/portal/desktop " +
+                "--method org.freedesktop.portal.OpenURI.OpenFile " +
+                Pager.Quote("") + " 3 " + Pager.Quote("{'ask': <true>}") +
+                " 3<" + Pager.Quote(path);
+            string command = "bash -lc " + Pager.Quote(script);
+            HostFileAction(path, command);
+        }
+
+        static void HostFileAction(string path, string command)
+        {
             SlopClient.Post("/api/file-action", "{" +
                 $"\"path\":{JVal.Q(path)}," +
                 $"\"command\":{JVal.Q(command)}," +
