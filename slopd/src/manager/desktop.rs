@@ -90,7 +90,7 @@ fn associated_apps(mime: &str, associations: &str) -> Vec<DesktopApp> {
         .collect::<HashSet<_>>();
 
     let mut entries = desktop_entries();
-    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    entries.sort_by_key(|a| a.name.to_lowercase());
     for entry in entries {
         if !entry.supports(mime) || !seen.insert(entry.id.clone()) {
             continue;
@@ -121,8 +121,7 @@ fn desktop_name(id: &str) -> String {
         .unwrap_or_else(|| {
             id.strip_suffix(".desktop")
                 .unwrap_or(id)
-                .replace('-', " ")
-                .replace('_', " ")
+                .replace(['-', '_'], " ")
         })
 }
 
