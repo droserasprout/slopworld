@@ -41,32 +41,36 @@ def run(command):
 
 def check_command(spec):
     command = spec["commands"][0]
-    return Result(shutil.which(command) is not None, command)
+    path = shutil.which(command)
+    return Result(path is not None, str(Path(path).absolute()) if path else command)
 
 
 def check_any_command(spec):
-    found = next((item for item in spec["commands"] if shutil.which(item)), None)
-    return Result(found is not None, found or "one of: " + ", ".join(spec["commands"]))
-
-
-def check_all_commands(spec):
-    missing = [item for item in spec["commands"] if not shutil.which(item)]
-    return Result(not missing, ", ".join(spec["commands"] if not missing else missing))
+    path = next((path for item in spec["commands"] if (path := shutil.which(item))), None)
+    detail = str(Path(path).absolute()) if path else "one of: " + ", ".join(spec["commands"])
+    return Result(path is not None, detail)
 
 
 def check_library(spec):
     library = spec["value"]
-    found = any((Path(root) / library).exists() for root in ("/usr/lib", "/usr/lib64"))
-    if not found and shutil.which("ldconfig"):
-        found = library in run(["ldconfig", "-p"])
-    return Result(found, library)
+    path = next(
+        (Path(root) / library for root in ("/usr/lib", "/usr/lib64")
+         if (Path(root) / library).exists()),
+        None,
+    )
+    if path is None and shutil.which("ldconfig"):
+        for line in run(["ldconfig", "-p"]).splitlines():
+            if library in line and " => " in line:
+                path = Path(line.rsplit(" => ", 1)[1])
+                break
+    return Result(path is not None, str(path) if path else library)
 
 
 def check_rimworld_path(relative):
     game = os.environ.get("RIMWORLD", "")
-    root = Path(game) if game else None
+    root = Path(game).resolve() if game else None
     found = bool(root and (root / relative).is_file())
-    return Result(found, game or "RIMWORLD is unset")
+    return Result(found, str(root / relative) if root else "RIMWORLD is unset")
 
 
 def check_rimworld_assemblies(_spec):
@@ -77,36 +81,39 @@ def check_rimworld_executable(_spec):
     return check_rimworld_path("RimWorldLinux")
 
 
-def check_python_modules(spec):
-    missing = [name for name in spec["modules"] if importlib.util.find_spec(name) is None]
-    detail = spec["display"] if not missing else ", ".join(missing)
-    return Result(not missing, detail)
+def check_python_module(spec):
+    module = importlib.util.find_spec(spec["module"])
+    path = module.origin if module and module.origin else None
+    return Result(module is not None, path or spec["module"])
 
 
 def check_font_match(spec):
     name = spec["value"]
-    found = shutil.which("fc-match") is not None and name.casefold() in run(
-        ["fc-match", "-f", "%{family}\n", name]).casefold()
-    return Result(found, name)
+    output = run(["fc-match", "-f", "%{family}\t%{file}\n", name]) if shutil.which(
+        "fc-match"
+    ) else ""
+    family, separator, path = output.strip().partition("\t")
+    found = name.casefold() in family.casefold()
+    return Result(found, path if found and separator else name)
 
 
 def check_font_list(spec):
     name = spec["value"]
-    found = (
-        shutil.which("fc-list") is not None
-        and name.casefold() in run(["fc-list"]).casefold()
-    )
-    return Result(found, name)
+    output = run(["fc-list", "-f", "%{family}\t%{file}\n"]) if shutil.which(
+        "fc-list"
+    ) else ""
+    match = next((line for line in output.splitlines() if name.casefold() in line.casefold()), "")
+    _family, separator, path = match.partition("\t")
+    return Result(bool(match), path if separator else name)
 
 
 CHECKS = {
     "command": check_command,
     "any_command": check_any_command,
-    "all_commands": check_all_commands,
     "library": check_library,
     "rimworld_assemblies": check_rimworld_assemblies,
     "rimworld_executable": check_rimworld_executable,
-    "python_modules": check_python_modules,
+    "python_module": check_python_module,
     "font_match": check_font_match,
     "font_list": check_font_list,
 }
@@ -146,13 +153,13 @@ def main():
             if result.found:
                 marker = paint(
                     "1;32" if section["required"] else "1;36",
-                    "✓" if section["required"] else "◆",
+                    "✓",
                 )
                 message = paint("32" if section["required"] else "36", "detected")
             else:
                 marker = paint(
                     "1;31" if section["required"] else "2",
-                    "✗" if section["required"] else "○",
+                    "✗",
                 )
                 message = paint(
                     "31" if section["required"] else "2",
