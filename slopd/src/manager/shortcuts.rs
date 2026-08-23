@@ -268,7 +268,7 @@ impl Manager {
         if command.trim().is_empty() {
             bail!("file action has no command");
         }
-        let command = normalize_action_command(raw_path, &path, command);
+        let command = normalize_action_command(&path, command);
         let s = SessionCfg {
             name: "file-action".into(),
             project: p.name.clone(),
@@ -399,7 +399,7 @@ impl Manager {
                 .ok_or_else(|| anyhow!("no such project: {project}"))?;
             project_action_path(p, raw_path)?
         };
-        Ok(normalize_action_command(raw_path, &path, command))
+        Ok(normalize_action_command(&path, command))
     }
 
     fn validate_errand(sc: &ShortcutCfg) -> Result<()> {

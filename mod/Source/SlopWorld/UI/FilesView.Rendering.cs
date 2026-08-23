@@ -255,23 +255,15 @@ namespace SlopWorld
         }
 
         // File actions are shell command lines. Substitute quoted values so paths remain one
-        // argv even when they contain spaces or shell metacharacters. With no placeholder the
-        // historical behavior remains: the absolute path is appended as the final argument.
+        // argv even when they contain spaces or shell metacharacters. Without a placeholder the
+        // absolute path is appended as the final argument.
         static string FileActionCommand(string template, string path, string relativePath)
         {
             string command = (template ?? "").Trim();
             string absolute = Pager.Quote(path);
             string relative = Pager.Quote(relativePath ?? ".");
             bool substituted = false;
-            foreach (var marker in new[] { "{{ absolute_path }}", "{{absolute_path}}" })
-            {
-                if (command.Contains(marker))
-                {
-                    command = command.Replace(marker, absolute);
-                    substituted = true;
-                }
-            }
-            foreach (var marker in new[] { "{{ relative_path }}", "{{relative_path}}" })
+            foreach (var marker in new[] { "{{ absolute_path }}", "{{ relative_path }}" })
             {
                 if (command.Contains(marker))
                 {

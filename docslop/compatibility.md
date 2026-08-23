@@ -5,6 +5,7 @@ fallback routes for compatibility. Change the daemon, mod and notes together; st
 and old local state may be invalidated rather than migrated. When an old path is found, remove
 it or make the break explicit instead of silently accepting both forms.
 
-The former path-only station setting and WebSocket `source` field have been removed. The
-`install_ost.py` references to old OST filenames only delete them, so that remains cleanup
-rather than a compatibility path.
+The former path-only station setting, WebSocket `source` field, daemon usage switches, and
+legacy shortcut/jukebox shapes have been removed. Configured sessions without a state id are
+rejected; old state is not assigned an identity on first use. The `install_ost.py` references
+to old OST filenames only delete them, so that remains cleanup rather than a compatibility path.

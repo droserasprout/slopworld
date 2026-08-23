@@ -766,15 +766,9 @@ pub(crate) fn hold_action_command(command: &str) -> String {
     )
 }
 
-fn normalize_action_command(raw_path: &str, path: &Path, command: &str) -> String {
-    let raw = shell_quote(raw_path);
+fn normalize_action_command(path: &Path, command: &str) -> String {
     let absolute = shell_quote(&path.to_string_lossy());
-    // The mod expands these before sending the request, but keep the daemon authoritative so
-    // direct API callers and older mod DLLs cannot hand the executor a literal template.
-    command
-        .replace("{{ absolute_path }}", &absolute)
-        .replace("{{absolute_path}}", &absolute)
-        .replace(&raw, &absolute)
+    command.replace("{{ absolute_path }}", &absolute)
 }
 
 async fn read_action_output<R: AsyncRead + Unpin>(mut stream: R) -> Result<(Vec<u8>, bool)> {
@@ -942,15 +936,11 @@ mod tests {
     use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, TitlePolicy};
 
     #[test]
-    fn file_action_paths_normalize_and_replace_the_raw_quoted_path() {
+    fn file_action_paths_normalize_the_absolute_placeholder() {
         let path = normalize_path(Path::new("/tmp/slop/../repo/file name"));
         assert_eq!(path, PathBuf::from("/tmp/repo/file name"));
         assert_eq!(
-            normalize_action_command("~/repo/file name", &path, "du -sh '~/repo/file name'"),
-            "du -sh '/tmp/repo/file name'"
-        );
-        assert_eq!(
-            normalize_action_command("~/repo/file name", &path, "du -sh {{ absolute_path }}"),
+            normalize_action_command(&path, "du -sh {{ absolute_path }}"),
             "du -sh '/tmp/repo/file name'"
         );
         assert_eq!(

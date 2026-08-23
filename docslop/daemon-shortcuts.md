@@ -44,7 +44,7 @@ Durable host tabs also use `ephemeral` for their sidebar ghost presentation, but
 `Manager::session_cfg` reads config or the live table.
 
 Unknown sessions under the daemon socket are adopted as projectless ephemeral agents unless
-their host marker or deterministic legacy name identifies a host terminal. Temporary agents
+their host marker or saved host-terminal record identifies a host terminal. Temporary agents
 cannot restart, but watching, typing and killing still work.
 
 ## Delivery
