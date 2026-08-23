@@ -36,15 +36,15 @@ namespace SlopWorld
             EnsureRuns(buf);
             if (cell.y < 0 || cell.y >= buf.Runs.Length) return;
 
-            string line = RowText(buf, cell.y);
-            int len = ContentLen(line);
+            var cells = TerminalColumns.Cells(buf.Runs[cell.y]);
+            int len = TerminalColumns.ContentColumns(cells);
             if (cell.x < 0 || cell.x >= len) { ClearSelection(); return; }
 
-            char anchor = line[cell.x];
+            char anchor = TerminalColumns.Glyph(cells, cell.x);
             bool word = IsWordChar(anchor);
             int c0 = cell.x, c1 = cell.x;
-            while (c0 > 0 && SameClass(line[c0 - 1], anchor, word)) c0--;
-            while (c1 + 1 < len && SameClass(line[c1 + 1], anchor, word)) c1++;
+            while (c0 > 0 && SameClass(TerminalColumns.Glyph(cells, c0 - 1), anchor, word)) c0--;
+            while (c1 + 1 < len && SameClass(TerminalColumns.Glyph(cells, c1 + 1), anchor, word)) c1++;
             _wordStart = new Vector2Int(c0, cell.y);
             _wordEnd = new Vector2Int(c1, cell.y);
             _selA = _wordStart;
@@ -62,15 +62,15 @@ namespace SlopWorld
             EnsureRuns(buf);
             if (cell.y < 0 || cell.y >= buf.Runs.Length) return;
 
-            string line = RowText(buf, cell.y);
-            int len = ContentLen(line);
+            var cells = TerminalColumns.Cells(buf.Runs[cell.y]);
+            int len = TerminalColumns.ContentColumns(cells);
             if (len == 0) return;
             int x = Mathf.Clamp(cell.x, 0, len - 1);
-            char anchor = line[x];
+            char anchor = TerminalColumns.Glyph(cells, x);
             bool word = IsWordChar(anchor);
             int c0 = x, c1 = x;
-            while (c0 > 0 && SameClass(line[c0 - 1], anchor, word)) c0--;
-            while (c1 + 1 < len && SameClass(line[c1 + 1], anchor, word)) c1++;
+            while (c0 > 0 && SameClass(TerminalColumns.Glyph(cells, c0 - 1), anchor, word)) c0--;
+            while (c1 + 1 < len && SameClass(TerminalColumns.Glyph(cells, c1 + 1), anchor, word)) c1++;
 
             var destinationStart = new Vector2Int(c0, cell.y);
             var destinationEnd = new Vector2Int(c1, cell.y);
@@ -98,7 +98,7 @@ namespace SlopWorld
             EnsureRuns(buf);
             if (row < 0 || row >= buf.Runs.Length) return;
 
-            int len = ContentLen(RowText(buf, row));
+            int len = TerminalColumns.ContentColumns(TerminalColumns.Cells(buf.Runs[row]));
             if (len == 0) { ClearSelection(); return; }
             SelectSpan(row, 0, len - 1);
         }
@@ -247,14 +247,15 @@ namespace SlopWorld
             int r1 = Mathf.Clamp(b.y, 0, rows - 1);
             for (int row = r0; row <= r1; row++)
             {
-                string line = RowText(buf, row);
-                int len = ContentLen(line);
+                var cells = TerminalColumns.Cells(buf.Runs[row]);
+                int len = TerminalColumns.ContentColumns(cells);
                 int startCol = row == a.y ? Mathf.Max(0, a.x) : 0;
                 // The head cell is inclusive, matching the highlight.
                 int endCol = row == b.y ? b.x + 1 : len;
                 startCol = Mathf.Clamp(startCol, 0, len);
                 endCol = Mathf.Clamp(endCol, 0, len);
-                if (endCol > startCol) sb.Append(line.Substring(startCol, endCol - startCol));
+                // Slice takes an inclusive last column and drops reserved wide-char columns.
+                if (endCol > startCol) sb.Append(TerminalColumns.Slice(cells, startCol, endCol - 1));
                 if (row < r1) sb.Append('\n');
             }
             return sb.ToString();
@@ -270,20 +271,5 @@ namespace SlopWorld
             buf.RunsRev = TerminalTheme.Rev;
         }
 
-        // The daemon trims trailing blanks only when they carry nothing, so anything colored
-        // to the right margin arrives padded with spaces - which copied as spaces.
-        static int ContentLen(string line)
-        {
-            int n = line.Length;
-            while (n > 0 && line[n - 1] == ' ') n--;
-            return n;
-        }
-
-        static string RowText(ScreenBuf buf, int row)
-        {
-            var sb = new StringBuilder();
-            foreach (var run in buf.Runs[row]) sb.Append(run.Text);
-            return sb.ToString();
-        }
     }
 }
