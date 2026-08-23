@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -30,12 +29,6 @@ namespace SlopWorld
             CommandInfo command = null;
             if (string.IsNullOrEmpty(session.Cmd) || string.IsNullOrWhiteSpace(session.Cmd))
                 command = hub.Command(commandName);
-            // Older daemons did not repeat the resolved preset name. Matching the resolved
-            // command keeps their default-agent preview useful when the command text is unique.
-            if (command == null && string.IsNullOrWhiteSpace(session.Cmd) &&
-                !string.IsNullOrEmpty(session.Agent))
-                command = hub.Commands.FirstOrDefault(c => c.Cmd == session.Agent);
-
             var data = SandboxPreviewBuilder.Build("Agent sandbox", session.Name, session.Dir,
                 project, command, session);
             if (project == null && !string.IsNullOrEmpty(session.Project))
