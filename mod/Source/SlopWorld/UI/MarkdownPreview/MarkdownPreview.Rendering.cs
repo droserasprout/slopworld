@@ -18,10 +18,6 @@ namespace SlopWorld
                 case PlacementKind.Code:
                     Slab.Box(new Rect(placement.X, placement.Y, placement.Width, placement.Height),
                         TerminalTheme.Current.Bg, SlopWidgets.Edge);
-                    DrawInlineCodeBackgrounds(placement.Text, placement.X + SlopWidgets.GapS,
-                        placement.Y + SlopWidgets.GapS +
-                        (string.IsNullOrWhiteSpace(placement.Label)
-                            ? 0f : SlopWidgets.TinyH + SlopWidgets.GapXS));
                     break;
 
                 case PlacementKind.Rule:
