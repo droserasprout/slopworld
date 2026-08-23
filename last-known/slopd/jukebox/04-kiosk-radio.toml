@@ -1,0 +1,11 @@
+id = "kiosk-radio"
+default_rate = 64
+
+[metadata]
+name = "Kiosk Radio"
+donate = "https://www.paypal.com/donate/?hosted_button_id=A96NFX3WU8BE8"
+
+[[stream]]
+rate = 64
+key = "kioskradiobxl_a"
+url = "https://kioskradiobxl.out.airtime.pro/kioskradiobxl_a"

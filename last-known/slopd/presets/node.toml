@@ -1,0 +1,5 @@
+[[sandbox]]
+name = "node"
+category = "dev"
+description = "Node runtimes and pnpm installation, read-only"
+ro = ["~/.nvm", "~/.local/share/pnpm"]

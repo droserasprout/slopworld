@@ -1,0 +1,223 @@
+using UnityEngine;
+using Verse;
+
+namespace SlopWorld
+{
+    // Rendering for a row is fed by the sidebar's layout and session snapshots. It does not
+    // own selection, clicks, or geometry; those remain with AgentSidebar.
+    static class SidebarRowRenderer
+    {
+        public static void DrawGhostLabel(Rect r, SessionInfo info, string fallback,
+                                           bool hostIcon, float markWidth)
+        {
+            RowAct act = RowActions.Of(info);
+            string title = GhostTitle(info, fallback, act);
+            string context = GhostContext(info, title, act);
+            GameFont oldFont = Text.Font;
+
+            if (hostIcon && info?.Ephemeral == true)
+            {
+                float d = Mathf.Min(markWidth, r.height);
+                var icon = new Rect(r.x, r.y + (r.height - d) / 2f, d, d);
+                GUI.color = SlopWidgets.Off;
+                GUI.DrawTexture(icon, Icons.Terminal);
+                string project = info.Project ?? "";
+                TooltipHandler.TipRegion(icon, project.Length > 0
+                    ? "Host session in " + project
+                    : "Host session");
+                r.x += d + 4f;
+                r.width -= d + 4f;
+            }
+
+            // Host paths are useful even when the sidebar is narrow. Keep the normal row
+            // font when it fits, but reclaim the compact font's width before truncating it.
+            if (hostIcon && info?.Ephemeral == true && context.Length > 0)
+            {
+                float contextWidth = SlopWidgets.Wide(context);
+                float titleW = SlopWidgets.Wide(title);
+                float available = r.width - contextWidth - SlopWidgets.GapS;
+                if (titleW > available) Text.Font = GameFont.Tiny;
+            }
+
+            Text.Anchor = TextAnchor.MiddleLeft;
+            if (context.Length == 0)
+            {
+                GUI.color = SlopWidgets.Lead;
+                SlopWidgets.RowLabel(r, title);
+                Text.Anchor = TextAnchor.UpperLeft;
+                Text.Font = oldFont;
+                return;
+            }
+
+            float contextW = Mathf.Min(SlopWidgets.Wide(context), r.width * 0.42f);
+            var quiet = new Rect(r.xMax - contextW, r.y, contextW, r.height);
+            var strong = new Rect(r.x, r.y, Mathf.Max(0f, quiet.x - SlopWidgets.GapS - r.x),
+                r.height);
+
+            GUI.color = SlopWidgets.Lead;
+            string shownTitle = hostIcon && info?.Ephemeral == true
+                ? KeepStart(title, strong.width)
+                : title;
+            SlopWidgets.RowLabel(strong, shownTitle);
+            GUI.color = SlopWidgets.Dim;
+            SlopWidgets.RowLabel(quiet, context);
+            Text.Anchor = TextAnchor.UpperLeft;
+            Text.Font = oldFont;
+        }
+
+        static string KeepStart(string text, float width)
+        {
+            text = text ?? "";
+            if (SlopWidgets.Wide(text) <= width) return text;
+
+            const string ellipsis = "..";
+            if (SlopWidgets.Wide(ellipsis) > width) return "";
+
+            int length = text.Length;
+            while (length > 0 && SlopWidgets.Wide(text.Substring(0, length) + ellipsis) > width)
+                length--;
+            return text.Substring(0, length) + ellipsis;
+        }
+
+        public static void DrawAgentText(Rect text, string session, SessionInfo info,
+                                         AgentState state, Color tint,
+                                         float nameH, float subH, float bellW)
+        {
+            var line = new Rect(text.x, text.y, text.width, nameH);
+
+            Text.Font = GameFont.Tiny;
+            string ago = state == AgentState.Down ? "" : Ago(info);
+            float ageW = ago.Length == 0 ? 0f : SlopWidgets.Wide(ago);
+
+            float bell = info != null && info.Bell ? Mathf.Min(bellW, nameH) : 0f;
+            float timeX = line.xMax - ageW;
+            float bellX = timeX - (bell > 0f ? SlopWidgets.GapXS + bell : 0f);
+            float nameRight = bell > 0f ? bellX : timeX;
+            var name = new Rect(line.x, line.y,
+                Mathf.Max(0f, nameRight - line.x -
+                    (ageW > 0f || bell > 0f ? SlopWidgets.GapXS : 0f)), line.height);
+
+            if (info != null && info.Bell)
+            {
+                GUI.color = SlopWidgets.Warn;
+                GUI.DrawTexture(new Rect(bellX, line.y + (nameH - bell) / 2f, bell, bell),
+                    Icons.Bell);
+            }
+
+            if (ageW > 0f)
+            {
+                var time = new Rect(timeX, line.y, ageW, line.height);
+                GUI.color = SlopWidgets.Faint;
+                SlopWidgets.RowLabel(time, ago, TextAnchor.MiddleRight);
+
+                string stateName = state == AgentState.Waiting
+                    ? "waiting for input"
+                    : state.ToString().ToLowerInvariant();
+                TooltipHandler.TipRegion(time, $"{stateName} for {ago}");
+            }
+
+            Text.Font = GameFont.Small;
+            GUI.color = tint;
+            SlopWidgets.RowLabel(name, session ?? "?");
+
+            Text.Font = GameFont.Tiny;
+            if (state != AgentState.Down)
+            {
+                string title = Title(info);
+                if (title.Length > 0)
+                {
+                    GUI.color = SlopWidgets.Dim;
+                    var line2 = new Rect(text.x, text.y + nameH, text.width, subH);
+                    SlopWidgets.RowLabel(line2, title);
+                    if (SlopWidgets.Wide(title) > line2.width)
+                        TooltipHandler.TipRegion(line2, title);
+                }
+            }
+        }
+
+        static string Ago(SessionInfo info)
+        {
+            if (info == null || info.StateSince <= 0) return "";
+            long seconds = (SessionInfo.NowMs - info.StateSince) / 1000L;
+            if (seconds < 0L) return "";
+            if (seconds < 60L) return "<1m";
+            if (seconds < 3600L) return seconds / 60L + "m";
+            if (seconds < 86400L) return seconds / 3600L + "h";
+            return seconds / 86400L + "d";
+        }
+
+        static string GhostTitle(SessionInfo info, string fallback, RowAct act)
+        {
+            if (act != RowAct.None)
+            {
+                string name = info?.Name ?? fallback;
+                string prefix = ActionWord(act) + "-";
+                string subject = name.StartsWith(prefix, System.StringComparison.Ordinal)
+                    ? name.Substring(prefix.Length)
+                    : name;
+                return ActionWord(act) + " " + subject;
+            }
+
+            string title = Title(info);
+            return title.Length > 0 ? title : info?.Name ?? fallback;
+        }
+
+        static string GhostContext(SessionInfo info, string title, RowAct act)
+        {
+            string project = info?.Project ?? "";
+            if (act != RowAct.None) return project;
+
+            string name = info?.Name ?? "";
+            if (info?.Ephemeral == true)
+            {
+                string process = ProcessName(info);
+                return process.Length > 0 && title != process ? process : "";
+            }
+            if (title != name && name.Length > 0)
+            {
+                return project.Length > 0 ? name + "  ·  " + project : name;
+            }
+            return project;
+        }
+
+        static string ProcessName(SessionInfo info)
+        {
+            string name = info?.Name ?? "";
+            string project = info?.Project ?? "";
+            string prefix = project.Length == 0 ? "" : project + "-";
+            return prefix.Length > 0 && name.StartsWith(prefix, System.StringComparison.Ordinal)
+                ? name.Substring(prefix.Length)
+                : name;
+        }
+
+        static string ActionWord(RowAct act)
+        {
+            switch (act)
+            {
+                case RowAct.View: return "view";
+                case RowAct.Edit: return "edit";
+                case RowAct.Diff: return "diff";
+                default: return "";
+            }
+        }
+
+        static string Title(SessionInfo info)
+        {
+            if (info == null) return "";
+            var value = string.IsNullOrWhiteSpace(info.Label) ? info.Title : info.Label;
+            value = value ?? "";
+            var font = Text.CurFontStyle?.font;
+            var clean = new System.Text.StringBuilder(value.Length);
+            foreach (char c in value)
+                clean.Append(char.IsControl(c) || (font != null && !font.HasCharacter(c))
+                    ? ' ' : c);
+            string title = clean.ToString().Trim();
+            return title.Length == 0 || IsHostTitle(title) ? "" : title;
+        }
+
+        static bool IsHostTitle(string title) =>
+            string.Equals(title, System.Environment.MachineName,
+                System.StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(title, "localhost", System.StringComparison.OrdinalIgnoreCase);
+    }
+}

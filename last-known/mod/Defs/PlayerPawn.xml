@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <ThingDef ParentName="BaseBullet">
+    <defName>SlopFireball</defName>
+    <label>fireball</label>
+    <thingClass>SlopWorld.Fireball</thingClass>
+    <graphicData>
+      <texPath>Things/Projectile/Bullet_Small</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+    </graphicData>
+    <projectile>
+      <damageDef>Flame</damageDef>
+      <damageAmountBase>10</damageAmountBase>
+      <speed>25</speed>
+    </projectile>
+  </ThingDef>
+
+  <ThingDef ParentName="BaseBullet">
+    <defName>SlopWaterBall</defName>
+    <label>water ball</label>
+    <thingClass>SlopWorld.WaterBall</thingClass>
+    <graphicData>
+      <texPath>Things/Projectile/Bullet_Small</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <color>(0.35, 0.65, 1)</color>
+    </graphicData>
+    <projectile>
+      <damageDef>Extinguish</damageDef>
+      <damageAmountBase>0</damageAmountBase>
+      <speed>25</speed>
+    </projectile>
+  </ThingDef>
+
+</Defs>

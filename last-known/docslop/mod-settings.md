@@ -1,0 +1,42 @@
+# `SlopSettings`
+
+`SlopSettings` is RimWorld install/profile state, reached through the static `Settings`
+shim. It is written to `Config/SlopWorld.toml`; it is not the daemon's machine-wide
+`config.toml`.
+
+The fields cover connection, sidebar state, command-palette history, quota display,
+terminal/UI fonts and themes, cursor, radio, status-bar readouts, Grandma mode and
+Eco mode. Adding one requires a field, a TOML read/write entry, a shim property and
+a widget unless it is a screen cache such as command-palette history.
+
+## Fields without a Settings-page widget
+
+Sidebar width, folds, selected tab and hidden-row filtering are written directly by
+`AgentSidebar`; quota icon choices are written by `UsageReadout.Choose`. They describe
+the current screen and must remain readable when the daemon is offline. `usageSpent`
+selects left versus spent quota globally. `radio` is selected by the map jukebox;
+mute and stop-on-exit are also exposed on Audio. Status-bar flags only hide readouts
+and doors; they do not disable polling, audio or map objects.
+
+Command-palette history stores up to eight command IDs, newest first, in the mod profile;
+the palette drops IDs that are no longer in its catalogue when it loads.
+
+`statusbarClockPosition` is `right`, `center` or `hidden`. `timeFormat` is `24-hour`
+or `12-hour` and controls the status-bar clock and its tooltip.
+
+`sidebar` is the layout mode, not daemon configuration. It is changed from the
+configuration page and gear menu, while that page's Save button belongs to the daemon
+file. Storage inventory is likewise an operation view: it reads daemon state and owns
+reset, restore and delete actions.
+
+## Writing and invalidation
+
+The connection comes from `endpoint.toml`. `AppearancePage` edits the global interface
+settings and `TerminalPage` edits pane settings; `ConfigPage` edits daemon configuration.
+Mod settings are written atomically by `SlopSettings.Write` when the Settings view closes,
+and dirty values also flush periodically.
+
+Font or size changes invalidate `TerminalFont`; terminal scheme changes invalidate
+`TerminalTheme`. Cursor and UI scheme resolve on read and need no cache invalidation.
+The open terminal belongs to the colony save and is handled by `TerminalRecall`, not
+by writing mod settings on every selection.

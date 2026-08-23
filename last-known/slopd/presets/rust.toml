@@ -1,0 +1,5 @@
+[[sandbox]]
+name = "rust"
+category = "dev"
+description = "Rust toolchains and Cargo binaries, read-only"
+ro = ["~/.cargo/bin", "~/.rustup"]

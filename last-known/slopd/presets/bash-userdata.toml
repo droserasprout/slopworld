@@ -1,0 +1,14 @@
+# Optional shell userdata: startup files are shared read-only, while history remains writable
+# so a shell can record commands without allowing it to rewrite the user's shell setup.
+[[sandbox]]
+name = "bash-userdata"
+category = "shell"
+description = "Bash startup files and command history"
+ro = [
+    "~/.bashrc",
+    "~/.bash_profile",
+    "~/.bash_login",
+    "~/.profile",
+    "~/.bash_logout",
+]
+rw = ["~/.bash_history"]

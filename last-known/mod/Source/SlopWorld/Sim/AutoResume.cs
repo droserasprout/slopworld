@@ -1,0 +1,54 @@
+using System.IO;
+using System.Linq;
+using HarmonyLib;
+using RimWorld;
+using Verse;
+using Exception = System.Exception;
+
+namespace SlopWorld
+{
+    // An assembly change requires a restart. Hook the first MainMenuOnGUI frame so resume
+    // starts from an idle menu, once per process and only without a loaded game.
+    [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI))]
+    public static class Patch_AutoResume
+    {
+        static bool _tried;
+
+        static void Prefix()
+        {
+            // The player is passing through the menu on their way to a new colony. Resuming
+            // here would race NextPlanet for the frame.
+            if (NextPlanet.Pending) return;
+
+            if (_tried) return;
+            _tried = true;
+
+            if (Current.Game != null) return; // back from a colony, not a cold start
+
+            try
+            {
+                var newest = GenFilePaths.AllSavedGameFiles.FirstOrDefault();
+                if (newest == null)
+                {
+                    // A fresh profile: no colony to come back to, and a main menu with
+                    // nothing on it worth reading. The same call the New colony button
+                    // makes, so the first launch and every one after it land in the same
+                    // place - which is the whole of what the profile is for.
+                    Log.Message("[SlopWorld] no colony here yet; starting one");
+                    QuickStart.Queue();
+                    return;
+                }
+
+                Log.Message($"[SlopWorld] resuming {Path.GetFileNameWithoutExtension(newest.Name)}");
+                // LoadGame queues its own long event and does the scene change - the same call
+                // the Continue button makes.
+                GameDataSaveLoader.LoadGame(newest);
+            }
+            catch (Exception e)
+            {
+                // A save that will not load is not a reason to lose the menu too.
+                Log.Error($"[SlopWorld] resume failed: {e}");
+            }
+        }
+    }
+}

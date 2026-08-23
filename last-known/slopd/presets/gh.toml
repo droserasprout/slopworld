@@ -1,0 +1,6 @@
+[[sandbox]]
+name = "gh"
+category = "secret"
+description = "GitHub CLI config and auth, one copy per session"
+private = ["~/.config/gh"]
+env = ["GH_TOKEN", "GITHUB_TOKEN"]

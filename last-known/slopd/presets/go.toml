@@ -1,0 +1,5 @@
+[[sandbox]]
+name = "go"
+category = "dev"
+description = "Go binaries, read-only"
+ro = ["~/go/bin"]
