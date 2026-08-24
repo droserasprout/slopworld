@@ -212,9 +212,7 @@ namespace SlopWorld
             // The current session follows the bar click.
             SessionSelectable.Current = session;
 
-            // A down agent has no pane to show; the click starts it back up.
-            if (info.Gone) SessionHub.Instance.Start(session);
-            else if (session != TerminalWindow.CurrentName) TerminalWindow.Open(session);
+            if (session != TerminalWindow.CurrentName) TerminalWindow.Open(session);
 
             Event.current.Use();
             return false;

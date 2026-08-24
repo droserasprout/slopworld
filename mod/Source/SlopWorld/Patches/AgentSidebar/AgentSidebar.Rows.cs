@@ -69,7 +69,8 @@ namespace SlopWorld
                 {
                     SessionSelectable.Current = row.Session;
                     var info = SessionHub.Instance.Get(row.Session);
-                    if (info != null && info.Gone) SessionHub.Instance.Start(row.Session);
+                    if (info != null && info.Gone && !ColonistBarStrip.Drawing)
+                        SessionHub.Instance.Start(row.Session);
                     else TerminalWindow.Open(row.Session);
                 }
                 e.Use();

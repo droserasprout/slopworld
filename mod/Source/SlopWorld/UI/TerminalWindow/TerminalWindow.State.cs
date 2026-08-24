@@ -15,6 +15,11 @@ namespace SlopWorld
         // nothing to go back to when it is left.
         string _name;
 
+        // A pane opened by tab navigation may intentionally point at a stopped agent. Keep
+        // that pane visible until its Start gizmo is pressed; an agent that exits during
+        // normal terminal use still follows the live-session handoff below.
+        bool _showStopped;
+
         // What is in the body instead of the pane, or null for the pane itself. See
         // IContentView: the window is the chrome, and this is what the chrome is showing.
         IContentView _content;
@@ -241,6 +246,7 @@ namespace SlopWorld
                 TerminalRecall.Remember(_name);
                 SelectAgent(_name);
             }
+            _showStopped = _name != null && SessionHub.Instance.Get(_name)?.Gone == true;
             PrimeCachedSize();
             _scrollOff = 0;
             _wantedScrollOff = 0;
@@ -264,13 +270,24 @@ namespace SlopWorld
         // The window is also the host for settings and other content views. Those views are
         // SlopWorld chrome, so their fullscreen backing surface belongs to UIScheme; only the
         // pane itself is allowed to expose the terminal palette here.
-        Color Background => _content == null ? Sgr.DefaultBg : SlopWidgets.WindowBg;
+        static Color SolidTerminalBackground
+        {
+            get
+            {
+                var c = Sgr.DefaultBg;
+                c.a = 1f;
+                return c;
+            }
+        }
+
+        Color Background => _content == null ? SolidTerminalBackground : SlopWidgets.WindowBg;
 
         public override void PreOpen()
         {
             base.PreOpen();
             _covering = true;
             if (_name == null) return;
+            _showStopped = SessionHub.Instance.Get(_name)?.Gone == true;
             SessionHub.Instance.Subscribe(_name);
             SelectAgent(_name);
             PrimeCachedSize();
@@ -296,12 +313,15 @@ namespace SlopWorld
         bool EnsureSession(SessionHub hub)
         {
             var info = hub.Get(_name);
-            // An agent that has gone takes its pane with it. A pane advances to the next live
-            // session; content views keep the window so their chrome can remain visible.
+            if (info != null && info.Alive) _showStopped = false;
+            // An agent that exits during normal terminal use takes its pane with it. A pane
+            // advances to the next live session; an intentionally selected stopped agent is
+            // held for its action gizmos; content views keep the window for their chrome.
             if (_name != null && (info == null || info.Gone))
             {
                 if (_content == null)
                 {
+                    if (_showStopped && info != null) return true;
                     // Ctrl+C/D can be the last input an agent receives. Keep the terminal
                     // focused on the next live session instead of dropping back to the map;
                     // ephemeral host shells take this path too, after they disappear from the

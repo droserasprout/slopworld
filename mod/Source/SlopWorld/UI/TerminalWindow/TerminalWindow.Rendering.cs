@@ -202,7 +202,7 @@ namespace SlopWorld
                     int fontRev = TerminalFont.Rev;
                     var was = RenderTexture.active;
                     RenderTexture.active = _cache;
-                    GL.Clear(false, true, Sgr.DefaultBg);
+                    GL.Clear(false, true, SolidTerminalBackground);
                     Paint(body, buf, cw, ch);
                     RenderTexture.active = was;
 

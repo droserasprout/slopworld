@@ -26,7 +26,9 @@
   live session list.
 - **`SlopCommandAction`** is the `Command_Action` subclass for agent gizmo buttons.
   It draws a clear background with `ActionButtonBackground` and normalizes six icon
-  glyphs to a common 23px visual size through per-icon scale factors.
+  glyphs to a common 23px visual size through per-icon scale factors. Terminal mode reruns
+  the map gizmo pass after the opaque pane, so a stopped selected agent's Start action stays
+  above the terminal surface.
   `Patch_SlopCommandShortcutLabel` transpiles `Command.GizmoOnGUIInt` to shift the
   shortcut label two pixels higher for these gizmos only.
 
