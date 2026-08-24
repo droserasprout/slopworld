@@ -444,9 +444,10 @@ pub(super) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResul
     Ok(Json(json!({ "ok": true, "session": session })))
 }
 
-/// Run a non-interactive Files action and return a small result for a game message. Project
-/// paths use their normal sandbox; private-state paths explicitly ask for the host. Interactive
-/// actions use `/api/run`, since their terminal needs a tmux session and a persistent screen.
+/// Run a non-interactive Files or Git action and return a small result for a game message. Project
+/// paths use their normal sandbox; private-state and Git paths explicitly ask for the host.
+/// Interactive actions use `/api/run`, since their terminal needs a tmux session and a persistent
+/// screen.
 pub(super) async fn file_action(State(m): State<Mgr>, Json(q): Json<FileActionReq>) -> ApiResult {
     let output = m
         .file_action(&q.project, &q.path, &q.command, q.host)

@@ -18,6 +18,10 @@ namespaces isolate sessions from the game; `/api/browse` exists for the same bou
   `Changes` table serves Files' path lookup.
 - Right-clicking a project heading or changed-path row opens its context menu, including the
   project-relative File actions available to the Files tree.
+- Git menus also offer safe local mutations: stage/unstage a changed path, stage or unstage the
+  whole repository, and commit staged changes with a short message. These call host-side Git
+  through `/api/file-action`, then refresh the project; destructive reset/discard and remote
+  operations are deliberately not part of this first writable pass.
 - Rows show the porcelain pair, numstat and right-aligned figures. Untracked text files use a
   no-index diff against `/dev/null`, so their additions count too; binaries remain uncounted.
   Green is staged, amber unstaged, red unmerged and faint untracked. Heading status uses

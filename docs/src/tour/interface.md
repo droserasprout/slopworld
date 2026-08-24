@@ -4,7 +4,7 @@
 
 - agents
 - files
-- git. currently read-only
+- git. browse changes, stage/unstage, commit staged changes, and diff
 - diff
 - Shortcuts
 

@@ -80,6 +80,77 @@ namespace SlopWorld
             return right - w - 5f;
         }
 
+        static bool NeedsStage(string status)
+        {
+            if (string.IsNullOrEmpty(status) || status == "??") return true;
+            return status.Length > 1 && status[1] != ' ';
+        }
+
+        static bool IsStaged(string status) => !string.IsNullOrEmpty(status)
+            && status != "??" && status[0] != ' ';
+
+        static bool Any(Node node, System.Func<string, bool> test)
+        {
+            if (!node.IsDir) return test(node.Status);
+            if (node.Kids == null) return false;
+            foreach (var child in node.Kids)
+                if (Any(child, test)) return true;
+            return false;
+        }
+
+        static bool HasStaged(Repo repo)
+        {
+            foreach (var status in repo.Changes.Values)
+                if (IsStaged(status)) return true;
+            return false;
+        }
+
+        static void GitAction(Repo repo, string command, string notice)
+        {
+            if (repo == null || !repo.IsRepo || repo.Error != null || string.IsNullOrEmpty(repo.Root))
+            {
+                SlopWidgets.Fail("repository is not available");
+                return;
+            }
+
+            string full = "git -C " + Pager.Quote(repo.Root) + " " + command;
+            SlopClient.Post("/api/file-action", "{" +
+                $"\"path\":{JVal.Q(repo.Root)}," +
+                $"\"command\":{JVal.Q(full)}," +
+                "\"host\":true" +
+                "}",
+                _ =>
+                {
+                    Messages.Message("SlopWorld: " + notice,
+                        MessageTypeDefOf.SilentInput, false);
+                    Fetch(repo.Project);
+                },
+                msg => SlopWidgets.Fail("Git: " + msg));
+        }
+
+        static void Stage(Repo repo, string rel) =>
+            GitAction(repo, "add -- " + Pager.Quote(rel), "staged " + rel);
+
+        static void Unstage(Repo repo, string rel) =>
+            GitAction(repo, "reset -- " + Pager.Quote(rel), "unstaged " + rel);
+
+        static void StageAll(Repo repo) => GitAction(repo, "add --all", "staged all changes");
+
+        static void UnstageAll(Repo repo) =>
+            GitAction(repo, "reset -- .", "unstaged all changes");
+
+        public static void Commit(string project, string message)
+        {
+            var repo = Known(project);
+            if (repo == null || !HasStaged(repo))
+            {
+                SlopWidgets.Fail("no staged changes to commit");
+                return;
+            }
+
+            GitAction(repo, "commit -m " + Pager.Quote(message) + " --", "committed changes");
+        }
+
         static float RowTail(Rect row, Node node, float right)
         {
             if (node.IsDir) return right;
@@ -294,6 +365,16 @@ namespace SlopWorld
             if (repo.IsRepo && repo.Error == null && !string.IsNullOrEmpty(repo.Root))
             {
                 opts.Add(new FloatMenuOption("Copy repository path", () => Copy(repo.Root)));
+
+                if (repo.Changed > 0)
+                    opts.Add(new FloatMenuOption("Stage all", () => StageAll(repo)));
+                if (HasStaged(repo))
+                {
+                    opts.Add(new FloatMenuOption("Unstage all", () => UnstageAll(repo)));
+                    opts.Add(new FloatMenuOption("Commit staged...",
+                        () => GitCommitDialog.Open(project)));
+                }
+
                 // The whole tree's diff, in the same pager one file's opens in. Tracked as
                 // the viewer, so the next row clicked replaces it.
                 if (repo.Changed > 0)
@@ -324,6 +405,13 @@ namespace SlopWorld
             };
 
             FilesView.AddFileActions(opts, project, abs, node.Name);
+
+            bool canStage = Any(node, NeedsStage);
+            bool canUnstage = Any(node, IsStaged);
+            if (canStage)
+                opts.Add(new FloatMenuOption("Stage", () => Stage(repo, node.Rel)));
+            if (canUnstage)
+                opts.Add(new FloatMenuOption("Unstage", () => Unstage(repo, node.Rel)));
 
             if (!node.IsDir && Present(node.Status))
                 opts.Add(new FloatMenuOption("Edit", () =>
