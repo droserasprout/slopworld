@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -7,7 +6,8 @@ using Verse;
 namespace SlopWorld
 {
     /// <summary>
-    /// Replaces vanilla colonist cycling with the sidebar's row order, including ghosts and folds; map-layer only because a pane owns bare comma/dot.
+    /// Replaces vanilla colonist cycling with terminal-tab cycling on the map layer; a pane
+    /// owns the same keys before this patch runs.
     /// </summary>
     [HarmonyPatch(typeof(ShortcutKeys), "ShortcutKeysOnGUI")]
     public static class Patch_ShortcutKeysOnGUI
@@ -18,6 +18,13 @@ namespace SlopWorld
             // The event has already been Used by HandleEventsHighPriority, so
             // KeyDownEvent would not even fire - but guard for safety.
             if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null) return true;
+
+            if (TerminalWindow.TryTabWalkDirection(Event.current, out var tabDir))
+            {
+                Event.current.Use();
+                Walk(tabDir);
+                return false;
+            }
 
             // Read our own bindings. Not through KeyDownEvent - StripKeys.NotBound
             // would return the right answer, but we want to check our own defs directly
@@ -40,19 +47,8 @@ namespace SlopWorld
         /// <summary>Walk the session list by <paramref name="dir"/> (-1 or 1).</summary>
         static void Walk(int dir)
         {
-            var order = AgentSidebar.WalkOrder();
-            if (order.Count == 0)
-            {
-                // In the agents view an empty row list means every project is folded (or
-                // there is nothing to walk), so do not make hidden sessions selectable.
-                // Other views draw no agent rows at all and use the hub as their fallback.
-                if (AgentSidebar.CurrentTab == SidebarTab.Agents) return;
-                var fallback = new List<string>();
-                foreach (var info in SessionHub.Instance.Sessions)
-                    if (info.Alive) fallback.Add(info.Name);
-                if (fallback.Count == 0) return;
-                order = fallback;
-            }
+            var order = TerminalWindow.TabOrder();
+            if (order.Count == 0) return;
 
             string current = SessionSelectable.Current;
             int idx = -1;

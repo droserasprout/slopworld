@@ -38,7 +38,8 @@ undefined ([zsh-terminal](zsh-terminal.md)). On the primary screen, Shift+PgUp/P
 the mod's own scrollback by one viewport.
 
 These combos are hardcoded rather than `KeyBindingDef`s, so `KeyBindingsPage` does not
-list them and they cannot be rebound: Alt+comma/Alt+period walk the session list,
+list them and they cannot be rebound: Alt+Z/Alt+X and Alt+comma/Alt+period walk the terminal
+tab list (including host and ephemeral tabs),
 Shift+Enter sends `\e[13;2u` so an agent inserts a newline instead of submitting, Ctrl+C
 copies when text is selected and otherwise falls through as SIGINT, Ctrl+V pastes, and
 Shift+F1..F12 forwards the F-key to the agent while a bare F-key is the mod's.

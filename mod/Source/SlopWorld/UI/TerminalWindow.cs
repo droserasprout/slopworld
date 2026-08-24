@@ -69,7 +69,8 @@ namespace SlopWorld
         bool DrawBody(Rect body, bool input, SessionHub hub)
         {
             // A view in the body is the whole of what the window is for while it is up: the
-            // chrome's own keys are still read - F1, F12, Alt+Num, Escape back out of it -
+            // chrome's own keys are still read - F1, F12, Alt+Num, Alt+Z/Alt+X, Escape back
+            // out of it -
             // but nothing is forwarded to an agent nobody is looking at.
             if (_content != null)
             {

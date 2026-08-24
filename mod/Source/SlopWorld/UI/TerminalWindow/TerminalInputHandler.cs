@@ -143,6 +143,13 @@ namespace SlopWorld
                 return;
             }
 
+            if (TerminalWindow.TryTabWalkDirection(e, out var dir))
+            {
+                TerminalWindow.WalkSession(dir);
+                e.Use();
+                return;
+            }
+
             if (e.alt && (e.keyCode == KeyCode.Comma || e.keyCode == KeyCode.Period))
             {
                 TerminalWindow.WalkSession(e.keyCode == KeyCode.Period ? 1 : -1);

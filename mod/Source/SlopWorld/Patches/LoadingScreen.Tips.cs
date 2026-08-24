@@ -24,6 +24,7 @@ namespace SlopWorld
             "Press `F1` to show Command Pallette.",
             "Press `F12` to toggle terminal.",
             "Press `Alt+Num` to switch terminal tab.",
+            "Press `Alt+Z`/`Alt+X` to walk terminal tabs.",
             "Press `Alt+F4` to quit the game.",
             // Mozilla's `about:robots`
             "Welcome Humans! We have come to visit you in peace and with goodwill!",
