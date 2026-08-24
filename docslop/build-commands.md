@@ -75,8 +75,9 @@ slopctl logs --follow
 ## Tools (none run as part of a build)
 
 - `python3 tools/prose_lint.py` (`make lint-prose`) - reports LLM cliches as
-  `path:line:column` diagnostics and exits nonzero on a match. It scans Markdown
-  and only the comments in source files; pass paths, `-` for stdin,
+  `path:line:column` diagnostics and exits nonzero on an error. Broader density
+  and vocabulary rules are advisory unless `--fail-on-warnings` is passed. It
+  scans Markdown and only the comments in source files; pass paths, `-` for stdin,
   `--list-rules`, `--rule ID`, `--exclude GLOB`, or `--format json` to narrow or
   integrate it. Code fences and inline code in Markdown are skipped.
   `--commit-msg FILE` accepts the path passed to a Git `commit-msg` hook (or `-`

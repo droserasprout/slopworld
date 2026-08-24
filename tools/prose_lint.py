@@ -10,6 +10,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 
 @dataclass(frozen=True)
@@ -17,6 +18,7 @@ class Match:
     start: int
     end: int
     count: int | None = None
+    note: str | None = None
 
 
 @dataclass(frozen=True)
@@ -26,8 +28,13 @@ class Rule:
     pattern: re.Pattern[str] | None = None
     chain_head: str | None = None
     chain_test: re.Pattern[str] | None = None
+    finder: Callable[[str], list[Match]] | None = None
+    severity: str = "error"
+    scopes: frozenset[str] = frozenset(("prose", "comment", "commit"))
 
     def find(self, text: str):
+        if self.finder is not None:
+            return self.finder(text)
         if self.pattern is not None:
             return [Match(match.start(), match.end()) for match in self.pattern.finditer(text)]
         return find_chains(text, self.chain_head, self.chain_test)
@@ -39,12 +46,28 @@ CHAIN_SEP = r"(?:\s*,\s*(?:and\s+|or\s+)?|\s+(?:and|or)\s+|\s*[;&–—]\s*(?:an
 CHAIN_SPLIT = re.compile(CHAIN_SEP, FLAGS)
 
 
-def regex_rule(rule_id, name, pattern):
-    return Rule(rule_id, name, re.compile(pattern, FLAGS))
+def regex_rule(rule_id, name, pattern, *, severity="error", scopes=None):
+    return Rule(
+        rule_id,
+        name,
+        pattern=re.compile(pattern, FLAGS),
+        severity=severity,
+        scopes=frozenset(scopes or ("prose", "comment", "commit")),
+    )
 
 
 def chain_rule(rule_id, name, head, head_test):
     return Rule(rule_id, name, chain_head=head, chain_test=re.compile(head_test, FLAGS))
+
+
+def finder_rule(rule_id, name, finder, *, severity="warning", scopes=None):
+    return Rule(
+        rule_id,
+        name,
+        finder=finder,
+        severity=severity,
+        scopes=frozenset(scopes or ("prose", "comment", "commit")),
+    )
 
 
 def find_chains(text, head, head_test):
@@ -58,6 +81,60 @@ def find_chains(text, head, head_test):
         count = sum(bool(head_test.match(part.strip())) for part in CHAIN_SPLIT.split(match.group()))
         found.append(Match(match.start(), end, count))
     return found
+
+
+def count_words(text):
+    return len(re.findall(r"\S+", text))
+
+
+def clustered_finder(pattern, minimum, window_words, *, distinct=False, label="hits"):
+    regex = re.compile(pattern, FLAGS)
+
+    def find(text):
+        hits = list(regex.finditer(text))
+        found = []
+        i = 0
+        while i < len(hits):
+            values = set()
+            matched = False
+            for j in range(i, len(hits)):
+                if count_words(text[hits[i].start() : hits[j].end()]) > window_words:
+                    break
+                values.add(hits[j].group().casefold())
+                score = len(values) if distinct else j - i + 1
+                if score >= minimum:
+                    note = f"{score} {label} within {window_words} words"
+                    found.append(Match(hits[i].start(), hits[i].end(), note=note))
+                    i = j + 1
+                    matched = True
+                    break
+            if not matched:
+                i += 1
+        return found
+
+    return find
+
+
+def em_dash_density(text):
+    hits = list(re.finditer(r"(?<=\s)—(?=\s)", text))
+    words = count_words(text)
+    if len(hits) < 2 or (words > 250 and len(hits) * 150 <= words):
+        return []
+    return [Match(hits[0].start(), hits[0].end(), note=f"{len(hits)} spaced em dashes in {words} words")]
+
+
+def bold_lead_density(text):
+    hits = list(re.finditer(r"(?m)^\s*(?:[-*+]\s+|\d+\.\s+)?\*\*[^*\n]{1,50}\*\*\s*:", text))
+    if len(hits) < 3:
+        return []
+    return [Match(hits[2].start(), hits[2].end(), note=f"{len(hits)} bold lead-ins")]
+
+
+RHETORICAL_ADJECTIVE = (
+    r"(?:actionable|accurate|balanced|clean|clear|comprehensive|concise|direct|effective|flexible|"
+    r"fast|honest|intentional|maintainable|meaningful|nuanced|powerful|practical|readable|reliable|"
+    r"robust|scalable|seamless|secure|simple|small|stable|thoughtful|useful|\w+(?:able|ible|ful|ical|ive|less|ous))"
+)
 
 
 RULES = (
@@ -107,6 +184,66 @@ RULES = (
         r"\b(?:that|this|it|which)(?:['’]s|\s+(?:is|was))\s+not\s+nothing\b",
     ),
     regex_rule(
+        "mirrored-antithesis",
+        "Mirrored negative/positive antithesis",
+        r"\byou\s+(?:don['’]t|do\s+not)\s+need\b[^.!?\n]{1,80}[.;:—–,]\s*you\s+need\b|\b(?:you|we|they)\s+(?:do|does|did|can|could|should|will|would)n['’]t\b[^.!?\n]{1,80}[.;:—–,]\s*(?:you|we|they)\s+(?:do|does|did|can|could|should|will|would)\b|\b(?:the\s+[\w'’-]+(?:\s+[\w'’-]+){0,3}|this|that|it)\s+(?:(?:is|are|was|were)n['’]t|(?:is|are|was|were)\s+not)\b[^.!?\n]{1,80}[.;:—–,]\s*(?:it|this|that)(?:['’]s|\s+(?:is|are|was|were))\b|\bnot\s+because\b[^.!?\n]{1,80}\bbut\s+because\b",
+    ),
+    regex_rule(
+        "staged-reveal",
+        "Staged reveal",
+        r"\bhere['’]s\s+the\s+(?:thing|catch|key)\b|\bthe\s+(?:key|reality|point|trick|answer)\s+is\b|\bwhat\s+(?:matters|this\s+means)\s+is\b|\bthis\s+is\s+where\s+[^.!?\n]{1,60}\bcomes\s+in\b|\bthe\s+answer\s+is\s+simple\b",
+        severity="warning",
+    ),
+    regex_rule(
+        "emphatic-fragment",
+        "Emphatic sentence fragment",
+        r"(?:^|(?<=[.!?]\s)|(?<=\n))(?:full\s+stop|period|end\s+of\s+story|that['’]s\s+it|that(?:\s+is|['’]s)\s+the\s+point|let\s+that\s+sink\s+in)\s*[.!](?!\w)",
+    ),
+    regex_rule(
+        "meta-scaffolding",
+        "Meta scaffolding",
+        r"\b(?:let['’]s\s+break\s+(?:this|it)\s+down|here['’]s\s+how(?:\s+(?:it|this)\s+works|\s+to\b|\s*:)|there\s+are\s+(?:three|four|five|\d+)\s+key\b|key\s+takeaways?\s*:|why\s+this\s+matters\s*:|in\s+(?:summary|conclusion)\s*,|overall\s*,)",
+        severity="warning",
+    ),
+    regex_rule(
+        "performative-clarity",
+        "Performative clarity",
+        r"\b(?:to\s+be\s+clear|I\s+want\s+to\s+be\s+clear|make\s+no\s+mistake|let['’]s\s+be\s+(?:clear|honest)|the\s+simple\s+truth\s+is|it\s+bears\s+emphasizing)\b",
+        severity="warning",
+    ),
+    regex_rule(
+        "therapeutic-validation",
+        "Therapeutic validation",
+        r"\b(?:you['’]re\s+not\s+(?:alone|failing|broken)|it['’]s\s+okay\s+to|give\s+yourself\s+permission\s+to|be\s+gentle\s+with\s+yourself|that\s+makes\s+sense)\b",
+    ),
+    regex_rule(
+        "commit-narration",
+        "Commit-message narration",
+        r"(?m)^(?:this|the)\s+(?:commit|change|implementation|approach|update)\s+(?:adds?|updates?|changes?|introduces?|implements?|ensures?|allows?|provides?|enables?)\b",
+        severity="warning",
+        scopes=("commit",),
+    ),
+    regex_rule(
+        "commit-headings",
+        "Templated commit-message heading",
+        r"(?m)^\s*(?:#{1,6}\s*)?(?:key\s+changes|benefits|summary|what\s+changed|why\s+this\s+matters)\s*:?\s*$",
+        severity="warning",
+        scopes=("commit",),
+    ),
+    regex_rule(
+        "commit-self-review",
+        "Commit-message self-review",
+        r"\b(?:makes?|keeps?)\s+(?:the\s+)?(?:code|implementation|design)\s+(?:cleaner|more\s+(?:robust|maintainable|readable|scalable))\b",
+        severity="warning",
+        scopes=("commit",),
+    ),
+    regex_rule(
+        "claude-attribution",
+        "Claude-generated attribution",
+        r"(?:generated\s+with\s+(?:\[)?claude\s+code|co-authored-by:\s*claude\b)",
+        scopes=("commit",),
+    ),
+    regex_rule(
         "ai-vocab",
         "AI vocabulary words",
         r"\b(?:delv(?:e|es|ed|ing)|tapestr(?:y|ies)|meticulous(?:ly)?|pivotal|intricate(?:ly)?|intricacies|interplay|underscor(?:e|es|ed|ing)|garner(?:s|ed|ing)?|bolster(?:s|ed|ing)?|vibrant|bustling|multifaceted|seamless(?:ly)?|commendable|ever-evolving)\b",
@@ -152,6 +289,12 @@ RULES = (
         r",\s+(?:highlighting|underscoring|emphasizing|showcasing|reflecting|demonstrating|illustrating|signaling|solidifying|cementing|reinforcing|underlining)\s+(?:its|his|her|their|our|the|a|an|how|that|what|both)\b[^.!?\n]*",
     ),
     regex_rule(
+        "functional-participle-tail",
+        "Functional participle sentence tail",
+        r",\s+(?:ensuring|allowing|enabling|providing|creating|making|leaving|keeping|offering|bringing|giving|helping)\s+(?:its|his|her|their|our|the|a|an|how|that|what|both)\b[^.!?\n]*",
+        severity="warning",
+    ),
+    regex_rule(
         "promo",
         "Promotional boilerplate",
         r"\bnestled\s+(?:in|on|among|between|along|at)\b|\bin\s+the\s+heart\s+of\b|\brich\s+(?:cultural\s+|historical\s+)?(?:heritage|history|tapestry)\b|\bhidden\s+gem\b|\bmust-(?:visit|see|try)\b|\bbreathtaking\b|\bboasts?\s+(?:a|an|the)\b|\bstunning\s+(?:views?|scenery|architecture|backdrop)\b",
@@ -160,6 +303,49 @@ RULES = (
         "ai-leftovers",
         "Chatbot leftovers",
         r"\bas\s+an\s+ai(?:\s+language)?\s+model\b|\bas\s+of\s+my\s+last\s+(?:update|training)\b|\bknowledge\s+cutoff\b|\bI\s+(?:cannot|can['’]t|do\s+not|don['’]t)\s+(?:browse\s+the\s+internet|access\s+real-?time)\b|contentReference|oaicite|turn0(?:search|news|image)\d*|attributableIndex|utm_source=",
+    ),
+    finder_rule(
+        "em-dash-density",
+        "High em-dash density",
+        em_dash_density,
+    ),
+    finder_rule(
+        "rhetorical-triads",
+        "Repeated rule-of-three lists",
+        clustered_finder(
+            rf"\b{RHETORICAL_ADJECTIVE},\s+{RHETORICAL_ADJECTIVE},?\s+(?:and|or)\s+{RHETORICAL_ADJECTIVE}\b",
+            2,
+            250,
+            label="triads",
+        ),
+        scopes=("prose", "commit"),
+    ),
+    finder_rule(
+        "bold-lead-density",
+        "Repeated bold lead-ins",
+        bold_lead_density,
+        scopes=("prose", "commit"),
+    ),
+    finder_rule(
+        "claude-vocab-cluster",
+        "Claude vocabulary cluster",
+        clustered_finder(
+            r"\b(?:comprehensive(?:ly)?|robust(?:ly)?|nuanced?|paradigm|leverag(?:e|es|ed|ing)|facilitat(?:e|es|ed|ing)|foster(?:s|ed|ing)?|realm|noteworthy|meaningful(?:ly)?|intentional(?:ly)?|genuine(?:ly)?|deep(?:ly)?|quiet(?:ly)?|fundamental(?:ly)?|essential(?:ly)?|notable|notably)\b",
+            2,
+            200,
+            distinct=True,
+            label="distinct terms",
+        ),
+    ),
+    finder_rule(
+        "hedge-density",
+        "Hedging cluster",
+        clustered_finder(
+            r"\b(?:typically|generally|potentially|often|sometimes|usually|may|might|could)\b",
+            4,
+            200,
+            label="hedges",
+        ),
     ),
 )
 
@@ -307,14 +493,15 @@ def lintable_text(path, text):
     return ""
 
 
-def collect_matches(text, enabled):
+def collect_matches(text, enabled, scope="prose"):
     raw = []
     for rule in RULES:
-        if rule.id in enabled:
-            raw.extend((match.start, -match.end, rule, match) for match in rule.find(text))
-    raw.sort(key=lambda item: (item[0], item[1]))
+        if rule.id in enabled and scope in rule.scopes:
+            priority = 0 if rule.severity == "error" else 1
+            raw.extend((match.start, priority, -match.end, rule, match) for match in rule.find(text))
+    raw.sort(key=lambda item: (item[0], item[1], item[2]))
     kept = []
-    for _, _, rule, match in raw:
+    for _, _, _, rule, match in raw:
         if kept and match.start < kept[-1][1].end:
             continue
         kept.append((rule, match))
@@ -374,6 +561,7 @@ def parse_args(argv):
     parser.add_argument("--exclude", action="append", default=[], metavar="GLOB")
     parser.add_argument("--rule", action="append", choices=sorted(RULES_BY_ID), dest="rules")
     parser.add_argument("--format", choices=("text", "json"), default="text")
+    parser.add_argument("--fail-on-warnings", action="store_true")
     parser.add_argument("--list-rules", action="store_true")
     args = parser.parse_args(argv)
     if args.commit_msg and args.paths:
@@ -385,20 +573,22 @@ def main(argv=None):
     args = parse_args(argv)
     if args.list_rules:
         for rule in RULES:
-            print(f"{rule.id}\t{rule.name}")
+            print(f"{rule.id}\t{rule.severity}\t{','.join(sorted(rule.scopes))}\t{rule.name}")
         return 0
 
     enabled = set(args.rules or RULES_BY_ID)
     paths = [Path(args.commit_msg)] if args.commit_msg else repository_files(args.paths)
-    failures = 0
+    errors = warnings = 0
     for path in sorted(paths, key=lambda item: str(item)):
         shown = str(path)
         if shown == "-":
             original = sys.stdin.read()
             linted = mask_commit_message(original) if args.commit_msg else original
+            scope = "commit" if args.commit_msg else "prose"
             shown = "<stdin>"
         else:
-            if (not args.commit_msg and text_kind(path) is None) or any(fnmatch.fnmatch(shown, glob) for glob in args.exclude):
+            kind = text_kind(path)
+            if (not args.commit_msg and kind is None) or any(fnmatch.fnmatch(shown, glob) for glob in args.exclude):
                 continue
             if not path.is_file():
                 continue
@@ -408,20 +598,27 @@ def main(argv=None):
                 print(f"{shown}: {error}", file=sys.stderr)
                 return 2
             linted = mask_commit_message(original) if args.commit_msg else lintable_text(path, original)
+            scope = "commit" if args.commit_msg else ("prose" if kind == "prose" else "comment")
         starts = locations(original)
-        for rule, match in collect_matches(linted, enabled):
-            failures += 1
+        for rule, match in collect_matches(linted, enabled, scope):
+            if rule.severity == "error":
+                errors += 1
+            else:
+                warnings += 1
             line, column = line_column(starts, match.start)
             detail = excerpt(original, match.start, match.end)
             if match.count is not None:
                 detail += f" ({match.count} items)"
+            if match.note:
+                detail += f" ({match.note})"
             if args.format == "json":
-                print(json.dumps({"path": shown, "line": line, "column": column, "rule": rule.id, "message": rule.name, "excerpt": detail}, ensure_ascii=False))
+                print(json.dumps({"path": shown, "line": line, "column": column, "severity": rule.severity, "rule": rule.id, "message": rule.name, "excerpt": detail}, ensure_ascii=False))
             else:
-                print(f"{shown}:{line}:{column}: cliche/{rule.id}: {rule.name}: {detail}")
-    if failures and args.format == "text":
-        print(f"{failures} cliche{'s' if failures != 1 else ''} found", file=sys.stderr)
-    return 1 if failures else 0
+                prefix = "cliche" if rule.severity == "error" else "warning/cliche"
+                print(f"{shown}:{line}:{column}: {prefix}/{rule.id}: {rule.name}: {detail}")
+    if (errors or warnings) and args.format == "text":
+        print(f"{errors} errors, {warnings} warnings", file=sys.stderr)
+    return 1 if errors or (warnings and args.fail_on_warnings) else 0
 
 
 if __name__ == "__main__":

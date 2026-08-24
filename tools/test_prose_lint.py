@@ -108,6 +108,32 @@ CASES = (
     ("ai-leftovers", "See x.test/?utm_source=chatgpt.com for details.", 1, None),
     ("ai-leftovers", "contentReference[oaicite:0]{index=0}", 2, None),
     ("ai-leftovers", "The last update shipped on Tuesday.", 0, None),
+    ("mirrored-antithesis", "You don't need magic; you need tests.", 1, None),
+    ("mirrored-antithesis", "The goal isn't speed. It's predictability.", 1, None),
+    ("mirrored-antithesis", "The goal is not speed. It is predictability.", 1, None),
+    ("mirrored-antithesis", "This isn't polish; it's camouflage.", 1, None),
+    ("mirrored-antithesis", "Not because it is easy, but because it is required.", 1, None),
+    ("mirrored-antithesis", "You don't need this package.", 0, None),
+    ("staged-reveal", "Here's the thing: the socket is shared.", 1, None),
+    ("staged-reveal", "What matters is the serialized name.", 1, None),
+    ("staged-reveal", "The key opens the settings page.", 0, None),
+    ("emphatic-fragment", "Delete the fallback. Full stop.", 1, None),
+    ("emphatic-fragment", "The sentence ends with a full stop.", 0, None),
+    ("meta-scaffolding", "Let's break this down.", 1, None),
+    ("meta-scaffolding", "Here's how to update it.", 1, None),
+    ("meta-scaffolding", "Key takeaway: remove the wrapper.", 1, None),
+    ("meta-scaffolding", "The key takeaway field is optional.", 0, None),
+    ("performative-clarity", "To be clear, the cache is process-local.", 1, None),
+    ("performative-clarity", "The panel must be clear of overlays.", 0, None),
+    ("therapeutic-validation", "Give yourself permission to stop.", 1, None),
+    ("therapeutic-validation", "The permission belongs to the token.", 0, None),
+    ("commit-narration", "This change adds a retry cap.", 1, None),
+    ("commit-narration", "Add a retry cap.", 0, None),
+    ("commit-headings", "Key changes:\n", 1, None),
+    ("commit-self-review", "This makes the code more maintainable.", 1, None),
+    ("claude-attribution", "Generated with Claude Code", 1, None),
+    ("claude-attribution", "Co-Authored-By: Claude <noreply@anthropic.com>", 1, None),
+    ("functional-participle-tail", "The wrapper owns the handle, ensuring the cleanup order.", 1, None),
 )
 
 
@@ -124,6 +150,34 @@ class DetectorTests(unittest.TestCase):
         text = "The museum boasts a rich tapestry of exhibits."
         found = prose_lint.collect_matches(text, set(prose_lint.RULES_BY_ID))
         self.assertEqual(["promo", "promo"], [rule.id for rule, _ in found])
+
+    def test_commit_rules_are_scoped(self):
+        text = "This change adds retries."
+        prose = prose_lint.collect_matches(text, set(prose_lint.RULES_BY_ID), "prose")
+        commit = prose_lint.collect_matches(text, set(prose_lint.RULES_BY_ID), "commit")
+        self.assertNotIn("commit-narration", [rule.id for rule, _ in prose])
+        self.assertIn("commit-narration", [rule.id for rule, _ in commit])
+
+    def test_vocabulary_cluster_requires_distinct_terms(self):
+        rule = prose_lint.RULES_BY_ID["claude-vocab-cluster"]
+        self.assertEqual([], rule.find("The robust parser has robust tests."))
+        self.assertEqual(1, len(rule.find("The robust parser offers comprehensive coverage.")))
+
+    def test_density_rules_use_thresholds(self):
+        dash = prose_lint.RULES_BY_ID["em-dash-density"]
+        triads = prose_lint.RULES_BY_ID["rhetorical-triads"]
+        bold = prose_lint.RULES_BY_ID["bold-lead-density"]
+        self.assertEqual([], dash.find("One clause — one aside."))
+        self.assertEqual(1, len(dash.find("One — two — three.")))
+        self.assertEqual([], triads.find("Fast, stable, and small."))
+        self.assertEqual(1, len(triads.find("Fast, stable, and scalable. Clear, direct and useful.")))
+        self.assertEqual([], bold.find("- **Input**: one\n- **Output**: two\n"))
+        self.assertEqual(1, len(bold.find("- **Input**: one\n- **Output**: two\n- **State**: three\n")))
+
+    def test_hedge_density_requires_four_nearby_hits(self):
+        rule = prose_lint.RULES_BY_ID["hedge-density"]
+        self.assertEqual([], rule.find("This may fail and could retry."))
+        self.assertEqual(1, len(rule.find("This may fail, could retry, might recover, and usually succeeds.")))
 
 
 class InputTests(unittest.TestCase):
@@ -195,6 +249,24 @@ class CliTests(unittest.TestCase):
         self.assertEqual(1, result.returncode)
         self.assertIn("cliche/no-chain", result.stdout)
         self.assertNotIn("cliche/whole", result.stdout)
+
+    def test_warnings_are_advisory_unless_strict(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sample.md"
+            path.write_text("Here's the thing: one warning is enough.\n", encoding="utf-8")
+            advisory = subprocess.run(
+                [sys.executable, prose_lint.__file__, str(path)],
+                capture_output=True,
+                text=True,
+            )
+            strict = subprocess.run(
+                [sys.executable, prose_lint.__file__, "--fail-on-warnings", str(path)],
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(0, advisory.returncode)
+        self.assertIn("warning/cliche/staged-reveal", advisory.stdout)
+        self.assertEqual(1, strict.returncode)
 
 
 if __name__ == "__main__":
