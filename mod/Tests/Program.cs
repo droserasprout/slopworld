@@ -30,8 +30,8 @@ namespace SlopWorld.Tests
                 tests.Add(("ScreenBuf: " + test.Name, test.Body));
             foreach (var test in UrlScanTests.Cases())
                 tests.Add(("UrlScan: " + test.Name, test.Body));
-            foreach (var test in RelativePathScanTests.Cases())
-                tests.Add(("RelativePathScan: " + test.Name, test.Body));
+            foreach (var test in PathScanTests.Cases())
+                tests.Add(("PathScan: " + test.Name, test.Body));
             foreach (var test in TerminalColumnsTests.Cases())
                 tests.Add(("TerminalColumns: " + test.Name, test.Body));
             foreach (var test in PagerCommandsTests.Cases())

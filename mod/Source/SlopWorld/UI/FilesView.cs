@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
@@ -189,10 +190,12 @@ namespace SlopWorld
 
         // Resolve against the session's project root, then open only the ancestor listings
         // needed to reveal the row. No filesystem work happens until the click asks for it.
-        public static bool FocusPath(string project, string relative)
+        public static bool FocusPath(string project, string path)
         {
             var info = SessionHub.Instance.Project(project);
             if (info == null || string.IsNullOrEmpty(info.Dir)) return false;
+            string relative = ToProjectRelative(info.Dir, path);
+            if (relative == null) return false;
             var parts = NormalizeRelative(relative);
             if (parts == null || parts.Count == 0) return false;
 
@@ -206,6 +209,25 @@ namespace SlopWorld
             int version = ++_focusVersion;
             Reveal(Root(project), parts, 0, version);
             return true;
+        }
+
+        // An absolute path is only reachable if it sits inside the project's own tree - the
+        // one root Files can list - so it is stripped back to a project-relative path here,
+        // and a path outside the root is refused so the click falls through. Relative paths
+        // pass straight on.
+        static string ToProjectRelative(string dir, string path)
+        {
+            if (string.IsNullOrEmpty(path) || path[0] != '/') return path;
+
+            string root = dir.Replace('\\', '/').TrimEnd('/');
+            if (root.Length == 0) return null;
+            string abs = path.Replace('\\', '/');
+            if (!abs.StartsWith(root, StringComparison.Ordinal)) return null;
+            // The root itself, or a real child under it: the separator guards against
+            // /home/foo-bar reading as a child of /home/foo.
+            if (abs.Length == root.Length) return "";
+            if (abs[root.Length] != '/') return null;
+            return abs.Substring(root.Length + 1);
         }
 
         static List<string> NormalizeRelative(string path)

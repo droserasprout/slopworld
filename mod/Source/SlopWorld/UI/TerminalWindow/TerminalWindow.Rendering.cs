@@ -437,7 +437,7 @@ namespace SlopWorld
             return LinkAt(body, buf, m);
         }
 
-        string RelativePathUnder(Rect body, Vector2 m)
+        string PathUnder(Rect body, Vector2 m)
         {
             var buf = DisplayedBuf();
             if (buf == null || buf.Lines == null || !body.Contains(m)) return null;
@@ -445,7 +445,7 @@ namespace SlopWorld
             var cell = CellAt(body, m);
             if (cell.y < 0 || cell.y >= buf.Runs.Length) return null;
             // A column-indexed line so cell.x (a screen column) points at the right char.
-            return RelativePathScan.At(
+            return PathScan.At(
                 TerminalColumns.Line(TerminalColumns.Cells(buf.Runs[cell.y])), cell.x);
         }
 
