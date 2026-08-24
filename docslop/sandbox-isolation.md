@@ -66,4 +66,5 @@ configuration. Resource caps are off unless configured.
 profile, mounts the live SlopWorld tmux socket, binds host `/proc` and `/sys` for diagnostics,
 shares X11/Wayland and GPU/audio devices, exposes desktop application metadata, and includes
 the systemd/D-Bus access needed to inspect the game and tmux services. Its `escapes` warning is
-therefore not cosmetic.
+therefore not cosmetic. Its `daemon_config` capability binds only `config.toml` and
+`endpoint.toml` read-only; ordinary preset path lists remain unable to reach either file.

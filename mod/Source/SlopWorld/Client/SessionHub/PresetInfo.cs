@@ -43,11 +43,17 @@ namespace SlopWorld
         // A generated bind for the daemon's live tmux socket. It is not a path the editor can
         // change, but it must round-trip when the settings page saves this preset.
         public bool Tmux;
+        // Generated read-only binds for config.toml and endpoint.toml. Kept out of the path
+        // lists because those remain subject to the ordinary protected-path guard.
+        public bool DaemonConfig;
         public bool IsEscape => !string.IsNullOrEmpty(Escapes);
 
         // Every path and env var the preset asks for, for the tooltip.
         public List<string> Gives =>
             (Tmux ? new[] { "SlopWorld tmux socket" } : Enumerable.Empty<string>())
+                .Concat(DaemonConfig
+                    ? new[] { "SlopWorld daemon config (read-only)" }
+                    : Enumerable.Empty<string>())
                 .Concat(Ro).Concat(Rw).Concat(Dev).Concat(Shared).Concat(Private).Concat(Env)
                 .Concat(Setenv.Select(x => $"{x.Key}={x.Value}")).ToList();
 
@@ -68,6 +74,7 @@ namespace SlopWorld
             Skip = new List<string>(Skip),
             Escapes = Escapes,
             Tmux = Tmux,
+            DaemonConfig = DaemonConfig,
             Setenv = new Dictionary<string, string>(Setenv),
         };
 
@@ -78,6 +85,7 @@ namespace SlopWorld
             $"\"rw\":{Arr(Rw)},\"dev\":{Arr(Dev)},\"private\":{Arr(Private)}," +
             $"\"seed\":{Arr(Seed)},\"skip\":{Arr(Skip)},\"shared\":{Arr(Shared)}," +
             $"\"escapes\":{JVal.Q(Escapes)},\"env\":{Arr(Env)},\"tmux\":{(Tmux ? "true" : "false")}," +
+            $"\"daemon_config\":{(DaemonConfig ? "true" : "false")}," +
             $"\"setenv\":{Map(Setenv)}}}";
 
         static string Arr(List<string> items) =>
@@ -97,6 +105,7 @@ namespace SlopWorld
                 Source = j["source"].AsString("system"),
                 Escapes = j["escapes"].AsString(),
                 Tmux = j["tmux"].AsBool(false),
+                DaemonConfig = j["daemon_config"].AsBool(false),
             };
             p.Ro.AddRange(j["ro"].Items.Select(i => i.AsString()));
             p.Requires.AddRange(j["requires"].Items.Select(i => i.AsString()));

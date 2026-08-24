@@ -652,6 +652,15 @@ impl Config {
         }
         let text =
             std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        if let Some(text) = migrate_usage_switches(&text)? {
+            let cfg = Self::parse(&text)?;
+            Self::save_text(path, &text)?;
+            tracing::info!(
+                "migrated removed daemon usage switches to per-row settings in {}",
+                path.display()
+            );
+            return Ok(cfg);
+        }
         Self::parse(&text)
     }
 
@@ -923,6 +932,87 @@ impl Config {
     }
 }
 
+/// Convert the last switch-based usage schema exactly once when reading the daemon's own file.
+/// `Config::parse` remains strict, so stale clients cannot keep writing the removed fields.
+fn migrate_usage_switches(text: &str) -> Result<Option<String>> {
+    let mut document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
+    let Some(daemon) = document
+        .get_mut("daemon")
+        .and_then(toml::Value::as_table_mut)
+    else {
+        return Ok(None);
+    };
+
+    let mut switches = Vec::new();
+    for (legacy, prefix, rows, default_enabled) in [
+        (
+            "usage",
+            "claude_",
+            &["claude_session", "claude_week", "claude_spend"][..],
+            true,
+        ),
+        (
+            "openrouter",
+            "openrouter_",
+            &["openrouter_balance"][..],
+            false,
+        ),
+        (
+            "openai",
+            "openai_",
+            &["openai_session", "openai_week"][..],
+            true,
+        ),
+    ] {
+        let Some(value) = daemon.remove(legacy) else {
+            continue;
+        };
+        let enabled = value
+            .as_bool()
+            .with_context(|| format!("[daemon] {legacy} must be true or false"))?;
+        switches.push((prefix, rows, default_enabled, enabled));
+    }
+    if switches.is_empty() {
+        return Ok(None);
+    }
+
+    let items = daemon
+        .entry("usage_items")
+        .or_insert_with(|| toml::Value::Table(toml::map::Map::new()))
+        .as_table_mut()
+        .context("[daemon] usage_items must be a table")?;
+    for (prefix, base_rows, default_enabled, enabled) in switches {
+        let source_has_rows = items.keys().any(|key| key.starts_with(prefix));
+        if enabled && (default_enabled || source_has_rows) {
+            continue;
+        }
+
+        if !enabled {
+            for (key, item) in items.iter_mut() {
+                if key.starts_with(prefix) {
+                    set_usage_poll(item, key, false)?;
+                }
+            }
+        }
+        for key in base_rows {
+            let item = items
+                .entry((*key).to_string())
+                .or_insert_with(|| toml::Value::Table(toml::map::Map::new()));
+            set_usage_poll(item, key, enabled)?;
+        }
+    }
+
+    Ok(Some(toml::to_string_pretty(&document)?))
+}
+
+fn set_usage_poll(item: &mut toml::Value, key: &str, poll: bool) -> Result<()> {
+    let item = item
+        .as_table_mut()
+        .with_context(|| format!("[daemon.usage_items.{key}] must be a table"))?;
+    item.insert("poll".into(), toml::Value::Boolean(poll));
+    Ok(())
+}
+
 /// Expands `~` and environment variables for bwrap; unset variables yield an empty path so
 /// `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` cannot collapse to `/` and bind the filesystem.
 pub fn expand(path: &str) -> String {
@@ -976,9 +1066,9 @@ pub fn expand(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        expand, redact_token_text, temp_dir, Config, DnsConfig, HostTerminalCfg, NetworkMode,
-        ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink, TitlePolicy,
-        TOKEN_REDACTED,
+        expand, migrate_usage_switches, redact_token_text, temp_dir, Config, DnsConfig,
+        HostTerminalCfg, NetworkMode, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind,
+        ShortcutLink, TitlePolicy, TOKEN_REDACTED,
     };
 
     #[test]
@@ -1520,5 +1610,76 @@ token = \"not-a-daemon-token\"
             let text = format!("[daemon]\nbind = \"127.0.0.1:7717\"\n{key} = true\n");
             assert!(Config::parse(&text).is_err(), "removed {key} should fail");
         }
+    }
+
+    #[test]
+    fn daemon_file_migrates_removed_usage_switches_to_rows() {
+        let text = migrate_usage_switches(
+            r#"
+                [daemon]
+                bind = "127.0.0.1:7717"
+                usage = false
+                openrouter = true
+                openai = false
+
+                [daemon.usage_items.openrouter_balance]
+                poll = true
+                interval_secs = 120
+
+                [daemon.usage_items.openai_session]
+                poll = true
+            "#,
+        )
+        .unwrap()
+        .expect("legacy switches should migrate");
+        let document: toml::Value = toml::from_str(&text).unwrap();
+        let daemon = document["daemon"].as_table().unwrap();
+        assert!(!daemon.contains_key("usage"));
+        assert!(!daemon.contains_key("openrouter"));
+        assert!(!daemon.contains_key("openai"));
+
+        let cfg = Config::parse(&text).unwrap();
+        for key in ["claude_session", "claude_week", "claude_spend"] {
+            assert!(!cfg.daemon.usage_items[key].poll);
+        }
+        assert!(cfg.daemon.usage_items["openrouter_balance"].poll);
+        assert_eq!(
+            cfg.daemon.usage_items["openrouter_balance"].interval_secs,
+            Some(120)
+        );
+        for key in ["openai_session", "openai_week"] {
+            assert!(!cfg.daemon.usage_items[key].poll);
+        }
+    }
+
+    #[test]
+    fn daemon_file_migration_enables_openrouter_without_existing_rows() {
+        let text =
+            migrate_usage_switches("[daemon]\nbind = \"127.0.0.1:7717\"\nopenrouter = true\n")
+                .unwrap()
+                .expect("legacy switch should migrate");
+        let cfg = Config::parse(&text).unwrap();
+        assert!(cfg.daemon.usage_items["openrouter_balance"].poll);
+    }
+
+    #[test]
+    fn loading_the_daemon_file_rewrites_the_migrated_schema() {
+        let path = std::env::temp_dir().join(format!(
+            "slopd-config-migration-{}.toml",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        std::fs::write(
+            &path,
+            "[daemon]\nbind = \"127.0.0.1:7717\"\nopenrouter = true\n",
+        )
+        .unwrap();
+
+        let cfg = Config::load(&path).unwrap();
+        assert!(cfg.daemon.usage_items["openrouter_balance"].poll);
+        let saved = std::fs::read_to_string(&path).unwrap();
+        assert!(!saved.contains("openrouter ="));
+        assert!(Config::parse(&saved).is_ok());
+        std::fs::remove_file(path).unwrap();
     }
 }

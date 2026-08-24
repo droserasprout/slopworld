@@ -31,14 +31,10 @@ rw = [
 ]
 # Desktop metadata lets gio/GTK reproduce the host application's associations and chooser.
 # /proc and /sys are host diagnostics; /run/udev lets graphics/device enumeration work.
-# The daemon's config dir carries config.toml and endpoint.toml, needed to debug why the
-# mod cannot reach the daemon; read-only so the token cannot be rewritten from here.
 ro = [
     "/proc",
     "/sys",
     "/run/udev",
-    "$XDG_CONFIG_HOME/slopworld",
-    "~/.config/slopworld",
     # Journal files + machine-id let `journalctl` read the daemon unit's own startup/exit logs.
     "/var/log/journal",
     "/run/log/journal",
@@ -56,6 +52,9 @@ ro = [
 ]
 # Bind the daemon's configured tmux socket, not the user's other tmux servers.
 tmux = true
+# Bind config.toml and endpoint.toml for connection diagnostics. This is a generated,
+# read-only exception to the ordinary preset path guard.
+daemon_config = true
 escapes = "can modify the host game/profile, read and control host terminals, share displays and devices, expose host processes, and talk to desktop/systemd services"
 env = [
     "SLOPWORLD_PROFILE",

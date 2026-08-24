@@ -17,6 +17,9 @@ a project checkbox; copying it creates the user `global` override.
 - `tmux = true` is a deliberate host escape for a debugging preset: the daemon's private
   tmux socket is mounted into the guest's uid-0 socket directory so `tmux -L slopworld` can
   inspect the live terminals.
+- `daemon_config = true` mounts only the effective `config.toml` and `endpoint.toml`
+  read-only. It is the narrow diagnostic exception to the guard that rejects those files from
+  every ordinary bind list.
 - `slopworld-debug` is the intentionally unsafe game-development bundle: it includes the
   game/profile tree read-write, host process and device diagnostics, X11/Wayland/audio/GPU,
   desktop application metadata, systemd/D-Bus, tmux, writable launcher/service-install paths,
