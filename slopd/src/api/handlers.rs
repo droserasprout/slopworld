@@ -80,7 +80,7 @@ pub(super) async fn health(State(_m): State<Mgr>) -> ApiResult {
     Ok(Json(json!({
         "ok": true,
         "version": env!("CARGO_PKG_VERSION"),
-        "tmux_socket": crate::config::TMUX_SOCKET,
+        "tmux_socket": crate::config::tmux_socket(),
     })))
 }
 

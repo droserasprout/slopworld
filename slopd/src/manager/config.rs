@@ -41,7 +41,7 @@ impl Manager {
         let activity_cache =
             crate::activity::ActivityCache::load(crate::activity::cache_path(&cfg_path));
         let m = Arc::new(Self {
-            tmux: Tmux::new(crate::config::TMUX_SOCKET),
+            tmux: Tmux::new(crate::config::tmux_socket()),
             cfg_path,
             rules: RwLock::new(compile_rules(&cfg)),
             live: RwLock::new(HashMap::new()),
