@@ -262,7 +262,7 @@ fn push_ro_binds(
     // The debug preset asks for this after the ordinary binds so a broad `/tmp` bind from
     // another preset cannot bury the socket. Inside bwrap the guest uid is 0, hence the target.
     if tmux {
-        if let Some((source, target)) = tmux_socket_bind(crate::config::TMUX_SOCKET) {
+        if let Some((source, target)) = tmux_socket_bind(crate::config::tmux_socket()) {
             push_args(a, &["--ro-bind", &source, &target]);
         }
     }

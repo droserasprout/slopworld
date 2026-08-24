@@ -46,9 +46,22 @@ pub const TOKEN_REDACTED: &str = "<redacted>";
 
 // These are daemon identity and scheduling policy, not user configuration. The private tmux
 // name is part of the sandbox/debug contract; the state tick only drives idle reclassification.
-pub const TMUX_SOCKET: &str = "slopworld";
 pub const STATE_TICK_MS: u64 = 1_000;
 pub const SCROLLBACK_LINES: u32 = 10_000;
+
+/// The private tmux socket name (`tmux -L <name>`). `SLOPD_TMUX_SOCKET` overrides it so a
+/// throwaway daemon can run beside the real one without sharing its tmux server; production
+/// leaves it unset and gets `slopworld`. Read once and cached, since it is daemon identity.
+pub fn tmux_socket() -> &'static str {
+    static SOCKET: OnceLock<String> = OnceLock::new();
+    SOCKET.get_or_init(|| {
+        std::env::var("SLOPD_TMUX_SOCKET")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "slopworld".to_string())
+    })
+}
 
 /// Redacts only a non-empty `[daemon] token` in raw config text, preserving comments and blanks;
 /// `Manager::replace_config` restores the real value when the sentinel is written back.
