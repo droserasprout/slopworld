@@ -1060,9 +1060,52 @@ fn age(ms: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::TcpListener;
 
     fn words(text: &str) -> Vec<String> {
         text.split_whitespace().map(str::to_string).collect()
+    }
+
+    fn serve(status: &str, body: &str) -> (Endpoint, thread::JoinHandle<String>) {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let status = status.to_string();
+        let body = body.to_string();
+        let server = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(socket.try_clone().unwrap());
+            let mut request = String::new();
+            let mut content_length = 0;
+            loop {
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    content_length = value.trim().parse().unwrap();
+                }
+                request.push_str(&line);
+                if line == "\r\n" {
+                    break;
+                }
+            }
+            let mut request_body = vec![0; content_length];
+            reader.read_exact(&mut request_body).unwrap();
+            request.push_str(&String::from_utf8_lossy(&request_body));
+
+            write!(
+                socket,
+                "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
+            request
+        });
+        (
+            Endpoint {
+                url: format!("http://{address}"),
+                token: "secret".into(),
+            },
+            server,
+        )
     }
 
     #[test]
@@ -1153,5 +1196,177 @@ mod tests {
         assert!(parse_logs_args(&words("game --daemon")).is_err());
         assert!(parse_logs_args(&words("--lines 0")).is_err());
         assert!(parse_logs_args(&words("--lines 100001")).is_err());
+    }
+
+    #[test]
+    fn inbox_filters_direction_status_and_newest_first() {
+        let inbox = json!({
+            "tasks": [
+                { "id": "sent", "from": "me", "to": "agent", "status": "working", "created_ms": 1 },
+                { "id": "done", "from": "me", "to": "agent", "status": "done", "created_ms": 2 },
+                { "id": "received", "from": "agent", "to": "me", "status": "queued", "created_ms": 3 },
+                { "id": "other", "from": "a", "to": "b", "status": "queued", "created_ms": 4 }
+            ]
+        });
+        let ids = |filter: InboxFilter| {
+            filter
+                .apply(&inbox, "me")
+                .into_iter()
+                .map(|task| task["id"].as_str().unwrap())
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(ids(InboxFilter::default()), ["other", "received", "sent"]);
+        assert_eq!(ids(InboxFilter::parse(&words("--sent")).unwrap()), ["sent"]);
+        assert_eq!(
+            ids(InboxFilter::parse(&words("--received")).unwrap()),
+            ["received"]
+        );
+        assert_eq!(
+            ids(InboxFilter::parse(&words("--all --sent --received")).unwrap()),
+            ["other", "received", "done", "sent"]
+        );
+        assert_eq!(
+            ids(InboxFilter::parse(&words("--status done")).unwrap()),
+            ["done"]
+        );
+        assert!(InboxFilter::parse(&words("--unknown")).is_err());
+    }
+
+    #[test]
+    fn peer_names_are_sorted_unique_and_always_include_the_host() {
+        let sessions = json!({
+            "sessions": [
+                { "name": "zeta" },
+                { "name": "host" },
+                { "name": "alpha" },
+                { "name": "alpha" },
+                { "not_name": "ignored" }
+            ]
+        });
+        assert_eq!(peer_names(&sessions), ["alpha", "host", "zeta"]);
+        assert_eq!(peer_names(&json!({})), ["host"]);
+    }
+
+    #[test]
+    fn log_lines_are_cleaned_and_rendered_in_all_output_modes() {
+        assert_eq!(clean_log_line("line\r\n".into()), "line");
+        assert_eq!(clean_log_line("line\n".into()), "line");
+        assert_eq!(clean_log_line("line".into()), "line");
+
+        let mut output = Vec::new();
+        write_log_line(&mut output, LogSource::Game, "plain", false, false).unwrap();
+        write_log_line(&mut output, LogSource::Daemon, "prefixed", true, false).unwrap();
+        write_log_line(&mut output, LogSource::Game, "structured", false, true).unwrap();
+        let output = String::from_utf8(output).unwrap();
+        let lines = output.lines().collect::<Vec<_>>();
+
+        assert_eq!(lines[0], "plain");
+        assert_eq!(lines[1], "[daemon] prefixed");
+        assert_eq!(
+            serde_json::from_str::<Value>(lines[2]).unwrap(),
+            json!({ "source": "game", "line": "structured" })
+        );
+    }
+
+    #[test]
+    fn log_commands_select_the_expected_local_tools() {
+        let options = LogsOptions {
+            selection: LogSelection::All,
+            lines: 17,
+            follow: true,
+        };
+        let game = source_command(LogSource::Game, options).unwrap();
+        let game_args = game
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(game.get_program(), "tail");
+        assert!(game_args.windows(2).any(|args| args == ["--lines", "17"]));
+        assert!(game_args.iter().any(|arg| arg == "--follow=name"));
+
+        let daemon = source_command(LogSource::Daemon, options).unwrap();
+        let daemon_args = daemon
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(daemon.get_program(), "journalctl");
+        assert!(daemon_args.windows(2).any(|args| args == ["--lines", "17"]));
+        assert!(daemon_args.iter().any(|arg| arg == "--follow"));
+
+        assert_eq!(expand_home("/tmp/log").unwrap(), PathBuf::from("/tmp/log"));
+        assert_eq!(expand_home("~").unwrap(), dirs::home_dir().unwrap());
+    }
+
+    #[test]
+    fn request_sends_headers_and_supports_each_used_method() {
+        for (method, body) in [
+            ("GET", None),
+            ("DELETE", None),
+            ("POST", Some(json!({ "task": "check" }))),
+        ] {
+            let (endpoint, server) = serve("200 OK", r#"{"ok":true}"#);
+            assert_eq!(
+                request(&endpoint, "caller", method, "/api/test", body).unwrap(),
+                json!({ "ok": true })
+            );
+            let received = server.join().unwrap();
+            assert!(received.starts_with(&format!("{method} /api/test HTTP/1.1\r\n")));
+            let lower = received.to_ascii_lowercase();
+            assert!(lower.contains("x-slop-token: secret\r\n"));
+            assert!(lower.contains("x-slop-session: caller\r\n"));
+            if method == "POST" {
+                let (_, body) = received.split_once("\r\n\r\n").unwrap();
+                assert_eq!(
+                    serde_json::from_str::<Value>(body).unwrap(),
+                    json!({ "task": "check" })
+                );
+            }
+        }
+        assert_eq!(
+            request(
+                &Endpoint {
+                    url: String::new(),
+                    token: String::new(),
+                },
+                "caller",
+                "PUT",
+                "/unused",
+                None,
+            )
+            .unwrap_err(),
+            "unsupported request: PUT"
+        );
+    }
+
+    #[test]
+    fn request_preserves_structured_and_plain_refusal_details() {
+        let (endpoint, server) = serve("400 Bad Request", r#"{"error":"bad task"}"#);
+        assert_eq!(
+            request(&endpoint, "caller", "GET", "/api/test", None).unwrap_err(),
+            "bad task"
+        );
+        server.join().unwrap();
+
+        let (endpoint, server) = serve("401 Unauthorized", "");
+        let error = request(&endpoint, "caller", "GET", "/api/test", None).unwrap_err();
+        assert!(error.contains("refused: 401"), "{error}");
+        server.join().unwrap();
+
+        let (endpoint, server) = serve("502 Bad Gateway", "upstream broke");
+        let error = request(&endpoint, "caller", "GET", "/api/test", None).unwrap_err();
+        assert!(
+            error.contains("502") && error.contains("upstream broke"),
+            "{error}"
+        );
+        server.join().unwrap();
+
+        let (endpoint, server) = serve("200 OK", "not json");
+        let error = request(&endpoint, "caller", "GET", "/api/test", None).unwrap_err();
+        assert!(
+            error.contains("response 200") && error.contains("expected"),
+            "{error}"
+        );
+        server.join().unwrap();
     }
 }
