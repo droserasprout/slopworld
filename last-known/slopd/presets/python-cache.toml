@@ -1,6 +1,0 @@
-[[sandbox]]
-name = "python-cache"
-category = "dev"
-description = "writable pip and uv caches (requires python)"
-requires = ["python"]
-rw = ["~/.cache/pip", "~/.cache/uv", "~/.local/share/uv"]

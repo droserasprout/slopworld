@@ -1,8 +1,0 @@
-# Optional shell userdata: PowerShell profiles are shared read-only, while its history and
-# other durable user data remain writable.
-[[sandbox]]
-name = "pwsh-userdata"
-category = "shell"
-description = "PowerShell profiles and command history"
-ro = ["~/.config/powershell"]
-rw = ["~/.local/share/powershell"]

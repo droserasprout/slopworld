@@ -1,6 +1,0 @@
-[[sandbox]]
-name = "wayland"
-category = "desktop"
-description = "Wayland display"
-rw = ["$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY"]
-env = ["WAYLAND_DISPLAY", "XDG_RUNTIME_DIR"]

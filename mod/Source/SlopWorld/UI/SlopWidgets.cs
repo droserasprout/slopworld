@@ -732,7 +732,7 @@ namespace SlopWorld
 
     }
 
-    public abstract partial class SlopLayout : SlopButtons
+    public abstract class SlopWidgets : SlopButtons
     {
         // One measurement rule for every action row, kept beside the layout helpers rather
         // than duplicated by individual windows.
@@ -1006,13 +1006,7 @@ namespace SlopWorld
             }
             return stem;
         }
-    }
 
-    // Compatibility facade. The helpers remain addressable as SlopWidgets so the many
-    // existing callers do not all have to change at once; the implementations live in the
-    // field-cluster classes above.
-    public abstract class SlopWidgets : SlopLayout
-    {
         public static void DrawRail<T>(Rect r, (string label, T tab)[] tabs, ref T active)
         {
             float y = r.y;

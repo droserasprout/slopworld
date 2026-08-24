@@ -1,6 +1,0 @@
-[[sandbox]]
-name = "go-cache"
-category = "dev"
-description = "writable Go module and build caches (requires go)"
-requires = ["go"]
-rw = ["~/go/pkg/mod", "~/.cache/go-build"]

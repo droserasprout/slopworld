@@ -1,6 +1,0 @@
-[[sandbox]]
-name = "aws"
-category = "secret"
-description = "AWS SDK credentials and config"
-ro = ["~/.aws"]
-env = ["AWS_PROFILE", "AWS_REGION", "AWS_DEFAULT_REGION"]

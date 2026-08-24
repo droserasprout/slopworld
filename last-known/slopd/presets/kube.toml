@@ -1,6 +1,0 @@
-[[sandbox]]
-name = "kube"
-category = "dev"
-description = "kubectl config and cluster credentials"
-ro = ["~/.kube"]
-env = ["KUBECONFIG"]
