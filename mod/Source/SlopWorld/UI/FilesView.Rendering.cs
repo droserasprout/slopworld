@@ -121,7 +121,7 @@ namespace SlopWorld
                 // Files and directories use the same host application picker. The desktop MIME
                 // database knows that a directory is an inode/directory and returns file
                 // managers, while a regular file returns its associated editors/viewers.
-                opts.Add(new SlopSubmenu("Open in...", () => FilesView.OpenInOptions(node.Path)));
+                FilesView.AddOpenIn(opts, node.Path);
 
                 if (node.IsDir)
                 {
@@ -133,6 +133,14 @@ namespace SlopWorld
 
                 return opts;
             }
+        }
+
+        // Host application selection is shared by every sidebar tree that names a path.
+        // Keep the submenu here so Files and Git use the same asynchronous MIME lookup and
+        // portal fallback.
+        public static void AddOpenIn(List<FloatMenuOption> opts, string path)
+        {
+            opts.Add(new SlopSubmenu("Open in...", () => OpenInOptions(path)));
         }
 
         static List<FloatMenuOption> OpenInOptions(string path)
