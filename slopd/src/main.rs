@@ -139,3 +139,88 @@ async fn auth(
         None => Err(StatusCode::UNAUTHORIZED),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{Daemon, SessionCfg};
+    use crate::grant::Level;
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    fn manager() -> Arc<Manager> {
+        crate::session::test_manager(Config {
+            daemon: Daemon {
+                token: "root-secret".into(),
+                ..Default::default()
+            },
+            sessions: vec![
+                SessionCfg {
+                    name: "grantor".into(),
+                    ..Default::default()
+                },
+                SessionCfg {
+                    name: "target".into(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        })
+    }
+
+    fn app(manager: Arc<Manager>) -> axum::Router {
+        api::router(manager.clone()).layer(middleware::from_fn_with_state(manager, auth))
+    }
+
+    async fn get(app: &axum::Router, path: &str, token: Option<&str>) -> StatusCode {
+        let mut request = Request::builder().uri(path).body(Body::empty()).unwrap();
+        if let Some(token) = token {
+            request
+                .headers_mut()
+                .insert("x-slop-token", token.parse().unwrap());
+        }
+        app.clone().oneshot(request).await.unwrap().status()
+    }
+
+    #[tokio::test]
+    async fn api_auth_requires_the_configured_root_token() {
+        let app = app(manager());
+
+        assert_eq!(
+            get(&app, "/api/health", None).await,
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            get(&app, "/api/health", Some("wrong")).await,
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            get(&app, "/api/health", Some("root-secret")).await,
+            StatusCode::OK
+        );
+    }
+
+    #[tokio::test]
+    async fn scoped_tokens_reach_shared_routes_but_not_root_routes() {
+        let manager = manager();
+        let scoped = manager
+            .mint_grant("grantor".into(), vec!["target".into()], Level::Ro)
+            .await
+            .unwrap();
+        let app = app(manager);
+
+        assert_eq!(
+            get(&app, "/api/health", Some(&scoped)).await,
+            StatusCode::OK
+        );
+        assert_eq!(
+            get(&app, "/api/usage", Some(&scoped)).await,
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            get(&app, "/api/usage", Some("root-secret")).await,
+            StatusCode::OK
+        );
+    }
+}
