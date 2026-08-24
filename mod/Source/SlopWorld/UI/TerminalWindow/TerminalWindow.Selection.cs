@@ -14,6 +14,7 @@ namespace SlopWorld
         {
             _hasSel = false;
             _dragging = false;
+            _selectionMoved = false;
             _wordDragging = false;
         }
 

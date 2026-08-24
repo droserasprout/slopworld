@@ -50,6 +50,7 @@ namespace SlopWorld
 
         // Drag selection, in cell coordinates of the drawn buffer.
         bool _dragging;
+        bool _selectionMoved;
         bool _wordDragging;
         Vector2Int _wordStart, _wordEnd;
         bool _hasSel;

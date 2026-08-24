@@ -71,6 +71,9 @@ Noto Color Emoji face; a rebuild is `make emoji-atlas`. The complete UTF-16 surr
 also requested from Unity's dynamic atlas for codepoints not in that atlas, and the pane cache
 keys on font-atlas rebuilds.
 
+Selection keeps a separate drag latch: a MouseDown/MouseUp in one cell is still a click, but a
+real MouseDrag in that same cell selects and copies the single symbol.
+
 ## Links
 
 - `emu.rs` preserves application OSC 8 after `safe_uri` strips controls and caps length.
