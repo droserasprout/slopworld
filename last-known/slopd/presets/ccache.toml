@@ -1,9 +1,0 @@
-# ccache.conf can set prefix_command and compiler, both of which name a program the host's next
-# compile runs, so it stays read-only.
-[[sandbox]]
-name = "ccache"
-category = "dev"
-description = "writable ccache compiler cache"
-ro = ["~/.config/ccache/ccache.conf"]
-# ~/.ccache is the pre-4.0 default and ~/.cache/ccache the current one.
-rw = ["~/.ccache", "~/.cache/ccache"]

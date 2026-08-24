@@ -1,7 +1,0 @@
-[[sandbox]]
-name = "ssh-agent"
-category = "secret"
-description = "host SSH agent socket"
-escapes = "the agent signs with keys this sandbox never holds, wherever they are trusted"
-rw = ["$SSH_AUTH_SOCK"]
-env = ["SSH_AUTH_SOCK"]

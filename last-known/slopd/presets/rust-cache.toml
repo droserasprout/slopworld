@@ -1,6 +1,0 @@
-[[sandbox]]
-name = "rust-cache"
-category = "dev"
-description = "writable Cargo registry and git caches (requires rust)"
-requires = ["rust"]
-rw = ["~/.cargo/registry", "~/.cargo/git"]

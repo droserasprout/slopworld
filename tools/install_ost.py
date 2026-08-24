@@ -13,12 +13,11 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE_DIR = ROOT / ".ost-staging"
 TRACK_NAMES = ("pace", "dive", "hime", "dawn")
 TRACK_RE = re.compile(r"^(?P<name>pace|dive|hime|dawn)-(?P<date>20\d{6})\.ogg$")
-OLD_TRACK_RE = re.compile(r"^(?:pace|dive|hime|dawn)-20\d{6}\.(?:flac|ogg)$")
+DATED_TRACK_RE = re.compile(r"^(?:pace|dive|hime|dawn)-20\d{6}\.(?:flac|ogg)$")
 RADIO = ROOT / "mod/Source/SlopWorld/Sim/Radio.cs"
 SONGS = ROOT / "mod/Defs/Songs.xml"
 DEST_PARENT = ROOT / "mod/Sounds/SlopWorld"
 DEST_DIR = DEST_PARENT / "OST"
-LEGACY_FILES = ("slopbg01.ogg", "slopbg02.ogg")
 
 
 def latest_tracks(source_dir: Path, wanted_date: str | None) -> tuple[str, dict[str, Path]]:
@@ -97,7 +96,7 @@ def main() -> None:
             for path in directory.iterdir()
             if path.is_file()
             and path.name not in wanted_names
-            and (path.name in LEGACY_FILES or OLD_TRACK_RE.fullmatch(path.name))
+            and DATED_TRACK_RE.fullmatch(path.name)
             and path not in obsolete
         )
     for path in obsolete:

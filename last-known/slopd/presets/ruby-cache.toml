@@ -1,8 +1,0 @@
-# Downloads only: the gem tree stays read-only, so a session adds gems with
-# `bundle install --path vendor/bundle` inside the project.
-[[sandbox]]
-name = "ruby-cache"
-category = "dev"
-description = "writable Bundler and gem download caches (requires ruby)"
-requires = ["ruby"]
-rw = ["~/.bundle/cache", "~/.gem/specs"]

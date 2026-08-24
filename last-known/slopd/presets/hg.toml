@@ -1,8 +1,0 @@
-# The [extensions] section of ~/.hgrc names Python modules that Mercurial imports on every
-# command, including the host's, so this is read-only.
-[[sandbox]]
-name = "hg"
-category = "dev"
-description = "global Mercurial identity and configuration"
-ro = ["~/.hgrc", "~/.config/hg"]
-env = ["HGUSER", "EMAIL"]

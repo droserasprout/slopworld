@@ -1,8 +1,0 @@
-# Optional shell userdata: Nushell startup files are shared read-only, while its history and
-# other durable user data remain writable.
-[[sandbox]]
-name = "nu-userdata"
-category = "shell"
-description = "Nushell configuration and command history"
-ro = ["~/.config/nushell"]
-rw = ["~/.local/share/nushell"]
