@@ -439,7 +439,8 @@ impl Manager {
         let template = cfg.project(&sc.project).cloned().unwrap_or_default();
 
         let name = if persistent_host {
-            crate::sandbox::host_session_name(&named)
+            let live = self.live.read().await;
+            free_name(&live, cfg, &crate::sandbox::host_session_name(&named))
         } else {
             let live = self.live.read().await;
             free_name(&live, cfg, &slug(&sc.name))

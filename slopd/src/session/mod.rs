@@ -574,7 +574,11 @@ fn slug(name: &str) -> String {
 }
 
 fn free_name(live: &HashMap<String, Live>, cfg: &Config, base: &str) -> String {
-    let taken = |n: &str| live.contains_key(n) || cfg.sessions.iter().any(|s| s.name == n);
+    let taken = |n: &str| {
+        live.contains_key(n)
+            || cfg.sessions.iter().any(|s| s.name == n)
+            || cfg.host_terminals.iter().any(|tab| tab.name == n)
+    };
 
     if !taken(base) {
         return base.to_string();
@@ -1279,7 +1283,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
     }
 
     #[test]
-    fn free_name_counts_up_past_config_and_the_live_table() {
+    fn free_name_counts_up_past_config_live_and_host_tables() {
         let mut cfg = Config::default();
         let mut live: HashMap<String, Live> = HashMap::new();
 
@@ -1293,6 +1297,12 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
 
         live.insert("review-diff-2".into(), placeholder());
         assert_eq!(free_name(&live, &cfg, "review-diff"), "review-diff-3");
+
+        cfg.host_terminals.push(crate::config::HostTerminalCfg {
+            name: "review-diff-3".into(),
+            ..Default::default()
+        });
+        assert_eq!(free_name(&live, &cfg, "review-diff"), "review-diff-4");
     }
 
     #[test]
