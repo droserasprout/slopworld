@@ -123,6 +123,10 @@ mod-release:       ## Alias for BUILD=release mod
 test:              ## Run the daemon and game-free mod tests
 	cd slopd && cargo test
 	dotnet run --project mod/Tests/SlopWorld.Tests.csproj --configuration Release
+	$(MAKE) test-prose
+
+test-prose:        ## Test the prose linter
+	python3 tools/test_prose_lint.py
 
 appicon:           ## Regenerate the app icon (robot face + wilted rose)
 	python3 tools/appicon.py
@@ -169,6 +173,9 @@ lint-daemon:       ## Check the daemon's formatting, then clippy, warnings as er
 lint-mod:          ## Build the mod with warnings as errors, then check its formatting
 	$(MAKE) BUILD=release CSC_WARNINGS=-warnaserror mod
 	dotnet format whitespace mod/Source/SlopWorld --folder --exclude obj --verify-no-changes;
+
+lint-prose:        ## Find LLM cliches in prose and source comments
+	python3 tools/prose_lint.py $(PROSE_LINT_ARGS)
 
 ##
 ##-> Install
