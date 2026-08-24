@@ -28,6 +28,8 @@ namespace SlopWorld.Tests
                 tests.Add(("SessionInfo: " + test.Name, test.Body));
             foreach (var test in ScreenBufTests.Cases())
                 tests.Add(("ScreenBuf: " + test.Name, test.Body));
+            foreach (var test in SgrTests.Cases())
+                tests.Add(("Sgr: " + test.Name, test.Body));
             foreach (var test in UrlScanTests.Cases())
                 tests.Add(("UrlScan: " + test.Name, test.Body));
             foreach (var test in PathScanTests.Cases())
