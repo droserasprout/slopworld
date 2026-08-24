@@ -7,9 +7,8 @@ using Verse.Sound;
 
 namespace SlopWorld
 {
-    // A row that stands for another list rather than for an errand. `FloatMenuOption` carries
-    // no children of its own, and this is the whole of what [SlopMenu]'s nesting needs from
-    // one; everything else about the row is read off the base as usual, `Disabled` included.
+    // FloatMenuOption has no child collection; this subclass supplies the nesting data
+    // required by [SlopMenu]. Everything else is read from the base row, including `Disabled`.
     public class SlopSubmenu : FloatMenuOption
     {
         // Asked when the pointer arrives rather than when the parent is built: a station's

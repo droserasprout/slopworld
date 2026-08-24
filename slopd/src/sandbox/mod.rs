@@ -611,7 +611,7 @@ fn seed(from: &Path, to: &Path, skip: &[String]) -> Result<()> {
     Ok(())
 }
 
-/// No expansion, no globbing - we are building an argv, not running a shell.
+/// `shell_split` preserves argv boundaries without expanding shell syntax.
 pub fn shell_split(s: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut cur = String::new();
@@ -734,7 +734,7 @@ mod tests {
         assert_eq!(session_name_for("tmp", Some("/bin/bash")), "tmp-bash");
         assert_eq!(session_name_for("tmp", Some("fish")), "tmp-fish");
         assert!(!host_session_name("my.project").contains('.'));
-        // No shell to read, and no project to open on: both fall back on their own.
+        // Missing shell and project values use their respective fallback names.
         assert_eq!(session_name_for("tmp", None), "tmp-shell");
         assert_eq!(session_name_for("", Some("/usr/bin/zsh")), "zsh");
     }

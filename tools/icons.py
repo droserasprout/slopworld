@@ -16,8 +16,8 @@ The font is NOT vendored the way tools/fileicons.py vendors its SVGs - it is fou
 megabytes to hold twenty glyphs. The PNGs are committed instead, so a build never
 needs the font and only a rebake does.
 
-Codicons is VS Code's set, drawn on a 16px grid for a code editor: sharp corners, no
-round caps, and the same weight throughout. That is the whole reason to take it. The
+Codicons is VS Code's set, drawn on a 16px editor grid with consistent weight. The fixed
+set provides a common scale, while glyph sizes still vary by design. The
 glyphs are NOT all the same size and are not meant to be - `circle-filled` is an inline
 status dot and `terminal` fills its cell - so this scales every glyph by ONE factor,
 the one that fits the largest of them, rather than fitting each into the box

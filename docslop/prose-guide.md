@@ -39,7 +39,7 @@ survive the review gate because each does carry a fact. Rewrite them flat:
   start”, “a guardrail, not a boundary”. State what the code does.
 - Trailing flourish: a clause that restates the sentence as an image, “rather than
   let the agent fail to fork on its first breath”.
-- Rhetorical emphasis: bolding a claim, “that is the whole separation”, “exactly”,
+- Rhetorical emphasis: bolding a claim, “all separation happens here”, “exactly”,
   “simply works”.
 - Headings with a stance: “Terminal key routing”, not “The terminal, which is our
   problem exactly”.

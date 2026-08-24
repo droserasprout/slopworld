@@ -70,8 +70,8 @@ namespace SlopWorld
 
         public static void Draw(Rect body)
         {
-            // Builtins are shipped with the daemon and there is nothing to do to one here -
-            // no run, no edit, no delete. They are offered where they are attached instead.
+            // Builtins are daemon-owned and appear in their attached groups, so this list
+            // contains only editable shortcuts.
             // Filtered here rather than in [Group], so a filter that leaves nothing gets
             // the empty line instead of a blank column.
             _items = SessionHub.Instance.Shortcuts

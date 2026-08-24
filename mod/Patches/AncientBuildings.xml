@@ -5,8 +5,8 @@
   Vanilla's machine kit - the racks, the monitor banks, the lamps - is all
   scenery: it is dropped onto maps by the generator and no player ever builds
   it. A def gets a blueprint and a frame if and only if BuildableDef
-  BuildableByPlayer, which is literally "designationCategory != null", so this
-  is the whole of what stands between Worksite and a server rack. The category
+  BuildableByPlayer is literally "designationCategory != null", which is the
+  only condition separating Worksite from a server rack. The category
   itself never shows: the Architect button is stripped and the two roads into
   its menu are gated on the same Visible the bar reads.
 

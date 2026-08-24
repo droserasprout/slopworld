@@ -52,7 +52,7 @@ namespace SlopWorld
                 while (end < text.Length && IsUrl(text[end])) end++;
                 end = TrimTail(text, sep + 3, end);
 
-                // "https://" and nothing after it is not a link, it is the word.
+                // A bare "https://" token is text because a URL requires content after the scheme.
                 if (end > sep + 3)
                 {
                     if (spans == null) spans = new List<Span>();

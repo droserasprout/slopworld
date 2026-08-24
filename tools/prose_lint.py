@@ -410,7 +410,24 @@ def skip_quoted(text, start):
     return len(text)
 
 
-def mask_c_like(text):
+def skip_block_comment(text, start, nested=False):
+    depth = 1
+    i = start + 2
+    while i < len(text):
+        if nested and text.startswith("/*", i):
+            depth += 1
+            i += 2
+        elif text.startswith("*/", i):
+            depth -= 1
+            i += 2
+            if depth == 0:
+                return i
+        else:
+            i += 1
+    return len(text)
+
+
+def mask_c_like(text, nested_blocks=False):
     out = blank(text)
     i = 0
     while i < len(text):
@@ -420,11 +437,11 @@ def mask_c_like(text):
             out[i + 2 : end] = text[i + 2 : end]
             i = end
         elif text.startswith("/*", i):
-            end = text.find("*/", i + 2)
-            end = len(text) if end < 0 else end
-            out[i + 2 : end] = text[i + 2 : end]
-            i = min(len(text), end + 2)
-        elif text[i] in "'\"":
+            end = skip_block_comment(text, i, nested_blocks)
+            content_end = end - 2 if end < len(text) or text.endswith("*/") else end
+            out[i + 2 : content_end] = text[i + 2 : content_end]
+            i = end
+        elif text[i] in "'\"`":
             i = skip_quoted(text, i)
         else:
             raw = re.match(r"r(#+)?\"", text[i:])
@@ -485,7 +502,7 @@ def lintable_text(path, text):
     if kind == "prose":
         return mask_markdown(text) if path.suffix.lower() in {".md", ".mdx"} else text
     if kind == "c-like":
-        return mask_c_like(text)
+        return mask_c_like(text, nested_blocks=path.suffix.lower() == ".rs")
     if kind in {"hash", "python"}:
         return mask_hash(text, python=kind == "python")
     if kind == "xml":
@@ -583,7 +600,7 @@ def main(argv=None):
         shown = str(path)
         if shown == "-":
             original = sys.stdin.read()
-            linted = mask_commit_message(original) if args.commit_msg else original
+            linted = mask_commit_message(original) if args.commit_msg else mask_markdown(original)
             scope = "commit" if args.commit_msg else "prose"
             shown = "<stdin>"
         else:
