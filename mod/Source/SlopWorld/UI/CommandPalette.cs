@@ -229,6 +229,23 @@ namespace SlopWorld
             return list;
         }
 
+        static List<SubOption> AgentsSubWithPawn()
+        {
+            var colony = AgentColony.Current;
+            var list = SessionHub.Instance.Sessions
+                .Where(s => !s.Ephemeral && !s.Host && colony?.PawnOf(s.Name) != null)
+                .Select(s => new SubOption
+                {
+                    Label = $"{s.Name}  ({s.State.ToString().ToLower()})  -  {s.Project}",
+                    Value = s.Name,
+                })
+                .ToList();
+
+            if (list.Count == 0)
+                list.Add(new SubOption { Label = "(no agents with a colonist)", Enabled = false });
+            return list;
+        }
+
         // Duplicate is meaningful for any session with a project, including a temporary
         // errand: the dialog copies that project's command and sandbox context, while a
         // project-less session has nowhere useful to start from.
@@ -260,6 +277,22 @@ namespace SlopWorld
 
             if (list.Count == 0)
                 list.Add(new SubOption { Label = "(no projects)", Enabled = false });
+            return list;
+        }
+
+        static List<SubOption> DeletableProjectsSub()
+        {
+            var list = SessionHub.Instance.Projects
+                .Where(p => !SessionHub.Instance.Sessions.Any(s => s.Project == p.Name))
+                .Select(p => new SubOption
+                {
+                    Label = $"{p.Name}  -  {p.Dir}",
+                    Value = p.Name,
+                })
+                .ToList();
+
+            if (list.Count == 0)
+                list.Add(new SubOption { Label = "(no projects without sessions)", Enabled = false });
             return list;
         }
 
@@ -309,6 +342,76 @@ namespace SlopWorld
 
             if (list.Count == 0)
                 list.Add(new SubOption { Label = "(no shortcuts)", Enabled = false });
+            return list;
+        }
+
+        static List<SubOption> ShortcutManageSub()
+        {
+            var list = SessionHub.Instance.Shortcuts
+                .Where(s => !s.Builtin)
+                .Select(s => new SubOption
+                {
+                    Label = $"{s.Name}  ({s.Kind.ToString().ToLower()})",
+                    Value = s.Name,
+                })
+                .ToList();
+
+            if (list.Count == 0)
+                list.Add(new SubOption { Label = "(no editable shortcuts)", Enabled = false });
+            return list;
+        }
+
+        static List<SubOption> NewShortcutSub() => new List<SubOption>
+        {
+            new SubOption { Label = "Prompt", Select = () => NewShortcut(ShortcutKind.Prompt) },
+            new SubOption { Label = "Breadcrumb", Select = () => NewShortcut(ShortcutKind.Breadcrumb) },
+            new SubOption { Label = "Shell", Select = () => NewShortcut(ShortcutKind.Shell) },
+            new SubOption { Label = "File Action", Select = () => NewShortcut(ShortcutKind.FileAction) },
+        };
+
+        static void NewShortcut(ShortcutKind kind) =>
+            TerminalWindow.OpenOverPane(new EditShortcutDialog(kind));
+
+        static List<SubOption> HostShellSub()
+        {
+            var list = new List<SubOption>
+            {
+                new SubOption
+                {
+                    Label = "~",
+                    Value = "",
+                    Select = () => SessionHub.Instance.RunHostShell("",
+                        session => TerminalWindow.Open(session), SlopWidgets.Fail),
+                },
+            };
+
+            foreach (var p in SessionHub.Instance.Projects)
+            {
+                string name = p.Name;
+                list.Add(new SubOption
+                {
+                    Label = $"{name}  -  {p.Dir}",
+                    Value = name,
+                    Select = () => SessionHub.Instance.RunHostShell(name,
+                        session => TerminalWindow.Open(session), SlopWidgets.Fail),
+                });
+            }
+            return list;
+        }
+
+        static List<SubOption> HostSessionsSub()
+        {
+            var list = SessionHub.Instance.Sessions
+                .Where(s => s.Host)
+                .Select(s => new SubOption
+                {
+                    Label = $"{s.Name}  -  {s.Dir}",
+                    Value = s.Name,
+                })
+                .ToList();
+
+            if (list.Count == 0)
+                list.Add(new SubOption { Label = "(no host terminals)", Enabled = false });
             return list;
         }
 
