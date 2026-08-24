@@ -269,6 +269,19 @@ namespace SlopWorld
             return DiffCmd(repo, rel, status);
         }
 
+        public static void DiffAll(string project)
+        {
+            var repo = Known(project);
+            if (repo == null || repo.Changed <= 0)
+            {
+                SlopWidgets.Fail("nothing to diff");
+                return;
+            }
+
+            ClearSelection();
+            Viewer.Open(project, DiffCmd(repo, null, null), "diff-" + project);
+        }
+
         // ------------------------------------------------------------------ menus
 
         static List<FloatMenuOption> HeadMenu(string project, Repo repo)

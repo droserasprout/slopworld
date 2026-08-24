@@ -10,10 +10,61 @@ namespace SlopWorld
     {
         public static void FocusTerminal() => Show(SidebarTab.Agents);
 
+        public static void ShowAgents() => Show(SidebarTab.Agents);
         public static void ShowFiles() => Show(SidebarTab.Files);
         public static void ShowSearch() => Show(SidebarTab.Search);
         public static void ShowGit() => Show(SidebarTab.Git);
         public static void ShowShortcuts() => Show(SidebarTab.Shortcuts);
+
+        public static bool CanFoldCurrent => CurrentTab != SidebarTab.Search;
+        public static bool CurrentViewAllFolded => AllFolded();
+        public static bool CanToggleCompact => CurrentTab == SidebarTab.Agents;
+        public static bool CanToggleDotfiles => CurrentTab == SidebarTab.Files ||
+            CurrentTab == SidebarTab.Search;
+
+        public static void ToggleCompact()
+        {
+            if (!CanToggleCompact) return;
+            Settings.S.sidebarCompact = !Settings.S.sidebarCompact;
+            Settings.S.Write();
+        }
+
+        public static void ToggleDotfiles()
+        {
+            if (!CanToggleDotfiles) return;
+            Settings.S.sidebarShowHidden = !Settings.S.sidebarShowHidden;
+            Settings.S.Write();
+            if (CurrentTab == SidebarTab.Files) FilesView.Reload();
+            else SearchView.Search();
+        }
+
+        public static void SetAllFolds(bool folded)
+        {
+            if (!CanFoldCurrent) return;
+            switch (CurrentTab)
+            {
+                case SidebarTab.Agents:
+                    foreach (var key in Layout.Order) Fold(key, folded);
+                    break;
+                case SidebarTab.Files: FilesView.SetAllFolded(folded); break;
+                case SidebarTab.Git: GitView.SetAllFolded(folded); break;
+                case SidebarTab.Shortcuts: ShortcutsView.SetAllFolded(folded); break;
+            }
+        }
+
+        public static void RefreshCurrentView()
+        {
+            switch (CurrentTab)
+            {
+                case SidebarTab.Agents: SessionHub.Instance.Refresh(); break;
+                case SidebarTab.Files: FilesView.Reload(); break;
+                case SidebarTab.Search: SearchView.Search(); break;
+                case SidebarTab.Git: GitView.Refresh(); break;
+                case SidebarTab.Shortcuts:
+                    SessionHub.Instance.RefreshShortcuts(SlopWidgets.Fail);
+                    break;
+            }
+        }
 
         // The visual rect fills the panel while its hit rect stops before Grip so one consumed click cannot resize and open the menu.
         public static Rect AddBar
@@ -565,7 +616,7 @@ namespace SlopWorld
             {
                 bool folded = AllFolded();
                 Tab(r, folded ? TexButton.Reveal : TexButton.Collapse, folded,
-                    folded ? "Unfold all." : "Fold all.", ToggleAllFolds);
+                    folded ? "Unfold all." : "Fold all.", () => SetAllFolds(!folded));
                 r.x -= TabIcon + 3f;
             }
 
@@ -576,11 +627,7 @@ namespace SlopWorld
                     compact
                         ? "Compact view is on. Click to show full agent rows."
                         : "Compact view. Hide the third line, state dots and selection corners.",
-                    () =>
-                    {
-                        Settings.S.sidebarCompact = !compact;
-                        Settings.S.Write();
-                    });
+                    ToggleCompact);
             }
             else if (CurrentTab == SidebarTab.Files || CurrentTab == SidebarTab.Search)
             {
@@ -589,13 +636,7 @@ namespace SlopWorld
                     showing
                         ? "Showing dotfiles. Click to hide them."
                         : "Hiding dotfiles. Click to show them.",
-                    () =>
-                    {
-                        Settings.S.sidebarShowHidden = !showing;
-                        Settings.S.Write();
-                        if (CurrentTab == SidebarTab.Files) FilesView.Reload();
-                        else SearchView.Search();
-                    });
+                    ToggleDotfiles);
             }
             else if (CurrentTab == SidebarTab.Git)
             {
@@ -619,16 +660,7 @@ namespace SlopWorld
 
         static void ToggleAllFolds()
         {
-            bool fold = !AllFolded();
-            switch (CurrentTab)
-            {
-                case SidebarTab.Agents:
-                    foreach (var key in Layout.Order) Fold(key, fold);
-                    break;
-                case SidebarTab.Files: FilesView.SetAllFolded(fold); break;
-                case SidebarTab.Git: GitView.SetAllFolded(fold); break;
-                case SidebarTab.Shortcuts: ShortcutsView.SetAllFolded(fold); break;
-            }
+            SetAllFolds(!AllFolded());
         }
 
         // Where the filter button is. One rect, so the menu comes out under the button

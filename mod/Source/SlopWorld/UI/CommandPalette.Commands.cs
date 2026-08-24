@@ -12,6 +12,26 @@ namespace SlopWorld
         // rebuilt, so game-state changes do not require rebuilding the definitions.
         static readonly List<CommandDef> CommandTable = new List<CommandDef>
         {
+            new CommandDef("agent.new", "Agent: New", "Agent",
+                _ => TerminalWindow.OpenOverPane(new EditSessionDialog(null))),
+            CommandDef.ForAgent("agent.label", "Agent: Label", AgentsSubAll,
+                s => LabelDialog.Open(s.Name, s.Label)),
+            CommandDef.ForAgent("agent.new-look", "Agent: New look", AgentsSubWithPawn,
+                s =>
+                {
+                    var pawn = AgentColony.Current?.PawnOf(s.Name);
+                    if (pawn != null && !pawn.Destroyed) AgentLook.Reroll(pawn);
+                }),
+            CommandDef.ForAgent("agent.reset-state", "Agent: Reset private state", AgentsSubAll,
+                s =>
+                {
+                    if (s.Ephemeral || s.Host) return;
+                    var name = s.Name;
+                    TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
+                        $"Reset private state for '{name}'? This stops the agent and gives its tools " +
+                        "a fresh state on next start. The old state stays recoverable for 14 days.",
+                        () => SessionHub.Instance.ResetState(name, SlopWidgets.Fail), destructive: true));
+                }),
             CommandDef.ForAgent("agent.start", "Agent: Start",
                 () => AgentsSub(AgentState.Down),
                 s => SessionHub.Instance.Start(s.Name, SlopWidgets.Fail)),
@@ -42,10 +62,10 @@ namespace SlopWorld
                 }),
 
             new CommandDef("project.new", "Project: New", "Project",
-                _ => Find.WindowStack.Add(new EditProjectDialog(null))),
+                _ => TerminalWindow.OpenOverPane(new EditProjectDialog(null))),
             CommandDef.ForProject("project.edit", "Project: Edit", ProjectsSub,
-                p => Find.WindowStack.Add(new EditProjectDialog(p))),
-            CommandDef.ForProject("project.delete", "Project: Delete", ProjectsSub, p =>
+                p => TerminalWindow.OpenOverPane(new EditProjectDialog(p))),
+            CommandDef.ForProject("project.delete", "Project: Delete", DeletableProjectsSub, p =>
             {
                 var name = p.Name;
                 Find.WindowStack.Add(SlopConfirmDialog.Create(
@@ -66,15 +86,29 @@ namespace SlopWorld
                 else RunShortcutWith(s.Name);
             }),
             new CommandDef("shortcut.new", "Shortcut: New", "Shortcut",
-                _ => Find.WindowStack.Add(new EditShortcutDialog(null))),
-            CommandDef.ForShortcut("shortcut.edit", "Shortcut: Edit", ShortcutsSub,
-                s => Find.WindowStack.Add(new EditShortcutDialog(s))),
-            CommandDef.ForShortcut("shortcut.delete", "Shortcut: Delete", ShortcutsSub, s =>
+                _ => { }, subAction: NewShortcutSub),
+            CommandDef.ForShortcut("shortcut.edit", "Shortcut: Edit", ShortcutManageSub,
+                s => TerminalWindow.OpenOverPane(new EditShortcutDialog(s))),
+            CommandDef.ForShortcut("shortcut.delete", "Shortcut: Delete", ShortcutManageSub, s =>
             {
                 var name = s.Name;
-                Find.WindowStack.Add(SlopConfirmDialog.Create(
+                TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
                     $"Remove shortcut '{name}'? Anything it already started keeps running.",
                     () => SessionHub.Instance.RemoveShortcut(name, SlopWidgets.Fail), destructive: true));
+            }),
+            CommandDef.ForShortcut("shortcut.duplicate", "Shortcut: Duplicate", ShortcutManageSub,
+                s => TerminalWindow.OpenOverPane(EditShortcutDialog.Copy(s))),
+
+            new CommandDef("host.open-shell", "Host: Open Shell", "Host",
+                _ => { }, subAction: HostShellSub),
+            CommandDef.ForAgent("host.remove", "Host: Remove", HostSessionsSub, s =>
+            {
+                if (!s.Host) return;
+                var name = s.Name;
+                TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
+                    $"Remove host terminal '{name}'? This kills its tmux pane and forgets " +
+                    "the saved sidebar tab.",
+                    () => SessionHub.Instance.Remove(name, SlopWidgets.Fail), destructive: true));
             }),
 
             new CommandDef("daemon.reconnect", "Daemon: Reconnect", "Daemon",
@@ -89,8 +123,37 @@ namespace SlopWorld
                 _ => FilesView.Reload()),
             new CommandDef("search.open", "Search: Find in Files", "View",
                 _ => AgentSidebar.ShowSearch()),
+            new CommandDef("search.run", "Search: Run Search", "Search",
+                _ => SearchView.Search()),
             new CommandDef("git.refresh", "Git: Refresh", "Refresh",
                 _ => GitView.Refresh()),
+            CommandDef.ForProject("git.diff-all", "Git: Diff All", ProjectsSub,
+                p => GitView.DiffAll(p.Name)),
+
+            new CommandDef("view.refresh-sidebar", "View: Refresh Sidebar", "View",
+                _ => AgentSidebar.RefreshCurrentView()),
+            new CommandDef("focus.agents", "Focus: Agents", "Focus",
+                _ => AgentSidebar.ShowAgents()),
+            new CommandDef("focus.files", "Focus: Files", "Focus",
+                _ => AgentSidebar.ShowFiles()),
+            new CommandDef("focus.search", "Focus: Search", "Focus",
+                _ => AgentSidebar.ShowSearch()),
+            new CommandDef("focus.git", "Focus: Git", "Focus",
+                _ => AgentSidebar.ShowGit()),
+            new CommandDef("focus.shortcuts", "Focus: Shortcuts", "Focus",
+                _ => AgentSidebar.ShowShortcuts()),
+            new CommandDef("view.fold-all", "View: Fold All", "View",
+                _ => AgentSidebar.SetAllFolds(true),
+                enabled: () => AgentSidebar.CanFoldCurrent && !AgentSidebar.CurrentViewAllFolded),
+            new CommandDef("view.unfold-all", "View: Unfold All", "View",
+                _ => AgentSidebar.SetAllFolds(false),
+                enabled: () => AgentSidebar.CanFoldCurrent && AgentSidebar.CurrentViewAllFolded),
+            new CommandDef("view.compact", "View: Toggle Compact Agents", "View",
+                _ => AgentSidebar.ToggleCompact(),
+                enabled: () => AgentSidebar.CanToggleCompact),
+            new CommandDef("view.dotfiles", "View: Toggle Dotfiles", "View",
+                _ => AgentSidebar.ToggleDotfiles(),
+                enabled: () => AgentSidebar.CanToggleDotfiles),
 
             new CommandDef("view.config", "Settings: General", "Settings",
                 _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Config))),
@@ -122,6 +185,10 @@ namespace SlopWorld
                 _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.RimWorld))),
             new CommandDef("view.about", "Settings: About", "Settings",
                 _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.About))),
+            new CommandDef("sandbox.new-preset", "Sandbox: New Preset", "Sandbox",
+                _ => SlopOptions.OpenNewSandboxPreset()),
+            new CommandDef("command.new", "Command: New", "Commands",
+                _ => SlopOptions.OpenNewCommand()),
             new CommandDef("config.toml", "Configuration: Edit config.toml", "Configuration",
                 _ => ConfigWindow.Open()),
             new CommandDef("view.filter", "View: Filter Projects", "View",
@@ -147,6 +214,10 @@ namespace SlopWorld
                 _ => Radio.Like()),
             new CommandDef("jukebox.history", "Jukebox: History", "Jukebox",
                 _ => JukeboxHistoryView.Open()),
+            new CommandDef("jukebox.stop-on-exit", "Jukebox: Toggle Stop on Exit", "Jukebox",
+                _ => Radio.ToggleStopOnExit()),
+            new CommandDef("jukebox.edit-likes", "Jukebox: Edit Likes", "Jukebox",
+                _ => StoragePage.EditLikes()),
 
             new CommandDef("game.new-looks", "Game: New looks", "Game",
                 _ => CoreTip.NewLooks(), enabled: Playing),
