@@ -297,8 +297,7 @@ namespace SlopWorld
                 return;
             }
 
-            if (info != null && info.Gone) SessionHub.Instance.Start(row.Session);
-            else if (row.Session != TerminalWindow.CurrentName) TerminalWindow.Open(row.Session);
+            if (row.Session != TerminalWindow.CurrentName) TerminalWindow.Open(row.Session);
         }
 
         // Called by the Harmony finalizer when vanilla prevents the normal front pass.

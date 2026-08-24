@@ -313,7 +313,8 @@ namespace SlopWorld
             key == KeyCode.Semicolon || key == KeyCode.Colon;
 
         // A slot past the end is a no-op rather than a wrap: the keys are muscle memory for a
-        // fixed portrait. A down agent is started, as clicking the portrait does.
+        // fixed portrait. In terminal mode a down agent is shown with its action gizmos;
+        // starting it remains an explicit action.
         internal void SwitchToSlot(int slot)
         {
             var order = AgentColony.InBarOrder();
@@ -331,14 +332,13 @@ namespace SlopWorld
             // agents view, which releases whatever the view being left was showing.
             AgentSidebar.FocusTerminal();
 
-            if (info.Gone) { SetContent(null); SessionHub.Instance.Start(name); }
-            else SwitchTo(name);
+            SwitchTo(name);
         }
 
         // Walk the session list by dir (-1 or 1). Used from Alt+Z/Alt+X and
         // Alt+comma/Alt+period in both ChromeKeys (content view up) and HandleKey (pane
-        // open). Sets the current session and switches the pane, or if the target has no
-        // process starts it.
+        // open). Sets the current session and switches the pane, including when the target
+        // has no process.
         internal static void WalkSession(int dir)
         {
             var order = TabOrder();
@@ -368,8 +368,7 @@ namespace SlopWorld
             var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
             if (w != null && target == w._name) return;
 
-            if (info.Gone) { SessionHub.Instance.Start(target); }
-            else Open(target);
+            Open(target);
         }
 
         // The visible sidebar rows give the useful project-grouped order. Add sessions the

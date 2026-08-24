@@ -18,7 +18,8 @@ size.
 
 ## Title bar
 
-The title bar has gear and close buttons; agent-ending actions remain in the agents list.
+The title bar has gear and close buttons; stopped agents selected from terminal mode stay
+visible without being started, and their Start/Edit actions are drawn over the pane.
 Buttons use the icon bake ([mod-icons](mod-icons.md)) and draw before
 `ColonistBarStrip.Draw`, so the strip reserves `TerminalWindow.CornerW` at both ends.
 `OpenMenu` is handled before key forwarding in every mode, allowing a menu from a
