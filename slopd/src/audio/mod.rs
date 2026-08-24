@@ -216,21 +216,21 @@ fn wait_for_retry(pause: Duration, generation: u64, active: &AtomicU64) -> bool 
 pub(crate) use playback::{enqueue_chunk, open_device, pcm_id, Ring, NULL_PCM, RING, SERVER_PCMS};
 #[cfg(test)]
 pub(crate) use station::{
-    stream_title, supported_file, Feed, Icy, Playlist, Reconnect, StreamBody, StreamConnector,
-    TitleSink,
+    local_title, stream_title, supported_file, Feed, Icy, Playlist, Reconnect, StreamBody,
+    StreamConnector, TitleSink,
 };
 
 #[cfg(test)]
 mod tests {
     use super::{
-        enqueue_chunk, open_device, pcm_id, stream_title, supported_file, wait_for_retry,
-        AudioState, Feed, Icy, Playlist, Reconnect, Ring, StreamBody, StreamConnector, TitleSink,
-        CONNECT, GENERATION, NULL_PCM, RING, SERVER_PCMS,
+        enqueue_chunk, local_title, open_device, pcm_id, stream_title, supported_file,
+        wait_for_retry, AudioState, Feed, Icy, Playlist, Reconnect, Ring, StreamBody,
+        StreamConnector, TitleSink, CONNECT, GENERATION, NULL_PCM, RING, SERVER_PCMS,
     };
     use rodio::cpal::traits::{DeviceTrait, HostTrait};
-    use rodio::{cpal, ChannelCount, Sample, SampleRate};
+    use rodio::{cpal, ChannelCount, Sample, SampleRate, Source};
     use std::collections::VecDeque;
-    use std::io::{self, BufRead, BufReader, Read, Write};
+    use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write};
     use std::net::TcpListener;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
@@ -796,6 +796,161 @@ mod tests {
         };
         sink.set(Some("Too Late".to_string()));
         assert_eq!(state.lock().unwrap().title, None);
+    }
+
+    #[test]
+    fn an_active_title_updates_clears_and_ignores_duplicates() {
+        let state = Arc::new(Mutex::new(AudioState::default()));
+        let sink = TitleSink {
+            state: Some(state.clone()),
+            generation: GENERATION.load(Ordering::SeqCst),
+        };
+
+        sink.set(Some("Now Playing".to_string()));
+        assert_eq!(state.lock().unwrap().title.as_deref(), Some("Now Playing"));
+        sink.set(Some("Now Playing".to_string()));
+        sink.set(None);
+        assert_eq!(state.lock().unwrap().title, None);
+
+        TitleSink {
+            state: None,
+            generation: sink.generation,
+        }
+        .set(Some("Nowhere".to_string()));
+    }
+
+    #[test]
+    fn playlist_directories_filter_supported_files_and_reject_empty_ones() {
+        let dir = std::env::temp_dir().join(format!(
+            "slopd-audio-playlist-{}-{}",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(dir.join("nested.ogg")).unwrap();
+        std::fs::write(dir.join("notes.txt"), b"not audio").unwrap();
+        assert!(Playlist::from_dir(&dir).is_err());
+
+        for name in ["one.mp3", "two.OGG", "ignored.flac"] {
+            std::fs::write(dir.join(name), b"fixture").unwrap();
+        }
+        let playlist = Playlist::from_dir(&dir).unwrap();
+        let mut names = playlist
+            .files
+            .iter()
+            .map(|path| path.file_name().unwrap().to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        names.sort();
+        assert_eq!(names, ["one.mp3", "two.OGG"]);
+        assert_eq!(
+            local_title(Path::new("/music/One Track.ogg")).as_deref(),
+            Some("One Track")
+        );
+        assert_eq!(local_title(Path::new("/")), None);
+
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    struct ReadError(io::ErrorKind);
+
+    impl Read for ReadError {
+        fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
+            Err(io::Error::new(self.0, "synthetic read failure"))
+        }
+    }
+
+    #[test]
+    fn reconnect_preserves_invalid_data_and_empty_reads_do_nothing() {
+        let mut reopened = false;
+        let mut stream = Reconnect {
+            inner: Box::new(ReadError(io::ErrorKind::InvalidData)),
+            reopen: || {
+                reopened = true;
+                Ok(Box::new(io::Cursor::new(Vec::new())) as StreamBody)
+            },
+            source: "synthetic fixture".to_string(),
+            generation: GENERATION.load(Ordering::SeqCst),
+            read_since_open: false,
+        };
+
+        assert_eq!(stream.read(&mut []).unwrap(), 0);
+        assert_eq!(
+            stream.read(&mut [0; 1]).unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
+        drop(stream);
+        assert!(!reopened);
+    }
+
+    #[test]
+    fn icy_reports_truncated_metadata_and_skips_it_for_empty_reads() {
+        let mut icy = Icy {
+            inner: io::Cursor::new(vec![1, b'x']),
+            metaint: 4,
+            left: 0,
+            title: TitleSink {
+                state: None,
+                generation: GENERATION.load(Ordering::SeqCst),
+            },
+        };
+
+        assert_eq!(icy.read(&mut []).unwrap(), 0);
+        assert_eq!(
+            icy.read(&mut [0; 1]).unwrap_err().kind(),
+            io::ErrorKind::UnexpectedEof
+        );
+    }
+
+    #[test]
+    fn live_feed_reads_but_never_seeks() {
+        let mut feed = Feed(Mutex::new(io::Cursor::new(b"audio".to_vec())));
+        let mut bytes = Vec::new();
+        feed.read_to_end(&mut bytes).unwrap();
+        assert_eq!(bytes, b"audio");
+        assert_eq!(
+            feed.seek(SeekFrom::Start(0)).unwrap_err().kind(),
+            io::ErrorKind::Unsupported
+        );
+    }
+
+    #[test]
+    fn enqueue_stops_for_a_missing_consumer_or_superseded_full_ring() {
+        let (tx, rx) = sync_channel(1);
+        drop(rx);
+        let ready = AtomicBool::new(false);
+        let queued = AtomicUsize::new(0);
+        assert!(!enqueue_chunk(
+            &tx,
+            vec![0.1, 0.2],
+            &ready,
+            &queued,
+            2,
+            GENERATION.load(Ordering::SeqCst),
+        ));
+        assert_eq!(queued.load(Ordering::Acquire), 0);
+
+        let (tx, _rx) = sync_channel(1);
+        tx.send(vec![1.0]).unwrap();
+        assert!(!enqueue_chunk(
+            &tx,
+            vec![0.3],
+            &ready,
+            &queued,
+            2,
+            GENERATION.load(Ordering::SeqCst).wrapping_sub(1),
+        ));
+        assert_eq!(queued.load(Ordering::Acquire), 0);
+    }
+
+    #[test]
+    fn ring_reports_frame_aligned_spans_and_its_audio_shape() {
+        let (_tx, mut ring) = ring();
+        ring.channels = ChannelCount::new(3).unwrap();
+        ring.rate = SampleRate::new(22050).unwrap();
+
+        assert_eq!(ring.current_span_len(), Some(8193));
+        assert_eq!(ring.channels().get(), 3);
+        assert_eq!(ring.sample_rate().get(), 22050);
+        assert_eq!(ring.total_duration(), None);
     }
 
     /// What cpal can see, and which of them this would pick. Needs no network and makes

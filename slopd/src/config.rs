@@ -976,8 +976,8 @@ pub fn expand(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        expand, redact_token_text, temp_dir, Config, DnsConfig, HostTerminalCfg, NetworkMode,
-        ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink, TitlePolicy,
+        expand, redact_token_text, temp_dir, Config, DnsConfig, HostTerminalCfg, Limits,
+        NetworkMode, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink, TitlePolicy,
         TOKEN_REDACTED,
     };
 
@@ -1036,6 +1036,56 @@ mod tests {
             assert!(dns.validate("project repo").is_err());
         }
         assert!(DnsConfig::Resolved.validate("project repo").is_ok());
+    }
+
+    #[test]
+    fn resource_limits_inherit_by_field_and_reject_zero() {
+        let project = Limits {
+            memory_mb: Some(4096),
+            pids: Some(200),
+            nofile: None,
+            cpu_pct: Some(100),
+        };
+        let session = Limits {
+            memory_mb: Some(2048),
+            pids: None,
+            nofile: Some(1024),
+            cpu_pct: None,
+        };
+
+        assert!(Limits::default().is_empty());
+        assert!(!session.is_empty());
+        assert_eq!(
+            session.inherit(project),
+            Limits {
+                memory_mb: Some(2048),
+                pids: Some(200),
+                nofile: Some(1024),
+                cpu_pct: Some(100),
+            }
+        );
+        assert!(session.validate().is_ok());
+
+        for invalid in [
+            Limits {
+                memory_mb: Some(0),
+                ..Default::default()
+            },
+            Limits {
+                pids: Some(0),
+                ..Default::default()
+            },
+            Limits {
+                nofile: Some(0),
+                ..Default::default()
+            },
+            Limits {
+                cpu_pct: Some(0),
+                ..Default::default()
+            },
+        ] {
+            assert!(invalid.validate().is_err());
+        }
     }
 
     #[test]
