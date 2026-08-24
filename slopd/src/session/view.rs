@@ -111,3 +111,34 @@ impl ScreenView {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn frame_metadata_is_preserved_on_the_wire_view() {
+        let frame = Frame {
+            lines: vec!["one".into(), "two".into()],
+            cx: 7,
+            cy: 3,
+            cursor_shape: 2,
+            cursor_blink: true,
+            app_mouse: true,
+            app_drag: true,
+            alt_screen: true,
+            title: "editor".into(),
+            bell: true,
+        };
+
+        let view = ScreenView::from_frame("agent", 11, 120, 40, 9, frame, 23);
+        assert_eq!(view.name, "agent");
+        assert_eq!((view.seq, view.cols, view.rows), (11, 120, 40));
+        assert_eq!((view.cx, view.cy, view.off), (7, 3, 9));
+        assert_eq!(view.request_id, 23);
+        assert_eq!(view.cursor_shape, 2);
+        assert!(view.cursor_blink && view.app_mouse && view.app_drag && view.alt_screen);
+        assert_eq!(view.title, "editor");
+        assert_eq!(view.lines, ["one", "two"]);
+    }
+}

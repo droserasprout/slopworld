@@ -1,4 +1,5 @@
 slopd/target/
+coverage/
 mod/Source/SlopWorld/obj/
 mod/Source/SlopWorld/bin/
 mod/Assemblies/SlopWorld.dll

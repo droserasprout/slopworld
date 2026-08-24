@@ -20,6 +20,7 @@ the release build. Suffixed targets are aliases. Both builds write
 | `daemon` | `cargo build` in `slopd/`, `--release` under `BUILD=release`. |
 | `mod` | Direct Mono `csc` into `mod/Assemblies/SlopWorld.dll`. |
 | `test` | `cargo test`, the game-free C# tests in `mod/Tests/`, and the prose-linter tests. |
+| `coverage` | Cobertura reports and line/branch summaries for the Rust and game-free C# tests. Requires `cargo-llvm-cov`; restores Coverlet from the repository tool manifest. |
 | `format` / `lint` | Both halves; `-daemon` and `-mod` variants exist. |
 | `lint-prose` | Find LLM cliches in Markdown and code comments; set `PROSE_LINT_ARGS` to pass paths or CLI options. |
 | `install` | `install-daemon` (binary, unit, conditional restart), `install-runner`, `install-mod`. |
@@ -32,6 +33,13 @@ the release build. Suffixed targets are aliases. Both builds write
 | `check-reqs` | Reports required host dependencies and detected optional integrations/tools. |
 | `harmony` | Fetches the latest official Harmony release into `mod/Assemblies/`. |
 | `clean` | Drops build output. |
+
+`make coverage` writes `coverage/rust.cobertura.xml` and
+`coverage/csharp.cobertura.xml`. The reports are ignored build output. Use
+`coverage-daemon` or `coverage-mod` to measure one half; install the Rust tool with
+`cargo install cargo-llvm-cov --locked` when it is not already available. Rust
+coverage also needs `llvm-cov` and `llvm-profdata` from the same LLVM release as
+the compiler.
 
 `install-mod` copies loose folders, so a new top-level folder under `mod/` needs
 adding to that line.

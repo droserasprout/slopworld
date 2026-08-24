@@ -1130,3 +1130,52 @@ fn spawn_control_reader(master: std::fs::File) -> mpsc::UnboundedReceiver<Vec<u8
     });
     rx
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use std::os::fd::OwnedFd;
+    use std::os::unix::net::UnixStream;
+
+    #[tokio::test]
+    async fn control_reader_splits_lines_and_trims_network_endings() {
+        let (reader, mut writer) = UnixStream::pair().unwrap();
+        let file = std::fs::File::from(OwnedFd::from(reader));
+        let mut lines = spawn_control_reader(file);
+
+        writer.write_all(b"first\r\nsecond\nlast").unwrap();
+        drop(writer);
+
+        assert_eq!(lines.recv().await.as_deref(), Some(b"first".as_slice()));
+        assert_eq!(lines.recv().await.as_deref(), Some(b"second".as_slice()));
+        assert_eq!(lines.recv().await.as_deref(), Some(b"last".as_slice()));
+        assert_eq!(lines.recv().await, None);
+    }
+
+    #[test]
+    fn title_submission_reports_uncertain_editing_without_a_submission() {
+        let mut composer = Composer::ready();
+        let keys = vec!["Up".to_string()];
+        let (submission, uncertain) = build_title_submission(&mut composer, &keys, false);
+        assert!(submission.is_none());
+        assert!(uncertain);
+    }
+
+    #[test]
+    fn title_submission_uses_all_literal_chunks_before_enter() {
+        let mut composer = Composer::ready();
+        let chunks = vec!["fix ".to_string(), "the parser".to_string()];
+        assert!(build_title_submission(&mut composer, &chunks, true)
+            .0
+            .is_none());
+
+        let enter = vec!["Enter".to_string()];
+        let (submission, uncertain) = build_title_submission(&mut composer, &enter, false);
+        let Some(Submission::Prompt(prompt)) = submission else {
+            panic!("expected submitted prompt")
+        };
+        assert_eq!(prompt, "fix the parser");
+        assert!(!uncertain);
+    }
+}
