@@ -386,10 +386,11 @@ namespace SlopWorld
             string git = "git -C " + Pager.Quote(repo.Root) +
                 " -c " + Pager.Quote("core.pager=LESS=R delta --paging=always") + " --paginate";
 
-            // An untracked or newly added file has no useful HEAD blob to diff against.
-            // `--no-index` against the empty file shows its current contents as added; it also
-            // works for staged additions in a repository with no commit yet.
-            if (status == "??" || (status != null && status.IndexOf('A') >= 0))
+            // A truly untracked file has no index entry or HEAD blob to diff against.
+            // `--no-index` against the empty file shows its current contents as added. An
+            // unstaged add (` A`) can still be diffed against HEAD; sending it through
+            // `--no-index` makes the pager finish without leaving the diff visible.
+            if (status == "??")
                 return git + " diff --color=always --no-index -- /dev/null " + Pager.Quote(rel);
 
             // Against HEAD rather than the index or the worktree alone: what a reader means by
