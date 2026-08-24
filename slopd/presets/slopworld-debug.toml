@@ -31,10 +31,18 @@ rw = [
 ]
 # Desktop metadata lets gio/GTK reproduce the host application's associations and chooser.
 # /proc and /sys are host diagnostics; /run/udev lets graphics/device enumeration work.
+# The daemon's config dir carries config.toml and endpoint.toml, needed to debug why the
+# mod cannot reach the daemon; read-only so the token cannot be rewritten from here.
 ro = [
     "/proc",
     "/sys",
     "/run/udev",
+    "$XDG_CONFIG_HOME/slopworld",
+    "~/.config/slopworld",
+    # Journal files + machine-id let `journalctl` read the daemon unit's own startup/exit logs.
+    "/var/log/journal",
+    "/run/log/journal",
+    "/etc/machine-id",
     "$XDG_DATA_HOME/applications",
     "$XDG_DATA_HOME/flatpak/exports/share",
     "~/.local/share/applications",
