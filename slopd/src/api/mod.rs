@@ -32,3 +32,31 @@ pub(crate) fn presented_token(headers: &HeaderMap) -> Option<String> {
         .and_then(|v| v.to_str().ok())
         .map(str::to_string)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::HeaderValue;
+
+    #[test]
+    fn errors_keep_the_status_and_put_the_message_in_json() {
+        let (status, Json(body)) = err(StatusCode::BAD_REQUEST, "bad request body");
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(body, json!({ "error": "bad request body" }));
+    }
+
+    #[test]
+    fn presented_token_accepts_only_a_valid_header_value() {
+        let mut headers = HeaderMap::new();
+        assert_eq!(presented_token(&headers), None);
+
+        headers.insert("x-slop-token", HeaderValue::from_static("secret"));
+        assert_eq!(presented_token(&headers).as_deref(), Some("secret"));
+
+        headers.insert(
+            "x-slop-token",
+            HeaderValue::from_bytes(&[0xff]).expect("opaque header value"),
+        );
+        assert_eq!(presented_token(&headers), None);
+    }
+}

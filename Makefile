@@ -125,6 +125,27 @@ test:              ## Run the daemon and game-free mod tests
 	dotnet run --project mod/Tests/SlopWorld.Tests.csproj --configuration Release
 	$(MAKE) test-prose
 
+coverage:          ## Measure Rust and game-free C# test coverage
+	$(MAKE) coverage-daemon coverage-mod
+
+coverage-daemon:   ## Write Rust coverage to coverage/rust.cobertura.xml
+	@command -v cargo-llvm-cov >/dev/null || { echo "missing cargo-llvm-cov; install it with: cargo install cargo-llvm-cov --locked" >&2; exit 1; }
+	@command -v llvm-cov >/dev/null && command -v llvm-profdata >/dev/null || { echo "missing LLVM coverage tools" >&2; exit 1; }
+	@mkdir -p coverage
+	cd slopd && LLVM_COV="$$(command -v llvm-cov)" LLVM_PROFDATA="$$(command -v llvm-profdata)" \
+		cargo llvm-cov --cobertura --output-path ../coverage/rust.cobertura.xml
+	python3 tools/coverage_summary.py coverage/rust.cobertura.xml Rust
+
+coverage-mod:      ## Write game-free C# coverage to coverage/csharp.cobertura.xml
+	dotnet tool restore
+	@mkdir -p coverage
+	dotnet build mod/Tests/SlopWorld.Tests.csproj --configuration Release -p:Coverage=true
+	dotnet tool run coverlet -- mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll \
+		--target dotnet --targetargs mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll \
+		--include-test-assembly --exclude-by-file '**/mod/Tests/**/*.cs' \
+		--format cobertura --output coverage/csharp.cobertura.xml
+	python3 tools/coverage_summary.py coverage/csharp.cobertura.xml C\#
+
 test-prose:        ## Test the prose linter
 	python3 tools/test_prose_lint.py
 
@@ -147,6 +168,7 @@ clean:             ## Drop build output
 	cd slopd && cargo clean
 	rm -f mod/Assemblies/SlopWorld.dll
 	rm -rf mod/Source/SlopWorld/obj
+	rm -rf coverage
 
 ##
 ##-> Format and lint
