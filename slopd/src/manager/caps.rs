@@ -64,3 +64,75 @@ impl Manager {
         self.grants.read().await.count()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::config::{Config, Daemon, SessionCfg};
+    use crate::grant::{Cap, Level};
+    use crate::session::test_manager;
+
+    fn config() -> Config {
+        Config {
+            daemon: Daemon {
+                token: "root".into(),
+                ..Default::default()
+            },
+            sessions: vec![
+                SessionCfg {
+                    name: "grantor".into(),
+                    ..Default::default()
+                },
+                SessionCfg {
+                    name: "target".into(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn capabilities_resolve_and_grants_stay_scoped() {
+        let manager = test_manager(config());
+        assert!(manager.session_known("grantor").await);
+        assert!(!manager.session_known("missing").await);
+        assert!(matches!(
+            manager.resolve_cap(Some("root")).await,
+            Some(Cap::Root)
+        ));
+        assert!(manager.resolve_cap(Some("wrong")).await.is_none());
+
+        let token = manager
+            .mint_grant("grantor".into(), vec!["target".into()], Level::Ro)
+            .await
+            .unwrap();
+        assert_eq!(manager.grant_count().await, 1);
+        let cap = manager.resolve_cap(Some(&token)).await.unwrap();
+        assert!(cap.allows("target", false, Level::Ro));
+        assert!(!cap.allows("target", false, Level::Rw));
+        assert!(!cap.allows("grantor", false, Level::Ro));
+        assert!(manager.cap_ok(&cap, "target", Level::Ro).await);
+        assert!(!manager.cap_ok(&cap, "target", Level::Rw).await);
+
+        manager.revoke_grants("grantor").await;
+        assert_eq!(manager.grant_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn minting_requires_existing_grantor_and_targets() {
+        let manager = test_manager(config());
+        let missing_grantor = manager
+            .mint_grant("missing".into(), vec![], Level::Ro)
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(missing_grantor.contains("no such session to grant to"));
+
+        let missing_target = manager
+            .mint_grant("grantor".into(), vec!["missing".into()], Level::Ro)
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(missing_target.contains("no such session to grant"));
+    }
+}

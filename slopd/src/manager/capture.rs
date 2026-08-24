@@ -1178,4 +1178,83 @@ mod tests {
         assert_eq!(prompt, "fix the parser");
         assert!(!uncertain);
     }
+
+    #[tokio::test]
+    async fn applying_a_frame_updates_state_screen_and_bell_events() {
+        let manager = crate::session::test_manager(Config::default());
+        manager.live.write().await.insert(
+            "agent".into(),
+            Live::new(
+                SessionCfg {
+                    name: "agent".into(),
+                    ..Default::default()
+                },
+                TitleCapture::default(),
+            ),
+        );
+        let mut events = manager.events.subscribe();
+        let frame = Frame {
+            lines: vec!["hello".into()],
+            cx: 2,
+            cy: 0,
+            cursor_shape: 1,
+            cursor_blink: true,
+            app_mouse: false,
+            app_drag: false,
+            alt_screen: false,
+            title: "shell".into(),
+            bell: true,
+        };
+
+        manager.apply_frame("agent", frame).await;
+        let live = manager.live.read().await;
+        let live = live.get("agent").unwrap();
+        assert_eq!(live.state, State::Working);
+        assert_eq!(live.seq, 1);
+        assert!(live.bell);
+        assert_eq!(live.screen.as_ref().unwrap().lines, ["hello"]);
+
+        assert!(matches!(events.try_recv(), Ok(Event::Screen { .. })));
+        assert!(matches!(events.try_recv(), Ok(Event::Sessions { .. })));
+
+        manager
+            .apply_frame(
+                "agent",
+                Frame {
+                    lines: vec!["hello".into()],
+                    cx: 2,
+                    cy: 0,
+                    cursor_shape: 1,
+                    cursor_blink: true,
+                    app_mouse: false,
+                    app_drag: false,
+                    alt_screen: false,
+                    title: "shell".into(),
+                    bell: false,
+                },
+            )
+            .await;
+        assert_eq!(manager.live.read().await["agent"].seq, 1);
+    }
+
+    #[tokio::test]
+    async fn clearing_a_bell_is_idempotent_and_announces_the_change() {
+        let manager = crate::session::test_manager(Config::default());
+        let mut live = Live::new(
+            SessionCfg {
+                name: "agent".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        live.bell = true;
+        manager.live.write().await.insert("agent".into(), live);
+        let mut events = manager.events.subscribe();
+
+        manager.clear_bell("agent").await;
+        assert!(!manager.live.read().await["agent"].bell);
+        assert!(matches!(events.try_recv(), Ok(Event::Sessions { .. })));
+        manager.clear_bell("agent").await;
+        assert!(events.try_recv().is_err());
+    }
 }
