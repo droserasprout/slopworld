@@ -58,6 +58,10 @@ pub struct SandboxPreset {
     /// is deliberately opt-in: the socket is a live control channel to host terminals.
     #[serde(default)]
     pub tmux: bool,
+    /// Bind only config.toml and endpoint.toml read-only for daemon diagnostics. Ordinary
+    /// path lists still cannot reach either secret-bearing file.
+    #[serde(default)]
+    pub daemon_config: bool,
 }
 
 /// What an agent runs, and the sandbox presets that come with it: knowing a session is
@@ -468,6 +472,7 @@ mod tests {
             assert!(!p.description.is_empty(), "{name} has no description");
         }
         assert!(t.sandbox("slopworld-debug").unwrap().tmux);
+        assert!(t.sandbox("slopworld-debug").unwrap().daemon_config);
         assert_eq!(
             t.sandbox("slopworld-debug").unwrap().requires,
             vec![

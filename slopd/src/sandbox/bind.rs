@@ -92,6 +92,16 @@ fn tmux_socket_bind(socket: &str) -> Option<(String, String)> {
     Some((host_dir, "/tmp/tmux-0".into()))
 }
 
+/// The debug capability names these files structurally instead of putting their parent in an
+/// ordinary path list. That keeps presets and future config-directory contents out of reach.
+fn daemon_config_binds() -> Vec<String> {
+    [Config::path_in_use(), crate::endpoint::path()]
+        .into_iter()
+        .filter(|path| path.is_file())
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect()
+}
+
 /// `/etc/resolv.conf` is commonly a symlink into `/run`, which is not mounted in the sandbox.
 /// Bind the replacement onto the real target so the symlink still resolves inside bwrap.
 fn resolver_target() -> Option<String> {
@@ -179,12 +189,22 @@ pub(super) fn assemble_argv(
     let rw = paths(&presets, |pr| &pr.rw);
     let dev = paths(&presets, |pr| &pr.dev);
     let tmux = presets.iter().any(|pr| pr.tmux);
+    let daemon_config = presets.iter().any(|pr| pr.daemon_config);
 
     let resolv = resolver_bind(network, dns, &s.state_id);
 
     let mut a = Vec::new();
     push_skeleton(&mut a, network);
-    push_ro_binds(&mut a, &ro, &rw, &dev, network, resolv.as_ref(), tmux);
+    push_ro_binds(
+        &mut a,
+        &ro,
+        &rw,
+        &dev,
+        network,
+        resolv.as_ref(),
+        tmux,
+        daemon_config,
+    );
     push_private_binds(&mut a, cfg, s, p, &table, &dir, network, resolv.as_ref());
     push_env(&mut a, &home, s, p, &dir, &presets, &agent_argv);
 
@@ -239,6 +259,7 @@ fn push_ro_binds(
     network: NetworkMode,
     resolv: Option<&(String, String)>,
     tmux: bool,
+    daemon_config: bool,
 ) {
     for path in ro {
         push_args(a, &["--ro-bind", path, path]);
@@ -264,6 +285,11 @@ fn push_ro_binds(
     if tmux {
         if let Some((source, target)) = tmux_socket_bind(crate::config::tmux_socket()) {
             push_args(a, &["--ro-bind", &source, &target]);
+        }
+    }
+    if daemon_config {
+        for path in daemon_config_binds() {
+            push_args(a, &["--ro-bind", &path, &path]);
         }
     }
 }

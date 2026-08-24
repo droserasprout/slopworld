@@ -9,6 +9,7 @@ Split out of AGENTS.mdmd. Keep these short; delete what goes stale.
 - [overview](overview.md) - what this is, the two halves, the wire.
 - [attribution](attribution.md) - credits, shipped third-party assets and notice gaps.
 - [build-commands](build-commands.md) - Makefile targets, formatting, debug one-liners.
+- [debug-from-sandbox](debug-from-sandbox.md) - which daemon readings are sandbox artifacts, and how to get host truth.
 - [cpu-optimization](cpu-optimization.md) - implemented C# hot-path reductions.
 - [startup-time](startup-time.md) - what a warm start pays for, and what it does not.
 - [paths](paths.md) - where config, profile, logs and the tmux socket live.

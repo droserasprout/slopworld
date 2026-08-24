@@ -558,6 +558,7 @@ pub(super) fn sandbox_json(
         "env": p.env,
         "setenv": p.setenv,
         "tmux": p.tmux,
+        "daemon_config": p.daemon_config,
     })
 }
 
