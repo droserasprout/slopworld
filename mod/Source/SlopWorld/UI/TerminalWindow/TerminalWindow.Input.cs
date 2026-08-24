@@ -86,6 +86,15 @@ namespace SlopWorld
                 || data.GetBoundKeyCode(def, KeyPrefs.BindingSlot.B) == e.keyCode;
         }
 
+        internal static bool TryTabWalkDirection(Event e, out int dir)
+        {
+            dir = 0;
+            if (e.type != EventType.KeyDown || !e.alt || e.shift || e.control) return false;
+            if (e.keyCode == KeyCode.Z) dir = -1;
+            else if (e.keyCode == KeyCode.X) dir = 1;
+            return dir != 0;
+        }
+
         internal void HandleKey(Event e)
         {
             // Window actions run before the terminal's online check. A bare Escape or an
@@ -104,6 +113,13 @@ namespace SlopWorld
             if (slot >= 0 && e.alt)
             {
                 SwitchToSlot(slot);
+                e.Use();
+                return;
+            }
+
+            if (TryTabWalkDirection(e, out var dir))
+            {
+                WalkSession(dir);
                 e.Use();
                 return;
             }
@@ -319,21 +335,14 @@ namespace SlopWorld
             else SwitchTo(name);
         }
 
-        // Walk the session list by dir (-1 or 1). Used from Alt+comma/Alt+period in both
-        // ChromeKeys (content view up) and HandleKey (pane open). Sets the current session
-        // and switches the pane, or if the target has no process starts it.
+        // Walk the session list by dir (-1 or 1). Used from Alt+Z/Alt+X and
+        // Alt+comma/Alt+period in both ChromeKeys (content view up) and HandleKey (pane
+        // open). Sets the current session and switches the pane, or if the target has no
+        // process starts it.
         internal static void WalkSession(int dir)
         {
-            var order = AgentSidebar.WalkOrder();
-            if (order.Count == 0)
-            {
-                // Fallback: the hub's alive sessions.
-                var fallback = new List<string>();
-                foreach (var s in SessionHub.Instance.Sessions)
-                    if (s.Alive) fallback.Add(s.Name);
-                if (fallback.Count == 0) return;
-                order = fallback;
-            }
+            var order = TabOrder();
+            if (order.Count == 0) return;
 
             string current = SessionSelectable.Current;
             int idx = -1;
@@ -361,6 +370,25 @@ namespace SlopWorld
 
             if (info.Gone) { SessionHub.Instance.Start(target); }
             else Open(target);
+        }
+
+        // The visible sidebar rows give the useful project-grouped order. Add sessions the
+        // current view does not render afterward: routed viewers/editors, folded agents, and
+        // host or other ephemeral tabs must still be reachable by tab cycling. Apply the
+        // sidebar's project filter to those appended sessions too. Alt+Num stays on
+        // AgentColony.InBarOrder and deliberately does not use this list.
+        internal static List<string> TabOrder()
+        {
+            var order = AgentSidebar.WalkOrder();
+            var seen = new HashSet<string>(order);
+            foreach (var info in SessionHub.Instance.Sessions)
+            {
+                if (info == null || !AgentSidebar.Passes(info.Project) ||
+                    string.IsNullOrEmpty(info.Name) || !seen.Add(info.Name))
+                    continue;
+                order.Add(info.Name);
+            }
+            return order;
         }
 
         // Advance after the pane's process exits. Unlike the keyboard walk, a dead target is
