@@ -585,6 +585,7 @@ namespace SlopWorld
             if (!body.Contains(e.mousePosition)) return;
             _selA = _selB = CellAt(body, e.mousePosition);
             _dragging = true;
+            _selectionMoved = false;
             _wordDragging = false;
             _hasSel = false;
             e.Use();
@@ -593,12 +594,13 @@ namespace SlopWorld
         void ContinueSelection(Rect body, Event e)
         {
             if (!_dragging) return;
+            _selectionMoved = true;
             var cell = CellAt(body, e.mousePosition);
             if (_wordDragging) UpdateWordSelection(cell);
             else
             {
                 _selB = cell;
-                _hasSel = _selA != _selB;
+                _hasSel = true;
             }
             e.Use();
         }
@@ -618,8 +620,9 @@ namespace SlopWorld
             {
                 _dragging = false;
                 _selB = cell;
-                if (_selA != _selB) { _hasSel = true; CopySelection(); }
+                if (_selectionMoved || _selA != _selB) { _hasSel = true; CopySelection(); }
                 else _hasSel = false;
+                _selectionMoved = false;
             }
             e.Use();
         }
