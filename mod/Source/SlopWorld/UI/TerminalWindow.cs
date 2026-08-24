@@ -49,7 +49,8 @@ namespace SlopWorld
             Rect body = DrawTopBar(rect, input);
             bool pane = DrawBody(body, input, hub);
             DrawStatus(body, hub, pane);
-            if (_content == null && _name != null) MapGizmoUtility.MapUIOnGUI();
+            if (_content == null && _showStopped && _name != null && hub.Get(_name)?.Gone == true)
+                MapGizmoUtility.MapUIOnGUI();
         }
 
         Rect DrawTopBar(Rect rect, bool input)
