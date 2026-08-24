@@ -665,3 +665,117 @@ impl Manager {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::HostTerminalCfg;
+    use crate::session::test_manager;
+
+    #[test]
+    fn new_live_starts_as_a_boot_placeholder() {
+        let cfg = SessionCfg {
+            name: "agent".into(),
+            project: "project".into(),
+            ..Default::default()
+        };
+        let live = Live::new(cfg.clone(), TitleCapture::default());
+
+        assert_eq!(live.cfg.name, cfg.name);
+        assert_eq!(live.cfg.project, cfg.project);
+        assert!(!live.ephemeral);
+        assert!(!live.host);
+        assert!(live.host_path.is_empty());
+        assert_eq!(live.state, State::Down);
+        assert_eq!((live.cols, live.rows), (BOOT_COLS, BOOT_ROWS));
+        assert_eq!(live.seq, 0);
+        assert_eq!(live.state_since, 0);
+        assert!(!live.bell);
+        assert!(live.screen.is_none());
+        assert!(live.emu.is_none());
+        assert!(live.reader.is_none());
+        assert!(live.input.is_none());
+        assert!(live.breadcrumbs.is_empty());
+        assert!(!live.breadcrumbs_pending);
+    }
+
+    #[tokio::test]
+    async fn client_and_watch_guards_release_their_bookkeeping() {
+        let manager = test_manager(Config::default());
+        assert!(!manager.watched("agent"));
+
+        let first_client = manager.client_joined();
+        let second_client = manager.client_joined();
+        assert_eq!(manager.clients.load(Ordering::Relaxed), 2);
+        assert!(manager.clients_since.load(Ordering::Relaxed) > 0);
+        drop(second_client);
+        assert_eq!(manager.clients.load(Ordering::Relaxed), 1);
+        drop(first_client);
+        assert_eq!(manager.clients.load(Ordering::Relaxed), 0);
+
+        let first_watch = manager.watching("agent");
+        let second_watch = manager.watching("agent");
+        assert!(manager.watched("agent"));
+        drop(second_watch);
+        assert!(manager.watched("agent"));
+        drop(first_watch);
+        assert!(!manager.watched("agent"));
+    }
+
+    #[tokio::test]
+    async fn usage_broadcasts_only_when_the_readout_changes() {
+        let manager = test_manager(Config::default());
+        let mut events = manager.events.subscribe();
+        let unchanged = crate::usage::Snapshot::default();
+        manager.set_usage(unchanged).await;
+        assert!(events.try_recv().is_err());
+
+        let changed = crate::usage::Snapshot {
+            ok: true,
+            sources: vec!["test".into()],
+            ..Default::default()
+        };
+        manager.set_usage(changed.clone()).await;
+        let event = events.try_recv().expect("usage event");
+        assert!(matches!(event, Event::Usage { usage } if usage == changed));
+        assert_eq!(manager.usage().await, changed);
+    }
+
+    #[tokio::test]
+    async fn config_sync_upserts_agents_and_only_valid_host_terminals() {
+        let manager = test_manager(Config::default());
+        let cfg = Config {
+            sessions: vec![SessionCfg {
+                name: "agent".into(),
+                ..Default::default()
+            }],
+            host_terminals: vec![
+                HostTerminalCfg {
+                    name: "bad name".into(),
+                    ..Default::default()
+                },
+                HostTerminalCfg {
+                    name: "agent".into(),
+                    ..Default::default()
+                },
+                HostTerminalCfg {
+                    name: "shell".into(),
+                    project: "repo".into(),
+                    path: "~/repo".into(),
+                    autostart: true,
+                },
+            ],
+            ..Default::default()
+        };
+        manager.upsert_sessions(&cfg).await;
+        manager.upsert_host_terminals(&cfg).await;
+
+        let live = manager.live.read().await;
+        assert!(!live["agent"].host);
+        assert!(live["shell"].host);
+        assert!(live["shell"].ephemeral);
+        assert_eq!(live["shell"].host_path, crate::config::expand("~/repo"));
+        assert!(!live.contains_key("bad name"));
+        assert_eq!(live.len(), 2);
+    }
+}

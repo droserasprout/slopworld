@@ -93,7 +93,7 @@ fn url_for(bind: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{url_for, Endpoint};
+    use super::{update_token, url_for, write_endpoint, Endpoint};
 
     #[test]
     fn loopback_url_is_written_for_wildcard_binds() {
@@ -104,6 +104,8 @@ mod tests {
     #[test]
     fn ipv6_urls_are_bracketed() {
         assert_eq!(url_for("[::1]:7717"), "http://[::1]:7717");
+        assert_eq!(url_for("127.0.0.1:9000"), "http://127.0.0.1:9000");
+        assert_eq!(url_for("localhost:7717"), "http://localhost:7717");
     }
 
     #[test]
@@ -116,5 +118,34 @@ mod tests {
         let back: Endpoint = toml::from_str(&text).unwrap();
         assert_eq!(back.url, endpoint.url);
         assert_eq!(back.token, endpoint.token);
+    }
+
+    #[test]
+    fn descriptor_writes_and_token_updates_preserve_the_bound_url() {
+        let path = std::env::temp_dir().join(format!(
+            "slopd-endpoint-{}-{}.toml",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
+        let endpoint = Endpoint {
+            url: "http://127.0.0.1:7717".into(),
+            token: "old".into(),
+        };
+        write_endpoint(&path, &endpoint).unwrap();
+
+        // `update_token` uses the daemon's configured endpoint path, so exercise that public
+        // path as well as the atomic writer above.
+        let previous = std::env::var_os("SLOPD_ENDPOINT");
+        std::env::set_var("SLOPD_ENDPOINT", &path);
+        update_token("new").unwrap();
+        match previous {
+            Some(value) => std::env::set_var("SLOPD_ENDPOINT", value),
+            None => std::env::remove_var("SLOPD_ENDPOINT"),
+        }
+
+        let written: Endpoint = toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(written.url, endpoint.url);
+        assert_eq!(written.token, "new");
+        std::fs::remove_file(path).unwrap();
     }
 }

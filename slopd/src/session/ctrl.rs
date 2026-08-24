@@ -61,3 +61,38 @@ impl Drop for WatchGuard {
         }
     }
 }
+
+#[cfg(test)]
+pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
+    let cfg_path = std::env::temp_dir().join(format!(
+        "slopd-manager-test-{}-{}.toml",
+        std::process::id(),
+        uuid::Uuid::new_v4()
+    ));
+    let (events, _) = broadcast::channel(16);
+    Arc::new(Manager {
+        tmux: Tmux::new("slopworld-unit-test"),
+        cfg_path: cfg_path.clone(),
+        cfg: RwLock::new(config),
+        live: RwLock::new(HashMap::new()),
+        temp: RwLock::new(HashMap::new()),
+        rules: RwLock::new(Vec::new()),
+        cfg_mtime: Mutex::new(None),
+        presets_mtime: Mutex::new(None),
+        jukebox_mtime: Mutex::new(None),
+        cfg_checked: AtomicU64::new(0),
+        usage: RwLock::new(crate::usage::Snapshot::default()),
+        clients: AtomicUsize::new(0),
+        clients_since: AtomicU64::new(0),
+        watchers: Mutex::new(HashMap::new()),
+        scroll_cache: Mutex::new(HashMap::new()),
+        activity_cache: crate::activity::ActivityCache::load(crate::activity::cache_path(
+            &cfg_path,
+        )),
+        audio: crate::audio::Audio::new(),
+        events,
+        grants: RwLock::new(crate::grant::Grants::default()),
+        tasks: Mutex::new(crate::tasks::Tasks::load(&cfg_path).expect("test task store")),
+        title_cache: crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path)),
+    })
+}

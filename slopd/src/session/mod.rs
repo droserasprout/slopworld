@@ -16,6 +16,8 @@ use tokio::task::JoinHandle;
 mod ctrl;
 mod view;
 
+#[cfg(test)]
+pub(crate) use ctrl::test_manager;
 pub(super) use ctrl::CachedScroll;
 pub use ctrl::{ClientGuard, Manager, WatchGuard};
 pub use view::{ScreenView, SessionView};
@@ -935,10 +937,10 @@ mod tests {
     use super::{
         breadcrumb_block, check_breadcrumbs, check_name, check_shortcut, compile_rules, free_name,
         free_project_name, hold_action_command, json_to_toml, match_rules, merge_input, merge_toml,
-        normalize_action_command, normalize_path, prompt_is_long_enough, render_template,
-        render_template_with, settle, slug, strip_sgr, title_agent, title_settings, Composer,
-        Input, Live, State, Submission, TemplateVars, TitleAgent, TitleCapture, BOOT_COLS,
-        BOOT_ROWS, INPUT_BATCH,
+        normalize_action_command, normalize_path, project_action_path, prompt_is_long_enough,
+        read_action_output, render_template, render_template_with, settle, slug, strip_sgr,
+        title_agent, title_settings, Composer, Input, Live, State, Submission, TemplateVars,
+        TitleAgent, TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
     };
     use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, TitlePolicy};
 
@@ -1493,5 +1495,62 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
         assert_eq!(strip_sgr("esc to interrupt"), "esc to interrupt");
         assert_eq!(strip_sgr("\x1b]0;title\x07body"), "body");
         assert_eq!(strip_sgr("\x1b[38;5;214m❯ 1.\x1b[m"), "❯ 1.");
+    }
+
+    #[test]
+    fn json_patch_conversion_rejects_null_and_preserves_nested_values() {
+        let value = json_to_toml(serde_json::json!({
+            "enabled": true,
+            "count": 3,
+            "nested": ["one", false],
+        }))
+        .unwrap();
+        assert_eq!(value["enabled"].as_bool(), Some(true));
+        assert_eq!(value["count"].as_integer(), Some(3));
+        assert_eq!(value["nested"][0].as_str(), Some("one"));
+        assert_eq!(value["nested"][1].as_bool(), Some(false));
+        assert!(json_to_toml(serde_json::Value::Null).is_err());
+    }
+
+    #[test]
+    fn a_toml_table_patch_can_replace_a_scalar() {
+        let mut base = toml::Value::String("old".into());
+        merge_toml(
+            &mut base,
+            toml::toml! {
+                replacement = "new"
+            }
+            .into(),
+        );
+        assert_eq!(base["replacement"].as_str(), Some("new"));
+    }
+
+    #[test]
+    fn file_actions_stay_inside_the_project_root() {
+        let project = ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp/slopworld-project".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            project_action_path(&project, "/tmp/slopworld-project/src/main.rs").unwrap(),
+            PathBuf::from("/tmp/slopworld-project/src/main.rs")
+        );
+        let error = project_action_path(&project, "/tmp/slopworld-project-other/file")
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("outside project"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn action_output_reports_and_caps_stream_truncation() {
+        let (short, truncated) = read_action_output(&b"hello"[..]).await.unwrap();
+        assert_eq!(short, b"hello");
+        assert!(!truncated);
+
+        let long = vec![b'x'; super::FILE_ACTION_STREAM_LIMIT + 10];
+        let (capped, truncated) = read_action_output(&long[..]).await.unwrap();
+        assert_eq!(capped.len(), super::FILE_ACTION_STREAM_LIMIT);
+        assert!(truncated);
     }
 }

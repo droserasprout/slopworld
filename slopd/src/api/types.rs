@@ -286,7 +286,7 @@ pub(crate) struct ResizeReq {
 
 #[cfg(test)]
 mod tests {
-    use super::AudioReq;
+    use super::{AudioReq, BrowseReq, SearchReq};
 
     #[test]
     fn audio_selection_has_distinct_stop_volume_and_catalog_shapes() {
@@ -307,6 +307,28 @@ mod tests {
         assert!(
             serde_json::from_str::<AudioReq>(r#"{"source":"/tmp/old.ogg","volume":0.5}"#).is_err()
         );
+    }
+
+    #[test]
+    fn query_flags_accept_shell_words_and_reject_typos() {
+        let browse: BrowseReq =
+            serde_json::from_str(r#"{"files":"yes","hidden":"off","limit":12}"#).unwrap();
+        assert!(browse.files);
+        assert!(!browse.hidden);
+        assert_eq!(browse.limit, Some(12));
+
+        let search: SearchReq = serde_json::from_str(
+            r#"{"gitignore":"1","regex":"on","case":"0","word":"no","hidden":"true"}"#,
+        )
+        .unwrap();
+        assert!(search.gitignore && search.regex && search.hidden);
+        assert!(!search.case && !search.word);
+
+        let error = serde_json::from_str::<BrowseReq>(r#"{"files":"sometimes"}"#)
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(error.contains("expected a yes or a no"), "{error}");
     }
 }
 use serde::Deserialize;

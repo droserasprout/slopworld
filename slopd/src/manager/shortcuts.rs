@@ -674,7 +674,7 @@ fn auto_resume_inputs() -> Vec<Input> {
 #[cfg(test)]
 mod tests {
     use super::{auto_resume_inputs, Manager};
-    use crate::config::{Config, ShortcutCfg, ShortcutKind};
+    use crate::config::{Config, ProjectCfg, ShortcutCfg, ShortcutKind};
     use crate::session::Input;
     use std::os::unix::process::ExitStatusExt;
     use std::process::ExitStatus;
@@ -816,5 +816,54 @@ mod tests {
         );
         let argv = crate::sandbox::host_argv(&cfg, &session, &project);
         assert!(!argv.iter().any(|part| part == "bwrap"));
+    }
+
+    #[test]
+    fn project_file_actions_expand_and_quote_the_absolute_path() {
+        let cfg = Config {
+            projects: vec![ProjectCfg {
+                name: "repo".into(),
+                dir: "/tmp/slopworld-project".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let (_, session) = Manager::resolve_file_action(
+            &cfg,
+            "repo",
+            "/tmp/slopworld-project/src/file name.rs",
+            "sed -n '1p' {{ absolute_path }}",
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            session.cmd.as_deref(),
+            Some("sed -n '1p' '/tmp/slopworld-project/src/file name.rs'")
+        );
+
+        assert!(Manager::resolve_file_action(
+            &cfg,
+            "repo",
+            "/tmp/slopworld-project/file",
+            "   ",
+            false,
+        )
+        .is_err());
+        assert!(Manager::resolve_file_action(
+            &cfg,
+            "repo",
+            "/tmp/slopworld-project-other/file",
+            "cat {{ absolute_path }}",
+            false,
+        )
+        .is_err());
+        assert!(Manager::resolve_file_action(
+            &cfg,
+            "missing",
+            "/tmp/file",
+            "cat {{ absolute_path }}",
+            false,
+        )
+        .is_err());
     }
 }

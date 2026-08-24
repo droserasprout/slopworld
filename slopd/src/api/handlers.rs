@@ -1425,9 +1425,11 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use super::{
-        browse_limit, entry_name, file_path, highlighter_argv, list_dir, read_image_bytes,
-        read_preview, search_preview, SearchReq, IMAGE_LIMIT, READ_LIMIT, SEARCH_TEXT_LIMIT,
+        browse_limit, entry_name, file_path, highlighter_argv, list_dir, read_highlight_output,
+        read_image_bytes, read_preview, search_preview, source, valid_kind, SearchReq, IMAGE_LIMIT,
+        READ_LIMIT, SEARCH_TEXT_LIMIT,
     };
+    use axum::http::StatusCode;
 
     /// Somewhere of our own under the machine's temp dir, cleared on the way in so a run
     /// that died before its cleanup does not poison the next one. No dev-dependency for
@@ -1497,6 +1499,34 @@ mod tests {
             highlighter_argv("tool --file=%s", path).unwrap(),
             ["tool", "--file=/tmp/slopworld/highlight/code file.rs"]
         );
+        assert!(highlighter_argv("   ", path).is_err());
+    }
+
+    #[tokio::test]
+    pub(super) async fn highlighted_output_is_bounded_without_losing_short_output() {
+        let (bytes, truncated) = read_highlight_output(&b"hello"[..], 5).await.unwrap();
+        assert_eq!(bytes, b"hello");
+        assert!(!truncated);
+
+        let (bytes, truncated) = read_highlight_output(&b"hello!"[..], 5).await.unwrap();
+        assert_eq!(bytes, b"hello");
+        assert!(truncated);
+    }
+
+    #[test]
+    pub(super) fn preset_source_and_kind_errors_are_explicit() {
+        assert_eq!(source(true, true), "override");
+        assert_eq!(source(true, false), "system");
+        assert_eq!(source(false, true), "user");
+        assert_eq!(source(false, false), "unknown");
+        assert!(valid_kind("sandbox").is_ok());
+        assert!(valid_kind("command").is_ok());
+        let (status, body) = valid_kind("other").unwrap_err();
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(body.0["error"]
+            .as_str()
+            .unwrap()
+            .contains("unknown preset kind"));
     }
 
     #[tokio::test]

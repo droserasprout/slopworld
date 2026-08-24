@@ -143,6 +143,7 @@ impl InstanceLock {
 
         let file = OpenOptions::new()
             .create(true)
+            .truncate(false)
             .read(true)
             .write(true)
             .open(path)
@@ -176,7 +177,7 @@ impl InstanceLock {
 fn launcher_lock_path() -> PathBuf {
     let root = option_env_nonempty("XDG_RUNTIME_DIR")
         .map(PathBuf::from)
-        .or_else(|| dirs::config_dir())
+        .or_else(dirs::config_dir)
         .unwrap_or_else(|| PathBuf::from(expand("~/.config")));
     root.join("slopworld").join(LOCK_FILE)
 }

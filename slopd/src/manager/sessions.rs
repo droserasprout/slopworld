@@ -834,4 +834,145 @@ mod tests {
             .to_string();
         assert!(error.contains("the whole filesystem"), "{error}");
     }
+
+    #[tokio::test]
+    async fn session_and_project_targets_resolve_from_config_temp_and_host_state() {
+        let manager = crate::session::test_manager(Config::default());
+        let configured_project = ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp/repo".into(),
+            ..Default::default()
+        };
+        let configured = SessionCfg {
+            name: "agent".into(),
+            project: "repo".into(),
+            ..Default::default()
+        };
+        let cfg = Config {
+            projects: vec![configured_project.clone()],
+            sessions: vec![configured.clone()],
+            ..Default::default()
+        };
+        *manager.cfg.write().await = cfg.clone();
+
+        assert_eq!(manager.session_cfg("agent").await.unwrap().name, "agent");
+        let resolved = manager.project_for(&cfg, &configured).await.unwrap();
+        assert_eq!(resolved.name, "repo");
+        assert_eq!(resolved.dir, "/tmp/repo");
+
+        let temporary = ProjectCfg {
+            name: "scratch".into(),
+            dir: "/tmp/scratch".into(),
+            temp: true,
+            ..Default::default()
+        };
+        manager
+            .temp
+            .write()
+            .await
+            .insert("scratch".into(), temporary.clone());
+        let scratch = SessionCfg {
+            name: "scratch-agent".into(),
+            project: "scratch".into(),
+            ..Default::default()
+        };
+        let resolved = manager.project_for(&cfg, &scratch).await.unwrap();
+        assert_eq!(resolved.name, temporary.name);
+        assert_eq!(resolved.dir, temporary.dir);
+
+        let mut host = Live::new(
+            SessionCfg {
+                name: "host-shell".into(),
+                project: "gone".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        host.host = true;
+        host.host_path = "/tmp/remembered".into();
+        manager.live.write().await.insert("host-shell".into(), host);
+        let orphan_host = SessionCfg {
+            name: "host-shell".into(),
+            project: "gone".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            manager.project_for(&cfg, &orphan_host).await.unwrap().dir,
+            "/tmp/remembered"
+        );
+    }
+
+    #[tokio::test]
+    async fn state_classification_prefers_rules_then_activity_age() {
+        let manager = crate::session::test_manager(Config::default());
+        *manager.rules.write().await = vec![(
+            State::Waiting,
+            regex::Regex::new("choose an option").unwrap(),
+        )];
+        assert_eq!(
+            manager.classify(false, 0, "choose an option").await,
+            State::Waiting
+        );
+
+        manager.rules.write().await.clear();
+        assert_eq!(
+            manager.classify(true, u64::MAX, "changed").await,
+            State::Working
+        );
+        assert_eq!(manager.classify(false, 0, "stale").await, State::Idle);
+        assert_eq!(
+            manager.classify_initial(State::Idle, "unchanged").await,
+            State::Idle
+        );
+        assert_eq!(
+            manager.classify_initial(State::Down, "first frame").await,
+            State::Working
+        );
+    }
+
+    #[tokio::test]
+    async fn views_keep_host_paths_and_sort_by_session_name() {
+        let manager = crate::session::test_manager(Config::default());
+        *manager.cfg.write().await = Config {
+            sessions: vec![SessionCfg {
+                name: "agent".into(),
+                label: Some("Agent label".into()),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let mut agent = Live::new(
+            SessionCfg {
+                name: "agent".into(),
+                label: Some("Agent label".into()),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        agent.state = State::Working;
+        agent.seq = 4;
+        let mut host = Live::new(
+            SessionCfg {
+                name: "z-shell".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        host.host = true;
+        host.ephemeral = true;
+        host.host_path = "/tmp/host-cwd".into();
+        manager.live.write().await.insert("z-shell".into(), host);
+        manager.live.write().await.insert("agent".into(), agent);
+
+        let views = manager.views().await;
+        assert_eq!(
+            views.iter().map(|v| v.name.as_str()).collect::<Vec<_>>(),
+            ["agent", "z-shell"]
+        );
+        assert_eq!(views[0].label, "Agent label");
+        assert_eq!(views[0].state, State::Working);
+        assert_eq!(views[0].seq, 4);
+        assert_eq!(views[1].dir, "/tmp/host-cwd");
+        assert!(views[1].host && views[1].ephemeral);
+    }
 }
