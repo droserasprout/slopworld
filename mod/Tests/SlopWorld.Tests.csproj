@@ -28,7 +28,7 @@
     <Compile Include="../Source/SlopWorld/UI/Fuzzy.cs" Link="Source/UI/Fuzzy.cs" />
     <Compile Include="../Source/SlopWorld/UI/SessionNavigation.cs" Link="Source/UI/SessionNavigation.cs" />
     <Compile Include="../Source/SlopWorld/UI/UrlScan.cs" Link="Source/UI/UrlScan.cs" />
-    <Compile Include="../Source/SlopWorld/UI/RelativePathScan.cs" Link="Source/UI/RelativePathScan.cs" />
+    <Compile Include="../Source/SlopWorld/UI/PathScan.cs" Link="Source/UI/PathScan.cs" />
     <Compile Include="../Source/SlopWorld/UI/TerminalColumns.cs" Link="Source/UI/TerminalColumns.cs" />
     <Compile Include="../Source/SlopWorld/UI/PagerCommands.cs" Link="Source/UI/PagerCommands.cs" />
     <Compile Include="../Source/SlopWorld/Sim/SongRecognizer.cs" Link="Source/Sim/SongRecognizer.cs" />

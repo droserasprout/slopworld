@@ -494,10 +494,10 @@ namespace SlopWorld
                 return;
             }
 
-            if (IsRelativePathClick(body, e, out string relative))
+            if (IsPathClick(body, e, out string path))
             {
                 var session = SessionHub.Instance.Get(_name);
-                if (session != null && FilesView.FocusPath(session.Project, relative))
+                if (session != null && FilesView.FocusPath(session.Project, path))
                 {
                     e.Use();
                     return;
@@ -529,13 +529,13 @@ namespace SlopWorld
             MouseType(e) == EventType.MouseDown && e.button == 0 && ControlHeld(e) &&
             body.Contains(e.mousePosition) && LinkUnder(body, e.mousePosition) != null;
 
-        bool IsRelativePathClick(Rect body, Event e, out string relative)
+        bool IsPathClick(Rect body, Event e, out string path)
         {
-            relative = null;
+            path = null;
             if (MouseType(e) != EventType.MouseDown || e.button != 0 || !ControlHeld(e) ||
                 !body.Contains(e.mousePosition)) return false;
-            relative = RelativePathUnder(body, e.mousePosition);
-            return relative != null;
+            path = PathUnder(body, e.mousePosition);
+            return path != null;
         }
 
         static bool IsWordSelection(Rect body, Event e) =>

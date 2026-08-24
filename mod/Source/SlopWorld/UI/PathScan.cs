@@ -5,7 +5,11 @@ namespace SlopWorld
     // Click-time recognition only. Paths do not join URL autolinking because repaint and
     // pointer motion are hot paths; one row scan after Ctrl+MouseDown is both cheaper and
     // less eager about ordinary terminal text that happens to contain a slash.
-    public static class RelativePathScan
+    //
+    // Both relative (`./x`, `../x`, a token with a `/`) and absolute (`/x/y`) forms are
+    // returned; whether an absolute path can actually be shown is FilesView's call, since
+    // it alone knows which project roots the tree can reach.
+    public static class PathScan
     {
         public static string At(string text, int column)
         {
@@ -30,9 +34,15 @@ namespace SlopWorld
 
             if (end <= start) return null;
             string path = text.Substring(start, end - start);
-            if (path.StartsWith("/", StringComparison.Ordinal) ||
-                path.IndexOf("://", StringComparison.Ordinal) >= 0)
+            // A scheme's `//` is not a directory separator; leave URLs to UrlScan.
+            if (path.IndexOf("://", StringComparison.Ordinal) >= 0)
                 return null;
+            if (path[0] == '/')
+            {
+                // A bare "/" is the root, not a file the tree needs to scroll to.
+                if (path.Length < 2) return null;
+                return path;
+            }
             if (!path.StartsWith("./", StringComparison.Ordinal) &&
                 !path.StartsWith("../", StringComparison.Ordinal) &&
                 path.IndexOf('/') < 0)
