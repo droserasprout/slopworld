@@ -17,7 +17,8 @@ namespaces isolate sessions from the game; `/api/browse` exists for the same bou
   ([mod-ui-rowactions](mod-ui-rowactions.md)); tooltips retain the state. The separate
   `Changes` table serves Files' path lookup.
 - Right-clicking a project heading or changed-path row opens its context menu, including the
-  project-relative File actions available to the Files tree.
+  project-relative File actions available to the Files tree. Changed file and directory rows
+  also share Files' host `Open in...` application picker.
 - Git menus also offer safe local mutations: stage/unstage a changed path, stage or unstage the
   whole repository, and commit staged changes with a short message. These call host-side Git
   through `/api/file-action`, then refresh the project; destructive reset/discard and remote

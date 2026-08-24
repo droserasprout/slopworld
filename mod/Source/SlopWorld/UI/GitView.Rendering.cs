@@ -405,6 +405,7 @@ namespace SlopWorld
             };
 
             FilesView.AddFileActions(opts, project, abs, node.Name);
+            FilesView.AddOpenIn(opts, abs);
 
             bool canStage = Any(node, NeedsStage);
             bool canUnstage = Any(node, IsStaged);
