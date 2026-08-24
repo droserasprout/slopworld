@@ -156,7 +156,7 @@ namespace SlopWorld
         // What the pane looked like last time it changed.
         RenderTexture _cache;
         string _cacheName;
-        int _cacheSeq = -1, _cacheOff = -1, _cacheRev = -1;
+        int _cacheSeq = -1, _cacheOff = -1, _cacheRev = -1, _cacheFontRev = -1;
         Rect _cacheBody;
         float _cacheCw, _cacheCh;
         bool _noCache;
@@ -193,8 +193,13 @@ namespace SlopWorld
                     || _cacheSeq != buf.Seq || _cacheOff != buf.Off
                     || _cacheBody != body
                     || _cacheCw != cw || _cacheCh != ch
-                    || _cacheRev != TerminalTheme.Rev)
+                    || _cacheRev != TerminalTheme.Rev
+                    || _cacheFontRev != TerminalFont.Rev)
                 {
+                    // Keep the pre-paint revision. RequestCharactersInTexture can rebuild the
+                    // atlas while Paint is running; retaining the old revision forces one clean
+                    // repaint after that rebuild instead of caching a half-drawn first frame.
+                    int fontRev = TerminalFont.Rev;
                     var was = RenderTexture.active;
                     RenderTexture.active = _cache;
                     GL.Clear(false, true, Sgr.DefaultBg);
@@ -205,6 +210,7 @@ namespace SlopWorld
                     _cacheSeq = buf.Seq;
                     _cacheOff = buf.Off;
                     _cacheRev = TerminalTheme.Rev;
+                    _cacheFontRev = fontRev;
                     _cacheBody = body;
                     _cacheCw = cw;
                     _cacheCh = ch;
@@ -271,7 +277,7 @@ namespace SlopWorld
             _cache.Release();
             Object.Destroy(_cache);
             _cache = null;
-            _cacheSeq = _cacheOff = _cacheRev = -1;
+            _cacheSeq = _cacheOff = _cacheRev = _cacheFontRev = -1;
             _cacheName = null;
         }
 
@@ -304,10 +310,20 @@ namespace SlopWorld
         // took no width and slid the whole input line a cell left.
         static void DrawRun(string text, float x, float y, float cw, float ch, GUIStyle style)
         {
+            TerminalFont.Prepare(text, style.fontStyle);
             int start = 0;
             int i = 0;
             while (i < text.Length)
             {
+                int emojiLength;
+                if (TerminalEmoji.TryDraw(text, i, x, y, cw, ch, out emojiLength))
+                {
+                    DrawSpan(text, start, i, x, y, cw, ch, style);
+                    i += emojiLength;
+                    start = i;
+                    continue;
+                }
+
                 // A surrogate pair is one glyph, and never a one-cell one.
                 int len = char.IsHighSurrogate(text[i]) && i + 1 < text.Length ? 2 : 1;
                 if (len == 1 && TerminalFont.FitsCell(text[i])) { i++; continue; }

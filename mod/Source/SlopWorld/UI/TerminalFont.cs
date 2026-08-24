@@ -21,6 +21,13 @@ namespace SlopWorld
             "Consolas",
             "Courier New",
             "Monospace",
+            // Unity's dynamic font can use the installed emoji face as a fallback for
+            // supplementary-plane glyphs that ordinary mono and symbol faces do not carry.
+            // Keep it ahead of the broad monochrome fallbacks: some of those cover the same
+            // code points with tofu or text-style glyphs and would otherwise win first.
+            "Noto Color Emoji",
+            "NotoColorEmoji",
+            "EmojiOne Color",
             "Noto Sans Symbols 2",
             "Noto Sans Symbols",
             "Symbola",
@@ -33,6 +40,8 @@ namespace SlopWorld
         static bool _fontless; // no OS font at all, so a rebuild would not help
         static int _size;
         static string _name = "";
+        static int _rev;
+        static bool _textureRebuildHooked;
 
         const int ProbeSize = 30;
         static List<string> _mono;
@@ -42,9 +51,11 @@ namespace SlopWorld
 
         public static float CellW { get; private set; }
         public static float CellH { get; private set; }
+        public static int Rev => _rev;
 
         public static void Invalidate()
         {
+            _rev++;
             _style = null;
             _fontless = false;
             _fits.Clear();
@@ -54,6 +65,7 @@ namespace SlopWorld
         {
             get
             {
+                HookTextureRebuilds();
                 // A GUIStyle is not a UnityEngine.Object, so the font it holds is rooted by
                 // nothing Unity can see: the unload RimWorld runs on every map switch destroys it
                 // and leaves the style in the default proportional face. The null check catches a
@@ -99,6 +111,43 @@ namespace SlopWorld
                             $"cell {CellW:0.##}x{CellH:0.##}");
                 return _style;
             }
+        }
+
+        // A supplementary glyph may be the first character that asks Unity to rebuild the
+        // dynamic atlas. The pane is rendered into a RenderTexture, so that rebuild must be a
+        // cache key too or the first frame can preserve the pre-glyph (blank) texture forever.
+        static void HookTextureRebuilds()
+        {
+            if (_textureRebuildHooked) return;
+            Font.textureRebuilt += OnTextureRebuilt;
+            _textureRebuildHooked = true;
+        }
+
+        static void OnTextureRebuilt(Font font)
+        {
+            _rev++;
+            _fits.Clear();
+        }
+
+        // Legacy IMGUI often requests a dynamic font one UTF-16 code unit at a time. Ask for
+        // the complete supplementary glyph before drawing the cached pane so a surrogate pair
+        // can reach the selected fallback face and its atlas is ready for GUI.Label.
+        public static void Prepare(string text, FontStyle fontStyle)
+        {
+            if (string.IsNullOrEmpty(text) || _font == null) return;
+
+            bool supplementary = false;
+            for (int i = 0; i + 1 < text.Length; i++)
+            {
+                if (char.IsHighSurrogate(text[i]) && char.IsLowSurrogate(text[i + 1]))
+                {
+                    supplementary = true;
+                    break;
+                }
+            }
+
+            if (supplementary)
+                _font.RequestCharactersInTexture(text, _size, fontStyle);
         }
 
         static string[] Chain(string name)

@@ -63,6 +63,14 @@ their saved values use the normal unknown-theme fallback to SlopWorld.
 The 16-color entries follow published palettes where one exists. Cursor, selection and link
 roles are pane adaptations rather than claims that a source palette defines those roles.
 
+`TerminalFont` keeps the selected mono face for the grid and adds installed emoji faces before
+the broad symbol fallbacks. Legacy IMGUI cannot read Noto Color Emoji's bitmap tables reliably,
+so `TerminalEmoji` draws supplementary-plane glyphs from the Pango-baked atlas before the font
+path gets a chance. The generated atlas covers the codepoints advertised by the build machine's
+Noto Color Emoji face; a rebuild is `make emoji-atlas`. The complete UTF-16 surrogate pair is
+also requested from Unity's dynamic atlas for codepoints not in that atlas, and the pane cache
+keys on font-atlas rebuilds.
+
 ## Links
 
 - `emu.rs` preserves application OSC 8 after `safe_uri` strips controls and caps length.
