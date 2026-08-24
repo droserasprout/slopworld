@@ -99,14 +99,13 @@ namespace SlopWorld
                     if (j < line.Length && line[j] == 'm')
                     {
                         Flush(runs, sb, attr, runStart, url);
-                        Apply(line.Substring(i + 2, j - i - 2), ref attr);
+                        Apply(line, i + 2, j, ref attr);
                     }
                     else if (j < line.Length && line[j] == 'G')
                     {
-                        // CHA: jump the pen to an absolute (1-based) column.
                         Flush(runs, sb, attr, runStart, url);
-                        int.TryParse(line.Substring(i + 2, j - i - 2), out int n);
-                        penCol = Mathf.Max(0, n - 1);
+                        int n = ParseParam(line, i + 2, j);
+                        penCol = n > 0 ? n - 1 : 0;
                         runStart = penCol;
                     }
                     i = j + 1;
@@ -173,7 +172,8 @@ namespace SlopWorld
                     prev.Fg == fg && prev.HasBg == hasBg && (!hasBg || prev.Bg == bg) &&
                     prev.Url == url)
                 {
-                    prev.Text += sb.ToString();
+                    sb.Insert(0, prev.Text);
+                    prev.Text = sb.ToString();
                     runs[last] = prev;
                     sb.Length = 0;
                     return;
@@ -193,21 +193,20 @@ namespace SlopWorld
             sb.Length = 0;
         }
 
-        static void Apply(string body, ref Attr a)
+        static void Apply(string line, int start, int end, ref Attr a)
         {
-            if (body.Length == 0) { a = Fresh(); return; }
-
-            var parts = body.Split(';');
-            for (int k = 0; k < parts.Length; k++)
+            if (start >= end) { a = Fresh(); return; }
+            int pos = start;
+            while (pos < end)
             {
-                if (!int.TryParse(parts[k], out int n)) continue;
+                int n = NextParam(line, ref pos, end);
+                if (n < 0) continue;
 
                 switch (n)
                 {
                     case 0: a = Fresh(); break;
                     case 1: a.Bold = true; break;
                     case 2: a.Faint = true; break;
-                    // 22 is "normal intensity", which is both of them at once.
                     case 22: a.Bold = false; a.Faint = false; break;
                     case 7: a.Reverse = true; break;
                     case 27: a.Reverse = false; break;
@@ -215,29 +214,31 @@ namespace SlopWorld
                     case 39: a.Fg = DefaultFg; break;
                     case 49: a.HasBg = false; a.Bg = DefaultBg; break;
 
-                    // 38/48 take an argument list: 5;<n> for 256-color, 2;r;g;b for truecolor.
                     case 38:
                     case 48:
                     {
                         bool fg = n == 38;
-                        if (k + 1 >= parts.Length) break;
-                        int.TryParse(parts[k + 1], out int mode);
+                        int mode = NextParam(line, ref pos, end);
 
-                        if (mode == 5 && k + 2 < parts.Length)
+                        if (mode == 5)
                         {
-                            int.TryParse(parts[k + 2], out int idx);
-                            var c = Xterm256(idx);
-                            if (fg) a.Fg = c; else { a.Bg = c; a.HasBg = true; }
-                            k += 2;
+                            int idx = NextParam(line, ref pos, end);
+                            if (idx >= 0)
+                            {
+                                var c = Xterm256(idx);
+                                if (fg) a.Fg = c; else { a.Bg = c; a.HasBg = true; }
+                            }
                         }
-                        else if (mode == 2 && k + 4 < parts.Length)
+                        else if (mode == 2)
                         {
-                            int.TryParse(parts[k + 2], out int r);
-                            int.TryParse(parts[k + 3], out int g);
-                            int.TryParse(parts[k + 4], out int b);
-                            var c = new Color(r / 255f, g / 255f, b / 255f);
-                            if (fg) a.Fg = c; else { a.Bg = c; a.HasBg = true; }
-                            k += 4;
+                            int rv = NextParam(line, ref pos, end);
+                            int gv = NextParam(line, ref pos, end);
+                            int bv = NextParam(line, ref pos, end);
+                            if (rv >= 0 && gv >= 0 && bv >= 0)
+                            {
+                                var c = new Color(rv / 255f, gv / 255f, bv / 255f);
+                                if (fg) a.Fg = c; else { a.Bg = c; a.HasBg = true; }
+                            }
                         }
                         break;
                     }
@@ -250,6 +251,29 @@ namespace SlopWorld
                         break;
                 }
             }
+        }
+
+        static int NextParam(string s, ref int pos, int end)
+        {
+            if (pos > end) return -1;
+            int semi = pos;
+            while (semi < end && s[semi] != ';') semi++;
+            int n = ParseParam(s, pos, semi);
+            pos = semi + 1;
+            return n;
+        }
+
+        static int ParseParam(string s, int start, int end)
+        {
+            if (start >= end) return -1;
+            int n = 0;
+            for (int i = start; i < end; i++)
+            {
+                char c = s[i];
+                if (c < '0' || c > '9') return -1;
+                n = n * 10 + (c - '0');
+            }
+            return n;
         }
 
         public static Color Xterm256(int i)
