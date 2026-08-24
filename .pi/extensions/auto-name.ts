@@ -14,8 +14,8 @@
  * Usage settings when the session starts. Silently skips if the key is
  * missing, the policy says not to name, or the summariser fails.
  *
- * Project-local extension (`.pi/extensions/`), loaded only when pi's cwd is
- * inside the slopworld project directory.  No global install, no bind mounts.
+ * Project-local extension (`.pi/extensions/`), loaded when pi's cwd is inside
+ * the slopworld project directory and never installed globally or bind-mounted.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";

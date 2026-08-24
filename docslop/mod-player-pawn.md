@@ -3,7 +3,7 @@
 A user-controlled human colonist, separate from the agent system.
 
 - **`PlayerPawn`** (`GameComponent`) spawns one colonist named "Player" with a
-  random human look — no robot face, no metal skin, no agent outfit. Not
+  random human look; robot faces, metal skin, and agent outfits are excluded. It is not
   registered in `AgentColony`, so it stays off the sidebar and out of the
   session reconcile.
 - Camera movement does not move the pawn. Press **1** (bare, no modifiers,

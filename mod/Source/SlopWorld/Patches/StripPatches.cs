@@ -9,14 +9,14 @@ namespace SlopWorld
     // individual systems, so everything stays consistent underneath. 1.6 moved most
     // of these to interval ticks, so the target names will not bind on 1.5.
 
-    // No hunger, no rest, no joy decay.
+    // The needs tracker does not tick.
     [HarmonyPatch(typeof(Pawn_NeedsTracker), nameof(Pawn_NeedsTracker.NeedsTrackerTickInterval))]
     public static class Patch_Needs
     {
         static bool Prefix() => false;
     }
 
-    // No disease, no hypothermia, no bleeding out, no hediff progression.
+    // Health conditions do not advance.
     [HarmonyPatch(typeof(Pawn_HealthTracker), nameof(Pawn_HealthTracker.HealthTickInterval))]
     public static class Patch_Health
     {
@@ -37,7 +37,7 @@ namespace SlopWorld
         static bool Prefix() => false;
     }
 
-    // The one that matters: no raids, no events, no quests, no weather disasters.
+    // Storyteller ticks do not start raids, events, quests, or weather disasters.
     [HarmonyPatch(typeof(Storyteller), nameof(Storyteller.StorytellerTick))]
     public static class Patch_Storyteller
     {

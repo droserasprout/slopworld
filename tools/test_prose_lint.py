@@ -192,6 +192,17 @@ class InputTests(unittest.TestCase):
         found = prose_lint.collect_matches(masked, set(prose_lint.RULES_BY_ID))
         self.assertEqual(["whole"], [rule.id for rule, _ in found])
 
+    def test_javascript_template_literal_is_not_a_comment(self):
+        text = 'const value = `text // That is the whole point.`;\n'
+        masked = prose_lint.lintable_text(Path("source.js"), text)
+        self.assertEqual([], prose_lint.collect_matches(masked, {"whole"}))
+
+    def test_rust_nested_block_comment_is_scanned_to_outer_end(self):
+        text = "/* outer /* inner */ That is the whole point. */\n"
+        masked = prose_lint.lintable_text(Path("source.rs"), text)
+        found = prose_lint.collect_matches(masked, {"whole"})
+        self.assertEqual(["whole"], [rule.id for rule, _ in found])
+
     def test_hash_scans_comments_not_strings(self):
         text = 'value = "No fluff, no filler"  # It is important to note that this stays.\n'
         masked = prose_lint.lintable_text(Path("source.py"), text)
@@ -217,6 +228,16 @@ class InputTests(unittest.TestCase):
 
 
 class CliTests(unittest.TestCase):
+    def test_stdin_skips_markdown_code(self):
+        result = subprocess.run(
+            [sys.executable, prose_lint.__file__, "-"],
+            input="```text\nThat's the whole point.\n```\n",
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(0, result.returncode)
+        self.assertEqual("", result.stdout)
+
     def test_json_diagnostic_and_exit_status(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sample.md"

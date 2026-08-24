@@ -151,9 +151,8 @@ namespace SlopWorld
     }
 
     // Every non-abstract DynamicPawnRenderNodeSetup is found by AllSubclassesNonAbstract and
-    // instantiated by the game, so this needs no def and no patch. The parent is handed back
-    // null: AddChild resolves it from parentTagDef against its own nodesByTag, so we never
-    // hold a node the tree has since rebuilt.
+    // AllSubclassesNonAbstract instantiates this setup without a def or patch. AddChild resolves
+    // the parent through parentTagDef against nodesByTag.
     public class SlopFaceRenderNodes : DynamicPawnRenderNodeSetup
     {
         public override bool HumanlikeOnly => true;

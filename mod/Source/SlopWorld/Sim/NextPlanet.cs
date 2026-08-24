@@ -89,8 +89,7 @@ namespace SlopWorld
             Pending = true;
 
             // Grandma mode: the colony still goes, it is just not set on fire on the way out.
-            // Straight to the teardown, so there is no scene to sit through and no burning
-            // map to watch it from.
+            // Tear down the map directly and skip the burning-map scene.
             if (Settings.GrandmaMode) { Leave(); return; }
 
             // Cutscene.Playing takes the map's own interface away; a window sits above all of

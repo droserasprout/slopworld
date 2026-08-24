@@ -6,7 +6,7 @@
 # Every glyph is a Codicon, VS Code's icon set, taken out of a Nerd Font. `glyph` is
 # the Nerd Fonts name and `code` is where that name sits in the private use area;
 # the name is documentation and the codepoint is what the bake actually reads, so
-# tools/icons.py needs no network and no glyphnames.json. Both come off the Nerd
+# tools/icons.py is self-contained. The glyph names and codepoints come from the Nerd
 # Fonts cheat sheet: https://www.nerdfonts.com/cheat-sheet
 #
 # One set on purpose. Codicons is drawn on a 16px grid for a code editor, so the

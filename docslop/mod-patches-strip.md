@@ -29,7 +29,7 @@
   out, so the row was a knob wired to nothing. The custom cursor (DeadCursor answers
   either way), both clocks and the mood bar and portrait weapon (GlobalControls and
   the colonist-bar drawer), gravship cutscenes, zoom-to-switch-layer and the
-  remembered draw style (no gravship, no planet view, no Architect menu). Graphics,
+  remembered draw style and the gravship, planet-view, and Architect-menu options. Graphics,
   Interface and Controls are merged into the RimWorld page under small section
   headings; Mods is the remaining separate vanilla category.
 

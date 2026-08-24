@@ -64,9 +64,8 @@ namespace SlopWorld
         // A slider moved by a hair is not worth a packet.
         const float VolumeStep = 0.01f;
 
-        // What is on, or null for the OST. The station carries its own quality, so this is
-        // the whole of the answer to "what is playing" - which is what the menu's rows and
-        // Report each ask in their own way.
+        // The selected station, or null for the OST, identifies the current music; menu rows
+        // and reports query it directly.
         public static Station Picked
         {
             get { Read(); return _station; }
@@ -378,7 +377,7 @@ namespace SlopWorld
         }
 
         // The game's own music slider. Master is left out because the daemon is not behind
-        // the game's AudioListener - out there, this is the whole of it.
+        // The daemon is outside the game's AudioListener, so apply both Unity volume preferences here.
         static float Volume() => Mathf.Clamp01(Prefs.VolumeMusic * Prefs.VolumeMaster);
 
         static string Selection()
@@ -500,7 +499,7 @@ namespace SlopWorld
     // Told on the way out, in a prefix so the socket is still up. Its own patch beside the
     // autosave's rather than a line inside it: two things happen on the way out and neither
     // is the other's business. QuitInterceptor routes the window's close button through
-    // Root.Shutdown as well, so this is the whole of an orderly quit.
+    // Root.Shutdown as well, so this prefix covers orderly exits.
     [HarmonyPatch(typeof(Root), nameof(Root.Shutdown))]
     public static class Patch_RadioOnShutdown
     {

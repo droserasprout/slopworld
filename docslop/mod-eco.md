@@ -44,8 +44,7 @@ What it does, one owner each:
   the same `Reconcile` body from wall time each second. Eco arrivals spawn directly
   at the pod's destination; a pod cannot count down its opening delay while paused.
 
-What it costs: an agent that arrives during an eco spell gets no pod and no arrival
-fx - it is simply standing there the next time the picture is looked at - and
-`AutoSaver` takes no autosave, a board that has not moved having nothing to write
-down. The daemon, the socket and the agents are untouched; they were never the
-game's.
+During an eco spell, an arriving agent appears directly at the pod's destination
+and the arrival effect is skipped. `AutoSaver` also skips autosaves because the
+board has not changed. The daemon, socket, and agents continue running outside
+the paused game.

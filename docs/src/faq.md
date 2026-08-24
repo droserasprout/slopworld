@@ -42,7 +42,7 @@ TODO: yolo tab in settings to send Shift+Tab to fresh claude sessions (maybe it'
 
 ### Is this project vibecode?
 
-Oh yes! That's the whole point.
+Yes. AI assistance is central to this project.
 
 ### So it's gonna be abandoned soon?
 

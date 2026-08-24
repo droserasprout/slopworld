@@ -73,7 +73,7 @@ namespace SlopWorld
 
             if (Pets.Is(attacker)) Pets.NuzzleInstead(attacker, victim);
             __result = false;
-            return false; // no swing, and no verb ever chosen for one
+            return false; // suppresses the swing and verb selection
         }
     }
 

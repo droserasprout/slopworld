@@ -7,9 +7,8 @@ terminal ANSI colors stay in `TerminalTheme`.
 ## Color schemes
 
 The values behind those names are a `UIScheme`, picked on the Appearance page and held in
-`SlopSettings.uiScheme`. A scheme is a table of colors and nothing else — no geometry, no
-gaps, no shapes — so the panel is the same instrument under every one of them, standing in
-a different light. `slopworld` and `slopworld-warm` are the complete house tables. The
+`SlopSettings.uiScheme`. A scheme is a color table; geometry, spacing, and shapes come from
+the shared panel. `slopworld` and `slopworld-warm` are the complete house tables. The
 remaining entries are named palettes adapted to the UI's semantic roles.
 
 The catalog deliberately uses stable IDs for persisted settings and human labels for the
