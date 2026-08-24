@@ -146,3 +146,44 @@ async fn paste(argv: &[&str]) -> Result<String> {
     }
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_only_matches_command_not_found_errors() {
+        let absent = anyhow::Error::new(std::io::Error::from(std::io::ErrorKind::NotFound));
+        let denied = anyhow::Error::new(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+        assert!(missing(&absent));
+        assert!(!missing(&denied));
+        assert!(!missing(&anyhow::anyhow!("not an I/O error")));
+    }
+
+    #[tokio::test]
+    async fn copy_process_receives_the_complete_text_on_stdin() {
+        one(
+            &["sh", "-c", "test \"$(cat)\" = clipboard-text"],
+            Some("clipboard-text"),
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn paste_process_returns_stdout_verbatim() {
+        let output = paste(&["sh", "-c", "printf 'first\\nsecond'"])
+            .await
+            .unwrap();
+        assert_eq!(output, "first\nsecond");
+    }
+
+    #[tokio::test]
+    async fn paste_process_reports_stderr_on_failure() {
+        let error = paste(&["sh", "-c", "printf 'clipboard unavailable' >&2; exit 7"])
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("clipboard unavailable"), "{error}");
+    }
+}
