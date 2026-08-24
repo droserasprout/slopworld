@@ -26,6 +26,7 @@ namespace SlopWorld.Tests
             yield return ("256-color then bold in one sequence", Color256ThenBold);
             yield return ("faint dims foreground toward background", FaintDims);
             yield return ("reverse swaps foreground and background", ReverseSwaps);
+            yield return ("supplementary glyph remains one run", SupplementaryGlyph);
         }
 
         static Color DefaultFg => TerminalTheme.Current.Fg;
@@ -185,6 +186,18 @@ namespace SlopWorld.Tests
             AssertEx.Equal(DefaultBg, runs[0].Fg, "fg becomes bg");
             AssertEx.Equal(DefaultFg, runs[0].Bg, "bg becomes fg");
             AssertEx.True(runs[0].HasBg, "has bg under reverse");
+        }
+
+        static void SupplementaryGlyph()
+        {
+            // The daemon's wide emoji occupies columns 0 and 1, then re-anchors the next
+            // cell at column 2. Keep the UTF-16 pair intact while retaining terminal columns.
+            var runs = Sgr.ParseLine("\U0001F916\x1b[3G\x1b[31mX");
+            AssertEx.Equal(2, runs.Count, "run count");
+            AssertEx.Equal("\U0001F916", runs[0].Text, "emoji pair is intact");
+            AssertEx.Equal(0, runs[0].Col, "emoji starts at column zero");
+            AssertEx.Equal("X", runs[1].Text, "tail text");
+            AssertEx.Equal(2, runs[1].Col, "tail starts after the wide emoji");
         }
     }
 }

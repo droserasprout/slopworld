@@ -9,6 +9,7 @@ namespace SlopWorld.Tests
         {
             yield return ("parses nested values and accessors", ParsesNestedValuesAndAccessors);
             yield return ("round trips quoted strings", RoundTripsQuotedStrings);
+            yield return ("round trips supplementary emoji", RoundTripsSupplementaryEmoji);
             yield return ("parses numbers and literals", ParsesNumbersAndLiterals);
         }
 
@@ -53,6 +54,14 @@ namespace SlopWorld.Tests
             AssertEx.Equal(-1250f, value[3].AsFloat(), "exponent number");
             AssertEx.Equal(7L, value[4].AsLong(), "integer number");
             AssertEx.Equal(99, value[2].AsInt(99), "null integer fallback");
+        }
+
+        static void RoundTripsSupplementaryEmoji()
+        {
+            const string emoji = "\U0001F606";
+            string wire = "{\"text\":" + JVal.Q(emoji) + "}";
+            AssertEx.Equal(emoji, JVal.Parse(wire)["text"].AsString(),
+                           "surrogate pair survives the paste JSON shape");
         }
     }
 }

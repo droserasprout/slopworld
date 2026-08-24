@@ -155,6 +155,9 @@ appicon:           ## Regenerate the app icon (robot face + wilted rose)
 icons:             ## Rebake the action icons from a Nerd Font's Codicons
 	python3 tools/icons.py
 
+emoji-atlas:       ## Rebake the legacy terminal's emoji atlas with Pango
+	python3 tools/emoji_atlas.py
+
 reference:         ## Generate the environment/API/CLI reference
 	python3 tools/reference.py
 
