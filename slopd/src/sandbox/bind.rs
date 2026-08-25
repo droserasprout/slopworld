@@ -14,7 +14,8 @@ const BASE_ENV: &[&str] = &["PATH", "LANG", "USER", "LOGNAME", "SHELL"];
 // Private networking gets an address space that cannot collide with the host's real LAN.
 // pasta forwards DNS from this synthetic gateway to the host resolver, while the resolv.conf
 // bind below keeps the guest from seeing a host-loopback stub address.
-const PRIVATE_ADDRESS: &str = "192.0.2.2/24";
+const PRIVATE_ADDRESS: &str = "192.0.2.2";
+const PRIVATE_NETMASK: &str = "24";
 const PRIVATE_GATEWAY: &str = "192.0.2.1";
 /// Returns existing `(private_copy, host_path)` pairs used to shadow private state under
 /// `$HOME`. Disk preparation happens in `prepare_network`.
@@ -158,6 +159,8 @@ fn pasta_prefix(dns: &DnsConfig) -> Vec<String> {
         "none".into(),
         "--address".into(),
         PRIVATE_ADDRESS.into(),
+        "--netmask".into(),
+        PRIVATE_NETMASK.into(),
         "--gateway".into(),
         PRIVATE_GATEWAY.into(),
         "--dns-forward".into(),
@@ -235,11 +238,27 @@ fn push_skeleton(a: &mut Vec<String>, network: NetworkMode) {
         push_args(a, &["--share-net"]);
     }
 
-    // Usr-merge symlinks, otherwise nothing resolves inside the namespace.
-    push_args(a, &["--symlink", "usr/lib", "/lib"]);
-    push_args(a, &["--symlink", "usr/lib", "/lib64"]);
-    push_args(a, &["--symlink", "usr/bin", "/bin"]);
-    push_args(a, &["--symlink", "usr/bin", "/sbin"]);
+    // Recreate the running system's own top-level lib/bin entries, or nothing resolves inside
+    // the namespace. This is read off the host rather than hardcoded because usr-merge layouts
+    // differ: Arch keeps every library flat in /usr/lib, while Debian's multiarch tree reaches
+    // the loader through /lib64 -> /usr/lib64 on amd64 and has no /lib64 at all on arm64. The
+    // sandbox always runs on the same system as slopd, so mirroring these keeps it correct on any
+    // of them.
+    for link in ["/lib", "/lib64", "/bin", "/sbin"] {
+        match std::fs::symlink_metadata(link) {
+            Ok(meta) if meta.file_type().is_symlink() => {
+                if let Ok(target) = std::fs::read_link(link) {
+                    a.push("--symlink".to_string());
+                    a.push(target.to_string_lossy().into_owned());
+                    a.push(link.to_string());
+                }
+            }
+            // A real directory on a system that never merged: bind it in as-is.
+            Ok(meta) if meta.is_dir() => push_args(a, &["--ro-bind", link, link]),
+            // Absent (e.g. no /lib64 on arm64): nothing to recreate.
+            _ => {}
+        }
+    }
 
     // The skeleton goes down before any bind: each of these covers what is under it and bwrap
     // mounts in the order given. `x11` binds /tmp/.X11-unix, this tmpfs buried it, and the
@@ -540,11 +559,15 @@ mod tests {
         assert!(private.contains(&"none".into()));
         assert!(private.contains(&"--share-net".into()));
         assert!(private.contains(&PRIVATE_ADDRESS.into()));
-        let dns = private
+        assert!(private
             .windows(2)
-            .find(|w| w[0] == "--dns-host")
-            .expect("resolved DNS host");
-        assert_eq!(dns[1], "127.0.0.53");
+            .any(|w| w[0] == "--netmask" && w[1] == PRIVATE_NETMASK));
+        let resolved: Vec<_> = private
+            .windows(2)
+            .filter(|w| w[0] == "--dns-host")
+            .map(|w| w[1].as_str())
+            .collect();
+        assert_eq!(resolved, DnsConfig::Resolved.servers());
 
         p.dns = Some(DnsConfig::Servers {
             servers: vec!["10.0.0.53".parse().unwrap(), "10.0.0.54".parse().unwrap()],

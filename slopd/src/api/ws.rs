@@ -52,7 +52,8 @@ fn scope_event(cap: &Cap, ev: Event) -> Option<Event> {
                     .collect(),
             }),
             Event::Screen { .. } => Some(ev),
-            Event::Projects { .. }
+            Event::Capabilities { .. }
+            | Event::Projects { .. }
             | Event::Shortcuts { .. }
             | Event::Usage { .. }
             | Event::Audio { .. }
@@ -105,6 +106,16 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
 /// same scope filter the pump uses, so a grant's socket gets its filtered session list and
 /// none of the mod's wider view - `scope_event` drops what it may not see.
 async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
+    if let Some(ev) = scope_event(
+        cap,
+        Event::Capabilities {
+            capabilities: crate::runtime::capabilities(),
+        },
+    ) {
+        if send(tx, &ev).await.is_err() {
+            return false;
+        }
+    }
     if let Some(ev) = scope_event(
         cap,
         Event::Sessions {

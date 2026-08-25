@@ -40,6 +40,7 @@ pub(crate) fn router(m: Mgr) -> Router {
     // moves it into `scoped` on purpose. The layer reads the capability `auth` already hung on
     // the request.
     let root = Router::new()
+        .route("/api/capabilities", get(capabilities))
         .route("/api/projects", get(list_projects).post(create_project))
         .route(
             "/api/projects/:name",

@@ -58,6 +58,10 @@ impl Audio {
 
     /// `source` is a URL, file path, or directory; `volume` is 0..1.
     pub fn play(&self, source: &str, volume: f32) {
+        if crate::runtime::is_slopcar() {
+            self.reject("audio playback is unavailable in slopcar; playback stays native on macOS");
+            return;
+        }
         let _ = self.tx.send(Cmd::Play {
             source: source.to_string(),
             volume: volume.clamp(0.0, 1.0),

@@ -9,6 +9,10 @@ namespace SlopWorld
         {
             switch (ev["t"].AsString())
             {
+                case "capabilities":
+                    Capabilities = DaemonCapabilities.FromJson(ev["capabilities"]);
+                    break;
+
                 case "sessions":
                     _sessions.ApplySessions(ev);
                     break;

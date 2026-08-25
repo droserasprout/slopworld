@@ -23,6 +23,7 @@ namespace SlopWorld
         // page saves. Settable because those pages write it back optimistically before the
         // daemon answers; the initial object keeps file actions usable before the first response.
         public SlopConfig Config = new SlopConfig();
+        public DaemonCapabilities Capabilities = new DaemonCapabilities();
         // Never null: an empty one draws as "no numbers", which is what a daemon that has not
         // answered yet means.
         public UsageInfo Usage = new UsageInfo();

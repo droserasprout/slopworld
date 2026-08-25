@@ -34,6 +34,14 @@ namespace SlopWorld
 
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "Jukebox");
+            if (!SessionHub.Instance.Capabilities.AudioPlayback)
+            {
+                SlopWidgets.Note(l,
+                    "Jukebox playback is unavailable in slopcar. The native game keeps audio " +
+                    "on this Mac; radio streaming will return in a later compatibility release.");
+                l.End();
+                return;
+            }
 
             var picked = Radio.Picked;
             string source = Radio.Muted ? "Muted" : picked == null

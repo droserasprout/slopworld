@@ -375,6 +375,7 @@ impl Manager {
         check_name(&s.name)?;
         check_belongs(&cfg, &s)?;
         s.limits.validate()?;
+        crate::runtime::validate_limits(&s.limits)?;
         // A client has no authority over which durable state an agent receives.  Always mint a
         // fresh key, including if a hand-written request carried a stale one.
         s.state_id = uuid::Uuid::new_v4().to_string();
@@ -412,6 +413,7 @@ impl Manager {
         let mut cfg = self.cfg.write().await;
         check_belongs(&cfg, &s)?;
         s.limits.validate()?;
+        crate::runtime::validate_limits(&s.limits)?;
         let idx = cfg
             .sessions
             .iter()

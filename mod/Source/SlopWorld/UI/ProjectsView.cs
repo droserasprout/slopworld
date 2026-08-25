@@ -279,7 +279,9 @@ namespace SlopWorld
                 PickNetwork();
             GUI.color = SlopWidgets.Dim;
             l.Label(_p.Network == NetworkMode.Host
-                ? "Agents may use the host network, including local services."
+                ? SessionHub.Instance.Capabilities.HostNetworkIsContainer
+                    ? "Agents share slopcar's network. Mac services are at host.docker.internal."
+                    : "Agents may use the host network, including local services."
                 : _p.Network == NetworkMode.Private
                     ? "Agents may use the Internet through a private namespace."
                     : "Agents have no network access.");
@@ -299,7 +301,7 @@ namespace SlopWorld
             else
             {
                 GUI.color = SlopWidgets.Dim;
-                l.Label("System resolver uses the stable systemd-resolved stub.");
+                l.Label("System resolver follows the daemon's current resolv.conf.");
                 GUI.color = Color.white;
             }
 
@@ -347,7 +349,7 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("System resolver (127.0.0.53)",
+                new FloatMenuOption("System resolver",
                     () => _p.Dns = DnsConfig.Resolved()),
                 new FloatMenuOption("Custom DNS servers",
                     () =>

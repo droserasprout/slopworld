@@ -22,6 +22,8 @@ impl Manager {
         self.reload_if_changed().await;
         settle(&mut p);
         check_project(&p)?;
+        p.limits.validate()?;
+        crate::runtime::validate_limits(&p.limits)?;
         let mut cfg = self.cfg.write().await;
         check_breadcrumbs(&cfg, &p.breadcrumbs)?;
         if cfg.project(&p.name).is_some() {
@@ -38,6 +40,8 @@ impl Manager {
         self.reload_if_changed().await;
         settle(&mut p);
         check_project(&p)?;
+        p.limits.validate()?;
+        crate::runtime::validate_limits(&p.limits)?;
 
         let mut cfg = self.cfg.write().await;
         check_breadcrumbs(&cfg, &p.breadcrumbs)?;

@@ -62,13 +62,30 @@ pub struct RunWhere {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "t", rename_all = "lowercase")]
 pub enum Event {
-    Sessions { sessions: Vec<SessionView> },
-    Projects { projects: Vec<ProjectCfg> },
-    Shortcuts { shortcuts: Vec<ShortcutCfg> },
-    Screen { screen: ScreenView },
-    Usage { usage: crate::usage::Snapshot },
-    Audio { audio: crate::audio::AudioState },
-    Jukebox { jukebox: crate::jukebox::Catalog },
+    Capabilities {
+        capabilities: crate::runtime::Capabilities,
+    },
+    Sessions {
+        sessions: Vec<SessionView>,
+    },
+    Projects {
+        projects: Vec<ProjectCfg>,
+    },
+    Shortcuts {
+        shortcuts: Vec<ShortcutCfg>,
+    },
+    Screen {
+        screen: ScreenView,
+    },
+    Usage {
+        usage: crate::usage::Snapshot,
+    },
+    Audio {
+        audio: crate::audio::AudioState,
+    },
+    Jukebox {
+        jukebox: crate::jukebox::Catalog,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -802,7 +819,7 @@ async fn read_action_output<R: AsyncRead + Unpin>(mut stream: R) -> Result<(Vec<
 #[path = "../manager/mod.rs"]
 mod manager;
 
-fn validate_config(cfg: &Config) -> Result<()> {
+pub(crate) fn validate_config(cfg: &Config) -> Result<()> {
     cfg.daemon
         .bind
         .parse::<std::net::SocketAddr>()
@@ -821,6 +838,7 @@ fn validate_config(cfg: &Config) -> Result<()> {
         }
     }
     for s in &cfg.sessions {
+        s.limits.validate()?;
         if let Some(dns) = &s.dns {
             dns.validate(&format!("agent {}", s.name))?;
         }
@@ -830,10 +848,12 @@ fn validate_config(cfg: &Config) -> Result<()> {
         cfg.network_of(s, p)?;
     }
     for p in &cfg.projects {
+        p.limits.validate()?;
         if let Some(dns) = &p.dns {
             dns.validate(&format!("project {}", p.name))?;
         }
     }
+    crate::runtime::validate_config(cfg)?;
     Ok(())
 }
 

@@ -485,8 +485,13 @@ mod tests {
                 "rust-cache",
                 "nuget-cache",
                 "ccache",
-                "python"
+                "python",
+                "docker"
             ]
+        );
+        assert_eq!(
+            t.sandbox("slopworld-debug").unwrap().setenv["RUST_BACKTRACE"],
+            "1"
         );
         let debug = t.sandbox("slopworld-debug").unwrap();
         for path in [

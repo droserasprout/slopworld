@@ -42,10 +42,10 @@ Projects set a network ceiling; agents may only narrow it:
 - `private` wraps bwrap in `pasta` with synthetic DNS and no forwarding.
 - `host` uses `--share-net`, including host-local services.
 
-Private DNS forwards through pasta's synthetic resolver. By default its host
-target is the stable systemd-resolved stub at `127.0.0.53`, so Wi-Fi and VPN
-DNS changes are handled by the host resolver rather than copied into each
-agent. A project or agent may instead configure up to two explicit IPv4 DNS
+Private DNS forwards through pasta's synthetic resolver. By default its host target follows up
+to two IPv4 nameservers in the daemon's current `/etc/resolv.conf`; that is usually the
+systemd-resolved stub on Linux and Docker's embedded resolver in slopcar. A project or agent may
+instead configure up to two explicit IPv4 DNS
 servers; that choice is fixed when the agent starts and is not refreshed in
 place. Host-mode agents use the same DNS choice for their `/etc/resolv.conf`.
 

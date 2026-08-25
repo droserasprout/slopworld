@@ -10,6 +10,7 @@ mod grant;
 mod jukebox;
 mod paths;
 mod presets;
+mod runtime;
 mod sandbox;
 mod session;
 mod tasks;
@@ -40,7 +41,10 @@ async fn main() -> Result<()> {
 
     let cfg_path = Config::path_in_use();
     let cfg = Config::load(&cfg_path)?;
+    runtime::validate_runtime_name()?;
+    session::validate_config(&cfg)?;
     tracing::info!("config: {}", cfg_path.display());
+    tracing::info!("runtime: {}", runtime::capabilities().runtime);
 
     let table = presets::table();
     tracing::info!(

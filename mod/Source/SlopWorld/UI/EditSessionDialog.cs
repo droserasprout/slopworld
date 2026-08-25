@@ -274,7 +274,7 @@ namespace SlopWorld
             else
             {
                 GUI.color = SlopWidgets.Dim;
-                l.Label("System resolver uses the stable systemd-resolved stub.");
+                l.Label("System resolver follows the daemon's current resolv.conf.");
                 GUI.color = Color.white;
             }
         }
@@ -302,6 +302,16 @@ namespace SlopWorld
         {
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
+
+            if (!SessionHub.Instance.Capabilities.PerSessionLimits)
+            {
+                SlopWidgets.Note(l,
+                    "slopcar has one outer CPU, memory and process budget. Per-agent limits " +
+                    "need delegated cgroups and are unavailable in this runtime.");
+                float unavailable = l.CurHeight;
+                l.End();
+                return unavailable;
+            }
 
             GUI.color = SlopWidgets.Dim;
             l.Label("Blank means no cap. An unset field inherits the project, then the host.");
@@ -397,7 +407,7 @@ namespace SlopWorld
             {
                 new FloatMenuOption("Inherit project (" + inheritedDns.Label + ")",
                     () => _s.DnsOverride = null),
-                new FloatMenuOption("System resolver (127.0.0.53)",
+                new FloatMenuOption("System resolver",
                     () => _s.DnsOverride = DnsConfig.Resolved()),
                 new FloatMenuOption("Custom DNS servers",
                     () =>

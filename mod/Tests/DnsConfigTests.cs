@@ -46,7 +46,7 @@ namespace SlopWorld.Tests
         {
             var resolved = DnsConfig.FromJson(JVal.Parse("{\"mode\":\"resolved\"}"));
             AssertEx.True(resolved.IsResolved, "resolved mode");
-            AssertEx.Equal("System resolver (127.0.0.53)", resolved.Label,
+            AssertEx.Equal("System resolver", resolved.Label,
                            "resolved label");
             AssertEx.Equal("{\"mode\":\"resolved\"}", resolved.ToJson(),
                            "resolved JSON");
