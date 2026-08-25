@@ -22,6 +22,8 @@ namespace SlopWorld.Tests
                 tests.Add(("NetworkMode: " + test.Name, test.Body));
             foreach (var test in DnsConfigTests.Cases())
                 tests.Add(("DnsConfig: " + test.Name, test.Body));
+            foreach (var test in DaemonCapabilitiesTests.Cases())
+                tests.Add(("DaemonCapabilities: " + test.Name, test.Body));
             foreach (var test in SessionLimitsTests.Cases())
                 tests.Add(("SessionLimits: " + test.Name, test.Body));
             foreach (var test in SessionInfoTests.Cases())

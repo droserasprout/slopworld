@@ -1,0 +1,320 @@
+#!/bin/bash
+set -euo pipefail
+
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+repo=$(CDPATH= cd -- "$here/.." && pwd -P)
+image=${SLOPCAR_IMAGE:-slopcar:local}
+container=${SLOPCAR_CONTAINER:-slopcar}
+config_dir=${SLOPCAR_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/slopworld}
+data_dir=${SLOPCAR_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/slopworld}
+port=${SLOPCAR_PORT:-7717}
+seccomp=$here/seccomp.json
+
+usage() {
+    cat <<'EOF'
+usage: slopcar COMMAND [OPTIONS]
+
+commands:
+  build                 build the Debian-based slopcar image
+  doctor                prove nested bwrap, pasta and tmux under Docker
+  start [OPTIONS]       create and start slopcar, or start the existing container
+  stop                  stop slopcar without deleting persistent state
+  restart               restart the existing container
+  status                show container and health state
+  logs [-f]             show daemon logs
+  shell                 open a shell in the running container
+  rm                    remove only the container; config and session state remain
+
+start options:
+  --workspace PATH      mount an approved workspace at the same absolute path (repeatable)
+  --credential-ro S=T  mount one named credential file/directory read-only at container path T
+  --credential-rw S=T  mount one named credential file/directory read-write at container path T
+  --port NUMBER         host loopback port, also the daemon's bind inside (default: 7717)
+  --memory SIZE         outer memory ceiling (default: 8g)
+  --cpus NUMBER         outer CPU ceiling (default: 4)
+  --pids-limit NUMBER   outer process/thread ceiling (default: 4096)
+
+The Debian trixie base is multiarch, so the image builds and runs natively on both amd64 and
+Apple Silicon (arm64) with no emulation.
+EOF
+}
+
+die() {
+    echo "slopcar: $*" >&2
+    exit 1
+}
+
+need_docker() {
+    command -v docker >/dev/null 2>&1 || die "Docker Desktop is not installed"
+    docker info >/dev/null 2>&1 || die "Docker Desktop is not running"
+}
+
+has_container() {
+    docker container inspect "$container" >/dev/null 2>&1
+}
+
+has_image() {
+    docker image inspect "$image" >/dev/null 2>&1
+}
+
+check_mount_path() {
+    local path=$1 kind=$2
+    [[ $path = /* ]] || die "$kind path must be absolute: $path"
+    [[ $path != *","* && $path != *$'\n'* ]] || die "$kind path contains an unsupported comma or newline: $path"
+    case "/${path#/}/" in
+        */../*|*/./*) die "$kind path must not contain . or .. components: $path" ;;
+    esac
+}
+
+contains_path() {
+    local parent=${1%/} child=${2%/}
+    [[ $child == "$parent" || $child == "$parent/"* ]]
+}
+
+check_workspace() {
+    local path=${1%/} resolved home_real
+    check_mount_path "$path" workspace
+    [[ -d $path ]] || die "workspace does not exist or is not a directory: $path"
+    resolved=$(CDPATH= cd -- "$path" && pwd -P)
+    home_real=$(CDPATH= cd -- "$HOME" && pwd -P)
+    [[ $resolved != / && $resolved != "$home_real" ]] ||
+        die "refusing to mount a filesystem or the whole home as a workspace"
+    if contains_path "$path" "$config_dir" || contains_path "$config_dir" "$path"; then
+        die "workspace overlaps the SlopWorld config directory: $path"
+    fi
+    if contains_path "$path" "$data_dir" || contains_path "$data_dir" "$path"; then
+        die "workspace overlaps SlopWorld session state: $path"
+    fi
+}
+
+credential_mount() {
+    local mode=$1 spec=$2 source target option source_real home_real parent base
+    [[ $spec == *=* ]] || die "credential must be SOURCE=CONTAINER_TARGET: $spec"
+    source=${spec%%=*}
+    target=${spec#*=}
+    check_mount_path "$source" credential
+    check_mount_path "$target" credential-target
+    [[ -e $source ]] || die "credential does not exist: $source"
+    [[ ! -L $source ]] || die "credential source must not be a symlink: $source"
+    [[ -f $source || -d $source ]] ||
+        die "credential source must be a regular file or directory: $source"
+    if [[ -d $source ]]; then
+        source_real=$(CDPATH= cd -- "$source" && pwd -P)
+    else
+        parent=$(dirname -- "$source")
+        base=$(basename -- "$source")
+        source_real=$(CDPATH= cd -- "$parent" && printf '%s/%s\n' "$(pwd -P)" "$base")
+    fi
+    home_real=$(CDPATH= cd -- "$HOME" && pwd -P)
+    [[ $source_real != / && $source_real != "$home_real" ]] ||
+        die "refusing to mount a filesystem or the whole home as a credential"
+    case "$source_real" in
+        "$home_real/.docker"|"$home_real/.docker/"*|*docker.sock*)
+            die "the Docker configuration/socket is not a slopcar credential"
+            ;;
+    esac
+    target=${target%/}
+    [[ $target != /home/slop ]] || die "credential target must be below /home/slop"
+    case "$target" in
+        /home/slop/*) ;;
+        *) die "credential target must be below /home/slop: $target" ;;
+    esac
+    case "$target" in
+        /home/slop/.config/slopworld|/home/slop/.config/slopworld/*|\
+        /home/slop/.local/share/slopworld|/home/slop/.local/share/slopworld/*)
+            die "credential target overlaps protected SlopWorld state: $target"
+            ;;
+    esac
+    option="type=bind,source=$source,target=$target"
+    [[ $mode == ro ]] && option+=",readonly"
+    credential_args+=(--mount "$option")
+}
+
+seed_config() {
+    mkdir -p "$config_dir" "$data_dir"
+    chmod 700 "$config_dir" "$data_dir" 2>/dev/null || true
+    if [[ -e $config_dir/config.toml ]]; then
+        [[ -f $config_dir/config.toml ]] || die "$config_dir/config.toml is not a regular file"
+        local existing
+        existing=$(sed -n 's/^[[:space:]]*bind[[:space:]]*=[[:space:]]*"[^"]*:\([0-9][0-9]*\)".*/\1/p' \
+            "$config_dir/config.toml" | head -1)
+        [[ -z $existing || $existing == "$port" ]] ||
+            die "$config_dir/config.toml already binds port $existing but --port is $port; reuse that port, or rm the container and use a fresh SLOPCAR_CONFIG_DIR"
+        return
+    fi
+
+    local token
+    token=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
+    [[ ${#token} -eq 64 ]] || die "could not generate the daemon token"
+    umask 077
+    printf '%s\n' \
+        '[daemon]' \
+        "bind = \"0.0.0.0:$port\"" \
+        "token = \"$token\"" \
+        > "$config_dir/config.toml"
+    echo "slopcar: created $config_dir/config.toml with a random token"
+}
+
+security_args=(
+    --cap-drop ALL
+    --security-opt "seccomp=$seccomp"
+    --security-opt systempaths=unconfined
+    --device /dev/net/tun
+)
+
+tmpfs_args=(
+    --tmpfs /tmp:rw,nosuid,nodev,exec,size=1g,uid=1000,gid=1000,mode=1777
+    --tmpfs /run:rw,nosuid,nodev,noexec,size=16m,uid=1000,gid=1000,mode=0755
+    --tmpfs /home/slop/.cache:rw,nosuid,nodev,exec,size=1g,uid=1000,gid=1000,mode=0700
+)
+
+command=${1:-help}
+[[ $# -eq 0 ]] || shift
+
+case "$command" in
+    help|-h|--help)
+        usage
+        ;;
+    build)
+        [[ $# -eq 0 ]] || die "build takes no arguments"
+        need_docker
+        docker build --tag "$image" --file "$here/Dockerfile" "$repo"
+        ;;
+    doctor)
+        [[ $# -eq 0 ]] || die "doctor takes no arguments"
+        need_docker
+        has_image || die "image $image is missing; run: $0 build"
+        docker run --rm --user 1000:1000 --read-only \
+            "${security_args[@]}" "${tmpfs_args[@]}" "$image" slopcar-doctor
+        ;;
+    start)
+        need_docker
+        if has_container; then
+            [[ $# -eq 0 ]] || die "the container already exists; remove it before changing mounts or budgets"
+            docker start "$container" >/dev/null
+            echo "slopcar: started existing container $container"
+            exit 0
+        fi
+        has_image || die "image $image is missing; run: $0 build"
+
+        workspaces=()
+        credential_args=()
+        memory=${SLOPCAR_MEMORY:-8g}
+        cpus=${SLOPCAR_CPUS:-4}
+        pids=${SLOPCAR_PIDS_LIMIT:-4096}
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --workspace)
+                    [[ $# -ge 2 ]] || die "--workspace needs a path"
+                    check_workspace "$2"
+                    workspaces+=("${2%/}")
+                    shift 2
+                    ;;
+                --credential-ro|--credential-rw)
+                    [[ $# -ge 2 ]] || die "$1 needs SOURCE=CONTAINER_TARGET"
+                    mode=ro
+                    [[ $1 == --credential-rw ]] && mode=rw
+                    credential_mount "$mode" "$2"
+                    shift 2
+                    ;;
+                --port)
+                    [[ $# -ge 2 ]] || die "--port needs a number"
+                    [[ $2 =~ ^[0-9]+$ ]] && (( $2 >= 1 && $2 <= 65535 )) ||
+                        die "--port must be 1-65535: $2"
+                    port=$2
+                    shift 2
+                    ;;
+                --memory)
+                    [[ $# -ge 2 ]] || die "--memory needs a size"
+                    memory=$2
+                    shift 2
+                    ;;
+                --cpus)
+                    [[ $# -ge 2 ]] || die "--cpus needs a number"
+                    cpus=$2
+                    shift 2
+                    ;;
+                --pids-limit)
+                    [[ $# -ge 2 ]] || die "--pids-limit needs a number"
+                    pids=$2
+                    shift 2
+                    ;;
+                *) die "unknown start option: $1" ;;
+            esac
+        done
+        [[ ${#workspaces[@]} -gt 0 ]] || die "the first start needs at least one --workspace"
+        seed_config
+
+        workspace_args=()
+        for path in "${workspaces[@]}"; do
+            workspace_args+=(--mount "type=bind,source=$path,target=$path")
+        done
+
+        docker run --detach \
+            --name "$container" \
+            --hostname slopcar \
+            --user 1000:1000 \
+            --read-only \
+            --restart unless-stopped \
+            --stop-timeout 15 \
+            --memory "$memory" \
+            --cpus "$cpus" \
+            --pids-limit "$pids" \
+            --ulimit nofile=65536:65536 \
+            --publish 127.0.0.1:$port:$port \
+            --add-host host.docker.internal:host-gateway \
+            --env SLOPD_RUNTIME=slopcar \
+            --label io.slopworld.component=slopcar \
+            "${security_args[@]}" \
+            "${tmpfs_args[@]}" \
+            --mount "type=bind,source=$config_dir,target=/home/slop/.config/slopworld" \
+            --mount "type=bind,source=$data_dir,target=/home/slop/.local/share/slopworld" \
+            "${workspace_args[@]}" \
+            "${credential_args[@]}" \
+            "$image" >/dev/null
+        echo "slopcar: started $container on http://127.0.0.1:$port"
+        echo "slopcar: endpoint and token: $config_dir/endpoint.toml"
+        ;;
+    stop)
+        [[ $# -eq 0 ]] || die "stop takes no arguments"
+        need_docker
+        has_container || die "container $container does not exist"
+        docker stop "$container" >/dev/null
+        echo "slopcar: stopped $container; persistent state was not removed"
+        ;;
+    restart)
+        [[ $# -eq 0 ]] || die "restart takes no arguments"
+        need_docker
+        has_container || die "container $container does not exist"
+        docker restart "$container" >/dev/null
+        echo "slopcar: restarted $container"
+        ;;
+    status)
+        [[ $# -eq 0 ]] || die "status takes no arguments"
+        need_docker
+        has_container || die "container $container does not exist"
+        docker inspect --format '{{.State.Status}}{{if .State.Health}} health={{.State.Health.Status}}{{end}}' "$container"
+        ;;
+    logs)
+        need_docker
+        has_container || die "container $container does not exist"
+        docker logs "$@" "$container"
+        ;;
+    shell)
+        [[ $# -eq 0 ]] || die "shell takes no arguments"
+        need_docker
+        has_container || die "container $container does not exist"
+        docker exec --interactive --tty "$container" /bin/bash
+        ;;
+    rm)
+        [[ $# -eq 0 ]] || die "rm takes no arguments"
+        need_docker
+        has_container || die "container $container does not exist"
+        docker rm --force "$container" >/dev/null
+        echo "slopcar: removed container $container"
+        echo "slopcar: kept $config_dir and $data_dir"
+        ;;
+    *)
+        die "unknown command: $command (try: $0 help)"
+        ;;
+esac

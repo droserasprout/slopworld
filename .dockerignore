@@ -1,0 +1,16 @@
+*
+!.dockerignore
+!slopd/
+slopd/*
+!slopd/Cargo.toml
+!slopd/Cargo.lock
+!slopd/src/
+!slopd/src/**
+!slopd/presets/
+!slopd/presets/**
+!slopd/jukebox/
+!slopd/jukebox/**
+!slopcar/
+slopcar/*
+!slopcar/entrypoint.sh
+!slopcar/doctor.sh

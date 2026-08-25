@@ -7,8 +7,8 @@ namespace SlopWorld
 {
     public enum DnsMode { Resolved, Servers }
 
-    // DNS is separate from network reach. Resolved means the stable local systemd-resolved
-    // stub; Servers is an explicit list passed to pasta.
+    // DNS is separate from network reach. Resolved follows the daemon's current resolv.conf;
+    // Servers is an explicit list passed to pasta.
     public class DnsConfig
     {
         public DnsMode Mode = DnsMode.Resolved;
@@ -17,7 +17,7 @@ namespace SlopWorld
         public bool IsResolved => Mode == DnsMode.Resolved;
 
         public string Label => IsResolved
-            ? "System resolver (127.0.0.53)"
+            ? "System resolver"
             : Servers.Count == 0
                 ? "Custom DNS (empty)"
                 : "Custom DNS: " + string.Join(", ", Servers.ToArray());

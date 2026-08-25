@@ -318,6 +318,12 @@ namespace SlopWorld
         {
             if (_quit) return;
             Read();
+            var hub = SessionHub.Instance;
+            if (hub == null) return;
+            // On macOS the first socket snapshot decides whether playback belongs to the daemon.
+            // Do not disable native music during the few frames before that snapshot arrives.
+            if (!hub.Capabilities.Known && Application.platform == RuntimePlatform.OSXPlayer) return;
+            if (!hub.Capabilities.AudioPlayback) return;
 
             // A fresh colony creates an enabled music manager, so stop vanilla music before
             // the throttle gives it a chance to start an OST track.
@@ -334,9 +340,6 @@ namespace SlopWorld
                 }
                 catch { /* Root_Play castclass fails on menu */ }
             }
-
-            var hub = SessionHub.Instance;
-            if (hub == null) return;
 
             // A reconnect starts the daemon's socket over, and the mod is the only thing
             // that knows what was playing.

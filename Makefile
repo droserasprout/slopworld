@@ -23,6 +23,13 @@ API        ?= http://127.0.0.1:7717
 TOKEN      ?=
 # Save data folder, defaults to `$XDG_DATA_HOME/slopworld/profile`.
 PROFILE    ?=
+# `run-slopcar` wiring: the sidecar's config dir holds the endpoint descriptor its daemon
+# writes (url http://127.0.0.1:7717 + token, bind-mounted to the host), and the game runs into
+# a profile kept wholly apart from the native one. Point SLOPCAR_CONFIG at whatever
+# SLOPCAR_CONFIG_DIR the sidecar was started with.
+SLOPCAR_CONFIG   ?= $(if $(XDG_CONFIG_HOME),$(XDG_CONFIG_HOME),$(HOME)/.config)/slopworld
+SLOPCAR_ENDPOINT ?= $(SLOPCAR_CONFIG)/endpoint.toml
+SLOPCAR_PROFILE  ?= $(if $(XDG_DATA_HOME),$(XDG_DATA_HOME),$(HOME)/.local/share)/slopworld/profile-slopcar
 # Which half of the split every build, install and run target follows.
 BUILD      ?= debug
 CARGOFLAGS  = $(if $(filter release,$(BUILD)),--release)
@@ -272,6 +279,19 @@ run:               ## Launch the game through the runner
 	$(MAKE) daemon
 	$(RUNNER) --game "$(RIMWORLD)" $(if $(PROFILE),--profile "$(PROFILE)")
 
+run-slopcar:       ## Run a separate profile against the running slopcar daemon (start the sidecar first)
+	$(MAKE) daemon
+	@endpoint="$(SLOPCAR_ENDPOINT)"; profile="$(SLOPCAR_PROFILE)"; \
+	case "$$endpoint" in "~") endpoint="$$HOME";; "~/"*) endpoint="$$HOME/$${endpoint#\~/}";; esac; \
+	case "$$profile" in "~") profile="$$HOME";; "~/"*) profile="$$HOME/$${profile#\~/}";; esac; \
+	test -f "$$endpoint" || { \
+		echo "no slopcar endpoint at $$endpoint" >&2; \
+		echo "start the sidecar first, e.g.: slopcar/slopcar start --workspace \"$$HOME/git\"" >&2; \
+		exit 1; \
+	}; \
+	echo "slopcar profile: $$profile"; \
+	SLOPD_ENDPOINT="$$endpoint" $(RUNNER) --game "$(RIMWORLD)" --profile "$$profile"
+
 ##
 ##-> Misc
 ##
@@ -281,6 +301,12 @@ logs:              ## Tail the game's Player.log
 
 check-reqs:        ## Print required and optional host requirements
 	@RIMWORLD="$(RIMWORLD)" python3 tools/check-reqs.py
+
+slopcar-build:     ## Build the macOS Linux sidecar image
+	slopcar/slopcar build
+
+slopcar-doctor:    ## Prove nested bwrap, pasta and tmux in the sidecar
+	slopcar/slopcar doctor
 
 # Needs the `x11` preset on this project's sandbox; see tools/shot.sh.
 shot:              ## Screenshot the game window into OUT

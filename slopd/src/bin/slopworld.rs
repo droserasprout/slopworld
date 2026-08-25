@@ -1,15 +1,15 @@
 //! Creates an isolated profile and waits for the game so slopd can track its argv[0] and lifetime; execing would evade restart detection and allow a second game.
 
+use std::collections::hash_map::DefaultHasher;
 use std::ffi::OsStr;
 use std::fs::{File, OpenOptions};
+use std::hash::{Hash, Hasher};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
 use nix::errno::Errno;
 use nix::fcntl::{Flock, FlockArg};
-
-const LOCK_FILE: &str = "launcher.lock";
 
 /// Written by us, read by the mod. Its content is for a human reading the folder;
 /// only its existence is a promise.
@@ -95,13 +95,15 @@ fn run() -> Result<ExitCode, String> {
         ));
     }
 
-    // One launcher owns the SlopWorld profile, daemon-facing game process, shared log and
-    // tmux namespace. Acquire this before checking/spawning so two launchers cannot pass the
-    // process check at once. The kernel releases it if the owner crashes.
-    let _instance = InstanceLock::acquire(&launcher_lock_path())?;
+    // One launcher owns a given SlopWorld profile and its daemon-facing game process. The lock
+    // is keyed on the profile, so a native game and a sidecar game — each with its own save
+    // folder — run side by side, while two launchers for the same profile still collide.
+    // Acquire this before checking/spawning so two of them cannot pass the process check at
+    // once. The kernel releases it if the owner crashes.
+    let _instance = InstanceLock::acquire(&launcher_lock_path(&profile))?;
 
     if !args.print {
-        if let Some(pid) = game_process_running()? {
+        if let Some(pid) = game_process_running(&profile)? {
             return Err(format!(
                 "RimWorldLinux is already running as PID {pid}; refusing to launch a second copy"
             ));
@@ -174,19 +176,57 @@ impl InstanceLock {
     }
 }
 
-fn launcher_lock_path() -> PathBuf {
+/// The launcher lock is keyed on the profile so a native game and a sidecar game — each pinned
+/// to its own `-savedatafolder` — never falsely block one another, while two launchers for the
+/// *same* profile still collide on one file.
+fn launcher_lock_path(profile: &Path) -> PathBuf {
     let root = option_env_nonempty("XDG_RUNTIME_DIR")
         .map(PathBuf::from)
         .or_else(dirs::config_dir)
         .unwrap_or_else(|| PathBuf::from(expand("~/.config")));
-    root.join("slopworld").join(LOCK_FILE)
+    root.join("slopworld").join(lock_file_name(profile))
 }
 
-/// The lock stops SlopWorld launchers racing each other. This second guard also covers a
-/// game started outside the launcher, which cannot hold our lock. Fail closed if `/proc`
-/// cannot be inspected: starting another copy is worse than refusing a launch.
+fn lock_file_name(profile: &Path) -> String {
+    let mut hasher = DefaultHasher::new();
+    canonical_key(profile).hash(&mut hasher);
+    format!("launcher-{:016x}.lock", hasher.finish())
+}
+
+/// A stable key for a profile path. Canonicalize once the folder exists, so two spellings of one
+/// profile share a lock; before the profile is seeded that fails, so fall back to the absolute
+/// path `profile_dir` already produced.
+fn canonical_key(profile: &Path) -> String {
+    std::fs::canonicalize(profile)
+        .unwrap_or_else(|_| profile.to_path_buf())
+        .to_string_lossy()
+        .into_owned()
+}
+
+/// The save folder a RimWorld argv is pinned to, if it carries our `-savedatafolder=` flag.
+fn savedatafolder_of(cmdline: &[u8]) -> Option<PathBuf> {
+    cmdline
+        .split(|byte| *byte == 0)
+        .filter_map(|arg| std::str::from_utf8(arg).ok())
+        .find_map(|arg| arg.strip_prefix("-savedatafolder=").map(PathBuf::from))
+}
+
+/// Whether two profile paths name the same save folder. Canonicalize when both resolve, so a
+/// symlinked or `..`-laden spelling still matches; otherwise compare the paths literally.
+fn same_profile(a: &Path, b: &Path) -> bool {
+    match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => a == b,
+    }
+}
+
+/// The lock stops SlopWorld launchers racing each other. This second guard also covers a game
+/// started outside the launcher, which cannot hold our lock. It is scoped to our profile: a
+/// RimWorld pinned to a *different* `-savedatafolder` is another mode and may run beside us.
+/// Fail closed otherwise — an identified game whose folder we cannot read, like an unreadable
+/// `/proc`, is exactly the outside-the-launcher case, and a second copy is worse than a refusal.
 #[cfg(target_os = "linux")]
-fn game_process_running() -> Result<Option<u32>, String> {
+fn game_process_running(profile: &Path) -> Result<Option<u32>, String> {
     let entries = std::fs::read_dir("/proc")
         .map_err(|e| format!("checking for an existing RimWorld process: {e}"))?;
 
@@ -201,28 +241,44 @@ fn game_process_running() -> Result<Option<u32>, String> {
             Ok(path) => path.file_name() == Some(OsStr::new(EXE)),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
             Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
-                let cmdline = match std::fs::read(entry.path().join("cmdline")) {
-                    Ok(bytes) => bytes,
+                match std::fs::read(entry.path().join("cmdline")) {
+                    Ok(bytes) => argv0_is_game(&bytes),
                     Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
                     Err(e) => return Err(format!("checking command line for PID {pid}: {e}")),
-                };
-                let argv0 = cmdline.split(|byte| *byte == 0).next().unwrap_or_default();
-                Path::new(std::str::from_utf8(argv0).unwrap_or("")).file_name()
-                    == Some(OsStr::new(EXE))
+                }
             }
             Err(e) => return Err(format!("checking executable for PID {pid}: {e}")),
         };
 
-        if is_game {
-            return Ok(Some(pid));
+        if !is_game {
+            continue;
+        }
+
+        // Ours only if it is pinned to the same save folder. A different profile is another
+        // mode and may coexist; an absent or unreadable folder stays fail-closed.
+        match std::fs::read(entry.path().join("cmdline")) {
+            Ok(bytes) => match savedatafolder_of(&bytes) {
+                Some(other) if !same_profile(&other, profile) => continue,
+                _ => return Ok(Some(pid)),
+            },
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(_) => return Ok(Some(pid)),
         }
     }
 
     Ok(None)
 }
 
+/// The exe name as the process itself reports it in argv[0], for when `/proc/<pid>/exe` is not
+/// readable but the command line is.
+#[cfg(target_os = "linux")]
+fn argv0_is_game(cmdline: &[u8]) -> bool {
+    let argv0 = cmdline.split(|byte| *byte == 0).next().unwrap_or_default();
+    Path::new(std::str::from_utf8(argv0).unwrap_or("")).file_name() == Some(OsStr::new(EXE))
+}
+
 #[cfg(not(target_os = "linux"))]
-fn game_process_running() -> Result<Option<u32>, String> {
+fn game_process_running(_profile: &Path) -> Result<Option<u32>, String> {
     Ok(None)
 }
 
@@ -535,7 +591,7 @@ mod tests {
 
     #[test]
     fn launcher_lock_rejects_a_second_owner_and_reopens_after_drop() {
-        let p = scratch("lock").join(LOCK_FILE);
+        let p = scratch("lock").join("launcher.lock");
         let first = InstanceLock::acquire(&p).expect("first launcher owns the lock");
         let second = InstanceLock::acquire(&p);
         let err = match second {
@@ -561,6 +617,31 @@ mod tests {
         seed(&p, false).expect("seeds again");
         assert!(p.join(MARKER).is_file());
         std::fs::remove_dir_all(&p).ok();
+    }
+
+    #[test]
+    fn savedatafolder_is_read_from_the_argv() {
+        let pinned: &[u8] = b"/g/RimWorldLinux\0-savedatafolder=/p\0-popupwindow\0";
+        assert_eq!(savedatafolder_of(pinned), Some(PathBuf::from("/p")));
+        let vanilla: &[u8] = b"/g/RimWorldLinux\0-popupwindow\0";
+        assert_eq!(savedatafolder_of(vanilla), None);
+    }
+
+    #[test]
+    fn the_launcher_lock_is_keyed_on_the_profile() {
+        let native = launcher_lock_path(Path::new("/data/profile"));
+        let sidecar = launcher_lock_path(Path::new("/data/profile-slopcar"));
+        assert_ne!(native, sidecar, "different profiles must not share a lock");
+        assert_eq!(
+            native,
+            launcher_lock_path(Path::new("/data/profile")),
+            "one profile must map to one lock"
+        );
+        assert_eq!(
+            native.parent(),
+            sidecar.parent(),
+            "both locks live under the same slopworld directory"
+        );
     }
 
     #[test]

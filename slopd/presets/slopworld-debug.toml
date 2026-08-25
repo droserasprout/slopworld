@@ -13,6 +13,9 @@ requires = [
     "nuget-cache",
     "ccache",
     "python",
+    # The macOS sidecar (slopcar) is a Docker container; debugging it means building, running and
+    # exec-ing into it, which needs the host Docker socket.
+    "docker",
 ]
 # This is deliberately writable: the debug agent may build/install the mod, run the game and
 # edit the SlopWorld profile. The ordinary project directory is writable separately by design.
@@ -28,6 +31,12 @@ rw = [
     "~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios",
     "~/.local/bin",
     "~/.config/systemd/user",
+    # A slopcar sidecar running beside the native daemon keeps its host-side config, endpoint
+    # descriptor and session state under the documented "-car" coexistence dirs; bind them so the
+    # debug agent can read the token/url and inspect or reset the sidecar's sessions. Skipped when
+    # absent, so this costs nothing when no sidecar is in use.
+    "~/.config/slopworld-car",
+    "~/.local/share/slopworld-car",
 ]
 # Desktop metadata lets gio/GTK reproduce the host application's associations and chooser.
 # /proc and /sys are host diagnostics; /run/udev lets graphics/device enumeration work.
@@ -55,7 +64,7 @@ tmux = true
 # Bind config.toml and endpoint.toml for connection diagnostics. This is a generated,
 # read-only exception to the ordinary preset path guard.
 daemon_config = true
-escapes = "can modify the host game/profile, read and control host terminals, share displays and devices, expose host processes, and talk to desktop/systemd services"
+escapes = "can modify the host game/profile, read and control host terminals, share displays and devices, expose host processes, control the host Docker daemon, and talk to desktop/systemd services"
 env = [
     "SLOPWORLD_PROFILE",
     "SLOPWORLD_GAME",
@@ -77,3 +86,8 @@ env = [
     "DBUS_SESSION_BUS_ADDRESS",
     "XDG_RUNTIME_DIR",
 ]
+
+# Any slopd/slopctl the agent runs by hand prints a full panic backtrace instead of a bare
+# "note run with RUST_BACKTRACE=1" line.
+[sandbox.setenv]
+RUST_BACKTRACE = "1"

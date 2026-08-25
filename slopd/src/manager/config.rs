@@ -108,12 +108,13 @@ impl Manager {
                 return false;
             }
         };
-        let new = match Config::parse(&text) {
+        let new = match Config::parse(&text).and_then(|c| {
+            validate_config(&c)?;
+            Ok(c)
+        }) {
             Ok(c) => c,
             Err(e) => {
-                tracing::warn!(
-                    "config changed on disk but does not parse, keeping the old one: {e:#}"
-                );
+                tracing::warn!("config changed on disk but is invalid, keeping the old one: {e:#}");
                 return false;
             }
         };

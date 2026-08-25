@@ -758,6 +758,10 @@ pub(super) async fn get_config(State(m): State<Mgr>) -> ApiResult {
     })))
 }
 
+pub(super) async fn capabilities() -> ApiResult {
+    Ok(Json(json!(crate::runtime::capabilities())))
+}
+
 pub(super) async fn put_config(State(m): State<Mgr>, Json(req): Json<ConfigReq>) -> ApiResult {
     ok_json(m.replace_config(&req.text).await)
 }

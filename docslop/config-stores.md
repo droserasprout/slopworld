@@ -32,9 +32,10 @@ and sends only station/stream keys. See [wire-protocol](wire-protocol.md),
 Network policy is daemon-owned: `project.network` is the ceiling and
 `session.network` may reduce it. The session list exposes effective `network` and
 raw `network_override`; saving an agent sends only the optional override. DNS is
-separate: session `dns` overrides project `dns`, omission uses `127.0.0.53`, and
-an explicit value selects up to two IPv4 servers for pasta. Network and DNS
-changes affect the next agent start, not running processes.
+separate: session `dns` overrides project `dns`, omission follows up to two IPv4
+nameservers in the daemon's current `/etc/resolv.conf`, and an explicit value selects
+up to two servers for pasta. Network and DNS changes affect the next agent start, not
+running processes.
 
 `GET /api/config` redacts a set token as `TOKEN_REDACTED` in raw and parsed forms;
 empty remains empty. Writes restore the stored token when the sentinel is sent,

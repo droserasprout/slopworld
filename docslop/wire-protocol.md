@@ -2,8 +2,10 @@
 
 ## WebSocket
 
-Server events are `sessions` (state/title/bell), `screen`, `usage`, `projects`,
-`shortcuts` and `jukebox`. Catalogs arrive on connect and when changed.
+Server events are `capabilities`, `sessions` (state/title/bell), `screen`, `usage`, `projects`,
+`shortcuts` and `jukebox`. Capabilities and catalogs arrive on connect; catalogs are resent when
+changed. Capabilities describe runtime integration such as native audio, per-agent limits, and
+whether host networking means the sidecar rather than macOS.
 Clients send `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste` and `audio`.
 
 `audio` always includes `volume`; `selection` is a station/stream key, local file,
@@ -23,12 +25,13 @@ network plus nullable `network_override`, which cannot widen the ceiling.
 Project JSON also carries optional tagged `dns` (`{"mode":"resolved"}` or
 `{"mode":"servers","servers":["IPv4", ...]}`). Session views carry effective
 `dns` plus nullable `dns_override`; session writes send only the nullable raw
-override. A missing DNS setting means the systemd-resolved stub.
+override. A missing DNS setting follows the daemon's current system resolver.
 
-Query routes are `/api/usage`, `/api/presets`, `/api/jukebox`, `/api/browse`, `/api/read`,
-`/api/image`, `/api/open-apps`, `/api/search`, `/api/git` and `/api/audio`. `/api/read` is root-only
-and returns bounded UTF-8 file text for native Markdown previews. `/api/image` is root-only and
-returns bounded base64 image bytes for local Markdown images. `/api/open-apps` lists the host
+Query routes are `/api/capabilities`, `/api/usage`, `/api/presets`, `/api/jukebox`,
+`/api/browse`, `/api/read`, `/api/image`, `/api/open-apps`, `/api/search`, `/api/git`
+and `/api/audio`. `/api/read` is root-only and returns bounded UTF-8 file text for native
+Markdown previews. `/api/image` is root-only and returns bounded base64 image bytes for local
+Markdown images. `/api/open-apps` lists the host
 desktop applications associated with a path, and `/api/file-action` runs a bounded
 non-interactive command supplied by Files or Git inside a named project's sandbox, or explicitly
 on the host for private-state storage and Git repositories, and returns bounded output.

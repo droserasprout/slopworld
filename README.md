@@ -10,6 +10,10 @@ RimWorld with colonists replaced by coding agents running in tmux.
 - tmux, Bubblewrap, and Passt (`pasta`)
 - One supported agent CLI: Claude Code, Codex, OpenCode, or Pi
 
+The complete installer and game launcher are still Linux-only. On macOS, the experimental
+[`slopcar`](slopcar/README.md) worker runs `slopd` and its Linux sandboxes in Docker Desktop;
+RimWorld and the mod remain native.
+
 Check the full list:
 
 ```sh
