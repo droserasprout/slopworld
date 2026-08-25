@@ -498,6 +498,7 @@ mod tests {
             "$SLOPWORLD_GAME",
             "~/GOG Games/RimWorld/game",
             "~/.local/share/slopworld/profile",
+            "~/.local/share/slopworld-car",
             "~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios",
             "~/.local/bin",
             "~/.config/systemd/user",
@@ -505,6 +506,12 @@ mod tests {
             assert!(
                 debug.rw.iter().any(|seen| seen == path),
                 "debug lacks {path}"
+            );
+        }
+        for name in ["SLOPCAR_PROFILE", "SLOPCAR_PROFILE_SEED"] {
+            assert!(
+                debug.env.iter().any(|seen| seen == name),
+                "debug does not forward {name}"
             );
         }
         for path in ["/proc", "/sys", "/run/udev", "~/.local/share/applications"] {

@@ -22,11 +22,15 @@ The launcher **waits on** the game rather than exec'ing. Waiting also makes the
 launcher's lifetime the game's, which is what `slopworld-game.service` reports.
 It cannot be a script: a shebang puts `/bin/sh` in `argv[0]`.
 
-The launcher also holds a per-user kernel file lock for its entire lifetime. A second
-`slopworld` invocation, even with another profile argument, refuses before seeding or
-starting RimWorld; the lock is released automatically when the owner exits. Before launch,
-it also refuses if any live `/proc` executable is named `RimWorldLinux`, including a copy
-started outside SlopWorld.
+The launcher holds a profile-keyed kernel file lock for its entire lifetime. A second
+invocation for that profile refuses before seeding or starting RimWorld; another profile may
+run beside it. The lock is released automatically when the owner exits. Before launch it also
+refuses a live `RimWorldLinux` pinned to the same profile, including one started outside the
+launcher; a game with no readable `-savedatafolder` remains fail-closed.
+
+`make run-slopcar` uses `~/.local/share/slopworld-car/profile`, whose parent is already exposed by
+the debug preset. On first use it copies only `Prefs.xml` and `SlopWorld.toml` from the native
+profile, so resolution, UI scale and interface geometry match while saves remain separate.
 
 ## Refusing to patch outside the profile
 
