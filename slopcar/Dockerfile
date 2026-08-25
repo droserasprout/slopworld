@@ -92,7 +92,7 @@ ENV HOME=/home/slop \
 
 USER 1000:1000
 WORKDIR /home/slop
-EXPOSE 7717
+EXPOSE 7718
 ENTRYPOINT ["slopcar-entrypoint"]
 CMD ["slopd"]
 HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=6 CMD ["slopctl", "status"]

@@ -25,7 +25,7 @@ the Mac and in the container because they also cross the SlopWorld wire:
 ```
 
 The first start creates `~/.config/slopworld/config.toml` with a random token, publishes only
-`127.0.0.1:7717`, and persists config plus session state under the usual SlopWorld directories.
+`127.0.0.1:7718`, and persists config plus session state under the usual SlopWorld directories.
 Subsequent `start` calls reuse the stopped container. Run `rm`, then `start` again to change
 mounts or the outer resource budget; persistent state is not removed.
 
@@ -48,7 +48,7 @@ SlopWorld's token or private session state. It never mounts the Docker socket.
 
 ## Pointing the mod at the sidecar
 
-The daemon writes `endpoint.toml` (url `http://127.0.0.1:7717` for its wildcard bind, plus the
+The daemon writes `endpoint.toml` (url `http://127.0.0.1:7718` for its wildcard bind, plus the
 token) into the sidecar's config dir, and that dir is bind-mounted back to the host — so the file
 the mod reads is ready the moment the container is up. The mod discovers the daemon from
 `$SLOPD_ENDPOINT` first, so any client points at the sidecar by exporting that path; no native
@@ -63,14 +63,14 @@ and profile-keyed launcher lock let this game run beside a native session.
 
 ### Running beside a native daemon
 
-A native `slopd` (the systemd user service) already holds `127.0.0.1:7717`, so a sidecar on the
-default port collides. To coexist, give the sidecar its own port and its own config/data dirs — the
-daemon binds that port inside the container and writes it into `endpoint.toml`, so the descriptor
-stays correct:
+A native `slopd` (the systemd user service) holds `127.0.0.1:7717`; the sidecar's default `7718`
+keeps the two endpoints separate. To use another port, give the sidecar its own port and its own
+config/data dirs — the daemon binds that port inside the container and writes it into
+`endpoint.toml`, so the descriptor stays correct:
 
 ```sh
 SLOPCAR_CONFIG_DIR=~/.config/slopworld-car SLOPCAR_DATA_DIR=~/.local/share/slopworld-car \
-  ./slopcar/slopcar start --workspace "$HOME/git" --port 7718
+  ./slopcar/slopcar start --workspace "$HOME/git" --port 7719
 make run-slopcar SLOPCAR_CONFIG=~/.config/slopworld-car
 ```
 

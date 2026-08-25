@@ -7,7 +7,7 @@ image=${SLOPCAR_IMAGE:-slopcar:local}
 container=${SLOPCAR_CONTAINER:-slopcar}
 config_dir=${SLOPCAR_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/slopworld}
 data_dir=${SLOPCAR_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/slopworld}
-port=${SLOPCAR_PORT:-7717}
+port=${SLOPCAR_PORT:-7718}
 seccomp=$here/seccomp.json
 
 usage() {
@@ -29,7 +29,7 @@ start options:
   --workspace PATH      mount an approved workspace at the same absolute path (repeatable)
   --credential-ro S=T  mount one named credential file/directory read-only at container path T
   --credential-rw S=T  mount one named credential file/directory read-write at container path T
-  --port NUMBER         host loopback port, also the daemon's bind inside (default: 7717)
+  --port NUMBER         host loopback port, also the daemon's bind inside (default: 7718)
   --memory SIZE         outer memory ceiling (default: 8g)
   --cpus NUMBER         outer CPU ceiling (default: 4)
   --pids-limit NUMBER   outer process/thread ceiling (default: 4096)
