@@ -6,7 +6,7 @@ RimWorld with colonists replaced by coding agents running in tmux.
 
 - Linux with systemd
 - Native Linux RimWorld 1.6
-- Rust/Cargo and Mono (`msbuild`, `csc`)
+- Rust/Cargo and Mono (`csc`)
 - tmux, Bubblewrap, and Passt (`pasta`)
 - One supported agent CLI: Claude Code, Codex, OpenCode, or Pi
 

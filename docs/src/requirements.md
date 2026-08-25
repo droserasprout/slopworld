@@ -11,7 +11,7 @@
 ## Build toolchain
 
 - **Rust** toolchain for daemon and launcher
-- **Mono or .NET SDK** for mod (C#)
+- **Mono** (`csc`) for building the mod (the .NET SDK is optional for formatting)
 
 ## RimWorld
 
