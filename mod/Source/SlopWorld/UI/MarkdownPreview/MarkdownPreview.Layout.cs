@@ -26,6 +26,13 @@ namespace SlopWorld
             foreach (var block in _blocks)
                 y = Place(block, SlopWidgets.GapM, y, width);
             _height = Mathf.Max(1f, y + SlopWidgets.GapM);
+            _drawPlacements.Clear();
+            _drawPlacements.AddRange(_placements);
+            _drawPlacements.Sort((left, right) => left.Y.CompareTo(right.Y));
+            // Selection hit testing needs one edge per character, but that geometry is a
+            // function of the laid-out document. Building it here keeps scrolling and idle
+            // repaints away from Unity's relatively expensive font measurement calls.
+            CollectSelection();
         }
 
         void RequestImages(List<MarkdownBlock> blocks, int request)
@@ -469,7 +476,14 @@ namespace SlopWorld
             layout.Height = 0f;
             foreach (var item in layout.Lines)
             {
+                foreach (var piece in item.Pieces)
+                {
+                    if (piece.TextBuilder == null) continue;
+                    piece.Text = piece.TextBuilder.ToString();
+                    piece.TextBuilder = null;
+                }
                 if (item.Height <= 0f) item.Height = SlopWidgets.LineH;
+                item.Offset = layout.Height;
                 layout.Height += item.Height;
             }
             return layout;
@@ -490,7 +504,7 @@ namespace SlopWorld
                 int end = start + 1;
                 while (end < text.Length && char.IsWhiteSpace(text[end]) == space) end++;
                 string chunk = text.Substring(start, end - start);
-                float chunkWidth = Measure(style, chunk);
+                float chunkWidth = MeasureChunk(style, chunk);
 
                 if (space)
                 {
@@ -501,11 +515,11 @@ namespace SlopWorld
                 {
                     layout.Lines.Add(line);
                     line = NewLine(style);
-                    AddWord(ref line, layout, run, chunk, style, width);
+                    AddWord(ref line, layout, run, chunk, style, width, chunkWidth);
                 }
                 else
                 {
-                    AddWord(ref line, layout, run, chunk, style, width);
+                    AddWord(ref line, layout, run, chunk, style, width, chunkWidth);
                 }
 
                 start = end;
@@ -513,9 +527,8 @@ namespace SlopWorld
         }
 
         void AddWord(ref TextLine line, TextLayout layout, InlineRun run, string word,
-                     GUIStyle style, float width)
+                     GUIStyle style, float width, float wordWidth)
         {
-            float wordWidth = Measure(style, word);
             if (line.Pieces.Count == 0 && wordWidth <= width)
             {
                 AddPiece(line, run, word, style, wordWidth);
@@ -530,24 +543,54 @@ namespace SlopWorld
 
             for (int i = 0; i < word.Length; i++)
             {
-                string character = word[i].ToString();
-                float charWidth = Measure(style, character);
+                float charWidth = _styles.MeasureChar(style, word[i]);
                 if (line.Pieces.Count > 0 && line.Width + charWidth > width)
                 {
                     layout.Lines.Add(line);
                     line = NewLine(style);
                 }
-                AddPiece(line, run, character, style, charWidth);
+                AddCharPiece(line, run, word[i], style, charWidth);
             }
         }
 
         static float Measure(GUIStyle style, string text) =>
             style.CalcSize(new GUIContent(text ?? "")).x;
 
+        float MeasureChunk(GUIStyle style, string text)
+        {
+            if (string.IsNullOrEmpty(text)) return 0f;
+            return text.Length > 128 ? MeasureCharacters(style, text) : Measure(style, text);
+        }
+
+        float MeasureCharacters(GUIStyle style, string text)
+        {
+            float width = 0f;
+            for (int i = 0; i < text.Length; i++)
+                width += _styles.MeasureChar(style, text[i]);
+            return width;
+        }
+
         static void AddPiece(TextLine line, InlineRun run, string text,
                              GUIStyle style, float width, float height = 0f)
         {
             if (string.IsNullOrEmpty(text) && !run.IsImage) return;
+
+            if (!run.IsImage && line.Pieces.Count > 0)
+            {
+                var prior = line.Pieces[line.Pieces.Count - 1];
+                if (!prior.Run.IsImage && ReferenceEquals(prior.Run, run) &&
+                    ReferenceEquals(prior.Style, style))
+                {
+                    AppendText(prior, text);
+                    prior.Width += width;
+                    prior.Height = Mathf.Max(prior.Height,
+                        height > 0f ? height : style.lineHeight);
+                    line.Width += width;
+                    line.Height = Mathf.Max(line.Height, prior.Height);
+                    return;
+                }
+            }
+
             line.Pieces.Add(new TextPiece
             {
                 Text = text,
@@ -558,6 +601,47 @@ namespace SlopWorld
             });
             line.Width += width;
             line.Height = Mathf.Max(line.Height, height > 0f ? height : style.lineHeight);
+        }
+
+        static void AddCharPiece(TextLine line, InlineRun run, char value,
+                                 GUIStyle style, float width, float height = 0f)
+        {
+            if (line.Pieces.Count > 0)
+            {
+                var prior = line.Pieces[line.Pieces.Count - 1];
+                if (!prior.Run.IsImage && ReferenceEquals(prior.Run, run) &&
+                    ReferenceEquals(prior.Style, style))
+                {
+                    AppendChar(prior, value);
+                    prior.Width += width;
+                    prior.Height = Mathf.Max(prior.Height,
+                        height > 0f ? height : style.lineHeight);
+                    line.Width += width;
+                    line.Height = Mathf.Max(line.Height, prior.Height);
+                    return;
+                }
+            }
+            AddPiece(line, run, value.ToString(), style, width, height);
+        }
+
+        static void AppendText(TextPiece piece, string text)
+        {
+            if (piece.TextBuilder == null)
+            {
+                piece.TextBuilder = new System.Text.StringBuilder(piece.Text ?? "");
+                piece.Text = null;
+            }
+            piece.TextBuilder.Append(text);
+        }
+
+        static void AppendChar(TextPiece piece, char value)
+        {
+            if (piece.TextBuilder == null)
+            {
+                piece.TextBuilder = new System.Text.StringBuilder(piece.Text ?? "");
+                piece.Text = null;
+            }
+            piece.TextBuilder.Append(value);
         }
 
         TableLayout MakeTable(MarkdownBlock block, float width)
@@ -580,6 +664,7 @@ namespace SlopWorld
                 while (result.Cells.Count < columns)
                     result.Cells.Add(Wrap(new List<InlineRun>(),
                         Mathf.Max(1f, cellWidth - SlopWidgets.GapS * 2f), 0));
+                result.Offset = table.Height;
                 table.Rows.Add(result);
                 table.Height += result.Height;
             }

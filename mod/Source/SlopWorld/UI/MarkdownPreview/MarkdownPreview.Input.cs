@@ -189,15 +189,36 @@ namespace SlopWorld
 
             float y = mouse.y - body.y + _scroll.Position.y;
             float x = mouse.x - body.x + _scroll.Position.x;
-            int lineIndex = 0;
+            int insertion = 0;
+            int low = 0;
+            int high = _selectionLines.Count;
+            while (low < high)
+            {
+                int middle = low + (high - low) / 2;
+                if (_selectionLines[middle].Y < y) low = middle + 1;
+                else high = middle;
+            }
+            insertion = low;
+
+            int first = Mathf.Max(0, insertion - 1);
+            int last = Mathf.Min(_selectionLines.Count - 1, insertion);
+            if (first < _selectionLines.Count)
+            {
+                while (first > 0 && Mathf.Approximately(
+                    _selectionLines[first - 1].Y, _selectionLines[first].Y)) first--;
+                while (last + 1 < _selectionLines.Count && Mathf.Approximately(
+                    _selectionLines[last + 1].Y, _selectionLines[last].Y)) last++;
+            }
+
+            int lineIndex = first;
             float best = float.MaxValue;
-            for (int i = 0; i < _selectionLines.Count; i++)
+            for (int i = first; i <= last; i++)
             {
                 var line = _selectionLines[i];
                 float vertical = y < line.Y ? line.Y - y :
                     y > line.Y + line.Height ? y - (line.Y + line.Height) : 0f;
                 float left = line.X;
-                float right = line.X + line.Edges[line.Text.Length];
+                float right = line.X + line.Width;
                 float horizontal = x < left ? left - x : x > right ? x - right : 0f;
                 float distance = vertical * 10000f + horizontal;
                 if (distance < best)
@@ -208,6 +229,7 @@ namespace SlopWorld
             }
 
             var selected = _selectionLines[lineIndex];
+            EnsureEdges(selected);
             if (x <= selected.X) return new Vector2Int(0, lineIndex);
             if (x >= selected.X + selected.Edges[selected.Text.Length])
                 return new Vector2Int(selected.Text.Length, lineIndex);

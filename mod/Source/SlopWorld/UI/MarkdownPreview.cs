@@ -129,6 +129,7 @@ namespace SlopWorld
         sealed class TextPiece
         {
             public string Text;
+            public System.Text.StringBuilder TextBuilder;
             public InlineRun Run;
             public GUIStyle Style;
             public float Width;
@@ -138,6 +139,7 @@ namespace SlopWorld
         sealed class TextLine
         {
             public readonly List<TextPiece> Pieces = new List<TextPiece>();
+            public float Offset;
             public float Width;
             public float Height;
         }
@@ -158,6 +160,7 @@ namespace SlopWorld
         sealed class TableRowLayout
         {
             public bool Header;
+            public float Offset;
             public readonly List<TextLayout> Cells = new List<TextLayout>();
             public float Height;
         }
@@ -181,7 +184,9 @@ namespace SlopWorld
             public float X;
             public float Y;
             public float Height;
+            public float Width;
             public string Text;
+            public TextLine Source;
             public readonly List<float> Edges = new List<float>();
         }
 
@@ -210,6 +215,8 @@ namespace SlopWorld
             public GUIStyle H2;
             public GUIStyle H3;
             public GUIStyle H4;
+            readonly Dictionary<GUIStyle, Dictionary<char, float>> _charWidths =
+                new Dictionary<GUIStyle, Dictionary<char, float>>();
 
             public StyleSet()
             {
@@ -276,6 +283,21 @@ namespace SlopWorld
                 if (run.Italic) return Italic;
                 return Normal;
             }
+
+            public float MeasureChar(GUIStyle style, char value)
+            {
+                if (!_charWidths.TryGetValue(style, out var widths))
+                {
+                    widths = new Dictionary<char, float>();
+                    _charWidths[style] = widths;
+                }
+                if (!widths.TryGetValue(value, out var width))
+                {
+                    width = style.CalcSize(new GUIContent(value.ToString())).x;
+                    widths[value] = width;
+                }
+                return width;
+            }
         }
 
         static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
@@ -290,11 +312,18 @@ namespace SlopWorld
         readonly string _name;
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly List<Placement> _placements = new List<Placement>();
+        readonly List<Placement> _drawPlacements = new List<Placement>();
         readonly List<LinkHit> _links = new List<LinkHit>();
         readonly List<SelectionLine> _selectionLines = new List<SelectionLine>();
         readonly Dictionary<string, Texture2D> _images = new Dictionary<string, Texture2D>();
         readonly HashSet<string> _pendingImages = new HashSet<string>();
         readonly HashSet<string> _failedImages = new HashSet<string>();
+
+        // The scroll group clips pixels, not IMGUI work. Keep the document-space clip
+        // bounds here so the renderer can avoid constructing labels for content outside the
+        // viewport before Unity sees it.
+        float _clipTop;
+        float _clipBottom;
 
         bool _dragging;
         bool _wordDragging;
@@ -339,7 +368,12 @@ namespace SlopWorld
             _loading = true;
             _error = null;
             _blocks = null;
+            _placements.Clear();
+            _drawPlacements.Clear();
+            _selectionLines.Clear();
+            _links.Clear();
             _width = -1f;
+            _height = 0f;
             int request = ++_request;
             SlopClient.Get("/api/read?path=" + Uri.EscapeDataString(_path),
                 j =>
@@ -378,6 +412,10 @@ namespace SlopWorld
             _images.Clear();
             _pendingImages.Clear();
             _failedImages.Clear();
+            _placements.Clear();
+            _drawPlacements.Clear();
+            _selectionLines.Clear();
+            _links.Clear();
         }
 
         public void Draw(Rect body)
@@ -400,19 +438,34 @@ namespace SlopWorld
             }
 
             var view = new Rect(0f, 0f, width, Mathf.Max(body.height, _height));
-            _links.Clear();
-            CollectSelection();
             _scroll.Begin(body, view);
+            bool repaint = Event.current == null || Event.current.type == EventType.Repaint;
             try
             {
-                foreach (var placement in _placements)
-                    DrawPlacementBackground(placement);
-                DrawSelectionHighlights();
-                foreach (var placement in _placements)
-                    DrawPlacementForeground(placement);
+                if (repaint)
+                {
+                    _links.Clear();
+                    _clipTop = _scroll.Position.y;
+                    _clipBottom = _clipTop + body.height;
+                    int first = FirstVisiblePlacement(_drawPlacements, _clipTop);
+                    for (int i = first; i < _drawPlacements.Count; i++)
+                    {
+                        var placement = _drawPlacements[i];
+                        if (placement.Y >= _clipBottom) break;
+                        DrawPlacementBackground(placement);
+                    }
+                    DrawSelectionHighlights();
+                    for (int i = first; i < _drawPlacements.Count; i++)
+                    {
+                        var placement = _drawPlacements[i];
+                        if (placement.Y >= _clipBottom) break;
+                        DrawPlacementForeground(placement);
+                    }
+                }
             }
             finally
             {
+                if (repaint) _clipTop = _clipBottom = 0f;
                 _scroll.End();
                 GUI.color = Color.white;
                 Text.Anchor = TextAnchor.UpperLeft;
