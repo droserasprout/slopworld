@@ -4,8 +4,9 @@ RimWorld keeps saves, prefs and the mod list in one folder per install, so this
 mod gets a save-data folder of its own plus a launcher that makes it.
 
 `slopd/src/bin/slopworld.rs` finds the game (`--game`, `$SLOPWORLD_GAME`, four
-usual paths) and the profile (`--profile`, `$SLOPWORLD_PROFILE`, XDG), seeds it,
-runs `RimWorldLinux -savedatafolder=<profile>` with the default window-fix arguments.
+usual paths) and the profile (`--profile`, `$SLOPCAR_PROFILE`, `$SLOPWORLD_PROFILE`, XDG),
+seeds it, and runs `RimWorldLinux -savedatafolder=<profile>` with the default window-fix
+arguments.
 Our flags are `--long`, the game's are `-single`, so an unknown `--word` is a typo
 rather than something to forward; `--` ends ours. `--no-window-fix` omits the
 defaults for an alternate windowing setup.
@@ -29,8 +30,8 @@ refuses a live `RimWorldLinux` pinned to the same profile, including one started
 launcher; a game with no readable `-savedatafolder` remains fail-closed.
 
 `make run-slopcar` uses `~/.local/share/slopworld-car/profile`, whose parent is already exposed by
-the debug preset. On first use it copies only `Prefs.xml` and `SlopWorld.toml` from the native
-profile, so resolution, UI scale and interface geometry match while saves remain separate.
+the debug preset. Its saves and settings are separate from the native profile; the daemon endpoint
+is the only connection it inherits.
 
 ## Refusing to patch outside the profile
 

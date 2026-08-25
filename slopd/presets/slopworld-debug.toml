@@ -37,7 +37,7 @@ rw = [
     # absent, so this costs nothing when no sidecar is in use.
     "~/.config/slopworld-car",
     # `make run-slopcar` keeps the Linux comparison game's profile under this already-mounted
-    # sidecar state root, so its Prefs.xml and mod settings survive the debug agent sandbox.
+    # sidecar state root, so its saves and settings survive the debug agent sandbox.
     "~/.local/share/slopworld-car",
 ]
 # Desktop metadata lets gio/GTK reproduce the host application's associations and chooser.
@@ -73,7 +73,6 @@ env = [
     "SLOPWORLD_GAME_LOG",
     "SLOPWORLD_DAEMON_UNIT",
     "SLOPCAR_PROFILE",
-    "SLOPCAR_PROFILE_SEED",
     "XDG_DATA_HOME",
     "XDG_CONFIG_HOME",
     "XDG_DATA_DIRS",

@@ -54,15 +54,12 @@ the mod reads is ready the moment the container is up. The mod discovers the dae
 `$SLOPD_ENDPOINT` first, so any client points at the sidecar by exporting that path; no native
 `slopd` has to run.
 
-For the Linux dev game, `make run-slopcar` does exactly this: it launches RimWorld into
+For the Linux dev game, `make run-slopcar` launches RimWorld into
 `…/slopworld-car/profile`, kept wholly apart from the native profile but inside the state root the
-debug sandbox already mounts, with `SLOPD_ENDPOINT` set to the sidecar's descriptor. On first use
-it copies only `Prefs.xml` and `SlopWorld.toml` from the native profile, preserving the same
-resolution, UI scale and interface settings without sharing saves. Start the sidecar first.
-Override `SLOPCAR_CONFIG` if you started it with a non-default `SLOPCAR_CONFIG_DIR`,
-`SLOPCAR_PROFILE` to name a different save folder, or `SLOPCAR_PROFILE_SEED` to copy preferences
-from another profile. The separate profile and profile-keyed launcher lock let this game run
-beside a native session.
+debug sandbox already mounts, with `SLOPD_ENDPOINT` set to the sidecar's descriptor. Start the
+sidecar first. Override `SLOPCAR_CONFIG` if you started it with a non-default
+`SLOPCAR_CONFIG_DIR`, or `SLOPCAR_PROFILE` to name a different save folder. The separate profile
+and profile-keyed launcher lock let this game run beside a native session.
 
 ### Running beside a native daemon
 

@@ -43,7 +43,7 @@ usage: slopworld [options] [-- ] [game args...]
 options:
   --game DIR       RimWorld install (default $SLOPWORLD_GAME, then the usual places)
   --profile DIR    save data folder to use or create
-                   (default $SLOPWORLD_PROFILE, then $XDG_DATA_HOME/slopworld/profile)
+                   (default $SLOPCAR_PROFILE, $SLOPWORLD_PROFILE, then $XDG_DATA_HOME/slopworld/profile)
   --reset          rewrite the profile's mod list, discarding what is there
   --print          print the argv this would run, and run nothing
   --no-window-fix  omit SlopWorld's default X11/OpenGL window arguments
@@ -73,6 +73,7 @@ fn run() -> Result<ExitCode, String> {
         }
     };
 
+    let sidecar = sidecar_paths()?;
     let game = game_dir(args.game.as_deref())?;
     let profile = profile_dir(args.profile.as_deref())?;
 
@@ -111,6 +112,9 @@ fn run() -> Result<ExitCode, String> {
     }
 
     seed(&profile, args.reset)?;
+    if sidecar.is_some() {
+        println!("slopworld: slopcar profile: {}", profile.display());
+    }
 
     let argv = game_argv(&game, &profile, &args.rest, args.no_window_fix);
     if args.print {
@@ -120,7 +124,13 @@ fn run() -> Result<ExitCode, String> {
         return Ok(ExitCode::SUCCESS);
     }
 
-    let status = Command::new(&argv[0])
+    let mut command = Command::new(&argv[0]);
+    if let Some(sidecar) = &sidecar {
+        // The Makefile may receive a literal `~`; the game/mod does not perform shell
+        // expansion, so pass the resolved path to the child process.
+        command.env("SLOPD_ENDPOINT", &sidecar.endpoint);
+    }
+    let status = command
         .args(&argv[1..])
         .status()
         .map_err(|e| format!("launching {}: {e}", argv[0]))?;
@@ -385,6 +395,7 @@ fn game_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
 fn profile_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
     let named = explicit
         .map(str::to_string)
+        .or_else(|| option_env_nonempty("SLOPCAR_PROFILE"))
         .or_else(|| option_env_nonempty("SLOPWORLD_PROFILE"));
     let dir = match named {
         Some(d) => PathBuf::from(expand(&d)),
@@ -401,6 +412,34 @@ fn profile_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
             .map_err(|e| format!("resolving {}: {e}", dir.display()));
     }
     Ok(dir)
+}
+
+struct SidecarPaths {
+    endpoint: PathBuf,
+}
+
+/// `SLOPCAR_PROFILE` marks a launcher invocation as the native game's sidecar companion. Keep
+/// endpoint validation here with the profile setup so callers do not need shell glue before
+/// starting RimWorld.
+fn sidecar_paths() -> Result<Option<SidecarPaths>, String> {
+    if option_env_nonempty("SLOPCAR_PROFILE").is_none() {
+        return Ok(None);
+    }
+
+    let endpoint = option_env_nonempty("SLOPD_ENDPOINT")
+        .map(|path| PathBuf::from(expand(&path)))
+        .ok_or_else(|| {
+            "SLOPCAR_PROFILE is set but SLOPD_ENDPOINT is missing; start the sidecar first"
+                .to_string()
+        })?;
+    if !endpoint.is_file() {
+        return Err(format!(
+            "no slopcar endpoint at {} (start the sidecar first, e.g.: slopcar/slopcar start --workspace \"$HOME/git\")",
+            endpoint.display()
+        ));
+    }
+
+    Ok(Some(SidecarPaths { endpoint }))
 }
 
 /// Creates what is missing and leaves the rest, `--reset` being the one way to lose an edited

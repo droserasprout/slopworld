@@ -508,12 +508,10 @@ mod tests {
                 "debug lacks {path}"
             );
         }
-        for name in ["SLOPCAR_PROFILE", "SLOPCAR_PROFILE_SEED"] {
-            assert!(
-                debug.env.iter().any(|seen| seen == name),
-                "debug does not forward {name}"
-            );
-        }
+        assert!(
+            debug.env.iter().any(|seen| seen == "SLOPCAR_PROFILE"),
+            "debug does not forward SLOPCAR_PROFILE"
+        );
         for path in ["/proc", "/sys", "/run/udev", "~/.local/share/applications"] {
             assert!(
                 debug.ro.iter().any(|seen| seen == path),
