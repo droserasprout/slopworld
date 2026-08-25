@@ -111,7 +111,11 @@ namespace SlopWorld
                 if (display == IntPtr.Zero)
                 {
                     Warn("X11 display is unavailable; could not change the game window state");
-                    return true;
+                    // The display/auth bind can become usable after the first loading frames,
+                    // especially when the game was launched from the debug sandbox. This is not
+                    // an applied window state: keep retrying instead of permanently suppressing
+                    // fullscreen after one failed connection.
+                    return false;
                 }
 
                 IntPtr root = XDefaultRootWindow(display);

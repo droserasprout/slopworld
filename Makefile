@@ -29,7 +29,8 @@ PROFILE    ?=
 # SLOPCAR_CONFIG_DIR the sidecar was started with.
 SLOPCAR_CONFIG   ?= $(if $(XDG_CONFIG_HOME),$(XDG_CONFIG_HOME),$(HOME)/.config)/slopworld
 SLOPCAR_ENDPOINT ?= $(SLOPCAR_CONFIG)/endpoint.toml
-SLOPCAR_PROFILE  ?= $(if $(XDG_DATA_HOME),$(XDG_DATA_HOME),$(HOME)/.local/share)/slopworld/profile-slopcar
+SLOPCAR_PROFILE  ?= $(if $(XDG_DATA_HOME),$(XDG_DATA_HOME),$(HOME)/.local/share)/slopworld-car/profile
+SLOPCAR_PROFILE_SEED ?= $(if $(XDG_DATA_HOME),$(XDG_DATA_HOME),$(HOME)/.local/share)/slopworld/profile
 # Which half of the split every build, install and run target follows.
 BUILD      ?= debug
 CARGOFLAGS  = $(if $(filter release,$(BUILD)),--release)
@@ -281,14 +282,23 @@ run:               ## Launch the game through the runner
 
 run-slopcar:       ## Run a separate profile against the running slopcar daemon (start the sidecar first)
 	$(MAKE) daemon
-	@endpoint="$(SLOPCAR_ENDPOINT)"; profile="$(SLOPCAR_PROFILE)"; \
+	@endpoint="$(SLOPCAR_ENDPOINT)"; profile="$(SLOPCAR_PROFILE)"; seed="$(SLOPCAR_PROFILE_SEED)"; \
 	case "$$endpoint" in "~") endpoint="$$HOME";; "~/"*) endpoint="$$HOME/$${endpoint#\~/}";; esac; \
 	case "$$profile" in "~") profile="$$HOME";; "~/"*) profile="$$HOME/$${profile#\~/}";; esac; \
+	case "$$seed" in "~") seed="$$HOME";; "~/"*) seed="$$HOME/$${seed#\~/}";; esac; \
 	test -f "$$endpoint" || { \
 		echo "no slopcar endpoint at $$endpoint" >&2; \
 		echo "start the sidecar first, e.g.: slopcar/slopcar start --workspace \"$$HOME/git\"" >&2; \
 		exit 1; \
 	}; \
+	mkdir -p "$$profile/Config"; \
+	for name in Prefs.xml SlopWorld.toml; do \
+		target="$$profile/Config/$$name"; source="$$seed/Config/$$name"; \
+		if test ! -e "$$target" && test -f "$$source"; then \
+			cp "$$source" "$$target"; \
+			echo "seeded sidecar $$name from $$seed"; \
+		fi; \
+	done; \
 	echo "slopcar profile: $$profile"; \
 	SLOPD_ENDPOINT="$$endpoint" $(RUNNER) --game "$(RIMWORLD)" --profile "$$profile"
 
