@@ -5,7 +5,7 @@
       "required": true,
       "checks": [
         {"label": "Rust/Cargo", "kind": "command", "commands": ["cargo"]},
-        {"label": "C# builder", "kind": "command", "commands": ["msbuild"]},
+        {"label": "Mono C# compiler", "kind": "command", "commands": ["csc"]},
         {"label": "RimWorld reference assemblies", "kind": "rimworld_assemblies"}
       ]
     },
