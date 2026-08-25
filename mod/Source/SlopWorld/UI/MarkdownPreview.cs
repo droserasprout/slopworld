@@ -340,6 +340,8 @@ namespace SlopWorld
         int _request;
         float _width = -1f;
         float _height;
+        float _viewportWidth = -1f;
+        float _viewportHeight = -1f;
 
         public MarkdownPreview(string project, string path, string name)
         {
@@ -429,13 +431,24 @@ namespace SlopWorld
 
             if (_styles == null) _styles = new StyleSet();
 
-            Reflow(body.width);
-            float width = body.width;
-            if (_height > body.height)
+            // A scrolling document normally keeps the narrower width from the prior frame.
+            // Probing full width on every draw would reflow the whole document once there and
+            // again at scrollbar width, making wheel movement proportional to file length.
+            // Only renegotiate the scrollbar when the document or viewport changed.
+            bool viewportChanged = !Mathf.Approximately(body.width, _viewportWidth) ||
+                !Mathf.Approximately(body.height, _viewportHeight);
+            if (_width < 0f || viewportChanged)
             {
-                width = Mathf.Max(1f, body.width - SlopWidgets.ScrollbarW);
-                if (!Mathf.Approximately(width, _width)) Reflow(width);
+                _viewportWidth = body.width;
+                _viewportHeight = body.height;
+                Reflow(body.width);
+                float settledWidth = _height > body.height
+                    ? Mathf.Max(1f, body.width - SlopWidgets.ScrollbarW)
+                    : body.width;
+                Reflow(settledWidth);
             }
+
+            float width = _width;
 
             var view = new Rect(0f, 0f, width, Mathf.Max(body.height, _height));
             _scroll.Begin(body, view);

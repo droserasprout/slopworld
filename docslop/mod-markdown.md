@@ -21,3 +21,7 @@ when one exists; the preview itself remains read-only. Markdown's context menu r
 explicit `View in pager` source-pager action. Local images resolve beside the Markdown file and
 are bounded through `/api/image`; remote, data-URI and otherwise unsupported images remain
 aligned unavailable stubs rather than disappearing from the document.
+
+Layout is cached at the settled content width. A full-width scrollbar probe runs only when the
+document is invalidated or the viewport changes; ordinary repaints and wheel movement reuse the
+existing placements and selection geometry.
