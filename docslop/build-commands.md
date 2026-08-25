@@ -29,6 +29,7 @@ the release build. Suffixed targets are aliases. Both builds write
 | `gogdl-install` | Installs the native Linux RimWorld copy from GOG with gogdl. |
 | `gogdl-update` | Updates the existing native Linux RimWorld copy with gogdl. |
 | `run` | Launches through the runner. `PROFILE` picks the folder. |
+| `devloop-sidecar` | Rebuilds/redeploys the sidecar, then runs the game; repeats after the game closes. `SLOPCAR_WORKSPACE` customizes the workspace mount. |
 | `logs` | Tails `Player.log`. |
 | `check-reqs` | Reports required host dependencies and detected optional integrations/tools. |
 | `harmony` | Fetches the latest official Harmony release into `mod/Assemblies/`. |
