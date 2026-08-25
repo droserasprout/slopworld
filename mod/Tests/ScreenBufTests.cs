@@ -9,6 +9,8 @@ namespace SlopWorld.Tests
         {
             yield return ("hydrates a screen frame", HydratesScreenFrame);
             yield return ("uses wire defaults", UsesWireDefaults);
+            yield return ("detects a live row shift", DetectsLiveRowShift);
+            yield return ("does not call a bottom edit a row shift", IgnoresBottomEdit);
         }
 
         static void HydratesScreenFrame()
@@ -60,6 +62,32 @@ namespace SlopWorld.Tests
             AssertEx.False(screen.AltScreen, "alternate screen default");
             AssertEx.Equal("", screen.Title, "title default");
             AssertEx.Sequence(Array.Empty<string>(), screen.Lines, "lines default");
+        }
+
+        static void DetectsLiveRowShift()
+        {
+            var screen = new ScreenBuf();
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2," +
+                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"));
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2," +
+                "\"off\":0,\"lines\":[\"two\",\"three\",\"four\"]}"));
+
+            AssertEx.Equal(1, screen.LiveShift, "live row shift");
+        }
+
+        static void IgnoresBottomEdit()
+        {
+            var screen = new ScreenBuf();
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2," +
+                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"));
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2," +
+                "\"off\":0,\"lines\":[\"one\",\"two\",\"four\"]}"));
+
+            AssertEx.Equal(0, screen.LiveShift, "bottom edit shift");
         }
     }
 }

@@ -208,7 +208,6 @@ namespace SlopWorld
             page = Mathf.Max(1, page);
             bool up = e.keyCode == KeyCode.PageUp;
             bool fromLive = _scrollOff <= 0;
-            ClearSelection();
             if (up) _scrollOff += page;
             else _scrollOff = Mathf.Max(0, _scrollOff - page);
             QueueScroll(up, fromLive);
@@ -415,11 +414,6 @@ namespace SlopWorld
         {
             if (!body.Contains(e.mousePosition)) return;
 
-            // Clear the selection on any wheel event, wherever it goes: an app-backed
-            // scroll (arrow keys, mouse wheel) would otherwise leave the highlight at the
-            // old cell coordinates while the content moves under it.
-            ClearSelection();
-
             var live = SessionHub.Instance.Screen(_name);
             bool editor = IsEditorSession();
             int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
@@ -441,6 +435,7 @@ namespace SlopWorld
             // is one tmux write, not one tmux process per scrolled line.
             if (live != null && live.AppMouse)
             {
+                ClearSelection();
                 var cell = CellAt(body, e.mousePosition);
                 string act = up ? "wheelup" : "wheeldown";
                 SessionHub.Instance.SendMouse(_name, act, 0, cell.x, cell.y, step);
@@ -457,6 +452,7 @@ namespace SlopWorld
             // while the shell is handing control to it.
             if (editor || (live != null && live.AltScreen))
             {
+                ClearSelection();
                 var keys = new string[step];
                 for (int k = 0; k < step; k++) keys[k] = up ? "Up" : "Down";
                 SessionHub.Instance.SendKeys(_name, keys, false);
