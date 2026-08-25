@@ -31,6 +31,8 @@ SLOPCAR_CONFIG   ?= $(if $(XDG_CONFIG_HOME),$(XDG_CONFIG_HOME),$(HOME)/.config)/
 SLOPCAR_ENDPOINT ?= $(SLOPCAR_CONFIG)/endpoint.toml
 SLOPCAR_PROFILE  ?= $(if $(XDG_DATA_HOME),$(XDG_DATA_HOME),$(HOME)/.local/share)/slopworld-car/profile
 SLOPCAR_PROFILE_SEED ?= $(if $(XDG_DATA_HOME),$(XDG_DATA_HOME),$(HOME)/.local/share)/slopworld/profile
+SLOPCAR_WORKSPACE ?= $(CURDIR)
+SLOPCAR_START_ARGS ?= --workspace "$(SLOPCAR_WORKSPACE)"
 # Which half of the split every build, install and run target follows.
 BUILD      ?= debug
 CARGOFLAGS  = $(if $(filter release,$(BUILD)),--release)
@@ -333,3 +335,12 @@ docs-serve:        ## Serve human docs
 
 devloop:
 	sh -c 'while true; do make install run; sleep 1; done;'
+
+devloop-sidecar:  ## Rebuild and redeploy the sidecar before each game launch
+	sh -c 'while true; do \
+		make slopcar-build; \
+		slopcar/slopcar rm >/dev/null 2>&1 || true; \
+		slopcar/slopcar start $(SLOPCAR_START_ARGS); \
+		make run-slopcar; \
+		sleep 1; \
+	done;'
