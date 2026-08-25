@@ -33,13 +33,13 @@ The first implementation may run all of `slopd`, tmux, Bubblewrap, pasta and the
 one multi-architecture Linux container. RimWorld and the mod stay native:
 
 ```text
-RimWorldMac + mod -> 127.0.0.1:7717 -> Docker port -> slopd/tmux/bwrap/pasta
+RimWorldMac + mod -> 127.0.0.1:7718 -> Docker port -> slopd/tmux/bwrap/pasta
                                                     -> selected host bind mounts
 ```
 
 The container contract is:
 
-- Publish `127.0.0.1:7717:7717`, make `slopd` bind `0.0.0.0:7717`, and require a non-empty
+- Publish `127.0.0.1:7718:7718`, make `slopd` bind `0.0.0.0:7718`, and require a non-empty
   token. `endpoint::url_for` already turns a wildcard bind into the loopback URL the mod needs.
 - Mount the SlopWorld config directory rather than `endpoint.toml`; atomic replacement cannot
   replace a file mount. Persist config and session state across container replacement.
