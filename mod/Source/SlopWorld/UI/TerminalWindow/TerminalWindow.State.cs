@@ -398,10 +398,12 @@ namespace SlopWorld
             // cells. Reading CellW/CellH first sees zero on the first pane and stale values
             // after a font setting changes.
             var style = TerminalFont.Style;
-            if (TerminalFont.CellW <= 0.01f) return;
+            SyncSnap();
+            float cw = DisplayCellW();
+            if (cw <= 0.01f) return;
 
             int cols = Mathf.Clamp(
-                Mathf.FloorToInt(body.width / TerminalFont.CellW), MinCols, MaxCols);
+                Mathf.FloorToInt(body.width / cw), MinCols, MaxCols);
             int rows = Mathf.Clamp(
                 Mathf.FloorToInt(body.height / TerminalFont.CellH), MinRows, MaxRows);
 

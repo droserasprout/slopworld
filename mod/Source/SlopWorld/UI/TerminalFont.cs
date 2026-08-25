@@ -53,6 +53,16 @@ namespace SlopWorld
         public static float CellH { get; private set; }
         public static int Rev => _rev;
 
+        // GUI text is rasterized after the UI matrix has scaled it, so a fractional logical
+        // advance can become a different integer number of screen pixels from the one CalcSize
+        // reports. Use the same pixel grid for the terminal cells; otherwise the cursor drifts
+        // against a long run of text at non-1x UI scales.
+        public static float CellWAtScreenScale(float screenScale)
+        {
+            if (CellW <= 0.01f || screenScale <= 0.01f) return CellW;
+            return Mathf.RoundToInt(CellW * screenScale) / screenScale;
+        }
+
         public static void Invalidate()
         {
             _rev++;
