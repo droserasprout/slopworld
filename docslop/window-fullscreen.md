@@ -27,5 +27,7 @@ geometry without bringing the titlebar back. Maximize is kept underneath fullscr
 each toggle has one visible resize; it is established before the first fullscreen request
 so exiting cannot restore Unity's arbitrary window size. The client is raised/activated
 after the request.
+The PID-based X11 lookup also writes `WM_NAME` and `_NET_WM_NAME`: native daemon connections use
+`SlopWorld`, while a `slopcar` capability changes it to `SlopWorld [s]`.
 
 Keep the X11/OpenGL path. `-force-wayland` bypasses this X11 window-manager hook.

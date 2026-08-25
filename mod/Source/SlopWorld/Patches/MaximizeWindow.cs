@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 using UnityEngine;
 using Verse;
 using Exception = System.Exception;
@@ -178,6 +179,59 @@ namespace SlopWorld
             catch (Exception e)
             {
                 Warn("could not change the game window state: " + e.Message);
+                return true;
+            }
+            finally
+            {
+                if (display != IntPtr.Zero) XCloseDisplay(display);
+            }
+        }
+
+        // Unity's Linux player does not expose a managed window-title setter. Keep the title
+        // alongside the X11 fullscreen handling so the same PID-based lookup works for both.
+        public static bool TrySetTitle(string title)
+        {
+            if (Application.platform != RuntimePlatform.LinuxPlayer) return true;
+
+            IntPtr display = IntPtr.Zero;
+            try
+            {
+                display = XOpenDisplay(null);
+                if (display == IntPtr.Zero) return false;
+
+                IntPtr root = XDefaultRootWindow(display);
+                IntPtr window = FindGameWindow(display, root);
+                if (window == IntPtr.Zero) return false;
+
+                IntPtr netWmName = XInternAtom(display, "_NET_WM_NAME", 0);
+                IntPtr utf8String = XInternAtom(display, "UTF8_STRING", 0);
+                IntPtr wmName = XInternAtom(display, "WM_NAME", 0);
+                IntPtr stringType = XInternAtom(display, "STRING", 0);
+                if (netWmName == IntPtr.Zero || utf8String == IntPtr.Zero
+                    || wmName == IntPtr.Zero || stringType == IntPtr.Zero)
+                    return false;
+
+                byte[] bytes = Encoding.UTF8.GetBytes(title ?? "");
+                GCHandle pinned = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+                try
+                {
+                    IntPtr data = bytes.Length == 0
+                        ? IntPtr.Zero : pinned.AddrOfPinnedObject();
+                    bool modern = XChangeProperty(display, window, netWmName, utf8String,
+                        8, 0, data, bytes.Length) != 0;
+                    bool legacy = XChangeProperty(display, window, wmName, stringType,
+                        8, 0, data, bytes.Length) != 0;
+                    XFlush(display);
+                    return modern && legacy;
+                }
+                finally
+                {
+                    pinned.Free();
+                }
+            }
+            catch (Exception e)
+            {
+                Warn("could not set the game window title: " + e.Message);
                 return true;
             }
             finally

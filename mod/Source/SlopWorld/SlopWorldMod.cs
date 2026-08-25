@@ -425,6 +425,7 @@ namespace SlopWorld
             // synchronous reconnect can block this frame while the daemon is restarting.
             Radio.Update();
             SessionHub.Instance.Update();
+            WindowTitle.Follow();
             // Intercepts Alt+F4 / window close: shows the confirmation dialog on the
             // frame after the save completes.
             QuitInterceptor.Check();
