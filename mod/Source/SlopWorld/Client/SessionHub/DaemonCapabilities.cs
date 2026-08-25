@@ -12,6 +12,10 @@ namespace SlopWorld
         public bool PerSessionLimits = true;
         public bool HostNetworkIsContainer;
         public bool HostTerminalsAreContainer;
+        public string TerminalName => HostTerminalsAreContainer
+            ? "container terminal" : "host terminal";
+        public string TerminalNames => HostTerminalsAreContainer
+            ? "container terminals" : "host terminals";
 
         public static DaemonCapabilities FromJson(JVal j)
         {

@@ -71,6 +71,36 @@ contains_path() {
     [[ $child == "$parent" || $child == "$parent/"* ]]
 }
 
+resolved_protected_path() {
+    local path=${1%/} parent base suffix=
+    while [[ ! -e $path ]]; do
+        [[ ! -L $path ]] || die "protected SlopWorld path has a dangling symlink: $path"
+        [[ $path != / ]] || break
+        base=$(basename -- "$path")
+        suffix="/$base$suffix"
+        path=$(dirname -- "$path")
+    done
+    if [[ -d $path ]]; then
+        printf '%s%s\n' "$(CDPATH= cd -- "$path" && pwd -P)" "$suffix"
+    else
+        parent=$(dirname -- "$path")
+        base=$(basename -- "$path")
+        printf '%s/%s%s\n' "$(CDPATH= cd -- "$parent" && pwd -P)" "$base" "$suffix"
+    fi
+}
+
+check_protected_overlap() {
+    local path=$1 kind=$2 config_real data_real
+    config_real=$(resolved_protected_path "$config_dir")
+    data_real=$(resolved_protected_path "$data_dir")
+    if contains_path "$path" "$config_real" || contains_path "$config_real" "$path"; then
+        die "$kind overlaps the SlopWorld config directory: $path"
+    fi
+    if contains_path "$path" "$data_real" || contains_path "$data_real" "$path"; then
+        die "$kind overlaps SlopWorld session state: $path"
+    fi
+}
+
 check_workspace() {
     local path=${1%/} resolved home_real
     check_mount_path "$path" workspace
@@ -79,12 +109,7 @@ check_workspace() {
     home_real=$(CDPATH= cd -- "$HOME" && pwd -P)
     [[ $resolved != / && $resolved != "$home_real" ]] ||
         die "refusing to mount a filesystem or the whole home as a workspace"
-    if contains_path "$path" "$config_dir" || contains_path "$config_dir" "$path"; then
-        die "workspace overlaps the SlopWorld config directory: $path"
-    fi
-    if contains_path "$path" "$data_dir" || contains_path "$data_dir" "$path"; then
-        die "workspace overlaps SlopWorld session state: $path"
-    fi
+    check_protected_overlap "$resolved" workspace
 }
 
 credential_mount() {
@@ -108,6 +133,7 @@ credential_mount() {
     home_real=$(CDPATH= cd -- "$HOME" && pwd -P)
     [[ $source_real != / && $source_real != "$home_real" ]] ||
         die "refusing to mount a filesystem or the whole home as a credential"
+    check_protected_overlap "$source_real" credential
     case "$source_real" in
         "$home_real/.docker"|"$home_real/.docker/"*|*docker.sock*)
             die "the Docker configuration/socket is not a slopcar credential"

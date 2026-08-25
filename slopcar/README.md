@@ -57,8 +57,8 @@ the mod reads is ready the moment the container is up. The mod discovers the dae
 For the Linux dev game, `make run-slopcar` does exactly this: it launches RimWorld into a profile
 (`…/slopworld/profile-slopcar`) kept wholly apart from the native one, with `SLOPD_ENDPOINT` set to
 the sidecar's descriptor. Start the sidecar first. Override `SLOPCAR_CONFIG` if you started it with
-a non-default `SLOPCAR_CONFIG_DIR`, and `SLOPCAR_PROFILE` to name a different save folder. Only one
-game process runs at a time, so stop a native session before starting this one.
+a non-default `SLOPCAR_CONFIG_DIR`, and `SLOPCAR_PROFILE` to name a different save folder. The
+separate profile and profile-keyed launcher lock let this game run beside a native session.
 
 ### Running beside a native daemon
 

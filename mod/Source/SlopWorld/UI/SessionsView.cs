@@ -85,10 +85,11 @@ namespace SlopWorld
             // reach. A blank project is an entry pointing at one that has gone, which is
             // worth saying; a temporary agent says so instead, the interesting thing about
             // that row being that it is on its way out.
+            string terminal = SessionHub.Instance.Capabilities.TerminalName;
             string where = s.Host
                 ? (string.IsNullOrEmpty(s.Project)
-                    ? $"host terminal  -  {s.Dir}"
-                    : $"host terminal in {s.Project}  -  {s.Dir}")
+                    ? $"{terminal}  -  {s.Dir}"
+                    : $"{terminal} in {s.Project}  -  {s.Dir}")
                 : string.IsNullOrEmpty(s.Project)
                 ? (s.Ephemeral
                     ? "temporary - adopted from tmux, and it goes when it exits"

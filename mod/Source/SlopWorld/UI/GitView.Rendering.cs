@@ -433,11 +433,9 @@ namespace SlopWorld
             return opts;
         }
 
-        static void Copy(string text) =>
-            SlopClient.Post("/api/clipboard", "{" + $"\"text\":{JVal.Q(text)}" + "}",
-                _ => Messages.Message($"SlopWorld: copied {text}", MessageTypeDefOf.SilentInput,
-                    false),
-                SlopWidgets.Fail);
+        static void Copy(string text) => SlopClipboard.Copy(text,
+            () => Messages.Message($"SlopWorld: copied {text}", MessageTypeDefOf.SilentInput,
+                false), SlopWidgets.Fail);
 
         // ------------------------------------------------------------------ the diff
         //

@@ -198,9 +198,25 @@ fn lock_file_name(profile: &Path) -> String {
 /// path `profile_dir` already produced.
 fn canonical_key(profile: &Path) -> String {
     std::fs::canonicalize(profile)
-        .unwrap_or_else(|_| profile.to_path_buf())
+        .unwrap_or_else(|_| lexical_normalize(profile))
         .to_string_lossy()
         .into_owned()
+}
+
+/// Normalize `.` and `..` without requiring the profile to exist. `profile_dir` makes this path
+/// absolute, so a leading parent can never escape beyond its root.
+fn lexical_normalize(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
 }
 
 /// The save folder a RimWorld argv is pinned to, if it carries our `-savedatafolder=` flag.
@@ -641,6 +657,11 @@ mod tests {
             native.parent(),
             sidecar.parent(),
             "both locks live under the same slopworld directory"
+        );
+        assert_eq!(
+            lock_file_name(Path::new("/data/new-profile")),
+            lock_file_name(Path::new("/data/missing/../new-profile")),
+            "equivalent absent profiles must share the race-prevention lock"
         );
     }
 

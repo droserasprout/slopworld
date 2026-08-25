@@ -10,7 +10,7 @@ slopworld
 ```
 
 For the experimental macOS worker, install and start Docker Desktop, then build and verify the
-Arch sidecar:
+Debian sidecar:
 
 ```sh
 ./slopcar/slopcar build

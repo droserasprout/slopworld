@@ -380,8 +380,7 @@ namespace SlopWorld
         void CopyText(string text)
         {
             if (string.IsNullOrEmpty(text)) return;
-            GUIUtility.systemCopyBuffer = text;
-            SlopClient.Post("/api/clipboard", "{\"text\":" + JVal.Q(text) + "}", null,
+            SlopClipboard.Copy(text, null,
                 msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
         }
 

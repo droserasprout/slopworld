@@ -463,11 +463,9 @@ namespace SlopWorld
             return slash < 0 ? path : path.Substring(slash + 1);
         }
 
-        static void Copy(string text) =>
-            SlopClient.Post("/api/clipboard", "{" + $"\"text\":{JVal.Q(text)}" + "}",
-                _ => Messages.Message($"SlopWorld: copied {text}", MessageTypeDefOf.SilentInput,
-                    false),
-                SlopWidgets.Fail);
+        static void Copy(string text) => SlopClipboard.Copy(text,
+            () => Messages.Message($"SlopWorld: copied {text}", MessageTypeDefOf.SilentInput,
+                false), SlopWidgets.Fail);
 
         public static void ReleaseViewer()
         {

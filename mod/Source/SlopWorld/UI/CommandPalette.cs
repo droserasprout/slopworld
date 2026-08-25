@@ -411,7 +411,11 @@ namespace SlopWorld
                 .ToList();
 
             if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no host terminals)", Enabled = false });
+                list.Add(new SubOption
+                {
+                    Label = "(no " + SessionHub.Instance.Capabilities.TerminalNames + ")",
+                    Enabled = false,
+                });
             return list;
         }
 
