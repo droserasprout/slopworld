@@ -105,8 +105,9 @@ namespace SlopWorld
             {
                 if (!s.Host) return;
                 var name = s.Name;
+                var terminal = SessionHub.Instance.Capabilities.TerminalName;
                 TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
-                    $"Remove host terminal '{name}'? This kills its tmux pane and forgets " +
+                    $"Remove {terminal} '{name}'? This kills its tmux pane and forgets " +
                     "the saved sidebar tab.",
                     () => SessionHub.Instance.Remove(name, SlopWidgets.Fail), destructive: true));
             }),

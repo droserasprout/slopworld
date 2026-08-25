@@ -178,8 +178,7 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(text)) return;
 
-            GUIUtility.systemCopyBuffer = text;
-            SlopClient.Post("/api/clipboard", "{\"text\":" + JVal.Q(text) + "}", null,
+            SlopClipboard.Copy(text, null,
                 msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
         }
 
@@ -245,6 +244,11 @@ namespace SlopWorld
         void PasteClipboard()
         {
             string name = _name;
+            if (!SessionHub.Instance.Capabilities.Clipboard)
+            {
+                Deliver(name, GUIUtility.systemCopyBuffer);
+                return;
+            }
             SlopClient.Get("/api/clipboard",
                 j => Deliver(name, j["text"].AsString()),
                 _ => Deliver(name, null));

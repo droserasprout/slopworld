@@ -70,10 +70,10 @@ controls. Sidecar mode changes these contracts:
   recreated, but daemon-only redeploy semantics do not.
 - Host bind mounts retain macOS filesystem case and performance behavior.
 
-Clipboard and default file opening should execute in the native mod on macOS using
-`pbcopy`/`pbpaste` and `open`. URL opening already uses Unity's native API. Containerized
-`slopd` has no CoreAudio device, so the first sidecar release should report jukebox playback as
-unsupported. Later playback can stream decoded local audio to the mod.
+Clipboard operations execute through the native game's system buffer in sidecar mode. Default
+file opening should also move into the native mod on macOS using `open`; URL opening already uses
+Unity's native API. Containerized `slopd` has no CoreAudio device, so the first sidecar release
+reports jukebox playback as unsupported. Later playback can stream decoded local audio to the mod.
 
 ## Implementation order
 
@@ -82,7 +82,7 @@ unsupported. Later playback can stream decoded local audio to the mod.
 2. Add platform/capability reporting and make unsupported settings impossible to select.
 3. Add the sidecar image, launch configuration, token/path validation and container-aware DNS.
 4. Add the macOS mod installer and profile launcher; align endpoint, data, cache and log paths.
-5. Move clipboard/file opening to the mod and add macOS input/fullscreen behavior.
+5. Move file opening to the mod and add macOS input/fullscreen behavior.
 6. Add Intel validation, container replacement recovery and an explicit unsupported-feature
    test matrix.
 
@@ -92,15 +92,15 @@ full-daemon sidecar and should follow a working compatibility release.
 
 ## Sidecar status
 
-`slopcar/` implements the first full-daemon worker on `archlinux:base-devel`: an allowlisted
+`slopcar/` implements the first full-daemon worker on Debian trixie: an allowlisted
 launcher, persistent config/state mounts, loopback-only publishing, runtime capabilities,
 container-aware DNS, and a doctor that exercises pasta, Bubblewrap and tmux together. The proven
 Docker profile runs as uid 1000 with every capability dropped, a read-only root, the
 containers/common seccomp profile plus private-UTS hostname calls, `systempaths=unconfined`, and
-`/dev/net/tun`; it does not use `--privileged` or `CAP_SYS_ADMIN`. Arch's Bubblewrap cannot create
+`/dev/net/tun`; it does not use `--privileged` or `CAP_SYS_ADMIN`. Bubblewrap cannot create
 the nested user namespace with Docker's `no-new-privileges`, so that flag is omitted.
 
-Arch's official image currently publishes only `linux/amd64`. The launcher pins that platform;
-Apple Silicon therefore uses Docker Desktop emulation. Linux Docker amd64 is verified. Docker
-Desktop on Intel and Apple Silicon, native mod installation/input/fullscreen, clipboard/file open,
-and container-replacement reconnect remain compatibility work rather than verified support.
+Debian's official images publish both `linux/amd64` and `linux/arm64`; the launcher does not pin a
+platform, so Apple Silicon does not need emulation. Linux Docker amd64 is verified. Docker Desktop
+on Intel and Apple Silicon, native mod installation/input/fullscreen, desktop file opening, and
+container-replacement reconnect remain compatibility work rather than verified support.

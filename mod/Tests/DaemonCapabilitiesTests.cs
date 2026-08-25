@@ -22,6 +22,7 @@ namespace SlopWorld.Tests
             AssertEx.True(caps.PerSessionLimits, "limits");
             AssertEx.False(caps.HostNetworkIsContainer, "network");
             AssertEx.False(caps.HostTerminalsAreContainer, "terminals");
+            AssertEx.Equal("host terminal", caps.TerminalName, "terminal name");
         }
 
         static void ReadsSlopcar()
@@ -37,6 +38,7 @@ namespace SlopWorld.Tests
             AssertEx.False(caps.PerSessionLimits, "limits");
             AssertEx.True(caps.HostNetworkIsContainer, "network");
             AssertEx.True(caps.HostTerminalsAreContainer, "terminals");
+            AssertEx.Equal("container terminals", caps.TerminalNames, "terminal names");
         }
     }
 }

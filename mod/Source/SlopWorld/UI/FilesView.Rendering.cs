@@ -140,6 +140,7 @@ namespace SlopWorld
         // portal fallback.
         public static void AddOpenIn(List<FloatMenuOption> opts, string path)
         {
+            if (!SessionHub.Instance.Capabilities.DesktopOpen) return;
             opts.Add(new SlopSubmenu("Open in...", () => OpenInOptions(path)));
         }
 
@@ -356,11 +357,9 @@ namespace SlopWorld
             return node.Path.StartsWith(root + "/") ? node.Path.Substring(root.Length + 1) : null;
         }
 
-        static void Copy(string text) =>
-            SlopClient.Post("/api/clipboard", "{" + $"\"text\":{JVal.Q(text)}" + "}",
-                _ => Messages.Message($"SlopWorld: copied {text}", MessageTypeDefOf.SilentInput,
-                    false),
-                SlopWidgets.Fail);
+        static void Copy(string text) => SlopClipboard.Copy(text,
+            () => Messages.Message($"SlopWorld: copied {text}", MessageTypeDefOf.SilentInput,
+                false), SlopWidgets.Fail);
 
         // A temporary agent running one command in the project's own sandbox, which is what
         // makes `micro` see the file the way the agents working on it do. Untracked, unlike

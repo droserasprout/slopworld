@@ -308,9 +308,9 @@ namespace SlopWorld
         static void Copy(string text, string what)
         {
             if (string.IsNullOrEmpty(text)) return;
-            SlopClient.Post("/api/clipboard", "{" + $"\"text\":{JVal.Q(text)}" + "}",
-                _ => Messages.Message($"Jukebox: copied {what}", MessageTypeDefOf.SilentInput, false),
-                SlopWidgets.Fail);
+            SlopClipboard.Copy(text,
+                () => Messages.Message($"Jukebox: copied {what}", MessageTypeDefOf.SilentInput,
+                    false), SlopWidgets.Fail);
         }
 
         void Reload()

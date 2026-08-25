@@ -21,8 +21,8 @@ Tested with GOG; Steam should work the same way.
 
 ## Experimental macOS worker
 
-The native game and mod can connect to the Arch Linux `slopcar` worker through Docker Desktop.
-Docker supplies Bubblewrap, pasta, tmux and the agent CLIs; it must be able to run `linux/amd64`
-containers. Apple Silicon uses emulation because Arch's official image is currently amd64-only.
+The native game and mod can connect to the Debian Linux `slopcar` worker through Docker Desktop.
+Docker supplies Bubblewrap, pasta, tmux and the agent CLIs. The image is multiarch, so Intel Macs
+run its amd64 build and Apple Silicon runs its arm64 build without emulation.
 See the [sidecar instructions](../../slopcar/README.md). A native macOS installer and launcher are
 not included yet.

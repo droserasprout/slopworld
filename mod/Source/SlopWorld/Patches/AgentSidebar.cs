@@ -374,11 +374,14 @@ namespace SlopWorld
 
             if (info != null && info.Host)
                 opts.Add(new FloatMenuOption("Remove", () =>
+                {
+                    var terminal = hub.Capabilities.TerminalName;
                     TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
-                        $"Remove host terminal '{name}'? This kills its tmux pane and forgets " +
+                        $"Remove {terminal} '{name}'? This kills its tmux pane and forgets " +
                         "the saved sidebar tab.",
                         () => hub.Remove(name, SlopWidgets.Fail),
-                        destructive: true))));
+                        destructive: true));
+                }));
 
             if (info != null && !info.Ephemeral && !info.Host)
                 opts.Add(new FloatMenuOption("Remove", () =>
