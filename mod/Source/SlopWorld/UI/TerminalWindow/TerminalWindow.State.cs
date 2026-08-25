@@ -60,6 +60,10 @@ namespace SlopWorld
         Vector2Int _wordStart, _wordEnd;
         bool _hasSel;
         Vector2Int _selA, _selB;
+        // The viewport offset the selection endpoints belong to. A history frame is an older
+        // slice of the same terminal, so its rows move down as this offset increases.
+        int _selectionOff;
+        int _lastLiveSeq = -1;
 
         // The cell its press landed on, where the click is closed if the gesture turns
         // out to be a drag the app never asked for.
@@ -253,6 +257,8 @@ namespace SlopWorld
             _scrollPending = false;
             _nextScrollSend = 0f;
             _hasWheelDirection = false;
+            _selectionOff = 0;
+            _lastLiveSeq = -1;
             ClearSelection();
             ResetCursorBlink();
         }
@@ -361,7 +367,12 @@ namespace SlopWorld
         {
             var hub = SessionHub.Instance;
             var live = hub.Screen(_name);
-            if (_scrollOff <= 0) return live;
+            NoteLiveFrame(live);
+            if (_scrollOff <= 0)
+            {
+                SyncSelectionOffset(0);
+                return live;
+            }
 
             var sb = hub.ScrollScreen(_name);
             // Follow the daemon's clamp so we can't run off the top of the history. Only the
@@ -369,7 +380,9 @@ namespace SlopWorld
             // left over from before a reconnect, would drag the view backward.
             if (sb != null && sb.ScrollRequestId == _scrollRequestId)
                 _scrollOff = Mathf.Min(_wantedScrollOff, sb.Off);
-            return sb ?? live;
+            var displayed = sb ?? live;
+            if (displayed != null) SyncSelectionOffset(displayed.Off);
+            return displayed;
         }
 
         // The daemon's own limits, so what we ask for is always something it can answer with.

@@ -8,6 +8,10 @@ namespace SlopWorld
         public int Cols, Rows, Cx, Cy;
         // Lines scrolled up into scrollback; 0 for a live bottom frame.
         public int Off;
+        // Rows the live frame moved upward since the previous live frame. Scrollback frames
+        // leave this at zero; the terminal uses it to keep a selection attached to output that
+        // just scrolled off the bottom.
+        public int LiveShift;
         // Echoed from the scroll request this frame answers; 0 for a live frame. The terminal
         // accepts only the response to its latest request, so a stale reply cannot clamp it.
         public ulong ScrollRequestId;

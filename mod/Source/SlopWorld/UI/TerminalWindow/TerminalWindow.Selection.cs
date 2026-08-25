@@ -10,6 +10,32 @@ namespace SlopWorld
     // TerminalWindow selection, clipboard, and context-menu helpers.
     public partial class TerminalWindow
     {
+        void NoteLiveFrame(ScreenBuf live)
+        {
+            if (live == null || live.Seq == _lastLiveSeq) return;
+
+            if (_lastLiveSeq >= 0 && _selectionOff == 0 &&
+                (_hasSel || _dragging || _wordDragging))
+                MoveSelectionRows(-live.LiveShift);
+            _lastLiveSeq = live.Seq;
+        }
+
+        void SyncSelectionOffset(int offset)
+        {
+            if (offset == _selectionOff) return;
+            MoveSelectionRows(offset - _selectionOff);
+            _selectionOff = offset;
+        }
+
+        void MoveSelectionRows(int delta)
+        {
+            if (delta == 0) return;
+            _selA.y += delta;
+            _selB.y += delta;
+            _wordStart.y += delta;
+            _wordEnd.y += delta;
+        }
+
         void ClearSelection()
         {
             _hasSel = false;
