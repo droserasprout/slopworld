@@ -113,7 +113,8 @@ namespace SlopWorld
 
         Vector2Int CellAt(Rect body, Vector2 m)
         {
-            float cw = TerminalFont.CellW, ch = TerminalFont.CellH;
+            SyncSnap();
+            float cw = DisplayCellW(), ch = TerminalFont.CellH;
             if (cw <= 0.01f || ch <= 0.01f) return Vector2Int.zero;
             int col = Mathf.FloorToInt((m.x - body.x) / cw);
             int row = Mathf.FloorToInt((m.y - body.y) / ch);

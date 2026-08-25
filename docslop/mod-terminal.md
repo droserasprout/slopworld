@@ -15,6 +15,8 @@ The window uses `Margin` 0 so GUI-group and screen coordinates agree
 It retries once per second while returned frames disagree, which is needed because a
 socket can drop during redeploy. `session.rs`'s `BOOT_COLS`/`BOOT_ROWS` are the initial
 size.
+The measured font advance is snapped to screen pixels after `Prefs.UIScale`; rendering,
+cursor geometry, hit-testing and resize negotiation all use that same snapped cell.
 
 ## Title bar
 

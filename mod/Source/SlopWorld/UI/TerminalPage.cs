@@ -188,7 +188,7 @@ namespace SlopWorld
             var th = TerminalTheme.Current;
             Widgets.DrawBoxSolid(r, th.Bg);
 
-            float cw = TerminalFont.CellW, ch = TerminalFont.CellH;
+            float cw = TerminalFont.CellWAtScreenScale(Prefs.UIScale), ch = TerminalFont.CellH;
             if (cw <= 0f || ch <= 0f) return;
 
             int cols = Mathf.Max(1, Mathf.FloorToInt((r.width - PreviewPad * 2f) / cw));
@@ -245,9 +245,10 @@ namespace SlopWorld
             if (col + text.Length > cols) text = text.Substring(0, cols - col);
 
             style.normal.textColor = c;
+            float cw = TerminalFont.CellWAtScreenScale(Prefs.UIScale);
             GUI.Label(
-                new Rect(PreviewPad + col * TerminalFont.CellW, y,
-                         text.Length * TerminalFont.CellW + 4f, TerminalFont.CellH),
+                new Rect(PreviewPad + col * cw, y, text.Length * cw + 4f,
+                         TerminalFont.CellH),
                 text, style);
             return col + text.Length;
         }

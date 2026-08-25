@@ -12,11 +12,10 @@ namespace SlopWorld
     {
         void DrawScreen(Rect body, ScreenBuf buf)
         {
-            float cw = TerminalFont.CellW;
-            float ch = TerminalFont.CellH;
-
             EnsureRuns(buf);
             SyncSnap();
+            float cw = DisplayCellW();
+            float ch = TerminalFont.CellH;
 
             // The runs go down only on the frames they change; see Blit.
             if (!Blit(body, buf, cw, ch)) Paint(body, buf, cw, ch);
@@ -69,7 +68,7 @@ namespace SlopWorld
             EnsureRuns(buf);
             SyncSnap();
 
-            float cw = TerminalFont.CellW, ch = TerminalFont.CellH;
+            float cw = DisplayCellW(), ch = TerminalFont.CellH;
             OrderedSel(out var a, out var b);
             int rows = buf.Runs.Length;
 
@@ -284,6 +283,8 @@ namespace SlopWorld
         // The GUI-to-screen transform, sampled once a draw; see SnapX.
         static float _snapSx = 1f, _snapSy = 1f, _snapOx, _snapOy;
 
+        static float DisplayCellW() => TerminalFont.CellWAtScreenScale(_snapSx);
+
         // Two points are enough, the transform being a scale and an offset. Sampled rather
         // than read off GUI.matrix, which carries the UI scale but not the offset of the
         // group a window draws inside.
@@ -469,7 +470,7 @@ namespace SlopWorld
         {
             if (_hoverUrl == null) return;
 
-            float cw = TerminalFont.CellW, ch = TerminalFont.CellH;
+            float cw = DisplayCellW(), ch = TerminalFont.CellH;
             var col = TerminalTheme.Current.Link;
             var wash = col;
             wash.a = 0.14f;
