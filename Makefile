@@ -27,7 +27,7 @@ PROFILE    ?=
 # writes (url http://127.0.0.1:7717 + token, bind-mounted to the host), and the game runs into
 # a profile kept wholly apart from the native one. Point SLOPCAR_CONFIG at whatever
 # SLOPCAR_CONFIG_DIR the sidecar was started with.
-SLOPCAR_CONFIG   ?= $(if $(XDG_CONFIG_HOME),$(XDG_CONFIG_HOME),$(HOME)/.config)/slopworld
+SLOPCAR_CONFIG   ?= $(if $(XDG_CONFIG_HOME),$(XDG_CONFIG_HOME),$(HOME)/.config)/slopworld-car
 SLOPCAR_ENDPOINT ?= $(SLOPCAR_CONFIG)/endpoint.toml
 SLOPCAR_PROFILE  ?= $(if $(XDG_DATA_HOME),$(XDG_DATA_HOME),$(HOME)/.local/share)/slopworld-car/profile
 SLOPCAR_WORKSPACE ?= $(CURDIR)
@@ -323,6 +323,7 @@ devloop-sidecar:  ## Rebuild and redeploy the sidecar before each game launch
 	sh -c 'while true; do \
 		make slopcar-build; \
 		slopcar/slopcar rm >/dev/null 2>&1 || true; \
+		SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" \
 		slopcar/slopcar start $(SLOPCAR_START_ARGS); \
 		make run-slopcar; \
 		sleep 1; \
