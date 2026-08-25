@@ -9,6 +9,8 @@ Implemented hot-path reductions in the C# mod:
   and reconnects pending selections immediately.
 - `Aura` compares squared distances.
 - `Sgr.Autolink` rejects rows without `://` before building a full-row string.
+- `MarkdownPreview` caches selection geometry between reflows and skips off-screen placements,
+  text lines and table rows before issuing IMGUI draw calls.
 
 These came from tracing `Root.Update`, component update/tick, and `OnGUI` paths.
 Treat the list as implementation history, not a current profile: measure before

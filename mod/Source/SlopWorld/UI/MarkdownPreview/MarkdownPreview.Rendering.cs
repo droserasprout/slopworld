@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 
@@ -6,6 +7,51 @@ namespace SlopWorld
     // MarkdownPreview rendering, selection collection, and hit testing.
     public sealed partial class MarkdownPreview
     {
+        bool IsVisible(float y, float height) =>
+            y + height > _clipTop && y < _clipBottom;
+
+        static int FirstVisiblePlacement(List<Placement> placements, float top)
+        {
+            int low = 0;
+            int high = placements.Count;
+            while (low < high)
+            {
+                int middle = low + (high - low) / 2;
+                var placement = placements[middle];
+                if (placement.Y + placement.Height <= top) low = middle + 1;
+                else high = middle;
+            }
+            return low;
+        }
+
+        static int FirstVisibleLine(TextLayout text, float y, float top)
+        {
+            int low = 0;
+            int high = text.Lines.Count;
+            while (low < high)
+            {
+                int middle = low + (high - low) / 2;
+                var line = text.Lines[middle];
+                if (y + line.Offset + line.Height <= top) low = middle + 1;
+                else high = middle;
+            }
+            return low;
+        }
+
+        static int FirstVisibleRow(TableLayout table, float y, float top)
+        {
+            int low = 0;
+            int high = table.Rows.Count;
+            while (low < high)
+            {
+                int middle = low + (high - low) / 2;
+                var row = table.Rows[middle];
+                if (y + row.Offset + row.Height <= top) low = middle + 1;
+                else high = middle;
+            }
+            return low;
+        }
+
         void DrawPlacementBackground(Placement placement)
         {
             switch (placement.Kind)
@@ -40,33 +86,40 @@ namespace SlopWorld
         void DrawInlineCodeBackgrounds(TextLayout text, float x, float y)
         {
             if (text == null) return;
-            foreach (var line in text.Lines)
+            int first = FirstVisibleLine(text, y, _clipTop);
+            for (int i = first; i < text.Lines.Count; i++)
             {
+                var line = text.Lines[i];
+                float lineY = y + line.Offset;
+                if (lineY >= _clipBottom) break;
+
                 float at = x;
                 foreach (var piece in line.Pieces)
                 {
                     if (piece.Run.Code)
-                        Slab.Fill(new Rect(at, y, piece.Width, line.Height).ContractedBy(1f),
+                        Slab.Fill(new Rect(at, lineY, piece.Width, line.Height).ContractedBy(1f),
                             SlopWidgets.RowBg);
                     at += piece.Width;
                 }
-                y += line.Height;
             }
         }
 
         void DrawTableInlineCodeBackgrounds(Placement placement)
         {
-            float y = placement.Y;
-            foreach (var row in placement.Table.Rows)
+            int first = FirstVisibleRow(placement.Table, placement.Y, _clipTop);
+            for (int rowIndex = first; rowIndex < placement.Table.Rows.Count; rowIndex++)
             {
+                var row = placement.Table.Rows[rowIndex];
+                float y = placement.Y + row.Offset;
+                if (y >= _clipBottom) break;
+
                 float x = placement.X;
-                for (int i = 0; i < row.Cells.Count; i++)
+                for (int cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
                 {
-                    DrawInlineCodeBackgrounds(row.Cells[i], x + SlopWidgets.GapS,
+                    DrawInlineCodeBackgrounds(row.Cells[cellIndex], x + SlopWidgets.GapS,
                         y + SlopWidgets.GapS);
-                    x += placement.Table.Widths[i];
+                    x += placement.Table.Widths[cellIndex];
                 }
-                y += row.Height;
             }
         }
 
@@ -140,10 +193,7 @@ namespace SlopWorld
             if (text == null) return;
 
             foreach (var line in text.Lines)
-            {
                 CollectTextLine(line, x, y);
-                y += line.Height;
-            }
         }
 
         void CollectTextLine(TextLine line, float x, float y)
@@ -151,26 +201,18 @@ namespace SlopWorld
             var output = new SelectionLine
             {
                 X = x,
-                Y = y,
+                Y = y + line.Offset,
                 Height = line.Height,
+                Width = line.Width,
+                Source = line,
                 Text = "",
             };
-            output.Edges.Add(0f);
-            float at = x;
             var chars = new System.Text.StringBuilder();
             foreach (var piece in line.Pieces)
             {
-                if (piece.Run.IsImage)
-                {
-                    at += piece.Width;
-                    continue;
-                }
+                if (piece.Run.IsImage) continue;
                 for (int i = 0; i < piece.Text.Length; i++)
-                {
                     chars.Append(piece.Text[i]);
-                    at += Measure(piece.Style, piece.Text[i].ToString());
-                    output.Edges.Add(at - x);
-                }
             }
             output.Text = chars.ToString();
             _selectionLines.Add(output);
@@ -178,7 +220,6 @@ namespace SlopWorld
 
         void CollectTableSelection(Placement placement)
         {
-            float y = placement.Y;
             foreach (var row in placement.Table.Rows)
             {
                 int lines = 0;
@@ -190,16 +231,33 @@ namespace SlopWorld
                     {
                         var cell = row.Cells[i];
                         if (lineIndex < cell.Lines.Count)
-                        {
-                            float lineY = y + SlopWidgets.GapS;
-                            for (int j = 0; j < lineIndex; j++)
-                                lineY += cell.Lines[j].Height;
-                            CollectTextLine(cell.Lines[lineIndex], x + SlopWidgets.GapS, lineY);
-                        }
+                            CollectTextLine(cell.Lines[lineIndex], x + SlopWidgets.GapS,
+                                placement.Y + row.Offset + SlopWidgets.GapS);
                         x += placement.Table.Widths[i];
                     }
                 }
-                y += row.Height;
+            }
+        }
+
+        void EnsureEdges(SelectionLine line)
+        {
+            if (line == null || line.Edges.Count == line.Text.Length + 1) return;
+
+            line.Edges.Clear();
+            line.Edges.Add(0f);
+            float at = 0f;
+            foreach (var piece in line.Source.Pieces)
+            {
+                if (piece.Run.IsImage)
+                {
+                    at += piece.Width;
+                    continue;
+                }
+                for (int i = 0; i < piece.Text.Length; i++)
+                {
+                    at += _styles.MeasureChar(piece.Style, piece.Text[i]);
+                    line.Edges.Add(at);
+                }
             }
         }
 
@@ -213,6 +271,8 @@ namespace SlopWorld
             for (int i = first; i <= last; i++)
             {
                 var line = _selectionLines[i];
+                if (!IsVisible(line.Y, line.Height)) continue;
+                EnsureEdges(line);
                 int start = i == a.y ? a.x : 0;
                 int end = i == b.y ? b.x : line.Text.Length;
                 start = Mathf.Clamp(start, 0, line.Text.Length);
@@ -227,28 +287,33 @@ namespace SlopWorld
 
         void DrawText(TextLayout text, float x, float y, bool heading)
         {
-            foreach (var line in text.Lines)
+            int first = FirstVisibleLine(text, y, _clipTop);
+            for (int i = first; i < text.Lines.Count; i++)
             {
+                var line = text.Lines[i];
+                float lineY = y + line.Offset;
+                if (lineY >= _clipBottom) break;
+
                 float at = x;
                 foreach (var piece in line.Pieces)
                 {
-                    var rect = new Rect(at, y, piece.Width, line.Height);
+                    var rect = new Rect(at, lineY, piece.Width, line.Height);
                     if (piece.Run.IsImage)
                     {
                         var texture = ImageFor(piece.Run);
                         if (texture != null)
                         {
                             GUI.color = Color.white;
-                            GUI.DrawTexture(new Rect(at, y, piece.Width, piece.Height), texture,
+                            GUI.DrawTexture(new Rect(at, lineY, piece.Width, piece.Height), texture,
                                 ScaleMode.ScaleToFit, true);
                         }
                         else
                         {
-                            Slab.Box(new Rect(at, y, piece.Width, piece.Height),
+                            Slab.Box(new Rect(at, lineY, piece.Width, piece.Height),
                                 SlopWidgets.Well, SlopWidgets.Edge);
                             GUI.color = SlopWidgets.Dim;
                             Text.Font = GameFont.Tiny;
-                            Widgets.Label(new Rect(at + SlopWidgets.GapXS, y,
+                            Widgets.Label(new Rect(at + SlopWidgets.GapXS, lineY,
                                 Mathf.Max(1f, piece.Width - SlopWidgets.GapXS * 2f), piece.Height),
                                 piece.Run.ImageFailed ? "image unavailable" : "image loading…");
                             GUI.color = Color.white;
@@ -277,7 +342,6 @@ namespace SlopWorld
                     GUI.color = old;
                     at += piece.Width;
                 }
-                y += line.Height;
             }
         }
 
@@ -303,35 +367,42 @@ namespace SlopWorld
 
         void DrawTableBackground(Placement placement)
         {
-            float y = placement.Y;
-            foreach (var row in placement.Table.Rows)
+            int first = FirstVisibleRow(placement.Table, placement.Y, _clipTop);
+            for (int rowIndex = first; rowIndex < placement.Table.Rows.Count; rowIndex++)
             {
+                var row = placement.Table.Rows[rowIndex];
+                float y = placement.Y + row.Offset;
+                if (y >= _clipBottom) break;
+
                 float x = placement.X;
                 if (row.Header) Slab.Fill(new Rect(x, y, placement.Width, row.Height), SlopWidgets.RowBg);
-                for (int i = 0; i < row.Cells.Count; i++)
+                for (int cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
                 {
                     Slab.Hairline(new Rect(x, y, 1f, row.Height), SlopWidgets.Edge);
-                    x += placement.Table.Widths[i];
+                    x += placement.Table.Widths[cellIndex];
                 }
                 Slab.Hairline(new Rect(placement.X, y + row.Height - 1f,
                     placement.Width, 1f), SlopWidgets.Edge);
-                y += row.Height;
             }
         }
 
         void DrawTableText(Placement placement)
         {
-            float y = placement.Y;
-            foreach (var row in placement.Table.Rows)
+            int first = FirstVisibleRow(placement.Table, placement.Y, _clipTop);
+            for (int rowIndex = first; rowIndex < placement.Table.Rows.Count; rowIndex++)
             {
+                var row = placement.Table.Rows[rowIndex];
+                float y = placement.Y + row.Offset;
+                if (y >= _clipBottom) break;
+
                 float x = placement.X;
-                for (int i = 0; i < row.Cells.Count; i++)
+                for (int cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
                 {
-                    DrawText(row.Cells[i], x + SlopWidgets.GapS, y + SlopWidgets.GapS,
+                    DrawText(row.Cells[cellIndex], x + SlopWidgets.GapS,
+                        y + SlopWidgets.GapS,
                         row.Header);
-                    x += placement.Table.Widths[i];
+                    x += placement.Table.Widths[cellIndex];
                 }
-                y += row.Height;
             }
         }
 
