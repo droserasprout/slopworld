@@ -28,10 +28,5 @@ namespace SlopWorld
             ? "no network"
             : mode == NetworkMode.Host ? "host network" : "private network";
 
-        public static bool Allowed(NetworkMode requested, NetworkMode ceiling) =>
-            Rank(requested) <= Rank(ceiling);
-
-        static int Rank(NetworkMode mode) => mode == NetworkMode.None ? 0 :
-            mode == NetworkMode.Private ? 1 : 2;
     }
 }

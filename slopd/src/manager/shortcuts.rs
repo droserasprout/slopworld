@@ -53,15 +53,6 @@ impl Manager {
         if p.name != name && cfg.project(&p.name).is_some() {
             bail!("project {} already exists", p.name);
         }
-        for s in cfg.sessions.iter().filter(|s| s.project == name) {
-            cfg.network_of(s, &p).with_context(|| {
-                format!(
-                    "project {} cannot lower its network ceiling below agent {}",
-                    p.name, s.name
-                )
-            })?;
-        }
-
         let renamed = p.name.clone();
         cfg.projects[idx] = p;
         if renamed != name {

@@ -24,9 +24,7 @@ namespace SlopWorld
             // bwrap emits read-only binds before read-write binds, so a duplicate is writable
             // in the final namespace and belongs only in the latter column here.
             ro.RemoveAll(path => rw.Contains(path));
-            NetworkMode effectiveNetwork = agent != null && agent.NetworkOverride.HasValue &&
-                                           (project == null || NetworkModeText.Allowed(
-                                               agent.NetworkOverride.Value, project.Network))
+            NetworkMode effectiveNetwork = agent != null && agent.NetworkOverride.HasValue
                 ? agent.NetworkOverride.Value
                 : project?.Network ?? agent?.Network ?? NetworkMode.Private;
             DnsConfig effectiveDns = agent?.DnsOverride ?? project?.Dns ??

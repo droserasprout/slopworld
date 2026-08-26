@@ -278,8 +278,8 @@ pub fn temp_dir(name: &str) -> String {
     format!("{TEMP_ROOT}/{name}")
 }
 
-/// The network a sandbox may use. `host` is deliberately the widest mode: a project
-/// chooses the ceiling, and an agent can only lower it with its optional override.
+/// The network a sandbox may use. A project supplies the default and an agent may
+/// override it with any of the three modes.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum NetworkMode {
@@ -366,20 +366,6 @@ fn resolvers_from(text: &str) -> Vec<String> {
     out
 }
 
-impl NetworkMode {
-    pub fn no_wider_than(self, ceiling: Self) -> bool {
-        self.rank() <= ceiling.rank()
-    }
-
-    fn rank(self) -> u8 {
-        match self {
-            Self::None => 0,
-            Self::Private => 1,
-            Self::Host => 2,
-        }
-    }
-}
-
 /// Per-agent resource caps, enforced by the systemd scope `build_argv` wraps the agent in.
 /// Every field is optional: a session inherits any it leaves unset from its project, and one
 /// unset in both means no cap at all. Reach is the sandbox's job; this is only how much.
@@ -456,7 +442,7 @@ pub struct ProjectCfg {
     /// Named breadcrumbs added to every agent in this project.
     #[serde(default)]
     pub breadcrumbs: Vec<String>,
-    /// The maximum network reach of every sandboxed agent in this project.
+    /// The default network mode for sandboxed agents in this project.
     #[serde(default)]
     pub network: NetworkMode,
     /// DNS for agents in this project. Missing means the configured system resolver.
@@ -498,7 +484,7 @@ pub struct SessionCfg {
     /// Paste all effective breadcrumbs in front of the first Enter after startup.
     #[serde(default = "yes", skip_serializing_if = "is_true")]
     pub breadcrumb_yolo: bool,
-    /// An optional reduction from the project's network ceiling. Missing means inherit.
+    /// An optional network mode for this agent. Missing means inherit the project default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub network: Option<NetworkMode>,
     /// DNS override for this agent. Missing means inherit the project's DNS setting.
@@ -829,18 +815,9 @@ impl Config {
         self.project(&s.project)
     }
 
-    pub fn network_of(&self, s: &SessionCfg, p: &ProjectCfg) -> Result<NetworkMode> {
-        let mode = s.network.unwrap_or(p.network);
-        if !mode.no_wider_than(p.network) {
-            bail!(
-                "agent {} network mode {:?} exceeds project {} ceiling {:?}",
-                s.name,
-                mode,
-                p.name,
-                p.network
-            );
-        }
-        Ok(mode)
+    /// Resolve the agent's network mode, with the project value acting as a default.
+    pub fn network_of(&self, s: &SessionCfg, p: &ProjectCfg) -> NetworkMode {
+        s.network.unwrap_or(p.network)
     }
 
     pub fn dns_of(&self, s: &SessionCfg, p: &ProjectCfg) -> DnsConfig {
@@ -848,8 +825,7 @@ impl Config {
     }
 
     /// The caps an agent actually runs under: its own merged over its project's, field by
-    /// field. Unlike the network ceiling this is inheritance, not a limit the agent may only
-    /// tighten - both are the same trusted author, and a cap is a guardrail, not a boundary.
+    /// field. A cap is a guardrail, not a boundary.
     pub fn limits_of(&self, s: &SessionCfg, p: &ProjectCfg) -> Limits {
         s.limits.inherit(p.limits)
     }
@@ -1346,7 +1322,7 @@ token = \"not-a-daemon-token\"
     }
 
     #[test]
-    fn agent_network_can_only_reduce_the_project_ceiling() {
+    fn agent_network_overrides_the_project_default() {
         let cfg = Config::parse(
             r#"
             [[project]]
@@ -1371,13 +1347,13 @@ token = \"not-a-daemon-token\"
 
         let project = cfg.project("repo").unwrap();
         assert_eq!(
-            cfg.network_of(cfg.session("safe").unwrap(), project)
-                .unwrap(),
+            cfg.network_of(cfg.session("safe").unwrap(), project),
             NetworkMode::None
         );
-        assert!(cfg
-            .network_of(cfg.session("too-wide").unwrap(), project)
-            .is_err());
+        assert_eq!(
+            cfg.network_of(cfg.session("too-wide").unwrap(), project),
+            NetworkMode::Host
+        );
         assert_eq!(
             cfg.network_of(
                 &SessionCfg {
@@ -1386,8 +1362,7 @@ token = \"not-a-daemon-token\"
                     ..Default::default()
                 },
                 project,
-            )
-            .unwrap(),
+            ),
             NetworkMode::Private
         );
     }

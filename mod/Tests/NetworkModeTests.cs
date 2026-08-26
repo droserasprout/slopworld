@@ -9,7 +9,6 @@ namespace SlopWorld.Tests
         {
             yield return ("parses and names modes", ParsesAndNamesModes);
             yield return ("labels modes", LabelsModes);
-            yield return ("enforces network ceilings", EnforcesNetworkCeilings);
         }
 
         static void ParsesAndNamesModes()
@@ -47,22 +46,5 @@ namespace SlopWorld.Tests
                            "host short label");
         }
 
-        static void EnforcesNetworkCeilings()
-        {
-            AssertEx.True(NetworkModeText.Allowed(NetworkMode.None, NetworkMode.None),
-                          "none under none");
-            AssertEx.True(NetworkModeText.Allowed(NetworkMode.Private, NetworkMode.Private),
-                          "private under private");
-            AssertEx.True(NetworkModeText.Allowed(NetworkMode.Host, NetworkMode.Host),
-                          "host under host");
-            AssertEx.True(NetworkModeText.Allowed(NetworkMode.None, NetworkMode.Host),
-                          "none under host");
-            AssertEx.True(NetworkModeText.Allowed(NetworkMode.Private, NetworkMode.Host),
-                          "private under host");
-            AssertEx.False(NetworkModeText.Allowed(NetworkMode.Private, NetworkMode.None),
-                           "private over none");
-            AssertEx.False(NetworkModeText.Allowed(NetworkMode.Host, NetworkMode.Private),
-                           "host over private");
-        }
     }
 }

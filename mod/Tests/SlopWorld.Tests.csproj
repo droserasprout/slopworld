@@ -19,6 +19,7 @@
     <Compile Include="../Source/SlopWorld/Client/SlopConfig.cs" Link="Source/Client/SlopConfig.cs" />
     <Compile Include="../Source/SlopWorld/Client/Endpoint.cs" Link="Source/Client/Endpoint.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/NetworkMode.cs" Link="Source/Client/SessionHub/NetworkMode.cs" />
+    <Compile Include="../Source/SlopWorld/Client/SessionHub/ProjectInfo.cs" Link="Source/Client/SessionHub/ProjectInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/DaemonCapabilities.cs" Link="Source/Client/SessionHub/DaemonCapabilities.cs" />
     <Compile Include="../Source/SlopWorld/Client/DaemonHealth.cs" Link="Source/Client/DaemonHealth.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/SessionEnums.cs" Link="Source/Client/SessionHub/SessionEnums.cs" />

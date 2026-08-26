@@ -16,7 +16,7 @@ const PRIVATE_RESOLVER: &str = "192.0.2.1";
 
 /// Resolve configuration and build the complete sandbox command through the bind layer.
 pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String>> {
-    let network = cfg.network_of(s, p)?;
+    let network = cfg.network_of(s, p);
     let dns = cfg.dns_of(s, p);
     let agent_argv = shell_split(&cfg.command_of(s));
     let dir = expand(&p.dir);
@@ -470,7 +470,7 @@ pub fn purge_trash() -> Result<usize> {
 /// existing copies are preserved. The private resolver is always synthetic, while an explicit
 /// DNS list in host mode needs a generated `/etc/resolv.conf` source too.
 pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<()> {
-    let network = cfg.network_of(s, p)?;
+    let network = cfg.network_of(s, p);
     let dns = cfg.dns_of(s, p);
     match network {
         NetworkMode::Private => prepare_resolver(&s.state_id, &[PRIVATE_RESOLVER.into()])?,
