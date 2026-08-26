@@ -358,6 +358,7 @@ namespace SlopWorld
 
     public class SlopWorldMod : Mod
     {
+        public const string ClientVersion = "0.1.0";
         public static SlopWorldMod Instance;
         public readonly SlopSettings settings;
 

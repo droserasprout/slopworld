@@ -22,6 +22,7 @@ namespace SlopWorld
 
         public void Load()
         {
+            SessionHub.Instance.RefreshHealth();
             SlopClient.Get("/api/config",
                 j =>
                 {
@@ -64,6 +65,9 @@ namespace SlopWorld
             // not start a second column and drop the rest of the form on top of itself.
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(new Rect(0f, 0f, view.width, 4000f));
+
+            SlopWidgets.SectionHeading(l, "Connection");
+            DrawConnectionSummary(l);
 
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "This install");
@@ -122,6 +126,38 @@ namespace SlopWorld
 
             _scroll.End();
         }
+
+        static void DrawConnectionSummary(Listing_Standard l)
+        {
+            var hub = SessionHub.Instance;
+            var health = hub.Health;
+            var row = l.GetRect(SlopWidgets.LineH);
+            string status = hub.Online ? "connected" : "offline";
+            string suffix = $" · {RuntimeLabel(hub)} · slopd {health.Version} · " +
+                            health.Hostname;
+            float x = row.x;
+
+            DrawConnectionSegment(row, ref x, "Daemon: ", SlopWidgets.Dim);
+            DrawConnectionSegment(row, ref x, status,
+                hub.Online ? SlopWidgets.Yes : SlopWidgets.Bad);
+            DrawConnectionSegment(row, ref x, suffix, SlopWidgets.Dim);
+
+            GUI.color = SlopWidgets.Dim;
+            l.Label($"Client: SlopWorld {SlopWorldMod.ClientVersion} · " +
+                    $"RimWorld {VersionControl.CurrentVersionString}");
+            GUI.color = Color.white;
+        }
+
+        static void DrawConnectionSegment(Rect row, ref float x, string text, Color color)
+        {
+            float width = SlopWidgets.Wide(text);
+            GUI.color = color;
+            SlopWidgets.RowLabel(new Rect(x, row.y, width, row.height), text);
+            x += width;
+        }
+
+        static string RuntimeLabel(SessionHub hub) =>
+            hub.Capabilities.Runtime == "slopcar" ? "sidecar" : "host";
 
         static void SetTimeFormat(string format)
         {

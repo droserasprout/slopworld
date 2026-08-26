@@ -27,13 +27,19 @@ namespace SlopWorld
         // Never null: an empty one draws as "no numbers", which is what a daemon that has not
         // answered yet means.
         public UsageInfo Usage = new UsageInfo();
+        public DaemonHealth Health = new DaemonHealth();
 
         SessionHub()
         {
             _catalog = new HubCatalog(() => _sessions.Refresh());
             _terminal = new TerminalIO(_transport);
             _audio = new AudioBus(_transport);
-            _transport.OnConnected = () => { RefreshConfig(); _terminal.Resubscribe(); };
+            _transport.OnConnected = () =>
+            {
+                RefreshConfig();
+                RefreshHealth();
+                _terminal.Resubscribe();
+            };
             _transport.OnMessage = Handle;
         }
 
@@ -104,6 +110,9 @@ namespace SlopWorld
         public void RefreshConfig(Action<string> fail = null) =>
             SlopClient.Get("/api/config",
                 j => Config = SlopConfig.FromJson(j["values"]), fail);
+
+        public void RefreshHealth(Action<string> fail = null) =>
+            SlopClient.Get("/api/health", j => Health = DaemonHealth.FromJson(j), fail);
 
         // ---- sessions ------------------------------------------------------------------
 
