@@ -45,6 +45,8 @@ list them and they cannot be rebound: Alt+Z/Alt+X and Alt+comma/Alt+period walk 
 tab list (including host and ephemeral tabs),
 Shift+Enter sends `\e[13;2u` so an agent inserts a newline instead of submitting, Ctrl+C
 copies when text is selected and otherwise falls through as SIGINT, Ctrl+V pastes, and
+middle-click pastes the host's Wayland/X11 PRIMARY selection (even when an app reports
+mouse input),
 Shift+F1..F12 forwards the F-key to the agent while a bare F-key is the mod's.
 
 Unity can lose the semicolon IMGUI event. The terminal therefore checks both the

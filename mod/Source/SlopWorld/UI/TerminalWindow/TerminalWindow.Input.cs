@@ -508,6 +508,17 @@ namespace SlopWorld
                 return;
             }
 
+            // Terminal middle-click is the conventional paste gesture. Handle it before app
+            // mouse reporting: the primary selection belongs to the terminal even while an
+            // alternate-screen application has enabled mouse mode.
+            if (IsPrimaryPasteEvent(body, e))
+            {
+                JumpToLive();
+                PastePrimarySelection();
+                e.Use();
+                return;
+            }
+
             // A URL printed inside a TUI is over something that wants the mouse as often as
             // not, so Ctrl+click takes precedence over app mouse reporting.
             if (IsLinkClick(body, e))
@@ -544,6 +555,9 @@ namespace SlopWorld
         }
 
         static bool IsContextMenuEvent(Event e) => e.button == 1;
+
+        static bool IsPrimaryPasteEvent(Rect body, Event e) =>
+            MouseType(e) == EventType.MouseDown && e.button == 2 && body.Contains(e.mousePosition);
 
         static bool IsMouseDownInside(Rect body, Event e) =>
             MouseType(e) == EventType.MouseDown && body.Contains(e.mousePosition);

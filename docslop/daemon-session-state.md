@@ -50,7 +50,8 @@ leaves the duplicate in the shell input queue (visible as `?6c`).
   *changed*, or a title moving on a still screen would never be sent.
 - **OSC 52 (copy)** onto the host clipboard: the only word we get when an app draws
   its own selection, as Claude Code does. `Osc52::OnlyCopy` - it may write, never
-  read. Only the `c` selection; we have no tool for PRIMARY.
+  read. Only the `c` selection; terminal middle-click reads PRIMARY separately through
+  the host clipboard tools.
 - **BEL** onto `Frame::bell`, taken in `render` rather than `render_frame` so a
   wheel's scroll snapshot cannot swallow one. True for exactly one frame; what
   holds a ring afterwards is `Live::bell`, cleared by `clear_bell` when a client
