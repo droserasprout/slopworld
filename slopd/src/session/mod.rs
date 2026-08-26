@@ -420,8 +420,10 @@ fn begin_title_request(
 enum Input {
     Keys { keys: Vec<String>, literal: bool },
     Bytes(Vec<u8>),
-    // Kept whole so the receiving application observes one paste.
-    Paste(Vec<u8>),
+    // Kept whole so the receiving application observes one paste. Bracketed paste is enabled
+    // only for agent TUIs that consume the protocol; Claude Code's Ink frontend currently
+    // renders the markers literally.
+    Paste { bytes: Vec<u8>, bracketed: bool },
     // Executed by the single consumer, preserving the pause relative to queued input.
     Gap(Duration),
 }
@@ -1223,7 +1225,10 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
     fn a_paste_is_never_merged_and_never_reordered() {
         let batch = merge_input(vec![
             Input::Bytes(b"ab".to_vec()),
-            Input::Paste(b"hello".to_vec()),
+            Input::Paste {
+                bytes: b"hello".to_vec(),
+                bracketed: false,
+            },
             Input::Bytes(b"cd".to_vec()),
             Input::Keys {
                 keys: vec!["Enter".into()],
@@ -1231,7 +1236,12 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             },
         ]);
         assert_eq!(batch.len(), 4);
-        assert!(matches!(&batch[1], Input::Paste(p) if p == b"hello"));
+        assert!(matches!(
+            &batch[1],
+            Input::Paste {
+                bytes, bracketed: false
+            } if bytes == b"hello"
+        ));
         assert!(matches!(&batch[3], Input::Keys { .. }));
     }
 

@@ -675,7 +675,10 @@ impl Manager {
 
 fn auto_resume_inputs() -> Vec<Input> {
     vec![
-        Input::Paste(b"/resume".to_vec()),
+        Input::Paste {
+            bytes: b"/resume".to_vec(),
+            bracketed: false,
+        },
         Input::Gap(Duration::from_millis(ENTER_GAP_MS)),
         Input::Keys {
             keys: vec!["Enter".into()],
@@ -707,7 +710,13 @@ mod tests {
     fn auto_resume_types_the_command_and_two_enters_in_order() {
         let input = auto_resume_inputs();
         assert_eq!(input.len(), 5);
-        assert!(matches!(&input[0], Input::Paste(text) if text == b"/resume"));
+        assert!(matches!(
+            &input[0],
+            Input::Paste {
+                bytes,
+                bracketed: false
+            } if bytes == b"/resume"
+        ));
         assert!(matches!(&input[1], Input::Gap(_)));
         assert!(matches!(
             &input[2],

@@ -34,7 +34,8 @@
 - `Prefs.UIScale` is reset by a resolution watchdog. `UnlockUIScale` removes vanilla's
   cap, but the slider must apply on release because live scale moves the track.
 - `tmux send-keys -H` fails for large input (about 996 bytes); use `load-buffer` and
-  `paste-buffer -r`, without bracketed-paste markers.
+  `paste-buffer -r`. Codex, OpenCode and Pi also use tmux's conditional `-p` mode so a huge
+  paste remains one input event; Claude Code stays raw because Ink renders those markers.
 - A portrait camera's `cameraOffset.y` is the view axis: z pans and x slides.
   `cameraZoom = 1 / orthographicSize`, and vanilla's 1.28205 frames 1.56 world units.
 - Config UI uses `PUT /api/config/patch`; omitted fields survive, but new fields still

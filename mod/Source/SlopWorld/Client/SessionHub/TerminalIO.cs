@@ -79,7 +79,8 @@ namespace SlopWorld
                             $"\"count\":{count}}}");
         }
 
-        // The daemon wraps it in bracketed-paste markers when the app has that mode on.
+        // Supported agent TUIs get tmux's conditional bracketed-paste markers; Claude Code is
+        // intentionally left raw because its Ink frontend renders those markers literally.
         public void Paste(string name, string text)
         {
             _transport.Send($"{{\"t\":\"paste\",\"name\":{JVal.Q(name)},\"text\":{JVal.Q(text)}}}");

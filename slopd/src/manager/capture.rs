@@ -18,6 +18,24 @@ enum ControlLine {
     Ignore,
 }
 
+fn command_uses_bracketed_paste(cfg: &Config, session: &SessionCfg) -> bool {
+    let command = cfg.command_name(session);
+    let executable = if command.is_empty() {
+        crate::sandbox::shell_split(&cfg.command_of(session))
+            .into_iter()
+            .next()
+    } else {
+        Some(command)
+    };
+    matches!(
+        executable
+            .as_deref()
+            .and_then(|path| std::path::Path::new(path).file_name())
+            .and_then(|name| name.to_str()),
+        Some("codex" | "opencode" | "pi")
+    )
+}
+
 #[derive(Default, PartialEq, Eq)]
 struct FrameMeta {
     cursor_shape: u8,
@@ -162,7 +180,9 @@ impl Manager {
         let (what, res) = match item {
             Input::Keys { keys, literal } => ("keys", tmux.send_keys(name, &keys, literal).await),
             Input::Bytes(b) => ("bytes", tmux.send_bytes(name, &b).await),
-            Input::Paste(b) => ("paste", tmux.paste_bytes(name, &b).await),
+            Input::Paste { bytes, bracketed } => {
+                ("paste", tmux.paste_bytes(name, &bytes, bracketed).await)
+            }
             Input::Gap(d) => {
                 tokio::time::sleep(d).await;
                 return;
@@ -472,7 +492,7 @@ impl Manager {
                     )
                     .await;
                 }
-                self.queue_input(name, Input::Paste(text)).await;
+                self.queue_paste(name, text).await;
                 self.queue_input(name, Input::Gap(Duration::from_millis(ENTER_GAP_MS)))
                     .await;
                 if pos < keys.len() {
@@ -517,9 +537,28 @@ impl Manager {
         }
 
         self.capture_title_paste(name, text).await;
-        self.queue_input(name, Input::Paste(text.as_bytes().to_vec()))
-            .await;
+        self.queue_paste(name, text.as_bytes().to_vec()).await;
         Ok(())
+    }
+
+    async fn queue_paste(&self, name: &str, bytes: Vec<u8>) {
+        let bracketed = self.bracketed_paste_for(name).await;
+        self.queue_input(name, Input::Paste { bytes, bracketed })
+            .await;
+    }
+
+    async fn bracketed_paste_for(&self, name: &str) -> bool {
+        let cfg = self.config().await;
+        let live = self.live.read().await;
+        let Some(session) = live.get(name) else {
+            return false;
+        };
+
+        if session.host {
+            return false;
+        }
+
+        command_uses_bracketed_paste(&cfg, &session.cfg)
     }
 
     /// Render a breadcrumb and paste it into this agent without submitting.
@@ -556,8 +595,7 @@ impl Manager {
         if !self.tmux.exists(name).await {
             bail!("session {name} is not running");
         }
-        self.queue_input(name, Input::Paste(text.into_bytes()))
-            .await;
+        self.queue_paste(name, text.into_bytes()).await;
         Ok(())
     }
 
@@ -1138,6 +1176,25 @@ mod tests {
     use std::io::Write;
     use std::os::fd::OwnedFd;
     use std::os::unix::net::UnixStream;
+
+    #[test]
+    fn bracketed_paste_is_selected_for_supported_agent_tuis_only() {
+        let cfg = Config::default();
+        let mut session = SessionCfg {
+            name: "agent".into(),
+            ..Default::default()
+        };
+
+        session.command = "codex".into();
+        assert!(command_uses_bracketed_paste(&cfg, &session));
+
+        session.command.clear();
+        session.cmd = Some("pi --continue".into());
+        assert!(command_uses_bracketed_paste(&cfg, &session));
+
+        session.cmd = Some("claude".into());
+        assert!(!command_uses_bracketed_paste(&cfg, &session));
+    }
 
     #[tokio::test]
     async fn control_reader_splits_lines_and_trims_network_endings() {
