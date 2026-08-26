@@ -26,6 +26,8 @@ namespace SlopWorld.Tests
                 tests.Add(("DaemonCapabilities: " + test.Name, test.Body));
             foreach (var test in SessionLimitsTests.Cases())
                 tests.Add(("SessionLimits: " + test.Name, test.Body));
+            foreach (var test in UsageInfoTests.Cases())
+                tests.Add(("UsageInfo: " + test.Name, test.Body));
             foreach (var test in SessionInfoTests.Cases())
                 tests.Add(("SessionInfo: " + test.Name, test.Body));
             foreach (var test in ScreenBufTests.Cases())
