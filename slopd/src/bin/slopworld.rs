@@ -18,6 +18,7 @@ const MARKER: &str = "slopworld.profile";
 /// The two mods a profile starts with, in load order.
 const CORE: &str = "ludeon.rimworld";
 const SLOPWORLD: &str = "drsr.slopworld";
+const SIDECAR_UI_SETTINGS: &str = "uiScheme = \"slopworld-warm\"\n";
 
 /// Stated rather than discovered, so a DLC the player owns is *known* and the game never
 /// opens the "you have a new expansion" page over a colony of agents. 1.6's list.
@@ -111,7 +112,7 @@ fn run() -> Result<ExitCode, String> {
         }
     }
 
-    seed(&profile, args.reset)?;
+    seed(&profile, args.reset, sidecar.is_some())?;
     if sidecar.is_some() {
         println!("slopworld: slopcar profile: {}", profile.display());
     }
@@ -444,7 +445,7 @@ fn sidecar_paths() -> Result<Option<SidecarPaths>, String> {
 
 /// Creates what is missing and leaves the rest, `--reset` being the one way to lose an edited
 /// mod list. The marker is restored either way.
-fn seed(profile: &Path, reset: bool) -> Result<(), String> {
+fn seed(profile: &Path, reset: bool, sidecar: bool) -> Result<(), String> {
     let config = profile.join("Config");
     std::fs::create_dir_all(&config).map_err(|e| format!("creating {}: {e}", config.display()))?;
 
@@ -456,6 +457,10 @@ fn seed(profile: &Path, reset: bool) -> Result<(), String> {
     let mods = config.join("ModsConfig.xml");
     if reset || !mods.exists() {
         write(&mods, &mods_config_xml())?;
+    }
+    let settings = config.join("SlopWorld.toml");
+    if sidecar && !settings.exists() {
+        write(&settings, SIDECAR_UI_SETTINGS)?;
     }
     Ok(())
 }
@@ -611,10 +616,14 @@ mod tests {
     #[test]
     fn seeding_writes_a_marker_and_a_mod_list() {
         let p = scratch("seed");
-        seed(&p, false).expect("seeds");
+        seed(&p, false, false).expect("seeds");
         assert!(p.join(MARKER).is_file(), "the mod looks for this one");
         let xml = std::fs::read_to_string(p.join("Config/ModsConfig.xml")).expect("written");
         assert!(xml.contains(CORE) && xml.contains(SLOPWORLD));
+        assert!(
+            !p.join("Config/SlopWorld.toml").exists(),
+            "native profiles keep their regular UI default"
+        );
         for e in EXPANSIONS {
             assert!(xml.contains(e), "{e} is known, so it is never offered");
         }
@@ -631,16 +640,35 @@ mod tests {
     #[test]
     fn seeding_twice_does_not_overwrite_a_list_somebody_edited() {
         let p = scratch("idempotent");
-        seed(&p, false).expect("seeds");
+        seed(&p, false, false).expect("seeds");
         let mods = p.join("Config/ModsConfig.xml");
         std::fs::write(&mods, "<ModsConfigData />").expect("edited by hand");
-        seed(&p, false).expect("seeds again");
+        seed(&p, false, false).expect("seeds again");
         assert_eq!(
             std::fs::read_to_string(&mods).unwrap(),
             "<ModsConfigData />"
         );
-        seed(&p, true).expect("resets");
+        seed(&p, true, false).expect("resets");
         assert!(std::fs::read_to_string(&mods).unwrap().contains(SLOPWORLD));
+        std::fs::remove_dir_all(&p).ok();
+    }
+
+    #[test]
+    fn sidecar_seeding_defaults_to_warm_without_overwriting_settings() {
+        let p = scratch("sidecar-settings");
+        seed(&p, false, true).expect("seeds sidecar");
+        let settings = p.join("Config/SlopWorld.toml");
+        assert_eq!(
+            std::fs::read_to_string(&settings).expect("written settings"),
+            SIDECAR_UI_SETTINGS
+        );
+
+        std::fs::write(&settings, "uiScheme = \"slopworld\"\n").expect("edited by hand");
+        seed(&p, false, true).expect("seeds sidecar again");
+        assert_eq!(
+            std::fs::read_to_string(&settings).unwrap(),
+            "uiScheme = \"slopworld\"\n"
+        );
         std::fs::remove_dir_all(&p).ok();
     }
 
@@ -667,9 +695,9 @@ mod tests {
     #[test]
     fn a_missing_marker_is_put_back() {
         let p = scratch("marker");
-        seed(&p, false).expect("seeds");
+        seed(&p, false, false).expect("seeds");
         std::fs::remove_file(p.join(MARKER)).expect("removed");
-        seed(&p, false).expect("seeds again");
+        seed(&p, false, false).expect("seeds again");
         assert!(p.join(MARKER).is_file());
         std::fs::remove_dir_all(&p).ok();
     }
