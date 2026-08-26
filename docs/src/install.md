@@ -13,9 +13,10 @@ For the experimental macOS worker, install Docker Desktop, then build the Debian
 install the native mod:
 
 ```sh
-make mac-setup
+brew install make
+gmake mac-setup
 open -a Docker
-make mac
+gmake mac
 ```
 
 The default `MAC_RIMWORLD` is Steam's `RimWorldMac.app`; override it for another install. The

@@ -20,12 +20,13 @@ Check the full list:
 RIMWORLD=/path/to/RimWorld/game make check-reqs
 ```
 
-On macOS, the friend-facing sidecar path is:
+On macOS, the friend-facing sidecar path is (using Homebrew GNU Make):
 
 ```sh
-make mac-setup
+brew install make
+gmake mac-setup
 open -a Docker
-make mac
+gmake mac
 ```
 
 Set `MAC_RIMWORLD` if RimWorld is not in the default Steam app-bundle path. This keeps RimWorld

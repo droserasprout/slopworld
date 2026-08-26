@@ -1,6 +1,7 @@
 # Building and running
 
-Use the Makefile; `make` prints its target list. `RIMWORLD` defaults to
+Use the Makefile; `make` prints its target list. On macOS, install GNU Make with
+`brew install make` and use it as `gmake`. `RIMWORLD` defaults to
 `~/GOG Games/RimWorld/game` and must point to a real install because the mod uses its assemblies.
 
 For a GOG copy, `make gogdl-install` downloads the native Linux build into

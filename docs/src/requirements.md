@@ -24,6 +24,7 @@ Tested with GOG; Steam should work the same way.
 The native game and mod can connect to the Debian Linux `slopcar` worker through Docker Desktop.
 Docker supplies Bubblewrap, pasta, tmux and the agent CLIs. The image is multiarch, so Intel Macs
 run its amd64 build and Apple Silicon runs its arm64 build without emulation.
-Run `make mac-setup`, open Docker Desktop once, and then use `make mac` to build the sidecar,
-install the mod into `RimWorldMac.app`, and launch the native game. See the [sidecar
+Install Homebrew's GNU Make first with `brew install make`. Then run `gmake mac-setup`, open Docker
+Desktop once, and use `gmake mac` to build the sidecar, install the mod into `RimWorldMac.app`,
+and launch the native game. See the [sidecar
 instructions](../../slopcar/README.md).
