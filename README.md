@@ -20,6 +20,17 @@ Check the full list:
 RIMWORLD=/path/to/RimWorld/game make check-reqs
 ```
 
+On macOS, the friend-facing sidecar path is:
+
+```sh
+make mac-setup
+open -a Docker
+make mac
+```
+
+Set `MAC_RIMWORLD` if RimWorld is not in the default Steam app-bundle path. This keeps RimWorld
+and the mod native while running `slopd`, tmux, Bubblewrap, pasta and the agent CLIs in Docker.
+
 ## Quickstart
 
 ```sh

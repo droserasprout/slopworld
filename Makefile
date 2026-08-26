@@ -26,13 +26,28 @@ PROFILE    ?=
 # `run-slopcar` wiring: the sidecar's config dir holds the endpoint descriptor its daemon
 # writes (url http://127.0.0.1:7718 + token, bind-mounted to the host), and the game runs into
 # a profile kept wholly apart from the native one. Point SLOPCAR_CONFIG at whatever
-# SLOPCAR_CONFIG_DIR the sidecar was started with.
+# SLOPCAR_CONFIG_DIR the sidecar was started with; SLOPCAR_DATA keeps its session state separate
+# from a native daemon.
 SLOPCAR_CONFIG   ?= $(if $(XDG_CONFIG_HOME),$(XDG_CONFIG_HOME),$(HOME)/.config)/slopworld-car
 SLOPCAR_ENDPOINT ?= $(SLOPCAR_CONFIG)/endpoint.toml
 SLOPCAR_PORT     ?= 7718
+SLOPCAR_DATA     ?= $(if $(XDG_DATA_HOME),$(XDG_DATA_HOME),$(HOME)/.local/share)/slopworld-car
+SLOPCAR_CONTAINER ?= slopcar
 SLOPCAR_PROFILE  ?= $(if $(XDG_DATA_HOME),$(XDG_DATA_HOME),$(HOME)/.local/share)/slopworld-car/profile
 SLOPCAR_WORKSPACE ?= $(CURDIR)
 SLOPCAR_START_ARGS ?= --workspace "$(SLOPCAR_WORKSPACE)"
+# Native macOS RimWorld is an app bundle, so it needs its own references, mod destination and
+# direct game executable. The Steam path is the useful default; every value is overridable for a
+# standalone install or a friend whose home layout differs.
+MAC_RIMWORLD    ?= $(HOME)/Library/Application Support/Steam/steamapps/common/RimWorld/RimWorldMac.app
+MAC_GAME        ?= $(MAC_RIMWORLD)/Contents/MacOS/RimWorldMac
+MAC_RESOURCES   ?= $(MAC_RIMWORLD)/Contents/Resources
+MAC_MANAGED     ?= $(MAC_RESOURCES)/Data/Managed
+MAC_MODS        ?= $(MAC_RIMWORLD)/Mods
+MAC_PROFILE     ?= $(HOME)/Library/Application Support/SlopWorld/sidecar-profile
+MAC_CSC         ?= csc
+MAC_CSC_API     ?= $(if $(shell command -v brew >/dev/null 2>&1 && brew --prefix mono 2>/dev/null),$(shell brew --prefix mono 2>/dev/null)/lib/mono/4.7.2-api,$(CSC_API))
+MAC_GAME_ARGS   ?=
 # Which half of the split every build, install and run target follows.
 BUILD      ?= debug
 CARGOFLAGS  = $(if $(filter release,$(BUILD)),--release)
@@ -92,6 +107,77 @@ gogdl-update:      ## Update the local RimWorld copy with gogdl
 	@mkdir -p "$(dir $(GOGDL_AUTH))"
 	$(GOGDL) --auth-config-path "$(GOGDL_AUTH)" update "$(GOGDL_ID)" \
 		--path "$(RIMWORLD)" --platform linux --with-dlcs
+
+##
+##-> macOS sidecar
+##
+
+mac-setup:        ## Install the macOS build tools and Docker Desktop with Homebrew
+	@test "$$(uname -s)" = Darwin || { echo "mac-setup must run on macOS" >&2; exit 1; }
+	@command -v brew >/dev/null 2>&1 || { echo "missing Homebrew" >&2; exit 1; }
+	brew install git mono
+	brew install --cask docker-desktop
+	@echo "Open Docker Desktop once, accept its setup prompts, then run: make mac-check"
+
+mac-docker-check: ## Check Docker Desktop on macOS
+	@test "$$(uname -s)" = Darwin || { echo "macOS target requires Darwin" >&2; exit 1; }
+	@command -v docker >/dev/null 2>&1 || { echo "missing docker; run make mac-setup" >&2; exit 1; }
+	@docker info >/dev/null 2>&1 || { echo "Docker Desktop is not running; open Docker and retry" >&2; exit 1; }
+
+mac-game-check:   ## Check the native macOS RimWorld and Mono paths
+	@test "$$(uname -s)" = Darwin || { echo "macOS target requires Darwin" >&2; exit 1; }
+	@command -v "$(MAC_CSC)" >/dev/null 2>&1 || { echo "missing $(MAC_CSC); run make mac-setup" >&2; exit 1; }
+	@test -f "$(MAC_CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(MAC_CSC_API); override MAC_CSC_API" >&2; exit 1; }
+	@test -x "$(MAC_GAME)" || { echo "missing native RimWorld executable: $(MAC_GAME); override MAC_RIMWORLD" >&2; exit 1; }
+	@test -f "$(MAC_MANAGED)/Assembly-CSharp.dll" || { echo "missing RimWorld assemblies under $(MAC_MANAGED)" >&2; exit 1; }
+	@test -d "$(MAC_MODS)" || { echo "missing RimWorld Mods directory: $(MAC_MODS); override MAC_RIMWORLD" >&2; exit 1; }
+
+mac-check:        ## Check Docker, Mono and the native macOS RimWorld install
+	$(MAKE) mac-docker-check mac-game-check
+
+
+mac-sidecar-build: ## Build the Linux sidecar image on macOS
+	$(MAKE) mac-docker-check
+	$(MAKE) slopcar-build
+
+
+mac-sidecar-doctor: ## Verify nested Bubblewrap, pasta and tmux on macOS
+	$(MAKE) mac-sidecar-build
+	$(MAKE) slopcar-doctor
+
+mac-sidecar-start: ## Start the configured macOS sidecar, reusing its container
+	$(MAKE) mac-docker-check
+	@state="$$(docker container inspect --format '{{.State.Running}}' "$(SLOPCAR_CONTAINER)" 2>/dev/null || true)"; \
+	if test "$$state" = true; then \
+		echo "sidecar $(SLOPCAR_CONTAINER) is already running"; \
+	elif docker container inspect "$(SLOPCAR_CONTAINER)" >/dev/null 2>&1; then \
+		SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" \
+		SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
+		SLOPCAR_PORT="$(SLOPCAR_PORT)" \
+		SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)" \
+		./slopcar/slopcar start; \
+	else \
+		SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" \
+		SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
+		SLOPCAR_PORT="$(SLOPCAR_PORT)" \
+		SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)" \
+		./slopcar/slopcar start $(SLOPCAR_START_ARGS); \
+	fi
+
+mac-sidecar-stop: ## Stop the macOS sidecar without removing its state
+	$(MAKE) mac-docker-check
+	SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
+	SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)" ./slopcar/slopcar stop
+
+mac-sidecar-status: ## Show macOS sidecar status
+	$(MAKE) mac-docker-check
+	SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
+	SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)" ./slopcar/slopcar status
+
+mac-sidecar-logs: ## Show macOS sidecar logs; pass LOG_ARGS='--tail 100'
+	$(MAKE) mac-docker-check
+	SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
+	SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)" ./slopcar/slopcar logs $(LOG_ARGS)
 
 ##
 ##-> Build
@@ -250,6 +336,41 @@ install-mod:       ## Install the mod into the game's Mods folder
 	cp -r mod/About mod/Defs mod/Patches mod/Sounds mod/Textures mod/Assemblies "$(MODS)/SlopWorld/"
 	@echo "installed to $(MODS)/SlopWorld"
 
+mac-mod:          ## Build SlopWorld.dll against native macOS RimWorld
+	$(MAKE) mac-game-check
+	$(MAKE) BUILD="$(BUILD)" CSC="$(MAC_CSC)" CSC_API="$(MAC_CSC_API)" MANAGED="$(MAC_MANAGED)" mod
+
+mac-install:      ## Build the sidecar and install the mod into native macOS RimWorld
+	$(MAKE) mac-game-check
+	$(MAKE) mac-sidecar-doctor
+	$(MAKE) BUILD="$(BUILD)" CSC="$(MAC_CSC)" CSC_API="$(MAC_CSC_API)" \
+		MANAGED="$(MAC_MANAGED)" MODS="$(MAC_MODS)" install-mod
+
+mac-profile:      ## Create the isolated native macOS sidecar profile if it is absent
+	@case "$(MAC_PROFILE)" in *"="*) echo "MAC_PROFILE cannot contain '=': $(MAC_PROFILE)" >&2; exit 1;; esac
+	@mkdir -p "$(MAC_PROFILE)/Config"
+	@test -e "$(MAC_PROFILE)/slopworld.profile" || printf '%s\n' \
+		'This is a SlopWorld profile.' \
+		'The marker keeps the mod out of ordinary RimWorld saves.' \
+		> "$(MAC_PROFILE)/slopworld.profile"
+	@test -e "$(MAC_PROFILE)/Config/ModsConfig.xml" || printf '%s\n' \
+		'<?xml version="1.0" encoding="utf-8"?>' \
+		'<ModsConfigData>' \
+		'  <activeMods>' \
+		'    <li>ludeon.rimworld</li>' \
+		'    <li>drsr.slopworld</li>' \
+		'  </activeMods>' \
+		'  <knownExpansions>' \
+		'    <li>ludeon.rimworld.royalty</li>' \
+		'    <li>ludeon.rimworld.ideology</li>' \
+		'    <li>ludeon.rimworld.biotech</li>' \
+		'    <li>ludeon.rimworld.anomaly</li>' \
+		'    <li>ludeon.rimworld.odyssey</li>' \
+		'  </knownExpansions>' \
+		'</ModsConfigData>' \
+		> "$(MAC_PROFILE)/Config/ModsConfig.xml"
+	@echo "macOS sidecar profile: $(MAC_PROFILE)"
+
 ##
 
 uninstall:         ## Remove all three, keeping config and saves
@@ -288,6 +409,26 @@ run-slopcar:       ## Run a separate profile against the running slopcar daemon 
 	SLOPCAR_PROFILE="$(SLOPCAR_PROFILE)" \
 	$(RUNNER) --game "$(RIMWORLD)"
 
+mac-run:           ## Start the macOS sidecar and launch native RimWorld
+	$(MAKE) mac-game-check
+	$(MAKE) mac-profile
+	@test -f "$(MAC_MODS)/SlopWorld/About/About.xml" || { echo "missing SlopWorld mod; run make mac-install" >&2; exit 1; }
+	$(MAKE) mac-sidecar-build
+	$(MAKE) mac-sidecar-start
+	@test -f "$(SLOPCAR_ENDPOINT)" || { echo "missing sidecar endpoint: $(SLOPCAR_ENDPOINT)" >&2; exit 1; }
+	@echo "launching native macOS RimWorld against $(SLOPCAR_ENDPOINT)"
+	@cd "$(MAC_RESOURCES)" && \
+		SLOPD_ENDPOINT="$(SLOPCAR_ENDPOINT)" \
+		"$(MAC_GAME)" "-savedatafolder=$(MAC_PROFILE)" $(MAC_GAME_ARGS)
+
+mac:               ## Install and run native macOS RimWorld with the sidecar
+	$(MAKE) mac-install
+	$(MAKE) mac-run
+install-mac:       ## Alias for mac-install
+	$(MAKE) mac-install
+run-mac:           ## Alias for mac-run
+	$(MAKE) mac-run
+
 ##
 ##-> Misc
 ##
@@ -323,9 +464,14 @@ devloop:
 devloop-sidecar:  ## Rebuild and redeploy the sidecar before each game launch
 	sh -c 'while true; do \
 		make slopcar-build; \
+		SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" \
+		SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
+		SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)" \
 		slopcar/slopcar rm >/dev/null 2>&1 || true; \
 		SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" \
+		SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
 		SLOPCAR_PORT="$(SLOPCAR_PORT)" \
+		SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)" \
 		slopcar/slopcar start $(SLOPCAR_START_ARGS); \
 		make run-slopcar; \
 		sleep 1; \
