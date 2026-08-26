@@ -47,7 +47,24 @@ namespace SlopWorld
         // map or terminal rendering.
         public static void OpenMenu()
         {
-            TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
+            TerminalWindow.OpenOverPane(new SlopMenu(MenuOptions()));
+        }
+
+        static List<FloatMenuOption> MenuOptions()
+        {
+            // The sidecar cannot play daemon audio, so the jukebox door becomes the native
+            // game's SlopWorld OST switch. Radio controls would only change settings that
+            // nothing can consume in this runtime.
+            if (!SessionHub.Instance.Capabilities.AudioPlayback)
+            {
+                return new List<FloatMenuOption>
+                {
+                    SlopWidgets.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
+                    new FloatMenuOption("Settings", SlopOptions.OpenAudioTab),
+                };
+            }
+
+            return new List<FloatMenuOption>
             {
                 new SlopSubmenu(PlayRow(), StationOptions),
                 RecognizeRow(),
@@ -56,7 +73,7 @@ namespace SlopWorld
                 SlopWidgets.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
                 SlopWidgets.MenuToggle("Stop on exit", Radio.StopOnExit, Radio.ToggleStopOnExit),
                 new FloatMenuOption("Settings", SlopOptions.OpenAudioTab),
-            }));
+            };
         }
 
         // While a lookup runs the row cancels it and names the input; otherwise it starts one,

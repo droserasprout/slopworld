@@ -64,6 +64,60 @@ namespace SlopWorld
         // A slider moved by a hair is not worth a packet.
         const float VolumeStep = 0.01f;
 
+        // Sidecar audio stays in the native game as SlopWorld SongDefs. The capability arrives
+        // before the rest of the socket snapshot, and an unknown/default capability keeps native
+        // daemon behavior.
+        static bool SidecarAudio => SessionHub.Instance != null
+            && !SessionHub.Instance.Capabilities.AudioPlayback;
+
+        static RimWorld.MusicManagerPlay NativeMusic()
+        {
+            try { return Find.MusicManagerPlay; }
+            catch { return null; } // Root_Entry has no play music manager.
+        }
+
+        static void SetNativeMusicMuted(bool muted)
+        {
+            var music = NativeMusic();
+            if (music == null) return;
+
+            music.disabled = muted;
+            if (muted) music.Stop();
+        }
+
+        // Stop leaves the native manager with no current source. Clearing `disabled` only lets
+        // its regular transition timer notice that; start the next SlopWorld SongDef now so an
+        // unmute is audible immediately rather than after the timer's next transition.
+        static void ResumeNativeMusic()
+        {
+            var music = NativeMusic();
+            if (music == null) return;
+
+            music.disabled = false;
+            if (Current.ProgramState == ProgramState.Playing) music.StartNewSong();
+        }
+
+        // Sidecar playback remains inside RimWorld, so its current SongDef is the metadata
+        // source that the daemon normally provides for a directory playlist.
+        static string NativeNowPlaying()
+        {
+            try
+            {
+                var music = NativeMusic();
+                if (music == null || !music.IsPlaying || music.CurrentSong == null) return null;
+
+                string path = music.CurrentSong.clipPath;
+                if (string.IsNullOrEmpty(path)) return null;
+                int slash = Math.Max(path.LastIndexOf('/'), path.LastIndexOf('\\'));
+                string title = slash >= 0 ? path.Substring(slash + 1) : path;
+                return string.IsNullOrEmpty(title) ? null : "Terry Fail - " + title;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         // The selected station, or null for the OST, identifies the current music; menu rows
         // and reports query it directly.
         public static Station Picked
@@ -71,10 +125,10 @@ namespace SlopWorld
             get { Read(); return _station; }
         }
 
-        // Off, which is the only off this box has. A stop and not a volume of zero: there
-        // is no sense in a station that keeps downloading for nobody, and a live stream
-        // comes back where it is now rather than where it was left, which is what a radio
-        // does anyway.
+        // Native daemon mode stops the source rather than setting volume to zero, so a live
+        // stream is not downloaded for nobody. Sidecar mode applies this preference to the
+        // native game's music manager, which plays the SlopWorld OST because vanilla SongDefs
+        // were stripped by RemoveVanillaSongs.xml.
         public static bool Muted
         {
             get { Read(); return _muted; }
@@ -98,6 +152,7 @@ namespace SlopWorld
             {
                 Read();
                 if (_muted) return null;
+                if (SidecarAudio) return NativeNowPlaying();
                 if (HasRecognition()) return _recognizedArtist + " - " + _recognizedTitle;
                 return StationNowPlaying();
             }
@@ -146,7 +201,7 @@ namespace SlopWorld
 
         public static string StationLine
         {
-            get { Read(); return _muted ? null : StationNowPlaying(); }
+            get { Read(); return _muted || SidecarAudio ? null : StationNowPlaying(); }
         }
 
         // The like list is deliberately separate from profile settings: it belongs to the
@@ -275,6 +330,15 @@ namespace SlopWorld
         public static void ToggleMute()
         {
             Read();
+            if (SidecarAudio)
+            {
+                _muted = !_muted;
+                if (_muted) SetNativeMusicMuted(true);
+                else ResumeNativeMusic();
+                Save();
+                return;
+            }
+
             _muted = !_muted;
             _blamed = false;
             Save();
@@ -323,7 +387,11 @@ namespace SlopWorld
             // On macOS the first socket snapshot decides whether playback belongs to the daemon.
             // Do not disable native music during the few frames before that snapshot arrives.
             if (!hub.Capabilities.Known && Application.platform == RuntimePlatform.OSXPlayer) return;
-            if (!hub.Capabilities.AudioPlayback) return;
+            if (!hub.Capabilities.AudioPlayback)
+            {
+                SetNativeMusicMuted(_muted);
+                return;
+            }
 
             // A fresh colony creates an enabled music manager, so stop vanilla music before
             // the throttle gives it a chance to start an OST track.
@@ -457,6 +525,7 @@ namespace SlopWorld
 
             var hub = SessionHub.Instance;
             if (hub == null || !hub.Online) return;
+            if (!hub.Capabilities.AudioPlayback) return;
             hub.SendAudio(null, null, null, Volume());
         }
 
