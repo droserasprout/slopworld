@@ -30,7 +30,7 @@ the release build. Suffixed targets are aliases. Both builds write
 | `gogdl-install` | Installs the native Linux RimWorld copy from GOG with gogdl. |
 | `gogdl-update` | Updates the existing native Linux RimWorld copy with gogdl. |
 | `run` | Launches through the runner. `PROFILE` picks the folder. |
-| `devloop-sidecar` | Rebuilds/redeploys the sidecar, then runs the game; repeats after the game closes. `SLOPCAR_WORKSPACE` customizes the workspace mount. |
+| `devloop-sidecar` | Rebuilds/redeploys the sidecar, reinstalls the mod, then runs the game; repeats after the game closes. `SLOPCAR_WORKSPACE` customizes the workspace mount. |
 | `mac-setup` | Installs the macOS toolchain and Docker Desktop with Homebrew. |
 | `mac-check` | Checks Docker, Mono and the native macOS RimWorld paths. |
 | `mac-install` | Builds the sidecar image, runs its doctor, and installs the mod into RimWorldMac. |

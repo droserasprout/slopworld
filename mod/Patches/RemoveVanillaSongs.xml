@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Wrapped, like every operation of ours that rewrites a def the base game
-  shipped: outside a SlopWorld profile it is not applied at all. Deleting
-  somebody's soundtrack because they ticked a mod on is the clearest case of
-  the lot. See Source/SlopWorld/SlopProfile.cs.
+  shipped: outside a SlopWorld profile it is not applied at all. SlopWorld's own
+  SongDefs remain: the daemon plays them on the host, and MusicManagerPlay plays
+  them in sidecar mode. See Source/SlopWorld/SlopProfile.cs.
 -->
 <Patch>
   <Operation Class="SlopWorld.PatchOperationInProfile">

@@ -32,10 +32,12 @@ the future donation action. A user file may omit `id`; its filename stem becomes
 key. HTTP response breaks are reconnected below the decoder, preserving decoder state and queued
 audio; a decoder is rebuilt only if decoding itself ends.
 
-Mute sends `selection: null` so unheard audio is not downloaded. Stop-on-exit sends the
-same during shutdown; `Radio.Quit` latches because Unity may run frames after
-`Application.Quit`. A killed process cannot send it. Volume multiplies RimWorld's
-existing audio settings.
+Daemon-backed mute sends `selection: null` so unheard audio is not downloaded. In sidecar mode, where
+the daemon cannot play audio, the same menu row toggles the native game's music manager for the
+SlopWorld OST. Vanilla SongDefs are stripped in both modes.
+Stop-on-exit sends the same during shutdown; `Radio.Quit` latches because Unity may run frames
+after `Application.Quit`. A killed process cannot send it. Volume multiplies RimWorld's existing
+audio settings.
 
 ## Daemon audio
 
@@ -62,7 +64,9 @@ MP3 streams with ICY metadata.
 The dated OST remains in `mod/Sounds/SlopWorld/OST/` as 192 kbps OGG, but the daemon
 opens it as a directory and plays a non-repeating shuffled bag. `Songs.xml` keeps the
 matching `SlopWorld_` defs, which nothing plays while `Radio` holds the music manager
-disabled; what moving the tracks out would save is [startup-time](startup-time.md).
+disabled in daemon mode; sidecar mode enables the native manager for those same SlopWorld defs.
+RimWorld's original music defs are stripped in both modes. What moving the tracks out would save
+is [startup-time](startup-time.md).
 `split_ost.py` stages exports; `install_ost.py` installs them and updates the catalog.
 
 Like appends a `[[like]]` table with `at`, `source`, effective `artist`/`title`, and raw
