@@ -241,6 +241,10 @@ namespace SlopWorld
 
         // Falls back to the game's own buffer. A round trip, so the paste lands a frame or
         // two later.
+        // Missing session metadata is conservative: a stale snapshot must not send an image to
+        // a host shell.
+        bool HostClipboardTextOnly => SessionHub.Instance.Get(_name)?.Host != false;
+
         void PasteClipboard()
         {
             string name = _name;
@@ -249,7 +253,8 @@ namespace SlopWorld
                 Deliver(name, GUIUtility.systemCopyBuffer);
                 return;
             }
-            SlopClient.Get("/api/clipboard",
+            string path = HostClipboardTextOnly ? "/api/clipboard/text" : "/api/clipboard";
+            SlopClient.Get(path,
                 j => Deliver(name, j["text"].AsString()),
                 _ => Deliver(name, null));
         }
@@ -261,7 +266,10 @@ namespace SlopWorld
         {
             if (!SessionHub.Instance.Capabilities.Clipboard) return;
             string name = _name;
-            SlopClient.Get("/api/clipboard/primary",
+            string path = HostClipboardTextOnly
+                ? "/api/clipboard/primary/text"
+                : "/api/clipboard/primary";
+            SlopClient.Get(path,
                 j => DeliverPrimary(name, j["text"].AsString()),
                 _ => { });
         }

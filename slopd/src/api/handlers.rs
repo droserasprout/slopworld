@@ -798,8 +798,22 @@ pub(super) async fn clip_read() -> ApiResult {
     Ok(Json(json!({ "text": text })))
 }
 
+pub(super) async fn clip_read_text() -> ApiResult {
+    let text = crate::clipboard::read_text()
+        .await
+        .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
+    Ok(Json(json!({ "text": text })))
+}
+
 pub(super) async fn clip_read_primary() -> ApiResult {
     let text = crate::clipboard::read_primary()
+        .await
+        .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
+    Ok(Json(json!({ "text": text })))
+}
+
+pub(super) async fn clip_read_primary_text() -> ApiResult {
+    let text = crate::clipboard::read_primary_text()
         .await
         .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
     Ok(Json(json!({ "text": text })))

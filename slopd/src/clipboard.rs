@@ -16,8 +16,12 @@ const TIMEOUT: Duration = Duration::from_secs(3);
 
 struct Tool {
     copy: &'static [&'static str],
+    // Agent terminals get the original selection so image clipboard data remains available.
     paste: &'static [&'static str],
+    // Host shells must only receive textual clipboard data.
+    paste_text: &'static [&'static str],
     primary: &'static [&'static str],
+    primary_text: &'static [&'static str],
 }
 
 /// Try Wayland first: a compositor's clipboard is what its Xwayland clients
@@ -28,17 +32,37 @@ const TOOLS: &[Tool] = &[
     Tool {
         copy: &["wl-copy"],
         paste: &["wl-paste", "--no-newline"],
+        paste_text: &["wl-paste", "--type", "text", "--no-newline"],
         primary: &["wl-paste", "--primary", "--no-newline"],
+        primary_text: &["wl-paste", "--primary", "--type", "text", "--no-newline"],
     },
     Tool {
         copy: &["xclip", "-selection", "clipboard", "-in"],
         paste: &["xclip", "-selection", "clipboard", "-out"],
+        paste_text: &[
+            "xclip",
+            "-selection",
+            "clipboard",
+            "-target",
+            "UTF8_STRING",
+            "-out",
+        ],
         primary: &["xclip", "-selection", "primary", "-out"],
+        primary_text: &[
+            "xclip",
+            "-selection",
+            "primary",
+            "-target",
+            "UTF8_STRING",
+            "-out",
+        ],
     },
     Tool {
         copy: &["xsel", "--clipboard", "--input"],
         paste: &["xsel", "--clipboard", "--output"],
+        paste_text: &["xsel", "--clipboard", "--output"],
         primary: &["xsel", "--primary", "--output"],
+        primary_text: &["xsel", "--primary", "--output"],
     },
 ];
 
@@ -58,11 +82,22 @@ pub async fn read() -> Result<String> {
     run(None, |t| t.paste).await
 }
 
+/// Read only text for delivery to a host shell. Keep the unrestricted [`read`] path for agents,
+/// whose terminal programs may consume image clipboard data themselves.
+pub async fn read_text() -> Result<String> {
+    run(None, |t| t.paste_text).await
+}
+
 /// Read the compositor's PRIMARY selection, used by terminal middle-click paste.
 /// Keep it separate from [`read`]: PRIMARY and CLIPBOARD are independent selections
 /// under Wayland, and middle-click must never silently paste the ordinary clipboard.
 pub async fn read_primary() -> Result<String> {
     run(None, |t| t.primary).await
+}
+
+/// Text-only counterpart to [`read_primary`] for host-shell middle-click paste.
+pub async fn read_primary_text() -> Result<String> {
+    run(None, |t| t.primary_text).await
 }
 
 /// `text` goes down the tool's stdin on a copy; a paste passes `None`.
@@ -153,6 +188,16 @@ mod tests {
     }
 
     #[test]
+    fn paste_tools_preserve_agent_clipboard_data() {
+        assert_eq!(TOOLS[0].paste, &["wl-paste", "--no-newline"]);
+        assert_eq!(
+            TOOLS[1].paste,
+            &["xclip", "-selection", "clipboard", "-out"]
+        );
+        assert_eq!(TOOLS[2].paste, &["xsel", "--clipboard", "--output"]);
+    }
+
+    #[test]
     fn primary_tools_select_the_primary_buffer() {
         assert_eq!(TOOLS[0].primary, &["wl-paste", "--primary", "--no-newline"]);
         assert_eq!(
@@ -160,6 +205,42 @@ mod tests {
             &["xclip", "-selection", "primary", "-out"]
         );
         assert_eq!(TOOLS[2].primary, &["xsel", "--primary", "--output"]);
+    }
+
+    #[test]
+    fn host_paste_tools_request_text_only() {
+        assert_eq!(
+            TOOLS[0].paste_text,
+            &["wl-paste", "--type", "text", "--no-newline"]
+        );
+        assert_eq!(
+            TOOLS[1].paste_text,
+            &[
+                "xclip",
+                "-selection",
+                "clipboard",
+                "-target",
+                "UTF8_STRING",
+                "-out"
+            ]
+        );
+        assert_eq!(TOOLS[2].paste_text, &["xsel", "--clipboard", "--output"]);
+        assert_eq!(
+            TOOLS[0].primary_text,
+            &["wl-paste", "--primary", "--type", "text", "--no-newline"]
+        );
+        assert_eq!(
+            TOOLS[1].primary_text,
+            &[
+                "xclip",
+                "-selection",
+                "primary",
+                "-target",
+                "UTF8_STRING",
+                "-out"
+            ]
+        );
+        assert_eq!(TOOLS[2].primary_text, &["xsel", "--primary", "--output"]);
     }
 
     #[tokio::test]
