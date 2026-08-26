@@ -1,5 +1,4 @@
 [[sandbox]]
 name = "global"
-category = "filesystem/core"
 description = "The base files and user-installed binaries available to every sandbox"
 ro = ["/usr", "/etc", "/opt", "~/.local/bin"]

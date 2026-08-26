@@ -2,7 +2,6 @@
 # so a shell can record commands without allowing it to rewrite the user's shell setup.
 [[sandbox]]
 name = "bash-userdata"
-category = "shell"
 description = "Bash startup files and command history"
 ro = [
     "~/.bashrc",

@@ -8,9 +8,6 @@ namespace SlopWorld
     public class PresetInfo
     {
         public string Name = "";
-        // How the checkbox list groups itself. A category this build has never heard of is
-        // a heading, not a problem: the table is a directory of files now.
-        public string Category = "";
         public string Description = "";
         // Automatically included before this preset.  The daemon resolves the authoritative
         // closure; the client keeps it to show why a checkbox is unavailable.
@@ -60,7 +57,6 @@ namespace SlopWorld
         public PresetInfo Copy() => new PresetInfo
         {
             Name = Name,
-            Category = Category,
             Description = Description,
             Requires = new List<string>(Requires),
             Source = Source,
@@ -79,7 +75,7 @@ namespace SlopWorld
         };
 
         public string ToJson() =>
-            "{" + $"\"name\":{JVal.Q(Name)},\"category\":{JVal.Q(Category)}," +
+            "{" + $"\"name\":{JVal.Q(Name)}," +
             $"\"description\":{JVal.Q(Description)},\"ro\":{Arr(Ro)}," +
             $"\"requires\":{Arr(Requires)}," +
             $"\"rw\":{Arr(Rw)},\"dev\":{Arr(Dev)},\"private\":{Arr(Private)}," +
@@ -100,7 +96,6 @@ namespace SlopWorld
             var p = new PresetInfo
             {
                 Name = j["name"].AsString(),
-                Category = j["category"].AsString(),
                 Description = j["description"].AsString(),
                 Source = j["source"].AsString("system"),
                 Escapes = j["escapes"].AsString(),

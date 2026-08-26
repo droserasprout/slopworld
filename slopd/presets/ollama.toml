@@ -1,7 +1,6 @@
 # ollama serves on 127.0.0.1:11434, which a session reaches only under network mode `host`.
 [[sandbox]]
 name = "ollama"
-category = "ai"
 description = "Ollama models and local configuration (needs network mode host)"
 ro = ["~/.ollama"]
 env = ["OLLAMA_MODELS"]

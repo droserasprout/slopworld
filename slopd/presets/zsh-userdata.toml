@@ -2,7 +2,6 @@
 # while history remains writable so zsh can record commands without rewriting its setup.
 [[sandbox]]
 name = "zsh-userdata"
-category = "shell"
 description = "zsh startup files, frameworks and command history"
 ro = [
     "~/.zshenv",

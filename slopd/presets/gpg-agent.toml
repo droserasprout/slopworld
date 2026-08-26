@@ -2,7 +2,6 @@
 # If gpg-agent restarts, restart the sandbox session too: a socket bind pins its inode.
 [[sandbox]]
 name = "gpg-agent"
-category = "secret"
 description = "host GnuPG agent socket"
 escapes = "the agent signs or decrypts with keys this sandbox never holds"
 rw = ["~/.gnupg/S.gpg-agent"]

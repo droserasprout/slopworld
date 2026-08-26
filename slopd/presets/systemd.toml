@@ -1,6 +1,5 @@
 [[sandbox]]
 name = "systemd"
-category = "service"
 description = "systemctl --user, journalctl (needs dbus)"
 requires = ["dbus"]
 escapes = "`systemd --user` starts what it is asked to, outside this sandbox"

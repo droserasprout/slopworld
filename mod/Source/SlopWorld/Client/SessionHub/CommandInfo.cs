@@ -9,7 +9,6 @@ namespace SlopWorld
     public class CommandInfo
     {
         public string Name = "";
-        public string Category = "";
         public string Description = "";
         public string Source = "";
         // What it runs before this machine's `[defaults]` and the agent's own override.
@@ -17,14 +16,13 @@ namespace SlopWorld
         public List<string> Sandbox = new List<string>();
 
         public string ToJson() =>
-            "{" + $"\"name\":{JVal.Q(Name)},\"category\":{JVal.Q(Category)}," +
+            "{" + $"\"name\":{JVal.Q(Name)}," +
             $"\"description\":{JVal.Q(Description)},\"cmd\":{JVal.Q(Cmd)}," +
             $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]}}";
 
         public CommandInfo Copy() => new CommandInfo
         {
             Name = Name,
-            Category = Category,
             Description = Description,
             Source = Source,
             Cmd = Cmd,
@@ -34,7 +32,6 @@ namespace SlopWorld
         public static CommandInfo FromJson(JVal j) => new CommandInfo
         {
             Name = j["name"].AsString(),
-            Category = j["category"].AsString(),
             Description = j["description"].AsString(),
             Source = j["source"].AsString("system"),
             Cmd = j["cmd"].AsString(),

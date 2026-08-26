@@ -1,6 +1,5 @@
 [[sandbox]]
 name = "slopworld-debug"
-category = "debug"
 description = "Full SlopWorld game and mod development: game files, profile, displays, devices, desktop services, diagnostics and build caches"
 requires = [
     "systemd",

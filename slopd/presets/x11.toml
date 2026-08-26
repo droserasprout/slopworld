@@ -3,7 +3,6 @@
 # login, so bound by name rather than by directory.
 [[sandbox]]
 name = "x11"
-category = "desktop"
 description = "X11 display, for anything that opens or reads a window"
 escapes = "every X client shares one input stream: this can read other windows and type into them"
 ro = ["/tmp/.X11-unix", "~/.Xauthority", "$XAUTHORITY"]

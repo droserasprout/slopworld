@@ -1,6 +1,5 @@
 [[sandbox]]
 name = "dbus"
-category = "service"
 description = "session and system message bus"
 escapes = "services on the bus start processes on request, and they start them on the host"
 ro = ["/run/dbus/system_bus_socket"]

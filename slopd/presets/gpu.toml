@@ -1,6 +1,5 @@
 # ROCm compute needs /dev/kfd as well as the render nodes under /dev/dri.
 [[sandbox]]
 name = "gpu"
-category = "desktop"
 description = "all /dev/dri devices and the ROCm compute node, for rendering and compute"
 dev = ["/dev/dri", "/dev/kfd"]

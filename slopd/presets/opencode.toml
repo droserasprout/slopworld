@@ -5,7 +5,6 @@
 # too - not for safety, but because two agents grinding one cache is how a cache gets corrupt.
 [[sandbox]]
 name = "opencode"
-category = "agent"
 description = "OpenCode's own config, credentials and state, one copy per session"
 ro = ["~/.config/opencode"]
 private = [
@@ -22,7 +21,6 @@ env = [
 
 [[command]]
 name = "opencode"
-category = "agent"
 description = "OpenCode"
 cmd = "opencode"
 sandbox = ["opencode"]

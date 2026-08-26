@@ -1,6 +1,5 @@
 [[sandbox]]
 name = "gpg"
-category = "secret"
 description = "GnuPG configuration and public keyring"
 ro = [
     "~/.gnupg/gpg.conf",

@@ -1,6 +1,5 @@
 # No sandbox preset of its own: a shell reaches whatever its project does.
 [[command]]
 name = "pwsh"
-category = "shell"
 description = "an interactive PowerShell in the project's sandbox"
 cmd = "pwsh"

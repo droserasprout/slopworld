@@ -1,6 +1,5 @@
 [[sandbox]]
 name = "psql"
-category = "database"
 description = "PostgreSQL client config: credentials, psqlrc, and SSL certs"
 ro = [
     "~/.psqlrc",

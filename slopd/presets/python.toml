@@ -1,5 +1,4 @@
 [[sandbox]]
 name = "python"
-category = "dev"
 description = "Python user site-packages, read-only"
 ro = ["~/.local/lib"]
