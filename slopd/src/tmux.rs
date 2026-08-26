@@ -442,9 +442,10 @@ impl Tmux {
     }
 
     /// Use a per-session tmux buffer for large payloads; `send-keys -H` silently fails near
-    /// 996 bytes. Load from stdin, paste with `-r` to preserve newlines, omit bracketed markers,
-    /// and delete the buffer after use.
-    pub async fn paste_bytes(&self, name: &str, bytes: &[u8]) -> Result<()> {
+    /// 996 bytes. Load from stdin, paste with `-r` to preserve newlines, and delete the buffer
+    /// after use. Bracketed mode makes a large paste one terminal event, which prevents Codex's
+    /// raw-input paste-burst heuristic from splitting it at PTY read pauses.
+    pub async fn paste_bytes(&self, name: &str, bytes: &[u8], bracketed: bool) -> Result<()> {
         use tokio::io::AsyncWriteExt;
 
         let buf = format!("slopworld-{name}");
@@ -473,8 +474,12 @@ impl Tmux {
         }
 
         let target = format!("{name}:.0");
-        self.run(&["paste-buffer", "-d", "-r", "-b", &buf, "-t", &target])
-            .await?;
+        let mut args = vec!["paste-buffer", "-d", "-r"];
+        if bracketed {
+            args.push("-p");
+        }
+        args.extend(["-b", &buf, "-t", &target]);
+        self.run(&args).await?;
         Ok(())
     }
 }
