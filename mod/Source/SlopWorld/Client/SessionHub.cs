@@ -54,6 +54,8 @@ namespace SlopWorld
         public bool Online => _transport.Connected;
 
         public SessionInfo Get(string name) => _sessions.Get(name);
+        public bool TryPendingRename(string oldName, out string newName) =>
+            _sessions.TryPendingRename(oldName, out newName);
         public ScreenBuf Screen(string name) => _sessions.Screen(name);
         public ScreenBuf ScrollScreen(string name) => _sessions.ScrollScreen(name);
         public ProjectInfo Project(string name) => _catalog.Project(name);
