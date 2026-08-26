@@ -151,6 +151,7 @@ impl Manager {
             self.remember_host_path(name, &dir).await;
         }
         self.clear_activity(name).await;
+        let auto_resume_pending = !host && s.auto_resume;
         let (title_was_cleared, run_id) = {
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(name) {
@@ -159,6 +160,7 @@ impl Manager {
                 l.last_change = 0;
                 l.state_since = 0;
                 l.title = TitleCapture::default();
+                l.auto_resume_pending = auto_resume_pending;
                 l.run_id = l.run_id.wrapping_add(1);
                 (had_title, l.run_id)
             } else {
@@ -174,7 +176,7 @@ impl Manager {
                 "could not clear session title before start"
             );
         }
-        if title_was_cleared {
+        if title_was_cleared || auto_resume_pending {
             let _ = self.events.send(Event::Sessions {
                 sessions: self.views().await,
             });
@@ -197,6 +199,7 @@ impl Manager {
         }
         if let Some(l) = self.live.write().await.get_mut(name) {
             l.set_state(State::Down);
+            l.auto_resume_pending = false;
             l.screen = None;
             l.emu = None;
             // A stopped run must not leave its generated task title on the downed
@@ -680,6 +683,7 @@ impl Manager {
                     breadcrumbs: l.cfg.breadcrumbs.clone(),
                     breadcrumb_yolo: l.cfg.breadcrumb_yolo,
                     breadcrumbs_pending: l.breadcrumbs_pending,
+                    auto_resume_pending: l.auto_resume_pending,
                     agent: cfg.command_of(&l.cfg),
                     state: l.state,
                     alive: l.state != State::Down,

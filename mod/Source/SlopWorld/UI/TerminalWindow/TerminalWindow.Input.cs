@@ -145,6 +145,15 @@ namespace SlopWorld
                 return;
             }
 
+            // Auto-resume is queued by the daemon after startup settles. Keep user input out
+            // of the resume picker; chrome and navigation above remain available so the user
+            // can leave this pane while it is being resumed.
+            if (AutoResumePending)
+            {
+                if (e.keyCode != KeyCode.None || e.character != '\0') e.Use();
+                return;
+            }
+
             // On this Unity player the literal semicolon arrives with a spurious modifier,
             // so the ordinary printable-input guard below rejects it. The character is the
             // layout-resolved answer; trust it instead of the broken modifier flags.
@@ -286,7 +295,8 @@ namespace SlopWorld
         // so the frame marker makes the two roads one keystroke.
         internal void CaptureSemicolonInput()
         {
-            if (_semicolonFrame == Time.frameCount || !SessionHub.Instance.Online) return;
+            if (AutoResumePending || _semicolonFrame == Time.frameCount ||
+                !SessionHub.Instance.Online) return;
             bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
             string input = Input.inputString;
             int count = shift || string.IsNullOrEmpty(input) ? 0 : input.Count(c => c == ';');

@@ -124,6 +124,9 @@ struct Live {
     // Spliced immediately before the first Enter after process start.
     breadcrumbs: Vec<u8>,
     breadcrumbs_pending: bool,
+    // Set while the startup auto-resume sequence is waiting or queued. The client uses this
+    // to keep user keystrokes behind the sequence in the input queue.
+    auto_resume_pending: bool,
     // Distinguishes successive processes under the same durable session name. Startup input
     // captured for an old process must not land in a quick stop/start replacement.
     run_id: u64,
@@ -1285,6 +1288,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             input: None,
             breadcrumbs: Vec::new(),
             breadcrumbs_pending: false,
+            auto_resume_pending: false,
             run_id: 0,
             title: TitleCapture::default(),
         }

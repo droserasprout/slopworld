@@ -6,7 +6,9 @@ still for the normal startup settle interval, slopd pastes `/resume`, presses En
 input gap, and presses Enter again. Claude Code and Codex therefore take the same path through
 their resume picker. The agent editor exposes it as **Auto-resume last conversation**.
 
-The sequence uses the ordered raw input queue. It deliberately bypasses title capture and the
+The sequence uses the ordered raw input queue, and the session view marks it pending so the mod
+holds user keyboard input behind the sequence. It deliberately bypasses title capture and the
 first-Enter breadcrumb hook, leaving YOLO breadcrumbs pending for the first real prompt. Each
 start gets a run id so a delayed sequence cannot land in a replacement process with the same
-session name. A readiness timeout skips auto-resume instead of typing into an unsettled agent.
+session name. A readiness timeout skips auto-resume instead of typing into an unsettled agent
+and releases the keyboard hold.

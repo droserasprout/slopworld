@@ -39,6 +39,9 @@ namespace SlopWorld
         public SessionLimits EffectiveLimits;
         public bool Autostart;
         public bool AutoResume;
+        // Read-only here: slopd is waiting to run or finish startup auto-resume. Keyboard input
+        // stays behind that ordered sequence.
+        public bool AutoResumePending;
         // YOLO mode folds every effective breadcrumb into the first submitted prompt.
         public bool BreadcrumbYolo = true;
         public List<string> Breadcrumbs = new List<string>();

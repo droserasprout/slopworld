@@ -405,6 +405,7 @@ mod tests {
             breadcrumbs: Vec::new(),
             breadcrumb_yolo: false,
             breadcrumbs_pending: false,
+            auto_resume_pending: false,
             agent: String::new(),
             state: State::Idle,
             alive: true,

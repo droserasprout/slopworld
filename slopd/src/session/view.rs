@@ -19,6 +19,8 @@ pub struct SessionView {
     pub breadcrumb_yolo: bool,
     // Lets the client attach tips only to the Enter that will consume breadcrumbs.
     pub breadcrumbs_pending: bool,
+    // Startup auto-resume is waiting or queued; clients must keep user input behind it.
+    pub auto_resume_pending: bool,
     pub agent: String,
     pub state: State,
     pub alive: bool,
