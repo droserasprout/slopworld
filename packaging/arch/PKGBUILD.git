@@ -17,9 +17,9 @@ depends=('systemd' 'tmux' 'bubblewrap' 'passt' 'ripgrep' 'git' 'less' 'micro'
   'highlight' 'alsa-lib')
 makedepends=('cargo' 'git' 'mono' 'lld')
 optdepends=(
-  'wl-clipboard: clipboard writes under Wayland (OSC 52)'
-  'xclip: clipboard writes under X11'
-  'xsel: clipboard writes under X11 (fallback)'
+  'wl-clipboard: clipboard and PRIMARY selection under Wayland'
+  'xclip: clipboard and PRIMARY selection under X11'
+  'xsel: clipboard and PRIMARY selection under X11 (fallback)'
   'xdg-utils: opening links from the terminal pane'
 )
 provides=('slopworld' 'slopd')

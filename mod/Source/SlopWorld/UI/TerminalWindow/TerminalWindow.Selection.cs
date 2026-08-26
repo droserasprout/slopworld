@@ -254,9 +254,26 @@ namespace SlopWorld
                 _ => Deliver(name, null));
         }
 
+        // Middle-click reads Wayland/X11 PRIMARY, not the ordinary CLIPBOARD. There is no
+        // useful game-local fallback: Unity exposes the latter, if anything, and substituting
+        // it would make a missing primary selection paste the wrong text.
+        void PastePrimarySelection()
+        {
+            if (!SessionHub.Instance.Capabilities.Clipboard) return;
+            string name = _name;
+            SlopClient.Get("/api/clipboard/primary",
+                j => DeliverPrimary(name, j["text"].AsString()),
+                _ => { });
+        }
+
         static void Deliver(string name, string text)
         {
             if (string.IsNullOrEmpty(text)) text = GUIUtility.systemCopyBuffer;
+            if (!string.IsNullOrEmpty(text)) SessionHub.Instance.Paste(name, text);
+        }
+
+        static void DeliverPrimary(string name, string text)
+        {
             if (!string.IsNullOrEmpty(text)) SessionHub.Instance.Paste(name, text);
         }
 

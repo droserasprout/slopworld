@@ -797,6 +797,13 @@ pub(super) async fn clip_read() -> ApiResult {
     Ok(Json(json!({ "text": text })))
 }
 
+pub(super) async fn clip_read_primary() -> ApiResult {
+    let text = crate::clipboard::read_primary()
+        .await
+        .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
+    Ok(Json(json!({ "text": text })))
+}
+
 pub(super) async fn clip_write(Json(q): Json<ClipReq>) -> ApiResult {
     crate::clipboard::write(&q.text)
         .await

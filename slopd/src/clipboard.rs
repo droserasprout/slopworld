@@ -17,6 +17,7 @@ const TIMEOUT: Duration = Duration::from_secs(3);
 struct Tool {
     copy: &'static [&'static str],
     paste: &'static [&'static str],
+    primary: &'static [&'static str],
 }
 
 /// Try Wayland first: a compositor's clipboard is what its Xwayland clients
@@ -27,14 +28,17 @@ const TOOLS: &[Tool] = &[
     Tool {
         copy: &["wl-copy"],
         paste: &["wl-paste", "--no-newline"],
+        primary: &["wl-paste", "--primary", "--no-newline"],
     },
     Tool {
         copy: &["xclip", "-selection", "clipboard", "-in"],
         paste: &["xclip", "-selection", "clipboard", "-out"],
+        primary: &["xclip", "-selection", "primary", "-out"],
     },
     Tool {
         copy: &["xsel", "--clipboard", "--input"],
         paste: &["xsel", "--clipboard", "--output"],
+        primary: &["xsel", "--primary", "--output"],
     },
 ];
 
@@ -52,6 +56,13 @@ pub async fn write(text: &str) -> Result<()> {
 
 pub async fn read() -> Result<String> {
     run(None, |t| t.paste).await
+}
+
+/// Read the compositor's PRIMARY selection, used by terminal middle-click paste.
+/// Keep it separate from [`read`]: PRIMARY and CLIPBOARD are independent selections
+/// under Wayland, and middle-click must never silently paste the ordinary clipboard.
+pub async fn read_primary() -> Result<String> {
+    run(None, |t| t.primary).await
 }
 
 /// `text` goes down the tool's stdin on a copy; a paste passes `None`.
@@ -141,6 +152,16 @@ mod tests {
         assert!(!missing(&anyhow::anyhow!("not an I/O error")));
     }
 
+    #[test]
+    fn primary_tools_select_the_primary_buffer() {
+        assert_eq!(TOOLS[0].primary, &["wl-paste", "--primary", "--no-newline"]);
+        assert_eq!(
+            TOOLS[1].primary,
+            &["xclip", "-selection", "primary", "-out"]
+        );
+        assert_eq!(TOOLS[2].primary, &["xsel", "--primary", "--output"]);
+    }
+
     #[tokio::test]
     async fn copy_process_receives_the_complete_text_on_stdin() {
         one(
@@ -157,6 +178,14 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(output, "first\nsecond");
+    }
+
+    #[tokio::test]
+    async fn primary_process_returns_stdout_verbatim() {
+        let output = one(&["sh", "-c", "printf primary-text"], None)
+            .await
+            .unwrap();
+        assert_eq!(output, "primary-text");
     }
 
     #[tokio::test]

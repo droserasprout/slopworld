@@ -18,6 +18,9 @@ come from metadata and stream URLs never cross the wire to the mod.
 The mod uses HTTP for writes so it can show daemon error bodies:
 `/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`,
 `PUT /api/config/patch`, shortcut/run, `/api/run`, and root-only Files mutations.
+`GET /api/clipboard` reads CLIPBOARD; `GET /api/clipboard/primary` reads the
+Wayland/X11 PRIMARY selection for terminal middle-click paste, and `POST /api/clipboard`
+writes CLIPBOARD.
 The patch route deep-merges nested JSON, validates the result, and preserves omitted
 fields. Project JSON carries the network ceiling; session JSON carries effective
 network plus nullable `network_override`, which cannot widen the ceiling.
