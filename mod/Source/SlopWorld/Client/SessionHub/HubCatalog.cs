@@ -15,6 +15,11 @@ namespace SlopWorld
         public List<PresetInfo> Presets = new List<PresetInfo>();
         public List<CommandInfo> Commands = new List<CommandInfo>();
 
+        // A project list request can outlive the edit that started another one. Without a
+        // generation, a slow pre-edit GET can put the old network default back after a Host
+        // save has succeeded.
+        int _projectsRevision;
+
         // A project edit also changes which sessions exist, so the catalog asks the session
         // store to refresh without owning it.
         readonly Action _refreshSessions;
@@ -26,8 +31,11 @@ namespace SlopWorld
 
         // The socket pushes these, and each also has an HTTP road below for a window opened
         // while the socket is down.
-        public void ApplyProjects(JVal ev) =>
+        public void ApplyProjects(JVal ev)
+        {
+            _projectsRevision++;
             Projects = ev["projects"].Items.Select(ProjectInfo.FromJson).ToList();
+        }
 
         public void ApplyShortcuts(JVal ev) =>
             Shortcuts = ev["shortcuts"].Items.Select(ShortcutInfo.FromJson).ToList();
@@ -37,10 +45,20 @@ namespace SlopWorld
 
         // A window opened while the socket is down still has to draw something, and this road
         // returns an error body.
-        public void RefreshProjects(Action<string> fail = null) =>
+        public void RefreshProjects(Action<string> fail = null)
+        {
+            int revision = ++_projectsRevision;
             SlopClient.Get("/api/projects",
-                j => Projects = j["projects"].Items.Select(ProjectInfo.FromJson).ToList(),
-                fail);
+                j =>
+                {
+                    if (revision == _projectsRevision)
+                        Projects = j["projects"].Items.Select(ProjectInfo.FromJson).ToList();
+                },
+                msg =>
+                {
+                    if (revision == _projectsRevision) fail?.Invoke(msg);
+                });
+        }
 
         public ShortcutInfo Shortcut(string name) =>
             Shortcuts.FirstOrDefault(s => s.Name == name);
@@ -100,6 +118,10 @@ namespace SlopWorld
         public void SaveProject(ProjectInfo p, bool isNew, string origName,
                                 Action ok, Action<string> fail)
         {
+            // Invalidate every list request already in flight before the write starts. The
+            // successful write starts a fresh refresh below, and only that refresh may replace
+            // the catalog while this edit is settling.
+            _projectsRevision++;
             Action<JVal> done = _ => { RefreshProjects(); _refreshSessions(); ok?.Invoke(); };
             if (isNew) SlopClient.Post("/api/projects", p.ToJson(), done, fail);
             else SlopClient.Put($"/api/projects/{HubWire.Esc(origName)}", p.ToJson(), done, fail);
@@ -107,7 +129,13 @@ namespace SlopWorld
 
         // The daemon refuses this while agents still work there, and says which ones.
         public void RemoveProject(string name, Action<string> fail = null) =>
-            SlopClient.Delete($"/api/projects/{HubWire.Esc(name)}",
+            DeleteProject($"/api/projects/{HubWire.Esc(name)}", fail);
+
+        void DeleteProject(string path, Action<string> fail)
+        {
+            _projectsRevision++;
+            SlopClient.Delete(path,
                 _ => { RefreshProjects(); _refreshSessions(); }, fail);
+        }
     }
 }
