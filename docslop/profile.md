@@ -31,7 +31,8 @@ launcher; a game with no readable `-savedatafolder` remains fail-closed.
 
 `make run-slopcar` uses `~/.local/share/slopworld-car/profile`, whose parent is already exposed by
 the debug preset. Its saves and settings are separate from the native profile; the daemon endpoint
-is the only connection it inherits.
+is the only connection it inherits. A sidecar profile's first settings file selects the
+`slopworld-warm` UI scheme; later launches leave that file alone.
 
 ## Refusing to patch outside the profile
 

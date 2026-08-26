@@ -59,7 +59,8 @@ For the Linux dev game, `make run-slopcar` launches RimWorld into
 debug sandbox already mounts, with `SLOPD_ENDPOINT` set to the sidecar's descriptor. Start the
 sidecar first. Override `SLOPCAR_CONFIG` if you started it with a non-default
 `SLOPCAR_CONFIG_DIR`, or `SLOPCAR_PROFILE` to name a different save folder. The separate profile
-and profile-keyed launcher lock let this game run beside a native session.
+and profile-keyed launcher lock let this game run beside a native session. Its first settings file
+selects the `SlopWorld Warm` UI scheme and is not rewritten on later launches.
 
 For a native macOS game and mod, use the Makefile workflow from the repository root:
 
@@ -72,6 +73,7 @@ make mac
 `mac-install` compiles against `RimWorldMac.app`'s managed assemblies and installs the mod;
 `mac-run` starts the sidecar and launches the game into its separate profile. Override
 `MAC_RIMWORLD` for a non-Steam install or `SLOPCAR_WORKSPACE` for the roots agents may access.
+The macOS sidecar profile also starts with the `SlopWorld Warm` UI scheme.
 
 ### Running beside a native daemon
 

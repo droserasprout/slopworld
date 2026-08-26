@@ -353,6 +353,9 @@ mac-profile:      ## Create the isolated native macOS sidecar profile if it is a
 		'This is a SlopWorld profile.' \
 		'The marker keeps the mod out of ordinary RimWorld saves.' \
 		> "$(MAC_PROFILE)/slopworld.profile"
+	@test -e "$(MAC_PROFILE)/Config/SlopWorld.toml" || printf '%s\n' \
+		'uiScheme = "slopworld-warm"' \
+		> "$(MAC_PROFILE)/Config/SlopWorld.toml"
 	@test -e "$(MAC_PROFILE)/Config/ModsConfig.xml" || printf '%s\n' \
 		'<?xml version="1.0" encoding="utf-8"?>' \
 		'<ModsConfigData>' \
