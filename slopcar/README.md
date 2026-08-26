@@ -65,9 +65,10 @@ selects the `SlopWorld Warm` UI scheme and is not rewritten on later launches.
 For a native macOS game and mod, use the Makefile workflow from the repository root:
 
 ```sh
-make mac-setup
+brew install make
+gmake mac-setup
 open -a Docker
-make mac
+gmake mac
 ```
 
 `mac-install` compiles against `RimWorldMac.app`'s managed assemblies and installs the mod;

@@ -1,5 +1,20 @@
-.PHONY: $(MAKECMDGOALS) mod
+.DEFAULT_GOAL := help
+
+.PHONY: \
+	help all daemon mod debug release daemon-debug daemon-release mod-debug mod-release \
+	test test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
+	appicon icons emoji-atlas reference scheme-report harmony clean \
+	format format-daemon format-mod lint lint-daemon lint-mod lint-prose \
+	install install-daemon install-runner install-mod mac-setup mac-mod mac-install mac-profile \
+	uninstall uninstall-daemon uninstall-runner uninstall-mod \
+	run run-slopcar mac-run mac install-mac run-mac \
+	logs check-reqs slopcar-build slopcar-doctor mac-docker-check mac-game-check \
+	mac-check mac-sidecar-build mac-sidecar-doctor mac-sidecar-start \
+	mac-sidecar-ready mac-sidecar-stop mac-sidecar-status mac-sidecar-logs mac-mod-check \
+	shot pkg-arch docs docs-serve devloop devloop-sidecar \
+	gogdl-login gogdl-install gogdl-update
 MAKEFLAGS += --no-print-directory
+MAKE_BIN := $(MAKE)
 ##
 ##  🤖 SlopWorld developer tools
 ##
@@ -9,7 +24,10 @@ MAKEFLAGS += --no-print-directory
 ##  `make BUILD=release install`.
 ##
 GOGDL      ?= gogdl
-GOGDL_AUTH ?= $(if $(XDG_CONFIG_HOME),$(XDG_CONFIG_HOME),$(HOME)/.config)/heroic/gog_store/auth.json
+config_home := $(or $(XDG_CONFIG_HOME),$(HOME)/.config)
+data_home   := $(or $(XDG_DATA_HOME),$(HOME)/.local/share)
+
+GOGDL_AUTH ?= $(config_home)/heroic/gog_store/auth.json
 GOGDL_ID   ?= 1094900565
 GOGDL_PATH ?= $(HOME)/GOG Games
 GOGDL_LOGIN_URL ?= https://auth.gog.com/auth?client_id=46899977096215655&redirect_uri=https%3A%2F%2Fembed.gog.com%2Fon_login_success%3Forigin%3Dclient&response_type=code&layout=client2
@@ -19,8 +37,6 @@ MODS       ?= $(RIMWORLD)/Mods
 BIN        ?= $(HOME)/.local/bin
 UNITS      ?= $(HOME)/.config/systemd/user
 LOG        ?= $(HOME)/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log
-API        ?= http://127.0.0.1:7717
-TOKEN      ?=
 # Save data folder, defaults to `$XDG_DATA_HOME/slopworld/profile`.
 PROFILE    ?=
 # `run-slopcar` wiring: the sidecar's config dir holds the endpoint descriptor its daemon
@@ -28,14 +44,20 @@ PROFILE    ?=
 # a profile kept wholly apart from the native one. Point SLOPCAR_CONFIG at whatever
 # SLOPCAR_CONFIG_DIR the sidecar was started with; SLOPCAR_DATA keeps its session state separate
 # from a native daemon.
-SLOPCAR_CONFIG   ?= $(if $(XDG_CONFIG_HOME),$(XDG_CONFIG_HOME),$(HOME)/.config)/slopworld-car
+SLOPCAR_CONFIG   ?= $(config_home)/slopworld-car
 SLOPCAR_ENDPOINT ?= $(SLOPCAR_CONFIG)/endpoint.toml
 SLOPCAR_PORT     ?= 7718
-SLOPCAR_DATA     ?= $(if $(XDG_DATA_HOME),$(XDG_DATA_HOME),$(HOME)/.local/share)/slopworld-car
+SLOPCAR_DATA     ?= $(data_home)/slopworld-car
 SLOPCAR_CONTAINER ?= slopcar
-SLOPCAR_PROFILE  ?= $(if $(XDG_DATA_HOME),$(XDG_DATA_HOME),$(HOME)/.local/share)/slopworld-car/profile
+SLOPCAR_PROFILE  ?= $(data_home)/slopworld-car/profile
 SLOPCAR_WORKSPACE ?= $(CURDIR)
 SLOPCAR_START_ARGS ?= --workspace "$(SLOPCAR_WORKSPACE)"
+SLOPCAR ?= slopcar/slopcar
+SLOPCAR_ENV = \
+	SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" \
+	SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
+	SLOPCAR_PORT="$(SLOPCAR_PORT)" \
+	SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)"
 # Native macOS RimWorld is an app bundle, so it needs its own references, mod destination and
 # direct game executable. The Steam path is the useful default; every value is overridable for a
 # standalone install or a friend whose home layout differs.
@@ -46,17 +68,27 @@ MAC_MANAGED     ?= $(MAC_RESOURCES)/Data/Managed
 MAC_MODS        ?= $(MAC_RIMWORLD)/Mods
 MAC_PROFILE     ?= $(HOME)/Library/Application Support/SlopWorld/sidecar-profile
 MAC_CSC         ?= csc
-MAC_CSC_API     ?= $(if $(shell command -v brew >/dev/null 2>&1 && brew --prefix mono 2>/dev/null),$(shell brew --prefix mono 2>/dev/null)/lib/mono/4.7.2-api,$(CSC_API))
+MAC_MONO_PREFIX := $(shell command -v brew >/dev/null 2>&1 && brew --prefix mono 2>/dev/null)
+MAC_CSC_API     ?= $(if $(MAC_MONO_PREFIX),$(MAC_MONO_PREFIX)/lib/mono/4.7.2-api,$(CSC_API))
 MAC_GAME_ARGS   ?=
 # Which half of the split every build, install and run target follows.
 BUILD      ?= debug
+ifneq ($(words $(BUILD)),1)
+$(error BUILD must be exactly debug or release; got '$(BUILD)')
+endif
+ifneq ($(filter debug release,$(BUILD)),$(BUILD))
+$(error BUILD must be exactly debug or release; got '$(BUILD)')
+endif
 CARGOFLAGS  = $(if $(filter release,$(BUILD)),--release)
 TARGET      = slopd/target/$(BUILD)
 RUNNER      = $(TARGET)/slopworld
 SLOPCTL     = $(TARGET)/slopctl
+CARGO       ?= cargo
+DOTNET      ?= dotnet
+PYTHON      ?= python3
 CSC         ?= csc
 CSC_API     ?= /usr/lib/mono/4.7.2-api
-CSC_SOURCES := $(shell find mod/Source/SlopWorld -type f -name '*.cs' -not -path '*/obj/*' -print | sort)
+CSC_SOURCES = $(shell find mod/Source/SlopWorld -type f -name '*.cs' -not -path '*/obj/*' -print | sort)
 CSC_REFS    = \
 	-r:"$(CSC_API)/mscorlib.dll" \
 	-r:"$(CSC_API)/Facades/netstandard.dll" \
@@ -73,10 +105,16 @@ CSC_REFS    = \
 	-r:"$(MANAGED)/UnityEngine.ImageConversionModule.dll"
 CSC_OPTIMIZE = $(if $(filter release,$(BUILD)),-optimize+,)
 CSC_WARNINGS ?=
+MOD_DLL      := mod/Assemblies/SlopWorld.dll
+MOD_INSTALL  = $(MODS)/SlopWorld
+MOD_DIRS     := About Defs Patches Sounds Textures Assemblies
+TEST_PROJECT := mod/Tests/SlopWorld.Tests.csproj
+TEST_DLL     := mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll
+COVERAGE_DIR := coverage
 
 
 help:              ## Show this help (default)
-	@grep -Fh "##" $(MAKEFILE_LIST) | grep -Fv grep -F | sed -e 's/\\$$//' | sed -e 's/##//'
+	@awk 'BEGIN { tag = "#" "#" } index($$0, tag) == 1 { if (substr($$0, 3, 2) == "->") print "->" substr($$0, 5); else if (substr($$0, 3) != "") print substr($$0, 3); next } /^[[:alnum:]_.-]+:/ && index($$0, tag) { target = $$0; sub(/:.*/, "", target); desc = substr($$0, index($$0, tag) + 2); sub(/^[[:space:]]+/, "", desc); printf "%-18s %s\n", target ":", desc }' $(MAKEFILE_LIST)
 
 ##
 ##-> RimWorld
@@ -115,85 +153,59 @@ gogdl-update:      ## Update the local RimWorld copy with gogdl
 mac-setup:        ## Install the macOS build tools and Docker Desktop with Homebrew
 	@test "$$(uname -s)" = Darwin || { echo "mac-setup must run on macOS" >&2; exit 1; }
 	@command -v brew >/dev/null 2>&1 || { echo "missing Homebrew" >&2; exit 1; }
-	brew install git mono
+	brew install git make mono
 	brew install --cask docker-desktop
-	@echo "Open Docker Desktop once, accept its setup prompts, then run: make mac-check"
+	@echo "Use GNU Make as gmake on macOS. Open Docker Desktop once, then run: gmake mac-check"
 
 mac-docker-check: ## Check Docker Desktop on macOS
 	@test "$$(uname -s)" = Darwin || { echo "macOS target requires Darwin" >&2; exit 1; }
-	@command -v docker >/dev/null 2>&1 || { echo "missing docker; run make mac-setup" >&2; exit 1; }
+	@command -v docker >/dev/null 2>&1 || { echo "missing docker; run gmake mac-setup" >&2; exit 1; }
 	@docker info >/dev/null 2>&1 || { echo "Docker Desktop is not running; open Docker and retry" >&2; exit 1; }
 
 mac-game-check:   ## Check the native macOS RimWorld and Mono paths
 	@test "$$(uname -s)" = Darwin || { echo "macOS target requires Darwin" >&2; exit 1; }
-	@command -v "$(MAC_CSC)" >/dev/null 2>&1 || { echo "missing $(MAC_CSC); run make mac-setup" >&2; exit 1; }
+	@command -v "$(MAC_CSC)" >/dev/null 2>&1 || { echo "missing $(MAC_CSC); run gmake mac-setup" >&2; exit 1; }
 	@test -f "$(MAC_CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(MAC_CSC_API); override MAC_CSC_API" >&2; exit 1; }
 	@test -x "$(MAC_GAME)" || { echo "missing native RimWorld executable: $(MAC_GAME); override MAC_RIMWORLD" >&2; exit 1; }
 	@test -f "$(MAC_MANAGED)/Assembly-CSharp.dll" || { echo "missing RimWorld assemblies under $(MAC_MANAGED)" >&2; exit 1; }
 	@test -d "$(MAC_MODS)" || { echo "missing RimWorld Mods directory: $(MAC_MODS); override MAC_RIMWORLD" >&2; exit 1; }
 
-mac-check:        ## Check Docker, Mono and the native macOS RimWorld install
-	$(MAKE) mac-docker-check mac-game-check
+mac-check: mac-docker-check mac-game-check ## Check Docker, Mono and the native macOS RimWorld install
 
 
-mac-sidecar-build: ## Build the Linux sidecar image on macOS
-	$(MAKE) mac-docker-check
-	$(MAKE) slopcar-build
+mac-sidecar-build: mac-docker-check ## Build the Linux sidecar image on macOS
+	$(SLOPCAR) build
 
 
-mac-sidecar-doctor: ## Verify nested Bubblewrap, pasta and tmux on macOS
-	$(MAKE) mac-sidecar-build
-	$(MAKE) slopcar-doctor
+mac-sidecar-doctor: mac-sidecar-build ## Verify nested Bubblewrap, pasta and tmux on macOS
+	$(SLOPCAR) doctor
 
-mac-sidecar-start: ## Start the configured macOS sidecar, reusing its container
-	$(MAKE) mac-docker-check
-	@state="$$(docker container inspect --format '{{.State.Running}}' "$(SLOPCAR_CONTAINER)" 2>/dev/null || true)"; \
-	if test "$$state" = true; then \
-		echo "sidecar $(SLOPCAR_CONTAINER) is already running"; \
-	elif docker container inspect "$(SLOPCAR_CONTAINER)" >/dev/null 2>&1; then \
-		SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" \
-		SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
-		SLOPCAR_PORT="$(SLOPCAR_PORT)" \
-		SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)" \
-		./slopcar/slopcar start; \
-	else \
-		SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" \
-		SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
-		SLOPCAR_PORT="$(SLOPCAR_PORT)" \
-		SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)" \
-		./slopcar/slopcar start $(SLOPCAR_START_ARGS); \
-	fi
+mac-sidecar-start: mac-docker-check ## Start the configured macOS sidecar, reusing its container
+	$(SLOPCAR_ENV) tools/mac-sidecar-start.sh $(SLOPCAR_START_ARGS)
 
-mac-sidecar-stop: ## Stop the macOS sidecar without removing its state
-	$(MAKE) mac-docker-check
-	SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
-	SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)" ./slopcar/slopcar stop
+mac-sidecar-stop: mac-docker-check ## Stop the macOS sidecar without removing its state
+	$(SLOPCAR_ENV) $(SLOPCAR) stop
 
-mac-sidecar-status: ## Show macOS sidecar status
-	$(MAKE) mac-docker-check
-	SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
-	SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)" ./slopcar/slopcar status
+mac-sidecar-status: mac-docker-check ## Show macOS sidecar status
+	$(SLOPCAR_ENV) $(SLOPCAR) status
 
-mac-sidecar-logs: ## Show macOS sidecar logs; pass LOG_ARGS='--tail 100'
-	$(MAKE) mac-docker-check
-	SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
-	SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)" ./slopcar/slopcar logs $(LOG_ARGS)
+mac-sidecar-logs: mac-docker-check ## Show macOS sidecar logs; pass LOG_ARGS='--tail 100'
+	$(SLOPCAR_ENV) $(SLOPCAR) logs $(LOG_ARGS)
 
 ##
 ##-> Build
 ##
 
-all:               ## Build both halves
-	$(MAKE) daemon mod
+all: daemon mod   ## Build both halves
 
 daemon:            ## Build the daemon and the launcher
-	cd slopd && cargo build $(CARGOFLAGS)
+	cd slopd && $(CARGO) build $(CARGOFLAGS)
 
 mod:               ## Build the mod against the game's assemblies
 	@test -f "$(CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(CSC_API)" >&2; exit 1; }
 	@test -f "$(MANAGED)/Assembly-CSharp.dll" || { echo "missing RimWorld assemblies under $(MANAGED)" >&2; exit 1; }
 	$(CSC) -nologo -noconfig -target:library -langversion:latest \
-		-out:mod/Assemblies/SlopWorld.dll $(CSC_OPTIMIZE) $(CSC_WARNINGS) \
+		-out:"$(MOD_DLL)" $(CSC_OPTIMIZE) $(CSC_WARNINGS) \
 		$(CSC_REFS) $(CSC_SOURCES)
 
 ##
@@ -216,221 +228,176 @@ mod-debug:         ## Alias for BUILD=debug mod
 mod-release:       ## Alias for BUILD=release mod
 	$(MAKE) BUILD=release mod
 
-test:              ## Run the daemon and game-free mod tests
-	cd slopd && cargo test
-	dotnet run --project mod/Tests/SlopWorld.Tests.csproj --configuration Release
-	$(MAKE) test-prose
+test: test-daemon test-mod test-prose ## Run the daemon and game-free mod tests
 
-coverage:          ## Measure Rust and game-free C# test coverage
-	$(MAKE) coverage-daemon coverage-mod
+test-daemon:
+	cd slopd && $(CARGO) test
+
+test-mod:
+	$(DOTNET) run --project "$(TEST_PROJECT)" --configuration Release
+
+coverage: coverage-daemon coverage-mod ## Measure Rust and game-free C# test coverage
 
 coverage-daemon:   ## Write Rust coverage to coverage/rust.cobertura.xml
 	@command -v cargo-llvm-cov >/dev/null || { echo "missing cargo-llvm-cov; install it with: cargo install cargo-llvm-cov --locked" >&2; exit 1; }
 	@command -v llvm-cov >/dev/null && command -v llvm-profdata >/dev/null || { echo "missing LLVM coverage tools" >&2; exit 1; }
-	@mkdir -p coverage
+	@mkdir -p "$(COVERAGE_DIR)"
 	cd slopd && LLVM_COV="$$(command -v llvm-cov)" LLVM_PROFDATA="$$(command -v llvm-profdata)" \
-		cargo llvm-cov --cobertura --output-path ../coverage/rust.cobertura.xml
-	python3 tools/coverage_summary.py coverage/rust.cobertura.xml Rust
+		$(CARGO) llvm-cov --cobertura --output-path "../$(COVERAGE_DIR)/rust.cobertura.xml"
+	$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/rust.cobertura.xml" Rust
 
 coverage-mod:      ## Write game-free C# coverage to coverage/csharp.cobertura.xml
-	dotnet tool restore
-	@mkdir -p coverage
-	dotnet build mod/Tests/SlopWorld.Tests.csproj --configuration Release -p:Coverage=true
-	dotnet tool run coverlet -- mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll \
-		--target dotnet --targetargs mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll \
+	$(DOTNET) tool restore
+	@mkdir -p "$(COVERAGE_DIR)"
+	$(DOTNET) build "$(TEST_PROJECT)" --configuration Release -p:Coverage=true
+	$(DOTNET) tool run coverlet -- "$(TEST_DLL)" \
+		--target dotnet --targetargs "$(TEST_DLL)" \
 		--include-test-assembly --exclude-by-file '**/mod/Tests/**/*.cs' \
-		--format cobertura --output coverage/csharp.cobertura.xml
-	python3 tools/coverage_summary.py coverage/csharp.cobertura.xml C\#
+		--format cobertura --output "$(COVERAGE_DIR)/csharp.cobertura.xml"
+	$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/csharp.cobertura.xml" C\#
 
 test-prose:        ## Test the prose linter
-	python3 tools/test_prose_lint.py
+	$(PYTHON) tools/test_prose_lint.py
 
 appicon:           ## Regenerate the app icon (robot face + wilted rose)
-	python3 tools/appicon.py
+	$(PYTHON) tools/appicon.py
 
 icons:             ## Rebake the action icons from a Nerd Font's Codicons
-	python3 tools/icons.py
+	$(PYTHON) tools/icons.py
 
 emoji-atlas:       ## Rebake the legacy terminal's emoji atlas with Pango
-	python3 tools/emoji_atlas.py
+	$(PYTHON) tools/emoji_atlas.py
 
 reference:         ## Generate the environment/API/CLI reference
-	python3 tools/reference.py
+	$(PYTHON) tools/reference.py
 
 scheme-report:     ## Analyze the complete UI schemes and check Warm's luminance hierarchy
-	python3 tools/analyze_ui_schemes.py --check-warm
+	$(PYTHON) tools/analyze_ui_schemes.py --check-warm
 
 harmony:           ## Fetch the latest Harmony release into the mod
 	tools/fetch-harmony.sh
 
 clean:             ## Drop build output
-	cd slopd && cargo clean
-	rm -f mod/Assemblies/SlopWorld.dll
+	cd slopd && $(CARGO) clean
+	rm -f "$(MOD_DLL)"
 	rm -rf mod/Source/SlopWorld/obj
-	rm -rf coverage
+	rm -rf "$(COVERAGE_DIR)"
 
 ##
 ##-> Format and lint
 ##
 
-format:            ## Format both halves
-	$(MAKE) format-daemon format-mod
+format: format-daemon format-mod ## Format both halves
 
 format-daemon:     ## rustfmt the daemon
-	cd slopd && cargo fmt
+	cd slopd && $(CARGO) fmt
 
 format-mod:        ## Format the mod's C# (needs the .NET SDK)
-	dotnet format whitespace mod/Source/SlopWorld --folder --exclude obj
+	$(DOTNET) format whitespace mod/Source/SlopWorld --folder --exclude obj
 
 ##
 
-lint:              ## Lint both halves
-	$(MAKE) lint-daemon lint-mod
+lint: lint-daemon lint-mod ## Lint both halves
 
 lint-daemon:       ## Check the daemon's formatting, then clippy, warnings as errors
-	cd slopd && cargo fmt --check
-	cd slopd && cargo clippy --all-targets -- -D warnings
+	cd slopd && $(CARGO) fmt --check
+	cd slopd && $(CARGO) clippy --all-targets -- -D warnings
 
-lint-mod:          ## Build the mod with warnings as errors, then check its formatting
-	$(MAKE) BUILD=release CSC_WARNINGS=-warnaserror mod
-	dotnet format whitespace mod/Source/SlopWorld --folder --exclude obj --verify-no-changes;
+lint-mod: override BUILD := release
+lint-mod: override CSC_WARNINGS := -warnaserror
+lint-mod: mod       ## Build the mod with warnings as errors, then check its formatting
+	$(DOTNET) format whitespace mod/Source/SlopWorld --folder --exclude obj --verify-no-changes
 
 lint-prose:        ## Find LLM cliches in prose and source comments
-	python3 tools/prose_lint.py $(PROSE_LINT_ARGS)
+	$(PYTHON) tools/prose_lint.py $(PROSE_LINT_ARGS)
 
 ##
 ##-> Install
 ##
 
-install:           ## Install all three
-	$(MAKE) install-daemon install-runner install-mod
+install: install-daemon install-runner install-mod ## Install all three
 
-install-daemon:    ## Install the binary and the unit, restarting only when needed
-	$(MAKE) daemon
-	@restart=yes; \
-	if systemctl --user is-active --quiet slopd.service; then \
-		pid=$$(systemctl --user show --property=MainPID --value slopd.service); \
-		if test "$$pid" -gt 0 2>/dev/null && cmp -s "$(TARGET)/slopd" "/proc/$$pid/exe"; then \
-			restart=no; \
-			echo "slopd already runs the latest $(BUILD) build; skipping restart"; \
-		fi; \
-	fi; \
-	install -Dm755 $(TARGET)/slopd $(BIN)/slopd; \
-	install -Dm755 $(SLOPCTL) $(BIN)/slopctl; \
-	install -Dm644 slopd/slopd.service $(UNITS)/slopd.service; \
-	systemctl --user daemon-reload; \
-	systemctl --user enable --now slopd.service; \
-	if test "$$restart" = yes; then systemctl --user restart slopd.service; fi; \
-	systemctl --user --no-pager status slopd.service | head -3
+install-daemon: daemon ## Install the binary and the unit, restarting only when needed
+	TARGET="$(TARGET)" BIN="$(BIN)" UNITS="$(UNITS)" BUILD="$(BUILD)" \
+		tools/install-daemon.sh
 
-install-runner:    ## Install the launcher beside the daemon
-	$(MAKE) daemon
-	install -Dm755 $(RUNNER) $(BIN)/slopworld
+install-runner: daemon ## Install the launcher beside the daemon
+	install -Dm755 "$(RUNNER)" "$(BIN)/slopworld"
 	@echo "installed to $(BIN)/slopworld"
 
-install-mod:       ## Install the mod into the game's Mods folder
-	$(MAKE) mod
-	@test -n "$(MODS)" || { echo "MODS is empty, refusing to remove anything"; exit 1; }
-	rm -rf "$(MODS)/SlopWorld"
-	mkdir -p "$(MODS)/SlopWorld"
-	cp -r mod/About mod/Defs mod/Patches mod/Sounds mod/Textures mod/Assemblies "$(MODS)/SlopWorld/"
-	@echo "installed to $(MODS)/SlopWorld"
+install-mod: mod       ## Install the mod into the game's Mods folder
+	@test -n "$(MODS)" && test "$(MODS)" != / || { echo "MODS is empty or unsafe, refusing to remove anything"; exit 1; }
+	rm -rf "$(MOD_INSTALL)"
+	mkdir -p "$(MOD_INSTALL)"
+	cp -r $(MOD_DIRS:%=mod/%) "$(MOD_INSTALL)/"
+	@echo "installed to $(MOD_INSTALL)"
 
-mac-mod:          ## Build SlopWorld.dll against native macOS RimWorld
-	$(MAKE) mac-game-check
-	$(MAKE) BUILD="$(BUILD)" CSC="$(MAC_CSC)" CSC_API="$(MAC_CSC_API)" MANAGED="$(MAC_MANAGED)" mod
+mac-mod: mac-game-check mod ## Build SlopWorld.dll against native macOS RimWorld
+mac-mod: override CSC := $(MAC_CSC)
+mac-mod: override CSC_API := $(MAC_CSC_API)
+mac-mod: override MANAGED := $(MAC_MANAGED)
 
-mac-install:      ## Build the sidecar and install the mod into native macOS RimWorld
-	$(MAKE) mac-game-check
-	$(MAKE) mac-sidecar-doctor
-	$(MAKE) BUILD="$(BUILD)" CSC="$(MAC_CSC)" CSC_API="$(MAC_CSC_API)" \
-		MANAGED="$(MAC_MANAGED)" MODS="$(MAC_MODS)" install-mod
+mac-install: mac-game-check mac-sidecar-doctor install-mod ## Build the sidecar and install the mod into native macOS RimWorld
+mac-install: override CSC := $(MAC_CSC)
+mac-install: override CSC_API := $(MAC_CSC_API)
+mac-install: override MANAGED := $(MAC_MANAGED)
+mac-install: override MODS := $(MAC_MODS)
 
 mac-profile:      ## Create the isolated native macOS sidecar profile if it is absent
-	@case "$(MAC_PROFILE)" in *"="*) echo "MAC_PROFILE cannot contain '=': $(MAC_PROFILE)" >&2; exit 1;; esac
-	@mkdir -p "$(MAC_PROFILE)/Config"
-	@test -e "$(MAC_PROFILE)/slopworld.profile" || printf '%s\n' \
-		'This is a SlopWorld profile.' \
-		'The marker keeps the mod out of ordinary RimWorld saves.' \
-		> "$(MAC_PROFILE)/slopworld.profile"
-	@test -e "$(MAC_PROFILE)/Config/SlopWorld.toml" || printf '%s\n' \
-		'uiScheme = "slopworld-warm"' \
-		> "$(MAC_PROFILE)/Config/SlopWorld.toml"
-	@test -e "$(MAC_PROFILE)/Config/ModsConfig.xml" || printf '%s\n' \
-		'<?xml version="1.0" encoding="utf-8"?>' \
-		'<ModsConfigData>' \
-		'  <activeMods>' \
-		'    <li>ludeon.rimworld</li>' \
-		'    <li>drsr.slopworld</li>' \
-		'  </activeMods>' \
-		'  <knownExpansions>' \
-		'    <li>ludeon.rimworld.royalty</li>' \
-		'    <li>ludeon.rimworld.ideology</li>' \
-		'    <li>ludeon.rimworld.biotech</li>' \
-		'    <li>ludeon.rimworld.anomaly</li>' \
-		'    <li>ludeon.rimworld.odyssey</li>' \
-		'  </knownExpansions>' \
-		'</ModsConfigData>' \
-		> "$(MAC_PROFILE)/Config/ModsConfig.xml"
-	@echo "macOS sidecar profile: $(MAC_PROFILE)"
+	MAC_PROFILE="$(MAC_PROFILE)" tools/mac-profile.sh
 
 ##
 
-uninstall:         ## Remove all three, keeping config and saves
-	$(MAKE) uninstall-daemon uninstall-runner uninstall-mod
+uninstall: uninstall-daemon uninstall-runner uninstall-mod ## Remove all three, keeping config and saves
 	@echo "left alone: ~/.config/slopworld, the profile (saves), any tmux server"
 	@echo "under the slopworld socket; \`tmux -L slopworld kill-server\` ends the agents."
 
 uninstall-daemon:  ## Stop the service, remove the binary and the unit
 	-systemctl --user disable --now slopd.service
-	rm -f $(UNITS)/slopd.service
-	rm -f $(BIN)/slopd
-	rm -f $(BIN)/slopctl
+	rm -f "$(UNITS)/slopd.service"
+	rm -f "$(BIN)/slopd"
+	rm -f "$(BIN)/slopctl"
 	systemctl --user daemon-reload
 	@echo "removed $(BIN)/slopd, $(BIN)/slopctl and $(UNITS)/slopd.service"
 
 uninstall-runner:  ## Remove the launcher
-	rm -f $(BIN)/slopworld
+	rm -f "$(BIN)/slopworld"
 	@echo "removed $(BIN)/slopworld"
 
 uninstall-mod:     ## Remove the installed mod folder
-	@test -n "$(MODS)" || { echo "MODS is empty, refusing to remove anything"; exit 1; }
-	rm -rf "$(MODS)/SlopWorld"
-	@echo "removed $(MODS)/SlopWorld"
+	@test -n "$(MODS)" && test "$(MODS)" != / || { echo "MODS is empty or unsafe, refusing to remove anything"; exit 1; }
+	rm -rf "$(MOD_INSTALL)"
+	@echo "removed $(MOD_INSTALL)"
 
 ##
 ##-> Run
 ##
 
-run:               ## Launch the game through the runner
-	$(MAKE) daemon
+run: daemon        ## Launch the game through the runner
 	$(RUNNER) --game "$(RIMWORLD)" $(if $(PROFILE),--profile "$(PROFILE)")
 
-run-slopcar:       ## Run a separate profile against the running slopcar daemon (start the sidecar first)
-	$(MAKE) daemon
+run-slopcar: daemon ## Run a separate profile against the running slopcar daemon (start the sidecar first)
 	SLOPD_ENDPOINT="$(SLOPCAR_ENDPOINT)" \
 	SLOPCAR_PROFILE="$(SLOPCAR_PROFILE)" \
 	$(RUNNER) --game "$(RIMWORLD)"
 
-mac-run:           ## Start the macOS sidecar and launch native RimWorld
-	$(MAKE) mac-game-check
-	$(MAKE) mac-profile
-	@test -f "$(MAC_MODS)/SlopWorld/About/About.xml" || { echo "missing SlopWorld mod; run make mac-install" >&2; exit 1; }
-	$(MAKE) mac-sidecar-build
-	$(MAKE) mac-sidecar-start
+mac-sidecar-ready: mac-sidecar-build
+	$(SLOPCAR_ENV) tools/mac-sidecar-start.sh $(SLOPCAR_START_ARGS)
+
+mac-run: mac-game-check mac-profile mac-mod-check mac-sidecar-ready ## Start the macOS sidecar and launch native RimWorld
 	@test -f "$(SLOPCAR_ENDPOINT)" || { echo "missing sidecar endpoint: $(SLOPCAR_ENDPOINT)" >&2; exit 1; }
 	@echo "launching native macOS RimWorld against $(SLOPCAR_ENDPOINT)"
 	@cd "$(MAC_RESOURCES)" && \
 		SLOPD_ENDPOINT="$(SLOPCAR_ENDPOINT)" \
 		"$(MAC_GAME)" "-savedatafolder=$(MAC_PROFILE)" $(MAC_GAME_ARGS)
 
+mac-mod-check:
+	@test -f "$(MAC_MODS)/SlopWorld/About/About.xml" || { echo "missing SlopWorld mod; run gmake mac-install" >&2; exit 1; }
+
 mac:               ## Install and run native macOS RimWorld with the sidecar
-	$(MAKE) mac-install
-	$(MAKE) mac-run
-install-mac:       ## Alias for mac-install
-	$(MAKE) mac-install
-run-mac:           ## Alias for mac-run
-	$(MAKE) mac-run
+	MAKE_CMD="$(MAKE_BIN)" tools/mac.sh
+install-mac: mac-install ## Alias for mac-install
+run-mac: mac-run     ## Alias for mac-run
 
 ##
 ##-> Misc
@@ -440,13 +407,13 @@ logs:              ## Tail the game's Player.log
 	@tail -f "$(LOG)"
 
 check-reqs:        ## Print required and optional host requirements
-	@RIMWORLD="$(RIMWORLD)" python3 tools/check-reqs.py
+	@RIMWORLD="$(RIMWORLD)" $(PYTHON) tools/check-reqs.py
 
 slopcar-build:     ## Build the macOS Linux sidecar image
-	slopcar/slopcar build
+	$(SLOPCAR) build
 
 slopcar-doctor:    ## Prove nested bwrap, pasta and tmux in the sidecar
-	slopcar/slopcar doctor
+	$(SLOPCAR) doctor
 
 # Needs the `x11` preset on this project's sandbox; see tools/shot.sh.
 shot:              ## Screenshot the game window into OUT
@@ -461,21 +428,8 @@ docs:              ## Build human docs
 docs-serve:        ## Serve human docs
 	cd docs && mdbook serve
 
-devloop:
-	sh -c 'while true; do make install run; sleep 1; done;'
+devloop:           ## Reinstall and relaunch after every game exit
+	MAKE_CMD="$(MAKE_BIN)" tools/devloop.sh
 
 devloop-sidecar:  ## Rebuild and redeploy the sidecar before each game launch
-	sh -c 'while true; do \
-		make slopcar-build; \
-		SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" \
-		SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
-		SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)" \
-		slopcar/slopcar rm >/dev/null 2>&1 || true; \
-		SLOPCAR_CONFIG_DIR="$(SLOPCAR_CONFIG)" \
-		SLOPCAR_DATA_DIR="$(SLOPCAR_DATA)" \
-		SLOPCAR_PORT="$(SLOPCAR_PORT)" \
-		SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)" \
-		slopcar/slopcar start $(SLOPCAR_START_ARGS); \
-		make run-slopcar; \
-		sleep 1; \
-	done;'
+	MAKE_CMD="$(MAKE_BIN)" $(SLOPCAR_ENV) tools/devloop-sidecar.sh $(SLOPCAR_START_ARGS)
