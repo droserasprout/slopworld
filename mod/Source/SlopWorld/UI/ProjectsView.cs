@@ -268,13 +268,13 @@ namespace SlopWorld
             return used + SlopWidgets.GapS;
         }
 
-        // The sandbox every agent in this project gets: network, DNS and the extra presets.
+        // The sandbox every agent in this project gets by default: network, DNS and the extra presets.
         float DrawSandbox(Rect rect)
         {
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            l.Label("Network ceiling");
+            l.Label("Network default");
             if (SlopWidgets.Button(l, NetworkModeText.Label(_p.Network)))
                 PickNetwork();
             GUI.color = SlopWidgets.Dim;

@@ -733,10 +733,9 @@ fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
     if s.project.trim().is_empty() {
         bail!("session {} must belong to a project", s.name);
     }
-    let Some(project) = cfg.project(&s.project) else {
+    if cfg.project(&s.project).is_none() {
         bail!("no such project: {}", s.project);
-    };
-    cfg.network_of(s, project)?;
+    }
     if let Some(dns) = &s.dns {
         dns.validate(&format!("agent {}", s.name))?;
     }
@@ -845,10 +844,6 @@ pub(crate) fn validate_config(cfg: &Config) -> Result<()> {
         if let Some(dns) = &s.dns {
             dns.validate(&format!("agent {}", s.name))?;
         }
-        let Some(p) = cfg.project(&s.project) else {
-            continue;
-        };
-        cfg.network_of(s, p)?;
     }
     for p in &cfg.projects {
         p.limits.validate()?;

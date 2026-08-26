@@ -582,6 +582,27 @@ mod tests {
     }
 
     #[test]
+    fn an_agent_can_widen_the_project_network_default() {
+        let cfg = Config::default();
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "p".into(),
+            network: Some(NetworkMode::Host),
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            network: NetworkMode::Private,
+            ..Default::default()
+        };
+
+        let argv = build_argv(&cfg, &s, &p).expect("widened host-network argv");
+        assert_eq!(argv[0], "bwrap");
+        assert!(argv.contains(&"--share-net".into()));
+    }
+
+    #[test]
     fn resource_limits_wrap_the_agent_in_a_systemd_scope() {
         let cfg = Config::default();
         let s = SessionCfg {

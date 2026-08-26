@@ -22,8 +22,8 @@ The mod uses HTTP for writes so it can show daemon error bodies:
 Wayland/X11 PRIMARY selection for terminal middle-click paste, and `POST /api/clipboard`
 writes CLIPBOARD.
 The patch route deep-merges nested JSON, validates the result, and preserves omitted
-fields. Project JSON carries the network ceiling; session JSON carries effective
-network plus nullable `network_override`, which cannot widen the ceiling.
+fields. Project JSON carries the network default; session JSON carries effective
+network plus nullable `network_override`, which may override that default.
 
 Project JSON also carries optional tagged `dns` (`{"mode":"resolved"}` or
 `{"mode":"servers","servers":["IPv4", ...]}`). Session views carry effective

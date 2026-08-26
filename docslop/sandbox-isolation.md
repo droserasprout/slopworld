@@ -36,7 +36,7 @@ marked as escapes.
 
 ## Network and limits
 
-Projects set a network ceiling; agents may only narrow it:
+Projects set a network default; agents may override it per agent:
 
 - `none` keeps bwrap's private namespace.
 - `private` wraps bwrap in `pasta` with synthetic DNS and no forwarding.
@@ -49,8 +49,7 @@ instead configure up to two explicit IPv4 DNS
 servers; that choice is fixed when the agent starts and is not refreshed in
 place. Host-mode agents use the same DNS choice for their `/etc/resolv.conf`.
 
-The daemon validates the ceiling on add, update and start. Host errands are a
-separate unsandboxed route; network access is not scoped daemon access.
+Host errands are a separate unsandboxed route; network access is not scoped daemon access.
 
 Project/agent `limits` (`memory_mb`, `pids`, `nofile`, `cpu_pct`) are inherited with
 the agent value winning. A non-empty limit wraps the complete tree in a transient

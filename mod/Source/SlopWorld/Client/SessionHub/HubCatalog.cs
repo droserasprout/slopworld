@@ -102,12 +102,12 @@ namespace SlopWorld
         {
             Action<JVal> done = _ => { RefreshProjects(); _refreshSessions(); ok?.Invoke(); };
             if (isNew) SlopClient.Post("/api/projects", p.ToJson(), done, fail);
-            else SlopClient.Put($"/api/projects/{origName}", p.ToJson(), done, fail);
+            else SlopClient.Put($"/api/projects/{HubWire.Esc(origName)}", p.ToJson(), done, fail);
         }
 
         // The daemon refuses this while agents still work there, and says which ones.
         public void RemoveProject(string name, Action<string> fail = null) =>
-            SlopClient.Delete($"/api/projects/{name}",
+            SlopClient.Delete($"/api/projects/{HubWire.Esc(name)}",
                 _ => { RefreshProjects(); _refreshSessions(); }, fail);
     }
 }

@@ -1,3 +1,3 @@
 # Configuring agents
 
-TODO: Explain command presets, project membership, per-agent overrides, network reduction, and when changes take effect.
+TODO: Explain command presets, project membership, per-agent overrides, network defaults, and when changes take effect.

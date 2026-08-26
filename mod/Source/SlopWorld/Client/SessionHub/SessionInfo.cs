@@ -25,9 +25,9 @@ namespace SlopWorld
         public string Agent = "";
         public AgentState State = AgentState.Down;
         public bool Alive;
-        // The effective mode, resolved by the daemon from the project ceiling and override.
+        // The effective mode, resolved by the daemon from the project default and override.
         public NetworkMode Network = NetworkMode.Private;
-        // Null means inherit the project's mode.
+        // Null means inherit the project's default mode.
         public NetworkMode? NetworkOverride;
         // Effective DNS, resolved by the daemon from the project and optional agent override.
         public DnsConfig Dns = DnsConfig.Resolved();

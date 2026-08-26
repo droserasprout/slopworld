@@ -108,8 +108,6 @@ impl Manager {
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
         let cfg = self.config().await;
         let (s, p) = self.resolve_target(&cfg, name).await?;
-        cfg.network_of(&s, &p)?;
-
         if self.tmux.exists(name).await {
             bail!("session {name} is already running");
         }
@@ -689,9 +687,7 @@ impl Manager {
                     alive: l.state != State::Down,
                     cols: l.cols,
                     rows: l.rows,
-                    network: p
-                        .map(|p| cfg.network_of(&l.cfg, p).unwrap_or(p.network))
-                        .unwrap_or_default(),
+                    network: p.map(|p| cfg.network_of(&l.cfg, p)).unwrap_or_default(),
                     network_override: l.cfg.network,
                     dns: p.map(|p| cfg.dns_of(&l.cfg, p)).unwrap_or_default(),
                     dns_override: l.cfg.dns.clone(),

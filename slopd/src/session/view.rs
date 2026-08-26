@@ -26,9 +26,9 @@ pub struct SessionView {
     pub alive: bool,
     pub cols: u16,
     pub rows: u16,
-    /// The effective project ceiling or agent reduction.
+    /// The effective project default or agent override.
     pub network: NetworkMode,
-    /// Null means the agent inherits the project setting.
+    /// Null means the agent inherits the project default.
     pub network_override: Option<NetworkMode>,
     /// The effective DNS source, resolved from the project and agent settings.
     pub dns: DnsConfig,

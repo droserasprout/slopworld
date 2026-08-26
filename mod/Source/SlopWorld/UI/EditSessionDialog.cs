@@ -6,8 +6,8 @@ using Verse;
 namespace SlopWorld
 {
     // What is left here is the two things about the agent: its name and what it runs.
-    // Where it works and what it can reach moved to the project, which is why picking
-    // one is mandatory and there is no directory field.
+    // Where it works moved to the project, which is why picking one is mandatory and
+    // there is no directory field; network reach has an agent-level override here.
     public class EditSessionDialog : SlopWindow
     {
         enum Tab { General, Sandbox, Breadcrumbs, Preview }
@@ -222,7 +222,7 @@ namespace SlopWorld
             return used + SlopWidgets.GapS;
         }
 
-        // Reach and how much of it: the network ceiling this agent may reduce, the extra
+        // Reach and how much of it: the project network default and this agent's override, the extra
         // presets it adds on top of its command's and project's, and the resource caps - all
         // the confinement knobs on one page.
         float DrawSandbox(Rect rect)
@@ -247,15 +247,15 @@ namespace SlopWorld
         void DrawNetworkFields(Listing_Standard l, ProjectInfo project)
         {
             l.Label("Network");
-            var ceiling = project?.Network ?? NetworkMode.Private;
+            var projectNetwork = project?.Network ?? NetworkMode.Private;
             var inheritedDns = project?.Dns ?? _s.Dns;
             string networkLabel = _s.NetworkOverride.HasValue
                 ? NetworkModeText.Label(_s.NetworkOverride.Value)
-                : "Inherit project (" + NetworkModeText.ShortLabel(ceiling) + ")";
+                : "Inherit project (" + NetworkModeText.ShortLabel(projectNetwork) + ")";
             if (SlopWidgets.Button(l, networkLabel))
-                PickNetwork(ceiling);
+                PickNetwork(projectNetwork);
             GUI.color = SlopWidgets.Dim;
-            l.Label("The project is the ceiling; this agent can only reduce its network reach.");
+            l.Label("The project sets the default; this agent can use any network mode.");
             GUI.color = Color.white;
 
             l.Gap(SlopWidgets.GapS);
@@ -366,9 +366,6 @@ namespace SlopWorld
                     () =>
                     {
                         _s.Project = p.Name;
-                        if (_s.NetworkOverride.HasValue &&
-                            !NetworkModeText.Allowed(_s.NetworkOverride.Value, p.Network))
-                            _s.NetworkOverride = null;
                     }))
                 .ToList();
 
@@ -378,11 +375,11 @@ namespace SlopWorld
             Find.WindowStack.Add(new SlopMenu(options));
         }
 
-        void PickNetwork(NetworkMode ceiling)
+        void PickNetwork(NetworkMode projectNetwork)
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Inherit project (" + NetworkModeText.ShortLabel(ceiling) + ")",
+                new FloatMenuOption("Inherit project (" + NetworkModeText.ShortLabel(projectNetwork) + ")",
                     () => _s.NetworkOverride = null),
             };
 
@@ -391,7 +388,6 @@ namespace SlopWorld
                 NetworkMode.None, NetworkMode.Private, NetworkMode.Host,
             })
             {
-                if (!NetworkModeText.Allowed(mode, ceiling)) continue;
                 var picked = mode;
                 options.Add(new FloatMenuOption(NetworkModeText.Label(picked),
                     () => _s.NetworkOverride = picked));

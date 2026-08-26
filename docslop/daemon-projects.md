@@ -1,13 +1,12 @@
 # Projects and sessions
 
 A session is an agent in a project: name, `command` (a command preset's name),
-and this agent's own `cmd`, `sandbox` and optional network reduction over it.
-`[[project]]` is a directory plus a sandbox and network ceiling; `sandbox` is
+and this agent's own `cmd`, `sandbox` and optional network override.
+`[[project]]` is a directory plus a sandbox and network default; `sandbox` is
 its preset list, and `network` is one of `none`, `private` or `host`.
 
-An agent's `network` is optional: absent means inherit the project, and present
-means a narrower mode. `Config::network_of` rejects a value wider than the
-project before the agent is saved or started.
+An agent's `network` is optional: absent means inherit the project default, and
+present selects that agent's mode, including one wider than the project default.
 
 - `temp` projects name no directory; `settle` coins `/tmp/slopworld/<name>` on the
   way in. Hence `dir` is `serde(default)`, and `check_project` still refuses an
