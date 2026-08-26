@@ -51,7 +51,7 @@ namespace SlopWorld
         // Compact rows keep the name and summary, but do not reserve the unused third line.
         static float TextH => NameH + SubH * (CompactView ? 1f : 2f);
 
-        public static bool CompactView => Settings.SidebarCompact;
+        public static bool CompactView => true;
 
         const float BellW = 13f;
 
