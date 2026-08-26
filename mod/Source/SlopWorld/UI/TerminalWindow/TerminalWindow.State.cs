@@ -328,6 +328,11 @@ namespace SlopWorld
             // held for its action gizmos; content views keep the window for their chrome.
             if (_name != null && (info == null || info.Gone))
             {
+                // A rename event removes the old name before the save response retargets this
+                // window. Hold the pane through that expected gap; otherwise the normal exit
+                // handoff steals focus from the agent being renamed.
+                if (hub.TryPendingRename(_name, out _)) return true;
+
                 if (_content == null)
                 {
                     if (_showStopped && info != null) return true;

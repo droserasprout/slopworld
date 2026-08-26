@@ -14,10 +14,17 @@ namespace SlopWorld
 
         readonly Dictionary<string, ScreenBuf> _screens = new Dictionary<string, ScreenBuf>();
         readonly Dictionary<string, ScreenBuf> _scrolls = new Dictionary<string, ScreenBuf>();
+        // The daemon's sessions event can arrive before the HTTP response that confirms a
+        // rename. Keep the old name marked until that response settles so the terminal does not
+        // mistake the expected gap for an exited session.
+        readonly Dictionary<string, string> _pendingRenames = new Dictionary<string, string>();
         long _sessionsVersion;
         int _refreshSerial;
 
         public SessionInfo Get(string name) => Sessions.FirstOrDefault(s => s.Name == name);
+
+        public bool TryPendingRename(string oldName, out string newName) =>
+            _pendingRenames.TryGetValue(oldName, out newName);
 
         public ScreenBuf Screen(string name) =>
             _screens.TryGetValue(name, out var s) ? s : null;
@@ -188,14 +195,26 @@ namespace SlopWorld
         // heard of, which is how a rename is spelled.
         public void Save(SessionInfo s, bool isNew, string origName, Action ok, Action<string> fail)
         {
+            bool renamed = !isNew && origName != s.Name;
+            if (renamed) _pendingRenames[origName] = s.Name;
+
             Action<JVal> done = _ =>
             {
-                if (!isNew && origName != s.Name) Rename(origName, s.Name);
+                if (renamed)
+                {
+                    Rename(origName, s.Name);
+                    _pendingRenames.Remove(origName);
+                }
                 Refresh();
                 ok?.Invoke();
             };
-            if (isNew) SlopClient.Post("/api/sessions", s.ToJson(), done, fail);
-            else SlopClient.Put($"/api/sessions/{origName}", s.ToJson(), done, fail);
+            Action<string> error = message =>
+            {
+                if (renamed) _pendingRenames.Remove(origName);
+                fail?.Invoke(message);
+            };
+            if (isNew) SlopClient.Post("/api/sessions", s.ToJson(), done, error);
+            else SlopClient.Put($"/api/sessions/{origName}", s.ToJson(), done, error);
         }
     }
 }
