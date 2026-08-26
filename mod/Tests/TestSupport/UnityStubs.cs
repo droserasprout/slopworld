@@ -32,4 +32,9 @@ namespace UnityEngine
         public static float Min(float a, float b) => a < b ? a : b;
         public static int Clamp(int v, int min, int max) => v < min ? min : v > max ? max : v;
     }
+
+    public static class Time
+    {
+        public static float realtimeSinceStartup;
+    }
 }

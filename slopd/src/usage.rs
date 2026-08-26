@@ -94,6 +94,10 @@ pub struct Snapshot {
     /// corner must not do, an icon that comes and goes being harder to read than an empty one.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub sources: Vec<String>,
+    /// Enabled sources whose last poll failed. Kept separate from `ok`: the latter describes
+    /// the merged readout, while the mod needs to dim only the seller that is stale.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub failed_sources: Vec<String>,
     pub windows: Vec<Window>,
 }
 
@@ -106,11 +110,13 @@ impl Snapshot {
         }
     }
 
-    /// Compare only readout fields; fetched time ages values, while sources preserve placeholder rows when a provider is disabled or offline.
+    /// Compare only readout fields; fetched time ages values, while sources and failures
+    /// preserve placeholder rows and provider-local stale state.
     pub fn same_readout(&self, other: &Snapshot) -> bool {
         self.ok == other.ok
             && self.error == other.error
             && self.plan == other.plan
+            && self.failed_sources == other.failed_sources
             && self.windows == other.windows
             && self.sources == other.sources
     }
@@ -1106,7 +1112,7 @@ async fn poll_one(
 /// source being current, because a row nobody could tell from a live one is the one thing
 /// this must never draw; the errors are joined so the tooltip says which half is out. A
 /// source that is off contributes nothing at all, so switching one off is not a failure.
-fn merge<'a>(parts: impl IntoIterator<Item = &'a Snapshot>) -> Snapshot {
+fn merge<'a>(parts: impl IntoIterator<Item = (&'a str, &'a Snapshot)>) -> Snapshot {
     let mut out = Snapshot {
         ok: true,
         ..Default::default()
@@ -1114,7 +1120,7 @@ fn merge<'a>(parts: impl IntoIterator<Item = &'a Snapshot>) -> Snapshot {
     let mut errors = Vec::new();
     let mut any = false;
 
-    for p in parts {
+    for (source, p) in parts {
         if p.windows.is_empty() && p.error.is_none() {
             continue;
         }
@@ -1125,6 +1131,9 @@ fn merge<'a>(parts: impl IntoIterator<Item = &'a Snapshot>) -> Snapshot {
             out.plan = p.plan.clone();
         }
         out.windows.extend(p.windows.iter().cloned());
+        if !p.ok {
+            out.failed_sources.push(source.to_string());
+        }
         if let Some(e) = &p.error {
             errors.push(e.clone());
         }
@@ -1239,7 +1248,11 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
             // One event for both, and only when something actually moved: `set_usage`
             // re-announces to every client.
             if moved {
-                let mut out = merge(providers.iter().map(|provider| &provider.poller.snap));
+                let mut out = merge(
+                    providers
+                        .iter()
+                        .map(|provider| (provider.source, &provider.poller.snap)),
+                );
                 // Said here rather than in `merge`, which knows about snapshots and not about
                 // switches. A seller that is on but has never answered is exactly the case
                 // this is for, so it goes on the list whatever its snapshot holds.
@@ -1642,7 +1655,7 @@ mod tests {
             &serde_json::from_str(r#"{"rate_limit":{"primary_window":{"used_percent":20}}}"#)
                 .unwrap(),
         );
-        let m = merge([&a, &c, &o]);
+        let m = merge([("anthropic", &a), ("openrouter", &c), ("openai", &o)]);
         assert!(m.ok);
         assert_eq!(m.windows.len(), a.windows.len() + 2);
         assert_eq!(m.windows.last().unwrap().key, "openai_session");
@@ -1693,22 +1706,31 @@ mod tests {
         let a = parse(&serde_json::from_str(REAL).unwrap(), "max".into());
         let c = Snapshot::failed(&Snapshot::default(), "OpenRouter rejected the key (401)");
 
-        let m = merge([&a, &c, &Snapshot::default()]);
+        let m = merge([
+            ("anthropic", &a),
+            ("openrouter", &c),
+            ("openai", &Snapshot::default()),
+        ]);
         assert!(!m.ok);
         assert_eq!(m.windows.len(), a.windows.len());
+        assert_eq!(m.failed_sources, vec!["openrouter"]);
         assert!(m.error.unwrap().contains("OpenRouter"));
 
         // Off on both sides is the snapshot the readout draws nothing from.
         assert_eq!(
             merge([
-                &Snapshot::default(),
-                &Snapshot::default(),
-                &Snapshot::default()
+                ("anthropic", &Snapshot::default()),
+                ("openrouter", &Snapshot::default()),
+                ("openai", &Snapshot::default())
             ]),
             Snapshot::default()
         );
         // And one of them off leaves the other exactly as it was.
-        let only = merge([&a, &Snapshot::default(), &Snapshot::default()]);
+        let only = merge([
+            ("anthropic", &a),
+            ("openrouter", &Snapshot::default()),
+            ("openai", &Snapshot::default()),
+        ]);
         assert!(only.ok);
         assert_eq!(only.windows, a.windows);
     }

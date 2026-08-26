@@ -57,8 +57,10 @@ figures. Rows are `openai_session` and `openai_week`; 401/403 says `codex login`
 - A provider request can answer several windows at once. The daemon schedules that request at
   the fastest enabled row interval, while each window keeps its own due time and disabled rows
   are removed from the merged snapshot immediately.
-- `merge` exposes one wire `windows` list. `ok` requires every enabled source to be
-  current; errors are joined. With no source enabled, the snapshot draws nothing.
+- `merge` exposes one wire `windows` list and `failed_sources` names enabled sellers whose
+  latest poll failed. `ok` requires every enabled source to be current; errors are joined.
+  With no source enabled, the snapshot draws nothing. The mod uses `failed_sources` to dim only
+  that seller's rows; the clock is independent.
 - `sources` records enabled sellers even before they answer, allowing the mod to hold
   placeholder rows for an expired login.
 - The loop checks `config.toml` at least every 30s (`LOOK`), so GUI switches take effect

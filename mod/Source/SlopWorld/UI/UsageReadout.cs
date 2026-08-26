@@ -51,14 +51,11 @@ namespace SlopWorld
         {
             var usage = showUsage ? SessionHub.Instance.Usage : null;
 
-            bool stale = showUsage && (!usage.Ok || usage.Age > StaleAfter);
-            float alpha = stale ? 0.55f : 1f;
-
             var was = GUI.color;
             var anchor = Text.Anchor;
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
-            GUI.color = SlopWidgets.Fade(SlopWidgets.Name, alpha);
+            GUI.color = SlopWidgets.Name;
 
             var rows = showUsage ? Rows(usage) : new List<string>();
 
@@ -68,6 +65,8 @@ namespace SlopWorld
             if (showClock && x - clockNeed >= area.x)
             {
                 x -= clockNeed;
+                // Usage health belongs to quota rows, not to the wall clock.
+                GUI.color = SlopWidgets.Name;
                 DrawClock(new Rect(x, area.y, clockNeed, area.height), now);
                 x -= ChipGap;
             }
@@ -87,7 +86,8 @@ namespace SlopWorld
                 // A row holding a place is fainter than a stale one, whatever the rest of the
                 // strip is doing: the icon is there to keep the line from re-flowing, and one
                 // drawn as live would be a number nobody sent.
-                float a = w != null ? alpha : 0.4f;
+                bool stale = w != null && Stale(usage, key);
+                float a = w == null ? 0.4f : stale ? 0.55f : 1f;
 
                 var icon = IconFor(key);
                 if (icon != null)
@@ -265,7 +265,7 @@ namespace SlopWorld
             if (usage.Heard > 0f && w != null)
                 lines.Add("refreshed " + Span((long)usage.Age) + " ago");
 
-            if (!usage.Ok && !string.IsNullOrEmpty(usage.Error))
+            if (usage.SourceFailed(SourceFor(key)) && !string.IsNullOrEmpty(usage.Error))
             {
                 lines.Add(usage.Any
                     ? $"last poll failed: {usage.Error}"
@@ -296,6 +296,25 @@ namespace SlopWorld
         }
 
         static string Long(UsageWindow w) => Long(w.Key, w.Label);
+
+        static string SourceFor(string key)
+        {
+            if (key != null && key.StartsWith("claude_")) return "anthropic";
+            if (key != null && key.StartsWith("openrouter_")) return "openrouter";
+            if (key != null && key.StartsWith("openai_")) return "openai";
+            return null;
+        }
+
+        static bool Stale(UsageInfo usage, string key)
+        {
+            if (usage == null) return false;
+            if (usage.SourceFailed(SourceFor(key))) return true;
+
+            // A daemon without provider-local status (or a disconnected client) still gets
+            // the old age-based warning. Once the daemon identifies a failed seller, age must
+            // not dim healthy providers along with it.
+            return usage.FailedSources.Count == 0 && usage.Age > StaleAfter;
+        }
 
         // Keyed rather than windowed, so the settings page can name a row the daemon is not
         // currently reporting - the whole point of choosing an icon for it in advance.

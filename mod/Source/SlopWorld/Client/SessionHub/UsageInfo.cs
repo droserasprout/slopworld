@@ -16,6 +16,9 @@ namespace SlopWorld
         // The sellers the daemon is polling, answering or not. What the readout draws a row
         // for, so a source that is down keeps its place on the line.
         public List<string> Sources = new List<string>();
+        // The merged snapshot can be unhealthy because one seller failed while another is
+        // current. The readout uses this list to dim only rows belonging to the failed seller.
+        public List<string> FailedSources = new List<string>();
 
         // realtimeSinceStartup when these *numbers* were current - what ages them and what the
         // countdown runs from. A failed poll carries the last good windows, so it carries this
@@ -24,6 +27,14 @@ namespace SlopWorld
         public float Heard;
 
         public bool Any => Windows.Count > 0;
+
+        // Older daemons only sent Ok, so an absent status list retains the old all-stale
+        // behavior. New snapshots name the failed seller and leave other providers live.
+        public bool SourceFailed(string source)
+        {
+            if (FailedSources.Contains(source)) return true;
+            return FailedSources.Count == 0 && !Ok;
+        }
 
         public float Age => UnityEngine.Time.realtimeSinceStartup - Heard;
 
@@ -47,6 +58,7 @@ namespace SlopWorld
             Error = j["error"].IsNull ? null : j["error"].AsString(),
             Plan = j["plan"].AsString(),
             Sources = j["sources"].Items.Select(s => s.AsString()).ToList(),
+            FailedSources = j["failed_sources"].Items.Select(s => s.AsString()).ToList(),
             Heard = heard,
             Windows = j["windows"].Items.Select(w => new UsageWindow
             {
