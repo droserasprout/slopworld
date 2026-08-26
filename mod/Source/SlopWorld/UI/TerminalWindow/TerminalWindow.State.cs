@@ -234,6 +234,9 @@ namespace SlopWorld
         public static bool Covering =>
             _covering && Find.WindowStack?.WindowOfType<TerminalWindow>() != null;
 
+        internal bool AutoResumePending =>
+            _name != null && SessionHub.Instance.Get(_name)?.AutoResumePending == true;
+
         // Resets per-pane view state but keeps the window's place in the stack. Whatever was
         // in the body goes: being pointed at an agent is a request to see it.
         void SwitchTo(string name)

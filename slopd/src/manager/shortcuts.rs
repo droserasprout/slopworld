@@ -595,12 +595,16 @@ impl Manager {
 
     async fn auto_resume(&self, name: &str, run_id: u64) {
         match self.wait_ready_for(name, Some(run_id)).await {
-            Ready::Gone => return,
+            Ready::Gone => {
+                self.finish_auto_resume(name, run_id).await;
+                return;
+            }
             Ready::Timeout => {
                 tracing::warn!(
                     "{name} never went quiet after {}ms; skipping auto-resume",
                     READY_MS
                 );
+                self.finish_auto_resume(name, run_id).await;
                 return;
             }
             Ready::Settled => {}
@@ -610,6 +614,25 @@ impl Manager {
         // capture and the breadcrumb Enter hook; breadcrumbs remain pending for the user's prompt.
         for input in auto_resume_inputs() {
             self.queue_input(name, input).await;
+        }
+        self.finish_auto_resume(name, run_id).await;
+    }
+
+    async fn finish_auto_resume(&self, name: &str, run_id: u64) {
+        let changed = {
+            let mut live = self.live.write().await;
+            match live.get_mut(name) {
+                Some(l) if l.run_id == run_id && l.auto_resume_pending => {
+                    l.auto_resume_pending = false;
+                    true
+                }
+                _ => false,
+            }
+        };
+        if changed {
+            let _ = self.events.send(Event::Sessions {
+                sessions: self.views().await,
+            });
         }
     }
 

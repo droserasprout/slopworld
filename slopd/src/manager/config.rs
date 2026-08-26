@@ -25,6 +25,7 @@ impl Live {
             input: None,
             breadcrumbs: Vec::new(),
             breadcrumbs_pending: false,
+            auto_resume_pending: false,
             run_id: 0,
             title,
         }

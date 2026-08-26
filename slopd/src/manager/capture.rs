@@ -906,6 +906,7 @@ impl Manager {
             if let Some(l) = live.get_mut(name) {
                 found = true;
                 l.set_state(State::Down);
+                l.auto_resume_pending = false;
                 l.bell = false;
                 l.screen = None;
                 l.emu = None;
