@@ -274,9 +274,15 @@ namespace SlopWorld
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            l.Label("Network default");
-            if (SlopWidgets.Button(l, NetworkModeText.Label(_p.Network)))
-                PickNetwork();
+            var networkChoices = new[]
+            {
+                NetworkModeText.Label(NetworkMode.None),
+                NetworkModeText.Label(NetworkMode.Private),
+                NetworkModeText.Label(NetworkMode.Host),
+            };
+            if (SlopWidgets.Select(l, "Network default", NetworkModeText.Label(_p.Network),
+                    networkChoices, out var networkBox))
+                PickNetwork(SlopWidgets.MenuAt(networkBox));
             GUI.color = SlopWidgets.Dim;
             l.Label(_p.Network == NetworkMode.Host
                 ? SessionHub.Instance.Capabilities.HostNetworkIsContainer
@@ -329,7 +335,7 @@ namespace SlopWorld
                 _p.Breadcrumbs, _breadcrumbScroll);
         }
 
-        void PickNetwork()
+        void PickNetwork(Vector2 at)
         {
             var options = new List<FloatMenuOption>();
             foreach (NetworkMode mode in new[]
@@ -342,7 +348,7 @@ namespace SlopWorld
                     () => _p.Network = picked));
             }
 
-            Find.WindowStack.Add(new SlopMenu(options));
+            Find.WindowStack.Add(new SlopMenu(options, at));
         }
 
         void PickDns()
