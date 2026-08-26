@@ -208,7 +208,7 @@ namespace SlopWorld
         }
 
         // The optional half of one integration follows its read-only essential by name and
-        // requires it. It is indented rather than put in another category, so `python` and
+        // requires it. It is indented rather than separated, so `python` and
         // `python-cache` read as one small tree.
         static bool IsOptionalChild(PresetInfo p) =>
             p.Name.EndsWith("-cache", StringComparison.OrdinalIgnoreCase) &&
@@ -272,8 +272,6 @@ namespace SlopWorld
             EditorTitle(view, ref y, p.Name, p.Source, editable, "sandbox");
             y = EditorField(view, y, "Name", "preset.name", p.Name, _newEntry,
                 v => p.Name = v);
-            y = EditorField(view, y, "Category", "preset.category", p.Category, editable,
-                v => p.Category = v);
             y = EditorArea(view, y, "Description", "preset.description", p.Description,
                 editable, 44f, v => p.Description = v);
             y = EditorList(view, y, "Requires", "preset.requires", p.Requires, editable);
@@ -339,7 +337,6 @@ namespace SlopWorld
             float y = 0f;
             EditorTitle(view, ref y, c.Name, c.Source, editable, "command");
             y = EditorField(view, y, "Name", "command.name", c.Name, _newEntry, v => c.Name = v);
-            y = EditorField(view, y, "Category", "command.category", c.Category, editable, v => c.Category = v);
             y = EditorArea(view, y, "Description", "command.description", c.Description, editable, 44f, v => c.Description = v);
             y = EditorArea(view, y, "Command line", "command.cmd", c.Cmd, editable, 52f, v => c.Cmd = v);
             y += SlopWidgets.GapS;
@@ -419,9 +416,6 @@ namespace SlopWorld
         static float FieldHeight() => SlopWidgets.LineH + SlopWidgets.GapXS +
                                       SlopWidgets.FieldH + SlopWidgets.GapS;
 
-        static float OptionalFieldHeight(string value, bool editable) =>
-            !editable && string.IsNullOrWhiteSpace(value) ? 0f : FieldHeight();
-
         static float AreaEditorHeight(float width, string text, float minimum) =>
             SlopWidgets.LineH + SlopWidgets.GapXS + AreaHeight(width, text, minimum) + SlopWidgets.GapS;
 
@@ -439,7 +433,7 @@ namespace SlopWorld
             bool editable = p.Source != "system";
             float y = string.IsNullOrEmpty(p.Escapes) ? 0f
                 : Text.CalcHeight($"Escape path: {p.Escapes}.", width) + SlopWidgets.GapM;
-            y += TitleHeight(p.Source) + FieldHeight() + OptionalFieldHeight(p.Category, editable);
+            y += TitleHeight(p.Source) + FieldHeight();
             y += OptionalAreaEditorHeight(width, p.Description, 44f, editable) +
                  OptionalListEditorHeight(width, p.Requires, editable);
             y += SlopWidgets.GapXS + 1f + SlopWidgets.GapM;
@@ -462,7 +456,7 @@ namespace SlopWorld
         static float CommandEditorHeight(CommandInfo c, float width)
         {
             bool editable = c.Source != "system";
-            return TitleHeight(c.Source) + FieldHeight() + OptionalFieldHeight(c.Category, editable) +
+            return TitleHeight(c.Source) + FieldHeight() +
             OptionalAreaEditorHeight(width, c.Description, 44f, editable) +
             OptionalAreaEditorHeight(width, c.Cmd, 52f, editable) +
             SlopWidgets.GapS + SlopWidgets.RowH + SlopWidgets.LineH + SlopWidgets.GapXS +

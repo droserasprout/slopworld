@@ -3,7 +3,6 @@
 # files at the top of the directory, so they are seeded without being named.
 [[sandbox]]
 name = "codex"
-category = "agent"
 description = "OpenAI Codex CLI's own state, config and auth, one copy per session"
 private = ["~/.codex"]
 seed = ["~/.codex/prompts"]
@@ -16,7 +15,6 @@ env = [
 
 [[command]]
 name = "codex"
-category = "agent"
 description = "OpenAI Codex CLI"
 cmd = "codex"
 sandbox = ["codex"]

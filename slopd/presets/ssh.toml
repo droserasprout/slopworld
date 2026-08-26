@@ -1,6 +1,5 @@
 [[sandbox]]
 name = "ssh"
-category = "secret"
 description = "SSH config and known hosts"
 ro = [
     "~/.ssh/config",

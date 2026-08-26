@@ -546,7 +546,6 @@ pub(super) fn sandbox_json(
     json!({
         "name": p.name,
         "source": source(builtins.sandbox(&p.name).is_some(), users.sandbox(&p.name).is_some()),
-        "category": p.category,
         "description": p.description,
         "requires": p.requires,
         "ro": p.ro,
@@ -572,7 +571,6 @@ pub(super) fn command_json(
     json!({
         "name": c.name,
         "source": source(builtins.command(&c.name).is_some(), users.command(&c.name).is_some()),
-        "category": c.category,
         "description": c.description,
         "cmd": c.cmd,
         "sandbox": c.sandbox,

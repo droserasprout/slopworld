@@ -2,7 +2,6 @@
 # host's, so the gem tree stays read-only.
 [[sandbox]]
 name = "ruby"
-category = "dev"
 description = "user-installed gems and Bundler configuration, read-only"
 ro = [
     "~/.gemrc",

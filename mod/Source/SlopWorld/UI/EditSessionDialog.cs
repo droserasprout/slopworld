@@ -10,7 +10,7 @@ namespace SlopWorld
     // there is no directory field; network reach has an agent-level override here.
     public class EditSessionDialog : SlopWindow
     {
-        enum Tab { General, Sandbox, Breadcrumbs, Preview }
+        enum Tab { General, Sandbox, ResourceLimits, Breadcrumbs, Preview }
 
         readonly bool _isNew;
         readonly SessionInfo _s;
@@ -21,13 +21,15 @@ namespace SlopWorld
         SmoothScroll _previewScroll = new SmoothScroll();
         readonly SmoothScroll _generalScroll = new SmoothScroll();
         readonly SmoothScroll _sandboxScroll = new SmoothScroll();
-        const float PresetsH = 132f;
+        readonly SmoothScroll _limitsScroll = new SmoothScroll();
+        const float PresetsH = 240f;
         Tab _tab;
 
         // Last frame's content height per scrolling tab, so each can grow a scrollbar when its
         // fields and fixed lists do not fit - the body width the rail leaves varies with UI scale.
         float _generalH = 320f;
         float _sandboxH = 480f;
+        float _limitsH = 320f;
 
         // Limits are edited as raw strings so a half-typed number is not lost to a reparse each
         // frame; they are parsed back into `_s.Limits` on Save. Blank means no cap.
@@ -105,7 +107,7 @@ namespace SlopWorld
         static string LimStr(int? v) => v.HasValue ? v.Value.ToString() : "";
 
         // A left rail of short pages rather than one long form: the agent, its sandbox, its
-        // breadcrumbs and the preview each get their own tab so none has to hold the others.
+        // resource limits, its breadcrumbs and the preview each get their own tab.
         public override Vector2 InitialSize => new Vector2(660f, 800f);
 
         protected override void DoBody(Rect rect)
@@ -142,6 +144,15 @@ namespace SlopWorld
                     _sandboxScroll.End();
                     break;
                 }
+                case Tab.ResourceLimits:
+                {
+                    var view = new Rect(0f, 0f, body.width - SlopWidgets.ScrollbarW,
+                        Mathf.Max(_limitsH, body.height));
+                    _limitsScroll.Begin(body, view);
+                    _limitsH = DrawLimits(view);
+                    _limitsScroll.End();
+                    break;
+                }
                 case Tab.Breadcrumbs:
                     DrawBreadcrumbs(body);
                     break;
@@ -168,6 +179,7 @@ namespace SlopWorld
         {
             ("General", Tab.General),
             ("Sandbox", Tab.Sandbox),
+            ("Resource limits", Tab.ResourceLimits),
             ("Breadcrumbs", Tab.Breadcrumbs),
             ("Preview", Tab.Preview),
         }, ref _tab);
@@ -222,9 +234,8 @@ namespace SlopWorld
             return used + SlopWidgets.GapS;
         }
 
-        // Reach and how much of it: the project network default and this agent's override, the extra
-        // presets it adds on top of its command's and project's, and the resource caps - all
-        // the confinement knobs on one page.
+        // Reach and the extra sandbox presets this agent adds on top of its command's and
+        // project's.
         float DrawSandbox(Rect rect)
         {
             var project = SessionHub.Instance.Project(_s.Project);
@@ -239,7 +250,6 @@ namespace SlopWorld
 
             float y = rect.y + used + SlopWidgets.GapL;
             y = DrawExtraPresets(rect, y, project, preset);
-            y += DrawLimits(new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y)));
 
             return y - rect.y + SlopWidgets.GapS;
         }
@@ -290,14 +300,11 @@ namespace SlopWorld
             if (project != null) inheritedPresets.AddRange(project.Sandbox);
             PresetList.Draw(new Rect(rect.x, y, rect.width, PresetsH), _s.Sandbox,
                 _presetScroll, inheritedPresets);
-            y += PresetsH + SlopWidgets.GapL;
-            SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
-                "Resource limits");
-            return y + SlopWidgets.RowH + SlopWidgets.GapXS;
+            return y + PresetsH + SlopWidgets.GapL;
         }
 
         // Per-agent resource caps the daemon enforces with a systemd scope. Edited as strings;
-        // parsed on Save. Returns the height drawn so `DrawSandbox` can size its scroll view.
+        // parsed on Save. Returns the height drawn so its tab can size its scroll view.
         float DrawLimits(Rect rect)
         {
             var l = new Listing_Standard { maxOneColumn = true };

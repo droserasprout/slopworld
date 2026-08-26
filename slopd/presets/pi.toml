@@ -8,7 +8,6 @@
 # inherit from the user or from its predecessor anyway.
 [[sandbox]]
 name = "pi"
-category = "agent"
 description = "pi coding agent's own state, config and credentials, one copy per session"
 private = ["~/.pi"]
 seed = ["~/.pi/agent"]
@@ -26,7 +25,6 @@ env = [
 
 [[command]]
 name = "pi"
-category = "agent"
 description = "pi coding agent"
 cmd = "pi"
 sandbox = ["pi"]

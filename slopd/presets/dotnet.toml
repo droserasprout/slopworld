@@ -2,7 +2,6 @@
 # next restore runs, so both stay read-only.
 [[sandbox]]
 name = "dotnet"
-category = "dev"
 description = ".NET CLI state and NuGet configuration, one copy per session"
 ro = ["~/.nuget/NuGet/NuGet.Config", "~/.nuget/plugins"]
 # A copy because ~/.dotnet/tools holds executables on the user's own PATH.

@@ -5,8 +5,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Shared project/agent preset checkboxes use one column and group by the daemon-provided
-    // category. Unknown categories remain headings; the implicit global preset is settings-only.
+    // Shared project/agent preset checkboxes use one uncategorized column; the implicit global
+    // preset is settings-only.
     public static class PresetList
     {
         // The pitch of a row here, off the font like every other height in this mod.
@@ -44,13 +44,10 @@ namespace SlopWorld
                 return;
             }
 
-            var groups = presets
-                .OrderBy(p => Category(p), System.StringComparer.OrdinalIgnoreCase)
-                .ThenBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase)
-                .GroupBy(Category)
+            presets = presets
+                .OrderBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase)
                 .ToList();
-
-            float h = (presets.Count + groups.Count) * RowH;
+            float h = presets.Count * RowH;
             var inner = new Rect(0f, 0f, pad.width - SlopWidgets.ScrollbarW, h);
 
             scroll.Begin(pad, inner);
@@ -58,33 +55,24 @@ namespace SlopWorld
             var roots = new List<string>(chosen);
             if (implied != null) roots.AddRange(implied);
             var required = RequiredBy(roots, presets);
-            foreach (var g in groups)
+            foreach (var pr in presets)
             {
-                SlopWidgets.SectionHeading(new Rect(0f, y, inner.width, RowH), g.Key);
+                var cell = new Rect(SlopWidgets.GapS, y,
+                    inner.width - SlopWidgets.GapS, RowH);
                 y += RowH;
 
-                foreach (var pr in g)
-                {
-                    var cell = new Rect(SlopWidgets.GapS, y,
-                        inner.width - SlopWidgets.GapS, RowH);
-                    y += RowH;
+                bool forced = (implied != null && implied.Contains(pr.Name)) ||
+                              (required.Contains(pr.Name) && !chosen.Contains(pr.Name));
+                bool was = forced || chosen.Contains(pr.Name);
+                bool on = SlopWidgets.Checkbox(cell, pr.Name, was, Tip(pr, forced), forced,
+                                               pr.IsEscape);
 
-                    bool forced = (implied != null && implied.Contains(pr.Name)) ||
-                                  (required.Contains(pr.Name) && !chosen.Contains(pr.Name));
-                    bool was = forced || chosen.Contains(pr.Name);
-                    bool on = SlopWidgets.Checkbox(cell, pr.Name, was, Tip(pr, forced), forced,
-                                                   pr.IsEscape);
-
-                    if (on == was) continue;
-                    if (on) chosen.Add(pr.Name);
-                    else chosen.Remove(pr.Name);
-                }
+                if (on == was) continue;
+                if (on) chosen.Add(pr.Name);
+                else chosen.Remove(pr.Name);
             }
             scroll.End();
         }
-
-        static string Category(PresetInfo p) =>
-            string.IsNullOrEmpty(p.Category) ? "other" : p.Category;
 
         static HashSet<string> RequiredBy(IEnumerable<string> chosen, List<PresetInfo> presets)
         {

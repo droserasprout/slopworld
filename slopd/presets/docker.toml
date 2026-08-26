@@ -1,6 +1,5 @@
 [[sandbox]]
 name = "docker"
-category = "container"
 description = "the Docker daemon's socket"
 escapes = "the daemon runs as root on the host, and a container can be asked for all of it"
 rw = ["/var/run/docker.sock"]

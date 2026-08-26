@@ -8,7 +8,6 @@
 # neither reads the user's.
 [[sandbox]]
 name = "claude"
-category = "agent"
 description = "Claude Code's own state and credentials, one copy per session"
 private = ["~/.claude", "~/.claude.json"]
 # The one file that cannot be a copy. Claude Code's access token lasts 8 hours and the refresh
@@ -44,7 +43,6 @@ env = ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"]
 
 [[command]]
 name = "claude"
-category = "agent"
 description = "Claude Code"
 cmd = "claude"
 sandbox = ["claude"]

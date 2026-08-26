@@ -7,7 +7,7 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
 - `ProjectsView` lists projects before agents. `EditSessionDialog` chooses a command
   preset or literal command; an empty command uses `[defaults] agent`, and the resolved
   default is never saved. `EditProjectDialog` previews the resolved sandbox.
-- `PresetList` groups daemon presets, refreshes on open, and locks required entries.
+- `PresetList` draws daemon presets in one uncategorized list, refreshes on open, and locks required entries.
   `Sandbox` edits copied/user sandbox presets; builtins are read-only until copied.
   `Commands > Defaults` edits machine-wide command defaults; `Commands > Presets` edits the
   daemon's command definitions, which choose the sandbox presets an agent receives.

@@ -1,6 +1,5 @@
 [[sandbox]]
 name = "audio"
-category = "desktop"
 description = "PipeWire / PulseAudio"
 rw = ["$XDG_RUNTIME_DIR/pulse", "$XDG_RUNTIME_DIR/pipewire-0"]
 env = ["XDG_RUNTIME_DIR"]

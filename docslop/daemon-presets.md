@@ -5,13 +5,15 @@
 user files live under `~/.config/slopworld/presets/*.toml` (`SLOPD_PRESETS` overrides)
 and replace builtins by entry name, in place.
 
+Preset categories are no longer part of either table. An old `category` key is ignored
+when read and omitted when that preset is next written.
+
 `global.toml` is implicit and precedes command, project and session presets. It is not
 a project checkbox; copying it creates the user `global` override.
 
 - Presets reload when the directory's newest mtime changes, using the same two-second
   check as `config.toml`; sessions are re-announced after reload.
-- `category` is free text and unknown values become GUI headings. Non-empty `escapes`
-  marks a host-reachable capability and is shown by `Warn`.
+- Non-empty `escapes` marks a host-reachable capability and is shown by `Warn`.
 - `requires` forms a cycle-safe dependency closure. Implied boxes are disabled in the
   mod; for example `systemd` requires `dbus` and `python-cache` requires `python`.
 - `tmux = true` is a deliberate host escape for a debugging preset: the daemon's private
@@ -38,7 +40,7 @@ a project checkbox; copying it creates the user `global` override.
   and `start` refuses a session whose command preset is missing.
 - The mod learns both tables from `GET /api/presets`; files added while the game runs
   become settings-page entries without rebuilding. `global` is shown first/highlighted,
-  followed by sandbox definitions and command definitions with dependencies.
+  followed by uncategorized sandbox and command definitions with dependencies.
 - Builtin shell commands are `bash`, `zsh`, `fish`, `nu` (Nushell), and `pwsh`; their matching
   `*-userdata` sandbox presets are separate and opt-in. They expose startup/config files
   read-only and history/data paths read-write, so choosing a shell does not share host dotfiles.

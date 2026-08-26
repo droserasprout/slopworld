@@ -9,10 +9,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SandboxPreset {
     pub name: String,
-    /// How the GUI groups the checkboxes. Free text: a category this build has never
-    /// heard of is a heading, not an error.
-    #[serde(default)]
-    pub category: String,
     #[serde(default)]
     pub description: String,
     /// Presets this one needs in order to function. Resolved before this preset so the
@@ -69,8 +65,6 @@ pub struct SandboxPreset {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CommandPreset {
     pub name: String,
-    #[serde(default)]
-    pub category: String,
     #[serde(default)]
     pub description: String,
     pub cmd: String,
@@ -437,7 +431,6 @@ mod tests {
                     "{name}.toml names a sandbox preset {:?}",
                     p.name
                 );
-                assert!(!p.category.is_empty(), "{name} has no category");
             }
             for c in &f.command {
                 assert_eq!(&c.name, name, "{name}.toml names a command {:?}", c.name);
@@ -468,7 +461,6 @@ mod tests {
             let p = t
                 .sandbox(name)
                 .unwrap_or_else(|| panic!("no {name} sandbox preset"));
-            assert!(!p.category.is_empty(), "{name} has no category");
             assert!(!p.description.is_empty(), "{name} has no description");
         }
         assert!(t.sandbox("slopworld-debug").unwrap().tmux);
@@ -550,10 +542,32 @@ mod tests {
             let preset = t
                 .sandbox(&userdata)
                 .unwrap_or_else(|| panic!("no {userdata} sandbox preset"));
-            assert_eq!(preset.category, "shell");
             assert!(!preset.ro.is_empty(), "{userdata} has no config paths");
             assert!(!preset.rw.is_empty(), "{userdata} has no userdata paths");
         }
+    }
+
+    #[test]
+    fn legacy_preset_categories_are_dropped_when_rewritten() {
+        let file: PresetFile = toml::from_str(
+            r#"
+            [[sandbox]]
+            name = "old-sandbox"
+            category = "dev"
+            description = "still useful"
+
+            [[command]]
+            name = "old-command"
+            category = "agent"
+            cmd = "agent"
+            "#,
+        )
+        .unwrap();
+
+        let written = toml::to_string(&file).unwrap();
+        assert!(!written.contains("category"));
+        assert!(written.contains("description = \"still useful\""));
+        assert!(written.contains("cmd = \"agent\""));
     }
 
     /// Every agent keeps its own state, and every way back out of the sandbox says so. Both
