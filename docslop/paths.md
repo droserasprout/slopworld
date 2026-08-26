@@ -16,6 +16,11 @@
 - Jukebox likes: `~/.local/share/slopworld/jukebox.toml` (`XDG_DATA_HOME` overrides),
   containing structured `[[like]]` tables.
 - Profile: `$XDG_DATA_HOME/slopworld/profile`. Saves, screenshots, `Config/`.
+- macOS sidecar config: `~/.config/slopworld-car/` (`SLOPCAR_CONFIG` overrides), including the
+  daemon endpoint descriptor.
+- macOS sidecar state: `~/.local/share/slopworld-car/` (`SLOPCAR_DATA` overrides).
+- macOS sidecar profile: `~/Library/Application Support/SlopWorld/sidecar-profile`
+  (`MAC_PROFILE` overrides).
 - Session state: `$XDG_DATA_HOME/slopworld/sessions/<state-id>/` (`SLOPD_STATE`
   overrides). The daemon assigns the opaque state id when an agent is created,
   so a rename or name reuse cannot inherit another agent's tool state. Deleted

@@ -3,8 +3,8 @@
 `slopcar` runs the Linux daemon, tmux, Bubblewrap, pasta and the four shipped agent CLIs in
 one Debian trixie container. RimWorld and the mod remain native on macOS.
 
-The Debian base is multiarch, so the image builds and runs natively on both amd64 and Apple
-Silicon (arm64) — no platform pin, no emulation. slopd's sandbox skeleton reads the host's own
+The Debian base is multiarch, so Docker Desktop builds and runs the image natively on amd64 and
+Apple Silicon (arm64). slopd's sandbox skeleton reads the host's own
 usr-merge layout at runtime, so the nested Bubblewrap works the same on either architecture.
 
 The agent CLIs are still baked into the image for now; running host-native (Darwin) agents is
@@ -60,6 +60,18 @@ debug sandbox already mounts, with `SLOPD_ENDPOINT` set to the sidecar's descrip
 sidecar first. Override `SLOPCAR_CONFIG` if you started it with a non-default
 `SLOPCAR_CONFIG_DIR`, or `SLOPCAR_PROFILE` to name a different save folder. The separate profile
 and profile-keyed launcher lock let this game run beside a native session.
+
+For a native macOS game and mod, use the Makefile workflow from the repository root:
+
+```sh
+make mac-setup
+open -a Docker
+make mac
+```
+
+`mac-install` compiles against `RimWorldMac.app`'s managed assemblies and installs the mod;
+`mac-run` starts the sidecar and launches the game into its separate profile. Override
+`MAC_RIMWORLD` for a non-Steam install or `SLOPCAR_WORKSPACE` for the roots agents may access.
 
 ### Running beside a native daemon
 

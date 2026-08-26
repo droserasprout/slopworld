@@ -9,15 +9,16 @@ RIMWORLD=/path/to/RimWorld/game make install
 slopworld
 ```
 
-For the experimental macOS worker, install and start Docker Desktop, then build and verify the
-Debian sidecar:
+For the experimental macOS worker, install Docker Desktop, then build the Debian sidecar and
+install the native mod:
 
 ```sh
-./slopcar/slopcar build
-./slopcar/slopcar doctor
-./slopcar/slopcar start --workspace "$HOME/git"
+make mac-setup
+open -a Docker
+make mac
 ```
 
-The first start creates a random daemon token and publishes port 7717 only on Mac loopback. The
-native mod installation/launcher is still manual; see the [sidecar contract](../../slopcar/README.md)
-for workspace and credential mounts.
+The default `MAC_RIMWORLD` is Steam's `RimWorldMac.app`; override it for another install. The
+first start creates a random daemon token and publishes port 7718 only on Mac loopback. `mac-run`
+launches the native game directly because the Linux `slopworld` launcher is not used on macOS.
+See the [sidecar contract](../../slopcar/README.md) for workspace and credential mounts.

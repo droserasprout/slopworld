@@ -20,7 +20,9 @@ external dependencies remain Linux-specific:
 - `systemd-run` enforces per-agent limits; `systemctl` and journald serve installation and logs.
 - `gio`/`gdbus`, Wayland/X11 clipboard programs and the ALSA device policy provide host UI and
   audio integration.
-- The Makefile, launcher, game discovery, profile defaults and log paths name the Linux build.
+- The Linux Makefile targets, launcher, game discovery, profile defaults and log paths still name
+  the Linux build. The separate `mac-*` targets know the native app-bundle paths and launch
+  `RimWorldMac` directly.
 
 `tools/check-reqs.json` should distinguish build, core runtime and optional integration
 requirements. The C# build dependency is Mono's `csc`, matching the Makefile; the .NET SDK
@@ -81,7 +83,8 @@ reports jukebox playback as unsupported. Later playback can stream decoded local
    Apple Silicon.
 2. Add platform/capability reporting and make unsupported settings impossible to select.
 3. Add the sidecar image, launch configuration, token/path validation and container-aware DNS.
-4. Add the macOS mod installer and profile launcher; align endpoint, data, cache and log paths.
+4. Keep the macOS mod installer and profile launcher aligned with endpoint, data, cache and log
+   paths.
 5. Move file opening to the mod and add macOS input/fullscreen behavior.
 6. Add Intel validation, container replacement recovery and an explicit unsupported-feature
    test matrix.
@@ -101,6 +104,7 @@ containers/common seccomp profile plus private-UTS hostname calls, `systempaths=
 the nested user namespace with Docker's `no-new-privileges`, so that flag is omitted.
 
 Debian's official images publish both `linux/amd64` and `linux/arm64`; the launcher does not pin a
-platform, so Apple Silicon does not need emulation. Linux Docker amd64 is verified. Docker Desktop
-on Intel and Apple Silicon, native mod installation/input/fullscreen, desktop file opening, and
-container-replacement reconnect remain compatibility work rather than verified support.
+platform, so Apple Silicon does not need emulation. Linux Docker amd64 is verified. The Makefile's
+native macOS workflow now covers mod build/install and direct profile launch; Docker Desktop inside
+a QEMU macOS guest, native input/fullscreen, desktop file opening, and container-replacement
+reconnect remain compatibility work rather than verified support.
