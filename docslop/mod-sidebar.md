@@ -69,7 +69,7 @@ agents from visible order.
 ## The tab strip
 
 Every view has two possible rows: five tabs plus the project filter, then right-aligned
-view controls. Foldable views offer fold/unfold all; Agents also has Compact view,
+view controls. Foldable views offer fold/unfold all; agent rows are compact,
 Files has dotfiles, and Git has refresh. Search has dotfiles alone. Views without a control
 have no second band. `TabH` is the complete strip height used by both the body and the
 colonist-bar layout.

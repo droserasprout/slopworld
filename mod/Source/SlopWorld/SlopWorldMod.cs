@@ -85,8 +85,6 @@ namespace SlopWorld
         // does not know reads as the agents, which is the view that is always worth having.
         public string sidebarTab = "agents";
         public bool sidebarShowHidden;
-        // Agent rows can trade their third line and visual markers for a shorter, denser list.
-        public bool sidebarCompact;
         // The projects ticked in the column's filter, one name a line and blank for all of
         // them - the folds' own format, kept here for the folds' own reason. See
         // AgentSidebar for what an unticked name and the `[none]` line mean.
@@ -198,7 +196,6 @@ namespace SlopWorld
             String(text, "foldedProjects", foldedProjects);
             String(text, "sidebarTab", sidebarTab);
             String(text, "sidebarShowHidden", sidebarShowHidden);
-            String(text, "sidebarCompact", sidebarCompact);
             String(text, "sidebarFilter", sidebarFilter);
             String(text, "commandPaletteHistory", commandPaletteHistory);
             String(text, "usageIcons", usageIcons);
@@ -246,7 +243,6 @@ namespace SlopWorld
             foldedProjects = Text(values, "foldedProjects", foldedProjects);
             sidebarTab = Text(values, "sidebarTab", sidebarTab);
             sidebarShowHidden = Bool(values, "sidebarShowHidden", sidebarShowHidden);
-            sidebarCompact = Bool(values, "sidebarCompact", sidebarCompact);
             sidebarFilter = Text(values, "sidebarFilter", sidebarFilter);
             commandPaletteHistory = Text(values, "commandPaletteHistory", commandPaletteHistory);
             usageIcons = Text(values, "usageIcons", usageIcons);
@@ -327,7 +323,6 @@ namespace SlopWorld
         public static string FoldedProjects => S.foldedProjects ?? "";
         public static string SidebarTab => S.sidebarTab ?? "";
         public static bool SidebarShowHidden => S.sidebarShowHidden;
-        public static bool SidebarCompact => S.sidebarCompact;
         public static string SidebarFilter => S.sidebarFilter ?? "";
         public static string CommandPaletteHistory => S.commandPaletteHistory ?? "";
         public static string UsageIcons => S.usageIcons ?? "";

@@ -18,16 +18,8 @@ namespace SlopWorld
 
         public static bool CanFoldCurrent => CurrentTab != SidebarTab.Search;
         public static bool CurrentViewAllFolded => AllFolded();
-        public static bool CanToggleCompact => CurrentTab == SidebarTab.Agents;
         public static bool CanToggleDotfiles => CurrentTab == SidebarTab.Files ||
             CurrentTab == SidebarTab.Search;
-
-        public static void ToggleCompact()
-        {
-            if (!CanToggleCompact) return;
-            Settings.S.sidebarCompact = !Settings.S.sidebarCompact;
-            Settings.S.Write();
-        }
 
         public static void ToggleDotfiles()
         {
@@ -620,16 +612,7 @@ namespace SlopWorld
                 r.x -= TabIcon + 3f;
             }
 
-            if (CurrentTab == SidebarTab.Agents)
-            {
-                bool compact = CompactView;
-                Tab(r, Icons.Type, compact,
-                    compact
-                        ? "Compact view is on. Click to show full agent rows."
-                        : "Compact view. Hide the third line, state dots and selection corners.",
-                    ToggleCompact);
-            }
-            else if (CurrentTab == SidebarTab.Files || CurrentTab == SidebarTab.Search)
+            if (CurrentTab == SidebarTab.Files || CurrentTab == SidebarTab.Search)
             {
                 bool showing = Settings.SidebarShowHidden;
                 Tab(r, Icons.Hidden, showing,
