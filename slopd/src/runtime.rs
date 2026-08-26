@@ -37,6 +37,12 @@ pub fn capabilities() -> Capabilities {
     }
 }
 
+pub fn hostname() -> String {
+    nix::sys::utsname::uname()
+        .map(|name| name.nodename().to_string_lossy().into_owned())
+        .unwrap_or_else(|_| "unknown".into())
+}
+
 pub fn validate_runtime_name() -> Result<()> {
     match std::env::var("SLOPD_RUNTIME") {
         Ok(value) if value != SLOPCAR => {
