@@ -336,7 +336,7 @@ namespace SlopWorld
             if (!on) return Stated(inner, text, TextAnchor.MiddleLeft);
 
             GUI.SetNextControlName(name);
-            return TextEntry(inner, text, false, focused);
+            return TextEntry(inner, text, false, focused, name);
         }
 
         public static string Area(Rect r, string name, string text, bool on = true,
@@ -352,7 +352,7 @@ namespace SlopWorld
             if (!on) return Stated(inner, text, TextAnchor.UpperLeft);
 
             GUI.SetNextControlName(name);
-            return TextEntry(inner, text, true, focused);
+            return TextEntry(inner, text, true, focused, name);
         }
 
         // The entry's frame on its own, for a caller drawing one box round more than one
@@ -366,7 +366,7 @@ namespace SlopWorld
         public static string BareField(Rect r, string name, string text)
         {
             GUI.SetNextControlName(name);
-            return TextEntry(r, text, false, ReleaseFunctionKeyFocus(name));
+            return TextEntry(r, text, false, ReleaseFunctionKeyFocus(name), name);
         }
 
         // Unity's text controls consume function keys while focused, before the game or the
@@ -403,7 +403,22 @@ namespace SlopWorld
             if (focused) Slab.Ring(r, FocusRing);
         }
 
-        static string TextEntry(Rect r, string text, bool area, bool focused)
+        sealed class PendingFieldEdit
+        {
+            public readonly string Name;
+            public readonly Action<TextEditor> Apply;
+
+            public PendingFieldEdit(string name, Action<TextEditor> apply)
+            {
+                Name = name;
+                Apply = apply;
+            }
+        }
+
+        static readonly Queue<PendingFieldEdit> PendingEdits =
+            new Queue<PendingFieldEdit>();
+
+        static string TextEntry(Rect r, string text, bool area, bool focused, string name)
         {
             var wasColor = GUI.color;
             bool over = Mouse.IsOver(r);
@@ -413,18 +428,171 @@ namespace SlopWorld
             if (wasColor == Color.white)
                 GUI.color = focused || over ? Lead : Name;
 
+            var e = Event.current;
+            bool eventOver = e != null && r.Contains(e.mousePosition);
+            int button = -1;
+            bool mouseDown = eventOver && MouseDown(e, out button);
+            bool replay = mouseDown && (e.type == EventType.Used || e.type == EventType.ContextClick);
+            var oldType = replay ? e.type : EventType.Ignore;
+            var beforeEditor = mouseDown && button == 1 ? CurrentEditor(name) : null;
+            bool keepSelection = beforeEditor != null && beforeEditor.IsOverSelection(e.mousePosition);
+            int beforeCursor = keepSelection ? beforeEditor.cursorIndex : 0;
+            int beforeSelect = keepSelection ? beforeEditor.selectIndex : 0;
+
+            // WindowStack may have consumed the event before this window's contents run. Give
+            // the native editor its mouse-down once, then leave the event Used as before. This
+            // is what lets a click focus a field even when it sits below an absorbing window.
+            if (replay) e.type = EventType.MouseDown;
+
             try
             {
                 var style = Bare(area ? Verse.Text.CurTextAreaStyle
                                       : Verse.Text.CurTextFieldStyle, area);
-                return area
+                var result = area
                     ? GUI.TextArea(r, text ?? "", style)
                     : GUI.TextField(r, text ?? "", style);
+
+                var editor = CurrentEditor(name);
+                if (keepSelection && editor != null)
+                {
+                    editor.cursorIndex = beforeCursor;
+                    editor.selectIndex = beforeSelect;
+                }
+                ApplyPendingEdits(name, editor);
+                if (editor != null) result = editor.text;
+
+                if (mouseDown && button == 2)
+                {
+                    RequestPaste(name, area, primary: true);
+                    e.Use();
+                }
+                else if (mouseDown && button == 1)
+                {
+                    OpenContextMenu(name, area, editor);
+                    e.Use();
+                }
+
+                return result;
             }
             finally
             {
+                // A ContextClick that the native field did not consume still belongs to us.
+                // Restore only an event that is genuinely still live; a native Use() must stay
+                // Used so lower layers do not interpret the same click a second time.
+                if (replay && e.type != EventType.Used) e.type = oldType;
                 GUI.color = wasColor;
             }
+        }
+
+        static bool MouseDown(Event e, out int button)
+        {
+            button = e == null ? -1 : e.button;
+            if (e == null) return false;
+
+            var type = e.type == EventType.Used ? e.rawType : e.type;
+            if (type == EventType.ContextClick)
+            {
+                button = 1;
+                return true;
+            }
+            return type == EventType.MouseDown;
+        }
+
+        static TextEditor CurrentEditor(string name)
+        {
+            if (GUI.GetNameOfFocusedControl() != name) return null;
+            int id = GUIUtility.keyboardControl;
+            return id == 0
+                ? null
+                : GUIUtility.QueryStateObject(typeof(TextEditor), id) as TextEditor;
+        }
+
+        static void ApplyPendingEdits(string name, TextEditor editor)
+        {
+            if (editor == null || PendingEdits.Count == 0) return;
+
+            if (GUI.GetNameOfFocusedControl() != name) return;
+            var keep = new Queue<PendingFieldEdit>();
+            while (PendingEdits.Count > 0)
+            {
+                var edit = PendingEdits.Dequeue();
+                if (edit.Name != name)
+                {
+                    keep.Enqueue(edit);
+                    continue;
+                }
+
+                edit.Apply(editor);
+                GUI.changed = true;
+            }
+
+            while (keep.Count > 0) PendingEdits.Enqueue(keep.Dequeue());
+        }
+
+        static void QueueEdit(string name, Action<TextEditor> apply)
+        {
+            if (string.IsNullOrEmpty(name) || apply == null) return;
+            PendingEdits.Enqueue(new PendingFieldEdit(name, apply));
+        }
+
+        static string SingleLinePaste(string text, bool area)
+        {
+            if (area || string.IsNullOrEmpty(text)) return text ?? "";
+            return text.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
+        }
+
+        static void QueuePaste(string name, string text, bool area)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            string insert = SingleLinePaste(text, area);
+            QueueEdit(name, editor => editor.ReplaceSelection(insert));
+        }
+
+        static void RequestPaste(string name, bool area, bool primary)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+
+            if (!SessionHub.Instance.Capabilities.Clipboard)
+            {
+                // The daemon is unavailable in sidecar mode; Unity's local buffer is the only
+                // clipboard surface the game can access there.
+                QueuePaste(name, GUIUtility.systemCopyBuffer, area);
+                return;
+            }
+
+            string path = primary ? "/api/clipboard/primary/text" : "/api/clipboard/text";
+            SlopClient.Get(path,
+                j => QueuePaste(name, j["text"].AsString(), area),
+                _ =>
+                {
+                    if (!primary) QueuePaste(name, GUIUtility.systemCopyBuffer, area);
+                });
+        }
+
+        static void OpenContextMenu(string name, bool area, TextEditor editor)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+
+            string selected = editor?.SelectedText ?? "";
+            var options = new List<FloatMenuOption>();
+
+            var cut = new FloatMenuOption("Cut", () =>
+            {
+                SlopClipboard.Copy(selected);
+                QueueEdit(name, e => e.DeleteSelection());
+            });
+            cut.Disabled = selected.Length == 0;
+            options.Add(cut);
+
+            var copy = new FloatMenuOption("Copy", () => SlopClipboard.Copy(selected));
+            copy.Disabled = selected.Length == 0;
+            options.Add(copy);
+
+            options.Add(new FloatMenuOption("Paste", () => RequestPaste(name, area, false)));
+            options.Add(new FloatMenuOption("Select all", () =>
+                QueueEdit(name, e => e.SelectAll())));
+
+            SlopMenu.Open(options);
         }
 
         static GUIStyle Bare(GUIStyle of, bool area)
