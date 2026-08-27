@@ -6,7 +6,8 @@ use crate::config::{expand, Config, DnsConfig, Limits, NetworkMode, ProjectCfg, 
 use crate::presets::{SandboxPreset, Table};
 
 use super::{
-    presets_for, private_path, private_resolver_path, refused, PANE_TERM, PRIVATE_RESOLVER,
+    presets_for, private_path, private_resolver_path, refused, ResolvedMount, PANE_TERM,
+    PRIVATE_RESOLVER,
 };
 
 const BASE_ENV: &[&str] = &["PATH", "LANG", "USER", "LOGNAME", "SHELL"];
@@ -191,6 +192,7 @@ pub(super) fn assemble_argv(
     table: &Table,
     presets: &[&SandboxPreset],
     home: &str,
+    mounts: &[ResolvedMount],
 ) -> Result<Vec<String>> {
     // Global first, then the resolved presets, so the most specific answer for a path is the
     // last one bwrap sees.
@@ -215,7 +217,8 @@ pub(super) fn assemble_argv(
         daemon_config,
     );
     push_private_binds(&mut a, cfg, s, p, &table, &dir, network, resolv.as_ref());
-    push_env(&mut a, &home, s, p, &dir, &presets, &agent_argv);
+    push_mounts(&mut a, mounts);
+    push_env(&mut a, &home, s, p, mounts, &presets, &agent_argv);
 
     a.push("--".into());
     a.extend(agent_argv);
@@ -356,6 +359,19 @@ fn push_private_binds(
     }
 }
 
+/// Binds project directories into the `/mnt/<project-name>` namespace. The primary project's
+/// host-path bind in `push_private_binds` stays for private-state overlays; this adds the
+/// uniform guest-side path the agent works from.
+fn push_mounts(a: &mut Vec<String>, mounts: &[ResolvedMount]) {
+    use crate::config::MountMode;
+    for m in mounts {
+        match m.mode {
+            MountMode::Ro => push_args(a, &["--ro-bind", &m.host_dir, &m.guest_dir]),
+            MountMode::Rw => push_args(a, &["--bind", &m.host_dir, &m.guest_dir]),
+        }
+    }
+}
+
 /// Declares the complete environment after all mounts. The sandbox starts with --clearenv, so
 /// machine basics are selected explicitly and preset literals are the final word.
 fn push_env(
@@ -363,14 +379,18 @@ fn push_env(
     home: &str,
     s: &SessionCfg,
     p: &ProjectCfg,
-    dir: &str,
+    mounts: &[ResolvedMount],
     presets: &[&SandboxPreset],
     agent_argv: &[String],
 ) {
     push_args(a, &["--setenv", "HOME", home]);
     push_args(a, &["--setenv", "SLOPWORLD_SESSION", &s.name]);
     push_args(a, &["--setenv", "SLOPWORLD_PROJECT", &p.name]);
-    push_args(a, &["--chdir", dir]);
+    let cwd = mounts
+        .first()
+        .map(|m| m.guest_dir.as_str())
+        .unwrap_or("/");
+    push_args(a, &["--chdir", cwd]);
 
     // Stated rather than forwarded: the terminal is one slopd built, and a daemon has
     // none of its own to inherit.
@@ -909,5 +929,91 @@ mod tests {
         assert!(a
             .windows(3)
             .any(|w| { w[0] == "--setenv" && w[1] == "SLOPWORLD_PI_TITLES" && w[2] == "never" }));
+    }
+
+    #[test]
+    fn the_primary_project_is_mounted_at_mnt() {
+        let a = argv();
+        assert!(
+            a.windows(3)
+                .any(|w| w[0] == "--bind" && w[1] == "/tmp" && w[2] == "/mnt/p"),
+            "primary project not mounted at /mnt/p: {a:?}"
+        );
+        assert!(
+            a.windows(2).any(|w| w[0] == "--chdir" && w[1] == "/mnt/p"),
+            "cwd not set to /mnt/p: {a:?}"
+        );
+    }
+
+    #[test]
+    fn an_extra_mount_appears_in_the_argv() {
+        use crate::config::{Mount, MountMode};
+
+        let mut cfg = Config::default();
+        cfg.projects.push(ProjectCfg {
+            name: "main".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        });
+        cfg.projects.push(ProjectCfg {
+            name: "lib".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        });
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "main".into(),
+            mounts: vec![Mount {
+                project: "lib".into(),
+                mode: MountMode::Ro,
+            }],
+            ..Default::default()
+        };
+        let p = cfg.project("main").unwrap().clone();
+        let a = build_argv(&cfg, &s, &p).expect("mounted sandbox argv");
+
+        assert!(
+            a.windows(3)
+                .any(|w| w[0] == "--bind" && w[1] == "/tmp" && w[2] == "/mnt/main"),
+            "primary project not at /mnt/main: {a:?}"
+        );
+        assert!(
+            a.windows(3)
+                .any(|w| w[0] == "--ro-bind" && w[1] == "/tmp" && w[2] == "/mnt/lib"),
+            "lib mount not at /mnt/lib: {a:?}"
+        );
+        assert!(
+            a.windows(2)
+                .any(|w| w[0] == "--chdir" && w[1] == "/mnt/main"),
+            "cwd not /mnt/main: {a:?}"
+        );
+    }
+
+    #[test]
+    fn mounting_the_primary_project_ro_overrides_its_mode() {
+        use crate::config::{Mount, MountMode};
+
+        let cfg = Config::default();
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "p".into(),
+            mounts: vec![Mount {
+                project: "p".into(),
+                mode: MountMode::Ro,
+            }],
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        };
+        let a = build_argv(&cfg, &s, &p).expect("ro primary argv");
+
+        assert!(
+            a.windows(3)
+                .any(|w| w[0] == "--ro-bind" && w[1] == "/tmp" && w[2] == "/mnt/p"),
+            "primary mount should be ro: {a:?}"
+        );
     }
 }

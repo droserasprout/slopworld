@@ -6,13 +6,19 @@ use std::path::{Component, Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::Serialize;
 
-use crate::config::{expand, Config, DnsConfig, NetworkMode, ProjectCfg, SessionCfg};
+use crate::config::{expand, Config, DnsConfig, MountMode, NetworkMode, ProjectCfg, SessionCfg};
 use crate::presets::{SandboxPreset, Table};
 
 pub use paths::{refused, validate_preset, validate_preset_name};
 
 const PANE_TERM: &str = "tmux-256color";
 const PRIVATE_RESOLVER: &str = "192.0.2.1";
+
+pub(crate) struct ResolvedMount {
+    pub host_dir: String,
+    pub guest_dir: String,
+    pub mode: MountMode,
+}
 
 /// Resolve configuration and build the complete sandbox command through the bind layer.
 pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String>> {
@@ -26,8 +32,34 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_else(|| "/root".into());
 
+    let mut mounts = vec![ResolvedMount {
+        host_dir: dir.clone(),
+        guest_dir: format!("/mnt/{}", p.name),
+        mode: MountMode::Rw,
+    }];
+    for m in &s.mounts {
+        if m.project == p.name {
+            mounts[0].mode = m.mode;
+            continue;
+        }
+        if let Some(mp) = cfg.project(&m.project) {
+            let mdir = expand(&mp.dir);
+            if mdir.is_empty() || !Path::new(&mdir).is_dir() {
+                continue;
+            }
+            if refused(&mdir).is_some() {
+                continue;
+            }
+            mounts.push(ResolvedMount {
+                host_dir: mdir,
+                guest_dir: format!("/mnt/{}", mp.name),
+                mode: m.mode,
+            });
+        }
+    }
+
     bind::assemble_argv(
-        cfg, s, p, network, &dns, agent_argv, &dir, &table, &presets, &home,
+        cfg, s, p, network, &dns, agent_argv, &dir, &table, &presets, &home, &mounts,
     )
 }
 

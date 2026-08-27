@@ -1,5 +1,5 @@
 use super::State;
-use crate::config::{DnsConfig, Limits, NetworkMode};
+use crate::config::{DnsConfig, Limits, Mount, NetworkMode};
 use crate::emu::Frame;
 use serde::Serialize;
 
@@ -38,6 +38,7 @@ pub struct SessionView {
     pub limits: Limits,
     /// This agent's own caps before project inheritance - what the editor edits.
     pub limits_override: Limits,
+    pub mounts: Vec<Mount>,
     pub autostart: bool,
     pub auto_resume: bool,
     // Temporary sessions have no editable config entry. Durable host tabs also use the
