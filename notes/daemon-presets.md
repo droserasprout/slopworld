@@ -11,6 +11,11 @@ when read and omitted when that preset is next written.
 `global.toml` is implicit and precedes command, project and session presets. It is not
 a project checkbox; copying it creates the user `global` override.
 
+- `rust-cache` keeps `~/.cargo/registry`, `~/.cargo/git`, `~/.rustup/toolchains` and
+  `~/.rustup/update-hashes` writable, while `claude` also makes `/tmp/claude-0` private.
+  The latter needs an empty per-session state directory even though the host path is absent:
+  the guest's `/tmp` is a tmpfs.
+
 - Presets reload when the directory's newest mtime changes, using the same two-second
   check as `config.toml`; sessions are re-announced after reload.
 - Non-empty `escapes` marks a host-reachable capability and is shown by `Warn`.

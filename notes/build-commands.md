@@ -51,5 +51,8 @@ the compiler.
 `install-mod` copies loose folders, so a new top-level folder under `mod/` needs
 adding to that line.
 
+`devloop-sidecar` passes `SLOPCAR_CONFIG_DIR` to `slopcar start`, keeping the container's
+`endpoint.toml` in the same sidecar config directory that the game launcher reads.
+
 For formatting and auxiliary tools, see [build-tools](build-tools.md). For logs
 and runtime checks, see [diagnostics](diagnostics.md).

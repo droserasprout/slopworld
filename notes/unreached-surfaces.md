@@ -11,7 +11,8 @@ grant exists only after someone POSTs with the root token. The handler comment a
 `api/handlers.rs` calls revocation "the mod's revoke"; that UI was never built. The
 model in [agent-grants](agent-grants.md) is implemented and untriggered.
 
-`GET /api/health` reports the live grant count and is called by `slopctl status`.
+`GET /api/health` reports the live grant count and is called by `slopctl status` and by
+`ConfigPage` when the configuration page loads or reloads.
 
 ## Query routes the socket already answers
 

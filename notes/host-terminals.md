@@ -11,6 +11,9 @@ shell with its grouping and `cd`, while the config record recreates it after a
 machine reboot. `retick` polls the pane cwd and updates the record, so a later
 restart starts where the shell was left.
 
+Sidebar title rendering restores a host cwd from the durable `Dir` when tmux supplies a
+width-truncated path title; command and application titles are left alone.
+
 Host tabs deliberately remain ghost rows: they have no colonist or sandboxed
 agent config. Start, stop, terminal and Remove actions remain available; agent
 edit, label and duplicate actions are not valid for them. Stopping a host tab

@@ -31,9 +31,10 @@ Project JSON also carries optional tagged `dns` (`{"mode":"resolved"}` or
 `dns` plus nullable `dns_override`; session writes send only the nullable raw
 override. A missing DNS setting follows the daemon's current system resolver.
 
-Query routes are `/api/capabilities`, `/api/usage`, `/api/presets`, `/api/jukebox`,
+Query routes are `/api/health`, `/api/capabilities`, `/api/usage`, `/api/presets`, `/api/jukebox`,
 `/api/browse`, `/api/read`, `/api/image`, `/api/open-apps`, `/api/search`, `/api/git`
-and `/api/audio`. `/api/read` is root-only and returns bounded UTF-8 file text for native
+and `/api/audio`. `/api/health` returns daemon version, hostname and runtime health metadata.
+`/api/read` is root-only and returns bounded UTF-8 file text for native
 Markdown previews. `/api/image` is root-only and returns bounded base64 image bytes for local
 Markdown images. `/api/open-apps` lists the host
 desktop applications associated with a path, and `/api/file-action` runs a bounded
