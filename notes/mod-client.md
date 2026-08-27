@@ -26,3 +26,8 @@ missing from the client remains untouched in `config.toml`, so adding a daemon
 setting no longer requires adding a hidden round-trip field to the mod.
 
 The mod's connection is resolved from the daemon's `endpoint.toml` descriptor.
+
+`HubCatalog` revisions invalidate project-list requests already in flight before a project
+save or delete; only the newest response may replace the catalog. `SessionStore` similarly
+holds a pending old-to-new name during an HTTP session rename, because the pushed sessions
+event can remove the old name before the write response retargets the terminal window.

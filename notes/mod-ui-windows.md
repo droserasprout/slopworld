@@ -38,6 +38,9 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
 One prefix draws categories and one dispatches pages; unknown categories fall through
 to vanilla. Children indent and an empty parent opens its first child.
 
+Top-level SlopWorld pages are ordered Appearance, Integrations, Commands, Keyboard, Storage,
+Audio, RimWorld and About; child pages remain beneath their heading.
+
 Rows use `Round(LineH * 1.4)` plus `GapXS`; child rows use `Round(LineH * 1.15)`;
 icons are capped at 18px. Vanilla passes
 rows at `i * 50`, so `Slot` recovers the index and re-lays them. `MenuRowH` is a

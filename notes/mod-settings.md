@@ -33,6 +33,10 @@ configuration page and gear menu, while that page's Save button belongs to the d
 file. Storage inventory is likewise an operation view: it reads daemon state and owns
 reset, restore and delete actions.
 
+`ConfigPage` also refreshes `/api/health` and shows connection state, host/sidecar runtime,
+daemon version and hostname, followed by the mod and RimWorld versions. Missing health
+metadata displays `?`; it does not prevent the page from showing the online state.
+
 ## Writing and invalidation
 
 The connection comes from `endpoint.toml`. `AppearancePage` edits the global interface
