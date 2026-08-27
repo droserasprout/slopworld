@@ -11,8 +11,9 @@ can temporarily become the tree root.
   reread every two seconds and entries are merged by name/type, preserving expanded branches.
   Browse requests are limited to four at once; folding or manually opening a directory drops
   queued background work so the foreground path stays responsive.
-- `Lines` is the post-layout hit-test table. `Screen` applies scroll offset and omits
-  offscreen rows; do not hit-test against drawing-time geometry.
+- `Lines` is the post-layout hit-test table. `ContentTreeView` keeps the full height but paints
+  only rows near the viewport, while `Screen` applies scroll offset and omits offscreen rows;
+  do not hit-test against drawing-time geometry.
 - Empty directories remain right-clickable rows. Hover exposes view/edit/diff actions;
   diff is offered only for paths already present in Git's working-tree result.
 - Context menus support copy paths, MIME-associated host applications for files and

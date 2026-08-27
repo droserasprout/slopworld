@@ -176,18 +176,59 @@ namespace SlopWorld
         static bool _preciseSpent;
         static Vector2 _preciseAmount;
         static SmoothScroll _preciseClaim;
+        static int _lastPreciseSpentFrame = -1;
+        static Vector2 _lastPreciseSpentAmount;
+        static Event _preciseWheelEvent;
+        static Vector2 _preciseWheelDelta;
+        static Vector2 _preciseWheelMouse;
+
+        static bool PreciseHandled(Vector2 wheel)
+        {
+            if (_preciseAvailable && _preciseAmount.sqrMagnitude > 0.000001f &&
+                (_preciseClaim != null || _preciseSpent)) return true;
+
+            // The legacy button event can arrive one frame after the valuator movement
+            // that caused it. Do not spend that same movement a second time, but only
+            // suppress a matching direction so an unrelated wheel gesture still works.
+            return _lastPreciseSpentFrame == Time.frameCount - 1 &&
+                SameDirection(wheel, _lastPreciseSpentAmount);
+        }
+
+        static bool SameDirection(Vector2 a, Vector2 b)
+        {
+            bool x = Mathf.Abs(a.x) > 0.0001f && Mathf.Abs(b.x) > 0.0001f;
+            bool y = Mathf.Abs(a.y) > 0.0001f && Mathf.Abs(b.y) > 0.0001f;
+            return (x && Mathf.Sign(a.x) == Mathf.Sign(b.x)) ||
+                (y && Mathf.Sign(a.y) == Mathf.Sign(b.y));
+        }
 
         void ClaimPrecise(Rect outer, Vector2 max)
         {
             int frame = Time.frameCount;
-            if (_preciseFrame != frame)
+            var e = Event.current;
+            bool wheel = e.type == EventType.ScrollWheel;
+            bool newWheel = wheel &&
+                (!ReferenceEquals(_preciseWheelEvent, e) ||
+                    _preciseWheelDelta.x != e.delta.x || _preciseWheelDelta.y != e.delta.y ||
+                    _preciseWheelMouse.x != e.mousePosition.x ||
+                    _preciseWheelMouse.y != e.mousePosition.y);
+            bool refresh = newWheel && !_preciseSpent &&
+                _preciseAmount.sqrMagnitude <= 0.000001f;
+            if (_preciseFrame != frame || refresh)
             {
                 _preciseFrame = frame;
                 _preciseClaim = null;
                 _preciseSpent = false;
                 Vector2 units;
-                _preciseAvailable = X11ScrollInput.TryRead(out units);
+                _preciseAvailable = X11ScrollInput.TryRead(out units, wheel);
                 _preciseAmount = units * X11Speed;
+                if (wheel)
+                {
+                    _preciseWheelEvent = e;
+                    _preciseWheelDelta = e.delta;
+                    _preciseWheelMouse = e.mousePosition;
+                }
+                else _preciseWheelEvent = null;
             }
 
             if (!_preciseAvailable || _preciseSpent ||
@@ -220,7 +261,11 @@ namespace SlopWorld
             // replace only the owner, not the already decoded pixel amount.
             if (!_claimHasAmount)
             {
-                if (_preciseAvailable)
+                // A zero XInput sample is common when IMGUI ran a layout pass before the
+                // actual wheel event arrived in this frame. Only suppress Unity when a
+                // scroll view really claimed a non-zero precise sample; otherwise the
+                // logical event is the input we have to spend.
+                if (PreciseHandled(e.delta))
                 {
                     // XInput already supplied this packet, including any sub-step parts.
                     _claimAmount = Vector2.zero;
@@ -242,6 +287,8 @@ namespace SlopWorld
 
             _preciseSpent = true;
             _preciseClaim = null;
+            _lastPreciseSpentFrame = Time.frameCount;
+            _lastPreciseSpentAmount = _preciseAmount;
             _pos = new Vector2(
                 Mathf.Clamp(_pos.x + _preciseAmount.x, 0f, _max.x),
                 Mathf.Clamp(_pos.y + _preciseAmount.y, 0f, _max.y));
