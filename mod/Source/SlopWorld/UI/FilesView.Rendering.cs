@@ -11,7 +11,11 @@ namespace SlopWorld
     {
         // ------------------------------------------------------------------ drawing
 
-        public static void Draw(Rect body) => Tree.Draw(body);
+        public static void Draw(Rect body)
+        {
+            RefreshIfDue();
+            Tree.Draw(body);
+        }
 
 
         public static void Clicks() => Tree.Clicks(ReleaseViewerForTree);

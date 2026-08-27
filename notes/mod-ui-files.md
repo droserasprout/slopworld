@@ -7,7 +7,8 @@ filesystem access because sessions have private mount namespaces; the mod uses
 can temporarily become the tree root.
 
 - `Kids == null` means not fetched. Fetches begin in the draw pass; errors stop retries
-  until the directory is reopened. Folds and expansions are in memory only.
+  until the directory is reopened. While Files is visible, loaded directories are reread every
+  two seconds and entries are merged by name/type, preserving expanded branches.
 - `Lines` is the post-layout hit-test table. `Screen` applies scroll offset and omits
   offscreen rows; do not hit-test against drawing-time geometry.
 - Empty directories remain right-clickable rows. Hover exposes view/edit/diff actions;

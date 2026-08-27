@@ -187,6 +187,8 @@ namespace SlopWorld
 
         static readonly ContentTreeView Tree = new ContentTreeView(new TreeSource());
         static int _focusVersion;
+        const float AutoRefreshSeconds = 2f;
+        static float _nextAutoRefresh;
 
         // Resolve against the session's project root, then open only the ancestor listings
         // needed to reveal the row. No filesystem work happens until the click asks for it.
@@ -273,6 +275,53 @@ namespace SlopWorld
             ClearSelection();
             foreach (var root in Roots.Values) Forget(root);
             if (_focusedRoot != null) Forget(_focusedRoot);
+        }
+
+        // The daemon deliberately has no filesystem event stream. Keep the visible tree fresh
+        // while Files is open, but leave unopened directories lazy and preserve the old nodes
+        // when a listing lands so an external change does not fold the user's tree.
+        static void RefreshIfDue()
+        {
+            float now = Time.realtimeSinceStartup;
+            if (now < _nextAutoRefresh) return;
+            _nextAutoRefresh = now + AutoRefreshSeconds;
+            if (!SessionHub.Instance.Online) return;
+
+            foreach (var project in ViewChrome.Projects())
+                RefreshLoaded(Root(project));
+            if (_focusedRoot != null) RefreshLoaded(_focusedRoot);
+        }
+
+        static void RefreshLoaded(Node node)
+        {
+            if (node == null || node.Kids == null || node.Loading) return;
+
+            node.Loading = true;
+            node.Error = null;
+            string path = node.Path;
+            int version = node.ListingVersion;
+            SlopClient.Get(
+                "/api/browse?files=1&path=" + System.Uri.EscapeDataString(path) +
+                "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0"),
+                j =>
+                {
+                    if (node.Path != path || node.ListingVersion != version) return;
+                    node.Loading = false;
+                    node.Kids = Listed(node, j);
+                    node.More = j["truncated"].AsBool();
+
+                    // Walk the fresh children, rather than the old list, so a removed
+                    // directory stops generating requests immediately.
+                    foreach (var child in node.Kids)
+                        if (child.IsDir && child.Kids != null)
+                            RefreshLoaded(child);
+                },
+                msg =>
+                {
+                    if (node.Path != path || node.ListingVersion != version) return;
+                    node.Loading = false;
+                    node.Error = msg;
+                });
         }
 
         public static void FocusDirectory(string path, string label)
@@ -380,11 +429,7 @@ namespace SlopWorld
                     if (node.Path != path || node.ListingVersion != version) return;
                     node.Loading = false;
 
-                    var kids = new List<Node>();
-                    foreach (var d in j["dirs"].Items) kids.Add(Kid(node, d.AsString(), true));
-                    foreach (var f in j["files"].Items) kids.Add(Kid(node, f.AsString(), false));
-
-                    node.Kids = kids;
+                    node.Kids = Listed(node, j);
                     node.More = j["truncated"].AsBool();
                     var loaded = node.Loaded;
                     node.Loaded = null;
@@ -398,6 +443,34 @@ namespace SlopWorld
                     node.Error = msg;
                     node.Loaded = null;
                 });
+        }
+
+        static List<Node> Listed(Node parent, JVal j)
+        {
+            var previous = new Dictionary<string, Node>();
+            if (parent.Kids != null)
+                foreach (var child in parent.Kids)
+                    previous[child.Name] = child;
+
+            var kids = new List<Node>();
+            foreach (var d in j["dirs"].Items)
+                kids.Add(ReuseOrKid(parent, d.AsString(), true, previous));
+            foreach (var f in j["files"].Items)
+                kids.Add(ReuseOrKid(parent, f.AsString(), false, previous));
+            return kids;
+        }
+
+        static Node ReuseOrKid(Node parent, string name, bool dir, Dictionary<string, Node> previous)
+        {
+            if (previous.TryGetValue(name, out var child) && child.IsDir == dir)
+            {
+                child.Path = parent.Path.TrimEnd('/') + "/" + name;
+                child.Root = parent.Root;
+                child.Project = parent.Project;
+                child.Depth = parent.Depth + 1;
+                return child;
+            }
+            return Kid(parent, name, dir);
         }
 
         static Node Kid(Node parent, string name, bool dir) => new Node
