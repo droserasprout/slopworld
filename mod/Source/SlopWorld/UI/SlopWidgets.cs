@@ -704,26 +704,22 @@ namespace SlopWorld
         public static bool Checkbox(Listing_Standard l, string label, bool on, string tip = null) =>
             Checkbox(l.GetRect(RowH), label, on, tip);
 
-        // A dropdown caret. TexButton.Reveal is vanilla's right-pointing triangle; a quarter
-        // turn points it down at rest and up while the menu is open. Rotated through GUI.matrix
-        // because DrawTexture cannot turn a texture itself.
+        // A dropdown caret. Collapse is vanilla's downward triangle. Keep the draw in the
+        // active GUI group; rotating through GUI.matrix makes a caret drift when that group
+        // has a scroll translation.
         static void Chevron(Rect r, Color c, bool open)
         {
             var wasColor = GUI.color;
-            var wasMatrix = GUI.matrix;
             try
             {
                 GUI.color = c;
-                // RotateAroundPivot takes a screen-global pivot. The rect is local to the
-                // options page's nested GUI groups, so using r.center directly shifts the
-                // arrow away from its box as soon as the page is offset or scrolled.
-                GUIUtility.RotateAroundPivot(open ? -90f : 90f,
-                    GUIUtility.GUIToScreenPoint(r.center));
-                GUI.DrawTexture(r, TexButton.Reveal);
+                // A negative UV height mirrors the down triangle for the open/up state while
+                // leaving the destination rect in the current group's coordinate space.
+                GUI.DrawTextureWithTexCoords(r, TexButton.Collapse,
+                    open ? new Rect(0f, 1f, 1f, -1f) : new Rect(0f, 0f, 1f, 1f));
             }
             finally
             {
-                GUI.matrix = wasMatrix;
                 GUI.color = wasColor;
             }
         }
