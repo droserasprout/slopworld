@@ -492,6 +492,8 @@ mod tests {
             "$SLOPWORLD_GAME",
             "~/GOG Games/RimWorld/game",
             "~/.local/share/slopworld/profile",
+            "$XDG_DATA_HOME/slopworld/jukebox",
+            "~/.local/share/slopworld/jukebox",
             "~/.local/share/slopworld-car",
             "~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios",
             "~/.local/bin",

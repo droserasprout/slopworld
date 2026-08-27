@@ -293,9 +293,8 @@ mod tests {
         );
         let player = rodio::Player::connect_new(&mixer);
 
-        // The shapes the stations actually come in - RP at 128k, WeFunk at 64k, RP at 32k,
-        // WALM at 320k, and back - stereo first, so it is the one that would have done the
-        // latching. WALM's 48000 is the only one that resamples *down*.
+        // Exercise different source shapes - stereo first, so it is the one that would have
+        // done the latching. The final source is the only one that resamples *down*.
         let stations = [
             (2u16, 44100u32),
             (1, 44100),

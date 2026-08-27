@@ -21,7 +21,7 @@
 | `tmux.rs` | Async wrapper over the tmux CLI. |
 | `sandbox/` | The bubblewrap argv, network modes, bind guard and pasta wrapper - see [sandbox-isolation](sandbox-isolation.md). |
 | `presets.rs` | The preset tables: builtin TOML plus the user's. |
-| `jukebox.rs` | The station catalog: builtin/user TOML, metadata, and daemon-side URL resolution. |
+| `jukebox.rs` | The user station catalog: TOML, metadata, and daemon-side URL resolution. |
 | `config.rs` | `config.toml` load, save, and seed. |
 | `endpoint.rs` | The `endpoint.toml` descriptor: writes url + token for the mod, rewrites token on live config edits without changing the bound address. |
 | `grant.rs` | Scoped agent tokens - see [agent-grants](agent-grants.md). |

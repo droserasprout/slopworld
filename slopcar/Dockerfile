@@ -16,7 +16,6 @@ RUN mkdir src \
     && rm -rf src
 COPY slopd/src ./src
 COPY slopd/presets ./presets
-COPY slopd/jukebox ./jukebox
 RUN touch src/main.rs src/bin/slopctl.rs \
     && cargo build --release --locked --bin slopd --bin slopctl
 

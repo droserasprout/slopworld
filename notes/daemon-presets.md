@@ -28,9 +28,9 @@ a project checkbox; copying it creates the user `global` override.
   read-only. It is the narrow diagnostic exception to the guard that rejects those files from
   every ordinary bind list.
 - `slopworld-debug` is the intentionally unsafe game-development bundle: it includes the
-  game/profile tree read-write, host process and device diagnostics, X11/Wayland/audio/GPU,
-  desktop application metadata, systemd/D-Bus, tmux, writable launcher/service-install paths,
-  and Rust/.NET/Python development caches.
+  game/profile tree and user-owned jukebox data read-write, host process and device diagnostics,
+  X11/Wayland/audio/GPU, desktop application metadata, systemd/D-Bus, tmux, writable
+  launcher/service-install paths, and Rust/.NET/Python development caches.
 - `GET /api/presets` returns the complete effective definition and `source` (`system`,
   `user` or `override`). Root-only `POST /api/presets/:kind/:name/copy`, `PUT` and
   `DELETE` edit user `sandbox`/`command` entries. Saves are validated and atomically
