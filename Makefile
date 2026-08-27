@@ -88,6 +88,8 @@ DOTNET      ?= dotnet
 PYTHON      ?= python3
 CSC         ?= csc
 CSC_API     ?= /usr/lib/mono/4.7.2-api
+PACKAGE_VERSION := $(shell sed -n 's/^version = "\([^"]*\)"/\1/p' slopd/Cargo.toml | head -n1)
+VERSION         := $(shell tools/version.sh "$(PACKAGE_VERSION)")
 CSC_SOURCES = $(shell find mod/Source/SlopWorld -type f -name '*.cs' -not -path '*/obj/*' -print | sort)
 CSC_REFS    = \
 	-r:"$(CSC_API)/mscorlib.dll" \
@@ -106,6 +108,7 @@ CSC_REFS    = \
 CSC_OPTIMIZE = $(if $(filter release,$(BUILD)),-optimize+,)
 CSC_WARNINGS ?=
 MOD_DLL      := mod/Assemblies/SlopWorld.dll
+MOD_ASSEMBLY_INFO := mod/Source/SlopWorld/obj/AssemblyInfo.cs
 MOD_INSTALL  = $(MODS)/SlopWorld
 MOD_DIRS     := About Defs Patches Sounds Textures Assemblies
 TEST_PROJECT := mod/Tests/SlopWorld.Tests.csproj
@@ -199,14 +202,20 @@ mac-sidecar-logs: mac-docker-check ## Show macOS sidecar logs; pass LOG_ARGS='--
 all: daemon mod   ## Build both halves
 
 daemon:            ## Build the daemon and the launcher
-	cd slopd && $(CARGO) build $(CARGOFLAGS)
+	cd slopd && SLOPWORLD_BUILD_VERSION="$(VERSION)" $(CARGO) build $(CARGOFLAGS)
 
 mod:               ## Build the mod against the game's assemblies
 	@test -f "$(CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(CSC_API)" >&2; exit 1; }
 	@test -f "$(MANAGED)/Assembly-CSharp.dll" || { echo "missing RimWorld assemblies under $(MANAGED)" >&2; exit 1; }
+	@mkdir -p "$(dir $(MOD_ASSEMBLY_INFO))"
+	@{ \
+		printf '%s\n' \
+			'using System.Reflection;' \
+			'[assembly: AssemblyInformationalVersion("$(VERSION)")]'; \
+	} > "$(MOD_ASSEMBLY_INFO)"
 	$(CSC) -nologo -noconfig -target:library -langversion:latest \
 		-out:"$(MOD_DLL)" $(CSC_OPTIMIZE) $(CSC_WARNINGS) \
-		$(CSC_REFS) $(CSC_SOURCES)
+		$(CSC_REFS) "$(MOD_ASSEMBLY_INFO)" $(CSC_SOURCES)
 
 ##
 

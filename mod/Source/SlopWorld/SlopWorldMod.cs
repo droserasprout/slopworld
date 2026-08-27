@@ -359,9 +359,22 @@ namespace SlopWorld
 
     public class SlopWorldMod : Mod
     {
-        public const string ClientVersion = "0.1.0";
+        public static readonly string ClientVersion = ReadClientVersion();
         public static SlopWorldMod Instance;
         public readonly SlopSettings settings;
+
+        static string ReadClientVersion()
+        {
+            object[] attributes = Assembly.GetExecutingAssembly().GetCustomAttributes(
+                typeof(AssemblyInformationalVersionAttribute), false);
+            if (attributes.Length > 0)
+            {
+                string version = ((AssemblyInformationalVersionAttribute)attributes[0])
+                    .InformationalVersion;
+                if (!string.IsNullOrEmpty(version)) return version;
+            }
+            return "0.1.0";
+        }
 
         public SlopWorldMod(ModContentPack content) : base(content)
         {

@@ -322,7 +322,7 @@ fn request_once(
         .build()
         .header("Authorization", format!("Bearer {key}"))
         .header("Content-Type", "application/json")
-        .header("User-Agent", concat!("slopd/", env!("CARGO_PKG_VERSION")))
+        .header("User-Agent", concat!("slopd/", env!("SLOPWORLD_VERSION")))
         .send_json(body)
         .map_err(|e| AttemptError::Retry(anyhow::anyhow!(e)))?;
     let status = res.status().as_u16();

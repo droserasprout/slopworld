@@ -15,6 +15,11 @@ the token before downloading.
 the release build. Suffixed targets are aliases. Both builds write
 `mod/Assemblies/SlopWorld.dll`, and `lint-mod` always rebuilds it in Release.
 
+Snapshot builds use an exact eight-digit date tag at `HEAD`, such as `20260827`, and embed
+the version `0.0.20260827` in the daemon and mod binaries. Untagged Git checkouts use the
+current UTC date and short `HEAD` hash, for example `0.0.20260827-3eb9902`. Source trees
+without Git retain the `0.1.0` fallback version.
+
 | Target | Does |
 | --- | --- |
 | `all` | Both halves. |
