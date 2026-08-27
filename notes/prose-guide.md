@@ -1,6 +1,6 @@
 # Prose guide
 
-These rules apply to source comments and `docslop/` notes. Prose is a liability:
+These rules apply to source comments and `notes/` notes. Prose is a liability:
 write it only when it preserves information that the code cannot show.
 
 ## Hard limits
@@ -22,7 +22,7 @@ write it only when it preserves information that the code cannot show.
 - An invariant that a safe edit must preserve.
 - An external, serialized, timing, or compatibility contract.
 - Counterintuitive framework or runtime behavior.
-- Cross-file architecture or operational facts that belong in `docslop/`.
+- Cross-file architecture or operational facts that belong in `notes/`.
 
 Put a fact beside the code whose safe modification depends on it. Put cross-file
 facts in a short, focused devnote and link to it from the relevant code when useful.

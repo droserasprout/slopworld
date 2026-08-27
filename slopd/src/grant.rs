@@ -1,5 +1,5 @@
 //! Scoped, ephemeral credentials: one agent allowed to watch or drive another, and never the
-//! host. See [docslop/agent-grants.md]. The token is no longer all-or-nothing - the mod's
+//! host. See [notes/agent-grants.md]. The token is no longer all-or-nothing - the mod's
 //! `[daemon] token` is the *root*, and any other live credential is a `Grant` the user minted,
 //! held in memory and gone when its grantor session goes.
 

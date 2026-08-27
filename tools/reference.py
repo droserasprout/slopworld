@@ -52,7 +52,7 @@ def tracked_files() -> list[Path]:
         ).splitlines()
     except (OSError, subprocess.CalledProcessError):
         names = []
-        for directory in (ROOT / "slopd", ROOT / "mod", ROOT / "docslop", ROOT / "docs"):
+        for directory in (ROOT / "slopd", ROOT / "mod", ROOT / "notes", ROOT / "docs"):
             names.extend(str(p.relative_to(ROOT)) for p in directory.rglob("*"))
         names.extend(["Makefile", "README.md"])
 
