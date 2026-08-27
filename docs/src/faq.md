@@ -1,62 +1,117 @@
 # FAQ
 
-Not covered by my other pages.
-
-[toc here]
-
 ## RimWorld
 
-## What builds are supported?
+### What builds are supported?
 
-You need a fresh 1.6 native Linux build of RimWorld. You can buy it from GOG (tested by the dev) or from any other store.
+A native Linux build of RimWorld 1.6. GOG is tested by the developer; Steam should
+work the same way. Set `RIMWORLD` to the game directory before building.
 
-## Can I play normal RimWorld after installing SlopWorld?
+### Can I play normal RimWorld after installing SlopWorld?
 
-You can and you should!
+Yes. SlopWorld uses a separate save-data folder (defaults to
+`~/.local/share/slopworld/profile`). The mod refuses to patch when the game is started
+without the launcher, so enabling it in a regular game has no effect. Back up your
+saves before using SlopWorld regardless.
 
-We make sure to not mess with your regular RimWorld installation:
+### Do I need DLCs?
 
-- SlopWorld uses a separate directory for saves and settings (defaults to X)
-- SlopWorld can only be run with the launcher. If you try to enable the mod in the regular game, it will refuse to run.
+SlopWorld uses only the core game assets. The launcher seeds `ModsConfig.xml` with all
+five expansions listed so the game does not complain, but none are required.
 
-But anyway, better back up your saves before using SlopWorld.
+## Setup
 
-## Do I need to buy DLCs, extension packs?
+### The launcher cannot find the game
 
-For SlopWorld: no, it only uses the core game assets. But if you play RimWorld, the game, I highly recommend trying the DLCs, especially Royalty.
+Set `RIMWORLD` to the directory containing `RimWorldLinux` (or `--game /path`). The
+default is `~/GOG Games/RimWorld/game`. For GOG installs managed by Heroic, use
+`make gogdl-install` to download the native Linux build.
 
-## Security
+### The mod loads but nothing happens
+
+The mod's refusal dialog means the game was started without the launcher. Run
+`slopworld` or `make run` instead of launching `RimWorldLinux` directly. The launcher
+writes a profile marker that the mod checks before patching.
+
+### Multiple instances
+
+The launcher holds a profile-keyed file lock. A second launch for the same profile
+is refused. A different profile (set with `--profile` or `SLOPWORLD_PROFILE`) may run
+beside the first.
+
+## Sandboxing and safety
 
 ### Is it safe?
 
-No. [link to sandboxing]
+No. SlopWorld gives more isolation than running agents unsandboxed on your desktop, but
+that is the extent of the guarantee. There is no seccomp filter or disk quota. Project
+directories are read-write, so agents can install git hooks or alter configuration.
 
-### How can I go yolo?
+**Back up your data before using SlopWorld.**
 
-- Codex: user command preset "codex --yolo"
-- Claude: semi-yolo by-default since [release].
+See the [Security model](reference/security.md) reference.
 
-TODO: yolo tab in settings to send Shift+Tab to fresh claude sessions (maybe it's in cli options?)
+### How do I give an agent full network access?
 
-## "AI policy"
+Set the agent's network to `host` in the agent editor. This shares the host's full
+network stack, including local services.
 
-### Is this project vibecode?
+### What are escape warnings?
 
-Yes. AI assistance is central to this project.
+A non-empty `escapes` field on a preset means that preset exposes a host capability
+such as Docker, D-Bus, X11, the SSH agent, or 1Password. The warning appears in the
+agent editor when the preset is selected. It marks a real capability, not cosmetic
+caution.
 
-### So it's gonna be abandoned soon?
+## Agents and sessions
 
-Maybe. But right now I'm dogfooding it hard. Stopped opening VSCode, as SlopWorld covers 95% of what I need for both agentic and manual coding.
+### How do I add a new agent CLI?
 
-I do this project for myself and add features and integrations on demand.
+Create a command preset with the CLI's launch command and a sandbox preset with its
+configuration paths. Place the TOML files in `~/.config/slopworld/presets/`. They
+appear in the Settings > Commands page without rebuilding. See
+[Configuring agents](guides/configuring-agents.md).
 
-It's the best way for me to do "agentic coding". Increase load.
+### What happens when I restart an agent?
 
-### What in this project is human-made?
+Restart kills the agent process and its sandbox, then starts a fresh process with the
+same configuration. Private state is preserved. The `pasta` network namespace is
+recreated. The terminal emulator is rebuilt from the new tmux pane.
 
-Not much, but it's honest work.
+### What is Reset Storage?
 
-- Babysitting clankers with love :3
-- "Soundtrack"
+Reset moves an agent's per-session private state to a 14-day trash directory and starts
+fresh. Use it for damaged or intentionally fresh tool state, not for network problems.
+
+### Can agents talk to each other?
+
+Through scoped grants and task mailboxes. A grant lets one agent watch or type into
+another agent's terminal. Task mailboxes let agents delegate structured work. See
+[Agent collaboration](guides/agent-collaboration.md).
+
+## Interface
+
+### Bare F-keys do nothing in the terminal
+
+The mod intercepts bare F-keys for navigation (F2-F6) and the palette (F1).
+Shift+F-key forwards the key to the agent. See
+[Keyboard shortcuts](reference/keyboard-shortcuts.md).
+
+### How do I copy text from the terminal?
+
+Select text with the mouse, then Ctrl+C copies it. When no text is selected, Ctrl+C
+sends SIGINT to the agent.
+
+## Performance
+
+### Eco mode
+
+Eco mode stops the game simulation and dims the display. The baked menu background
+replaces the live map. Enable it from Settings > Appearance or the command palette.
 
 ## Contributing
+
+### Where are the developer notes?
+
+In `notes/`, indexed at `notes/index.md`. They are internal; published documentation
+under `docs/` is authoritative. See [Contributing](reference/contributing.md).
