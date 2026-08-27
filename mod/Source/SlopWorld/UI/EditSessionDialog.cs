@@ -10,7 +10,7 @@ namespace SlopWorld
     // there is no directory field; network reach has an agent-level override here.
     public class EditSessionDialog : SlopWindow
     {
-        enum Tab { General, Sandbox, ResourceLimits, Breadcrumbs, Preview }
+        enum Tab { General, Mounts, Sandbox, ResourceLimits, Breadcrumbs, Preview }
 
         readonly bool _isNew;
         readonly SessionInfo _s;
@@ -20,6 +20,7 @@ namespace SlopWorld
         readonly SmoothScroll _breadcrumbScroll = new SmoothScroll();
         SmoothScroll _previewScroll = new SmoothScroll();
         readonly SmoothScroll _generalScroll = new SmoothScroll();
+        readonly SmoothScroll _mountsScroll = new SmoothScroll();
         readonly SmoothScroll _sandboxScroll = new SmoothScroll();
         readonly SmoothScroll _limitsScroll = new SmoothScroll();
         const float PresetsH = 240f;
@@ -78,6 +79,8 @@ namespace SlopWorld
                     Dns = existing.Dns.Copy(),
                     DnsOverride = existing.DnsOverride?.Copy(),
                     Limits = existing.Limits,
+                    Mounts = new List<MountEntry>(existing.Mounts
+                        .Select(m => new MountEntry { Project = m.Project, Mode = m.Mode })),
                     Agent = existing.Agent,
                     Autostart = existing.Autostart,
                     AutoResume = existing.AutoResume,
@@ -135,6 +138,9 @@ namespace SlopWorld
                     _generalScroll.End();
                     break;
                 }
+                case Tab.Mounts:
+                    DrawMounts(body);
+                    break;
                 case Tab.Sandbox:
                 {
                     var view = new Rect(0f, 0f, body.width - SlopWidgets.ScrollbarW,
@@ -178,6 +184,7 @@ namespace SlopWorld
         void DrawRail(Rect r) => SlopWidgets.DrawRail(r, new[]
         {
             ("General", Tab.General),
+            ("Mounts", Tab.Mounts),
             ("Sandbox", Tab.Sandbox),
             ("Resource limits", Tab.ResourceLimits),
             ("Breadcrumbs", Tab.Breadcrumbs),
@@ -232,6 +239,86 @@ namespace SlopWorld
             float used = l.CurHeight;
             l.End();
             return used + SlopWidgets.GapS;
+        }
+
+        void DrawMounts(Rect rect)
+        {
+            var projects = SessionHub.Instance.Projects;
+
+            GUI.color = SlopWidgets.Dim;
+            var hint = new Rect(rect.x, rect.y, rect.width, SlopWidgets.LineH);
+            SlopWidgets.RowLabel(hint,
+                "Mount other project directories into /mnt/<name>. The agent's own project is always mounted.");
+            GUI.color = Color.white;
+
+            float y = hint.yMax + SlopWidgets.GapS;
+
+            if (projects.Count == 0)
+            {
+                GUI.color = SlopWidgets.Dim;
+                SlopWidgets.RowLabel(new Rect(rect.x, y, rect.width, SlopWidgets.LineH),
+                    "No projects defined.");
+                GUI.color = Color.white;
+                return;
+            }
+
+            float rowH = SlopWidgets.RowH;
+            float listH = projects.Count * rowH;
+            var listRect = new Rect(rect.x, y, rect.width, Mathf.Min(listH + 8f, rect.yMax - y));
+            Slab.Box(listRect, SlopWidgets.Well, SlopWidgets.Edge);
+            var pad = listRect.ContractedBy(4f);
+            var inner = new Rect(0f, 0f, pad.width - SlopWidgets.ScrollbarW, listH);
+
+            _mountsScroll.Begin(pad, inner);
+
+            float ry = 0f;
+            const float btnW = 100f;
+            foreach (var p in projects.OrderBy(pr => pr.Name, System.StringComparer.OrdinalIgnoreCase))
+            {
+                var row = new Rect(0f, ry, inner.width, rowH);
+                ry += rowH;
+
+                bool isPrimary = p.Name == _s.Project;
+                var mount = _s.Mounts.FirstOrDefault(m => m.Project == p.Name);
+                MountMode mode = isPrimary
+                    ? (mount?.Mode ?? MountMode.Rw)
+                    : (mount?.Mode ?? MountMode.None);
+
+                float labelW = row.width - btnW - SlopWidgets.GapS;
+                GUI.color = isPrimary ? SlopWidgets.Lead : SlopWidgets.Name;
+                SlopWidgets.RowLabel(new Rect(row.x + SlopWidgets.GapS, row.y, labelW, row.height),
+                    isPrimary ? p.Name + "  (primary)" : p.Name);
+                GUI.color = Color.white;
+
+                var btnRect = new Rect(row.xMax - btnW, row.y, btnW, row.height);
+                if (SlopWidgets.Button(btnRect, MountEntry.ModeLabel(mode),
+                        isPrimary ? SlopWidgets.Btn.Default : SlopWidgets.Btn.Ghost))
+                    PickMountMode(p.Name, isPrimary);
+            }
+
+            _mountsScroll.End();
+        }
+
+        void PickMountMode(string project, bool isPrimary)
+        {
+            var options = new List<FloatMenuOption>();
+            if (!isPrimary)
+            {
+                options.Add(new FloatMenuOption(MountEntry.ModeLabel(MountMode.None),
+                    () => SetMount(project, MountMode.None)));
+            }
+            options.Add(new FloatMenuOption(MountEntry.ModeLabel(MountMode.Ro),
+                () => SetMount(project, MountMode.Ro)));
+            options.Add(new FloatMenuOption(MountEntry.ModeLabel(MountMode.Rw),
+                () => SetMount(project, MountMode.Rw)));
+            Find.WindowStack.Add(new SlopMenu(options));
+        }
+
+        void SetMount(string project, MountMode mode)
+        {
+            _s.Mounts.RemoveAll(m => m.Project == project);
+            if (mode != MountMode.None)
+                _s.Mounts.Add(new MountEntry { Project = project, Mode = mode });
         }
 
         // Reach and the extra sandbox presets this agent adds on top of its command's and

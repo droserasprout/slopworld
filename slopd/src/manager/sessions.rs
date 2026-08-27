@@ -693,6 +693,7 @@ impl Manager {
                     dns_override: l.cfg.dns.clone(),
                     limits: p.map(|p| cfg.limits_of(&l.cfg, p)).unwrap_or(l.cfg.limits),
                     limits_override: l.cfg.limits,
+                    mounts: l.cfg.mounts.clone(),
                     autostart: l.cfg.autostart,
                     auto_resume: l.cfg.auto_resume,
                     ephemeral: l.ephemeral,

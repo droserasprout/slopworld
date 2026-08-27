@@ -417,6 +417,7 @@ mod tests {
             dns_override: None,
             limits: Default::default(),
             limits_override: Default::default(),
+            mounts: Vec::new(),
             autostart: false,
             auto_resume: false,
             ephemeral: false,

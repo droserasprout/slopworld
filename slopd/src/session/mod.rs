@@ -743,6 +743,33 @@ fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
     }
     check_presets(&s.sandbox)?;
     check_breadcrumbs(cfg, &s.breadcrumbs)?;
+    check_mounts(cfg, s)?;
+    Ok(())
+}
+
+fn check_mounts(cfg: &Config, s: &SessionCfg) -> Result<()> {
+    for mount in &s.mounts {
+        if mount.project.trim().is_empty() {
+            bail!("session {} has a mount with an empty project name", s.name);
+        }
+        let Some(p) = cfg.project(&mount.project) else {
+            bail!(
+                "session {} mounts unknown project {:?}",
+                s.name,
+                mount.project
+            );
+        };
+        let dir = expand(&p.dir);
+        if !dir.is_empty() {
+            if let Some(what) = crate::sandbox::refused(&dir) {
+                bail!(
+                    "session {} cannot mount project {:?}: it reaches {what}",
+                    s.name,
+                    mount.project
+                );
+            }
+        }
+    }
     Ok(())
 }
 
@@ -1581,5 +1608,62 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
         let (capped, truncated) = read_action_output(&long[..]).await.unwrap();
         assert_eq!(capped.len(), super::FILE_ACTION_STREAM_LIMIT);
         assert!(truncated);
+    }
+
+    #[test]
+    fn check_mounts_rejects_unknown_projects() {
+        use crate::config::{Mount, MountMode};
+
+        let cfg = Config::parse(
+            r#"
+            [[project]]
+            name = "main"
+            dir = "/tmp"
+            "#,
+        )
+        .unwrap();
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "main".into(),
+            mounts: vec![Mount {
+                project: "missing".into(),
+                mode: MountMode::Ro,
+            }],
+            ..Default::default()
+        };
+        let err = super::check_mounts(&cfg, &s).unwrap_err().to_string();
+        assert!(err.contains("missing"), "{err}");
+    }
+
+    #[test]
+    fn mounts_round_trip_through_toml() {
+        use crate::config::Mount;
+
+        let cfg = Config::parse(
+            r#"
+            [[project]]
+            name = "main"
+            dir = "/tmp"
+
+            [[project]]
+            name = "lib"
+            dir = "/tmp"
+
+            [[session]]
+            name = "a"
+            project = "main"
+            state_id = "test-id"
+
+            [[session.mounts]]
+            project = "lib"
+            mode = "ro"
+            "#,
+        )
+        .unwrap();
+
+        let s = cfg.session("a").unwrap();
+        assert_eq!(s.mounts.len(), 1);
+        assert_eq!(s.mounts[0].project, "lib");
+        assert_eq!(s.mounts[0].mode, crate::config::MountMode::Ro);
     }
 }

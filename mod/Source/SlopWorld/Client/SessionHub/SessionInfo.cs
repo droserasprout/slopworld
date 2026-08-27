@@ -37,6 +37,7 @@ namespace SlopWorld
         public SessionLimits Limits;
         // The effective caps after project inheritance. Read-only here.
         public SessionLimits EffectiveLimits;
+        public List<MountEntry> Mounts = new List<MountEntry>();
         public bool Autostart;
         public bool AutoResume;
         // Read-only here: slopd is waiting to run or finish startup auto-resume. Keyboard input
@@ -115,6 +116,7 @@ namespace SlopWorld
             $"\"network\":{(NetworkOverride.HasValue ? JVal.Q(NetworkModeText.Name(NetworkOverride.Value)) : "null")}," +
             $"\"dns\":{(DnsOverride == null ? "null" : DnsOverride.ToJson())}," +
             $"\"limits\":{Limits.ToJson()}," +
+            $"\"mounts\":{MountEntry.ListToJson(Mounts)}," +
             $"\"autostart\":{JVal.B(Autostart)}," +
             $"\"auto_resume\":{JVal.B(AutoResume)}," +
             $"\"breadcrumb_yolo\":{JVal.B(BreadcrumbYolo)}}}";

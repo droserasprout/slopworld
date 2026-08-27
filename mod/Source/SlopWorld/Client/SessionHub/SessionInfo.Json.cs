@@ -29,6 +29,8 @@ namespace SlopWorld
                 ? null : DnsConfig.FromJson(j["dns_override"]),
             (s, j) => s.Limits = SessionLimits.FromJson(j["limits_override"]),
             (s, j) => s.EffectiveLimits = SessionLimits.FromJson(j["limits"]),
+            (s, j) => s.Mounts = j["mounts"].IsNull
+                ? new List<MountEntry>() : MountEntry.ListFromJson(j["mounts"]),
             (s, j) => s.Autostart = j["autostart"].AsBool(false),
             (s, j) => s.AutoResume = j["auto_resume"].AsBool(false),
             (s, j) => s.AutoResumePending = j["auto_resume_pending"].AsBool(false),

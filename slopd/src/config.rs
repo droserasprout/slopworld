@@ -289,6 +289,23 @@ pub enum NetworkMode {
     Host,
 }
 
+/// Read-only or read-write access for a project mount.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MountMode {
+    Ro,
+    #[default]
+    Rw,
+}
+
+/// An additional project directory mounted into the agent's sandbox at `/mnt/<project-name>`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Mount {
+    pub project: String,
+    #[serde(default)]
+    pub mode: MountMode,
+}
+
 /// How private or host-mode sandboxes resolve names. The implicit answer follows the daemon's
 /// current `/etc/resolv.conf`, including Docker's embedded resolver in slopcar. Explicit servers
 /// are an opt-in for machines or projects that deliberately do not use the system resolver.
@@ -493,6 +510,9 @@ pub struct SessionCfg {
     /// This agent's own resource caps, each overriding the project's for the same field.
     #[serde(default, skip_serializing_if = "Limits::is_empty")]
     pub limits: Limits,
+    /// Additional project directories mounted under `/mnt/<project-name>`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mounts: Vec<Mount>,
     #[serde(default)]
     pub autostart: bool,
     /// After a fresh process reaches its first settled prompt, select its latest conversation.
@@ -542,6 +562,7 @@ impl Default for SessionCfg {
             network: None,
             dns: None,
             limits: Limits::default(),
+            mounts: Vec::new(),
             autostart: false,
             auto_resume: false,
         }
