@@ -877,6 +877,7 @@ impl Manager {
             previous.cols,
             previous.rows,
             0,
+            0,
             frame,
             0,
         );
@@ -1016,15 +1017,19 @@ impl Manager {
             }
         }
 
-        let (grid, achieved, title) = {
+        let (grid, achieved, history, title) = {
             let mut e = emu.lock().ok()?;
             e.scroll_snapshot(off)
         };
         if achieved == 0 {
-            return self.screen(name).await;
+            let mut view = self.screen(name).await?;
+            view.request_id = request_id;
+            view.history = history;
+            return Some(view);
         }
         let frame = crate::emu::SessionEmu::frame_from_grid(grid, cols, rows, title);
-        let view = ScreenView::from_frame(name, seq, cols, rows, achieved, frame, request_id);
+        let view =
+            ScreenView::from_frame(name, seq, cols, rows, achieved, history, frame, request_id);
 
         if let Ok(mut c) = self.scroll_cache.lock() {
             c.insert(

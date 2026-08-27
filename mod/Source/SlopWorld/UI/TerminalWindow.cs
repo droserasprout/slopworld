@@ -96,6 +96,21 @@ namespace SlopWorld
                 _input.Handle(body);
             }
 
+            var live = hub.Screen(_name);
+            var style = TerminalFont.Style;
+            float cellH = TerminalFont.CellH;
+            bool historyInput = HistoryInputEnabled(live);
+            PrepareHistoryScroll(cellH);
+            if (historyInput)
+            {
+                _historyScroll.BeginInput(body, new Vector2(0f, _historyMax));
+                // This pane has no nested scroll owner. Spend the claimed packet before
+                // choosing a history window so the request and repaint both see this event's
+                // position instead of trailing the touchpad by one IMGUI pass.
+                _historyScroll.EndInput();
+            }
+
+            UpdateHistoryTarget(cellH, live);
             var buf = DisplayedScreen();
             if (buf == null)
             {
@@ -112,8 +127,11 @@ namespace SlopWorld
             }
 
             NegotiateSize(body, buf);
-            DrawScreen(body, buf);
-            DrawSelection(body, buf);
+            float shift = HistoryShift(buf, cellH);
+            _renderHistoryShift = shift;
+            DrawScreen(body, buf, shift);
+            DrawSelection(body, buf, shift);
+            DrawHistoryBar(body);
             return true;
         }
 

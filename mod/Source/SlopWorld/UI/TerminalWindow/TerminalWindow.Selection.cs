@@ -143,7 +143,8 @@ namespace SlopWorld
             float cw = DisplayCellW(), ch = TerminalFont.CellH;
             if (cw <= 0.01f || ch <= 0.01f) return Vector2Int.zero;
             int col = Mathf.FloorToInt((m.x - body.x) / cw);
-            int row = Mathf.FloorToInt((m.y - body.y) / ch);
+            int row = Mathf.FloorToInt(
+                (m.y - body.y - DisplayedHistoryShift(ch)) / ch);
             return new Vector2Int(col, row);
         }
 
@@ -183,8 +184,9 @@ namespace SlopWorld
         }
 
         // The clipboard errands, which never had a button anywhere. Nothing that ends an agent
-        // is here - a menu opened to copy a line is the wrong place to find it.
-        void OpenMenu(string url)
+        // is here - a menu opened to copy a line is the wrong place to find it. A Ctrl+RMB on a
+        // project-relative path adds the same file errands the sidebar offers.
+        void OpenMenu(string url, string path, int line)
         {
             var options = new List<FloatMenuOption>();
 
@@ -196,11 +198,25 @@ namespace SlopWorld
                 options.Add(new FloatMenuOption("Copy link", () => CopyText(url)));
             }
 
+            var info = SessionHub.Instance.Get(_name);
+            if (url == null && path != null && info != null && !string.IsNullOrEmpty(info.Project))
+            {
+                string project = info.Project;
+                string picked = path;
+                int pickedLine = line;
+                string name = Leaf(path);
+                options.Add(new FloatMenuOption("Focus", () => ResolvePath(project, picked,
+                    absolute => FilesView.FocusPath(project, absolute))));
+                options.Add(new FloatMenuOption("View", () => ResolvePath(project, picked,
+                    absolute => FilesView.ViewFile(project, absolute, "view-" + name))));
+                options.Add(new FloatMenuOption("Edit", () => ResolvePath(project, picked,
+                    absolute => FilesView.EditFile(project, absolute, "edit-" + name, pickedLine))));
+            }
+
             var copy = new FloatMenuOption("Copy", CopySelection);
             copy.Disabled = !_hasSel;
             options.Add(copy);
             options.Add(new FloatMenuOption("Paste", () => { JumpToLive(); PasteClipboard(); }));
-            var info = SessionHub.Instance.Get(_name);
             var breadcrumbs = AllBreadcrumbs();
             var breadcrumbMenu = new SlopSubmenu("Breadcrumbs",
                 () => BreadcrumbOptions(breadcrumbs));
@@ -216,6 +232,26 @@ namespace SlopWorld
                 }));
 
             OpenOverPane(new SlopMenu(options));
+        }
+
+        void ResolvePath(string project, string path, System.Action<string> action)
+        {
+            SessionHub.Instance.CurrentPath(_name, cwd =>
+            {
+                string absolute = FilesView.ResolveProjectPath(project, path, cwd);
+                if (absolute == null)
+                {
+                    SlopWidgets.Fail($"path is outside project: {path}");
+                    return;
+                }
+                action(absolute);
+            }, SlopWidgets.Fail);
+        }
+
+        static string Leaf(string path)
+        {
+            int slash = path.LastIndexOf('/');
+            return slash < 0 ? path : path.Substring(slash + 1);
         }
 
         static List<string> AllBreadcrumbs() => SessionHub.Instance.Shortcuts

@@ -40,18 +40,33 @@ namespace SlopWorld
 
         // Mouse-wheel scrollback: lines scrolled up from the live bottom.
         int _scrollOff;
-        // Leading-edge throttle: the first wheel event sends immediately, then the rest ride
-        // the display beat. `_wantedScrollOff` is the user's desired offset (updated by every
-        // wheel event), `_sentScrollOff` is what was last sent to the daemon. Responses are
-        // accepted only when they answer the latest request, so a stale reply cannot clamp the
-        // offset. History needs this cadence because returning to the live frame is otherwise a
-        // local operation and makes the opposite direction look faster.
+        // Leading-edge throttle: the first request sends immediately, then the rest ride the
+        // display beat. `_wantedScrollOff` is the newest prefetch target and `_sentScrollOff`
+        // is what was last sent. Request ids retain their own offsets until answered, so a
+        // delayed prefetch can populate the row cache without clamping a newer gesture.
         int _wantedScrollOff;
         int _sentScrollOff;
         float _nextScrollSend;
         bool _scrollPending;
         ulong _scrollRequestId;
         const float ScrollBeat = 1f / 60f;
+
+        // The daemon owns terminal history, but the visible position is local so a touchpad
+        // can move between snapshots without waiting for a websocket round trip.
+        const int MaxScrollLines = 10_000;
+        readonly SmoothScroll _historyScroll = new SmoothScroll();
+        bool _historyScrollReady;
+        bool _historyJumpPending;
+        int _historyJumpOff;
+        float _historyMax;
+        float _historyLastPixels;
+        float _renderHistoryShift;
+        int _historyTopOff = -1;
+        bool _historyViewReady;
+        readonly TerminalHistory _history = new TerminalHistory();
+        readonly Dictionary<ulong, int> _historyRequests = new Dictionary<ulong, int>();
+        // Stable fallback while the first prefetched window for a new position is in flight.
+        ScreenBuf _historyDisplayedFrame;
 
         // Drag selection, in cell coordinates of the drawn buffer.
         bool _dragging;
@@ -260,6 +275,15 @@ namespace SlopWorld
             _scrollPending = false;
             _nextScrollSend = 0f;
             _hasWheelDirection = false;
+            _historyScrollReady = false;
+            _historyJumpPending = false;
+            _renderHistoryShift = 0f;
+            _historyLastPixels = 0f;
+            _historyTopOff = -1;
+            _historyViewReady = false;
+            _history.Reset();
+            _historyRequests.Clear();
+            _historyDisplayedFrame = null;
             _selectionOff = 0;
             _lastLiveSeq = -1;
             ClearSelection();
@@ -378,19 +402,171 @@ namespace SlopWorld
             NoteLiveFrame(live);
             if (_scrollOff <= 0)
             {
+                _historyViewReady = false;
                 SyncSelectionOffset(0);
                 return live;
             }
 
             var sb = hub.ScrollScreen(_name);
-            // Follow the daemon's clamp so we can't run off the top of the history. Only the
-            // answer to the latest request is adopted: an older reply still in flight, or
-            // left over from before a reconnect, would drag the view backward.
-            if (sb != null && sb.ScrollRequestId == _scrollRequestId)
-                _scrollOff = Mathf.Min(_wantedScrollOff, sb.Off);
-            var displayed = sb ?? live;
+            if (sb != null)
+            {
+                _history.Add(sb, live, _scrollOff);
+                if (sb.History >= 0)
+                {
+                    _historyTopOff = sb.History;
+                    ClampHistoryTarget();
+                }
+            }
+            if (sb != null && _historyRequests.TryGetValue(sb.ScrollRequestId,
+                    out int requestedOff))
+            {
+                _historyRequests.Remove(sb.ScrollRequestId);
+                // Compare with this response's own request, not the gesture's newer target.
+                // Several prefetched windows may be in flight at once.
+                if (sb.History < 0 && sb.Off < requestedOff)
+                {
+                    _historyTopOff = sb.Off;
+                    ClampHistoryTarget();
+                }
+            }
+
+            float cellH = TerminalFont.CellH;
+            float lines = cellH > 0.01f ? HistoryOffsetPixels() / cellH : _scrollOff;
+            int anchor = Mathf.Max(0, Mathf.CeilToInt(lines - 0.0001f));
+            bool extra = Mathf.Abs(lines - Mathf.Round(lines)) > 0.0001f;
+            _historyViewReady = _history.TryView(anchor, extra, out var displayed);
+            displayed = displayed ?? _historyDisplayedFrame ?? live;
+            if (displayed != null) _historyDisplayedFrame = displayed;
             if (displayed != null) SyncSelectionOffset(displayed.Off);
             return displayed;
+        }
+
+        void ClampHistoryTarget()
+        {
+            if (_historyTopOff < 0 || _scrollOff <= _historyTopOff) return;
+            _scrollOff = _historyTopOff;
+            _historyJumpPending = true;
+            _historyJumpOff = _historyTopOff;
+        }
+
+        bool HistoryInputEnabled(ScreenBuf live) =>
+            _scrollOff > 0 || live == null ||
+            (!live.AppMouse && !live.AltScreen && !IsEditorSession());
+
+        void PrepareHistoryScroll(float cellH)
+        {
+            if (cellH <= 0.01f) return;
+
+            float max = cellH * MaxScrollLines;
+            if (!_historyScrollReady || Mathf.Abs(_historyMax - max) > 0.01f)
+            {
+                _historyMax = max;
+                _historyScroll.JumpTo(new Vector2(0f, max));
+                _historyScrollReady = true;
+            }
+
+            if (_historyJumpPending)
+            {
+                _historyScroll.JumpTo(new Vector2(0f,
+                    Mathf.Clamp(_historyMax - _historyJumpOff * cellH, 0f, _historyMax)));
+                _historyJumpPending = false;
+            }
+        }
+
+        float HistoryOffsetPixels() =>
+            Mathf.Clamp(_historyMax - _historyScroll.Position.y, 0f, _historyMax);
+
+        // Retain the fractional local position while fetching overlapping whole-line windows.
+        void UpdateHistoryTarget(float cellH, ScreenBuf live)
+        {
+            if (!_historyScrollReady || cellH <= 0.01f) return;
+
+            float pixels = HistoryOffsetPixels();
+            int target = pixels <= 0.01f
+                ? 0
+                : Mathf.Clamp(Mathf.CeilToInt(pixels / cellH - 0.0001f), 1, MaxScrollLines);
+            if (_historyTopOff >= 0 && target > _historyTopOff)
+            {
+                target = _historyTopOff;
+                JumpHistoryTo(target);
+            }
+
+            int previous = _scrollOff;
+            bool up = pixels > _historyLastPixels + 0.01f ? true
+                : pixels < _historyLastPixels - 0.01f ? false
+                : target >= previous;
+            _historyLastPixels = pixels;
+            bool fromLive = previous <= 0 && target > 0;
+            if (fromLive)
+            {
+                _history.Reset(live);
+                _historyRequests.Clear();
+                _historyDisplayedFrame = live?.Snapshot();
+                _historyTopOff = -1;
+            }
+
+            if (target == 0)
+            {
+                if (previous > 0)
+                {
+                    _history.Reset();
+                    _historyRequests.Clear();
+                    _historyDisplayedFrame = null;
+                    _historyTopOff = -1;
+                }
+                _scrollOff = 0;
+                return;
+            }
+
+            _scrollOff = target;
+
+            // Prefetch half a viewport in the gesture direction. Every daemon reply overlaps
+            // the preceding window, so TerminalHistory can serve all intervening line offsets
+            // locally instead of requiring one websocket round trip per row.
+            int rows = Mathf.Max(2, live?.Rows ?? (_rows > 0 ? _rows : 24));
+            int lookahead = Mathf.Max(2, rows / 2);
+            int probe = up ? Mathf.Min(MaxScrollLines, target + lookahead) : target;
+            if (_historyTopOff >= 0) probe = Mathf.Min(probe, _historyTopOff);
+            bool fractional = Mathf.Abs(pixels / cellH - Mathf.Round(pixels / cellH)) > 0.0001f;
+            int request = -1;
+            if (!_history.Covers(target, fractional))
+            {
+                // Near the live edge, one lookahead frame overlaps live and covers both jobs.
+                // A larger leap needs its exact viewport first; if that viewport is present but
+                // lacks the fractional edge row, fetch a newer bridge into the cached range.
+                if (fromLive && target <= lookahead) request = probe;
+                else if (!_history.Covers(target, false)) request = target;
+                else request = Mathf.Max(1, target - lookahead);
+            }
+            else if (!_history.Covers(probe, false))
+                request = probe;
+
+            if (request > 0 && !HistoryRequestPending(request))
+                QueueScroll(up, fromLive, request);
+        }
+
+        bool HistoryRequestPending(int off)
+        {
+            foreach (var requested in _historyRequests.Values)
+                if (requested == off) return true;
+            return _scrollPending && _wantedScrollOff == off;
+        }
+
+        float HistoryShift(ScreenBuf buf, float cellH)
+        {
+            if (buf == null || !_historyViewReady || !_historyScrollReady ||
+                cellH <= 0.01f) return 0f;
+            float shift = HistoryOffsetPixels() - buf.Off * cellH;
+            return Mathf.Abs(shift) < cellH ? shift : 0f;
+        }
+
+        float DisplayedHistoryShift(float cellH) =>
+            !_historyScrollReady || cellH <= 0.01f ? 0f : _renderHistoryShift;
+
+        void JumpHistoryTo(int off)
+        {
+            _historyJumpPending = true;
+            _historyJumpOff = Mathf.Max(0, off);
         }
 
         // The daemon's own limits, so what we ask for is always something it can answer with.
@@ -455,12 +631,13 @@ namespace SlopWorld
             if (!_scrollPending) return;
             _scrollPending = false;
 
-            if (_scrollOff <= 0) return;
+            if (_wantedScrollOff <= 0) return;
 
             _sentScrollOff = _wantedScrollOff;
             _nextScrollSend = Time.realtimeSinceStartup + ScrollBeat;
 
             ulong id = ++_scrollRequestId;
+            _historyRequests[id] = _sentScrollOff;
             SessionHub.Instance.RequestScroll(_name, _sentScrollOff, id);
         }
 

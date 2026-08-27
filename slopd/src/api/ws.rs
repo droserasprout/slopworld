@@ -512,6 +512,7 @@ mod tests {
             cx: 0,
             cy: 0,
             off: 0,
+            history: 0,
             cursor_shape: 0,
             cursor_blink: false,
             app_mouse: false,

@@ -248,6 +248,20 @@ pub(super) async fn one(
         .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such session: {name}")))
 }
 
+pub(super) async fn cwd(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    Path(name): Path<String>,
+) -> ApiResult {
+    guard(&m, &cap, &name, Level::Ro).await?;
+    let path = m
+        .tmux
+        .current_path(&name)
+        .await
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such session: {name}")))?;
+    Ok(Json(json!({ "path": path })))
+}
+
 pub(super) async fn create(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,

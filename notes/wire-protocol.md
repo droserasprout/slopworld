@@ -7,6 +7,9 @@ Server events are `capabilities`, `sessions` (state/title/bell), `screen`, `usag
 changed. Capabilities describe runtime integration such as native audio, per-agent limits, and
 whether host networking means the sidecar rather than macOS.
 Clients send `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste` and `audio`.
+Scrolled `screen` replies carry `off`, the echoed `request_id`, and `history`, the emulator's
+current total scrollback rows. Live broadcasts leave `history` at zero; the mod uses the value
+from a scroll reply to size its terminal position indicator.
 
 `audio` always includes `volume`; `selection` is a station/stream key, local file,
 `null` to stop, or absent for volume-only changes. Unknown audio fields are rejected. Audio
@@ -32,7 +35,7 @@ Project JSON also carries optional tagged `dns` (`{"mode":"resolved"}` or
 override. A missing DNS setting follows the daemon's current system resolver.
 
 Query routes are `/api/health`, `/api/capabilities`, `/api/usage`, `/api/presets`, `/api/jukebox`,
-`/api/browse`, `/api/read`, `/api/image`, `/api/open-apps`, `/api/search`, `/api/git`
+`/api/sessions/:name/cwd`, `/api/browse`, `/api/read`, `/api/image`, `/api/open-apps`, `/api/search`, `/api/git`
 and `/api/audio`. `/api/health` returns daemon version, hostname and runtime health metadata.
 `/api/read` is root-only and returns bounded UTF-8 file text for native
 Markdown previews. `/api/image` is root-only and returns bounded base64 image bytes for local

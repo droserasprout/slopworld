@@ -11,8 +11,13 @@ namespace SlopWorld
     // shown is FilesView's call, since it alone knows which project roots the tree can reach.
     public static class PathScan
     {
-        public static string At(string text, int column)
+        public static string At(string text, int column) => At(text, column, out _);
+
+        // Returns the source line when the path carries a `:line` or `:line:column`
+        // suffix. A zero line means that no usable source line was present.
+        public static string At(string text, int column, out int line)
         {
+            line = 0;
             if (string.IsNullOrEmpty(text) || column < 0 || column >= text.Length)
                 return null;
 
@@ -28,6 +33,7 @@ namespace SlopWorld
             {
                 int colon = text.LastIndexOf(':', location - 1, location - start);
                 if (colon < start || !Digits(text, colon + 1, location)) break;
+                line = Number(text, colon + 1, location);
                 location = colon;
             }
             if (location < end) end = location;
@@ -50,6 +56,41 @@ namespace SlopWorld
             return path;
         }
 
+        // Resolve a diagnostic against the terminal cwd, then require the result to remain
+        // below the configured project root. The viewer runs from the project root, so it
+        // needs this absolute form even when the terminal printed a relative path.
+        public static string ResolveProjectPath(string root, string cwd, string path)
+        {
+            if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(path)) return null;
+            try
+            {
+                char separator = System.IO.Path.DirectorySeparatorChar;
+                string rootPath = System.IO.Path.GetFullPath(NormalizeSeparators(root))
+                    .TrimEnd(separator);
+                if (rootPath.Length == 0) rootPath = separator.ToString();
+                string basePath = string.IsNullOrEmpty(cwd) ? rootPath :
+                    System.IO.Path.GetFullPath(NormalizeSeparators(cwd));
+                string absolute = System.IO.Path.IsPathRooted(path)
+                    ? System.IO.Path.GetFullPath(NormalizeSeparators(path))
+                    : System.IO.Path.GetFullPath(System.IO.Path.Combine(basePath,
+                        NormalizeSeparators(path)));
+                string prefix = rootPath == separator.ToString()
+                    ? rootPath : rootPath + separator;
+                StringComparison comparison = separator == '\\'
+                    ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+                if (absolute == rootPath || !absolute.StartsWith(prefix, comparison)) return null;
+                return absolute.Replace(separator, '/');
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        static string NormalizeSeparators(string path) =>
+            (path ?? "").Replace('/', System.IO.Path.DirectorySeparatorChar)
+                .Replace('\\', System.IO.Path.DirectorySeparatorChar);
+
         static bool Boundary(char c) => char.IsWhiteSpace(c) || c == '"' || c == '`' ||
             c == '<' || c == '>' || c == '|' || c == '=';
 
@@ -62,6 +103,18 @@ namespace SlopWorld
         {
             int dot = path.LastIndexOf('.');
             return dot >= 0 && dot + 1 < path.Length;
+        }
+
+        static int Number(string text, int start, int end)
+        {
+            int value = 0;
+            for (int i = start; i < end; i++)
+            {
+                int digit = text[i] - '0';
+                if (value > (int.MaxValue - digit) / 10) return 0;
+                value = value * 10 + digit;
+            }
+            return value;
         }
 
         static bool Digits(string text, int start, int end)

@@ -120,6 +120,9 @@ namespace SlopWorld
 
         public void Refresh() => _sessions.Refresh();
 
+        public void CurrentPath(string name, Action<string> done, Action<string> fail = null) =>
+            _sessions.CurrentPath(name, done, fail);
+
         public void Run(string project, string command, string label,
                         Action<string> started, Action<string> fail = null,
                         bool shell = true, string text = "", bool host = false, bool temp = false,

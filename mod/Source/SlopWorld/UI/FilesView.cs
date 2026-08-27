@@ -257,6 +257,17 @@ namespace SlopWorld
             return abs.Substring(root.Length + 1);
         }
 
+        // Diagnostics printed by a shell are relative to that shell's cwd. Resolve them to an
+        // absolute path for Viewer/Pager, while refusing to let a path escape the project tree.
+        // `cwd` is supplied by tmux; null keeps the project-root behavior for other callers.
+        public static string ResolveProjectPath(string project, string path, string cwd = null)
+        {
+            var info = SessionHub.Instance.Project(project);
+            if (info == null || string.IsNullOrEmpty(info.Dir) || string.IsNullOrEmpty(path))
+                return null;
+            return PathScan.ResolveProjectPath(info.Dir, cwd, path);
+        }
+
         static List<string> NormalizeRelative(string path)
         {
             var parts = new List<string>();

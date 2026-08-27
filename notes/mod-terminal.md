@@ -38,7 +38,14 @@ layout the window draws no header: `TopBar` owns the name, state and buttons.
 `MapKey` uses tmux names (`C-Left`, `M-Up`, `S-Right`). Shift is sent only on the alt
 screen: editors use shifted arrows and page keys, while zsh/bash treat those sequences as
 undefined ([zsh-terminal](zsh-terminal.md)). On the primary screen, Shift+PgUp/PgDn move
-the mod's own scrollback by one viewport.
+the mod's own scrollback by one viewport. Mouse-wheel scrollback uses `SmoothScroll`'s
+fractional local position. `TerminalHistory` indexes the overlapping rows in daemon viewport
+snapshots by their offset and assembles a local view with one overscan row; requests prefetch
+half a viewport in the gesture direction, so skipped integer offsets remain local. The daemon's
+10,000-line history limit is the initial coordinate range; reaching the real top clamps it to
+the offset the daemon achieved. While scrolled back, a three-unit overlay bar at the pane's
+right edge shows the current offset against the daemon-reported history extent without changing
+the negotiated terminal width.
 
 These combos are hardcoded rather than `KeyBindingDef`s, so `KeyBindingsPage` does not
 list them and they cannot be rebound: Alt+Z/Alt+X and Alt+comma/Alt+period walk the terminal

@@ -219,6 +219,7 @@ namespace SlopWorld
             bool fromLive = _scrollOff <= 0;
             if (up) _scrollOff += page;
             else _scrollOff = Mathf.Max(0, _scrollOff - page);
+            JumpHistoryTo(_scrollOff);
             QueueScroll(up, fromLive);
             e.Use();
             return true;
@@ -434,10 +435,9 @@ namespace SlopWorld
             // into the live app while the user is reading historical output.
             if (_scrollOff > 0)
             {
-                if (up) _scrollOff += step;
-                else _scrollOff = Mathf.Max(0, _scrollOff - step);
-                QueueScroll(up);
-                e.Use();
+                // SmoothScroll owns the event after this handler returns. It advances the
+                // local pixel position immediately and requests the next integer snapshot
+                // from the draw pass, so history never waits on a wheel round trip.
                 return;
             }
 
@@ -471,11 +471,9 @@ namespace SlopWorld
             }
 
             // Walk our own scrollback view.
-            bool fromLive = _scrollOff <= 0;
-            if (up) _scrollOff += step;
-            else _scrollOff = Mathf.Max(0, _scrollOff - step);
-            QueueScroll(up, fromLive);
-            e.Use();
+            // SmoothScroll owns the event after this handler returns. Its fractional X11
+            // sample preserves touchpad movement; the draw pass converts it to history
+            // snapshot requests without blocking the local motion.
         }
 
         bool IsEditorSession()
@@ -495,10 +493,10 @@ namespace SlopWorld
         bool _lastWheelUp;
         bool _hasWheelDirection;
 
-        void QueueScroll(bool up, bool fromLive = false)
+        void QueueScroll(bool up, bool fromLive = false, int requestOff = -1)
         {
             float now = Time.realtimeSinceStartup;
-            _wantedScrollOff = _scrollOff;
+            _wantedScrollOff = requestOff >= 0 ? requestOff : _scrollOff;
             _scrollPending = true;
             bool fresh = fromLive || !_hasWheelDirection || up != _lastWheelUp ||
                 now >= _nextScrollSend;
@@ -513,7 +511,19 @@ namespace SlopWorld
             // The pane's own menu is reachable in every mode, including a full-screen TUI.
             if (IsContextMenuEvent(e))
             {
-                if (IsMouseDownInside(body, e)) OpenMenu(LinkUnder(body, e.mousePosition));
+                if (IsMouseDownInside(body, e))
+                {
+                    string url = LinkUnder(body, e.mousePosition);
+                    int line = 0;
+                    string menuPath = ControlHeld(e)
+                        ? PathUnder(body, e.mousePosition, out line) : null;
+                    if (url != null || !IsRelativePath(menuPath))
+                    {
+                        menuPath = null;
+                        line = 0;
+                    }
+                    OpenMenu(url, menuPath, line);
+                }
                 e.Use();
                 return;
             }
@@ -581,9 +591,12 @@ namespace SlopWorld
             path = null;
             if (MouseType(e) != EventType.MouseDown || e.button != 0 || !ControlHeld(e) ||
                 !body.Contains(e.mousePosition)) return false;
-            path = PathUnder(body, e.mousePosition);
+            int line;
+            path = PathUnder(body, e.mousePosition, out line);
             return path != null;
         }
+
+        static bool IsRelativePath(string path) => !string.IsNullOrEmpty(path) && path[0] != '/';
 
         static bool IsWordSelection(Rect body, Event e) =>
             MouseType(e) == EventType.MouseDown && e.button == 0 && e.clickCount >= 2 &&
@@ -681,6 +694,7 @@ namespace SlopWorld
             _scrollPending = false;
             _nextScrollSend = 0f;
             _hasWheelDirection = false;
+            JumpHistoryTo(0);
             ResetCursorBlink();
         }
 

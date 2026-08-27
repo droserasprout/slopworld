@@ -10,19 +10,34 @@ namespace SlopWorld
     // Mechanical split: TerminalWindow.Rendering methods.
     public partial class TerminalWindow
     {
-        void DrawScreen(Rect body, ScreenBuf buf)
+        void DrawScreen(Rect body, ScreenBuf buf, float shift)
         {
             EnsureRuns(buf);
             SyncSnap();
             float cw = DisplayCellW();
             float ch = TerminalFont.CellH;
 
-            // The runs go down only on the frames they change; see Blit.
-            if (!Blit(body, buf, cw, ch)) Paint(body, buf, cw, ch);
+            if (Mathf.Abs(shift) <= 0.01f)
+            {
+                // The runs go down only on the frames they change; see Blit.
+                if (!Blit(body, buf, cw, ch)) Paint(body, buf, cw, ch);
+            }
+            else if (Event.current.type == EventType.Repaint)
+            {
+                // History views carry one overscan row assembled from overlapping daemon
+                // snapshots, so translating the local fractional position never exposes the
+                // pane background at either edge.
+                GUI.BeginGroup(body);
+                SyncSnap();
+                var localBody = new Rect(0f, 0f, body.width, body.height);
+                Paint(localBody, buf, cw, ch, shift);
+                GUI.EndGroup();
+            }
 
             // Not cached: the pointer moves over a still pane, and the cursor blinks under one.
+            SyncSnap();
             TrackHover(body, buf);
-            DrawHover(body);
+            DrawHover(body, shift);
             DrawCursor(body, buf, cw, ch);
 
             GUI.color = Color.white;
@@ -61,7 +76,7 @@ namespace SlopWorld
         // and this returns at once.
         void DrawHint() => Find.CurrentMap?.GetComponent<CoreTip>()?.DrawHint();
 
-        void DrawSelection(Rect body, ScreenBuf buf)
+        void DrawSelection(Rect body, ScreenBuf buf, float shift)
         {
             // Not `_selA == _selB`: a one-character word is a selection, and drawn.
             if (!_hasSel) return;
@@ -79,14 +94,18 @@ namespace SlopWorld
                 int endCol = row == b.y ? b.x + 1 : lineLen;
                 endCol = Mathf.Clamp(endCol, startCol, lineLen);
 
-                float y = body.y + row * ch;
+                float y = body.y + shift + row * ch;
+                if (y + ch < body.y) continue;
                 if (y > body.yMax) break;
                 if (endCol <= startCol) continue;
 
                 float l = SnapX(body.x + startCol * cw);
                 float r = SnapX(body.x + endCol * cw);
                 float t = SnapY(y);
-                float bot = SnapY(body.y + (row + 1) * ch);
+                float bot = SnapY(body.y + shift + (row + 1) * ch);
+                if (bot <= body.y || t >= body.yMax) continue;
+                t = Mathf.Max(t, body.y);
+                bot = Mathf.Min(bot, body.yMax);
                 Widgets.DrawBoxSolid(new Rect(l, t, r - l, bot - t),
                     TerminalTheme.Current.Selection);
             }
@@ -103,20 +122,49 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
         }
 
+        // A quiet position cue rather than another terminal control. The wheel/touchpad owns
+        // history movement; this stays narrow enough to sit over the last cell without taking
+        // a column from the negotiated terminal shape.
+        void DrawHistoryBar(Rect body)
+        {
+            if (_scrollOff <= 0 || Event.current.type != EventType.Repaint) return;
+
+            float ch = TerminalFont.CellH;
+            int rows = Mathf.Max(1, _rows);
+            float off = ch > 0.01f ? HistoryOffsetPixels() / ch : _scrollOff;
+            float history = _historyTopOff >= 0
+                ? Mathf.Max(1f, _historyTopOff)
+                : Mathf.Max(off + rows, Mathf.Max(_sentScrollOff, rows));
+
+            const float pad = 5f;
+            var track = new Rect(body.xMax - 5f, body.y + pad, 3f,
+                Mathf.Max(1f, body.height - pad * 2f));
+            float thumbH = Mathf.Clamp(
+                track.height * rows / (history + rows), 10f, track.height);
+            float travel = track.height - thumbH;
+            float fromTop = 1f - Mathf.Clamp01(off / history);
+            var rail = new Rect(track.x + 1f, track.y, 1f, track.height);
+            var thumb = new Rect(track.x, track.y + travel * fromTop, track.width, thumbH);
+
+            Widgets.DrawBoxSolid(rail, SlopWidgets.ScrollTrough);
+            Widgets.DrawBoxSolid(thumb, SlopWidgets.ScrollThumb);
+        }
+
         // A pure function of the buffer, the rect and the font, which is what makes Blit's
         // cache possible.
-        void Paint(Rect body, ScreenBuf buf, float cw, float ch)
+        void Paint(Rect body, ScreenBuf buf, float cw, float ch, float yShift = 0f)
         {
             var style = TerminalFont.Style;
 
             for (int row = 0; row < buf.Runs.Length; row++)
             {
-                float y = body.y + row * ch;
+                float y = body.y + yShift + row * ch;
+                if (y + ch < body.y) continue;
                 if (y > body.yMax) break;
 
                 // Snapped so it meets its neighbours' on a pixel rather than near one; see SnapY.
                 float bgTop = SnapY(y);
-                float bgBot = SnapY(body.y + (row + 1) * ch);
+                float bgBot = SnapY(y + ch);
 
                 foreach (var run in buf.Runs[row])
                 {
@@ -454,8 +502,9 @@ namespace SlopWorld
             return LinkAt(body, buf, m);
         }
 
-        string PathUnder(Rect body, Vector2 m)
+        string PathUnder(Rect body, Vector2 m, out int line)
         {
+            line = 0;
             var buf = DisplayedBuf();
             if (buf == null || buf.Lines == null || !body.Contains(m)) return null;
             EnsureRuns(buf);
@@ -463,10 +512,10 @@ namespace SlopWorld
             if (cell.y < 0 || cell.y >= buf.Runs.Length) return null;
             // A column-indexed line so cell.x (a screen column) points at the right char.
             return PathScan.At(
-                TerminalColumns.Line(TerminalColumns.Cells(buf.Runs[cell.y])), cell.x);
+                TerminalColumns.Line(TerminalColumns.Cells(buf.Runs[cell.y])), cell.x, out line);
         }
 
-        void DrawHover(Rect body)
+        void DrawHover(Rect body, float shift)
         {
             if (_hoverUrl == null) return;
 
@@ -478,9 +527,11 @@ namespace SlopWorld
             {
                 float l = SnapX(body.x + span.C0 * cw);
                 float r = SnapX(body.x + span.C1 * cw);
-                float t = SnapY(body.y + span.Row * ch);
-                float b = SnapY(body.y + (span.Row + 1) * ch);
-                if (b > body.yMax) continue;
+                float t = SnapY(body.y + shift + span.Row * ch);
+                float b = SnapY(body.y + shift + (span.Row + 1) * ch);
+                if (b <= body.y || t >= body.yMax) continue;
+                t = Mathf.Max(t, body.y);
+                b = Mathf.Min(b, body.yMax);
 
                 // Over the text: the only place anything can go once the pane has been blitted.
                 Widgets.DrawBoxSolid(new Rect(l, t, r - l, b - t), wash);

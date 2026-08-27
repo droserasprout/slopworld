@@ -65,6 +65,8 @@ pub struct ScreenView {
     #[serde(default)]
     pub off: u32,
     #[serde(default)]
+    pub history: u32,
+    #[serde(default)]
     pub cursor_shape: u8,
     #[serde(default)]
     pub cursor_blink: bool,
@@ -91,6 +93,7 @@ impl ScreenView {
         cols: u16,
         rows: u16,
         off: u32,
+        history: u32,
         frame: Frame,
         request_id: u64,
     ) -> Self {
@@ -102,6 +105,7 @@ impl ScreenView {
             cx: frame.cx,
             cy: frame.cy,
             off,
+            history,
             request_id,
             cursor_shape: frame.cursor_shape,
             cursor_blink: frame.cursor_blink,
@@ -133,10 +137,11 @@ mod tests {
             bell: true,
         };
 
-        let view = ScreenView::from_frame("agent", 11, 120, 40, 9, frame, 23);
+        let view = ScreenView::from_frame("agent", 11, 120, 40, 9, 91, frame, 23);
         assert_eq!(view.name, "agent");
         assert_eq!((view.seq, view.cols, view.rows), (11, 120, 40));
         assert_eq!((view.cx, view.cy, view.off), (7, 3, 9));
+        assert_eq!(view.history, 91);
         assert_eq!(view.request_id, 23);
         assert_eq!(view.cursor_shape, 2);
         assert!(view.cursor_blink && view.app_mouse && view.app_drag && view.alt_screen);

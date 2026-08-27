@@ -37,6 +37,7 @@
     <Compile Include="../Source/SlopWorld/UI/PathScan.cs" Link="Source/UI/PathScan.cs" />
     <Compile Include="../Source/SlopWorld/UI/Sgr.cs" Link="Source/UI/Sgr.cs" />
     <Compile Include="../Source/SlopWorld/UI/TerminalColumns.cs" Link="Source/UI/TerminalColumns.cs" />
+    <Compile Include="../Source/SlopWorld/UI/TerminalHistory.cs" Link="Source/UI/TerminalHistory.cs" />
     <Compile Include="../Source/SlopWorld/UI/PagerCommands.cs" Link="Source/UI/PagerCommands.cs" />
     <Compile Include="../Source/SlopWorld/Sim/SongRecognizer.cs" Link="Source/Sim/SongRecognizer.cs" />
     <Compile Include="../Source/SlopWorld/UI/JukeboxHistory.cs" Link="Source/UI/JukeboxHistory.cs" />
