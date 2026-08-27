@@ -3,7 +3,7 @@
 
 This project is a RimWorld mod (C#, Harmony) and `slopd` daemon (Rust).
 
-Keep this file concise, but update its links when the notes index changes. Keep short notes in separate files in `notes/` and read/update them when needed.
+Keep this file concise. Update its curated links when notes are added, moved, or renamed; keep the complete list in `notes/index.md`. Keep short notes in separate files in `notes/` and read/update them when needed.
 
 Essentials:
 
