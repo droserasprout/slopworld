@@ -22,7 +22,7 @@ namespace SlopWorld.Tests
             };
             screen.FromJson(JVal.Parse(
                 "{\"seq\":7,\"cols\":120,\"rows\":40,\"cx\":3,\"cy\":4," +
-                "\"off\":5,\"request_id\":42,\"cursor_shape\":2," +
+                "\"off\":5,\"history\":91,\"request_id\":42,\"cursor_shape\":2," +
                 "\"cursor_blink\":false,\"app_mouse\":true,\"app_drag\":true," +
                 "\"alt_screen\":true,\"title\":\"vim\",\"lines\":[\"one\",\"two\"]}"));
 
@@ -32,6 +32,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal(3, screen.Cx, "cursor x");
             AssertEx.Equal(4, screen.Cy, "cursor y");
             AssertEx.Equal(5, screen.Off, "scroll offset");
+            AssertEx.Equal(91, screen.History, "history extent");
             AssertEx.Equal(42UL, screen.ScrollRequestId, "scroll request id");
             AssertEx.Equal(2, screen.CursorShape, "cursor shape");
             AssertEx.False(screen.CursorBlink, "cursor blink");
@@ -54,6 +55,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal(0, screen.Cx, "cursor x default");
             AssertEx.Equal(0, screen.Cy, "cursor y default");
             AssertEx.Equal(0, screen.Off, "scroll offset default");
+            AssertEx.Equal(-1, screen.History, "history extent default");
             AssertEx.Equal(0UL, screen.ScrollRequestId, "request id default");
             AssertEx.Equal(0, screen.CursorShape, "cursor shape default");
             AssertEx.True(screen.CursorBlink, "cursor blink default");

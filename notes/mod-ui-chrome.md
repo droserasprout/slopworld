@@ -26,6 +26,9 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   jumps a selected row into view. Brief frame stalls preserve cumulative touchpad movement;
   a logical wheel packet is suppressed only after a precise sample was claimed, or when it
   is the matching delayed packet from the preceding frame. Vertical scroll only.
+- `TerminalWindow` uses `SmoothScroll.BeginInput`/`EndInput` without a translated GUI group.
+  It spends the claimed input before choosing a frame, then `TerminalHistory` assembles the
+  fractional viewport from overlapping daemon snapshots and an overscan row.
 - `ContentTreeView` keeps complete row geometry for scrolling but paints and hit-tests only
   rows near the viewport; scroll-event passes reuse the measured height, update the offset and
   skip repainting the tree.

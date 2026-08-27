@@ -81,7 +81,19 @@ namespace SlopWorld
         {
             string name = screen["name"].AsString();
             int off = screen["off"].AsInt(0);
-            var store = off > 0 ? _scrolls : _screens;
+            bool historyReply = off > 0 || screen["request_id"].AsLong(0) > 0;
+            if (historyReply)
+            {
+                // History responses are viewport snapshots. Keep each response immutable so
+                // TerminalHistory can retain and overlap its rows. A request clamped to empty history has
+                // off=0 but keeps its request id, and must not overwrite the streamed live frame.
+                var history = new ScreenBuf();
+                history.FromJson(screen);
+                _scrolls[name] = history;
+                return;
+            }
+
+            var store = _screens;
             if (!store.TryGetValue(name, out var buf))
                 store[name] = buf = new ScreenBuf();
             buf.FromJson(screen);
@@ -122,6 +134,12 @@ namespace SlopWorld
                 done?.Invoke();
             }, fail);
         }
+
+        // A terminal path is relative to the shell's current directory, not necessarily the
+        // project's configured root. Ask tmux at action time so a recent `cd` is respected.
+        public void CurrentPath(string name, Action<string> done, Action<string> fail = null) =>
+            SlopClient.Get($"/api/sessions/{HubWire.Esc(name)}/cwd",
+                j => done?.Invoke(j["path"].AsString()), fail);
 
         // Run an ephemeral shell/prompt without creating a shortcut; refresh Sessions before
         // the callback so a newly opened pane is visible next frame.

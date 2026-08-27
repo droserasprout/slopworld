@@ -8,6 +8,8 @@ namespace SlopWorld
         public int Cols, Rows, Cx, Cy;
         // Lines scrolled up into scrollback; 0 for a live bottom frame.
         public int Off;
+        // Total available history rows; -1 when talking to a daemon predating this field.
+        public int History = -1;
         // Rows the live frame moved upward since the previous live frame. Scrollback frames
         // leave this at zero; the terminal uses it to keep a selection attached to output that
         // just scrolled off the bottom.
@@ -31,5 +33,33 @@ namespace SlopWorld
         public List<SgrRun>[] Runs;
         // Which palette the runs were parsed against; a scheme change re-parses them.
         public int RunsRev = -1;
+
+        // The history row cache needs a stable live frame while the streamed buffer continues
+        // to receive output. Keep parsed runs shared; FromJson replaces them only on the mutable
+        // source buffer.
+        public ScreenBuf Snapshot()
+        {
+            return new ScreenBuf
+            {
+                Seq = Seq,
+                Cols = Cols,
+                Rows = Rows,
+                Cx = Cx,
+                Cy = Cy,
+                Off = Off,
+                History = History,
+                LiveShift = LiveShift,
+                ScrollRequestId = ScrollRequestId,
+                CursorShape = CursorShape,
+                CursorBlink = CursorBlink,
+                AppMouse = AppMouse,
+                AppDrag = AppDrag,
+                AltScreen = AltScreen,
+                Title = Title,
+                Lines = Lines == null ? new string[0] : (string[])Lines.Clone(),
+                Runs = Runs,
+                RunsRev = RunsRev,
+            };
+        }
     }
 }

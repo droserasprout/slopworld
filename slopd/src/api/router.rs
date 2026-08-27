@@ -20,6 +20,7 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route("/api/health", get(health))
         .route("/api/sessions", get(list).post(create))
         .route("/api/sessions/:name", get(one).put(update).delete(destroy))
+        .route("/api/sessions/:name/cwd", get(cwd))
         .route("/api/sessions/:name/start", post(start))
         .route("/api/sessions/:name/stop", post(stop))
         .route("/api/sessions/:name/restart", post(restart))

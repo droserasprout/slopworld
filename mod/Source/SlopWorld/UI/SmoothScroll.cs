@@ -56,15 +56,7 @@ namespace SlopWorld
                 Mathf.Max(0f, view.width - outer.width),
                 Mathf.Max(0f, view.height - outer.height));
 
-            // Content can shrink under a position that was valid on the previous frame.
-            _pos.x = Mathf.Clamp(_pos.x, 0f, max.x);
-            _pos.y = Mathf.Clamp(_pos.y, 0f, max.y);
-
-            ClaimPrecise(outer, max);
-            ClaimWheel(outer, max);
-
-            _outer = outer;
-            _max = max;
+            BeginInput(outer, max);
             _bar = showScrollbars;
 
             // Do the clip and translation ourselves. Unity's scroll view processes wheel
@@ -75,14 +67,36 @@ namespace SlopWorld
             GUI.BeginGroup(new Rect(view.x - _pos.x, view.y - _pos.y, view.width, view.height));
         }
 
+        // Terminal history has a moving window rather than a locally available document.
+        // It still needs this class's input ownership and fractional wheel decoding, but it
+        // draws its own frame and must not translate a GUI group around a synthetic document.
+        public void BeginInput(Rect outer, Vector2 max)
+        {
+            // Content can shrink under a position that was valid on the previous frame.
+            _pos.x = Mathf.Clamp(_pos.x, 0f, max.x);
+            _pos.y = Mathf.Clamp(_pos.y, 0f, max.y);
+
+            ClaimPrecise(outer, max);
+            ClaimWheel(outer, max);
+
+            _outer = outer;
+            _max = max;
+            _bar = false;
+        }
+
         public void End()
         {
-            SpendPrecise();
-            SpendWheel();
+            EndInput();
             GUI.EndGroup();
             GUI.EndGroup();
 
             if (_bar) DrawBar();
+        }
+
+        public void EndInput()
+        {
+            SpendPrecise();
+            SpendWheel();
         }
 
         // The bar has clear air either side instead of filling its reserved gutter. Every

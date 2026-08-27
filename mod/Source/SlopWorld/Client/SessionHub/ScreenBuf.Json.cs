@@ -18,6 +18,7 @@ namespace SlopWorld
             Cx = s["cx"].AsInt();
             Cy = s["cy"].AsInt();
             Off = s["off"].AsInt(0);
+            History = s["history"].AsInt(-1);
             CursorShape = s["cursor_shape"].AsInt(0);
             CursorBlink = s["cursor_blink"].AsBool(true);
             AppMouse = s["app_mouse"].AsBool(false);

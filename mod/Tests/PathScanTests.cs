@@ -11,6 +11,7 @@ namespace SlopWorld.Tests
             yield return ("finds absolute paths", FindsAbsolute);
             yield return ("trims source locations and wrappers", TrimsLocations);
             yield return ("finds root files in prose", FindsRootFiles);
+            yield return ("resolves paths from the terminal cwd", ResolvesPaths);
             yield return ("rejects ambiguous text and URLs", RejectsNonPaths);
         }
 
@@ -20,6 +21,11 @@ namespace SlopWorld.Tests
                 "a path with a directory is found");
             AssertEx.Equal("../src/main.rs", PathScan.At("../src/main.rs", 5),
                 "an explicit parent-relative path is found");
+
+            int line;
+            AssertEx.Equal("src/main.rs", PathScan.At("src/main.rs:12:3", 5, out line),
+                "a relative source path is found with its location");
+            AssertEx.Equal(12, line, "the line is kept while the column is discarded");
         }
 
         static void FindsAbsolute()
@@ -41,10 +47,28 @@ namespace SlopWorld.Tests
 
         static void FindsRootFiles()
         {
-            AssertEx.Equal("AGENTS.md", PathScan.At("at AGENTS.md:507. It needs either", 8),
+            int line;
+            AssertEx.Equal("AGENTS.md", PathScan.At("at AGENTS.md:507. It needs either", 8,
+                out line),
                 "a root file with a line number survives sentence punctuation");
+            AssertEx.Equal(507, line, "a root file keeps its exact source line");
             AssertEx.Equal(".env", PathScan.At("(.env:3)", 2),
                 "a hidden root file is a path");
+        }
+
+        static void ResolvesPaths()
+        {
+            AssertEx.Equal("/work/slopworld/slopd/src/main.rs",
+                PathScan.ResolveProjectPath("/work/slopworld", "/work/slopworld/slopd",
+                    "src/main.rs"),
+                "a relative path uses the terminal cwd");
+            AssertEx.Equal("/work/slopworld/src/main.rs",
+                PathScan.ResolveProjectPath("/work/slopworld", "/work/slopworld/slopd",
+                    "../src/main.rs"),
+                "parent components are resolved inside the project");
+            AssertEx.True(PathScan.ResolveProjectPath("/work/slopworld", "/work/slopworld/slopd",
+                "../../etc/passwd") == null,
+                "a path outside the project is rejected");
         }
 
         static void RejectsNonPaths()

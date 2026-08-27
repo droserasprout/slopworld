@@ -41,4 +41,5 @@ real MouseDrag in that same cell selects and copies the single symbol.
   an absolute path is stripped against the session project's `Dir` and only revealed when it
   falls inside that root, since the tree lists no other. Recognition scans only the clicked row;
   Files lazily fetches its ancestors, so neither terminal repaint nor pointer hover pays for path
-  navigation.
+  navigation. Ctrl+RMB on a project-relative path offers Focus, View, and Edit; Edit carries the
+  parsed source line into the configured editor.
