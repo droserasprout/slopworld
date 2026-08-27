@@ -311,7 +311,7 @@ namespace SlopWorld
 
             foreach (var s in SessionHub.Instance.Sessions)
             {
-                if (!s.Ephemeral || IsRouted(s) || !Passes(s.Project)) continue;
+                if ((!s.Ephemeral && !s.Host) || IsRouted(s) || !Passes(s.Project)) continue;
                 if (string.IsNullOrEmpty(s.Project)) { Layout.TopGhosts.Add(s); continue; }
 
                 if (!Layout.Ghosts.TryGetValue(s.Project, out var list))
