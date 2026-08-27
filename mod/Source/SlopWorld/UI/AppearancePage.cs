@@ -251,13 +251,18 @@ namespace SlopWorld
                 "Show the jukebox door when a jukebox is present.");
             bool g = SlopWidgets.Checkbox(l, "Show GM in statusbar", S.statusbarGM,
                 "Show the Computer Core door when the core is present.");
+            bool indicators = SlopWidgets.Checkbox(l, "Show agent status indicators",
+                S.statusbarAgentIndicators,
+                "Show autostart, resume-on-start, and host-network flags in Agents.");
             if (u != S.statusbarUsage || spent != Settings.UsageSpent
-                || j != S.statusbarJukebox || g != S.statusbarGM)
+                || j != S.statusbarJukebox || g != S.statusbarGM
+                || indicators != S.statusbarAgentIndicators)
             {
                 S.statusbarUsage = u;
                 S.usageSpent = spent;
                 S.statusbarJukebox = j;
                 S.statusbarGM = g;
+                S.statusbarAgentIndicators = indicators;
                 S.MarkDirty();
             }
 

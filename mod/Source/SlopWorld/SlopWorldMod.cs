@@ -143,6 +143,8 @@ namespace SlopWorld
         public string timeFormat = TimeFormat.TwentyFourHour;
         public bool statusbarJukebox = true;
         public bool statusbarGM = true;
+        // Whether compact Agents rows show their startup and effective network flags.
+        public bool statusbarAgentIndicators = true;
 
         // Whether the daemon is told to go quiet on the way out. Off by default because slopd
         // outlives the game and should carry the jukebox through a game restart.
@@ -216,6 +218,7 @@ namespace SlopWorld
             String(text, "timeFormat", timeFormat);
             String(text, "statusbarJukebox", statusbarJukebox);
             String(text, "statusbarGM", statusbarGM);
+            String(text, "statusbarAgentIndicators", statusbarAgentIndicators);
             String(text, "radioStopOnExit", radioStopOnExit);
             String(text, "grandmaMode", grandmaMode);
             String(text, "ecoMode", ecoMode);
@@ -263,6 +266,8 @@ namespace SlopWorld
             timeFormat = Text(values, "timeFormat", timeFormat);
             statusbarJukebox = Bool(values, "statusbarJukebox", statusbarJukebox);
             statusbarGM = Bool(values, "statusbarGM", statusbarGM);
+            statusbarAgentIndicators = Bool(values, "statusbarAgentIndicators",
+                statusbarAgentIndicators);
             radioStopOnExit = Bool(values, "radioStopOnExit", radioStopOnExit);
             grandmaMode = Bool(values, "grandmaMode", grandmaMode);
             ecoMode = Bool(values, "ecoMode", ecoMode);
@@ -345,6 +350,7 @@ namespace SlopWorld
         public static bool StatusbarClock => StatusbarClockPosition != StatusbarClockMode.Hidden;
         public static bool StatusbarJukebox => S.statusbarJukebox;
         public static bool StatusbarGM => S.statusbarGM;
+        public static bool StatusbarAgentIndicators => S.statusbarAgentIndicators;
         public static bool RadioStopOnExit => S.radioStopOnExit;
         public static bool GrandmaMode => S.grandmaMode;
         public static bool EcoMode => S.ecoMode;
