@@ -286,7 +286,7 @@ fn fetch(creds: &Creds) -> Result<Value, PollErr> {
         .build()
         .header("Authorization", format!("Bearer {}", creds.token))
         .header("anthropic-beta", OAUTH_BETA)
-        .header("User-Agent", concat!("slopd/", env!("CARGO_PKG_VERSION")))
+        .header("User-Agent", concat!("slopd/", env!("SLOPWORLD_VERSION")))
         .call()
         .map_err(PollErr::new)?;
 
@@ -347,7 +347,7 @@ fn fetch_credits(key: &str) -> Result<Value, PollErr> {
         .http_status_as_error(false)
         .build()
         .header("Authorization", format!("Bearer {key}"))
-        .header("User-Agent", concat!("slopd/", env!("CARGO_PKG_VERSION")))
+        .header("User-Agent", concat!("slopd/", env!("SLOPWORLD_VERSION")))
         .call()
         .map_err(PollErr::new)?;
 
@@ -382,7 +382,7 @@ fn fetch_openai(creds: &OpenAiCreds) -> Result<Value, PollErr> {
         .http_status_as_error(false)
         .build()
         .header("Authorization", format!("Bearer {}", creds.token))
-        .header("User-Agent", concat!("slopd/", env!("CARGO_PKG_VERSION")));
+        .header("User-Agent", concat!("slopd/", env!("SLOPWORLD_VERSION")));
     if let Some(account_id) = &creds.account_id {
         request = request.header("ChatGPT-Account-Id", account_id);
     }

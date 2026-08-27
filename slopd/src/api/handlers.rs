@@ -79,7 +79,7 @@ pub(super) fn guard_create(cap: &Cap) -> Result<(), (StatusCode, Json<serde_json
 pub(super) async fn health(State(_m): State<Mgr>) -> ApiResult {
     Ok(Json(json!({
         "ok": true,
-        "version": env!("CARGO_PKG_VERSION"),
+        "version": env!("SLOPWORLD_VERSION"),
         "hostname": crate::runtime::hostname(),
         "tmux_socket": crate::config::tmux_socket(),
     })))
