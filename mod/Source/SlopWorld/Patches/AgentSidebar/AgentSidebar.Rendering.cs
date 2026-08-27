@@ -545,6 +545,7 @@ namespace SlopWorld
             };
             foreach (var p in SessionHub.Instance.Projects)
             {
+                if (!Passes(p.Name)) continue;
                 string name = p.Name;
                 options.Add(new FloatMenuOption($"{name}  -  {p.Dir}", () =>
                     SessionHub.Instance.RunHostShell(name,
