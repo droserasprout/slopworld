@@ -11,7 +11,7 @@ C# and Rust, in file order, markers stripped and neighbouring lines joined into
 one block, which is the shape something reading the whole repo's prose at once
 wants. Add `--min=N` to keep only blocks of N lines or more, which is the quick
 way to find the paragraphs that have grown into documentation and belong in
-`docslop/` instead.
+`notes/` instead.
 
 Files come from `git ls-files`, so anything untracked or ignored - build output,
 `mod/Assemblies`, `target/` - is out by construction rather than by a list of
