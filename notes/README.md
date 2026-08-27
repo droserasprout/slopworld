@@ -1,1 +1,1 @@
-This directory is for AI devnotes. Create many short Markdown files with useful info. Don't forget to update and more important, remove outdated info.
+This directory is for AI devnotes. Keep notes short and focused, update [the index](index.md) when notes are added or moved, and remove outdated information.

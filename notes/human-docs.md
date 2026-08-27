@@ -42,6 +42,7 @@ the host, the systemd user service. Sources: [daemon-usage](daemon-usage.md),
 Fun - the jukebox and what it plays, the dead ground, what a working agent
 builds, skyfallers, agent titles, the baked menu background. Heaviest screenshot
 density, no obligations. Sources: [mod-jukebox](mod-jukebox.md),
+[mod-jukebox-library](mod-jukebox-library.md),
 [mod-plague](mod-plague.md), [mod-worksite](mod-worksite.md),
 [skyfallers](skyfallers.md), [agent-titles](agent-titles.md),
 [mod-background](mod-background.md).
