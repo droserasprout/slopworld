@@ -484,15 +484,24 @@ pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
     for pr in presets_for(cfg, s, p, &t) {
         for path in &pr.private {
             let host = expand(path);
-            if host.is_empty() || !Path::new(&host).exists() {
+            if host.is_empty() {
                 continue;
             }
             let copy = private_path(&s.state_id, &host);
             if copy.exists() {
                 continue;
             }
-            tracing::info!("session {:?} gets its own {host}", s.name);
-            seed_into(pr, &host, &copy)?;
+            let host_exists = Path::new(&host).exists();
+            if host_exists {
+                tracing::info!("session {:?} gets its own {host}", s.name);
+                seed_into(pr, &host, &copy)?;
+            } else if host.starts_with("/tmp/") {
+                // /tmp is a tmpfs in the skeleton, so the host path never exists. Create an
+                // empty session-state directory and let the bind land on the tmpfs mount point.
+                tracing::info!("session {:?} gets a fresh {host}", s.name);
+                std::fs::create_dir_all(&copy)
+                    .with_context(|| format!("making {}", copy.display()))?;
+            }
         }
     }
     Ok(())

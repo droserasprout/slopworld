@@ -29,13 +29,19 @@ fn private_bind_paths(
     for pr in presets_for(cfg, s, p, t) {
         for path in &pr.private {
             let host = expand(path);
-            if host.is_empty() || !Path::new(&host).exists() {
+            if host.is_empty() {
+                continue;
+            }
+            let copy = private_path(&s.state_id, &host);
+            // The host path or the prepared session-state copy must exist. Paths under /tmp/
+            // never exist on the host (the skeleton mounts its own tmpfs there), but
+            // prepare_network creates the copy beforehand.
+            if !Path::new(&host).exists() && !copy.exists() {
                 continue;
             }
             if out.iter().any(|(_, seen)| seen == &host) {
                 continue;
             }
-            let copy = private_path(&s.state_id, &host);
             out.push((copy.to_string_lossy().into_owned(), host));
         }
     }
