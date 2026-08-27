@@ -14,8 +14,7 @@ namespace SlopWorld
     [HarmonyPatch(typeof(ColonistBarColonistDrawer), nameof(ColonistBarColonistDrawer.DrawColonist))]
     public static class Patch_SidebarPortraitDraw
     {
-        // The portrait camera looks down -Y with world +Z up, so z pans to the head and a
-        // positive x camera offset moves the pawn slightly left in the resulting image.
+        // The portrait camera looks down -Y with world +Z up, so z pans to the head.
         const float HeadFallbackZ = 0.34f;
 
         // Slightly wider than a tight head crop so hair and clothing have breathing room.
@@ -23,7 +22,6 @@ namespace SlopWorld
 
         // Aim just above the head anchor to place the pawn slightly lower in the portrait.
         const float FaceVerticalOffset = 0.03f;
-        const float FaceHorizontalOffset = 0.04f;
 
         // Keep the drawn portrait square with the face box. The close-up is framed on the
         // head, so there is no body crop that needs extra vertical room.
@@ -97,8 +95,6 @@ namespace SlopWorld
             rect.size *= SelectionScale;
             rect.center = new Vector2(face.x + face.width * centerX / PlateFrame,
                 face.y + face.height * centerY / PlateFrame);
-            // Camera motion shifts the rendered image by offset * zoom / 2 of its width.
-            rect.center -= new Vector2(face.width * FaceHorizontalOffset * FaceZoom / 2f, 0f);
             return rect;
         }
 
@@ -130,7 +126,7 @@ namespace SlopWorld
             {
                 // Pawns mid-generation may not have a draw tracker yet.
             }
-            return new Vector3(FaceHorizontalOffset, 0f, z + FaceVerticalOffset);
+            return new Vector3(0f, 0f, z + FaceVerticalOffset);
         }
 
         static bool Prefix(Rect rect, Pawn colonist, Map pawnMap, bool highlight, bool reordering)
