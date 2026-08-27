@@ -1,4 +1,4 @@
-# Human docs (`docs/`)
+# Docs (`docs/`)
 
 mdBook, `make docs` / `make docs-serve`, output committed under `docs/book/`.
 Agents may write prose there when explicitly asked. This note is source material
