@@ -281,9 +281,21 @@ namespace SlopWorld
         // a host shell.
         bool HostClipboardTextOnly => SessionHub.Instance.Get(_name)?.Host != false;
 
+        // Codex owns Ctrl+V: its TUI reads image clipboard data and turns it into an attachment.
+        // Sending that data through the daemon's text/JSON paste path turns the image bytes into
+        // a huge string of replacement characters instead.
+        bool CodexImagePaste => !HostClipboardTextOnly &&
+            SessionHub.Instance.Get(_name)?.CommandPreset == "codex";
+
         void PasteClipboard()
         {
             string name = _name;
+            if (CodexImagePaste && SessionHub.Instance.Capabilities.Clipboard)
+            {
+                Flush();
+                SessionHub.Instance.SendKeys(name, new[] { "C-v" }, false);
+                return;
+            }
             if (!SessionHub.Instance.Capabilities.Clipboard)
             {
                 Deliver(name, GUIUtility.systemCopyBuffer);

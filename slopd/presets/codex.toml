@@ -4,6 +4,9 @@
 [[sandbox]]
 name = "codex"
 description = "OpenAI Codex CLI's own state, config and auth, one copy per session"
+# Codex's Ctrl+V image attachment path reads the desktop clipboard from inside the TUI. These
+# are optional on hosts without the corresponding display, but harmless when one is absent.
+requires = ["x11", "wayland"]
 private = ["~/.codex"]
 seed = ["~/.codex/prompts"]
 env = [

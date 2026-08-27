@@ -450,6 +450,8 @@ mod tests {
             "old shell command preset remains"
         );
         assert_eq!(t.command("claude").unwrap().sandbox, vec!["claude"]);
+        assert_eq!(t.command("codex").unwrap().sandbox, vec!["codex"]);
+        assert_eq!(t.sandbox("codex").unwrap().requires, vec!["x11", "wayland"]);
         assert_eq!(
             t.sandbox("systemd").unwrap().setenv["SYSTEMCTL_FORCE_BUS"],
             "1"
