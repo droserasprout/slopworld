@@ -11,8 +11,9 @@ summary; full view adds the portrait.
 
 Five tabs share the panel:
 
-- **Agents** — the default. Right-click an agent for its context menu; drag the grip to
-  resize the panel.
+- **Agents** — the default. Right-click an agent for its context menu (start/stop,
+  terminal, edit, duplicate, shell, remove); drag the grip to resize the panel.
+  Shell opens a shell errand inside the same sandbox as the agent.
 - **Files** — a tree of the selected project directory. Right-click for view, edit, diff,
   and file-action shortcuts.
 - **Search** — workspace text search with a result pager.
