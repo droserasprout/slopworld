@@ -29,8 +29,9 @@ open -a Docker
 gmake mac
 ```
 
-Set `MAC_RIMWORLD` if RimWorld is not in the default Steam app-bundle path. This keeps RimWorld
-and the mod native while running `slopd`, tmux, Bubblewrap, pasta and the agent CLIs in Docker.
+`MAC_RIMWORLD` defaults to `~/Documents/RimWorld.app` for the GOG macOS build; override it for a
+Steam or other install. This keeps RimWorld and the mod native while running `slopd`, tmux,
+Bubblewrap, pasta and the agent CLIs in Docker.
 
 ## Quickstart
 

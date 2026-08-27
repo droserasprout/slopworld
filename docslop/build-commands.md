@@ -33,8 +33,8 @@ the release build. Suffixed targets are aliases. Both builds write
 | `devloop-sidecar` | Rebuilds/redeploys the sidecar, reinstalls the mod, then runs the game; repeats after the game closes. `SLOPCAR_WORKSPACE` customizes the workspace mount. |
 | `mac-setup` | Installs the macOS toolchain and Docker Desktop with Homebrew. |
 | `mac-check` | Checks Docker, Mono and the native macOS RimWorld paths. |
-| `mac-install` | Builds the sidecar image, runs its doctor, and installs the mod into RimWorldMac. |
-| `mac-run` | Starts the sidecar and launches native RimWorldMac with its isolated profile. |
+| `mac-install` | Builds the sidecar image, runs its doctor, and installs the mod into the configured native macOS app bundle. |
+| `mac-run` | Starts the sidecar and launches the configured native macOS game with its isolated profile. |
 | `mac-sidecar-stop` / `mac-sidecar-status` / `mac-sidecar-logs` | Manages or inspects the macOS sidecar. |
 | `logs` | Tails `Player.log`. |
 | `check-reqs` | Reports required host dependencies and detected optional integrations/tools. |

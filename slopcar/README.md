@@ -71,9 +71,10 @@ open -a Docker
 gmake mac
 ```
 
-`mac-install` compiles against `RimWorldMac.app`'s managed assemblies and installs the mod;
-`mac-run` starts the sidecar and launches the game into its separate profile. Override
-`MAC_RIMWORLD` for a non-Steam install or `SLOPCAR_WORKSPACE` for the roots agents may access.
+`mac-install` compiles against the configured macOS app bundle's managed assemblies and installs
+the mod; `mac-run` starts the sidecar and launches the game into its separate profile. The
+default bundle is the GOG install at `~/Documents/RimWorld.app`; override `MAC_RIMWORLD` for
+another install or `SLOPCAR_WORKSPACE` for the roots agents may access.
 The macOS sidecar profile also starts with the `SlopWorld Warm` UI scheme.
 
 ### Running beside a native daemon

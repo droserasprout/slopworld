@@ -59,10 +59,10 @@ SLOPCAR_ENV = \
 	SLOPCAR_PORT="$(SLOPCAR_PORT)" \
 	SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)"
 # Native macOS RimWorld is an app bundle, so it needs its own references, mod destination and
-# direct game executable. The Steam path is the useful default; every value is overridable for a
-# standalone install or a friend whose home layout differs.
-MAC_RIMWORLD    ?= $(HOME)/Library/Application Support/Steam/steamapps/common/RimWorld/RimWorldMac.app
-MAC_GAME        ?= $(MAC_RIMWORLD)/Contents/MacOS/RimWorldMac
+# direct game executable. The GOG path is the useful default; every value is overridable for a
+# Steam or standalone install, or a friend whose home layout differs.
+MAC_RIMWORLD    ?= $(HOME)/Documents/RimWorld.app
+MAC_GAME        ?= $(MAC_RIMWORLD)/Contents/MacOS/RimWorld by Ludeon Studios
 MAC_RESOURCES   ?= $(MAC_RIMWORLD)/Contents/Resources
 MAC_MANAGED     ?= $(MAC_RESOURCES)/Data/Managed
 MAC_MODS        ?= $(MAC_RIMWORLD)/Mods
@@ -166,7 +166,7 @@ mac-game-check:   ## Check the native macOS RimWorld and Mono paths
 	@test "$$(uname -s)" = Darwin || { echo "macOS target requires Darwin" >&2; exit 1; }
 	@command -v "$(MAC_CSC)" >/dev/null 2>&1 || { echo "missing $(MAC_CSC); run gmake mac-setup" >&2; exit 1; }
 	@test -f "$(MAC_CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(MAC_CSC_API); override MAC_CSC_API" >&2; exit 1; }
-	@test -x "$(MAC_GAME)" || { echo "missing native RimWorld executable: $(MAC_GAME); override MAC_RIMWORLD" >&2; exit 1; }
+	@test -x "$(MAC_GAME)" || { echo "missing native RimWorld executable: $(MAC_GAME); override MAC_RIMWORLD or MAC_GAME" >&2; exit 1; }
 	@test -f "$(MAC_MANAGED)/Assembly-CSharp.dll" || { echo "missing RimWorld assemblies under $(MAC_MANAGED)" >&2; exit 1; }
 	@test -d "$(MAC_MODS)" || { echo "missing RimWorld Mods directory: $(MAC_MODS); override MAC_RIMWORLD" >&2; exit 1; }
 

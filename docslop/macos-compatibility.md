@@ -22,7 +22,7 @@ external dependencies remain Linux-specific:
   audio integration.
 - The Linux Makefile targets, launcher, game discovery, profile defaults and log paths still name
   the Linux build. The separate `mac-*` targets know the native app-bundle paths and launch
-  `RimWorldMac` directly.
+  the native macOS executable directly.
 
 `tools/check-reqs.json` should distinguish build, core runtime and optional integration
 requirements. The C# build dependency is Mono's `csc`, matching the Makefile; the .NET SDK
@@ -35,7 +35,7 @@ The first implementation may run all of `slopd`, tmux, Bubblewrap, pasta and the
 one multi-architecture Linux container. RimWorld and the mod stay native:
 
 ```text
-RimWorldMac + mod -> 127.0.0.1:7718 -> Docker port -> slopd/tmux/bwrap/pasta
+Native macOS RimWorld + mod -> 127.0.0.1:7718 -> Docker port -> slopd/tmux/bwrap/pasta
                                                     -> selected host bind mounts
 ```
 
