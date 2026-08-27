@@ -452,8 +452,9 @@ pub(super) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResul
         && !project.is_empty()
         && q.path.trim().is_empty()
         && !q.temp;
+    let like = q.like.trim().to_string();
     let session = m
-        .run_errand(sc, want, q.host, persistent_host)
+        .run_errand(sc, want, q.host, persistent_host, &like)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "ok": true, "session": session })))

@@ -372,6 +372,11 @@ namespace SlopWorld
                 opts.Add(new FloatMenuOption("Duplicate...", () =>
                     TerminalWindow.OpenOverPane(EditSessionDialog.Copy(info))));
 
+            if (info != null && !info.Host && !string.IsNullOrEmpty(info.Project))
+                opts.Add(new FloatMenuOption("Shell", () =>
+                    hub.Run(info.Project, "", "", session => TerminalWindow.Open(session),
+                        SlopWidgets.Fail, like: name)));
+
             if (info != null && info.Host)
                 opts.Add(new FloatMenuOption("Remove", () =>
                 {

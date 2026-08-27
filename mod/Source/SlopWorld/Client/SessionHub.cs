@@ -126,8 +126,8 @@ namespace SlopWorld
         public void Run(string project, string command, string label,
                         Action<string> started, Action<string> fail = null,
                         bool shell = true, string text = "", bool host = false, bool temp = false,
-                        string path = "", bool hold = false) =>
-            _sessions.Run(project, command, label, started, fail, shell, text, host, temp, path, hold);
+                        string path = "", bool hold = false, string like = "") =>
+            _sessions.Run(project, command, label, started, fail, shell, text, host, temp, path, hold, like);
 
         public void RunHostShell(string project, Action<string> started,
                                  Action<string> fail = null) =>

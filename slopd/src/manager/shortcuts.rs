@@ -240,7 +240,7 @@ impl Manager {
             bail!("shortcut {} is not runnable as an agent errand", sc.name);
         }
         drop(cfg);
-        self.run_errand(sc, want, false, false).await
+        self.run_errand(sc, want, false, false, "").await
     }
 
     fn resolve_file_action(
@@ -411,6 +411,7 @@ impl Manager {
         want: &RunWhere,
         host: bool,
         persistent_host: bool,
+        like: &str,
     ) -> Result<String> {
         let name = sc.name.as_str();
         let asked = match want.project.as_deref().map(str::trim) {
@@ -493,10 +494,19 @@ impl Manager {
             named
         };
 
-        let mut l = Live::new(
-            cfg.session_for(sc, name.clone(), project),
-            TitleCapture::default(),
-        );
+        let mut scfg = cfg.session_for(sc, name.clone(), project);
+        if !like.is_empty() {
+            if let Some(src) = cfg.session(like) {
+                scfg.sandbox = src.sandbox.clone();
+                scfg.network = src.network;
+                scfg.dns = src.dns.clone();
+                scfg.limits = src.limits;
+                scfg.mounts = src.mounts.clone();
+            } else {
+                bail!("no such session to clone sandbox from: {like}");
+            }
+        }
+        let mut l = Live::new(scfg, TitleCapture::default());
         l.ephemeral = true;
         l.host = host;
         if persistent_host {
@@ -526,12 +536,13 @@ impl Manager {
         want: RunWhere,
         host: bool,
         persistent_host: bool,
+        like: &str,
     ) -> Result<String> {
         self.reload_if_changed().await;
         let cfg = self.config().await;
         Self::validate_errand(&sc)?;
         let session = self
-            .create_errand_session(&cfg, &sc, &want, host, persistent_host)
+            .create_errand_session(&cfg, &sc, &want, host, persistent_host, like)
             .await?;
 
         if !self.tmux.exists(&session).await {
