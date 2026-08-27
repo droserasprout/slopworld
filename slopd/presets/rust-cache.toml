@@ -1,5 +1,10 @@
 [[sandbox]]
 name = "rust-cache"
-description = "writable Cargo registry and git caches (requires rust)"
+description = "writable Cargo and rustup caches (requires rust)"
 requires = ["rust"]
-rw = ["~/.cargo/registry", "~/.cargo/git"]
+rw = [
+    "~/.cargo/registry",
+    "~/.cargo/git",
+    "~/.rustup/toolchains",
+    "~/.rustup/update-hashes",
+]

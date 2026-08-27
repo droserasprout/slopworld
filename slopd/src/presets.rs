@@ -519,6 +519,15 @@ mod tests {
             t.sandbox("go-cache").unwrap().rw,
             vec!["~/go/pkg/mod", "~/.cache/go-build"]
         );
+        assert_eq!(
+            t.sandbox("rust-cache").unwrap().rw,
+            vec![
+                "~/.cargo/registry",
+                "~/.cargo/git",
+                "~/.rustup/toolchains",
+                "~/.rustup/update-hashes"
+            ]
+        );
         assert_eq!(t.sandbox("kube").unwrap().ro, vec!["~/.kube"]);
         for (cache, tool) in [
             ("rust-cache", "rust"),
