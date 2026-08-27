@@ -9,7 +9,11 @@
 [[sandbox]]
 name = "claude"
 description = "Claude Code's own state and credentials, one copy per session"
-private = ["~/.claude", "~/.claude.json"]
+# Claude Code writes its scratchpad under /tmp/claude-0/. The skeleton mounts its own tmpfs
+# there, so the directory vanishes between runs. Making it private gives each session a
+# persistent copy in its state directory - subagent intermediates, analysis outputs and
+# temporary scripts survive a restart without poisoning the rest of /tmp.
+private = ["~/.claude", "~/.claude.json", "/tmp/claude-0"]
 # The one file that cannot be a copy. Claude Code's access token lasts 8 hours and the refresh
 # token behind it is replaced on every use, so a tree seeded once is a tree that logs in until
 # it doesn't - and the only cure was deleting the session, which is also how its transcripts
