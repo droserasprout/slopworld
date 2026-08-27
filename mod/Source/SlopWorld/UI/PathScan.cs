@@ -6,9 +6,9 @@ namespace SlopWorld
     // pointer motion are hot paths; one row scan after Ctrl+MouseDown is both cheaper and
     // less eager about ordinary terminal text that happens to contain a slash.
     //
-    // Both relative (`./x`, `../x`, a token with a `/`) and absolute (`/x/y`) forms are
-    // returned; whether an absolute path can actually be shown is FilesView's call, since
-    // it alone knows which project roots the tree can reach.
+    // Both relative (`./x`, `../x`, a token with a `/`, or an extension-bearing root file)
+    // and absolute (`/x/y`) forms are returned; whether an absolute path can actually be
+    // shown is FilesView's call, since it alone knows which project roots the tree can reach.
     public static class PathScan
     {
         public static string At(string text, int column)
@@ -45,7 +45,7 @@ namespace SlopWorld
             }
             if (!path.StartsWith("./", StringComparison.Ordinal) &&
                 !path.StartsWith("../", StringComparison.Ordinal) &&
-                path.IndexOf('/') < 0)
+                path.IndexOf('/') < 0 && !LooksLikeRootFile(path))
                 return null;
             return path;
         }
@@ -56,7 +56,13 @@ namespace SlopWorld
         static bool IsWrapper(char c) => c == '(' || c == '[' || c == '{' || c == '\'';
 
         static bool IsTail(char c) => c == ')' || c == ']' || c == '}' || c == '\'' ||
-            c == ',' || c == ';' || c == '!' || c == '?';
+            c == ',' || c == ';' || c == '!' || c == '?' || c == '.';
+
+        static bool LooksLikeRootFile(string path)
+        {
+            int dot = path.LastIndexOf('.');
+            return dot >= 0 && dot + 1 < path.Length;
+        }
 
         static bool Digits(string text, int start, int end)
         {

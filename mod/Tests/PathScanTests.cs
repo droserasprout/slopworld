@@ -10,6 +10,7 @@ namespace SlopWorld.Tests
             yield return ("finds project-relative paths", FindsPaths);
             yield return ("finds absolute paths", FindsAbsolute);
             yield return ("trims source locations and wrappers", TrimsLocations);
+            yield return ("finds root files in prose", FindsRootFiles);
             yield return ("rejects ambiguous text and URLs", RejectsNonPaths);
         }
 
@@ -36,6 +37,14 @@ namespace SlopWorld.Tests
                 "compiler line and column suffixes are removed");
             AssertEx.Equal("./README", PathScan.At("`./README`,", 4),
                 "quotes and punctuation are removed");
+        }
+
+        static void FindsRootFiles()
+        {
+            AssertEx.Equal("AGENTS.md", PathScan.At("at AGENTS.md:507. It needs either", 8),
+                "a root file with a line number survives sentence punctuation");
+            AssertEx.Equal(".env", PathScan.At("(.env:3)", 2),
+                "a hidden root file is a path");
         }
 
         static void RejectsNonPaths()

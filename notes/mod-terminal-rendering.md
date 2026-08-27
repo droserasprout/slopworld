@@ -37,7 +37,8 @@ real MouseDrag in that same cell selects and copies the single symbol.
 - `TrackHover`/`LinkAt` share lookup for highlight, tooltip and click. Ctrl+click uses
   Unity's `Application.OpenURL` directly.
 - Ctrl+click on a file path reveals it in Files. `PathScan` accepts a relative path (`./x`,
-  `../x`, or a token containing `/`) or an absolute one (`/x/y`); an absolute path is stripped
-  against the session project's `Dir` and only revealed when it falls inside that root, since
-  the tree lists no other. Recognition scans only the clicked row; Files lazily fetches its
-  ancestors, so neither terminal repaint nor pointer hover pays for path navigation.
+  `../x`, a token containing `/`, or an extension-bearing root file) or an absolute one (`/x/y`);
+  an absolute path is stripped against the session project's `Dir` and only revealed when it
+  falls inside that root, since the tree lists no other. Recognition scans only the clicked row;
+  Files lazily fetches its ancestors, so neither terminal repaint nor pointer hover pays for path
+  navigation.
