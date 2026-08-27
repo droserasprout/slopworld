@@ -116,16 +116,21 @@ def clustered_finder(pattern, minimum, window_words, *, distinct=False, label="h
 
 
 def em_dash_density(text):
-    hits = [m for m in re.finditer(r"(?<=\s)—(?=\s)", text) if not _on_list_item(text, m.start())]
+    hits = [m for m in re.finditer(r"(?<=\s)—(?=\s)", text) if not _on_structural_line(text, m.start())]
     words = count_words(text)
     if len(hits) < 2 or (words > 250 and len(hits) * 150 <= words):
         return []
     return [Match(hits[0].start(), hits[0].end(), note=f"{len(hits)} non-bullet spaced em dashes in {words} words")]
 
 
-def _on_list_item(text, pos):
+def _on_structural_line(text, pos):
     line_start = text.rfind("\n", 0, pos) + 1
-    return bool(re.match(r"\s*(?:[-*+]|\d+\.)\s", text[line_start:]))
+    line = text[line_start:]
+    if re.match(r"\s*(?:[-*+]|\d+\.)\s", line):
+        return True
+    if re.match(r"\s*\*\*[^*]+\*\*\s*—", line):
+        return True
+    return False
 
 
 def bold_lead_density(text):
