@@ -28,13 +28,8 @@ namespace SlopWorld
 
         public bool Any => Windows.Count > 0;
 
-        // Older daemons only sent Ok, so an absent status list retains the old all-stale
-        // behavior. New snapshots name the failed seller and leave other providers live.
-        public bool SourceFailed(string source)
-        {
-            if (FailedSources.Contains(source)) return true;
-            return FailedSources.Count == 0 && !Ok;
-        }
+        // The snapshot names the failed seller and leaves other providers live.
+        public bool SourceFailed(string source) => FailedSources.Contains(source);
 
         public float Age => UnityEngine.Time.realtimeSinceStartup - Heard;
 
