@@ -23,7 +23,12 @@ spacing, buttons, fields, headings and errors. Color names resolve through
 - `SmoothScroll` is the mod's only scroll view and scrollbar. On X11 it reads XInput 2.1's
   fractional scroll valuator directly; Unity's logical wheel packet is the fallback. It
   draws the bar in `End` outside the scroll group and reserves `ScrollbarW`; `Reveal`
-  jumps a selected row into view. Vertical scroll only.
+  jumps a selected row into view. Brief frame stalls preserve cumulative touchpad movement;
+  a logical wheel packet is suppressed only after a precise sample was claimed, or when it
+  is the matching delayed packet from the preceding frame. Vertical scroll only.
+- `ContentTreeView` keeps complete row geometry for scrolling but paints and hit-tests only
+  rows near the viewport; scroll-event passes reuse the measured height, update the offset and
+  skip repainting the tree.
 - `SlopWindow` supplies the frame, border and close corner. `Margin` is zero because
   vanilla translates contents into a group instead of providing padding; bodies use
   `Pad`.

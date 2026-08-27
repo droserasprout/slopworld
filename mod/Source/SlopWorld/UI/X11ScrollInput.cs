@@ -30,9 +30,15 @@ namespace SlopWorld
         static bool _baseline;
         static ScrollPoint _last;
         static int _lastFrame = -1;
+        static float _lastSampleTime = -1f;
         static int _sampleFrame = -1;
         static bool _sampleUsable;
         static Vector2 _sample;
+
+        // A frame can be late while RimWorld is laying out a large panel. The XInput
+        // valuator is cumulative, so keep the movement across a short stall instead of
+        // dropping the gesture merely because the frame number skipped.
+        const float MaxSampleGap = 0.25f;
 
         struct Axis
         {
@@ -96,11 +102,11 @@ namespace SlopWorld
         // Unity's logical wheel packet can be suppressed. A first sample, or the first
         // sample after no scroll view was drawn, deliberately falls back to Unity instead
         // of applying stale movement collected while there was nowhere to put it.
-        public static bool TryRead(out Vector2 units)
+        public static bool TryRead(out Vector2 units, bool refresh = false)
         {
             units = Vector2.zero;
             int frame = Time.frameCount;
-            if (_sampleFrame == frame)
+            if (!refresh && _sampleFrame == frame)
             {
                 units = _sample;
                 return _sampleUsable;
@@ -120,8 +126,11 @@ namespace SlopWorld
                     return false;
                 }
 
-                bool contiguous = _baseline && frame == _lastFrame + 1;
+                float now = Time.unscaledTime;
+                bool contiguous = _baseline && frame > _lastFrame &&
+                    (_lastSampleTime < 0f || now - _lastSampleTime <= MaxSampleGap);
                 _lastFrame = frame;
+                _lastSampleTime = now;
                 if (!contiguous)
                 {
                     _last = current;
@@ -335,6 +344,7 @@ namespace SlopWorld
             _display = IntPtr.Zero;
             _deviceId = -1;
             _baseline = false;
+            _lastSampleTime = -1f;
         }
 
         [DllImport("libX11.so.6", CallingConvention = CallingConvention.Cdecl)]

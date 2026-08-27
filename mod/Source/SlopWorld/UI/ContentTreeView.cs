@@ -88,6 +88,9 @@ namespace SlopWorld
         string _selected;
         string _reveal;
         float _revealTop = -1f;
+        float _visibleTop;
+        float _visibleBottom;
+        float _contentHeight = -1f;
 
         struct Line
         {
@@ -116,7 +119,14 @@ namespace SlopWorld
                 return;
             }
 
-            float height = Measure(groups);
+            bool scrollEvent = Event.current.type == EventType.ScrollWheel ||
+                (Event.current.type == EventType.Used &&
+                    Event.current.rawType == EventType.ScrollWheel);
+            // A wheel burst does not change tree shape. Reusing the last measured height
+            // avoids walking every expanded directory just to consume another input event.
+            float height = scrollEvent && _contentHeight >= 0f
+                ? _contentHeight : Measure(groups);
+            _contentHeight = height;
             var view = new Rect(0f, 0f,
                 body.width - (height > body.height ? SlopWidgets.ScrollbarW : 0f), height);
             if (_revealTop >= 0f)
@@ -129,11 +139,19 @@ namespace SlopWorld
             // pass. The finally is important because a missed End would move every later
             // window into the tree's scroll group.
             _scroll.Begin(body, view);
+            _visibleTop = _scroll.Position.y - RowH;
+            _visibleBottom = _scroll.Position.y + body.height + RowH;
             try
             {
-                float y = Pad;
-                foreach (var group in groups)
-                    y = DrawGroup(view.width, y, group);
+                // Scroll events can arrive in a burst. They only need to update the offset;
+                // painting thousands of tree rows for each queued event makes the input queue
+                // take seconds to drain.
+                if (!scrollEvent)
+                {
+                    float y = Pad;
+                    foreach (var group in groups)
+                        y = DrawGroup(view.width, y, group);
+                }
             }
             finally
             {
@@ -214,21 +232,29 @@ namespace SlopWorld
             var children = parent.Children;
             if (children == null)
             {
-                return ViewChrome.Note(width, y, parent.Depth + 1,
-                    parent.Error ?? "...",
-                    parent.Error != null ? SlopWidgets.Bad : SlopWidgets.Faint);
+                return Visible(y)
+                    ? ViewChrome.Note(width, y, parent.Depth + 1,
+                        parent.Error ?? "...",
+                        parent.Error != null ? SlopWidgets.Bad : SlopWidgets.Faint)
+                    : y + RowH;
             }
 
             foreach (var node in children)
             {
-                y = DrawRow(width, y, node);
+                bool reveal = _reveal != null && _reveal == _source.SelectionKey(node);
+                if (Visible(y) || reveal) DrawRow(width, y, node);
+                y += RowH;
                 if (node.IsDirectory) y = DrawRows(width, y, node);
             }
             if (parent.More)
-                y = ViewChrome.Note(width, y, parent.Depth + 1,
-                    "... more, not listed", SlopWidgets.Faint);
+                y = Visible(y)
+                    ? ViewChrome.Note(width, y, parent.Depth + 1,
+                        "... more, not listed", SlopWidgets.Faint)
+                    : y + RowH;
             return y;
         }
+
+        bool Visible(float y) => y + RowH > _visibleTop && y < _visibleBottom;
 
         float DrawRow(float width, float y, IContentTreeNode node)
         {
