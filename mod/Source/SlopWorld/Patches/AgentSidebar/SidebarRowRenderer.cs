@@ -14,8 +14,9 @@ namespace SlopWorld
             string title = GhostTitle(info, fallback, act);
             string context = GhostContext(info, title, act);
             GameFont oldFont = Text.Font;
+            bool hostRow = hostIcon && info != null && (info.Host || info.Ephemeral);
 
-            if (hostIcon && info?.Ephemeral == true)
+            if (hostRow)
             {
                 float d = Mathf.Min(markWidth, r.height);
                 var icon = new Rect(r.x, r.y + (r.height - d) / 2f, d, d);
@@ -31,11 +32,13 @@ namespace SlopWorld
 
             // Host paths are useful even when the sidebar is narrow. Keep the normal row
             // font when it fits, but reclaim the compact font's width before truncating it.
-            if (hostIcon && info?.Ephemeral == true && context.Length > 0)
+            if (hostRow)
             {
                 float contextWidth = SlopWidgets.Wide(context);
                 float titleW = SlopWidgets.Wide(title);
-                float available = r.width - contextWidth - SlopWidgets.GapS;
+                float available = context.Length > 0
+                    ? r.width - contextWidth - SlopWidgets.GapS
+                    : r.width;
                 if (titleW > available) Text.Font = GameFont.Tiny;
             }
 
@@ -55,28 +58,11 @@ namespace SlopWorld
                 r.height);
 
             GUI.color = SlopWidgets.Lead;
-            string shownTitle = hostIcon && info?.Ephemeral == true
-                ? KeepStart(title, strong.width)
-                : title;
-            SlopWidgets.RowLabel(strong, shownTitle);
+            SlopWidgets.RowLabel(strong, title);
             GUI.color = SlopWidgets.Dim;
             SlopWidgets.RowLabel(quiet, context);
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = oldFont;
-        }
-
-        static string KeepStart(string text, float width)
-        {
-            text = text ?? "";
-            if (SlopWidgets.Wide(text) <= width) return text;
-
-            const string ellipsis = "..";
-            if (SlopWidgets.Wide(ellipsis) > width) return "";
-
-            int length = text.Length;
-            while (length > 0 && SlopWidgets.Wide(text.Substring(0, length) + ellipsis) > width)
-                length--;
-            return text.Substring(0, length) + ellipsis;
         }
 
         public static void DrawAgentText(Rect text, string session, SessionInfo info,
@@ -168,7 +154,7 @@ namespace SlopWorld
             if (act != RowAct.None) return project;
 
             string name = info?.Name ?? "";
-            if (info?.Ephemeral == true)
+            if (info != null && (info.Ephemeral || info.Host))
             {
                 string process = ProcessName(info);
                 return process.Length > 0 && title != process ? process : "";
@@ -212,7 +198,30 @@ namespace SlopWorld
                 clean.Append(char.IsControl(c) || (font != null && !font.HasCharacter(c))
                     ? ' ' : c);
             string title = clean.ToString().Trim();
+            title = RestoreHostPath(info, title);
             return title.Length == 0 || IsHostTitle(title) ? "" : title;
+        }
+
+        // tmux can hand us zsh's width-limited cwd title ("..it/repo" or "..pository")
+        // even though the durable host record carries the complete current directory.
+        // Rebuild only that suffix; commands and other application titles remain untouched.
+        static string RestoreHostPath(SessionInfo info, string title)
+        {
+            string dir = info?.Dir ?? "";
+            int suffixAt = 0;
+            while (suffixAt < title.Length
+                && (title[suffixAt] == '.' || title[suffixAt] == '\u2026')) suffixAt++;
+            string suffix = title.Substring(suffixAt);
+            if (info?.Host != true || suffixAt == 0 || suffix.Length < 3
+                || dir.Length == 0 || !dir.EndsWith(suffix, System.StringComparison.Ordinal))
+                return title;
+
+            string home = System.Environment.GetFolderPath(
+                System.Environment.SpecialFolder.UserProfile).TrimEnd('/');
+            return home.Length > 0
+                && (dir == home || dir.StartsWith(home + "/", System.StringComparison.Ordinal))
+                ? "~" + dir.Substring(home.Length)
+                : dir;
         }
 
         static bool IsHostTitle(string title) =>
