@@ -58,6 +58,5 @@ Not much, but it's honest work.
 
 - Babysitting clankers with love :3
 - "Soundtrack"
-- Documentation
 
 ## Contributing
