@@ -48,7 +48,9 @@ front pass adds one badge in full view, sized from the face so it survives shrin
 anchored to the drawn portrait rather than the cell. `Patch_AgentNeverIdle` remains active
 so vanilla does not report an agent idle after the replacement.
 
-Host shells are one-line ghost rows with no pawn/state; durable project-heading shells
+Compact agent rows can put the optional effective startup/network flags (`a`, `r`, `h`) at
+the right of their second line; the Appearance setting controls them. Host shells are
+one-line ghost rows with no pawn/state; durable project-heading shells
 stay in that row after their pane stops. Agent rows show the terminal icon and project;
 ghost rows emphasize the title/action/file identity and dim context. Viewer, editor and
 diff sessions use explicit prefixes because native titles are often `bash` or `less`, and

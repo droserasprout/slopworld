@@ -107,18 +107,43 @@ namespace SlopWorld
             SlopWidgets.RowLabel(name, session ?? "?");
 
             Text.Font = GameFont.Tiny;
+            string indicators = Settings.StatusbarAgentIndicators
+                ? AgentIndicators(info) : "";
+            float indicatorW = indicators.Length == 0 ? 0f : SlopWidgets.Wide(indicators);
+            var line2 = new Rect(text.x, text.y + nameH, text.width, subH);
+            if (indicatorW > 0f)
+            {
+                var indicator = new Rect(line2.xMax - indicatorW, line2.y,
+                    indicatorW, line2.height);
+                GUI.color = SlopWidgets.Faint;
+                SlopWidgets.RowLabel(indicator, indicators, TextAnchor.MiddleRight);
+                TooltipHandler.TipRegion(indicator,
+                    "a autostart · r resume on start · h host-mode networking");
+                line2.width = Mathf.Max(0f, line2.width - indicatorW - SlopWidgets.GapXS);
+            }
+
             if (state != AgentState.Down)
             {
                 string title = Title(info);
                 if (title.Length > 0)
                 {
                     GUI.color = SlopWidgets.Dim;
-                    var line2 = new Rect(text.x, text.y + nameH, text.width, subH);
                     SlopWidgets.RowLabel(line2, title);
                     if (SlopWidgets.Wide(title) > line2.width)
                         TooltipHandler.TipRegion(line2, title);
                 }
             }
+        }
+
+        static string AgentIndicators(SessionInfo info)
+        {
+            if (info == null) return "";
+
+            bool host = info.Network == NetworkMode.Host;
+            if (info.Autostart)
+                return info.AutoResume ? (host ? "arh" : "ar") : (host ? "ah" : "a");
+            if (info.AutoResume) return host ? "rh" : "r";
+            return host ? "h" : "";
         }
 
         static string Ago(SessionInfo info)

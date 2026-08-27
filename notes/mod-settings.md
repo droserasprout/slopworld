@@ -24,6 +24,10 @@ the palette drops IDs that are no longer in its catalogue when it loads.
 `statusbarClockPosition` is `right`, `center` or `hidden`. `timeFormat` is `24-hour`
 or `12-hour` and controls the status-bar clock and its tooltip.
 
+`statusbarAgentIndicators` controls the optional tiny `a`/`r`/`h` flags on the second line
+of Agents rows: autostart, resume on start, and effective host networking. Unlike the other
+status-bar flags, it only changes sidebar text.
+
 `sidebar` is the layout mode, not daemon configuration. It is changed from the
 configuration page and gear menu, while that page's Save button belongs to the daemon
 file. Storage inventory is likewise an operation view: it reads daemon state and owns
