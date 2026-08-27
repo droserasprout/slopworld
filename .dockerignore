@@ -8,8 +8,6 @@ slopd/*
 !slopd/src/**
 !slopd/presets/
 !slopd/presets/**
-!slopd/jukebox/
-!slopd/jukebox/**
 !slopcar/
 slopcar/*
 !slopcar/entrypoint.sh

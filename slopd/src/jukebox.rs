@@ -75,57 +75,21 @@ struct FileStream {
     url: String,
 }
 
-// Compiled in rather than installed: shipped definitions need to agree with the daemon binary
-// that resolves them. User files are the editable layer beside config.toml.
-const BUILTIN: &[(&str, &str)] = &[
-    (
-        "01-radio-paradise",
-        include_str!("../jukebox/01-radio-paradise.toml"),
-    ),
-    ("02-wefunk", include_str!("../jukebox/02-wefunk.toml")),
-    (
-        "03-classic-vinyl",
-        include_str!("../jukebox/03-classic-vinyl.toml"),
-    ),
-    (
-        "04-kiosk-radio",
-        include_str!("../jukebox/04-kiosk-radio.toml"),
-    ),
-    ("05-wfmu", include_str!("../jukebox/05-wfmu.toml")),
-    ("06-dublab", include_str!("../jukebox/06-dublab.toml")),
-    (
-        "08-nts-radio-1",
-        include_str!("../jukebox/08-nts-radio-1.toml"),
-    ),
-    ("09-kexp", include_str!("../jukebox/09-kexp.toml")),
-];
-
 impl Catalog {
     pub fn load() -> Self {
         Self::load_from(&Self::dir())
     }
 
     fn load_from(dir: &Path) -> Self {
-        let mut catalog = Self::builtins();
+        let mut catalog = Self::default();
         catalog.merge_dir(dir);
         catalog
     }
 
-    pub fn builtins() -> Self {
-        let mut catalog = Self::default();
-        for (name, text) in BUILTIN {
-            match parse(text, Path::new(name)) {
-                Ok(station) => catalog.merge(station),
-                Err(e) => tracing::error!("builtin jukebox definition {name} does not parse: {e}"),
-            }
-        }
-        catalog
-    }
-
-    /// Alongside `config.toml`, because station definitions are machine-wide user config rather
-    /// than profile data. `SLOPD_JUKEBOX` is useful for tests and an alternate daemon instance.
+    /// User-owned station definitions live in application data rather than the installed daemon
+    /// or game mod. `SLOPD_JUKEBOX` is useful for tests and an alternate daemon instance.
     pub fn dir() -> PathBuf {
-        crate::paths::dir("SLOPD_JUKEBOX", dirs::config_dir(), "jukebox")
+        crate::paths::dir("SLOPD_JUKEBOX", dirs::data_dir(), "jukebox")
     }
 
     fn merge_dir(&mut self, dir: &Path) {
@@ -158,7 +122,7 @@ impl Catalog {
         }
     }
 
-    /// A user station with an existing id replaces the shipped entry in place; a new id is
+    /// A later user file with an existing id replaces the earlier entry in place; a new id is
     /// appended in filename order. This keeps the menu order stable and makes overrides
     /// predictable when more than one user file names the same station.
     fn merge(&mut self, station: Station) {
@@ -285,22 +249,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn builtins_parse_in_menu_order_and_keep_metadata() {
-        let catalog = Catalog::builtins();
-        assert_eq!(catalog.stations.len(), 8);
-        assert_eq!(catalog.stations[0].id, "radio-paradise");
-        assert_eq!(
-            catalog.stations[0].metadata.donate,
-            "https://radioparadise.com/donate"
-        );
-        assert_eq!(catalog.stations[0].streams[1].key, "mp3-128");
-        assert!(catalog.stations[0].streams[1].url.starts_with("https://"));
-        assert!(catalog.stations[2]
-            .metadata
-            .title_regex
-            .contains("(?<artist>"));
-        // Catalog parsing and lookup do not open a URL. Network playback is covered only by
-        // a real daemon selected by a user, never by this test suite.
+    fn an_empty_user_directory_has_no_stations() {
+        let dir = temp_dir("empty");
+        let catalog = Catalog::load_from(&dir);
+        assert!(catalog.stations.is_empty());
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
@@ -359,12 +312,22 @@ url = "http://127.0.0.1:9/not-a-server"
         );
     }
 
-    /// The mod drops any station whose streams it cannot see, so the catalog's own key names
-    /// are part of the wire protocol and not an internal detail of the TOML.
     #[test]
-    fn shipped_catalog_reaches_the_mod_as_named_streams() {
-        let catalog = Catalog::builtins();
-        assert!(!catalog.stations.is_empty());
+    fn a_user_catalog_reaches_the_mod_as_named_streams() {
+        let dir = temp_dir("wire");
+        std::fs::write(
+            dir.join("fixture.toml"),
+            r#"
+id = "fixture"
+
+[[stream]]
+rate = 96
+key = "fixture96"
+url = "http://127.0.0.1:9/fixture"
+"#,
+        )
+        .unwrap();
+        let catalog = Catalog::load_from(&dir);
 
         let json: serde_json::Value = serde_json::to_value(&catalog).unwrap();
         for station in json["stations"].as_array().unwrap() {
@@ -377,6 +340,7 @@ url = "http://127.0.0.1:9/not-a-server"
                 assert!(stream["url"].is_null());
             }
         }
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
@@ -391,16 +355,8 @@ url = "http://127.0.0.1:9/not-a-server"
     }
 
     #[test]
-    fn personal_files_are_appended_and_can_omit_the_id() {
-        let dir = std::env::temp_dir().join(format!(
-            "slopworld-jukebox-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        std::fs::create_dir_all(&dir).unwrap();
+    fn personal_files_are_loaded_and_can_omit_the_id() {
+        let dir = temp_dir("personal");
         std::fs::write(
             dir.join("personal.TOML"),
             r#"
@@ -415,12 +371,25 @@ url = "https://example.org/personal"
         .unwrap();
 
         let catalog = Catalog::load_from(&dir);
-        assert_eq!(catalog.stations.len(), BUILTIN.len() + 1);
-        let personal = catalog.stations.last().unwrap();
+        assert_eq!(catalog.stations.len(), 1);
+        let personal = &catalog.stations[0];
         assert_eq!(personal.id, "personal");
         assert_eq!(personal.metadata.name, "Personal Radio");
         assert_eq!(personal.streams[0].key, "96");
 
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    fn temp_dir(label: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "slopworld-jukebox-{label}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
     }
 }

@@ -20,14 +20,12 @@ turning it into a generic genre directory. Good candidates are:
 - [boxout.fm](https://boxout.fm/) - New Delhi underground programming covering
   South Asian hip-hop, bass, electronica, indie and experimental music.
 
-SomaFM is deliberately not a SlopWorld source. Its [direct-stream notice](https://somafm.com/deepspaceone/directstreamlinks.html)
-and [Terms of Service](https://somafm.com/contact/tos.html) restrict personal
-listening and prohibit new third-party applications, including games, without
-explicit permission. Remove bundled SomaFM definitions unless the station gives
-written approval.
+None of these stations are a SlopWorld source. Their direct-stream notices and
+terms vary, and personal-listening permission does not grant new third-party
+applications, including games, permission to redistribute or embed a stream.
 
-Personal exception: the two former builtins may be kept as untracked local files
-under `~/.config/slopworld/jukebox/` for the user's own listening. Do not commit,
+All station definitions are user-owned files under
+`~/.local/share/slopworld/jukebox/` for the user's own listening. Do not commit,
 ship or copy those definitions into another distributed install.
 
 ## Embedding-policy audit

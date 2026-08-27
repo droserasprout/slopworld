@@ -3,10 +3,10 @@
 `Defs/Jukebox.xml` defines `SlopJukebox`: a non-selectable, non-edifice building
 with no hit points, zero flammability and `Standable` passability — scenery with one
 click target. `Sim/Jukebox.cs` owns the building and menus; `Sim/Radio.cs` owns
-selection and reports it to `slopd`. The daemon owns the station catalog. Shipped stations are
-compiled from `slopd/jukebox/`; user files are one-station TOMLs under
-`$XDG_CONFIG_HOME/slopworld/jukebox/` (`SLOPD_JUKEBOX` overrides). A matching `id`
-replaces a shipped station; new ids append in filename order.
+selection and reports it to `slopd`. The daemon owns the station catalog. There are no
+shipped radio stations: user files are one-station TOMLs under
+`$XDG_DATA_HOME/slopworld/jukebox/` (`SLOPD_JUKEBOX` overrides). A matching `id`
+replaces an earlier user entry; new ids append in filename order.
 
 ```toml
 id = "example"
@@ -55,9 +55,8 @@ its response-header deadline into body reads, so setting that nominally header-o
 an artificial disconnect every fifteen seconds.
 
 The daemon is required because Unity/FMOD cannot reliably handle the target HTTPS,
-AAC, Icecast and unknown-length streams. Shipped sources include Radio Paradise,
-WEFUNK, WALM, Kiosk Radio, WFMU, dublab, NTS and KEXP; prefer direct HTTPS
-MP3 streams with ICY metadata.
+AAC, Icecast and unknown-length streams. User-provided sources should prefer direct
+HTTPS MP3 streams with ICY metadata.
 
 Local OST playback, likes, recognition, and history are covered in
 [jukebox local audio and history](mod-jukebox-library.md).

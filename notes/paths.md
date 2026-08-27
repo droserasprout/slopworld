@@ -10,9 +10,9 @@
   written while slopd is running with the effective URL and token, mode `0600`.
 - User presets: `~/.config/slopworld/presets/*.toml` (`SLOPD_PRESETS` overrides).
 - Task mailbox: `~/.config/slopworld/tasks.toml` (beside `SLOPD_CONFIG`).
-- User jukebox definitions: `~/.config/slopworld/jukebox/*.toml` (`XDG_CONFIG_HOME`
-  or `SLOPD_JUKEBOX` overrides). The shipped definitions are compiled into `slopd` from
-  `slopd/jukebox/`.
+- User jukebox definitions: `~/.local/share/slopworld/jukebox/*.toml` (`XDG_DATA_HOME`
+  or `SLOPD_JUKEBOX` overrides). No station definitions are shipped in `slopd` or the mod;
+  this directory is the only source for radio stations.
 - Jukebox likes: `~/.local/share/slopworld/jukebox.toml` (`XDG_DATA_HOME` overrides),
   containing structured `[[like]]` tables.
 - Profile: `$XDG_DATA_HOME/slopworld/profile`. Saves, screenshots, `Config/`.

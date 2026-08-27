@@ -44,7 +44,7 @@ namespace SlopWorld
 
             // The quality it was last left on, so a switch away and back comes up where it
             // was. Kept per station rather than as one number for the lot of them: the
-            // lists do not overlap, and RP's 192 is not a rate WeFunk has ever served.
+            // lists do not overlap, so one station's quality is not assumed to work for another.
             public int Rate;
 
             internal Station(string id, string name, string donate, string titleRegex,
@@ -68,7 +68,7 @@ namespace SlopWorld
                 }
             }
 
-            // The stream's stable key at a rate - "mp3-192", "wefunk64.mp3", "classic".
+            // The stream's stable key at a rate, as supplied by the user definition.
             // It gives the setting a human-editable tail.
             public string Path(int rate)
             {

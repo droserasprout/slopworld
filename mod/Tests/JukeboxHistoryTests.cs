@@ -41,7 +41,7 @@ namespace SlopWorld.Tests
             {
                 "[[like]]",
                 "at = \"2023-01-01T00:00:00Z\"",
-                "source = \"Radio Paradise\"",
+                "source = \"Example Radio\"",
                 "artist = \"A\"",
                 "title = \"B\"",
                 "",
