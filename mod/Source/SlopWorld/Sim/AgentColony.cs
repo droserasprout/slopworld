@@ -227,6 +227,9 @@ namespace SlopWorld
             // A stopped process collapses it; anything else is left to get on with it.
             foreach (var kv in _pawns)
             {
+                if (AgentLook.CapBodySize(kv.Value))
+                    kv.Value.Drawer?.renderer?.SetAllGraphicsDirty();
+
                 RobotFace.Apply(kv.Value);
 
                 var state = SessionHub.Instance.Get(kv.Key)?.State ?? AgentState.Down;

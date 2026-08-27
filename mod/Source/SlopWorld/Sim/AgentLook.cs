@@ -44,6 +44,21 @@ namespace SlopWorld
             pawn.Drawer?.renderer?.SetAllGraphicsDirty();
         }
 
+        // Agents are machines wearing a human silhouette: keep the oversized vanilla Fat and
+        // Hulk bodies out of the colony, while leaving Thin and average silhouettes. Return
+        // whether the render tree needs rebuilding so callers can avoid dirtying unchanged pawns.
+        public static bool CapBodySize(Pawn pawn)
+        {
+            if (pawn?.story == null ||
+                (pawn.story.bodyType != BodyTypeDefOf.Fat &&
+                 pawn.story.bodyType != BodyTypeDefOf.Hulk)) return false;
+
+            pawn.story.bodyType = pawn.gender == Gender.Female
+                ? BodyTypeDefOf.Female
+                : BodyTypeDefOf.Male;
+            return true;
+        }
+
         public static void Reroll(Pawn pawn)
         {
             RobotFace.Reroll(pawn);
