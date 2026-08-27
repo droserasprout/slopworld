@@ -46,6 +46,14 @@ namespace SlopWorld
             IEnumerable<IContentTreeNode> IContentTreeNode.Children => Kids;
         }
 
+        sealed class BrowseRequest
+        {
+            public Node Node;
+            public string Path;
+            public int Version;
+            public bool Descend;
+        }
+
         sealed class TreeSource : ContentTreeSource
         {
             public override IList<ContentTreeGroup> Groups()
@@ -91,6 +99,10 @@ namespace SlopWorld
                 file.Expanded = !file.Expanded;
                 // Closing and opening again is the retry when the last request failed.
                 file.Error = null;
+                // A manual expand is a foreground request. Drop queued background work so a
+                // single directory does not wait behind the rest of an unfold-all walk.
+                CancelQueuedBrowse();
+                if (file.Expanded && file.Kids != null) RefreshLoaded(file, false);
             }
 
             public override RowAct Actions(IContentTreeNode node) => Acts((Node)node);
@@ -130,11 +142,21 @@ namespace SlopWorld
 
         public static void SetAllFolded(bool folded)
         {
+            CancelQueuedBrowse();
             Shut.Clear();
             if (folded)
                 foreach (var group in new TreeSource().Groups()) Shut.Add(group.Key);
             foreach (var root in Roots.Values) SetExpanded(root, !folded);
             if (_focusedRoot != null) SetExpanded(_focusedRoot, !folded);
+
+            // Reopening a project must refresh its cached root before its old children are
+            // trusted. Refresh only the roots here; nested rows refresh when opened.
+            if (!folded)
+            {
+                foreach (var project in ViewChrome.Projects())
+                    RefreshLoaded(Root(project), false);
+                if (_focusedRoot != null) RefreshLoaded(_focusedRoot, false);
+            }
         }
 
         static void SetExpanded(Node node, bool expanded)
@@ -188,7 +210,10 @@ namespace SlopWorld
         static readonly ContentTreeView Tree = new ContentTreeView(new TreeSource());
         static int _focusVersion;
         const float AutoRefreshSeconds = 2f;
+        const int MaxConcurrentBrowse = 4;
         static float _nextAutoRefresh;
+        static readonly Queue<BrowseRequest> BrowseQueue = new Queue<BrowseRequest>();
+        static int BrowseInFlight;
 
         // Resolve against the session's project root, then open only the ancestor listings
         // needed to reveal the row. No filesystem work happens until the click asks for it.
@@ -271,6 +296,7 @@ namespace SlopWorld
         // what the reader arranged - which projects are open, and how deep - is kept.
         public static void Reload()
         {
+            CancelQueuedBrowse();
             ReleaseViewer();
             ClearSelection();
             foreach (var root in Roots.Values) Forget(root);
@@ -286,42 +312,32 @@ namespace SlopWorld
             if (now < _nextAutoRefresh) return;
             _nextAutoRefresh = now + AutoRefreshSeconds;
             if (!SessionHub.Instance.Online) return;
+            // Do not add another generation while an unfold or refresh is still draining.
+            if (BrowseInFlight > 0 || BrowseQueue.Count > 0) return;
 
             foreach (var project in ViewChrome.Projects())
-                RefreshLoaded(Root(project));
+                if (!Shut.Contains(project)) RefreshLoaded(Root(project));
             if (_focusedRoot != null) RefreshLoaded(_focusedRoot);
         }
 
-        static void RefreshLoaded(Node node)
+        static void RefreshLoaded(Node node, bool descend = true)
         {
-            if (node == null || node.Kids == null || node.Loading) return;
+            if (node == null || node.Kids == null || node.Loading || !node.Expanded) return;
 
             node.Loading = true;
             node.Error = null;
-            string path = node.Path;
-            int version = node.ListingVersion;
-            SlopClient.Get(
-                "/api/browse?files=1&path=" + System.Uri.EscapeDataString(path) +
-                "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0"),
-                j =>
-                {
-                    if (node.Path != path || node.ListingVersion != version) return;
-                    node.Loading = false;
-                    node.Kids = Listed(node, j);
-                    node.More = j["truncated"].AsBool();
+            QueueBrowse(node, descend);
+        }
 
-                    // Walk the fresh children, rather than the old list, so a removed
-                    // directory stops generating requests immediately.
-                    foreach (var child in node.Kids)
-                        if (child.IsDir && child.Kids != null)
-                            RefreshLoaded(child);
-                },
-                msg =>
-                {
-                    if (node.Path != path || node.ListingVersion != version) return;
-                    node.Loading = false;
-                    node.Error = msg;
-                });
+        static void CancelQueuedBrowse()
+        {
+            while (BrowseQueue.Count > 0)
+            {
+                var request = BrowseQueue.Dequeue();
+                if (request.Node.Path == request.Path &&
+                    request.Node.ListingVersion == request.Version)
+                    request.Node.Loading = false;
+            }
         }
 
         public static void FocusDirectory(string path, string label)
@@ -417,32 +433,75 @@ namespace SlopWorld
             if (node.Loading) return;
             node.Loading = true;
             node.Error = null;
+            QueueBrowse(node, false);
+        }
 
-            string path = node.Path;
-            int version = node.ListingVersion;
-            SlopClient.Get(
-                "/api/browse?files=1&path=" + System.Uri.EscapeDataString(path) +
-                "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0"),
-                j =>
-                {
-                    // The tree was dropped, or the project moved, while this was in flight.
-                    if (node.Path != path || node.ListingVersion != version) return;
-                    node.Loading = false;
+        static void QueueBrowse(Node node, bool descend)
+        {
+            BrowseQueue.Enqueue(new BrowseRequest
+            {
+                Node = node,
+                Path = node.Path,
+                Version = node.ListingVersion,
+                Descend = descend,
+            });
+            PumpBrowse();
+        }
 
-                    node.Kids = Listed(node, j);
-                    node.More = j["truncated"].AsBool();
-                    var loaded = node.Loaded;
-                    node.Loaded = null;
-                    if (loaded != null)
-                        foreach (var callback in loaded) callback();
-                },
-                msg =>
+        static void PumpBrowse()
+        {
+            while (BrowseInFlight < MaxConcurrentBrowse && BrowseQueue.Count > 0)
+            {
+                var request = BrowseQueue.Dequeue();
+                if (!Current(request)) continue;
+
+                BrowseInFlight++;
+                SlopClient.Get(
+                    "/api/browse?files=1&path=" + System.Uri.EscapeDataString(request.Path) +
+                    "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0"),
+                    j => CompleteBrowse(request, j, null),
+                    msg => CompleteBrowse(request, null, msg));
+            }
+        }
+
+        static bool Current(BrowseRequest request) =>
+            request.Node.Loading && request.Node.Path == request.Path &&
+            request.Node.ListingVersion == request.Version;
+
+        static void CompleteBrowse(BrowseRequest request, JVal j, string error)
+        {
+            BrowseInFlight--;
+            try
+            {
+                if (!Current(request)) return;
+
+                var node = request.Node;
+                node.Loading = false;
+                if (j == null)
                 {
-                    if (node.Path != path || node.ListingVersion != version) return;
-                    node.Loading = false;
-                    node.Error = msg;
+                    node.Error = error;
                     node.Loaded = null;
-                });
+                    return;
+                }
+
+                node.Kids = Listed(node, j);
+                node.More = j["truncated"].AsBool();
+                var loaded = node.Loaded;
+                node.Loaded = null;
+                if (loaded != null)
+                    foreach (var callback in loaded) callback();
+
+                if (!request.Descend) return;
+                // Walk the fresh children, rather than the old list, and only while branches
+                // remain expanded. Folded work is picked up when the branch is reopened.
+                foreach (var child in node.Kids)
+                    if (child.IsDir && child.Kids != null && child.Expanded)
+                        RefreshLoaded(child);
+            }
+            finally
+            {
+                PumpBrowse();
+            }
         }
 
         static List<Node> Listed(Node parent, JVal j)
