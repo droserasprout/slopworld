@@ -923,6 +923,58 @@ async fn list_dir(
     Ok(out)
 }
 
+/// Filter entries that `.gitignore` rules cover. Runs `git check-ignore` in the listed
+/// directory; silently skips filtering when git is absent or the path is outside a repo.
+async fn filter_gitignored(base: &std::path::Path, listing: &mut Listing) {
+    use tokio::io::AsyncWriteExt;
+
+    if listing.dirs.is_empty() && listing.files.is_empty() {
+        return;
+    }
+
+    let mut cmd = tokio::process::Command::new("git");
+    cmd.current_dir(base)
+        .args(["check-ignore", "--stdin", "-z"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null());
+
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    {
+        let mut stdin = match child.stdin.take() {
+            Some(s) => s,
+            None => return,
+        };
+        let mut input = Vec::new();
+        for name in listing.dirs.iter().chain(listing.files.iter()) {
+            input.extend_from_slice(name.as_bytes());
+            input.push(0);
+        }
+        let _ = stdin.write_all(&input).await;
+    }
+
+    let output = match child.wait_with_output().await {
+        Ok(o) => o,
+        Err(_) => return,
+    };
+
+    let mut ignored = std::collections::HashSet::new();
+    for chunk in output.stdout.split(|&b| b == 0) {
+        if let Ok(s) = std::str::from_utf8(chunk) {
+            if !s.is_empty() {
+                ignored.insert(s.to_owned());
+            }
+        }
+    }
+
+    listing.dirs.retain(|n| !ignored.contains(n));
+    listing.files.retain(|n| !ignored.contains(n));
+}
+
 /// So the dialog can pick a project dir, and the files view can draw a tree, without
 /// the mod touching the host filesystem itself. `dirs` is what it always was; `files`
 /// is asked for.
@@ -934,9 +986,13 @@ pub(super) async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) ->
     };
 
     let limit = browse_limit(q.limit);
-    let out = list_dir(&base, q.files, q.hidden, limit)
+    let mut out = list_dir(&base, q.files, q.hidden, limit)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+
+    if q.gitignore {
+        filter_gitignored(&base, &mut out).await;
+    }
 
     Ok(Json(json!({
         "path": base,

@@ -132,6 +132,8 @@ pub(crate) struct BrowseReq {
     pub(crate) files: bool,
     #[serde(default, deserialize_with = "flag")]
     pub(crate) hidden: bool,
+    #[serde(default, deserialize_with = "flag")]
+    pub(crate) gitignore: bool,
     #[serde(default)]
     pub(crate) limit: Option<usize>,
 }
