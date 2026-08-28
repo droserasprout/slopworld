@@ -30,7 +30,8 @@ right configuration paths.
 | `network` | Optional override of the project's network default. |
 | `dns` | Optional override of the project's DNS servers. |
 | `limits` | Optional override of the project's resource limits. Agent values win. |
-| `mounts` | Additional project directories mounted under `/mnt/<project-name>`. |
+| `mounts` | Additional project directories mounted under `/mnt/<project-name>`. Each entry names a project and an optional `mode` (`ro` or `rw`, default `rw`). |
+| `autostart` | Start this agent automatically when the daemon starts. |
 | `auto_resume` | When enabled, the daemon pastes `/resume` and submits after the agent settles on startup. |
 | `breadcrumbs` | Named breadcrumb blocks delivered alongside the first prompt. |
 
@@ -70,7 +71,7 @@ Network and DNS changes take effect on the next agent start.
 | Network mode, DNS | Next start. |
 | Resource limits | Next start. |
 | Mounts | Next start. |
-| Auto-resume, breadcrumbs | Next start. |
+| Autostart, auto-resume, breadcrumbs | Next start. |
 | Project directory | Immediately for new agents; running agents keep their current mount. |
 
 Running agents are not rebuilt from changed defaults. Restart the agent to apply

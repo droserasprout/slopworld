@@ -26,5 +26,4 @@ Docker supplies Bubblewrap, pasta, tmux and the agent CLIs. The image is multiar
 run its amd64 build and Apple Silicon runs its arm64 build without emulation.
 Install Homebrew's GNU Make first with `brew install make`. Then run `gmake mac-setup`, open Docker
 Desktop once, and use `gmake mac` to build the sidecar, install the mod into the configured native
-macOS app bundle, and launch the game. See the [sidecar
-instructions](../../slopcar/README.md).
+macOS app bundle, and launch the game. See [macOS](guides/macos.md) for setup details.

@@ -58,5 +58,5 @@ recreated, but in-flight work is lost.
 
 ## Updating
 
-Rebuild the sidecar with `gmake mac-setup` after pulling changes. The mod is reinstalled
-as part of setup.
+Pull changes and run `gmake mac` again. This rebuilds the sidecar, reinstalls the mod,
+and launches the game.

@@ -16,7 +16,7 @@ mod/            C# RimWorld mod (Harmony, 1.6)
   Sounds/       soundtrack OGGs
 docs/           mdBook documentation
   src/          Markdown source
-  book/         committed build output
+  book/         build output (gitignored)
 tools/          Python and shell build tools
 notes/          developer notes (not user-facing)
 ```
@@ -34,7 +34,7 @@ make install                                   # install daemon, runner, mod
 make run                                       # launch through the runner
 ```
 
-Set `BUILD=release` for release builds. See [Build from source](../../build.md) for
+Set `BUILD=release` for release builds. See [Build from source](../build.md) for
 the full reference.
 
 ## Checks
@@ -82,5 +82,5 @@ are used only for work that will be merged back.
 
 ## Documentation
 
-`make docs` builds the mdBook; `make docs-serve` serves it locally. The build output
-under `docs/book/` is committed, so rebuild before committing source changes.
+`make docs` builds the mdBook; `make docs-serve` serves it locally. Build output
+under `docs/book/` is gitignored.

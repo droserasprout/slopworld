@@ -7,6 +7,9 @@ mod/Assemblies/SlopWorld.dll
 *.mdb
 .tokensave
 .ost-staging/
+docs/book/
+# User-owned jukebox definitions; never include station sources in the project.
+/slopd/jukebox/
 __pycache__/
 tools/bg/
 packaging/arch/src/
