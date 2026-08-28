@@ -41,7 +41,8 @@ Keyboard behavior:
 - **Alt+Z/X, Alt+comma/period** walks the terminal tab list.
 - **Shift+Enter** sends a newline without submitting.
 - **Ctrl+C** copies selected text, or sends SIGINT when nothing is selected.
-- **Ctrl+V** pastes. Codex panes forward the paste to Codex for image attachments.
+- **Ctrl+V** pastes. Codex panes paste text normally and forward image clipboard data to Codex
+  for attachments.
 - **Shift+PgUp/PgDn** scrolls the mod's own scrollback on the primary screen.
 - **Shift+F1..F12** forwards the F-key to the agent (bare F-keys are the mod's).
 

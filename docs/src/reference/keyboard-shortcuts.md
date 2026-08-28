@@ -48,7 +48,7 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 | Alt+Comma / Alt+Period | Walk to previous/next session (alternate binding). |
 | Shift+Enter | Send `\e[13;2u` (newline without submitting). |
 | Ctrl+C | Copy when text is selected; SIGINT otherwise. |
-| Ctrl+V | Paste from clipboard. Codex panes forward the paste to Codex for image attachments. |
+| Ctrl+V | Paste from clipboard. Codex panes paste text normally and forward image data to Codex for attachments. |
 | Middle-click | Paste the host's PRIMARY selection (Wayland/X11). |
 | Shift+PgUp / Shift+PgDn | Scroll the mod's own scrollback (primary screen only). |
 | Shift+F1..F12 | Forward the F-key to the agent. |
