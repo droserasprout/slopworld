@@ -14,7 +14,6 @@
 - [Interface](./tour/interface.md)
 - [Agents and projects](./tour/agents-and-projects.md)
 - [Sandboxing](./tour/sandboxing.md)
-- [Integrations](./tour/integrations.md)
 - [Fun](./tour/fun.md)
 
 # Guides
@@ -24,16 +23,17 @@
 - [Agent collaboration](./guides/agent-collaboration.md)
 - [Using slopctl](./guides/slopctl.md)
 - [Attaching from a terminal](./guides/terminal.md)
+- [macOS](./guides/macos.md)
 - [Backup and recovery](./guides/backup-and-recovery.md)
 
 # Reference
 
 - [Settings](./reference/settings.md)
 - [Paths and files](./reference/paths.md)
-- [Supported integrations](./reference/integrations.md)
+- [Integrations](./reference/integrations.md)
+- [API](./reference/api.md)
 - [Keyboard shortcuts](./reference/keyboard-shortcuts.md)
 - [Security model](./reference/security.md)
 - [Troubleshooting](./reference/troubleshooting.md)
-- [Known limitations](./reference/known-limitations.md)
 - [FAQ](./faq.md)
 - [Contributing](./reference/contributing.md)
