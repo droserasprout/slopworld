@@ -54,9 +54,10 @@ Shift+Enter sends `\e[13;2u` so an agent inserts a newline instead of submitting
 copies when text is selected and otherwise falls through as SIGINT, Ctrl+V pastes, and
 middle-click pastes the host's Wayland/X11 PRIMARY selection (even when an app reports
 mouse input). Non-Codex agent panes use the normal clipboard read; host panes use a text-only
-read. Codex panes forward Ctrl+V to Codex itself, whose image-paste handler reads the clipboard
-and creates the attachment; the built-in Codex sandbox therefore includes the X11 and Wayland
-display capabilities it needs.
+read. Codex panes probe the text-only clipboard first, because Codex's image-paste handler
+otherwise reports a missing image for ordinary text; they forward Ctrl+V only for image (or
+other non-text) clipboard data. The built-in Codex sandbox therefore includes the X11 and
+Wayland display capabilities it needs.
 Shift+F1..F12 forwards the F-key to the agent while a bare F-key is the mod's.
 
 Unity can lose the semicolon IMGUI event. The terminal therefore checks both the

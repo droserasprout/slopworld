@@ -281,11 +281,16 @@ namespace SlopWorld
         // a host shell.
         bool HostClipboardTextOnly => SessionHub.Instance.Get(_name)?.Host != false;
 
-        // Codex owns Ctrl+V: its TUI reads image clipboard data and turns it into an attachment.
-        // Sending that data through the daemon's text/JSON paste path turns the image bytes into
-        // a huge string of replacement characters instead.
+        // Codex owns Ctrl+V for image clipboard data: its TUI turns that data into an attachment.
+        // Sending image bytes through the daemon's text/JSON paste path turns them into a huge
+        // string of replacement characters instead.
         bool CodexImagePaste => !HostClipboardTextOnly &&
             SessionHub.Instance.Get(_name)?.CommandPreset == "codex";
+
+        static void ForwardCodexImagePaste(string name)
+        {
+            SessionHub.Instance.SendKeys(name, new[] { "C-v" }, false);
+        }
 
         void PasteClipboard()
         {
@@ -293,7 +298,19 @@ namespace SlopWorld
             if (CodexImagePaste && SessionHub.Instance.Capabilities.Clipboard)
             {
                 Flush();
-                SessionHub.Instance.SendKeys(name, new[] { "C-v" }, false);
+                // Codex's image handler claims Ctrl+V even when the clipboard only has text,
+                // then reports "no image". Read the text format first and reserve Ctrl+V for an
+                // image (or another non-text clipboard format).
+                SlopClient.Get("/api/clipboard/text",
+                    j =>
+                    {
+                        string text = j["text"].AsString();
+                        if (!string.IsNullOrEmpty(text))
+                            SessionHub.Instance.Paste(name, text);
+                        else
+                            ForwardCodexImagePaste(name);
+                    },
+                    _ => ForwardCodexImagePaste(name));
                 return;
             }
             if (!SessionHub.Instance.Capabilities.Clipboard)

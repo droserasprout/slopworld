@@ -22,7 +22,8 @@ The mod uses HTTP for writes so it can show daemon error bodies:
 `/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`,
 `PUT /api/config/patch`, shortcut/run, `/api/run`, and root-only Files mutations.
 `GET /api/clipboard` reads CLIPBOARD for non-Codex agent paste; `GET /api/clipboard/text` is
-the text-only host-terminal counterpart. The `/primary` variants do the same for
+the text-only host-terminal counterpart and is also used to distinguish Codex text pastes from
+its image-paste shortcut. The `/primary` variants do the same for
 the Wayland/X11 PRIMARY selection used by terminal middle-click paste, and `POST
 /api/clipboard` writes CLIPBOARD.
 The patch route deep-merges nested JSON, validates the result, and preserves omitted
