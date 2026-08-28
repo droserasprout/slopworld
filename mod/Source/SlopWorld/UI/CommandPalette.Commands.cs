@@ -159,6 +159,9 @@ namespace SlopWorld
             new CommandDef("view.dotfiles", "View: Toggle Dotfiles", "View",
                 _ => AgentSidebar.ToggleDotfiles(),
                 enabled: () => AgentSidebar.CanToggleDotfiles),
+            new CommandDef("view.gitignored", "View: Toggle Gitignored", "View",
+                _ => AgentSidebar.ToggleGitignored(),
+                enabled: () => AgentSidebar.CanToggleDotfiles),
             new CommandDef("view.toggle-sidebar", "View: Toggle Sidebar", "View",
                 _ => AgentSidebar.ToggleSidebar()),
 

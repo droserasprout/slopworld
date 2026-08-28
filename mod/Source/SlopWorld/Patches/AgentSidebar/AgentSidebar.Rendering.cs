@@ -26,8 +26,36 @@ namespace SlopWorld
             if (!CanToggleDotfiles) return;
             Settings.S.sidebarShowHidden = !Settings.S.sidebarShowHidden;
             Settings.S.Write();
+            ReloadAfterVisibilityChange();
+        }
+
+        public static void ToggleGitignored()
+        {
+            if (!CanToggleDotfiles) return;
+            Settings.S.sidebarShowGitignored = !Settings.S.sidebarShowGitignored;
+            Settings.S.Write();
+            ReloadAfterVisibilityChange();
+        }
+
+        static void ReloadAfterVisibilityChange()
+        {
             if (CurrentTab == SidebarTab.Files) FilesView.Reload();
             else SearchView.Search();
+        }
+
+        static Rect _visibilityRect;
+
+        static void OpenVisibilityMenu()
+        {
+            var opts = new List<FloatMenuOption>
+            {
+                SlopWidgets.MenuToggle("Dotfiles", Settings.SidebarShowHidden,
+                    () => { ToggleDotfiles(); OpenVisibilityMenu(); }),
+                SlopWidgets.MenuToggle("Gitignored", Settings.SidebarShowGitignored,
+                    () => { ToggleGitignored(); OpenVisibilityMenu(); }),
+            };
+            TerminalWindow.OpenOverPane(
+                new SlopMenu(opts, new Vector2(_visibilityRect.x, _visibilityRect.yMax)));
         }
 
         public static void SetAllFolds(bool folded)
@@ -617,12 +645,13 @@ namespace SlopWorld
 
             if (CurrentTab == SidebarTab.Files || CurrentTab == SidebarTab.Search)
             {
-                bool showing = Settings.SidebarShowHidden;
-                Tab(r, Icons.Hidden, showing,
-                    showing
-                        ? "Showing dotfiles. Click to hide them."
-                        : "Hiding dotfiles. Click to show them.",
-                    ToggleDotfiles);
+                bool active = Settings.SidebarShowHidden || Settings.SidebarShowGitignored;
+                _visibilityRect = r;
+                Tab(r, Icons.Hidden, active,
+                    active
+                        ? "Visibility filters active. Click to change."
+                        : "All files shown. Click to filter.",
+                    OpenVisibilityMenu);
             }
             else if (CurrentTab == SidebarTab.Git)
             {
