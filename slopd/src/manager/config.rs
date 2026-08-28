@@ -41,6 +41,10 @@ impl Manager {
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
         let activity_cache =
             crate::activity::ActivityCache::load(crate::activity::cache_path(&cfg_path));
+        // `main` logs the catalog before constructing the manager. Refresh here as well so a
+        // definition copied between those two reads cannot leave the static catalog empty while
+        // the watcher starts with the directory's already-current timestamp.
+        crate::jukebox::reload();
         let m = Arc::new(Self {
             tmux: Tmux::new(crate::config::tmux_socket()),
             cfg_path,

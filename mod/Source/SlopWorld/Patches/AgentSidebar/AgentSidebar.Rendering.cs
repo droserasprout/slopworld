@@ -323,6 +323,8 @@ namespace SlopWorld
                 if (kv.Value.Count > 0) Layout.Order.Add(kv.Key);
             foreach (var kv in Layout.Ghosts)
                 if (kv.Value.Count > 0 && !Layout.Order.Contains(kv.Key)) Layout.Order.Add(kv.Key);
+            foreach (var p in SessionHub.Instance.Projects)
+                if (!Layout.Order.Contains(p.Name) && Passes(p.Name)) Layout.Order.Add(p.Name);
 
             Layout.Order.Sort((a, b) =>
                 a == Loose ? (b == Loose ? 0 : 1)

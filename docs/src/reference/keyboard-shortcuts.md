@@ -79,3 +79,8 @@ F1 (by default) opens a filtered command list. Type to filter; arrow keys and
 Enter navigate. The palette lists all window and sidebar actions, agent operations,
 shortcut errands, and configuration commands. Recently used commands appear first when
 unfiltered.
+
+Notable commands:
+
+- **View: Toggle Sidebar** — hide or show the left panel.
+- **Agent: Shell** — open a shell inside the selected agent's sandbox.

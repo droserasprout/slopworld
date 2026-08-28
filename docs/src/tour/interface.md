@@ -24,7 +24,8 @@ Five tabs share the panel:
 A project filter at the top of the tab strip limits every view to the selected projects.
 
 The add strip at the bottom offers new projects, agents, sandbox presets, commands, and
-host shells.
+host shells. The sidebar can be hidden entirely with the **View: Toggle Sidebar** command
+in the palette.
 
 ## Terminal
 
