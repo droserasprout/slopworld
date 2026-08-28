@@ -60,6 +60,13 @@ namespace SlopWorld
                     if (!string.IsNullOrEmpty(s.Project))
                         TerminalWindow.OpenOverPane(EditSessionDialog.Copy(s));
                 }),
+            CommandDef.ForAgent("agent.shell", "Agent: Shell", AgentsSubWithProject,
+                s =>
+                {
+                    if (!string.IsNullOrEmpty(s.Project))
+                        SessionHub.Instance.Run(s.Project, "", "", session => TerminalWindow.Open(session),
+                            SlopWidgets.Fail, like: s.Name);
+                }),
 
             new CommandDef("project.new", "Project: New", "Project",
                 _ => TerminalWindow.OpenOverPane(new EditProjectDialog(null))),
@@ -152,6 +159,8 @@ namespace SlopWorld
             new CommandDef("view.dotfiles", "View: Toggle Dotfiles", "View",
                 _ => AgentSidebar.ToggleDotfiles(),
                 enabled: () => AgentSidebar.CanToggleDotfiles),
+            new CommandDef("view.toggle-sidebar", "View: Toggle Sidebar", "View",
+                _ => AgentSidebar.ToggleSidebar()),
 
             new CommandDef("view.config", "Settings: General", "Settings",
                 _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Config))),

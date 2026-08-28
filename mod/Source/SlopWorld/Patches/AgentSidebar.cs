@@ -507,7 +507,14 @@ namespace SlopWorld
 
         static bool Wanted()
         {
-            return ColonistBarStrip.BarShown && !Cutscene.Playing;
+            return ColonistBarStrip.BarShown && !Cutscene.Playing && !Settings.SidebarHidden;
+        }
+
+        public static void ToggleSidebar()
+        {
+            Settings.S.sidebarHidden = !Settings.S.sidebarHidden;
+            Settings.S.Write();
+            Patch_MainTabWindowShift.Reposition();
         }
     }
 

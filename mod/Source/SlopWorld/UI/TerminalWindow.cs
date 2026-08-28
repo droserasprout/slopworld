@@ -61,7 +61,7 @@ namespace SlopWorld
             ColonistBarStrip.Draw(input);
 
             float top = TopBar.H;
-            float left = AgentSidebar.Width;
+            float left = SlopLayout.LeftInset;
             return new Rect(
                 rect.x + left + Pad,
                 top + Pad,

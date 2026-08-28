@@ -8,7 +8,7 @@ namespace SlopWorld
         // rather than leaving a button row indented against nothing.
         public static bool Shown => !Cutscene.Playing;
 
-        public static float LeftInset => Shown ? AgentSidebar.Width : 0f;
+        public static float LeftInset => Shown && !Settings.SidebarHidden ? AgentSidebar.Width : 0f;
 
         public static float TopInset => Shown ? TopBar.H : 0f;
 

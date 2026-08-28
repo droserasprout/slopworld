@@ -81,7 +81,7 @@ namespace SlopWorld
         // From TerminalWindow.DoWindowContents, after the background fill.
         public static void Draw(bool interactive)
         {
-            if (!Ready || Drawing) return;
+            if (!Ready || Drawing || Settings.SidebarHidden) return;
             if (Event.current.type == EventType.Layout) return;
             var bar = Find.ColonistBar;
             if (bar == null) return;

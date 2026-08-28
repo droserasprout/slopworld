@@ -78,6 +78,7 @@ namespace SlopWorld
         // Both are about this screen the way the layout itself is, so they live beside it -
         // and a project is the daemon's rather than a colony's, so neither belongs in a save.
         // Folds are one name per line; a project that has gone is a name nothing matches.
+        public bool sidebarHidden;
         public float sidebarWidth = 210f;
         public string foldedProjects = "";
         // Which of the column's two views is up, and whether its tree says anything about
@@ -194,6 +195,7 @@ namespace SlopWorld
             var text = new StringBuilder();
             String(text, "autoConnect", autoConnect);
             String(text, "fullscreen", fullscreen);
+            String(text, "sidebarHidden", sidebarHidden);
             Number(text, "sidebarWidth", sidebarWidth);
             String(text, "foldedProjects", foldedProjects);
             String(text, "sidebarTab", sidebarTab);
@@ -242,6 +244,7 @@ namespace SlopWorld
         {
             autoConnect = Bool(values, "autoConnect", autoConnect);
             fullscreen = Bool(values, "fullscreen", fullscreen);
+            sidebarHidden = Bool(values, "sidebarHidden", sidebarHidden);
             sidebarWidth = Float(values, "sidebarWidth", sidebarWidth);
             foldedProjects = Text(values, "foldedProjects", foldedProjects);
             sidebarTab = Text(values, "sidebarTab", sidebarTab);
@@ -324,6 +327,7 @@ namespace SlopWorld
         public static bool AutoConnect => S.autoConnect;
         public static bool Fullscreen => S.fullscreen;
         // Unclamped: AgentSidebar owns what a usable column is, and it is the only reader.
+        public static bool SidebarHidden => S.sidebarHidden;
         public static float SidebarWidth => S.sidebarWidth;
         public static string FoldedProjects => S.foldedProjects ?? "";
         public static string SidebarTab => S.sidebarTab ?? "";
