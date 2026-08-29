@@ -141,7 +141,7 @@ namespace SlopWorld
             RememberDisplayedFrame(_name, buf);
 
             NegotiateSize(body, buf);
-            float shift = HistoryShift(buf, cellH);
+            float shift = HistoryShift(cellH);
             _renderHistoryShift = shift;
             DrawScreen(body, buf, shift);
             DrawSelection(body, buf, shift);

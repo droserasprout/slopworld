@@ -38,12 +38,19 @@ namespace SlopWorld
                 _historyJumpPixels = pixels >= 0f && cellH > 0.01f
                     ? Mathf.Min(MaxScrollLines * cellH, pixels + live.LiveShift * cellH)
                     : -1f;
+                if (_historyTopOff >= 0)
+                    _historyTopOff = Mathf.Min(MaxScrollLines,
+                        _historyTopOff + live.LiveShift);
             }
+            // The cached rows use the preceding live bottom as their origin. Once the offset
+            // above has moved, consulting those rows at the new coordinate shows an adjacent
+            // line for one frame. Keep the last assembled frame as the visual fallback, but
+            // make every coordinate lookup wait for a snapshot from the new sequence.
+            _history.Reset();
             _historyRequests.Clear();
             _historyResponses.Clear();
             _scrollPending = false;
             _wantedScrollOff = 0;
-            _historyTopOff = -1;
             _historyRefreshPending = true;
         }
 
