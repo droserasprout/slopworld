@@ -278,21 +278,23 @@ namespace SlopWorld
                 0x51_0F_0000 ^ (key?.GetHashCode() ?? 0)));
         }
 
-        // Leads with what the row says and carries the spent figure behind it, that being the
-        // number an agent's own /usage will agree with.
+        // The global setting chooses the one quota view shown in the tooltip. The other figure
+        // is useful for deriving it, but repeating it makes the preference meaningless.
         static string Detail(UsageWindow w)
         {
             if (!w.IsMoney)
                 return Settings.UsageSpent
-                    ? $"{Long(w)}: {w.Pct:0.#}% spent ({Left(w):0.#}% left)"
-                    : $"{Long(w)}: {Left(w):0.#}% left ({w.Pct:0.#}% spent)";
+                    ? $"{Long(w)}: {w.Pct:0.#}% spent"
+                    : $"{Long(w)}: {Left(w):0.#}% left";
 
             if (w.Limit < 0f)
-                return $"{Long(w)}: ${w.Amount:0.00} spent ({Left(w):0.#}% left)";
+                return Settings.UsageSpent
+                    ? $"{Long(w)}: ${w.Amount:0.00} spent"
+                    : $"{Long(w)}: {Left(w):0.#}% left";
 
             return Settings.UsageSpent
-                ? $"{Long(w)}: ${w.Amount:0.00} spent (${Mathf.Max(0f, w.Limit - w.Amount):0.00} left of ${w.Limit:0.##}, {w.Pct:0.#}%)"
-                : $"{Long(w)}: ${Mathf.Max(0f, w.Limit - w.Amount):0.00} left of ${w.Limit:0.##} (${w.Amount:0.00} spent, {w.Pct:0.#}%)";
+                ? $"{Long(w)}: ${w.Amount:0.00} spent"
+                : $"{Long(w)}: ${Mathf.Max(0f, w.Limit - w.Amount):0.00} left of ${w.Limit:0.##}";
         }
 
         static string Long(UsageWindow w) => Long(w.Key, w.Label);
@@ -320,14 +322,14 @@ namespace SlopWorld
         // currently reporting - the whole point of choosing an icon for it in advance.
         public static string Long(string key, string fallback = null)
         {
-            if (key == "claude_session") return "Claude session window (5 hours)";
-            if (key == "claude_week") return "Claude weekly limit";
-            if (key == "openai_session") return "OpenAI primary window";
-            if (key == "openai_week") return "OpenAI secondary window";
-            if (key == "claude_spend") return "Claude extra usage";
+            if (key == "claude_session") return "Claude session";
+            if (key == "claude_week") return "Claude weekly";
+            if (key == "openai_session") return "OpenAI session";
+            if (key == "openai_week") return "OpenAI weekly";
+            if (key == "claude_spend") return "Claude balance";
             if (key == "openrouter_balance") return "OpenRouter balance";
             if (key.StartsWith("claude_week_"))
-                return "Claude weekly " + key.Substring(12).Replace('_', ' ') + " limit";
+                return "Claude weekly " + key.Substring(12).Replace('_', ' ');
             return string.IsNullOrEmpty(fallback) ? key : fallback;
         }
 
