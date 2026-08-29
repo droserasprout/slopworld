@@ -23,7 +23,7 @@ Write operations use HTTP so the caller can inspect daemon error bodies.
 | `/api/read` | Bounded UTF-8 file text (root-only). |
 | `/api/image` | Bounded base64 image bytes (root-only). |
 | `/api/search` | `rg`-based workspace search. Requires project path and query. Supports regex/case/word/hidden flags. Capped at 200 results. |
-| `/api/git` | Repository root, branch, shortstat, per-file porcelain/numstat. Non-repositories return `repo: false`. |
+| `/api/git` | Repository root, branch, per-file porcelain/numstat; large status streams are capped with `truncated`. Non-repositories return `repo: false`. |
 | `/api/open-apps` | Host desktop applications associated with a path. |
 | `/api/clipboard` | GET reads host CLIPBOARD; POST writes it. `/api/clipboard/text` is text-only. |
 

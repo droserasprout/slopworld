@@ -6,9 +6,10 @@ back pass. The daemon runs git through `GET /api/git?path=` because sandbox moun
 namespaces isolate sessions from the game; `/api/browse` exists for the same boundary
 ([wire-protocol](wire-protocol.md)).
 
-- Git is not lazy: changed paths are short enough to request as one flat list. `Fold`
-  builds interior nodes; `Squash` collapses single-child directory chains (for example
-  `slopd/src`), then `Depths` recalculates indentation.
+- Git is not lazy: changed paths are requested as one flat list, capped by the daemon while it
+  is reading Git's status stream. `Fold` builds interior nodes; `Squash` collapses single-child
+  directory chains (for example `slopd/src`), then `Depths` recalculates indentation. A capped
+  answer skips numstat accounting and shows a lower-bound count.
 - There is no filesystem-change event, so focusing Git reads every project again; `Refresh`
   is also available from the tab button, command palette and heading menu. `Entered` only
   primes projects when Files first needs the shared cache. The refresh button is the only
@@ -25,8 +26,8 @@ namespaces isolate sessions from the game; `/api/browse` exists for the same bou
   operations are deliberately not part of this first writable pass.
 - Rows show the porcelain pair, numstat and right-aligned figures. Untracked text files use a
   no-index diff against `/dev/null`, so their additions count too; binaries remain uncounted.
-  Green is staged, amber unstaged, red unmerged and faint untracked. Heading status uses
-  `git diff --shortstat` as branch plus three figures.
+  Green is staged, amber unstaged, red unmerged and faint untracked. Heading status shows the
+  branch plus the selected paths' numstat figures.
 - Errors clear the tree so `Measure` and `Body` agree with the visible rows.
 
 ## The diff

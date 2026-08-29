@@ -1,9 +1,11 @@
 //! Host-side git snapshot for the game, which cannot enter agent mount namespaces.
-//! Collects repository root, porcelain status, and numstat/shortstat for the tree.
+//! Collects repository root, porcelain status, and path-limited numstat for the tree.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::process::Stdio;
 
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::Command;
 
 /// One changed path.
@@ -26,6 +28,7 @@ pub struct Status {
     /// The branch, or the short hash on a detached head, or empty on a repository with no
     /// commit yet.
     pub branch: String,
+    /// Number of rows returned. When `truncated` is true this is a lower bound.
     pub changed: usize,
     pub added: u32,
     pub deleted: u32,
@@ -48,17 +51,18 @@ pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
     // Both readings are against the root rather than the directory asked about: a project
     // pointed at a subdirectory of a repository is still that repository, and a path relative
     // to the root is the one form `git diff` will take back without a second guess about cwd.
-    // Ask for every untracked file rather than Git's default one-row-per-directory
-    // summary. The latter produces `?? path/`, which is not a file path and would
-    // become an empty child when the client folds the list into its tree.
-    let porcelain = run(
-        &root,
-        &["status", "--porcelain=v1", "--untracked-files=all", "-z"],
-    )
-    .await?;
-    let rows = parse_porcelain(&porcelain);
+    // Ask for every untracked file rather than Git's default one-row-per-directory summary,
+    // but stop reading once the UI-sized answer is full. A large untracked tree must not make
+    // the daemon wait for Git to enumerate every file before the cap can take effect.
+    let (rows, truncated) = status_rows(&root).await?;
     let branch = branch(&root).await;
-    let counts = numstat(&root, &rows).await;
+    // A truncated status has no complete count to report. More importantly, running a full
+    // diff or one no-index diff per untracked path here would undo the status stream's cap.
+    let counts = if truncated {
+        HashMap::new()
+    } else {
+        numstat(&root, &rows).await
+    };
     let changed = rows.len();
     let added = counts.values().filter_map(|c| c.0).sum();
     let deleted = counts.values().filter_map(|c| c.1).sum();
@@ -80,9 +84,81 @@ pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
         changed,
         added,
         deleted,
-        truncated: changed > LIMIT,
+        truncated,
         changes,
     }))
+}
+
+/// Read the status stream only far enough to fill the sidebar tree. `status -z` puts the old
+/// name of a rename/copy in a second NUL-delimited field, so consume that field before deciding
+/// whether the next row crossed the cap.
+async fn status_rows(root: &Path) -> std::io::Result<(Vec<(String, String)>, bool)> {
+    let mut child = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["status", "--porcelain=v1", "--untracked-files=all", "-z"])
+        .env("GIT_PAGER", "cat")
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .env("LC_ALL", "C")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| std::io::Error::other("capturing git status output"))?;
+    let mut stdout = BufReader::new(stdout);
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| std::io::Error::other("capturing git status errors"))?;
+    let stderr_task = tokio::spawn(async move {
+        let mut error = String::new();
+        let _ = BufReader::new(stderr).read_to_string(&mut error).await;
+        error
+    });
+    let mut fields = Vec::new();
+    let mut rows = Vec::with_capacity(LIMIT);
+
+    loop {
+        fields.clear();
+        if stdout.read_until(0, &mut fields).await? == 0 {
+            break;
+        }
+        if fields.last() == Some(&0) {
+            fields.pop();
+        }
+        let record = String::from_utf8_lossy(&fields);
+        let Some((row, renamed)) = parse_porcelain_record(&record) else {
+            continue;
+        };
+        if renamed {
+            // The source path is not drawn, but it is part of this status record.
+            fields.clear();
+            let _ = stdout.read_until(0, &mut fields).await?;
+        }
+        rows.push(row);
+        if rows.len() > LIMIT {
+            let _ = child.kill().await;
+            let _ = child.wait().await;
+            let _ = stderr_task.await;
+            rows.truncate(LIMIT);
+            return Ok((rows, true));
+        }
+    }
+
+    let status = child.wait().await?;
+    let error = stderr_task.await.unwrap_or_default();
+    if !status.success() {
+        let error = error.trim();
+        return Err(std::io::Error::other(if error.is_empty() {
+            "git status failed".to_string()
+        } else {
+            error.to_string()
+        }));
+    }
+    Ok((rows, false))
 }
 
 /// The repository root, or `None` where there is none. An error here is git missing or
@@ -126,14 +202,22 @@ async fn numstat(
     root: &Path,
     rows: &[(String, String)],
 ) -> HashMap<String, (Option<u32>, Option<u32>)> {
-    let (out, has_head) = match run(root, &["diff", "--numstat", "-z", "HEAD"]).await {
+    if rows.is_empty() {
+        return HashMap::new();
+    }
+
+    let paths = rows.iter().map(|(path, _)| path.as_str());
+    let (out, has_head) = match run_paths(root, &["diff", "--numstat", "-z", "HEAD"], paths).await {
         Ok(s) => (s, true),
-        Err(_) => (
-            run(root, &["diff", "--numstat", "-z", "--cached"])
-                .await
-                .unwrap_or_default(),
-            false,
-        ),
+        Err(_) => {
+            let paths = rows.iter().map(|(path, _)| path.as_str());
+            (
+                run_paths(root, &["diff", "--numstat", "-z", "--cached"], paths)
+                    .await
+                    .unwrap_or_default(),
+                false,
+            )
+        }
     };
     let mut counts = parse_numstat(&out);
 
@@ -158,6 +242,7 @@ async fn no_index_numstat(root: &Path, path: &str) -> Option<(Option<u32>, Optio
         .args(["diff", "--no-index", "--numstat", "-z", "--", "/dev/null"])
         .arg(path)
         .env("GIT_PAGER", "cat")
+        .env("GIT_OPTIONAL_LOCKS", "0")
         .env("LC_ALL", "C")
         .output()
         .await
@@ -181,6 +266,33 @@ async fn run(root: &Path, args: &[&str]) -> std::io::Result<String> {
         .arg(root)
         .args(args)
         .env("GIT_PAGER", "cat")
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .env("LC_ALL", "C")
+        .output()
+        .await?;
+    if !out.status.success() {
+        return Err(std::io::Error::other(
+            String::from_utf8_lossy(&out.stderr).trim().to_string(),
+        ));
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// Run a diff against only the paths the status stream returned. Without the pathspec, a
+/// repository with a large number of tracked edits would make the numstat pass scan the whole
+/// diff even though the sidebar can display only `LIMIT` rows.
+async fn run_paths<'a, I>(root: &Path, args: &[&str], paths: I) -> std::io::Result<String>
+where
+    I: IntoIterator<Item = &'a str>,
+{
+    let mut command = Command::new("git");
+    command.arg("-C").arg(root).args(args).arg("--");
+    for path in paths {
+        command.arg(path);
+    }
+    let out = command
+        .env("GIT_PAGER", "cat")
+        .env("GIT_OPTIONAL_LOCKS", "0")
         .env("LC_ALL", "C")
         .output()
         .await?;
@@ -193,25 +305,34 @@ async fn run(root: &Path, args: &[&str]) -> std::io::Result<String> {
 }
 
 /// Parse `status --porcelain=v1 -z` without Git's quote escaping; discard a rename's old path and keep the current path.
+#[cfg(test)]
 fn parse_porcelain(out: &str) -> Vec<(String, String)> {
     let mut rows = Vec::new();
     let mut fields = out.split('\0').filter(|s| !s.is_empty());
     while let Some(record) = fields.next() {
-        if record.len() < 4 {
+        let Some(((path, status), renamed)) = parse_porcelain_record(record) else {
             continue;
-        }
-        let (status, path) = record.split_at(2);
-        let renamed = status.starts_with('R') || status.starts_with('C');
+        };
         if renamed {
             // The source path, which nothing here draws.
             fields.next();
         }
-        // The first space is porcelain's separator. Do not trim the rest: a perfectly
-        // legitimate filename may itself begin with a space.
-        let path = path.strip_prefix(' ').unwrap_or(path);
-        rows.push((path.to_string(), status.to_string()));
+        rows.push((path, status));
     }
     rows
+}
+
+/// Parse one status field and say whether it consumes the following source-path field.
+fn parse_porcelain_record(record: &str) -> Option<((String, String), bool)> {
+    if record.len() < 4 {
+        return None;
+    }
+    let (status, path) = record.split_at(2);
+    let renamed = status.starts_with('R') || status.starts_with('C');
+    // The first space is porcelain's separator. Do not trim the rest: a perfectly legitimate
+    // filename may itself begin with a space.
+    let path = path.strip_prefix(' ').unwrap_or(path);
+    Some(((path.to_string(), status.to_string()), renamed))
 }
 
 /// `diff --numstat -z`: added, deleted and the path, tab-separated, and the path its own
@@ -381,6 +502,36 @@ mod tests {
         assert_eq!(staged.added, Some(2));
         assert_eq!(staged.deleted, Some(0));
         assert_eq!(answer.added, 5);
+        assert_eq!(answer.deleted, 0);
+
+        tokio::fs::remove_dir_all(&dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_large_status_is_capped_before_numstat() {
+        let dir = std::env::temp_dir().join(format!("slopd-git-large-{}", std::process::id()));
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+        tokio::fs::create_dir_all(&dir).await.unwrap();
+
+        let init = Command::new("git")
+            .args(["init", "-q"])
+            .current_dir(&dir)
+            .status()
+            .await
+            .unwrap();
+        assert!(init.success());
+
+        for n in 0..=LIMIT {
+            tokio::fs::write(dir.join(format!("file-{n:04}.txt")), "one\n")
+                .await
+                .unwrap();
+        }
+
+        let answer = status(&dir).await.unwrap().unwrap();
+        assert!(answer.truncated);
+        assert_eq!(answer.changed, LIMIT);
+        assert_eq!(answer.changes.len(), LIMIT);
+        assert_eq!(answer.added, 0);
         assert_eq!(answer.deleted, 0);
 
         tokio::fs::remove_dir_all(&dir).await.unwrap();

@@ -74,7 +74,9 @@ share an agent's exact filesystem view.
   following them; dangling links are omitted.
 - Files mutations are root-only: create, one-component rename, and recursive delete.
   Names cannot contain slash, backslash, `.` or `..`; existing targets are preserved.
-- Git returns repository root, branch, shortstat and per-file porcelain/numstat.
+- Git returns repository root, branch, and per-file porcelain/numstat. Large status streams are
+  capped while being read; `truncated` then makes `changed` a lower bound and numstat totals are
+  omitted for that partial answer.
   Non-repositories return `200` with `repo: false`; missing git is an error.
 - Search runs `rg` directly, excludes `.git`, requires project path and query, supports
   regex/case/word/hidden flags, and caps results at 200 with `truncated`.
