@@ -674,11 +674,18 @@ namespace SlopWorld
             return _scrollPending && _wantedScrollOff == off;
         }
 
-        float HistoryShift(ScreenBuf buf, float cellH)
+        float HistoryShift(float cellH)
         {
-            if (buf == null || !_historyViewReady || !_historyScrollReady ||
-                cellH <= 0.01f) return 0f;
-            float shift = HistoryOffsetPixels() - buf.Off * cellH;
+            if (!_historyScrollReady || cellH <= 0.01f) return 0f;
+
+            // The assembled frame's offset is the ceiling of the fractional local position.
+            // Derive its translation from that position even while the stable fallback frame
+            // is displayed. Tying the shift to `_historyViewReady` made every refresh alternate
+            // between zero and the fractional shift, which can look like a whole-row wobble.
+            float pixels = HistoryOffsetPixels();
+            float lines = pixels / cellH;
+            int anchor = Mathf.Max(0, Mathf.CeilToInt(lines - 0.0001f));
+            float shift = pixels - anchor * cellH;
             return Mathf.Abs(shift) < cellH ? shift : 0f;
         }
 
