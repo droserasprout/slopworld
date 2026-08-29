@@ -377,6 +377,9 @@ namespace SlopWorld
                     hub.Run(info.Project, "", "", session => TerminalWindow.Open(session),
                         SlopWidgets.Fail, like: name)));
 
+            if (info != null && !info.Ephemeral && !info.Host)
+                opts.Add(new FloatMenuOption("Storage", () => StoragePage.FocusAgent(name)));
+
             if (info != null && info.Host)
                 opts.Add(new FloatMenuOption("Remove", () =>
                 {

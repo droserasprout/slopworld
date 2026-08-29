@@ -173,6 +173,22 @@ namespace SlopWorld
             FilesView.FocusDirectory(e.Path, e.Session ?? e.Key);
         }
 
+        public static void FocusAgent(string name)
+        {
+            SlopClient.Get("/api/state", j =>
+            {
+                var entry = j["entries"].Items
+                    .Select(Entry.FromJson)
+                    .FirstOrDefault(e => e.Kind == "active" && e.Session == name);
+                if (entry == null)
+                {
+                    SlopWidgets.Fail($"private storage for '{name}' is unavailable");
+                    return;
+                }
+                Focus(entry);
+            }, SlopWidgets.Fail);
+        }
+
         void ConfirmReset(Entry e)
         {
             Find.WindowStack.Add(SlopConfirmDialog.Create(

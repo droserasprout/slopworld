@@ -61,8 +61,10 @@ The grip polls `Input.GetMouseButton*`, not IMGUI events: absorbing windows can 
 initial press and off-screen release. It saves settings on release, owns the panel's
 right edge, and keeps tab/add hit gates short of that edge.
 
-The agent context menu offers Start/Stop, Terminal, Label, Edit, Duplicate, Shell,
-Remove, and New look. Shell spawns an ephemeral shell errand that clones the agent's
+The agent context menu offers Start/Stop, Terminal, Label, Edit, Duplicate, Shell, Storage,
+Remove, and New look. Storage resolves the agent's active private-state entry through the
+same daemon inventory as Settings and opens it as the focused root of Files. Shell spawns an
+ephemeral shell errand that clones the agent's
 sandbox config (presets, network, dns, limits, mounts) via the `like` field on
 `/api/run`, so the shell sees the same filesystem as the agent.
 
