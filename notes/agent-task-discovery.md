@@ -10,10 +10,11 @@ Keep transport, grants, and policy out of the prompt. Project instruction files 
 own this capability because it belongs to a live SlopWorld session.
 
 The optional `slopworld_md` session setting mounts the generated project-root `SLOPWORLD.md`
-and, when `[daemon.instructions] breadcrumb_enabled` is true, adds a separate discovery
-breadcrumb. That file can summarize the current project sandbox, configured collaborators,
-and the `slopctl` entry points; it is a generated runtime snapshot, not a replacement for
-this task-discovery message or for project instructions.
+and, when `[daemon.instructions] breadcrumb_enabled` is true, adds the configured discovery
+breadcrumb. Its default text points at the configured manifest mount path. The file can
+summarize the current project sandbox, configured collaborators, and the `slopctl` entry
+points; it is a generated runtime snapshot, not a replacement for this task-discovery message
+or for project instructions.
 
 The startup breadcrumb cannot wake an agent for a task arriving later. No task-arrival
 notification exists, so the body remains in the mailbox until the recipient checks it.

@@ -95,7 +95,14 @@ impl Manager {
             .collect();
         let mut crumbs = crumbs;
         if !host && s.slopworld_md && cfg.daemon.instructions.breadcrumb_enabled {
-            crumbs.push(crate::manifest::DISCOVERY_BREADCRUMB.to_string());
+            let discovery = crate::manifest::render_breadcrumb(
+                &cfg.daemon.instructions.breadcrumb,
+                &p.name,
+                &cfg.daemon.instructions.mount_path,
+            );
+            if !discovery.trim().is_empty() {
+                crumbs.push(discovery);
+            }
         }
         let mut live = self.live.write().await;
         if let Some(l) = live.get_mut(name) {
@@ -939,7 +946,7 @@ mod tests {
         let live = manager.live.read().await;
         assert!(live["agent"].breadcrumbs_pending);
         assert!(String::from_utf8_lossy(&live["agent"].breadcrumbs)
-            .contains(crate::manifest::DISCOVERY_BREADCRUMB));
+            .contains("Read `SLOPWORLD.md` for SlopWorld runtime context."));
         drop(live);
 
         cfg.daemon.instructions.breadcrumb_enabled = false;
