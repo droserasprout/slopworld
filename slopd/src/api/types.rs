@@ -62,7 +62,8 @@ pub(crate) struct RunReq {
     /// is no such key on a session or a shortcut.
     #[serde(default)]
     pub(crate) host: bool,
-    /// Clone sandbox config (presets, network, dns, limits, mounts) from this session.
+    /// Clone sandbox config (presets, persistent /tmp, network, dns, limits, mounts) from this
+    /// session.
     #[serde(default)]
     pub(crate) like: String,
 }

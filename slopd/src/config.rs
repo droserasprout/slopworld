@@ -501,6 +501,9 @@ pub struct SessionCfg {
     /// Mount the generated project-root runtime manifest and add its discovery breadcrumb.
     #[serde(default, skip_serializing_if = "is_false")]
     pub slopworld_md: bool,
+    /// Give this agent a durable, private `/tmp` instead of the sandbox's per-run tmpfs.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub persistent_tmp: bool,
     /// Paste all effective breadcrumbs in front of the first Enter after startup.
     #[serde(default = "yes", skip_serializing_if = "is_true")]
     pub breadcrumb_yolo: bool,
@@ -562,6 +565,7 @@ impl Default for SessionCfg {
             sandbox: Vec::new(),
             breadcrumbs: Vec::new(),
             slopworld_md: false,
+            persistent_tmp: false,
             breadcrumb_yolo: true,
             network: None,
             dns: None,
@@ -1460,6 +1464,21 @@ token = \"not-a-daemon-token\"
         let text = toml::to_string(&enabled).unwrap();
         assert!(text.contains("slopworld_md = true"));
         assert!(toml::from_str::<SessionCfg>(&text).unwrap().slopworld_md);
+    }
+
+    #[test]
+    fn persistent_tmp_is_an_opt_in_session_setting() {
+        let old: SessionCfg = toml::from_str("name = 'Ada'").unwrap();
+        assert!(!old.persistent_tmp);
+        assert!(!toml::to_string(&old).unwrap().contains("persistent_tmp"));
+
+        let enabled = SessionCfg {
+            persistent_tmp: true,
+            ..Default::default()
+        };
+        let text = toml::to_string(&enabled).unwrap();
+        assert!(text.contains("persistent_tmp = true"));
+        assert!(toml::from_str::<SessionCfg>(&text).unwrap().persistent_tmp);
     }
 
     /// A shipped breadcrumb is offered like any other and written down like none of them:

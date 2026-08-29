@@ -210,6 +210,12 @@ fn private_path(state_id: &str, host: &str) -> PathBuf {
         .join(host.strip_prefix("/").unwrap_or(host))
 }
 
+/// The durable `/tmp` for an opted-in agent. It lives beside private preset copies so the
+/// whole tree follows the same identity through rename, reset, trash and restore.
+fn persistent_tmp_path(s: &SessionCfg) -> PathBuf {
+    state_dir(s).join("tmp")
+}
+
 /// The durable, private directory for a configured agent.  `state_id` is not supplied by
 /// clients; the manager assigns it, so a name reused after deletion cannot inherit another
 /// agent's transcripts or tool configuration.
@@ -529,6 +535,15 @@ pub fn purge_trash() -> Result<usize> {
 /// existing copies are preserved. The private resolver is always synthetic, while an explicit
 /// DNS list in host mode needs a generated `/etc/resolv.conf` source too.
 pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<()> {
+    if s.persistent_tmp {
+        let path = persistent_tmp_path(s);
+        if path.exists() && !path.is_dir() {
+            anyhow::bail!("persistent /tmp path {} is not a directory", path.display());
+        }
+        std::fs::create_dir_all(&path)
+            .with_context(|| format!("making persistent /tmp {}", path.display()))?;
+    }
+
     let network = cfg.network_of(s, p);
     let dns = cfg.dns_of(s, p);
     match network {
@@ -842,6 +857,27 @@ mod tests {
 
         assert_eq!(state_dir(&before), state_dir(&after));
         assert_eq!(state_dir(&before), state_root().join("stable-agent-state"));
+    }
+
+    #[test]
+    fn persistent_tmp_is_created_under_the_agent_state() {
+        let state_id = format!("persistent-tmp-{}", uuid::Uuid::new_v4());
+        let s = SessionCfg {
+            name: "tmp-agent".into(),
+            state_id,
+            persistent_tmp: true,
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            network: NetworkMode::None,
+            ..Default::default()
+        };
+
+        prepare_network(&Config::default(), &s, &p).expect("persistent tmp preparation");
+        assert!(persistent_tmp_path(&s).is_dir());
+        std::fs::remove_dir_all(state_dir(&s)).unwrap();
     }
 
     #[test]

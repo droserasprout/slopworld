@@ -118,7 +118,7 @@ namespace SlopWorld
                 GUI.color = SlopWidgets.Faint;
                 SlopWidgets.RowLabel(indicator, indicators, TextAnchor.MiddleRight);
                 TooltipHandler.TipRegion(indicator,
-                    "a autostart · r resume on start · h host-mode networking");
+                    "a autostart · r resume on start · h host-mode networking · t persistent /tmp");
                 line2.width = Mathf.Max(0f, line2.width - indicatorW - SlopWidgets.GapXS);
             }
 
@@ -140,10 +140,12 @@ namespace SlopWorld
             if (info == null) return "";
 
             bool host = info.Network == NetworkMode.Host;
-            if (info.Autostart)
-                return info.AutoResume ? (host ? "arh" : "ar") : (host ? "ah" : "a");
-            if (info.AutoResume) return host ? "rh" : "r";
-            return host ? "h" : "";
+            string indicators = "";
+            if (info.Autostart) indicators += "a";
+            if (info.AutoResume) indicators += "r";
+            if (host) indicators += "h";
+            if (info.PersistentTmp) indicators += "t";
+            return indicators;
         }
 
         static string Ago(SessionInfo info)

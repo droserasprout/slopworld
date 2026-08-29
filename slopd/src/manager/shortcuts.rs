@@ -517,6 +517,7 @@ impl Manager {
         if !like.is_empty() {
             if let Some(src) = cfg.session(like) {
                 scfg.sandbox = src.sandbox.clone();
+                scfg.persistent_tmp = src.persistent_tmp;
                 scfg.network = src.network;
                 scfg.dns = src.dns.clone();
                 scfg.limits = src.limits;

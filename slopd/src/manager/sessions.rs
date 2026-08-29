@@ -686,6 +686,7 @@ impl Manager {
                     sandbox: l.cfg.sandbox.clone(),
                     breadcrumbs: l.cfg.breadcrumbs.clone(),
                     slopworld_md: l.cfg.slopworld_md,
+                    persistent_tmp: l.cfg.persistent_tmp,
                     breadcrumb_yolo: l.cfg.breadcrumb_yolo,
                     breadcrumbs_pending: l.breadcrumbs_pending,
                     auto_resume_pending: l.auto_resume_pending,

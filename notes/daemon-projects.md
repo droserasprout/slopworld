@@ -22,6 +22,9 @@ present selects that agent's mode, including one wider than the project default.
   a first-prompt breadcrumb, and adds the file to the repository's `.git/info/exclude`. The
   manifest is a generated snapshot shared by agents in that project; it is refreshed on config
   sync and before each enabled start, not on every file read.
+- `persistent_tmp` is an opt-in agent setting. It replaces the sandbox's per-run `/tmp` tmpfs
+  with a private tree under that agent's durable state; reset/delete removes it with the rest of
+  the state, while temporary errands remove it when they finish.
 - `check_belongs` runs on add and update, not at start. A project with agents
   refuses deletion. A rename carries its sessions in the same write.
 - **Nothing is migrated.** A field this build does not know is dropped on the next

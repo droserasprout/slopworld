@@ -17,6 +17,7 @@ pub struct SessionView {
     pub sandbox: Vec<String>,
     pub breadcrumbs: Vec<String>,
     pub slopworld_md: bool,
+    pub persistent_tmp: bool,
     pub breadcrumb_yolo: bool,
     // Lets the client attach tips only to the Enter that will consume breadcrumbs.
     pub breadcrumbs_pending: bool,

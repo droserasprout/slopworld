@@ -20,6 +20,7 @@ namespace SlopWorld.Tests
                 "\"command\":\"claude\",\"command_preset\":\"claude\", " +
                 "\"cmd\":\"run --x\",\"sandbox\":[\"home\",\"net\"], " +
                 "\"slopworld_md\":true, " +
+                "\"persistent_tmp\":true, " +
                 "\"agent\":\"/usr/bin/claude\",\"state\":\"working\",\"alive\":true, " +
                 "\"network\":\"host\",\"network_override\":\"none\", " +
                 "\"dns\":{\"mode\":\"servers\",\"servers\":[\"8.8.8.8\"]}, " +
@@ -41,6 +42,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("run --x", session.Cmd, "command override");
             AssertEx.Sequence(new[] { "home", "net" }, session.Sandbox, "sandbox list");
             AssertEx.True(session.SlopworldMd, "SlopWorld manifest");
+            AssertEx.True(session.PersistentTmp, "persistent /tmp");
             AssertEx.Equal("/usr/bin/claude", session.Agent, "resolved agent");
             AssertEx.Equal(AgentState.Working, session.State, "state");
             AssertEx.True(session.Alive, "alive");
@@ -82,6 +84,7 @@ namespace SlopWorld.Tests
                 Cmd = "run --x",
                 Sandbox = new List<string> { "home" },
                 SlopworldMd = true,
+                PersistentTmp = true,
                 Breadcrumbs = new List<string> { "tip" },
                 Label = "label",
                 NetworkOverride = NetworkMode.Host,
@@ -102,6 +105,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("run --x", json["cmd"].AsString(), "written command override");
             AssertEx.Equal("home", json["sandbox"][0].AsString(), "written sandbox");
             AssertEx.True(json["slopworld_md"].AsBool(), "written SlopWorld manifest");
+            AssertEx.True(json["persistent_tmp"].AsBool(), "written persistent /tmp");
             AssertEx.Equal("tip", json["breadcrumbs"][0].AsString(), "written breadcrumb");
             AssertEx.Equal("label", json["label"].AsString(), "written label");
             AssertEx.Equal("host", json["network"].AsString(), "written network override");
@@ -124,6 +128,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal(0, session.Cols, "missing columns default");
             AssertEx.Equal(0, session.Rows, "missing rows default");
             AssertEx.False(session.AutoResume, "auto resume default");
+            AssertEx.False(session.PersistentTmp, "persistent /tmp default");
             AssertEx.True(session.BreadcrumbYolo, "breadcrumb yolo default");
         }
     }
