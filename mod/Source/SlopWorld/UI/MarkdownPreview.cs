@@ -327,6 +327,8 @@ namespace SlopWorld
         float _clipBottom;
 
         bool _dragging;
+        bool _selectionMoved;
+        bool _multiClickSelection;
         bool _wordDragging;
         bool _lineDragging;
         bool _hasSel;
