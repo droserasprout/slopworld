@@ -48,6 +48,8 @@ namespace SlopWorld.Tests
                 tests.Add(("TerminalHistory: " + test.Name, test.Body));
             foreach (var test in PagerCommandsTests.Cases())
                 tests.Add(("PagerCommands: " + test.Name, test.Body));
+            foreach (var test in NameToolsTests.Cases())
+                tests.Add(("NameTools: " + test.Name, test.Body));
             foreach (var test in SessionNavigationTests.Cases())
                 tests.Add(("SessionNavigation: " + test.Name, test.Body));
             foreach (var test in SongRecognizerTests.Cases())

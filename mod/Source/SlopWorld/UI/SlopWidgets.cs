@@ -1155,21 +1155,7 @@ namespace SlopWorld
         }
 
         public static string FreeName(string name, IEnumerable<string> taken, string fallback)
-        {
-            string stem = name ?? "";
-            while (stem.Length > 0 && char.IsDigit(stem[stem.Length - 1]))
-                stem = stem.Substring(0, stem.Length - 1);
-            stem = stem.TrimEnd(' ', '-', '_');
-            if (stem.Length == 0) stem = name ?? fallback;
-
-            var used = taken.ToList();
-            for (int n = 2; n <= 99; n++)
-            {
-                string candidate = stem + "-" + n;
-                if (!used.Contains(candidate)) return candidate;
-            }
-            return stem;
-        }
+            => NameTools.FreeName(name, taken, fallback);
 
         public static void DrawRail<T>(Rect r, (string label, T tab)[] tabs, ref T active)
         {
