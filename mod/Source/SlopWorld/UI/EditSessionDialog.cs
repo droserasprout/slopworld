@@ -105,7 +105,7 @@ namespace SlopWorld
             _dnsServers = _s.DnsOverride?.Mode == DnsMode.Servers
                 ? string.Join(", ", _s.DnsOverride.Servers.ToArray())
                 : "";
-            closeOnAccept = true;
+            AcceptOnEnter(Save);
         }
 
         static string LimStr(int? v) => v.HasValue ? v.Value.ToString() : "";
@@ -113,12 +113,6 @@ namespace SlopWorld
         // A left rail of short pages rather than one long form: the agent, its sandbox, its
         // resource limits, its breadcrumbs and the preview each get their own tab.
         public override Vector2 InitialSize => new Vector2(660f, 800f);
-
-        public override void OnAcceptKeyPressed()
-        {
-            Save();
-            Event.current.Use();
-        }
 
         protected override void DoBody(Rect rect)
         {
@@ -649,18 +643,15 @@ namespace SlopWorld
         public BrowseDialog(string start, System.Action<string> pick)
         {
             _pick = pick;
-            closeOnAccept = true;
+            AcceptOnEnter(() =>
+            {
+                _pick?.Invoke(_path);
+                Close();
+            });
             Load(start ?? "");
         }
 
         public override Vector2 InitialSize => new Vector2(520f, 480f);
-
-        public override void OnAcceptKeyPressed()
-        {
-            _pick?.Invoke(_path);
-            Close();
-            Event.current.Use();
-        }
 
         void Load(string path)
         {
