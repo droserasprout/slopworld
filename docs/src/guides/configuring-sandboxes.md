@@ -78,6 +78,14 @@ editor when the preset is selected.
 `requires` forms a cycle-safe dependency closure. Required presets are automatically
 included and shown as disabled in the mod. For example, `systemd` requires `dbus`.
 
+## Mobile development
+
+The built-in `android-dev` and `ios-dev` presets expose installed Android and Xcode
+toolchains plus per-session tool state and writable build products. Add `android-debug`
+when an Android agent needs USB devices or an accelerated emulator; it also requires
+the display and GPU presets. Add `ios-debug` when an iOS agent needs simulator state
+or connected-device debugging. Debug presets are marked as host escapes.
+
 ## Process limits
 
 Project and agent `limits` (`memory_mb`, `pids`, `nofile`, `cpu_pct`) are inherited,

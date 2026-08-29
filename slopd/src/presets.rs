@@ -143,6 +143,13 @@ const BUILTIN: &[(&str, &str)] = &[
     ("nuget-cache", include_str!("../presets/nuget-cache.toml")),
     ("ruby-cache", include_str!("../presets/ruby-cache.toml")),
     ("ccache", include_str!("../presets/ccache.toml")),
+    ("android-dev", include_str!("../presets/android-dev.toml")),
+    (
+        "android-debug",
+        include_str!("../presets/android-debug.toml"),
+    ),
+    ("ios-dev", include_str!("../presets/ios-dev.toml")),
+    ("ios-debug", include_str!("../presets/ios-debug.toml")),
     ("gpg", include_str!("../presets/gpg.toml")),
     ("gpg-agent", include_str!("../presets/gpg-agent.toml")),
     (
@@ -462,12 +469,41 @@ mod tests {
         assert_eq!(t.sandbox("gpu").unwrap().dev, vec!["/dev/dri", "/dev/kfd"]);
 
         // The new presets parse and name themselves correctly.
-        for name in ["go", "gh", "aws", "kube", "slopworld-debug"] {
+        for name in [
+            "go",
+            "gh",
+            "aws",
+            "kube",
+            "android-dev",
+            "android-debug",
+            "ios-dev",
+            "ios-debug",
+            "slopworld-debug",
+        ] {
             let p = t
                 .sandbox(name)
                 .unwrap_or_else(|| panic!("no {name} sandbox preset"));
             assert!(!p.description.is_empty(), "{name} has no description");
         }
+        assert_eq!(
+            t.sandbox("android-debug").unwrap().requires,
+            vec!["android-dev", "gpu", "x11", "wayland"]
+        );
+        assert_eq!(t.sandbox("ios-debug").unwrap().requires, vec!["ios-dev"]);
+        assert!(t
+            .sandbox("android-debug")
+            .unwrap()
+            .dev
+            .iter()
+            .any(|path| path == "/dev/bus/usb"));
+        assert!(t
+            .sandbox("ios-debug")
+            .unwrap()
+            .dev
+            .iter()
+            .any(|path| path == "/dev/bus/usb"));
+        assert!(!t.sandbox("android-debug").unwrap().escapes.is_empty());
+        assert!(!t.sandbox("ios-debug").unwrap().escapes.is_empty());
         assert!(t.sandbox("slopworld-debug").unwrap().tmux);
         assert!(t.sandbox("slopworld-debug").unwrap().daemon_config);
         assert_eq!(
@@ -647,6 +683,8 @@ mod tests {
             "ccache",
             "git",
             "hg",
+            "android-dev",
+            "ios-dev",
             "ollama",
             "gpg",
         ] {

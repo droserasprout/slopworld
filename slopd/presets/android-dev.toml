@@ -1,0 +1,16 @@
+# Keep the SDK read-only: installing or updating toolchains is a host operation, while builds
+# write their outputs in the project. Gradle and Android user state are private per session so
+# an agent can build without changing the host's init scripts, caches or device keys.
+[[sandbox]]
+name = "android-dev"
+description = "Android SDK, Gradle and build tooling, one copy per session"
+ro = [
+    "$ANDROID_HOME",
+    "$ANDROID_SDK_ROOT",
+    "~/Android/Sdk",
+    "~/Android/sdk",
+    "~/.local/share/android-sdk",
+    "$JAVA_HOME",
+]
+private = ["~/.android", "~/.gradle"]
+env = ["ANDROID_HOME", "ANDROID_SDK_ROOT", "JAVA_HOME"]

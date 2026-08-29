@@ -1,0 +1,10 @@
+[[sandbox]]
+name = "android-debug"
+description = "Android emulator and connected-device debugging"
+requires = ["android-dev", "gpu", "x11", "wayland"]
+# /dev/bus/usb reaches physical devices; /dev/kvm enables accelerated emulators. Both are
+# optional on hosts that only use a software emulator or an already-running remote device.
+dev = ["/dev/bus/usb", "/dev/kvm"]
+ro = ["/proc", "/sys", "/run/udev"]
+env = ["ADB_SERVER_SOCKET", "ANDROID_SERIAL", "ANDROID_ADB_SERVER_PORT"]
+escapes = "can control connected Android devices and emulators, and use host graphics devices"
