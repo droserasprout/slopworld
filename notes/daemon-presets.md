@@ -31,6 +31,9 @@ a project checkbox; copying it creates the user `global` override.
   game/profile tree and user-owned jukebox data read-write, host process and device diagnostics,
   X11/Wayland/audio/GPU, desktop application metadata, systemd/D-Bus, tmux, writable
   launcher/service-install paths, and Rust/.NET/Python development caches.
+- `android-dev` and `ios-dev` expose their platform toolchains and writable build state without
+  device access. `android-debug` adds Android USB/KVM/display access, while `ios-debug` adds
+  simulator/device state and USB access; both are marked as host escapes.
 - `GET /api/presets` returns the complete effective definition and `source` (`system`,
   `user` or `override`). Root-only `POST /api/presets/:kind/:name/copy`, `PUT` and
   `DELETE` edit user `sandbox`/`command` entries. Saves are validated and atomically
