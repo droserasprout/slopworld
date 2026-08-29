@@ -452,8 +452,7 @@ namespace SlopWorld
             var grip = new Rect(w - GripW, 0f, GripW * 2f, UI.screenHeight);
             if (!ColonistBarStrip.Interactive && Interaction.Resizing)
             {
-                Interaction.Resizing = false;
-                Settings.S.Write();
+                EndResize();
             }
 
             bool over = ColonistBarStrip.SidebarHover(grip);
@@ -475,6 +474,7 @@ namespace SlopWorld
             {
                 if (!over || !Input.GetMouseButtonDown(0)) return;
                 Interaction.Resizing = true;
+                Interaction.WidthChanged = false;
                 Interaction.Grab = w - e.mousePosition.x;
             }
             else if (Input.GetMouseButton(0))
@@ -483,8 +483,7 @@ namespace SlopWorld
             }
             else
             {
-                Interaction.Resizing = false;
-                Settings.S.Write();
+                EndResize();
             }
 
             if (e.rawType == EventType.MouseDown || e.rawType == EventType.MouseUp
@@ -494,8 +493,30 @@ namespace SlopWorld
 
         static void SetWidth(float w)
         {
+            float before = Width;
             Settings.S.sidebarWidth = Mathf.Clamp(w, MinWidth, MaxWidth);
+            if (Mathf.Abs(Width - before) > 0.01f)
+                Interaction.WidthChanged = true;
             Patch_MainTabWindowShift.Reposition();
+        }
+
+        static void EndResize()
+        {
+            Interaction.Resizing = false;
+            if (Interaction.WidthChanged)
+            {
+                Interaction.WidthChanged = false;
+                RefreshPanels();
+            }
+            Settings.S.Write();
+        }
+
+        static void RefreshPanels()
+        {
+            if (TerminalWindow.TryPanelShape(out int cols, out int rows))
+                SessionHub.Instance.RefreshPanels(cols, rows);
+            else
+                SessionHub.Instance.RefreshPanels();
         }
 
         static void Absorb()
@@ -518,6 +539,7 @@ namespace SlopWorld
             Settings.S.sidebarHidden = !Settings.S.sidebarHidden;
             Settings.S.Write();
             Patch_MainTabWindowShift.Reposition();
+            RefreshPanels();
         }
     }
 

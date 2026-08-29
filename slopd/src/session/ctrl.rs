@@ -21,6 +21,7 @@ pub struct Manager {
     pub(super) clients: AtomicUsize,
     pub(super) clients_since: AtomicU64,
     pub(super) watchers: Mutex<HashMap<String, usize>>,
+    pub(super) redraw_nudge: Arc<tokio::sync::Semaphore>,
     pub(super) scroll_cache: Mutex<HashMap<String, CachedScroll>>,
     pub(super) activity_cache: crate::activity::ActivityCache,
     pub audio: crate::audio::Audio,
@@ -85,6 +86,7 @@ pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
         clients: AtomicUsize::new(0),
         clients_since: AtomicU64::new(0),
         watchers: Mutex::new(HashMap::new()),
+        redraw_nudge: Arc::new(tokio::sync::Semaphore::new(1)),
         scroll_cache: Mutex::new(HashMap::new()),
         activity_cache: crate::activity::ActivityCache::load(crate::activity::cache_path(
             &cfg_path,

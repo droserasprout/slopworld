@@ -6,7 +6,10 @@ Server events are `capabilities`, `sessions` (state/title/bell), `screen`, `usag
 `shortcuts` and `jukebox`. Capabilities and catalogs arrive on connect; catalogs are resent when
 changed. Capabilities describe runtime integration such as native audio, per-agent limits, and
 whether host networking means the sidecar rather than macOS.
-Clients send `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste` and `audio`.
+Clients send `redraw`, `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste` and `audio`.
+The root client sends `redraw` after a sidebar layout change, optionally with the new `cols` and
+`rows`; slopd applies that shape and asynchronously nudges every live tmux-backed pane one column
+smaller and restores it so agents, viewers and editors repaint before an inactive tab is opened.
 Scrolled `screen` replies carry `off`, the echoed `request_id`, and `history`, the emulator's
 current total scrollback rows. Live broadcasts leave `history` at zero; the mod uses the value
 from a scroll reply to size its terminal position indicator.

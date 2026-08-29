@@ -242,6 +242,7 @@ fn spawn_frame_pump(
 /// response means the socket is gone and tells the caller to stop reading it.
 async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
     match cm {
+        ClientMsg::Redraw { cols, rows } => handle_redraw(m, cap, cols.zip(rows)),
         ClientMsg::Sub { name } => handle_sub(name, m, cap, tx, subs).await,
         ClientMsg::Unsub { name } => handle_unsub(name, subs).await,
         ClientMsg::Keys(req) => handle_keys(req, m, cap).await,
@@ -252,6 +253,16 @@ async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &
         ClientMsg::Breadcrumb(req) => handle_breadcrumb(req, m, cap).await,
         ClientMsg::Audio(req) => handle_audio(req, m, cap).await,
     }
+}
+
+fn handle_redraw(m: &Mgr, cap: &Cap, shape: Option<(u16, u16)>) -> bool {
+    // A panel refresh reaches every live tmux session, so it is deliberately root-only. A
+    // scoped grant must never be able to cause work or visible flicker in sessions it cannot
+    // see.
+    if cap.may_create() {
+        m.request_redraw(shape);
+    }
+    true
 }
 
 async fn handle_sub(name: String, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {

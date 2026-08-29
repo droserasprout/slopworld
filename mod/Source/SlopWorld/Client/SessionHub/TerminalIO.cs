@@ -98,5 +98,12 @@ namespace SlopWorld
             _transport.Send($"{{\"t\":\"resize\",\"name\":{JVal.Q(name)}," +
                             $"\"cols\":{cols},\"rows\":{rows}}}");
         }
+
+        // A sidebar layout change affects every TUI, including viewer/editor tabs that are not
+        // the pane currently visible in the game. The daemon performs the redraw in background.
+        public void RefreshPanels() => _transport.Send("{\"t\":\"redraw\"}");
+
+        public void RefreshPanels(int cols, int rows) =>
+            _transport.Send($"{{\"t\":\"redraw\",\"cols\":{cols},\"rows\":{rows}}}");
     }
 }

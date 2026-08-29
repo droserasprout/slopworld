@@ -9,6 +9,7 @@ namespace SlopWorld.Tests
         {
             yield return ("stitches skipped offsets from overlapping viewports", StitchesOverlap);
             yield return ("requires a bridge across non-overlapping viewports", RequiresBridge);
+            yield return ("rejects a frame from an older live sequence", RejectsOldSequence);
         }
 
         static ScreenBuf Frame(int off, params string[] lines) => new ScreenBuf
@@ -53,6 +54,20 @@ namespace SlopWorld.Tests
             AssertEx.Sequence(
                 new[] { "old-4", "old-3", "old-2", "old-1" }, bridged.Lines,
                 "bridge contributes the overscan row");
+        }
+
+        static void RejectsOldSequence()
+        {
+            var history = new TerminalHistory();
+            var current = Frame(0, "current-0", "current-1", "current-2");
+            current.Seq = 8;
+            history.Reset(current);
+
+            var old = Frame(2, "old-2", "old-1", "current-0");
+            history.Add(old, current, 2);
+
+            AssertEx.False(history.TryView(1, true, out _),
+                "an old reply cannot bridge the current live sequence");
         }
     }
 }

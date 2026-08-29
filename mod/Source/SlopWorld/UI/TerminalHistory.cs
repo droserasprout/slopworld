@@ -34,6 +34,11 @@ namespace SlopWorld
         public void Add(ScreenBuf frame, ScreenBuf live, int nearOff)
         {
             if (frame == null || frame.Lines == null || frame.Lines.Length == 0) return;
+            // An offset is relative to the live bottom captured with the frame. Mixing it
+            // with a newer live sequence produces a plausible but wrong bridge, and is
+            // especially easy to do when a resize causes output while a scroll request is
+            // still in flight.
+            if (live != null && live.Seq != frame.Seq) return;
 
             if (_seq != frame.Seq)
             {

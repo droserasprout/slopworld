@@ -101,6 +101,10 @@ namespace SlopWorld
 
         public void Resize(string name, int cols, int rows) => _terminal.Resize(name, cols, rows);
 
+        public void RefreshPanels() => _terminal.RefreshPanels();
+
+        public void RefreshPanels(int cols, int rows) => _terminal.RefreshPanels(cols, rows);
+
         public void SendAudio(string station, string stream, string file, float volume) =>
             _audio.SendAudio(station, stream, file, volume);
 
