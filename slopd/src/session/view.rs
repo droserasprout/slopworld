@@ -88,17 +88,27 @@ pub struct ScreenView {
     pub lines: Vec<String>,
 }
 
+pub(crate) struct FrameViewArgs<'a> {
+    pub(crate) name: &'a str,
+    pub(crate) seq: u64,
+    pub(crate) cols: u16,
+    pub(crate) rows: u16,
+    pub(crate) off: u32,
+    pub(crate) history: u32,
+    pub(crate) request_id: u64,
+}
+
 impl ScreenView {
-    pub(crate) fn from_frame(
-        name: &str,
-        seq: u64,
-        cols: u16,
-        rows: u16,
-        off: u32,
-        history: u32,
-        frame: Frame,
-        request_id: u64,
-    ) -> Self {
+    pub(crate) fn from_frame(args: FrameViewArgs<'_>, frame: Frame) -> Self {
+        let FrameViewArgs {
+            name,
+            seq,
+            cols,
+            rows,
+            off,
+            history,
+            request_id,
+        } = args;
         Self {
             name: name.to_string(),
             seq,
@@ -139,7 +149,18 @@ mod tests {
             bell: true,
         };
 
-        let view = ScreenView::from_frame("agent", 11, 120, 40, 9, 91, frame, 23);
+        let view = ScreenView::from_frame(
+            FrameViewArgs {
+                name: "agent",
+                seq: 11,
+                cols: 120,
+                rows: 40,
+                off: 9,
+                history: 91,
+                request_id: 23,
+            },
+            frame,
+        );
         assert_eq!(view.name, "agent");
         assert_eq!((view.seq, view.cols, view.rows), (11, 120, 40));
         assert_eq!((view.cx, view.cy, view.off), (7, 3, 9));

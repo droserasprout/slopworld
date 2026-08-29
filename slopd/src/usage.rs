@@ -1066,21 +1066,20 @@ fn watch_anthropic_stamp(
 /// Read, fetch, parse and settle one provider. The descriptor supplies the provider-specific
 /// functions; all scheduling, failure backoff and snapshot preservation stay here.
 async fn poll_one(
-    poller: &mut Poller,
+    provider: &mut Provider<'_>,
     d: &crate::config::Daemon,
     now: Instant,
     base: u64,
-    source: &str,
-    read: ReadProvider,
-    fetch: FetchProvider,
-    parse: ParseProvider,
 ) -> bool {
-    if poller.due > now {
+    if provider.poller.due > now {
         return false;
     }
 
-    let prev = poller.snap.clone();
+    let prev = provider.poller.snap.clone();
     let config = d.clone();
+    let read = provider.read;
+    let fetch = provider.fetch;
+    let parse = provider.parse;
     let (next, asked) = tokio::task::spawn_blocking(move || match read(&config) {
         Err(e) => (Snapshot::failed(&prev, e), None),
         Ok(creds) => match fetch(creds) {
@@ -1094,8 +1093,8 @@ async fn poll_one(
     .await
     .unwrap_or_default();
 
-    let next = filter_snapshot(poller, next, d, source, now);
-    poller.settle(next, asked, base);
+    let next = filter_snapshot(provider.poller, next, d, provider.source, now);
+    provider.poller.settle(next, asked, base);
     true
 }
 
@@ -1223,17 +1222,7 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
                     provider.poller.due = now;
                 }
 
-                moved |= poll_one(
-                    provider.poller,
-                    d,
-                    now,
-                    interval,
-                    provider.source,
-                    provider.read,
-                    provider.fetch,
-                    provider.parse,
-                )
-                .await;
+                moved |= poll_one(provider, d, now, interval).await;
             }
 
             // One event for both, and only when something actually moved: `set_usage`
