@@ -30,6 +30,14 @@ intended for rotating credentials and currently contains only
 `~/.claude/.credentials.json`. Shared files are never seeded; writers need an
 in-place fallback because renaming over a bind mount fails with `EBUSY`.
 
+An agent with `slopworld_md = true` gets the generated project-root `SLOPWORLD.md` as a
+read-only final bind at the configured project path; `/mnt/<project>` is a symlink to that
+same path, so the manifest is protected through either spelling.
+The daemon also adds a SlopWorld-owned entry to the repository's `.git/info/exclude`; user-owned
+ignore rules and an existing non-generated `SLOPWORLD.md` are never overwritten. The manifest is
+project-scoped and can describe other configured agents, so it contains runtime context rather
+than secrets or project instructions.
+
 Non-empty preset `escapes` text warns that a capability such as Docker, D-Bus, X11,
 SSH agent or 1Password reaches back toward the host. Secret-only presets are not
 marked as escapes.

@@ -17,6 +17,7 @@ namespace SlopWorld
             (s, j) => s.CommandPreset = j["command_preset"].AsString(),
             (s, j) => s.Cmd = j["cmd"].IsNull ? "" : j["cmd"].AsString(),
             (s, j) => s.Sandbox = Strings(j["sandbox"]),
+            (s, j) => s.SlopworldMd = j["slopworld_md"].AsBool(false),
             (s, j) => s.Agent = j["agent"].AsString(),
             (s, j) => s.State = ParseState(j["state"].AsString()),
             (s, j) => s.Alive = j["alive"].AsBool(),

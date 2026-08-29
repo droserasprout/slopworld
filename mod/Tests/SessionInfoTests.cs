@@ -19,6 +19,7 @@ namespace SlopWorld.Tests
                 "\"name\":\"agent\",\"project\":\"proj\",\"dir\":\"/work\", " +
                 "\"command\":\"claude\",\"command_preset\":\"claude\", " +
                 "\"cmd\":\"run --x\",\"sandbox\":[\"home\",\"net\"], " +
+                "\"slopworld_md\":true, " +
                 "\"agent\":\"/usr/bin/claude\",\"state\":\"working\",\"alive\":true, " +
                 "\"network\":\"host\",\"network_override\":\"none\", " +
                 "\"dns\":{\"mode\":\"servers\",\"servers\":[\"8.8.8.8\"]}, " +
@@ -39,6 +40,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("claude", session.CommandPreset, "command preset");
             AssertEx.Equal("run --x", session.Cmd, "command override");
             AssertEx.Sequence(new[] { "home", "net" }, session.Sandbox, "sandbox list");
+            AssertEx.True(session.SlopworldMd, "SlopWorld manifest");
             AssertEx.Equal("/usr/bin/claude", session.Agent, "resolved agent");
             AssertEx.Equal(AgentState.Working, session.State, "state");
             AssertEx.True(session.Alive, "alive");
@@ -79,6 +81,7 @@ namespace SlopWorld.Tests
                 Command = "claude",
                 Cmd = "run --x",
                 Sandbox = new List<string> { "home" },
+                SlopworldMd = true,
                 Breadcrumbs = new List<string> { "tip" },
                 Label = "label",
                 NetworkOverride = NetworkMode.Host,
@@ -98,6 +101,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("proj", json["project"].AsString(), "written project");
             AssertEx.Equal("run --x", json["cmd"].AsString(), "written command override");
             AssertEx.Equal("home", json["sandbox"][0].AsString(), "written sandbox");
+            AssertEx.True(json["slopworld_md"].AsBool(), "written SlopWorld manifest");
             AssertEx.Equal("tip", json["breadcrumbs"][0].AsString(), "written breadcrumb");
             AssertEx.Equal("label", json["label"].AsString(), "written label");
             AssertEx.Equal("host", json["network"].AsString(), "written network override");

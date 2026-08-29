@@ -403,6 +403,7 @@ mod tests {
             cmd: None,
             sandbox: Vec::new(),
             breadcrumbs: Vec::new(),
+            slopworld_md: false,
             breadcrumb_yolo: false,
             breadcrumbs_pending: false,
             auto_resume_pending: false,

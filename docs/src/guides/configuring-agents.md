@@ -3,7 +3,9 @@
 ## Projects
 
 A project is a directory, a sandbox preset list, and a network default. Agents belong
-to a project and inherit its sandbox and network settings.
+to a project and inherit its sandbox and network settings. Inside the sandbox, the
+project is mounted at its configured absolute path; `/mnt/<project-name>` is a
+compatibility symlink to that same directory.
 
 Create a project in the sidebar's add strip or through the command palette. The project
 directory is always mounted read-write inside the sandbox.
@@ -31,6 +33,7 @@ right configuration paths.
 | `dns` | Optional override of the project's DNS servers. |
 | `limits` | Optional override of the project's resource limits. Agent values win. |
 | `mounts` | Additional project directories mounted under `/mnt/<project-name>`. Each entry names a project and an optional `mode` (`ro` or `rw`, default `rw`). |
+| `slopworld_md` | Mount generated `SLOPWORLD.md` read-only at the project root, add a first-prompt discovery breadcrumb, and exclude the file through the repository's `.git/info/exclude`. |
 | `autostart` | Start this agent automatically when the daemon starts. |
 | `auto_resume` | When enabled, the daemon pastes `/resume` and submits after the agent settles on startup. |
 | `breadcrumbs` | Named breadcrumb blocks delivered alongside the first prompt. |
@@ -71,11 +74,14 @@ Network and DNS changes take effect on the next agent start.
 | Network mode, DNS | Next start. |
 | Resource limits | Next start. |
 | Mounts | Next start. |
-| Autostart, auto-resume, breadcrumbs | Next start. |
+| Autostart, auto-resume, breadcrumbs, `slopworld_md` | Next start. |
 | Project directory | Immediately for new agents; running agents keep their current mount. |
 
 Running agents are not rebuilt from changed defaults. Restart the agent to apply
-sandbox, network, mount, or preset changes.
+sandbox, network, mount, preset, or `slopworld_md` changes. An enabled manifest is
+regenerated when configuration is synchronized and before each start; it is a
+snapshot for an already-running sandbox. SlopWorld refuses to overwrite a
+project-owned `SLOPWORLD.md`.
 
 ## Shell
 

@@ -498,6 +498,9 @@ pub struct SessionCfg {
     /// Named breadcrumbs added to this agent's first prompt.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub breadcrumbs: Vec<String>,
+    /// Mount the generated project-root runtime manifest and add its discovery breadcrumb.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub slopworld_md: bool,
     /// Paste all effective breadcrumbs in front of the first Enter after startup.
     #[serde(default = "yes", skip_serializing_if = "is_true")]
     pub breadcrumb_yolo: bool,
@@ -558,6 +561,7 @@ impl Default for SessionCfg {
             cmd: None,
             sandbox: Vec::new(),
             breadcrumbs: Vec::new(),
+            slopworld_md: false,
             breadcrumb_yolo: true,
             network: None,
             dns: None,
@@ -658,6 +662,10 @@ fn yes() -> bool {
 
 fn is_true(b: &bool) -> bool {
     *b
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 /// Ordered: first match wins. Shipped defaults target Claude Code's TUI.
@@ -1437,6 +1445,21 @@ token = \"not-a-daemon-token\"
         let text = toml::to_string(&enabled).unwrap();
         assert!(text.contains("auto_resume = true"));
         assert!(toml::from_str::<SessionCfg>(&text).unwrap().auto_resume);
+    }
+
+    #[test]
+    fn slopworld_manifest_is_an_opt_in_session_setting() {
+        let old: SessionCfg = toml::from_str("name = 'Ada'").unwrap();
+        assert!(!old.slopworld_md);
+        assert!(!toml::to_string(&old).unwrap().contains("slopworld_md"));
+
+        let enabled = SessionCfg {
+            slopworld_md: true,
+            ..Default::default()
+        };
+        let text = toml::to_string(&enabled).unwrap();
+        assert!(text.contains("slopworld_md = true"));
+        assert!(toml::from_str::<SessionCfg>(&text).unwrap().slopworld_md);
     }
 
     /// A shipped breadcrumb is offered like any other and written down like none of them:

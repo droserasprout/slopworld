@@ -73,6 +73,7 @@ namespace SlopWorld
                     CommandPreset = existing.CommandPreset,
                     Cmd = existing.Cmd,
                     Sandbox = new List<string>(existing.Sandbox),
+                    SlopworldMd = existing.SlopworldMd,
                     Breadcrumbs = new List<string>(existing.Breadcrumbs),
                     Network = existing.Network,
                     NetworkOverride = existing.NetworkOverride,
@@ -236,6 +237,8 @@ namespace SlopWorld
             _s.Autostart = SlopWidgets.Checkbox(l, "Start with the daemon", _s.Autostart);
             _s.AutoResume = SlopWidgets.Checkbox(l, "Auto-resume last conversation", _s.AutoResume,
                 "After startup settles, send /resume and choose the latest conversation.");
+            _s.SlopworldMd = SlopWidgets.Checkbox(l, "Mount SLOPWORLD.md", _s.SlopworldMd,
+                "Mount generated runtime context read-only at the project root, exclude it from Git, and tell the agent to read it on its first prompt.");
 
             float used = l.CurHeight;
             l.End();

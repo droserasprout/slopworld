@@ -50,6 +50,8 @@ impl Manager {
             .iter()
             .position(|x| x.name == name)
             .ok_or_else(|| anyhow!("no such project: {name}"))?;
+        let old_dir = crate::config::expand(&cfg.projects[idx].dir);
+        let new_dir = crate::config::expand(&p.dir);
         if p.name != name && cfg.project(&p.name).is_some() {
             bail!("project {} already exists", p.name);
         }
@@ -63,6 +65,14 @@ impl Manager {
         self.save_cfg(&cfg)?;
         drop(cfg);
 
+        if old_dir != new_dir {
+            if let Err(error) = crate::manifest::remove(std::path::Path::new(&old_dir)) {
+                tracing::warn!("could not remove old generated project manifest: {error:#}");
+            }
+        }
+
+        let current = self.config().await;
+        self.sync_manifests(&current).await;
         self.announce_projects().await;
         let _ = self.events.send(Event::Sessions {
             sessions: self.views().await,
@@ -88,9 +98,18 @@ impl Manager {
                 users.join(", ")
             );
         }
+        let old_dir = cfg
+            .project(name)
+            .map(|project| crate::config::expand(&project.dir))
+            .unwrap_or_default();
         cfg.projects.retain(|p| p.name != name);
         self.save_cfg(&cfg)?;
         drop(cfg);
+        if !old_dir.is_empty() {
+            if let Err(error) = crate::manifest::remove(std::path::Path::new(&old_dir)) {
+                tracing::warn!("could not remove generated project manifest: {error:#}");
+            }
+        }
         self.announce_projects().await;
         Ok(())
     }
