@@ -7,6 +7,10 @@ namespace SlopWorld
     // own selection, clicks, or geometry; those remain with AgentSidebar.
     static class SidebarRowRenderer
     {
+        static readonly string[] ViewPrefixes = { "view-", "search-", "link-" };
+        static readonly string[] EditPrefixes = { "edit-" };
+        static readonly string[] DiffPrefixes = { "diff-" };
+
         public static void DrawGhostLabel(Rect r, SessionInfo info, string fallback,
                                            bool hostIcon, float markWidth)
         {
@@ -164,11 +168,12 @@ namespace SlopWorld
             if (act != RowAct.None)
             {
                 string name = info?.Name ?? fallback;
-                string prefix = ActionWord(act) + "-";
-                string subject = name.StartsWith(prefix, System.StringComparison.Ordinal)
-                    ? name.Substring(prefix.Length)
-                    : name;
-                return ActionWord(act) + " " + subject;
+                string label = info?.Label ?? "";
+                if (IsRoutedLabel(label, act)) name = label;
+                string subject = StripActionPrefix(name, act);
+                // The action icon already says view/edit/diff. Keep the row title to the
+                // filename, with the project retained as the quiet right-hand context.
+                return subject;
             }
 
             string title = Title(info);
@@ -193,6 +198,28 @@ namespace SlopWorld
             return project;
         }
 
+        static string StripActionPrefix(string name, RowAct act)
+        {
+            foreach (string prefix in Prefixes(act))
+                if (name.StartsWith(prefix, System.StringComparison.Ordinal))
+                    return name.Substring(prefix.Length);
+            return name;
+        }
+
+        static bool IsRoutedLabel(string label, RowAct act) =>
+            !string.IsNullOrEmpty(label) && StripActionPrefix(label, act) != label;
+
+        static string[] Prefixes(RowAct act)
+        {
+            switch (act)
+            {
+                case RowAct.View: return ViewPrefixes;
+                case RowAct.Edit: return EditPrefixes;
+                case RowAct.Diff: return DiffPrefixes;
+                default: return System.Array.Empty<string>();
+            }
+        }
+
         static string ProcessName(SessionInfo info)
         {
             string name = info?.Name ?? "";
@@ -201,17 +228,6 @@ namespace SlopWorld
             return prefix.Length > 0 && name.StartsWith(prefix, System.StringComparison.Ordinal)
                 ? name.Substring(prefix.Length)
                 : name;
-        }
-
-        static string ActionWord(RowAct act)
-        {
-            switch (act)
-            {
-                case RowAct.View: return "view";
-                case RowAct.Edit: return "edit";
-                case RowAct.Diff: return "diff";
-                default: return "";
-            }
         }
 
         static string Title(SessionInfo info)
