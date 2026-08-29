@@ -2,7 +2,7 @@
 
 The board stops. `Eco.Resting` is the one predicate - `Settings.EcoMode` and no
 [cutscene](mod-sim.md) playing, because a scene *has* the board and is the one
-thing here that has to finish. Toggled on the config page under "This install",
+thing here that has to finish. Toggled on the config page under "Game",
 beside grandma.
 
 What it does, one owner each:

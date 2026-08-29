@@ -41,4 +41,4 @@ The top bar provides:
 ## Eco mode
 
 Eco mode pauses the game simulation while the daemon and agents continue running. Toggle it
-from Settings under "This install".
+from Settings under "Game".
