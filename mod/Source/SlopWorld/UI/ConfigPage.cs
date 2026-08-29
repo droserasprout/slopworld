@@ -70,15 +70,14 @@ namespace SlopWorld
             DrawConnectionSummary(l);
 
             l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "This install");
+            SlopWidgets.SectionHeading(l, "Game");
             var s = SlopWorldMod.Instance.settings;
-            bool gm = SlopWidgets.Checkbox(l, "Grandma's visiting", s.grandmaMode);
-            SlopWidgets.Note(l, "No fun allowed! Disable gore, vomit, and offensive/harmful tips. " +
-                    "Put it back when she leaves.");
-
-            l.Gap(SlopWidgets.GapS);
             bool eco = SlopWidgets.Checkbox(l, "Eco mode", s.ecoMode);
             SlopWidgets.Note(l, "80% less CPU. 0.1% less guilt. You're welcome, Earth.");
+
+            l.Gap(SlopWidgets.GapS);
+            bool gm = SlopWidgets.Checkbox(l, "Grandma's visiting", s.grandmaMode);
+            SlopWidgets.Note(l, "No fun allowed! Disable gore, vomit, and offensive/harmful tips.");
 
             if (gm != s.grandmaMode || eco != s.ecoMode)
             {
@@ -95,8 +94,6 @@ namespace SlopWorld
                 l.Gap(SlopWidgets.GapS);
                 float dim = Mathf.Round(SlopWidgets.Slider(l, "Backdrop dimming", s.ecoDim,
                     0f, 0.8f, Mathf.RoundToInt(s.ecoDim * 100f) + "%") * 20f) / 20f;
-                SlopWidgets.Note(l, "How far the picture behind the agents is taken down. At zero it is " +
-                        "the menu's own background at full strength.");
                 if (dim != s.ecoDim) { s.ecoDim = dim; s.MarkDirty(); }
             }
 
