@@ -14,19 +14,13 @@ namespace SlopWorld
         GitCommitDialog(string project)
         {
             _project = project;
-            closeOnAccept = true;
+            AcceptOnEnter(Save);
         }
 
         public static void Open(string project) =>
             TerminalWindow.OpenOverPane(new GitCommitDialog(project));
 
         public override Vector2 InitialSize => new Vector2(500f, 220f);
-
-        public override void OnAcceptKeyPressed()
-        {
-            Save();
-            Event.current.Use();
-        }
 
         protected override void DoBody(Rect rect)
         {

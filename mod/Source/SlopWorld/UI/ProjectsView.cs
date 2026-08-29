@@ -164,7 +164,7 @@ namespace SlopWorld
                 : "";
 
             resizeable = true;
-            closeOnAccept = true;
+            AcceptOnEnter(Save);
 
             SessionHub.Instance.LoadPresets(fail: SlopWidgets.Fail);
         }
@@ -172,12 +172,6 @@ namespace SlopWorld
         // A left rail of short pages rather than one long form: the project, its sandbox, its
         // breadcrumbs and the preview each get their own tab so none has to hold the others.
         public override Vector2 InitialSize => new Vector2(780f, 680f);
-
-        public override void OnAcceptKeyPressed()
-        {
-            Save();
-            Event.current.Use();
-        }
 
         protected override void DoBody(Rect rect)
         {

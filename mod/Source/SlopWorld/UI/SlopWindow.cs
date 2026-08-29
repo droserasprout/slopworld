@@ -1,3 +1,4 @@
+using System;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -18,6 +19,17 @@ namespace SlopWorld
             closeOnCancel = true;
             closeOnAccept = false;
             draggable = true;
+        }
+
+        Action _acceptAction;
+
+        // Single-line forms can opt into the shared RimWorld accept binding without each
+        // repeating the same event plumbing. Multiline editors leave this unset so Enter
+        // remains a newline.
+        protected void AcceptOnEnter(Action action)
+        {
+            _acceptAction = action;
+            closeOnAccept = true;
         }
 
         protected override float Margin => 0f;
@@ -69,6 +81,12 @@ namespace SlopWorld
             // After the body: the corner is over the title's line, and the press has to be
             // taken in front of whatever the form drew there.
             if (Closable) DoClose(rect);
+        }
+
+        public override void OnAcceptKeyPressed()
+        {
+            _acceptAction?.Invoke();
+            Event.current?.Use();
         }
 
         protected abstract void DoBody(Rect body);

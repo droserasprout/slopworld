@@ -19,8 +19,11 @@ namespace SlopWorld
             _message = message ?? "";
             _confirmed = confirmed;
             _destructive = destructive;
-            closeOnCancel = true;
-            closeOnAccept = true;
+            AcceptOnEnter(() =>
+            {
+                Close();
+                _confirmed?.Invoke();
+            });
         }
 
         public static Window Create(string message, Action confirmed, bool destructive = false) =>
@@ -31,13 +34,6 @@ namespace SlopWorld
             MessageHeight(_message, Width - 2f * SlopWidgets.GapM) + SlopWidgets.BtnH);
 
         protected override bool Closable => false;
-
-        public override void OnAcceptKeyPressed()
-        {
-            Close();
-            _confirmed?.Invoke();
-            Event.current.Use();
-        }
 
         protected override void DoBody(Rect rect)
         {

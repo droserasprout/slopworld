@@ -28,8 +28,11 @@ namespace SlopWorld
             _primary = primary;
             _secondary = secondary;
             _primaryKind = primaryKind;
-            closeOnCancel = true;
-            closeOnAccept = true;
+            AcceptOnEnter(() =>
+            {
+                Close();
+                _primary?.Invoke();
+            });
         }
 
         public static Window Create(string title, string message, string primaryLabel,
@@ -44,13 +47,6 @@ namespace SlopWorld
             MessageHeight(_message, Width - 2f * SlopWidgets.GapM) + SlopWidgets.BtnH);
 
         protected override bool Closable => false;
-
-        public override void OnAcceptKeyPressed()
-        {
-            Close();
-            _primary?.Invoke();
-            Event.current.Use();
-        }
 
         protected override void DoBody(Rect rect)
         {
