@@ -43,7 +43,8 @@ fractional local position. `TerminalHistory` indexes the overlapping rows in dae
 snapshots by their offset and assembles a local view with one overscan row; requests prefetch
 half a viewport in the gesture direction, so skipped integer offsets remain local. The daemon's
 10,000-line history limit is the initial coordinate range; reaching the real top clamps it to
-the offset the daemon achieved. While scrolled back, a three-unit overlay bar at the pane's
+the offset the daemon achieved. Live rows that scroll off the bottom advance the local offset,
+keeping the content being read anchored while fresh history is fetched. While scrolled back, a three-unit overlay bar at the pane's
 right edge shows the current offset against the daemon-reported history extent without changing
 the negotiated terminal width.
 

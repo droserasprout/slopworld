@@ -635,10 +635,13 @@ impl Manager {
     pub fn request_redraw(self: &Arc<Self>, shape: Option<(u16, u16)>) {
         let shape = shape.map(|(cols, rows)| (cols.clamp(20, 500), rows.clamp(5, 200)));
         let m = self.clone();
-        let Ok(permit) = m.redraw_nudge.clone().try_acquire_owned() else {
-            return;
-        };
         tokio::spawn(async move {
+            // Preserve redraws that arrive while an earlier nudge is sleeping. In particular,
+            // the last sidebar drag carries the authoritative panel shape and must not be
+            // discarded merely because a preceding layout change is still repainting.
+            let Ok(permit) = m.redraw_nudge.clone().acquire_owned().await else {
+                return;
+            };
             let _permit = permit;
             let names = {
                 let live = m.live.read().await;

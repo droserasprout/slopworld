@@ -21,9 +21,24 @@ namespace SlopWorld
 
             // History offsets are measured from this live bottom. Once the pane changes
             // (most visibly after a sidebar resize/redraw), snapshots captured for the old
-            // sequence describe a different coordinate space. Keep the user's local pixel
-            // position, but make the daemon fetch a fresh bridge for it.
+            // sequence describe a different coordinate space. New rows moving off the live
+            // pane extend the offset by the same amount, keeping the content under the user's
+            // eyes anchored instead of pulling the viewport toward new output.
             if (_scrollOff <= 0) return;
+            if (live.LiveShift > 0)
+            {
+                float cellH = TerminalFont.CellH;
+                float pixels = _historyScrollReady && cellH > 0.01f
+                    ? HistoryOffsetPixels()
+                    : _historyJumpPixels >= 0f ? _historyJumpPixels
+                    : cellH > 0.01f ? _scrollOff * cellH : -1f;
+                _scrollOff = Mathf.Min(MaxScrollLines, _scrollOff + live.LiveShift);
+                _historyJumpPending = true;
+                _historyJumpOff = _scrollOff;
+                _historyJumpPixels = pixels >= 0f && cellH > 0.01f
+                    ? Mathf.Min(MaxScrollLines * cellH, pixels + live.LiveShift * cellH)
+                    : -1f;
+            }
             _historyRequests.Clear();
             _historyResponses.Clear();
             _scrollPending = false;
