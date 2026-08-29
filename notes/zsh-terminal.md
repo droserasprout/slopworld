@@ -1,40 +1,40 @@
-# Why bash works in the pane and zsh is buggy
+# zsh terminal key bindings
 
-## The real bug: Home, End, Delete, Insert are undefined in zsh's default keymap
+## Key sequence mismatch
 
 tmux sends the standard `\e[1~` (Home), `\e[4~` (End), `\e[3~` (Delete/DC) and
-`\e[2~` (Insert/IC) sequences for these keys — that's what the `tmux-256color`
-terminfo's `khome`, `kend`, `kdch1`, `kich1` entries say.
+`\e[2~` (Insert/IC) sequences for these keys. The `tmux-256color` terminfo entries
+`khome`, `kend`, `kdch1`, and `kich1` specify them.
 
-**bash's readline** reads terminfo and binds these correctly. In bash:
+`bash` readline reads terminfo and binds these correctly:
 - `\e[1~` → `beginning-of-line`
 - `\e[4~` → `end-of-line`
 - `\e[3~` → `delete-char`
 
-**zsh's ZLE** does not. `bindkey -e` (the default emacs keymap) leaves `\e[1~`,
-`\e[4~`, `\e[3~`, `\e[2~` as **undefined-key**. When the user presses one of these
-keys, zsh rings the bell and inserts `~` (the last character of the escape
-sequence) into the command line.
+`zsh` ZLE does not. `bindkey -e` (the default emacs keymap) leaves `\e[1~`,
+`\e[4~`, `\e[3~`, and `\e[2~` as `undefined-key`. When one of these keys is pressed,
+zsh rings the bell and inserts `~` (the last character of the escape sequence) into the
+command line.
 
 | Key | tmux sends | bash | zsh |
 |-----|-----------|------|-----|
-| Home | `\e[1~` | beginning-of-line | **undefined → bell + insert `~`** |
-| End | `\e[4~` | end-of-line | **undefined → bell + insert `~`** |
-| Delete | `\e[3~` | delete-char | **undefined → bell + insert `~`** |
-| Insert | `\e[2~` | overwrite-mode | **undefined → bell + insert `~`** |
+| Home | `\e[1~` | beginning-of-line | undefined, bell, insert `~` |
+| End | `\e[4~` | end-of-line | undefined, bell, insert `~` |
+| Delete | `\e[3~` | delete-char | undefined, bell, insert `~` |
+| Insert | `\e[2~` | overwrite-mode | undefined, bell, insert `~` |
 
 Arrow keys (`\eOD`, `\eOB`, etc.) and the `^A`/`^E` emacs shortcuts work in
-both shells — only the `\e[1~`-family terminal codes are missing from zsh's
+both shells. Only the `\e[1~`-family terminal codes are missing from zsh's
 default keymap.
 
-## Why bash "works" and zsh feels "buggy"
+## Effect
 
 The `~` insertion corrupts the command line. The typist hits Home expecting to
 jump to the start of the line, and instead sees `~` appear and the cursor stay
 put. Every subsequent keystroke builds on the corrupted line, which affects
 keys, cursor position, and any text copied from the pane.
 
-## Why it matters most in the host terminal
+## Host and sandbox shells
 
 The host terminal runs `$SHELL` = zsh. The sandboxed "shell" errand runs bash
 (`[defaults] shell` = `bash.toml`). So the user's bash session works fine and
@@ -55,7 +55,7 @@ Or, for the sandboxed zsh preset, ensure these bindings are in place before
 `zsh` starts — either by providing a `.zshrc` in the sandbox home, or running
 `zsh -c "source ..."` with a setup file.
 
-## The oh-my-zsh command-title escape
+## zsh command-title escape
 
 This `.zshrc` loads oh-my-zsh, whose `preexec` hook emits the tmux private
 `ESC k <command> ESC \\` title sequence before command output. A VT parser that

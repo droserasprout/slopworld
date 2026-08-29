@@ -3,7 +3,8 @@
 ## Scoped grants
 
 A scoped grant lets one agent watch or drive another agent's terminal. The user
-configures grants in the agent editor; agents cannot delegate access themselves.
+creates grants through the root-only `/api/grants` route; agents cannot mint or
+delegate terminal access themselves.
 
 | Level | Permissions |
 | --- | --- |
@@ -13,19 +14,18 @@ configures grants in the agent editor; agents cannot delegate access themselves.
 Session creation is root-only (the mod's token). Host sessions are never in a grant's
 scope; only the root token can touch them.
 
-Grants are stored in the agent's configuration and survive restarts. The daemon
-resolves tokens to capabilities at each request; five enforcement points cover REST
-handlers, WebSocket subscriptions, session visibility, host-session filtering, and
-root-token passthrough.
+Grants live in daemon memory and are dropped when the daemon restarts or the grantor
+session disappears. The daemon resolves tokens to capabilities at each request; five
+enforcement points cover REST handlers, WebSocket subscriptions, session visibility,
+host-session filtering, and root-token passthrough.
 
-## Injection
+## Delivery
 
-A granted agent needs the daemon's address and token at spawn time. The daemon injects
-them through environment variables or a pre-exec file. A running sandbox cannot receive
-new environment variables, so the grant must be configured before the agent starts.
+A granted agent needs the daemon's address and token. The daemon does not inject grant
+credentials into sandboxes, so the caller must arrange delivery before the agent starts.
 
 The agent reads `endpoint.toml` for the URL and token, or `SLOPD_URL` and `SLOPD_TOKEN`
-when a scoped endpoint is injected.
+when a caller supplies a scoped endpoint.
 
 ## Task mailboxes
 
@@ -47,7 +47,7 @@ See [Using slopctl](slopctl.md) for the CLI reference.
 
 ## Current limits
 
-Grant injection requires the daemon's HTTP listener to be reachable from the sandbox.
+Using a grant requires the daemon's HTTP listener to be reachable from the sandbox.
 Agents with `network = "none"` cannot use grants or tasks. Agents with
 `network = "private"` can reach the listener if the daemon binds on a routable address.
-A Unix socket bound into granted sandboxes is planned but not yet available.
+No Unix-socket transport is available.

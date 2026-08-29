@@ -1,6 +1,6 @@
 # What keeps an agent off the host
 
-`sandbox.rs` enforces the [agent-grants](agent-grants.md) invariant: agents can
+`sandbox/bind.rs` enforces the [agent-grants](agent-grants.md) invariant: agents can
 reach granted sessions, never the machine.
 
 ## Paths and private state

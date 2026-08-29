@@ -41,10 +41,3 @@ running processes.
 empty remains empty. Writes restore the stored token when the sentinel is sent,
 while any other value, including empty, replaces it. The endpoint descriptor is
 the mod's normal token path; settings pages do not round-trip the secret.
-
-## Remaining work
-
-- A persisted opaque `[ui]` section would support profile rebuilds and another
-  client, but would add round-trips for theme, fold, and sidebar-drag changes.
-- Codegen `SlopConfig` from Rust structs is appropriate if a second client needs
-  the complete schema; the current patch route does not require it.

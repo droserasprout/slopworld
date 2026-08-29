@@ -15,9 +15,8 @@ DLL there.
 The useful first layer is a separate C# test project for code that does not need
 the game: `JVal`, `SlopConfig`, `Fuzzy`, SGR parsing, color/theme parsing,
 endpoint normalization, and layout calculations. Keep those helpers separate
-from Unity/game calls and run them in CI. Later, add a small RimWorld smoke
-harness for patch binding and critical `GameComponent` behavior; leave pixel
-layout and most Harmony details to in-game checks.
+from Unity/game calls and run them in CI. Patch binding, critical `GameComponent`
+behavior, pixel layout, and most Harmony details remain in-game checks.
 
 ## First project
 
