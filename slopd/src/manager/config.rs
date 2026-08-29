@@ -280,6 +280,7 @@ impl Manager {
 
         self.upsert_sessions(&cfg).await;
         self.upsert_host_terminals(&cfg).await;
+        self.sync_manifests(&cfg).await;
         let titles_changed = self.reconcile_title_settings(&cfg).await;
         self.autostart(&cfg).await;
         self.autostart_host_terminals(&cfg).await;
@@ -289,6 +290,36 @@ impl Manager {
             let _ = self.events.send(Event::Sessions {
                 sessions: self.views().await,
             });
+        }
+    }
+
+    /// Keep generated project manifests in step with the durable configuration. The file is
+    /// project-scoped because agents share a project tree; the session option controls whether
+    /// an agent receives its read-only overlay and discovery breadcrumb.
+    pub(super) async fn sync_manifests(&self, cfg: &Config) {
+        let views = self.views().await;
+        for project in &cfg.projects {
+            let dir = crate::config::expand(&project.dir);
+            let path = std::path::Path::new(&dir);
+            if !path.is_dir() {
+                continue;
+            }
+            let enabled = cfg
+                .sessions
+                .iter()
+                .any(|session| session.project == project.name && session.slopworld_md);
+            let result = if enabled {
+                crate::manifest::prepare(path, cfg, project, &views).map(|_| ())
+            } else {
+                crate::manifest::remove(path)
+            };
+            if let Err(error) = result {
+                tracing::warn!(
+                    project = %project.name,
+                    error = %error,
+                    "could not synchronize generated SLOPWORLD.md"
+                );
+            }
         }
     }
 

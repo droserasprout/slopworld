@@ -8,6 +8,7 @@ mod endpoint;
 mod git;
 mod grant;
 mod jukebox;
+mod manifest;
 mod paths;
 mod presets;
 mod runtime;

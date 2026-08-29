@@ -31,6 +31,20 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
     let home = dirs::home_dir()
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_else(|| "/root".into());
+    let manifest = if s.slopworld_md {
+        let path = Path::new(&dir).join(crate::manifest::FILE_NAME);
+        if !crate::manifest::is_generated(&path) {
+            anyhow::bail!(
+                "session {} requested {} but {} is missing or not SlopWorld-generated",
+                s.name,
+                crate::manifest::FILE_NAME,
+                path.display()
+            );
+        }
+        Some(path)
+    } else {
+        None
+    };
 
     let mut mounts = vec![ResolvedMount {
         host_dir: dir.clone(),
@@ -61,7 +75,18 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
     }
 
     bind::assemble_argv(
-        cfg, s, p, network, &dns, agent_argv, &dir, &table, &presets, &home, &mounts,
+        cfg,
+        s,
+        p,
+        network,
+        &dns,
+        agent_argv,
+        &dir,
+        &table,
+        &presets,
+        &home,
+        &mounts,
+        manifest.as_deref(),
     )
 }
 

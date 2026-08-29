@@ -73,3 +73,6 @@ last frame, so a session `mark_down` has dropped the screen of states none.
 
 `BOOT_COLS`/`BOOT_ROWS` in `session.rs` is what a pane wears until someone looks
 at it - see [mod-terminal](mod-terminal.md) for `NegotiateSize`.
+
+`SessionView.slopworld_md` echoes the durable opt-in that gives an agent the generated
+project-root runtime manifest and its discovery breadcrumb.

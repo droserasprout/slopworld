@@ -93,6 +93,10 @@ impl Manager {
             .into_iter()
             .map(|text| render_template_with(&text, &[], Some(&vars)))
             .collect();
+        let mut crumbs = crumbs;
+        if !host && s.slopworld_md {
+            crumbs.push(crate::manifest::DISCOVERY_BREADCRUMB.to_string());
+        }
         let mut live = self.live.write().await;
         if let Some(l) = live.get_mut(name) {
             l.breadcrumbs.clear();
@@ -138,6 +142,10 @@ impl Manager {
             crate::sandbox::host_argv(&cfg, &s, &p)
         } else {
             crate::sandbox::prepare_network(&cfg, &s, &p)?;
+            if s.slopworld_md {
+                let sessions = self.views().await;
+                crate::manifest::prepare(&std::path::PathBuf::from(&dir), &cfg, &p, &sessions)?;
+            }
             build_argv(&cfg, &s, &p)?
         };
         tracing::info!("starting {name}: {}", argv.join(" "));
@@ -679,6 +687,7 @@ impl Manager {
                     cmd: l.cfg.cmd.clone(),
                     sandbox: l.cfg.sandbox.clone(),
                     breadcrumbs: l.cfg.breadcrumbs.clone(),
+                    slopworld_md: l.cfg.slopworld_md,
                     breadcrumb_yolo: l.cfg.breadcrumb_yolo,
                     breadcrumbs_pending: l.breadcrumbs_pending,
                     auto_resume_pending: l.auto_resume_pending,

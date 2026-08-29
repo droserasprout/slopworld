@@ -18,6 +18,10 @@ present selects that agent's mode, including one wider than the project default.
 - `sandbox` names the presets this ground adds to the implicit `global` preset. If a project
   needs different binds, seeded state or environment, make a user preset and attach it here
   (or to the agent). See [sandbox-isolation](sandbox-isolation.md).
+- `slopworld_md` is an opt-in agent setting. It generates a project-root `SLOPWORLD.md`, adds
+  a first-prompt breadcrumb, and adds the file to the repository's `.git/info/exclude`. The
+  manifest is a generated snapshot shared by agents in that project; it is refreshed on config
+  sync and before each enabled start, not on every file read.
 - `check_belongs` runs on add and update, not at start. A project with agents
   refuses deletion. A rename carries its sessions in the same write.
 - **Nothing is migrated.** A field this build does not know is dropped on the next

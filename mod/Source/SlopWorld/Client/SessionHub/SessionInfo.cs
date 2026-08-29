@@ -21,6 +21,9 @@ namespace SlopWorld
         public string Cmd = "";
         // Sandbox presets it adds to its command's and its project's.
         public List<string> Sandbox = new List<string>();
+        // Mounts generated runtime context read-only at the project root, excludes it from Git,
+        // and adds a first-prompt discovery breadcrumb.
+        public bool SlopworldMd;
         // As the daemon will exec it, preset and defaults resolved. Read-only here.
         public string Agent = "";
         public AgentState State = AgentState.Down;
@@ -111,6 +114,7 @@ namespace SlopWorld
             $"\"command\":{JVal.Q(Command)}," +
             $"\"cmd\":{(string.IsNullOrEmpty((Cmd ?? "").Trim()) ? "null" : JVal.Q(Cmd))}," +
             $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]," +
+            $"\"slopworld_md\":{JVal.B(SlopworldMd)}," +
             $"\"breadcrumbs\":[{string.Join(",", Breadcrumbs.Select(JVal.Q).ToArray())}]," +
             $"\"label\":{(string.IsNullOrEmpty((Label ?? "").Trim()) ? "null" : JVal.Q(Label))}," +
             $"\"network\":{(NetworkOverride.HasValue ? JVal.Q(NetworkModeText.Name(NetworkOverride.Value)) : "null")}," +

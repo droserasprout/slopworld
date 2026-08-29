@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: slopd
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+      - name: Build daemon
+        run: make BUILD=release daemon
+
+      - name: Test daemon
+        run: make test-daemon
+
+      - name: Package release
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          daemon="slopworld-${tag}-x86_64-linux"
+
+          mkdir -p "${daemon}/bin"
+          cp slopd/target/release/slopd    "${daemon}/bin/"
+          cp slopd/target/release/slopctl  "${daemon}/bin/"
+          cp slopd/target/release/slopworld "${daemon}/bin/"
+          cp slopd/slopd.service           "${daemon}/"
+          cp packaging/slopworld.desktop   "${daemon}/"
+          tar czf "${daemon}.tar.gz" "${daemon}"
+
+          mod="SlopWorld-mod-${tag}"
+          mkdir -p "${mod}"
+          cp -r mod/About mod/Defs mod/Patches mod/Sounds mod/Textures mod/Assemblies "${mod}/"
+          cd "${mod}" && zip -r "../${mod}.zip" . && cd ..
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "SlopWorld ${{ github.ref_name }}"
+          generate_release_notes: true
+          files: |
+            slopworld-${{ github.ref_name }}-x86_64-linux.tar.gz
+            SlopWorld-mod-${{ github.ref_name }}.zip
