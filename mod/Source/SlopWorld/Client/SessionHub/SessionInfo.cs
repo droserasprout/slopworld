@@ -21,8 +21,8 @@ namespace SlopWorld
         public string Cmd = "";
         // Sandbox presets it adds to its command's and its project's.
         public List<string> Sandbox = new List<string>();
-        // Mounts generated runtime context read-only at the project root, excludes it from Git,
-        // and adds a first-prompt discovery breadcrumb.
+        // Opts into the generated runtime context; its mount path and optional first-prompt
+        // discovery breadcrumb are controlled by the daemon's Instructions settings.
         public bool SlopworldMd;
         // Replaces the sandbox's per-run /tmp tmpfs with a private copy kept in this agent's
         // durable state directory.

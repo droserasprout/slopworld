@@ -33,7 +33,7 @@ right configuration paths.
 | `dns` | Optional override of the project's DNS servers. |
 | `limits` | Optional override of the project's resource limits. Agent values win. |
 | `mounts` | Additional project directories mounted under `/mnt/<project-name>`. Each entry names a project and an optional `mode` (`ro` or `rw`, default `rw`). |
-| `slopworld_md` | Mount generated `SLOPWORLD.md` read-only at the project root, add a first-prompt discovery breadcrumb, and exclude the file through the repository's `.git/info/exclude`. |
+| `slopworld_md` | Mount generated `SLOPWORLD.md` read-only at the Instructions mount path, optionally add a first-prompt discovery breadcrumb, and exclude the source file through the repository's `.git/info/exclude`. |
 | `persistent_tmp` | Keep a private `/tmp` for this agent across restarts. It lives in the agent's durable state and moves with reset/delete. |
 | `autostart` | Start this agent automatically when the daemon starts. |
 | `auto_resume` | When enabled, the daemon pastes `/resume` and submits after the agent settles on startup. |
@@ -41,6 +41,30 @@ right configuration paths.
 
 An agent with a raw `cmd` and no `command` gets the sandbox but none of the
 CLI-specific wiring.
+
+## Instructions
+
+Settings > Integrations > Instructions edits the generated `SLOPWORLD.md` document.
+The source file stays at the project root so Git ownership and the generated-file guard
+remain predictable; `mount_path` controls the read-only destination inside the primary
+project mount. It is relative to that project and defaults to `SLOPWORLD.md`.
+
+The template supports `{{ runtime_context }}` for SlopWorld's live project snapshot,
+plus `{{ project }}`, `{{ mount_path }}`, and `{{ file }}`. Unknown variables are kept
+as written. The Preview tab renders unsaved text for a selected project.
+
+The corresponding daemon settings are:
+
+```toml
+[daemon.instructions]
+template = "{{ runtime_context }}"
+mount_path = "SLOPWORLD.md"
+breadcrumb_enabled = true
+```
+
+The per-agent `slopworld_md` switch still controls whether the document is mounted at
+all. `breadcrumb_enabled` controls the additional discovery line globally; named
+breadcrumbs remain independent.
 
 ## Command presets
 
@@ -75,14 +99,14 @@ Network and DNS changes take effect on the next agent start.
 | Network mode, DNS | Next start. |
 | Resource limits | Next start. |
 | Mounts | Next start. |
-| Autostart, auto-resume, breadcrumbs, `slopworld_md`, `persistent_tmp` | Next start. |
+| Autostart, auto-resume, breadcrumbs, `slopworld_md`, `persistent_tmp`, Instructions mount path | Next start. |
 | Project directory | Immediately for new agents; running agents keep their current mount. |
 
 Running agents are not rebuilt from changed defaults. Restart the agent to apply
-sandbox, network, mount, preset, or `slopworld_md` changes. An enabled manifest is
-regenerated when configuration is synchronized and before each start; it is a
-snapshot for an already-running sandbox. SlopWorld refuses to overwrite a
-project-owned `SLOPWORLD.md`.
+sandbox, network, mount, preset, `slopworld_md`, or Instructions mount-path changes.
+An enabled manifest is regenerated when configuration is synchronized and before each
+start; it is a snapshot for an already-running sandbox. SlopWorld refuses to overwrite
+a project-owned `SLOPWORLD.md`.
 
 ## Shell
 

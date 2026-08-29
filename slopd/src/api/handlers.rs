@@ -785,6 +785,44 @@ pub(super) async fn put_config_patch(State(m): State<Mgr>, Json(req): Json<Value
     ok_json(m.patch_config(req).await)
 }
 
+pub(super) async fn instructions_preview(
+    State(m): State<Mgr>,
+    Json(req): Json<InstructionsPreviewReq>,
+) -> ApiResult {
+    let cfg = m.config().await;
+    let project = if req.project.trim().is_empty() {
+        cfg.projects.first().cloned().unwrap_or_else(|| ProjectCfg {
+            name: "project".into(),
+            dir: "/workspace/project".into(),
+            ..Default::default()
+        })
+    } else {
+        cfg.project(&req.project).cloned().ok_or_else(|| {
+            err(
+                StatusCode::BAD_REQUEST,
+                format!("no such project: {}", req.project),
+            )
+        })?
+    };
+    let mount_path = if req.mount_path.trim().is_empty() {
+        cfg.daemon.instructions.mount_path.clone()
+    } else {
+        req.mount_path
+    };
+    let mut instructions = cfg.daemon.instructions.clone();
+    instructions.mount_path = mount_path.clone();
+    instructions
+        .validate()
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    let text =
+        crate::manifest::preview(&cfg, &project, &m.views().await, &req.template, &mount_path);
+    Ok(Json(json!({
+        "text": text,
+        "project": project.name,
+        "mount_path": mount_path,
+    })))
+}
+
 pub(super) async fn usage(State(m): State<Mgr>) -> ApiResult {
     Ok(Json(json!(m.usage().await)))
 }

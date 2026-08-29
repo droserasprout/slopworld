@@ -24,6 +24,8 @@ come from metadata and stream URLs never cross the wire to the mod.
 The mod uses HTTP for writes so it can show daemon error bodies:
 `/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`,
 `PUT /api/config/patch`, shortcut/run, `/api/run`, and root-only Files mutations.
+`POST /api/instructions/preview` accepts an unsaved template, project name, and mount path;
+it returns the generated Markdown text without changing daemon configuration.
 `GET /api/clipboard` reads CLIPBOARD for non-Codex agent paste; `GET /api/clipboard/text` is
 the text-only host-terminal counterpart and is also used to distinguish Codex text pastes from
 its image-paste shortcut. The `/primary` variants do the same for

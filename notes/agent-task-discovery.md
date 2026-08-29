@@ -17,10 +17,11 @@ files are also the wrong owner: the capability belongs to a live SlopWorld
 session and may not be present in another checkout or runtime. Native MCP, skill
 or plugin integrations may later wrap `slopctl`; none should own task state.
 
-The optional `slopworld_md` session setting adds a separate discovery breadcrumb for the
-generated project-root `SLOPWORLD.md`. That file can summarize the current project sandbox,
-configured collaborators, and the `slopctl` entry points; it is a generated runtime snapshot,
-not a replacement for this task-discovery message or for project instructions.
+The optional `slopworld_md` session setting mounts the generated project-root `SLOPWORLD.md`
+and, when `[daemon.instructions] breadcrumb_enabled` is true, adds a separate discovery
+breadcrumb. That file can summarize the current project sandbox, configured collaborators,
+and the `slopctl` entry points; it is a generated runtime snapshot, not a replacement for
+this task-discovery message or for project instructions.
 
 The startup breadcrumb cannot wake an agent for a task arriving later. `slopd`
 should emit a task event and queue a terse notification until the recipient is

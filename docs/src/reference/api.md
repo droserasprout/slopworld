@@ -39,6 +39,7 @@ available, with `/primary/text` as the text-only read route.
 | `/api/shortcuts` | POST | Create or modify shortcuts. |
 | `/api/config` | POST | Replace configuration. |
 | `/api/config/patch` | PUT | Deep-merge JSON into configuration. Omitted fields are preserved. |
+| `/api/instructions/preview` | POST | Render an unsaved `SLOPWORLD.md` template for a project. |
 | `/api/run` | POST | Create an ephemeral errand. See below. |
 | `/api/file-action` | POST | Run a bounded non-interactive command in a project sandbox or on the host (root-only). |
 | `/api/highlight` | POST | Syntax-highlight code via host highlighter (root-only). |
@@ -49,6 +50,9 @@ available, with `/primary/text` as the text-only read route.
 tmux environment plus `TERM`, `COLORTERM`, and `SLOPWORLD_*`. `like` names an existing
 session whose sandbox config (presets, network, DNS, limits, mounts) is copied onto the
 new errand. An empty shell command uses the daemon's `$SHELL`.
+
+`POST /api/instructions/preview` accepts `{ "project": "...", "template": "...",
+"mount_path": "..." }` and returns the rendered `text`; it does not save settings.
 
 ### Private state
 

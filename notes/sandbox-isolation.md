@@ -37,8 +37,9 @@ survives daemon restarts and follows the agent's state through rename, reset, tr
 temporary errands remove it when they finish. The sidebar's `t` indicator marks the option.
 
 An agent with `slopworld_md = true` gets the generated project-root `SLOPWORLD.md` as a
-read-only final bind at the configured project path; `/mnt/<project>` is a symlink to that
-same path, so the manifest is protected through either spelling.
+read-only final bind at `[daemon.instructions] mount_path` relative to the configured project
+path. The project-root spelling is protected too, and `/mnt/<project>` is a symlink to that
+same path, so the manifest cannot be made writable through the compatibility alias.
 The daemon also adds a SlopWorld-owned entry to the repository's `.git/info/exclude`; user-owned
 ignore rules and an existing non-generated `SLOPWORLD.md` are never overwritten. The manifest is
 project-scoped and can describe other configured agents, so it contains runtime context rather

@@ -30,6 +30,11 @@ namespace SlopWorld.Tests
             AssertEx.Equal(20, config.TitleMinChars, "title minimum prompt length default");
             AssertEx.Equal("always", config.PiTitles, "Pi title default");
             AssertEx.True(config.HostTitles, "host title default");
+            AssertEx.Equal("{{ runtime_context }}", config.InstructionsTemplate,
+                           "instructions template default");
+            AssertEx.Equal("SLOPWORLD.md", config.InstructionsMountPath,
+                           "instructions mount path default");
+            AssertEx.True(config.InstructionsBreadcrumbEnabled, "instructions breadcrumb default");
             AssertEx.Equal("claude", config.Agent, "agent command default");
             AssertEx.Equal("bash", config.Shell, "shell command default");
             AssertEx.Equal("less", config.Pager, "pager default");
@@ -64,6 +69,9 @@ namespace SlopWorld.Tests
                 TitleMinChars = 42,
                 PiTitles = "never",
                 HostTitles = false,
+                InstructionsTemplate = "# {{ project }}\n\n{{ runtime_context }}",
+                InstructionsMountPath = "docs/SLOPWORLD.md",
+                InstructionsBreadcrumbEnabled = false,
                 Agent = "codex --full-auto",
                 Shell = "bash -lc",
                 Pager = "less -R",
@@ -92,6 +100,13 @@ namespace SlopWorld.Tests
                            "title minimum prompt length round trip");
             AssertEx.Equal(expected.PiTitles, actual.PiTitles, "Pi titles round trip");
             AssertEx.Equal(expected.HostTitles, actual.HostTitles, "host titles round trip");
+            AssertEx.Equal(expected.InstructionsTemplate, actual.InstructionsTemplate,
+                           "instructions template round trip");
+            AssertEx.Equal(expected.InstructionsMountPath, actual.InstructionsMountPath,
+                           "instructions mount path round trip");
+            AssertEx.Equal(expected.InstructionsBreadcrumbEnabled,
+                           actual.InstructionsBreadcrumbEnabled,
+                           "instructions breadcrumb round trip");
             AssertEx.Equal(expected.Agent, actual.Agent, "agent round trip");
             AssertEx.Equal(expected.Shell, actual.Shell, "shell round trip");
             AssertEx.Equal(expected.Pager, actual.Pager, "pager round trip");

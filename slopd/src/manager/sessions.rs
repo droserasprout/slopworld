@@ -94,7 +94,7 @@ impl Manager {
             .map(|text| render_template_with(&text, &[], Some(&vars)))
             .collect();
         let mut crumbs = crumbs;
-        if !host && s.slopworld_md {
+        if !host && s.slopworld_md && cfg.daemon.instructions.breadcrumb_enabled {
             crumbs.push(crate::manifest::DISCOVERY_BREADCRUMB.to_string());
         }
         let mut live = self.live.write().await;
@@ -911,6 +911,44 @@ mod tests {
             manager.project_for(&cfg, &orphan_host).await.unwrap().dir,
             "/tmp/remembered"
         );
+    }
+
+    #[tokio::test]
+    async fn instructions_breadcrumb_follows_the_global_setting() {
+        let mut cfg = Config::default();
+        let session = SessionCfg {
+            name: "agent".into(),
+            project: "repo".into(),
+            slopworld_md: true,
+            ..Default::default()
+        };
+        let project = ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp/repo".into(),
+            ..Default::default()
+        };
+        let manager = crate::session::test_manager(cfg.clone());
+        manager.live.write().await.insert(
+            session.name.clone(),
+            Live::new(session.clone(), TitleCapture::default()),
+        );
+
+        manager
+            .wire_live_state("agent", &cfg, &session, &project, false)
+            .await;
+        let live = manager.live.read().await;
+        assert!(live["agent"].breadcrumbs_pending);
+        assert!(String::from_utf8_lossy(&live["agent"].breadcrumbs)
+            .contains(crate::manifest::DISCOVERY_BREADCRUMB));
+        drop(live);
+
+        cfg.daemon.instructions.breadcrumb_enabled = false;
+        manager
+            .wire_live_state("agent", &cfg, &session, &project, false)
+            .await;
+        let live = manager.live.read().await;
+        assert!(!live["agent"].breadcrumbs_pending);
+        assert!(live["agent"].breadcrumbs.is_empty());
     }
 
     #[tokio::test]

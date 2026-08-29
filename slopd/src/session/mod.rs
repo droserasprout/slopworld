@@ -856,6 +856,7 @@ pub(crate) fn validate_config(cfg: &Config) -> Result<()> {
         .bind
         .parse::<std::net::SocketAddr>()
         .with_context(|| format!("bad bind address {:?}", cfg.daemon.bind))?;
+    cfg.daemon.instructions.validate()?;
     let table = crate::presets::table();
     for (field, name) in [
         ("agent", &cfg.defaults.agent),

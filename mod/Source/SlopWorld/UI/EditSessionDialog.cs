@@ -239,7 +239,7 @@ namespace SlopWorld
             _s.AutoResume = SlopWidgets.Checkbox(l, "Auto-resume last conversation", _s.AutoResume,
                 "After startup settles, send /resume and choose the latest conversation.");
             _s.SlopworldMd = SlopWidgets.Checkbox(l, "Mount SLOPWORLD.md", _s.SlopworldMd,
-                "Mount generated runtime context read-only at the project root, exclude it from Git, and tell the agent to read it on its first prompt.");
+                "Mount generated runtime context read-only at the Instructions mount path, exclude the source file from Git, and optionally tell the agent to read it on its first prompt.");
             _s.PersistentTmp = SlopWidgets.Checkbox(l, "Persistent /tmp", _s.PersistentTmp,
                 "Keep this agent's /tmp across restarts in its private state. Resetting private state gives it a fresh /tmp.");
 

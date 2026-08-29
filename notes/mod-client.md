@@ -20,6 +20,8 @@ reflection.
 - `SlopClient` - the HTTP half; completions replayed on the main thread.
 - `SlopConfig` - the small read model used by the settings GUI; writes go through
   the daemon's patch endpoint.
+- `InstructionsPage` uses the root-only instructions preview route to render unsaved
+  Markdown through the shared native `MarkdownPreview` renderer.
 
 The settings pages use `PUT /api/config/patch` with nested partial JSON. A field
 missing from the client remains untouched in `config.toml`, so adding a daemon

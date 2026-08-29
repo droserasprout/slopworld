@@ -36,6 +36,13 @@ OpenRouter model. The Summaries settings page controls per-CLI policies (`never`
 `once` / `always`), the host-command toggle, minimum prompt length, and the model.
 The OpenRouter key is the one from the Usage page.
 
+## Instructions
+
+Settings > Integrations > Instructions edits the generated `SLOPWORLD.md` template,
+previews its rendered Markdown, chooses its read-only sandbox mount path, and enables
+or disables the discovery breadcrumb. The per-agent `slopworld_md` option remains the
+opt-in that mounts the document.
+
 ## Shortcuts and errands
 
 A shortcut delivers a prompt or shell command to an agent. Prompt errands paste text
