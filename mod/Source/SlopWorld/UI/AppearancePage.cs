@@ -73,18 +73,18 @@ namespace SlopWorld
             l.Begin(rect);
 
             // The knob and the readout follow the hand; the scale itself is not moved until
-            // the hand comes off, because this is the one row whose value decides where the
-            // row is drawn. See SlopWidgets.Slider.
+            // the slider reports an actual mouse-up, because this is the one row whose value
+            // decides where the row is drawn. See SlopWidgets.Slider.
             float shown = _scaleHeld ?? SlopUIScale.Current;
             float scale = SlopWidgets.Slider(l, "UI scale", shown,
                 SlopUIScale.Min, SlopUIScale.Max, SlopUIScale.Readout(shown), out bool held,
-                "Zooms the whole interface, ours and the game's. Vanilla's own row stops "
+                out bool released, "Zooms the whole interface, ours and the game's. Vanilla's own row stops "
                 + "where the scaled screen would fall under 1024x768; this one does not.");
             if (held)
             {
                 _scaleHeld = scale;
             }
-            else if (_scaleHeld.HasValue)
+            else if (released && _scaleHeld.HasValue)
             {
                 _scaleHeld = null;
                 SlopUIScale.Set(scale);
