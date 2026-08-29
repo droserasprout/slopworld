@@ -839,6 +839,13 @@ pub(super) async fn clip_write(Json(q): Json<ClipReq>) -> ApiResult {
     Ok(Json(json!({ "ok": true })))
 }
 
+pub(super) async fn clip_write_primary(Json(q): Json<ClipReq>) -> ApiResult {
+    crate::clipboard::write_primary(&q.text)
+        .await
+        .map_err(|e| err(StatusCode::BAD_GATEWAY, e))?;
+    Ok(Json(json!({ "ok": true })))
+}
+
 /// A preview is a UI document, not a file transfer. Keep the response bounded so a generated
 /// README cannot turn one click into an unbounded JSON allocation in the daemon or the game.
 const READ_LIMIT: u64 = 512 * 1024;

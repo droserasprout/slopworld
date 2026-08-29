@@ -55,7 +55,7 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 | Ctrl+click | Open a URL printed in the terminal, or navigate to a file path in Files. |
 | Right-click | Terminal context menu. |
 | Double-click | Select a word. |
-| Triple-click | Select a line. |
+| Triple-click | Select a line and publish it to the host's PRIMARY selection. |
 
 ## Mouse wheel (terminal)
 
