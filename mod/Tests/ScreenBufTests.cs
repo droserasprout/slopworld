@@ -11,6 +11,7 @@ namespace SlopWorld.Tests
             yield return ("uses wire defaults", UsesWireDefaults);
             yield return ("detects a live row shift", DetectsLiveRowShift);
             yield return ("does not call a bottom edit a row shift", IgnoresBottomEdit);
+            yield return ("does not shift across a changed viewport", IgnoresChangedViewport);
         }
 
         static void HydratesScreenFrame()
@@ -90,6 +91,19 @@ namespace SlopWorld.Tests
                 "\"off\":0,\"lines\":[\"one\",\"two\",\"four\"]}"));
 
             AssertEx.Equal(0, screen.LiveShift, "bottom edit shift");
+        }
+
+        static void IgnoresChangedViewport()
+        {
+            var screen = new ScreenBuf();
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2," +
+                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"));
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3," +
+                "\"off\":0,\"lines\":[\"two\",\"three\",\"four\",\"five\"]}"));
+
+            AssertEx.Equal(0, screen.LiveShift, "a resize does not look like a scroll");
         }
     }
 }

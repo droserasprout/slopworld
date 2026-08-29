@@ -10,6 +10,7 @@ namespace SlopWorld.Tests
             yield return ("parses flat values and comments", ParsesFlatValuesAndComments);
             yield return ("round trips quoted values", RoundTripsQuotedValues);
             yield return ("rejects malformed entries", RejectsMalformedEntries);
+            yield return ("finds separators after escaped quoted text", FindsEscapedSeparators);
         }
 
         static void ParsesFlatValuesAndComments()
@@ -58,6 +59,15 @@ namespace SlopWorld.Tests
                                              "trailing string text");
             AssertEx.Throws<FormatException>(() => Toml.ParseFlat("value = \"\\uD800\""),
                                              "surrogate unicode escape");
+        }
+
+        static void FindsEscapedSeparators()
+        {
+            var values = Toml.ParseFlat("value = \"a\\\"=b\" # equals stays quoted\n");
+
+            AssertEx.Equal("a\"=b", values["value"], "escaped quote does not end the value");
+            AssertEx.Throws<FormatException>(() => Toml.ParseFlat("value = 'ok' trailing"),
+                                             "literal strings reject trailing text");
         }
     }
 }

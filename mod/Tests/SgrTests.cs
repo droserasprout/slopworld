@@ -27,6 +27,10 @@ namespace SlopWorld.Tests
             yield return ("faint dims foreground toward background", FaintDims);
             yield return ("reverse swaps foreground and background", ReverseSwaps);
             yield return ("supplementary glyph remains one run", SupplementaryGlyph);
+            yield return ("clears individual attributes", ClearsIndividualAttributes);
+            yield return ("handles bright backgrounds and grey colors", BrightBackgroundAndGreyColors);
+            yield return ("autolinks across colors and rows", AutolinksAcrossColorsAndRows);
+            yield return ("preserves explicit hyperlink metadata", PreservesExplicitHyperlink);
         }
 
         static Color DefaultFg => TerminalTheme.Current.Fg;
@@ -198,6 +202,79 @@ namespace SlopWorld.Tests
             AssertEx.Equal(0, runs[0].Col, "emoji starts at column zero");
             AssertEx.Equal("X", runs[1].Text, "tail text");
             AssertEx.Equal(2, runs[1].Col, "tail starts after the wide emoji");
+        }
+
+        static void ClearsIndividualAttributes()
+        {
+            var runs = Sgr.ParseLine(
+                "\x1b[1;2;7;31;42mA\x1b[22;27;39;49mB");
+
+            AssertEx.Equal(2, runs.Count, "attribute reset splits runs");
+            AssertEx.True(runs[0].Bold, "bold is set before its reset");
+            AssertEx.True(runs[0].HasBg, "background is set before its reset");
+            AssertEx.Equal(TerminalTheme.Current.Ansi[1], runs[0].Bg,
+                           "reverse moves foreground into the background");
+            AssertEx.Equal(TerminalTheme.Current.Ansi[2], runs[0].Fg,
+                           "reverse moves background into the foreground");
+            AssertEx.Equal(DefaultFg, runs[1].Fg, "foreground reset");
+            AssertEx.False(runs[1].HasBg, "background reset");
+            AssertEx.False(runs[1].Bold, "bold reset");
+            AssertEx.Equal(DefaultBg, runs[1].Bg, "background value after reset");
+        }
+
+        static void BrightBackgroundAndGreyColors()
+        {
+            var runs = Sgr.ParseLine("\x1b[100mbright background");
+            AssertEx.Equal(TerminalTheme.Current.Ansi[8], runs[0].Bg,
+                           "bright black background");
+            AssertEx.True(runs[0].HasBg, "bright background is present");
+
+            var firstGrey = Sgr.Xterm256(232);
+            var lastGrey = Sgr.Xterm256(255);
+            AssertEx.Equal(new Color(8 / 255f, 8 / 255f, 8 / 255f), firstGrey,
+                           "first xterm grey");
+            AssertEx.Equal(new Color(238 / 255f, 238 / 255f, 238 / 255f), lastGrey,
+                           "last xterm grey");
+            AssertEx.Equal(TerminalTheme.Current.Ansi[0], Sgr.Xterm256(-1),
+                           "negative xterm index clamps");
+        }
+
+        static void AutolinksAcrossColorsAndRows()
+        {
+            var colored = Sgr.ParseLine(
+                "\x1b[31mhttps://example\x1b[32m.com");
+            AssertEx.Equal(2, colored.Count, "URL keeps the two source colors");
+            AssertEx.Equal("https://example.com", colored[0].Url, "first URL fragment");
+            AssertEx.Equal("https://example.com", colored[1].Url, "second URL fragment");
+            AssertEx.Equal(TerminalTheme.Current.Ansi[1], colored[0].Fg,
+                           "first URL color");
+            AssertEx.Equal(TerminalTheme.Current.Ansi[2], colored[1].Fg,
+                           "second URL color");
+
+            var rows = Sgr.ParseLines(new[] { "https://example.", "com" }, 16);
+            AssertEx.Equal(1, rows[0].Count, "first row stays one link run");
+            AssertEx.Equal(1, rows[1].Count, "second row stays one link run");
+            AssertEx.Equal("https://example.com", rows[0][0].Url,
+                           "cross-row link URL");
+            AssertEx.Equal("com", rows[1][0].Text, "cross-row link text");
+            AssertEx.Equal("https://example.com", rows[1][0].Url,
+                           "cross-row link metadata");
+
+            AssertEx.Equal(0, Sgr.ParseLines(Array.Empty<string>(), 80).Length,
+                           "empty screen has no rows");
+            AssertEx.Equal(1, Sgr.ParseLines(new[] { "plain" }, 0)[0].Count,
+                           "zero width falls back to row width");
+        }
+
+        static void PreservesExplicitHyperlink()
+        {
+            var runs = Sgr.ParseLine(
+                "\x1b]8;;https://named.example\x07https://text.example\x1b]8;;\x07");
+
+            AssertEx.Equal(1, runs.Count, "explicit hyperlink is not split by autolinking");
+            AssertEx.Equal("https://text.example", runs[0].Text, "explicit link text");
+            AssertEx.Equal("https://named.example", runs[0].Url,
+                           "explicit hyperlink wins over text detection");
         }
     }
 }

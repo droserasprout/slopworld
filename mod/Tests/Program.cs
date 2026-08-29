@@ -24,6 +24,8 @@ namespace SlopWorld.Tests
                 tests.Add(("ProjectInfo: " + test.Name, test.Body));
             foreach (var test in DnsConfigTests.Cases())
                 tests.Add(("DnsConfig: " + test.Name, test.Body));
+            foreach (var test in MountEntryTests.Cases())
+                tests.Add(("MountEntry: " + test.Name, test.Body));
             foreach (var test in DaemonCapabilitiesTests.Cases())
                 tests.Add(("DaemonCapabilities: " + test.Name, test.Body));
             foreach (var test in DaemonHealthTests.Cases())
@@ -32,6 +34,8 @@ namespace SlopWorld.Tests
                 tests.Add(("SessionLimits: " + test.Name, test.Body));
             foreach (var test in UsageInfoTests.Cases())
                 tests.Add(("UsageInfo: " + test.Name, test.Body));
+            foreach (var test in UsageWindowTests.Cases())
+                tests.Add(("UsageWindow: " + test.Name, test.Body));
             foreach (var test in SessionInfoTests.Cases())
                 tests.Add(("SessionInfo: " + test.Name, test.Body));
             foreach (var test in ScreenBufTests.Cases())

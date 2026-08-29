@@ -11,6 +11,7 @@ namespace SlopWorld.Tests
             yield return ("round trips quoted strings", RoundTripsQuotedStrings);
             yield return ("round trips supplementary emoji", RoundTripsSupplementaryEmoji);
             yield return ("parses numbers and literals", ParsesNumbersAndLiterals);
+            yield return ("parses all short string escapes", ParsesShortEscapes);
         }
 
         static void ParsesNestedValuesAndAccessors()
@@ -62,6 +63,13 @@ namespace SlopWorld.Tests
             string wire = "{\"text\":" + JVal.Q(emoji) + "}";
             AssertEx.Equal(emoji, JVal.Parse(wire)["text"].AsString(),
                            "surrogate pair survives the paste JSON shape");
+        }
+
+        static void ParsesShortEscapes()
+        {
+            var value = JVal.Parse("\"\\b\\f\\/\\q\"").AsString();
+
+            AssertEx.Equal("\b\f/q", value, "backspace, formfeed, slash and fallback escapes");
         }
     }
 }
