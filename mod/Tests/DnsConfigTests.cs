@@ -65,6 +65,10 @@ namespace SlopWorld.Tests
             AssertEx.Equal("8.8.8.8", custom.Servers[0], "DNS copy owns its list");
             AssertEx.True(DnsConfig.FromJson(JVal.Parse("{\"mode\":\"unknown\"}"))
                               .IsResolved, "unknown mode fallback");
+
+            var empty = DnsConfig.Custom();
+            AssertEx.False(empty.IsResolved, "custom factory selects server mode");
+            AssertEx.Equal("Custom DNS (empty)", empty.Label, "empty custom DNS label");
         }
     }
 }

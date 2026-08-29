@@ -10,6 +10,7 @@ namespace SlopWorld.Tests
             yield return ("reads the complete wire shape", ReadsCompleteWireShape);
             yield return ("writes editable fields", WritesEditableFields);
             yield return ("parses unknown state as down", ParsesUnknownStateAsDown);
+            yield return ("parses each active state and reports current time", ParsesActiveStates);
         }
 
         static void ReadsCompleteWireShape()
@@ -130,6 +131,15 @@ namespace SlopWorld.Tests
             AssertEx.False(session.AutoResume, "auto resume default");
             AssertEx.False(session.PersistentTmp, "persistent /tmp default");
             AssertEx.True(session.BreadcrumbYolo, "breadcrumb yolo default");
+        }
+
+        static void ParsesActiveStates()
+        {
+            AssertEx.Equal(AgentState.Waiting, SessionInfo.ParseState("waiting"),
+                           "waiting state");
+            AssertEx.Equal(AgentState.Idle, SessionInfo.ParseState("idle"), "idle state");
+            AssertEx.True(SessionInfo.NowMs > 1_000_000_000_000L,
+                          "current time is expressed as Unix milliseconds");
         }
     }
 }

@@ -13,6 +13,7 @@ namespace SlopWorld.Tests
             yield return ("falls back for missing or invalid descriptors",
                           FallsBackForMissingOrInvalidDescriptors);
             yield return ("normalizes connection info directly", NormalizesConnectionInfoDirectly);
+            yield return ("finds the descriptor below XDG config", FindsXdgDescriptor);
         }
 
         static void ResolvesAndNormalizesIpv6Descriptor()
@@ -70,6 +71,33 @@ namespace SlopWorld.Tests
             AssertEx.Equal("host.example", host.Host, "ordinary host is preserved");
             AssertEx.Equal("http://host.example:1234", host.BaseUrl,
                            "ordinary base URL");
+        }
+
+        static void FindsXdgDescriptor()
+        {
+            string root = Path.Combine(Path.GetTempPath(),
+                "slopworld-config-" + Guid.NewGuid().ToString("N"));
+            string previousEndpoint = Environment.GetEnvironmentVariable("SLOPD_ENDPOINT");
+            string previousXdg = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(root, "slopworld"));
+                File.WriteAllText(Path.Combine(root, "slopworld", "endpoint.toml"),
+                                  "url = \"http://example.test:8822\"\ntoken = \"xdg\"\n");
+                Environment.SetEnvironmentVariable("SLOPD_ENDPOINT", null);
+                Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", root);
+
+                var connection = Endpoint.Resolve();
+                AssertEx.Equal("example.test", connection.Host, "XDG descriptor host");
+                AssertEx.Equal(8822, connection.Port, "XDG descriptor port");
+                AssertEx.Equal("xdg", connection.Token, "XDG descriptor token");
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("SLOPD_ENDPOINT", previousEndpoint);
+                Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", previousXdg);
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
         }
 
         static void AssertFallback(ConnectionInfo connection, string message)

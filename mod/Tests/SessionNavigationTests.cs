@@ -12,6 +12,8 @@ namespace SlopWorld.Tests
             yield return ("preserves sidebar order when all rows are present",
                           PreservesVisibleOrder);
             yield return ("closes when no live session remains", NoLiveSession);
+            yield return ("handles a missing visual snapshot", HandlesMissingVisualSnapshot);
+            yield return ("ignores null and duplicate sidebar rows", IgnoresNullAndDuplicateRows);
         }
 
         static void FindsHiddenLiveSession()
@@ -36,6 +38,22 @@ namespace SlopWorld.Tests
                 "last", new[] { "last" }, Array.Empty<string>());
 
             AssertEx.Equal(null, next, "no handoff target");
+        }
+
+        static void HandlesMissingVisualSnapshot()
+        {
+            string next = SessionNavigation.NextLive(
+                "b", null, new[] { "c", "a" });
+
+            AssertEx.Equal("c", next, "stable name order follows an absent anchor");
+        }
+
+        static void IgnoresNullAndDuplicateRows()
+        {
+            string next = SessionNavigation.NextLive(
+                "a", new[] { null, "a", "a", "b" }, null);
+
+            AssertEx.Equal(null, next, "duplicate and null rows do not invent a live session");
         }
     }
 }

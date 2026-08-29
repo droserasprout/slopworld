@@ -13,6 +13,7 @@ namespace SlopWorld.Tests
             yield return ("finds root files in prose", FindsRootFiles);
             yield return ("resolves paths from the terminal cwd", ResolvesPaths);
             yield return ("rejects ambiguous text and URLs", RejectsNonPaths);
+            yield return ("rejects invalid positions and roots", RejectsInvalidInputs);
         }
 
         static void FindsPaths()
@@ -75,6 +76,19 @@ namespace SlopWorld.Tests
         {
             AssertEx.True(PathScan.At("README", 2) == null, "a bare word is ambiguous");
             AssertEx.True(PathScan.At("https://example.test/a", 10) == null, "URLs stay URLs");
+        }
+
+        static void RejectsInvalidInputs()
+        {
+            AssertEx.True(PathScan.At(null, 0) == null, "null text is not a path");
+            AssertEx.True(PathScan.At("file.txt", -1) == null, "negative column is invalid");
+            AssertEx.True(PathScan.At("file.txt", 100) == null, "past-end column is invalid");
+            AssertEx.True(PathScan.ResolveProjectPath(null, "/work", "file.txt") == null,
+                          "missing root is invalid");
+            AssertEx.True(PathScan.ResolveProjectPath("/work", "/work", "") == null,
+                          "missing path is invalid");
+            AssertEx.True(PathScan.ResolveProjectPath("\0", "/work", "file.txt") == null,
+                          "filesystem errors are reported as no path");
         }
     }
 }

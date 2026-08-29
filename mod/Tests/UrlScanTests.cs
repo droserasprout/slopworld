@@ -11,6 +11,7 @@ namespace SlopWorld.Tests
             yield return ("ignores non-web schemes and bare schemes", IgnoresNonWebAndBare);
             yield return ("trims trailing punctuation and balances brackets", TrimsAndBalances);
             yield return ("parses OSC 8 link bodies", ParsesOsc);
+            yield return ("stops at URL-forbidden punctuation", StopsAtForbiddenPunctuation);
         }
 
         static void ExtractsWebUrl()
@@ -62,6 +63,15 @@ namespace SlopWorld.Tests
             AssertEx.Equal("", UrlScan.Osc("8;;"), "an empty uri closes a link");
             AssertEx.True(UrlScan.Osc("0;title") == null, "a non-link OSC leaves the caller's url standing");
             AssertEx.True(UrlScan.Osc(null) == null, "null body is not a link");
+        }
+
+        static void StopsAtForbiddenPunctuation()
+        {
+            var spans = UrlScan.FindUrls("open http://example.test/a^b now");
+
+            AssertEx.Equal(1, spans.Count, "one URL before forbidden punctuation");
+            AssertEx.Equal("http://example.test/a", spans[0].Url,
+                           "caret is not part of a URL");
         }
     }
 }
