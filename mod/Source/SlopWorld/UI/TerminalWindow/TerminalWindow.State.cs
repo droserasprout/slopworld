@@ -55,9 +55,32 @@ namespace SlopWorld
         // can move between snapshots without waiting for a websocket round trip.
         const int MaxScrollLines = 10_000;
         readonly SmoothScroll _historyScroll = new SmoothScroll();
+        struct ScrollbackState
+        {
+            public int Offset;
+            public float Pixels;
+
+            public ScrollbackState(int offset, float pixels)
+            {
+                Offset = offset;
+                Pixels = pixels;
+            }
+        }
+
+        // The window is reused as terminal tabs change, so the active history cache cannot
+        // carry the position for every tab. Keep the position separately; the rows themselves
+        // are still fetched again when a tab comes back into view.
+        readonly Dictionary<string, ScrollbackState> _scrollbackStates =
+            new Dictionary<string, ScrollbackState>();
+        // A subscription can take a frame to answer after a tab switch. Retain the last
+        // complete content for each session so that gap is filled by the right tab, not by
+        // the render texture belonging to the tab we just left.
+        readonly Dictionary<string, ScreenBuf> _displayedFrames =
+            new Dictionary<string, ScreenBuf>();
         bool _historyScrollReady;
         bool _historyJumpPending;
         int _historyJumpOff;
+        float _historyJumpPixels = -1f;
         float _historyMax;
         float _historyLastPixels;
         float _renderHistoryShift;
@@ -252,12 +275,14 @@ namespace SlopWorld
         internal bool AutoResumePending =>
             _name != null && SessionHub.Instance.Get(_name)?.AutoResumePending == true;
 
-        // Resets per-pane view state but keeps the window's place in the stack. Whatever was
-        // in the body goes: being pointed at an agent is a request to see it.
+        // Rebinds the pane but keeps the window's place in the stack. Whatever was in the body
+        // goes: being pointed at an agent is a request to see it. History rows belong to the
+        // old session, while its scroll position is saved for the next visit.
         void SwitchTo(string name)
         {
             SetContent(null);
             if (name == _name) return;
+            SaveScrollbackState(_name);
             // A window opened on content alone has no pane to let go of, and a subscription
             // named null is one the daemon would have to answer.
             if (_name != null) SessionHub.Instance.Unsubscribe(_name);
@@ -277,6 +302,7 @@ namespace SlopWorld
             _hasWheelDirection = false;
             _historyScrollReady = false;
             _historyJumpPending = false;
+            _historyJumpPixels = -1f;
             _renderHistoryShift = 0f;
             _historyLastPixels = 0f;
             _historyTopOff = -1;
@@ -284,10 +310,59 @@ namespace SlopWorld
             _history.Reset();
             _historyRequests.Clear();
             _historyDisplayedFrame = null;
+            RestoreScrollbackState(_name);
+            if (_scrollOff > 0)
+                _historyDisplayedFrame = CachedDisplayedFrame(_name);
             _selectionOff = 0;
             _lastLiveSeq = -1;
             ClearSelection();
             ResetCursorBlink();
+        }
+
+        void SaveScrollbackState(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+
+            // `_historyScroll` may still hold the old position for one IMGUI pass after an
+            // input jumps to live output. The integer mode is authoritative in that case.
+            float pixels = _scrollOff <= 0 ? 0f
+                : _historyScrollReady ? HistoryOffsetPixels() : -1f;
+            _scrollbackStates[name] = new ScrollbackState(Mathf.Max(0, _scrollOff), pixels);
+        }
+
+        void RestoreScrollbackState(string name)
+        {
+            if (string.IsNullOrEmpty(name) ||
+                !_scrollbackStates.TryGetValue(name, out var state))
+            {
+                _scrollOff = 0;
+                return;
+            }
+
+            _scrollOff = Mathf.Clamp(state.Offset, 0, MaxScrollLines);
+            _historyJumpPending = true;
+            _historyJumpOff = _scrollOff;
+            _historyJumpPixels = state.Pixels;
+        }
+
+        ScreenBuf CachedDisplayedFrame(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            return _displayedFrames.TryGetValue(name, out var frame) ? frame : null;
+        }
+
+        void RememberDisplayedFrame(string name, ScreenBuf frame)
+        {
+            if (string.IsNullOrEmpty(name) || frame == null || frame.Lines == null ||
+                frame.Lines.Length == 0)
+                return;
+
+            if (_displayedFrames.TryGetValue(name, out var previous) &&
+                previous.Seq == frame.Seq && previous.Off == frame.Off &&
+                previous.Cols == frame.Cols && previous.Rows == frame.Rows)
+                return;
+
+            _displayedFrames[name] = frame.Snapshot();
         }
 
         // Clearing first: the brackets' jump-out is an animation off SelectionDrawer's select
@@ -447,6 +522,7 @@ namespace SlopWorld
             _scrollOff = _historyTopOff;
             _historyJumpPending = true;
             _historyJumpOff = _historyTopOff;
+            _historyJumpPixels = -1f;
         }
 
         bool HistoryInputEnabled(ScreenBuf live) =>
@@ -467,9 +543,12 @@ namespace SlopWorld
 
             if (_historyJumpPending)
             {
+                float pixels = _historyJumpPixels >= 0f
+                    ? _historyJumpPixels : _historyJumpOff * cellH;
                 _historyScroll.JumpTo(new Vector2(0f,
-                    Mathf.Clamp(_historyMax - _historyJumpOff * cellH, 0f, _historyMax)));
+                    Mathf.Clamp(_historyMax - pixels, 0f, _historyMax)));
                 _historyJumpPending = false;
+                _historyJumpPixels = -1f;
             }
         }
 
@@ -567,6 +646,7 @@ namespace SlopWorld
         {
             _historyJumpPending = true;
             _historyJumpOff = Mathf.Max(0, off);
+            _historyJumpPixels = -1f;
         }
 
         // The daemon's own limits, so what we ask for is always something it can answer with.

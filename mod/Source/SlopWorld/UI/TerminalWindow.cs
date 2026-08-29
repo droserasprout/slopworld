@@ -112,6 +112,15 @@ namespace SlopWorld
 
             UpdateHistoryTarget(cellH, live);
             var buf = DisplayedScreen();
+            if (buf == null || buf.Lines == null || buf.Lines.Length == 0)
+            {
+                // A tab may have been visited before but have no current live frame while
+                // its subscription is being restored. Use that tab's own last frame rather
+                // than the shared render texture, which still belongs to the old tab.
+                var cached = CachedDisplayedFrame(_name);
+                if (cached != null && cached.Lines != null && cached.Lines.Length > 0)
+                    buf = cached;
+            }
             if (buf == null)
             {
                 // Switching a pager keeps this window alive, but the new session needs a
@@ -120,11 +129,13 @@ namespace SlopWorld
                 DrawCentered(body, hub.Online ? "Waiting for output..." : $"Daemon {hub.Status}");
                 return false;
             }
-            if (buf.Lines.Length == 0)
+            if (buf.Lines == null || buf.Lines.Length == 0)
             {
                 DrawCentered(body, hub.Online ? "Waiting for output..." : $"Daemon {hub.Status}");
                 return false;
             }
+
+            RememberDisplayedFrame(_name, buf);
 
             NegotiateSize(body, buf);
             float shift = HistoryShift(buf, cellH);

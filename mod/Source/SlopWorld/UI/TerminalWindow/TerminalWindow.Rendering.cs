@@ -280,6 +280,10 @@ namespace SlopWorld
         bool BlitCached(Rect body)
         {
             if (_cache == null || !_cache.IsCreated()) return false;
+            // The shared texture is only a valid fallback while this session remains active.
+            // A switched tab must use its own displayed-frame snapshot or wait for its first
+            // screen; showing the previous tab for one frame reads as terminal flicker.
+            if (_cacheName != _name) return false;
             if (Event.current.type != EventType.Repaint) return true;
 
             int pw = Screen.width, ph = Screen.height;
