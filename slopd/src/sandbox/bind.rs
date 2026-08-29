@@ -183,59 +183,85 @@ fn pasta_prefix(dns: &DnsConfig) -> Vec<String> {
     out
 }
 
-pub(super) fn assemble_argv(
-    cfg: &Config,
-    s: &SessionCfg,
-    p: &ProjectCfg,
+pub(super) struct BuildArgs<'a> {
+    pub(super) cfg: &'a Config,
+    pub(super) s: &'a SessionCfg,
+    pub(super) p: &'a ProjectCfg,
+    pub(super) network: NetworkMode,
+    pub(super) dns: &'a DnsConfig,
+    pub(super) agent_argv: Vec<String>,
+    pub(super) dir: &'a str,
+    pub(super) table: &'a Table,
+    pub(super) presets: &'a [&'a SandboxPreset],
+    pub(super) home: &'a str,
+    pub(super) mounts: &'a [ResolvedMount],
+    pub(super) manifest: Option<&'a Path>,
+}
+
+struct BindContext<'a> {
+    cfg: &'a Config,
+    s: &'a SessionCfg,
+    p: &'a ProjectCfg,
+    table: &'a Table,
+    dir: &'a str,
+    ro: &'a [String],
+    rw: &'a [String],
+    dev: &'a [String],
     network: NetworkMode,
-    dns: &DnsConfig,
-    agent_argv: Vec<String>,
-    dir: &str,
-    table: &Table,
-    presets: &[&SandboxPreset],
-    home: &str,
-    mounts: &[ResolvedMount],
-    manifest: Option<&Path>,
-) -> Result<Vec<String>> {
+    resolv: Option<&'a (String, String)>,
+    tmux: bool,
+    daemon_config: bool,
+}
+
+pub(super) fn assemble_argv(args: BuildArgs<'_>) -> Result<Vec<String>> {
+    let BuildArgs {
+        cfg,
+        s,
+        p,
+        network,
+        dns,
+        agent_argv,
+        dir,
+        table,
+        presets,
+        home,
+        mounts,
+        manifest,
+    } = args;
     // Global first, then the resolved presets, so the most specific answer for a path is the
     // last one bwrap sees.
-    let ro = paths(&presets, |pr| &pr.ro);
-    let rw = paths(&presets, |pr| &pr.rw);
-    let dev = paths(&presets, |pr| &pr.dev);
+    let ro = paths(presets, |pr| &pr.ro);
+    let rw = paths(presets, |pr| &pr.rw);
+    let dev = paths(presets, |pr| &pr.dev);
     let tmux = presets.iter().any(|pr| pr.tmux);
     let daemon_config = presets.iter().any(|pr| pr.daemon_config);
 
     let resolv = resolver_bind(network, dns, &s.state_id);
+    let bind = BindContext {
+        cfg,
+        s,
+        p,
+        table,
+        dir,
+        ro: &ro,
+        rw: &rw,
+        dev: &dev,
+        network,
+        resolv: resolv.as_ref(),
+        tmux,
+        daemon_config,
+    };
 
     let mut a = Vec::new();
     push_skeleton(&mut a, network);
-    push_ro_binds(
-        &mut a,
-        &ro,
-        &rw,
-        &dev,
-        network,
-        resolv.as_ref(),
-        tmux,
-        daemon_config,
-    );
+    push_ro_binds(&mut a, &bind);
     let primary_mode = mounts
         .first()
         .map(|mount| mount.mode)
         .unwrap_or(MountMode::Rw);
-    push_private_binds(
-        &mut a,
-        cfg,
-        s,
-        p,
-        &table,
-        &dir,
-        primary_mode,
-        network,
-        resolv.as_ref(),
-    );
+    push_private_binds(&mut a, &bind, primary_mode);
     push_mounts(&mut a, mounts, &p.name, manifest);
-    push_env(&mut a, &home, s, p, mounts, &presets, &agent_argv);
+    push_env(&mut a, home, s, p, mounts, presets, &agent_argv);
 
     a.push("--".into());
     a.extend(agent_argv);
@@ -299,43 +325,34 @@ fn push_skeleton(a: &mut Vec<String>, network: NetworkMode) {
 
 /// Adds ordinary preset and host capability binds. These all precede private state, while the
 /// host resolver deliberately remains above ordinary read-only binds in host network mode.
-fn push_ro_binds(
-    a: &mut Vec<String>,
-    ro: &[String],
-    rw: &[String],
-    dev: &[String],
-    network: NetworkMode,
-    resolv: Option<&(String, String)>,
-    tmux: bool,
-    daemon_config: bool,
-) {
-    for path in ro {
+fn push_ro_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
+    for path in bind.ro {
         push_args(a, &["--ro-bind", path, path]);
     }
     // Host mode keeps the old resolver ordering: it sits above the ordinary ro binds, while
     // a preset that explicitly binds a larger tree still gets the final say.
-    if network == NetworkMode::Host {
-        if let Some((src, target)) = resolv {
+    if bind.network == NetworkMode::Host {
+        if let Some((src, target)) = bind.resolv {
             push_args(a, &["--ro-bind", src, target]);
         }
     }
 
-    for path in rw {
+    for path in bind.rw {
         push_args(a, &["--bind", path, path]);
     }
     // After the /dev tmpfs, or it would be mounted over.
-    for path in dev {
+    for path in bind.dev {
         push_args(a, &["--dev-bind", path, path]);
     }
 
     // The debug preset asks for this after the ordinary binds so a broad `/tmp` bind from
     // another preset cannot bury the socket. Inside bwrap the guest uid is 0, hence the target.
-    if tmux {
+    if bind.tmux {
         if let Some((source, target)) = tmux_socket_bind(crate::config::tmux_socket()) {
             push_args(a, &["--ro-bind", &source, &target]);
         }
     }
-    if daemon_config {
+    if bind.daemon_config {
         for path in daemon_config_binds() {
             push_args(a, &["--ro-bind", &path, &path]);
         }
@@ -344,40 +361,30 @@ fn push_ro_binds(
 
 /// Adds mounts that must win over ordinary binds: private copies, shared files, the project,
 /// and finally private DNS. A shared file is a hole cut in private state, so it lands on top.
-fn push_private_binds(
-    a: &mut Vec<String>,
-    cfg: &Config,
-    s: &SessionCfg,
-    p: &ProjectCfg,
-    table: &Table,
-    dir: &str,
-    project_mode: MountMode,
-    network: NetworkMode,
-    resolv: Option<&(String, String)>,
-) {
+fn push_private_binds(a: &mut Vec<String>, bind: &BindContext<'_>, project_mode: MountMode) {
     // Last of the binds under $HOME, so the private copy wins over an ordinary preset bind:
     // the point of a private path is that there is no way to ask for the original, and an
     // earlier bind of the same target is one bwrap mounts over.
-    for (copy, host) in private_bind_paths(cfg, s, p, table) {
+    for (copy, host) in private_bind_paths(bind.cfg, bind.s, bind.p, bind.table) {
         push_args(a, &["--bind", &copy, &host]);
     }
 
     // After the private binds, and only ever inside one: a shared file is a hole cut in a
     // copy, so it has to be mounted over the copy rather than under it. bwrap makes the
     // mount point, which is why nothing seeds one.
-    for path in shared_binds(cfg, s, p, table) {
+    for path in shared_binds(bind.cfg, bind.s, bind.p, bind.table) {
         push_args(a, &["--bind", &path, &path]);
     }
 
     match project_mode {
-        MountMode::Ro => push_args(a, &["--ro-bind", dir, dir]),
-        MountMode::Rw => push_args(a, &["--bind", dir, dir]),
+        MountMode::Ro => push_args(a, &["--ro-bind", bind.dir, bind.dir]),
+        MountMode::Rw => push_args(a, &["--bind", bind.dir, bind.dir]),
     }
     // Private mode's resolver must be the last bind at this target. A user preset or project
     // directory may bind /etc or a file below it, but neither should restore a host-loopback
     // resolver.
-    if network == NetworkMode::Private {
-        if let Some((src, target)) = resolv {
+    if bind.network == NetworkMode::Private {
+        if let Some((src, target)) = bind.resolv {
             push_args(a, &["--ro-bind", src, target]);
         }
     }

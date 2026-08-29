@@ -20,6 +20,7 @@ mod view;
 pub(crate) use ctrl::test_manager;
 pub(super) use ctrl::CachedScroll;
 pub use ctrl::{ClientGuard, Manager, WatchGuard};
+pub(crate) use view::FrameViewArgs;
 pub use view::{ScreenView, SessionView};
 
 use crate::config::{
@@ -1637,8 +1638,6 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
 
     #[test]
     fn mounts_round_trip_through_toml() {
-        use crate::config::Mount;
-
         let cfg = Config::parse(
             r#"
             [[project]]

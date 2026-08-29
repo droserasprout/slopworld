@@ -138,29 +138,51 @@ pub(crate) fn start(
     std::thread::Builder::new()
         .name("slopd audio feed".into())
         .spawn(move || {
-            feed(
-                first, source, playlist, format, tx, generation, title, ready, queued,
-            )
+            feed(FeedArgs {
+                first,
+                source,
+                playlist,
+                format,
+                tx,
+                generation,
+                title,
+                ready,
+                queued,
+            })
         })
         .context("starting the feeder")?;
 
     Ok(())
 }
 
-/// Decodes into the ring until the source runs dry. A file loops, a directory advances through
-/// its shuffled bag, and a station that dropped reconnects. A selected source keeps retrying
-/// until the run is superseded or the ring's other end has gone.
-fn feed(
+// The feeder owns its inputs so the audio thread can run independently of the caller.
+struct FeedArgs {
     first: Box<dyn Source + Send>,
     source: String,
-    mut playlist: Option<Playlist>,
+    playlist: Option<Playlist>,
     format: AudioFormat,
     tx: SyncSender<Vec<Sample>>,
     generation: u64,
     title: TitleSink,
     ready: Arc<AtomicBool>,
     queued: Arc<AtomicUsize>,
-) {
+}
+
+/// Decodes into the ring until the source runs dry. A file loops, a directory advances through
+/// its shuffled bag, and a station that dropped reconnects. A selected source keeps retrying
+/// until the run is superseded or the ring's other end has gone.
+fn feed(args: FeedArgs) {
+    let FeedArgs {
+        first,
+        source,
+        mut playlist,
+        format,
+        tx,
+        generation,
+        title,
+        ready,
+        queued,
+    } = args;
     let _ready_on_exit = ReadyOnDrop(ready.clone());
     let prefill_samples =
         format.rate.get() as usize * format.channels.get() as usize * PREFILL_SECS;
@@ -265,10 +287,8 @@ pub(crate) fn enqueue_chunk(
         }
     }
 
-    if !ready.load(Ordering::Relaxed) {
-        if queued.load(Ordering::Acquire) >= prefill_samples {
-            ready.store(true, Ordering::Release);
-        }
+    if !ready.load(Ordering::Relaxed) && queued.load(Ordering::Acquire) >= prefill_samples {
+        ready.store(true, Ordering::Release);
     }
     true
 }

@@ -446,7 +446,6 @@ impl Manager {
     /// read-only session fields. A non-empty label also invalidates a title request already
     /// in flight; clearing it leaves any existing generated title in place and lets the next
     /// prompt use the configured title policy again.
-
     pub async fn set_label(self: &Arc<Self>, name: &str, label: String) -> Result<()> {
         self.reload_if_changed().await;
         let label = label.trim().to_string();
@@ -581,7 +580,6 @@ impl Manager {
 
     /// Stop an agent and discard only its private tool state.  The old tree is recoverable in
     /// the daemon-owned trash for two weeks; the configured agent remains and reseeds on start.
-
     pub async fn reset_state(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
         if self.is_ephemeral(name).await {

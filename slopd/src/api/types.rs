@@ -1,3 +1,5 @@
+use serde::Deserialize;
+
 #[derive(Deserialize)]
 pub(crate) struct CreateTaskReq {
     pub(crate) to: String,
@@ -336,4 +338,3 @@ mod tests {
         assert!(error.contains("expected a yes or a no"), "{error}");
     }
 }
-use serde::Deserialize;

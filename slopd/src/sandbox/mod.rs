@@ -74,20 +74,20 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
         }
     }
 
-    bind::assemble_argv(
+    bind::assemble_argv(bind::BuildArgs {
         cfg,
         s,
         p,
         network,
-        &dns,
+        dns: &dns,
         agent_argv,
-        &dir,
-        &table,
-        &presets,
-        &home,
-        &mounts,
-        manifest.as_deref(),
-    )
+        dir: &dir,
+        table: &table,
+        presets: &presets,
+        home: &home,
+        mounts: &mounts,
+        manifest: manifest.as_deref(),
+    })
 }
 
 /// A name this build has no preset for is dropped with a warning rather than refused: the

@@ -562,7 +562,6 @@ impl Manager {
     }
 
     /// Render a breadcrumb and paste it into this agent without submitting.
-
     pub async fn paste_breadcrumb(
         &self,
         name: &str,
@@ -872,14 +871,16 @@ impl Manager {
         }
 
         let view = ScreenView::from_frame(
-            name,
-            previous.seq + 1,
-            previous.cols,
-            previous.rows,
-            0,
-            0,
+            FrameViewArgs {
+                name,
+                seq: previous.seq + 1,
+                cols: previous.cols,
+                rows: previous.rows,
+                off: 0,
+                history: 0,
+                request_id: 0,
+            },
             frame,
-            0,
         );
 
         let mut dirty_list = false;
@@ -980,7 +981,6 @@ impl Manager {
     }
 
     /// Remove cached scrollback when a session ends; adopted ephemeral names would otherwise retain one screen per name for the daemon's lifetime.
-
     pub(super) fn forget_scroll(&self, name: &str) {
         if let Ok(mut c) = self.scroll_cache.lock() {
             c.remove(name);
@@ -1028,8 +1028,18 @@ impl Manager {
             return Some(view);
         }
         let frame = crate::emu::SessionEmu::frame_from_grid(grid, cols, rows, title);
-        let view =
-            ScreenView::from_frame(name, seq, cols, rows, achieved, history, frame, request_id);
+        let view = ScreenView::from_frame(
+            FrameViewArgs {
+                name,
+                seq,
+                cols,
+                rows,
+                off: achieved,
+                history,
+                request_id,
+            },
+            frame,
+        );
 
         if let Ok(mut c) = self.scroll_cache.lock() {
             c.insert(
