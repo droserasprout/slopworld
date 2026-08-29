@@ -42,6 +42,23 @@ namespace SlopWorld
             _dragging = false;
             _selectionMoved = false;
             _wordDragging = false;
+            _lineDragging = false;
+            ReleaseSelection();
+        }
+
+        void CaptureSelection(Rect body)
+        {
+            if (_selectionControl != 0 && GUIUtility.hotControl == _selectionControl)
+                GUIUtility.hotControl = 0;
+            _selectionControl = GUIUtility.GetControlID(FocusType.Passive, body);
+            GUIUtility.hotControl = _selectionControl;
+        }
+
+        void ReleaseSelection()
+        {
+            if (_selectionControl != 0 && GUIUtility.hotControl == _selectionControl)
+                GUIUtility.hotControl = 0;
+            _selectionControl = 0;
         }
 
         // Both ends inclusive, the way a dragged selection states them.
@@ -50,8 +67,11 @@ namespace SlopWorld
             _selA = new Vector2Int(c0, row);
             _selB = new Vector2Int(c1, row);
             _hasSel = true;
-            _dragging = false;
+            _dragging = true;
+            _selectionMoved = false;
             _wordDragging = false;
+            _lineDragging = true;
+            _lineStart = row;
             CopySelection();
         }
 
@@ -79,6 +99,7 @@ namespace SlopWorld
             _hasSel = true;
             _dragging = true;
             _wordDragging = true;
+            _lineDragging = false;
             CopySelection();
         }
 
@@ -130,6 +151,23 @@ namespace SlopWorld
             SelectSpan(row, 0, len - 1);
         }
 
+        void SelectLineRange(int anchor, int row)
+        {
+            var buf = DisplayedBuf();
+            if (buf == null) return;
+            EnsureRuns(buf);
+            if (buf.Runs.Length == 0) return;
+
+            anchor = Mathf.Clamp(anchor, 0, buf.Runs.Length - 1);
+            row = Mathf.Clamp(row, 0, buf.Runs.Length - 1);
+            int first = Mathf.Min(anchor, row);
+            int last = Mathf.Max(anchor, row);
+            int len = TerminalColumns.ContentColumns(TerminalColumns.Cells(buf.Runs[last]));
+            _selA = new Vector2Int(0, first);
+            _selB = new Vector2Int(Mathf.Max(0, len - 1), last);
+            _hasSel = true;
+        }
+
         static bool SameClass(char c, char anchor, bool word) =>
             word ? IsWordChar(c) : c == anchor;
 
@@ -169,6 +207,8 @@ namespace SlopWorld
             _hasSel = true;
             _dragging = false;
             _wordDragging = false;
+            _lineDragging = false;
+            ReleaseSelection();
             CopyText(SelectionText(buf).TrimEnd('\n'));
         }
 

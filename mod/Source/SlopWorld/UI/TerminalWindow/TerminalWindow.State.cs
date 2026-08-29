@@ -95,9 +95,13 @@ namespace SlopWorld
         bool _dragging;
         bool _selectionMoved;
         bool _wordDragging;
+        bool _lineDragging;
         Vector2Int _wordStart, _wordEnd;
+        int _lineStart;
+        int _selectionControl;
         bool _hasSel;
         Vector2Int _selA, _selB;
+        readonly MouseClickSequence _clicks = new MouseClickSequence();
         // The viewport offset the selection endpoints belong to. A history frame is an older
         // slice of the same terminal, so its rows move down as this offset increases.
         int _selectionOff;

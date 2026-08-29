@@ -27,7 +27,7 @@ namespace SlopWorld
                 if (Mouse.IsOver(screen))
                     TooltipHandler.TipRegion(screen, (hit.Url ?? hit.LocalPath) +
                         "\n\nCtrl+click to open it");
-                if (e.rawType == EventType.MouseDown && e.button == 0 && e.control &&
+                if (MouseType(e) == EventType.MouseDown && e.button == 0 && e.control &&
                     screen.Contains(e.mousePosition))
                 {
                     if (hit.LocalPath != null) OpenLocalLink(hit.LocalPath);
@@ -67,7 +67,8 @@ namespace SlopWorld
                 return;
             }
 
-            if (e.button == 1 && e.type == EventType.MouseDown && body.Contains(e.mousePosition))
+            if (e.button == 1 && MouseType(e) == EventType.MouseDown &&
+                body.Contains(e.mousePosition))
             {
                 OpenMenu();
                 e.Use();
@@ -75,10 +76,27 @@ namespace SlopWorld
             }
 
             if (e.button != 0) return;
-            switch (e.type)
+            EventType type = MouseType(e);
+            if (type == EventType.MouseDown && body.Contains(e.mousePosition))
+            {
+                int clickCount = _clicks.Observe(e, Time.realtimeSinceStartup);
+                if (clickCount >= 3)
+                {
+                    HandleMouseDown(body, e, clickCount);
+                    _clicks.Reset();
+                    return;
+                }
+                if (clickCount >= 2)
+                {
+                    HandleMouseDown(body, e, clickCount);
+                    return;
+                }
+            }
+
+            switch (type)
             {
                 case EventType.MouseDown:
-                    HandleMouseDown(body, e);
+                    HandleMouseDown(body, e, 1);
                     return;
 
                 case EventType.MouseDrag:
@@ -91,18 +109,26 @@ namespace SlopWorld
             }
         }
 
-        void HandleMouseDown(Rect body, Event e)
+        // The containing fullscreen window can consume a mouse event before this view draws.
+        // Keep the original gesture type so selection still sees MouseDown/Drag/Up, just as
+        // the terminal pane does.
+        static EventType MouseType(Event e) =>
+            e.type == EventType.Used ? e.rawType : e.type;
+
+        void HandleMouseDown(Rect body, Event e, int clickCount)
         {
             if (!body.Contains(e.mousePosition)) return;
             var point = SelectionPointAt(body, e.mousePosition);
-            if (e.clickCount >= 3)
+            if (clickCount >= 3)
             {
+                CaptureSelection(body);
                 SelectLine(point.y);
                 e.Use();
                 return;
             }
-            if (e.clickCount >= 2)
+            if (clickCount >= 2)
             {
+                CaptureSelection(body);
                 DoubleClickSelect(point);
                 e.Use();
                 return;
@@ -113,16 +139,34 @@ namespace SlopWorld
             _selB = point;
             _dragging = true;
             _wordDragging = false;
+            _lineDragging = false;
             _hasSel = extend && _selA != _selB;
+            CaptureSelection(body);
             e.Use();
             return;
+        }
+
+        void CaptureSelection(Rect body)
+        {
+            if (_selectionControl != 0 && GUIUtility.hotControl == _selectionControl)
+                GUIUtility.hotControl = 0;
+            _selectionControl = GUIUtility.GetControlID(FocusType.Passive, body);
+            GUIUtility.hotControl = _selectionControl;
+        }
+
+        void ReleaseSelection()
+        {
+            if (_selectionControl != 0 && GUIUtility.hotControl == _selectionControl)
+                GUIUtility.hotControl = 0;
+            _selectionControl = 0;
         }
 
         void HandleMouseDrag(Rect body, Event e)
         {
             if (!_dragging) return;
             var drag = SelectionPointAt(body, e.mousePosition);
-            if (_wordDragging) UpdateWordSelection(drag);
+            if (_lineDragging) SelectLineRange(_lineStart, drag.y);
+            else if (_wordDragging) UpdateWordSelection(drag);
             else
             {
                 _selB = drag;
@@ -136,11 +180,20 @@ namespace SlopWorld
         {
             if (!_dragging) return;
             var up = SelectionPointAt(body, e.mousePosition);
-            if (_wordDragging)
+            if (_lineDragging)
+            {
+                SelectLineRange(_lineStart, up.y);
+                _lineDragging = false;
+                _dragging = false;
+                ReleaseSelection();
+                CopySelection();
+            }
+            else if (_wordDragging)
             {
                 UpdateWordSelection(up);
                 _wordDragging = false;
                 _dragging = false;
+                ReleaseSelection();
                 if (_hasSel) CopySelection();
             }
             else
@@ -153,6 +206,7 @@ namespace SlopWorld
                     CopySelection();
                 }
                 else _hasSel = false;
+                ReleaseSelection();
             }
             e.Use();
             return;
@@ -265,6 +319,7 @@ namespace SlopWorld
             _hasSel = true;
             _dragging = true;
             _wordDragging = true;
+            _lineDragging = false;
             CopySelection();
         }
 
@@ -303,12 +358,27 @@ namespace SlopWorld
             if (line < 0 || line >= _selectionLines.Count) return;
             int length = _selectionLines[line].Text.Length;
             if (length == 0) { ClearSelection(); return; }
+            _lineStart = line;
             _selA = new Vector2Int(0, line);
             _selB = new Vector2Int(length, line);
             _hasSel = true;
-            _dragging = false;
+            _dragging = true;
             _wordDragging = false;
+            _lineDragging = true;
             CopySelection();
+        }
+
+        void SelectLineRange(int anchor, int line)
+        {
+            if (_selectionLines.Count == 0) return;
+
+            anchor = Mathf.Clamp(anchor, 0, _selectionLines.Count - 1);
+            line = Mathf.Clamp(line, 0, _selectionLines.Count - 1);
+            int first = Mathf.Min(anchor, line);
+            int last = Mathf.Max(anchor, line);
+            _selA = new Vector2Int(0, first);
+            _selB = new Vector2Int(_selectionLines[last].Text.Length, last);
+            _hasSel = true;
         }
 
         static bool Before(Vector2Int a, Vector2Int b) =>
@@ -326,6 +396,8 @@ namespace SlopWorld
             _hasSel = false;
             _dragging = false;
             _wordDragging = false;
+            _lineDragging = false;
+            ReleaseSelection();
         }
 
         void SelectAll()
@@ -337,6 +409,8 @@ namespace SlopWorld
             _hasSel = true;
             _dragging = false;
             _wordDragging = false;
+            _lineDragging = false;
+            ReleaseSelection();
             CopyText(SelectionText().TrimEnd('\n'));
         }
 
