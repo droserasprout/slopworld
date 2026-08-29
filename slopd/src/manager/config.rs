@@ -60,6 +60,7 @@ impl Manager {
             clients: AtomicUsize::new(0),
             clients_since: AtomicU64::new(0),
             watchers: Mutex::new(HashMap::new()),
+            redraw_nudge: Arc::new(tokio::sync::Semaphore::new(1)),
             scroll_cache: Mutex::new(HashMap::new()),
             activity_cache,
             audio: crate::audio::Audio::new(),
@@ -625,6 +626,40 @@ impl Manager {
             l.cols = cols;
             l.rows = rows;
         }
+    }
+
+    /// Ask every live tmux-backed pane to repaint after the game's sidebar changes its layout.
+    /// This is detached from the WebSocket handler because each nudge waits briefly between the
+    /// temporary shrink and restore, and viewer/editor errands live in the same table as agents.
+    pub fn request_redraw(self: &Arc<Self>, shape: Option<(u16, u16)>) {
+        let shape = shape.map(|(cols, rows)| (cols.clamp(20, 500), rows.clamp(5, 200)));
+        let m = self.clone();
+        let Ok(permit) = m.redraw_nudge.clone().try_acquire_owned() else {
+            return;
+        };
+        tokio::spawn(async move {
+            let _permit = permit;
+            let names = {
+                let live = m.live.read().await;
+                live.iter()
+                    .filter(|(_, l)| l.emu.is_some() || l.state != State::Down)
+                    .map(|(name, _)| name.clone())
+                    .collect::<Vec<_>>()
+            };
+            let jobs = names.into_iter().map(|name| {
+                let m = m.clone();
+                async move {
+                    if let Some((cols, rows)) = shape {
+                        if let Err(e) = m.resize(&name, cols, rows).await {
+                            tracing::debug!("redraw resize {name}: {e:#}");
+                            return;
+                        }
+                    }
+                    m.nudge_redraw(&name).await;
+                }
+            });
+            futures::future::join_all(jobs).await;
+        });
     }
 
     pub(super) async fn nudge_redraw(self: &Arc<Self>, name: &str) {

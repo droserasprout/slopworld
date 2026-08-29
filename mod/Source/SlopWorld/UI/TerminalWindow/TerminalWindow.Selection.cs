@@ -18,6 +18,18 @@ namespace SlopWorld
                 (_hasSel || _dragging || _wordDragging))
                 MoveSelectionRows(-live.LiveShift);
             _lastLiveSeq = live.Seq;
+
+            // History offsets are measured from this live bottom. Once the pane changes
+            // (most visibly after a sidebar resize/redraw), snapshots captured for the old
+            // sequence describe a different coordinate space. Keep the user's local pixel
+            // position, but make the daemon fetch a fresh bridge for it.
+            if (_scrollOff <= 0) return;
+            _historyRequests.Clear();
+            _historyResponses.Clear();
+            _scrollPending = false;
+            _wantedScrollOff = 0;
+            _historyTopOff = -1;
+            _historyRefreshPending = true;
         }
 
         void SyncSelectionOffset(int offset)

@@ -48,7 +48,10 @@ namespace SlopWorld
         int _sentScrollOff;
         float _nextScrollSend;
         bool _scrollPending;
-        ulong _scrollRequestId;
+        // SessionStore keeps the last reply by session, including while a window is closed.
+        // A process-wide id prevents a newly opened window's first request from colliding
+        // with that retained reply.
+        static ulong _nextScrollRequestId;
         const float ScrollBeat = 1f / 60f;
 
         // The daemon owns terminal history, but the visible position is local so a touchpad
@@ -86,8 +89,14 @@ namespace SlopWorld
         float _renderHistoryShift;
         int _historyTopOff = -1;
         bool _historyViewReady;
+        bool _historyRefreshPending;
         readonly TerminalHistory _history = new TerminalHistory();
         readonly Dictionary<ulong, int> _historyRequests = new Dictionary<ulong, int>();
+        // A scroll reply is sent to the socket that asked for it, but it can still arrive
+        // after this window has switched away and back to the same session. Do not let that
+        // old reply seed the new session visit; accepted ids remain valid for the current
+        // visit so the same immutable frame can be observed on later draw passes.
+        readonly HashSet<ulong> _historyResponses = new HashSet<ulong>();
         // Stable fallback while the first prefetched window for a new position is in flight.
         ScreenBuf _historyDisplayedFrame;
 
@@ -312,8 +321,10 @@ namespace SlopWorld
             _historyLastPixels = 0f;
             _historyTopOff = -1;
             _historyViewReady = false;
+            _historyRefreshPending = false;
             _history.Reset();
             _historyRequests.Clear();
+            _historyResponses.Clear();
             _historyDisplayedFrame = null;
             RestoreScrollbackState(_name);
             if (_scrollOff > 0)
@@ -330,8 +341,17 @@ namespace SlopWorld
 
             // `_historyScroll` may still hold the old position for one IMGUI pass after an
             // input jumps to live output. The integer mode is authoritative in that case.
-            float pixels = _scrollOff <= 0 ? 0f
-                : _historyScrollReady ? HistoryOffsetPixels() : -1f;
+            float pixels = 0f;
+            if (_scrollOff > 0)
+            {
+                if (_historyScrollReady) pixels = HistoryOffsetPixels();
+                else if (_historyJumpPixels >= 0f) pixels = _historyJumpPixels;
+                else
+                {
+                    float cellH = TerminalFont.CellH;
+                    pixels = cellH > 0.01f ? _scrollOff * cellH : -1f;
+                }
+            }
             _scrollbackStates[name] = new ScrollbackState(Mathf.Max(0, _scrollOff), pixels);
         }
 
@@ -488,26 +508,38 @@ namespace SlopWorld
             }
 
             var sb = hub.ScrollScreen(_name);
-            if (sb != null)
+            bool pending = sb != null && sb.ScrollRequestId != 0 &&
+                _historyRequests.ContainsKey(sb.ScrollRequestId);
+            int requestedOff = pending ? _historyRequests[sb.ScrollRequestId] : 0;
+            bool accepted = sb != null && sb.ScrollRequestId != 0 &&
+                (_historyResponses.Contains(sb.ScrollRequestId) || pending);
+            bool current = live == null || (sb != null && sb.Seq == live.Seq);
+            if (accepted && current)
             {
+                _historyResponses.Add(sb.ScrollRequestId);
+                _historyRequests.Remove(sb.ScrollRequestId);
                 _history.Add(sb, live, _scrollOff);
                 if (sb.History >= 0)
                 {
                     _historyTopOff = sb.History;
                     ClampHistoryTarget();
                 }
-            }
-            if (sb != null && _historyRequests.TryGetValue(sb.ScrollRequestId,
-                    out int requestedOff))
-            {
-                _historyRequests.Remove(sb.ScrollRequestId);
-                // Compare with this response's own request, not the gesture's newer target.
-                // Several prefetched windows may be in flight at once.
-                if (sb.History < 0 && sb.Off < requestedOff)
+                else if (pending && sb.Off < requestedOff)
                 {
+                    // Older daemons do not report the history extent. Their achieved
+                    // offset is still authoritative when the requested point was above
+                    // the real top.
                     _historyTopOff = sb.Off;
                     ClampHistoryTarget();
                 }
+                _historyRefreshPending = false;
+            }
+            else if (pending)
+            {
+                // The emulator sequence is part of the coordinate system: a response
+                // captured before a resize/output frame is not a valid answer for the
+                // current bottom. Let the next target pass request it again.
+                _historyRequests.Remove(sb.ScrollRequestId);
             }
 
             float cellH = TerminalFont.CellH;
@@ -625,6 +657,12 @@ namespace SlopWorld
             else if (!_history.Covers(probe, false))
                 request = probe;
 
+            // A new live frame makes the old snapshots stale, but they are still the best
+            // frame to show until this offset has been captured again. Request a replacement
+            // without tearing down the visible bridge.
+            if (_historyRefreshPending && request < 0 && !HistoryRequestPending(target))
+                request = target;
+
             if (request > 0 && !HistoryRequestPending(request))
                 QueueScroll(up, fromLive, request);
         }
@@ -656,6 +694,28 @@ namespace SlopWorld
 
         // The daemon's own limits, so what we ask for is always something it can answer with.
         const int MinCols = 20, MaxCols = 500, MinRows = 5, MaxRows = 200;
+
+        // Sidebar changes happen outside the terminal window, so there may be no instance from
+        // which to reuse NegotiateSize. Compute the fullscreen pane's shape directly and attach
+        // it to the background redraw request; otherwise an inactive tab keeps its old tmux
+        // size until its first activation.
+        internal static bool TryPanelShape(out int cols, out int rows)
+        {
+            cols = rows = 0;
+            if (!SlopLayout.Shown || UI.screenWidth <= 0 || UI.screenHeight <= 0) return false;
+
+            var style = TerminalFont.Style;
+            if (style == null || TerminalFont.CellH <= 0.01f) return false;
+
+            float width = UI.screenWidth - SlopLayout.LeftInset - Pad * 2f;
+            float height = UI.screenHeight - TopBar.H - Pad * 2f;
+            float cw = TerminalFont.CellWAtScreenScale(Prefs.UIScale);
+            if (width <= 0.01f || height <= 0.01f || cw <= 0.01f) return false;
+
+            cols = Mathf.Clamp(Mathf.FloorToInt(width / cw), MinCols, MaxCols);
+            rows = Mathf.Clamp(Mathf.FloorToInt(height / TerminalFont.CellH), MinRows, MaxRows);
+            return true;
+        }
 
         void PrimeCachedSize()
         {
@@ -721,7 +781,7 @@ namespace SlopWorld
             _sentScrollOff = _wantedScrollOff;
             _nextScrollSend = Time.realtimeSinceStartup + ScrollBeat;
 
-            ulong id = ++_scrollRequestId;
+            ulong id = ++_nextScrollRequestId;
             _historyRequests[id] = _sentScrollOff;
             SessionHub.Instance.RequestScroll(_name, _sentScrollOff, id);
         }

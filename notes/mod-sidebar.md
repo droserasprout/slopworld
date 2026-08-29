@@ -59,7 +59,8 @@ otherwise leave their pawn for one tick.
 
 The grip polls `Input.GetMouseButton*`, not IMGUI events: absorbing windows can hide the
 initial press and off-screen release. It saves settings on release, owns the panel's
-right edge, and keeps tab/add hit gates short of that edge.
+right edge, keeps tab/add hit gates short of that edge, and sends the measured pane shape with
+the background redraw request so every live tmux pane is ready before an inactive tab opens.
 
 The agent context menu offers Start/Stop, Terminal, Label, Edit, Duplicate, Shell, Storage,
 Remove, and New look. Storage resolves the agent's active private-state entry through the

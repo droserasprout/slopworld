@@ -191,8 +191,18 @@ pub(crate) struct GitReq {
 #[derive(Deserialize)]
 #[serde(tag = "t", rename_all = "lowercase")]
 pub(crate) enum ClientMsg {
-    Sub { name: String },
-    Unsub { name: String },
+    Redraw {
+        #[serde(default)]
+        cols: Option<u16>,
+        #[serde(default)]
+        rows: Option<u16>,
+    },
+    Sub {
+        name: String,
+    },
+    Unsub {
+        name: String,
+    },
     Keys(KeysReq),
     Resize(ResizeReq),
     Scroll(ScrollReq),
@@ -294,7 +304,29 @@ pub(crate) struct ResizeReq {
 
 #[cfg(test)]
 mod tests {
-    use super::{AudioReq, BrowseReq, SearchReq};
+    use super::{AudioReq, BrowseReq, ClientMsg, SearchReq};
+
+    #[test]
+    fn redraw_is_a_unit_websocket_command() {
+        assert!(matches!(
+            serde_json::from_str::<ClientMsg>(r#"{"t":"redraw"}"#).unwrap(),
+            ClientMsg::Redraw {
+                cols: None,
+                rows: None
+            }
+        ));
+    }
+
+    #[test]
+    fn redraw_can_carry_the_panel_shape() {
+        assert!(matches!(
+            serde_json::from_str::<ClientMsg>(r#"{"t":"redraw","cols":142,"rows":38}"#).unwrap(),
+            ClientMsg::Redraw {
+                cols: Some(142),
+                rows: Some(38)
+            }
+        ));
+    }
 
     #[test]
     fn audio_selection_has_distinct_stop_volume_and_catalog_shapes() {

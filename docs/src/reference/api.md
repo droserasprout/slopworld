@@ -83,6 +83,7 @@ Catalogs arrive on connect and are resent when changed.
 
 | Message | Description |
 | --- | --- |
+| `redraw` | Root-only background repaint of all live panes; may include `cols` and `rows` after a sidebar layout change. |
 | `sub` / `unsub` | Subscribe or unsubscribe to a session's screen updates. |
 | `keys` | Send keystrokes to an agent. |
 | `resize` | Negotiate terminal size. |

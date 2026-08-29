@@ -9,7 +9,7 @@ reflection.
   from a `Root.Update` postfix. It is a thin coordinator: the public surface (~40
   members, unchanged so call sites need not move) delegates to five services under
   `Client/SessionHub/` — `HubTransport` (the socket, reconnect/backoff, guarded
-  `Send`), `TerminalIO` (subs + keys/mouse/paste/scroll/resize), `AudioBus`
+  `Send`), `TerminalIO` (subs + keys/mouse/paste/scroll/resize/redraw), `AudioBus`
   (jukebox channel), `SessionStore` (sessions list + screen buffers + their HTTP
   mutations), and `HubCatalog` (projects/shortcuts/presets/commands). `Config` stays
   a settable field on the facade because the settings pages write it back. `Handle`
