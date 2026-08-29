@@ -24,8 +24,8 @@ The mod uses HTTP for writes so it can show daemon error bodies:
 `GET /api/clipboard` reads CLIPBOARD for non-Codex agent paste; `GET /api/clipboard/text` is
 the text-only host-terminal counterpart and is also used to distinguish Codex text pastes from
 its image-paste shortcut. The `/primary` variants do the same for
-the Wayland/X11 PRIMARY selection used by terminal middle-click paste, and `POST
-/api/clipboard` writes CLIPBOARD.
+the Wayland/X11 PRIMARY selection used by terminal middle-click paste; `POST /api/clipboard`
+writes CLIPBOARD and `POST /api/clipboard/primary` writes PRIMARY.
 The patch route deep-merges nested JSON, validates the result, and preserves omitted
 fields. Project JSON carries the network default; session JSON carries effective
 network plus nullable `network_override`, which may override that default.

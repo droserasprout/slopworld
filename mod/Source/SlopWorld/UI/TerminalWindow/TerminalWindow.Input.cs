@@ -680,8 +680,9 @@ namespace SlopWorld
             if (!_dragging) return;
             var cell = CellAt(body, e.mousePosition);
             // A double click selects a word and a triple click replaces it with a row. Do not
-            // copy the intermediate word; multi-click selection is visual until Ctrl+C or the
-            // Copy menu is used, otherwise one gesture starts multiple wl-copy owners.
+            // copy the intermediate word to CLIPBOARD; the completed triple-click line is
+            // published to PRIMARY by TripleClickSelect, while Ctrl+C and the Copy menu use
+            // CLIPBOARD.
             bool copy = !_multiClickSelection || _selectionMoved;
             if (_lineDragging)
             {

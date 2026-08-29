@@ -151,6 +151,7 @@ namespace SlopWorld
             int len = TerminalColumns.ContentColumns(TerminalColumns.Cells(buf.Runs[row]));
             if (len == 0) { ClearSelection(); return; }
             SelectSpan(row, 0, len - 1);
+            CopyPrimarySelection();
         }
 
         void SelectLineRange(int anchor, int row)
@@ -196,6 +197,12 @@ namespace SlopWorld
             if (buf != null) CopyText(SelectionText(buf));
         }
 
+        void CopyPrimarySelection()
+        {
+            var buf = DisplayedBuf();
+            if (buf != null) CopyPrimaryText(SelectionText(buf));
+        }
+
         // Trailing newlines go: a screen is padded to its row count, so an app half a screen
         // tall would copy the blank half with it.
         void SelectAll()
@@ -224,6 +231,14 @@ namespace SlopWorld
 
             SlopClipboard.Copy(text, null,
                 msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
+        }
+
+        void CopyPrimaryText(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+
+            SlopClipboard.CopyPrimary(text, null,
+                msg => Log.Warning($"[SlopWorld] primary selection: {msg}"));
         }
 
         // The clipboard errands, which never had a button anywhere. Nothing that ends an agent

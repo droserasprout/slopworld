@@ -16,6 +16,7 @@ const TIMEOUT: Duration = Duration::from_secs(3);
 
 struct Tool {
     copy: &'static [&'static str],
+    primary_copy: &'static [&'static str],
     // Agent terminals get the original selection so image clipboard data remains available.
     paste: &'static [&'static str],
     // Host shells must only receive textual clipboard data.
@@ -31,6 +32,7 @@ struct Tool {
 const TOOLS: &[Tool] = &[
     Tool {
         copy: &["wl-copy"],
+        primary_copy: &["wl-copy", "--primary"],
         paste: &["wl-paste", "--no-newline"],
         paste_text: &["wl-paste", "--type", "text", "--no-newline"],
         primary: &["wl-paste", "--primary", "--no-newline"],
@@ -38,6 +40,7 @@ const TOOLS: &[Tool] = &[
     },
     Tool {
         copy: &["xclip", "-selection", "clipboard", "-in"],
+        primary_copy: &["xclip", "-selection", "primary", "-in"],
         paste: &["xclip", "-selection", "clipboard", "-out"],
         paste_text: &[
             "xclip",
@@ -59,6 +62,7 @@ const TOOLS: &[Tool] = &[
     },
     Tool {
         copy: &["xsel", "--clipboard", "--input"],
+        primary_copy: &["xsel", "--primary", "--input"],
         paste: &["xsel", "--clipboard", "--output"],
         paste_text: &["xsel", "--clipboard", "--output"],
         primary: &["xsel", "--primary", "--output"],
@@ -76,6 +80,11 @@ fn missing(e: &anyhow::Error) -> bool {
 
 pub async fn write(text: &str) -> Result<()> {
     run(text.into(), |t| t.copy).await.map(|_| ())
+}
+
+/// Write the compositor's PRIMARY selection, used by terminal multi-click selection.
+pub async fn write_primary(text: &str) -> Result<()> {
+    run(text.into(), |t| t.primary_copy).await.map(|_| ())
 }
 
 pub async fn read() -> Result<String> {
@@ -195,6 +204,16 @@ mod tests {
             &["xclip", "-selection", "clipboard", "-out"]
         );
         assert_eq!(TOOLS[2].paste, &["xsel", "--clipboard", "--output"]);
+    }
+
+    #[test]
+    fn primary_copy_tools_select_the_primary_buffer() {
+        assert_eq!(TOOLS[0].primary_copy, &["wl-copy", "--primary"]);
+        assert_eq!(
+            TOOLS[1].primary_copy,
+            &["xclip", "-selection", "primary", "-in"]
+        );
+        assert_eq!(TOOLS[2].primary_copy, &["xsel", "--primary", "--input"]);
     }
 
     #[test]

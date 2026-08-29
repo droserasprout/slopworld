@@ -27,7 +27,8 @@ Write operations use HTTP so the caller can inspect daemon error bodies.
 | `/api/open-apps` | Host desktop applications associated with a path. |
 | `/api/clipboard` | GET reads host CLIPBOARD; POST writes it. `/api/clipboard/text` is text-only. |
 
-PRIMARY selection uses `/primary` in place of `/clipboard`.
+PRIMARY selection uses `/primary` in place of `/clipboard`; both read and write routes are
+available, with `/primary/text` as the text-only read route.
 
 ### Write routes
 
