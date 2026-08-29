@@ -7,6 +7,13 @@ use crate::sandbox::build_argv;
 use anyhow::anyhow;
 use tokio::process::Command;
 
+fn routed_action_label(name: &str) -> Option<String> {
+    ["view-", "search-", "link-", "edit-", "diff-"]
+        .iter()
+        .any(|prefix| name.starts_with(prefix))
+        .then(|| name.to_string())
+}
+
 impl Manager {
     pub async fn projects(&self) -> Vec<ProjectCfg> {
         self.cfg.read().await.projects.clone()
@@ -514,6 +521,10 @@ impl Manager {
         };
 
         let mut scfg = cfg.session_for(sc, name.clone(), project);
+        // The tmux-safe session name is slugged, which turns a file extension's dot into a
+        // dash. Keep the original routed-tab label in the ephemeral session metadata so the
+        // client can display the filename exactly as Files supplied it.
+        scfg.label = routed_action_label(&sc.name);
         if !like.is_empty() {
             if let Some(src) = cfg.session(like) {
                 scfg.sandbox = src.sandbox.clone();
@@ -725,7 +736,7 @@ fn auto_resume_inputs() -> Vec<Input> {
 
 #[cfg(test)]
 mod tests {
-    use super::{auto_resume_inputs, Manager};
+    use super::{auto_resume_inputs, routed_action_label, Manager};
     use crate::config::{Config, ProjectCfg, ShortcutCfg, ShortcutKind};
     use crate::session::Input;
     use std::os::unix::process::ExitStatusExt;
@@ -853,6 +864,23 @@ mod tests {
         assert!(Manager::validate_errand(&sc(ShortcutKind::Shell)).is_ok());
         assert!(Manager::validate_errand(&sc(ShortcutKind::Breadcrumb)).is_err());
         assert!(Manager::validate_errand(&sc(ShortcutKind::FileAction)).is_err());
+    }
+
+    #[test]
+    fn routed_action_labels_keep_their_original_filename() {
+        assert_eq!(
+            routed_action_label("edit-README.md").as_deref(),
+            Some("edit-README.md")
+        );
+        assert_eq!(
+            routed_action_label("search-src/main.rs").as_deref(),
+            Some("search-src/main.rs")
+        );
+        assert_eq!(
+            routed_action_label("link-guide.md").as_deref(),
+            Some("link-guide.md")
+        );
+        assert_eq!(routed_action_label("terminal-README.md"), None);
     }
 
     #[test]
