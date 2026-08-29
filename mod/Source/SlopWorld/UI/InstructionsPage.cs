@@ -102,8 +102,26 @@ namespace SlopWorld
             l.Label("Content template");
             _cfg.InstructionsTemplate = SlopWidgets.Area(l.GetRect(320f), "instructions.template",
                 _cfg.InstructionsTemplate);
+            if (SlopWidgets.Button(l, "Reset to default", SlopWidgets.Btn.Ghost))
+                _cfg.InstructionsTemplate = SlopConfig.DefaultInstructionsTemplate;
             SlopWidgets.Note(l, "Variables: {{ runtime_context }}, {{ project }}, " +
                 "{{ mount_path }}, and {{ file }}. Unknown variables are left unchanged.");
+
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "Discovery breadcrumb");
+            SlopWidgets.Note(l, "This text is added to the agent's first prompt when the manifest " +
+                "is mounted. It is separate from the generated file body.");
+            l.Label("Breadcrumb template");
+            _cfg.InstructionsBreadcrumb = SlopWidgets.Area(l.GetRect(120f),
+                "instructions.breadcrumb", _cfg.InstructionsBreadcrumb);
+            if (SlopWidgets.Button(l, "Reset to default", SlopWidgets.Btn.Ghost))
+                _cfg.InstructionsBreadcrumb = SlopConfig.DefaultInstructionsBreadcrumb;
+            SlopWidgets.Note(l, "Variables: {{ project }}, {{ mount_path }}, and {{ file }}. " +
+                "Unknown variables are left unchanged.");
+            _cfg.InstructionsBreadcrumbEnabled = SlopWidgets.Checkbox(l,
+                "Add discovery breadcrumb", _cfg.InstructionsBreadcrumbEnabled,
+                "Adds the configured discovery text to opted-in agents.");
+            SlopWidgets.Note(l, "Reset changes the form only; press Save to apply it.");
 
             l.Gap(SlopWidgets.GapL);
             SlopWidgets.SectionHeading(l, "Sandbox delivery");
@@ -112,10 +130,6 @@ namespace SlopWorld
                 _cfg.InstructionsMountPath);
             SlopWidgets.Note(l, "The generated source remains the project-root " +
                 "SLOPWORLD.md; this is where its read-only copy appears to the agent.");
-            l.Gap(SlopWidgets.GapS);
-            _cfg.InstructionsBreadcrumbEnabled = SlopWidgets.Checkbox(l,
-                "Add discovery breadcrumb", _cfg.InstructionsBreadcrumbEnabled,
-                "Adds 'Read SLOPWORLD.md for SlopWorld runtime context.' to opted-in agents.");
             SlopWidgets.Note(l, "Agents still opt in per session with Mount SLOPWORLD.md.");
 
             _fieldsH = l.CurHeight + SlopWidgets.GapS;

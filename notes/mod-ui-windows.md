@@ -27,8 +27,9 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   an Appearance > Interface > Statusbar setting and works offline.
   `SummariesPage` edits Codex/Pi title policy, host-command summaries and the shared summary
   model; it uses the OpenRouter key from Integrations.
-  `InstructionsPage` edits and previews the templated `SLOPWORLD.md` document, its sandbox
-  mount path, and the global discovery-breadcrumb switch.
+  `InstructionsPage` edits and previews the templated `SLOPWORLD.md` document, its separate
+  first-prompt discovery breadcrumb, sandbox mount path, and global discovery switch. Body and
+  breadcrumb each offer an independent reset to the shipped default.
   Appearance is a heading with `Interface`
   and `Terminal` children: `AppearancePage` owns global scale, scheme, font and cursor,
   while `TerminalPage` owns pane font, theme and cursor color. Scale applies on release

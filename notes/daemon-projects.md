@@ -20,9 +20,11 @@ present selects that agent's mode, including one wider than the project default.
   (or to the agent). See [sandbox-isolation](sandbox-isolation.md).
 - `slopworld_md` is an opt-in agent setting. It generates a project-root `SLOPWORLD.md`, mounts
   it read-only at `[daemon.instructions] mount_path` inside the primary project, and adds the
-  file to the repository's `.git/info/exclude`. `breadcrumb_enabled` controls its optional
-  first-prompt discovery line. The manifest is a generated snapshot shared by agents in that
-  project; it is refreshed on config sync and before each enabled start, not on every file read.
+  file to the repository's `.git/info/exclude`. `instructions.template` controls the body;
+  `instructions.breadcrumb` controls its optional first-prompt discovery text, with
+  `breadcrumb_enabled` as the global switch. The manifest is a generated snapshot shared by
+  agents in that project; it is refreshed on config sync and before each enabled start, not on
+  every file read.
 - `persistent_tmp` is an opt-in agent setting. It replaces the sandbox's per-run `/tmp` tmpfs
   with a private tree under that agent's durable state; reset/delete removes it with the rest of
   the state, while temporary errands remove it when they finish.

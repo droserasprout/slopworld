@@ -147,19 +147,30 @@ pub struct Daemon {
 /// the daemon; these values only control its body, sandbox destination, and discovery prompt.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstructionsCfg {
-    /// Markdown template. `{{ runtime_context }}` expands to SlopWorld's generated snapshot.
+    /// Markdown body template. `{{ runtime_context }}` expands to SlopWorld's generated snapshot.
     #[serde(default = "default_instructions_template")]
     pub template: String,
     /// Relative to the primary project directory inside the sandbox.
     #[serde(default = "default_instructions_mount_path")]
     pub mount_path: String,
+    /// Prompt text added before the first prompt when the generated manifest is mounted.
+    /// `{{ project }}`, `{{ mount_path }}` and `{{ file }}` are available.
+    #[serde(default = "default_instructions_breadcrumb")]
+    pub breadcrumb: String,
     /// Add the manifest discovery breadcrumb to agents that mount the file.
     #[serde(default = "yes")]
     pub breadcrumb_enabled: bool,
 }
 
-pub const DEFAULT_INSTRUCTIONS_TEMPLATE: &str = "{{ runtime_context }}";
+pub const DEFAULT_INSTRUCTIONS_TEMPLATE: &str = "\
+# SlopWorld agent context
+
+Read the project's `README.md` and any applicable `AGENTS.md` files for project instructions. This generated `{{ file }}` is mounted at `{{ mount_path }}` and is runtime context, not a replacement for them.
+
+{{ runtime_context }}
+";
 pub const DEFAULT_INSTRUCTIONS_MOUNT_PATH: &str = "SLOPWORLD.md";
+pub const DEFAULT_INSTRUCTIONS_BREADCRUMB: &str = "Read `{{ mount_path }}` for SlopWorld runtime context. It is a generated snapshot, not project instructions.";
 
 fn default_instructions_template() -> String {
     DEFAULT_INSTRUCTIONS_TEMPLATE.into()
@@ -169,11 +180,16 @@ fn default_instructions_mount_path() -> String {
     DEFAULT_INSTRUCTIONS_MOUNT_PATH.into()
 }
 
+fn default_instructions_breadcrumb() -> String {
+    DEFAULT_INSTRUCTIONS_BREADCRUMB.into()
+}
+
 impl Default for InstructionsCfg {
     fn default() -> Self {
         Self {
             template: default_instructions_template(),
             mount_path: default_instructions_mount_path(),
+            breadcrumb: default_instructions_breadcrumb(),
             breadcrumb_enabled: true,
         }
     }
@@ -1084,8 +1100,8 @@ mod tests {
     use super::{
         expand, redact_token_text, resolvers_from, temp_dir, Config, DnsConfig, HostTerminalCfg,
         InstructionsCfg, Limits, NetworkMode, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind,
-        ShortcutLink, TitlePolicy, DEFAULT_INSTRUCTIONS_MOUNT_PATH, DEFAULT_INSTRUCTIONS_TEMPLATE,
-        TOKEN_REDACTED,
+        ShortcutLink, TitlePolicy, DEFAULT_INSTRUCTIONS_BREADCRUMB,
+        DEFAULT_INSTRUCTIONS_MOUNT_PATH, DEFAULT_INSTRUCTIONS_TEMPLATE, TOKEN_REDACTED,
     };
 
     #[test]
@@ -1228,6 +1244,7 @@ mod tests {
         let instructions = &Config::default().daemon.instructions;
         assert_eq!(instructions.template, DEFAULT_INSTRUCTIONS_TEMPLATE);
         assert_eq!(instructions.mount_path, DEFAULT_INSTRUCTIONS_MOUNT_PATH);
+        assert_eq!(instructions.breadcrumb, DEFAULT_INSTRUCTIONS_BREADCRUMB);
         assert!(instructions.breadcrumb_enabled);
 
         for mount_path in [

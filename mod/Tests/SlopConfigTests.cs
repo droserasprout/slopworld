@@ -30,10 +30,12 @@ namespace SlopWorld.Tests
             AssertEx.Equal(20, config.TitleMinChars, "title minimum prompt length default");
             AssertEx.Equal("always", config.PiTitles, "Pi title default");
             AssertEx.True(config.HostTitles, "host title default");
-            AssertEx.Equal("{{ runtime_context }}", config.InstructionsTemplate,
+            AssertEx.Equal(SlopConfig.DefaultInstructionsTemplate, config.InstructionsTemplate,
                            "instructions template default");
             AssertEx.Equal("SLOPWORLD.md", config.InstructionsMountPath,
                            "instructions mount path default");
+            AssertEx.Equal(SlopConfig.DefaultInstructionsBreadcrumb, config.InstructionsBreadcrumb,
+                           "instructions breadcrumb text default");
             AssertEx.True(config.InstructionsBreadcrumbEnabled, "instructions breadcrumb default");
             AssertEx.Equal("claude", config.Agent, "agent command default");
             AssertEx.Equal("bash", config.Shell, "shell command default");
@@ -71,6 +73,7 @@ namespace SlopWorld.Tests
                 HostTitles = false,
                 InstructionsTemplate = "# {{ project }}\n\n{{ runtime_context }}",
                 InstructionsMountPath = "docs/SLOPWORLD.md",
+                InstructionsBreadcrumb = "Read {{ mount_path }} for {{ project }}",
                 InstructionsBreadcrumbEnabled = false,
                 Agent = "codex --full-auto",
                 Shell = "bash -lc",
@@ -104,6 +107,8 @@ namespace SlopWorld.Tests
                            "instructions template round trip");
             AssertEx.Equal(expected.InstructionsMountPath, actual.InstructionsMountPath,
                            "instructions mount path round trip");
+            AssertEx.Equal(expected.InstructionsBreadcrumb, actual.InstructionsBreadcrumb,
+                           "instructions breadcrumb text round trip");
             AssertEx.Equal(expected.InstructionsBreadcrumbEnabled,
                            actual.InstructionsBreadcrumbEnabled,
                            "instructions breadcrumb round trip");

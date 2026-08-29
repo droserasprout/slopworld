@@ -51,20 +51,24 @@ project mount. It is relative to that project and defaults to `SLOPWORLD.md`.
 
 The template supports `{{ runtime_context }}` for SlopWorld's live project snapshot,
 plus `{{ project }}`, `{{ mount_path }}`, and `{{ file }}`. Unknown variables are kept
-as written. The Preview tab renders unsaved text for a selected project.
+as written. The separate discovery `breadcrumb` supports `{{ project }}`, `{{ mount_path }}`,
+and `{{ file }}`; it is pasted into an opted-in agent's first prompt. The Preview tab renders
+unsaved body text for a selected project.
 
 The corresponding daemon settings are:
 
 ```toml
 [daemon.instructions]
-template = "{{ runtime_context }}"
+template = "# SlopWorld agent context\n\n{{ runtime_context }}"
 mount_path = "SLOPWORLD.md"
+breadcrumb = "Read `{{ mount_path }}` for SlopWorld runtime context."
 breadcrumb_enabled = true
 ```
 
 The per-agent `slopworld_md` switch still controls whether the document is mounted at
 all. `breadcrumb_enabled` controls the additional discovery line globally; named
-breadcrumbs remain independent.
+breadcrumbs remain independent. Settings provides separate **Reset to default** actions for
+the body and breadcrumb; reset changes the pending form and **Save** applies it.
 
 ## Command presets
 
@@ -106,7 +110,8 @@ Running agents are not rebuilt from changed defaults. Restart the agent to apply
 sandbox, network, mount, preset, `slopworld_md`, or Instructions mount-path changes.
 An enabled manifest is regenerated when configuration is synchronized and before each
 start; it is a snapshot for an already-running sandbox. SlopWorld refuses to overwrite
-a project-owned `SLOPWORLD.md`.
+a project-owned `SLOPWORLD.md`. The default body points agents to `README.md` and applicable
+`AGENTS.md` files, while the default breadcrumb points them to the generated mount.
 
 ## Shell
 

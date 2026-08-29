@@ -39,9 +39,10 @@ The OpenRouter key is the one from the Usage page.
 ## Instructions
 
 Settings > Integrations > Instructions edits the generated `SLOPWORLD.md` template,
-previews its rendered Markdown, chooses its read-only sandbox mount path, and enables
-or disables the discovery breadcrumb. The per-agent `slopworld_md` option remains the
-opt-in that mounts the document.
+previews its rendered Markdown, edits the first-prompt discovery breadcrumb, chooses its
+read-only sandbox mount path, and enables or disables discovery. The body and breadcrumb
+each have an independent **Reset to default** action. The per-agent `slopworld_md` option
+remains the opt-in that mounts the document.
 
 ## Shortcuts and errands
 

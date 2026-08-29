@@ -9,6 +9,16 @@ namespace SlopWorld
     // remain untouched on the server.
     public class SlopConfig
     {
+        public const string DefaultInstructionsTemplate =
+            "# SlopWorld agent context\n\n" +
+            "Read the project's `README.md` and any applicable `AGENTS.md` files for project " +
+            "instructions. This generated `{{ file }}` is mounted at `{{ mount_path }}` and is " +
+            "runtime context, not a replacement for them.\n\n" +
+            "{{ runtime_context }}\n";
+        public const string DefaultInstructionsBreadcrumb =
+            "Read `{{ mount_path }}` for SlopWorld runtime context. It is a generated snapshot, " +
+            "not project instructions.";
+
         public int UsagePollSecs = 60;
         // One entry per usage window. A zero interval means the global interval applies.
         public Dictionary<string, UsageItemConfig> UsageItems =
@@ -30,8 +40,9 @@ namespace SlopWorld
         public bool HostTitles = true;
         // The generated project-root runtime manifest. The body is a Markdown template, with
         // {{ runtime_context }} expanding to the daemon's live snapshot.
-        public string InstructionsTemplate = "{{ runtime_context }}";
+        public string InstructionsTemplate = DefaultInstructionsTemplate;
         public string InstructionsMountPath = "SLOPWORLD.md";
+        public string InstructionsBreadcrumb = DefaultInstructionsBreadcrumb;
         public bool InstructionsBreadcrumbEnabled = true;
 
         // Both name a command preset: what an agent that names none of its own runs, and
@@ -61,8 +72,10 @@ namespace SlopWorld
                 TitleMinChars = d["title_min_chars"].AsInt(20),
                 PiTitles = d["pi_titles"].AsString("always"),
                 HostTitles = d["host_titles"].AsBool(true),
-                InstructionsTemplate = i["template"].AsString("{{ runtime_context }}"),
+                InstructionsTemplate = i["template"].AsString(DefaultInstructionsTemplate),
                 InstructionsMountPath = i["mount_path"].AsString("SLOPWORLD.md"),
+                InstructionsBreadcrumb =
+                    i["breadcrumb"].AsString(DefaultInstructionsBreadcrumb),
                 InstructionsBreadcrumbEnabled = i["breadcrumb_enabled"].AsBool(true),
 
                 Agent = f["agent"].AsString("claude"),
@@ -110,8 +123,9 @@ namespace SlopWorld
             $"\"host_titles\":{JVal.B(HostTitles)}," +
             "\"instructions\":{" +
             $"\"template\":{JVal.Q(InstructionsTemplate)}," +
-            $"\"mount_path\":{JVal.Q(InstructionsMountPath)}," +
-            $"\"breadcrumb_enabled\":{JVal.B(InstructionsBreadcrumbEnabled)}" +
+                $"\"mount_path\":{JVal.Q(InstructionsMountPath)}," +
+                $"\"breadcrumb\":{JVal.Q(InstructionsBreadcrumb)}," +
+                $"\"breadcrumb_enabled\":{JVal.B(InstructionsBreadcrumbEnabled)}" +
             "}" +
             "}," +
             "\"defaults\":{" +
