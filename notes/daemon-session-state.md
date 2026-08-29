@@ -76,3 +76,5 @@ at it - see [mod-terminal](mod-terminal.md) for `NegotiateSize`.
 
 `SessionView.slopworld_md` echoes the durable opt-in that gives an agent the generated
 project-root runtime manifest and its discovery breadcrumb.
+`SessionView.persistent_tmp` echoes the durable opt-in that binds the agent's private state
+`tmp` directory over the sandbox's per-run `/tmp` tmpfs.

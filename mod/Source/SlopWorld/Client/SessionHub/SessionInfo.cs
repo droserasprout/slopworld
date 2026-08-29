@@ -24,6 +24,9 @@ namespace SlopWorld
         // Mounts generated runtime context read-only at the project root, excludes it from Git,
         // and adds a first-prompt discovery breadcrumb.
         public bool SlopworldMd;
+        // Replaces the sandbox's per-run /tmp tmpfs with a private copy kept in this agent's
+        // durable state directory.
+        public bool PersistentTmp;
         // As the daemon will exec it, preset and defaults resolved. Read-only here.
         public string Agent = "";
         public AgentState State = AgentState.Down;
@@ -115,6 +118,7 @@ namespace SlopWorld
             $"\"cmd\":{(string.IsNullOrEmpty((Cmd ?? "").Trim()) ? "null" : JVal.Q(Cmd))}," +
             $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]," +
             $"\"slopworld_md\":{JVal.B(SlopworldMd)}," +
+            $"\"persistent_tmp\":{JVal.B(PersistentTmp)}," +
             $"\"breadcrumbs\":[{string.Join(",", Breadcrumbs.Select(JVal.Q).ToArray())}]," +
             $"\"label\":{(string.IsNullOrEmpty((Label ?? "").Trim()) ? "null" : JVal.Q(Label))}," +
             $"\"network\":{(NetworkOverride.HasValue ? JVal.Q(NetworkModeText.Name(NetworkOverride.Value)) : "null")}," +

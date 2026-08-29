@@ -64,7 +64,7 @@ projects and other host errands remain runtime-only. An empty shell command uses
 absolute path placeholder before execution. A file action terminal keeps an interactive
 shell after the command exits. Empty host labels are generated from project and shell,
 for example `slopworld-zsh`. `like` names an existing session whose sandbox config
-(presets, network, dns, limits, mounts) is copied onto the new errand so a shell can
+(presets, persistent `/tmp`, network, dns, limits, mounts) is copied onto the new errand so a shell can
 share an agent's exact filesystem view.
 
 ## Browse, Files, Git and Search

@@ -74,6 +74,7 @@ namespace SlopWorld
                     Cmd = existing.Cmd,
                     Sandbox = new List<string>(existing.Sandbox),
                     SlopworldMd = existing.SlopworldMd,
+                    PersistentTmp = existing.PersistentTmp,
                     Breadcrumbs = new List<string>(existing.Breadcrumbs),
                     Network = existing.Network,
                     NetworkOverride = existing.NetworkOverride,
@@ -239,6 +240,8 @@ namespace SlopWorld
                 "After startup settles, send /resume and choose the latest conversation.");
             _s.SlopworldMd = SlopWidgets.Checkbox(l, "Mount SLOPWORLD.md", _s.SlopworldMd,
                 "Mount generated runtime context read-only at the project root, exclude it from Git, and tell the agent to read it on its first prompt.");
+            _s.PersistentTmp = SlopWidgets.Checkbox(l, "Persistent /tmp", _s.PersistentTmp,
+                "Keep this agent's /tmp across restarts in its private state. Resetting private state gives it a fresh /tmp.");
 
             float used = l.CurHeight;
             l.End();

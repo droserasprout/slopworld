@@ -8,8 +8,8 @@ use crate::config::{
 use crate::presets::{SandboxPreset, Table};
 
 use super::{
-    presets_for, private_path, private_resolver_path, refused, ResolvedMount, PANE_TERM,
-    PRIVATE_RESOLVER,
+    persistent_tmp_path, presets_for, private_path, private_resolver_path, refused, ResolvedMount,
+    PANE_TERM, PRIVATE_RESOLVER,
 };
 
 const BASE_ENV: &[&str] = &["PATH", "LANG", "USER", "LOGNAME", "SHELL"];
@@ -362,6 +362,13 @@ fn push_ro_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
 /// Adds mounts that must win over ordinary binds: private copies, shared files, the project,
 /// and finally private DNS. A shared file is a hole cut in private state, so it lands on top.
 fn push_private_binds(a: &mut Vec<String>, bind: &BindContext<'_>, project_mode: MountMode) {
+    // Replace the skeleton tmpfs before mounting private preset subdirectories, so paths such
+    // as Claude's `/tmp/claude-0` can still overlay their own private copies on this tree.
+    if bind.s.persistent_tmp {
+        let path = persistent_tmp_path(bind.s).to_string_lossy().into_owned();
+        push_args(a, &["--bind", &path, "/tmp"]);
+    }
+
     // Last of the binds under $HOME, so the private copy wins over an ordinary preset bind:
     // the point of a private path is that there is no way to ask for the original, and an
     // earlier bind of the same target is one bwrap mounts over.
@@ -1113,5 +1120,27 @@ mod tests {
             .any(|w| { w[0] == "--symlink" && w[1] == dir.to_string_lossy() && w[2] == "/mnt/p" }));
 
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn persistent_tmp_is_bound_from_the_agent_state_tree() {
+        let cfg = Config::default();
+        let s = SessionCfg {
+            name: "a".into(),
+            state_id: "persistent-tmp-test".into(),
+            project: "p".into(),
+            persistent_tmp: true,
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        };
+        let a = build_argv(&cfg, &s, &p).expect("persistent tmp sandbox argv");
+        let source = persistent_tmp_path(&s).to_string_lossy().to_string();
+        assert!(a
+            .windows(3)
+            .any(|w| w[0] == "--bind" && w[1] == source && w[2] == "/tmp"));
     }
 }

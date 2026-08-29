@@ -30,6 +30,12 @@ intended for rotating credentials and currently contains only
 `~/.claude/.credentials.json`. Shared files are never seeded; writers need an
 in-place fallback because renaming over a bind mount fails with `EBUSY`.
 
+An agent with `persistent_tmp = true` gets a private `/tmp` bind from
+`~/.local/share/slopworld/sessions/<state-id>/tmp`; otherwise `/tmp` is the sandbox's fresh
+tmpfs. Preset-private subdirectories under `/tmp` still overlay that tree. The persistent tree
+survives daemon restarts and follows the agent's state through rename, reset, trash and restore;
+temporary errands remove it when they finish. The sidebar's `t` indicator marks the option.
+
 An agent with `slopworld_md = true` gets the generated project-root `SLOPWORLD.md` as a
 read-only final bind at the configured project path; `/mnt/<project>` is a symlink to that
 same path, so the manifest is protected through either spelling.

@@ -404,6 +404,7 @@ mod tests {
             sandbox: Vec::new(),
             breadcrumbs: Vec::new(),
             slopworld_md: false,
+            persistent_tmp: false,
             breadcrumb_yolo: false,
             breadcrumbs_pending: false,
             auto_resume_pending: false,

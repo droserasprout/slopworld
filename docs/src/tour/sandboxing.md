@@ -31,6 +31,9 @@ Path kinds in a preset:
 - `private` — per-session copy of a host path. State lives under
   `~/.local/share/slopworld/sessions/<state-id>/`. Missing files and named `seed`
   directories are copied once; `skip` excludes history and bulk state from seeding.
+- An agent may opt into a persistent private `/tmp`; without that option `/tmp` is a fresh
+  tmpfs each run. The persistent tree is part of the agent's state and is removed by reset or
+  when a temporary errand finishes.
 - `shared` — overlays a host-owned file read-write into private state, for rotating
   credentials.
 

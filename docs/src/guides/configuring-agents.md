@@ -34,6 +34,7 @@ right configuration paths.
 | `limits` | Optional override of the project's resource limits. Agent values win. |
 | `mounts` | Additional project directories mounted under `/mnt/<project-name>`. Each entry names a project and an optional `mode` (`ro` or `rw`, default `rw`). |
 | `slopworld_md` | Mount generated `SLOPWORLD.md` read-only at the project root, add a first-prompt discovery breadcrumb, and exclude the file through the repository's `.git/info/exclude`. |
+| `persistent_tmp` | Keep a private `/tmp` for this agent across restarts. It lives in the agent's durable state and moves with reset/delete. |
 | `autostart` | Start this agent automatically when the daemon starts. |
 | `auto_resume` | When enabled, the daemon pastes `/resume` and submits after the agent settles on startup. |
 | `breadcrumbs` | Named breadcrumb blocks delivered alongside the first prompt. |
@@ -74,7 +75,7 @@ Network and DNS changes take effect on the next agent start.
 | Network mode, DNS | Next start. |
 | Resource limits | Next start. |
 | Mounts | Next start. |
-| Autostart, auto-resume, breadcrumbs, `slopworld_md` | Next start. |
+| Autostart, auto-resume, breadcrumbs, `slopworld_md`, `persistent_tmp` | Next start. |
 | Project directory | Immediately for new agents; running agents keep their current mount. |
 
 Running agents are not rebuilt from changed defaults. Restart the agent to apply
