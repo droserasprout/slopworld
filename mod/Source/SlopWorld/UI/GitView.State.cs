@@ -6,8 +6,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Git view draws the daemon's whole changed-file list as a tree. It shares the Files view's
-    // back pass, while the daemon runs `git` outside the sessions' mount namespaces.
+    // Git view draws the daemon's changed-file list as a tree. The daemon caps huge working
+    // trees before doing expensive diff accounting. It shares the Files view's back pass, while
+    // the daemon runs `git` outside the sessions' mount namespaces.
     public static partial class GitView
     {
         // A directory holds children; a file holds the daemon's row.
@@ -21,7 +22,7 @@ namespace SlopWorld
             public List<Node> Kids;
             public Repo Owner;
             public string Status;       // the porcelain pair, files only
-            public int Added = -1;      // -1 is "git counted none": a binary file
+            public int Added = -1;      // -1 is "git counted none or was not asked to count"
             public int Deleted = -1;
             public int Depth;
 
@@ -50,7 +51,7 @@ namespace SlopWorld
             public bool Loading;
             public string Error;
             public bool Asked;          // whether an answer has ever landed
-            public bool Truncated;      // the summary is whole, but the drawn tree hit the daemon cap
+            public bool Truncated;      // the daemon capped both the tree and its partial summary
             public int Changed, Added, Deleted;
             public Node Tree;
             public HashSet<string> Shut = new HashSet<string>();  // folded directories, by Rel
@@ -273,7 +274,8 @@ namespace SlopWorld
         // The flat list of changed paths, folded into the tree it describes. The daemon sends
         // them sorted, so a directory's rows arrive together and the walk down never has to
         // look back; every interior node is a directory because something under it changed,
-        // which is the whole difference between this tree and the files view's.
+        // which is the whole difference between this tree and the files view's. A truncated
+        // answer deliberately remains a valid partial tree.
         static Node Fold(Repo repo, JVal files)
         {
             var root = new Node
@@ -324,8 +326,8 @@ namespace SlopWorld
                     IsDir = false,
                     Depth = at.Depth + 1,
                     Status = f["status"].AsString(),
-                    // Null where git counted nothing - a binary file. Kept apart from zero,
-                    // which is a real count and a different row.
+                    // Null where git counted nothing (binary or a capped response). Kept apart
+                    // from zero, which is a real count and a different row.
                     Added = f["added"].IsNull ? -1 : f["added"].AsInt(),
                     Deleted = f["deleted"].IsNull ? -1 : f["deleted"].AsInt(),
                     Project = repo.Project,

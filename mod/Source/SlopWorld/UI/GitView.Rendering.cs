@@ -25,8 +25,8 @@ namespace SlopWorld
             return y;
         }
 
-        // The branch, and the shortstat beside it: `git diff --shortstat` said in the room a
-        // column this narrow has, which is a figure each rather than a sentence.
+        // The branch, and the selected paths' counts beside it: a column this narrow has room
+        // for a figure each rather than a sentence.
         static float State(float width, float y, Repo repo)
         {
             var r = new Rect(0f, y, width, SlopWidgets.TinyRowH);
@@ -46,7 +46,7 @@ namespace SlopWorld
             {
                 if (repo.Deleted > 0) rx = Tail(rx, y, "-" + repo.Deleted, SlopWidgets.Bad);
                 if (repo.Added > 0) rx = Tail(rx, y, "+" + repo.Added, SlopWidgets.Yes);
-                rx = Tail(rx, y, repo.Changed + (repo.Truncated ? "*" : ""), SlopWidgets.Dim);
+                rx = Tail(rx, y, repo.Changed + (repo.Truncated ? "+" : ""), SlopWidgets.Dim);
             }
 
             GUI.color = SlopWidgets.Dim;
@@ -60,9 +60,11 @@ namespace SlopWorld
 
             TooltipHandler.TipRegion(r, repo.Changed == 0
                 ? $"{repo.Root}\n\nNothing changed."
-                : $"{repo.Root}\n\n{repo.Changed} changed, " +
-                  $"{repo.Added} insertions(+), {repo.Deleted} deletions(-)" +
-                  (repo.Truncated ? "\n\nThe tree shows the first 2,000 changes." : ""));
+                : repo.Truncated
+                    ? $"{repo.Root}\n\nAt least {repo.Changed} changes.\n\n" +
+                      "The tree shows the first 2,000 changes."
+                    : $"{repo.Root}\n\n{repo.Changed} changed, " +
+                      $"{repo.Added} insertions(+), {repo.Deleted} deletions(-)");
             return y + SlopWidgets.TinyRowH;
         }
 
@@ -155,7 +157,12 @@ namespace SlopWorld
         {
             if (node.IsDir) return right;
             if (node.Added < 0)
-                right = Tail(right, row.y, "bin", SlopWidgets.Faint);
+            {
+                // A capped response omits all numstat values, so null there means unknown,
+                // not necessarily binary. Preserve the binary marker for complete answers.
+                if (!node.Owner.Truncated)
+                    right = Tail(right, row.y, "bin", SlopWidgets.Faint);
+            }
             else
             {
                 if (node.Deleted > 0) right = Tail(right, row.y, "-" + node.Deleted,
