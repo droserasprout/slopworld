@@ -674,19 +674,22 @@ namespace SlopWorld
             return _scrollPending && _wantedScrollOff == off;
         }
 
-        float HistoryShift(float cellH)
+        float HistoryShift(ScreenBuf buf, float cellH)
         {
-            if (!_historyScrollReady || cellH <= 0.01f) return 0f;
+            if (buf == null || _scrollOff <= 0 || !_historyScrollReady ||
+                cellH <= 0.01f) return 0f;
 
-            // The assembled frame's offset is the ceiling of the fractional local position.
-            // Derive its translation from that position even while the stable fallback frame
-            // is displayed. Tying the shift to `_historyViewReady` made every refresh alternate
-            // between zero and the fractional shift, which can look like a whole-row wobble.
-            float pixels = HistoryOffsetPixels();
-            float lines = pixels / cellH;
-            int anchor = Mathf.Max(0, Mathf.CeilToInt(lines - 0.0001f));
-            float shift = pixels - anchor * cellH;
-            return Mathf.Abs(shift) < cellH ? shift : 0f;
+            // A refresh keeps the last complete frame on screen while its replacement is in
+            // flight. That fallback still belongs to its preceding anchor: translating it from
+            // the new requested anchor moves the wrong rows and flashes at the pane edge. Freeze
+            // the frame at the shift it was last drawn with, then resume local movement when an
+            // assembled view for the current anchor is ready.
+            float fallback = Mathf.Abs(_renderHistoryShift) < cellH
+                ? _renderHistoryShift : 0f;
+            if (!_historyViewReady) return fallback;
+
+            float shift = HistoryOffsetPixels() - buf.Off * cellH;
+            return Mathf.Abs(shift) < cellH ? shift : fallback;
         }
 
         float DisplayedHistoryShift(float cellH) =>
