@@ -12,8 +12,10 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   `Commands > Defaults` edits machine-wide command defaults; `Commands > Presets` edits the
   daemon's command definitions, which choose the sandbox presets an agent receives.
 - `SlopConfirmDialog` and `SlopAlertDialog` own mod message surfaces instead of vanilla
-  message boxes. They use the shared window/buttons and wrapped text; confirmations retain
-  `OpenOverPane` layering and mark destructive actions with the danger button.
+  message boxes. They use the shared window/buttons and wrapped text; Enter activates the
+  primary action and Escape cancels. Single-line editors use the same accept/cancel path;
+  multiline editors keep Enter for newlines. Confirmations retain `OpenOverPane` layering
+  and mark destructive actions with the danger button.
 - `ConfigPage` edits daemon/game values and uses a tall single column. Its Locale section
   owns the temperature unit and status-bar time format. `CommandsPage`
   owns the agent/shell preset defaults plus pager, editor and highlighter

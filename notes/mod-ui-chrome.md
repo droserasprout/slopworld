@@ -37,13 +37,14 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   `Pad`.
 - `SlopMenu` replaces `FloatMenu` and reads only the label, action, `Disabled` and
   right-side extra text from `FloatMenuOption`; rows touch the frame vertically and
-  use the darker `PopoverBg`.
+  use the darker `PopoverBg`. Up/Down, Home/End and PageUp/PageDown move a keyboard
+  selection; Enter opens or chooses it, and Left/Right move through submenu levels.
 - `SlopSubmenu` keeps one window per level and builds its rows when opened. Hover opens
   after `OpenDelay`; the child follows a scrolling/clamped parent, chooses the roomier
   side without covering it, and shares its border. Selecting a row or pressing Escape
-  closes the chain before the action. Any key dismisses it via `rawType` in the window
-  body because high-priority input may consume the event first; the event remains unused
-  so F1 can still open the palette.
+  closes the chain before the action. Unhandled keys dismiss it via `rawType` in the
+  window body because high-priority input may consume the event first; the event remains
+  unused so F1 can still open the palette.
 - `MenuRowH` and `PaletteRowH` are separate; the latter is one gap step taller for
   keyboard navigation.
 - `ActiveTip.DrawInner` is patched once per tooltip. `TooltipHandler.TipRegion` still

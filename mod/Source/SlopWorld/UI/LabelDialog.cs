@@ -14,12 +14,19 @@ namespace SlopWorld
         {
             _session = session;
             _label = initial ?? "";
+            closeOnAccept = true;
         }
 
         public static void Open(string session, string initial) =>
             TerminalWindow.OpenOverPane(new LabelDialog(session, initial));
 
         public override Vector2 InitialSize => new Vector2(500f, 204f);
+
+        public override void OnAcceptKeyPressed()
+        {
+            Save(_label);
+            Event.current.Use();
+        }
 
         protected override void DoBody(Rect rect)
         {
