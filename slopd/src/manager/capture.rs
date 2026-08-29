@@ -602,20 +602,29 @@ impl Manager {
         let cols = cols.clamp(20, 500);
         let rows = rows.clamp(5, 200);
         {
-            let mut live = self.live.write().await;
+            let live = self.live.read().await;
             let l = live
-                .get_mut(name)
+                .get(name)
                 .ok_or_else(|| anyhow!("no such session: {name}"))?;
             if l.cols == cols && l.rows == rows {
                 return Ok(());
             }
-            l.cols = cols;
-            l.rows = rows;
         }
+        // Do not publish the requested shape until tmux has accepted it. Otherwise a
+        // transient tmux failure makes the identical retry look complete forever.
         if self.tmux.exists(name).await {
             self.tmux.resize(name, cols, rows).await?;
         }
-        if let Some(emu) = self.live.read().await.get(name).and_then(|l| l.emu.clone()) {
+        let emu = {
+            let mut live = self.live.write().await;
+            let l = live
+                .get_mut(name)
+                .ok_or_else(|| anyhow!("no such session: {name}"))?;
+            l.cols = cols;
+            l.rows = rows;
+            l.emu.clone()
+        };
+        if let Some(emu) = emu {
             if let Ok(mut e) = emu.lock() {
                 e.resize(cols, rows);
             }
