@@ -558,12 +558,18 @@ namespace SlopWorld
                 }
             }
 
-            // Double-click is the terminal's word gesture even when the app reports clicks.
-            if (IsWordSelection(body, e))
+            // Multi-click selection is the terminal's gesture even when the app reports clicks.
+            if (IsPrimaryClick(body, e))
             {
-                SelectClickedWord(body, e);
-                e.Use();
-                return;
+                int clickCount = _clicks.Observe(e, Time.realtimeSinceStartup);
+                if (clickCount >= 2)
+                {
+                    CaptureSelection(body);
+                    SelectClickedWord(body, e, clickCount);
+                    if (clickCount >= 3) _clicks.Reset();
+                    e.Use();
+                    return;
+                }
             }
 
             var live = SessionHub.Instance.Screen(_name);
@@ -598,8 +604,8 @@ namespace SlopWorld
 
         static bool IsRelativePath(string path) => !string.IsNullOrEmpty(path) && path[0] != '/';
 
-        static bool IsWordSelection(Rect body, Event e) =>
-            MouseType(e) == EventType.MouseDown && e.button == 0 && e.clickCount >= 2 &&
+        static bool IsPrimaryClick(Rect body, Event e) =>
+            MouseType(e) == EventType.MouseDown && e.button == 0 &&
             body.Contains(e.mousePosition);
 
         static bool ShouldForwardMouse(ScreenBuf live, Event e) =>
@@ -617,10 +623,10 @@ namespace SlopWorld
             e.control || e.command || Input.GetKey(KeyCode.LeftControl) ||
             Input.GetKey(KeyCode.RightControl);
 
-        void SelectClickedWord(Rect body, Event e)
+        void SelectClickedWord(Rect body, Event e, int clickCount)
         {
             var cell = CellAt(body, e.mousePosition);
-            if (e.clickCount >= 3) TripleClickSelect(cell.y);
+            if (clickCount >= 3) TripleClickSelect(cell.y);
             else DoubleClickSelect(cell);
         }
 
@@ -647,7 +653,9 @@ namespace SlopWorld
             _dragging = true;
             _selectionMoved = false;
             _wordDragging = false;
+            _lineDragging = false;
             _hasSel = false;
+            CaptureSelection(body);
             e.Use();
         }
 
@@ -656,7 +664,8 @@ namespace SlopWorld
             if (!_dragging) return;
             _selectionMoved = true;
             var cell = CellAt(body, e.mousePosition);
-            if (_wordDragging) UpdateWordSelection(cell);
+            if (_lineDragging) SelectLineRange(_lineStart, cell.y);
+            else if (_wordDragging) UpdateWordSelection(cell);
             else
             {
                 _selB = cell;
@@ -669,11 +678,21 @@ namespace SlopWorld
         {
             if (!_dragging) return;
             var cell = CellAt(body, e.mousePosition);
-            if (_wordDragging)
+            if (_lineDragging)
+            {
+                SelectLineRange(_lineStart, cell.y);
+                _lineDragging = false;
+                _dragging = false;
+                _selectionMoved = false;
+                ReleaseSelection();
+                CopySelection();
+            }
+            else if (_wordDragging)
             {
                 UpdateWordSelection(cell);
                 _wordDragging = false;
                 _dragging = false;
+                ReleaseSelection();
                 if (_hasSel) CopySelection();
             }
             else
@@ -683,6 +702,7 @@ namespace SlopWorld
                 if (_selectionMoved || _selA != _selB) { _hasSel = true; CopySelection(); }
                 else _hasSel = false;
                 _selectionMoved = false;
+                ReleaseSelection();
             }
             e.Use();
         }

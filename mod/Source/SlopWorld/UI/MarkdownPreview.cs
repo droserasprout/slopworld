@@ -315,6 +315,7 @@ namespace SlopWorld
         readonly List<Placement> _drawPlacements = new List<Placement>();
         readonly List<LinkHit> _links = new List<LinkHit>();
         readonly List<SelectionLine> _selectionLines = new List<SelectionLine>();
+        readonly MouseClickSequence _clicks = new MouseClickSequence();
         readonly Dictionary<string, Texture2D> _images = new Dictionary<string, Texture2D>();
         readonly HashSet<string> _pendingImages = new HashSet<string>();
         readonly HashSet<string> _failedImages = new HashSet<string>();
@@ -327,7 +328,10 @@ namespace SlopWorld
 
         bool _dragging;
         bool _wordDragging;
+        bool _lineDragging;
         bool _hasSel;
+        int _lineStart;
+        int _selectionControl;
         Vector2Int _wordStart;
         Vector2Int _wordEnd;
         Vector2Int _selA;
