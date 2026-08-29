@@ -2,7 +2,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 
-use crate::config::{expand, Config, DnsConfig, Limits, NetworkMode, ProjectCfg, SessionCfg};
+use crate::config::{
+    expand, Config, DnsConfig, Limits, MountMode, NetworkMode, ProjectCfg, SessionCfg,
+};
 use crate::presets::{SandboxPreset, Table};
 
 use super::{
@@ -216,8 +218,22 @@ pub(super) fn assemble_argv(
         tmux,
         daemon_config,
     );
-    push_private_binds(&mut a, cfg, s, p, &table, &dir, network, resolv.as_ref());
-    push_mounts(&mut a, mounts);
+    let primary_mode = mounts
+        .first()
+        .map(|mount| mount.mode)
+        .unwrap_or(MountMode::Rw);
+    push_private_binds(
+        &mut a,
+        cfg,
+        s,
+        p,
+        &table,
+        &dir,
+        primary_mode,
+        network,
+        resolv.as_ref(),
+    );
+    push_mounts(&mut a, mounts, &p.name);
     push_env(&mut a, &home, s, p, mounts, &presets, &agent_argv);
 
     a.push("--".into());
@@ -275,6 +291,9 @@ fn push_skeleton(a: &mut Vec<String>, network: NetworkMode) {
     push_args(a, &["--proc", "/proc"]);
     push_args(a, &["--dev", "/dev"]);
     push_args(a, &["--tmpfs", "/tmp"]);
+    // The primary project is exposed below /mnt through a symlink. Create its parent before
+    // the alias is installed; ordinary bind mounts would create this parent implicitly.
+    push_args(a, &["--dir", "/mnt"]);
 }
 
 /// Adds ordinary preset and host capability binds. These all precede private state, while the
@@ -331,6 +350,7 @@ fn push_private_binds(
     p: &ProjectCfg,
     table: &Table,
     dir: &str,
+    project_mode: MountMode,
     network: NetworkMode,
     resolv: Option<&(String, String)>,
 ) {
@@ -348,7 +368,10 @@ fn push_private_binds(
         push_args(a, &["--bind", &path, &path]);
     }
 
-    push_args(a, &["--bind", dir, dir]);
+    match project_mode {
+        MountMode::Ro => push_args(a, &["--ro-bind", dir, dir]),
+        MountMode::Rw => push_args(a, &["--bind", dir, dir]),
+    }
     // Private mode's resolver must be the last bind at this target. A user preset or project
     // directory may bind /etc or a file below it, but neither should restore a host-loopback
     // resolver.
@@ -359,12 +382,16 @@ fn push_private_binds(
     }
 }
 
-/// Binds project directories into the `/mnt/<project-name>` namespace. The primary project's
-/// host-path bind in `push_private_binds` stays for private-state overlays; this adds the
-/// uniform guest-side path the agent works from.
-fn push_mounts(a: &mut Vec<String>, mounts: &[ResolvedMount]) {
+/// Exposes the primary project at its configured path and adds additional projects under
+/// `/mnt/<project-name>`. The primary project's `/mnt` entry is only a symlink, so the project
+/// directory itself is mounted exactly once.
+fn push_mounts(a: &mut Vec<String>, mounts: &[ResolvedMount], primary_name: &str) {
     use crate::config::MountMode;
-    for m in mounts {
+    if let Some(primary) = mounts.first() {
+        let alias = format!("/mnt/{primary_name}");
+        push_args(a, &["--symlink", &primary.guest_dir, &alias]);
+    }
+    for m in mounts.iter().skip(1) {
         match m.mode {
             MountMode::Ro => push_args(a, &["--ro-bind", &m.host_dir, &m.guest_dir]),
             MountMode::Rw => push_args(a, &["--bind", &m.host_dir, &m.guest_dir]),
@@ -932,16 +959,26 @@ mod tests {
     }
 
     #[test]
-    fn the_primary_project_is_mounted_at_mnt() {
+    fn the_primary_project_keeps_its_path_and_gets_a_mnt_alias() {
         let a = argv();
         assert!(
             a.windows(3)
-                .any(|w| w[0] == "--bind" && w[1] == "/tmp" && w[2] == "/mnt/p"),
-            "primary project not mounted at /mnt/p: {a:?}"
+                .any(|w| w[0] == "--bind" && w[1] == "/tmp" && w[2] == "/tmp"),
+            "primary project not mounted at its configured path: {a:?}"
         );
         assert!(
-            a.windows(2).any(|w| w[0] == "--chdir" && w[1] == "/mnt/p"),
-            "cwd not set to /mnt/p: {a:?}"
+            a.windows(3)
+                .any(|w| w[0] == "--symlink" && w[1] == "/tmp" && w[2] == "/mnt/p"),
+            "primary project has no /mnt/p alias: {a:?}"
+        );
+        assert!(
+            !a.windows(3)
+                .any(|w| w[0] == "--bind" && w[1] == "/tmp" && w[2] == "/mnt/p"),
+            "primary project was mounted a second time: {a:?}"
+        );
+        assert!(
+            a.windows(2).any(|w| w[0] == "--chdir" && w[1] == "/tmp"),
+            "cwd not set to the configured project path: {a:?}"
         );
     }
 
@@ -974,8 +1011,13 @@ mod tests {
 
         assert!(
             a.windows(3)
-                .any(|w| w[0] == "--bind" && w[1] == "/tmp" && w[2] == "/mnt/main"),
-            "primary project not at /mnt/main: {a:?}"
+                .any(|w| w[0] == "--bind" && w[1] == "/tmp" && w[2] == "/tmp"),
+            "primary project not at its configured path: {a:?}"
+        );
+        assert!(
+            a.windows(3)
+                .any(|w| w[0] == "--symlink" && w[1] == "/tmp" && w[2] == "/mnt/main"),
+            "primary project has no /mnt/main alias: {a:?}"
         );
         assert!(
             a.windows(3)
@@ -983,9 +1025,8 @@ mod tests {
             "lib mount not at /mnt/lib: {a:?}"
         );
         assert!(
-            a.windows(2)
-                .any(|w| w[0] == "--chdir" && w[1] == "/mnt/main"),
-            "cwd not /mnt/main: {a:?}"
+            a.windows(2).any(|w| w[0] == "--chdir" && w[1] == "/tmp"),
+            "cwd not the configured project path: {a:?}"
         );
     }
 
@@ -1012,8 +1053,8 @@ mod tests {
 
         assert!(
             a.windows(3)
-                .any(|w| w[0] == "--ro-bind" && w[1] == "/tmp" && w[2] == "/mnt/p"),
-            "primary mount should be ro: {a:?}"
+                .any(|w| w[0] == "--ro-bind" && w[1] == "/tmp" && w[2] == "/tmp"),
+            "primary project should be ro at its configured path: {a:?}"
         );
     }
 }

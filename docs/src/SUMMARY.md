@@ -23,6 +23,7 @@
 - [Agent collaboration](./guides/agent-collaboration.md)
 - [Using slopctl](./guides/slopctl.md)
 - [Attaching from a terminal](./guides/terminal.md)
+- [Sidecar worker](./guides/sidecar.md)
 - [macOS](./guides/macos.md)
 - [Backup and recovery](./guides/backup-and-recovery.md)
 

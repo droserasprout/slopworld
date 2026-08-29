@@ -2,7 +2,7 @@
 
 ## Repository layout
 
-```
+```text
 slopd/          Rust daemon and launcher
   src/
     bin/        slopworld (launcher), slopctl (delegation CLI)

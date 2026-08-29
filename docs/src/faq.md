@@ -85,8 +85,8 @@ sends SIGINT to the agent.
 
 ### Eco mode {#eco-mode}
 
-Eco mode stops the game simulation and dims the display. The baked menu background
-replaces the live map. Enable it from Settings > Appearance.
+Eco mode stops the game simulation while the daemon and agents continue running. Enable it
+from Settings > Appearance.
 
 ## Contributing
 

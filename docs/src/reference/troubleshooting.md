@@ -18,7 +18,7 @@ default is `~/GOG Games/RimWorld/game`. For GOG installs managed by Heroic, use
 Harmony failures appear only in `Player.log`, not in the terminal that launched the
 game. Search for `patching incomplete:` after a crash. The log is at:
 
-```
+```text
 ~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log
 ```
 
@@ -125,11 +125,6 @@ use different signatures. Harmony patch failures appear in `Player.log` as
 The `slopworld-debug` preset is an intentionally broad host escape for game
 development. It mounts the game install, profile, tmux socket, `/proc`, `/sys`,
 X11/Wayland devices, and several development caches read-write.
-
-### Font rendering {#font-rendering}
-
-`GameFont.Tiny` may render as Small in some configurations. The mod measures through
-its own `SlopWidgets.LineHOf` and `TinyH` to avoid layout drift.
 
 ## Diagnostic commands
 

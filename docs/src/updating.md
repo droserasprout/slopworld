@@ -45,16 +45,20 @@ journalctl --user -u slopd -n 30 --no-pager
 
 Remove unrecognized fields from `~/.config/slopworld/config.toml` to fix the parse.
 
-## macOS sidecar
+## macOS
 
-Rebuild the sidecar image and reinstall the mod:
+Pull changes and rebuild the Mac installation:
 
 ```sh
 gmake mac
 ```
 
-The sidecar container is rebuilt from scratch; its internal state lives outside the
-image in the configured data directory.
+This rebuilds the Docker worker, reinstalls the native mod, and launches the game.
+
+## Sidecar worker
+
+See [Sidecar worker](guides/sidecar.md) for the image and container lifecycle. Rebuilding
+the image does not remove the configured data or endpoint directories.
 
 ## Uninstalling
 

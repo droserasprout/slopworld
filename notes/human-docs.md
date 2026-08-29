@@ -18,17 +18,18 @@ for the book, not a draft to copy without checking the current implementation.
   heading at the bottom groups limitations that are not actionable symptoms.
 - `tour/integrations.md` was removed; `reference/integrations.md` is canonical.
 - macOS has its own guide at `guides/macos.md`, not a section in `install.md`.
+- Sidecar worker setup has its own guide at `guides/sidecar.md`; keep it separate from
+  the macOS client workflow.
 - `reference/api.md` is the user-facing wire protocol reference sourced from
   [wire-protocol](wire-protocol.md).
 
 ## Candidate material per page
 
-Interface - loading screen and intro, colonist bar as live agents, the sidebar,
-the terminal window filling the screen opaque, files/search/git views, usage
-readout in the top bar, color schemes, eco mode, keys. Sources:
+Interface - short intro, the sidebar, files/search/git views, the terminal, usage
+readout in the top bar, eco mode, and a link to keys. Sources:
 [mod-ui-chrome](mod-ui-chrome.md), [mod-sidebar](mod-sidebar.md),
 [mod-terminal](mod-terminal.md), [mod-content-views](mod-content-views.md),
-[mod-ui-identity](mod-ui-identity.md), [mod-eco](mod-eco.md).
+[mod-eco](mod-eco.md).
 
 Sandboxing - bubblewrap, one preset file per piece of software, `global.toml` as
 the implicit system preset, protected paths (`/`, `$HOME`, daemon config, preset
@@ -38,17 +39,15 @@ full. Sources: [sandbox-isolation](sandbox-isolation.md),
 [daemon-presets](daemon-presets.md), [agent-grants](agent-grants.md).
 
 Fun - the jukebox and what it plays, the dead ground, what a working agent
-builds, skyfallers, agent titles, the baked menu background. Heaviest screenshot
-density, no obligations. Sources: [mod-jukebox](mod-jukebox.md),
+builds, skyfallers, and agent titles. Sources: [mod-jukebox](mod-jukebox.md),
 [mod-jukebox-library](mod-jukebox-library.md),
 [mod-plague](mod-plague.md), [mod-worksite](mod-worksite.md),
-[skyfallers](skyfallers.md), [agent-titles](agent-titles.md),
-[mod-background](mod-background.md).
+[skyfallers](skyfallers.md), [agent-titles](agent-titles.md).
 
 ## Open decisions
 
-- README currently carries the install steps. Two copies drift; make the book
-  canonical and cut README to pitch, warning, quickstart, and links.
+- README keeps a short Linux quickstart and links to the book for requirements and
+  platform-specific installation.
 - Images can be added later under `docs/src/images/`; none are required for the
   first revision.
 - `docs/book/` is gitignored.

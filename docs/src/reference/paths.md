@@ -28,7 +28,7 @@ variables. Paths marked `0600` are readable only by the owning user.
 
 | Path | Description |
 | --- | --- |
-| `<profile>/Config/SlopWorld.toml` | Mod settings (UI scheme, font, sidebar state, eco mode, etc.). |
+| `<profile>/Config/SlopWorld.toml` | Mod settings. |
 | `<profile>/Config/ModsConfig.xml` | Mod list, seeded by the launcher when absent. |
 
 ## Logs
@@ -37,12 +37,6 @@ variables. Paths marked `0600` are readable only by the owning user.
 | --- | --- |
 | `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log` | Unity game log. Harmony and mod exceptions land here, not in the launching terminal. |
 | `journalctl --user -u slopd` | Daemon log (when running as a systemd user service). |
-
-## Cache
-
-| Path | Override | Description |
-| --- | --- | --- |
-| `$XDG_CACHE_HOME/slopworld/bg/` | `XDG_CACHE_HOME` | Baked menu/loading background frames (JPEG). |
 
 ## tmux
 
@@ -53,10 +47,15 @@ tmux -L slopworld list-sessions
 tmux -L slopworld attach -t SESSION_NAME
 ```
 
-## macOS sidecar
+## Sidecar worker
 
 | Path | Override | Description |
 | --- | --- | --- |
-| `~/.config/slopworld-car/` | `SLOPCAR_CONFIG` | Sidecar configuration and endpoint descriptor. |
-| `~/.local/share/slopworld-car/` | `SLOPCAR_DATA` | Sidecar state. |
-| `~/Library/Application Support/SlopWorld/sidecar-profile` | `MAC_PROFILE` | Sidecar game profile. |
+| `~/.config/slopworld-car/` | `SLOPCAR_CONFIG` in Makefile workflows; `SLOPCAR_CONFIG_DIR` in `slopcar` | Sidecar configuration and endpoint descriptor. |
+| `~/.local/share/slopworld-car/` | `SLOPCAR_DATA` in Makefile workflows; `SLOPCAR_DATA_DIR` in `slopcar` | Sidecar state. |
+
+## macOS game profile
+
+| Path | Override | Description |
+| --- | --- | --- |
+| `~/Library/Application Support/SlopWorld/sidecar-profile` | `MAC_PROFILE` | Separate profile used by the native macOS game. |
