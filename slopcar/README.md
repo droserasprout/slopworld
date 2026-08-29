@@ -1,14 +1,13 @@
 # slopcar
 
 `slopcar` runs the Linux daemon, tmux, Bubblewrap, pasta and the four shipped agent CLIs in
-one Debian trixie container. RimWorld and the mod remain native on macOS.
+one Debian trixie container. A game client and mod can remain on the host.
 
-The Debian base is multiarch, so Docker Desktop builds and runs the image natively on amd64 and
-Apple Silicon (arm64). slopd's sandbox skeleton reads the host's own
+The Debian base supports amd64 and arm64. slopd's sandbox skeleton reads the host's own
 usr-merge layout at runtime, so the nested Bubblewrap works the same on either architecture.
 
-The agent CLIs are still baked into the image for now; running host-native (Darwin) agents is
-planned to replace that.
+The agent CLIs are still baked into the image for now; host-native agents are planned to
+replace that.
 
 Build and prove the nested sandbox before starting it:
 
@@ -18,30 +17,31 @@ Build and prove the nested sandbox before starting it:
 ```
 
 Create the container with each approved workspace named separately. Paths stay identical on
-the Mac and in the container because they also cross the SlopWorld wire:
+the host and in the container because they also cross the SlopWorld wire:
 
 ```sh
-./slopcar/slopcar start --workspace "$HOME/git"
+SLOPCAR_CONFIG_DIR="$HOME/.config/slopworld-car" \
+SLOPCAR_DATA_DIR="$HOME/.local/share/slopworld-car" \
+  ./slopcar/slopcar start --workspace "$HOME/git"
 ```
 
-The first start creates `~/.config/slopworld/config.toml` with a random token, publishes only
-`127.0.0.1:7718`, and persists config plus session state under the usual SlopWorld directories.
-Subsequent `start` calls reuse the stopped container. Run `rm`, then `start` again to change
-mounts or the outer resource budget; persistent state is not removed.
+The first start creates `config.toml` with a random token, publishes only `127.0.0.1:7718`,
+and persists config plus session state under the configured directories. Subsequent `start`
+calls reuse the stopped container. Run `rm`, then `start` again to change mounts or the outer
+resource budget; persistent state is not removed.
 
-Credentials are opt-in named mounts. Codex can be seeded without exposing its whole home:
+Credentials are opt-in named mounts. Add them to the initial `start` command. Codex can be
+seeded without exposing its whole home:
 
 ```sh
-./slopcar/slopcar start \
+SLOPCAR_CONFIG_DIR="$HOME/.config/slopworld-car" \
+SLOPCAR_DATA_DIR="$HOME/.local/share/slopworld-car" \
+  ./slopcar/slopcar start \
   --workspace "$HOME/git" \
   --credential-ro "$HOME/.codex/auth.json=/home/slop/.codex/auth.json"
 ```
 
-Claude's rotating credential file needs a read-write mount:
-
-```sh
---credential-rw "$HOME/.claude/.credentials.json=/home/slop/.claude/.credentials.json"
-```
+Claude's rotating credential file needs the equivalent `--credential-rw "$HOME/.claude/.credentials.json=/home/slop/.claude/.credentials.json"` option.
 
 The launcher refuses `/`, the whole home, the Docker socket/configuration, and paths overlapping
 SlopWorld's token or private session state. It never mounts the Docker socket.
@@ -59,23 +59,9 @@ For the Linux dev game, `make run-slopcar` launches RimWorld into
 debug sandbox already mounts, with `SLOPD_ENDPOINT` set to the sidecar's descriptor. Start the
 sidecar first. Override `SLOPCAR_CONFIG` if you started it with a non-default
 `SLOPCAR_CONFIG_DIR`, or `SLOPCAR_PROFILE` to name a different save folder. The separate profile
-and profile-keyed launcher lock let this game run beside a native session. Its first settings file
-selects the `SlopWorld Warm` UI scheme and is not rewritten on later launches.
+and profile-keyed launcher lock let this game run beside a native session.
 
-For a native macOS game and mod, use the Makefile workflow from the repository root:
-
-```sh
-brew install make
-gmake mac-setup
-open -a Docker
-gmake mac
-```
-
-`mac-install` compiles against the configured macOS app bundle's managed assemblies and installs
-the mod; `mac-run` starts the sidecar and launches the game into its separate profile. The
-default bundle is the GOG install at `~/Documents/RimWorld.app`; override `MAC_RIMWORLD` for
-another install or `SLOPCAR_WORKSPACE` for the roots agents may access.
-The macOS sidecar profile also starts with the `SlopWorld Warm` UI scheme.
+For the native macOS game workflow, see the [macOS guide](../docs/src/guides/macos.md).
 
 ### Running beside a native daemon
 

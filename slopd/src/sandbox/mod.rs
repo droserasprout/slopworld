@@ -34,7 +34,9 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
 
     let mut mounts = vec![ResolvedMount {
         host_dir: dir.clone(),
-        guest_dir: format!("/mnt/{}", p.name),
+        // The primary project keeps the exact configured path inside the sandbox. This is
+        // important for tools whose trust/cache keys and diagnostics are path-sensitive.
+        guest_dir: dir.clone(),
         mode: MountMode::Rw,
     }];
     for m in &s.mounts {
