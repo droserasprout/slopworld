@@ -17,12 +17,19 @@ namespace SlopWorld
             _title = title;
             _name = initial ?? "";
             _done = done;
+            closeOnAccept = true;
         }
 
         public static void Open(string title, string initial, Action<string> done) =>
             TerminalWindow.OpenOverPane(new FileNameDialog(title, initial, done));
 
         public override Vector2 InitialSize => new Vector2(420f, 176f);
+
+        public override void OnAcceptKeyPressed()
+        {
+            Save();
+            Event.current.Use();
+        }
 
         protected override void DoBody(Rect rect)
         {

@@ -15,6 +15,7 @@ namespace SlopWorld
             doCloseButton = false;
             absorbInputAroundWindow = true;
             closeOnClickedOutside = false;
+            closeOnCancel = true;
             closeOnAccept = false;
             draggable = true;
         }
@@ -50,6 +51,17 @@ namespace SlopWorld
 
         public override void DoWindowContents(Rect rect)
         {
+            // RimWorld's Accept binding normally covers Return, but keypad Enter is not
+            // present in every platform's binding. Accepted dialogs should treat both keys
+            // alike; multiline editors leave closeOnAccept false so Enter remains a newline.
+            var e = Event.current;
+            if (closeOnAccept && e != null && e.type == EventType.KeyDown &&
+                e.keyCode == KeyCode.KeypadEnter)
+            {
+                OnAcceptKeyPressed();
+                return;
+            }
+
             Slab.Box(rect, SlopWidgets.WindowBg, SlopWidgets.Edge);
 
             DoBody(rect.ContractedBy(Pad));
