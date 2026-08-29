@@ -187,6 +187,8 @@ namespace SlopWorld
                 _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Usage))),
             new CommandDef("view.summaries", "Settings: Integrations - Summaries", "Settings",
                 _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Summaries))),
+            new CommandDef("view.instructions", "Settings: Integrations - Instructions", "Settings",
+                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Instructions))),
             new CommandDef("view.sandbox", "Settings: Sandbox", "Settings",
                 _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Sandbox))),
             new CommandDef("view.shortcuts-settings", "Settings: Keyboard", "Settings",

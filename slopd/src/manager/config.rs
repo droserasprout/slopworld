@@ -296,7 +296,8 @@ impl Manager {
 
     /// Keep generated project manifests in step with the durable configuration. The file is
     /// project-scoped because agents share a project tree; the session option controls whether
-    /// an agent receives its read-only overlay and discovery breadcrumb.
+    /// an agent receives its read-only overlay, while daemon instructions control its destination
+    /// and optional discovery breadcrumb.
     pub(super) async fn sync_manifests(&self, cfg: &Config) {
         let views = self.views().await;
         for project in &cfg.projects {

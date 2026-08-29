@@ -87,6 +87,7 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
         home: &home,
         mounts: &mounts,
         manifest: manifest.as_deref(),
+        manifest_mount_path: &cfg.daemon.instructions.mount_path,
     })
 }
 

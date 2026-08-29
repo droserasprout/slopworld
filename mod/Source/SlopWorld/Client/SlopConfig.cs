@@ -28,6 +28,11 @@ namespace SlopWorld
         public string PiTitles = "always";
         // Host terminal commands are summarized on submission, independently of agent policy.
         public bool HostTitles = true;
+        // The generated project-root runtime manifest. The body is a Markdown template, with
+        // {{ runtime_context }} expanding to the daemon's live snapshot.
+        public string InstructionsTemplate = "{{ runtime_context }}";
+        public string InstructionsMountPath = "SLOPWORLD.md";
+        public bool InstructionsBreadcrumbEnabled = true;
 
         // Both name a command preset: what an agent that names none of its own runs, and
         // what a shell errand runs. What each one *is* is a TOML file the daemon reads.
@@ -42,6 +47,7 @@ namespace SlopWorld
             var d = v["daemon"];
             var f = v["defaults"];
             var c = v["commands"];
+            var i = d["instructions"];
             return new SlopConfig
             {
                 UsagePollSecs = d["usage_poll_secs"].AsInt(60),
@@ -55,6 +61,9 @@ namespace SlopWorld
                 TitleMinChars = d["title_min_chars"].AsInt(20),
                 PiTitles = d["pi_titles"].AsString("always"),
                 HostTitles = d["host_titles"].AsBool(true),
+                InstructionsTemplate = i["template"].AsString("{{ runtime_context }}"),
+                InstructionsMountPath = i["mount_path"].AsString("SLOPWORLD.md"),
+                InstructionsBreadcrumbEnabled = i["breadcrumb_enabled"].AsBool(true),
 
                 Agent = f["agent"].AsString("claude"),
                 Shell = f["shell"].AsString("bash"),
@@ -98,7 +107,12 @@ namespace SlopWorld
             $"\"title_model\":{JVal.Q(TitleModel)}," +
             $"\"title_min_chars\":{TitleMinChars}," +
             $"\"pi_titles\":{JVal.Q(PiTitles)}," +
-            $"\"host_titles\":{JVal.B(HostTitles)}" +
+            $"\"host_titles\":{JVal.B(HostTitles)}," +
+            "\"instructions\":{" +
+            $"\"template\":{JVal.Q(InstructionsTemplate)}," +
+            $"\"mount_path\":{JVal.Q(InstructionsMountPath)}," +
+            $"\"breadcrumb_enabled\":{JVal.B(InstructionsBreadcrumbEnabled)}" +
+            "}" +
             "}," +
             "\"defaults\":{" +
             $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}" +

@@ -81,9 +81,81 @@ fn ensure_writable_generated_target(path: &Path) -> Result<()> {
 }
 
 fn render(cfg: &Config, project: &ProjectCfg, sessions: &[SessionView]) -> String {
+    render_with_template(
+        cfg,
+        project,
+        sessions,
+        &cfg.daemon.instructions.template,
+        &cfg.daemon.instructions.mount_path,
+    )
+}
+
+/// Render a document with a caller-supplied template. The preview endpoint uses this to show
+/// unsaved edits while the normal writer above uses the durable daemon configuration.
+pub fn preview(
+    cfg: &Config,
+    project: &ProjectCfg,
+    sessions: &[SessionView],
+    template: &str,
+    mount_path: &str,
+) -> String {
+    render_with_template(cfg, project, sessions, template, mount_path)
+}
+
+fn render_with_template(
+    cfg: &Config,
+    project: &ProjectCfg,
+    sessions: &[SessionView],
+    template: &str,
+    mount_path: &str,
+) -> String {
+    let runtime_context = render_runtime_context(cfg, project, sessions);
+    let body = render_template(template, project, mount_path, &runtime_context);
     let mut out = String::new();
     out.push_str(GENERATED_MARKER);
-    out.push_str("\n# SlopWorld runtime context\n\n");
+    out.push('\n');
+    out.push_str(&body);
+    if !out.ends_with('\n') {
+        out.push('\n');
+    }
+    out
+}
+
+fn render_template(
+    template: &str,
+    project: &ProjectCfg,
+    mount_path: &str,
+    runtime: &str,
+) -> String {
+    let values = [
+        ("runtime_context", runtime),
+        ("project", project.name.as_str()),
+        ("mount_path", mount_path),
+        ("file", FILE_NAME),
+    ];
+    let mut out = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(start) = rest.find("{{") {
+        let Some(end_rel) = rest[start + 2..].find("}}") else {
+            break;
+        };
+        let end = start + 2 + end_rel;
+        out.push_str(&rest[..start]);
+        let key = rest[start + 2..end].trim();
+        if let Some((_, value)) = values.iter().find(|(name, _)| *name == key) {
+            out.push_str(value);
+        } else {
+            out.push_str(&rest[start..end + 2]);
+        }
+        rest = &rest[end + 2..];
+    }
+    out.push_str(rest);
+    out
+}
+
+fn render_runtime_context(cfg: &Config, project: &ProjectCfg, sessions: &[SessionView]) -> String {
+    let mut out = String::new();
+    out.push_str("# SlopWorld runtime context\n\n");
     out.push_str(
         "> This file is generated and read-only inside agent sandboxes. It is a runtime snapshot, not project instructions.\n\n",
     );
@@ -438,6 +510,29 @@ mod tests {
         assert!(text.contains("slopctl peers"));
         assert!(!text.contains("/home/alice/repo"));
         assert!(!text.contains("endpoint.toml"));
+    }
+
+    #[test]
+    fn preview_expands_instruction_variables_and_preserves_unknown_ones() {
+        let cfg = Config::default();
+        let project = ProjectCfg {
+            name: "repo".into(),
+            dir: "/home/alice/repo".into(),
+            ..Default::default()
+        };
+        let text = preview(
+            &cfg,
+            &project,
+            &[],
+            "# {{ project }}\nMount: `{{ mount_path }}`\nFile: {{ file }}\n{{ runtime_context }}\n{{ future_variable }}",
+            "docs/SLOPWORLD.md",
+        );
+
+        assert!(text.starts_with(&format!("{GENERATED_MARKER}\n# repo\n")));
+        assert!(text.contains("Mount: `docs/SLOPWORLD.md`"));
+        assert!(text.contains("File: SLOPWORLD.md"));
+        assert!(text.contains("# SlopWorld runtime context"));
+        assert!(text.contains("{{ future_variable }}"));
     }
 
     #[test]

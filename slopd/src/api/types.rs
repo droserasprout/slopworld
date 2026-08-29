@@ -104,6 +104,15 @@ pub(crate) struct ConfigReq {
 }
 
 #[derive(Deserialize)]
+pub(crate) struct InstructionsPreviewReq {
+    #[serde(default)]
+    pub(crate) project: String,
+    pub(crate) template: String,
+    #[serde(default)]
+    pub(crate) mount_path: String,
+}
+
+#[derive(Deserialize)]
 pub(crate) struct ClipReq {
     #[serde(default)]
     pub(crate) text: String,

@@ -23,7 +23,7 @@
 | `presets.rs` | The preset tables: builtin TOML plus the user's. |
 | `jukebox.rs` | The user station catalog: TOML, metadata, and daemon-side URL resolution. |
 | `config.rs` | `config.toml` load, save, and seed. |
-| `manifest.rs` | Generated project-root `SLOPWORLD.md`, Git exclusion, and runtime-context rendering. |
+| `manifest.rs` | Generated project-root `SLOPWORLD.md`, Git exclusion, templating, and runtime-context rendering. |
 | `endpoint.rs` | The `endpoint.toml` descriptor: writes url + token for the mod, rewrites token on live config edits without changing the bound address. |
 | `grant.rs` | Scoped agent tokens - see [agent-grants](agent-grants.md). |
 | `paths.rs` | Config/data directory resolution. |

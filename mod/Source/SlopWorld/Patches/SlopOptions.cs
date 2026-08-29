@@ -33,6 +33,7 @@ namespace SlopWorld
             Credentials,
             Usage,
             Summaries,
+            Instructions,
             Sandbox,
             Keyboard,
             RimWorld,
@@ -96,6 +97,8 @@ namespace SlopWorld
                 () => new UsagePage(), PageId.Integrations),
             new TabSpec(PageId.Summaries, "SlopWorld_Summaries", "Summaries", null,
                 () => new SummariesPage(), PageId.Integrations),
+            new TabSpec(PageId.Instructions, "SlopWorld_Instructions", "Instructions", null,
+                () => new InstructionsPage(), PageId.Integrations),
             new TabSpec(PageId.Commands, "SlopWorld_Commands", "Commands", () => Icons.Terminal,
                 null),
             new TabSpec(PageId.CommandDefaults, "SlopWorld_CommandDefaults", "Defaults", null,
@@ -158,7 +161,11 @@ namespace SlopWorld
 
             public void Reread() => _page?.Load();
 
-            public void Teardown() => _page = null;
+            public void Teardown()
+            {
+                if (_page is IDisposable disposable) disposable.Dispose();
+                _page = null;
+            }
         }
 
         // Column order matches the visible category order, and synthetic entries are added

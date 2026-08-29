@@ -5,7 +5,9 @@ The daemon owns the read through root-only `GET /api/read`; the response is vali
 bounded at 512 KiB. Markdig 0.18.3 is the `net40` assembly shipped beside the mod, chosen
 because it has no extra runtime assembly dependencies under RimWorld's Mono loader.
 
-The renderer consumes the AST directly, keeps unsupported HTML as literal faint text, and
+The renderer also accepts inline text for the Settings > Integrations > Instructions preview;
+that path skips daemon file reads while reusing the same AST, layout, selection, and scroll
+behavior. The renderer consumes the AST directly, keeps unsupported HTML as literal faint text, and
 handles a small native HTML subset: local `<img>` tags, `<br>`, semantic emphasis/code/strike
 tags, `span` wrappers and links. Images honor left/right/center (including `middle`) and
 `style="float: ..."`. This is deliberately a tag scanner, not an HTML parser;

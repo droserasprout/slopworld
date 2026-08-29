@@ -310,6 +310,7 @@ namespace SlopWorld
         readonly string _project;
         readonly string _path;
         readonly string _name;
+        string _inlineText;
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly List<Placement> _placements = new List<Placement>();
         readonly List<Placement> _drawPlacements = new List<Placement>();
@@ -354,6 +355,18 @@ namespace SlopWorld
             _project = project;
             _path = path;
             _name = string.IsNullOrEmpty(name) ? System.IO.Path.GetFileName(path) : name;
+            _inlineText = null;
+        }
+
+        // Settings pages can preview a document before it exists on disk. Inline documents
+        // share the normal Markdown layout and selection code, but never cross the daemon's
+        // file-read boundary.
+        public MarkdownPreview(string text, string name)
+        {
+            _project = "";
+            _path = "";
+            _name = string.IsNullOrEmpty(name) ? "preview.md" : name;
+            _inlineText = text ?? "";
         }
 
         public string Path => _path;
@@ -373,6 +386,38 @@ namespace SlopWorld
 
         public void Opened()
         {
+            BeginLoad();
+            int request = ++_request;
+            if (_inlineText != null)
+            {
+                ApplyText(_inlineText, request);
+                return;
+            }
+
+            SlopClient.Get("/api/read?path=" + Uri.EscapeDataString(_path),
+                j =>
+                {
+                    if (request != _request) return;
+                    ApplyText(j["text"].AsString(), request);
+                },
+                msg =>
+                {
+                    if (request != _request) return;
+                    _loading = false;
+                    _error = msg;
+                });
+        }
+
+        public void SetInlineText(string text)
+        {
+            if (_inlineText == null || _inlineText == text) return;
+            _inlineText = text ?? "";
+            BeginLoad();
+            ApplyText(_inlineText, ++_request);
+        }
+
+        void BeginLoad()
+        {
             _loading = true;
             _error = null;
             _blocks = null;
@@ -382,32 +427,24 @@ namespace SlopWorld
             _links.Clear();
             _width = -1f;
             _height = 0f;
-            int request = ++_request;
-            SlopClient.Get("/api/read?path=" + Uri.EscapeDataString(_path),
-                j =>
-                {
-                    if (request != _request) return;
-                    try
-                    {
-                        _blocks = Parse(j["text"].AsString());
-                        RequestImages(_blocks, request);
-                        RequestHighlights(_blocks, request);
-                        _loading = false;
-                        _error = null;
-                        _scroll.JumpTo(Vector2.zero);
-                    }
-                    catch (Exception e)
-                    {
-                        _loading = false;
-                        _error = "Markdown could not be parsed: " + e.Message;
-                    }
-                },
-                msg =>
-                {
-                    if (request != _request) return;
-                    _loading = false;
-                    _error = msg;
-                });
+        }
+
+        void ApplyText(string text, int request)
+        {
+            try
+            {
+                _blocks = Parse(text);
+                RequestImages(_blocks, request);
+                RequestHighlights(_blocks, request);
+                _loading = false;
+                _error = null;
+                _scroll.JumpTo(Vector2.zero);
+            }
+            catch (Exception e)
+            {
+                _loading = false;
+                _error = "Markdown could not be parsed: " + e.Message;
+            }
         }
 
         public void Closed()
