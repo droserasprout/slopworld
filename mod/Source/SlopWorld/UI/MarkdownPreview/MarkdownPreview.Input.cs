@@ -138,6 +138,8 @@ namespace SlopWorld
             _selA = extend ? _selA : point;
             _selB = point;
             _dragging = true;
+            _selectionMoved = false;
+            _multiClickSelection = false;
             _wordDragging = false;
             _lineDragging = false;
             _hasSel = extend && _selA != _selB;
@@ -164,6 +166,7 @@ namespace SlopWorld
         void HandleMouseDrag(Rect body, Event e)
         {
             if (!_dragging) return;
+            _selectionMoved = true;
             var drag = SelectionPointAt(body, e.mousePosition);
             if (_lineDragging) SelectLineRange(_lineStart, drag.y);
             else if (_wordDragging) UpdateWordSelection(drag);
@@ -180,13 +183,17 @@ namespace SlopWorld
         {
             if (!_dragging) return;
             var up = SelectionPointAt(body, e.mousePosition);
+            // A double click selects a word and a triple click replaces it with a line. Do not
+            // copy the intermediate word; multi-click selection is visual until Ctrl+C or the
+            // Copy menu is used, otherwise one gesture starts multiple wl-copy owners.
+            bool copy = !_multiClickSelection || _selectionMoved;
             if (_lineDragging)
             {
                 SelectLineRange(_lineStart, up.y);
                 _lineDragging = false;
                 _dragging = false;
                 ReleaseSelection();
-                CopySelection();
+                if (copy) CopySelection();
             }
             else if (_wordDragging)
             {
@@ -194,7 +201,7 @@ namespace SlopWorld
                 _wordDragging = false;
                 _dragging = false;
                 ReleaseSelection();
-                if (_hasSel) CopySelection();
+                if (_hasSel && copy) CopySelection();
             }
             else
             {
@@ -203,11 +210,13 @@ namespace SlopWorld
                 if (_selA != _selB)
                 {
                     _hasSel = true;
-                    CopySelection();
+                    if (copy) CopySelection();
                 }
                 else _hasSel = false;
                 ReleaseSelection();
             }
+            _selectionMoved = false;
+            _multiClickSelection = false;
             e.Use();
             return;
         }
@@ -318,9 +327,10 @@ namespace SlopWorld
             _selB = _wordEnd;
             _hasSel = true;
             _dragging = true;
+            _selectionMoved = false;
+            _multiClickSelection = true;
             _wordDragging = true;
             _lineDragging = false;
-            CopySelection();
         }
 
         void UpdateWordSelection(Vector2Int point)
@@ -363,9 +373,10 @@ namespace SlopWorld
             _selB = new Vector2Int(length, line);
             _hasSel = true;
             _dragging = true;
+            _selectionMoved = false;
+            _multiClickSelection = true;
             _wordDragging = false;
             _lineDragging = true;
-            CopySelection();
         }
 
         void SelectLineRange(int anchor, int line)
@@ -395,6 +406,8 @@ namespace SlopWorld
         {
             _hasSel = false;
             _dragging = false;
+            _selectionMoved = false;
+            _multiClickSelection = false;
             _wordDragging = false;
             _lineDragging = false;
             ReleaseSelection();
@@ -408,6 +421,8 @@ namespace SlopWorld
             _selB = new Vector2Int(_selectionLines[last].Text.Length, last);
             _hasSel = true;
             _dragging = false;
+            _selectionMoved = false;
+            _multiClickSelection = false;
             _wordDragging = false;
             _lineDragging = false;
             ReleaseSelection();

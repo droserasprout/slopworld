@@ -36,6 +36,7 @@ namespace SlopWorld
             _audio = new AudioBus(_transport);
             _transport.OnConnected = () =>
             {
+                SlopClipboard.Reset();
                 RefreshConfig();
                 RefreshHealth();
                 _terminal.Resubscribe();

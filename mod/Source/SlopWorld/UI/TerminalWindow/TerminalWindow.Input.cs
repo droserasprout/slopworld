@@ -652,6 +652,7 @@ namespace SlopWorld
             _selA = _selB = CellAt(body, e.mousePosition);
             _dragging = true;
             _selectionMoved = false;
+            _multiClickSelection = false;
             _wordDragging = false;
             _lineDragging = false;
             _hasSel = false;
@@ -678,6 +679,10 @@ namespace SlopWorld
         {
             if (!_dragging) return;
             var cell = CellAt(body, e.mousePosition);
+            // A double click selects a word and a triple click replaces it with a row. Do not
+            // copy the intermediate word; multi-click selection is visual until Ctrl+C or the
+            // Copy menu is used, otherwise one gesture starts multiple wl-copy owners.
+            bool copy = !_multiClickSelection || _selectionMoved;
             if (_lineDragging)
             {
                 SelectLineRange(_lineStart, cell.y);
@@ -685,7 +690,7 @@ namespace SlopWorld
                 _dragging = false;
                 _selectionMoved = false;
                 ReleaseSelection();
-                CopySelection();
+                if (copy) CopySelection();
             }
             else if (_wordDragging)
             {
@@ -693,17 +698,23 @@ namespace SlopWorld
                 _wordDragging = false;
                 _dragging = false;
                 ReleaseSelection();
-                if (_hasSel) CopySelection();
+                if (_hasSel && copy) CopySelection();
             }
             else
             {
                 _dragging = false;
                 _selB = cell;
-                if (_selectionMoved || _selA != _selB) { _hasSel = true; CopySelection(); }
+                if (_selectionMoved || _selA != _selB)
+                {
+                    _hasSel = true;
+                    if (copy) CopySelection();
+                }
                 else _hasSel = false;
                 _selectionMoved = false;
                 ReleaseSelection();
             }
+            _selectionMoved = false;
+            _multiClickSelection = false;
             e.Use();
         }
 

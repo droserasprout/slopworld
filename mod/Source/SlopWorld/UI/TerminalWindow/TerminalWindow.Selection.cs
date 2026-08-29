@@ -41,6 +41,7 @@ namespace SlopWorld
             _hasSel = false;
             _dragging = false;
             _selectionMoved = false;
+            _multiClickSelection = false;
             _wordDragging = false;
             _lineDragging = false;
             ReleaseSelection();
@@ -69,10 +70,10 @@ namespace SlopWorld
             _hasSel = true;
             _dragging = true;
             _selectionMoved = false;
+            _multiClickSelection = true;
             _wordDragging = false;
             _lineDragging = true;
             _lineStart = row;
-            CopySelection();
         }
 
         // A word, or the run of identical characters a non-word cell sits in.
@@ -98,9 +99,10 @@ namespace SlopWorld
             _selB = _wordEnd;
             _hasSel = true;
             _dragging = true;
+            _selectionMoved = false;
+            _multiClickSelection = true;
             _wordDragging = true;
             _lineDragging = false;
-            CopySelection();
         }
 
         void UpdateWordSelection(Vector2Int cell)
@@ -206,6 +208,7 @@ namespace SlopWorld
             _selB = new Vector2Int(buf.Cols, buf.Runs.Length - 1);
             _hasSel = true;
             _dragging = false;
+            _multiClickSelection = false;
             _wordDragging = false;
             _lineDragging = false;
             ReleaseSelection();
