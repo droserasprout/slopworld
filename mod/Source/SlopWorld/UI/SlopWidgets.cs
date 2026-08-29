@@ -807,33 +807,40 @@ namespace SlopWorld
         public static float Slider(Listing_Standard l, string label, float value,
                                    string tip = null) =>
             Slider(l, label, value, 0f, 1f,
-                Mathf.RoundToInt(Mathf.Clamp01(value) * 100f) + "%", tip);
+                Mathf.RoundToInt(Mathf.Clamp01(value) * 100f) + "%", out _, out _, tip);
 
         // The same control over a range that is not nought to one, with the readout written
         // by the caller: a font size and a dimming fraction are not percentages of anything,
         // and the three pages that wanted them were the three still on vanilla's slider.
         public static float Slider(Listing_Standard l, string label, float value,
                                    float min, float max, string readout, string tip = null) =>
-            Slider(l, label, value, min, max, readout, out _, tip);
-
-        // Apply geometry-changing values after release: live UI scaling moves the track under the
-        // pointer. `held` reports whether the hot control still owns the knob.
-        static int _sliderGrabId;
-        static float _sliderGrab;
+            Slider(l, label, value, min, max, readout, out _, out _, tip);
 
         public static float Slider(Listing_Standard l, string label, float value,
                                    float min, float max, string readout, out bool held,
-                                   string tip = null)
+                                   string tip = null) =>
+            Slider(l, label, value, min, max, readout, out held, out _, tip);
+
+        public static float Slider(Listing_Standard l, string label, float value,
+                                   float min, float max, string readout, out bool held,
+                                   out bool released, string tip = null)
         {
             var r = l.GetRect(RowH + GapS);
             if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
 
             float span = max - min;
             float at = span <= 0f ? 0f : Mathf.Clamp01((value - min) / span);
-            return min + Track(r, label, at, readout, out held) * span;
+            return min + Track(r, label, at, readout, out held, out released) * span;
         }
 
-        static float Track(Rect r, string label, float value, string readout, out bool held)
+        sealed class SliderState
+        {
+            public float grab;
+            public bool dragging;
+        }
+
+        static float Track(Rect r, string label, float value, string readout, out bool held,
+                           out bool released)
         {
             const float valueW = 46f;
             const float knobW = 12f;
@@ -851,33 +858,52 @@ namespace SlopWorld
             int id = GUIUtility.GetControlID(FocusType.Passive, track);
             var e = Event.current;
             var hit = new Rect(track.x - knobW / 2f, r.y, track.width + knobW, RowH);
-            if (e.type == EventType.MouseDown && e.button == 0 && hit.Contains(e.mousePosition))
+            EventType mouseType = e.type == EventType.Used ? e.rawType : e.type;
+            var state = GUIUtility.GetStateObject(typeof(SliderState), id) as SliderState;
+            released = false;
+            if (mouseType == EventType.MouseDown && e.button == 0 && hit.Contains(e.mousePosition))
             {
-                // Keep the point where the knob was picked up under the pointer. Without
-                // this, grabbing either side of the square makes the first drag recenter it.
+                float clickKnobX = Mathf.Lerp(track.x, track.xMax, Mathf.Clamp01(value));
+                var knob = new Rect(clickKnobX - knobW / 2f, track.y - 3f, knobW,
+                    track.height + 6f);
+                state.grab = knob.Contains(e.mousePosition)
+                    ? e.mousePosition.x - clickKnobX
+                    : 0f;
+                state.dragging = true;
                 GUIUtility.hotControl = id;
-                _sliderGrabId = id;
-                _sliderGrab = e.mousePosition.x - Mathf.Lerp(track.x, track.xMax, value);
+                value = Mathf.Clamp01(Mathf.InverseLerp(track.x, track.xMax,
+                    e.mousePosition.x - state.grab));
                 e.Use();
             }
-            if (GUIUtility.hotControl == id)
+            if (state.dragging)
             {
-                if (e.type == EventType.MouseDrag || e.type == EventType.MouseDown)
+                if (mouseType == EventType.MouseDrag || mouseType == EventType.MouseDown)
                 {
-                    float grab = _sliderGrabId == id ? _sliderGrab : 0f;
                     value = Mathf.Clamp01(Mathf.InverseLerp(track.x, track.xMax,
-                        e.mousePosition.x - grab));
+                        e.mousePosition.x - state.grab));
                     e.Use();
                 }
-                else if (e.type == EventType.MouseUp && e.button == 0)
+                else if (mouseType == EventType.MouseUp && e.button == 0)
                 {
-                    float grab = _sliderGrabId == id ? _sliderGrab : 0f;
                     value = Mathf.Clamp01(Mathf.InverseLerp(track.x, track.xMax,
-                        e.mousePosition.x - grab));
-                    GUIUtility.hotControl = 0;
-                    if (_sliderGrabId == id) _sliderGrabId = 0;
+                        e.mousePosition.x - state.grab));
+                    if (GUIUtility.hotControl == id) GUIUtility.hotControl = 0;
+                    state.dragging = false;
+                    released = true;
                     e.Use();
                 }
+            }
+
+            // An absorbing window can occasionally drop the mouse-up before this control
+            // sees it. End the latch only after Unity says the physical button is up; this
+            // must never make a live drag look like a release.
+            if (state.dragging && mouseType != EventType.MouseDown
+                && mouseType != EventType.MouseDrag && mouseType != EventType.MouseUp
+                && !Input.GetMouseButton(0))
+            {
+                if (GUIUtility.hotControl == id) GUIUtility.hotControl = 0;
+                state.dragging = false;
+                released = true;
             }
 
             Slab.Box(track, Well, BtnEdge);
@@ -886,7 +912,7 @@ namespace SlopWorld
 
             // The slider's square light knob makes a row of levels readable at a glance.
             float knobX = Mathf.Lerp(track.x, track.xMax, Mathf.Clamp01(value));
-            bool grabbed = held = GUIUtility.hotControl == id;
+            bool grabbed = held = state.dragging;
             Slab.Box(new Rect(knobX - knobW / 2f, track.y - 3f, knobW, track.height + 6f),
                 grabbed ? Lighten(KnobFace, -0.20f) : Mouse.IsOver(hit)
                     ? Lighten(KnobFace, -0.08f) : KnobFace,
