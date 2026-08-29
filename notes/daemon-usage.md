@@ -33,9 +33,9 @@ login from which to infer a key.
 
 - `openrouter_key_file` reads fresh each poll; blank uses `OPENROUTER_API_KEY` from
   slopd's environment. Neither path logs, copies or writes the key.
-- `parse_credits` accepts both `total_credits`/`total_usage` and older `limit`/`usage`,
-  and requires both figures. A null limit means no credit limit, not a full bar; no
-  credit bought reports 100% spent.
+- `parse_credits` requires the current nested `data.total_credits` and `data.total_usage`
+  fields. A null `total_credits` means no credit limit, not a full bar; no credit bought
+  reports 100% spent.
 
 ## OpenAI / Codex
 

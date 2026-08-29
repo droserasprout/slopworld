@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 /// What a sandbox is handed. Every path is bound only if it exists, so a preset for
 /// something this host does not run costs nothing.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SandboxPreset {
     pub name: String,
     #[serde(default)]
@@ -63,6 +64,7 @@ pub struct SandboxPreset {
 /// What an agent runs, and the sandbox presets that come with it: knowing a session is
 /// Claude Code is what lets the sandbox hand it `~/.claude`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CommandPreset {
     pub name: String,
     #[serde(default)]
@@ -75,6 +77,7 @@ pub struct CommandPreset {
 /// One file is one piece of software: its sandbox preset and its command preset
 /// together, which is the pair anyone adding an agent writes.
 #[derive(Debug, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PresetFile {
     #[serde(default)]
     sandbox: Vec<SandboxPreset>,
@@ -561,26 +564,15 @@ mod tests {
     }
 
     #[test]
-    fn legacy_preset_categories_are_dropped_when_rewritten() {
-        let file: PresetFile = toml::from_str(
+    fn unknown_preset_fields_are_rejected() {
+        assert!(toml::from_str::<PresetFile>(
             r#"
             [[sandbox]]
-            name = "old-sandbox"
-            category = "dev"
-            description = "still useful"
-
-            [[command]]
-            name = "old-command"
-            category = "agent"
-            cmd = "agent"
+            name = "sandbox"
+            unexpected = "value"
             "#,
         )
-        .unwrap();
-
-        let written = toml::to_string(&file).unwrap();
-        assert!(!written.contains("category"));
-        assert!(written.contains("description = \"still useful\""));
-        assert!(written.contains("cmd = \"agent\""));
+        .is_err());
     }
 
     /// Every agent keeps its own state, and every way back out of the sandbox says so. Both
@@ -735,7 +727,8 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let untouched = dir.join("handwritten.toml");
-        let original = "# keep this comment\n[[sandbox]]\nname = \"other\"\nfuture = true\n";
+        let original =
+            "# keep this comment\n[[sandbox]]\nname = \"other\"\ndescription = \"handwritten\"\n";
         std::fs::write(&untouched, original).unwrap();
 
         write_user_file_in(
