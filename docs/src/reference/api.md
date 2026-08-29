@@ -24,6 +24,7 @@ Write operations use HTTP so the caller can inspect daemon error bodies.
 | `/api/image` | Bounded base64 image bytes (root-only). |
 | `/api/search` | `rg`-based workspace search. Requires project path and query. Supports regex/case/word/hidden flags. Capped at 200 results. |
 | `/api/git` | Repository root, branch, per-file porcelain/numstat; large status streams are capped with `truncated`. Non-repositories return `repo: false`. |
+| `/api/grants` | Active scoped-grant count (root-only). |
 | `/api/open-apps` | Host desktop applications associated with a path. |
 | `/api/clipboard` | GET reads host CLIPBOARD; POST writes it. `/api/clipboard/text` is text-only. |
 
@@ -34,15 +35,28 @@ available, with `/primary/text` as the text-only read route.
 
 | Route | Method | Description |
 | --- | --- | --- |
-| `/api/sessions` | POST | Create or modify sessions. |
-| `/api/projects` | POST | Create or modify projects. |
-| `/api/shortcuts` | POST | Create or modify shortcuts. |
-| `/api/config` | POST | Replace configuration. |
+| `/api/sessions` | POST | Create a session (root-only). |
+| `/api/sessions/:name` | PUT, DELETE | Modify or remove a session. |
+| `/api/sessions/:name/label` | PUT | Set a session display label. |
+| `/api/sessions/:name/start` | POST | Start a session. |
+| `/api/sessions/:name/stop` | POST | Stop a session. |
+| `/api/sessions/:name/restart` | POST | Restart a session. |
+| `/api/sessions/:name/state/reset` | POST | Reset a session state. |
+| `/api/projects` | POST | Create a project. |
+| `/api/projects/:name` | PUT, DELETE | Modify or remove a project. |
+| `/api/shortcuts` | POST | Create a shortcut. |
+| `/api/shortcuts/:name` | PUT, DELETE | Modify or remove a shortcut. |
+| `/api/grants` | POST | Mint a scoped grant (root-only). |
+| `/api/grants/:grantor` | DELETE | Revoke grants for a grantor (root-only). |
+| `/api/config` | PUT | Replace configuration. |
 | `/api/config/patch` | PUT | Deep-merge JSON into configuration. Omitted fields are preserved. |
 | `/api/instructions/preview` | POST | Render an unsaved `SLOPWORLD.md` template for a project. |
 | `/api/run` | POST | Create an ephemeral errand. See below. |
 | `/api/file-action` | POST | Run a bounded non-interactive command in a project sandbox or on the host (root-only). |
 | `/api/highlight` | POST | Syntax-highlight code via host highlighter (root-only). |
+| `/api/files` | POST, PUT, DELETE | Create, rename, or delete private-state files (root-only). |
+| `/api/tasks` | POST, DELETE | Create a task or prune tasks. |
+| `/api/tasks/:id` | POST, DELETE | Update or remove a task. |
 
 ### Ephemeral errands
 

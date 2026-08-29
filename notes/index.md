@@ -1,7 +1,7 @@
 # Devnote index
 
 The notes stay flat; this index groups them by how a reader uses them. Keep one
-short subject per note, mark proposed work clearly, and remove stale entries.
+short subject per note and remove stale entries.
 
 ## Orientation and policy
 
@@ -21,12 +21,11 @@ short subject per note, mark proposed work clearly, and remove stale entries.
 - [diagnostics](diagnostics.md) - logs, runtime checks, and daemon restart behavior.
 - [paths](paths.md) - where config, profile, logs and the tmux socket live.
 - [profile](profile.md) - the save-data folder, the launcher, the refusal gates.
-- [startup-time](startup-time.md) - what a warm start pays for, and what it does not.
 - [cpu-optimization](cpu-optimization.md) - implemented C# hot-path reductions.
 - [debug-from-sandbox](debug-from-sandbox.md) - which daemon readings are sandbox artifacts, and how to get host truth.
 - [known-limitations](known-limitations.md) - network handover hangs and their safe recovery.
 - [host-terminals](host-terminals.md) - durable host tabs, tmux metadata and cwd recovery.
-- [zsh-terminal](zsh-terminal.md) - zsh-newuser-install wizard vs bash default prompt.
+- [zsh-terminal](zsh-terminal.md) - zsh key bindings and host/sandbox shell defaults.
 - [gotchas](gotchas.md) - the traps that cost a day each.
 
 ## Daemon, agents, and sandbox
@@ -43,7 +42,7 @@ short subject per note, mark proposed work clearly, and remove stale entries.
 - [agent-grants](agent-grants.md) - scoped tokens: one agent watching another, host never.
 - [agent-tasks](agent-tasks.md) - durable task mailboxes and the `slopctl` delegation CLI.
 - [agent-task-discovery](agent-task-discovery.md) - prompt discovery and safe task-arrival notices.
-- [agent-titles](agent-titles.md) - planned prompt summaries: never/once/always and conversation boundaries.
+- [agent-titles](agent-titles.md) - prompt summaries: never/once/always and conversation boundaries.
 - [agent-auto-resume](agent-auto-resume.md) - per-agent startup resume and input ordering.
 - [sandbox-isolation](sandbox-isolation.md) - the bind guard, private state, marked ways out.
 - [sandbox-blast-radius](sandbox-blast-radius.md) - what an agent can and cannot delete of its own `$HOME`.
@@ -60,7 +59,7 @@ short subject per note, mark proposed work clearly, and remove stale entries.
 - [mod-sidebar](mod-sidebar.md) - `AgentSidebar` and its core layout and selection behavior.
 - [mod-sidebar-navigation](mod-sidebar-navigation.md) - shared views, tabs, filtering, and vanilla chrome shifts.
 - [mod-ui-chrome](mod-ui-chrome.md) - shared widgets, layout, usage readout, top bar.
-- [mod-ui-identity](mod-ui-identity.md) - dark rectangular instrument panel: shape, rhythm, and the color schemes.
+- [mod-ui-identity](mod-ui-identity.md) - UI geometry, spacing, and color schemes.
 - [mod-ui-files](mod-ui-files.md) - the files view and its icons.
 - [mod-markdown](mod-markdown.md) - native Markdown previews and their file boundary.
 - [mod-ui-search](mod-ui-search.md) - workspace search and its result pager.
@@ -88,10 +87,3 @@ short subject per note, mark proposed work clearly, and remove stale entries.
 - [mod-worksite](mod-worksite.md) - what a working agent builds.
 - [skyfallers](skyfallers.md) - dropping a thing out of the sky.
 - [mod-player-pawn](mod-player-pawn.md) - user-controlled human colonist with fireball.
-
-## Proposals and audits
-
-- [agent-worktrees](agent-worktrees.md) - proposed per-agent Git worktree mode.
-- [large-unattended-features](large-unattended-features.md) - candidates for substantial autonomous work.
-- [jukebox-polish](jukebox-polish.md) - proposed jukebox recognition and history follow-up.
-- [more-radio](more-radio.md) - candidate stations and the embedding-policy audit.

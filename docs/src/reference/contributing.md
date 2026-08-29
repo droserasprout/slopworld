@@ -69,11 +69,11 @@ Several `tools/` scripts produce committed output:
 
 The `notes/` directory holds short developer notes, one subject per file. Notes record
 cross-file architecture, non-obvious constraints, and operational facts that the code
-or git history does not show. [notes/index.md](../../notes/index.md) is the index.
+or git history does not show. [notes/index.md](../../../notes/index.md) is the index.
 
 Notes are internal. When a note disagrees with a published doc page, the note is wrong.
-See [notes/prose-guide.md](../../notes/prose-guide.md) for writing rules and
-[notes/house-rules.md](../../notes/house-rules.md) for commit policy.
+See [notes/prose-guide.md](../../../notes/prose-guide.md) for writing rules and
+[notes/house-rules.md](../../../notes/house-rules.md) for commit policy.
 
 ## Commit policy
 

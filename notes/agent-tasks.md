@@ -33,12 +33,9 @@ shared, because the store holds one copy of a task and not one per side: a parti
 drops only what has stopped moving, the root reaches a task still in flight, and
 `prune --all` (root) is what stops `tasks.toml` being append-only.
 
-The CLI reads `endpoint.toml`, or `SLOPD_URL` and `SLOPD_TOKEN` when a scoped endpoint
-is injected. The latter is the seam for the Unix socket/private-network work described
-in [agent-grants](agent-grants.md): task IPC is built, but binding a daemon socket and
-credential into private sandboxes is not. Until then this works from the host and from
-agents whose network can reach the configured HTTP listener.
+The CLI reads `endpoint.toml`, or `SLOPD_URL` and `SLOPD_TOKEN` when a caller supplies a
+scoped endpoint. This works from the host and from agents whose network can reach the
+configured HTTP listener; `network = "none"` cannot use the mailbox API.
 
-Task authority is deliberately narrower than terminal authority in storage and routes.
-The first cut reuses a grant's session scope as the delegation allowlist; a later config
-field can split `task_delegate` from terminal `ro` without changing the task protocol.
+The grant's session scope is the delegation allowlist. Task authority is separate from
+terminal input authority in storage and routes.

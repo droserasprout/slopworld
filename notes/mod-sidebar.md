@@ -23,26 +23,6 @@ vanilla's bracket texture and selection-jump animation while keeping multi-selec
 caravan selection aligned with the custom face crop during scrolling; compact view omits
 the corners and state badge.
 
-### Selection-corner debugging history
-
-`Rows[*].Face` is content-local geometry. `SmoothScroll.Begin` opens a `Widgets.BeginScrollView`
-whose outer rect is `Body`; vanilla's `DrawColonist` prefix therefore runs inside that scroll
-group. Keep selection rendering in that same group and pass the local face rect directly.
-
-Several tempting fixes were wrong:
-
-- Drawing after `EndScrollView` and subtracting `AgentScroll.Position` applied a second
-  coordinate conversion. The corners moved with scrolling but were offset from the portrait.
-- Replaying vanilla's private `DrawSelectionOverlayOnGUI` remained unstable. Its
-  `Widgets.DrawTextureRotated` call treats a content-local corner as a global rotation pivot,
-  so different corners can stay fixed or jump in unrelated directions.
-
-The working solution keeps vanilla selection filtering, `SelectedTexGUI`, selection timestamps
-and `CalculateSelectionBracketPositionsUI`. It calculates into a private four-corner array, then
-draws each original rotated texture in the active scroll group with its local center converted
-by `GUIUtility.GUIToScreenPoint` only for `RotateAroundPivot`. The texture rect stays local. Do
-not subtract the scroll position or pass the local center to `Widgets.DrawTextureRotated`.
-
 The portrait prefix replaces vanilla's complete draw, including its icon row. The
 front pass adds one badge in full view, sized from the face so it survives shrinking and
 anchored to the drawn portrait rather than the cell. `Patch_AgentNeverIdle` remains active

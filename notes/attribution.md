@@ -1,8 +1,4 @@
-# Attribution
-
-The eventual attribution page should be a readable set of prominent credits plus a
-link to complete release-specific third-party notices. Do not turn the page itself
-into the whole Cargo dependency graph.
+# Attribution and notices
 
 ## Prominent credits
 
@@ -32,28 +28,14 @@ The procedural robot faceplate is SlopWorld's own art.
 
 ## Notices and integrations
 
-Generate complete Rust notices from the locked release graph. The direct crates worth
-naming on the human page are Alacritty Terminal; Tokio, Axum, Tower HTTP and Tracing;
-Rodio, CPAL and Symphonia; Serde; ureq/rustls; anyhow, futures, nix, regex, dirs and
-toml. The transitive graph includes Apache, MIT, MPL, BSD, ISC, Unicode and CDLA terms,
-so the curated page is not a replacement for `THIRD_PARTY_LICENSES`.
+The direct crates worth naming on the human page are Alacritty Terminal; Tokio, Axum,
+Tower HTTP and Tracing; Rodio, CPAL and Symphonia; Serde; ureq/rustls; anyhow, futures,
+nix, regex, dirs and toml. The transitive graph includes Apache, MIT, MPL, BSD, ISC,
+Unicode and CDLA terms, so the curated page is not a replacement for
+`THIRD_PARTY_LICENSES`.
 
 The generated mdBook distributes Open Sans (Apache-2.0) and Source Code Pro / Adobe
 (OFL-1.1); its copies of both licences live in `docs/book/fonts/`.
 
 Anthropic/Claude Code, OpenAI/Codex, OpenRouter, OpenCode and Ollama belong under
-"Works with", not among SlopWorld's authors. Include a neutral statement that
-SlopWorld is independent and is not affiliated with or endorsed by the named games,
-vendors, projects or services.
-
-## Before publishing
-
-- Ship Harmony's full copyright and licence notice beside its DLL.
-- Record and ship the exact Codicons licence/source revision.
-- Record the exact Nerd Font build input and its applicable licence bundle.
-- Ship the Noto Color Emoji copyright and licence notice for the derived artwork.
-- Record Terry Fail's copyright and the distribution licence for all four OST tracks.
-- Generate Rust notices from `Cargo.lock` and preserve the Material Icon Theme notice
-  in release packages, not only in the source tree.
-
-Also fix the README's `alactitty` typo to `Alacritty` when that prose is next touched.
+"Works with", not among SlopWorld's authors.

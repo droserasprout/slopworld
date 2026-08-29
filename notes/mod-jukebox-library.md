@@ -6,8 +6,7 @@ The dated OST remains in `mod/Sounds/SlopWorld/OST/` as 192 kbps OGG, but the da
 opens it as a directory and plays a non-repeating shuffled bag. `Songs.xml` keeps the
 matching `SlopWorld_` defs, which nothing plays while `Radio` holds the music manager
 disabled in daemon mode; sidecar mode enables the native manager for those same SlopWorld defs.
-RimWorld's original music defs are stripped in both modes. What moving the tracks out would save
-is [startup-time](startup-time.md).
+RimWorld's original music defs are stripped in both modes.
 `split_ost.py` stages exports; `install_ost.py` installs them and updates the catalog.
 
 Like appends a `[[like]]` table with `at`, `source`, effective `artist`/`title`, and raw
