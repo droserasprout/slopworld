@@ -5,8 +5,8 @@
 user files live under `~/.config/slopworld/presets/*.toml` (`SLOPD_PRESETS` overrides)
 and replace builtins by entry name, in place.
 
-Preset categories are no longer part of either table. An old `category` key is ignored
-when read and omitted when that preset is next written.
+Preset categories are not part of either table. Unknown fields reject a preset file so
+stale definitions cannot be silently rewritten into the current shape.
 
 `global.toml` is implicit and precedes command, project and session presets. It is not
 a project checkbox; copying it creates the user `global` override.

@@ -494,17 +494,14 @@ fn parse_openai_response(response: ProviderResponse) -> Snapshot {
     parse_openai(&response.body)
 }
 
-/// One row, in money. `/credits` says `total_credits` and `total_usage`; the older
-/// `/auth/key` says `limit` and `usage`, with a null limit for a key that has none. Both
-/// figures are wanted - a balance is a subtraction - and anything else reads as "no
-/// numbers", for the reason `parse` does.
+/// One row, in money. Both figures are wanted - a balance is a subtraction - and anything
+/// else reads as "no numbers", for the reason `parse` does.
 fn parse_credits(v: &Value) -> Snapshot {
-    // The payload nests under `data`, but a proxy pointed at by `SLOPD_CREDITS_URL` may
-    // not, so the object itself is tried too.
-    let d = if v["data"].is_object() { &v["data"] } else { v };
-
-    let used = num(d, &["total_usage", "usage", "used"]);
-    let credits = num(d, &["total_credits", "credits", "limit"]);
+    let d = v.get("data").and_then(Value::as_object);
+    let used = d.and_then(|d| d.get("total_usage")).and_then(Value::as_f64);
+    let credits = d
+        .and_then(|d| d.get("total_credits"))
+        .and_then(Value::as_f64);
 
     let (Some(used), Some(credits)) = (used, credits) else {
         tracing::debug!("unrecognised credits payload: {v}");
@@ -543,12 +540,6 @@ fn parse_credits(v: &Value) -> Snapshot {
         }],
         ..Default::default()
     }
-}
-
-/// The first of these keys that carries a number, the endpoint having renamed both of
-/// them once already.
-fn num(v: &Value, keys: &[&str]) -> Option<f64> {
-    keys.iter().find_map(|k| v[*k].as_f64())
 }
 
 /// Seconds only; the header's HTTP-date form has never turned up here, and the backoff
@@ -1621,23 +1612,17 @@ mod tests {
         assert_eq!(parse_credits(&v).windows[0].pct, 100.0);
     }
 
-    /// The older key endpoint, and its null limit - a figure this cannot subtract from,
-    /// which is said rather than drawn as a full bar.
-    #[test]
-    fn a_key_with_no_limit_is_no_numbers() {
-        let v: Value = serde_json::from_str(r#"{"data":{"usage":3.5,"limit":null}}"#).unwrap();
-        let s = parse_credits(&v);
-        assert!(!s.ok);
-        assert!(s.windows.is_empty());
-        assert!(s.error.unwrap().contains("no credit limit"));
-
-        let named: Value = serde_json::from_str(r#"{"data":{"usage":3.5,"limit":10.0}}"#).unwrap();
-        assert_eq!(parse_credits(&named).windows[0].amount, Some(3.5));
-    }
-
     #[test]
     fn an_unknown_credits_payload_is_not_a_full_wallet() {
         let v: Value = serde_json::from_str(r#"{"data":{"nope":1}}"#).unwrap();
+        let s = parse_credits(&v);
+        assert!(!s.ok);
+        assert!(s.windows.is_empty());
+    }
+
+    #[test]
+    fn credits_require_the_current_nested_payload() {
+        let v: Value = serde_json::from_str(r#"{"total_credits":10.0,"total_usage":3.5}"#).unwrap();
         let s = parse_credits(&v);
         assert!(!s.ok);
         assert!(s.windows.is_empty());
