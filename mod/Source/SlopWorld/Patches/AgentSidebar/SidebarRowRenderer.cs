@@ -97,7 +97,7 @@ namespace SlopWorld
             if (ageW > 0f)
             {
                 var time = new Rect(timeX, line.y, ageW, line.height);
-                GUI.color = SlopWidgets.Faint;
+                GUI.color = tint;
                 SlopWidgets.RowLabel(time, ago, TextAnchor.MiddleRight);
 
                 string stateName = state == AgentState.Waiting
