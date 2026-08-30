@@ -8,9 +8,14 @@ namespace SlopWorld
     // snapshot supplies many local scroll positions instead of becoming one indivisible frame.
     internal sealed class TerminalHistory
     {
-        const int MaxFrames = 32;
+        // The client never asks beyond the daemon's 10,000-line history limit, and negotiated
+        // panes top out at 200 rows. Bounding coordinates keeps a malformed reply from turning
+        // this persistent per-window cache into an unbounded dictionary.
+        const int MaxHistoryRows = 10_000;
+        const int MaxScreenRows = 200;
 
-        readonly Dictionary<int, ScreenBuf> _frames = new Dictionary<int, ScreenBuf>();
+        readonly Dictionary<int, string> _lines = new Dictionary<int, string>();
+        ScreenBuf _template;
         int _seq = -1;
         int _version;
         int _cachedAnchor = -1;
@@ -20,14 +25,10 @@ namespace SlopWorld
 
         public void Reset(ScreenBuf live = null)
         {
-            _frames.Clear();
+            _lines.Clear();
+            _template = null;
             _seq = live?.Seq ?? -1;
-            if (live != null)
-            {
-                var snapshot = live.Snapshot();
-                snapshot.Off = 0;
-                _frames[0] = snapshot;
-            }
+            if (live != null) Index(live, true);
             Changed();
         }
 
@@ -42,19 +43,14 @@ namespace SlopWorld
 
             if (_seq != frame.Seq)
             {
-                _frames.Clear();
+                _lines.Clear();
+                _template = null;
                 _seq = frame.Seq;
                 if (live != null && live.Seq == frame.Seq)
-                {
-                    var snapshot = live.Snapshot();
-                    snapshot.Off = 0;
-                    _frames[0] = snapshot;
-                }
+                    Index(live, true);
             }
 
-            if (_frames.TryGetValue(frame.Off, out var old) && ReferenceEquals(old, frame)) return;
-            _frames[frame.Off] = frame;
-            Prune(nearOff);
+            Index(frame, false);
             Changed();
         }
 
@@ -68,20 +64,19 @@ namespace SlopWorld
                 return true;
             }
 
-            var primary = Primary(anchor);
-            if (primary == null)
+            if (_template == null)
             {
                 view = null;
                 return false;
             }
 
-            int rows = Math.Max(1, primary.Rows);
+            int rows = Math.Max(1, _template.Rows);
             int count = rows + (extraRow ? 1 : 0);
             var lines = new string[count];
             for (int row = 0; row < count; row++)
             {
                 int globalRow = row - anchor;
-                if (!TryLine(globalRow, anchor, out lines[row]))
+                if (!_lines.TryGetValue(globalRow, out lines[row]))
                 {
                     view = null;
                     return false;
@@ -92,18 +87,18 @@ namespace SlopWorld
             {
                 // Blit's cache keys on Seq/Off. Include the row-cache revision because a
                 // newly arrived overlapping snapshot can improve this same anchor.
-                Seq = unchecked(primary.Seq * 397 ^ _version),
-                Cols = primary.Cols,
-                Rows = primary.Rows,
+                Seq = unchecked(_template.Seq * 397 ^ _version),
+                Cols = _template.Cols,
+                Rows = _template.Rows,
                 Cx = 0,
-                Cy = primary.Rows,
+                Cy = _template.Rows,
                 Off = anchor,
-                CursorShape = primary.CursorShape,
+                CursorShape = _template.CursorShape,
                 CursorBlink = false,
                 AppMouse = false,
                 AppDrag = false,
                 AltScreen = false,
-                Title = primary.Title,
+                Title = _template.Title,
                 Lines = lines,
             };
             _cachedAnchor = anchor;
@@ -119,11 +114,10 @@ namespace SlopWorld
         public bool Covers(int anchor, bool extraRow)
         {
             anchor = Math.Max(0, anchor);
-            var primary = Primary(anchor);
-            if (primary == null) return false;
-            int count = Math.Max(1, primary.Rows) + (extraRow ? 1 : 0);
+            if (_template == null) return false;
+            int count = Math.Max(1, _template.Rows) + (extraRow ? 1 : 0);
             for (int row = 0; row < count; row++)
-                if (!TryLine(row - anchor, anchor, out _)) return false;
+                if (!_lines.ContainsKey(row - anchor)) return false;
             return true;
         }
 
@@ -145,60 +139,23 @@ namespace SlopWorld
             return down / span * span;
         }
 
-        ScreenBuf Primary(int anchor)
+        void Index(ScreenBuf frame, bool live)
         {
-            ScreenBuf best = null;
-            int distance = int.MaxValue;
-            foreach (var frame in _frames.Values)
+            _template = new ScreenBuf
             {
-                if (frame.Seq != _seq || frame.Lines == null) continue;
-                int row = frame.Off - anchor;
-                if (row < 0 || row >= frame.Lines.Length) continue;
-                int d = Math.Abs(frame.Off - anchor);
-                if (d >= distance) continue;
-                best = frame;
-                distance = d;
-            }
-            return best;
-        }
+                Seq = frame.Seq,
+                Cols = frame.Cols,
+                Rows = frame.Rows,
+                CursorShape = frame.CursorShape,
+                Title = frame.Title,
+            };
 
-        bool TryLine(int globalRow, int anchor, out string line)
-        {
-            ScreenBuf best = null;
-            int bestRow = -1;
-            int distance = int.MaxValue;
-            foreach (var frame in _frames.Values)
+            int off = live ? 0 : Math.Max(0, frame.Off);
+            for (int row = 0; row < frame.Lines.Length; row++)
             {
-                if (frame.Seq != _seq || frame.Lines == null) continue;
-                int row = globalRow + frame.Off;
-                if (row < 0 || row >= frame.Lines.Length) continue;
-                int d = Math.Abs(frame.Off - anchor);
-                if (d >= distance) continue;
-                best = frame;
-                bestRow = row;
-                distance = d;
-            }
-
-            line = bestRow >= 0 ? best.Lines[bestRow] : null;
-            return bestRow >= 0;
-        }
-
-        void Prune(int nearOff)
-        {
-            while (_frames.Count > MaxFrames)
-            {
-                int remove = -1;
-                int distance = -1;
-                foreach (var off in _frames.Keys)
-                {
-                    if (off == 0 || off == nearOff) continue;
-                    int d = Math.Abs(off - nearOff);
-                    if (d <= distance) continue;
-                    remove = off;
-                    distance = d;
-                }
-                if (remove < 0) break;
-                _frames.Remove(remove);
+                int globalRow = row - off;
+                if (globalRow < -MaxHistoryRows || globalRow >= MaxScreenRows) continue;
+                _lines[globalRow] = frame.Lines[row];
             }
         }
 
