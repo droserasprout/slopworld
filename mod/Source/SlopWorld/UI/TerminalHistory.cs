@@ -16,41 +16,73 @@ namespace SlopWorld
 
         readonly Dictionary<int, string> _lines = new Dictionary<int, string>();
         ScreenBuf _template;
-        int _seq = -1;
         int _version;
         int _cachedAnchor = -1;
         bool _cachedExtra;
         int _cachedVersion = -1;
         ScreenBuf _cachedView;
+        bool _templateAltScreen;
 
         public void Reset(ScreenBuf live = null)
         {
             _lines.Clear();
             _template = null;
-            _seq = live?.Seq ?? -1;
-            if (live != null) Index(live, true);
+            if (live != null)
+            {
+                SetTemplate(live);
+                Index(live, 0, true);
+            }
             Changed();
         }
 
-        public void Add(ScreenBuf frame, ScreenBuf live, int nearOff)
+        // Keep the cache in the newest live pane's coordinate space. A redraw that edits the
+        // visible rows leaves history coordinates intact; a terminal scroll moves every old
+        // row down by the number of rows that entered at the bottom.
+        public bool UpdateLive(ScreenBuf live, int shift)
         {
-            if (frame == null || frame.Lines == null || frame.Lines.Length == 0) return;
-            // An offset is relative to the live bottom captured with the frame. Mixing it
-            // with a newer live sequence produces a plausible but wrong bridge, and is
-            // especially easy to do when a resize causes output while a scroll request is
-            // still in flight.
-            if (live != null && live.Seq != frame.Seq) return;
-
-            if (_seq != frame.Seq)
+            if (live == null) return false;
+            if (_template != null && !SameViewport(live))
             {
-                _lines.Clear();
-                _template = null;
-                _seq = frame.Seq;
-                if (live != null && live.Seq == frame.Seq)
-                    Index(live, true);
+                Reset(live);
+                return false;
             }
 
-            Index(frame, false);
+            if (_template == null)
+            {
+                Reset(live);
+                return false;
+            }
+            if (shift > 0) Shift(shift);
+
+            SetTemplate(live);
+            Index(live, 0, true);
+            Changed();
+            return true;
+        }
+
+        public void Add(ScreenBuf frame, ScreenBuf live, int nearOff,
+                        int coordinateShift = 0, bool allowStale = false)
+        {
+            if (frame == null || frame.Lines == null || frame.Lines.Length == 0) return;
+            bool current = live == null || live.Seq == frame.Seq;
+            if (!current && !allowStale) return;
+            if (live != null && _template != null && !SameViewport(frame)) return;
+
+            if (_template == null)
+            {
+                if (live != null)
+                {
+                    SetTemplate(live);
+                    Index(live, 0, true);
+                }
+                else SetTemplate(frame);
+            }
+
+            // The overlap at global row zero belongs to the current live frame. An older
+            // response can still contribute its negative history rows, but must not overwrite
+            // newer content that was redrawn in place while the request was in flight.
+            int off = Math.Max(0, frame.Off + coordinateShift);
+            Index(frame, off, current);
             Changed();
         }
 
@@ -139,7 +171,12 @@ namespace SlopWorld
             return down / span * span;
         }
 
-        void Index(ScreenBuf frame, bool live)
+        bool SameViewport(ScreenBuf frame) => _template != null &&
+            (frame.Cols <= 0 || _template.Cols == frame.Cols) &&
+            (frame.Rows <= 0 || _template.Rows == frame.Rows) &&
+            _templateAltScreen == frame.AltScreen;
+
+        void SetTemplate(ScreenBuf frame)
         {
             _template = new ScreenBuf
             {
@@ -149,14 +186,36 @@ namespace SlopWorld
                 CursorShape = frame.CursorShape,
                 Title = frame.Title,
             };
+            _templateAltScreen = frame.AltScreen;
+        }
 
-            int off = live ? 0 : Math.Max(0, frame.Off);
+        void Index(ScreenBuf frame, int off, bool includeLive)
+        {
+            if (_template == null) SetTemplate(frame);
+
             for (int row = 0; row < frame.Lines.Length; row++)
             {
                 int globalRow = row - off;
+                if (!includeLive && globalRow >= 0) continue;
                 if (globalRow < -MaxHistoryRows || globalRow >= MaxScreenRows) continue;
                 _lines[globalRow] = frame.Lines[row];
             }
+        }
+
+        void Shift(int rows)
+        {
+            if (rows <= 0 || _lines.Count == 0) return;
+
+            var moved = new Dictionary<int, string>();
+            foreach (var pair in _lines)
+            {
+                int global = pair.Key - rows;
+                if (global >= -MaxHistoryRows && global < MaxScreenRows)
+                    moved[global] = pair.Value;
+            }
+
+            _lines.Clear();
+            foreach (var pair in moved) _lines[pair.Key] = pair.Value;
         }
 
         void Changed()

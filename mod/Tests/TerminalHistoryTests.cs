@@ -10,6 +10,8 @@ namespace SlopWorld.Tests
             yield return ("stitches skipped offsets from overlapping viewports", StitchesOverlap);
             yield return ("requires a bridge across non-overlapping viewports", RequiresBridge);
             yield return ("rejects a frame from an older live sequence", RejectsOldSequence);
+            yield return ("retains history across an in-place live refresh", RetainsLiveRefresh);
+            yield return ("translates history when live output scrolls", TranslatesLiveScroll);
             yield return ("plans covered views without replacing the cache", CoversViews);
             yield return ("ignores empty frames and retains indexed history", IgnoresEmptyAndRetainsRows);
             yield return ("quantizes prefetch windows in both directions", QuantizesPrefetch);
@@ -71,6 +73,43 @@ namespace SlopWorld.Tests
 
             AssertEx.False(history.TryView(1, true, out _),
                 "an old reply cannot bridge the current live sequence");
+        }
+
+        static void RetainsLiveRefresh()
+        {
+            var history = new TerminalHistory();
+            var current = Frame(0, "current-0", "current-1", "current-2");
+            current.Seq = 8;
+            history.Reset(current);
+
+            var old = Frame(2, "old-2", "old-1", "current-0");
+            old.Seq = 7;
+            history.Add(old, current, 2, allowStale: true);
+
+            AssertEx.True(history.TryView(1, true, out var view),
+                "an in-flight response still supplies history after a live redraw");
+            AssertEx.Sequence(
+                new[] { "old-1", "current-0", "current-1", "current-2" }, view.Lines,
+                "a stale response does not overwrite refreshed live rows");
+        }
+
+        static void TranslatesLiveScroll()
+        {
+            var history = new TerminalHistory();
+            var live = Frame(0, "live-0", "live-1", "live-2");
+            history.Reset(live);
+            history.Add(Frame(2, "old-2", "old-1", "live-0"), live, 2);
+
+            var next = Frame(0, "live-1", "live-2", "live-3");
+            next.Seq = 8;
+            next.LiveShift = 1;
+            AssertEx.True(history.UpdateLive(next, 1),
+                "a compatible live scroll keeps the history cache");
+            AssertEx.True(history.TryView(2, true, out var view),
+                "translated history remains readable after live output scrolls");
+            AssertEx.Sequence(
+                new[] { "old-1", "live-0", "live-1", "live-2" }, view.Lines,
+                "cached rows move with the live bottom");
         }
 
         static void CoversViews()
