@@ -70,8 +70,7 @@ Shared files are never seeded.
 ## Escape warnings
 
 A non-empty `escapes` field on a preset marks a capability that reaches back toward
-the host (Docker, D-Bus, X11, SSH agent, 1Password). The warning appears in the agent
-editor when the preset is selected.
+the host. The warning text appears in the agent editor when the preset is selected.
 
 ## Dependencies
 

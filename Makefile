@@ -280,6 +280,9 @@ emoji-atlas:       ## Rebake the legacy terminal's emoji atlas with Pango
 reference:         ## Generate the environment/API/CLI reference
 	$(PYTHON) tools/reference.py
 
+api-docs:          ## Generate the mdBook API route inventory
+	$(PYTHON) tools/api_docs.py
+
 scheme-report:     ## Analyze the complete UI schemes and check Warm's luminance hierarchy
 	$(PYTHON) tools/analyze_ui_schemes.py --check-warm
 
@@ -431,7 +434,7 @@ shot:              ## Screenshot the game window into OUT
 pkg-arch:          ## Build and install Arch package
 	cd packaging/arch && makepkg -p PKGBUILD.local -sif
 
-docs:              ## Build human docs
+docs: api-docs     ## Build human docs
 	cd docs && mdbook build
 
 docs-serve:        ## Serve human docs

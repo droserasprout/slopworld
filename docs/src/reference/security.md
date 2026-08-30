@@ -79,8 +79,7 @@ the host inode.
 ## Escape warnings
 
 Non-empty `escapes` text on a preset marks a capability that reaches back toward the
-host (Docker, D-Bus, X11, SSH agent, 1Password). The warning appears in the agent
-editor when that preset is selected.
+host. The warning text appears in the agent editor when that preset is selected.
 
 ## Scoped grants
 

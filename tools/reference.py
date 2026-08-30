@@ -309,7 +309,7 @@ def render(files: dict[Path, str]) -> str:
         for item in dynamic:
             lines.append(f"- inherited or computed environment name at {source_link(item)}: `{md_cell(item.text)}`")
 
-    lines.extend(["", "## API routes", "", "Routes declared by the daemon's Axum router. `scoped` routes are available to appropriately scoped grants; `root-only` routes require the daemon's own capability.", "", "| Method | Path | Handler | Scope | Source |", "| --- | --- | --- | --- | --- |"])
+    lines.extend(["", "## API routes", "", "Routes declared by the daemon's Axum router. `scoped` routes are mounted in the grant-visible router; handler guards can impose a stricter access requirement.", "", "| Method | Path | Handler | Router scope | Source |", "| --- | --- | --- | --- | --- |"])
     for route in routes:
         lines.append(f"| `{route.method}` | `{route.path}` | `{route.handler}` | `{route.scope}` | {source_link(route.hit)} |")
 

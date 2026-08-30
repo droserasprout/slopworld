@@ -64,6 +64,7 @@ Several `tools/` scripts produce committed output:
 | `tools/fileicons.py` | (manual) | File-sidebar icons |
 | `tools/emoji_atlas.py` | `make emoji-atlas` | Supplementary-plane emoji atlas |
 | `tools/reference.py` | `make reference` | Environment/API/CLI reference |
+| `tools/api_docs.py` | `make api-docs` | Generated mdBook API route inventory |
 
 ## Devnotes
 
