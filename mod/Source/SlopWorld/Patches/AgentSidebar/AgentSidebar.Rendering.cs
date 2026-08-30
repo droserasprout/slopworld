@@ -141,9 +141,7 @@ namespace SlopWorld
 
         public static bool FaceBox(Pawn pawn, out Rect box)
         {
-            if (pawn != null)
-                foreach (var row in Layout.Rows)
-                    if (row.Pawn == pawn) { box = row.Face; return true; }
+            if (pawn != null && Layout.Faces.TryGetValue(pawn, out box)) return true;
 
             box = Rect.zero;
             return false;
@@ -263,6 +261,8 @@ namespace SlopWorld
             // their CellX inset.
             float tx = PortraitX + measure.Face + TextGap;
             var line = new Rect(0f, y, width, measure.RowH);
+            var face = new Rect(PortraitX, y + (measure.RowH - measure.Face) / 2f,
+                measure.Face, measure.Face);
             Layout.Rows.Add(new Row
             {
                 Session = Session(entries[index].pawn),
@@ -270,9 +270,12 @@ namespace SlopWorld
                 Line = line,
                 Text = new Rect(tx, y + (measure.RowH - TextH) / 2f,
                     width - tx - Pad, TextH),
-                Face = new Rect(PortraitX, y + (measure.RowH - measure.Face) / 2f,
-                    measure.Face, measure.Face),
+                Face = face,
             });
+            // Match FaceBox's old first-row behavior if vanilla ever supplies a duplicate
+            // pawn entry.
+            if (!Layout.Faces.ContainsKey(entries[index].pawn))
+                Layout.Faces.Add(entries[index].pawn, face);
         }
 
         static float Pitch(float s) => Mathf.Max(

@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using UnityEngine;
+using Verse;
 
 namespace SlopWorld
 {
@@ -10,6 +12,7 @@ namespace SlopWorld
         {
             public readonly List<Row> Rows = new List<Row>();
             public readonly List<Head> Heads = new List<Head>();
+            public readonly Dictionary<Pawn, Rect> Faces = new Dictionary<Pawn, Rect>();
 
             public readonly Dictionary<string, List<int>> Buckets =
                 new Dictionary<string, List<int>>();
@@ -29,6 +32,7 @@ namespace SlopWorld
             {
                 Rows.Clear();
                 Heads.Clear();
+                Faces.Clear();
                 ViewRows.Clear();
                 Routed.Clear();
 

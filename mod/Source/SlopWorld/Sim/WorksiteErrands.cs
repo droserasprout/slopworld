@@ -198,11 +198,11 @@ namespace SlopWorld
 
         void Send(Pawn pawn)
         {
-            if (!Ready(pawn)) return;
-
             // Vanilla has sent the pawn to stand clear of a frame so it can be built.
             // Forcing the errand back over that job is how a clanker walks on the spot.
             if (pawn.CurJobDef == JobDefOf.Goto) return;
+
+            if (!Ready(pawn)) return;
 
             Frame stale;
             if (_sent.TryGetValue(pawn, out stale))
