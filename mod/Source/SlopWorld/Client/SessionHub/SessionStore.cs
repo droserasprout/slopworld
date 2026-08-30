@@ -12,6 +12,11 @@ namespace SlopWorld
     {
         public List<SessionInfo> Sessions = new List<SessionInfo>();
 
+        // Session names are the handle used by nearly every UI and simulation caller. Keep
+        // the list for ordering and the index for those repeated lookups.
+        readonly Dictionary<string, SessionInfo> _byName =
+            new Dictionary<string, SessionInfo>(StringComparer.Ordinal);
+
         readonly Dictionary<string, ScreenBuf> _screens = new Dictionary<string, ScreenBuf>();
         readonly Dictionary<string, Queue<ScreenBuf>> _scrolls =
             new Dictionary<string, Queue<ScreenBuf>>();
@@ -22,7 +27,11 @@ namespace SlopWorld
         long _sessionsVersion;
         int _refreshSerial;
 
-        public SessionInfo Get(string name) => Sessions.FirstOrDefault(s => s.Name == name);
+        public SessionInfo Get(string name)
+        {
+            if (name == null) return null;
+            return _byName.TryGetValue(name, out var session) ? session : null;
+        }
 
         public bool TryPendingRename(string oldName, out string newName) =>
             _pendingRenames.TryGetValue(oldName, out newName);
@@ -56,6 +65,7 @@ namespace SlopWorld
                 break;
             }
 
+            if (found) Reindex();
             Move(_screens, oldName, newName);
             Move(_scrolls, oldName, newName);
             if (found) _sessionsVersion++;
@@ -79,7 +89,21 @@ namespace SlopWorld
         void ReplaceSessions(JVal ev)
         {
             Sessions = ev["sessions"].Items.Select(SessionInfo.FromJson).ToList();
+            Reindex();
             ForgetScreens();
+        }
+
+        void Reindex()
+        {
+            _byName.Clear();
+            foreach (var session in Sessions)
+            {
+                if (session == null || session.Name == null || _byName.ContainsKey(session.Name))
+                    continue;
+                // Preserve FirstOrDefault's first-match behavior if malformed input ever
+                // contains duplicate names.
+                _byName.Add(session.Name, session);
+            }
         }
 
         // The socket's "screen" event. Scrolled frames answer one wheel request; kept apart
@@ -123,7 +147,7 @@ namespace SlopWorld
             if (store.Count == 0) return;
             List<string> gone = null;
             foreach (var name in store.Keys)
-                if (!Sessions.Any(s => s.Name == name))
+                if (!_byName.ContainsKey(name))
                     (gone ?? (gone = new List<string>())).Add(name);
             if (gone == null) return;
             foreach (var name in gone) store.Remove(name);
