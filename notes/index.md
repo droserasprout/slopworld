@@ -67,6 +67,7 @@ short subject per note and remove stale entries.
 - [mod-ui-git](mod-ui-git.md) - the git view, the diff pager, and the third tab.
 - [mod-ui-rowactions](mod-ui-rowactions.md) - view/edit/diff on a hovered row, in both trees.
 - [mod-terminal](mod-terminal.md) - terminal input, sizing, title bar, and key routing.
+- [mod-terminal-history-warmup](mod-terminal-history-warmup.md) - plan for warming the first scrollback window.
 - [mod-terminal-rendering](mod-terminal-rendering.md) - terminal themes, fonts, selection, and links.
 - [mod-content-views](mod-content-views.md) - one window, and what fills it.
 - [mod-ui-windows](mod-ui-windows.md) - the dialogs and Settings pages.

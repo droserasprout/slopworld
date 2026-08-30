@@ -27,4 +27,5 @@ Architecture:
 - [mod-ui-chrome](notes/mod-ui-chrome.md) — shared widgets, layout, top bar
 - [mod-sidebar](notes/mod-sidebar.md) — AgentSidebar & colonist bar patching
 - [mod-terminal](notes/mod-terminal.md) — terminal pane: rendering, keys, theme
+- [mod-terminal-history-warmup](notes/mod-terminal-history-warmup.md) — first-scroll history warm-up plan
 - [mod-jukebox](notes/mod-jukebox.md) — the jukebox & clanker soundtrack
