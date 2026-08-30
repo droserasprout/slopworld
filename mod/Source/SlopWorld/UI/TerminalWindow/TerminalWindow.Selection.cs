@@ -46,9 +46,8 @@ namespace SlopWorld
             // above has moved, consulting those rows at the new coordinate shows an adjacent
             // line for one frame. Keep the last assembled frame as the visual fallback, but
             // make every coordinate lookup wait for a snapshot from the new sequence.
-            _history.Reset();
+            _history.Reset(live);
             _historyRequests.Clear();
-            _historyResponses.Clear();
             _scrollPending = false;
             _wantedScrollOff = 0;
             _historyRefreshPending = true;

@@ -127,6 +127,24 @@ namespace SlopWorld
             return true;
         }
 
+        // Keep lookahead requests on stable overlapping viewport boundaries. A probe derived
+        // directly from `target` moves one row per touchpad update and floods the daemon with
+        // almost identical captures instead of letting one prefetched frame serve the range.
+        public static int PrefetchAnchor(int target, int span, bool up, int max)
+        {
+            target = Math.Max(0, Math.Min(max, target));
+            span = Math.Max(2, span);
+            if (up)
+            {
+                int raw = Math.Min(max, target + span / 2);
+                long rounded = ((long)raw + span - 1) / span * span;
+                return (int)Math.Min(max, rounded);
+            }
+
+            int down = Math.Max(0, target - span / 2);
+            return down / span * span;
+        }
+
         ScreenBuf Primary(int anchor)
         {
             ScreenBuf best = null;
