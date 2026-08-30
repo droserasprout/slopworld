@@ -283,6 +283,7 @@ fn render_runtime_context(cfg: &Config, project: &ProjectCfg, sessions: &[Sessio
     out.push_str("  - `slopctl peers`\n");
     out.push_str("  - `slopctl inbox`\n");
     out.push_str("  - `slopctl delegate AGENT \"task\"`\n");
+    out.push_str("  - `slopctl wait ID`\n");
     out.push_str("  - `slopctl accept ID`, `slopctl progress ID \"note\"`\n");
     out.push_str("  - `slopctl finish ID \"result\"` or `slopctl fail ID \"reason\"`\n");
     out.push_str(
@@ -524,6 +525,7 @@ mod tests {
         assert!(text.contains("/mnt/repo"));
         assert!(text.contains("README.md"));
         assert!(text.contains("slopctl peers"));
+        assert!(text.contains("slopctl wait ID"));
         assert!(!text.contains("/home/alice/repo"));
         assert!(!text.contains("endpoint.toml"));
     }

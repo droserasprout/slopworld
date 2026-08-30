@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::process::{Command as ProcessCommand, ExitCode, Stdio};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -15,6 +15,7 @@ const DEFAULT_LOG_LINES: usize = 200;
 const MAX_LOG_LINES: usize = 100_000;
 const GAME_LOG_ENV: &str = "SLOPWORLD_GAME_LOG";
 const DAEMON_UNIT_ENV: &str = "SLOPWORLD_DAEMON_UNIT";
+const TASK_WAIT_INTERVAL: Duration = Duration::from_secs(1);
 
 const LOGS_USAGE: &str = "usage:
   slopctl logs [game|daemon|all] [--lines N] [--follow]
@@ -38,6 +39,7 @@ usage:
   slopctl delegate AGENT TASK...
   slopctl inbox [--all] [--sent] [--received] [--status STATUS]
   slopctl task ID
+  slopctl wait ID
   slopctl accept ID [NOTE...]
   slopctl progress ID [NOTE...]
   slopctl finish ID [RESULT...]
@@ -49,8 +51,9 @@ usage:
   slopctl logs [game|daemon|all] [--lines N] [--follow]
 
 inbox shows unfinished work in both directions, newest first; --all adds what is
-done and failed. rm takes a finished task, prune takes all of them. --json is
-accepted anywhere and prints the answer as JSON instead of for a reader.
+done and failed. wait polls until a task is done or failed. rm takes a finished
+task, prune takes all of them. --json is accepted anywhere and prints the answer
+as JSON instead of for a reader.
 
 SLOPWORLD_SESSION identifies the caller, and defaults to `host` - the user at the
 keyboard - which the daemon accepts only from the root token. SLOPD_ENDPOINT
@@ -133,6 +136,9 @@ enum Command {
     Task {
         id: String,
     },
+    Wait {
+        id: String,
+    },
     Update {
         action: UpdateAction,
         id: String,
@@ -188,6 +194,11 @@ fn parse_command(args: &[String]) -> Result<Command, String> {
             only(args, 2)?;
             Ok(Command::Task { id })
         }
+        "wait" => {
+            let id = arg(args, 1, "wait needs a task id")?.to_string();
+            only(args, 2)?;
+            Ok(Command::Wait { id })
+        }
         "accept" | "progress" | "finish" | "fail" => {
             let id = arg(args, 1, &format!("{command} needs a task id"))?.to_string();
             let action = match command {
@@ -232,6 +243,7 @@ impl Command {
             Self::Delegate { to, body } => run_delegate(endpoint, session, json, &to, &body),
             Self::Inbox { filter } => run_inbox(endpoint, session, json, filter),
             Self::Task { id } => run_task(endpoint, session, json, &id),
+            Self::Wait { id } => run_wait(endpoint, session, json, &id),
             Self::Update { action, id, note } => {
                 run_update(endpoint, session, json, &action, &id, note.as_deref())
             }
@@ -284,6 +296,42 @@ fn run_task(endpoint: &Endpoint, session: &str, json: bool, id: &str) -> Result<
     let v = request(endpoint, session, "GET", &format!("/api/tasks/{id}"), None)?;
     emit(&v, json);
     Ok(())
+}
+
+fn run_wait(endpoint: &Endpoint, session: &str, json: bool, id: &str) -> Result<(), String> {
+    let v = wait_for_task(endpoint, session, id, TASK_WAIT_INTERVAL)?;
+    emit(&v, json);
+    Ok(())
+}
+
+fn wait_for_task(
+    endpoint: &Endpoint,
+    session: &str,
+    id: &str,
+    interval: Duration,
+) -> Result<Value, String> {
+    loop {
+        let v = request(endpoint, session, "GET", &format!("/api/tasks/{id}"), None)?;
+        if task_is_terminal(&v)? {
+            return Ok(v);
+        }
+        thread::sleep(interval);
+    }
+}
+
+fn task_is_terminal(v: &Value) -> Result<bool, String> {
+    let task = v
+        .get("task")
+        .ok_or_else(|| "response is missing task".to_string())?;
+    let status = task
+        .get("status")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "response task is missing status".to_string())?;
+    match status {
+        "queued" | "accepted" | "working" => Ok(false),
+        "done" | "failed" => Ok(true),
+        status => Err(format!("unknown task status: {status}")),
+    }
 }
 
 fn run_update(
@@ -1125,6 +1173,12 @@ mod tests {
                 note: Some("shipped safely".to_string()),
             })
         );
+        assert_eq!(
+            parse_command(&words("wait task-7")),
+            Ok(Command::Wait {
+                id: "task-7".to_string(),
+            })
+        );
     }
 
     #[test]
@@ -1136,6 +1190,8 @@ mod tests {
         assert!(parse_command(&words("task")).is_err());
         assert!(parse_command(&words("prune --wat")).is_err());
         assert!(parse_command(&words("inbox --status")).is_err());
+        assert!(parse_command(&words("wait")).is_err());
+        assert!(parse_command(&words("wait task-7 extra")).is_err());
     }
 
     #[test]
@@ -1231,6 +1287,40 @@ mod tests {
             ["done"]
         );
         assert!(InboxFilter::parse(&words("--unknown")).is_err());
+    }
+
+    #[test]
+    fn task_completion_accepts_only_known_terminal_states() {
+        for status in ["queued", "accepted", "working"] {
+            assert!(!task_is_terminal(&json!({
+                "task": { "status": status }
+            }))
+            .unwrap());
+        }
+        for status in ["done", "failed"] {
+            assert!(task_is_terminal(&json!({
+                "task": { "status": status }
+            }))
+            .unwrap());
+        }
+        assert_eq!(
+            task_is_terminal(&json!({ "task": { "status": "stalled" } })).unwrap_err(),
+            "unknown task status: stalled"
+        );
+        assert_eq!(
+            task_is_terminal(&json!({})).unwrap_err(),
+            "response is missing task"
+        );
+    }
+
+    #[test]
+    fn wait_returns_an_already_completed_task() {
+        let (endpoint, server) = serve("200 OK", r#"{"task":{"id":"task-7","status":"done"}}"#);
+        let task = wait_for_task(&endpoint, "caller", "task-7", Duration::ZERO).unwrap();
+        assert_eq!(task["task"]["id"], "task-7");
+        assert_eq!(task["task"]["status"], "done");
+        let request = server.join().unwrap();
+        assert!(request.starts_with("GET /api/tasks/task-7 HTTP/1.1\r\n"));
     }
 
     #[test]
