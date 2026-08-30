@@ -2,8 +2,8 @@
 
 ## Agent CLIs
 
-Command presets exist for Codex, Claude Code, Pi, and generic shells (bash, zsh,
-fish, Nushell, pwsh). Each preset names the software so the sandbox can hand it
+Command presets exist for Codex, Claude Code, OpenCode, Pi, and generic shells (bash,
+zsh, fish, Nushell, pwsh). Each preset names the software so the sandbox can hand it
 the right configuration paths, seeded state, and environment.
 
 Shell presets have matching `*-userdata` sandbox presets that are separate and opt-in.

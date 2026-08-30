@@ -3,6 +3,31 @@
 Settings is the gear icon in the top bar or the `Settings` command in the palette. It
 opens a tabbed view over the terminal pane.
 
+## Pages
+
+| Page | Scope |
+| --- | --- |
+| General | Daemon connection details, Eco mode, Grandma mode, temperature units, and clock format. |
+| Appearance > Interface | Global UI scale, interface scheme, fonts, cursor, and status-bar readouts. |
+| Appearance > Terminal | Terminal font, size, color scheme, and cursor color. |
+| Sandbox | Built-in and user sandbox presets, commands, dependencies, and their resolved fields. |
+| Integrations | Credentials, quota polling, prompt summaries, and generated `SLOPWORLD.md` instructions. |
+| Commands | Default agent and shell presets, pager, editor, and syntax-highlighter templates. |
+| Keyboard | Rebindable SlopWorld shortcuts. Hardcoded terminal keys remain in the [keyboard reference](keyboard-shortcuts.md). |
+| Storage | Private-state inventory, reset, restore, and permanent deletion for recoverable entries. |
+| Audio | RimWorld volume controls and jukebox playback, recognition, likes, and history. |
+| RimWorld and About | The remaining game options and SlopWorld credits and version information. |
+
+The [agent configuration guide](../guides/configuring-agents.md),
+[sandbox guide](../guides/configuring-sandboxes.md), and
+[integration reference](integrations.md) describe the fields managed by those pages.
+
+## Configuration file
+
+The palette's **Configuration: Edit config.toml** action opens the complete daemon
+configuration, including fields without a Settings page. The editor redacts the daemon
+token; saving parses and validates the replacement before writing it atomically.
+
 ## Applying changes
 
 Local mod and audio changes take effect immediately; settings that are edited as a group

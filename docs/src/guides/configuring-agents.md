@@ -21,8 +21,8 @@ directory is always mounted read-write inside the sandbox.
 ## Agents
 
 Each agent belongs to a project and names a command preset. The command preset
-identifies the software (Claude Code, Codex, a shell) so the sandbox can mount the
-right configuration paths.
+identifies the software (Claude Code, Codex, OpenCode, Pi, or a shell) so the sandbox
+can mount the right configuration paths.
 
 | Field | Description |
 | --- | --- |
@@ -72,8 +72,8 @@ the body and breadcrumb; reset changes the pending form and **Save** applies it.
 
 ## Command presets
 
-A command preset names a piece of software. Builtins exist for Codex, Claude Code, Pi,
-and the shell family (bash, zsh, fish, Nushell, pwsh). User presets in
+A command preset names a piece of software. Builtins exist for Codex, Claude Code,
+OpenCode, Pi, and the shell family (bash, zsh, fish, Nushell, pwsh). User presets in
 `~/.config/slopworld/presets/*.toml` replace builtins by name.
 
 A file may define `[[command]]`, `[[sandbox]]`, or both. The `global.toml` sandbox
@@ -112,6 +112,8 @@ An enabled manifest is regenerated when configuration is synchronized and before
 start; it is a snapshot for an already-running sandbox. SlopWorld refuses to overwrite
 a project-owned `SLOPWORLD.md`. The default body points agents to `README.md` and applicable
 `AGENTS.md` files, while the default breadcrumb points them to the generated mount.
+Auto-resume runs only for a fresh agent process; a daemon restart that adopts an existing
+tmux pane does not submit `/resume` again.
 
 ## Shell
 

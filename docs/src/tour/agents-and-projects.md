@@ -17,7 +17,7 @@ Temporary projects (`temp = true`) have no directory; the daemon creates one und
 ## Agents (sessions)
 
 An agent is a session inside a project. It has a name, a command preset (the software it
-runs — Codex, Claude, Pi, a shell), and optional per-agent overrides for the command line,
+runs — Codex, Claude, OpenCode, Pi, or a shell), and optional per-agent overrides for the command line,
 sandbox presets, and network mode.
 
 A command preset names a piece of software rather than a raw command. Knowing the preset
