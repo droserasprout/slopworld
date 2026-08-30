@@ -91,7 +91,23 @@ namespace SlopWorld
         bool _historyViewReady;
         bool _historyRefreshPending;
         readonly TerminalHistory _history = new TerminalHistory();
-        readonly Dictionary<ulong, int> _historyRequests = new Dictionary<ulong, int>();
+        struct HistoryRequest
+        {
+            public int Offset;
+            public int CoordinateShift;
+
+            public HistoryRequest(int offset, int coordinateShift)
+            {
+                Offset = offset;
+                CoordinateShift = coordinateShift;
+            }
+        }
+
+        readonly Dictionary<ulong, HistoryRequest> _historyRequests =
+            new Dictionary<ulong, HistoryRequest>();
+        // Total live rows translated since the current history cache was seeded. Requests
+        // captured before a live terminal scroll need the same translation before indexing.
+        int _historyCoordinateShift;
         // Stable fallback while the first prefetched window for a new position is in flight.
         ScreenBuf _historyDisplayedFrame;
 
@@ -319,6 +335,7 @@ namespace SlopWorld
             _historyRefreshPending = false;
             _history.Reset();
             _historyRequests.Clear();
+            _historyCoordinateShift = 0;
             _historyDisplayedFrame = null;
             RestoreScrollbackState(_name);
             if (_scrollOff > 0)
@@ -506,35 +523,29 @@ namespace SlopWorld
             // `_historyRequests`, which can suppress the exact deep-history fetch now needed.
             while (hub.TryScrollScreen(_name, out var sb))
             {
-                int requestedOff = 0;
+                HistoryRequest request = new HistoryRequest();
                 bool pending = sb.ScrollRequestId != 0 &&
-                    _historyRequests.TryGetValue(sb.ScrollRequestId, out requestedOff);
+                    _historyRequests.TryGetValue(sb.ScrollRequestId, out request);
                 bool current = live == null || sb.Seq == live.Seq;
-                if (pending && current)
+                if (pending)
                 {
                     _historyRequests.Remove(sb.ScrollRequestId);
-                    _history.Add(sb, live, _scrollOff);
+                    int shift = _historyCoordinateShift - request.CoordinateShift;
+                    _history.Add(sb, live, _scrollOff, shift, allowStale: !current);
                     if (sb.History >= 0)
                     {
-                        _historyTopOff = sb.History;
+                        _historyTopOff = Mathf.Clamp(sb.History + shift, 0, MaxScrollLines);
                         ClampHistoryTarget();
                     }
-                    else if (sb.Off < requestedOff)
+                    else if (sb.Off + shift < request.Offset)
                     {
                         // Older daemons do not report the history extent. Their achieved
                         // offset is still authoritative when the requested point was above
                         // the real top.
-                        _historyTopOff = sb.Off;
+                        _historyTopOff = Mathf.Max(0, sb.Off + shift);
                         ClampHistoryTarget();
                     }
                     _historyRefreshPending = false;
-                }
-                else if (pending)
-                {
-                    // The emulator sequence is part of the coordinate system: a response
-                    // captured before a resize/output frame is not a valid answer for the
-                    // current bottom. Let the next target pass request it again.
-                    _historyRequests.Remove(sb.ScrollRequestId);
                 }
             }
 
@@ -613,6 +624,7 @@ namespace SlopWorld
             {
                 _history.Reset(live);
                 _historyRequests.Clear();
+                _historyCoordinateShift = 0;
                 _historyDisplayedFrame = live?.Snapshot();
                 _historyTopOff = -1;
             }
@@ -623,6 +635,7 @@ namespace SlopWorld
                 {
                     _history.Reset();
                     _historyRequests.Clear();
+                    _historyCoordinateShift = 0;
                     _historyDisplayedFrame = null;
                     _historyTopOff = -1;
                 }
@@ -667,7 +680,7 @@ namespace SlopWorld
         bool HistoryRequestPending(int off)
         {
             foreach (var requested in _historyRequests.Values)
-                if (requested == off) return true;
+                if (requested.Offset == off) return true;
             return _scrollPending && _wantedScrollOff == off;
         }
 
@@ -795,7 +808,8 @@ namespace SlopWorld
             _nextScrollSend = Time.realtimeSinceStartup + ScrollBeat;
 
             ulong id = ++_nextScrollRequestId;
-            _historyRequests[id] = _sentScrollOff;
+            _historyRequests[id] = new HistoryRequest(
+                _sentScrollOff, _historyCoordinateShift);
             SessionHub.Instance.RequestScroll(_name, _sentScrollOff, id);
         }
 

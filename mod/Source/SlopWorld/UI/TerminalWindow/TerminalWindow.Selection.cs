@@ -42,14 +42,23 @@ namespace SlopWorld
                     _historyTopOff = Mathf.Min(MaxScrollLines,
                         _historyTopOff + live.LiveShift);
             }
-            // The cached rows use the preceding live bottom as their origin. Once the offset
-            // above has moved, consulting those rows at the new coordinate shows an adjacent
-            // line for one frame. Keep the last assembled frame as the visual fallback, but
-            // make every coordinate lookup wait for a snapshot from the new sequence.
-            _history.Reset(live);
+
+            // Keep history available while a watched agent redraws. In-place refreshes do not
+            // change the scrollback coordinate, and detected terminal shifts are translated by
+            // TerminalHistory; throwing the cache away on every live frame starves active panes
+            // because their next history response is almost always one sequence behind.
+            if (_history.UpdateLive(live, live.LiveShift))
+            {
+                _historyCoordinateShift = Mathf.Clamp(
+                    _historyCoordinateShift + live.LiveShift, 0, MaxScrollLines);
+                return;
+            }
+
             _historyRequests.Clear();
             _scrollPending = false;
             _wantedScrollOff = 0;
+            _historyCoordinateShift = 0;
+            _historyTopOff = -1;
             _historyRefreshPending = true;
         }
 
