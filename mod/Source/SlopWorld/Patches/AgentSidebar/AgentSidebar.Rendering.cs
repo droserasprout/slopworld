@@ -15,8 +15,10 @@ namespace SlopWorld
         public static void ShowSearch() => Show(SidebarTab.Search);
         public static void ShowGit() => Show(SidebarTab.Git);
         public static void ShowShortcuts() => Show(SidebarTab.Shortcuts);
+        public static void ShowTasks() => Show(SidebarTab.Tasks);
 
-        public static bool CanFoldCurrent => CurrentTab != SidebarTab.Search;
+        public static bool CanFoldCurrent => CurrentTab != SidebarTab.Search &&
+            CurrentTab != SidebarTab.Tasks;
         public static bool CurrentViewAllFolded => AllFolded();
         public static bool CanToggleDotfiles => CurrentTab == SidebarTab.Files ||
             CurrentTab == SidebarTab.Search;
@@ -82,6 +84,9 @@ namespace SlopWorld
                 case SidebarTab.Git: GitView.Refresh(); break;
                 case SidebarTab.Shortcuts:
                     SessionHub.Instance.RefreshShortcuts(SlopWidgets.Fail);
+                    break;
+                case SidebarTab.Tasks:
+                    SessionHub.Instance.RefreshTasks(SlopWidgets.Fail);
                     break;
             }
         }
@@ -434,6 +439,9 @@ namespace SlopWorld
                 case SidebarTab.Shortcuts:
                     ShortcutsView.Clicks();
                     break;
+                case SidebarTab.Tasks:
+                    TasksView.Clicks();
+                    break;
                 default:
                     Menus();
                     break;
@@ -504,6 +512,9 @@ namespace SlopWorld
                 case SidebarTab.Shortcuts:
                     ShortcutsView.Draw(Body);
                     break;
+                case SidebarTab.Tasks:
+                    TasksView.Draw(Body);
+                    break;
             }
 
             DrawChromeAndClicks();
@@ -544,6 +555,8 @@ namespace SlopWorld
                     TerminalWindow.OpenOverPane(new EditProjectDialog(null))),
                 new FloatMenuOption("Agent...", () =>
                     TerminalWindow.OpenOverPane(new EditSessionDialog(null))),
+                new FloatMenuOption("Task", () =>
+                    TerminalWindow.OpenOverPane(new DelegateTaskDialog(null))),
                 new SlopSubmenu("Shortcuts", ShortcutOptions),
                 new FloatMenuOption("Sandbox preset...", SlopOptions.OpenNewSandboxPreset),
                 new FloatMenuOption("Command...", SlopOptions.OpenNewCommand),
@@ -614,6 +627,11 @@ namespace SlopWorld
                 "Git - what every working tree has that its last commit does not",
                 () => Show(SidebarTab.Git));
             x += TabIcon + Gap;
+            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Tasks,
+                CurrentTab == SidebarTab.Tasks,
+                "Tasks - delegate work and inspect the agent mailbox",
+                () => Show(SidebarTab.Tasks));
+            x += TabIcon + Gap;
             Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Shortcuts,
                 CurrentTab == SidebarTab.Shortcuts,
                 "Shortcuts - one-shot errands you can run against any project",
@@ -635,7 +653,7 @@ namespace SlopWorld
         // see [HasActions], which has to agree with what this draws.
         static void Actions(Rect r)
         {
-            if (CurrentTab != SidebarTab.Search)
+            if (CurrentTab != SidebarTab.Search && CurrentTab != SidebarTab.Tasks)
             {
                 bool folded = AllFolded();
                 Tab(r, folded ? TexButton.Reveal : TexButton.Collapse, folded,
@@ -658,6 +676,14 @@ namespace SlopWorld
                 Tab(r, Icons.Refresh, false,
                     "Read every working tree again.", GitView.Refresh);
             }
+            else if (CurrentTab == SidebarTab.Tasks)
+            {
+                Tab(r, Icons.Refresh, false,
+                    "Read the task mailbox again.", () =>
+                        SessionHub.Instance.RefreshTasks(SlopWidgets.Fail));
+                r.x -= TabIcon + 3f;
+                TasksView.FilterButton(r);
+            }
         }
 
         static bool AllFolded()
@@ -669,6 +695,7 @@ namespace SlopWorld
                 case SidebarTab.Files: return FilesView.AllFolded;
                 case SidebarTab.Git: return GitView.AllFolded;
                 case SidebarTab.Shortcuts: return ShortcutsView.AllFolded;
+                case SidebarTab.Tasks: return false;
                 default: return false;
             }
         }
@@ -683,7 +710,8 @@ namespace SlopWorld
         // than taken from the mouse, so a menu that reopens itself after each tick reopens
         // in the place it was.
         static Rect FilterRect =>
-            new Rect(Width - CellX - TabIcon, (TabRowH - TabIcon) / 2f, TabIcon, TabIcon);
+            new Rect(Width - CellX - TabIcon,
+                (TabRowH - TabIcon) / 2f, TabIcon, TabIcon);
 
         static void FilterButton()
         {

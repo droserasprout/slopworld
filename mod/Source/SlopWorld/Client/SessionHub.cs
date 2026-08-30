@@ -15,6 +15,7 @@ namespace SlopWorld
 
         readonly HubTransport _transport = new HubTransport();
         readonly SessionStore _sessions = new SessionStore();
+        readonly TaskStore _tasks = new TaskStore();
         readonly HubCatalog _catalog;
         readonly TerminalIO _terminal;
         readonly AudioBus _audio;
@@ -39,6 +40,7 @@ namespace SlopWorld
                 SlopClipboard.Reset();
                 RefreshConfig();
                 RefreshHealth();
+                _tasks.Refresh();
                 _terminal.Resubscribe();
             };
             _transport.OnMessage = Handle;
@@ -47,6 +49,8 @@ namespace SlopWorld
         // ---- state, read straight off the owning service -------------------------------
 
         public List<SessionInfo> Sessions => _sessions.Sessions;
+        public List<TaskInfo> Tasks => _tasks.Tasks;
+        public int OpenTasks => _tasks.OpenTasks;
         public List<ProjectInfo> Projects => _catalog.Projects;
         public List<ShortcutInfo> Shortcuts => _catalog.Shortcuts;
         public List<PresetInfo> Presets => _catalog.Presets;
@@ -74,6 +78,7 @@ namespace SlopWorld
         {
             SlopClient.PumpCompletions();
             _transport.Update();
+            _tasks.Update();
         }
 
         // ---- terminal I/O --------------------------------------------------------------
@@ -125,6 +130,21 @@ namespace SlopWorld
         // ---- sessions ------------------------------------------------------------------
 
         public void Refresh() => _sessions.Refresh();
+
+        public void RefreshTasks(Action<string> fail = null) => _tasks.Refresh(fail: fail);
+
+        public void CreateTask(string to, string body, Action<TaskInfo> ok = null,
+                               Action<string> fail = null) => _tasks.Create(to, body, ok, fail);
+
+        public void UpdateTask(string id, DelegatedTaskStatus status, string note,
+                               Action<TaskInfo> ok = null, Action<string> fail = null) =>
+            _tasks.UpdateStatus(id, status, note, ok, fail);
+
+        public void RemoveTask(string id, Action ok = null, Action<string> fail = null) =>
+            _tasks.Remove(id, ok, fail);
+
+        public void PruneTasks(Action ok = null, Action<string> fail = null) =>
+            _tasks.Prune(ok, fail);
 
         public void CurrentPath(string name, Action<string> done, Action<string> fail = null) =>
             _sessions.CurrentPath(name, done, fail);

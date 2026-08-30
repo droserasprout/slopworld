@@ -38,6 +38,8 @@ namespace SlopWorld.Tests
                 tests.Add(("UsageWindow: " + test.Name, test.Body));
             foreach (var test in SessionInfoTests.Cases())
                 tests.Add(("SessionInfo: " + test.Name, test.Body));
+            foreach (var test in TaskInfoTests.Cases())
+                tests.Add(("TaskInfo: " + test.Name, test.Body));
             foreach (var test in ScreenBufTests.Cases())
                 tests.Add(("ScreenBuf: " + test.Name, test.Body));
             foreach (var test in SgrTests.Cases())

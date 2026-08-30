@@ -157,9 +157,17 @@ pub(super) async fn list_tasks(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
+    Query(q): Query<ListTasksQuery>,
 ) -> ApiResult {
     let who = task_principal(&cap, &headers)?;
-    Ok(Json(json!({ "tasks": m.tasks_for(&who) })))
+    if q.all && !cap.may_create() {
+        return Err(err(
+            StatusCode::FORBIDDEN,
+            "only the daemon's own token lists every task",
+        ));
+    }
+    let tasks = if q.all { m.all_tasks() } else { m.tasks_for(&who) };
+    Ok(Json(json!({ "tasks": tasks })))
 }
 
 pub(super) async fn one_task(

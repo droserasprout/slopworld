@@ -16,21 +16,25 @@ namespace SlopWorld
 
         public static string BaseUrl => Settings.Connection.BaseUrl;
 
-        public static void Get(string path, Action<JVal> ok, Action<string> fail = null) =>
-            Send("GET", path, null, ok, fail);
+        public static void Get(string path, Action<JVal> ok, Action<string> fail = null,
+                               string session = null) =>
+            Send("GET", path, null, ok, fail, session);
 
-        public static void Post(string path, string body, Action<JVal> ok, Action<string> fail = null) =>
-            Send("POST", path, body ?? "{}", ok, fail);
+        public static void Post(string path, string body, Action<JVal> ok, Action<string> fail = null,
+                                string session = null) =>
+            Send("POST", path, body ?? "{}", ok, fail, session);
 
-        public static void Put(string path, string body, Action<JVal> ok, Action<string> fail = null) =>
-            Send("PUT", path, body ?? "{}", ok, fail);
+        public static void Put(string path, string body, Action<JVal> ok, Action<string> fail = null,
+                               string session = null) =>
+            Send("PUT", path, body ?? "{}", ok, fail, session);
 
-        public static void Delete(string path, Action<JVal> ok, Action<string> fail = null) =>
-            Send("DELETE", path, null, ok, fail);
+        public static void Delete(string path, Action<JVal> ok, Action<string> fail = null,
+                                  string session = null) =>
+            Send("DELETE", path, null, ok, fail, session);
 
         public static void Delete(string path, string body, Action<JVal> ok,
-                                  Action<string> fail = null) =>
-            Send("DELETE", path, body ?? "{}", ok, fail);
+                                  Action<string> fail = null, string session = null) =>
+            Send("DELETE", path, body ?? "{}", ok, fail, session);
 
         // Background integrations use the same completion lane as HTTP so their callbacks
         // can safely update Unity and RimWorld state.
@@ -40,7 +44,7 @@ namespace SlopWorld
         }
 
         public static void Send(string method, string path, string body,
-                                Action<JVal> ok, Action<string> fail)
+                                Action<JVal> ok, Action<string> fail, string session = null)
         {
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -54,6 +58,8 @@ namespace SlopWorld
                     req.Proxy = null;
                     if (!string.IsNullOrEmpty(connection.Token))
                         req.Headers["X-Slop-Token"] = connection.Token;
+                    if (!string.IsNullOrEmpty(session))
+                        req.Headers["X-Slop-Session"] = session;
 
                     if (body != null)
                     {

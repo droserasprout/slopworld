@@ -23,6 +23,7 @@ namespace SlopWorld
         Rect _outer;
         Vector2 _max;
         bool _bar;
+        bool _preciseInput;
 
         // Where in the thumb the drag was started, so a grabbed bar does not jump its own
         // half-height under the cursor on the first frame.
@@ -50,13 +51,14 @@ namespace SlopWorld
                 JumpTo(new Vector2(_pos.x, top + height - viewport));
         }
 
-        public void Begin(Rect outer, Rect view, bool showScrollbars = true)
+        public void Begin(Rect outer, Rect view, bool showScrollbars = true,
+                          bool preciseInput = true)
         {
             var max = new Vector2(
                 Mathf.Max(0f, view.width - outer.width),
                 Mathf.Max(0f, view.height - outer.height));
 
-            BeginInput(outer, max);
+            BeginInput(outer, max, preciseInput);
             _bar = showScrollbars;
 
             // Do the clip and translation ourselves. Unity's scroll view processes wheel
@@ -70,13 +72,14 @@ namespace SlopWorld
         // Terminal history has a moving window rather than a locally available document.
         // It still needs this class's input ownership and fractional wheel decoding, but it
         // draws its own frame and must not translate a GUI group around a synthetic document.
-        public void BeginInput(Rect outer, Vector2 max)
+        public void BeginInput(Rect outer, Vector2 max, bool preciseInput = true)
         {
             // Content can shrink under a position that was valid on the previous frame.
             _pos.x = Mathf.Clamp(_pos.x, 0f, max.x);
             _pos.y = Mathf.Clamp(_pos.y, 0f, max.y);
 
-            ClaimPrecise(outer, max);
+            _preciseInput = preciseInput;
+            if (_preciseInput) ClaimPrecise(outer, max);
             ClaimWheel(outer, max);
 
             _outer = outer;
@@ -95,7 +98,7 @@ namespace SlopWorld
 
         public void EndInput()
         {
-            SpendPrecise();
+            if (_preciseInput) SpendPrecise();
             SpendWheel();
         }
 
