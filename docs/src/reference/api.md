@@ -5,69 +5,22 @@ The daemon listens on `127.0.0.1:7717` (or the configured bind address). The mod
 
 ## HTTP
 
-Write operations use HTTP so the caller can inspect daemon error bodies.
+Write operations use HTTP so the caller can inspect daemon error bodies. The complete
+method, path, access, and handler inventory is generated in the
+[API route inventory](api-routes.md) from the daemon router.
 
-### Query routes
+Session and task routes support appropriately scoped grants; creating a session is root-only.
+Configuration, catalogs, filesystem operations, usage, audio, and private-state operations
+require the daemon's own token.
 
-| Route | Description |
-| --- | --- |
-| `/api/health` | Daemon version, hostname, and runtime metadata. |
-| `/api/capabilities` | Runtime flags: native audio, per-agent limits, sidecar mode. |
-| `/api/config` | Redacted daemon configuration text and its path. (Root-only.) |
-| `/api/projects` | Project catalog. (Root-only.) |
-| `/api/projects/:name` | One project. (Root-only.) |
-| `/api/shortcuts` | Shortcut and breadcrumb catalog. (Root-only.) |
-| `/api/sessions` | All sessions and their state. |
-| `/api/sessions/:name` | One session and its state. |
-| `/api/sessions/:name/cwd` | Agent's current working directory. |
-| `/api/tasks` | Tasks visible to the caller. |
-| `/api/tasks/:id` | One task visible to the caller. |
-| `/api/grants` | Active scoped-grant count. (Root-only.) |
-| `/api/usage` | Current quota windows. |
-| `/api/presets` | Sandbox and command presets. |
-| `/api/state` | Active, orphaned, and trashed private-state entries. (Root-only.) |
-| `/api/jukebox` | Jukebox state and station catalog. |
-| `/api/audio` | Current audio playback state. |
-| `/api/browse` | Directory listing. `files=1` for files, `hidden=1` for dotfiles, `limit` capped at 500. |
-| `/api/read` | Bounded UTF-8 file text (root-only). |
-| `/api/image` | Bounded base64 image bytes (root-only). |
-| `/api/search` | `rg`-based workspace search. Requires project path and query. Supports regex/case/word/hidden flags. Capped at 200 results. |
-| `/api/git` | Repository root, branch, per-file porcelain/numstat; large status streams are capped with `truncated`. Non-repositories return `repo: false`. |
-| `/api/open-apps` | Host desktop applications associated with a path. |
-| `/api/clipboard` | GET reads host CLIPBOARD; POST writes it. `/api/clipboard/text` is text-only. |
+Clipboard routes use `/api/clipboard` for CLIPBOARD and `/api/clipboard/primary` for the
+Wayland/X11 PRIMARY selection. Their `/text` variants read text without image data.
 
-PRIMARY selection uses `/primary` in place of `/clipboard`; both read and write routes are
-available, with `/primary/text` as the text-only read route.
-
-### Write routes
-
-| Route | Method | Description |
-| --- | --- | --- |
-| `/api/sessions` | POST | Create a session (root-only). |
-| `/api/sessions/:name` | PUT, DELETE | Modify or remove a session. |
-| `/api/sessions/:name/label` | PUT | Set a session display label. |
-| `/api/sessions/:name/start` | POST | Start a session. |
-| `/api/sessions/:name/stop` | POST | Stop a session. |
-| `/api/sessions/:name/restart` | POST | Restart a session. |
-| `/api/sessions/:name/state/reset` | POST | Reset a session state. |
-| `/api/projects` | POST | Create a project. |
-| `/api/projects/:name` | PUT, DELETE | Modify or remove a project. |
-| `/api/shortcuts` | POST | Create a shortcut. |
-| `/api/shortcuts/:name` | PUT, DELETE | Modify or remove a shortcut. |
-| `/api/shortcuts/:name/run` | POST | Run a prompt or shell shortcut as an ephemeral session. |
-| `/api/grants` | POST | Mint a scoped grant (root-only). |
-| `/api/grants/:grantor` | DELETE | Revoke grants for a grantor (root-only). |
-| `/api/config` | PUT | Replace configuration. |
-| `/api/config/patch` | PUT | Deep-merge JSON into configuration. Omitted fields are preserved. |
-| `/api/instructions/preview` | POST | Render an unsaved `SLOPWORLD.md` template for a project. |
-| `/api/run` | POST | Create an ephemeral errand. See below. |
-| `/api/file-action` | POST | Run a bounded non-interactive command in a project sandbox or on the host (root-only). |
-| `/api/highlight` | POST | Syntax-highlight code via host highlighter (root-only). |
-| `/api/files` | POST, PUT, DELETE | Create, rename, or delete private-state files (root-only). |
-| `/api/tasks` | POST, DELETE | Create a task or prune tasks. |
-| `/api/tasks/:id` | POST, DELETE | Update or remove a task. |
-| `/api/state/:kind/:key` | DELETE | Permanently delete an orphan or trashed private-state entry (root-only). |
-| `/api/state/trash/:key/restore` | POST | Restore a trashed entry while its agent still exists (root-only). |
+Workspace reads use the browse, read, image, search, and Git routes. Browse returns directory
+entries, accepts file, hidden, gitignore, and limit flags, and caps the limit at 500. Read
+returns bounded UTF-8 text; image returns bounded image bytes. Search requires a project path
+and query, supports regex, case, word, hidden, and gitignore flags, and caps results at 200.
+Git returns repository status or `repo: false` when the path is not a repository.
 
 ### Ephemeral errands
 
@@ -85,8 +38,8 @@ Reset moves agent private state to 14-day trash. Root-only inventory reports act
 orphan, and trash entries with sizes. Permanent deletion is limited to orphan and trash
 entries. Restore works only while the agent exists without a replacement tree.
 
-The inventory is returned by `GET /api/state`. Reset uses the session state route in the
-write table; deletion and restore use the `/api/state` routes listed there.
+The list is returned by `GET /api/state`. Reset uses the session state route; deletion and
+restore use the `/api/state` routes in the generated inventory.
 
 ### Configuration patching
 

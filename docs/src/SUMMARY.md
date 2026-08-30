@@ -33,6 +33,7 @@
 - [Paths and files](./reference/paths.md)
 - [Integrations](./reference/integrations.md)
 - [API](./reference/api.md)
+- [API route inventory](./reference/api-routes.md)
 - [Keyboard shortcuts](./reference/keyboard-shortcuts.md)
 - [Security model](./reference/security.md)
 - [Troubleshooting](./reference/troubleshooting.md)

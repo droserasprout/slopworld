@@ -63,9 +63,8 @@ Zero is rejected.
 
 ## Escape warnings
 
-Non-empty `escapes` text on a preset marks a capability that reaches back toward the host —
-Docker, D-Bus, X11, SSH agent, or 1Password. The warning appears when an agent uses that
-preset.
+Non-empty `escapes` text on a preset marks a capability that reaches back toward the host.
+The warning appears when an agent uses that preset.
 
 ## Remaining exposure
 

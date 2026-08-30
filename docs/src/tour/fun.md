@@ -15,10 +15,9 @@ drop pods with a short opening delay.
 
 ## Agent titles
 
-The daemon can summarize agent prompts into short titles using an OpenRouter model. Codex
-supports `never`, `once`, and `always` policies; Pi defaults to `always`. Host terminal
-commands get a separate on/off toggle. Titles are cached in `prompt-summaries.toml` and
-survive daemon restarts.
+The daemon can summarize agent prompts into short titles using an OpenRouter model. The
+Summaries settings page controls per-CLI policies and host terminal commands separately.
+Titles are cached in `prompt-summaries.toml` and survive daemon restarts.
 
 ## Jukebox
 

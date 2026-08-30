@@ -21,8 +21,7 @@ directory is always mounted read-write inside the sandbox.
 ## Agents
 
 Each agent belongs to a project and names a command preset. The command preset
-identifies the software (Claude Code, Codex, OpenCode, Pi, or a shell) so the sandbox
-can mount the right configuration paths.
+identifies the software so the sandbox can mount its configuration paths.
 
 | Field | Description |
 | --- | --- |
@@ -72,9 +71,9 @@ the body and breadcrumb; reset changes the pending form and **Save** applies it.
 
 ## Command presets
 
-A command preset names a piece of software. Builtins exist for Codex, Claude Code,
-OpenCode, Pi, and the shell family (bash, zsh, fish, Nushell, pwsh). User presets in
-`~/.config/slopworld/presets/*.toml` replace builtins by name.
+A command preset names a piece of software. The Settings > Commands page lists the
+built-in agent and shell presets. User presets in `~/.config/slopworld/presets/*.toml`
+replace builtins by name.
 
 A file may define `[[command]]`, `[[sandbox]]`, or both. The `global.toml` sandbox
 preset is implicit and precedes all others. See

@@ -38,9 +38,9 @@ network stack, including local services.
 
 ### What are escape warnings? {#escapes}
 
-A non-empty `escapes` field on a preset means that preset exposes a host capability
-such as Docker, D-Bus, X11, the SSH agent, or 1Password. The warning appears in the
-agent editor when the preset is selected.
+A non-empty `escapes` field on a preset means that preset exposes a capability that
+reaches back toward the host. The warning appears in the agent editor when the preset
+is selected.
 
 ## Agents and sessions
 
