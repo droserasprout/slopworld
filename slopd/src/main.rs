@@ -18,6 +18,8 @@ mod tasks;
 mod title;
 mod tmux;
 mod usage;
+#[cfg(test)]
+mod version;
 
 use std::sync::Arc;
 use std::time::Duration;

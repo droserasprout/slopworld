@@ -6,7 +6,7 @@
 - **Mono** (`csc`) — compiles the mod. The .NET SDK is optional and used only for `dotnet format`.
 - **GNU Make** — all targets go through the Makefile. On macOS, install GNU Make with `brew install make` and use `gmake`.
 
-Set `RIMWORLD` to the game directory (the folder containing `RimWorldLinux`). The mod links against assemblies in `Managed/`, so a real install is required.
+Set `RIMWORLD` to the Linux game directory (the folder containing `RimWorldLinux`). The mod links against assemblies in `Managed/`, so a real install is required.
 
 ## Targets
 
@@ -20,7 +20,7 @@ Set `RIMWORLD` to the game directory (the folder containing `RimWorldLinux`). Th
 | `test` | Runs `cargo test`, the game-free C# tests, and the prose linter tests. |
 | `format` | Formats both halves. `-daemon` and `-mod` variants exist. |
 | `lint` | Lints both halves. `-daemon` and `-mod` variants exist. |
-| `install` | Installs the daemon binary, systemd unit, runner, and mod. |
+| `install` | Installs the daemon binary, systemd unit, runner, and mod using the tested Rust mod installer. |
 | `clean` | Removes build output. |
 
 ## Build modes

@@ -39,6 +39,8 @@
 | `open.rs` | Opening a URL on the host. |
 | `bin/slopworld.rs` | The launcher - see [profile](profile.md). |
 | `bin/slopctl.rs` | The host/task CLI; `slopctl logs` reads the game file and daemon journal locally. |
+| `bin/slopmod.rs` | The tested host-side mod installer; stages `Mods/SlopWorld` and refuses unsafe roots or source overlap. |
+| `version.rs` | Pure build-version policy shared by Cargo's build script and its tests. |
 
 `config.toml` is re-read whenever its mtime moves, on a two-second check and
 ahead of every mutating call. A file that does not parse is complained about once.

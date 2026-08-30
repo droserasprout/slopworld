@@ -3,10 +3,14 @@
 RimWorld keeps saves, prefs and the mod list in one folder per install, so this
 mod gets a save-data folder of its own plus a launcher that makes it.
 
-`slopd/src/bin/slopworld.rs` finds the game (`--game`, `$SLOPWORLD_GAME`, four
-usual paths) and the profile (`--profile`, `$SLOPCAR_PROFILE`, `$SLOPWORLD_PROFILE`, XDG),
-seeds it, and runs `RimWorldLinux -savedatafolder=<profile>` with the default window-fix
-arguments.
+`slopd/src/bin/slopworld.rs` finds the Linux game (`--game`, `$SLOPWORLD_GAME`, four
+usual paths) or accepts an explicit executable with `--game-exe`, and finds the profile
+(`--profile`, `$SLOPCAR_PROFILE`, `$SLOPWORLD_PROFILE`, XDG). It seeds the profile and
+waits on the game with `-savedatafolder=<profile>`; native macOS runs provide the app's
+executable, working directory and Mods directory explicitly.
+
+`--init-profile` performs only the profile seeding step. The macOS Makefile target uses
+that mode, so profile creation and launch share the same Rust implementation and tests.
 Our flags are `--long`, the game's are `-single`, so an unknown `--word` is a typo
 rather than something to forward; `--` ends ours. `--no-window-fix` omits the
 defaults for an alternate windowing setup.

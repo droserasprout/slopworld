@@ -53,8 +53,10 @@ without Git retain the `0.1.0` fallback version.
 coverage also needs `llvm-cov` and `llvm-profdata` from the same LLVM release as
 the compiler.
 
-`install-mod` copies loose folders, so a new top-level folder under `mod/` needs
-adding to that line.
+`install-mod` uses the tested `slopmod` Rust helper. It stages the six shipped mod
+directories beside the destination, replaces only `Mods/SlopWorld`, and refuses a
+filesystem root or a destination inside the source tree. Update `slopd/src/bin/slopmod.rs`
+if the mod gains another top-level directory.
 
 `devloop-sidecar` passes `SLOPCAR_CONFIG_DIR` to `slopcar start`, keeping the container's
 `endpoint.toml` in the same sidecar config directory that the game launcher reads.

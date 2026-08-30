@@ -88,8 +88,6 @@ DOTNET      ?= dotnet
 PYTHON      ?= python3
 CSC         ?= csc
 CSC_API     ?= /usr/lib/mono/4.7.2-api
-PACKAGE_VERSION := $(shell sed -n 's/^version = "\([^"]*\)"/\1/p' slopd/Cargo.toml | head -n1)
-VERSION         := $(shell tools/version.sh "$(PACKAGE_VERSION)")
 CSC_SOURCES = $(shell find mod/Source/SlopWorld -type f -name '*.cs' -not -path '*/obj/*' -print | sort)
 CSC_REFS    = \
 	-r:"$(CSC_API)/mscorlib.dll" \
@@ -109,8 +107,6 @@ CSC_OPTIMIZE = $(if $(filter release,$(BUILD)),-optimize+,)
 CSC_WARNINGS ?=
 MOD_DLL      := mod/Assemblies/SlopWorld.dll
 MOD_ASSEMBLY_INFO := mod/Source/SlopWorld/obj/AssemblyInfo.cs
-MOD_INSTALL  = $(MODS)/SlopWorld
-MOD_DIRS     := About Defs Patches Sounds Textures Assemblies
 TEST_PROJECT := mod/Tests/SlopWorld.Tests.csproj
 TEST_DLL     := mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll
 COVERAGE_DIR := coverage
@@ -202,16 +198,18 @@ mac-sidecar-logs: mac-docker-check ## Show macOS sidecar logs; pass LOG_ARGS='--
 all: daemon mod   ## Build both halves
 
 daemon:            ## Build the daemon and the launcher
-	cd slopd && SLOPWORLD_BUILD_VERSION="$(VERSION)" $(CARGO) build $(CARGOFLAGS)
+	cd slopd && $(if $(VERSION),SLOPWORLD_BUILD_VERSION="$(VERSION)",) $(CARGO) build $(CARGOFLAGS)
 
-mod:               ## Build the mod against the game's assemblies
+mod: daemon        ## Build the mod against the game's assemblies
 	@test -f "$(CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(CSC_API)" >&2; exit 1; }
 	@test -f "$(MANAGED)/Assembly-CSharp.dll" || { echo "missing RimWorld assemblies under $(MANAGED)" >&2; exit 1; }
-	@mkdir -p "$(dir $(MOD_ASSEMBLY_INFO))"
-	@{ \
+	@version="$(VERSION)"; \
+	if test -z "$$version"; then version="$$("$(RUNNER)" --version)"; fi; \
+	mkdir -p "$(dir $(MOD_ASSEMBLY_INFO))"; \
+	{ \
 		printf '%s\n' \
 			'using System.Reflection;' \
-			'[assembly: AssemblyInformationalVersion("$(VERSION)")]'; \
+			"[assembly: AssemblyInformationalVersion(\"$$version\")]"; \
 	} > "$(MOD_ASSEMBLY_INFO)"
 	$(CSC) -nologo -noconfig -target:library -langversion:latest \
 		-out:"$(MOD_DLL)" $(CSC_OPTIMIZE) $(CSC_WARNINGS) \
@@ -338,11 +336,7 @@ install-runner: daemon ## Install the launcher beside the daemon
 	@echo "installed to $(BIN)/slopworld"
 
 install-mod: mod       ## Install the mod into the game's Mods folder
-	@test -n "$(MODS)" && test "$(MODS)" != / || { echo "MODS is empty or unsafe, refusing to remove anything"; exit 1; }
-	rm -rf "$(MOD_INSTALL)"
-	mkdir -p "$(MOD_INSTALL)"
-	cp -r $(MOD_DIRS:%=mod/%) "$(MOD_INSTALL)/"
-	@echo "installed to $(MOD_INSTALL)"
+	"$(TARGET)/slopmod" --source mod --mods "$(MODS)"
 
 mac-mod: mac-game-check mod ## Build SlopWorld.dll against native macOS RimWorld
 mac-mod: override CSC := $(MAC_CSC)
@@ -355,8 +349,8 @@ mac-install: override CSC_API := $(MAC_CSC_API)
 mac-install: override MANAGED := $(MAC_MANAGED)
 mac-install: override MODS := $(MAC_MODS)
 
-mac-profile:      ## Create the isolated native macOS sidecar profile if it is absent
-	MAC_PROFILE="$(MAC_PROFILE)" tools/mac-profile.sh
+mac-profile: daemon ## Create the isolated native macOS sidecar profile if it is absent
+	"$(RUNNER)" --profile "$(MAC_PROFILE)" --init-profile --sidecar
 
 ##
 
@@ -376,10 +370,8 @@ uninstall-runner:  ## Remove the launcher
 	rm -f "$(BIN)/slopworld"
 	@echo "removed $(BIN)/slopworld"
 
-uninstall-mod:     ## Remove the installed mod folder
-	@test -n "$(MODS)" && test "$(MODS)" != / || { echo "MODS is empty or unsafe, refusing to remove anything"; exit 1; }
-	rm -rf "$(MOD_INSTALL)"
-	@echo "removed $(MOD_INSTALL)"
+uninstall-mod: daemon ## Remove the installed mod folder
+	"$(TARGET)/slopmod" --mods "$(MODS)" --uninstall
 
 ##
 ##-> Run
@@ -396,12 +388,12 @@ run-slopcar: daemon ## Run a separate profile against the running slopcar daemon
 mac-sidecar-ready: mac-sidecar-build
 	$(SLOPCAR_ENV) tools/mac-sidecar-start.sh $(SLOPCAR_START_ARGS)
 
-mac-run: mac-game-check mac-profile mac-mod-check mac-sidecar-ready ## Start the macOS sidecar and launch native RimWorld
-	@test -f "$(SLOPCAR_ENDPOINT)" || { echo "missing sidecar endpoint: $(SLOPCAR_ENDPOINT)" >&2; exit 1; }
+mac-run: mac-game-check mac-mod-check mac-sidecar-ready ## Start the macOS sidecar and launch native RimWorld
 	@echo "launching native macOS RimWorld against $(SLOPCAR_ENDPOINT)"
-	@cd "$(MAC_RESOURCES)" && \
-		SLOPD_ENDPOINT="$(SLOPCAR_ENDPOINT)" \
-		"$(MAC_GAME)" "-savedatafolder=$(MAC_PROFILE)" $(MAC_GAME_ARGS)
+	SLOPD_ENDPOINT="$(SLOPCAR_ENDPOINT)" \
+	SLOPCAR_PROFILE="$(MAC_PROFILE)" \
+	"$(RUNNER)" --game-exe "$(MAC_GAME)" --working-dir "$(MAC_RESOURCES)" \
+		--mods "$(MAC_MODS)" --profile "$(MAC_PROFILE)" --no-window-fix -- $(MAC_GAME_ARGS)
 
 mac-mod-check:
 	@test -f "$(MAC_MODS)/SlopWorld/About/About.xml" || { echo "missing SlopWorld mod; run gmake mac-install" >&2; exit 1; }
