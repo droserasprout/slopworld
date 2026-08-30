@@ -57,6 +57,9 @@ namespace SlopWorld
             data.Fields.Add(new SandboxPreviewField("DNS",
                 new List<string> { effectiveDns.Label }));
             if (agent != null)
+                data.Fields.Add(new SandboxPreviewField("Joined breadcrumbs",
+                    JoinedBreadcrumbs(project, agent, hub.Shortcuts)));
+            if (agent != null)
                 data.Fields.Add(new SandboxPreviewField("Resource limits",
                     LimitLines(agent.Limits)));
             data.Fields.Add(new SandboxPreviewField("Read-only binds", ro));
@@ -83,6 +86,33 @@ namespace SlopWorld
             data.Fields.Add(new SandboxPreviewField("Set environment (final)",
                 FinalEnvironment(presets)));
             return data;
+        }
+
+        // The daemon resolves named project attachments before named agent attachments, keeping
+        // the first occurrence of a name. Show the resulting named breadcrumb text block.
+        static List<string> JoinedBreadcrumbs(ProjectInfo project, SessionInfo agent,
+                                              List<ShortcutInfo> shortcuts)
+        {
+            var names = new List<string>();
+            AddBreadcrumbNames(names, project?.Breadcrumbs);
+            AddBreadcrumbNames(names, agent?.Breadcrumbs);
+
+            var text = names
+                .Select(name => shortcuts.FirstOrDefault(s => s.Name == name &&
+                    s.Kind == ShortcutKind.Breadcrumb)?.Text)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .ToList();
+            return text.Count == 0
+                ? new List<string>()
+                : new List<string> { string.Join("\n", text.ToArray()) };
+        }
+
+        static void AddBreadcrumbNames(List<string> names, IEnumerable<string> attached)
+        {
+            if (attached == null) return;
+            foreach (string name in attached)
+                if (!names.Contains(name)) names.Add(name);
         }
 
         static List<string> LimitLines(SessionLimits limits)
