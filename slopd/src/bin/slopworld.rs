@@ -43,9 +43,16 @@ usage: slopworld [options] [-- ] [game args...]
 
 options:
   --game DIR       RimWorld install (default $SLOPWORLD_GAME, then the usual places)
+  --game-exe FILE  explicit game executable (for native macOS app bundles)
+  --working-dir DIR
+                   working directory for the game process
+  --mods DIR       mod directory to validate (required with a non-Linux game layout)
   --profile DIR    save data folder to use or create
                    (default $SLOPCAR_PROFILE, $SLOPWORLD_PROFILE, then $XDG_DATA_HOME/slopworld/profile)
+  --init-profile   create or repair the profile, then exit without starting the game
+  --sidecar        use the sidecar UI default while initializing the profile
   --reset          rewrite the profile's mod list, discarding what is there
+  --version        print the embedded SlopWorld version
   --print          print the argv this would run, and run nothing
   --no-window-fix  omit SlopWorld's default X11/OpenGL window arguments
   -h, --help       this
@@ -66,6 +73,10 @@ fn main() -> ExitCode {
 
 fn run() -> Result<ExitCode, String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.len() == 1 && args[0] == "--version" {
+        println!("{}", env!("SLOPWORLD_VERSION"));
+        return Ok(ExitCode::SUCCESS);
+    }
     let args = match parse(&args)? {
         Some(a) => a,
         None => {
@@ -74,8 +85,6 @@ fn run() -> Result<ExitCode, String> {
         }
     };
 
-    let sidecar = sidecar_paths()?;
-    let game = game_dir(args.game.as_deref())?;
     let profile = profile_dir(args.profile.as_deref())?;
 
     // The game splits this argument on `=` into exactly two halves, so a path with one in it
@@ -87,10 +96,24 @@ fn run() -> Result<ExitCode, String> {
         ));
     }
 
+    if args.init_profile {
+        let _instance = InstanceLock::acquire(&launcher_lock_path(&profile))?;
+        seed(&profile, args.reset, args.sidecar)?;
+        println!("slopworld: profile initialized: {}", profile.display());
+        return Ok(ExitCode::SUCCESS);
+    }
+
+    let sidecar = sidecar_paths()?;
+    let (executable, mods) = game_target(
+        args.game.as_deref(),
+        args.game_exe.as_deref(),
+        args.mods.as_deref(),
+    )?;
+
     // Listing a mod that is not on disk is how a profile comes up looking vanilla:
     // the game drops the id, writes the shorter list back, and nothing says why.
-    let installed = game.join("Mods/SlopWorld/About/About.xml");
-    if !installed.exists() {
+    let installed = mods.join("SlopWorld/About/About.xml");
+    if !installed.is_file() {
         return Err(format!(
             "the mod is not installed in this game: {} is missing (make install-mod)",
             installed.display()
@@ -107,17 +130,17 @@ fn run() -> Result<ExitCode, String> {
     if !args.print {
         if let Some(pid) = game_process_running(&profile)? {
             return Err(format!(
-                "RimWorldLinux is already running as PID {pid}; refusing to launch a second copy"
+                "the game is already running as PID {pid}; refusing to launch a second copy"
             ));
         }
     }
 
-    seed(&profile, args.reset, sidecar.is_some())?;
+    seed(&profile, args.reset, args.sidecar || sidecar.is_some())?;
     if sidecar.is_some() {
         println!("slopworld: slopcar profile: {}", profile.display());
     }
 
-    let argv = game_argv(&game, &profile, &args.rest, args.no_window_fix);
+    let argv = game_argv(&executable, &profile, &args.rest, args.no_window_fix);
     if args.print {
         for a in &argv {
             println!("{a}");
@@ -126,6 +149,16 @@ fn run() -> Result<ExitCode, String> {
     }
 
     let mut command = Command::new(&argv[0]);
+    if let Some(working_dir) = args.working_dir.as_deref() {
+        let working_dir = PathBuf::from(expand(working_dir));
+        if !working_dir.is_dir() {
+            return Err(format!(
+                "game working directory does not exist: {}",
+                working_dir.display()
+            ));
+        }
+        command.current_dir(working_dir);
+    }
     if let Some(sidecar) = &sidecar {
         // The Makefile may receive a literal `~`; the game/mod does not perform shell
         // expansion, so pass the resolved path to the child process.
@@ -312,7 +345,12 @@ fn game_process_running(_profile: &Path) -> Result<Option<u32>, String> {
 #[derive(Debug, Default, PartialEq)]
 struct Args {
     game: Option<String>,
+    game_exe: Option<String>,
+    working_dir: Option<String>,
+    mods: Option<String>,
     profile: Option<String>,
+    init_profile: bool,
+    sidecar: bool,
     reset: bool,
     print: bool,
     no_window_fix: bool,
@@ -342,7 +380,12 @@ fn parse(args: &[String]) -> Result<Option<Args>, String> {
         match flag {
             "-h" | "--help" => return Ok(None),
             "--game" => out.game = Some(value(&mut it)?),
+            "--game-exe" => out.game_exe = Some(value(&mut it)?),
+            "--working-dir" => out.working_dir = Some(value(&mut it)?),
+            "--mods" => out.mods = Some(value(&mut it)?),
             "--profile" => out.profile = Some(value(&mut it)?),
+            "--init-profile" => out.init_profile = true,
+            "--sidecar" => out.sidecar = true,
             "--reset" => out.reset = true,
             "--print" => out.print = true,
             "--no-window-fix" => out.no_window_fix = true,
@@ -391,17 +434,73 @@ fn game_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
     ))
 }
 
+fn game_target(
+    game: Option<&str>,
+    game_exe: Option<&str>,
+    mods: Option<&str>,
+) -> Result<(PathBuf, PathBuf), String> {
+    let (executable, default_mods) = match game_exe {
+        Some(path) => {
+            let executable = PathBuf::from(expand(path));
+            if !executable.is_file() {
+                return Err(format!(
+                    "game executable does not exist: {}",
+                    executable.display()
+                ));
+            }
+            let default_mods = executable
+                .parent()
+                .and_then(|macos| {
+                    (macos.file_name() == Some(OsStr::new("MacOS")))
+                        .then(|| macos.parent())
+                        .flatten()
+                })
+                .and_then(|contents| {
+                    (contents.file_name() == Some(OsStr::new("Contents")))
+                        .then(|| contents.parent())
+                        .flatten()
+                })
+                .map(|app| app.join("Mods"))
+                .or_else(|| executable.parent().map(|parent| parent.join("Mods")))
+                .ok_or_else(|| {
+                    format!("game executable has no parent: {}", executable.display())
+                })?;
+            (executable, default_mods)
+        }
+        None => {
+            let game = game_dir(game)?;
+            (game.join(EXE), game.join("Mods"))
+        }
+    };
+
+    let mods = mods
+        .map(|path| PathBuf::from(expand(path)))
+        .unwrap_or(default_mods);
+    Ok((executable, mods))
+}
+
 /// XDG, because a profile is state rather than config: it is saves, screenshots and
 /// a mod list, and none of it is worth backing up with your dotfiles.
 fn profile_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
-    let named = explicit
-        .map(str::to_string)
-        .or_else(|| option_env_nonempty("SLOPCAR_PROFILE"))
-        .or_else(|| option_env_nonempty("SLOPWORLD_PROFILE"));
+    profile_dir_from(
+        explicit,
+        option_env_nonempty("SLOPCAR_PROFILE").as_deref(),
+        option_env_nonempty("SLOPWORLD_PROFILE").as_deref(),
+        option_env_nonempty("XDG_DATA_HOME").as_deref(),
+    )
+}
+
+fn profile_dir_from(
+    explicit: Option<&str>,
+    sidecar: Option<&str>,
+    native: Option<&str>,
+    xdg_data: Option<&str>,
+) -> Result<PathBuf, String> {
+    let named = explicit.or(sidecar).or(native);
     let dir = match named {
-        Some(d) => PathBuf::from(expand(&d)),
-        None => match option_env_nonempty("XDG_DATA_HOME") {
-            Some(x) => PathBuf::from(expand(&x)).join("slopworld/profile"),
+        Some(d) => PathBuf::from(expand(d)),
+        None => match xdg_data {
+            Some(x) => PathBuf::from(expand(x)).join("slopworld/profile"),
             None => PathBuf::from(expand("~/.local/share/slopworld/profile")),
         },
     };
@@ -423,12 +522,22 @@ struct SidecarPaths {
 /// endpoint validation here with the profile setup so callers do not need shell glue before
 /// starting RimWorld.
 fn sidecar_paths() -> Result<Option<SidecarPaths>, String> {
-    if option_env_nonempty("SLOPCAR_PROFILE").is_none() {
+    sidecar_paths_from(
+        option_env_nonempty("SLOPCAR_PROFILE").as_deref(),
+        option_env_nonempty("SLOPD_ENDPOINT").as_deref(),
+    )
+}
+
+fn sidecar_paths_from(
+    profile: Option<&str>,
+    endpoint: Option<&str>,
+) -> Result<Option<SidecarPaths>, String> {
+    if profile.is_none() {
         return Ok(None);
     }
 
-    let endpoint = option_env_nonempty("SLOPD_ENDPOINT")
-        .map(|path| PathBuf::from(expand(&path)))
+    let endpoint = endpoint
+        .map(|path| PathBuf::from(expand(path)))
         .ok_or_else(|| {
             "SLOPCAR_PROFILE is set but SLOPD_ENDPOINT is missing; start the sidecar first"
                 .to_string()
@@ -611,6 +720,62 @@ mod tests {
     #[test]
     fn a_missing_value_is_refused() {
         assert!(parse(&["--game".to_string()]).is_err());
+    }
+
+    #[test]
+    fn explicit_profiles_take_precedence_over_sidecar_native_and_xdg_defaults() {
+        assert_eq!(
+            profile_dir_from(
+                Some("/explicit"),
+                Some("/sidecar"),
+                Some("/native"),
+                Some("/data")
+            )
+            .unwrap(),
+            PathBuf::from("/explicit")
+        );
+        assert_eq!(
+            profile_dir_from(None, Some("/sidecar"), Some("/native"), Some("/data")).unwrap(),
+            PathBuf::from("/sidecar")
+        );
+        assert_eq!(
+            profile_dir_from(None, None, Some("/native"), Some("/data")).unwrap(),
+            PathBuf::from("/native")
+        );
+        assert_eq!(
+            profile_dir_from(None, None, None, Some("/data")).unwrap(),
+            PathBuf::from("/data/slopworld/profile")
+        );
+    }
+
+    #[test]
+    fn sidecar_endpoint_is_required_and_must_exist() {
+        assert!(sidecar_paths_from(Some("/profile"), None).is_err());
+        let root = scratch("endpoint");
+        std::fs::create_dir_all(&root).unwrap();
+        let endpoint = root.join("endpoint.toml");
+        std::fs::write(&endpoint, "url = \"http://127.0.0.1:7718\"\n").unwrap();
+        assert_eq!(
+            sidecar_paths_from(Some("/profile"), endpoint.to_str())
+                .unwrap()
+                .unwrap()
+                .endpoint,
+            endpoint
+        );
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn an_explicit_mac_game_uses_the_app_mods_directory() {
+        let root = scratch("mac-game");
+        let app = root.join("RimWorld.app");
+        let executable = app.join("Contents/MacOS/RimWorld by Ludeon Studios");
+        std::fs::create_dir_all(executable.parent().unwrap()).unwrap();
+        std::fs::write(&executable, "game").unwrap();
+        let (found, mods) = game_target(None, executable.to_str(), None).unwrap();
+        assert_eq!(found, executable);
+        assert_eq!(mods, app.join("Mods"));
+        std::fs::remove_dir_all(root).ok();
     }
 
     #[test]

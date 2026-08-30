@@ -32,8 +32,9 @@ for a Steam or other install:
 MAC_RIMWORLD=/path/to/RimWorld.app gmake mac
 ```
 
-The game uses a separate SlopWorld profile. `mac-run` launches the native game directly;
-the Linux `slopworld` launcher is not used on macOS.
+The game uses a separate SlopWorld profile. `mac-run` uses the Rust `slopworld` launcher
+with the native app executable, working directory, Mods directory and sidecar endpoint
+passed explicitly, so profile seeding and launch safety stay shared with Linux.
 
 ## Updating
 

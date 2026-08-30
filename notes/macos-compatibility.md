@@ -20,9 +20,9 @@ external dependencies remain Linux-specific:
 - `systemd-run` enforces per-agent limits; `systemctl` and journald serve installation and logs.
 - `gio`/`gdbus`, Wayland/X11 clipboard programs and the ALSA device policy provide host UI and
   audio integration.
-- The Linux Makefile targets, launcher, game discovery, profile defaults and log paths still name
-  the Linux build. The separate `mac-*` targets know the native app-bundle paths and launch
-  the native macOS executable directly.
+- The Linux Makefile targets, launcher defaults and log paths still name the Linux build. The
+  separate `mac-*` targets know the native app-bundle paths and pass the native executable,
+  working directory and mod directory to the same Rust launcher.
 
 `tools/check-reqs.json` should distinguish build, core runtime and optional integration
 requirements. The C# build dependency is Mono's `csc`, matching the Makefile; the .NET SDK
