@@ -12,6 +12,7 @@ namespace SlopWorld.Tests
             yield return ("rejects a frame from an older live sequence", RejectsOldSequence);
             yield return ("plans covered views without replacing the cache", CoversViews);
             yield return ("ignores empty frames and prunes distant history", IgnoresEmptyAndPrunes);
+            yield return ("quantizes prefetch windows in both directions", QuantizesPrefetch);
         }
 
         static ScreenBuf Frame(int off, params string[] lines) => new ScreenBuf
@@ -114,6 +115,22 @@ namespace SlopWorld.Tests
                 }, null, 1);
 
             AssertEx.True(history.Covers(1, false), "nearest history survives pruning");
+        }
+
+        static void QuantizesPrefetch()
+        {
+            AssertEx.Equal(20, TerminalHistory.PrefetchAnchor(1, 20, true, 10_000),
+                "first upward gesture fetches one reusable window");
+            AssertEx.Equal(20, TerminalHistory.PrefetchAnchor(10, 20, true, 10_000),
+                "upward probe stays stable through half the window");
+            AssertEx.Equal(40, TerminalHistory.PrefetchAnchor(11, 20, true, 10_000),
+                "upward probe advances at the midpoint");
+            AssertEx.Equal(1_980, TerminalHistory.PrefetchAnchor(2_000, 20, false, 10_000),
+                "downward probe looks toward live output");
+            AssertEx.Equal(1_980, TerminalHistory.PrefetchAnchor(1_990, 20, false, 10_000),
+                "downward probe remains on its boundary");
+            AssertEx.Equal(0, TerminalHistory.PrefetchAnchor(5, 20, false, 10_000),
+                "downward probe joins the live viewport");
         }
     }
 }

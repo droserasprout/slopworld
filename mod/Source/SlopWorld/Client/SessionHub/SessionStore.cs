@@ -13,7 +13,8 @@ namespace SlopWorld
         public List<SessionInfo> Sessions = new List<SessionInfo>();
 
         readonly Dictionary<string, ScreenBuf> _screens = new Dictionary<string, ScreenBuf>();
-        readonly Dictionary<string, ScreenBuf> _scrolls = new Dictionary<string, ScreenBuf>();
+        readonly Dictionary<string, Queue<ScreenBuf>> _scrolls =
+            new Dictionary<string, Queue<ScreenBuf>>();
         // The daemon's sessions event can arrive before the HTTP response that confirms a
         // rename. Keep the old name marked until that response settles so the terminal does not
         // mistake the expected gap for an exited session.
@@ -29,8 +30,14 @@ namespace SlopWorld
         public ScreenBuf Screen(string name) =>
             _screens.TryGetValue(name, out var s) ? s : null;
 
-        public ScreenBuf ScrollScreen(string name) =>
-            _scrolls.TryGetValue(name, out var s) ? s : null;
+        public bool TryScrollScreen(string name, out ScreenBuf screen)
+        {
+            screen = null;
+            if (!_scrolls.TryGetValue(name, out var pending) || pending.Count == 0)
+                return false;
+            screen = pending.Dequeue();
+            return true;
+        }
 
         // Apply the local half of a successful rename before the refresh it starts. The
         // terminal can then change its binding immediately without EnsureSession mistaking
@@ -54,7 +61,7 @@ namespace SlopWorld
             if (found) _sessionsVersion++;
         }
 
-        static void Move(Dictionary<string, ScreenBuf> store, string oldName, string newName)
+        static void Move<T>(Dictionary<string, T> store, string oldName, string newName)
         {
             if (!store.TryGetValue(oldName, out var screen)) return;
             store.Remove(oldName);
@@ -89,7 +96,9 @@ namespace SlopWorld
                 // off=0 but keeps its request id, and must not overwrite the streamed live frame.
                 var history = new ScreenBuf();
                 history.FromJson(screen);
-                _scrolls[name] = history;
+                if (!_scrolls.TryGetValue(name, out var pending))
+                    _scrolls[name] = pending = new Queue<ScreenBuf>();
+                pending.Enqueue(history);
                 return;
             }
 
@@ -109,7 +118,7 @@ namespace SlopWorld
             Prune(_scrolls);
         }
 
-        void Prune(Dictionary<string, ScreenBuf> store)
+        void Prune<T>(Dictionary<string, T> store)
         {
             if (store.Count == 0) return;
             List<string> gone = null;

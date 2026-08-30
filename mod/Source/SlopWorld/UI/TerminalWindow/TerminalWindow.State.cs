@@ -92,11 +92,6 @@ namespace SlopWorld
         bool _historyRefreshPending;
         readonly TerminalHistory _history = new TerminalHistory();
         readonly Dictionary<ulong, int> _historyRequests = new Dictionary<ulong, int>();
-        // A scroll reply is sent to the socket that asked for it, but it can still arrive
-        // after this window has switched away and back to the same session. Do not let that
-        // old reply seed the new session visit; accepted ids remain valid for the current
-        // visit so the same immutable frame can be observed on later draw passes.
-        readonly HashSet<ulong> _historyResponses = new HashSet<ulong>();
         // Stable fallback while the first prefetched window for a new position is in flight.
         ScreenBuf _historyDisplayedFrame;
 
@@ -324,7 +319,6 @@ namespace SlopWorld
             _historyRefreshPending = false;
             _history.Reset();
             _historyRequests.Clear();
-            _historyResponses.Clear();
             _historyDisplayedFrame = null;
             RestoreScrollbackState(_name);
             if (_scrollOff > 0)
@@ -507,39 +501,41 @@ namespace SlopWorld
                 return live;
             }
 
-            var sb = hub.ScrollScreen(_name);
-            bool pending = sb != null && sb.ScrollRequestId != 0 &&
-                _historyRequests.ContainsKey(sb.ScrollRequestId);
-            int requestedOff = pending ? _historyRequests[sb.ScrollRequestId] : 0;
-            bool accepted = sb != null && sb.ScrollRequestId != 0 &&
-                (_historyResponses.Contains(sb.ScrollRequestId) || pending);
-            bool current = live == null || (sb != null && sb.Seq == live.Seq);
-            if (accepted && current)
+            // Several prefetched replies can arrive during one Unity frame. Drain all of
+            // them: replacing one reply with the next strands the discarded request id in
+            // `_historyRequests`, which can suppress the exact deep-history fetch now needed.
+            while (hub.TryScrollScreen(_name, out var sb))
             {
-                _historyResponses.Add(sb.ScrollRequestId);
-                _historyRequests.Remove(sb.ScrollRequestId);
-                _history.Add(sb, live, _scrollOff);
-                if (sb.History >= 0)
+                int requestedOff = 0;
+                bool pending = sb.ScrollRequestId != 0 &&
+                    _historyRequests.TryGetValue(sb.ScrollRequestId, out requestedOff);
+                bool current = live == null || sb.Seq == live.Seq;
+                if (pending && current)
                 {
-                    _historyTopOff = sb.History;
-                    ClampHistoryTarget();
+                    _historyRequests.Remove(sb.ScrollRequestId);
+                    _history.Add(sb, live, _scrollOff);
+                    if (sb.History >= 0)
+                    {
+                        _historyTopOff = sb.History;
+                        ClampHistoryTarget();
+                    }
+                    else if (sb.Off < requestedOff)
+                    {
+                        // Older daemons do not report the history extent. Their achieved
+                        // offset is still authoritative when the requested point was above
+                        // the real top.
+                        _historyTopOff = sb.Off;
+                        ClampHistoryTarget();
+                    }
+                    _historyRefreshPending = false;
                 }
-                else if (pending && sb.Off < requestedOff)
+                else if (pending)
                 {
-                    // Older daemons do not report the history extent. Their achieved
-                    // offset is still authoritative when the requested point was above
-                    // the real top.
-                    _historyTopOff = sb.Off;
-                    ClampHistoryTarget();
+                    // The emulator sequence is part of the coordinate system: a response
+                    // captured before a resize/output frame is not a valid answer for the
+                    // current bottom. Let the next target pass request it again.
+                    _historyRequests.Remove(sb.ScrollRequestId);
                 }
-                _historyRefreshPending = false;
-            }
-            else if (pending)
-            {
-                // The emulator sequence is part of the coordinate system: a response
-                // captured before a resize/output frame is not a valid answer for the
-                // current bottom. Let the next target pass request it again.
-                _historyRequests.Remove(sb.ScrollRequestId);
             }
 
             float cellH = TerminalFont.CellH;
@@ -641,7 +637,8 @@ namespace SlopWorld
             // locally instead of requiring one websocket round trip per row.
             int rows = Mathf.Max(2, live?.Rows ?? (_rows > 0 ? _rows : 24));
             int lookahead = Mathf.Max(2, rows / 2);
-            int probe = up ? Mathf.Min(MaxScrollLines, target + lookahead) : target;
+            int probe = TerminalHistory.PrefetchAnchor(
+                target, lookahead, up, MaxScrollLines);
             if (_historyTopOff >= 0) probe = Mathf.Min(probe, _historyTopOff);
             bool fractional = Mathf.Abs(pixels / cellH - Mathf.Round(pixels / cellH)) > 0.0001f;
             int request = -1;
@@ -784,6 +781,12 @@ namespace SlopWorld
         void SendPendingScroll()
         {
             if (!_scrollPending) return;
+
+            // The daemon reads this socket sequentially and awaits each capture. More than one
+            // in flight turns fast touchpad movement into a FIFO of obsolete viewports ahead of
+            // the current target. Keep the newest wanted offset pending until this reply drains.
+            if (_historyRequests.Count > 0) return;
+
             _scrollPending = false;
 
             if (_wantedScrollOff <= 0) return;

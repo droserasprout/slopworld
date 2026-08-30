@@ -41,7 +41,8 @@ undefined ([zsh-terminal](zsh-terminal.md)). On the primary screen, Shift+PgUp/P
 the mod's own scrollback by one viewport. Mouse-wheel scrollback uses `SmoothScroll`'s
 fractional local position. `TerminalHistory` indexes the overlapping rows in daemon viewport
 snapshots by their offset and assembles a local view with one overscan row; requests prefetch
-half a viewport in the gesture direction, so skipped integer offsets remain local. The daemon's
+on overlapping half-viewport boundaries in the gesture direction, so skipped integer offsets
+remain local without issuing a new capture for every fractional movement. The daemon's
 10,000-line history limit is the initial coordinate range; reaching the real top clamps it to
 the offset the daemon achieved. Live rows that scroll off the bottom advance the local offset,
 keeping the content being read anchored while fresh history is fetched. While scrolled back, a three-unit overlay bar at the pane's
