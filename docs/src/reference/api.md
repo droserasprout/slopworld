@@ -13,10 +13,19 @@ Write operations use HTTP so the caller can inspect daemon error bodies.
 | --- | --- |
 | `/api/health` | Daemon version, hostname, and runtime metadata. |
 | `/api/capabilities` | Runtime flags: native audio, per-agent limits, sidecar mode. |
+| `/api/config` | Redacted daemon configuration text and its path. (Root-only.) |
+| `/api/projects` | Project catalog. (Root-only.) |
+| `/api/projects/:name` | One project. (Root-only.) |
+| `/api/shortcuts` | Shortcut and breadcrumb catalog. (Root-only.) |
 | `/api/sessions` | All sessions and their state. |
+| `/api/sessions/:name` | One session and its state. |
 | `/api/sessions/:name/cwd` | Agent's current working directory. |
+| `/api/tasks` | Tasks visible to the caller. |
+| `/api/tasks/:id` | One task visible to the caller. |
+| `/api/grants` | Active scoped-grant count. (Root-only.) |
 | `/api/usage` | Current quota windows. |
 | `/api/presets` | Sandbox and command presets. |
+| `/api/state` | Active, orphaned, and trashed private-state entries. (Root-only.) |
 | `/api/jukebox` | Jukebox state and station catalog. |
 | `/api/audio` | Current audio playback state. |
 | `/api/browse` | Directory listing. `files=1` for files, `hidden=1` for dotfiles, `limit` capped at 500. |
@@ -24,7 +33,6 @@ Write operations use HTTP so the caller can inspect daemon error bodies.
 | `/api/image` | Bounded base64 image bytes (root-only). |
 | `/api/search` | `rg`-based workspace search. Requires project path and query. Supports regex/case/word/hidden flags. Capped at 200 results. |
 | `/api/git` | Repository root, branch, per-file porcelain/numstat; large status streams are capped with `truncated`. Non-repositories return `repo: false`. |
-| `/api/grants` | Active scoped-grant count (root-only). |
 | `/api/open-apps` | Host desktop applications associated with a path. |
 | `/api/clipboard` | GET reads host CLIPBOARD; POST writes it. `/api/clipboard/text` is text-only. |
 
@@ -46,6 +54,7 @@ available, with `/primary/text` as the text-only read route.
 | `/api/projects/:name` | PUT, DELETE | Modify or remove a project. |
 | `/api/shortcuts` | POST | Create a shortcut. |
 | `/api/shortcuts/:name` | PUT, DELETE | Modify or remove a shortcut. |
+| `/api/shortcuts/:name/run` | POST | Run a prompt or shell shortcut as an ephemeral session. |
 | `/api/grants` | POST | Mint a scoped grant (root-only). |
 | `/api/grants/:grantor` | DELETE | Revoke grants for a grantor (root-only). |
 | `/api/config` | PUT | Replace configuration. |
@@ -57,6 +66,8 @@ available, with `/primary/text` as the text-only read route.
 | `/api/files` | POST, PUT, DELETE | Create, rename, or delete private-state files (root-only). |
 | `/api/tasks` | POST, DELETE | Create a task or prune tasks. |
 | `/api/tasks/:id` | POST, DELETE | Update or remove a task. |
+| `/api/state/:kind/:key` | DELETE | Permanently delete an orphan or trashed private-state entry (root-only). |
+| `/api/state/trash/:key/restore` | POST | Restore a trashed entry while its agent still exists (root-only). |
 
 ### Ephemeral errands
 
@@ -73,6 +84,9 @@ new errand. An empty shell command uses the daemon's `$SHELL`.
 Reset moves agent private state to 14-day trash. Root-only inventory reports active,
 orphan, and trash entries with sizes. Permanent deletion is limited to orphan and trash
 entries. Restore works only while the agent exists without a replacement tree.
+
+The inventory is returned by `GET /api/state`. Reset uses the session state route in the
+write table; deletion and restore use the `/api/state` routes listed there.
 
 ### Configuration patching
 
