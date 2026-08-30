@@ -437,6 +437,8 @@ fn fetch_openai_provider(creds: ProviderCredentials) -> Result<ProviderResponse,
 
 /// Codex's usage answer has the account plan plus primary and secondary windows. The names are
 /// deliberately ours: Anthropic has windows with the same cadence but they are separate pools.
+/// Some plans put their only weekly window in `primary_window`, so use its reported cadence when
+/// it is available rather than treating the field name as the window name.
 fn parse_openai(v: &Value) -> Snapshot {
     let limits = if v["rate_limit"].is_object() {
         &v["rate_limit"]
@@ -444,12 +446,17 @@ fn parse_openai(v: &Value) -> Snapshot {
         v
     };
     let mut windows = Vec::new();
-    for (field, key, label) in [
+    for (field, fallback_key, fallback_label) in [
         ("primary_window", "openai_session", "session"),
         ("secondary_window", "openai_week", "weekly"),
     ] {
         let w = &limits[field];
         let Some(pct) = percent(w) else { continue };
+        let (key, label) = if w["limit_window_seconds"].as_u64() == Some(7 * 24 * 60 * 60) {
+            ("openai_week", "weekly")
+        } else {
+            (fallback_key, fallback_label)
+        };
         windows.push(Window {
             key: key.into(),
             label: label.into(),
@@ -1728,7 +1735,7 @@ mod tests {
     #[test]
     fn openai_primary_and_secondary_windows_stay_separate_from_anthropic() {
         let v: Value = serde_json::from_str(
-            r#"{"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":12.5,"reset_at":4102444800},"secondary_window":{"used_percent":42,"reset_at":4102448400}}}"#,
+            r#"{"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":12.5,"limit_window_seconds":18000,"reset_at":4102444800},"secondary_window":{"used_percent":42,"limit_window_seconds":604800,"reset_at":4102448400}}}"#,
         )
         .unwrap();
 
@@ -1736,10 +1743,26 @@ mod tests {
         assert!(s.ok);
         assert_eq!(s.plan, "pro");
         assert_eq!(s.windows[0].key, "openai_session");
+        assert_eq!(s.windows[0].label, "session");
         assert_eq!(s.windows[0].pct, 12.5);
         assert_eq!(s.windows[1].key, "openai_week");
+        assert_eq!(s.windows[1].label, "weekly");
         assert_eq!(s.windows[1].pct, 42.0);
         assert!(s.windows.iter().all(|w| w.resets_in.is_some()));
+    }
+
+    #[test]
+    fn openai_primary_weekly_window_is_not_called_session() {
+        let v: Value = serde_json::from_str(
+            r#"{"plan_type":"free","rate_limit":{"primary_window":{"used_percent":12.5,"limit_window_seconds":604800,"reset_at":4102444800}}}"#,
+        )
+        .unwrap();
+
+        let s = parse_openai(&v);
+        assert!(s.ok);
+        assert_eq!(s.windows.len(), 1);
+        assert_eq!(s.windows[0].key, "openai_week");
+        assert_eq!(s.windows[0].label, "weekly");
     }
 
     #[test]
