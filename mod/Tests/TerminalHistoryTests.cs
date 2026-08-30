@@ -11,7 +11,7 @@ namespace SlopWorld.Tests
             yield return ("requires a bridge across non-overlapping viewports", RequiresBridge);
             yield return ("rejects a frame from an older live sequence", RejectsOldSequence);
             yield return ("plans covered views without replacing the cache", CoversViews);
-            yield return ("ignores empty frames and prunes distant history", IgnoresEmptyAndPrunes);
+            yield return ("ignores empty frames and retains indexed history", IgnoresEmptyAndRetainsRows);
             yield return ("quantizes prefetch windows in both directions", QuantizesPrefetch);
         }
 
@@ -87,7 +87,7 @@ namespace SlopWorld.Tests
             AssertEx.True(object.ReferenceEquals(first, cached), "cached view is reused");
         }
 
-        static void IgnoresEmptyAndPrunes()
+        static void IgnoresEmptyAndRetainsRows()
         {
             var history = new TerminalHistory();
             history.Reset();
@@ -105,16 +105,24 @@ namespace SlopWorld.Tests
             AssertEx.True(history.Covers(1, false),
                           "a new sequence seeds its live snapshot before adding history");
 
-            for (int off = 1; off <= 33; off++)
+            history.Reset(live);
+            for (int off = 2; off <= 80; off += 2)
                 history.Add(new ScreenBuf
                 {
-                    Seq = 2,
+                    Seq = 3,
                     Off = off,
-                    Rows = 1,
-                    Lines = new[] { "row-before-" + off, "row-" + off },
-                }, null, 1);
+                    Rows = 3,
+                    Lines = new[]
+                    {
+                        "row-" + off,
+                        "row-" + (off - 1),
+                        "row-" + (off - 2),
+                    },
+                }, live, off);
 
-            AssertEx.True(history.Covers(1, false), "nearest history survives pruning");
+            AssertEx.True(history.Covers(2, false),
+                "early rows remain after more than the old frame limit");
+            AssertEx.True(history.Covers(80, false), "latest indexed rows are covered");
         }
 
         static void QuantizesPrefetch()
