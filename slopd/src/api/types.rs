@@ -14,6 +14,14 @@ pub(crate) struct UpdateTaskReq {
 }
 
 #[derive(Deserialize)]
+pub(crate) struct ListTasksQuery {
+    /// Root callers may ask for the complete task board. The default remains the caller's
+    /// mailbox so agent and CLI inboxes do not learn about unrelated work.
+    #[serde(default)]
+    pub(crate) all: bool,
+}
+
+#[derive(Deserialize)]
 pub(crate) struct PruneTasksQuery {
     /// Every finished task in the store rather than the caller's own. Root-only: it reaches
     /// mailboxes the caller is not party to.

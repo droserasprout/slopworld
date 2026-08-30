@@ -6,12 +6,13 @@ Patches are applied from `SlopWorldBootstrap`, most by attribute.
 reflection.
 
 - `SessionHub` - the singleton and single source of truth, pumped once a frame
-  from a `Root.Update` postfix. It is a thin coordinator: the public surface (~40
-  members, unchanged so call sites need not move) delegates to five services under
+  from a `Root.Update` postfix. It is a thin coordinator: the public surface (~50
+  members, unchanged so call sites need not move) delegates to six services under
   `Client/SessionHub/` — `HubTransport` (the socket, reconnect/backoff, guarded
   `Send`), `TerminalIO` (subs + keys/mouse/paste/scroll/resize/redraw), `AudioBus`
   (jukebox channel), `SessionStore` (sessions list + screen buffers + their HTTP
-  mutations), and `HubCatalog` (projects/shortcuts/presets/commands). `Config` stays
+  mutations), `TaskStore` (the host's polled all-task board and HTTP mutations), and
+  `HubCatalog` (projects/shortcuts/presets/commands). `Config` stays
   a settable field on the facade because the settings pages write it back. `Handle`
   routes each socket event to the owning service; `HubWire` holds shared JSON helpers.
 - `MiniWebSocket` - speaks RFC6455 by hand, because Unity's mono cannot be trusted

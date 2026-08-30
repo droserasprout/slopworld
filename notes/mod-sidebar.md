@@ -42,8 +42,9 @@ initial press and off-screen release. It saves settings on release, owns the pan
 right edge, keeps tab/add hit gates short of that edge, and sends the measured pane shape with
 the background redraw request so every live tmux pane is ready before an inactive tab opens.
 
-The agent context menu offers Start/Stop, Terminal, Label, Edit, Duplicate, Shell, Storage,
-Remove, and New look. Storage resolves the agent's active private-state entry through the
+The agent context menu offers Start/Stop, Terminal, Label, Delegate task, Edit, Duplicate, Shell,
+Storage, Remove, and New look. The Tasks tab lists the complete root task board, refreshes it through the
+daemon, filters by status/direction/agent, and opens task detail/status actions. Storage resolves the agent's active private-state entry through the
 same daemon inventory as Settings and opens it as the focused root of Files. Shell spawns an
 ephemeral shell errand that clones the agent's
 sandbox config (presets, network, dns, limits, mounts) via the `like` field on
@@ -51,3 +52,8 @@ sandbox config (presets, network, dns, limits, mounts) via the `like` field on
 
 Shared views, navigation, filtering, context menus, and vanilla chrome shifts are
 covered in [sidebar views and chrome](mod-sidebar-navigation.md).
+- The Tasks list keeps the complete mailbox but virtualizes off-screen rows. Its scroll view
+  deliberately avoids Linux XInput precision polling; Unity wheel events and thumb dragging are
+  sufficient here and avoid a severe frame-time regression on some X11 systems.
+- Task rows cap their one-line preview before passing it to RimWorld's quadratic `Truncate`;
+  the detail dialog retains and displays the complete task body.

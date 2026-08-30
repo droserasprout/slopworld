@@ -113,6 +113,10 @@ impl Tasks {
             .collect()
     }
 
+    pub fn all(&self) -> Vec<Task> {
+        self.file.tasks.clone()
+    }
+
     pub fn get(&self, who: &str, id: &str) -> Option<Task> {
         self.file
             .tasks

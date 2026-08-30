@@ -117,6 +117,7 @@ namespace SlopWorld
                 case "search": return SidebarTab.Search;
                 case "git": return SidebarTab.Git;
                 case "shortcuts": return SidebarTab.Shortcuts;
+                case "tasks": return SidebarTab.Tasks;
                 default: return SidebarTab.Agents;
             }
         }
@@ -129,6 +130,7 @@ namespace SlopWorld
                 case SidebarTab.Search: return "search";
                 case SidebarTab.Git: return "git";
                 case SidebarTab.Shortcuts: return "shortcuts";
+                case SidebarTab.Tasks: return "tasks";
                 default: return "agents";
             }
         }
@@ -138,7 +140,8 @@ namespace SlopWorld
             || CurrentTab == SidebarTab.Files
             || CurrentTab == SidebarTab.Search
             || CurrentTab == SidebarTab.Git
-            || CurrentTab == SidebarTab.Shortcuts;
+            || CurrentTab == SidebarTab.Shortcuts
+            || CurrentTab == SidebarTab.Tasks;
 
         // Empty means all projects. Unknown project keys show no rows while the daemon list is
         // incomplete; the no-project bucket is a normal filter key.
@@ -184,6 +187,7 @@ namespace SlopWorld
             if (CurrentTab == tab)
             {
                 if (tab == SidebarTab.Git) GitView.Refresh();
+                else if (tab == SidebarTab.Tasks) SessionHub.Instance.RefreshTasks(SlopWidgets.Fail);
                 return;
             }
 
@@ -206,6 +210,7 @@ namespace SlopWorld
             if (tab == SidebarTab.Search) SearchView.Entered();
 
             if (tab == SidebarTab.Shortcuts) SessionHub.Instance.RefreshShortcuts();
+            if (tab == SidebarTab.Tasks) SessionHub.Instance.RefreshTasks(SlopWidgets.Fail);
         }
 
         static RowAct RoutedAction(SessionInfo info) => RowActions.Of(info);
@@ -363,6 +368,10 @@ namespace SlopWorld
                     var current = hub.Get(name);
                     if (current != null) LabelDialog.Open(name, current.Label);
                 }));
+
+            if (info != null && !info.Host)
+                opts.Add(new FloatMenuOption("Delegate task...", () =>
+                    TerminalWindow.OpenOverPane(new DelegateTaskDialog(name))));
 
             if (info != null && !info.Ephemeral && !info.Host)
                 opts.Add(new FloatMenuOption("Edit...", () =>

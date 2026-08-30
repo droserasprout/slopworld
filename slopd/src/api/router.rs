@@ -13,8 +13,9 @@ use super::{err, Mgr};
 
 pub(crate) fn router(m: Mgr) -> Router {
     // Reachable by a scoped grant as well as the root. Each handler checks its own session and
-    // level (`guard`), the list is filtered, and `/ws` gates every message - so a grant reaches
-    // exactly the sessions it names, at the level it was given, and the host through none of it.
+    // level (`guard`), the default task list is filtered, and `/ws` gates every message - so a
+    // grant reaches exactly the sessions it names, at the level it was given, and the host through
+    // none of it. Root may opt into the complete task board with `?all=true`.
     // Creating a session (`POST /api/sessions`) is root-only even here, by `guard_create`.
     let scoped = Router::new()
         .route("/api/health", get(health))

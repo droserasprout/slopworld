@@ -7,5 +7,6 @@ namespace SlopWorld
         Search,
         Git,
         Shortcuts,
+        Tasks,
     }
 }

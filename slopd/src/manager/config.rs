@@ -230,6 +230,10 @@ impl Manager {
         self.tasks.lock().unwrap().visible(who)
     }
 
+    pub fn all_tasks(&self) -> Vec<crate::tasks::Task> {
+        self.tasks.lock().unwrap().all()
+    }
+
     pub fn task_for(&self, who: &str, id: &str) -> Option<crate::tasks::Task> {
         self.tasks.lock().unwrap().get(who, id)
     }
