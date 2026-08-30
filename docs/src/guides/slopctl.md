@@ -24,6 +24,7 @@ slopctl inbox --sent                                # only tasks you sent
 slopctl inbox --received                            # only tasks sent to you
 slopctl inbox --status pending                      # filter by state
 slopctl task ID                                     # show one task
+slopctl wait ID                                     # wait for done or failed
 slopctl accept ID                                   # accept a pending task
 slopctl accept ID "starting now"                    # accept with a note
 slopctl progress ID "halfway done"                  # mark in progress
@@ -37,6 +38,10 @@ slopctl prune --all                                 # remove all tasks (root onl
 `inbox` shows unfinished work in both directions, newest first. Removal is shared:
 the store holds one copy of a task, and a participant can only drop tasks that have
 stopped moving. The root token can remove tasks still in flight.
+
+`wait` polls the task until it reaches the terminal `done` or `failed` state, then
+prints that final task. It is useful after delegating work when the caller needs to
+continue only once the result is available.
 
 ## Diagnostics
 
