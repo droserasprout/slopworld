@@ -126,9 +126,16 @@ namespace SlopWorld
             foreach (var w in usage.Windows)
                 if (ItemPolled(w.Key) && !rows.Contains(w.Key)) rows.Add(w.Key);
 
+            // A successful weekly-only Codex response identifies the plan. Do not add the
+            // provisional session placeholder after the daemon has told us that this plan has
+            // no five-hour window.
+            bool openAiWeekly = usage.Windows.Any(w => w.Key == "openai_week");
             foreach (string seller in usage.Sources)
+            {
+                if (seller == "openai" && openAiWeekly) continue;
                 foreach (string key in Owed(seller))
                     if (ItemPolled(key) && !rows.Contains(key)) Place(rows, key);
+            }
 
             // Pollers answer independently, so arrival order is not display order. Keep the
             // shared pools in one fixed left-to-right run even when a source comes back late.

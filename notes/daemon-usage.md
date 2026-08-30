@@ -40,8 +40,9 @@ login from which to infer a key.
 ## OpenAI / Codex
 
 Enabled OpenAI rows read the current Codex token and optional account ID from `~/.codex/auth.json`
-(`openai_credentials` overrides) and poll the primary/secondary windows. They never use the
-refresh token or send file contents. The endpoint is
+(`openai_credentials` overrides) and poll the primary/secondary windows. Window labels follow
+`limit_window_seconds`, so a weekly-only plan is still `openai_week` when its weekly value is in
+`primary_window`. They never use the refresh token or send file contents. The endpoint is
 undocumented, so `SLOPD_OPENAI_USAGE_URL` supports fixtures and unknown payloads draw no
 figures. Rows are `openai_session` and `openai_week`; 401/403 says `codex login`.
 
