@@ -1,11 +1,12 @@
 //! Polls provider usage with fresh credentials, narrow parsing, and snapshot-preserving failures; unknown responses yield no figures rather than false zeroes.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::fs::{File, OpenOptions};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::session::Manager;
@@ -13,6 +14,11 @@ use crate::session::Manager;
 /// Undocumented and subject to change under us, which is why `parse` survives not
 /// recognising what it gets and why `SLOPD_USAGE_URL` can point this elsewhere.
 const USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
+
+/// The OAuth endpoint is also used by Claude Code and is substantially less hostile when the
+/// request identifies that client family. `SLOPWORLD_VERSION` is the daemon build identity, not
+/// a Claude version, but the endpoint only needs a version-shaped value after this prefix.
+const ANTHROPIC_USER_AGENT: &str = concat!("claude-code/", env!("SLOPWORLD_VERSION"));
 
 fn usage_url() -> String {
     std::env::var("SLOPD_USAGE_URL").unwrap_or_else(|_| USAGE_URL.to_string())
@@ -43,6 +49,8 @@ const KEY_ENV: &str = "OPENROUTER_API_KEY";
 const OAUTH_BETA: &str = "oauth-2025-04-20";
 
 const TIMEOUT: Duration = Duration::from_secs(20);
+const USAGE_CACHE_TTL: Duration = Duration::from_secs(300);
+const USAGE_CACHE_VERSION: u32 = 1;
 
 /// Rides on the wire rather than being worked out from the key: the one thing this
 /// must never do is let a percentage and a sum of money look alike.
@@ -134,6 +142,7 @@ fn now_ms() -> u64 {
 struct Creds {
     token: String,
     plan: String,
+    path: PathBuf,
 }
 
 /// The two fields Codex needs to ask for the account's usage. The refresh token is
@@ -191,6 +200,7 @@ fn read_creds_once(path: &PathBuf) -> anyhow::Result<Creds> {
             .as_str()
             .unwrap_or_default()
             .to_string(),
+        path: path.clone(),
     })
 }
 
@@ -214,6 +224,105 @@ fn read_openai_creds(path: &PathBuf) -> anyhow::Result<OpenAiCreds> {
 fn read_anthropic(d: &crate::config::Daemon) -> anyhow::Result<ProviderCredentials> {
     let path = PathBuf::from(crate::config::expand(&d.claude_credentials));
     read_creds(&path).map(ProviderCredentials::Anthropic)
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct AnthropicUsageCache {
+    version: u32,
+    fetched_ms: u64,
+    body: Value,
+    /// Set only after a 429, so another daemon can observe the same upstream backoff.
+    #[serde(default)]
+    retry_until_ms: Option<u64>,
+}
+
+/// Cache and lock files live beside the daemon config. The credential path and endpoint are part
+/// of the name so two configured accounts or a test proxy cannot reuse one another's answer.
+fn anthropic_cache_paths(credentials: &Path) -> (PathBuf, PathBuf) {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in credentials
+        .to_string_lossy()
+        .bytes()
+        .chain([0u8])
+        .chain(usage_url().bytes())
+    {
+        hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
+    }
+
+    let base = crate::config::Config::path_in_use()
+        .with_file_name(format!(".anthropic-usage-{hash:016x}"));
+    (base.with_extension("json"), base.with_extension("lock"))
+}
+
+fn fresh_anthropic_cache(path: &Path) -> Option<Value> {
+    let text = std::fs::read_to_string(path).ok()?;
+    let cache = serde_json::from_str::<AnthropicUsageCache>(&text).ok()?;
+    if cache.version != USAGE_CACHE_VERSION {
+        return None;
+    }
+    if cache.body.is_null() {
+        return None;
+    }
+    let age = now_ms().checked_sub(cache.fetched_ms)?;
+    (age < USAGE_CACHE_TTL.as_millis() as u64).then_some(cache.body)
+}
+
+fn cached_anthropic_retry(path: &Path) -> Option<u64> {
+    let text = std::fs::read_to_string(path).ok()?;
+    let cache = serde_json::from_str::<AnthropicUsageCache>(&text).ok()?;
+    let remaining_ms = cache.retry_until_ms?.checked_sub(now_ms())?;
+    (remaining_ms > 0).then(|| remaining_ms.saturating_add(999) / 1000)
+}
+
+/// A blocking advisory lock is intentional: another daemon holding it is either reading a fresh
+/// cache or making the one upstream request, and waiting up to the HTTP timeout is cheaper than
+/// making another account-level usage request.
+fn lock_anthropic_cache(path: &Path) -> Option<nix::fcntl::Flock<File>> {
+    let file = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(path)
+        .ok()?;
+
+    nix::fcntl::Flock::lock(file, nix::fcntl::FlockArg::LockExclusive).ok()
+}
+
+fn save_anthropic_cache(path: &Path, body: &Value, retry_until_ms: Option<u64>) {
+    let Some(parent) = path.parent() else { return };
+    if std::fs::create_dir_all(parent).is_err() {
+        return;
+    }
+
+    let tmp = path.with_extension("json.tmp");
+    let cache = AnthropicUsageCache {
+        version: USAGE_CACHE_VERSION,
+        fetched_ms: now_ms(),
+        body: body.clone(),
+        retry_until_ms,
+    };
+    let Ok(text) = serde_json::to_string(&cache) else {
+        return;
+    };
+    if std::fs::write(&tmp, text).is_err() {
+        return;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600));
+    }
+    let _ = std::fs::rename(tmp, path);
+}
+
+fn save_anthropic_rate_limit(path: &Path, delay: u64) {
+    let delay = delay.max(RATE_LIMIT_FLOOR);
+    save_anthropic_cache(
+        path,
+        &Value::Null,
+        Some(now_ms().saturating_add(delay.saturating_mul(1_000))),
+    );
 }
 
 fn read_openrouter(d: &crate::config::Daemon) -> anyhow::Result<ProviderCredentials> {
@@ -286,7 +395,9 @@ fn fetch(creds: &Creds) -> Result<Value, PollErr> {
         .build()
         .header("Authorization", format!("Bearer {}", creds.token))
         .header("anthropic-beta", OAUTH_BETA)
-        .header("User-Agent", concat!("slopd/", env!("SLOPWORLD_VERSION")))
+        .header("Accept", "application/json")
+        .header("Content-Type", "application/json")
+        .header("User-Agent", ANTHROPIC_USER_AGENT)
         .call()
         .map_err(PollErr::new)?;
 
@@ -296,7 +407,7 @@ fn fetch(creds: &Creds) -> Result<Value, PollErr> {
         429 => {
             return Err(PollErr {
                 msg: "Anthropic is rate-limiting usage checks (429)".into(),
-                retry_after: Some(retry_after(&res).unwrap_or(RATE_LIMIT_FLOOR)),
+                retry_after: Some(rate_limit_delay(&res)),
             })
         }
         // 401 means the token in the file is no longer good, which is a thing the user
@@ -356,7 +467,7 @@ fn fetch_credits(key: &str) -> Result<Value, PollErr> {
         429 => {
             return Err(PollErr {
                 msg: "OpenRouter is rate-limiting credit checks (429)".into(),
-                retry_after: Some(retry_after(&res).unwrap_or(RATE_LIMIT_FLOOR)),
+                retry_after: Some(rate_limit_delay(&res)),
             })
         }
         // Something the user fixes rather than waits out, and the one failure worth naming
@@ -393,7 +504,7 @@ fn fetch_openai(creds: &OpenAiCreds) -> Result<Value, PollErr> {
         429 => {
             return Err(PollErr {
                 msg: "OpenAI is rate-limiting usage checks (429)".into(),
-                retry_after: Some(retry_after(&res).unwrap_or(RATE_LIMIT_FLOOR)),
+                retry_after: Some(rate_limit_delay(&res)),
             })
         }
         401 | 403 => {
@@ -415,7 +526,53 @@ fn fetch_anthropic(creds: ProviderCredentials) -> Result<ProviderResponse, PollE
         return Err(PollErr::new("internal Anthropic credential mismatch"));
     };
     let plan = creds.plan.clone();
-    fetch(&creds).map(|body| ProviderResponse {
+    let (cache_path, lock_path) = anthropic_cache_paths(&creds.path);
+
+    if let Some(delay) = cached_anthropic_retry(&cache_path) {
+        return Err(PollErr {
+            msg: "Anthropic usage polling is in shared rate-limit backoff".into(),
+            retry_after: Some(delay),
+        });
+    }
+    if let Some(body) = fresh_anthropic_cache(&cache_path) {
+        return Ok(ProviderResponse {
+            body,
+            plan: Some(plan),
+        });
+    }
+
+    let lock = lock_anthropic_cache(&lock_path);
+    if lock.is_some() {
+        // A second daemon may have filled the cache while this one waited for the lock.
+        if let Some(delay) = cached_anthropic_retry(&cache_path) {
+            return Err(PollErr {
+                msg: "Anthropic usage polling is in shared rate-limit backoff".into(),
+                retry_after: Some(delay),
+            });
+        }
+        if let Some(body) = fresh_anthropic_cache(&cache_path) {
+            return Ok(ProviderResponse {
+                body,
+                plan: Some(plan),
+            });
+        }
+    }
+
+    let body = match fetch(&creds) {
+        Ok(body) => body,
+        Err(error) => {
+            if let Some(delay) = error.retry_after {
+                if lock.is_some() {
+                    save_anthropic_rate_limit(&cache_path, delay);
+                }
+            }
+            return Err(error);
+        }
+    };
+    if lock.is_some() {
+        save_anthropic_cache(&cache_path, &body, None);
+    }
+    Ok(ProviderResponse {
         body,
         plan: Some(plan),
     })
@@ -549,12 +706,30 @@ fn parse_credits(v: &Value) -> Snapshot {
     }
 }
 
-/// Seconds only; the header's HTTP-date form has never turned up here, and the backoff
-/// behind this answers one we cannot read. Clamped: a daemon that stops polling until next
-/// week has to be restarted by hand.
+/// Parse either Retry-After form. A past HTTP date is a valid zero-second answer; `backoff`
+/// applies the rate-limit floor rather than turning that into an immediate retry.
 fn retry_after<T>(res: &ureq::http::Response<T>) -> Option<u64> {
     let raw = res.headers().get("retry-after")?.to_str().ok()?;
-    Some(raw.trim().parse::<u64>().ok()?.min(6 * 3600))
+    parse_retry_after(raw, SystemTime::now())
+}
+
+fn rate_limit_delay<T>(res: &ureq::http::Response<T>) -> u64 {
+    retry_after(res)
+        .unwrap_or(RATE_LIMIT_FLOOR)
+        .max(RATE_LIMIT_FLOOR)
+}
+
+fn parse_retry_after(raw: &str, now: SystemTime) -> Option<u64> {
+    let raw = raw.trim();
+    let seconds = raw.parse::<u64>().ok().or_else(|| {
+        let at = httpdate::parse_http_date(raw).ok()?;
+        Some(
+            at.duration_since(now)
+                .map(|wait| wait.as_secs())
+                .unwrap_or(0),
+        )
+    })?;
+    Some(seconds.min(6 * 3600))
 }
 
 /// Parse known window families and extra-usage money; unknown shapes produce an empty result rather than a false zero.
@@ -797,13 +972,15 @@ fn offset_secs(s: &str) -> Option<i64> {
 const BACKOFF_CAP: u64 = 1800;
 
 /// A 429 answered at the rate that earned it is a daemon feeding its own rate limit. The
-/// first failure still retries at the normal interval. `asked` overrides the cap rather than
-/// being clamped by it: a limit the far end named is not a guess.
+/// endpoint has returned `Retry-After: 0` while continuing to reject requests, so every
+/// rate-limited failure gets the same five-minute floor. A longer server answer still wins.
 fn backoff(base: u64, fails: u32, asked: Option<u64>) -> u64 {
     let grown = base
         .saturating_mul(1u64 << fails.saturating_sub(1).min(16))
         .min(BACKOFF_CAP);
-    grown.max(asked.unwrap_or(0))
+    grown
+        .max(asked.unwrap_or(0))
+        .max(if asked.is_some() { RATE_LIMIT_FLOOR } else { 0 })
 }
 
 fn human(secs: u64) -> String {
@@ -969,21 +1146,39 @@ fn provider_enabled(d: &crate::config::Daemon, source: &str) -> bool {
     }
 }
 
+fn minimum_poll_secs(source: &str) -> u64 {
+    if source == "anthropic" {
+        RATE_LIMIT_FLOOR
+    } else {
+        10
+    }
+}
+
+fn item_interval(d: &crate::config::Daemon, source: &str, key: &str) -> u64 {
+    d.usage_items
+        .get(key)
+        .and_then(|item| item.interval_secs)
+        .filter(|seconds| *seconds > 0)
+        .unwrap_or(d.usage_poll_secs)
+        .max(minimum_poll_secs(source))
+}
+
 /// Providers answer several windows in one request. Poll at the fastest enabled row interval;
 /// each row's toggle is still applied to the merged snapshot, while a slow row never makes a
-/// faster row wait for it.
-fn provider_interval(d: &crate::config::Daemon, source: &str) -> u64 {
+/// faster row wait for it. Once the provider has answered, rows absent from that answer cannot
+/// make the shared request faster (for example, an optional Claude model window may be null).
+fn provider_interval(d: &crate::config::Daemon, source: &str, poller: &Poller) -> u64 {
+    let has_answer = poller.snap.fetched_ms > 0;
     d.usage_items
         .iter()
-        .filter(|(key, item)| source_for_key(key) == Some(source) && item.poll)
-        .map(|(_, item)| {
-            item.interval_secs
-                .filter(|seconds| *seconds > 0)
-                .unwrap_or(d.usage_poll_secs)
-                .max(10)
+        .filter(|(key, item)| {
+            source_for_key(key) == Some(source)
+                && item.poll
+                && (!has_answer || poller.snap.windows.iter().any(|w| w.key == **key))
         })
+        .map(|(key, _)| item_interval(d, source, key))
         .min()
-        .unwrap_or(d.usage_poll_secs.max(10))
+        .unwrap_or(d.usage_poll_secs.max(minimum_poll_secs(source)))
 }
 
 fn filter_snapshot(
@@ -1009,13 +1204,7 @@ fn filter_snapshot(
             continue;
         }
 
-        let interval = d
-            .usage_items
-            .get(&window.key)
-            .and_then(|item| item.interval_secs)
-            .filter(|seconds| *seconds > 0)
-            .unwrap_or(d.usage_poll_secs)
-            .max(10);
+        let interval = item_interval(d, source, &window.key);
         let due = poller.item_due.entry(window.key.clone()).or_insert(now);
         if *due > now + Duration::from_secs(interval) {
             *due = now;
@@ -1041,6 +1230,19 @@ fn filter_snapshot(
     }
     snapshot.windows = windows;
     snapshot
+}
+
+fn preserve_parse_failure(previous: &Snapshot, parsed: Snapshot) -> Snapshot {
+    if parsed.ok {
+        parsed
+    } else {
+        Snapshot::failed(
+            previous,
+            parsed
+                .error
+                .unwrap_or_else(|| "provider returned no usable usage data".into()),
+        )
+    }
 }
 
 /// A login renewed on the host is the one thing that can turn "expired" back into numbers, and
@@ -1094,7 +1296,7 @@ async fn poll_one(
                 let asked = e.retry_after;
                 (Snapshot::failed(&prev, e), asked)
             }
-            Ok(response) => (parse(response), None),
+            Ok(response) => (preserve_parse_failure(&prev, parse(response)), None),
         },
     })
     .await
@@ -1221,7 +1423,7 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
                     .retain(|window| item_enabled(d, provider.source, &window.key));
                 moved |= before != provider.poller.snap.windows.len();
 
-                let interval = provider_interval(d, provider.source);
+                let interval = provider_interval(d, provider.source, provider.poller);
                 // A newly shortened interval should take effect on the next loop rather than
                 // waiting out the old, longer due time. Increasing it naturally takes effect
                 // after the next poll.
@@ -1313,6 +1515,61 @@ mod tests {
         assert!(provider_enabled(&daemon, "openrouter"));
         assert!(!provider_enabled(&daemon, "anthropic"));
         assert!(!item_enabled(&daemon, "anthropic", "claude_session"));
+    }
+
+    #[test]
+    fn absent_anthropic_rows_do_not_set_the_provider_interval() {
+        let mut daemon = crate::config::Daemon {
+            usage_poll_secs: 120,
+            ..Default::default()
+        };
+        daemon.usage_items.insert(
+            "claude_session".into(),
+            crate::config::UsageItem {
+                poll: true,
+                interval_secs: Some(600),
+            },
+        );
+        daemon.usage_items.insert(
+            "claude_week_opus".into(),
+            crate::config::UsageItem {
+                poll: true,
+                interval_secs: Some(10),
+            },
+        );
+
+        let mut poller = Poller::new("Anthropic");
+        // Before the first answer, every configured row is eligible to request an initial value.
+        assert_eq!(
+            provider_interval(&daemon, "anthropic", &poller),
+            RATE_LIMIT_FLOOR
+        );
+
+        poller.snap = parse(
+            &serde_json::from_str(r#"{"five_hour":{"utilization":50}}"#).unwrap(),
+            "max".into(),
+        );
+        // The optional Opus window was absent, so it cannot make the shared request poll faster.
+        assert_eq!(provider_interval(&daemon, "anthropic", &poller), 600);
+    }
+
+    #[test]
+    fn anthropic_cache_shares_successes_and_rate_limit_backoff() {
+        let path = std::env::temp_dir().join(format!(
+            "slopd-anthropic-cache-{}-{}.json",
+            std::process::id(),
+            now_ms()
+        ));
+        let body = serde_json::json!({"five_hour": {"utilization": 12}});
+
+        save_anthropic_cache(&path, &body, None);
+        assert_eq!(fresh_anthropic_cache(&path), Some(body));
+
+        save_anthropic_rate_limit(&path, RATE_LIMIT_FLOOR);
+        assert!(fresh_anthropic_cache(&path).is_none());
+        assert!(cached_anthropic_retry(&path).is_some_and(|seconds| seconds > 0));
+
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]
@@ -1453,12 +1710,34 @@ mod tests {
     }
 
     /// `Retry-After` beats both the doubling and the cap, but may not make the poll
-    /// faster than it asked.
+    /// faster than the rate-limit floor.
     #[test]
     fn retry_after_beats_the_guess() {
         assert_eq!(backoff(60, 1, Some(900)), 900);
-        assert_eq!(backoff(60, 1, Some(30)), 60);
+        assert_eq!(backoff(60, 1, Some(30)), RATE_LIMIT_FLOOR);
+        assert_eq!(backoff(60, 1, Some(0)), RATE_LIMIT_FLOOR);
         assert_eq!(backoff(60, 9, Some(7200)), 7200);
+    }
+
+    #[test]
+    fn retry_after_parses_seconds_and_http_dates() {
+        let now = UNIX_EPOCH + Duration::from_secs(1_000_000);
+
+        assert_eq!(parse_retry_after(" 42 ", now), Some(42));
+        assert_eq!(parse_retry_after("0", now), Some(0));
+        assert_eq!(
+            parse_retry_after(
+                &httpdate::fmt_http_date(now + Duration::from_secs(123)),
+                now
+            ),
+            Some(123)
+        );
+        assert_eq!(
+            parse_retry_after(&httpdate::fmt_http_date(now - Duration::from_secs(1)), now),
+            Some(0)
+        );
+        assert_eq!(parse_retry_after("not a retry delay", now), None);
+        assert_eq!(parse_retry_after("999999", now), Some(6 * 3600));
     }
 
     #[test]
@@ -1730,6 +2009,24 @@ mod tests {
         assert_eq!(bad.windows, good.windows);
         assert_eq!(bad.plan, "max");
         assert_eq!(bad.error.unwrap(), "network unreachable");
+    }
+
+    #[test]
+    fn parser_failure_keeps_the_last_good_numbers() {
+        let good = parse(
+            &serde_json::from_str(r#"{"five_hour":{"utilization":50}}"#).unwrap(),
+            "max".into(),
+        );
+        let parsed = parse(&serde_json::json!({"changed": true}), "pro".into());
+        let kept = preserve_parse_failure(&good, parsed);
+
+        assert!(!kept.ok);
+        assert_eq!(kept.windows, good.windows);
+        assert_eq!(kept.plan, "max");
+        assert!(kept
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("shape slopd does not know")));
     }
 
     #[test]

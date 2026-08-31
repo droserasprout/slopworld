@@ -1676,6 +1676,7 @@ dependencies = [
  "base64",
  "dirs",
  "futures",
+ "httpdate",
  "nix",
  "rand",
  "regex",
