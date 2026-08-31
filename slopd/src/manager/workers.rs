@@ -105,25 +105,27 @@ impl Manager {
         session.task_id = task.id.clone();
 
         if durable {
-            let mut cfg = self.cfg.write().await;
-            if cfg.session(&session.name).is_some()
-                || cfg
-                    .host_terminals
-                    .iter()
-                    .any(|tab| tab.name == session.name)
-            {
-                self.fail_worker_task(&task.id, "worker name became unavailable");
-                bail!("worker name became unavailable: {}", session.name);
-            }
-            cfg.sessions.push(session.clone());
-            if let Err(error) = self.save_cfg(&cfg) {
+            let persisted = self
+                .update_cfg(|cfg| {
+                    if cfg.session(&session.name).is_some()
+                        || cfg
+                            .host_terminals
+                            .iter()
+                            .any(|tab| tab.name == session.name)
+                    {
+                        bail!("worker name became unavailable: {}", session.name);
+                    }
+                    cfg.sessions.push(session.clone());
+                    Ok(())
+                })
+                .await;
+            if let Err(error) = persisted {
                 self.fail_worker_task(
                     &task.id,
                     format!("could not persist worker session: {error:#}"),
                 );
                 return Err(error);
             }
-            drop(cfg);
             self.sync_from_config().await;
         } else {
             let mut live = Live::new(session.clone(), TitleCapture::default());

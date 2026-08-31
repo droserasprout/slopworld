@@ -291,22 +291,24 @@ impl Manager {
         project: &str,
         path: &str,
     ) -> Result<()> {
-        let mut cfg = self.cfg.write().await;
-        if cfg.session(name).is_some() {
-            bail!("host terminal {name} conflicts with an agent session");
-        }
-        if let Some(tab) = cfg.host_terminals.iter_mut().find(|tab| tab.name == name) {
-            tab.project = project.to_string();
-            tab.path = path.to_string();
-        } else {
-            cfg.host_terminals.push(crate::config::HostTerminalCfg {
-                name: name.to_string(),
-                project: project.to_string(),
-                path: path.to_string(),
-                autostart: true,
-            });
-        }
-        self.save_cfg(&cfg)?;
+        self.update_cfg(|cfg| {
+            if cfg.session(name).is_some() {
+                bail!("host terminal {name} conflicts with an agent session");
+            }
+            if let Some(tab) = cfg.host_terminals.iter_mut().find(|tab| tab.name == name) {
+                tab.project = project.to_string();
+                tab.path = path.to_string();
+            } else {
+                cfg.host_terminals.push(crate::config::HostTerminalCfg {
+                    name: name.to_string(),
+                    project: project.to_string(),
+                    path: path.to_string(),
+                    autostart: true,
+                });
+            }
+            Ok(())
+        })
+        .await?;
         Ok(())
     }
 
@@ -325,23 +327,26 @@ impl Manager {
                 .unwrap_or(false)
         };
 
-        let (project, cfg_changed) = {
-            let mut changed = false;
-            let mut project = None;
-            let mut cfg = self.cfg.write().await;
-            if let Some(tab) = cfg.host_terminals.iter_mut().find(|tab| tab.name == name) {
-                project = Some(tab.project.clone());
-                if tab.path != path {
-                    tab.path = path.to_string();
-                    changed = true;
+        let (project, cfg_changed) = match self
+            .update_cfg_if_changed(|cfg| {
+                let mut changed = false;
+                let mut project = None;
+                if let Some(tab) = cfg.host_terminals.iter_mut().find(|tab| tab.name == name) {
+                    project = Some(tab.project.clone());
+                    if tab.path != path {
+                        tab.path = path.to_string();
+                        changed = true;
+                    }
                 }
+                Ok(((project, changed), changed))
+            })
+            .await
+        {
+            Ok(result) => result,
+            Err(error) => {
+                tracing::warn!("could not persist host path for {name}: {error:#}");
+                (None, false)
             }
-            if changed {
-                if let Err(error) = self.save_cfg(&cfg) {
-                    tracing::warn!("could not persist host path for {name}: {error:#}");
-                }
-            }
-            (project, changed)
         };
 
         if live_changed || cfg_changed {
@@ -415,27 +420,29 @@ impl Manager {
 
     pub async fn add(self: &Arc<Self>, mut s: SessionCfg) -> Result<()> {
         self.reload_if_changed().await;
-        let mut cfg = self.cfg.write().await;
-        if cfg.session(&s.name).is_some() {
-            bail!("session {} already exists", s.name);
-        }
-        check_name(&s.name)?;
-        check_belongs(&cfg, &s)?;
-        s.limits.validate()?;
-        crate::runtime::validate_limits(&s.limits)?;
-        // Worker identity is daemon-owned. The ordinary session editor cannot create a child by
-        // smuggling hierarchy fields through this route; `spawn_worker` is the only constructor.
-        s.worker = false;
-        s.parent.clear();
-        s.task_id.clear();
-        // A client has no authority over which durable state an agent receives.  Always mint a
-        // fresh key, including if a hand-written request carried a stale one.
-        s.state_id = uuid::Uuid::new_v4().to_string();
-        let autostart = s.autostart;
-        let name = s.name.clone();
-        cfg.sessions.push(s);
-        self.save_cfg(&cfg)?;
-        drop(cfg);
+        let (autostart, name) = self
+            .update_cfg(|cfg| {
+                if cfg.session(&s.name).is_some() {
+                    bail!("session {} already exists", s.name);
+                }
+                check_name(&s.name)?;
+                check_belongs(cfg, &s)?;
+                s.limits.validate()?;
+                crate::runtime::validate_limits(&s.limits)?;
+                // Worker identity is daemon-owned. The ordinary session editor cannot create a child by
+                // smuggling hierarchy fields through this route; `spawn_worker` is the only constructor.
+                s.worker = false;
+                s.parent.clear();
+                s.task_id.clear();
+                // A client has no authority over which durable state an agent receives.  Always mint a
+                // fresh key, including if a hand-written request carried a stale one.
+                s.state_id = uuid::Uuid::new_v4().to_string();
+                let autostart = s.autostart;
+                let name = s.name.clone();
+                cfg.sessions.push(s.clone());
+                Ok((autostart, name))
+            })
+            .await?;
 
         self.sync_from_config().await;
         if autostart {
@@ -471,26 +478,27 @@ impl Manager {
             }
         }
 
-        let mut cfg = self.cfg.write().await;
-        check_belongs(&cfg, &s)?;
-        s.limits.validate()?;
-        crate::runtime::validate_limits(&s.limits)?;
-        let idx = cfg
-            .sessions
-            .iter()
-            .position(|x| x.name == name)
-            .ok_or_else(|| anyhow!("no such session: {name}"))?;
-        // Keep daemon-owned worker identity across an ordinary settings edit. The mod's write
-        // model intentionally does not expose these fields.
-        s.worker = cfg.sessions[idx].worker;
-        s.parent = cfg.sessions[idx].parent.clone();
-        s.task_id = cfg.sessions[idx].task_id.clone();
-        // Keep private state with the agent across every edit, particularly a rename.  The wire
-        // deliberately does not expose this field, but also must not be able to change it.
-        s.state_id = cfg.sessions[idx].state_id.clone();
-        cfg.sessions[idx] = s.clone();
-        self.save_cfg(&cfg)?;
-        drop(cfg);
+        self.update_cfg(|cfg| {
+            check_belongs(cfg, &s)?;
+            s.limits.validate()?;
+            crate::runtime::validate_limits(&s.limits)?;
+            let idx = cfg
+                .sessions
+                .iter()
+                .position(|x| x.name == name)
+                .ok_or_else(|| anyhow!("no such session: {name}"))?;
+            // Keep daemon-owned worker identity across an ordinary settings edit. The mod's write
+            // model intentionally does not expose these fields.
+            s.worker = cfg.sessions[idx].worker;
+            s.parent = cfg.sessions[idx].parent.clone();
+            s.task_id = cfg.sessions[idx].task_id.clone();
+            // Keep private state with the agent across every edit, particularly a rename.  The wire
+            // deliberately does not expose this field, but also must not be able to change it.
+            s.state_id = cfg.sessions[idx].state_id.clone();
+            cfg.sessions[idx] = s.clone();
+            Ok(())
+        })
+        .await?;
 
         if renamed {
             self.readopt(name, &s.name).await;
@@ -512,15 +520,16 @@ impl Manager {
 
         let saved = (!label.is_empty()).then_some(label.clone());
         if !self.is_ephemeral(name).await {
-            let mut cfg = self.cfg.write().await;
-            let session = cfg
-                .sessions
-                .iter_mut()
-                .find(|session| session.name == name)
-                .ok_or_else(|| anyhow!("no such session: {name}"))?;
-            session.label = saved.clone();
-            self.save_cfg(&cfg)?;
-            drop(cfg);
+            self.update_cfg(|cfg| {
+                let session = cfg
+                    .sessions
+                    .iter_mut()
+                    .find(|session| session.name == name)
+                    .ok_or_else(|| anyhow!("no such session: {name}"))?;
+                session.label = saved.clone();
+                Ok(())
+            })
+            .await?;
         }
 
         {
@@ -588,17 +597,20 @@ impl Manager {
         if self.is_host(name).await {
             self.stop(name).await?;
 
-            let mut cfg = self.cfg.write().await;
-            let old_hosts = cfg.host_terminals.clone();
-            let saved = cfg.host_terminals.iter().any(|tab| tab.name == name);
-            cfg.host_terminals.retain(|tab| tab.name != name);
+            let saved = self
+                .cfg
+                .read()
+                .await
+                .host_terminals
+                .iter()
+                .any(|tab| tab.name == name);
             if saved {
-                if let Err(error) = self.save_cfg(&cfg) {
-                    cfg.host_terminals = old_hosts;
-                    return Err(error);
-                }
+                self.update_cfg(|cfg| {
+                    cfg.host_terminals.retain(|tab| tab.name != name);
+                    Ok(())
+                })
+                .await?;
             }
-            drop(cfg);
 
             // Host rows have no private agent state to trash. Forget both durable tabs and
             // unnamed runtime-only host errands after the pane has been stopped.
@@ -612,14 +624,20 @@ impl Manager {
             return self.stop(name).await;
         }
         self.stop(name).await?;
-        let mut cfg = self.cfg.write().await;
-        let session = cfg
+        let session = self
+            .config()
+            .await
             .session(name)
             .cloned()
             .ok_or_else(|| anyhow!("no such session: {name}"))?;
         let trashed = crate::sandbox::trash_state(&session, name)?;
-        cfg.sessions.retain(|s| s.name != name);
-        if let Err(e) = self.save_cfg(&cfg) {
+        if let Err(e) = self
+            .update_cfg(|cfg| {
+                cfg.sessions.retain(|s| s.name != name);
+                Ok(())
+            })
+            .await
+        {
             if let Some(path) = trashed.as_deref() {
                 if let Err(restore) = crate::sandbox::restore_trashed_state(&session, path) {
                     tracing::error!("config delete failed: {e:#}; private-state restore also failed: {restore:#}");
@@ -627,7 +645,6 @@ impl Manager {
             }
             return Err(e);
         }
-        drop(cfg);
         if let Err(e) = crate::sandbox::purge_trash() {
             tracing::warn!("purging private-state trash: {e:#}");
         }
@@ -677,7 +694,7 @@ impl Manager {
     pub async fn restore_stored_state(self: &Arc<Self>, key: &str) -> Result<String> {
         self.reload_if_changed().await;
         let archived = crate::sandbox::trashed_session(key)?;
-        let mut cfg = self.cfg.write().await;
+        let cfg = self.config().await;
         let existing = cfg
             .sessions
             .iter()
@@ -686,20 +703,25 @@ impl Manager {
         let add = existing.is_none();
         let session = existing.unwrap_or_else(|| archived.clone());
         if add {
-            if cfg.session(&session.name).is_some() {
-                bail!(
-                    "session {:?} already exists with different private state",
-                    session.name
-                );
-            }
             check_name(&session.name)?;
-            check_belongs(&cfg, &session)?;
         }
 
         crate::sandbox::restore_stored_state(key, &cfg.sessions)?;
         if add {
-            cfg.sessions.push(session.clone());
-            if let Err(e) = self.save_cfg(&cfg) {
+            if let Err(e) = self
+                .update_cfg(|cfg| {
+                    if cfg.session(&session.name).is_some() {
+                        bail!(
+                            "session {:?} already exists with different private state",
+                            session.name
+                        );
+                    }
+                    check_belongs(cfg, &session)?;
+                    cfg.sessions.push(session.clone());
+                    Ok(())
+                })
+                .await
+            {
                 if let Err(rollback) = crate::sandbox::rollback_restored_state(key, &session) {
                     tracing::error!("restored-agent config save failed: {e:#}; state rollback also failed: {rollback:#}");
                 }
@@ -707,7 +729,6 @@ impl Manager {
             }
         }
         crate::sandbox::finish_restored_state(&session);
-        drop(cfg);
         self.sync_from_config().await;
         Ok(session.name)
     }
