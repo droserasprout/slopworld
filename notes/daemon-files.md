@@ -5,7 +5,8 @@
 | `main.rs` | Startup, the retick loop, the token middleware. |
 | `api/mod.rs` | API module façade and shared request helpers. |
 | `api/router.rs` | Axum routes and root-only middleware. |
-| `api/handlers.rs` | HTTP handlers and their co-located tests. |
+| `api/handlers.rs` | Shared HTTP guards, common helpers, core session/project/preset/grant handlers, and co-located tests. |
+| `api/handlers_*.rs` | Focused HTTP boundaries for tasks, config, files, clipboard, system usage, and audio. |
 | `api/types.rs` | HTTP and WebSocket wire request types. |
 | `api/ws.rs` | WebSocket upgrade, message handling, and frame pump. |
 | `session/mod.rs` | Session state/data types, terminal input helpers and config validation façade. |
@@ -13,7 +14,9 @@
 | `session/ctrl.rs` | `Manager` storage and client/watch guards. |
 | `manager/config.rs` | `Manager` construction, configuration synchronization, clocks and activity persistence. |
 | `manager/desktop.rs` | Host MIME associations and desktop-file display names for Files' Open in menu. |
-| `manager/sessions.rs` | Session targets, lifecycle, stored state, state classification and views. |
+| `manager/sessions.rs` | Session config edits, host-terminal persistence, stored state, and session lookup. |
+| `manager/session_lifecycle.rs` | Session target resolution and process start/stop/forget/restart lifecycle. |
+| `manager/session_state.rs` | Session views, state classification, and the manager retick loop. |
 | `manager/library.rs` | Projects, library items, file actions and temporary errands. |
 | `manager/workers.rs` | Root-only task-owned worker construction and explicit child metadata. |
 | `manager/capture.rs` | `Manager` terminal input, emulator readers, screen frames and scroll capture. |
@@ -23,7 +26,10 @@
 | `sandbox/` | The bubblewrap argv, network modes, bind guard and pasta wrapper - see [sandbox-isolation](sandbox-isolation.md). |
 | `presets.rs` | The preset tables: builtin TOML plus the user's. |
 | `jukebox.rs` | The user station catalog: TOML, metadata, and daemon-side URL resolution. |
-| `config.rs` | `config.toml` load, save, and seed. |
+| `config.rs` | Effective config lookup, inheritance, expansion, and the public config façade. |
+| `config/model.rs` | Config data model, defaults, and field-level deserialization validation. |
+| `config/persistence.rs` | `config.toml` load, save, redaction, and seed. |
+| `config/validation.rs` | Cross-entry validation after config deserialization. |
 | `manifest.rs` | Generated project-root `SLOPWORLD.md`, Git exclusion, templating, and runtime-context rendering. |
 | `endpoint.rs` | The `endpoint.toml` descriptor: writes url + token for the mod, rewrites token on live config edits without changing the bound address. |
 | `grant.rs` | Scoped agent tokens - see [agent-grants](agent-grants.md). |
@@ -31,7 +37,8 @@
 | `title.rs` | Prompt summaries - see [agent-titles](agent-titles.md). |
 | `tasks.rs` | Durable task mailboxes - see [agent-tasks](agent-tasks.md). |
 | `activity.rs` | Persists the fallback file for state ages when the tmux server has no activity options. |
-| `usage.rs` | Polls Anthropic, OpenRouter and OpenAI for what is left of each. |
+| `usage.rs` | Usage snapshot types, window parsing, scheduling, and provider-result merging. |
+| `usage/providers.rs` | Provider credentials, HTTP polling, response parsing, caching, and retry handling. |
 | `audio/mod.rs` | The public audio handle, command worker, generation control and state events. |
 | `audio/station.rs` | Local playlists, URL/file decoding, stream reconnects and ICY metadata. |
 | `audio/playback.rs` | Output-device selection, feeder pacing and callback-safe sample rings. |
