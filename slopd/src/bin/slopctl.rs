@@ -33,6 +33,94 @@ options:
   -f, --follow    keep reading appended lines
 ";
 
+const DELEGATE_USAGE: &str = "usage:
+  slopctl delegate AGENT TASK...
+
+send TASK to AGENT. The task body is the remainder of the command line.
+";
+
+const SPAWN_USAGE: &str = "usage:
+  slopctl spawn [--durable] PARENT TASK...
+  slopctl worker [--durable] PARENT TASK...
+
+create a task-owned child worker by cloning PARENT. The worker receives the
+task body and its exact task id. --durable keeps the child session after exit.
+This command is available to the root caller only.
+";
+
+const INBOX_USAGE: &str = "usage:
+  slopctl inbox [--all] [--sent] [--received] [--status STATUS]
+
+list tasks involving the current caller, newest first. Finished and failed
+tasks are hidden unless --all or --status is supplied.
+
+options:
+  --all             include finished and failed tasks
+  --sent            show only tasks sent by you
+  --received        show only tasks sent to you
+  --status STATUS   show only tasks with this status
+";
+
+const TASK_USAGE: &str = "usage:
+  slopctl task ID
+
+show one task by its exact id.
+";
+
+const WAIT_USAGE: &str = "usage:
+  slopctl wait ID
+
+poll one task until it reaches the done or failed state, then show it.
+";
+
+const ACCEPT_USAGE: &str = "usage:
+  slopctl accept ID [NOTE...]
+
+mark a queued task as accepted, optionally recording a note.
+";
+
+const PROGRESS_USAGE: &str = "usage:
+  slopctl progress ID [NOTE...]
+
+mark an accepted task as in progress, optionally recording a note.
+";
+
+const FINISH_USAGE: &str = "usage:
+  slopctl finish ID [RESULT...]
+
+mark a task as done, optionally recording its result.
+";
+
+const FAIL_USAGE: &str = "usage:
+  slopctl fail ID [ERROR...]
+
+mark a task as failed, optionally recording the reason.
+";
+
+const REMOVE_USAGE: &str = "usage:
+  slopctl rm ID
+
+remove one task that has stopped moving.
+";
+
+const PRUNE_USAGE: &str = "usage:
+  slopctl prune [--all]
+
+remove finished and failed tasks. --all removes every task and is root-only.
+";
+
+const PEERS_USAGE: &str = "usage:
+  slopctl peers
+
+list sessions visible to the current caller, including host.
+";
+
+const STATUS_USAGE: &str = "usage:
+  slopctl status
+
+show the current caller, endpoint, daemon reachability, and pending task counts.
+";
+
 const USAGE: &str = "slopctl - delegate work and inspect SlopWorld diagnostics
 
 usage:
@@ -90,8 +178,16 @@ fn run() -> Result<(), String> {
         print!("{USAGE}");
         return Ok(());
     }
+    if matches!(args[0].as_str(), "-h" | "--help" | "help") {
+        print!("{USAGE}");
+        return Ok(());
+    }
 
     let command = parse_command(&args)?;
+    if let Command::Help { usage } = &command {
+        print!("{usage}");
+        return Ok(());
+    }
     // Logs are deliberately local: they remain useful when slopd is down and do not need the
     // endpoint token. Dispatch before loading endpoint.toml for that reason.
     if let Command::Logs { ref args } = command {
@@ -124,6 +220,9 @@ fn take_json_flag(args: &mut Vec<String>) -> bool {
 
 #[derive(Debug, PartialEq, Eq)]
 enum Command {
+    Help {
+        usage: &'static str,
+    },
     Logs {
         args: Vec<String>,
     },
@@ -179,11 +278,41 @@ impl UpdateAction {
     }
 }
 
+fn command_help(command: &str) -> Option<&'static str> {
+    Some(match command {
+        "delegate" => DELEGATE_USAGE,
+        "spawn" | "worker" => SPAWN_USAGE,
+        "inbox" => INBOX_USAGE,
+        "task" => TASK_USAGE,
+        "wait" => WAIT_USAGE,
+        "accept" => ACCEPT_USAGE,
+        "progress" => PROGRESS_USAGE,
+        "finish" => FINISH_USAGE,
+        "fail" => FAIL_USAGE,
+        "rm" => REMOVE_USAGE,
+        "prune" => PRUNE_USAGE,
+        "peers" => PEERS_USAGE,
+        "status" => STATUS_USAGE,
+        "logs" => LOGS_USAGE,
+        _ => return None,
+    })
+}
+
+fn has_help(args: &[String]) -> bool {
+    args.iter()
+        .any(|arg| matches!(arg.as_str(), "-h" | "--help" | "help"))
+}
+
 fn parse_command(args: &[String]) -> Result<Command, String> {
     let command = args
         .first()
         .map(String::as_str)
         .ok_or_else(|| format!("missing command\n\n{USAGE}"))?;
+    if has_help(&args[1..]) {
+        if let Some(usage) = command_help(command) {
+            return Ok(Command::Help { usage });
+        }
+    }
     match command {
         "logs" => Ok(Command::Logs {
             args: args[1..].to_vec(),
@@ -270,6 +399,7 @@ fn parse_spawn(args: &[String]) -> Result<Command, String> {
 impl Command {
     fn run(self, endpoint: &Endpoint, session: &str, json: bool) -> Result<(), String> {
         match self {
+            Self::Help { .. } => unreachable!("help is handled before endpoint load"),
             Self::Logs { .. } => unreachable!("local commands are dispatched before endpoint load"),
             Self::Delegate { to, body } => run_delegate(endpoint, session, json, &to, &body),
             Self::Spawn {
@@ -1286,6 +1416,37 @@ mod tests {
                 body: "run the checks".to_string(),
             })
         );
+    }
+
+    #[test]
+    fn every_command_has_nested_help() {
+        let commands = [
+            ("delegate", DELEGATE_USAGE),
+            ("spawn", SPAWN_USAGE),
+            ("worker", SPAWN_USAGE),
+            ("inbox", INBOX_USAGE),
+            ("task", TASK_USAGE),
+            ("wait", WAIT_USAGE),
+            ("accept", ACCEPT_USAGE),
+            ("progress", PROGRESS_USAGE),
+            ("finish", FINISH_USAGE),
+            ("fail", FAIL_USAGE),
+            ("rm", REMOVE_USAGE),
+            ("prune", PRUNE_USAGE),
+            ("peers", PEERS_USAGE),
+            ("status", STATUS_USAGE),
+            ("logs", LOGS_USAGE),
+        ];
+
+        for (command, usage) in commands {
+            assert_eq!(command_help(command), Some(usage));
+            for flag in ["-h", "--help", "help"] {
+                assert_eq!(
+                    parse_command(&words(&format!("{command} {flag}"))),
+                    Ok(Command::Help { usage })
+                );
+            }
+        }
     }
 
     #[test]
