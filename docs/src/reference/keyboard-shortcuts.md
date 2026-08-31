@@ -17,9 +17,10 @@ key-bindings settings page. Hardcoded shortcuts are marked below and cannot be r
 | --- | --- | --- |
 | F2 | Sidebar: Agents view | yes |
 | F3 | Sidebar: Files view | yes |
-| F4 | Sidebar: Git view | yes |
-| F5 | Sidebar: Shortcuts view | yes |
-| F6 | Sidebar: Search view | yes |
+| F4 | Sidebar: Search view | yes |
+| F5 | Sidebar: Git view | yes |
+| F6 | Sidebar: Tasks view | yes |
+| F7 | Sidebar: Shortcuts view | yes |
 | Comma | Previous session | yes |
 | Period | Next session | yes |
 
