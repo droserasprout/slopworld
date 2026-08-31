@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using RimWorld;
 using UnityEngine;
@@ -399,27 +398,6 @@ namespace SlopWorld
             }
             return order;
         }
-
-        // Advance after the pane's process exits. Unlike the keyboard walk, a dead target is
-        // not useful here: starting it would leave the window bound to the departed session
-        // until another daemon event arrives. A host shell may already be absent from the
-        // sidebar order, in which case the sorted fallback preserves the same next-session
-        // behavior.
-        static bool FocusNextSession(string departed)
-        {
-            var live = SessionHub.Instance.Sessions
-                .Where(info => info.Alive)
-                .Select(info => info.Name);
-            string target = SessionNavigation.NextLive(departed, AgentSidebar.WalkOrder(), live);
-            if (target == null) return false;
-
-            SessionSelectable.Current = target;
-            Find.Selector?.ClearSelection();
-            AgentSidebar.FocusTerminal();
-            Open(target);
-            return true;
-        }
-
 
         internal void HandleWheel(Rect body, Event e)
         {
