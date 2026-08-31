@@ -10,9 +10,9 @@ method, path, access, and handler inventory is generated in the
 [API route inventory](api-routes.md) from the daemon router.
 
 Session and task routes support appropriately scoped grants; creating a session is root-only.
-`POST /api/workers` is a separate root-only operation for creating a task-owned child; it returns
-the new task and worker identity in one response. See the route inventory for the exact method and
-handler.
+`POST /api/workers` is a separate root-only operation for creating a task-owned child from an
+existing agent session; it clones that session's runtime configuration and returns the new task and
+worker identity in one response. See the route inventory for the exact method and handler.
 Configuration, catalogs, filesystem operations, usage, audio, and private-state operations
 require the daemon's own token.
 

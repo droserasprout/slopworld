@@ -88,7 +88,7 @@ pub(crate) async fn spawn_worker(
 ) -> ApiResult {
     guard_create(&cap)?;
     let worker = m
-        .spawn_worker(q.parent, q.project, q.template, q.body, q.durable)
+        .spawn_worker(q.parent, q.body, q.durable)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({

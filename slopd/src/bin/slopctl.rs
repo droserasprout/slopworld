@@ -37,7 +37,7 @@ const USAGE: &str = "slopctl - delegate work and inspect SlopWorld diagnostics
 
 usage:
   slopctl delegate AGENT TASK...
-  slopctl spawn [--project PROJECT] [--template PRESET] [--durable] PARENT TASK...
+  slopctl spawn [--durable] PARENT TASK...
   slopctl inbox [--all] [--sent] [--received] [--status STATUS]
   slopctl task ID
   slopctl wait ID
@@ -133,8 +133,6 @@ enum Command {
     },
     Spawn {
         parent: String,
-        project: String,
-        template: String,
         durable: bool,
         body: String,
     },
@@ -246,21 +244,11 @@ fn parse_command(args: &[String]) -> Result<Command, String> {
 }
 
 fn parse_spawn(args: &[String]) -> Result<Command, String> {
-    let mut project = String::new();
-    let mut template = String::new();
     let mut durable = false;
     let mut positional = Vec::new();
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
-            "--project" => {
-                i += 1;
-                project = arg(args, i, "spawn --project needs a project")?.to_string();
-            }
-            "--template" => {
-                i += 1;
-                template = arg(args, i, "spawn --template needs a command preset")?.to_string();
-            }
             "--durable" => durable = true,
             flag if flag.starts_with('-') => {
                 return Err(format!("unknown spawn option: {flag}\n\n{USAGE}"));
@@ -274,8 +262,6 @@ fn parse_spawn(args: &[String]) -> Result<Command, String> {
     }
     Ok(Command::Spawn {
         parent: positional.remove(0),
-        project,
-        template,
         durable,
         body: positional.join(" "),
     })
@@ -288,8 +274,6 @@ impl Command {
             Self::Delegate { to, body } => run_delegate(endpoint, session, json, &to, &body),
             Self::Spawn {
                 parent,
-                project,
-                template,
                 durable,
                 body,
             } => run_spawn(
@@ -298,8 +282,6 @@ impl Command {
                 json,
                 SpawnArgs {
                     parent: &parent,
-                    project: &project,
-                    template: &template,
                     durable,
                     body: &body,
                 },
@@ -338,8 +320,6 @@ fn run_delegate(
 
 struct SpawnArgs<'a> {
     parent: &'a str,
-    project: &'a str,
-    template: &'a str,
     durable: bool,
     body: &'a str,
 }
@@ -357,8 +337,6 @@ fn run_spawn(
         "/api/workers",
         Some(json!({
             "parent": args.parent,
-            "project": args.project,
-            "template": args.template,
             "body": args.body,
             "durable": args.durable,
         })),
@@ -1293,13 +1271,9 @@ mod tests {
             })
         );
         assert_eq!(
-            parse_command(&words(
-                "spawn --project repo --template codex --durable parent inspect the build"
-            )),
+            parse_command(&words("spawn --durable parent inspect the build")),
             Ok(Command::Spawn {
                 parent: "parent".to_string(),
-                project: "repo".to_string(),
-                template: "codex".to_string(),
                 durable: true,
                 body: "inspect the build".to_string(),
             })
@@ -1308,8 +1282,6 @@ mod tests {
             parse_command(&words("worker parent run the checks")),
             Ok(Command::Spawn {
                 parent: "parent".to_string(),
-                project: String::new(),
-                template: String::new(),
                 durable: false,
                 body: "run the checks".to_string(),
             })
@@ -1317,7 +1289,7 @@ mod tests {
     }
 
     #[test]
-    fn spawn_posts_parent_template_and_task_body_to_worker_endpoint() {
+    fn spawn_posts_parent_and_task_body_to_worker_endpoint() {
         let (endpoint, server) = serve(
             "200 OK",
             r#"{"task":{"id":"task-7"},"worker":{"name":"child"}}"#,
@@ -1328,8 +1300,6 @@ mod tests {
             true,
             SpawnArgs {
                 parent: "parent",
-                project: "repo",
-                template: "codex",
                 durable: true,
                 body: "inspect the build",
             },
@@ -1340,10 +1310,10 @@ mod tests {
         let body = request.split("\r\n\r\n").nth(1).unwrap();
         let body: Value = serde_json::from_str(body).unwrap();
         assert_eq!(body["parent"], "parent");
-        assert_eq!(body["project"], "repo");
-        assert_eq!(body["template"], "codex");
         assert_eq!(body["durable"], true);
         assert_eq!(body["body"], "inspect the build");
+        assert!(body.get("project").is_none());
+        assert!(body.get("template").is_none());
     }
 
     #[test]
@@ -1355,6 +1325,7 @@ mod tests {
         assert!(parse_command(&words("task")).is_err());
         assert!(parse_command(&words("prune --wat")).is_err());
         assert!(parse_command(&words("inbox --status")).is_err());
+        assert!(parse_command(&words("spawn --template codex parent task")).is_err());
         assert!(parse_command(&words("wait")).is_err());
         assert!(parse_command(&words("wait task-7 extra")).is_err());
     }

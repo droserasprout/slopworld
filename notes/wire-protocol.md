@@ -27,12 +27,13 @@ The mod uses HTTP for writes so it can show daemon error bodies:
 `POST /api/instructions/preview` accepts an unsaved template, project name, and mount path;
 it returns the generated Markdown text without changing daemon configuration.
 
-`POST /api/workers` is root-only. It accepts `{ "parent": "agent", "project": "repo",
-"template": "codex", "body": "...", "durable": false }` (project and template may be
-empty when the parent supplies defaults) and returns `{ "task": Task, "worker": { "name":
-"...", "session": "..." } }`. The task's optional `worker` object carries the explicit child
-session, parent, and durable flag. Session snapshots likewise carry `worker`, `parent`, `task_id`,
-and `durable`; clients must not infer hierarchy from names.
+`POST /api/workers` is root-only. It accepts `{ "parent": "agent", "body": "...", "durable":
+false }`; `parent` must name an existing agent session whose complete session configuration is
+cloned, with fresh child identity and daemon-owned worker metadata plus the `slopworld-worker`
+API sandbox. It returns `{ "task": Task, "worker": { "name": "...", "session": "..." } }`.
+The task's optional `worker` object carries the explicit child session, parent, and durable flag.
+Session snapshots likewise carry `worker`, `parent`, `task_id`, and `durable`; clients must not
+infer hierarchy from names.
 `GET /api/clipboard` reads CLIPBOARD for non-Codex agent paste; `GET /api/clipboard/text` is
 the text-only host-terminal counterpart and is also used to distinguish Codex text pastes from
 its image-paste shortcut. The `/primary` variants do the same for
