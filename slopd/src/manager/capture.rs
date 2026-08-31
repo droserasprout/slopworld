@@ -7,6 +7,8 @@ use std::time::Instant;
 use crate::emu::{parse_output, MouseInput};
 use anyhow::anyhow;
 
+const CONTROL_ATTACH_TIMEOUT: Duration = Duration::from_secs(5);
+
 enum TitleCaptureAction {
     New(Option<String>),
     Request(TitleRequest),
@@ -632,16 +634,16 @@ impl Manager {
         Ok(())
     }
 
-    pub(super) async fn spawn_reader(self: &Arc<Self>, name: &str) -> bool {
+    pub(super) async fn spawn_reader(self: &Arc<Self>, name: &str) -> Result<bool> {
         let (cols, rows, has_emu) = {
             let live = self.live.read().await;
             match live.get(name) {
                 Some(l) => (l.cols, l.rows, l.emu.is_some()),
-                None => return false,
+                None => return Ok(false),
             }
         };
         if has_emu {
-            return false;
+            return Ok(false);
         }
 
         let mut e = SessionEmu::new(cols, rows);
@@ -673,54 +675,146 @@ impl Manager {
             e.feed(seed.as_bytes());
         }
         let emu = Arc::new(Mutex::new(e));
+        let reader_token = Arc::new(());
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let (start_tx, start_rx) = tokio::sync::oneshot::channel();
 
         let handle = {
             let m = self.clone();
             let name = name.to_string();
             let emu = emu.clone();
-            tokio::spawn(async move { m.run_control(name, emu).await })
+            let reader_token = reader_token.clone();
+            tokio::spawn(async move {
+                if start_rx.await.is_ok() {
+                    m.run_control(name, emu, reader_token, ready_tx).await;
+                }
+            })
         };
 
         {
             let mut live = self.live.write().await;
             match live.get_mut(name) {
-                // Recheck under the write lock because capture awaits; abort this attach if another caller installed the reader.
+                // Recheck under the write lock because capture awaits; abort this attach if
+                // another caller installed the reader. The startup gate keeps run_control from
+                // trying to clean up before its handle and ownership token are installed.
                 Some(l) if l.emu.is_none() => {
                     l.emu = Some(emu.clone());
+                    l.reader_token = Some(reader_token.clone());
                     if let Some(stale) = l.reader.replace(handle) {
                         stale.abort();
                     }
                 }
                 _ => {
                     handle.abort();
-                    return false;
+                    return Ok(false);
                 }
             }
         }
 
-        self.render_and_broadcast(name, &emu).await;
-        true
+        let _ = start_tx.send(());
+        match ready_rx.await {
+            Ok(Ok(())) => {
+                self.render_and_broadcast(name, &emu).await;
+                if self
+                    .live
+                    .read()
+                    .await
+                    .get(name)
+                    .and_then(|l| l.reader_token.as_ref())
+                    .is_some_and(|current| Arc::ptr_eq(current, &reader_token))
+                {
+                    Ok(true)
+                } else {
+                    Err(anyhow!("control reader for {name} exited during startup"))
+                }
+            }
+            Ok(Err(error)) => {
+                self.mark_down(name, &reader_token).await;
+                Err(anyhow!(error))
+            }
+            Err(_) => {
+                self.mark_down(name, &reader_token).await;
+                Err(anyhow!("control reader for {name} exited before attach"))
+            }
+        }
     }
 
-    pub(super) async fn run_control(self: Arc<Self>, name: String, emu: Arc<Mutex<SessionEmu>>) {
+    async fn fail_reader_start(
+        self: &Arc<Self>,
+        name: &str,
+        reader_token: &Arc<()>,
+        ready_tx: tokio::sync::oneshot::Sender<Result<(), String>>,
+        error: String,
+    ) {
+        self.mark_down(name, reader_token).await;
+        let _ = ready_tx.send(Err(error));
+    }
+
+    pub(super) async fn run_control(
+        self: Arc<Self>,
+        name: String,
+        emu: Arc<Mutex<SessionEmu>>,
+        reader_token: Arc<()>,
+        ready_tx: tokio::sync::oneshot::Sender<Result<(), String>>,
+    ) {
         let (cols, rows) = match self.live.read().await.get(&name) {
             Some(l) => (l.cols, l.rows),
             None => {
-                self.mark_down(&name).await;
+                self.fail_reader_start(
+                    &name,
+                    &reader_token,
+                    ready_tx,
+                    format!("session {name} disappeared before control attach"),
+                )
+                .await;
                 return;
             }
         };
         let (mut child, master) = match self.tmux.control_attach(&name, cols, rows) {
             Ok(c) => c,
             Err(e) => {
-                tracing::error!("control attach {name}: {e:#}");
-                self.mark_down(&name).await;
+                let error = format!("control attach {name}: {e:#}");
+                tracing::error!("{error}");
+                self.fail_reader_start(&name, &reader_token, ready_tx, error)
+                    .await;
                 return;
             }
         };
 
-        let rx = spawn_control_reader(master);
-        self.run_control_loop(&name, emu, rx).await;
+        let mut rx = spawn_control_reader(master);
+        let pending =
+            match tokio::time::timeout(CONTROL_ATTACH_TIMEOUT, wait_for_control_attach(&mut rx))
+                .await
+            {
+                Ok(Ok(pending)) => pending,
+                Ok(Err(error)) => {
+                    let error = format!("control attach {name}: {error:#}");
+                    tracing::error!("{error}");
+                    if let Err(kill_error) = child.kill().await {
+                        tracing::debug!("stopping failed control client for {name}: {kill_error}");
+                    }
+                    self.fail_reader_start(&name, &reader_token, ready_tx, error)
+                        .await;
+                    return;
+                }
+                Err(_) => {
+                    let error = format!(
+                    "control attach {name} did not become ready within {CONTROL_ATTACH_TIMEOUT:?}"
+                );
+                    tracing::error!("{error}");
+                    if let Err(kill_error) = child.kill().await {
+                        tracing::debug!(
+                            "stopping timed-out control client for {name}: {kill_error}"
+                        );
+                    }
+                    self.fail_reader_start(&name, &reader_token, ready_tx, error)
+                        .await;
+                    return;
+                }
+            };
+
+        let _ = ready_tx.send(Ok(()));
+        self.run_control_loop(&name, emu, rx, pending).await;
 
         // Stop and reap the control client before touching the session in mark_down. The child
         // owns the PTY slave; kill_on_drop only starts an asynchronous kill, so merely dropping
@@ -729,7 +823,7 @@ impl Manager {
         if let Err(error) = child.kill().await {
             tracing::debug!("stopping control client for {name}: {error}");
         }
-        self.mark_down(&name).await;
+        self.mark_down(&name, &reader_token).await;
     }
 
     async fn run_control_loop(
@@ -737,6 +831,7 @@ impl Manager {
         name: &str,
         emu: Arc<Mutex<SessionEmu>>,
         mut rx: mpsc::UnboundedReceiver<Vec<u8>>,
+        pending: Vec<Vec<u8>>,
     ) {
         const FAST_TICK: Duration = Duration::from_millis(16);
         let slow_tick = Duration::from_millis(UNWATCHED_MS);
@@ -745,6 +840,22 @@ impl Manager {
         let mut dirty = false;
         let mut drawn: Option<Instant> = None;
         let copying = Arc::new(AtomicBool::new(false));
+
+        let mut exited = false;
+        for line in pending {
+            match self.handle_control_line(&emu, line).await {
+                ControlLine::Output => dirty = true,
+                ControlLine::Exit => {
+                    exited = true;
+                    break;
+                }
+                ControlLine::Ignore => {}
+            }
+        }
+
+        if exited {
+            return;
+        }
 
         loop {
             tokio::select! {
@@ -943,44 +1054,49 @@ impl Manager {
         }
     }
 
-    pub(super) async fn mark_down(self: &Arc<Self>, name: &str) {
+    pub(super) async fn mark_down(self: &Arc<Self>, name: &str, reader_token: &Arc<()>) {
         if self.is_ephemeral(name).await && !self.is_host(name).await {
-            self.forget(name).await;
+            self.forget_from_reader(name, reader_token).await;
             return;
         }
 
-        let mut found = false;
         let mut worker_task = None;
         {
             let mut live = self.live.write().await;
-            if let Some(l) = live.get_mut(name) {
-                found = true;
-                if l.cfg.worker {
-                    worker_task = Some(l.cfg.task_id.clone());
-                }
-                l.set_state(State::Down);
-                l.auto_resume_pending = false;
-                l.bell = false;
-                l.screen = None;
-                l.emu = None;
-                // The generated title belongs to the process that just exited;
-                // the downed session should fall back to its ordinary label.
-                // Resetting the generation also rejects a late worker result.
-                l.title = TitleCapture::default();
-                if let Some(h) = l.reader.take() {
-                    h.abort();
-                }
+            let Some(l) = live.get_mut(name) else {
+                return;
+            };
+            if !l
+                .reader_token
+                .as_ref()
+                .is_some_and(|current| Arc::ptr_eq(current, reader_token))
+            {
+                return;
             }
+            if l.cfg.worker {
+                worker_task = Some(l.cfg.task_id.clone());
+            }
+            l.set_state(State::Down);
+            l.auto_resume_pending = false;
+            l.bell = false;
+            l.screen = None;
+            l.emu = None;
+            // The generated title belongs to the process that just exited;
+            // the downed session should fall back to its ordinary label.
+            // Resetting the generation also rejects a late worker result.
+            l.title = TitleCapture::default();
+            l.reader_token = None;
+            // This is the reader's own task. Taking and dropping its JoinHandle releases
+            // the slot without aborting the task before the cleanup below can finish.
+            drop(l.reader.take());
         }
         self.forget_scroll(name);
         // The process is already gone. Publish that fact before cleanup: clearing activity
         // may ask tmux about a session that disappeared with the process, and must not delay
         // the client's next session snapshot.
-        if found {
-            let _ = self.events.send(Event::Sessions {
-                sessions: self.views().await,
-            });
-        }
+        let _ = self.events.send(Event::Sessions {
+            sessions: self.views().await,
+        });
         self.clear_activity(name).await;
         if let Err(error) = self.title_cache.clear_latest(name) {
             tracing::warn!(
@@ -1172,6 +1288,31 @@ fn build_title_submission(
     (submission, !composer.certain)
 }
 
+async fn wait_for_control_attach(
+    rx: &mut mpsc::UnboundedReceiver<Vec<u8>>,
+) -> Result<Vec<Vec<u8>>> {
+    let mut pending = Vec::new();
+    while let Some(line) = rx.recv().await {
+        if line.starts_with(b"%end") {
+            return Ok(pending);
+        }
+        if line.starts_with(b"%error") {
+            let detail = pending
+                .iter()
+                .rev()
+                .filter_map(|line| std::str::from_utf8(line).ok())
+                .find(|line| !line.starts_with('%') && !line.trim().is_empty())
+                .unwrap_or("tmux rejected control attach");
+            return Err(anyhow!(detail.to_string()));
+        }
+        if line.starts_with(b"%exit") {
+            return Err(anyhow!("control client exited before attach completed"));
+        }
+        pending.push(line);
+    }
+    Err(anyhow!("control client closed before attach completed"))
+}
+
 fn spawn_control_reader(master: std::fs::File) -> mpsc::UnboundedReceiver<Vec<u8>> {
     let (tx, rx) = mpsc::unbounded_channel::<Vec<u8>>();
     std::thread::spawn(move || {
@@ -1240,6 +1381,59 @@ mod tests {
         assert_eq!(lines.recv().await.as_deref(), Some(b"second".as_slice()));
         assert_eq!(lines.recv().await.as_deref(), Some(b"last".as_slice()));
         assert_eq!(lines.recv().await, None);
+    }
+
+    #[tokio::test]
+    async fn control_attach_wait_returns_initial_output_after_success() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        tx.send(b"%begin 1 2 0".to_vec()).unwrap();
+        tx.send(b"%output %0 hello".to_vec()).unwrap();
+        tx.send(b"%end 1 2 0".to_vec()).unwrap();
+
+        let pending = wait_for_control_attach(&mut rx).await.unwrap();
+        assert_eq!(
+            pending,
+            vec![b"%begin 1 2 0".to_vec(), b"%output %0 hello".to_vec()]
+        );
+    }
+
+    #[tokio::test]
+    async fn control_attach_wait_reports_tmux_error_detail() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        tx.send(b"%begin 1 2 0".to_vec()).unwrap();
+        tx.send(b"can't find session: missing".to_vec()).unwrap();
+        tx.send(b"%error 1 2 0".to_vec()).unwrap();
+
+        let error = wait_for_control_attach(&mut rx).await.unwrap_err();
+        assert_eq!(error.to_string(), "can't find session: missing");
+    }
+
+    #[tokio::test]
+    async fn stale_reader_cannot_mark_a_replacement_down() {
+        let manager = crate::session::test_manager(Config::default());
+        let current = Arc::new(());
+        let stale = Arc::new(());
+        let mut live = Live::new(
+            SessionCfg {
+                name: "agent".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        live.state = State::Working;
+        live.reader_token = Some(current.clone());
+        live.emu = Some(Arc::new(Mutex::new(SessionEmu::new(80, 24))));
+        manager.live.write().await.insert("agent".into(), live);
+
+        manager.mark_down("agent", &stale).await;
+
+        let live = manager.live.read().await;
+        assert_eq!(live["agent"].state, State::Working);
+        assert!(live["agent"].emu.is_some());
+        assert!(live["agent"]
+            .reader_token
+            .as_ref()
+            .is_some_and(|token| Arc::ptr_eq(token, &current)));
     }
 
     #[test]

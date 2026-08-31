@@ -22,6 +22,7 @@ impl Live {
             screen: None,
             emu: None,
             reader: None,
+            reader_token: None,
             input: None,
             breadcrumbs: Vec::new(),
             breadcrumbs_pending: false,
@@ -584,10 +585,16 @@ impl Manager {
             if needs_size {
                 self.refresh_readerless_size(&name).await;
             }
-            if self.spawn_reader(&name).await {
-                let m = self.clone();
-                let name = name.clone();
-                tokio::spawn(async move { m.nudge_redraw(&name).await });
+            match self.spawn_reader(&name).await {
+                Ok(true) => {
+                    let m = self.clone();
+                    let name = name.clone();
+                    tokio::spawn(async move { m.nudge_redraw(&name).await });
+                }
+                Ok(false) => {}
+                Err(error) => {
+                    tracing::warn!("could not attach reader for adopted session {name}: {error:#}")
+                }
             }
             if host {
                 let current_path = self.tmux.current_path(&name).await;

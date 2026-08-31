@@ -177,7 +177,17 @@ impl Manager {
                 sessions: self.views().await,
             });
         }
-        self.spawn_reader(name).await;
+        if let Err(error) = self.spawn_reader(name).await {
+            // A session created above is not useful without a live control reader. The reader
+            // has already reset the live state after an attach failure; remove the tmux pane as
+            // well so a failed start cannot be mistaken for a running session on the next tick.
+            if self.tmux.exists(name).await {
+                if let Err(cleanup) = self.tmux.kill(name).await {
+                    tracing::warn!("could not clean up failed start {name}: {cleanup:#}");
+                }
+            }
+            return Err(error.context(format!("starting session {name} reader")));
+        }
         self.wire_live_state(name, &cfg, &s, &p, host).await;
         if !host && s.auto_resume {
             self.queue_auto_resume(name, run_id);
@@ -209,6 +219,7 @@ impl Manager {
             // session. Resetting the capture also makes late title responses from
             // this run stale before the next start.
             l.title = TitleCapture::default();
+            l.reader_token = None;
             if let Some(h) = l.reader.take() {
                 h.abort();
             }
@@ -235,13 +246,21 @@ impl Manager {
         Ok(())
     }
 
-    pub(super) async fn forget(self: &Arc<Self>, name: &str) {
+    async fn forget_inner(self: &Arc<Self>, name: &str, reader_token: Option<&Arc<()>>) {
         let (handle, project, session) = {
             let mut live = self.live.write().await;
-            match live.remove(name) {
-                Some(mut l) => (l.reader.take(), l.cfg.project.clone(), l.cfg),
-                None => return,
+            let Some(l) = live.get(name) else { return };
+            if let Some(reader_token) = reader_token {
+                if !l
+                    .reader_token
+                    .as_ref()
+                    .is_some_and(|current| Arc::ptr_eq(current, reader_token))
+                {
+                    return;
+                }
             }
+            let mut l = live.remove(name).expect("live entry checked above");
+            (l.reader.take(), l.cfg.project.clone(), l.cfg)
         };
         if session.worker {
             self.fail_worker_task(
@@ -265,9 +284,19 @@ impl Manager {
         }
         self.temp.write().await.remove(&project);
         self.grants.write().await.revoke_grantor(name);
-        if let Some(h) = handle {
-            h.abort();
+        if reader_token.is_none() {
+            if let Some(h) = handle {
+                h.abort();
+            }
         }
+    }
+
+    pub(super) async fn forget(self: &Arc<Self>, name: &str) {
+        self.forget_inner(name, None).await;
+    }
+
+    pub(super) async fn forget_from_reader(self: &Arc<Self>, name: &str, reader_token: &Arc<()>) {
+        self.forget_inner(name, Some(reader_token)).await;
     }
 
     pub async fn restart(self: &Arc<Self>, name: &str) -> Result<()> {
