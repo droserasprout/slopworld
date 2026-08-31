@@ -7,8 +7,8 @@ command (including an explicit command line), sandbox additions,
 breadcrumbs, manifest and breadcrumb settings, private `/tmp`, network and DNS, resource limits,
 mounts, and label. Worker autostart and auto-resume are disabled so a task never retries itself;
 the endpoint returns the mailbox task and generated worker session name together. The caller from
-`SLOPWORLD_SESSION` is the task sender; the requested parent supplies the child's name and
-sidebar parent, including when a root `host` caller authorizes the operation.
+`SLOPWORLD_SESSION` is the task sender and sidebar parent; `PARENT` only supplies the configuration
+to clone. A root `host` caller leaves the worker at the top level.
 
 The daemon writes the task to `tasks.toml` before creating or starting the child. A durable worker
 is added to `config.toml` and remains inspectable if startup fails or the daemon restarts. A

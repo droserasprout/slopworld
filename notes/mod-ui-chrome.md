@@ -60,7 +60,7 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   keep missing rows as placeholders. Freshness uses the last successful poll, and a failed
   source dims only its own rows. The clock is independent of usage health, and is right-aligned
   beside colony doors by default, or reserved at the bar centre / omitted by the Appearance
-  setting.
+  setting. The selected session's state age floats at the right edge of its status indicator.
 - `TopBar` draws from a map component and, over a terminal, from `TerminalWindow`; only
   one copy handles input. Appearance settings can hide Usage, place or hide Clock, or hide
   the Jukebox or Computer Core (`GM`) independently. Doors lay out right-to-left before

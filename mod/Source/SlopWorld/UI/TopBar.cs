@@ -221,6 +221,10 @@ namespace SlopWorld
 
             var info = hub.Get(session);
             var state = info?.State ?? AgentState.Down;
+            Text.Font = GameFont.Tiny;
+            string ago = state == AgentState.Down ? "" : StateAge(info);
+            float ageW = ago.Length == 0 ? 0f : SlopWidgets.Wide(ago);
+            Text.Font = GameFont.Small;
 
             // Scale the status marker inset with the row height.
             float inset = Mathf.Round(r.height * 0.27f);
@@ -229,14 +233,35 @@ namespace SlopWorld
             Slab.Fill(chip, TerminalWindow.StateColor(state));
 
             GUI.color = TerminalWindow.StateColor(state);
+            float ageReserve = ageW > 0f ? ageW + SlopWidgets.GapS : 0f;
             float w = Mathf.Min(SlopWidgets.Wide(session) + SlopWidgets.GapXS,
-                r.width - SlopWidgets.StatusMarker - SlopWidgets.GapS * 2f);
+                Mathf.Max(0f, r.width - SlopWidgets.StatusMarker - SlopWidgets.GapS * 2f
+                    - ageReserve));
             var name = new Rect(chip.xMax + SlopWidgets.GapS, r.y, w, r.height);
             SlopWidgets.RowLabel(name, session);
 
+            float ageX = r.xMax - ageW;
+            if (ageW > 0f)
+            {
+                Text.Font = GameFont.Tiny;
+                GUI.color = TerminalWindow.StateColor(state);
+                var time = new Rect(ageX, r.y, ageW, r.height);
+                SlopWidgets.RowLabel(time, ago, TextAnchor.MiddleRight);
+                string stateName = state == AgentState.Waiting
+                    ? "waiting for input"
+                    : state.ToString().ToLowerInvariant();
+                TooltipHandler.TipRegion(time, $"{stateName} for {ago}");
+            }
+
+            float restRight = ageW > 0f ? ageX - SlopWidgets.GapS : r.xMax;
             var rest = new Rect(name.xMax + SlopWidgets.GapS, r.y,
-                r.xMax - name.xMax - SlopWidgets.GapS, r.height);
-            if (rest.width <= 20f) { GUI.color = Color.white; return; }
+                Mathf.Max(0f, restRight - name.xMax - SlopWidgets.GapS), r.height);
+            if (rest.width <= 20f)
+            {
+                Text.Font = GameFont.Small;
+                GUI.color = Color.white;
+                return;
+            }
 
             // Include the negotiated pane shape when a pane is open.
             string tail = Tail(session, state);
@@ -248,6 +273,17 @@ namespace SlopWorld
             SlopWidgets.RowLabel(rest, tail);
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
+        }
+
+        static string StateAge(SessionInfo info)
+        {
+            if (info == null || info.StateSince <= 0) return "";
+            long seconds = (SessionInfo.NowMs - info.StateSince) / 1000L;
+            if (seconds < 0L) return "";
+            if (seconds < 60L) return "<1m";
+            if (seconds < 3600L) return seconds / 60L + "m";
+            if (seconds < 86400L) return seconds / 3600L + "h";
+            return seconds / 86400L + "d";
         }
 
         // Prefer slopd's task title, falling back to the pane's OSC title.

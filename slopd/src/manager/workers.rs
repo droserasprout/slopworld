@@ -58,10 +58,12 @@ impl Manager {
             .await
             .ok_or_else(|| anyhow!("no such worker project: {project}"))?;
 
+        // PARENT supplies the behavior to clone; the invoking session owns the child in the
+        // task mailbox and sidebar.
         let mut session = clone_worker_session(
             parent_session,
-            self.fresh_worker_name(&parent).await,
-            &parent,
+            self.fresh_worker_name(&caller).await,
+            &caller,
         );
         // A worker must be able to reach the daemon and must carry the exact API-capability
         // preset. It is appended to the parent's sandbox rather than replacing its normal tool
@@ -80,7 +82,7 @@ impl Manager {
             caller.clone(),
             session.name.clone(),
             body,
-            parent.clone(),
+            caller,
             durable,
         )?;
         session.task_id = task.id.clone();
@@ -134,8 +136,8 @@ impl Manager {
         })
     }
 
-    async fn fresh_worker_name(&self, parent: &str) -> String {
-        let base = format!("{parent}-worker");
+    async fn fresh_worker_name(&self, owner: &str) -> String {
+        let base = format!("{owner}-worker");
         let cfg = self.config().await;
         let live = self.live.read().await;
         if !live.contains_key(&base)
@@ -159,11 +161,11 @@ impl Manager {
 /// identity and daemon-owned hierarchy metadata, while command, project, sandbox, prompts,
 /// networking, limits and mounts remain the parent's choices. Workers are deliberately stopped
 /// after their task exits: retrying a task is an explicit operator decision, not a daemon loop.
-fn clone_worker_session(mut parent: SessionCfg, name: String, parent_name: &str) -> SessionCfg {
+fn clone_worker_session(mut parent: SessionCfg, name: String, owner_name: &str) -> SessionCfg {
     parent.name = name;
     parent.state_id = uuid::Uuid::new_v4().to_string();
     parent.worker = true;
-    parent.parent = parent_name.to_string();
+    parent.parent = owner_name.to_string();
     parent.task_id.clear();
     parent.autostart = false;
     parent.auto_resume = false;
@@ -204,12 +206,8 @@ mod tests {
         );
         assert_eq!(manager.fresh_worker_name("parent").await, "parent-worker-2");
 
-        // The caller is not part of the child identity. A host-authorized request still names
-        // its child from the explicitly selected parent session.
-        assert_eq!(
-            manager.fresh_worker_name("ducks-sl").await,
-            "ducks-sl-worker"
-        );
+        // The selected parent supplies the clone, but the caller owns the child in the sidebar.
+        assert_eq!(manager.fresh_worker_name("caller").await, "caller-worker");
     }
 
     #[tokio::test]
@@ -268,12 +266,12 @@ mod tests {
             task_id: String::new(),
             worker_token: None,
         };
-        let child = clone_worker_session(parent.clone(), "ducks-sl-worker".into(), "ducks-sl");
+        let child = clone_worker_session(parent.clone(), "caller-worker".into(), "caller");
 
-        assert_eq!(child.name, "ducks-sl-worker");
+        assert_eq!(child.name, "caller-worker");
         assert_ne!(child.state_id, parent.state_id);
         assert!(child.worker);
-        assert_eq!(child.parent, "ducks-sl");
+        assert_eq!(child.parent, "caller");
         assert!(child.task_id.is_empty());
         assert_eq!(child.label, parent.label);
         assert_eq!(child.project, parent.project);
@@ -296,8 +294,62 @@ mod tests {
         assert!(!child.auto_resume);
     }
 
+    #[tokio::test]
+    async fn durable_worker_parent_survives_a_daemon_restart() {
+        let dir = std::env::temp_dir().join(format!(
+            "slopd-worker-restart-{}-{}",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
+        let project_dir = dir.join("repo");
+        std::fs::create_dir_all(&project_dir).unwrap();
+
+        let config = Config {
+            projects: vec![ProjectCfg {
+                name: "repo".into(),
+                dir: project_dir.to_string_lossy().into_owned(),
+                ..Default::default()
+            }],
+            sessions: vec![
+                SessionCfg {
+                    name: "caller".into(),
+                    project: "repo".into(),
+                    ..Default::default()
+                },
+                SessionCfg {
+                    name: "caller-worker".into(),
+                    project: "repo".into(),
+                    worker: true,
+                    parent: "caller".into(),
+                    task_id: "task-7".into(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        let config_path = dir.join("config.toml");
+        config.save(&config_path).await.unwrap();
+
+        // A new daemon reads the durable config before it repopulates its live session table.
+        let reloaded = Config::load(&config_path).await.unwrap();
+        let manager = crate::session::test_manager(reloaded);
+        manager.sync_from_config().await;
+        let child = manager
+            .views()
+            .await
+            .into_iter()
+            .find(|session| session.name == "caller-worker")
+            .expect("worker restored after restart");
+
+        assert!(child.worker);
+        assert!(child.durable);
+        assert_eq!(child.parent, "caller");
+        assert_eq!(child.task_id, "task-7");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[test]
-    fn worker_task_keeps_host_sender_separate_from_parent_metadata() {
+    fn worker_task_uses_caller_as_parent_metadata() {
         let dir = std::env::temp_dir().join(format!(
             "slopd-worker-attribution-{}-{}",
             std::process::id(),
@@ -308,18 +360,18 @@ mod tests {
         let mut tasks = crate::tasks::Tasks::load(&config).unwrap();
         let task = tasks
             .create_worker(
-                crate::tasks::HOST.into(),
-                "ducks-sl-worker".into(),
+                "caller".into(),
+                "caller-worker".into(),
                 "inspect the build".into(),
-                "ducks-sl".into(),
+                "caller".into(),
                 false,
             )
             .unwrap();
 
-        assert_eq!(task.from, crate::tasks::HOST);
-        assert_eq!(task.to, "ducks-sl-worker");
+        assert_eq!(task.from, "caller");
+        assert_eq!(task.to, "caller-worker");
         let worker = task.worker.unwrap();
-        assert_eq!(worker.parent, "ducks-sl");
+        assert_eq!(worker.parent, "caller");
         assert!(!worker.durable);
         let _ = std::fs::remove_dir_all(dir);
     }
