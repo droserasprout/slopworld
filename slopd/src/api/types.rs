@@ -8,13 +8,8 @@ pub(crate) struct CreateTaskReq {
 
 #[derive(Deserialize)]
 pub(crate) struct SpawnWorkerReq {
-    /// Existing agent name, or `host` for a host-owned child.
+    /// Existing agent session whose complete configuration is cloned for the child.
     pub(crate) parent: String,
-    #[serde(default)]
-    pub(crate) project: String,
-    /// A command preset such as `codex`, `claude` or `pi`. Empty uses `[defaults] agent`.
-    #[serde(default)]
-    pub(crate) template: String,
     pub(crate) body: String,
     #[serde(default)]
     pub(crate) durable: bool,
