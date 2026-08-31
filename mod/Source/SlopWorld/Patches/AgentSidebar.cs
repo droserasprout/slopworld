@@ -6,12 +6,13 @@ using Verse;
 
 namespace SlopWorld
 {
+    [Flags]
     public enum AgentStatusFilter
     {
-        All,
-        Active,
-        Idle,
-        Down,
+        All = 0,
+        Active = 1,
+        Idle = 2,
+        Down = 4,
     }
 
     public static partial class AgentSidebar
@@ -161,6 +162,9 @@ namespace SlopWorld
 
         public static bool Filtering => Projects.Filtering;
 
+        const AgentStatusFilter EveryStatus = AgentStatusFilter.Active |
+            AgentStatusFilter.Idle | AgentStatusFilter.Down;
+
         public static AgentStatusFilter StatusFilter => ParseStatusFilter(Settings.SidebarAgentStatus);
 
         public static bool StatusFiltering => StatusFilter != AgentStatusFilter.All;
@@ -169,30 +173,54 @@ namespace SlopWorld
 
         static AgentStatusFilter ParseStatusFilter(string value)
         {
-            switch (value)
+            if (string.IsNullOrEmpty(value)) return AgentStatusFilter.All;
+
+            var filter = AgentStatusFilter.All;
+            var values = value.Split(new[] { ',', '|' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var raw in values)
             {
-                case "active": return AgentStatusFilter.Active;
-                case "idle": return AgentStatusFilter.Idle;
-                case "down": return AgentStatusFilter.Down;
-                default: return AgentStatusFilter.All;
+                switch (raw.Trim().ToLowerInvariant())
+                {
+                    case "active": filter |= AgentStatusFilter.Active; break;
+                    case "idle": filter |= AgentStatusFilter.Idle; break;
+                    case "down": filter |= AgentStatusFilter.Down; break;
+                    case "all": return AgentStatusFilter.All;
+                }
             }
+
+            return filter == EveryStatus ? AgentStatusFilter.All : filter;
         }
 
         public static bool PassesStatus(AgentState state)
         {
-            switch (StatusFilter)
+            var filter = StatusFilter;
+            if (filter == AgentStatusFilter.All) return true;
+
+            switch (state)
             {
-                case AgentStatusFilter.Active:
-                    return state == AgentState.Working || state == AgentState.Waiting;
-                case AgentStatusFilter.Idle: return state == AgentState.Idle;
-                case AgentStatusFilter.Down: return state == AgentState.Down;
-                default: return true;
+                case AgentState.Working:
+                case AgentState.Waiting:
+                    return (filter & AgentStatusFilter.Active) != 0;
+                case AgentState.Idle:
+                    return (filter & AgentStatusFilter.Idle) != 0;
+                case AgentState.Down:
+                    return (filter & AgentStatusFilter.Down) != 0;
+                default:
+                    return false;
             }
         }
 
         public static void SetStatusFilter(AgentStatusFilter filter)
         {
-            Settings.S.sidebarAgentStatus = filter.ToString().ToLowerInvariant();
+            if ((filter & EveryStatus) == EveryStatus) filter = AgentStatusFilter.All;
+
+            var values = new List<string>();
+            if ((filter & AgentStatusFilter.Active) != 0) values.Add("active");
+            if ((filter & AgentStatusFilter.Idle) != 0) values.Add("idle");
+            if ((filter & AgentStatusFilter.Down) != 0) values.Add("down");
+            Settings.S.sidebarAgentStatus = values.Count == 0
+                ? "all"
+                : string.Join(",", values.ToArray());
             Settings.S.Write();
         }
 

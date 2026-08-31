@@ -87,7 +87,8 @@ namespace SlopWorld
         public string sidebarTab = "agents";
         public bool sidebarShowHidden;
         public bool sidebarShowGitignored;
-        // Agent-row visibility: all, active (working or waiting), idle or down.
+        // Agent-row visibility: all, or a comma-separated selection of active (working or
+        // waiting), idle and down.
         public string sidebarAgentStatus = "all";
         // The projects ticked in the column's filter, one name a line and blank for all of
         // them - the folds' own format, kept here for the folds' own reason. See
