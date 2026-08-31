@@ -99,7 +99,8 @@ namespace SlopWorld
         {
             public string Label;
             public Rect Rect;   // the whole band, so the arrow and the name click as one
-            public int Count;   // what is under it, which is the only thing a fold hides
+            public int Active;
+            public int Total;
             public bool Folded;
         }
 

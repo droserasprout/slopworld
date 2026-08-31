@@ -263,12 +263,14 @@ namespace SlopWorld
             bool folded = Folded.Contains(key);
             var ghosts = Layout.Ghosts.TryGetValue(key, out var gs) ? gs : EmptyGhosts;
             int workers = WorkerCount(key);
+            AgentCounts(key, out int active, out int total);
 
             Layout.Heads.Add(new Head
             {
                 Label = key,
                 Rect = new Rect(0f, y, width, HeadH),
-                Count = bucket.Count + ghosts.Count + workers,
+                Active = active,
+                Total = total,
                 Folded = folded,
             });
             y += HeadH;
@@ -287,6 +289,25 @@ namespace SlopWorld
                 y = LayoutWorkers(Layout.Named[i], width, y, 0);
             }
             return y;
+        }
+
+        static bool IsActive(AgentState state) => state == AgentState.Working
+            || state == AgentState.Waiting;
+
+        static void AgentCounts(string project, out int active, out int total)
+        {
+            active = 0;
+            total = 0;
+            foreach (var info in SessionHub.Instance.Sessions)
+            {
+                if (info == null || info.Worker || info.Ephemeral || info.Host || IsRouted(info))
+                    continue;
+                string key = string.IsNullOrEmpty(info.Project) ? Loose : info.Project;
+                if (key != project) continue;
+
+                total++;
+                if (IsActive(info.State)) active++;
+            }
         }
 
         static int WorkerCount(string project)
@@ -898,9 +919,15 @@ namespace SlopWorld
             Text.Font = GameFont.Tiny;
 
             float lx = arrow.xMax + 4f;
-            string tail = head.Folded ? "  " + head.Count : "";
-            var label = new Rect(lx, r.y, r.width - lx - CellX, HeadH);
-            SlopWidgets.RowLabel(label, head.Label + tail);
+            string count = $"{head.Active}/{head.Total}";
+            float countW = SlopWidgets.Wide(count);
+            var countRect = new Rect(r.xMax - CellX - countW, r.y, countW, HeadH);
+            GUI.color = SlopWidgets.Dim;
+            SlopWidgets.RowLabel(countRect, count, TextAnchor.MiddleRight);
+
+            GUI.color = SlopWidgets.Faint;
+            var label = new Rect(lx, r.y, Mathf.Max(0f, countRect.x - Pad - lx), HeadH);
+            SlopWidgets.RowLabel(label, head.Label);
 
             Slab.Hairline(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
                 SlopWidgets.Edge);

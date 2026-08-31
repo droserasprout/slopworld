@@ -18,6 +18,10 @@ then the agent rows and portraits scroll in the remaining body. The body keeps i
 panel width without a scrollbar gutter; overflow is marked by a soft shadow above the fixed
 add strip.
 
+Agent project headings remain foldable and show the project's active/total agent count
+right-aligned in both folded and unfolded states. Active means Working or Waiting, matching
+the Agents status filter; host, ephemeral and task-worker rows are not counted as agents.
+
 Selected portrait corners are queued during the vanilla portrait pass and drawn later in the
 same scroll group, using the same local face rect as the portrait. The full view retains
 vanilla's bracket texture and selection-jump animation while keeping multi-selection and
