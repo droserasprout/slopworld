@@ -309,6 +309,7 @@ pub(super) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResul
         // None rather than an empty string: `session_for` reads "no command of its own" off
         // the Option, and that is what falls through to the preset.
         command: (!command.is_empty()).then_some(command),
+        mode: crate::config::FileActionMode::Ask,
         builtin: false,
     };
 

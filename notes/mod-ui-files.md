@@ -21,9 +21,10 @@ can temporarily become the tree root.
   rename/remove, new file/folder and terminal here. Root-only Files mutations use create,
   one-component rename and recursive delete. View/edit and file actions run through the
   project sandbox; storage roots use disposable host errands.
-- Project headings also offer a host terminal. `fa` library items show bounded output in the
-  SlopWorld alert window (vanilla message toasts are hidden) or open a temporary project
-  terminal; path markers are quoted and normalized by the daemon.
+- Project headings also offer a host terminal. `fa` library items can show bounded output in the
+  SlopWorld alert window (vanilla message toasts are hidden), open a temporary project terminal,
+  or retain the per-invocation choice; the mode is set in the Library item editor. Path markers
+  are quoted and normalized by the daemon.
 
 ## Viewer
 

@@ -6,7 +6,9 @@ defines named guidance instead of an errand, and projects/agents attach breadcru
 names through `breadcrumbs`.
 
 `kind = "fa"` defines a file-sidebar action, offered by the Files, Git and Find context menus.
-Its `command` is a command line. By default the
+Its `command` is a command line. `mode = "show_result"` displays bounded output in the alert;
+`mode = "open_terminal"` opens the interactive terminal; omitting `mode` keeps the old
+per-invocation choice. By default the
 selected absolute path is appended; `{{ absolute_path }}` and `{{ relative_path }}` substitute the
 quoted absolute path and project-relative path respectively. A project root's relative path is
 `.`. It is offered from a file or directory context menu as captured output in the SlopWorld

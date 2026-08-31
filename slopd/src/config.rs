@@ -253,9 +253,9 @@ pub fn expand(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        expand, redact_token_text, resolvers_from, temp_dir, Config, DnsConfig, HostTerminalCfg,
-        InstructionsCfg, LibraryItemCfg, LibraryItemKind, LibraryItemLink, Limits, NetworkMode,
-        ProjectCfg, SessionCfg, TitlePolicy, DEFAULT_INSTRUCTIONS_BREADCRUMB,
+        expand, redact_token_text, resolvers_from, temp_dir, Config, DnsConfig, FileActionMode,
+        HostTerminalCfg, InstructionsCfg, LibraryItemCfg, LibraryItemKind, LibraryItemLink, Limits,
+        NetworkMode, ProjectCfg, SessionCfg, TitlePolicy, DEFAULT_INSTRUCTIONS_BREADCRUMB,
         DEFAULT_INSTRUCTIONS_MOUNT_PATH, DEFAULT_INSTRUCTIONS_TEMPLATE, TOKEN_REDACTED,
     };
 
@@ -616,6 +616,56 @@ token = \"not-a-daemon-token\"
         );
     }
 
+    #[test]
+    fn file_action_modes_round_trip_and_default_to_the_menu() {
+        let cfg = Config::parse(
+            r#"
+            [[library]]
+            name = "old"
+            kind = "fa"
+            command = "du -sh"
+
+            [[library]]
+            name = "report"
+            kind = "fa"
+            command = "file"
+            mode = "show_result"
+
+            [[library]]
+            name = "shell"
+            kind = "fa"
+            command = "bash"
+            mode = "open_terminal"
+            "#,
+        )
+        .expect("file action modes should parse");
+
+        assert_eq!(cfg.library_item("old").unwrap().mode, FileActionMode::Ask);
+        assert_eq!(
+            cfg.library_item("report").unwrap().mode,
+            FileActionMode::ShowResult
+        );
+        assert_eq!(
+            cfg.library_item("shell").unwrap().mode,
+            FileActionMode::OpenTerminal
+        );
+
+        let text = toml::to_string_pretty(&cfg).unwrap();
+        assert!(text.contains("mode = \"show_result\""));
+        assert!(text.contains("mode = \"open_terminal\""));
+        assert!(!text.contains("name = \"old\"\nkind = \"fa\"\ncommand = \"du -sh\"\nmode"));
+
+        let back = Config::parse(&text).unwrap();
+        assert_eq!(
+            back.library_item("report").unwrap().mode,
+            FileActionMode::ShowResult
+        );
+        assert_eq!(
+            back.library_item("shell").unwrap().mode,
+            FileActionMode::OpenTerminal
+        );
+    }
+
     /// The directory under it is coined; the point is that nobody typed it.
     #[test]
     fn temp_projects_name_their_own_directory() {
@@ -702,6 +752,7 @@ token = \"not-a-daemon-token\"
             project: "slopworld".into(),
             text: "make test".into(),
             command: None,
+            mode: FileActionMode::Ask,
             builtin: false,
         });
 

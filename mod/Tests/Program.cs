@@ -20,6 +20,8 @@ namespace SlopWorld.Tests
                 tests.Add(("Endpoint: " + test.Name, test.Body));
             foreach (var test in NetworkModeTests.Cases())
                 tests.Add(("NetworkMode: " + test.Name, test.Body));
+            foreach (var test in LibraryItemTests.Cases())
+                tests.Add(("LibraryItem: " + test.Name, test.Body));
             foreach (var test in ProjectInfoTests.Cases())
                 tests.Add(("ProjectInfo: " + test.Name, test.Body));
             foreach (var test in DnsConfigTests.Cases())

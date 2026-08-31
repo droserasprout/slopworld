@@ -645,6 +645,7 @@ namespace SlopWorld
             var kind = KindDescriptors[_s.Kind];
             DrawName(l);
             DrawKindAndLink(l, kind);
+            DrawFileActionMode(l);
             DrawProject(l, kind);
             DrawExplanation(l, kind);
             DrawCommand(l, kind);
@@ -683,6 +684,15 @@ namespace SlopWorld
             l.Label(kind.ProjectLabel(this));
             if (SlopWidgets.Button(l, kind.ProjectValue(this)))
                 kind.PickProject(this);
+        }
+
+        void DrawFileActionMode(Listing_Standard l)
+        {
+            if (_s.Kind != LibraryItemKind.FileAction) return;
+            l.Gap(SlopWidgets.GapS);
+            l.Label("After choosing the file action");
+            if (SlopWidgets.Button(l, FileActionModeText.Label(_s.Mode)))
+                PickFileActionMode();
         }
 
         void DrawExplanation(Listing_Standard l, LibraryItemKindDescriptor kind)
@@ -792,18 +802,31 @@ namespace SlopWorld
             }));
         }
 
+        void PickFileActionMode()
+        {
+            TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
+            {
+                new FloatMenuOption(FileActionModeText.Label(FileActionMode.Ask),
+                    () => _s.Mode = FileActionMode.Ask),
+                new FloatMenuOption(FileActionModeText.Label(FileActionMode.ShowResult),
+                    () => _s.Mode = FileActionMode.ShowResult),
+                new FloatMenuOption(FileActionModeText.Label(FileActionMode.OpenTerminal),
+                    () => _s.Mode = FileActionMode.OpenTerminal),
+            }));
+        }
+
         void PickKind()
         {
             TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption("Prompt - say something to an agent",
-                    () => _s.Kind = LibraryItemKind.Prompt),
+                    () => { _s.Kind = LibraryItemKind.Prompt; _s.Mode = FileActionMode.Ask; }),
                 new FloatMenuOption("Shell - run a command",
-                    () => _s.Kind = LibraryItemKind.Shell),
+                    () => { _s.Kind = LibraryItemKind.Shell; _s.Mode = FileActionMode.Ask; }),
                 new FloatMenuOption("Breadcrumb - append to the first prompt",
-                    () => { _s.Kind = LibraryItemKind.Breadcrumb; _s.Link = LibraryItemLink.Project; _s.Project = ""; }),
+                    () => { _s.Kind = LibraryItemKind.Breadcrumb; _s.Mode = FileActionMode.Ask; _s.Link = LibraryItemLink.Project; _s.Project = ""; }),
                 new FloatMenuOption("File action - run on a Files row",
-                    () => { _s.Kind = LibraryItemKind.FileAction; _s.Link = LibraryItemLink.Project; _s.Project = ""; _s.Text = ""; }),
+                    () => { _s.Kind = LibraryItemKind.FileAction; _s.Mode = FileActionMode.Ask; _s.Link = LibraryItemLink.Project; _s.Project = ""; _s.Text = ""; }),
             }));
         }
 

@@ -53,8 +53,9 @@ that an agent receives alongside its first prompt.
 
 File-sidebar actions (`kind = "fa"`) appear in the Files, Git, and Find context menus.
 Their `command` runs against the selected path, with `{{ absolute_path }}` and
-`{{ relative_path }}` available as substitutions. The result shows in a captured-output
-alert or an interactive temporary terminal.
+`{{ relative_path }}` available as substitutions. Set `mode` to `"show_result"` or
+`"open_terminal"` to choose how the action runs; omitting it keeps the per-invocation
+choice. The result shows in a captured-output alert or an interactive temporary terminal.
 
 Library item and breadcrumb presets are configured in Settings > Commands. Builtin entries
 are shadowed when a user entry has the same name.
