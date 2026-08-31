@@ -13,7 +13,7 @@
 | `session/view.rs` | `SessionView` and `ScreenView` wire serialization. |
 | `session/ctrl.rs` | `Manager` storage and client/watch guards. |
 | `manager/config.rs` | `Manager` construction, configuration synchronization, clocks and activity persistence. |
-| `manager/desktop.rs` | Host MIME associations and desktop-file display names for Files' Open in menu. |
+| `manager/desktop.rs` | Host MIME associations, desktop-file names and launch paths for Files' Open in menu. |
 | `manager/sessions.rs` | Session config edits, host-terminal persistence, stored state, and session lookup. |
 | `manager/session_lifecycle.rs` | Session target resolution and process start/stop/forget/restart lifecycle. |
 | `manager/session_state.rs` | Session views, state classification, and the manager retick loop. |

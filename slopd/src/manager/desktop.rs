@@ -4,7 +4,7 @@ use super::super::*;
 use anyhow::{bail, Context, Result};
 use serde::Serialize;
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::time::Duration;
 use tokio::process::Command;
 
@@ -14,12 +14,17 @@ const DESKTOP_COMMAND_TIMEOUT: Duration = Duration::from_secs(3);
 pub(crate) struct DesktopApp {
     pub(crate) id: String,
     pub(crate) name: String,
+    /// `gio launch` needs the desktop file location, not the desktop-file ID printed by
+    /// `gio mime`. Keep the ID for stable identity/display fallback, but give callers the
+    /// resolved path for launching.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) desktop_file: Option<String>,
 }
 
 impl Manager {
     /// Ask the host desktop's MIME database for the applications associated with a path. The
-    /// result keeps the desktop-file ID as well as its display name: the ID is the safe handle
-    /// used by `gio launch`, while the name is all the Files menu needs to show.
+    /// result keeps the desktop-file ID and display name, plus the resolved desktop-file path
+    /// that `gio launch` needs.
     pub async fn open_apps(&self, raw_path: &str) -> Result<Vec<DesktopApp>> {
         let path = absolute_path(raw_path)?;
         let path = path
@@ -77,6 +82,7 @@ fn desktop_apps(associations: &str) -> Vec<DesktopApp> {
             Some(DesktopApp {
                 id: id.to_string(),
                 name: desktop_name(id),
+                desktop_file: desktop_file_path(id).map(|path| path.to_string_lossy().into_owned()),
             })
         })
         .collect()
@@ -95,8 +101,10 @@ fn associated_apps(mime: &str, associations: &str) -> Vec<DesktopApp> {
         if !entry.supports(mime) || !seen.insert(entry.id.clone()) {
             continue;
         }
+        let id = entry.id;
         apps.push(DesktopApp {
-            id: entry.id,
+            desktop_file: desktop_file_path(&id).map(|path| path.to_string_lossy().into_owned()),
+            id,
             name: entry.name,
         });
     }
@@ -114,10 +122,8 @@ fn desktop_id(line: &str) -> Option<&str> {
 }
 
 fn desktop_name(id: &str) -> String {
-    desktop_search_paths()
-        .into_iter()
-        .map(|root| root.join("applications").join(id))
-        .find_map(|path| desktop_entry_name(&path))
+    desktop_file_path(id)
+        .and_then(|path| desktop_entry_name(&path))
         .unwrap_or_else(|| {
             id.strip_suffix(".desktop")
                 .unwrap_or(id)
@@ -137,6 +143,26 @@ impl DesktopEntry {
         self.mime_types.contains(mime)
             || (mime.starts_with("text/") && self.mime_types.contains("text/plain"))
     }
+}
+
+fn desktop_file_path(id: &str) -> Option<PathBuf> {
+    let roots = desktop_search_paths();
+    desktop_file_path_in(id, &roots)
+}
+
+fn desktop_file_path_in(id: &str, roots: &[PathBuf]) -> Option<PathBuf> {
+    let relative = Path::new(id);
+    if relative.is_absolute()
+        || relative
+            .components()
+            .any(|component| matches!(component, Component::CurDir | Component::ParentDir))
+    {
+        return None;
+    }
+    roots
+        .iter()
+        .map(|root| root.join("applications").join(relative))
+        .find(|path| path.is_file())
 }
 
 fn desktop_search_paths() -> Vec<PathBuf> {
@@ -319,7 +345,8 @@ fn unescape_desktop_value(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        associated_apps, content_type, desktop_apps, parse_desktop_entry, unescape_desktop_value,
+        associated_apps, content_type, desktop_apps, desktop_file_path_in, parse_desktop_entry,
+        unescape_desktop_value,
     };
 
     #[test]
@@ -373,6 +400,24 @@ mod tests {
             apps.first().map(|app| app.id.as_str()),
             Some("first.desktop")
         );
+    }
+
+    #[test]
+    fn desktop_ids_resolve_to_launchable_files() {
+        let root = tempfile_path("desktop-location");
+        let applications = root.join("applications");
+        std::fs::create_dir_all(&applications).unwrap();
+        let path = applications.join("nested/editor.desktop");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "[Desktop Entry]\nType=Application\nName=Editor\n").unwrap();
+
+        assert_eq!(
+            desktop_file_path_in("nested/editor.desktop", std::slice::from_ref(&root)),
+            Some(path.clone())
+        );
+        assert!(desktop_file_path_in("../editor.desktop", std::slice::from_ref(&root)).is_none());
+
+        let _ = std::fs::remove_dir_all(root);
     }
 
     fn tempfile_path(name: &str) -> std::path::PathBuf {
