@@ -18,6 +18,9 @@ namespace SlopWorld
         // A frame is one screen's worth of SGR text, and the daemon clamps a pane to 500x200,
         // so the widest thing it can send is orders of magnitude under this.
         const long MaxFrame = 32L * 1024 * 1024;
+        // A peer can split one text message across arbitrarily many frames. Bound the message
+        // as well as each allocation so fragmentation cannot grow the buffer without limit.
+        const long MaxFragmentedMessage = 32L * 1024 * 1024;
 
         public bool Connected { get; private set; }
         public string LastError { get; private set; }
@@ -226,7 +229,11 @@ namespace SlopWorld
 
                     bool fin = (b0 & 0x80) != 0;
                     int opcode = b0 & 0x0f;
+                    if ((b0 & 0x70) != 0)
+                        throw new IOException("websocket extensions are not supported");
                     // Server frames are never masked, so bit 7 of b1 is always 0 here.
+                    if ((b1 & 0x80) != 0)
+                        throw new IOException("masked server frame");
                     long len = b1 & 0x7f;
 
                     if (len == 126)
@@ -245,6 +252,20 @@ namespace SlopWorld
                     // casts negative and throws somewhere further from the cause than here.
                     if (len < 0 || len > MaxFrame)
                         throw new IOException($"frame length out of range: {len}");
+
+                    if ((opcode & 0x8) != 0 && (!fin || len > 125))
+                        throw new IOException("malformed control frame");
+                    if ((opcode >= 0x2 && opcode <= 0x7) ||
+                        ((opcode & 0x8) != 0 && opcode != 0x8 && opcode != 0x9 && opcode != 0xA))
+                        throw new IOException($"unsupported websocket opcode: {opcode}");
+                    if (opcode == 0x0 && fragOpcode == 0)
+                        throw new IOException("unexpected continuation frame");
+                    if (opcode == 0x1 && fragOpcode != 0)
+                        throw new IOException("new text frame while fragmented message is pending");
+                    if (opcode == 0x0 && (long)frag.Length + len > MaxFragmentedMessage)
+                        throw new IOException("fragmented message is too large");
+                    if (opcode == 0x1 && !fin && len > MaxFragmentedMessage)
+                        throw new IOException("fragmented message is too large");
 
                     var payload = ReadExactly((int)len);
 

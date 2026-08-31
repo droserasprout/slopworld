@@ -222,16 +222,16 @@ namespace SlopWorld
         }
 
         public void Start(string name, Action<string> fail = null) =>
-            SlopClient.Post($"/api/sessions/{name}/start", null, _ => Refresh(), fail);
+            SlopClient.Post($"/api/sessions/{HubWire.Esc(name)}/start", null, _ => Refresh(), fail);
 
         public void Stop(string name, Action<string> fail = null) =>
-            SlopClient.Post($"/api/sessions/{name}/stop", null, _ => Refresh(), fail);
+            SlopClient.Post($"/api/sessions/{HubWire.Esc(name)}/stop", null, _ => Refresh(), fail);
 
         public void Restart(string name, Action<string> fail = null) =>
-            SlopClient.Post($"/api/sessions/{name}/restart", null, _ => Refresh(), fail);
+            SlopClient.Post($"/api/sessions/{HubWire.Esc(name)}/restart", null, _ => Refresh(), fail);
 
         public void ResetState(string name, Action<string> fail = null) =>
-            SlopClient.Post($"/api/sessions/{name}/state/reset", null, _ => Refresh(), fail);
+            SlopClient.Post($"/api/sessions/{HubWire.Esc(name)}/state/reset", null, _ => Refresh(), fail);
 
         public void SetLabel(string name, string label, Action ok = null, Action<string> fail = null)
         {
@@ -241,7 +241,7 @@ namespace SlopWorld
         }
 
         public void Remove(string name, Action<string> fail = null) =>
-            SlopClient.Delete($"/api/sessions/{name}", _ => Refresh(), fail);
+            SlopClient.Delete($"/api/sessions/{HubWire.Esc(name)}", _ => Refresh(), fail);
 
         // `origName` addresses the edit: the name in `s` may be a new one the daemon has not
         // heard of, which is how a rename is spelled.
@@ -266,7 +266,7 @@ namespace SlopWorld
                 fail?.Invoke(message);
             };
             if (isNew) SlopClient.Post("/api/sessions", s.ToJson(), done, error);
-            else SlopClient.Put($"/api/sessions/{origName}", s.ToJson(), done, error);
+            else SlopClient.Put($"/api/sessions/{HubWire.Esc(origName)}", s.ToJson(), done, error);
         }
     }
 }

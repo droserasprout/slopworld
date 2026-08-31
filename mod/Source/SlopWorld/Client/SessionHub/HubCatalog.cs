@@ -19,6 +19,8 @@ namespace SlopWorld
         // generation, a slow pre-edit GET can put the old network default back after a Host
         // save has succeeded.
         int _projectsRevision;
+        int _libraryRevision;
+        int _presetsRevision;
 
         // A project edit also changes which sessions exist, so the catalog asks the session
         // store to refresh without owning it.
@@ -37,8 +39,11 @@ namespace SlopWorld
             Projects = ev["projects"].Items.Select(ProjectInfo.FromJson).ToList();
         }
 
-        public void ApplyLibrary(JVal ev) =>
+        public void ApplyLibrary(JVal ev)
+        {
+            _libraryRevision++;
             Library = ev["library"].Items.Select(LibraryItemInfo.FromJson).ToList();
+        }
 
         public ProjectInfo Project(string name) =>
             Projects.FirstOrDefault(p => p.Name == name);
@@ -63,54 +68,100 @@ namespace SlopWorld
         public LibraryItemInfo LibraryItem(string name) =>
             Library.FirstOrDefault(s => s.Name == name);
 
-        public void RefreshLibrary(Action<string> fail = null) =>
+        public void RefreshLibrary(Action<string> fail = null)
+        {
+            int revision = ++_libraryRevision;
             SlopClient.Get("/api/library",
-                j => Library = j["library"].Items.Select(LibraryItemInfo.FromJson).ToList(),
-                fail);
+                j =>
+                {
+                    if (revision == _libraryRevision)
+                        Library = j["library"].Items.Select(LibraryItemInfo.FromJson).ToList();
+                },
+                msg =>
+                {
+                    if (revision == _libraryRevision) fail?.Invoke(msg);
+                });
+        }
 
         public void SaveLibraryItem(LibraryItemInfo s, bool isNew, string origName,
                                  Action ok, Action<string> fail)
         {
+            _libraryRevision++;
             Action<JVal> done = _ => { RefreshLibrary(); ok?.Invoke(); };
             if (isNew) SlopClient.Post("/api/library", s.ToJson(), done, fail);
             else SlopClient.Put($"/api/library/{HubWire.Esc(origName)}", s.ToJson(), done, fail);
         }
 
-        public void RemoveLibraryItem(string name, Action<string> fail = null) =>
+        public void RemoveLibraryItem(string name, Action<string> fail = null)
+        {
+            _libraryRevision++;
             SlopClient.Delete($"/api/library/{HubWire.Esc(name)}",
                 _ => RefreshLibrary(), fail);
+        }
 
         // The old lists stay up until the answer lands, so a dialog opened with the socket
         // down draws what it knew rather than nothing.
         public void LoadPresets(Action ok = null, Action<string> fail = null)
         {
+            int revision = ++_presetsRevision;
             SlopClient.Get("/api/presets", j =>
             {
+                if (revision != _presetsRevision) return;
                 Presets = j["presets"].Items.Select(PresetInfo.FromJson).ToList();
                 Commands = j["commands"].Items.Select(CommandInfo.FromJson).ToList();
                 ok?.Invoke();
-            }, fail);
+            }, msg =>
+            {
+                if (revision == _presetsRevision) fail?.Invoke(msg);
+            });
         }
 
         public void CopyPreset(string kind, string name, string newName,
-                               Action ok, Action<string> fail) =>
+                               Action ok, Action<string> fail)
+        {
+            _presetsRevision++;
             SlopClient.Post($"/api/presets/{kind}/{Uri.EscapeDataString(name)}/copy",
                 $"{{\"name\":{JVal.Q(newName ?? "")}}}", _ =>
                 {
-                    LoadPresets(ok, fail);
+                    // The write completed even if another catalog GET supersedes this reload;
+                    // do not make the caller's completion depend on which snapshot wins.
+                    LoadPresets(fail: fail);
+                    ok?.Invoke();
                 }, fail);
+        }
 
-        public void SavePreset(PresetInfo p, Action ok, Action<string> fail) =>
+        public void SavePreset(PresetInfo p, Action ok, Action<string> fail)
+        {
+            _presetsRevision++;
             SlopClient.Put($"/api/presets/sandbox/{Uri.EscapeDataString(p.Name)}", p.ToJson(),
-                _ => LoadPresets(ok, fail), fail);
+                _ =>
+                {
+                    LoadPresets(fail: fail);
+                    ok?.Invoke();
+                }, fail);
+        }
 
-        public void RemovePreset(string kind, string name, Action ok, Action<string> fail) =>
+        public void RemovePreset(string kind, string name, Action ok, Action<string> fail)
+        {
+            _presetsRevision++;
             SlopClient.Delete($"/api/presets/{kind}/{Uri.EscapeDataString(name)}",
-                _ => LoadPresets(ok, fail), fail);
+                _ =>
+                {
+                    LoadPresets(fail: fail);
+                    ok?.Invoke();
+                }, fail);
+        }
 
-        public void SaveCommand(CommandInfo c, Action ok, Action<string> fail) =>
+        public void SaveCommand(CommandInfo c, Action ok, Action<string> fail)
+        {
+            _presetsRevision++;
             SlopClient.Put($"/api/presets/command/{Uri.EscapeDataString(c.Name)}", c.ToJson(),
-                _ => LoadPresets(ok, fail), fail);
+                _ =>
+                {
+                    LoadPresets(fail: fail);
+                    ok?.Invoke();
+                }, fail);
+        }
 
         public CommandInfo Command(string name) =>
             string.IsNullOrEmpty(name) ? null : Commands.FirstOrDefault(c => c.Name == name);
