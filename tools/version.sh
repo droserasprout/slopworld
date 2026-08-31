@@ -9,10 +9,8 @@ date=$(date -u +%Y%m%d)
 
 if printf '%s\n' "$tag" | grep -Eq '^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
     printf '%s\n' "${tag#v}"
-elif printf '%s\n' "$tag" | grep -Eq '^[0-9]{8}$'; then
-    printf '0.0.%s\n' "$tag"
 elif [ -n "$hash" ]; then
-    printf '0.0.%s-%s\n' "$date" "$hash"
+    printf '%s-%s-%s\n' "$fallback" "$date" "$hash"
 else
     printf '%s\n' "$fallback"
 fi

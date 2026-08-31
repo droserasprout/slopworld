@@ -6,6 +6,14 @@ using Verse;
 
 namespace SlopWorld
 {
+    public enum AgentStatusFilter
+    {
+        All,
+        Active,
+        Idle,
+        Down,
+    }
+
     public static partial class AgentSidebar
     {
         public const float MinWidth = 150f;
@@ -151,6 +159,41 @@ namespace SlopWorld
         public const string NoProject = SidebarProjectState.NoProject;
 
         public static bool Filtering => Projects.Filtering;
+
+        public static AgentStatusFilter StatusFilter => ParseStatusFilter(Settings.SidebarAgentStatus);
+
+        public static bool StatusFiltering => StatusFilter != AgentStatusFilter.All;
+
+        public static string StatusFilterLabel => StatusFilter.ToString();
+
+        static AgentStatusFilter ParseStatusFilter(string value)
+        {
+            switch (value)
+            {
+                case "active": return AgentStatusFilter.Active;
+                case "idle": return AgentStatusFilter.Idle;
+                case "down": return AgentStatusFilter.Down;
+                default: return AgentStatusFilter.All;
+            }
+        }
+
+        public static bool PassesStatus(AgentState state)
+        {
+            switch (StatusFilter)
+            {
+                case AgentStatusFilter.Active:
+                    return state == AgentState.Working || state == AgentState.Waiting;
+                case AgentStatusFilter.Idle: return state == AgentState.Idle;
+                case AgentStatusFilter.Down: return state == AgentState.Down;
+                default: return true;
+            }
+        }
+
+        public static void SetStatusFilter(AgentStatusFilter filter)
+        {
+            Settings.S.sidebarAgentStatus = filter.ToString().ToLowerInvariant();
+            Settings.S.Write();
+        }
 
         public static bool Ticked(string key) => Projects.Ticked(key);
 

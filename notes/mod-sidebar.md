@@ -5,8 +5,9 @@ project groups. The back pass draws the panel, headings, tabs, menus and grip be
 vanilla consumes input; the front pass draws labels and row actions. A Harmony
 finalizer clears `Drawing` if vanilla throws.
 
-Entries keep their original indices for vanilla reordering. Hidden/folded entries are
-parked off-screen because the colonist bar shares locations for drawing and hit testing.
+Entries keep their original indices for vanilla reordering. Project- or status-filtered and
+folded entries are parked off-screen because the colonist bar shares locations for drawing
+and hit testing.
 `Rows` is the geometry source for labels, portraits, clicks and keyboard order.
 
 Portrait scale is derived from text: `Nominal` makes the drawn square portrait match the

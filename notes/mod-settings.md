@@ -11,7 +11,8 @@ a widget unless it is a screen cache such as command-palette history.
 
 ## Fields without a Settings-page widget
 
-Sidebar width, folds, selected tab and hidden-row filtering are written directly by
+Sidebar width, folds, selected tab, agent status filtering and hidden-row filtering are
+written directly by
 `AgentSidebar`; quota icon choices are written by `UsageReadout.Choose`. They describe
 the current screen and must remain readable when the daemon is offline. `usageSpent`
 selects left versus spent quota globally. `radio` is selected by the map jukebox;

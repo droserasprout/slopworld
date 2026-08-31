@@ -14,16 +14,20 @@ agents from visible order.
 ## The tab strip
 
 Every view has two possible rows: six tabs plus the project filter, then right-aligned
-view controls. Foldable views offer fold/unfold all; agent rows are compact,
-Files has dotfiles, and Git has refresh. Search has dotfiles alone. Views without a control
-have no second band. `TabH` is the complete strip height used by both the body and the
-colonist-bar layout.
+view controls. Foldable views offer fold/unfold all; Agents has a status visibility menu
+(`All`, `Active`, `Idle`, `Down`), Files has dotfiles, and Git has refresh. Search has
+dotfiles alone. Views without a control have no second band. `TabH` is the complete strip
+height used by both the body and the colonist-bar layout.
 
 The project filter is a set of ticked keys read through `AgentSidebar.Passes`; empty
 means all. `[none]` represents unassigned projects, including a real project with that
 name. An unknown project key shows nothing rather than falling back to all. Agents,
 Files and Library filter while drawing; Search and Git re-request their stored result
 when the filter changes.
+
+The Agents status filter treats Working and Waiting as Active. Its visible rows are also
+the source for Alt+number and Alt+Z/X navigation; sessions excluded by the selected status
+are not appended back into those orders.
 
 The shared add strip offers project and agent editors, a Library submenu for each
 library item kind, new sandbox presets and commands, and a host-shell submenu with `~` first,

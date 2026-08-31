@@ -15,8 +15,8 @@ systemd service only when the daemon binary changed. Tmux sessions and the game 
 a daemon restart; the daemon rebuilds each running agent's terminal emulator from the
 surviving tmux pane.
 
-Snapshot versions follow the date of the tag at `HEAD`. An untagged checkout appends
-the short hash.
+Release versions follow the SemVer tag at `HEAD`. An untagged checkout appends the UTC build date
+and short hash to the package version.
 
 ## What is preserved
 
