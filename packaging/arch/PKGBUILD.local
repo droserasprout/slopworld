@@ -36,8 +36,8 @@ pkgver() {
   cd "$_src"
   local _v
   _v="$(tools/version.sh "$(grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2)")"
-  # Arch package versions cannot contain the hyphen used by untagged binaries.
-  printf '%s\n' "${_v/-/.r}"
+  # Arch package versions cannot contain the hyphens used by untagged binaries.
+  printf '%s\n' "${_v//-/.r}"
 }
 
 prepare() {
@@ -68,14 +68,14 @@ prepare() {
 
 build() {
   cd "$srcdir/slopworld"
-  local _version="${pkgver/.r/-}"
+  local _version="${pkgver//.r/-}"
   export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
   make BUILD=release VERSION="$_version" RIMWORLD="$RIMWORLD" mod
 }
 
 check() {
   cd "$srcdir/slopworld"
-  local _version="${pkgver/.r/-}"
+  local _version="${pkgver//.r/-}"
   export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
   cd slopd
   cargo test --release --frozen
