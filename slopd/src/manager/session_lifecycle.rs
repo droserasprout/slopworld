@@ -90,7 +90,7 @@ impl Manager {
 
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
         let cfg = self.config().await;
-        let (s, p) = self.resolve_target(&cfg, name).await?;
+        let (mut s, p) = self.resolve_target(&cfg, name).await?;
         if self.tmux.exists(name).await {
             bail!("session {name} is already running");
         }
@@ -128,18 +128,62 @@ impl Manager {
         if !std::path::Path::new(&dir).is_dir() {
             bail!("{dir} is not a directory");
         }
+        if s.worker {
+            let token = self
+                .mint_grant(
+                    s.name.clone(),
+                    vec![s.name.clone()],
+                    crate::grant::Level::Rw,
+                )
+                .await
+                .context("minting worker task credential")?;
+            s.worker_token = Some(token);
+        }
         let argv = if host {
             crate::sandbox::host_argv(&cfg, &s, &p)
         } else {
-            crate::sandbox::prepare_network(&cfg, &s, &p)?;
+            if let Err(error) = crate::sandbox::prepare_network(&cfg, &s, &p) {
+                if s.worker {
+                    self.revoke_grants(&s.name).await;
+                }
+                return Err(error);
+            }
             if s.slopworld_md {
                 let sessions = self.views().await;
-                crate::manifest::prepare(&std::path::PathBuf::from(&dir), &cfg, &p, &sessions)?;
+                if let Err(error) =
+                    crate::manifest::prepare(&std::path::PathBuf::from(&dir), &cfg, &p, &sessions)
+                {
+                    if s.worker {
+                        self.revoke_grants(&s.name).await;
+                    }
+                    return Err(error);
+                }
             }
-            build_argv(&cfg, &s, &p)?
+            match build_argv(&cfg, &s, &p) {
+                Ok(argv) => argv,
+                Err(error) => {
+                    if s.worker {
+                        self.revoke_grants(&s.name).await;
+                    }
+                    return Err(error);
+                }
+            }
         };
-        tracing::info!("starting {name}: {}", argv.join(" "));
-        self.tmux.spawn(name, &dir, cols, rows, &argv, host).await?;
+        if s.worker {
+            tracing::info!("starting {name} (task worker)");
+        } else {
+            tracing::info!("starting {name}: {}", argv.join(" "));
+        }
+        if let Err(error) = self.tmux.spawn(name, &dir, cols, rows, &argv, host).await {
+            if s.worker {
+                self.revoke_grants(&s.name).await;
+                // tmux includes its complete argv in command errors. Do not let the worker's
+                // bearer credential escape into a persisted task failure note or daemon log.
+                tracing::warn!("could not create worker session {name}: tmux spawn failed");
+                return Err(anyhow!("could not create worker session {name}"));
+            }
+            return Err(error);
+        }
         if host {
             if let Err(error) = self.tmux.set_host_metadata(name, &s.project, &dir).await {
                 tracing::warn!("could not persist host metadata for {name}: {error:#}");
@@ -147,7 +191,7 @@ impl Manager {
             self.remember_host_path(name, &dir).await;
         }
         self.clear_activity(name).await;
-        let auto_resume_pending = !host && s.auto_resume;
+        let auto_resume_pending = !host && s.auto_resume && !s.worker;
         let (title_was_cleared, run_id) = {
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(name) {
@@ -177,19 +221,41 @@ impl Manager {
                 sessions: self.views().await,
             });
         }
-        if let Err(error) = self.spawn_reader(name).await {
-            // A session created above is not useful without a live control reader. The reader
-            // has already reset the live state after an attach failure; remove the tmux pane as
-            // well so a failed start cannot be mistaken for a running session on the next tick.
-            if self.tmux.exists(name).await {
-                if let Err(cleanup) = self.tmux.kill(name).await {
-                    tracing::warn!("could not clean up failed start {name}: {cleanup:#}");
+        match self.spawn_reader(name).await {
+            Ok(true) => {}
+            Ok(false) => {
+                // A session created above is not useful without a newly attached control
+                // reader. Treat a refused attach as a failed start; otherwise a stale reader or
+                // emulator can make the fresh tmux pane look successfully started.
+                if self.tmux.exists(name).await {
+                    if let Err(cleanup) = self.tmux.kill(name).await {
+                        tracing::warn!("could not clean up failed start {name}: {cleanup:#}");
+                    }
                 }
+                if s.worker {
+                    self.revoke_grants(&s.name).await;
+                }
+                return Err(anyhow!(
+                    "control reader for {name} was not attached during startup"
+                ));
             }
-            return Err(error.context(format!("starting session {name} reader")));
+            Err(error) => {
+                // The reader has already reset the live state after an attach failure; remove
+                // the tmux pane as well so a failed start cannot be mistaken for a running
+                // session on the next tick.
+                if self.tmux.exists(name).await {
+                    if let Err(cleanup) = self.tmux.kill(name).await {
+                        tracing::warn!("could not clean up failed start {name}: {cleanup:#}");
+                    }
+                }
+                if s.worker {
+                    self.revoke_grants(&s.name).await;
+                }
+                return Err(error.context(format!("starting session {name} reader")));
+            }
         }
         self.wire_live_state(name, &cfg, &s, &p, host).await;
-        if !host && s.auto_resume {
+        if auto_resume_pending {
             self.queue_auto_resume(name, run_id);
         }
         Ok(())
@@ -242,6 +308,7 @@ impl Manager {
         }
         if let Some(task_id) = worker_task {
             self.fail_worker_task(&task_id, format!("worker session {name} was stopped"));
+            self.revoke_grants(name).await;
         }
         Ok(())
     }

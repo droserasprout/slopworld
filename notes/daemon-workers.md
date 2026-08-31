@@ -5,8 +5,8 @@ The root-only `POST /api/workers` route is the daemon's worker constructor. `slo
 `slopctl delegate AGENT TASK...`. `PARENT` must name an existing agent session; the daemon
 clones that session's project, command (including an explicit command line), sandbox additions,
 breadcrumbs, manifest and breadcrumb settings, private `/tmp`, network and DNS, resource limits,
-mounts, label, and lifecycle settings. The endpoint returns the mailbox task and generated worker
-session name together.
+mounts, and label. Worker autostart and auto-resume are disabled so a task never retries itself;
+the endpoint returns the mailbox task and generated worker session name together.
 
 The daemon writes the task to `tasks.toml` before creating or starting the child. A durable worker
 is added to `config.toml` and remains inspectable if startup fails or the daemon restarts. A
@@ -18,9 +18,10 @@ start a durable child manually, or create a new worker task for a retry.
 Workers carry daemon-owned `worker`, `parent`, and `task_id` metadata. Ordinary session creation
 and editing cannot set it. The child receives a fresh private-state identity, the exact
 `SLOPWORLD_TASK_ID`, and the fixed bootstrap prompt, then uses `slopctl task ID`, `accept`,
-`progress`, and `finish` against its own mailbox. The `slopworld-worker` sandbox preset binds the
-daemon config and endpoint read-only and requires a network-capable parent so that this API path
-works; incompatible parents are rejected before launch.
+`progress`, and `finish` against its own mailbox. The `slopworld-worker` sandbox preset supplies
+a run-scoped API credential through `SLOPD_URL` and `SLOPD_TOKEN`; it does not expose the daemon
+config or root endpoint token. A network-capable parent is required so this API path works;
+incompatible parents are rejected before launch.
 
 Removing a parent does not cascade to its workers. A child with a missing parent remains a valid
 session and is shown as a top-level row until it is removed or exits. The sidebar uses the

@@ -621,6 +621,10 @@ pub struct SessionCfg {
     pub parent: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub task_id: String,
+    /// Runtime-only scoped credential passed to a task worker. It is never persisted or exposed
+    /// in session views; a fresh grant is minted for every worker run.
+    #[serde(skip)]
+    pub(crate) worker_token: Option<String>,
 }
 
 /// A durable host terminal tab. The daemon owns this small record so a game or daemon restart
@@ -674,6 +678,7 @@ impl Default for SessionCfg {
             worker: false,
             parent: String::new(),
             task_id: String::new(),
+            worker_token: None,
         }
     }
 }
