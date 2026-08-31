@@ -9,7 +9,7 @@ use anyhow::{anyhow, Context, Result};
 use rand::seq::SliceRandom;
 use rodio::{ChannelCount, SampleRate, Source};
 
-use super::{AudioState, CONNECT, GENERATION};
+use super::{AudioState, CONNECT, GENERATION, STREAM_IDLE};
 
 /// Receives delayed station metadata. The generation prevents an old station naming its
 /// replacement; `None` omits titles for files and tests.
@@ -203,14 +203,22 @@ pub(crate) struct StreamConnector {
 
 impl StreamConnector {
     pub(crate) fn new(url: &str, title: TitleSink) -> Self {
-        // A live response has no response/body/global deadline. In ureq 3.3, `RecvBody` checks
-        // the preceding `RecvResponse` timer too, despite the latter being documented as headers
-        // only; setting it to `CONNECT` killed every stream body after exactly fifteen seconds.
-        // The socket/TLS connection itself remains bounded.
+        Self::new_with_body_timeout(url, title, STREAM_IDLE)
+    }
+
+    pub(crate) fn new_with_body_timeout(
+        url: &str,
+        title: TitleSink,
+        body_timeout: std::time::Duration,
+    ) -> Self {
+        // A live response has no lifetime deadline, but it must not wait forever on a TCP path
+        // that went stale during a network change. In ureq 3.3, `RecvBody` checks the preceding
+        // `RecvResponse` timer too, despite the latter being documented as headers only; leave
+        // that one unset and use the body timer as an idle timeout instead.
         let agent = ureq::Agent::config_builder()
             .timeout_connect(Some(CONNECT))
             .timeout_recv_response(None)
-            .timeout_recv_body(None)
+            .timeout_recv_body(Some(body_timeout))
             .timeout_global(None)
             .build()
             .into();

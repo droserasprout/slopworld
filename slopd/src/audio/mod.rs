@@ -11,6 +11,10 @@ mod playback;
 mod station;
 
 pub(crate) const CONNECT: Duration = Duration::from_secs(15);
+// A live station should deliver encoded audio well inside this window. If the host changes
+// networks, the old TCP path can stay open without producing an error; the body timeout turns
+// that silent socket into the ordinary reconnect path without imposing a lifetime on the stream.
+pub(crate) const STREAM_IDLE: Duration = Duration::from_secs(30);
 pub(crate) const REOPEN_PAUSE: Duration = Duration::from_secs(2);
 pub(crate) const QUEUE_POLL: Duration = Duration::from_millis(5);
 
@@ -254,7 +258,7 @@ mod tests {
     use super::{
         enqueue_chunk, local_title, open_device, pcm_id, stream_title, supported_file,
         wait_for_retry, AudioState, Feed, Icy, Playlist, Reconnect, Ring, StreamBody,
-        StreamConnector, TitleSink, CONNECT, GENERATION, NULL_PCM, RING, SERVER_PCMS,
+        StreamConnector, TitleSink, CONNECT, GENERATION, NULL_PCM, RING, SERVER_PCMS, STREAM_IDLE,
     };
     use rodio::cpal::traits::{DeviceTrait, HostTrait};
     use rodio::{cpal, ChannelCount, Sample, SampleRate, Source};
@@ -453,7 +457,7 @@ mod tests {
     }
 
     #[test]
-    fn a_live_body_has_no_inherited_response_deadline() {
+    fn a_live_body_has_an_idle_deadline_but_no_inherited_response_deadline() {
         let connector = StreamConnector::new(
             "http://127.0.0.1/unused-local-fixture",
             TitleSink {
@@ -465,7 +469,7 @@ mod tests {
 
         assert_eq!(timeouts.connect, Some(CONNECT));
         assert_eq!(timeouts.recv_response, None);
-        assert_eq!(timeouts.recv_body, None);
+        assert_eq!(timeouts.recv_body, Some(STREAM_IDLE));
         assert_eq!(timeouts.global, None);
     }
 
@@ -640,6 +644,68 @@ mod tests {
             inner: first,
             reopen: move || connector.connect(),
             source: "loopback fixture".to_string(),
+            generation: GENERATION.load(Ordering::SeqCst),
+            read_since_open: false,
+        };
+
+        let mut out = [0u8; 6];
+        stream.read_exact(&mut out).unwrap();
+        assert_eq!(&out, b"abcdef");
+        server.join().unwrap();
+    }
+
+    /// A body that stops producing bytes is treated like a broken network path. The short
+    /// timeout is test-only; production uses STREAM_IDLE so ordinary live silence is tolerated.
+    #[test]
+    fn an_idle_http_body_reconnects_without_rebuilding_the_reader() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+
+        let server = std::thread::spawn(move || {
+            for (index, audio) in [b"abc".as_slice(), b"def".as_slice()]
+                .into_iter()
+                .enumerate()
+            {
+                let (mut socket, peer) = listener.accept().unwrap();
+                assert!(peer.ip().is_loopback());
+                let mut request = BufReader::new(socket.try_clone().unwrap());
+                loop {
+                    let mut line = String::new();
+                    request.read_line(&mut line).unwrap();
+                    if line == "\r\n" {
+                        break;
+                    }
+                }
+
+                socket
+                    .write_all(
+                        b"HTTP/1.1 200 OK\r\n\
+                          Content-Type: audio/mpeg\r\n\
+                          Connection: keep-alive\r\n\r\n",
+                    )
+                    .unwrap();
+                socket.write_all(audio).unwrap();
+                socket.flush().unwrap();
+                if index == 0 {
+                    std::thread::sleep(Duration::from_millis(150));
+                }
+            }
+        });
+
+        let title = TitleSink {
+            state: None,
+            generation: GENERATION.load(Ordering::SeqCst),
+        };
+        let mut connector = StreamConnector::new_with_body_timeout(
+            &format!("http://{address}"),
+            title,
+            Duration::from_millis(25),
+        );
+        let first = connector.connect().unwrap();
+        let mut stream = Reconnect {
+            inner: first,
+            reopen: move || connector.connect(),
+            source: "idle loopback fixture".to_string(),
             generation: GENERATION.load(Ordering::SeqCst),
             read_since_open: false,
         };
