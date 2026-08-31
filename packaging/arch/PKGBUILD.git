@@ -1,26 +1,24 @@
 # Maintainer: Lev Gorodetskii <aur@drsr.io>
 #
-# Tracks main. The repo is not published yet, so this does not build: the clone
-# fails. Kept as the shape the AUR package will take.
+# Tracks the main branch for an always-current development build.
 #
 # The mod half links against the game's own assemblies, so RIMWORLD must point at
 # a real Linux install (default ~/RimWorld/game, override in the environment).
 
 pkgname=slopworld-git
 pkgver=0.1.0.r0.gHEAD
-pkgrel=2
+pkgrel=1
 pkgdesc="RimWorld with the colony sim replaced by live AI coding agents (git)"
 arch=('x86_64')
 url="https://github.com/droserasprout/slopworld"
 license=('custom')
-depends=('systemd' 'tmux' 'bubblewrap' 'passt' 'ripgrep' 'git' 'less' 'micro'
-  'highlight' 'alsa-lib')
+depends=('alsa-lib' 'bash' 'bubblewrap' 'git' 'glib2' 'highlight' 'less' 'micro'
+  'passt' 'procps-ng' 'ripgrep' 'systemd' 'tmux')
 makedepends=('cargo' 'git' 'mono' 'lld')
 optdepends=(
   'wl-clipboard: clipboard and PRIMARY selection under Wayland'
   'xclip: clipboard and PRIMARY selection under X11'
   'xsel: clipboard and PRIMARY selection under X11 (fallback)'
-  'xdg-utils: opening links from the terminal pane'
 )
 provides=('slopworld' 'slopd')
 conflicts=('slopworld')
@@ -51,15 +49,19 @@ prepare() {
 
 build() {
   cd "$srcdir/$pkgname"
-  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
-  cargo build --release --frozen --manifest-path slopd/Cargo.toml
-  make BUILD=release RIMWORLD="$RIMWORLD" mod
+  local _version
+  _version="$(tools/version.sh "$(grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2)")"
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
+  make BUILD=release VERSION="$_version" RIMWORLD="$RIMWORLD" mod
 }
 
 check() {
   cd "$srcdir/$pkgname"
-  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
-  cargo test --release --frozen --manifest-path slopd/Cargo.toml
+  local _version
+  _version="$(tools/version.sh "$(grep -m1 '^version' slopd/Cargo.toml | cut -d'"' -f2)")"
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
+  cd slopd
+  cargo test --release --frozen
 }
 
 package() {
@@ -84,5 +86,5 @@ package() {
   install -Dm644 mod/Textures/SlopWorld/SlopWorld_icon.png \
     "$pkgdir/usr/share/icons/hicolor/128x128/apps/slopworld.png"
 
-  install -Dm644 README.md "$pkgdir/usr/share/doc/slopworld/README.md"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
 }
