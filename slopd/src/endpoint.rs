@@ -77,7 +77,7 @@ async fn write_endpoint(path: &Path, endpoint: &Endpoint) -> Result<()> {
     Ok(())
 }
 
-fn url_for(bind: &str) -> String {
+pub(crate) fn url_for(bind: &str) -> String {
     let Ok(addr) = bind.parse::<SocketAddr>() else {
         return format!("http://{bind}");
     };

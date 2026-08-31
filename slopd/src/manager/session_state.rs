@@ -51,8 +51,10 @@ impl Manager {
                     limits: p.map(|p| cfg.limits_of(&l.cfg, p)).unwrap_or(l.cfg.limits),
                     limits_override: l.cfg.limits,
                     mounts: l.cfg.mounts.clone(),
-                    autostart: l.cfg.autostart,
-                    auto_resume: l.cfg.auto_resume,
+                    // A worker's lifecycle is task-owned even if an older config file still
+                    // carries the parent's flags. Report the effective policy, not stale data.
+                    autostart: l.cfg.autostart && !l.cfg.worker,
+                    auto_resume: l.cfg.auto_resume && !l.cfg.worker,
                     worker: l.cfg.worker,
                     parent: l.cfg.parent.clone(),
                     task_id: l.cfg.task_id.clone(),

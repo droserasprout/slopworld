@@ -491,7 +491,9 @@ impl Manager {
     }
 
     async fn autostart(self: &Arc<Self>, cfg: &Config) {
-        for s in cfg.sessions.iter().filter(|s| s.autostart) {
+        // Task workers are explicit, one-shot work. Older configs may still carry autostart=true
+        // from before worker lifecycle settings were normalized, so guard the policy here too.
+        for s in cfg.sessions.iter().filter(|s| s.autostart && !s.worker) {
             if !self.tmux.exists(&s.name).await {
                 if let Err(e) = self.start(&s.name).await {
                     tracing::error!("autostart {}: {e:#}", s.name);

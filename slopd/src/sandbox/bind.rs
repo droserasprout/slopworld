@@ -150,7 +150,7 @@ fn scope_prefix(limits: &Limits) -> Vec<String> {
     out
 }
 
-fn pasta_prefix(dns: &DnsConfig) -> Vec<String> {
+fn pasta_prefix(dns: &DnsConfig, worker: bool) -> Vec<String> {
     let mut out = vec![
         "pasta".into(),
         "--foreground".into(),
@@ -175,6 +175,13 @@ fn pasta_prefix(dns: &DnsConfig) -> Vec<String> {
         "--dns-forward".into(),
         PRIVATE_RESOLVER.into(),
     ];
+    if worker {
+        // Private sandboxes deliberately do not inherit host loopback. Workers still need the
+        // daemon API, whose default listener is on 127.0.0.1, so map only that address back to
+        // the host without restoring general host networking.
+        out.push("--map-host-loopback".into());
+        out.push("127.0.0.1".into());
+    }
     for server in dns.servers() {
         out.push("--dns-host".into());
         out.push(server.to_string());
@@ -236,7 +243,10 @@ pub(super) fn assemble_argv(args: BuildArgs<'_>) -> Result<Vec<String>> {
     let rw = paths(presets, |pr| &pr.rw);
     let dev = paths(presets, |pr| &pr.dev);
     let tmux = presets.iter().any(|pr| pr.tmux);
-    let daemon_config = presets.iter().any(|pr| pr.daemon_config);
+    // A worker may inherit a broad parent preset such as slopworld-debug. Its task credential
+    // is intentionally the only daemon access it receives, so no worker may mount the root
+    // config/endpoint exception through any preset.
+    let daemon_config = !s.worker && presets.iter().any(|pr| pr.daemon_config);
 
     let resolv = resolver_bind(network, dns, &s.state_id);
     let bind = BindContext {
@@ -263,12 +273,23 @@ pub(super) fn assemble_argv(args: BuildArgs<'_>) -> Result<Vec<String>> {
         .unwrap_or(MountMode::Rw);
     push_private_binds(&mut a, &bind, primary_mode);
     push_mounts(&mut a, mounts, &p.name, manifest, manifest_mount_path);
-    push_env(&mut a, home, s, p, mounts, presets, &agent_argv);
+    push_env(
+        &mut a,
+        EnvArgs {
+            cfg,
+            home,
+            s,
+            p,
+            mounts,
+            presets,
+            agent_argv: &agent_argv,
+        },
+    );
 
     a.push("--".into());
     a.extend(agent_argv);
 
-    wrap_pasta(&mut a, network, dns);
+    wrap_pasta(&mut a, network, dns, s.worker);
     let limits = cfg.limits_of(s, p);
     wrap_scope(&mut a, &limits);
     Ok(a)
@@ -441,15 +462,26 @@ fn push_mounts(
 
 /// Declares the complete environment after all mounts. The sandbox starts with --clearenv, so
 /// machine basics are selected explicitly and preset literals are the final word.
-fn push_env(
-    a: &mut Vec<String>,
-    home: &str,
-    s: &SessionCfg,
-    p: &ProjectCfg,
-    mounts: &[ResolvedMount],
-    presets: &[&SandboxPreset],
-    agent_argv: &[String],
-) {
+struct EnvArgs<'a> {
+    cfg: &'a Config,
+    home: &'a str,
+    s: &'a SessionCfg,
+    p: &'a ProjectCfg,
+    mounts: &'a [ResolvedMount],
+    presets: &'a [&'a SandboxPreset],
+    agent_argv: &'a [String],
+}
+
+fn push_env(a: &mut Vec<String>, args: EnvArgs<'_>) {
+    let EnvArgs {
+        cfg,
+        home,
+        s,
+        p,
+        mounts,
+        presets,
+        agent_argv,
+    } = args;
     push_args(a, &["--setenv", "HOME", home]);
     push_args(a, &["--setenv", "SLOPWORLD_SESSION", &s.name]);
     push_args(a, &["--setenv", "SLOPWORLD_PROJECT", &p.name]);
@@ -507,6 +539,14 @@ fn push_env(
     }) {
         push_args(a, &["--setenv", "SLOPWORLD_PI_TITLES", "never"]);
     }
+
+    if let Some(token) = s.worker_token.as_deref() {
+        // Keep the worker credential last so an inherited preset cannot replace it with a root
+        // token. This also avoids mounting endpoint.toml, whose token is root-scoped.
+        let url = crate::endpoint::url_for(&cfg.daemon.bind);
+        push_args(a, &["--setenv", "SLOPD_URL", &url]);
+        push_args(a, &["--setenv", "SLOPD_TOKEN", token]);
+    }
 }
 
 /// `/etc/resolv.conf` often points into unmounted /run; use resolved's stub when available so
@@ -547,11 +587,11 @@ fn resolver_bind(
 }
 
 /// Pasta wraps bwrap for private networking; its prefix must be the outer command.
-fn wrap_pasta(a: &mut Vec<String>, network: NetworkMode, dns: &DnsConfig) {
+fn wrap_pasta(a: &mut Vec<String>, network: NetworkMode, dns: &DnsConfig, worker: bool) {
     if network != NetworkMode::Private {
         return;
     }
-    let mut pasta = pasta_prefix(dns);
+    let mut pasta = pasta_prefix(dns, worker);
     pasta.append(a);
     *a = pasta;
 }
@@ -837,19 +877,30 @@ mod tests {
             project: "p".into(),
             command: "bash".into(),
             sandbox: vec!["slopworld-worker".into()],
+            worker: true,
             task_id: "task-7".into(),
+            worker_token: Some("worker-secret".into()),
             ..Default::default()
         };
         let p = ProjectCfg {
             name: "p".into(),
             dir: "/tmp".into(),
-            network: NetworkMode::Host,
+            network: NetworkMode::Private,
             ..Default::default()
         };
         let a = build_argv(&cfg, &s, &p).expect("worker sandbox argv");
         assert!(a
             .windows(3)
             .any(|w| { w[0] == "--setenv" && w[1] == "SLOPWORLD_TASK_ID" && w[2] == "task-7" }));
+        assert!(a
+            .windows(3)
+            .any(|w| { w[0] == "--setenv" && w[1] == "SLOPD_TOKEN" && w[2] == "worker-secret" }));
+        assert!(a.windows(3).any(|w| {
+            w[0] == "--setenv" && w[1] == "SLOPD_URL" && w[2] == "http://127.0.0.1:7717"
+        }));
+        assert!(a
+            .windows(2)
+            .any(|w| w[0] == "--map-host-loopback" && w[1] == "127.0.0.1"));
         assert!(a.contains(&"--share-net".into()));
     }
 

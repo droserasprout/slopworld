@@ -1109,6 +1109,7 @@ impl Manager {
         }
         if let Some(task_id) = worker_task {
             self.fail_worker_task(&task_id, format!("worker session {name} exited"));
+            self.revoke_grants(name).await;
         }
     }
 

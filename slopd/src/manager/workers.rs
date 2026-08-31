@@ -147,13 +147,17 @@ impl Manager {
 
 /// Duplicate the parent's session behavior for a child. A worker gets a new private-state
 /// identity and daemon-owned hierarchy metadata, while command, project, sandbox, prompts,
-/// networking, limits, mounts, and lifecycle settings all remain the parent's choices.
+/// networking, limits and mounts remain the parent's choices. Workers are deliberately stopped
+/// after their task exits: retrying a task is an explicit operator decision, not a daemon loop.
 fn clone_worker_session(mut parent: SessionCfg, name: String, parent_name: &str) -> SessionCfg {
     parent.name = name;
     parent.state_id = uuid::Uuid::new_v4().to_string();
     parent.worker = true;
     parent.parent = parent_name.to_string();
     parent.task_id.clear();
+    parent.autostart = false;
+    parent.auto_resume = false;
+    parent.worker_token = None;
     if !parent.sandbox.iter().any(|preset| preset == WORKER_SANDBOX) {
         parent.sandbox.push(WORKER_SANDBOX.into());
     }
@@ -223,6 +227,7 @@ mod tests {
             worker: false,
             parent: String::new(),
             task_id: String::new(),
+            worker_token: None,
         };
         let child = clone_worker_session(parent.clone(), "parent-worker".into(), "parent");
 
@@ -248,8 +253,8 @@ mod tests {
         assert_eq!(child.dns, parent.dns);
         assert_eq!(child.limits, parent.limits);
         assert_eq!(child.mounts, parent.mounts);
-        assert_eq!(child.autostart, parent.autostart);
-        assert_eq!(child.auto_resume, parent.auto_resume);
+        assert!(!child.autostart);
+        assert!(!child.auto_resume);
     }
 
     #[test]
