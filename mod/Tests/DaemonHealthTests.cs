@@ -14,9 +14,9 @@ namespace SlopWorld.Tests
         static void ReadsHealthMetadata()
         {
             var health = DaemonHealth.FromJson(JVal.Parse(
-                "{\"ok\":true,\"version\":\"0.1.0\",\"hostname\":\"slopbox\"}"));
+                "{\"ok\":true,\"version\":\"0.0.1\",\"hostname\":\"slopbox\"}"));
             AssertEx.True(health.Known, "known");
-            AssertEx.Equal("0.1.0", health.Version, "version");
+            AssertEx.Equal("0.0.1", health.Version, "version");
             AssertEx.Equal("slopbox", health.Hostname, "hostname");
         }
 

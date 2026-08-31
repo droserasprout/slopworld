@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]"
+      - "v*"
 
 permissions:
   contents: write
@@ -25,8 +25,16 @@ jobs:
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev
 
+      - name: Validate release tag
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if ! printf '%s\n' "$tag" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+            echo "unsupported release tag: $tag" >&2
+            exit 1
+          fi
+
       - name: Build daemon
-        run: make BUILD=release daemon
+        run: make BUILD=release VERSION="${GITHUB_REF_NAME#v}" daemon
 
       - name: Test daemon
         run: make test-daemon
@@ -44,6 +52,7 @@ jobs:
           cp packaging/slopworld.desktop   "${daemon}/"
           tar czf "${daemon}.tar.gz" "${daemon}"
 
+          test -s mod/Assemblies/SlopWorld.dll
           mod="SlopWorld-mod-${tag}"
           mkdir -p "${mod}"
           cp -r mod/About mod/Defs mod/Patches mod/Sounds mod/Textures mod/Assemblies "${mod}/"
