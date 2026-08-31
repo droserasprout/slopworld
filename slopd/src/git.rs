@@ -51,9 +51,10 @@ pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
     // Both readings are against the root rather than the directory asked about: a project
     // pointed at a subdirectory of a repository is still that repository, and a path relative
     // to the root is the one form `git diff` will take back without a second guess about cwd.
-    // Ask for every untracked file rather than Git's default one-row-per-directory summary,
-    // but stop reading once the UI-sized answer is full. A large untracked tree must not make
-    // the daemon wait for Git to enumerate every file before the cap can take effect.
+    // Start with Git's one-row-per-directory untracked summary. It can skip ignored trees, which
+    // matters for projects that contain build outputs or nested checkouts. Ordinary untracked
+    // directories are expanded one at a time below; a nested repository remains a boundary row
+    // and its own working tree is never inspected as part of the parent.
     let (rows, truncated) = status_rows(&root).await?;
     let branch = branch(&root).await;
     // A truncated status has no complete count to report. More importantly, running a full
@@ -93,12 +94,63 @@ pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
 /// name of a rename/copy in a second NUL-delimited field, so consume that field before deciding
 /// whether the next row crossed the cap.
 async fn status_rows(root: &Path) -> std::io::Result<(Vec<(String, String)>, bool)> {
-    let mut child = Command::new("git")
+    let (mut rows, truncated) = status_rows_command(root, None, "normal").await?;
+    if truncated {
+        return Ok((rows, true));
+    }
+
+    // Git's normal summary is deliberately cheap, but the sidebar still wants file rows for a
+    // small ordinary untracked directory. Ask Git to expand only those rows. Git itself reports
+    // a nested repository as `?? nested/` even with `--untracked-files=all`, so this does not walk
+    // into a child checkout.
+    let directories: Vec<String> = rows
+        .iter()
+        .filter(|(path, status)| status == "??" && path.ends_with('/'))
+        .map(|(path, _)| path.clone())
+        .collect();
+    for directory in directories {
+        let (expanded, expanded_truncated) =
+            status_rows_command(root, Some(&directory), "all").await?;
+        if let Some(index) = rows
+            .iter()
+            .position(|(path, status)| path == &directory && status == "??")
+        {
+            rows.remove(index);
+        }
+        rows.extend(expanded);
+        if rows.len() > LIMIT {
+            rows.truncate(LIMIT);
+            return Ok((rows, true));
+        }
+        if expanded_truncated {
+            return Ok((rows, true));
+        }
+    }
+    Ok((rows, false))
+}
+
+/// Read one bounded Git status stream. `path` is a repository-relative pathspec used when the
+/// fast summary found an ordinary untracked directory worth expanding.
+async fn status_rows_command(
+    root: &Path,
+    path: Option<&str>,
+    untracked_files: &str,
+) -> std::io::Result<(Vec<(String, String)>, bool)> {
+    let mut command = Command::new("git");
+    command
         .arg("-C")
         .arg(root)
-        .args(["status", "--porcelain=v1", "--untracked-files=all", "-z"])
+        .args(["status", "--porcelain=v1"])
+        .arg(format!("--untracked-files={untracked_files}"))
+        .args(["--ignore-submodules=all", "-z"]);
+    if let Some(path) = path {
+        command.args(["--", path]);
+    }
+    let mut child = command
         .env("GIT_PAGER", "cat")
-        .env("GIT_OPTIONAL_LOCKS", "0")
+        // This bounded metadata pass may refresh Git's stat cache. The diff readers below stay
+        // read-only, but allowing status to cache its work keeps repeated sidebar reads quick.
+        .env("GIT_OPTIONAL_LOCKS", "1")
         .env("LC_ALL", "C")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -503,6 +555,111 @@ mod tests {
         assert_eq!(staged.deleted, Some(0));
         assert_eq!(answer.added, 5);
         assert_eq!(answer.deleted, 0);
+
+        tokio::fs::remove_dir_all(&dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_nested_repository_does_not_add_its_worktree_to_the_parent() {
+        let dir = std::env::temp_dir().join(format!("slopd-git-nested-{}", std::process::id()));
+        let nested = dir.join("nested");
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+        tokio::fs::create_dir_all(&nested).await.unwrap();
+
+        for path in [&dir, &nested] {
+            let init = Command::new("git")
+                .args(["init", "-q"])
+                .current_dir(path)
+                .status()
+                .await
+                .unwrap();
+            assert!(init.success());
+        }
+
+        tokio::fs::write(nested.join("tracked.txt"), "before\n")
+            .await
+            .unwrap();
+        let commit = Command::new("git")
+            .args([
+                "-c",
+                "user.name=slopd-test",
+                "-c",
+                "user.email=slopd-test@example.invalid",
+                "add",
+                "tracked.txt",
+            ])
+            .current_dir(&nested)
+            .status()
+            .await
+            .unwrap();
+        assert!(commit.success());
+        let commit = Command::new("git")
+            .args([
+                "-c",
+                "user.name=slopd-test",
+                "-c",
+                "user.email=slopd-test@example.invalid",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-qm",
+                "initial",
+            ])
+            .current_dir(&nested)
+            .status()
+            .await
+            .unwrap();
+        assert!(commit.success());
+        tokio::fs::write(nested.join("tracked.txt"), "before\nafter\n")
+            .await
+            .unwrap();
+
+        let add = Command::new("git")
+            .args(["-c", "advice.addEmbeddedRepo=false", "add", "nested"])
+            .current_dir(&dir)
+            .status()
+            .await
+            .unwrap();
+        assert!(add.success());
+
+        let answer = status(&dir).await.unwrap().unwrap();
+        assert_eq!(answer.changes.len(), 1);
+        assert_eq!(answer.changes[0].path, "nested");
+        assert_eq!(answer.changes[0].status, "A ");
+
+        tokio::fs::remove_dir_all(&dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn an_untracked_nested_repository_stays_a_boundary_row() {
+        let dir =
+            std::env::temp_dir().join(format!("slopd-git-untracked-nested-{}", std::process::id()));
+        let nested = dir.join("outer/nested");
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+        tokio::fs::create_dir_all(&nested).await.unwrap();
+
+        for path in [&dir, &nested] {
+            let init = Command::new("git")
+                .args(["init", "-q"])
+                .current_dir(path)
+                .status()
+                .await
+                .unwrap();
+            assert!(init.success());
+        }
+        tokio::fs::write(nested.join("inside.txt"), "nested\n")
+            .await
+            .unwrap();
+
+        let answer = status(&dir).await.unwrap().unwrap();
+        assert!(answer
+            .changes
+            .iter()
+            .any(|change| change.path == "outer/nested/"));
+        assert!(!answer
+            .changes
+            .iter()
+            .any(|change| change.path == "outer/nested/inside.txt"));
 
         tokio::fs::remove_dir_all(&dir).await.unwrap();
     }

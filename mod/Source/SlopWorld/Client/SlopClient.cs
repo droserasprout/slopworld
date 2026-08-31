@@ -20,6 +20,10 @@ namespace SlopWorld
                                string session = null) =>
             Send("GET", path, null, ok, fail, session);
 
+        public static void Get(string path, Action<JVal> ok, Action<string> fail,
+                               string session, int timeoutMs) =>
+            Send("GET", path, null, ok, fail, session, timeoutMs);
+
         public static void Post(string path, string body, Action<JVal> ok, Action<string> fail = null,
                                 string session = null) =>
             Send("POST", path, body ?? "{}", ok, fail, session);
@@ -44,7 +48,8 @@ namespace SlopWorld
         }
 
         public static void Send(string method, string path, string body,
-                                Action<JVal> ok, Action<string> fail, string session = null)
+                                Action<JVal> ok, Action<string> fail, string session = null,
+                                int timeoutMs = 5000)
         {
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -53,8 +58,8 @@ namespace SlopWorld
                     var connection = Settings.Connection;
                     var req = (HttpWebRequest)WebRequest.Create(connection.BaseUrl + path);
                     req.Method = method;
-                    req.Timeout = 5000;
-                    req.ReadWriteTimeout = 5000;
+                    req.Timeout = timeoutMs;
+                    req.ReadWriteTimeout = timeoutMs;
                     req.Proxy = null;
                     if (!string.IsNullOrEmpty(connection.Token))
                         req.Headers["X-Slop-Token"] = connection.Token;
