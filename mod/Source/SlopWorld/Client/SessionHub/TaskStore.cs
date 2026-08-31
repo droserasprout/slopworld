@@ -35,23 +35,25 @@ namespace SlopWorld
             // Scoped callers and the CLI keep using the default participant mailbox.
             SlopClient.Get("/api/tasks?all=true", j =>
             {
-                if (serial == _refreshSerial)
+                bool current = serial == _refreshSerial;
+                if (current)
                 {
                     Tasks = j["tasks"].Items.Select(TaskInfo.FromJson)
                         .OrderByDescending(t => t.UpdatedMs).ToList();
                 }
                 _loading = false;
-                ok?.Invoke();
+                if (current) ok?.Invoke();
             }, error =>
             {
                 _loading = false;
-                fail?.Invoke(error);
+                if (serial == _refreshSerial) fail?.Invoke(error);
             }, TaskInfo.Host);
         }
 
         public void Create(string to, string body, Action<TaskInfo> ok = null,
                            Action<string> fail = null)
         {
+            InvalidateRefresh();
             SlopClient.Post("/api/tasks",
                 "{" + $"\"to\":{JVal.Q(to ?? "")}," +
                 $"\"body\":{JVal.Q(body ?? "")}" + "}",
@@ -66,6 +68,7 @@ namespace SlopWorld
         public void UpdateStatus(string id, DelegatedTaskStatus status, string note,
                                  Action<TaskInfo> ok = null, Action<string> fail = null)
         {
+            InvalidateRefresh();
             SlopClient.Post($"/api/tasks/{HubWire.Esc(id)}",
                 "{" + $"\"status\":{JVal.Q(TaskInfo.StatusText(status))}," +
                 $"\"note\":{(note == null ? "null" : JVal.Q(note))}" + "}",
@@ -79,6 +82,7 @@ namespace SlopWorld
 
         public void Remove(string id, Action ok = null, Action<string> fail = null)
         {
+            InvalidateRefresh();
             SlopClient.Delete($"/api/tasks/{HubWire.Esc(id)}", j =>
             {
                 Tasks = Tasks.Where(t => t.Id != id).ToList();
@@ -88,12 +92,15 @@ namespace SlopWorld
 
         public void Prune(Action ok = null, Action<string> fail = null)
         {
+            InvalidateRefresh();
             SlopClient.Delete("/api/tasks", j =>
             {
                 Tasks = Tasks.Where(t => !t.Terminal).ToList();
                 ok?.Invoke();
             }, fail, TaskInfo.Host);
         }
+
+        void InvalidateRefresh() => _refreshSerial++;
 
         void Upsert(TaskInfo task)
         {

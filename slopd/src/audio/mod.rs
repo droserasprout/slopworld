@@ -45,12 +45,23 @@ impl Audio {
         }));
 
         let worker_state = state.clone();
+        let failure_state = state.clone();
         // Detached: shutdown only needs the worker to observe its closed channel.
         let spawned = std::thread::Builder::new()
             .name("slopd audio".into())
-            .spawn(move || run(rx, worker_state));
+            .spawn(move || {
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    run(rx, worker_state)
+                }));
+                if result.is_err() {
+                    fail(
+                        &failure_state,
+                        "audio worker terminated unexpectedly".to_string(),
+                    );
+                }
+            });
         if let Err(e) = spawned {
-            tracing::error!("audio thread would not start: {e}");
+            fail(&state, format!("audio worker failed to start: {e}"));
         }
 
         Audio { tx, state }
@@ -64,18 +75,30 @@ impl Audio {
             );
             return;
         }
-        let _ = self.tx.send(Cmd::Play {
-            source: source.to_string(),
-            volume: volume.clamp(0.0, 1.0),
-        });
+        self.send(
+            Cmd::Play {
+                source: source.to_string(),
+                volume: volume.clamp(0.0, 1.0),
+            },
+            "play",
+        );
     }
 
     pub fn set_volume(&self, volume: f32) {
-        let _ = self.tx.send(Cmd::Volume(volume.clamp(0.0, 1.0)));
+        self.send(Cmd::Volume(volume.clamp(0.0, 1.0)), "set volume");
     }
 
     pub fn stop(&self) {
-        let _ = self.tx.send(Cmd::Stop);
+        self.send(Cmd::Stop, "stop");
+    }
+
+    fn send(&self, cmd: Cmd, operation: &str) {
+        if let Err(e) = self.tx.send(cmd) {
+            fail(
+                &self.state,
+                format!("audio worker unavailable during {operation}: {e}"),
+            );
+        }
     }
 
     /// Publishes a request-side error without opening a source, stopping stale playback first.

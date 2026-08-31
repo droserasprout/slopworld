@@ -257,7 +257,13 @@ namespace SlopWorld
 
         static string SourceLabel() => _station == null ? "SlopWorld OST" : _station.Name;
 
-        static string OriginalArtist() => "";
+        static string OriginalArtist()
+        {
+            string artist;
+            string title;
+            return _station != null && _station.TryTitleParts(_rawTitle, out artist, out title)
+                ? artist : "";
+        }
 
         static void CurrentParts(out string artist, out string title)
         {
