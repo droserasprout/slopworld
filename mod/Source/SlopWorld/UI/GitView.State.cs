@@ -11,6 +11,8 @@ namespace SlopWorld
     // the daemon runs `git` outside the sessions' mount namespaces.
     public static partial class GitView
     {
+        const int GitRequestTimeoutMs = 15_000;
+
         // A directory holds children; a file holds the daemon's row.
         class Node : IContentTreeNode
         {
@@ -268,7 +270,7 @@ namespace SlopWorld
                     repo.Truncated = false;
                     repo.Tree = null;
                     repo.Changes.Clear();
-                });
+                }, null, GitRequestTimeoutMs);
         }
 
         // The flat list of changed paths, folded into the tree it describes. The daemon sends

@@ -10,6 +10,8 @@ namespaces isolate sessions from the game; `/api/browse` exists for the same bou
   is reading Git's status stream. `Fold` builds interior nodes; `Squash` collapses single-child
   directory chains (for example `slopd/src`), then `Depths` recalculates indentation. A capped
   answer skips numstat accounting and shows a lower-bound count.
+- Nested repositories are treated as separate working trees. The outer project may show the
+  repository boundary, but never includes that nested checkout's own dirty or untracked files.
 - There is no filesystem-change event, so focusing Git reads every project again; `Refresh`
   is also available from the tab button, command palette and heading menu. `Entered` only
   primes projects when Files first needs the shared cache. The refresh button is the only
