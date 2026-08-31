@@ -14,7 +14,7 @@ namespace SlopWorld
         public static void ShowFiles() => Show(SidebarTab.Files);
         public static void ShowSearch() => Show(SidebarTab.Search);
         public static void ShowGit() => Show(SidebarTab.Git);
-        public static void ShowShortcuts() => Show(SidebarTab.Shortcuts);
+        public static void ShowLibrary() => Show(SidebarTab.Library);
         public static void ShowTasks() => Show(SidebarTab.Tasks);
 
         public static bool CanFoldCurrent => CurrentTab != SidebarTab.Search &&
@@ -70,7 +70,7 @@ namespace SlopWorld
                     break;
                 case SidebarTab.Files: FilesView.SetAllFolded(folded); break;
                 case SidebarTab.Git: GitView.SetAllFolded(folded); break;
-                case SidebarTab.Shortcuts: ShortcutsView.SetAllFolded(folded); break;
+                case SidebarTab.Library: LibraryView.SetAllFolded(folded); break;
             }
         }
 
@@ -82,7 +82,7 @@ namespace SlopWorld
                 case SidebarTab.Files: FilesView.Reload(); break;
                 case SidebarTab.Search: SearchView.Search(); break;
                 case SidebarTab.Git: GitView.Refresh(); break;
-                case SidebarTab.Shortcuts:
+                case SidebarTab.Library:
                     SessionHub.Instance.RefreshShortcuts(SlopWidgets.Fail);
                     break;
                 case SidebarTab.Tasks:
@@ -209,6 +209,7 @@ namespace SlopWorld
         {
             float width = Width;
             float y = Pad;
+            foreach (var w in Layout.TopWorkers) y = WorkerRow(w, width, y, 0);
             foreach (var g in Layout.TopGhosts) y = GhostRow(g, width, y);
 
             foreach (var key in Layout.Order)
@@ -224,12 +225,13 @@ namespace SlopWorld
             var bucket = Layout.Buckets.TryGetValue(key, out var b) ? b : Empty;
             bool folded = Folded.Contains(key);
             var ghosts = Layout.Ghosts.TryGetValue(key, out var gs) ? gs : EmptyGhosts;
+            int workers = WorkerCount(key);
 
             Layout.Heads.Add(new Head
             {
                 Label = key,
                 Rect = new Rect(0f, y, width, HeadH),
-                Count = bucket.Count + ghosts.Count,
+                Count = bucket.Count + ghosts.Count + workers,
                 Folded = folded,
             });
             y += HeadH;
@@ -245,6 +247,27 @@ namespace SlopWorld
             {
                 LayoutAgent(entries, locs, i, width, y, measure);
                 y += measure.Pitch;
+                y = LayoutWorkers(Layout.Named[i], width, y, 0);
+            }
+            return y;
+        }
+
+        static int WorkerCount(string project)
+        {
+            int count = 0;
+            foreach (var workers in Layout.Workers.Values)
+                foreach (var worker in workers)
+                    if (worker != null && worker.Project == project) count++;
+            return count;
+        }
+
+        static float LayoutWorkers(string parent, float width, float y, int depth)
+        {
+            if (depth > 32 || !Layout.Workers.TryGetValue(parent, out var workers)) return y;
+            foreach (var worker in workers)
+            {
+                y = WorkerRow(worker, width, y, depth + 1);
+                y = LayoutWorkers(worker.Name, width, y, depth + 1);
             }
             return y;
         }
@@ -347,6 +370,24 @@ namespace SlopWorld
 
             foreach (var s in SessionHub.Instance.Sessions)
             {
+                if (s.Worker)
+                {
+                    if (!Passes(s.Project)) continue;
+                    // A child is nested only when its explicit parent has a visible normal row.
+                    // Missing parents are surfaced at the top instead of being silently lost.
+                    var parent = SessionHub.Instance.Get(s.Parent);
+                    bool parentVisible = parent != null && !parent.Worker && Passes(parent.Project)
+                        && Layout.Named.ContainsValue(parent.Name);
+                    if (!parentVisible)
+                    {
+                        Layout.TopWorkers.Add(s);
+                        continue;
+                    }
+                    if (!Layout.Workers.TryGetValue(s.Parent, out var children))
+                        Layout.Workers[s.Parent] = children = new List<SessionInfo>();
+                    children.Add(s);
+                    continue;
+                }
                 if ((!s.Ephemeral && !s.Host) || IsRouted(s) || !Passes(s.Project)) continue;
                 if (string.IsNullOrEmpty(s.Project)) { Layout.TopGhosts.Add(s); continue; }
 
@@ -368,7 +409,9 @@ namespace SlopWorld
                 : string.CompareOrdinal(a, b));
 
             Layout.TopGhosts.Sort(ByName);
+            Layout.TopWorkers.Sort(ByName);
             foreach (var list in Layout.Ghosts.Values) list.Sort(ByName);
+            foreach (var list in Layout.Workers.Values) list.Sort(ByName);
         }
 
         static readonly List<int> Empty = new List<int>();
@@ -391,14 +434,32 @@ namespace SlopWorld
             return y + GhostH;
         }
 
+        static float WorkerRow(SessionInfo s, float width, float y, int depth)
+        {
+            float tx = CellX + Mathf.Min(depth, 8) * 12f;
+            Layout.Rows.Add(new Row
+            {
+                Session = s.Name,
+                Pawn = null,
+                Ghost = false,
+                Worker = true,
+                Line = new Rect(0f, y, width, WorkerH),
+                Text = new Rect(tx, y + 1f, width - tx - Pad, WorkerH - 1f),
+                Face = Rect.zero,
+            });
+            return y + WorkerH;
+        }
+
         static int ByName(SessionInfo a, SessionInfo b) =>
             string.CompareOrdinal(a?.Name ?? "", b?.Name ?? "");
 
         static float GhostRoom()
         {
-            float h = Layout.TopGhosts.Count * GhostH;
+            float h = Layout.TopGhosts.Count * GhostH + Layout.TopWorkers.Count * WorkerH;
             foreach (var kv in Layout.Ghosts)
                 if (!Folded.Contains(kv.Key)) h += kv.Value.Count * GhostH;
+            foreach (var kv in Layout.Workers)
+                if (!Folded.Contains(kv.Key)) h += WorkerCount(kv.Key) * WorkerH;
             return h;
         }
 
@@ -439,8 +500,8 @@ namespace SlopWorld
                 case SidebarTab.Git:
                     if (!ClickRouted()) GitView.Clicks();
                     break;
-                case SidebarTab.Shortcuts:
-                    ShortcutsView.Clicks();
+                case SidebarTab.Library:
+                    LibraryView.Clicks();
                     break;
                 case SidebarTab.Tasks:
                     TasksView.Clicks();
@@ -512,8 +573,8 @@ namespace SlopWorld
                     DrawRouted(Body, SidebarTab.Git);
                     GitView.Draw(TreeBody(Body, SidebarTab.Git));
                     break;
-                case SidebarTab.Shortcuts:
-                    ShortcutsView.Draw(Body);
+                case SidebarTab.Library:
+                    LibraryView.Draw(Body);
                     break;
                 case SidebarTab.Tasks:
                     TasksView.Draw(Body);
@@ -560,7 +621,7 @@ namespace SlopWorld
                     TerminalWindow.OpenOverPane(new EditSessionDialog(null))),
                 new FloatMenuOption("Task", () =>
                     TerminalWindow.OpenOverPane(new DelegateTaskDialog(null))),
-                new SlopSubmenu("Shortcuts", ShortcutOptions),
+                new SlopSubmenu("Library", ShortcutOptions),
                 new FloatMenuOption("Sandbox preset...", SlopOptions.OpenNewSandboxPreset),
                 new FloatMenuOption("Command...", SlopOptions.OpenNewCommand),
                 new SlopSubmenu("Host shell", HostShellOptions),
@@ -635,10 +696,10 @@ namespace SlopWorld
                 "Tasks - delegate work and inspect the agent mailbox",
                 () => Show(SidebarTab.Tasks));
             x += TabIcon + Gap;
-            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Shortcuts,
-                CurrentTab == SidebarTab.Shortcuts,
-                "Shortcuts - one-shot errands you can run against any project",
-                () => Show(SidebarTab.Shortcuts));
+            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Library,
+                CurrentTab == SidebarTab.Library,
+                "Library - one-shot errands you can run against any project",
+                () => Show(SidebarTab.Library));
 
             FilterButton();
 
@@ -697,7 +758,7 @@ namespace SlopWorld
                     return Layout.Order.Count > 0 && Layout.Order.TrueForAll(Folded.Contains);
                 case SidebarTab.Files: return FilesView.AllFolded;
                 case SidebarTab.Git: return GitView.AllFolded;
-                case SidebarTab.Shortcuts: return ShortcutsView.AllFolded;
+                case SidebarTab.Library: return LibraryView.AllFolded;
                 case SidebarTab.Tasks: return false;
                 default: return false;
             }

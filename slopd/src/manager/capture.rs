@@ -950,10 +950,14 @@ impl Manager {
         }
 
         let mut found = false;
+        let mut worker_task = None;
         {
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(name) {
                 found = true;
+                if l.cfg.worker {
+                    worker_task = Some(l.cfg.task_id.clone());
+                }
                 l.set_state(State::Down);
                 l.auto_resume_pending = false;
                 l.bell = false;
@@ -986,6 +990,9 @@ impl Manager {
                 outcome = "cache_write_failed",
                 "could not clear session title"
             );
+        }
+        if let Some(task_id) = worker_task {
+            self.fail_worker_task(&task_id, format!("worker session {name} exited"));
         }
     }
 

@@ -5,6 +5,7 @@
 
 ```
 slopctl delegate AGENT TASK...
+slopctl spawn [--project PROJECT] [--template PRESET] [--durable] PARENT TASK...
 slopctl inbox [--all] [--sent] [--received] [--status STATUS]
 slopctl task ID
 slopctl accept|progress|finish|fail ID [NOTE...]
@@ -39,3 +40,8 @@ configured HTTP listener; `network = "none"` cannot use the mailbox API.
 
 The grant's session scope is the delegation allowlist. Task authority is separate from
 terminal input authority in storage and routes.
+
+`slopctl spawn` is different from delegation: only the root token may create a daemon-owned
+worker session, and the daemon returns both its task and generated session identity. See
+[daemon-workers](daemon-workers.md) for the task bootstrap, sidebar metadata, and exit/retry
+policy. A worker still uses the ordinary exact-ID lifecycle commands shown above.

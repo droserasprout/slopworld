@@ -7,6 +7,20 @@ pub(crate) struct CreateTaskReq {
 }
 
 #[derive(Deserialize)]
+pub(crate) struct SpawnWorkerReq {
+    /// Existing agent name, or `host` for a host-owned child.
+    pub(crate) parent: String,
+    #[serde(default)]
+    pub(crate) project: String,
+    /// A command preset such as `codex`, `claude` or `pi`. Empty uses `[defaults] agent`.
+    #[serde(default)]
+    pub(crate) template: String,
+    pub(crate) body: String,
+    #[serde(default)]
+    pub(crate) durable: bool,
+}
+
+#[derive(Deserialize)]
 pub(crate) struct UpdateTaskReq {
     pub(crate) status: crate::tasks::Status,
     #[serde(default)]

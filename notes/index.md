@@ -41,6 +41,7 @@ short subject per note and remove stale entries.
 - [wire-protocol](wire-protocol.md) - WS events, client messages, HTTP routes.
 - [agent-grants](agent-grants.md) - scoped tokens: one agent watching another, host never.
 - [agent-tasks](agent-tasks.md) - durable task mailboxes and the `slopctl` delegation CLI.
+- [daemon-workers](daemon-workers.md) - root-owned child workers, task identity, and lifecycle.
 - [agent-task-discovery](agent-task-discovery.md) - prompt discovery and safe task-arrival notices.
 - [agent-titles](agent-titles.md) - prompt summaries: never/once/always and conversation boundaries.
 - [agent-auto-resume](agent-auto-resume.md) - per-agent startup resume and input ordering.

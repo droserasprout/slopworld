@@ -33,6 +33,11 @@ namespace SlopWorld
         public string Note;
         public long CreatedMs;
         public long UpdatedMs;
+        public string WorkerSession = "";
+        public string WorkerParent = "";
+        public bool WorkerDurable;
+
+        public bool Worker => !string.IsNullOrEmpty(WorkerSession);
 
         string _direction;
         string _summary;
@@ -56,6 +61,13 @@ namespace SlopWorld
                 UpdatedMs = v["updated_ms"].AsLong(),
             };
             task.Status = ParseStatus(v["status"].AsString());
+            var worker = v["worker"];
+            if (!worker.IsNull)
+            {
+                task.WorkerSession = worker["session"].AsString();
+                task.WorkerParent = worker["parent"].AsString();
+                task.WorkerDurable = worker["durable"].AsBool(false);
+            }
             return task;
         }
 

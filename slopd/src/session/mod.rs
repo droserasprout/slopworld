@@ -24,7 +24,8 @@ pub(crate) use view::FrameViewArgs;
 pub use view::{ScreenView, SessionView};
 
 use crate::config::{
-    expand, Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink, TitlePolicy,
+    expand, Config, NetworkMode, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink,
+    TitlePolicy,
 };
 use crate::emu::{Frame, SessionEmu};
 use crate::tmux::Tmux;

@@ -453,6 +453,9 @@ fn push_env(
     push_args(a, &["--setenv", "HOME", home]);
     push_args(a, &["--setenv", "SLOPWORLD_SESSION", &s.name]);
     push_args(a, &["--setenv", "SLOPWORLD_PROJECT", &p.name]);
+    if !s.task_id.trim().is_empty() {
+        push_args(a, &["--setenv", "SLOPWORLD_TASK_ID", &s.task_id]);
+    }
     let cwd = mounts.first().map(|m| m.guest_dir.as_str()).unwrap_or("/");
     push_args(a, &["--chdir", cwd]);
 
@@ -825,6 +828,31 @@ mod tests {
         assert!(names.contains(&"claude"), "no claude preset in {names:?}");
         assert!(names.contains(&"docker"), "no docker preset in {names:?}");
     }
+
+    #[test]
+    fn worker_identity_is_exported_to_the_sandbox() {
+        let cfg = Config::default();
+        let s = SessionCfg {
+            name: "parent-worker".into(),
+            project: "p".into(),
+            command: "bash".into(),
+            sandbox: vec!["slopworld-worker".into()],
+            task_id: "task-7".into(),
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            network: NetworkMode::Host,
+            ..Default::default()
+        };
+        let a = build_argv(&cfg, &s, &p).expect("worker sandbox argv");
+        assert!(a
+            .windows(3)
+            .any(|w| { w[0] == "--setenv" && w[1] == "SLOPWORLD_TASK_ID" && w[2] == "task-7" }));
+        assert!(a.contains(&"--share-net".into()));
+    }
+
     /// The guard is reached from the effective preset list, not only from the validator.
     #[test]
     fn a_preset_asking_for_the_world_does_not_get_it() {

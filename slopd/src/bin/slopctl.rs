@@ -37,6 +37,7 @@ const USAGE: &str = "slopctl - delegate work and inspect SlopWorld diagnostics
 
 usage:
   slopctl delegate AGENT TASK...
+  slopctl spawn [--project PROJECT] [--template PRESET] [--durable] PARENT TASK...
   slopctl inbox [--all] [--sent] [--received] [--status STATUS]
   slopctl task ID
   slopctl wait ID
@@ -130,6 +131,13 @@ enum Command {
         to: String,
         body: String,
     },
+    Spawn {
+        parent: String,
+        project: String,
+        template: String,
+        durable: bool,
+        body: String,
+    },
     Inbox {
         filter: InboxFilter,
     },
@@ -186,6 +194,7 @@ fn parse_command(args: &[String]) -> Result<Command, String> {
             to: arg(args, 1, "delegate needs the agent to send to")?.to_string(),
             body: rest(args, 2, "delegate needs a task body")?,
         }),
+        "spawn" | "worker" => parse_spawn(args),
         "inbox" => Ok(Command::Inbox {
             filter: InboxFilter::parse(&args[1..])?,
         }),
@@ -236,11 +245,65 @@ fn parse_command(args: &[String]) -> Result<Command, String> {
     }
 }
 
+fn parse_spawn(args: &[String]) -> Result<Command, String> {
+    let mut project = String::new();
+    let mut template = String::new();
+    let mut durable = false;
+    let mut positional = Vec::new();
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--project" => {
+                i += 1;
+                project = arg(args, i, "spawn --project needs a project")?.to_string();
+            }
+            "--template" => {
+                i += 1;
+                template = arg(args, i, "spawn --template needs a command preset")?.to_string();
+            }
+            "--durable" => durable = true,
+            flag if flag.starts_with('-') => {
+                return Err(format!("unknown spawn option: {flag}\n\n{USAGE}"));
+            }
+            value => positional.push(value.to_string()),
+        }
+        i += 1;
+    }
+    if positional.len() < 2 {
+        return Err(format!("spawn needs a parent and a task body\n\n{USAGE}"));
+    }
+    Ok(Command::Spawn {
+        parent: positional.remove(0),
+        project,
+        template,
+        durable,
+        body: positional.join(" "),
+    })
+}
+
 impl Command {
     fn run(self, endpoint: &Endpoint, session: &str, json: bool) -> Result<(), String> {
         match self {
             Self::Logs { .. } => unreachable!("local commands are dispatched before endpoint load"),
             Self::Delegate { to, body } => run_delegate(endpoint, session, json, &to, &body),
+            Self::Spawn {
+                parent,
+                project,
+                template,
+                durable,
+                body,
+            } => run_spawn(
+                endpoint,
+                session,
+                json,
+                SpawnArgs {
+                    parent: &parent,
+                    project: &project,
+                    template: &template,
+                    durable,
+                    body: &body,
+                },
+            ),
             Self::Inbox { filter } => run_inbox(endpoint, session, json, filter),
             Self::Task { id } => run_task(endpoint, session, json, &id),
             Self::Wait { id } => run_wait(endpoint, session, json, &id),
@@ -268,6 +331,37 @@ fn run_delegate(
         "POST",
         "/api/tasks",
         Some(json!({ "to": to, "body": body })),
+    )?;
+    emit(&v, json);
+    Ok(())
+}
+
+struct SpawnArgs<'a> {
+    parent: &'a str,
+    project: &'a str,
+    template: &'a str,
+    durable: bool,
+    body: &'a str,
+}
+
+fn run_spawn(
+    endpoint: &Endpoint,
+    session: &str,
+    json: bool,
+    args: SpawnArgs<'_>,
+) -> Result<(), String> {
+    let v = request(
+        endpoint,
+        session,
+        "POST",
+        "/api/workers",
+        Some(json!({
+            "parent": args.parent,
+            "project": args.project,
+            "template": args.template,
+            "body": args.body,
+            "durable": args.durable,
+        })),
     )?;
     emit(&v, json);
     Ok(())
@@ -1063,6 +1157,13 @@ fn print_value(v: &Value) {
         }
     } else if let Some(task) = v.get("task") {
         print_task(task);
+        if let Some(worker) = v.get("worker") {
+            let name = worker["name"]
+                .as_str()
+                .or_else(|| worker["session"].as_str())
+                .unwrap_or("?");
+            println!("worker   {name}");
+        }
     } else {
         print_json(v);
     }
@@ -1086,6 +1187,18 @@ fn print_task(t: &Value) {
     );
     if let Some(note) = t["note"].as_str() {
         println!("  {note}");
+    }
+    if let Some(worker) = t.get("worker") {
+        println!(
+            "  worker {} under {}{}",
+            worker["session"].as_str().unwrap_or("?"),
+            worker["parent"].as_str().unwrap_or("?"),
+            if worker["durable"].as_bool().unwrap_or(false) {
+                " (durable)"
+            } else {
+                " (one-shot)"
+            }
+        );
     }
 }
 
@@ -1179,6 +1292,58 @@ mod tests {
                 id: "task-7".to_string(),
             })
         );
+        assert_eq!(
+            parse_command(&words(
+                "spawn --project repo --template codex --durable parent inspect the build"
+            )),
+            Ok(Command::Spawn {
+                parent: "parent".to_string(),
+                project: "repo".to_string(),
+                template: "codex".to_string(),
+                durable: true,
+                body: "inspect the build".to_string(),
+            })
+        );
+        assert_eq!(
+            parse_command(&words("worker parent run the checks")),
+            Ok(Command::Spawn {
+                parent: "parent".to_string(),
+                project: String::new(),
+                template: String::new(),
+                durable: false,
+                body: "run the checks".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn spawn_posts_parent_template_and_task_body_to_worker_endpoint() {
+        let (endpoint, server) = serve(
+            "200 OK",
+            r#"{"task":{"id":"task-7"},"worker":{"name":"child"}}"#,
+        );
+        run_spawn(
+            &endpoint,
+            "host",
+            true,
+            SpawnArgs {
+                parent: "parent",
+                project: "repo",
+                template: "codex",
+                durable: true,
+                body: "inspect the build",
+            },
+        )
+        .unwrap();
+        let request = server.join().unwrap();
+        assert!(request.starts_with("POST /api/workers HTTP/1.1\r\n"));
+        let body = request.split("\r\n\r\n").nth(1).unwrap();
+        let body: Value = serde_json::from_str(body).unwrap();
+        assert_eq!(body["parent"], "parent");
+        assert_eq!(body["project"], "repo");
+        assert_eq!(body["template"], "codex");
+        assert_eq!(body["durable"], true);
+        assert_eq!(body["body"], "inspect the build");
     }
 
     #[test]

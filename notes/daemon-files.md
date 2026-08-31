@@ -15,6 +15,7 @@
 | `manager/desktop.rs` | Host MIME associations and desktop-file display names for Files' Open in menu. |
 | `manager/sessions.rs` | Session targets, lifecycle, stored state, state classification and views. |
 | `manager/shortcuts.rs` | Projects, shortcuts, file actions and temporary errands. |
+| `manager/workers.rs` | Root-only task-owned worker construction and explicit child metadata. |
 | `manager/capture.rs` | `Manager` terminal input, emulator readers, screen frames and scroll capture. |
 | `manager/caps.rs` | `Manager` capability and grant checks. |
 | `emu.rs` | `SessionEmu`, an `alacritty_terminal` per session. |

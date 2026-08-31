@@ -611,6 +611,14 @@ pub struct SessionCfg {
     /// After a fresh process reaches its first settled prompt, select its latest conversation.
     #[serde(default)]
     pub auto_resume: bool,
+    /// Daemon-owned metadata for a task-owned child. Ordinary session creation clears these
+    /// fields; worker creation is the only route that sets them.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub worker: bool,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub parent: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub task_id: String,
 }
 
 /// A durable host terminal tab. The daemon owns this small record so a game or daemon restart
@@ -661,6 +669,9 @@ impl Default for SessionCfg {
             mounts: Vec::new(),
             autostart: false,
             auto_resume: false,
+            worker: false,
+            parent: String::new(),
+            task_id: String::new(),
         }
     }
 }

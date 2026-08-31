@@ -153,6 +153,28 @@ pub(super) async fn create_task(
     Ok(Json(json!({ "task": task })))
 }
 
+/// Atomically coordinates the mailbox task and child-session setup. The task is written before
+/// the worker can start; a failed launch leaves a failed, queryable task (and a durable stopped
+/// session when requested). Only the root may mint a new worker session.
+pub(super) async fn spawn_worker(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    Json(q): Json<SpawnWorkerReq>,
+) -> ApiResult {
+    guard_create(&cap)?;
+    let worker = m
+        .spawn_worker(q.parent, q.project, q.template, q.body, q.durable)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({
+        "task": worker.task,
+        "worker": {
+            "name": worker.session.clone(),
+            "session": worker.session,
+        }
+    })))
+}
+
 pub(super) async fn list_tasks(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
@@ -166,7 +188,11 @@ pub(super) async fn list_tasks(
             "only the daemon's own token lists every task",
         ));
     }
-    let tasks = if q.all { m.all_tasks() } else { m.tasks_for(&who) };
+    let tasks = if q.all {
+        m.all_tasks()
+    } else {
+        m.tasks_for(&who)
+    };
     Ok(Json(json!({ "tasks": tasks })))
 }
 
