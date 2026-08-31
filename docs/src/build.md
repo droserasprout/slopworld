@@ -27,7 +27,12 @@ Set `RIMWORLD` to the Linux game directory (the folder containing `RimWorldLinux
 
 `BUILD` is `debug` (default) or `release`. Both produce `mod/Assemblies/SlopWorld.dll`. `lint-mod` always rebuilds in Release.
 
-Snapshot builds use an eight-digit date tag at `HEAD` (e.g. `20260827`) and embed the version `0.0.20260827`. Untagged checkouts append the short hash: `0.0.20260827-3eb9902`. Trees without Git keep the `0.1.0` fallback.
+The first release uses the canonical `v0.0.1` tag and embeds `0.0.1`. Snapshot builds use an
+eight-digit date tag at `HEAD` (e.g. `20260827`) and embed `0.0.20260827`. Untagged checkouts
+append the short hash: `0.0.20260827-3eb9902`. Trees without Git keep the `0.0.1` fallback.
+The release workflow packages the checked-in `mod/Assemblies/SlopWorld.dll`; because that
+assembly is compiled against a local RimWorld install, rebuild it with the target version before
+creating a release tag.
 
 ## Formatting
 

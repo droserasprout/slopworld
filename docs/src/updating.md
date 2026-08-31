@@ -31,8 +31,9 @@ the short hash.
 | Prompt summaries | Yes |
 | Daemon token | Yes (regenerated only on first run or manual delete) |
 
-Unknown config fields are dropped on the next write. SlopWorld is pre-0.0.1; wire
-formats, config names, and path layouts may change between versions without migration.
+Unknown config fields are dropped on the next write. SlopWorld is still before its first stable
+release; wire formats, config names, and path layouts may change between versions without
+migration.
 
 ## Compatibility
 

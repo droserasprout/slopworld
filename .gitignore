@@ -2,7 +2,7 @@ slopd/target/
 coverage/
 mod/Source/SlopWorld/obj/
 mod/Source/SlopWorld/bin/
-mod/Assemblies/SlopWorld.dll
+# The release workflow ships this game-bound assembly. Local builds replace it in place.
 *.pdb
 *.mdb
 .tokensave
