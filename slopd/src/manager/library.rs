@@ -1,4 +1,4 @@
-//! Projects, shortcuts, file actions and errands.
+//! Projects, library, file actions and errands.
 
 use super::super::*;
 use std::process::Stdio;
@@ -121,31 +121,28 @@ impl Manager {
         Ok(())
     }
 
-    pub async fn shortcuts(&self) -> Vec<ShortcutCfg> {
-        self.cfg.read().await.shortcuts_all()
+    pub async fn library(&self) -> Vec<LibraryItemCfg> {
+        self.cfg.read().await.library_items_all()
     }
 
-    pub(super) async fn announce_shortcuts(&self) {
-        let _ = self.events.send(Event::Shortcuts {
-            shortcuts: self.shortcuts().await,
+    pub(super) async fn announce_library(&self) {
+        let _ = self.events.send(Event::Library {
+            library: self.library().await,
         });
     }
 
-    pub async fn add_shortcut(self: &Arc<Self>, mut sc: ShortcutCfg) -> Result<()> {
+    pub async fn add_library_item(self: &Arc<Self>, mut sc: LibraryItemCfg) -> Result<()> {
         self.reload_if_changed().await;
         let mut cfg = self.cfg.write().await;
         sc.builtin = false;
-        check_shortcut(&cfg, &sc)?;
-        if cfg
-            .shortcuts
-            .iter()
-            .any(|existing| existing.name == sc.name)
-        {
-            bail!("shortcut {} already exists", sc.name);
+        check_library_item(&cfg, &sc)?;
+        if cfg.library.iter().any(|existing| existing.name == sc.name) {
+            bail!("library item {} already exists", sc.name);
         }
-        let attach_project = (sc.kind == ShortcutKind::Breadcrumb && !sc.project.trim().is_empty())
-            .then(|| sc.project.clone());
-        cfg.shortcuts.push(sc.clone());
+        let attach_project = (sc.kind == LibraryItemKind::Breadcrumb
+            && !sc.project.trim().is_empty())
+        .then(|| sc.project.clone());
+        cfg.library.push(sc.clone());
         if let Some(project) = attach_project {
             if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == project) {
                 if !p.breadcrumbs.contains(&sc.name) {
@@ -155,32 +152,31 @@ impl Manager {
         }
         self.save_cfg(&cfg)?;
         drop(cfg);
-        self.announce_shortcuts().await;
+        self.announce_library().await;
         Ok(())
     }
 
-    pub async fn update_shortcut(self: &Arc<Self>, name: &str, mut sc: ShortcutCfg) -> Result<()> {
+    pub async fn update_library_item(
+        self: &Arc<Self>,
+        name: &str,
+        mut sc: LibraryItemCfg,
+    ) -> Result<()> {
         self.reload_if_changed().await;
         let mut cfg = self.cfg.write().await;
         sc.builtin = false;
-        if cfg.is_builtin_shortcut(name) {
-            bail!("shortcut {name} is built in and cannot be edited");
+        if cfg.is_builtin_library_item(name) {
+            bail!("library item {name} is built in and cannot be edited");
         }
-        check_shortcut(&cfg, &sc)?;
+        check_library_item(&cfg, &sc)?;
         let idx = cfg
-            .shortcuts
+            .library
             .iter()
             .position(|x| x.name == name)
-            .ok_or_else(|| anyhow!("no such shortcut: {name}"))?;
-        if sc.name != name
-            && cfg
-                .shortcuts
-                .iter()
-                .any(|existing| existing.name == sc.name)
-        {
-            bail!("shortcut {} already exists", sc.name);
+            .ok_or_else(|| anyhow!("no such library item: {name}"))?;
+        if sc.name != name && cfg.library.iter().any(|existing| existing.name == sc.name) {
+            bail!("library item {} already exists", sc.name);
         }
-        let old = cfg.shortcuts[idx].clone();
+        let old = cfg.library[idx].clone();
         if sc.name != name {
             for p in &mut cfg.projects {
                 for attached in &mut p.breadcrumbs {
@@ -197,8 +193,8 @@ impl Manager {
                 }
             }
         }
-        cfg.shortcuts[idx] = sc.clone();
-        if sc.kind == ShortcutKind::Breadcrumb {
+        cfg.library[idx] = sc.clone();
+        if sc.kind == LibraryItemKind::Breadcrumb {
             if !old.project.trim().is_empty() && old.project != sc.project {
                 if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == old.project) {
                     p.breadcrumbs.retain(|b| b != &sc.name);
@@ -222,20 +218,20 @@ impl Manager {
         self.save_cfg(&cfg)?;
         drop(cfg);
         self.announce_projects().await;
-        self.announce_shortcuts().await;
+        self.announce_library().await;
         Ok(())
     }
 
-    pub async fn remove_shortcut(self: &Arc<Self>, name: &str) -> Result<()> {
+    pub async fn remove_library_item(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
         let mut cfg = self.cfg.write().await;
-        if cfg.is_builtin_shortcut(name) {
-            bail!("shortcut {name} is built in and cannot be deleted");
+        if cfg.is_builtin_library_item(name) {
+            bail!("library item {name} is built in and cannot be deleted");
         }
-        let Some(sc) = cfg.shortcut(name) else {
-            bail!("no such shortcut: {name}");
+        let Some(sc) = cfg.library_item(name) else {
+            bail!("no such library item: {name}");
         };
-        if sc.kind == ShortcutKind::Breadcrumb
+        if sc.kind == LibraryItemKind::Breadcrumb
             && (cfg
                 .projects
                 .iter()
@@ -247,23 +243,29 @@ impl Manager {
         {
             bail!("breadcrumb {name} is still attached to a project or agent");
         }
-        cfg.shortcuts.retain(|s| s.name != name);
+        cfg.library.retain(|s| s.name != name);
         self.save_cfg(&cfg)?;
         drop(cfg);
-        self.announce_shortcuts().await;
+        self.announce_library().await;
         Ok(())
     }
 
-    pub async fn run_shortcut(self: &Arc<Self>, name: &str, want: RunWhere) -> Result<String> {
+    pub async fn run_library_item(self: &Arc<Self>, name: &str, want: RunWhere) -> Result<String> {
         self.reload_if_changed().await;
         let cfg = self.config().await;
         let sc = cfg
-            .shortcut(name)
-            .ok_or_else(|| anyhow!("no such shortcut: {name}"))?
+            .library_item(name)
+            .ok_or_else(|| anyhow!("no such library item: {name}"))?
             .clone();
-        check_shortcut(&cfg, &sc)?;
-        if matches!(sc.kind, ShortcutKind::Breadcrumb | ShortcutKind::FileAction) {
-            bail!("shortcut {} is not runnable as an agent errand", sc.name);
+        check_library_item(&cfg, &sc)?;
+        if matches!(
+            sc.kind,
+            LibraryItemKind::Breadcrumb | LibraryItemKind::FileAction
+        ) {
+            bail!(
+                "library item {} is not runnable as an agent errand",
+                sc.name
+            );
         }
         drop(cfg);
         self.run_errand(sc, want, false, false, "").await
@@ -423,9 +425,15 @@ impl Manager {
         Ok(normalize_action_command(&path, command))
     }
 
-    fn validate_errand(sc: &ShortcutCfg) -> Result<()> {
-        if matches!(sc.kind, ShortcutKind::Breadcrumb | ShortcutKind::FileAction) {
-            bail!("shortcut {} is not runnable as an agent errand", sc.name);
+    fn validate_errand(sc: &LibraryItemCfg) -> Result<()> {
+        if matches!(
+            sc.kind,
+            LibraryItemKind::Breadcrumb | LibraryItemKind::FileAction
+        ) {
+            bail!(
+                "library item {} is not runnable as an agent errand",
+                sc.name
+            );
         }
         Ok(())
     }
@@ -433,7 +441,7 @@ impl Manager {
     async fn create_errand_session(
         &self,
         cfg: &Config,
-        sc: &ShortcutCfg,
+        sc: &LibraryItemCfg,
         want: &RunWhere,
         host: bool,
         persistent_host: bool,
@@ -444,13 +452,13 @@ impl Manager {
             Some(p) if !p.is_empty() => Some(p.to_string()),
             _ => None,
         };
-        let fresh = want.temp || (asked.is_none() && sc.link == ShortcutLink::Temp);
+        let fresh = want.temp || (asked.is_none() && sc.link == LibraryItemLink::Temp);
         let named = match (&asked, sc.link) {
             _ if fresh => String::new(),
             (Some(p), _) => p.clone(),
-            (None, ShortcutLink::Ask) => {
+            (None, LibraryItemLink::Ask) => {
                 bail!(
-                    "shortcut {name} asks where to run; name a project or ask for a temporary one"
+                    "library item {name} asks where to run; name a project or ask for a temporary one"
                 )
             }
             (None, _) => sc.project.clone(),
@@ -550,7 +558,12 @@ impl Manager {
         Ok(name)
     }
 
-    fn queue_errand_delivery(self: &Arc<Self>, session: &str, sc: &ShortcutCfg, want: &RunWhere) {
+    fn queue_errand_delivery(
+        self: &Arc<Self>,
+        session: &str,
+        sc: &LibraryItemCfg,
+        want: &RunWhere,
+    ) {
         let text = render_template(&sc.text, &want.random_tips);
         if text.trim().is_empty() {
             return;
@@ -563,7 +576,7 @@ impl Manager {
 
     pub async fn run_errand(
         self: &Arc<Self>,
-        sc: ShortcutCfg,
+        sc: LibraryItemCfg,
         want: RunWhere,
         host: bool,
         persistent_host: bool,
@@ -601,18 +614,18 @@ impl Manager {
     ) {
         match self.wait_ready(name).await {
             Ready::Gone => {
-                tracing::warn!("{name} was gone before its shortcut text could be sent");
+                tracing::warn!("{name} was gone before its library item text could be sent");
                 return;
             }
             Ready::Timeout => tracing::warn!(
-                "{name} never went quiet after {}ms; sending its shortcut text anyway",
+                "{name} never went quiet after {}ms; sending its library item text anyway",
                 READY_MS
             ),
             Ready::Settled => {}
         }
 
         if let Err(e) = self.paste(name, text).await {
-            tracing::error!("sending shortcut text to {name}: {e:#}");
+            tracing::error!("sending library item text to {name}: {e:#}");
             return;
         }
         tokio::time::sleep(Duration::from_millis(ENTER_GAP_MS)).await;
@@ -737,7 +750,7 @@ fn auto_resume_inputs() -> Vec<Input> {
 #[cfg(test)]
 mod tests {
     use super::{auto_resume_inputs, routed_action_label, Manager};
-    use crate::config::{Config, ProjectCfg, ShortcutCfg, ShortcutKind};
+    use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg};
     use crate::session::Input;
     use std::os::unix::process::ExitStatusExt;
     use std::process::ExitStatus;
@@ -851,19 +864,19 @@ mod tests {
         assert!(err.to_string().contains("boom"), "got {err}");
     }
 
-    /// Breadcrumb and file-action shortcuts are handles on something, not runnable prompts; only
-    /// prompt and shell shortcuts may be launched as an agent errand.
+    /// Breadcrumb and file-action library are handles on something, not runnable prompts; only
+    /// prompt and shell library may be launched as an agent errand.
     #[test]
-    fn only_runnable_shortcuts_pass_the_errand_guard() {
-        let sc = |kind| ShortcutCfg {
+    fn only_runnable_library_pass_the_errand_guard() {
+        let sc = |kind| LibraryItemCfg {
             name: "x".into(),
             kind,
             ..Default::default()
         };
-        assert!(Manager::validate_errand(&sc(ShortcutKind::Prompt)).is_ok());
-        assert!(Manager::validate_errand(&sc(ShortcutKind::Shell)).is_ok());
-        assert!(Manager::validate_errand(&sc(ShortcutKind::Breadcrumb)).is_err());
-        assert!(Manager::validate_errand(&sc(ShortcutKind::FileAction)).is_err());
+        assert!(Manager::validate_errand(&sc(LibraryItemKind::Prompt)).is_ok());
+        assert!(Manager::validate_errand(&sc(LibraryItemKind::Shell)).is_ok());
+        assert!(Manager::validate_errand(&sc(LibraryItemKind::Breadcrumb)).is_err());
+        assert!(Manager::validate_errand(&sc(LibraryItemKind::FileAction)).is_err());
     }
 
     #[test]

@@ -35,7 +35,7 @@ namespace SlopWorld
             if (row.Left("Add agent", SlopWidgets.Btn.Primary))
                 TerminalWindow.OpenOverPane(new EditSessionDialog(null));
 
-            // Shortcuts is not here: it is a window of its own in the bottom bar, and an
+            // Library is not here: it is a window of its own in the bottom bar, and an
             // errand is not something you do to an agent on this list. Nor is "New colony",
             // for the same reason - it is "Next planet" in the menu behind Escape now.
             if (row.Right("Reconnect", SlopWidgets.Btn.Ghost))

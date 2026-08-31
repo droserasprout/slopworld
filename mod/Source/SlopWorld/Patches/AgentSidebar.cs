@@ -212,7 +212,7 @@ namespace SlopWorld
 
             if (tab == SidebarTab.Search) SearchView.Entered();
 
-            if (tab == SidebarTab.Library) SessionHub.Instance.RefreshShortcuts();
+            if (tab == SidebarTab.Library) SessionHub.Instance.RefreshLibrary();
             if (tab == SidebarTab.Tasks) SessionHub.Instance.RefreshTasks(SlopWidgets.Fail);
         }
 

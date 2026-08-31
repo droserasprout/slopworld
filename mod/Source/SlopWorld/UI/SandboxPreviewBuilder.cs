@@ -58,7 +58,7 @@ namespace SlopWorld
                 new List<string> { effectiveDns.Label }));
             if (agent != null)
                 data.Fields.Add(new SandboxPreviewField("Joined breadcrumbs",
-                    JoinedBreadcrumbs(project, agent, hub.Shortcuts, hub.Config)));
+                    JoinedBreadcrumbs(project, agent, hub.Library, hub.Config)));
             if (agent != null)
                 data.Fields.Add(new SandboxPreviewField("Resource limits",
                     LimitLines(agent.Limits)));
@@ -92,15 +92,15 @@ namespace SlopWorld
         // the first occurrence of a name. Show the resulting text block, including the generated
         // instructions discovery entry when it is enabled for this agent.
         static List<string> JoinedBreadcrumbs(ProjectInfo project, SessionInfo agent,
-                                              List<ShortcutInfo> shortcuts, SlopConfig config)
+                                              List<LibraryItemInfo> library, SlopConfig config)
         {
             var names = new List<string>();
             AddBreadcrumbNames(names, project?.Breadcrumbs);
             AddBreadcrumbNames(names, agent?.Breadcrumbs);
 
             var text = names
-                .Select(name => shortcuts.FirstOrDefault(s => s.Name == name &&
-                    s.Kind == ShortcutKind.Breadcrumb)?.Text)
+                .Select(name => library.FirstOrDefault(s => s.Name == name &&
+                    s.Kind == LibraryItemKind.Breadcrumb)?.Text)
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Select(value => value.Trim())
                 .ToList();

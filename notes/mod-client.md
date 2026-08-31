@@ -12,7 +12,7 @@ reflection.
   `Send`), `TerminalIO` (subs + keys/mouse/paste/scroll/resize/redraw), `AudioBus`
   (jukebox channel), `SessionStore` (sessions list + screen buffers + their HTTP
   mutations), `TaskStore` (the host's polled all-task board and HTTP mutations), and
-  `HubCatalog` (projects/shortcuts/presets/commands). `Config` stays
+  `HubCatalog` (projects/library/presets/commands). `Config` stays
   a settable field on the facade because the settings pages write it back. `Handle`
   routes each socket event to the owning service; `HubWire` holds shared JSON helpers.
 - `MiniWebSocket` - speaks RFC6455 by hand, because Unity's mono cannot be trusted

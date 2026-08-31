@@ -578,8 +578,8 @@ impl Manager {
             .await
             .ok_or_else(|| anyhow!("session {name} has no configured project"))?;
         let b = cfg
-            .shortcut(breadcrumb)
-            .filter(|b| b.kind == ShortcutKind::Breadcrumb)
+            .library_item(breadcrumb)
+            .filter(|b| b.kind == LibraryItemKind::Breadcrumb)
             .ok_or_else(|| anyhow!("no such breadcrumb: {breadcrumb}"))?;
         let command = cfg.command_of(&s);
         let directory = expand(&p.dir);

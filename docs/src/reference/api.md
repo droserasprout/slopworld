@@ -62,7 +62,7 @@ plus nullable `network_override`. DNS is optional tagged JSON:
 | `screen` | Terminal content. Scrolled replies include `off`, `request_id`, and `history` (total scrollback rows). |
 | `usage` | Quota window updates. |
 | `projects` | Project catalog. |
-| `shortcuts` | Shortcut catalog. |
+| `library` | Library catalog. |
 | `jukebox` | Jukebox state. |
 
 Catalogs arrive on connect and are resent when changed.

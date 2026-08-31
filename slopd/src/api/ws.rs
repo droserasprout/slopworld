@@ -40,7 +40,7 @@ pub(super) async fn ws_upgrade(
 }
 
 /// Filters events for a socket capability. Root sees all; scoped grants see named sessions and
-/// screens, but not projects, shortcuts, usage, audio, or jukebox catalog data.
+/// screens, but not projects, library, usage, audio, or jukebox catalog data.
 fn scope_event(cap: &Cap, ev: Event) -> Option<Event> {
     match cap {
         Cap::Root => Some(ev),
@@ -54,7 +54,7 @@ fn scope_event(cap: &Cap, ev: Event) -> Option<Event> {
             Event::Screen { .. } => Some(ev),
             Event::Capabilities { .. }
             | Event::Projects { .. }
-            | Event::Shortcuts { .. }
+            | Event::Library { .. }
             | Event::Usage { .. }
             | Event::Audio { .. }
             | Event::Jukebox { .. } => None,
@@ -101,7 +101,7 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
     pump.abort();
 }
 
-/// Usage, projects and shortcuts ride along because they speak only on a change: a mod
+/// Usage, projects and library ride along because they speak only on a change: a mod
 /// attaching between polls would otherwise draw nothing for a minute. Each goes through the
 /// same scope filter the pump uses, so a grant's socket gets its filtered session list and
 /// none of the mod's wider view - `scope_event` drops what it may not see.
@@ -133,8 +133,8 @@ async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
         Event::Projects {
             projects: m.projects().await,
         },
-        Event::Shortcuts {
-            shortcuts: m.shortcuts().await,
+        Event::Library {
+            library: m.library().await,
         },
         // On connect too, and for the same reason: a game that has just come up has to learn
         // whether the music it asked for last time is playing.
@@ -544,7 +544,7 @@ mod tests {
         assert!(scope_event(&cap, Event::Screen { screen }).is_some());
     }
 
-    /// Everything that is neither a session nor a screen - projects, shortcuts, usage, audio,
+    /// Everything that is neither a session nor a screen - projects, library, usage, audio,
     /// the jukebox catalog - is host-wide state a scoped grant has no business seeing.
     #[test]
     fn a_scoped_grant_is_denied_host_wide_categories() {
@@ -553,8 +553,8 @@ mod tests {
             Event::Projects {
                 projects: Vec::new(),
             },
-            Event::Shortcuts {
-                shortcuts: Vec::new(),
+            Event::Library {
+                library: Vec::new(),
             },
             Event::Usage {
                 usage: Default::default(),

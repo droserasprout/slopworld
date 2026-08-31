@@ -120,7 +120,7 @@ namespace SlopWorld
         static readonly HashSet<string> Keep = new HashSet<string>
         {
             "Menu", "Inspect",
-            "SlopWorld_Projects", "SlopWorld_Agents", "SlopWorld_Shortcuts",
+            "SlopWorld_Projects", "SlopWorld_Agents", "SlopWorld_Library",
             "SlopWorld_Config",
         };
 
@@ -192,7 +192,7 @@ namespace SlopWorld
         }
     }
 
-    // The bottom buttons bar: the row of main buttons (Projects, Agents, Shortcuts, Config,
+    // The bottom buttons bar: the row of main buttons (Projects, Agents, Library, Config,
     // Menu, Inspect) is now the sidebar's hamburger menu, so the bar itself is gone.
     [HarmonyPatch(typeof(MainButtonsRoot), nameof(MainButtonsRoot.MainButtonsOnGUI))]
     public static class Patch_Hide_BottomPanel

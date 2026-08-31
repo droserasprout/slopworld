@@ -13,8 +13,8 @@ namespace SlopWorld
     // killed, the same process being able to get it back up.
     public enum AgentState { Down, Working, Waiting, Idle }
 
-    public enum ShortcutKind { Prompt, Shell, Breadcrumb, FileAction }
+    public enum LibraryItemKind { Prompt, Shell, Breadcrumb, FileAction }
 
     // Temp is a fresh scratch directory per run; Ask is decided at the button.
-    public enum ShortcutLink { Project, Temp, Ask }
+    public enum LibraryItemLink { Project, Temp, Ask }
 }

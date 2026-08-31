@@ -5,13 +5,13 @@ using System.Linq;
 namespace SlopWorld
 {
     // The reference data the daemon keeps in TOML: the projects an agent can run in, the
-    // shortcuts that launch them, and the sandbox presets and command templates. Projects and
-    // shortcuts are pushed on connect and on any edit; presets and commands are fetched afresh
+    // library items that launch them, and the sandbox presets and command templates. Projects and
+    // library items are pushed on connect and on any edit; presets and commands are fetched afresh
     // for every dialog that draws them, so one can arrive without slopd being rebuilt.
     class HubCatalog
     {
         public List<ProjectInfo> Projects = new List<ProjectInfo>();
-        public List<ShortcutInfo> Shortcuts = new List<ShortcutInfo>();
+        public List<LibraryItemInfo> Library = new List<LibraryItemInfo>();
         public List<PresetInfo> Presets = new List<PresetInfo>();
         public List<CommandInfo> Commands = new List<CommandInfo>();
 
@@ -37,8 +37,8 @@ namespace SlopWorld
             Projects = ev["projects"].Items.Select(ProjectInfo.FromJson).ToList();
         }
 
-        public void ApplyShortcuts(JVal ev) =>
-            Shortcuts = ev["shortcuts"].Items.Select(ShortcutInfo.FromJson).ToList();
+        public void ApplyLibrary(JVal ev) =>
+            Library = ev["library"].Items.Select(LibraryItemInfo.FromJson).ToList();
 
         public ProjectInfo Project(string name) =>
             Projects.FirstOrDefault(p => p.Name == name);
@@ -60,25 +60,25 @@ namespace SlopWorld
                 });
         }
 
-        public ShortcutInfo Shortcut(string name) =>
-            Shortcuts.FirstOrDefault(s => s.Name == name);
+        public LibraryItemInfo LibraryItem(string name) =>
+            Library.FirstOrDefault(s => s.Name == name);
 
-        public void RefreshShortcuts(Action<string> fail = null) =>
-            SlopClient.Get("/api/shortcuts",
-                j => Shortcuts = j["shortcuts"].Items.Select(ShortcutInfo.FromJson).ToList(),
+        public void RefreshLibrary(Action<string> fail = null) =>
+            SlopClient.Get("/api/library",
+                j => Library = j["library"].Items.Select(LibraryItemInfo.FromJson).ToList(),
                 fail);
 
-        public void SaveShortcut(ShortcutInfo s, bool isNew, string origName,
+        public void SaveLibraryItem(LibraryItemInfo s, bool isNew, string origName,
                                  Action ok, Action<string> fail)
         {
-            Action<JVal> done = _ => { RefreshShortcuts(); ok?.Invoke(); };
-            if (isNew) SlopClient.Post("/api/shortcuts", s.ToJson(), done, fail);
-            else SlopClient.Put($"/api/shortcuts/{HubWire.Esc(origName)}", s.ToJson(), done, fail);
+            Action<JVal> done = _ => { RefreshLibrary(); ok?.Invoke(); };
+            if (isNew) SlopClient.Post("/api/library", s.ToJson(), done, fail);
+            else SlopClient.Put($"/api/library/{HubWire.Esc(origName)}", s.ToJson(), done, fail);
         }
 
-        public void RemoveShortcut(string name, Action<string> fail = null) =>
-            SlopClient.Delete($"/api/shortcuts/{HubWire.Esc(name)}",
-                _ => RefreshShortcuts(), fail);
+        public void RemoveLibraryItem(string name, Action<string> fail = null) =>
+            SlopClient.Delete($"/api/library/{HubWire.Esc(name)}",
+                _ => RefreshLibrary(), fail);
 
         // The old lists stay up until the answer lands, so a dialog opened with the socket
         // down draws what it knew rather than nothing.

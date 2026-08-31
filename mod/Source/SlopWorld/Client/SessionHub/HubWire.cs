@@ -9,7 +9,7 @@ namespace SlopWorld
     // segment, rendering a tip list, and formatting a slider value the daemon will accept.
     static class HubWire
     {
-        // A shortcut's (or session's) name is free-form, so it can carry anything a path
+        // A library item's (or session's) name is free-form, so it can carry anything a path
         // segment objects to.
         public static string Esc(string name) => Uri.EscapeDataString(name ?? "");
 

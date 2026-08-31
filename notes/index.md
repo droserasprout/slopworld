@@ -37,7 +37,7 @@ short subject per note and remove stale entries.
 - [daemon-presets](daemon-presets.md) - the preset tables and the sandbox argv.
 - [daemon-redeploy](daemon-redeploy.md) - surviving a daemon restart; tmux traps.
 - [daemon-usage](daemon-usage.md) - Anthropic, OpenRouter and OpenAI quota polling.
-- [daemon-shortcuts](daemon-shortcuts.md) - errands, ephemeral agents, delivery.
+- [daemon-library](daemon-library.md) - library items, ephemeral agents, delivery.
 - [wire-protocol](wire-protocol.md) - WS events, client messages, HTTP routes.
 - [agent-grants](agent-grants.md) - scoped tokens: one agent watching another, host never.
 - [agent-tasks](agent-tasks.md) - durable task mailboxes and the `slopctl` delegation CLI.

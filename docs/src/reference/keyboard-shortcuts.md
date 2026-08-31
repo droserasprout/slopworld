@@ -20,7 +20,7 @@ key-bindings settings page. Hardcoded shortcuts are marked below and cannot be r
 | F4 | Sidebar: Search view | yes |
 | F5 | Sidebar: Git view | yes |
 | F6 | Sidebar: Tasks view | yes |
-| F7 | Sidebar: Shortcuts view | yes |
+| F7 | Sidebar: Library view | yes |
 | Comma | Previous session | yes |
 | Period | Next session | yes |
 
@@ -78,7 +78,7 @@ application has enabled mouse reporting, the wheel is forwarded as mouse events.
 
 F1 (by default) opens a filtered command list. Type to filter; arrow keys and
 Enter navigate. The palette lists all window and sidebar actions, agent operations,
-shortcut errands, and configuration commands. Recently used commands appear first when
+library errands, and configuration commands. Recently used commands appear first when
 unfiltered.
 
 Notable commands:

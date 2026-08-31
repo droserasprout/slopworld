@@ -31,7 +31,7 @@ some values apply live but are written when the Settings view closes.
 | RimWorld-owned, live and written by RimWorld | Master/game/music/ambient/UI volume, UI scale, tiny-font preference, and temperature unit | The engine responds immediately. UI scale is written after the slider is released; the other preferences follow RimWorld's Settings lifecycle. |
 | Daemon settings, explicit Save | Usage rows and credentials, polling, title policies, host-command summaries, shared summary model, and the Commands page's preset/app templates | Pages stage edits locally. Save sends a partial patch, validates it, updates the daemon, and rereads the pages. The daemon reloads ordinary live values; startup-only values still need a daemon restart. |
 | Raw daemon configuration, explicit Save | The complete redacted `config.toml` text, including fields not represented by the GUI | Save sends the replacement text. TOML parsing and validation happen before the file is replaced. |
-| Presets, agents, projects, shortcuts | Durable daemon objects rather than simple settings | Each editor has its own Save/apply action. Existing agent processes are not silently rebuilt from changed defaults, projects, or sandbox presets. |
+| Presets, agents, projects, library items | Durable daemon objects rather than simple settings | Each editor has its own Save/apply action. Existing agent processes are not silently rebuilt from changed defaults, projects, or sandbox presets. |
 
 The listener bind address remains available through the raw configuration editor.
 

@@ -86,25 +86,25 @@ namespace SlopWorld
                 p => SessionHub.Instance.RunHostShell(p.Name,
                     session => TerminalWindow.Open(session), SlopWidgets.Fail)),
 
-            CommandDef.ForShortcut("shortcut.run", "Shortcut: Run", ShortcutsSub, s =>
+            CommandDef.ForLibraryItem("library.run", "Library: Run", LibraryItemsSub, s =>
             {
-                if (s.Kind == ShortcutKind.Breadcrumb || s.Kind == ShortcutKind.FileAction) return;
-                if (s.Link == ShortcutLink.Ask) AskWhere(s);
-                else RunShortcutWith(s.Name);
+                if (s.Kind == LibraryItemKind.Breadcrumb || s.Kind == LibraryItemKind.FileAction) return;
+                if (s.Link == LibraryItemLink.Ask) AskWhere(s);
+                else RunLibraryItemWith(s.Name);
             }),
-            new CommandDef("shortcut.new", "Shortcut: New", "Shortcut",
-                _ => { }, subAction: NewShortcutSub),
-            CommandDef.ForShortcut("shortcut.edit", "Shortcut: Edit", ShortcutManageSub,
-                s => TerminalWindow.OpenOverPane(new EditShortcutDialog(s))),
-            CommandDef.ForShortcut("shortcut.delete", "Shortcut: Delete", ShortcutManageSub, s =>
+            new CommandDef("library.new", "Library: New", "Library",
+                _ => { }, subAction: NewLibraryItemSub),
+            CommandDef.ForLibraryItem("library.edit", "Library: Edit", LibraryManageSub,
+                s => TerminalWindow.OpenOverPane(new EditLibraryItemDialog(s))),
+            CommandDef.ForLibraryItem("library.delete", "Library: Delete", LibraryManageSub, s =>
             {
                 var name = s.Name;
                 TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
-                    $"Remove shortcut '{name}'? Anything it already started keeps running.",
-                    () => SessionHub.Instance.RemoveShortcut(name, SlopWidgets.Fail), destructive: true));
+                    $"Remove library entry '{name}'? Anything it already started keeps running.",
+                    () => SessionHub.Instance.RemoveLibraryItem(name, SlopWidgets.Fail), destructive: true));
             }),
-            CommandDef.ForShortcut("shortcut.duplicate", "Shortcut: Duplicate", ShortcutManageSub,
-                s => TerminalWindow.OpenOverPane(EditShortcutDialog.Copy(s))),
+            CommandDef.ForLibraryItem("library.duplicate", "Library: Duplicate", LibraryManageSub,
+                s => TerminalWindow.OpenOverPane(EditLibraryItemDialog.Copy(s))),
 
             new CommandDef("host.open-shell", "Host: Open Shell", "Host",
                 _ => { }, subAction: HostShellSub),
@@ -125,8 +125,8 @@ namespace SlopWorld
                 _ => SessionHub.Instance.Refresh()),
             new CommandDef("projects.refresh", "Projects: Refresh", "Refresh",
                 _ => SessionHub.Instance.RefreshProjects(SlopWidgets.Fail)),
-            new CommandDef("shortcuts.refresh", "Shortcuts: Refresh", "Refresh",
-                _ => SessionHub.Instance.RefreshShortcuts(SlopWidgets.Fail)),
+            new CommandDef("library.refresh", "Library: Refresh", "Refresh",
+                _ => SessionHub.Instance.RefreshLibrary(SlopWidgets.Fail)),
             new CommandDef("files.reload", "Files: Reload", "Refresh",
                 _ => FilesView.Reload()),
             new CommandDef("search.open", "Search: Find in Files", "View",
@@ -148,8 +148,8 @@ namespace SlopWorld
                 _ => AgentSidebar.ShowSearch()),
             new CommandDef("focus.git", "Focus: Git", "Focus",
                 _ => AgentSidebar.ShowGit()),
-            new CommandDef("focus.shortcuts", "Focus: Shortcuts", "Focus",
-                _ => AgentSidebar.ShowShortcuts()),
+            new CommandDef("focus.library", "Focus: Library", "Focus",
+                _ => AgentSidebar.ShowLibrary()),
             new CommandDef("view.fold-all", "View: Fold All", "View",
                 _ => AgentSidebar.SetAllFolds(true),
                 enabled: () => AgentSidebar.CanFoldCurrent && !AgentSidebar.CurrentViewAllFolded),
@@ -191,7 +191,7 @@ namespace SlopWorld
                 _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Instructions))),
             new CommandDef("view.sandbox", "Settings: Sandbox", "Settings",
                 _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Sandbox))),
-            new CommandDef("view.shortcuts-settings", "Settings: Keyboard", "Settings",
+            new CommandDef("view.keyboard-settings", "Settings: Keyboard", "Settings",
                 _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Keyboard))),
             new CommandDef("view.rimworld-settings", "Settings: RimWorld", "Settings",
                 _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.RimWorld))),

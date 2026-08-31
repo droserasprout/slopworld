@@ -3,7 +3,7 @@
 ## WebSocket
 
 Server events are `capabilities`, `sessions` (state/title/bell), `screen`, `usage`, `projects`,
-`shortcuts` and `jukebox`. Capabilities and catalogs arrive on connect; catalogs are resent when
+`library` and `jukebox`. Capabilities and catalogs arrive on connect; catalogs are resent when
 changed. Capabilities describe runtime integration such as native audio, per-agent limits, and
 whether host networking means the sidecar rather than macOS.
 Clients send `redraw`, `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste` and `audio`.
@@ -22,8 +22,8 @@ come from metadata and stream URLs never cross the wire to the mod.
 ## HTTP conventions
 
 The mod uses HTTP for writes so it can show daemon error bodies:
-`/api/sessions`, `/api/projects`, `/api/shortcuts`, `/api/config`,
-`PUT /api/config/patch`, shortcut/run, `/api/run`, and root-only Files mutations.
+`/api/sessions`, `/api/projects`, `/api/library`, `/api/config`,
+`PUT /api/config/patch`, library-item runs, `/api/run`, and root-only Files mutations.
 `POST /api/instructions/preview` accepts an unsaved template, project name, and mount path;
 it returns the generated Markdown text without changing daemon configuration.
 

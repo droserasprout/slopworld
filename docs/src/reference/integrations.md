@@ -45,9 +45,9 @@ each have an independent **Reset to default** action. The per-agent `slopworld_m
 remains the opt-in that mounts the document; its `instructions_breadcrumb` option controls
 whether that agent also receives the discovery line.
 
-## Shortcuts and errands
+## Library items and errands
 
-A shortcut delivers a prompt or shell command to an agent. Prompt errands paste text
+A library item delivers a prompt or shell command to an agent. Prompt errands paste text
 and submit; shell errands run a command line. Breadcrumbs are named guidance blocks
 that an agent receives alongside its first prompt.
 
@@ -56,7 +56,7 @@ Their `command` runs against the selected path, with `{{ absolute_path }}` and
 `{{ relative_path }}` available as substitutions. The result shows in a captured-output
 alert or an interactive temporary terminal.
 
-Shortcut and breadcrumb presets are configured in Settings > Commands. Builtin entries
+Library item and breadcrumb presets are configured in Settings > Commands. Builtin entries
 are shadowed when a user entry has the same name.
 
 ## Task mailboxes

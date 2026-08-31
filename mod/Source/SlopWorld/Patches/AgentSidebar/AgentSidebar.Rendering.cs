@@ -83,7 +83,7 @@ namespace SlopWorld
                 case SidebarTab.Search: SearchView.Search(); break;
                 case SidebarTab.Git: GitView.Refresh(); break;
                 case SidebarTab.Library:
-                    SessionHub.Instance.RefreshShortcuts(SlopWidgets.Fail);
+                    SessionHub.Instance.RefreshLibrary(SlopWidgets.Fail);
                     break;
                 case SidebarTab.Tasks:
                     SessionHub.Instance.RefreshTasks(SlopWidgets.Fail);
@@ -593,7 +593,7 @@ namespace SlopWorld
 
             Slab.Fill(r, over ? SlopWidgets.Hover : SlopWidgets.Panel);
             TooltipHandler.TipRegion(r,
-                "Add a project, an agent, a shortcut, a sandbox preset, a command or a host shell");
+                "Add a project, an agent, a library item, a sandbox preset, a command or a host shell");
             Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), SlopWidgets.Edge);
 
             float d = AddIcon;
@@ -621,7 +621,7 @@ namespace SlopWorld
                     TerminalWindow.OpenOverPane(new EditSessionDialog(null))),
                 new FloatMenuOption("Task", () =>
                     TerminalWindow.OpenOverPane(new DelegateTaskDialog(null))),
-                new SlopSubmenu("Library", ShortcutOptions),
+                new SlopSubmenu("Library", LibraryItemOptions),
                 new FloatMenuOption("Sandbox preset...", SlopOptions.OpenNewSandboxPreset),
                 new FloatMenuOption("Command...", SlopOptions.OpenNewCommand),
                 new SlopSubmenu("Host shell", HostShellOptions),
@@ -630,16 +630,16 @@ namespace SlopWorld
             return true;
         }
 
-        static List<FloatMenuOption> ShortcutOptions() => new List<FloatMenuOption>
+        static List<FloatMenuOption> LibraryItemOptions() => new List<FloatMenuOption>
         {
             new FloatMenuOption("Prompt...", () =>
-                TerminalWindow.OpenOverPane(new EditShortcutDialog(ShortcutKind.Prompt))),
+                TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.Prompt))),
             new FloatMenuOption("Breadcrumb...", () =>
-                TerminalWindow.OpenOverPane(new EditShortcutDialog(ShortcutKind.Breadcrumb))),
+                TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.Breadcrumb))),
             new FloatMenuOption("Shell...", () =>
-                TerminalWindow.OpenOverPane(new EditShortcutDialog(ShortcutKind.Shell))),
+                TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.Shell))),
             new FloatMenuOption("File Action...", () =>
-                TerminalWindow.OpenOverPane(new EditShortcutDialog(ShortcutKind.FileAction))),
+                TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.FileAction))),
         };
 
         static List<FloatMenuOption> HostShellOptions()

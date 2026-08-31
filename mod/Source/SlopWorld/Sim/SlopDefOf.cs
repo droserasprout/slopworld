@@ -60,8 +60,8 @@ namespace SlopWorld
         /// F6: focus the tasks view in the sidebar.
         public static KeyBindingDef SlopSidebarTasks;
 
-        /// F7: focus the shortcuts view in the sidebar.
-        public static KeyBindingDef SlopSidebarShortcuts;
+        /// F7: focus the Library view in the sidebar.
+        public static KeyBindingDef SlopSidebarLibrary;
 
         /// Comma: walk to the previous session in the sidebar order.
         public static KeyBindingDef SlopPrevSession;

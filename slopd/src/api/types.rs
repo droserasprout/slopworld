@@ -48,7 +48,7 @@ pub(crate) struct LabelReq {
     pub(crate) label: String,
 }
 
-/// An errand nobody wrote down: the same temporary agent `/api/shortcuts/NAME/run` makes,
+/// An errand nobody wrote down: the same temporary agent `/api/library/NAME/run` makes,
 /// spelled out in the body instead of looked up. `text` is optional here where it is
 /// required of an entry - `less` on a file is a command with nothing to type after it.
 #[derive(Deserialize)]
@@ -56,8 +56,8 @@ pub(crate) struct RunReq {
     #[serde(default)]
     pub(crate) project: String,
     #[serde(default)]
-    pub(crate) kind: crate::config::ShortcutKind,
-    /// A preset name or a command line, read exactly as a shortcut's is.
+    pub(crate) kind: crate::config::LibraryItemKind,
+    /// A preset name or a command line, read exactly as a library item's is.
     #[serde(default)]
     pub(crate) command: String,
     /// Raw selected Files-sidebar path. When present, the daemon expands it and replaces the
@@ -81,7 +81,7 @@ pub(crate) struct RunReq {
     #[serde(default)]
     pub(crate) random_tips: Vec<String>,
     /// Outside the sandbox: the sidebar's "Terminal (host)". Only an errand can ask - there
-    /// is no such key on a session or a shortcut.
+    /// is no such key on a session or a library item.
     #[serde(default)]
     pub(crate) host: bool,
     /// Clone sandbox config (presets, persistent /tmp, network, dns, limits, mounts) from this

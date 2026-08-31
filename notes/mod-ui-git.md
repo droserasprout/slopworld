@@ -58,6 +58,6 @@ single-quoting both command lines need.
 
 ## Sidebar tabs
 
-`Settings.sidebarTab` accepts `agents`, `files`, `search`, `git` and `shortcuts`; unknown
+`Settings.sidebarTab` accepts `agents`, `files`, `search`, `git`, `library` and `tasks`; unknown
 values fall back to Agents. `AgentSidebar.Agents` is now the source for colonist-bar
 placement and sessions. `Show` releases every pager except the arriving view's.

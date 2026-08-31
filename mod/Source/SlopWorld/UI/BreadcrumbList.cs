@@ -6,7 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Named prompt guidance is edited in the same shortcut table, but attached here like
+    // Named prompt guidance is edited in the same library table, but attached here like
     // sandbox presets: a project supplies defaults and an agent may add to them. The agent
     // editor may also append the generated instructions entry as a separate setting.
     public static class BreadcrumbList
@@ -26,8 +26,8 @@ namespace SlopWorld
                                 string instructionsText = null, bool instructionsOn = false,
                                 Action<bool> onInstructionsChanged = null)
         {
-            var all = SessionHub.Instance.Shortcuts
-                .Where(s => s.Kind == ShortcutKind.Breadcrumb)
+            var all = SessionHub.Instance.Library
+                .Where(s => s.Kind == LibraryItemKind.Breadcrumb)
                 .OrderBy(s => s.Name, System.StringComparer.OrdinalIgnoreCase)
                 .Select(s => new Entry { Name = s.Name, Text = s.Text })
                 .ToList();
@@ -48,7 +48,7 @@ namespace SlopWorld
             {
                 GUI.color = SlopWidgets.Dim;
                 SlopWidgets.RowLabel(new Rect(pad.x, pad.y, pad.width, SlopWidgets.LineH),
-                    "No breadcrumbs yet. Add one from Shortcuts.");
+                    "No breadcrumbs yet. Add one from Library.");
                 GUI.color = Color.white;
                 return;
             }

@@ -67,7 +67,7 @@ code = "ea6d"
 glyph = "cod-git_branch"
 code = "ec6f"
 
-[shortcuts]
+[library]
 glyph = "cod-symbol_event"
 code = "ea86"
 note = "Codicons draws symbol-event as the lightning bolt; there is no `zap` in the set the Nerd Font bundles"
@@ -85,7 +85,7 @@ note = "the real clock as the last resource on the top bar"
 [keyboard]
 glyph = "cod-keyboard"
 code = "ea65"
-note = "the Keyboard options row. The lightning of `shortcuts` belongs to the sidebar's errands, and one bolt for both was the tab being misread"
+note = "the Keyboard options row. The lightning of `library` belongs to the sidebar's errands, and one bolt for both was the tab being misread"
 
 [eye]
 glyph = "cod-eye"
