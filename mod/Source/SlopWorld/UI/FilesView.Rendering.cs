@@ -162,9 +162,13 @@ namespace SlopWorld
                 {
                     string id = app["id"].AsString();
                     string name = app["name"].AsString(id);
-                    if (string.IsNullOrEmpty(id)) continue;
-                    string appId = id;
-                    options.Add(new FloatMenuOption(name, () => OpenInApp(path, appId)));
+                    // `gio launch` accepts a desktop-file path, not the ID printed by
+                    // `gio mime`. The daemon resolves that path in the same XDG search roots
+                    // it used to discover the application.
+                    string desktopFile = app["desktop_file"].AsString();
+                    if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(desktopFile)) continue;
+                    string launchFile = desktopFile;
+                    options.Add(new FloatMenuOption(name, () => OpenInApp(path, launchFile)));
                 }
 
                 if (options.Count == 0)
@@ -182,11 +186,11 @@ namespace SlopWorld
             return options;
         }
 
-        static void OpenInApp(string path, string appId)
+        static void OpenInApp(string path, string desktopFile)
         {
-            if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(appId)) return;
+            if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(desktopFile)) return;
             string command = FileActionCommand(
-                "gio launch " + Pager.Quote(appId) + " {{ absolute_path }}", path, null);
+                "gio launch " + Pager.Quote(desktopFile) + " {{ absolute_path }}", path, null);
             HostFileAction(path, command);
         }
 

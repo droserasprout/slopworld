@@ -54,7 +54,8 @@ and `/api/audio`. `/api/health` returns daemon version, hostname and runtime hea
 `/api/read` is root-only and returns bounded UTF-8 file text for native
 Markdown previews. `/api/image` is root-only and returns bounded base64 image bytes for local
 Markdown images. `/api/open-apps` lists the host
-desktop applications associated with a path, and `/api/file-action` runs a bounded
+desktop applications associated with a path, including the resolved desktop-file location used
+to launch each one, and `/api/file-action` runs a bounded
 non-interactive command supplied by Files or Git inside a named project's sandbox, or explicitly
 on the host for private-state storage and Git repositories, and returns bounded output.
 
