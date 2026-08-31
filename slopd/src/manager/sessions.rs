@@ -94,7 +94,11 @@ impl Manager {
             .map(|text| render_template_with(&text, &[], Some(&vars)))
             .collect();
         let mut crumbs = crumbs;
-        if !host && s.slopworld_md && cfg.daemon.instructions.breadcrumb_enabled {
+        if !host
+            && s.slopworld_md
+            && s.instructions_breadcrumb
+            && cfg.daemon.instructions.breadcrumb_enabled
+        {
             let discovery = crate::manifest::render_breadcrumb(
                 &cfg.daemon.instructions.breadcrumb,
                 &p.name,
@@ -693,6 +697,7 @@ impl Manager {
                     sandbox: l.cfg.sandbox.clone(),
                     breadcrumbs: l.cfg.breadcrumbs.clone(),
                     slopworld_md: l.cfg.slopworld_md,
+                    instructions_breadcrumb: l.cfg.instructions_breadcrumb,
                     persistent_tmp: l.cfg.persistent_tmp,
                     breadcrumb_yolo: l.cfg.breadcrumb_yolo,
                     breadcrumbs_pending: l.breadcrumbs_pending,
@@ -921,7 +926,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn instructions_breadcrumb_follows_the_global_setting() {
+    async fn instructions_breadcrumb_follows_agent_and_global_settings() {
         let mut cfg = Config::default();
         let session = SessionCfg {
             name: "agent".into(),
@@ -947,6 +952,18 @@ mod tests {
         assert!(live["agent"].breadcrumbs_pending);
         assert!(String::from_utf8_lossy(&live["agent"].breadcrumbs)
             .contains("Read `SLOPWORLD.md` for SlopWorld runtime context."));
+        drop(live);
+
+        let disabled = SessionCfg {
+            instructions_breadcrumb: false,
+            ..session.clone()
+        };
+        manager
+            .wire_live_state("agent", &cfg, &disabled, &project, false)
+            .await;
+        let live = manager.live.read().await;
+        assert!(!live["agent"].breadcrumbs_pending);
+        assert!(live["agent"].breadcrumbs.is_empty());
         drop(live);
 
         cfg.daemon.instructions.breadcrumb_enabled = false;

@@ -18,6 +18,7 @@ namespace SlopWorld
             (s, j) => s.Cmd = j["cmd"].IsNull ? "" : j["cmd"].AsString(),
             (s, j) => s.Sandbox = Strings(j["sandbox"]),
             (s, j) => s.SlopworldMd = j["slopworld_md"].AsBool(false),
+            (s, j) => s.InstructionsBreadcrumb = j["instructions_breadcrumb"].AsBool(true),
             (s, j) => s.PersistentTmp = j["persistent_tmp"].AsBool(false),
             (s, j) => s.Agent = j["agent"].AsString(),
             (s, j) => s.State = ParseState(j["state"].AsString()),

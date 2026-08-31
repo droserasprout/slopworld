@@ -42,7 +42,8 @@ Settings > Integrations > Instructions edits the generated `SLOPWORLD.md` templa
 previews its rendered Markdown, edits the first-prompt discovery breadcrumb, chooses its
 read-only sandbox mount path, and enables or disables discovery. The body and breadcrumb
 each have an independent **Reset to default** action. The per-agent `slopworld_md` option
-remains the opt-in that mounts the document.
+remains the opt-in that mounts the document; its `instructions_breadcrumb` option controls
+whether that agent also receives the discovery line.
 
 ## Shortcuts and errands
 

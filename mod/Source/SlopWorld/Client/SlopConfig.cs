@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace SlopWorld
 {
@@ -44,6 +45,46 @@ namespace SlopWorld
         public string InstructionsMountPath = "SLOPWORLD.md";
         public string InstructionsBreadcrumb = DefaultInstructionsBreadcrumb;
         public bool InstructionsBreadcrumbEnabled = true;
+
+        public string RenderInstructionsBreadcrumb(string project)
+        {
+            var values = new Dictionary<string, string>
+            {
+                ["project"] = project ?? "",
+                ["mount_path"] = InstructionsMountPath ?? "",
+                ["file"] = "SLOPWORLD.md",
+            };
+            return RenderTemplate(InstructionsBreadcrumb ?? "", values);
+        }
+
+        static string RenderTemplate(string template, Dictionary<string, string> values)
+        {
+            var output = new StringBuilder(template.Length);
+            int offset = 0;
+            while (offset < template.Length)
+            {
+                int start = template.IndexOf("{{", offset, System.StringComparison.Ordinal);
+                if (start < 0)
+                {
+                    output.Append(template, offset, template.Length - offset);
+                    break;
+                }
+                output.Append(template, offset, start - offset);
+                int end = template.IndexOf("}}", start + 2, System.StringComparison.Ordinal);
+                if (end < 0)
+                {
+                    output.Append(template, start, template.Length - start);
+                    break;
+                }
+                string key = template.Substring(start + 2, end - start - 2).Trim();
+                if (values.TryGetValue(key, out string value))
+                    output.Append(value);
+                else
+                    output.Append(template, start, end + 2 - start);
+                offset = end + 2;
+            }
+            return output.ToString();
+        }
 
         // Both name a command preset: what an agent that names none of its own runs, and
         // what a shell errand runs. What each one *is* is a TOML file the daemon reads.

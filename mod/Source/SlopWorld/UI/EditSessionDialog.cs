@@ -74,6 +74,7 @@ namespace SlopWorld
                     Cmd = existing.Cmd,
                     Sandbox = new List<string>(existing.Sandbox),
                     SlopworldMd = existing.SlopworldMd,
+                    InstructionsBreadcrumb = existing.InstructionsBreadcrumb,
                     PersistentTmp = existing.PersistentTmp,
                     Breadcrumbs = new List<string>(existing.Breadcrumbs),
                     Network = existing.Network,
@@ -454,9 +455,13 @@ namespace SlopWorld
                 "YOLO breadcrumbs", _s.BreadcrumbYolo,
                 "Hijack the first Enter after startup and paste every enabled breadcrumb before it.");
             float y = rect.y + SlopWidgets.RowH + SlopWidgets.GapXS;
+            var config = SessionHub.Instance.Config;
             var projectBreadcrumbs = SessionHub.Instance.Project(_s.Project)?.Breadcrumbs;
             BreadcrumbList.Draw(new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y)),
-                _s.Breadcrumbs, _breadcrumbScroll, projectBreadcrumbs);
+                _s.Breadcrumbs, _breadcrumbScroll, projectBreadcrumbs,
+                config.InstructionsBreadcrumb,
+                _s.InstructionsBreadcrumb,
+                onInstructionsChanged: on => _s.InstructionsBreadcrumb = on);
         }
 
         void PickProject()

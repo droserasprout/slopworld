@@ -41,9 +41,11 @@ read-only final bind at `[daemon.instructions] mount_path` relative to the confi
 path. The project-root spelling is protected too, and `/mnt/<project>` is a symlink to that
 same path, so the manifest cannot be made writable through the compatibility alias.
 The daemon also adds a SlopWorld-owned entry to the repository's `.git/info/exclude`; user-owned
-ignore rules and an existing non-generated `SLOPWORLD.md` are never overwritten. The manifest is
-project-scoped and can describe other configured agents, so it contains runtime context rather
-than secrets or project instructions.
+ignore rules and an existing non-generated `SLOPWORLD.md` are never overwritten. When the
+per-agent `instructions_breadcrumb` preference and global discovery switch are on, the daemon
+adds the configured discovery line to the first prompt too. The manifest is project-scoped and
+can describe other configured agents, so it contains runtime context rather than secrets or
+project instructions.
 
 Non-empty preset `escapes` text warns that a capability such as Docker, D-Bus, X11,
 SSH agent or 1Password reaches back toward the host. Secret-only presets are not
