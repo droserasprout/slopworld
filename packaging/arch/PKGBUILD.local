@@ -9,19 +9,18 @@
 
 pkgname=slopworld
 pkgver=0.1.0
-pkgrel=2
+pkgrel=1
 pkgdesc="RimWorld with the colony sim replaced by live AI coding agents"
 arch=('x86_64')
 url="https://github.com/droserasprout/slopworld"
 license=('custom')
-depends=('systemd' 'tmux' 'bubblewrap' 'passt' 'ripgrep' 'git' 'less' 'micro'
-  'highlight' 'alsa-lib')
+depends=('alsa-lib' 'bash' 'bubblewrap' 'git' 'glib2' 'highlight' 'less' 'micro'
+  'passt' 'procps-ng' 'ripgrep' 'systemd' 'tmux')
 makedepends=('cargo' 'git' 'mono' 'lld')
 optdepends=(
   'wl-clipboard: clipboard and PRIMARY selection under Wayland'
   'xclip: clipboard and PRIMARY selection under X11'
   'xsel: clipboard and PRIMARY selection under X11 (fallback)'
-  'xdg-utils: opening links from the terminal pane'
 )
 provides=('slopd')
 conflicts=('slopworld-git')
@@ -70,16 +69,16 @@ prepare() {
 build() {
   cd "$srcdir/slopworld"
   local _version="${pkgver/.r/-}"
-  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target SLOPWORLD_BUILD_VERSION="$_version"
-  cargo build --release --frozen --manifest-path slopd/Cargo.toml
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
   make BUILD=release VERSION="$_version" RIMWORLD="$RIMWORLD" mod
 }
 
 check() {
   cd "$srcdir/slopworld"
   local _version="${pkgver/.r/-}"
-  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target SLOPWORLD_BUILD_VERSION="$_version"
-  cargo test --release --frozen --manifest-path slopd/Cargo.toml
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$PWD/target" SLOPWORLD_BUILD_VERSION="$_version"
+  cd slopd
+  cargo test --release --frozen
 }
 
 package() {
