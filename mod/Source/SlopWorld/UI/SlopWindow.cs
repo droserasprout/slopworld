@@ -89,6 +89,14 @@ namespace SlopWorld
             Event.current?.Use();
         }
 
+        public override void PostClose()
+        {
+            base.PostClose();
+            // Pickers live on the window stack beside their form, so closing the form does
+            // not close a picker automatically. Remove it before the form disappears.
+            SlopMenu.CloseAll();
+        }
+
         protected abstract void DoBody(Rect body);
 
         void DoClose(Rect rect)
