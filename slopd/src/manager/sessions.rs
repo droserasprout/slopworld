@@ -586,7 +586,7 @@ impl Manager {
     pub async fn remove(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
         if self.is_host(name).await {
-            self.stop(name).await.ok();
+            self.stop(name).await?;
 
             let mut cfg = self.cfg.write().await;
             let old_hosts = cfg.host_terminals.clone();
@@ -611,7 +611,7 @@ impl Manager {
         if self.is_ephemeral(name).await {
             return self.stop(name).await;
         }
-        self.stop(name).await.ok();
+        self.stop(name).await?;
         let mut cfg = self.cfg.write().await;
         let session = cfg
             .session(name)
@@ -642,7 +642,7 @@ impl Manager {
         if self.is_ephemeral(name).await {
             bail!("temporary session {name} has no resettable private state");
         }
-        self.stop(name).await.ok();
+        self.stop(name).await?;
         let cfg = self.config().await;
         let session = cfg
             .session(name)
