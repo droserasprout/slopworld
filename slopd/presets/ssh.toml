@@ -6,3 +6,6 @@ ro = [
     "~/.ssh/known_hosts",
     "~/.ssh/known_hosts.old",
 ]
+# OpenSSH checks included system files' ownership. A per-session copy keeps bwrap's uid-0
+# mapping from making host-root-owned drop-ins look unsafe.
+private = ["/etc/ssh/ssh_config.d"]

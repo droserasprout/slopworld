@@ -701,6 +701,10 @@ mod tests {
         // SSH configuration is safe to expose by itself; the agent socket is the explicit
         // capability that lets a sandbox ask the host to sign.
         assert!(t.sandbox("ssh").unwrap().rw.is_empty());
+        assert_eq!(
+            t.sandbox("ssh").unwrap().private,
+            vec!["/etc/ssh/ssh_config.d"]
+        );
         assert_eq!(t.sandbox("ssh-agent").unwrap().rw, vec!["$SSH_AUTH_SOCK"]);
         assert_eq!(t.sandbox("systemd").unwrap().requires, vec!["dbus"]);
 

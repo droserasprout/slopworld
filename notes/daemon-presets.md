@@ -64,7 +64,9 @@ a project checkbox; copying it creates the user `global` override.
   `ro`; `private` is applied last so a project's original path can resolve to its copy.
 - Binds follow the skeleton (`--proc`, `--dev`, `--tmpfs /tmp`); `resolv.conf` is the last
   read-only bind. Sockets are bound by directory except long-lived `dbus`/`wayland`
-  sockets. `ssh` exposes public config; `ssh-agent` is the explicit host-signing escape.
+  sockets. `ssh` exposes public config and known hosts, while private-copying system SSH drop-ins
+  so bwrap's uid-0 mapping does not make OpenSSH reject host-root-owned files; `ssh-agent` is the
+  explicit host-signing escape.
   `gpg`/`gpg-agent` follow the same split.
 - Configuration-root variables such as `CODEX_HOME` are not forwarded: the default path
   under `HOME` is private. `env` forwards names; `setenv` writes literals last.
