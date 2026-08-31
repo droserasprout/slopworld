@@ -610,9 +610,14 @@ fn mods_config_xml() -> String {
     s
 }
 
-fn game_argv(game: &Path, profile: &Path, rest: &[String], no_window_fix: bool) -> Vec<String> {
+fn game_argv(
+    executable: &Path,
+    profile: &Path,
+    rest: &[String],
+    no_window_fix: bool,
+) -> Vec<String> {
     let mut argv = vec![
-        game.join(EXE).to_string_lossy().into_owned(),
+        executable.to_string_lossy().into_owned(),
         format!("-savedatafolder={}", profile.display()),
     ];
     if !no_window_fix {
@@ -673,7 +678,7 @@ mod tests {
 
     #[test]
     fn the_window_fix_is_enabled_by_default() {
-        let a = game_argv(Path::new("/g"), Path::new("/p"), &[], false);
+        let a = game_argv(Path::new("/g/RimWorldLinux"), Path::new("/p"), &[], false);
         assert_eq!(
             a,
             vec![
@@ -692,7 +697,12 @@ mod tests {
         let a = parsed(&["--no-window-fix"]);
         assert!(a.no_window_fix);
         assert_eq!(
-            game_argv(Path::new("/g"), Path::new("/p"), &[], a.no_window_fix),
+            game_argv(
+                Path::new("/g/RimWorldLinux"),
+                Path::new("/p"),
+                &[],
+                a.no_window_fix
+            ),
             vec!["/g/RimWorldLinux", "-savedatafolder=/p"]
         );
     }
@@ -900,7 +910,7 @@ mod tests {
     #[test]
     fn the_profile_rides_on_the_games_own_argument() {
         let argv = game_argv(
-            Path::new("/g"),
+            Path::new("/g/RimWorldLinux"),
             Path::new("/p"),
             &["-popupwindow".to_string()],
             false,
