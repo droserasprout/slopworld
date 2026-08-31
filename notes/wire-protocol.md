@@ -29,9 +29,8 @@ it returns the generated Markdown text without changing daemon configuration.
 
 `POST /api/workers` is root-only. It accepts `{ "parent": "agent", "body": "...", "durable":
 false }`; `parent` names the existing agent session whose complete session configuration is
-cloned, while `x-slop-session` identifies the caller that becomes the task sender. The requested
-parent also determines the generated child name and worker's sidebar parent. The child gets fresh
-identity and daemon-owned worker metadata plus the
+cloned, while `x-slop-session` identifies the caller that becomes the task sender and worker's
+sidebar parent. The child gets fresh identity and daemon-owned worker metadata plus the
 `slopworld-worker` API sandbox. It returns `{ "task": Task, "worker": { "name": "...", "session": "..." } }`.
 The task's optional `worker` object carries the explicit child session, parent, and durable flag.
 Session snapshots likewise carry `worker`, `parent`, `task_id`, and `durable`; clients must not

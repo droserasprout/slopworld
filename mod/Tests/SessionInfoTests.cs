@@ -30,6 +30,7 @@ namespace SlopWorld.Tests
                 "\"limits_override\":{\"memory_mb\":512,\"cpu_pct\":75}, " +
                 "\"limits\":{\"memory_mb\":1024,\"pids\":64}, " +
                 "\"autostart\":true,\"auto_resume\":true,\"auto_resume_pending\":true, " +
+                "\"worker\":true,\"parent\":\"caller\",\"task_id\":\"task-7\",\"durable\":true, " +
                 "\"breadcrumb_yolo\":false, " +
                 "\"breadcrumbs\":[\"tip one\"],\"breadcrumbs_pending\":true, " +
                 "\"ephemeral\":true,\"cols\":120,\"rows\":40, " +
@@ -63,6 +64,10 @@ namespace SlopWorld.Tests
             AssertEx.True(session.Autostart, "autostart");
             AssertEx.True(session.AutoResume, "auto resume");
             AssertEx.True(session.AutoResumePending, "auto resume pending");
+            AssertEx.True(session.Worker, "task worker");
+            AssertEx.Equal("caller", session.Parent, "worker parent");
+            AssertEx.Equal("task-7", session.TaskId, "worker task id");
+            AssertEx.True(session.Durable, "durable worker");
             AssertEx.False(session.BreadcrumbYolo, "breadcrumb yolo");
             AssertEx.Sequence(new[] { "tip one" }, session.Breadcrumbs, "breadcrumbs");
             AssertEx.True(session.BreadcrumbsPending, "breadcrumbs pending");
