@@ -44,6 +44,8 @@ namespace SlopWorld
         const float RowGap = SlopWidgets.GapXS;
 
         static float GhostH => NameH + 2f;
+        // Child workers get a single compact line and no portrait/icon column.
+        static float WorkerH => SlopWidgets.LineHOf(GameFont.Tiny) + 2f;
 
         static float NameH => SlopWidgets.LineHOf(GameFont.Small);
         static float SubH => SlopWidgets.TinyH;
@@ -82,6 +84,7 @@ namespace SlopWorld
             public Rect Face;   // the square face box, read by the drawer patch
 
             public bool Ghost;
+            public bool Worker;
         }
 
         struct Head
@@ -116,7 +119,7 @@ namespace SlopWorld
                 case "files": return SidebarTab.Files;
                 case "search": return SidebarTab.Search;
                 case "git": return SidebarTab.Git;
-                case "shortcuts": return SidebarTab.Shortcuts;
+                case "library": return SidebarTab.Library;
                 case "tasks": return SidebarTab.Tasks;
                 default: return SidebarTab.Agents;
             }
@@ -129,7 +132,7 @@ namespace SlopWorld
                 case SidebarTab.Files: return "files";
                 case SidebarTab.Search: return "search";
                 case SidebarTab.Git: return "git";
-                case SidebarTab.Shortcuts: return "shortcuts";
+                case SidebarTab.Library: return "library";
                 case SidebarTab.Tasks: return "tasks";
                 default: return "agents";
             }
@@ -140,7 +143,7 @@ namespace SlopWorld
             || CurrentTab == SidebarTab.Files
             || CurrentTab == SidebarTab.Search
             || CurrentTab == SidebarTab.Git
-            || CurrentTab == SidebarTab.Shortcuts
+            || CurrentTab == SidebarTab.Library
             || CurrentTab == SidebarTab.Tasks;
 
         // Empty means all projects. Unknown project keys show no rows while the daemon list is
@@ -169,7 +172,7 @@ namespace SlopWorld
         {
             Projects.ToggleFilter(key);
 
-            // The agents, files and shortcuts views read the filter as they draw. The other
+            // The agents, files and Library views read the filter as they draw. The other
             // two hold what they asked the daemon for, and a filter that widened is a
             // project they never asked about.
             if (CurrentTab == SidebarTab.Search) SearchView.Search();
@@ -209,7 +212,7 @@ namespace SlopWorld
 
             if (tab == SidebarTab.Search) SearchView.Entered();
 
-            if (tab == SidebarTab.Shortcuts) SessionHub.Instance.RefreshShortcuts();
+            if (tab == SidebarTab.Library) SessionHub.Instance.RefreshShortcuts();
             if (tab == SidebarTab.Tasks) SessionHub.Instance.RefreshTasks(SlopWidgets.Fail);
         }
 
@@ -373,15 +376,15 @@ namespace SlopWorld
                 opts.Add(new FloatMenuOption("Delegate task...", () =>
                     TerminalWindow.OpenOverPane(new DelegateTaskDialog(name))));
 
-            if (info != null && !info.Ephemeral && !info.Host)
+            if (info != null && !info.Ephemeral && !info.Host && !info.Worker)
                 opts.Add(new FloatMenuOption("Edit...", () =>
                     TerminalWindow.OpenOverPane(new EditSessionDialog(info))));
 
-            if (info != null && !info.Host && !string.IsNullOrEmpty(info.Project))
+            if (info != null && !info.Host && !info.Worker && !string.IsNullOrEmpty(info.Project))
                 opts.Add(new FloatMenuOption("Duplicate...", () =>
                     TerminalWindow.OpenOverPane(EditSessionDialog.Copy(info))));
 
-            if (info != null && !info.Host && !string.IsNullOrEmpty(info.Project))
+            if (info != null && !info.Host && !info.Worker && !string.IsNullOrEmpty(info.Project))
                 opts.Add(new FloatMenuOption("Shell", () =>
                     hub.Run(info.Project, "", "", session => TerminalWindow.Open(session),
                         SlopWidgets.Fail, like: name)));

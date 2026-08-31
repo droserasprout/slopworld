@@ -28,6 +28,9 @@ pub struct Manager {
     pub events: broadcast::Sender<Event>,
     pub(super) grants: RwLock<crate::grant::Grants>,
     pub(super) tasks: Mutex<crate::tasks::Tasks>,
+    /// Serializes daemon-owned worker creation so two root requests cannot reserve one child name
+    /// or split task/session persistence between each other.
+    pub(super) worker_spawn: tokio::sync::Mutex<()>,
     pub(super) title_cache: crate::title::SummaryCache,
 }
 
@@ -95,6 +98,7 @@ pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
         events,
         grants: RwLock::new(crate::grant::Grants::default()),
         tasks: Mutex::new(crate::tasks::Tasks::load(&cfg_path).expect("test task store")),
+        worker_spawn: tokio::sync::Mutex::new(()),
         title_cache: crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path)),
     })
 }

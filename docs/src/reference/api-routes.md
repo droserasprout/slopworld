@@ -70,4 +70,5 @@ grant-visible router; handler guards can impose a stricter access requirement.
 | `GET` | `/api/tasks/:id` | `scoped` | `one_task` |
 | `POST` | `/api/tasks/:id` | `scoped` | `update_task` |
 | `GET` | `/api/usage` | `root-only` | `usage` |
+| `POST` | `/api/workers` | `root-only` | `spawn_worker` |
 | `GET` | `/ws` | `scoped` | `ws_upgrade` |

@@ -156,6 +156,10 @@ const BUILTIN: &[(&str, &str)] = &[
         "slopworld-debug",
         include_str!("../presets/slopworld-debug.toml"),
     ),
+    (
+        "slopworld-worker",
+        include_str!("../presets/slopworld-worker.toml"),
+    ),
 ];
 
 #[derive(Debug, Clone, Default)]

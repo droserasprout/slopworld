@@ -67,6 +67,7 @@ impl Manager {
             events,
             grants: RwLock::new(crate::grant::Grants::default()),
             tasks: Mutex::new(tasks),
+            worker_spawn: tokio::sync::Mutex::new(()),
             title_cache,
         });
         if let Ok(n) = crate::sandbox::purge_trash() {
@@ -256,6 +257,21 @@ impl Manager {
         self.tasks.lock().unwrap().prune(who, all)
     }
 
+    pub fn fail_worker_task(&self, task_id: &str, note: impl Into<String>) {
+        if task_id.trim().is_empty() {
+            return;
+        }
+        match self.tasks.lock().unwrap().fail_worker(task_id, note.into()) {
+            Ok(Some(task)) if task.status == crate::tasks::Status::Failed => {
+                tracing::info!(task = %task.id, "task-owned worker task marked failed")
+            }
+            Ok(_) => {}
+            Err(error) => {
+                tracing::error!(task = %task_id, "could not persist worker task failure: {error:#}")
+            }
+        }
+    }
+
     pub async fn usage(&self) -> crate::usage::Snapshot {
         self.usage.read().await.clone()
     }
@@ -335,12 +351,16 @@ impl Manager {
         // nothing points at any more. Every other removal path aborts, so this one does too.
         let mut live = self.live.write().await;
         let mut removed = Vec::new();
+        let mut worker_tasks = Vec::new();
         live.retain(|name, l| {
             let saved_host = l.host && cfg.host_terminals.iter().any(|tab| tab.name == *name);
             if (l.ephemeral && (!l.host || saved_host)) || cfg.session(name).is_some() {
                 return true;
             }
             tracing::info!("agent {name} is gone from the config, ending its reader");
+            if l.cfg.worker && !l.cfg.task_id.trim().is_empty() {
+                worker_tasks.push((l.cfg.task_id.clone(), name.clone()));
+            }
             if let Some(h) = l.reader.take() {
                 h.abort();
             }
@@ -358,6 +378,9 @@ impl Manager {
             false
         });
         drop(live);
+        for (task_id, name) in worker_tasks {
+            self.fail_worker_task(&task_id, format!("worker session {name} was removed"));
+        }
         for name in &removed {
             self.clear_activity(name).await;
         }

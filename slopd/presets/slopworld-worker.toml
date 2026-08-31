@@ -1,0 +1,7 @@
+# Task-owned workers need the daemon's endpoint descriptor and slopctl inside their sandbox so
+# they can claim and report the exact task id they were given. This grants only those two
+# read-only daemon files; the worker still needs the command preset's own network capability.
+[[sandbox]]
+name = "slopworld-worker"
+description = "SlopWorld task API prerequisites for a task-owned worker"
+daemon_config = true

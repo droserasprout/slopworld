@@ -37,6 +37,19 @@ pub struct Task {
     pub note: Option<String>,
     pub created_ms: u64,
     pub updated_ms: u64,
+    /// Present only for a task that owns a daemon-spawned worker. The task body remains the
+    /// single source of truth; the worker receives only this task's id at startup.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worker: Option<WorkerTask>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerTask {
+    pub session: String,
+    pub parent: String,
+    /// Durable workers remain in config.toml after their process exits; one-shot workers do not.
+    #[serde(default)]
+    pub durable: bool,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -84,6 +97,32 @@ impl Tasks {
     }
 
     pub fn create(&mut self, from: String, to: String, body: String) -> Result<Task> {
+        self.create_inner(from, to, body, None)
+    }
+
+    pub fn create_worker(
+        &mut self,
+        from: String,
+        to: String,
+        body: String,
+        parent: String,
+        durable: bool,
+    ) -> Result<Task> {
+        let worker = Some(WorkerTask {
+            session: to.clone(),
+            parent,
+            durable,
+        });
+        self.create_inner(from, to, body, worker)
+    }
+
+    fn create_inner(
+        &mut self,
+        from: String,
+        to: String,
+        body: String,
+        worker: Option<WorkerTask>,
+    ) -> Result<Task> {
         if body.trim().is_empty() {
             bail!("a task body is required");
         }
@@ -98,10 +137,34 @@ impl Tasks {
             note: None,
             created_ms: now,
             updated_ms: now,
+            worker,
         };
         self.file.tasks.push(task.clone());
         self.save()?;
         Ok(task)
+    }
+
+    /// A worker exit is daemon-owned lifecycle bookkeeping, not a recipient update. Do not
+    /// overwrite a worker's explicit `finish`/`fail`, and keep a failed task after one-shot worker
+    /// cleanup so a lost process is still inspectable after a daemon restart.
+    pub fn fail_worker(&mut self, id: &str, note: String) -> Result<Option<Task>> {
+        let Some(task) = self
+            .file
+            .tasks
+            .iter_mut()
+            .find(|task| task.id == id && task.worker.is_some())
+        else {
+            return Ok(None);
+        };
+        if task.status.is_terminal() {
+            return Ok(Some(task.clone()));
+        }
+        task.status = Status::Failed;
+        task.note = Some(note);
+        task.updated_ms = now_ms();
+        let result = task.clone();
+        self.save()?;
+        Ok(Some(result))
     }
 
     pub fn visible(&self, who: &str) -> Vec<Task> {
@@ -284,6 +347,46 @@ mod tests {
             .unwrap();
         assert_eq!(first.id.rsplit_once('-').unwrap().1, "0001");
         assert_eq!(second.id.rsplit_once('-').unwrap().1, "0002");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn worker_task_metadata_and_daemon_failure_survive_reload() {
+        let dir = std::env::temp_dir().join(format!("slopd-worker-tasks-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let config = dir.join("config.toml");
+        let mut tasks = Tasks::load(&config).unwrap();
+        let task = tasks
+            .create_worker(
+                "parent".into(),
+                "parent-worker".into(),
+                "inspect the build".into(),
+                "parent".into(),
+                true,
+            )
+            .unwrap();
+        let worker = task.worker.as_ref().unwrap();
+        assert_eq!(worker.session, "parent-worker");
+        assert_eq!(worker.parent, "parent");
+        assert!(worker.durable);
+
+        let failed = tasks
+            .fail_worker(&task.id, "worker exited".into())
+            .unwrap()
+            .unwrap();
+        assert_eq!(failed.status, Status::Failed);
+        assert_eq!(failed.note.as_deref(), Some("worker exited"));
+
+        let reloaded = Tasks::load(&config).unwrap();
+        let persisted = reloaded.get("parent", &task.id).unwrap();
+        assert_eq!(persisted.status, Status::Failed);
+        assert_eq!(persisted.worker.unwrap().session, "parent-worker");
+        let unchanged = tasks
+            .fail_worker(&task.id, "a later exit".into())
+            .unwrap()
+            .unwrap();
+        assert_eq!(unchanged.note.as_deref(), Some("worker exited"));
         let _ = fs::remove_dir_all(dir);
     }
 }

@@ -22,6 +22,9 @@ namespace SlopWorld
             public readonly Dictionary<string, List<SessionInfo>> Ghosts =
                 new Dictionary<string, List<SessionInfo>>();
             public readonly List<SessionInfo> TopGhosts = new List<SessionInfo>();
+            public readonly Dictionary<string, List<SessionInfo>> Workers =
+                new Dictionary<string, List<SessionInfo>>();
+            public readonly List<SessionInfo> TopWorkers = new List<SessionInfo>();
 
             public readonly List<Row> ViewRows = new List<Row>();
             public readonly List<SessionInfo> Routed = new List<SessionInfo>();
@@ -38,9 +41,11 @@ namespace SlopWorld
 
                 foreach (var list in Buckets.Values) list.Clear();
                 foreach (var list in Ghosts.Values) list.Clear();
+                foreach (var list in Workers.Values) list.Clear();
                 Order.Clear();
                 Named.Clear();
                 TopGhosts.Clear();
+                TopWorkers.Clear();
 
                 AgentContentH = 0f;
             }

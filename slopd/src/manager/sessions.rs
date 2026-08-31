@@ -132,6 +132,17 @@ impl Manager {
                 s.command
             );
         }
+        if s.worker {
+            if s.task_id.trim().is_empty() || s.parent.trim().is_empty() {
+                bail!("worker session {name} has incomplete task ownership metadata");
+            }
+            let table = crate::presets::table();
+            crate::sandbox::validate_preset_name(super::workers::WORKER_SANDBOX, &table)
+                .context("worker task API preset is invalid")?;
+            if cfg.network_of(&s, &p) == NetworkMode::None {
+                bail!("worker session {name} cannot reach the task API with networking disabled");
+            }
+        }
         let (cols, rows, host, host_path) = match self.live.read().await.get(name) {
             Some(l) => (l.cols, l.rows, l.host, l.host_path.clone()),
             None => (BOOT_COLS, BOOT_ROWS, false, String::new()),
@@ -207,6 +218,13 @@ impl Manager {
     }
 
     pub async fn stop(self: &Arc<Self>, name: &str) -> Result<()> {
+        let worker_task = self
+            .live
+            .read()
+            .await
+            .get(name)
+            .filter(|l| l.cfg.worker)
+            .map(|l| l.cfg.task_id.clone());
         if self.tmux.exists(name).await {
             self.tmux.kill(name).await?;
         }
@@ -242,6 +260,9 @@ impl Manager {
                 outcome = "cache_write_failed",
                 "could not clear session title"
             );
+        }
+        if let Some(task_id) = worker_task {
+            self.fail_worker_task(&task_id, format!("worker session {name} was stopped"));
         }
         Ok(())
     }
@@ -360,6 +381,12 @@ impl Manager {
                 None => return,
             }
         };
+        if session.worker {
+            self.fail_worker_task(
+                &session.task_id,
+                format!("worker session {name} exited or was stopped"),
+            );
+        }
         self.forget_scroll(name);
         self.clear_activity(name).await;
         if let Err(error) = self.title_cache.clear_latest(name) {
@@ -396,6 +423,11 @@ impl Manager {
         check_belongs(&cfg, &s)?;
         s.limits.validate()?;
         crate::runtime::validate_limits(&s.limits)?;
+        // Worker identity is daemon-owned. The ordinary session editor cannot create a child by
+        // smuggling hierarchy fields through this route; `spawn_worker` is the only constructor.
+        s.worker = false;
+        s.parent.clear();
+        s.task_id.clear();
         // A client has no authority over which durable state an agent receives.  Always mint a
         // fresh key, including if a hand-written request carried a stale one.
         s.state_id = uuid::Uuid::new_v4().to_string();
@@ -414,6 +446,15 @@ impl Manager {
 
     pub async fn update(self: &Arc<Self>, name: &str, mut s: SessionCfg) -> Result<()> {
         self.reload_if_changed().await;
+        if self
+            .cfg
+            .read()
+            .await
+            .session(name)
+            .is_some_and(|session| session.worker)
+        {
+            bail!("task-owned worker {name} cannot be edited; retry its task instead");
+        }
         let renamed = s.name != name;
         if renamed {
             check_name(&s.name)?;
@@ -439,6 +480,11 @@ impl Manager {
             .iter()
             .position(|x| x.name == name)
             .ok_or_else(|| anyhow!("no such session: {name}"))?;
+        // Keep daemon-owned worker identity across an ordinary settings edit. The mod's write
+        // model intentionally does not expose these fields.
+        s.worker = cfg.sessions[idx].worker;
+        s.parent = cfg.sessions[idx].parent.clone();
+        s.task_id = cfg.sessions[idx].task_id.clone();
         // Keep private state with the agent across every edit, particularly a rename.  The wire
         // deliberately does not expose this field, but also must not be able to change it.
         s.state_id = cfg.sessions[idx].state_id.clone();
@@ -716,6 +762,10 @@ impl Manager {
                     mounts: l.cfg.mounts.clone(),
                     autostart: l.cfg.autostart,
                     auto_resume: l.cfg.auto_resume,
+                    worker: l.cfg.worker,
+                    parent: l.cfg.parent.clone(),
+                    task_id: l.cfg.task_id.clone(),
+                    durable: l.cfg.worker && !l.ephemeral,
                     ephemeral: l.ephemeral,
                     host: l.host,
                     last_change: l.last_change,

@@ -44,6 +44,14 @@ pub struct SessionView {
     pub mounts: Vec<Mount>,
     pub autostart: bool,
     pub auto_resume: bool,
+    /// Task-owned children carry explicit hierarchy metadata. The client must not infer this
+    /// from names, projects or command presets.
+    pub worker: bool,
+    pub parent: String,
+    pub task_id: String,
+    /// A worker in config.toml is durable; an ephemeral worker exists only until its process
+    /// exits. This is derived from the live session rather than another mutable config flag.
+    pub durable: bool,
     // Temporary sessions have no editable config entry. Durable host tabs also use the
     // ghost-row presentation, but are identified separately by `host`.
     pub ephemeral: bool,

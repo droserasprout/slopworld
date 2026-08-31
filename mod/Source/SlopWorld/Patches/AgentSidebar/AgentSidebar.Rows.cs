@@ -89,6 +89,12 @@ namespace SlopWorld
                 var state = info?.State ?? AgentState.Down;
                 var tint = TerminalWindow.StateColor(state);
 
+                if (row.Worker)
+                {
+                    DrawWorkerRow(row, info);
+                    continue;
+                }
+
                 if (row.Ghost)
                 {
                     DrawGhostRow(row, info);
@@ -119,6 +125,25 @@ namespace SlopWorld
 
             SidebarRowRenderer.DrawGhostLabel(text, info, row.Session, true, GhostMarkW);
             GUI.color = Color.white;
+            Click(row, info);
+        }
+
+        // Worker children are intentionally quieter than agents: the task owns their identity,
+        // and the parent row already supplies the normal portrait/state presentation.
+        static void DrawWorkerRow(Row row, SessionInfo info)
+        {
+            if (row.Session == TerminalWindow.CurrentName) Slab.Fill(row.Line, SlopWidgets.RowOn);
+            else SlopWidgets.HoverRow(row.Line);
+
+            Text.Font = GameFont.Tiny;
+            GUI.color = info == null
+                ? SlopWidgets.Dim
+                : TerminalWindow.StateColor(info.State);
+            SlopWidgets.RowLabel(row.Text, "↳ " + (info?.Name ?? row.Session));
+            GUI.color = Color.white;
+            if (info != null && !string.IsNullOrEmpty(info.TaskId))
+                TooltipHandler.TipRegion(row.Line,
+                    $"Worker task {info.TaskId}\nParent: {info.Parent}");
             Click(row, info);
         }
 

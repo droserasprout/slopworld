@@ -51,6 +51,12 @@ namespace SlopWorld
         // Read-only here: slopd is waiting to run or finish startup auto-resume. Keyboard input
         // stays behind that ordered sequence.
         public bool AutoResumePending;
+        // Task-owned worker metadata. Parentage is explicit on the wire; names and projects are
+        // never inspected to guess a child relationship.
+        public bool Worker;
+        public string Parent = "";
+        public string TaskId = "";
+        public bool Durable;
         // YOLO mode folds every effective breadcrumb into the first submitted prompt.
         public bool BreadcrumbYolo = true;
         public List<string> Breadcrumbs = new List<string>();
