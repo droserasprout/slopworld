@@ -122,6 +122,9 @@ struct Live {
     screen: Option<ScreenView>,
     emu: Option<Arc<Mutex<SessionEmu>>>,
     reader: Option<JoinHandle<()>>,
+    // Identifies the reader that owns the current emulator. A stale reader may finish while a
+    // replacement is starting; it must not tear down the replacement's state.
+    reader_token: Option<Arc<()>>,
     input: Option<mpsc::UnboundedSender<Input>>,
     // Spliced immediately before the first Enter after process start.
     breadcrumbs: Vec<u8>,
@@ -1322,6 +1325,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             screen: None,
             emu: None,
             reader: None,
+            reader_token: None,
             input: None,
             breadcrumbs: Vec::new(),
             breadcrumbs_pending: false,

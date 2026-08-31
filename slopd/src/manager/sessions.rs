@@ -174,8 +174,11 @@ impl Manager {
             .await?;
 
         self.sync_from_config().await;
-        if autostart {
-            self.start(&name).await.ok();
+        // sync_from_config already attempts autostart for the newly persisted session. Retry
+        // only when that attempt left no tmux session; otherwise this second start would turn a
+        // successful add into an "already running" error.
+        if autostart && !self.tmux.exists(&name).await {
+            self.start(&name).await?;
         }
         Ok(())
     }
@@ -314,10 +317,16 @@ impl Manager {
         if let Some(t) = title {
             let _ = self.title_cache.remember(new, &t);
         }
-        if running && self.spawn_reader(new).await {
-            let m = self.clone();
-            let name = new.to_string();
-            tokio::spawn(async move { m.nudge_redraw(&name).await });
+        if running {
+            match self.spawn_reader(new).await {
+                Ok(true) => {
+                    let m = self.clone();
+                    let name = new.to_string();
+                    tokio::spawn(async move { m.nudge_redraw(&name).await });
+                }
+                Ok(false) => {}
+                Err(error) => tracing::warn!("could not reattach reader for {new}: {error:#}"),
+            }
         }
     }
 
