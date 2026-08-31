@@ -328,12 +328,14 @@ namespace SlopWorld
 
         public static string Field(Rect r, string name, string text, bool on = true)
         {
-            bool focused = on && ReleaseFunctionKeyFocus(name);
+            bool released = on && ReleaseFunctionKeyFocus(name);
+            bool focused = on && !released && GUI.GetNameOfFocusedControl() == name;
             InputBackground(r, on, focused);
 
             var inner = r.ContractedBy(FieldPadX, FieldPadY);
             // Do not create a control that accepts input only to discard it next frame.
             if (!on) return Stated(inner, text, TextAnchor.MiddleLeft);
+            if (released) return text;
 
             GUI.SetNextControlName(name);
             return TextEntry(inner, text, false, focused, name);
@@ -342,7 +344,8 @@ namespace SlopWorld
         public static string Area(Rect r, string name, string text, bool on = true,
                                   bool frame = true)
         {
-            bool focused = on && ReleaseFunctionKeyFocus(name);
+            bool released = on && ReleaseFunctionKeyFocus(name);
+            bool focused = on && !released && GUI.GetNameOfFocusedControl() == name;
             if (frame)
             {
                 InputBackground(r, on, focused);
@@ -350,6 +353,7 @@ namespace SlopWorld
 
             var inner = frame ? r.ContractedBy(FieldPadX, FieldPadY * 2f) : r;
             if (!on) return Stated(inner, text, TextAnchor.UpperLeft);
+            if (released) return text;
 
             GUI.SetNextControlName(name);
             return TextEntry(inner, text, true, focused, name);
@@ -365,14 +369,17 @@ namespace SlopWorld
         // The text field with no frame of its own, for the same caller.
         public static string BareField(Rect r, string name, string text)
         {
+            bool released = ReleaseFunctionKeyFocus(name);
+            if (released) return text;
             GUI.SetNextControlName(name);
-            return TextEntry(r, text, false, ReleaseFunctionKeyFocus(name), name);
+            return TextEntry(r, text, false, GUI.GetNameOfFocusedControl() == name, name);
         }
 
         // Unity's text controls consume function keys while focused, before the game or the
         // terminal can dispatch them. Release only this field's focus so bare F-keys reach the
-        // mod's chrome and shifted F-keys remain available to the terminal. Ordinary typing and
-        // function keys in unrelated controls are unaffected.
+        // mod's chrome and shifted F-keys remain available to the terminal. The caller skips
+        // drawing the native control for that event, so it cannot consume the key again.
+        // Ordinary typing and function keys in unrelated controls are unaffected.
         static bool ReleaseFunctionKeyFocus(string name)
         {
             if (GUI.GetNameOfFocusedControl() != name) return false;
@@ -380,10 +387,10 @@ namespace SlopWorld
             var e = Event.current;
             if (e == null || e.rawType != EventType.KeyDown
                 || e.keyCode < KeyCode.F1 || e.keyCode > KeyCode.F15)
-                return true;
+                return false;
 
             GUI.FocusControl(null);
-            return false;
+            return true;
         }
 
         static void InputBackground(Rect r, bool on, bool focused)

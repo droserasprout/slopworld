@@ -49,6 +49,12 @@ namespace SlopWorld
                 AgentSidebar.ShowGit();
                 return true;
             }
+            if (Bound(SlopDefOf.SlopSidebarTasks, e))
+            {
+                SlopMenu.CloseAll();
+                AgentSidebar.ShowTasks();
+                return true;
+            }
             if (Bound(SlopDefOf.SlopSidebarShortcuts, e))
             {
                 SlopMenu.CloseAll();

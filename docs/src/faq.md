@@ -72,7 +72,7 @@ another agent's terminal. Task mailboxes let agents delegate structured work. Se
 
 ### Bare F-keys do nothing in the terminal {#f-keys}
 
-The mod intercepts bare F-keys for navigation (F2-F6) and the palette (F1).
+The mod intercepts bare F-keys for navigation (F2-F7) and the palette (F1).
 Shift+F-key forwards the key to the agent. See
 [Keyboard shortcuts](reference/keyboard-shortcuts.md).
 

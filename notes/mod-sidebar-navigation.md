@@ -5,14 +5,15 @@ The core sidebar geometry, selection behavior, and row rendering are in
 
 ## Views and navigation
 
-Agents, Files, Search, Git and Shortcuts share the panel, tabs, width, add strip and
-input absorption. Leaving a view closes its readers. Files/Search/Git park colonist-bar
+Agents, Files, Search, Git, Tasks and Shortcuts share the panel, tabs, width, add strip and
+input absorption. Their default F2–F7 shortcuts follow that left-to-right order. Leaving a
+view closes its readers. Files/Search/Git park colonist-bar
 locations but still build buckets so Alt+number can return to an agent; folding removes
 agents from visible order.
 
 ## The tab strip
 
-Every view has two possible rows: five tabs plus the project filter, then right-aligned
+Every view has two possible rows: six tabs plus the project filter, then right-aligned
 view controls. Foldable views offer fold/unfold all; agent rows are compact,
 Files has dotfiles, and Git has refresh. Search has dotfiles alone. Views without a control
 have no second band. `TabH` is the complete strip height used by both the body and the
