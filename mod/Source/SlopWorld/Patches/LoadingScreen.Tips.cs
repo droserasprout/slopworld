@@ -20,7 +20,7 @@ namespace SlopWorld
         {
             // Please mark offensive/harmful/depressive quotes with `(` and too happy ones with `)`.
             //
-            // shortcuts
+            // keyboard shortcuts
             "Press `F1` to show Command Pallette.",
             "Press `F12` to toggle terminal.",
             "Press `Alt+Num` to switch terminal tab.",

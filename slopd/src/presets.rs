@@ -453,7 +453,7 @@ mod tests {
             t.merge(f);
         }
 
-        // The command presets used by built-in shortcuts, including the shells.
+        // The command presets used by built-in library, including the shells.
         for name in [
             "claude", "opencode", "pi", "bash", "zsh", "fish", "nu", "pwsh",
         ] {

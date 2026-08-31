@@ -1,6 +1,6 @@
-# Shortcuts (errands)
+# Library items (errands)
 
-`[[shortcut]]` names a project, a command and text to deliver. `kind` is `prompt` or
+`[[library]]` names a project, a command and text to deliver. `kind` is `prompt` or
 `shell`; an empty `command` uses `[defaults] agent` or `shell`. `kind = "breadcrumb"`
 defines named guidance instead of an errand, and projects/agents attach breadcrumb
 names through `breadcrumbs`.
@@ -15,9 +15,9 @@ command so short output remains readable. Project paths use their sandbox; priva
 paths use an explicit disposable host errand. File actions are not agent errands and do not
 attach through `breadcrumbs`.
 
-- `builtin` entries come from `config::builtin_shortcuts`, are not written to
+- `builtin` entries come from `config::builtin_library_items`, are not written to
   `config.toml`, and cannot be updated/removed. A file entry with the same name shadows
-  the builtin and becomes editable. `shortcuts_all` is the wire list; the sidebar hides
+  the builtin and becomes editable. `library_items_all` is the wire list; the sidebar hides
   builtins, while breadcrumb lists show them. `Useful tips` is the built-in five-tip
   breadcrumb.
 - `{{ random_tip }}` is filled from loading-screen tips supplied by the game in
@@ -26,7 +26,7 @@ attach through `breadcrumbs`.
   `{{ agent }}`, `{{ project }}`, `{{ directory }}` and `{{ command }}` from the target
   session.
 - `link` (`project`|`temp`|`ask`) controls how `project` is read: named project, a
-  temporary copied sandbox, or no project. `check_shortcut` requires a project only for
+  temporary copied sandbox, or no project. `check_library_item` requires a project only for
   `project`; `RunWhere` gives `temp` precedence and rejects `ask` with neither.
 - `temp` projects live in `Manager::temp` until `forget`; `/tmp` cleanup removes their
   directory. Reads combine `live` then `temp`.
@@ -49,7 +49,7 @@ cannot restart, but watching, typing and killing still work.
 
 ## Delivery
 
-- `POST /api/shortcuts/NAME/run` returns the session name and delivers asynchronously;
+- `POST /api/library/NAME/run` returns the session name and delivers asynchronously;
   the mod's five-second HTTP timeout is shorter than agent startup.
 - `deliver` pastes text and sends Enter separately. For agents with breadcrumbs, the
   daemon queues breadcrumb text, an `ENTER_GAP_MS` `Input::Gap`, then the first user
@@ -63,6 +63,6 @@ cannot restart, but watching, typing and killing still work.
   websocket `breadcrumb` message; the daemon validates and renders it.
 - `wait_ready` waits for output plus `SETTLE_MS` silence; reaching `READY_MS` alone does
   not cancel delivery.
-- `POST /api/run` is the inline form: the body is the errand. `run_shortcut` looks up an
+- `POST /api/run` is the inline form: the body is the errand. `run_library_item` looks up an
   entry; `Manager::run_errand` performs it. `deliver` is spawned only for non-empty text,
   so a command-only errand such as Files' `less` does not wait to type nothing.

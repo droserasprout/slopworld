@@ -55,10 +55,10 @@ namespace SlopWorld
                 AgentSidebar.ShowTasks();
                 return true;
             }
-            if (Bound(SlopDefOf.SlopSidebarShortcuts, e))
+            if (Bound(SlopDefOf.SlopSidebarLibrary, e))
             {
                 SlopMenu.CloseAll();
-                AgentSidebar.ShowShortcuts();
+                AgentSidebar.ShowLibrary();
                 return true;
             }
             if (Bound(SlopDefOf.SlopQuickTerminal, e))

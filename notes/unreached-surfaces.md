@@ -26,6 +26,6 @@ socket.
 
 ## `state_rules`
 
-The only `config.toml` table with no mod editor. Projects, sessions, shortcuts
+The only `config.toml` table with no mod editor. Projects, sessions, library items
 and per-session limits each have one ([mod-ui-windows](mod-ui-windows.md));
 `state_rules` is edited as raw text in `ConfigWindow`.

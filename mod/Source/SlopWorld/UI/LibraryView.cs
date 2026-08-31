@@ -7,9 +7,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Draw project-grouped shortcut rows from AgentSidebar's back pass; the shared AddBar owns
+    // Draw project-grouped library rows from AgentSidebar's back pass; the shared AddBar owns
     // creation and keeps the view usable over a terminal.
-    public static class ShortcutsView
+    public static class LibraryView
     {
         // Off the font, for the reason the other two trees' are.
         static float RowH => SlopWidgets.TinyRowH;
@@ -18,12 +18,19 @@ namespace SlopWorld
         const float CellX = SlopWidgets.GapS;
         const float ArrowW = 11f;
 
+        // These are identity colors, not status colors: every kind stays recognizable without
+        // borrowing the green/yellow/red language used for agent health and actions.
+        static readonly Color PromptBadge = new Color(0.30f, 0.61f, 0.90f);
+        static readonly Color ShellBadge = new Color(0.64f, 0.47f, 0.83f);
+        static readonly Color BreadcrumbBadge = new Color(0.22f, 0.71f, 0.64f);
+        static readonly Color FileActionBadge = new Color(0.85f, 0.42f, 0.66f);
+
         // The text that drives the rows, snapshotted once per frame so size and draw agree.
-        static List<ShortcutInfo> _items = new List<ShortcutInfo>();
+        static List<LibraryItemInfo> _items = new List<LibraryItemInfo>();
 
         // Grouped by project. Key "" is "no project".
-        static readonly Dictionary<string, List<ShortcutInfo>> Groups =
-            new Dictionary<string, List<ShortcutInfo>>();
+        static readonly Dictionary<string, List<LibraryItemInfo>> Groups =
+            new Dictionary<string, List<LibraryItemInfo>>();
         static readonly List<string> Order = new List<string>();
         const string Loose = "";
 
@@ -42,13 +49,13 @@ namespace SlopWorld
         }
 
         // The selected row, for the RMB menu.
-        static ShortcutInfo _selected;
+        static LibraryItemInfo _selected;
 
         // The drawn lines, rebuilt each frame so clicks and drawing agree. Rects are in
         // screen space - see Screen - because Clicks runs outside the scroll view.
         struct Line
         {
-            public ShortcutInfo Item;
+            public LibraryItemInfo Item;
             public bool Head;    // true on a heading, false on a row
             public string Key;   // the group's key on a heading; "" is the loose bucket
             public Rect Rect;
@@ -71,10 +78,10 @@ namespace SlopWorld
         public static void Draw(Rect body)
         {
             // Builtins are daemon-owned and appear in their attached groups, so this list
-            // contains only editable shortcuts.
+            // contains only editable library items.
             // Filtered here rather than in [Group], so a filter that leaves nothing gets
             // the empty line instead of a blank column.
-            _items = SessionHub.Instance.Shortcuts
+            _items = SessionHub.Instance.Library
                 .Where(s => !s.Builtin && AgentSidebar.Passes(s.Project)).ToList();
             Lines.Clear();
 
@@ -113,7 +120,7 @@ namespace SlopWorld
             }
         }
 
-        static float DrawGroup(Rect view, float y, string key, List<ShortcutInfo> bucket)
+        static float DrawGroup(Rect view, float y, string key, List<LibraryItemInfo> bucket)
         {
             float start = y;
             bool folded = Folded.Contains(key);
@@ -124,7 +131,7 @@ namespace SlopWorld
                 foreach (var item in bucket)
                 {
                     var row = new Rect(0f, y, view.width, RowH);
-                    y += DrawShortcutRow(view, row, item);
+                    y += DrawLibraryRow(view, row, item);
                 }
             return y - start;
         }
@@ -159,31 +166,28 @@ namespace SlopWorld
 
             TooltipHandler.TipRegion(headRect,
                 key.Length == 0
-                    ? "Shortcuts that don't belong to any project.\n\nClick to fold."
+                    ? "Library entries that don't belong to any project.\n\nClick to fold."
                     : "Click to fold, right-click for the project.");
 
             return HeadH;
         }
 
-        static float DrawShortcutRow(Rect view, Rect r, ShortcutInfo item)
+        static float DrawLibraryRow(Rect view, Rect r, LibraryItemInfo item)
         {
             SlopWidgets.HoverRow(r);
 
             // The kind badge: prompt, shell, or an attached breadcrumb.
             float badgeW = 34f;
-            GUI.color = item.Kind == ShortcutKind.Shell
-                ? SlopWidgets.Warn
-                : SlopWidgets.Info;
+            var badge = new Rect(CellX, r.y, badgeW, RowH);
+            GUI.color = KindColor(item.Kind);
             // The whole row is Tiny, the way a row of the other two trees is: the badge was,
             // and the name and the sample beside it were Small in a row laid out for Tiny -
             // which on any face taller than the one it was written against is a line with its
             // descenders cut off.
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
-            SlopWidgets.RowLabel(new Rect(CellX, r.y, badgeW, RowH),
-                item.Kind == ShortcutKind.Shell ? "sh" :
-                    item.Kind == ShortcutKind.Breadcrumb ? "bc" :
-                    item.Kind == ShortcutKind.FileAction ? "fa" : "pt");
+            SlopWidgets.RowLabel(badge, KindCode(item.Kind));
+            TooltipHandler.TipRegion(badge, KindName(item.Kind));
             GUI.color = Color.white;
 
             float tx = CellX + badgeW + 4f;
@@ -230,10 +234,43 @@ namespace SlopWorld
             Widgets.Label(r, !SessionHub.Instance.Online
                 ? $"daemon {SessionHub.Instance.Status}"
                 : AgentSidebar.Filtering
-                    ? $"No shortcuts in {AgentSidebar.FilterLabel}."
-                    : "No shortcuts yet. Press + at the foot of the panel.");
+                    ? $"No library entries in {AgentSidebar.FilterLabel}."
+                    : "No library entries yet. Press + at the foot of the panel.");
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
+        }
+
+        static Color KindColor(LibraryItemKind kind)
+        {
+            switch (kind)
+            {
+                case LibraryItemKind.Shell: return ShellBadge;
+                case LibraryItemKind.Breadcrumb: return BreadcrumbBadge;
+                case LibraryItemKind.FileAction: return FileActionBadge;
+                default: return PromptBadge;
+            }
+        }
+
+        static string KindCode(LibraryItemKind kind)
+        {
+            switch (kind)
+            {
+                case LibraryItemKind.Shell: return "sh";
+                case LibraryItemKind.Breadcrumb: return "bc";
+                case LibraryItemKind.FileAction: return "fa";
+                default: return "pt";
+            }
+        }
+
+        static string KindName(LibraryItemKind kind)
+        {
+            switch (kind)
+            {
+                case LibraryItemKind.Shell: return "Shell";
+                case LibraryItemKind.Breadcrumb: return "Breadcrumb";
+                case LibraryItemKind.FileAction: return "File Action";
+                default: return "Prompt";
+            }
         }
 
         // Group the items by project, the way the agents view groups by project.
@@ -246,7 +283,7 @@ namespace SlopWorld
             {
                 string key = string.IsNullOrEmpty(item.Project) ? Loose : item.Project;
                 if (!Groups.TryGetValue(key, out var list))
-                    Groups[key] = list = new List<ShortcutInfo>();
+                    Groups[key] = list = new List<LibraryItemInfo>();
                 list.Add(item);
             }
 
@@ -313,8 +350,8 @@ namespace SlopWorld
                 // Breadcrumbs are attached definitions, not errands. A click edits them;
                 // prompt and shell entries still run as before.
                 e.Use();
-                if (line.Item.Kind == ShortcutKind.Breadcrumb || line.Item.Kind == ShortcutKind.FileAction)
-                    TerminalWindow.OpenOverPane(new EditShortcutDialog(line.Item));
+                if (line.Item.Kind == LibraryItemKind.Breadcrumb || line.Item.Kind == LibraryItemKind.FileAction)
+                    TerminalWindow.OpenOverPane(new EditLibraryItemDialog(line.Item));
                 else
                     Run(line.Item);
                 return;
@@ -341,30 +378,30 @@ namespace SlopWorld
             TerminalWindow.OpenOverPane(new SlopMenu(opts));
         }
 
-        static void RowMenu(ShortcutInfo s)
+        static void RowMenu(LibraryItemInfo s)
         {
             var opts = new List<FloatMenuOption>();
 
-            // Run is the reason ordinary shortcuts exist. Breadcrumbs are definitions only.
-            if (s.Kind != ShortcutKind.Breadcrumb && s.Kind != ShortcutKind.FileAction)
+            // Run is the reason ordinary runnable items exist. Breadcrumbs are definitions only.
+            if (s.Kind != LibraryItemKind.Breadcrumb && s.Kind != LibraryItemKind.FileAction)
                 opts.Add(new FloatMenuOption("Run", () => Run(s)));
 
             var where = Where(s);
-            if (s.Link == ShortcutLink.Ask)
+            if (s.Link == LibraryItemLink.Ask)
                 opts.Add(new SlopSubmenu("Run in", () => WhereOptions(s)));
 
             opts.Add(new FloatMenuOption("Edit...", () =>
-                TerminalWindow.OpenOverPane(new EditShortcutDialog(s))));
+                TerminalWindow.OpenOverPane(new EditLibraryItemDialog(s))));
 
             opts.Add(new FloatMenuOption("Duplicate...", () =>
-                TerminalWindow.OpenOverPane(EditShortcutDialog.Copy(s))));
+                TerminalWindow.OpenOverPane(EditLibraryItemDialog.Copy(s))));
 
             opts.Add(new FloatMenuOption("Delete", () =>
             {
                 var name = s.Name;
                 TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
-                    $"Remove shortcut '{name}'? Anything it already started keeps running.",
-                    () => SessionHub.Instance.RemoveShortcut(name, SlopWidgets.Fail),
+                    $"Remove library entry '{name}'? Anything it already started keeps running.",
+                    () => SessionHub.Instance.RemoveLibraryItem(name, SlopWidgets.Fail),
                     destructive: true));
             }));
 
@@ -375,17 +412,17 @@ namespace SlopWorld
 
         // Do not reopen AskWhere after resolving a temporary project: `temp` marks the return
         // path where `project == null` is intentional.
-        static void Run(ShortcutInfo s, string project = null, bool temp = false)
+        static void Run(LibraryItemInfo s, string project = null, bool temp = false)
         {
             // An entry that never said where goes through a menu first.
-            if (s.Link == ShortcutLink.Ask && project == null && !temp)
+            if (s.Link == LibraryItemLink.Ask && project == null && !temp)
             {
                 AskWhere(s);
                 return;
             }
 
-            bool scratch = temp || s.Link == ShortcutLink.Temp;
-            SessionHub.Instance.RunShortcut(s.Name,
+            bool scratch = temp || s.Link == LibraryItemLink.Temp;
+            SessionHub.Instance.RunLibraryItem(s.Name,
                 session => TerminalWindow.Open(session),
                 SlopWidgets.Fail,
                 // A project named outright wins; a temporary run has none, whichever of
@@ -397,7 +434,7 @@ namespace SlopWorld
         // Every project, plus a temporary one - last, being the answer for the run that
         // belongs nowhere in particular. Hung off the row's own menu where there is one, and
         // opened as a menu of its own where the run was asked for from somewhere else.
-        static List<FloatMenuOption> WhereOptions(ShortcutInfo s)
+        static List<FloatMenuOption> WhereOptions(LibraryItemInfo s)
         {
             var options = SessionHub.Instance.Projects
                 .Select(p => new FloatMenuOption($"{p.Name}  -  {p.Dir}",
@@ -411,16 +448,16 @@ namespace SlopWorld
             return options;
         }
 
-        static void AskWhere(ShortcutInfo s) =>
+        static void AskWhere(LibraryItemInfo s) =>
             TerminalWindow.OpenOverPane(new SlopMenu(WhereOptions(s)));
 
         // Where an errand runs, in the few words a row and a tooltip have.
-        static string Where(ShortcutInfo s)
+        static string Where(LibraryItemInfo s)
         {
             switch (s.Link)
             {
-                case ShortcutLink.Temp: return "a temporary project";
-                case ShortcutLink.Ask: return "run in...";
+                case LibraryItemLink.Temp: return "a temporary project";
+                case LibraryItemLink.Ask: return "run in...";
                 default:
                     return string.IsNullOrEmpty(s.Project)
                         ? "no project"
@@ -439,27 +476,27 @@ namespace SlopWorld
 
     // The command box is greyed rather than hidden when it is empty, so the thing
     // that will run is on screen even when nothing here chose it.
-    public class EditShortcutDialog : SlopWindow
+    public class EditLibraryItemDialog : SlopWindow
     {
-        sealed class ShortcutKindDescriptor
+        sealed class LibraryItemKindDescriptor
         {
             public readonly string ButtonLabel;
             public readonly bool ShowWhere;
-            public readonly Func<EditShortcutDialog, bool> ShowProject;
-            public readonly Func<EditShortcutDialog, string> ProjectLabel;
-            public readonly Func<EditShortcutDialog, string> ProjectValue;
-            public readonly Action<EditShortcutDialog> PickProject;
-            public readonly Func<EditShortcutDialog, ProjectInfo, string> ExplainText;
+            public readonly Func<EditLibraryItemDialog, bool> ShowProject;
+            public readonly Func<EditLibraryItemDialog, string> ProjectLabel;
+            public readonly Func<EditLibraryItemDialog, string> ProjectValue;
+            public readonly Action<EditLibraryItemDialog> PickProject;
+            public readonly Func<EditLibraryItemDialog, ProjectInfo, string> ExplainText;
             public readonly string CommandLabel;
-            public readonly Func<EditShortcutDialog, string> CommandPlaceholder;
+            public readonly Func<EditLibraryItemDialog, string> CommandPlaceholder;
 
-            public ShortcutKindDescriptor(string buttonLabel, bool showWhere,
-                Func<EditShortcutDialog, bool> showProject,
-                Func<EditShortcutDialog, string> projectLabel,
-                Func<EditShortcutDialog, string> projectValue,
-                Action<EditShortcutDialog> pickProject,
-                Func<EditShortcutDialog, ProjectInfo, string> explainText,
-                string commandLabel, Func<EditShortcutDialog, string> commandPlaceholder)
+            public LibraryItemKindDescriptor(string buttonLabel, bool showWhere,
+                Func<EditLibraryItemDialog, bool> showProject,
+                Func<EditLibraryItemDialog, string> projectLabel,
+                Func<EditLibraryItemDialog, string> projectValue,
+                Action<EditLibraryItemDialog> pickProject,
+                Func<EditLibraryItemDialog, ProjectInfo, string> explainText,
+                string commandLabel, Func<EditLibraryItemDialog, string> commandPlaceholder)
             {
                 ButtonLabel = buttonLabel;
                 ShowWhere = showWhere;
@@ -473,42 +510,42 @@ namespace SlopWorld
             }
         }
 
-        static readonly Dictionary<ShortcutKind, ShortcutKindDescriptor> KindDescriptors =
-            new Dictionary<ShortcutKind, ShortcutKindDescriptor>
+        static readonly Dictionary<LibraryItemKind, LibraryItemKindDescriptor> KindDescriptors =
+            new Dictionary<LibraryItemKind, LibraryItemKindDescriptor>
             {
                 {
-                    ShortcutKind.Prompt,
-                    new ShortcutKindDescriptor(
+                    LibraryItemKind.Prompt,
+                    new LibraryItemKindDescriptor(
                         "Prompt - say something to an agent", true,
-                        dialog => dialog._s.Link != ShortcutLink.Ask,
-                        dialog => dialog._s.Link == ShortcutLink.Temp
+                        dialog => dialog._s.Link != LibraryItemLink.Ask,
+                        dialog => dialog._s.Link == LibraryItemLink.Temp
                             ? "Sandbox to copy (blank = plain: private network, no presets)"
                             : "Project (the directory and sandbox it runs in)",
                         dialog => string.IsNullOrEmpty(dialog._s.Project)
-                            ? (dialog._s.Link == ShortcutLink.Temp ? "None" : "Pick a project...")
+                            ? (dialog._s.Link == LibraryItemLink.Temp ? "None" : "Pick a project...")
                             : dialog._s.Project,
                         dialog => dialog.PickProject(),
                         (dialog, project) => dialog.Explain(project),
                         "Agent (blank = the default)", dialog => dialog._agentDefault)
                 },
                 {
-                    ShortcutKind.Shell,
-                    new ShortcutKindDescriptor(
+                    LibraryItemKind.Shell,
+                    new LibraryItemKindDescriptor(
                         "Shell - run a command", true,
-                        dialog => dialog._s.Link != ShortcutLink.Ask,
-                        dialog => dialog._s.Link == ShortcutLink.Temp
+                        dialog => dialog._s.Link != LibraryItemLink.Ask,
+                        dialog => dialog._s.Link == LibraryItemLink.Temp
                             ? "Sandbox to copy (blank = plain: private network, no presets)"
                             : "Project (the directory and sandbox it runs in)",
                         dialog => string.IsNullOrEmpty(dialog._s.Project)
-                            ? (dialog._s.Link == ShortcutLink.Temp ? "None" : "Pick a project...")
+                            ? (dialog._s.Link == LibraryItemLink.Temp ? "None" : "Pick a project...")
                             : dialog._s.Project,
                         dialog => dialog.PickProject(),
                         (dialog, project) => dialog.Explain(project),
                         "Shell (blank = the default)", dialog => dialog._shellDefault)
                 },
                 {
-                    ShortcutKind.Breadcrumb,
-                    new ShortcutKindDescriptor(
+                    LibraryItemKind.Breadcrumb,
+                    new LibraryItemKindDescriptor(
                         "Breadcrumb - append to the first prompt", false,
                         dialog => true,
                         dialog => "Project (attach to every agent in this project)",
@@ -519,8 +556,8 @@ namespace SlopWorld
                         null, null)
                 },
                 {
-                    ShortcutKind.FileAction,
-                    new ShortcutKindDescriptor(
+                    LibraryItemKind.FileAction,
+                    new LibraryItemKindDescriptor(
                         "File action - run on a Files row", false,
                         dialog => false,
                         null, null, null,
@@ -531,7 +568,7 @@ namespace SlopWorld
             };
 
         readonly bool _isNew;
-        readonly ShortcutInfo _s;
+        readonly LibraryItemInfo _s;
         // The edit is addressed to it, and a changed name in the field is a rename.
         readonly string _origName;
         // Set only for a duplicate, so the title can distinguish copying from editing.
@@ -542,22 +579,22 @@ namespace SlopWorld
         string _agentDefault = "claude";
         string _shellDefault = "bash";
 
-        public EditShortcutDialog(ShortcutInfo existing) : this(existing, false) { }
+        public EditLibraryItemDialog(LibraryItemInfo existing) : this(existing, false) { }
 
-        public static EditShortcutDialog Copy(ShortcutInfo of) =>
-            new EditShortcutDialog(of, true);
+        public static EditLibraryItemDialog Copy(LibraryItemInfo of) =>
+            new EditLibraryItemDialog(of, true);
 
-        EditShortcutDialog(ShortcutInfo existing, bool copy)
+        EditLibraryItemDialog(LibraryItemInfo existing, bool copy)
         {
             // A duplicate is a new daemon entry: it must POST rather than PUT, and its
             // name is suggested rather than copied so saving it cannot collide by default.
             _isNew = existing == null || copy;
             _origName = copy ? "" : (existing?.Name ?? "");
             _copiedFrom = copy ? existing.Name : null;
-            _s = existing?.Copy() ?? new ShortcutInfo();
+            _s = existing?.Copy() ?? new LibraryItemInfo();
             if (copy)
                 _s.Name = SlopWidgets.FreeName(_s.Name,
-                    SessionHub.Instance.Shortcuts.Select(s => s.Name), "shortcut");
+                    SessionHub.Instance.Library.Select(s => s.Name), "library");
 
 
             SessionHub.Instance.RefreshProjects();
@@ -569,12 +606,12 @@ namespace SlopWorld
             });
         }
 
-        public EditShortcutDialog(ShortcutKind kind) : this(null)
+        public EditLibraryItemDialog(LibraryItemKind kind) : this(null)
         {
             _s.Kind = kind;
-            if (kind == ShortcutKind.Breadcrumb || kind == ShortcutKind.FileAction)
+            if (kind == LibraryItemKind.Breadcrumb || kind == LibraryItemKind.FileAction)
             {
-                _s.Link = ShortcutLink.Project;
+                _s.Link = LibraryItemLink.Project;
                 _s.Project = "";
             }
         }
@@ -591,7 +628,7 @@ namespace SlopWorld
             // placed and sized from that number. See EditProjectDialog.DoFields.
             SlopWidgets.Title(rect, _copiedFrom != null
                 ? $"Copy of '{_copiedFrom}'"
-                : _isNew ? "New shortcut" : $"Edit '{_origName}'");
+                : _isNew ? "New library entry" : $"Edit '{_origName}'");
 
             float head = SlopWidgets.HeaderH + SlopWidgets.GapS;
             float used = DrawFields(new Rect(rect.x, rect.y + head, rect.width, rect.height - head));
@@ -620,10 +657,10 @@ namespace SlopWorld
         void DrawName(Listing_Standard l)
         {
             l.Label("Name (also what the temporary colonist is called)");
-            _s.Name = SlopWidgets.Field(l, "shortcut.name", _s.Name);
+            _s.Name = SlopWidgets.Field(l, "library.name", _s.Name);
         }
 
-        void DrawKindAndLink(Listing_Standard l, ShortcutKindDescriptor kind)
+        void DrawKindAndLink(Listing_Standard l, LibraryItemKindDescriptor kind)
         {
             l.Gap(SlopWidgets.GapS);
             l.Label("Kind");
@@ -637,7 +674,7 @@ namespace SlopWorld
                 PickLink();
         }
 
-        void DrawProject(Listing_Standard l, ShortcutKindDescriptor kind)
+        void DrawProject(Listing_Standard l, LibraryItemKindDescriptor kind)
         {
             // The project dropdown stays up for every kind that uses a project. In temp mode
             // it still answers which sandbox the scratch project is given.
@@ -648,7 +685,7 @@ namespace SlopWorld
                 kind.PickProject(this);
         }
 
-        void DrawExplanation(Listing_Standard l, ShortcutKindDescriptor kind)
+        void DrawExplanation(Listing_Standard l, LibraryItemKindDescriptor kind)
         {
             var project = SessionHub.Instance.Project(_s.Project);
             GUI.color = SlopWidgets.Dim;
@@ -656,7 +693,7 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        void DrawCommand(Listing_Standard l, ShortcutKindDescriptor kind)
+        void DrawCommand(Listing_Standard l, LibraryItemKindDescriptor kind)
         {
             l.Gap(SlopWidgets.GapS);
             if (kind.CommandLabel == null)
@@ -671,13 +708,13 @@ namespace SlopWorld
             var box = l.GetRect(SlopWidgets.FieldH);
             if (!string.IsNullOrEmpty((_s.Command ?? "").Trim()))
             {
-                _s.Command = SlopWidgets.Field(box, "shortcut.command", _s.Command);
+                _s.Command = SlopWidgets.Field(box, "library.command", _s.Command);
                 return;
             }
 
             string placeholder = kind.CommandPlaceholder(this);
             GUI.color = SlopWidgets.Faint;
-            string shown = SlopWidgets.Field(box, "shortcut.command", placeholder);
+            string shown = SlopWidgets.Field(box, "library.command", placeholder);
             GUI.color = Color.white;
             if (shown != placeholder) _s.Command = shown;
         }
@@ -685,15 +722,15 @@ namespace SlopWorld
         float DrawTextEditor(Rect rect, float y)
         {
             SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
-                _s.Kind == ShortcutKind.Shell || _s.Kind == ShortcutKind.FileAction ? "Command line" :
-                _s.Kind == ShortcutKind.Breadcrumb ? "Breadcrumb text" : "Prompt");
+                _s.Kind == LibraryItemKind.Shell || _s.Kind == LibraryItemKind.FileAction ? "Command line" :
+                _s.Kind == LibraryItemKind.Breadcrumb ? "Breadcrumb text" : "Prompt");
             y += SlopWidgets.RowH + SlopWidgets.GapXS;
 
-            if (_s.Kind != ShortcutKind.FileAction)
+            if (_s.Kind != LibraryItemKind.FileAction)
             {
                 var area = new Rect(rect.x, y, rect.width,
                     rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - y);
-                _s.Text = SlopWidgets.Area(area, "shortcut.text", _s.Text ?? "");
+                _s.Text = SlopWidgets.Area(area, "library.text", _s.Text ?? "");
             }
             else
             {
@@ -710,12 +747,12 @@ namespace SlopWorld
         }
 
         // The three answers, in the words the dropdown shows them in.
-        public static string LinkLabel(ShortcutLink l)
+        public static string LinkLabel(LibraryItemLink l)
         {
             switch (l)
             {
-                case ShortcutLink.Temp: return "A new temporary project each run";
-                case ShortcutLink.Ask: return "Ask me every time";
+                case LibraryItemLink.Temp: return "A new temporary project each run";
+                case LibraryItemLink.Ask: return "Ask me every time";
                 default: return "One project, named below";
             }
         }
@@ -726,12 +763,12 @@ namespace SlopWorld
         {
             switch (_s.Link)
             {
-                case ShortcutLink.Temp:
+                case LibraryItemLink.Temp:
                     return $"Each run gets an empty directory under {ProjectInfo.TempRoot}" +
                            (project != null
                                ? $", sandboxed like '{project.Name}'."
                                : ". Nothing deletes it; the machine clears /tmp.");
-                case ShortcutLink.Ask:
+                case LibraryItemLink.Ask:
                     return "Running it opens a list of projects, plus a temporary one.";
                 default:
                     return project != null
@@ -746,12 +783,12 @@ namespace SlopWorld
         {
             TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
             {
-                new FloatMenuOption(LinkLabel(ShortcutLink.Project),
-                    () => _s.Link = ShortcutLink.Project),
-                new FloatMenuOption(LinkLabel(ShortcutLink.Temp),
-                    () => _s.Link = ShortcutLink.Temp),
-                new FloatMenuOption(LinkLabel(ShortcutLink.Ask),
-                    () => _s.Link = ShortcutLink.Ask),
+                new FloatMenuOption(LinkLabel(LibraryItemLink.Project),
+                    () => _s.Link = LibraryItemLink.Project),
+                new FloatMenuOption(LinkLabel(LibraryItemLink.Temp),
+                    () => _s.Link = LibraryItemLink.Temp),
+                new FloatMenuOption(LinkLabel(LibraryItemLink.Ask),
+                    () => _s.Link = LibraryItemLink.Ask),
             }));
         }
 
@@ -760,13 +797,13 @@ namespace SlopWorld
             TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption("Prompt - say something to an agent",
-                    () => _s.Kind = ShortcutKind.Prompt),
+                    () => _s.Kind = LibraryItemKind.Prompt),
                 new FloatMenuOption("Shell - run a command",
-                    () => _s.Kind = ShortcutKind.Shell),
+                    () => _s.Kind = LibraryItemKind.Shell),
                 new FloatMenuOption("Breadcrumb - append to the first prompt",
-                    () => { _s.Kind = ShortcutKind.Breadcrumb; _s.Link = ShortcutLink.Project; _s.Project = ""; }),
+                    () => { _s.Kind = LibraryItemKind.Breadcrumb; _s.Link = LibraryItemLink.Project; _s.Project = ""; }),
                 new FloatMenuOption("File action - run on a Files row",
-                    () => { _s.Kind = ShortcutKind.FileAction; _s.Link = ShortcutLink.Project; _s.Project = ""; _s.Text = ""; }),
+                    () => { _s.Kind = LibraryItemKind.FileAction; _s.Link = LibraryItemLink.Project; _s.Project = ""; _s.Text = ""; }),
             }));
         }
 
@@ -791,7 +828,7 @@ namespace SlopWorld
 
             // Only where it means something: in temp mode the project is the sandbox to copy,
             // and copying nobody's is a real answer.
-            if (_s.Link == ShortcutLink.Temp)
+            if (_s.Link == LibraryItemLink.Temp)
                 options.Insert(0, new FloatMenuOption("None", () => _s.Project = ""));
 
             options.Add(new FloatMenuOption("New project...",
@@ -804,31 +841,31 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty((_s.Name ?? "").Trim()))
             {
-                Messages.Message("SlopWorld: a shortcut needs a name.",
+                Messages.Message("SlopWorld: a library entry needs a name.",
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }
-            if (_s.Kind != ShortcutKind.Breadcrumb && _s.Kind != ShortcutKind.FileAction && _s.Link == ShortcutLink.Project &&
+            if (_s.Kind != LibraryItemKind.Breadcrumb && _s.Kind != LibraryItemKind.FileAction && _s.Link == LibraryItemLink.Project &&
                 string.IsNullOrEmpty((_s.Project ?? "").Trim()))
             {
                 Messages.Message("SlopWorld: pick a project, or a way to choose one.",
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }
-            if (_s.Kind == ShortcutKind.FileAction && string.IsNullOrEmpty((_s.Command ?? "").Trim()))
+            if (_s.Kind == LibraryItemKind.FileAction && string.IsNullOrEmpty((_s.Command ?? "").Trim()))
             {
                 Messages.Message("SlopWorld: a file action needs a command.",
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }
-            if (_s.Kind != ShortcutKind.FileAction && string.IsNullOrEmpty((_s.Text ?? "").Trim()))
+            if (_s.Kind != LibraryItemKind.FileAction && string.IsNullOrEmpty((_s.Text ?? "").Trim()))
             {
-                Messages.Message("SlopWorld: a shortcut needs something to send.",
+                Messages.Message("SlopWorld: a library entry needs something to send.",
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }
 
-            SessionHub.Instance.SaveShortcut(_s, _isNew, _origName,
+            SessionHub.Instance.SaveLibraryItem(_s, _isNew, _origName,
                 ok: () => Close(),
                 fail: msg => Messages.Message($"SlopWorld: {msg}",
                     MessageTypeDefOf.RejectInput, false));

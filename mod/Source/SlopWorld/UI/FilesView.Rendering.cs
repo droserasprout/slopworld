@@ -222,8 +222,8 @@ namespace SlopWorld
         public static void AddFileActions(List<FloatMenuOption> opts, string project, string path,
             string name, string relative = null)
         {
-            var actions = SessionHub.Instance.Shortcuts
-                .Where(s => s.Kind == ShortcutKind.FileAction)
+            var actions = SessionHub.Instance.Library
+                .Where(s => s.Kind == LibraryItemKind.FileAction)
                 .ToList();
             if (actions.Count == 0) return;
             if (relative == null) relative = ProjectRelative(project, path);
@@ -233,7 +233,7 @@ namespace SlopWorld
         }
 
         static List<FloatMenuOption> FileActionOptions(string project, string path, string name,
-            string relative, List<ShortcutInfo> actions)
+            string relative, List<LibraryItemInfo> actions)
         {
             return actions.Select(action => new FloatMenuOption(action.Name, () =>
             {

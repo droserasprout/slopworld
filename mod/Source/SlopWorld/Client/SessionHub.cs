@@ -5,10 +5,10 @@ namespace SlopWorld
 {
     // The single source of truth for the daemon connection, now a thin coordinator over five
     // focused services: HubTransport owns the socket, TerminalIO and AudioBus push at it,
-    // SessionStore holds the sessions and screens, and HubCatalog holds the projects, shortcuts
-    // and presets. The public surface here is unchanged so the ~40 call sites need not move —
-    // every member delegates to the service that owns it, and Handle routes socket events to
-    // the same stores.
+    // SessionStore holds the sessions and screens, and HubCatalog holds the projects, library items
+    // and presets. The public surface here remains a thin facade over those services — every
+    // member delegates to the service that owns it, and Handle routes socket events to the
+    // same stores.
     public partial class SessionHub
     {
         public static readonly SessionHub Instance = new SessionHub();
@@ -52,7 +52,7 @@ namespace SlopWorld
         public List<TaskInfo> Tasks => _tasks.Tasks;
         public int OpenTasks => _tasks.OpenTasks;
         public List<ProjectInfo> Projects => _catalog.Projects;
-        public List<ShortcutInfo> Shortcuts => _catalog.Shortcuts;
+        public List<LibraryItemInfo> Library => _catalog.Library;
         public List<PresetInfo> Presets => _catalog.Presets;
         public List<CommandInfo> Commands => _catalog.Commands;
         public string Status => _transport.Status;
@@ -65,7 +65,7 @@ namespace SlopWorld
         public bool TryScrollScreen(string name, out ScreenBuf screen) =>
             _sessions.TryScrollScreen(name, out screen);
         public ProjectInfo Project(string name) => _catalog.Project(name);
-        public ShortcutInfo Shortcut(string name) => _catalog.Shortcut(name);
+        public LibraryItemInfo LibraryItem(string name) => _catalog.LibraryItem(name);
         public CommandInfo Command(string name) => _catalog.Command(name);
 
         // ---- connection ----------------------------------------------------------------
@@ -159,10 +159,10 @@ namespace SlopWorld
                                  Action<string> fail = null) =>
             _sessions.RunHostShell(project, started, fail);
 
-        public void RunShortcut(string name, Action<string> started, Action<string> fail = null,
+        public void RunLibraryItem(string name, Action<string> started, Action<string> fail = null,
                                 string project = null, bool temp = false,
                                 List<string> randomTips = null) =>
-            _sessions.RunShortcut(name, started, fail, project, temp, randomTips);
+            _sessions.RunLibraryItem(name, started, fail, project, temp, randomTips);
 
         public void Start(string name, Action<string> fail = null) => _sessions.Start(name, fail);
         public void Stop(string name, Action<string> fail = null) => _sessions.Stop(name, fail);
@@ -185,7 +185,7 @@ namespace SlopWorld
                 ok?.Invoke();
             }, fail);
 
-        // ---- projects, shortcuts, presets ----------------------------------------------
+        // ---- projects, library items, presets ----------------------------------------------
 
         public void RefreshProjects(Action<string> fail = null) => _catalog.RefreshProjects(fail);
 
@@ -196,14 +196,14 @@ namespace SlopWorld
         public void RemoveProject(string name, Action<string> fail = null) =>
             _catalog.RemoveProject(name, fail);
 
-        public void RefreshShortcuts(Action<string> fail = null) => _catalog.RefreshShortcuts(fail);
+        public void RefreshLibrary(Action<string> fail = null) => _catalog.RefreshLibrary(fail);
 
-        public void SaveShortcut(ShortcutInfo s, bool isNew, string origName, Action ok,
+        public void SaveLibraryItem(LibraryItemInfo s, bool isNew, string origName, Action ok,
                                  Action<string> fail) =>
-            _catalog.SaveShortcut(s, isNew, origName, ok, fail);
+            _catalog.SaveLibraryItem(s, isNew, origName, ok, fail);
 
-        public void RemoveShortcut(string name, Action<string> fail = null) =>
-            _catalog.RemoveShortcut(name, fail);
+        public void RemoveLibraryItem(string name, Action<string> fail = null) =>
+            _catalog.RemoveLibraryItem(name, fail);
 
         public void LoadPresets(Action ok = null, Action<string> fail = null) =>
             _catalog.LoadPresets(ok, fail);

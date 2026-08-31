@@ -354,8 +354,8 @@ namespace SlopWorld
             return slash < 0 ? path : path.Substring(slash + 1);
         }
 
-        static List<string> AllBreadcrumbs() => SessionHub.Instance.Shortcuts
-            .Where(s => s.Kind == ShortcutKind.Breadcrumb)
+        static List<string> AllBreadcrumbs() => SessionHub.Instance.Library
+            .Where(s => s.Kind == LibraryItemKind.Breadcrumb)
             .Select(s => s.Name)
             .ToList();
 

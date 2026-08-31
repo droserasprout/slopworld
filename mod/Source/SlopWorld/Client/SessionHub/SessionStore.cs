@@ -174,7 +174,7 @@ namespace SlopWorld
             SlopClient.Get($"/api/sessions/{HubWire.Esc(name)}/cwd",
                 j => done?.Invoke(j["path"].AsString()), fail);
 
-        // Run an ephemeral shell/prompt without creating a shortcut; refresh Sessions before
+        // Run an ephemeral shell/prompt without creating a library item; refresh Sessions before
         // the callback so a newly opened pane is visible next frame.
         public void Run(string project, string command, string label,
                         Action<string> started, Action<string> fail = null,
@@ -203,10 +203,10 @@ namespace SlopWorld
         // The sessions list is fetched again before the answer is handed on: a terminal opened
         // on a session this end has never heard of closes itself next frame. `project` and
         // `temp` are the same message whether they answer an `ask` entry or override one.
-        public void RunShortcut(string name, Action<string> started, Action<string> fail = null,
+        public void RunLibraryItem(string name, Action<string> started, Action<string> fail = null,
                                 string project = null, bool temp = false,
                                 List<string> randomTips = null) =>
-            SlopClient.Post($"/api/shortcuts/{HubWire.Esc(name)}/run",
+            SlopClient.Post($"/api/library/{HubWire.Esc(name)}/run",
                 "{" + $"\"project\":{(string.IsNullOrEmpty(project) ? "null" : JVal.Q(project))}," +
                 $"\"temp\":{JVal.B(temp)}," +
                 $"\"random_tips\":{HubWire.Tips(randomTips)}" + "}",

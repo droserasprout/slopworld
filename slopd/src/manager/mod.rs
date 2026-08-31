@@ -4,6 +4,6 @@ mod caps;
 mod capture;
 mod config;
 mod desktop;
+mod library;
 mod sessions;
-mod shortcuts;
 mod workers;

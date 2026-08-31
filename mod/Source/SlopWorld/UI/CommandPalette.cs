@@ -98,7 +98,7 @@ namespace SlopWorld
 
             SessionHub.Instance.Refresh();
             SessionHub.Instance.RefreshProjects();
-            SessionHub.Instance.RefreshShortcuts();
+            SessionHub.Instance.RefreshLibrary();
             SessionHub.Instance.LoadPresets();
 
             Find.WindowStack.Add(new CommandPalette());
@@ -136,9 +136,9 @@ namespace SlopWorld
                 Func<List<SubOption>> filter, Action<ProjectInfo> action, Func<bool> enabled = null) =>
                 For(id, label, "Project", filter, v => SessionHub.Instance.Project(v), action, enabled);
 
-            public static CommandDef ForShortcut(string id, string label,
-                Func<List<SubOption>> filter, Action<ShortcutInfo> action, Func<bool> enabled = null) =>
-                For(id, label, "Shortcut", filter, v => SessionHub.Instance.Shortcut(v), action, enabled);
+            public static CommandDef ForLibraryItem(string id, string label,
+                Func<List<SubOption>> filter, Action<LibraryItemInfo> action, Func<bool> enabled = null) =>
+                For(id, label, "Library", filter, v => SessionHub.Instance.LibraryItem(v), action, enabled);
 
             static CommandDef For<T>(string id, string label, string group,
                 Func<List<SubOption>> filter, Func<string, T> resolve, Action<T> action,
@@ -329,10 +329,10 @@ namespace SlopWorld
             return list;
         }
 
-        static List<SubOption> ShortcutsSub()
+        static List<SubOption> LibraryItemsSub()
         {
-            var list = SessionHub.Instance.Shortcuts
-                .Where(s => s.Kind != ShortcutKind.Breadcrumb && s.Kind != ShortcutKind.FileAction)
+            var list = SessionHub.Instance.Library
+                .Where(s => s.Kind != LibraryItemKind.Breadcrumb && s.Kind != LibraryItemKind.FileAction)
                 .Select(s => new SubOption
                 {
                     Label = $"{s.Name}  ({s.Kind.ToString().ToLower()})",
@@ -341,13 +341,13 @@ namespace SlopWorld
                 .ToList();
 
             if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no shortcuts)", Enabled = false });
+                list.Add(new SubOption { Label = "(no library entries)", Enabled = false });
             return list;
         }
 
-        static List<SubOption> ShortcutManageSub()
+        static List<SubOption> LibraryManageSub()
         {
-            var list = SessionHub.Instance.Shortcuts
+            var list = SessionHub.Instance.Library
                 .Where(s => !s.Builtin)
                 .Select(s => new SubOption
                 {
@@ -357,20 +357,20 @@ namespace SlopWorld
                 .ToList();
 
             if (list.Count == 0)
-                list.Add(new SubOption { Label = "(no editable shortcuts)", Enabled = false });
+                list.Add(new SubOption { Label = "(no editable library entries)", Enabled = false });
             return list;
         }
 
-        static List<SubOption> NewShortcutSub() => new List<SubOption>
+        static List<SubOption> NewLibraryItemSub() => new List<SubOption>
         {
-            new SubOption { Label = "Prompt", Select = () => NewShortcut(ShortcutKind.Prompt) },
-            new SubOption { Label = "Breadcrumb", Select = () => NewShortcut(ShortcutKind.Breadcrumb) },
-            new SubOption { Label = "Shell", Select = () => NewShortcut(ShortcutKind.Shell) },
-            new SubOption { Label = "File Action", Select = () => NewShortcut(ShortcutKind.FileAction) },
+            new SubOption { Label = "Prompt", Select = () => NewLibraryItem(LibraryItemKind.Prompt) },
+            new SubOption { Label = "Breadcrumb", Select = () => NewLibraryItem(LibraryItemKind.Breadcrumb) },
+            new SubOption { Label = "Shell", Select = () => NewLibraryItem(LibraryItemKind.Shell) },
+            new SubOption { Label = "File Action", Select = () => NewLibraryItem(LibraryItemKind.FileAction) },
         };
 
-        static void NewShortcut(ShortcutKind kind) =>
-            TerminalWindow.OpenOverPane(new EditShortcutDialog(kind));
+        static void NewLibraryItem(LibraryItemKind kind) =>
+            TerminalWindow.OpenOverPane(new EditLibraryItemDialog(kind));
 
         static List<SubOption> HostShellSub()
         {
@@ -591,22 +591,22 @@ namespace SlopWorld
             Resize();
         }
 
-        static void AskWhere(ShortcutInfo info)
+        static void AskWhere(LibraryItemInfo info)
         {
             var name = info.Name;
             var options = SessionHub.Instance.Projects
                 .Select(p => new FloatMenuOption($"{p.Name}  -  {p.Dir}",
-                    () => RunShortcutWith(name, p.Name)))
+                    () => RunLibraryItemWith(name, p.Name)))
                 .ToList();
             options.Add(new FloatMenuOption(
                 $"A temporary project under {ProjectInfo.TempRoot}",
-                () => RunShortcutWith(name, null, true)));
+                () => RunLibraryItemWith(name, null, true)));
             Find.WindowStack.Add(new SlopMenu(options));
         }
 
-        static void RunShortcutWith(string name, string project = null, bool temp = false)
+        static void RunLibraryItemWith(string name, string project = null, bool temp = false)
         {
-            SessionHub.Instance.RunShortcut(name,
+            SessionHub.Instance.RunLibraryItem(name,
                 session => { TerminalWindow.Open(session); }, SlopWidgets.Fail, project, temp,
                 Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch));
         }

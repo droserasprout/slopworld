@@ -21,8 +21,8 @@ namespace SlopWorld
                     _catalog.ApplyProjects(ev);
                     break;
 
-                case "shortcuts":
-                    _catalog.ApplyShortcuts(ev);
+                case "library":
+                    _catalog.ApplyLibrary(ev);
                     break;
 
                 case "jukebox":

@@ -25,8 +25,8 @@ pub struct Config {
     pub sessions: Vec<SessionCfg>,
     /// One-shot errands, run by a temporary agent that exists only as long as its
     /// process does.
-    #[serde(default, rename = "shortcut")]
-    pub shortcuts: Vec<ShortcutCfg>,
+    #[serde(default, rename = "library")]
+    pub library: Vec<LibraryItemCfg>,
     /// Host shells opened from a project heading. These are deliberately separate from
     /// `session`: a host terminal is allowed only through the explicit host-shell route and
     /// never becomes an agent merely because a config entry was edited.
@@ -291,7 +291,7 @@ impl Default for Daemon {
 pub struct Defaults {
     /// What an agent that names no command of its own runs.
     pub agent: String,
-    /// What a shell errand runs. Here rather than in every shortcut: which shell this
+    /// What a shell errand runs. Here rather than in every library item: which shell this
     /// machine has is the machine's answer.
     #[serde(default = "default_shell")]
     pub shell: String,
@@ -531,7 +531,7 @@ pub struct ProjectCfg {
     pub dir: String,
     /// The directory is `TEMP_ROOT/<name>`, coined when the entry is written and made when
     /// the first agent starts: what is temporary is the *ground*, not the entry. The other
-    /// kind is never written here at all; see `ShortcutLink::Temp`.
+    /// kind is never written here at all; see `LibraryItemLink::Temp`.
     #[serde(default)]
     pub temp: bool,
     /// Sandbox presets, by name. One this build has no file for is ignored with a warning
@@ -680,7 +680,7 @@ impl Default for SessionCfg {
 /// field, or a shell's prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum ShortcutKind {
+pub enum LibraryItemKind {
     /// Claude Code unless the entry says otherwise, which is what makes it a prompt
     /// rather than a command.
     #[default]
@@ -694,11 +694,11 @@ pub enum ShortcutKind {
     FileAction,
 }
 
-/// The one thing about a shortcut allowed not to be decided in advance.
+/// The one thing about a library item allowed not to be decided in advance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum ShortcutLink {
-    /// The default, because it is what every shortcut written before this existed
+pub enum LibraryItemLink {
+    /// The default, because it is what every library item written before this existed
     /// meant.
     #[default]
     Project,
@@ -712,14 +712,14 @@ pub enum ShortcutLink {
 /// A session template with a line of text attached. Spelled out rather than pointing at an
 /// existing session, which would stop working the day that session was deleted.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ShortcutCfg {
+pub struct LibraryItemCfg {
     /// Labels a button and seeds a colonist's name; the session name derived from it
     /// is sanitised (see `slug`).
     pub name: String,
     #[serde(default)]
-    pub kind: ShortcutKind,
+    pub kind: LibraryItemKind,
     #[serde(default)]
-    pub link: ShortcutLink,
+    pub link: LibraryItemLink,
     /// Read as the place to run when `link` is `project`, as the sandbox to copy when
     /// it is `temp`, and not at all when it is `ask`.
     #[serde(default)]
@@ -731,7 +731,7 @@ pub struct ShortcutCfg {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
     /// Set on the entries the daemon ships. They are never in `config.toml` - the flag rides
-    /// the wire so the GUI can keep them out of the shortcuts table and refuse to edit them,
+    /// the wire so the GUI can keep them out of the library table and refuse to edit them,
     /// while the breadcrumb lists still offer them like any other. Skipped when false so an
     /// ordinary entry's TOML is unchanged.
     #[serde(default, skip_serializing_if = "not_set")]
@@ -740,12 +740,12 @@ pub struct ShortcutCfg {
 
 /// The builtin breadcrumbs, in the order the GUI lists them. `include_str!` is not worth a
 /// file each: unlike a preset these are one string with no table around them.
-pub fn builtin_shortcuts() -> &'static [ShortcutCfg] {
-    static BUILTIN: OnceLock<Vec<ShortcutCfg>> = OnceLock::new();
+pub fn builtin_library_items() -> &'static [LibraryItemCfg] {
+    static BUILTIN: OnceLock<Vec<LibraryItemCfg>> = OnceLock::new();
     BUILTIN.get_or_init(|| {
-        vec![ShortcutCfg {
+        vec![LibraryItemCfg {
             name: "Useful tips".into(),
-            kind: ShortcutKind::Breadcrumb,
+            kind: LibraryItemKind::Breadcrumb,
             text: "___\n\nUseful tips:\n\n- {{ random_tip }}\n- {{ random_tip }}\n\
                    - {{ random_tip }}\n- {{ random_tip }}\n- {{ random_tip }}"
                 .into(),
@@ -885,34 +885,34 @@ impl Config {
 
     /// The file first, so an entry a person wrote shadows a builtin of the same name the way
     /// a user preset replaces a shipped one.
-    pub fn shortcut(&self, name: &str) -> Option<&ShortcutCfg> {
-        self.shortcuts
+    pub fn library_item(&self, name: &str) -> Option<&LibraryItemCfg> {
+        self.library
             .iter()
-            .chain(builtin_shortcuts())
+            .chain(builtin_library_items())
             .find(|s| s.name == name)
     }
 
     /// What a client is shown: the file's entries, then the builtins nothing has shadowed.
-    pub fn shortcuts_all(&self) -> Vec<ShortcutCfg> {
-        let mut all = self.shortcuts.clone();
+    pub fn library_items_all(&self) -> Vec<LibraryItemCfg> {
+        let mut all = self.library.clone();
         all.extend(
-            builtin_shortcuts()
+            builtin_library_items()
                 .iter()
-                .filter(|b| !self.shortcuts.iter().any(|s| s.name == b.name))
+                .filter(|b| !self.library.iter().any(|s| s.name == b.name))
                 .cloned(),
         );
         all
     }
 
     /// A name only the daemon owns: not editable, not deletable, and not in the file.
-    pub fn is_builtin_shortcut(&self, name: &str) -> bool {
-        !self.shortcuts.iter().any(|s| s.name == name)
-            && builtin_shortcuts().iter().any(|b| b.name == name)
+    pub fn is_builtin_library_item(&self, name: &str) -> bool {
+        !self.library.iter().any(|s| s.name == name)
+            && builtin_library_items().iter().any(|b| b.name == name)
     }
 
     /// A commandless prompt uses the `[defaults] agent` preset; explicit presets or command
     /// lines keep their own command. The project may be empty.
-    pub fn session_for(&self, sc: &ShortcutCfg, name: String, project: String) -> SessionCfg {
+    pub fn session_for(&self, sc: &LibraryItemCfg, name: String, project: String) -> SessionCfg {
         let t = crate::presets::table();
         let own = sc
             .command
@@ -923,14 +923,18 @@ impl Config {
 
         let (command, cmd) = match (sc.kind, known, own) {
             (_, Some(preset), _) => (preset.to_string(), None),
-            (ShortcutKind::Prompt, None, Some(line)) => (String::new(), Some(line.to_string())),
-            (ShortcutKind::Prompt, None, None) => (self.command_name(&SessionCfg::default()), None),
+            (LibraryItemKind::Prompt, None, Some(line)) => (String::new(), Some(line.to_string())),
+            (LibraryItemKind::Prompt, None, None) => {
+                (self.command_name(&SessionCfg::default()), None)
+            }
             // The shell preset, so a line typed on the errand still runs in one.
-            (ShortcutKind::Shell, None, line) => (
+            (LibraryItemKind::Shell, None, line) => (
                 self.defaults.shell.trim().to_string(),
                 line.map(str::to_string),
             ),
-            (ShortcutKind::Breadcrumb | ShortcutKind::FileAction, _, _) => (String::new(), None),
+            (LibraryItemKind::Breadcrumb | LibraryItemKind::FileAction, _, _) => {
+                (String::new(), None)
+            }
         };
         SessionCfg {
             name,
@@ -1006,8 +1010,8 @@ impl Config {
         names
             .into_iter()
             .filter_map(|name| {
-                let b = self.shortcut(&name)?;
-                (b.kind == ShortcutKind::Breadcrumb && !b.text.trim().is_empty())
+                let b = self.library_item(&name)?;
+                (b.kind == LibraryItemKind::Breadcrumb && !b.text.trim().is_empty())
                     .then(|| b.text.clone())
             })
             .collect()
@@ -1117,8 +1121,8 @@ pub fn expand(path: &str) -> String {
 mod tests {
     use super::{
         expand, redact_token_text, resolvers_from, temp_dir, Config, DnsConfig, HostTerminalCfg,
-        InstructionsCfg, Limits, NetworkMode, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind,
-        ShortcutLink, TitlePolicy, DEFAULT_INSTRUCTIONS_BREADCRUMB,
+        InstructionsCfg, LibraryItemCfg, LibraryItemKind, LibraryItemLink, Limits, NetworkMode,
+        ProjectCfg, SessionCfg, TitlePolicy, DEFAULT_INSTRUCTIONS_BREADCRUMB,
         DEFAULT_INSTRUCTIONS_MOUNT_PATH, DEFAULT_INSTRUCTIONS_TEMPLATE, TOKEN_REDACTED,
     };
 
@@ -1309,7 +1313,7 @@ mod tests {
 bind = \"127.0.0.1:7717\"
 token = \"s3cr3t\"
 
-[[shortcuts]]
+[[library]]
 name = \"x\"
 token = \"not-a-daemon-token\"
 ";
@@ -1353,34 +1357,34 @@ token = \"not-a-daemon-token\"
     }
 
     #[test]
-    fn shortcuts_become_sessions() {
+    fn library_become_sessions() {
         let cfg = Config::parse(
             r#"
             [defaults]
             agent = "pi"
             shell = "bash"
 
-            [[shortcut]]
+            [[library]]
             name = "review diff"
             project = "slopworld"
             text = "review the working diff"
 
-            [[shortcut]]
+            [[library]]
             name = "tests"
             kind = "shell"
             project = "slopworld"
             text = "make test"
 
-            [[shortcut]]
+            [[library]]
             name = "codex"
             project = "slopworld"
             text = "have a look"
             command = "codex --yolo"
             "#,
         )
-        .expect("shortcuts should parse");
+        .expect("library should parse");
 
-        let sc = cfg.shortcut("review diff").unwrap();
+        let sc = cfg.library_item("review diff").unwrap();
         let prompt = cfg.session_for(sc, "review-diff".into(), sc.project.clone());
         // The preset this machine calls its default, rather than that preset's command.
         assert_eq!(prompt.command, "pi");
@@ -1392,13 +1396,21 @@ token = \"not-a-daemon-token\"
         );
         assert_eq!(prompt.project, "slopworld");
 
-        let shell = cfg.session_for(cfg.shortcut("tests").unwrap(), "tests".into(), "x".into());
+        let shell = cfg.session_for(
+            cfg.library_item("tests").unwrap(),
+            "tests".into(),
+            "x".into(),
+        );
         assert_eq!(shell.command, "bash");
         assert_eq!(cfg.command_of(&shell), "bash");
 
         // A command line rather than a preset name: run as it stands, with only the implicit
         // global base and no agent's state directory.
-        let custom = cfg.session_for(cfg.shortcut("codex").unwrap(), "codex".into(), "x".into());
+        let custom = cfg.session_for(
+            cfg.library_item("codex").unwrap(),
+            "codex".into(),
+            "x".into(),
+        );
         assert_eq!(custom.command, "");
         assert_eq!(cfg.command_of(&custom), "codex --yolo");
         assert_eq!(cfg.sandbox_of(&custom, &Default::default()), vec!["global"]);
@@ -1424,22 +1436,22 @@ token = \"not-a-daemon-token\"
     }
 
     /// An entry written before links existed has to keep meaning what it did: a
-    /// shortcut that names a project runs there.
+    /// A library item that names a project runs there.
     #[test]
-    fn shortcut_links_round_trip_and_default_to_the_project() {
+    fn library_item_links_round_trip_and_default_to_the_project() {
         let cfg = Config::parse(
             r#"
-            [[shortcut]]
+            [[library]]
             name = "old"
             project = "slopworld"
             text = "carry on"
 
-            [[shortcut]]
+            [[library]]
             name = "scratch"
             link = "temp"
             text = "have a go"
 
-            [[shortcut]]
+            [[library]]
             name = "wherever"
             link = "ask"
             text = "you decide"
@@ -1447,13 +1459,28 @@ token = \"not-a-daemon-token\"
         )
         .expect("links should parse");
 
-        assert_eq!(cfg.shortcut("old").unwrap().link, ShortcutLink::Project);
-        assert_eq!(cfg.shortcut("scratch").unwrap().link, ShortcutLink::Temp);
-        assert_eq!(cfg.shortcut("wherever").unwrap().link, ShortcutLink::Ask);
+        assert_eq!(
+            cfg.library_item("old").unwrap().link,
+            LibraryItemLink::Project
+        );
+        assert_eq!(
+            cfg.library_item("scratch").unwrap().link,
+            LibraryItemLink::Temp
+        );
+        assert_eq!(
+            cfg.library_item("wherever").unwrap().link,
+            LibraryItemLink::Ask
+        );
 
         let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
-        assert_eq!(back.shortcut("scratch").unwrap().link, ShortcutLink::Temp);
-        assert_eq!(back.shortcut("wherever").unwrap().link, ShortcutLink::Ask);
+        assert_eq!(
+            back.library_item("scratch").unwrap().link,
+            LibraryItemLink::Temp
+        );
+        assert_eq!(
+            back.library_item("wherever").unwrap().link,
+            LibraryItemLink::Ask
+        );
     }
 
     /// The directory under it is coined; the point is that nobody typed it.
@@ -1530,15 +1557,15 @@ token = \"not-a-daemon-token\"
         );
     }
 
-    /// A shortcut that came back as a prompt would run the wrong thing in the right
+    /// A library item that came back as a prompt would run the wrong thing in the right
     /// place.
     #[test]
-    fn shortcuts_round_trip_through_toml() {
+    fn library_round_trip_through_toml() {
         let mut cfg = Config::default();
-        cfg.shortcuts.push(ShortcutCfg {
+        cfg.library.push(LibraryItemCfg {
             name: "tests".into(),
-            kind: ShortcutKind::Shell,
-            link: ShortcutLink::Project,
+            kind: LibraryItemKind::Shell,
+            link: LibraryItemLink::Project,
             project: "slopworld".into(),
             text: "make test".into(),
             command: None,
@@ -1546,8 +1573,10 @@ token = \"not-a-daemon-token\"
         });
 
         let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
-        let sc = back.shortcut("tests").expect("shortcut should survive");
-        assert_eq!(sc.kind, ShortcutKind::Shell);
+        let sc = back
+            .library_item("tests")
+            .expect("library item should survive");
+        assert_eq!(sc.kind, LibraryItemKind::Shell);
         assert_eq!(sc.text, "make test");
         assert!(sc.command.is_none());
     }
@@ -1634,17 +1663,17 @@ token = \"not-a-daemon-token\"
     #[test]
     fn the_shipped_breadcrumb_is_offered_but_never_written_down() {
         let cfg = Config::default();
-        assert!(cfg.shortcuts.is_empty());
+        assert!(cfg.library.is_empty());
 
         let sc = cfg
-            .shortcut("Useful tips")
+            .library_item("Useful tips")
             .expect("shipped with the daemon");
-        assert_eq!(sc.kind, ShortcutKind::Breadcrumb);
+        assert_eq!(sc.kind, LibraryItemKind::Breadcrumb);
         assert!(sc.builtin);
         assert_eq!(sc.text.matches("{{ random_tip }}").count(), 5);
-        assert!(cfg.is_builtin_shortcut("Useful tips"));
+        assert!(cfg.is_builtin_library_item("Useful tips"));
         assert!(cfg
-            .shortcuts_all()
+            .library_items_all()
             .iter()
             .any(|s| s.name == "Useful tips" && s.builtin));
 
@@ -1653,7 +1682,7 @@ token = \"not-a-daemon-token\"
         assert!(!text.contains("Useful tips"));
         let back = Config::parse(&text).unwrap();
         assert_eq!(
-            back.shortcuts_all()
+            back.library_items_all()
                 .iter()
                 .filter(|s| s.name == "Useful tips")
                 .count(),
@@ -1666,16 +1695,16 @@ token = \"not-a-daemon-token\"
     #[test]
     fn a_written_entry_shadows_the_builtin_it_is_named_after() {
         let mut cfg = Config::default();
-        cfg.shortcuts.push(ShortcutCfg {
+        cfg.library.push(LibraryItemCfg {
             name: "Useful tips".into(),
-            kind: ShortcutKind::Breadcrumb,
+            kind: LibraryItemKind::Breadcrumb,
             text: "mine".into(),
             ..Default::default()
         });
 
-        assert_eq!(cfg.shortcut("Useful tips").unwrap().text, "mine");
-        assert!(!cfg.is_builtin_shortcut("Useful tips"));
-        assert_eq!(cfg.shortcuts_all().len(), 1);
+        assert_eq!(cfg.library_item("Useful tips").unwrap().text, "mine");
+        assert!(!cfg.is_builtin_library_item("Useful tips"));
+        assert_eq!(cfg.library_items_all().len(), 1);
     }
 
     /// Project first, then the agent's own, each name once however many times it is asked
@@ -1683,16 +1712,16 @@ token = \"not-a-daemon-token\"
     #[test]
     fn breadcrumbs_resolve_in_order_and_only_once() {
         let mut cfg = Config::default();
-        cfg.shortcuts.push(ShortcutCfg {
+        cfg.library.push(LibraryItemCfg {
             name: "house rules".into(),
-            kind: ShortcutKind::Breadcrumb,
+            kind: LibraryItemKind::Breadcrumb,
             text: "never commit".into(),
             ..Default::default()
         });
         // Not a breadcrumb, so an attachment naming it resolves to nothing.
-        cfg.shortcuts.push(ShortcutCfg {
+        cfg.library.push(LibraryItemCfg {
             name: "tests".into(),
-            kind: ShortcutKind::Shell,
+            kind: LibraryItemKind::Shell,
             text: "make test".into(),
             ..Default::default()
         });

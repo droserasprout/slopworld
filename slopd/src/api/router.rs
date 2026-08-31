@@ -48,12 +48,12 @@ pub(crate) fn router(m: Mgr) -> Router {
             "/api/projects/:name",
             get(one_project).put(update_project).delete(destroy_project),
         )
-        .route("/api/shortcuts", get(list_shortcuts).post(create_shortcut))
+        .route("/api/library", get(list_library).post(create_library_item))
         .route(
-            "/api/shortcuts/:name",
-            put(update_shortcut).delete(destroy_shortcut),
+            "/api/library/:name",
+            put(update_library_item).delete(destroy_library_item),
         )
-        .route("/api/shortcuts/:name/run", post(run_shortcut))
+        .route("/api/library/:name/run", post(run_library_item))
         .route("/api/run", post(run))
         .route("/api/workers", post(spawn_worker))
         .route("/api/file-action", post(file_action))

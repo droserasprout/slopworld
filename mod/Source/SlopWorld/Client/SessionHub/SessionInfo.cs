@@ -65,7 +65,7 @@ namespace SlopWorld
         // terminal reads to know whether a keystroke is worth carrying tips for.
         public bool BreadcrumbsPending;
 
-        // A shortcut's errand or a tmux session started by hand: it leaves the colony when its
+        // A library item's errand or a tmux session started by hand: it leaves the colony when its
         // process exits, and there is no entry to edit or delete. Durable host tabs also use
         // the ghost-row presentation, but are identified separately by Host.
         public bool Ephemeral;

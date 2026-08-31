@@ -161,8 +161,8 @@
   </KeyBindingDef>
 
   <KeyBindingDef>
-    <defName>SlopSidebarShortcuts</defName>
-    <label>Sidebar: shortcuts view</label>
+    <defName>SlopSidebarLibrary</defName>
+    <label>Sidebar: library view</label>
     <category>SlopNavigation</category>
     <defaultKeyCodeA>F7</defaultKeyCodeA>
   </KeyBindingDef>

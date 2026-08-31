@@ -5,7 +5,7 @@
 null` means the window draws an agent, host shell or pager directly.
 
 The current views are `OptionsView`, `SessionsView`, `ProjectsView` and
-`ShortcutsView`. `TerminalWindow.Showing` owns the one active body;
+`LibraryView`. `TerminalWindow.Showing` owns the one active body;
 `ToggleContent<T>` opens/switches it and `ShowingAs<T>` queries it.
 
 - Opening a view over a pane keeps the session; `Leave` restores the pane or closes

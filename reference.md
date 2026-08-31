@@ -153,11 +153,11 @@ Routes declared by the daemon's Axum router. `scoped` routes are mounted in the 
 | `POST` | `/api/sessions/:name/start` | `start` | `scoped` | [`slopd/src/api/router.rs:24`](./slopd/src/api/router.rs#L24) |
 | `POST` | `/api/sessions/:name/state/reset` | `reset_state` | `scoped` | [`slopd/src/api/router.rs:28`](./slopd/src/api/router.rs#L28) |
 | `POST` | `/api/sessions/:name/stop` | `stop` | `scoped` | [`slopd/src/api/router.rs:25`](./slopd/src/api/router.rs#L25) |
-| `GET` | `/api/shortcuts` | `list_shortcuts` | `root-only` | [`slopd/src/api/router.rs:50`](./slopd/src/api/router.rs#L50) |
-| `POST` | `/api/shortcuts` | `create_shortcut` | `root-only` | [`slopd/src/api/router.rs:50`](./slopd/src/api/router.rs#L50) |
-| `DELETE` | `/api/shortcuts/:name` | `destroy_shortcut` | `root-only` | [`slopd/src/api/router.rs:51`](./slopd/src/api/router.rs#L51) |
-| `PUT` | `/api/shortcuts/:name` | `update_shortcut` | `root-only` | [`slopd/src/api/router.rs:51`](./slopd/src/api/router.rs#L51) |
-| `POST` | `/api/shortcuts/:name/run` | `run_shortcut` | `root-only` | [`slopd/src/api/router.rs:55`](./slopd/src/api/router.rs#L55) |
+| `GET` | `/api/library` | `list_library` | `root-only` | [`slopd/src/api/router.rs:50`](./slopd/src/api/router.rs#L50) |
+| `POST` | `/api/library` | `create_library_item` | `root-only` | [`slopd/src/api/router.rs:50`](./slopd/src/api/router.rs#L50) |
+| `DELETE` | `/api/library/:name` | `destroy_library_item` | `root-only` | [`slopd/src/api/router.rs:51`](./slopd/src/api/router.rs#L51) |
+| `PUT` | `/api/library/:name` | `update_library_item` | `root-only` | [`slopd/src/api/router.rs:51`](./slopd/src/api/router.rs#L51) |
+| `POST` | `/api/library/:name/run` | `run_library_item` | `root-only` | [`slopd/src/api/router.rs:55`](./slopd/src/api/router.rs#L55) |
 | `GET` | `/api/state` | `stored_states` | `root-only` | [`slopd/src/api/router.rs:61`](./slopd/src/api/router.rs#L61) |
 | `DELETE` | `/api/state/:kind/:key` | `delete_stored_state` | `root-only` | [`slopd/src/api/router.rs:62`](./slopd/src/api/router.rs#L62) |
 | `POST` | `/api/state/trash/:key/restore` | `restore_stored_state` | `root-only` | [`slopd/src/api/router.rs:63`](./slopd/src/api/router.rs#L63) |

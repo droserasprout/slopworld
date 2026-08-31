@@ -23,6 +23,6 @@ necessary for pixel-snapped `Slab` corners, the hardware `DeadCursor`, robot fac
 and the menu background.
 
 Notable aliases: `gear` serves options/config, `eye` serves hidden/view, `debug-stop`
-is the stop icon, `circle-filled` is the state dot, `symbol-event` is shortcuts,
+is the stop icon, `circle-filled` is the state dot, `symbol-event` is the Library icon,
 `text-size` is type, and `credit-card` is usage. `RobotFace_south` is a pawn
 faceplate, not a sidebar icon; `FileIcons` is a separate Material Icon Theme bake.

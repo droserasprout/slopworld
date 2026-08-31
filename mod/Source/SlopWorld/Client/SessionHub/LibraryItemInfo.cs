@@ -12,11 +12,11 @@ namespace SlopWorld
     // The agent it lands is temporary and never written to config.toml, so what is saved is
     // the errand. Spelled out rather than pointing at an existing agent, which would stop
     // working the day that agent was deleted.
-    public class ShortcutInfo
+    public class LibraryItemInfo
     {
         public string Name = "";
-        public ShortcutKind Kind = ShortcutKind.Prompt;
-        public ShortcutLink Link = ShortcutLink.Project;
+        public LibraryItemKind Kind = LibraryItemKind.Prompt;
+        public LibraryItemLink Link = LibraryItemLink.Project;
         // Where it runs when Link is Project, the sandbox a fresh scratch project copies
         // when it is Temp, and unread when it is Ask.
         public string Project = "";
@@ -26,16 +26,16 @@ namespace SlopWorld
         public string Command = "";
 
         // Shipped with the daemon rather than written in config.toml: it cannot be edited or
-        // deleted, and the shortcuts table leaves it out. The breadcrumb lists still offer it,
+        // deleted, and the library table leaves it out. The breadcrumb lists still offer it,
         // which is the only place a shipped entry is meant to be seen.
         public bool Builtin;
 
-        public static ShortcutInfo FromJson(JVal j) => new ShortcutInfo
+        public static LibraryItemInfo FromJson(JVal j) => new LibraryItemInfo
         {
             Name = j["name"].AsString(),
-            Kind = j["kind"].AsString() == "shell" ? ShortcutKind.Shell :
-                   j["kind"].AsString() == "breadcrumb" ? ShortcutKind.Breadcrumb :
-                   j["kind"].AsString() == "fa" ? ShortcutKind.FileAction : ShortcutKind.Prompt,
+            Kind = j["kind"].AsString() == "shell" ? LibraryItemKind.Shell :
+                   j["kind"].AsString() == "breadcrumb" ? LibraryItemKind.Breadcrumb :
+                   j["kind"].AsString() == "fa" ? LibraryItemKind.FileAction : LibraryItemKind.Prompt,
             Link = ParseLink(j["link"].AsString()),
             Project = j["project"].AsString(),
             Text = j["text"].AsString(),
@@ -45,23 +45,23 @@ namespace SlopWorld
 
         // An unknown link reads as Project, the way an unknown state reads as Down: a version
         // skew has to stay survivable.
-        public static ShortcutLink ParseLink(string s)
+        public static LibraryItemLink ParseLink(string s)
         {
             switch (s)
             {
-                case "temp": return ShortcutLink.Temp;
-                case "ask": return ShortcutLink.Ask;
-                default: return ShortcutLink.Project;
+                case "temp": return LibraryItemLink.Temp;
+                case "ask": return LibraryItemLink.Ask;
+                default: return LibraryItemLink.Project;
             }
         }
 
-        public static string LinkName(ShortcutLink l) =>
-            l == ShortcutLink.Temp ? "temp" : l == ShortcutLink.Ask ? "ask" : "project";
+        public static string LinkName(LibraryItemLink l) =>
+            l == LibraryItemLink.Temp ? "temp" : l == LibraryItemLink.Ask ? "ask" : "project";
 
-        static string KindName(ShortcutKind k) =>
-            k == ShortcutKind.Shell ? "shell" :
-            k == ShortcutKind.Breadcrumb ? "breadcrumb" :
-            k == ShortcutKind.FileAction ? "fa" : "prompt";
+        static string KindName(LibraryItemKind k) =>
+            k == LibraryItemKind.Shell ? "shell" :
+            k == LibraryItemKind.Breadcrumb ? "breadcrumb" :
+            k == LibraryItemKind.FileAction ? "fa" : "prompt";
 
         public string ToJson() =>
             "{" +
@@ -71,7 +71,7 @@ namespace SlopWorld
             $"\"project\":{JVal.Q(Project)},\"text\":{JVal.Q(Text)}," +
             $"\"command\":{(string.IsNullOrEmpty((Command ?? "").Trim()) ? "null" : JVal.Q(Command))}}}";
 
-        public ShortcutInfo Copy() => new ShortcutInfo
+        public LibraryItemInfo Copy() => new LibraryItemInfo
         {
             Name = Name,
             Kind = Kind,

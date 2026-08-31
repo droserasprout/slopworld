@@ -23,7 +23,7 @@ are written when the Settings view closes.
 Daemon-backed pages stage changes until **Save**. The save validates the values, patches the
 daemon, and rereads the page. Raw `config.toml` edits are parsed and replaced atomically.
 
-Preset, agent, project, and shortcut editors have their own Save action. Running agents keep
+Preset, agent, project, and library item editors have their own Save action. Running agents keep
 their current sandbox until they are restarted; startup-only daemon values such as the
 listener bind address require a daemon restart.
 

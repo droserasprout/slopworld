@@ -58,13 +58,13 @@ namespace SlopWorld
 
         public static Texture2D Git => Get("git");
 
-        public static Texture2D Shortcuts => Get("shortcuts");
+        public static Texture2D Library => Get("library");
 
         // Tasks are a mailbox, and the existing checked-list glyph says that more clearly than
-        // borrowing the shortcut lightning or the agent robot for another kind of work.
+        // borrowing the Library lightning or the agent robot for another kind of work.
         public static Texture2D Tasks => Check;
 
-        // The options column's Keyboard row. Not the lightning of Shortcuts: that one is
+        // The options column's Keyboard row. Not the lightning of Library: that one is
         // the sidebar's errands, and lending it to key bindings was the tab being read as
         // the errand list.
         public static Texture2D Keyboard => Get("keyboard");

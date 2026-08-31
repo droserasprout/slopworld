@@ -6,7 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The host's durable task board, kept in the sidebar beside the sessions and shortcuts.
+    // The host's durable task board, kept in the sidebar beside the sessions and Library.
     // Rows are deliberately compact: the full body and actions live in TaskDetailDialog.
     public static class TasksView
     {

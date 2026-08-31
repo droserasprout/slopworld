@@ -9,7 +9,7 @@ use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 
-use crate::config::{ProjectCfg, SessionCfg, ShortcutCfg};
+use crate::config::{LibraryItemCfg, ProjectCfg, SessionCfg};
 use crate::grant::{Cap, Level};
 use crate::session::RunWhere;
 
@@ -382,38 +382,38 @@ pub(super) async fn update_project(
     ok_json(m.update_project(&name, p).await)
 }
 
-root_action!(destroy_project => remove_project, destroy_shortcut => remove_shortcut);
+root_action!(destroy_project => remove_project, destroy_library_item => remove_library_item);
 
-pub(super) async fn list_shortcuts(State(m): State<Mgr>) -> ApiResult {
-    Ok(Json(json!({ "shortcuts": m.shortcuts().await })))
+pub(super) async fn list_library(State(m): State<Mgr>) -> ApiResult {
+    Ok(Json(json!({ "library": m.library().await })))
 }
 
-pub(super) async fn create_shortcut(
+pub(super) async fn create_library_item(
     State(m): State<Mgr>,
-    Json(sc): Json<ShortcutCfg>,
+    Json(sc): Json<LibraryItemCfg>,
 ) -> ApiResult {
-    ok_json(m.add_shortcut(sc).await)
+    ok_json(m.add_library_item(sc).await)
 }
 
-pub(super) async fn update_shortcut(
+pub(super) async fn update_library_item(
     State(m): State<Mgr>,
     Path(name): Path<String>,
-    Json(sc): Json<ShortcutCfg>,
+    Json(sc): Json<LibraryItemCfg>,
 ) -> ApiResult {
-    ok_json(m.update_shortcut(&name, sc).await)
+    ok_json(m.update_library_item(&name, sc).await)
 }
 
 /// Answers with the temporary agent's name as soon as it is up; the text lands well past the
 /// point this client would have given up waiting. The body says where to run -
 /// `{"project":"..."}` or `{"temp":true}` - and `Option<Json<_>>` is so a bodyless curl still
 /// runs the errands that already know.
-pub(super) async fn run_shortcut(
+pub(super) async fn run_library_item(
     State(m): State<Mgr>,
     Path(name): Path<String>,
     want: Option<Json<RunWhere>>,
 ) -> ApiResult {
     let session = m
-        .run_shortcut(&name, want.map(|Json(w)| w).unwrap_or_default())
+        .run_library_item(&name, want.map(|Json(w)| w).unwrap_or_default())
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "ok": true, "session": session })))
@@ -438,7 +438,7 @@ pub(super) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResul
     // `$SHELL` on the host - and saying so again here would be the caller guessing at this
     // machine's answer. Every other kind has to say: a prompt with no command is an agent
     // nobody named.
-    if command.is_empty() && q.kind != crate::config::ShortcutKind::Shell {
+    if command.is_empty() && q.kind != crate::config::LibraryItemKind::Shell {
         return Err(err(
             StatusCode::BAD_REQUEST,
             "an errand must say what to run",
@@ -459,10 +459,10 @@ pub(super) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResul
         "" => "run".to_string(),
         l => l.to_string(),
     };
-    let sc = ShortcutCfg {
+    let sc = LibraryItemCfg {
         name: label,
         kind: q.kind,
-        link: crate::config::ShortcutLink::Project,
+        link: crate::config::LibraryItemLink::Project,
         project: project.to_string(),
         text: q.text,
         // None rather than an empty string: `session_for` reads "no command of its own" off
@@ -482,7 +482,7 @@ pub(super) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResul
         random_tips: q.random_tips,
     };
     let persistent_host = q.host
-        && q.kind == crate::config::ShortcutKind::Shell
+        && q.kind == crate::config::LibraryItemKind::Shell
         && !project.is_empty()
         && q.path.trim().is_empty()
         && !q.temp;

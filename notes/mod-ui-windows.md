@@ -1,7 +1,7 @@
 # Dialogs and Settings pages
 
 Daemon-backed pages write through HTTP; `AppearancePage` and `TerminalPage` write
-[mod settings](mod-settings.md). Agents, projects and shortcuts are content views;
+[mod settings](mod-settings.md). Agents, projects and Library entries are content views;
 their editors open above the chrome with `TerminalWindow.OpenOverPane`.
 
 - `ProjectsView` lists projects before agents. `EditSessionDialog` chooses a command
@@ -36,7 +36,7 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   while `TerminalPage` owns pane font, theme and cursor color. Scale applies on release
   because live scaling moves the slider.
 - `AudioPage` keeps vanilla volume in `Prefs` and jukebox state in `SlopSettings`.
-  `ShortcutsView` runs daemon errands; ask-style errands choose a project or temp agent.
+  `LibraryView` runs daemon errands; ask-style errands choose a project or temp agent.
 
 ## Settings column
 

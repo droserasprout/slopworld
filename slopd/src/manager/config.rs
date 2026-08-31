@@ -137,7 +137,7 @@ impl Manager {
             sessions: self.views().await,
         });
         self.announce_projects().await;
-        self.announce_shortcuts().await;
+        self.announce_library().await;
         true
     }
 
@@ -749,7 +749,7 @@ impl Manager {
         *self.cfg.write().await = new;
         self.sync_from_config().await;
         self.announce_projects().await;
-        self.announce_shortcuts().await;
+        self.announce_library().await;
         Ok(())
     }
 
@@ -764,7 +764,7 @@ impl Manager {
         *self.cfg.write().await = new;
         self.sync_from_config().await;
         self.announce_projects().await;
-        self.announce_shortcuts().await;
+        self.announce_library().await;
         Ok(())
     }
 }

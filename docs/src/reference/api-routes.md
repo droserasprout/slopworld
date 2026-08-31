@@ -31,6 +31,11 @@ grant-visible router; handler guards can impose a stricter access requirement.
 | `GET` | `/api/image` | `root-only` | `read_image` |
 | `POST` | `/api/instructions/preview` | `root-only` | `instructions_preview` |
 | `GET` | `/api/jukebox` | `root-only` | `jukebox` |
+| `GET` | `/api/library` | `root-only` | `list_library` |
+| `POST` | `/api/library` | `root-only` | `create_library_item` |
+| `DELETE` | `/api/library/:name` | `root-only` | `destroy_library_item` |
+| `PUT` | `/api/library/:name` | `root-only` | `update_library_item` |
+| `POST` | `/api/library/:name/run` | `root-only` | `run_library_item` |
 | `GET` | `/api/open-apps` | `root-only` | `open_apps` |
 | `GET` | `/api/presets` | `root-only` | `presets` |
 | `DELETE` | `/api/presets/:kind/:name` | `root-only` | `delete_preset` |
@@ -55,11 +60,6 @@ grant-visible router; handler guards can impose a stricter access requirement.
 | `POST` | `/api/sessions/:name/start` | `scoped` | `start` |
 | `POST` | `/api/sessions/:name/state/reset` | `scoped` | `reset_state` |
 | `POST` | `/api/sessions/:name/stop` | `scoped` | `stop` |
-| `GET` | `/api/shortcuts` | `root-only` | `list_shortcuts` |
-| `POST` | `/api/shortcuts` | `root-only` | `create_shortcut` |
-| `DELETE` | `/api/shortcuts/:name` | `root-only` | `destroy_shortcut` |
-| `PUT` | `/api/shortcuts/:name` | `root-only` | `update_shortcut` |
-| `POST` | `/api/shortcuts/:name/run` | `root-only` | `run_shortcut` |
 | `GET` | `/api/state` | `root-only` | `stored_states` |
 | `DELETE` | `/api/state/:kind/:key` | `root-only` | `delete_stored_state` |
 | `POST` | `/api/state/trash/:key/restore` | `root-only` | `restore_stored_state` |

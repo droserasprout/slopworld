@@ -5,7 +5,7 @@ The core sidebar geometry, selection behavior, and row rendering are in
 
 ## Views and navigation
 
-Agents, Files, Search, Git, Tasks and Shortcuts share the panel, tabs, width, add strip and
+Agents, Files, Search, Git, Tasks and Library share the panel, tabs, width, add strip and
 input absorption. Their default F2–F7 shortcuts follow that left-to-right order. Leaving a
 view closes its readers. Files/Search/Git park colonist-bar
 locations but still build buckets so Alt+number can return to an agent; folding removes
@@ -22,11 +22,11 @@ colonist-bar layout.
 The project filter is a set of ticked keys read through `AgentSidebar.Passes`; empty
 means all. `[none]` represents unassigned projects, including a real project with that
 name. An unknown project key shows nothing rather than falling back to all. Agents,
-Files and Shortcuts filter while drawing; Search and Git re-request their stored result
+Files and Library filter while drawing; Search and Git re-request their stored result
 when the filter changes.
 
-The shared add strip offers project and agent editors, a Shortcuts submenu for each
-shortcut kind, new sandbox presets and commands, and a host-shell submenu with `~` first,
+The shared add strip offers project and agent editors, a Library submenu for each
+library item kind, new sandbox presets and commands, and a host-shell submenu with `~` first,
 followed by projects.
 
 The filter menu is multi-select: each tick closes and reopens at its anchor instead of

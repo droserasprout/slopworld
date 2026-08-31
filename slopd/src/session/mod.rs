@@ -24,8 +24,8 @@ pub(crate) use view::FrameViewArgs;
 pub use view::{ScreenView, SessionView};
 
 use crate::config::{
-    expand, Config, NetworkMode, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, ShortcutLink,
-    TitlePolicy,
+    expand, Config, LibraryItemCfg, LibraryItemKind, LibraryItemLink, NetworkMode, ProjectCfg,
+    SessionCfg, TitlePolicy,
 };
 use crate::emu::{Frame, SessionEmu};
 use crate::tmux::Tmux;
@@ -73,8 +73,8 @@ pub enum Event {
     Projects {
         projects: Vec<ProjectCfg>,
     },
-    Shortcuts {
-        shortcuts: Vec<ShortcutCfg>,
+    Library {
+        library: Vec<LibraryItemCfg>,
     },
     Screen {
         screen: ScreenView,
@@ -593,7 +593,7 @@ fn slug(name: &str) -> String {
     }
     let out = out.trim_matches('-').to_string();
     if out.is_empty() {
-        "shortcut".into()
+        "library".into()
     } else {
         out
     }
@@ -667,20 +667,20 @@ fn breadcrumb_block(crumbs: &[String]) -> String {
 
 fn check_breadcrumbs(cfg: &Config, names: &[String]) -> Result<()> {
     for name in names {
-        match cfg.shortcut(name) {
-            Some(sc) if sc.kind == ShortcutKind::Breadcrumb => {}
-            Some(_) => bail!("shortcut {name} is not a breadcrumb"),
+        match cfg.library_item(name) {
+            Some(sc) if sc.kind == LibraryItemKind::Breadcrumb => {}
+            Some(_) => bail!("library item {name} is not a breadcrumb"),
             None => bail!("unknown breadcrumb: {name}"),
         }
     }
     Ok(())
 }
 
-fn check_shortcut(cfg: &Config, sc: &ShortcutCfg) -> Result<()> {
+fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()> {
     if sc.name.trim().is_empty() {
-        bail!("shortcut name must not be empty");
+        bail!("library item name must not be empty");
     }
-    if sc.kind == ShortcutKind::Breadcrumb {
+    if sc.kind == LibraryItemKind::Breadcrumb {
         if sc.text.trim().is_empty() {
             bail!("breadcrumb {} has no text", sc.name);
         }
@@ -689,7 +689,7 @@ fn check_shortcut(cfg: &Config, sc: &ShortcutCfg) -> Result<()> {
         }
         return Ok(());
     }
-    if sc.kind == ShortcutKind::FileAction {
+    if sc.kind == LibraryItemKind::FileAction {
         if sc
             .command
             .as_deref()
@@ -704,14 +704,14 @@ fn check_shortcut(cfg: &Config, sc: &ShortcutCfg) -> Result<()> {
         }
         return Ok(());
     }
-    if sc.link == ShortcutLink::Project && sc.project.trim().is_empty() {
-        bail!("shortcut {} must belong to a project", sc.name);
+    if sc.link == LibraryItemLink::Project && sc.project.trim().is_empty() {
+        bail!("library item {} must belong to a project", sc.name);
     }
     if !sc.project.trim().is_empty() && cfg.project(&sc.project).is_none() {
         bail!("no such project: {}", sc.project);
     }
     if sc.text.trim().is_empty() {
-        bail!("shortcut {} has nothing to send", sc.name);
+        bail!("library item {} has nothing to send", sc.name);
     }
     Ok(())
 }
@@ -985,14 +985,16 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use super::{
-        breadcrumb_block, check_breadcrumbs, check_name, check_shortcut, compile_rules, free_name,
-        free_project_name, hold_action_command, json_to_toml, match_rules, merge_input, merge_toml,
-        normalize_action_command, normalize_path, project_action_path, prompt_is_long_enough,
-        read_action_output, render_template, render_template_with, settle, slug, strip_sgr,
-        title_agent, title_settings, Composer, Input, Live, State, Submission, TemplateVars,
-        TitleAgent, TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
+        breadcrumb_block, check_breadcrumbs, check_library_item, check_name, compile_rules,
+        free_name, free_project_name, hold_action_command, json_to_toml, match_rules, merge_input,
+        merge_toml, normalize_action_command, normalize_path, project_action_path,
+        prompt_is_long_enough, read_action_output, render_template, render_template_with, settle,
+        slug, strip_sgr, title_agent, title_settings, Composer, Input, Live, State, Submission,
+        TemplateVars, TitleAgent, TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
     };
-    use crate::config::{Config, ProjectCfg, SessionCfg, ShortcutCfg, ShortcutKind, TitlePolicy};
+    use crate::config::{
+        Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg, TitlePolicy,
+    };
 
     #[test]
     fn file_action_paths_normalize_the_absolute_placeholder() {
@@ -1335,8 +1337,8 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
         assert_eq!(slug("run make test"), "run-make-test");
         assert_eq!(slug("v1.2 checks"), "v1-2-checks");
         assert_eq!(slug("  spaced  out  "), "spaced-out");
-        assert_eq!(slug(" . "), "shortcut");
-        assert_eq!(slug(""), "shortcut");
+        assert_eq!(slug(" . "), "library");
+        assert_eq!(slug(""), "library");
 
         for name in ["review diff", "v1.2 checks", "a/b", "", " . "] {
             assert!(check_name(&slug(name)).is_ok(), "slug of {name:?}");
@@ -1398,35 +1400,35 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             ..Default::default()
         });
 
-        let errand = ShortcutCfg {
+        let errand = LibraryItemCfg {
             name: "view-main-rs".into(),
-            kind: ShortcutKind::Shell,
+            kind: LibraryItemKind::Shell,
             project: "repo".into(),
             command: Some("less -R -- /home/you/git/repo/main.rs".into()),
             text: String::new(),
             ..Default::default()
         };
-        assert!(check_shortcut(&cfg, &errand).is_err());
+        assert!(check_library_item(&cfg, &errand).is_err());
 
-        let nowhere = ShortcutCfg {
+        let nowhere = LibraryItemCfg {
             project: String::new(),
             text: "hello".into(),
             ..errand.clone()
         };
-        assert!(check_shortcut(&cfg, &nowhere).is_err());
+        assert!(check_library_item(&cfg, &nowhere).is_err());
 
-        let gone = ShortcutCfg {
+        let gone = LibraryItemCfg {
             project: "not-a-project".into(),
             text: "hello".into(),
             ..errand.clone()
         };
-        assert!(check_shortcut(&cfg, &gone).is_err());
+        assert!(check_library_item(&cfg, &gone).is_err());
 
-        let fine = ShortcutCfg {
+        let fine = LibraryItemCfg {
             text: "hello".into(),
             ..errand
         };
-        assert!(check_shortcut(&cfg, &fine).is_ok());
+        assert!(check_library_item(&cfg, &fine).is_ok());
     }
 
     #[test]
@@ -1503,9 +1505,9 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
     #[test]
     fn an_attachment_must_name_a_breadcrumb() {
         let mut cfg = Config::default();
-        cfg.shortcuts.push(ShortcutCfg {
+        cfg.library.push(LibraryItemCfg {
             name: "tests".into(),
-            kind: ShortcutKind::Shell,
+            kind: LibraryItemKind::Shell,
             text: "make test".into(),
             ..Default::default()
         });
