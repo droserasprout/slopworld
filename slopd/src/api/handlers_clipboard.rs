@@ -9,7 +9,6 @@ use super::{err, ApiResult};
 
 /// A tool that is missing or wedged is a 502 rather than a 400, because nothing
 /// about the request was wrong.
-
 pub(crate) async fn clip_read() -> ApiResult {
     let text = crate::clipboard::read()
         .await
