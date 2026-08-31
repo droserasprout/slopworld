@@ -55,12 +55,12 @@ namespace SlopWorld
             {
                 SlopWidgets.MenuToggle("All", selected == AgentStatusFilter.All,
                     () => SetAgentStatusAndReopen(AgentStatusFilter.All)),
-                SlopWidgets.MenuToggle("Active", selected == AgentStatusFilter.Active,
-                    () => SetAgentStatusAndReopen(AgentStatusFilter.Active)),
-                SlopWidgets.MenuToggle("Idle", selected == AgentStatusFilter.Idle,
-                    () => SetAgentStatusAndReopen(AgentStatusFilter.Idle)),
-                SlopWidgets.MenuToggle("Down", selected == AgentStatusFilter.Down,
-                    () => SetAgentStatusAndReopen(AgentStatusFilter.Down)),
+                SlopWidgets.MenuToggle("Active", (selected & AgentStatusFilter.Active) != 0,
+                    () => ToggleAgentStatus(AgentStatusFilter.Active)),
+                SlopWidgets.MenuToggle("Idle", (selected & AgentStatusFilter.Idle) != 0,
+                    () => ToggleAgentStatus(AgentStatusFilter.Idle)),
+                SlopWidgets.MenuToggle("Down", (selected & AgentStatusFilter.Down) != 0,
+                    () => ToggleAgentStatus(AgentStatusFilter.Down)),
             };
             TerminalWindow.OpenOverPane(
                 new SlopMenu(opts, new Vector2(_agentVisibilityRect.x, _agentVisibilityRect.yMax)));
@@ -69,6 +69,17 @@ namespace SlopWorld
         static void SetAgentStatusAndReopen(AgentStatusFilter filter)
         {
             SetStatusFilter(filter);
+            OpenAgentVisibilityMenu();
+        }
+
+        static void ToggleAgentStatus(AgentStatusFilter status)
+        {
+            var selected = StatusFilter;
+            var next = selected == AgentStatusFilter.All
+                ? status
+                : (selected & status) != 0 ? selected & ~status : selected | status;
+
+            SetStatusFilter(next);
             OpenAgentVisibilityMenu();
         }
 
@@ -794,8 +805,8 @@ namespace SlopWorld
                 _agentVisibilityRect = r;
                 Tab(r, Icons.Hidden, StatusFiltering,
                     StatusFiltering
-                        ? $"Showing {StatusFilterLabel} agents. Click to change."
-                        : "All agents shown. Click to filter by status.",
+                        ? $"Showing {StatusFilterLabel} agents. Click to change the selection."
+                        : "All agents shown. Click to select statuses.",
                     OpenAgentVisibilityMenu);
             }
             else if (CurrentTab == SidebarTab.Files || CurrentTab == SidebarTab.Search)
