@@ -470,8 +470,8 @@ const READY_MS: u64 = 30_000;
 const SETTLE_MS: u64 = 750;
 const ENTER_GAP_MS: u64 = 150;
 
-fn disk_mtime(path: &std::path::Path) -> Option<SystemTime> {
-    std::fs::metadata(path).ok()?.modified().ok()
+async fn disk_mtime(path: &std::path::Path) -> Option<SystemTime> {
+    tokio::fs::metadata(path).await.ok()?.modified().ok()
 }
 
 struct TemplateVars<'a> {

@@ -43,7 +43,7 @@ async fn main() -> Result<()> {
         .init();
 
     let cfg_path = Config::path_in_use();
-    let cfg = Config::load(&cfg_path)?;
+    let cfg = Config::load(&cfg_path).await?;
     runtime::validate_runtime_name()?;
     session::validate_config(&cfg)?;
     tracing::info!("config: {}", cfg_path.display());
@@ -93,7 +93,7 @@ async fn main() -> Result<()> {
 
     let listener = tokio::net::TcpListener::bind(&bind).await?;
     tracing::info!("listening on http://{bind}");
-    endpoint::write(&bind, &m.config().await.daemon.token)?;
+    endpoint::write(&bind, &m.config().await.daemon.token).await?;
 
     axum::serve(listener, app)
         .with_graceful_shutdown(async {

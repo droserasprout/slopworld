@@ -794,14 +794,15 @@ impl Config {
             .unwrap_or_else(|_| Self::path())
     }
 
-    pub fn load(path: &Path) -> Result<Self> {
-        if !path.exists() {
+    pub async fn load(path: &Path) -> Result<Self> {
+        if !tokio::fs::try_exists(path).await? {
             let cfg = Config::seed();
-            cfg.save(path)?;
+            cfg.save(path).await?;
             return Ok(cfg);
         }
-        let text =
-            std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let text = tokio::fs::read_to_string(path)
+            .await
+            .with_context(|| format!("reading {}", path.display()))?;
         Self::parse(&text)
     }
 
@@ -828,23 +829,23 @@ impl Config {
         Ok(cfg)
     }
 
-    pub fn save(&self, path: &Path) -> Result<()> {
-        Self::save_text(path, &toml::to_string_pretty(self)?)
+    pub async fn save(&self, path: &Path) -> Result<()> {
+        Self::save_text(path, &toml::to_string_pretty(self)?).await
     }
 
-    pub fn save_text(path: &Path, text: &str) -> Result<()> {
+    pub async fn save_text(path: &Path, text: &str) -> Result<()> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+            tokio::fs::create_dir_all(parent).await?;
         }
 
         let tmp = path.with_extension("toml.tmp");
-        std::fs::write(&tmp, text)?;
+        tokio::fs::write(&tmp, text).await?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600))?;
+            tokio::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600)).await?;
         }
-        std::fs::rename(tmp, path)?;
+        tokio::fs::rename(tmp, path).await?;
         Ok(())
     }
 

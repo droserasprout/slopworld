@@ -35,7 +35,7 @@ impl Live {
 impl Manager {
     pub async fn new(cfg: Config, cfg_path: PathBuf) -> Arc<Self> {
         let (events, _) = broadcast::channel(256);
-        let mtime = disk_mtime(&cfg_path);
+        let mtime = disk_mtime(&cfg_path).await;
         let tasks = crate::tasks::Tasks::load(&cfg_path)
             .unwrap_or_else(|e| panic!("task store {}: {e:#}", cfg_path.display()));
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
@@ -53,6 +53,7 @@ impl Manager {
             temp: RwLock::new(HashMap::new()),
             cfg: RwLock::new(cfg),
             cfg_mtime: Mutex::new(mtime),
+            cfg_persist: tokio::sync::Mutex::new(()),
             presets_mtime: Mutex::new(crate::presets::dir_stamp()),
             jukebox_mtime: Mutex::new(crate::jukebox::dir_stamp()),
             cfg_checked: AtomicU64::new(0),
@@ -80,26 +81,58 @@ impl Manager {
         m
     }
 
-    pub(super) fn save_cfg(&self, cfg: &Config) -> Result<()> {
-        cfg.save(&self.cfg_path)?;
-        *self.cfg_mtime.lock().unwrap() = disk_mtime(&self.cfg_path);
-        if let Err(e) = crate::endpoint::update_token(&cfg.daemon.token) {
+    async fn persist_cfg(&self, cfg: &Config) -> Result<()> {
+        cfg.save(&self.cfg_path).await?;
+        *self.cfg_mtime.lock().unwrap() = disk_mtime(&self.cfg_path).await;
+        if let Err(e) = crate::endpoint::update_token(&cfg.daemon.token).await {
             tracing::warn!("config saved but endpoint descriptor was not updated: {e:#}");
         }
         Ok(())
     }
 
-    pub(super) fn save_cfg_text(&self, cfg: &Config, text: &str) -> Result<()> {
-        Config::save_text(&self.cfg_path, text)?;
-        *self.cfg_mtime.lock().unwrap() = disk_mtime(&self.cfg_path);
-        if let Err(e) = crate::endpoint::update_token(&cfg.daemon.token) {
+    async fn persist_cfg_text(&self, cfg: &Config, text: &str) -> Result<()> {
+        Config::save_text(&self.cfg_path, text).await?;
+        *self.cfg_mtime.lock().unwrap() = disk_mtime(&self.cfg_path).await;
+        if let Err(e) = crate::endpoint::update_token(&cfg.daemon.token).await {
             tracing::warn!("config saved but endpoint descriptor was not updated: {e:#}");
         }
         Ok(())
+    }
+
+    /// Apply a config mutation to a private snapshot, persist it without holding `cfg`, then
+    /// publish it. The second lock serializes snapshots so concurrent requests cannot overwrite
+    /// one another while a slow filesystem is servicing an earlier write.
+    pub(super) async fn update_cfg<T>(
+        &self,
+        update: impl FnOnce(&mut Config) -> Result<T>,
+    ) -> Result<T> {
+        let _persist = self.cfg_persist.lock().await;
+        let mut candidate = self.cfg.read().await.clone();
+        let result = update(&mut candidate)?;
+        self.persist_cfg(&candidate).await?;
+        *self.cfg.write().await = candidate;
+        Ok(result)
+    }
+
+    pub(super) async fn update_cfg_if_changed<T>(
+        &self,
+        update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
+    ) -> Result<T> {
+        let _persist = self.cfg_persist.lock().await;
+        let mut candidate = self.cfg.read().await.clone();
+        let (result, changed) = update(&mut candidate)?;
+        if changed {
+            self.persist_cfg(&candidate).await?;
+            *self.cfg.write().await = candidate;
+        }
+        Ok(result)
     }
 
     pub async fn reload_if_changed(self: &Arc<Self>) -> bool {
-        let disk = disk_mtime(&self.cfg_path);
+        // Keep the disk read and in-memory replacement together with config saves. The lock is
+        // deliberately not held while the rest of synchronization runs below.
+        let persist = self.cfg_persist.lock().await;
+        let disk = disk_mtime(&self.cfg_path).await;
         {
             let mut seen = self.cfg_mtime.lock().unwrap();
             if *seen == disk {
@@ -108,7 +141,7 @@ impl Manager {
             *seen = disk;
         }
 
-        let text = match std::fs::read_to_string(&self.cfg_path) {
+        let text = match tokio::fs::read_to_string(&self.cfg_path).await {
             Ok(t) => t,
             Err(e) => {
                 tracing::warn!("config changed on disk but is unreadable: {e:#}");
@@ -128,8 +161,10 @@ impl Manager {
 
         tracing::info!("config changed on disk, reloading");
         *self.rules.write().await = compile_rules(&new);
+        let token = new.daemon.token.clone();
         *self.cfg.write().await = new;
-        if let Err(e) = crate::endpoint::update_token(&self.cfg.read().await.daemon.token) {
+        drop(persist);
+        if let Err(e) = crate::endpoint::update_token(&token).await {
             tracing::warn!("config reloaded but endpoint descriptor was not updated: {e:#}");
         }
         self.sync_from_config().await;
@@ -721,7 +756,9 @@ impl Manager {
     pub async fn patch_config(self: &Arc<Self>, patch: Value) -> Result<()> {
         self.reload_if_changed().await;
 
-        let text = std::fs::read_to_string(&self.cfg_path)
+        let _persist = self.cfg_persist.lock().await;
+        let text = tokio::fs::read_to_string(&self.cfg_path)
+            .await
             .with_context(|| format!("reading {}", self.cfg_path.display()))?;
         let mut document: toml::Value = toml::from_str(&text).context("parsing config.toml")?;
         let patch = json_to_toml(patch)?;
@@ -743,10 +780,12 @@ impl Manager {
         }
         validate_config(&new)?;
 
-        self.save_cfg_text(&new, &toml::to_string_pretty(&document)?)?;
+        let text = toml::to_string_pretty(&document)?;
+        self.persist_cfg_text(&new, &text).await?;
 
         *self.rules.write().await = compile_rules(&new);
         *self.cfg.write().await = new;
+        drop(_persist);
         self.sync_from_config().await;
         self.announce_projects().await;
         self.announce_library().await;
@@ -755,13 +794,15 @@ impl Manager {
 
     pub async fn replace_config(self: &Arc<Self>, text: &str) -> Result<()> {
         let mut new = Config::parse(text)?;
+        let _persist = self.cfg_persist.lock().await;
         if new.daemon.token == crate::config::TOKEN_REDACTED {
             new.daemon.token = self.cfg.read().await.daemon.token.clone();
         }
         validate_config(&new)?;
-        self.save_cfg(&new)?;
+        self.persist_cfg(&new).await?;
         *self.rules.write().await = compile_rules(&new);
         *self.cfg.write().await = new;
+        drop(_persist);
         self.sync_from_config().await;
         self.announce_projects().await;
         self.announce_library().await;

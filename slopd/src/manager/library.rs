@@ -31,14 +31,15 @@ impl Manager {
         check_project(&p)?;
         p.limits.validate()?;
         crate::runtime::validate_limits(&p.limits)?;
-        let mut cfg = self.cfg.write().await;
-        check_breadcrumbs(&cfg, &p.breadcrumbs)?;
-        if cfg.project(&p.name).is_some() {
-            bail!("project {} already exists", p.name);
-        }
-        cfg.projects.push(p);
-        self.save_cfg(&cfg)?;
-        drop(cfg);
+        self.update_cfg(|cfg| {
+            check_breadcrumbs(cfg, &p.breadcrumbs)?;
+            if cfg.project(&p.name).is_some() {
+                bail!("project {} already exists", p.name);
+            }
+            cfg.projects.push(p);
+            Ok(())
+        })
+        .await?;
         self.announce_projects().await;
         Ok(())
     }
@@ -50,27 +51,29 @@ impl Manager {
         p.limits.validate()?;
         crate::runtime::validate_limits(&p.limits)?;
 
-        let mut cfg = self.cfg.write().await;
-        check_breadcrumbs(&cfg, &p.breadcrumbs)?;
-        let idx = cfg
-            .projects
-            .iter()
-            .position(|x| x.name == name)
-            .ok_or_else(|| anyhow!("no such project: {name}"))?;
-        let old_dir = crate::config::expand(&cfg.projects[idx].dir);
-        let new_dir = crate::config::expand(&p.dir);
-        if p.name != name && cfg.project(&p.name).is_some() {
-            bail!("project {} already exists", p.name);
-        }
-        let renamed = p.name.clone();
-        cfg.projects[idx] = p;
-        if renamed != name {
-            for s in cfg.sessions.iter_mut().filter(|s| s.project == name) {
-                s.project = renamed.clone();
-            }
-        }
-        self.save_cfg(&cfg)?;
-        drop(cfg);
+        let (old_dir, new_dir) = self
+            .update_cfg(|cfg| {
+                check_breadcrumbs(cfg, &p.breadcrumbs)?;
+                let idx = cfg
+                    .projects
+                    .iter()
+                    .position(|x| x.name == name)
+                    .ok_or_else(|| anyhow!("no such project: {name}"))?;
+                let old_dir = crate::config::expand(&cfg.projects[idx].dir);
+                let new_dir = crate::config::expand(&p.dir);
+                if p.name != name && cfg.project(&p.name).is_some() {
+                    bail!("project {} already exists", p.name);
+                }
+                let renamed = p.name.clone();
+                cfg.projects[idx] = p;
+                if renamed != name {
+                    for s in cfg.sessions.iter_mut().filter(|s| s.project == name) {
+                        s.project = renamed.clone();
+                    }
+                }
+                Ok((old_dir, new_dir))
+            })
+            .await?;
 
         if old_dir != new_dir {
             if let Err(error) = crate::manifest::remove(std::path::Path::new(&old_dir)) {
@@ -89,29 +92,31 @@ impl Manager {
 
     pub async fn remove_project(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
-        let mut cfg = self.cfg.write().await;
-        if cfg.project(name).is_none() {
-            bail!("no such project: {name}");
-        }
-        let users: Vec<&str> = cfg
-            .sessions
-            .iter()
-            .filter(|s| s.project == name)
-            .map(|s| s.name.as_str())
-            .collect();
-        if !users.is_empty() {
-            bail!(
-                "project {name} still has agents in it: {}. Remove or move them first.",
-                users.join(", ")
-            );
-        }
-        let old_dir = cfg
-            .project(name)
-            .map(|project| crate::config::expand(&project.dir))
-            .unwrap_or_default();
-        cfg.projects.retain(|p| p.name != name);
-        self.save_cfg(&cfg)?;
-        drop(cfg);
+        let old_dir = self
+            .update_cfg(|cfg| {
+                if cfg.project(name).is_none() {
+                    bail!("no such project: {name}");
+                }
+                let users: Vec<&str> = cfg
+                    .sessions
+                    .iter()
+                    .filter(|s| s.project == name)
+                    .map(|s| s.name.as_str())
+                    .collect();
+                if !users.is_empty() {
+                    bail!(
+                        "project {name} still has agents in it: {}. Remove or move them first.",
+                        users.join(", ")
+                    );
+                }
+                let old_dir = cfg
+                    .project(name)
+                    .map(|project| crate::config::expand(&project.dir))
+                    .unwrap_or_default();
+                cfg.projects.retain(|p| p.name != name);
+                Ok(old_dir)
+            })
+            .await?;
         if !old_dir.is_empty() {
             if let Err(error) = crate::manifest::remove(std::path::Path::new(&old_dir)) {
                 tracing::warn!("could not remove generated project manifest: {error:#}");
@@ -133,25 +138,26 @@ impl Manager {
 
     pub async fn add_library_item(self: &Arc<Self>, mut sc: LibraryItemCfg) -> Result<()> {
         self.reload_if_changed().await;
-        let mut cfg = self.cfg.write().await;
-        sc.builtin = false;
-        check_library_item(&cfg, &sc)?;
-        if cfg.library.iter().any(|existing| existing.name == sc.name) {
-            bail!("library item {} already exists", sc.name);
-        }
-        let attach_project = (sc.kind == LibraryItemKind::Breadcrumb
-            && !sc.project.trim().is_empty())
-        .then(|| sc.project.clone());
-        cfg.library.push(sc.clone());
-        if let Some(project) = attach_project {
-            if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == project) {
-                if !p.breadcrumbs.contains(&sc.name) {
-                    p.breadcrumbs.push(sc.name.clone());
+        self.update_cfg(|cfg| {
+            sc.builtin = false;
+            check_library_item(cfg, &sc)?;
+            if cfg.library.iter().any(|existing| existing.name == sc.name) {
+                bail!("library item {} already exists", sc.name);
+            }
+            let attach_project = (sc.kind == LibraryItemKind::Breadcrumb
+                && !sc.project.trim().is_empty())
+            .then(|| sc.project.clone());
+            cfg.library.push(sc.clone());
+            if let Some(project) = attach_project {
+                if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == project) {
+                    if !p.breadcrumbs.contains(&sc.name) {
+                        p.breadcrumbs.push(sc.name.clone());
+                    }
                 }
             }
-        }
-        self.save_cfg(&cfg)?;
-        drop(cfg);
+            Ok(())
+        })
+        .await?;
         self.announce_library().await;
         Ok(())
     }
@@ -162,61 +168,62 @@ impl Manager {
         mut sc: LibraryItemCfg,
     ) -> Result<()> {
         self.reload_if_changed().await;
-        let mut cfg = self.cfg.write().await;
-        sc.builtin = false;
-        if cfg.is_builtin_library_item(name) {
-            bail!("library item {name} is built in and cannot be edited");
-        }
-        check_library_item(&cfg, &sc)?;
-        let idx = cfg
-            .library
-            .iter()
-            .position(|x| x.name == name)
-            .ok_or_else(|| anyhow!("no such library item: {name}"))?;
-        if sc.name != name && cfg.library.iter().any(|existing| existing.name == sc.name) {
-            bail!("library item {} already exists", sc.name);
-        }
-        let old = cfg.library[idx].clone();
-        if sc.name != name {
-            for p in &mut cfg.projects {
-                for attached in &mut p.breadcrumbs {
-                    if attached == name {
-                        *attached = sc.name.clone();
+        self.update_cfg(|cfg| {
+            sc.builtin = false;
+            if cfg.is_builtin_library_item(name) {
+                bail!("library item {name} is built in and cannot be edited");
+            }
+            check_library_item(cfg, &sc)?;
+            let idx = cfg
+                .library
+                .iter()
+                .position(|x| x.name == name)
+                .ok_or_else(|| anyhow!("no such library item: {name}"))?;
+            if sc.name != name && cfg.library.iter().any(|existing| existing.name == sc.name) {
+                bail!("library item {} already exists", sc.name);
+            }
+            let old = cfg.library[idx].clone();
+            if sc.name != name {
+                for p in &mut cfg.projects {
+                    for attached in &mut p.breadcrumbs {
+                        if attached == name {
+                            *attached = sc.name.clone();
+                        }
+                    }
+                }
+                for s in &mut cfg.sessions {
+                    for attached in &mut s.breadcrumbs {
+                        if attached == name {
+                            *attached = sc.name.clone();
+                        }
                     }
                 }
             }
-            for s in &mut cfg.sessions {
-                for attached in &mut s.breadcrumbs {
-                    if attached == name {
-                        *attached = sc.name.clone();
+            cfg.library[idx] = sc.clone();
+            if sc.kind == LibraryItemKind::Breadcrumb {
+                if !old.project.trim().is_empty() && old.project != sc.project {
+                    if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == old.project) {
+                        p.breadcrumbs.retain(|b| b != &sc.name);
                     }
                 }
-            }
-        }
-        cfg.library[idx] = sc.clone();
-        if sc.kind == LibraryItemKind::Breadcrumb {
-            if !old.project.trim().is_empty() && old.project != sc.project {
-                if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == old.project) {
-                    p.breadcrumbs.retain(|b| b != &sc.name);
-                }
-            }
-            if !sc.project.trim().is_empty() {
-                if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == sc.project) {
-                    if !p.breadcrumbs.contains(&sc.name) {
-                        p.breadcrumbs.push(sc.name.clone());
+                if !sc.project.trim().is_empty() {
+                    if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == sc.project) {
+                        if !p.breadcrumbs.contains(&sc.name) {
+                            p.breadcrumbs.push(sc.name.clone());
+                        }
                     }
                 }
+            } else {
+                for p in &mut cfg.projects {
+                    p.breadcrumbs.retain(|b| b != name && b != &sc.name);
+                }
+                for s in &mut cfg.sessions {
+                    s.breadcrumbs.retain(|b| b != name && b != &sc.name);
+                }
             }
-        } else {
-            for p in &mut cfg.projects {
-                p.breadcrumbs.retain(|b| b != name && b != &sc.name);
-            }
-            for s in &mut cfg.sessions {
-                s.breadcrumbs.retain(|b| b != name && b != &sc.name);
-            }
-        }
-        self.save_cfg(&cfg)?;
-        drop(cfg);
+            Ok(())
+        })
+        .await?;
         self.announce_projects().await;
         self.announce_library().await;
         Ok(())
@@ -224,28 +231,29 @@ impl Manager {
 
     pub async fn remove_library_item(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
-        let mut cfg = self.cfg.write().await;
-        if cfg.is_builtin_library_item(name) {
-            bail!("library item {name} is built in and cannot be deleted");
-        }
-        let Some(sc) = cfg.library_item(name) else {
-            bail!("no such library item: {name}");
-        };
-        if sc.kind == LibraryItemKind::Breadcrumb
-            && (cfg
-                .projects
-                .iter()
-                .any(|p| p.breadcrumbs.iter().any(|b| b == name))
-                || cfg
-                    .sessions
+        self.update_cfg(|cfg| {
+            if cfg.is_builtin_library_item(name) {
+                bail!("library item {name} is built in and cannot be deleted");
+            }
+            let Some(sc) = cfg.library_item(name) else {
+                bail!("no such library item: {name}");
+            };
+            if sc.kind == LibraryItemKind::Breadcrumb
+                && (cfg
+                    .projects
                     .iter()
-                    .any(|s| s.breadcrumbs.iter().any(|b| b == name)))
-        {
-            bail!("breadcrumb {name} is still attached to a project or agent");
-        }
-        cfg.library.retain(|s| s.name != name);
-        self.save_cfg(&cfg)?;
-        drop(cfg);
+                    .any(|p| p.breadcrumbs.iter().any(|b| b == name))
+                    || cfg
+                        .sessions
+                        .iter()
+                        .any(|s| s.breadcrumbs.iter().any(|b| b == name)))
+            {
+                bail!("breadcrumb {name} is still attached to a project or agent");
+            }
+            cfg.library.retain(|s| s.name != name);
+            Ok(())
+        })
+        .await?;
         self.announce_library().await;
         Ok(())
     }

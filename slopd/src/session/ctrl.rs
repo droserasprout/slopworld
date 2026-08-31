@@ -14,6 +14,8 @@ pub struct Manager {
     pub(super) temp: RwLock<HashMap<String, ProjectCfg>>,
     pub(super) rules: RwLock<Vec<(State, Regex)>>,
     pub(super) cfg_mtime: Mutex<Option<SystemTime>>,
+    /// Serializes config snapshots and disk writes without keeping the config RwLock across I/O.
+    pub(super) cfg_persist: tokio::sync::Mutex<()>,
     pub(super) presets_mtime: Mutex<Option<SystemTime>>,
     pub(super) jukebox_mtime: Mutex<Option<SystemTime>>,
     pub(super) cfg_checked: AtomicU64,
@@ -82,6 +84,7 @@ pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
         temp: RwLock::new(HashMap::new()),
         rules: RwLock::new(Vec::new()),
         cfg_mtime: Mutex::new(None),
+        cfg_persist: tokio::sync::Mutex::new(()),
         presets_mtime: Mutex::new(None),
         jukebox_mtime: Mutex::new(None),
         cfg_checked: AtomicU64::new(0),
