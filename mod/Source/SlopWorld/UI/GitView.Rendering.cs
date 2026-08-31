@@ -141,6 +141,42 @@ namespace SlopWorld
         static void UnstageAll(Repo repo) =>
             GitAction(repo, "reset -- .", "unstaged all changes");
 
+        public static void StageAll(string project)
+        {
+            var repo = Known(project);
+            if (repo == null || repo.Changed <= 0)
+            {
+                SlopWidgets.Fail("nothing to stage");
+                return;
+            }
+
+            StageAll(repo);
+        }
+
+        public static void UnstageAll(string project)
+        {
+            var repo = Known(project);
+            if (repo == null || !HasStaged(repo))
+            {
+                SlopWidgets.Fail("no staged changes to unstage");
+                return;
+            }
+
+            UnstageAll(repo);
+        }
+
+        public static void CommitStaged(string project)
+        {
+            var repo = Known(project);
+            if (repo == null || !HasStaged(repo))
+            {
+                SlopWidgets.Fail("no staged changes to commit");
+                return;
+            }
+
+            GitCommitDialog.Open(project);
+        }
+
         public static void Commit(string project, string message)
         {
             var repo = Known(project);

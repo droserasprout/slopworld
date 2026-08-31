@@ -16,6 +16,8 @@ namespace SlopWorld
                 _ => TerminalWindow.OpenOverPane(new EditSessionDialog(null))),
             CommandDef.ForAgent("agent.label", "Agent: Label", AgentsSubAll,
                 s => LabelDialog.Open(s.Name, s.Label)),
+            CommandDef.ForAgent("agent.delegate-task", "Agent: Delegate task", AgentsSubAll,
+                s => TerminalWindow.OpenOverPane(new DelegateTaskDialog(s.Name))),
             CommandDef.ForAgent("agent.new-look", "Agent: New look", AgentsSubWithPawn,
                 s =>
                 {
@@ -41,7 +43,7 @@ namespace SlopWorld
             CommandDef.ForAgent("agent.restart", "Agent: Restart",
                 () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
                 s => SessionHub.Instance.Restart(s.Name, SlopWidgets.Fail)),
-            CommandDef.ForAgent("agent.edit", "Agent: Edit", AgentsSubAll,
+            CommandDef.ForAgent("agent.edit", "Agent: Edit", AgentsSubEditable,
                 s => Find.WindowStack.Add(new EditSessionDialog(s))),
             CommandDef.ForAgent("agent.terminal", "Agent: Open Terminal",
                 () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
@@ -86,6 +88,10 @@ namespace SlopWorld
                 p => SessionHub.Instance.RunHostShell(p.Name,
                     session => TerminalWindow.Open(session), SlopWidgets.Fail)),
 
+            new CommandDef("task.new", "Task: New", "Task",
+                _ => TerminalWindow.OpenOverPane(new DelegateTaskDialog(null)),
+                enabled: HasTaskRecipients),
+
             CommandDef.ForLibraryItem("library.run", "Library: Run", LibraryItemsSub, s =>
             {
                 if (s.Kind == LibraryItemKind.Breadcrumb || s.Kind == LibraryItemKind.FileAction) return;
@@ -127,6 +133,8 @@ namespace SlopWorld
                 _ => SessionHub.Instance.RefreshProjects(SlopWidgets.Fail)),
             new CommandDef("library.refresh", "Library: Refresh", "Refresh",
                 _ => SessionHub.Instance.RefreshLibrary(SlopWidgets.Fail)),
+            new CommandDef("tasks.refresh", "Tasks: Refresh", "Refresh",
+                _ => SessionHub.Instance.RefreshTasks(SlopWidgets.Fail)),
             new CommandDef("files.reload", "Files: Reload", "Refresh",
                 _ => FilesView.Reload()),
             new CommandDef("search.open", "Search: Find in Files", "View",
@@ -137,6 +145,12 @@ namespace SlopWorld
                 _ => GitView.Refresh()),
             CommandDef.ForProject("git.diff-all", "Git: Diff All", ProjectsSub,
                 p => GitView.DiffAll(p.Name)),
+            CommandDef.ForProject("git.stage-all", "Git: Stage All", ProjectsSub,
+                p => GitView.StageAll(p.Name)),
+            CommandDef.ForProject("git.unstage-all", "Git: Unstage All", ProjectsSub,
+                p => GitView.UnstageAll(p.Name)),
+            CommandDef.ForProject("git.commit-staged", "Git: Commit Staged", ProjectsSub,
+                p => GitView.CommitStaged(p.Name)),
 
             new CommandDef("view.refresh-sidebar", "View: Refresh Sidebar", "View",
                 _ => AgentSidebar.RefreshCurrentView()),
@@ -150,6 +164,8 @@ namespace SlopWorld
                 _ => AgentSidebar.ShowGit()),
             new CommandDef("focus.library", "Focus: Library", "Focus",
                 _ => AgentSidebar.ShowLibrary()),
+            new CommandDef("focus.tasks", "Focus: Tasks", "Focus",
+                _ => AgentSidebar.ShowTasks()),
             new CommandDef("view.fold-all", "View: Fold All", "View",
                 _ => AgentSidebar.SetAllFolds(true),
                 enabled: () => AgentSidebar.CanFoldCurrent && !AgentSidebar.CurrentViewAllFolded),
