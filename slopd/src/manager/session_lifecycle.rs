@@ -76,6 +76,9 @@ impl Manager {
                 crumbs.push(discovery);
             }
         }
+        if !host && s.worker {
+            crumbs.push(super::workers::WORKER_DISCOVERY_BREADCRUMB.to_string());
+        }
         let mut live = self.live.write().await;
         if let Some(l) = live.get_mut(name) {
             l.breadcrumbs.clear();

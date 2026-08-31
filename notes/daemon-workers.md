@@ -2,11 +2,13 @@
 
 The root-only `POST /api/workers` route is the daemon's worker constructor. `slopctl spawn
 [--durable] PARENT TASK...` calls it; `worker` is an alias. Existing agents keep using
-`slopctl delegate AGENT TASK...`. `PARENT` must name an existing agent session; the daemon
-clones that session's project, command (including an explicit command line), sandbox additions,
+`slopctl delegate AGENT TASK...`. `PARENT` must name an existing agent session whose project,
+command (including an explicit command line), sandbox additions,
 breadcrumbs, manifest and breadcrumb settings, private `/tmp`, network and DNS, resource limits,
 mounts, and label. Worker autostart and auto-resume are disabled so a task never retries itself;
-the endpoint returns the mailbox task and generated worker session name together.
+the endpoint returns the mailbox task and generated worker session name together. The caller from
+`SLOPWORLD_SESSION` is the task sender and sidebar parent; a root `host` caller leaves the worker
+at the top level.
 
 The daemon writes the task to `tasks.toml` before creating or starting the child. A durable worker
 is added to `config.toml` and remains inspectable if startup fails or the daemon restarts. A

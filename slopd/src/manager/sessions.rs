@@ -611,6 +611,20 @@ mod tests {
             .contains("Read `SLOPWORLD.md` for SlopWorld runtime context."));
         drop(live);
 
+        let worker = SessionCfg {
+            worker: true,
+            slopworld_md: false,
+            ..session.clone()
+        };
+        manager
+            .wire_live_state("agent", &cfg, &worker, &project, false)
+            .await;
+        let live = manager.live.read().await;
+        assert!(String::from_utf8_lossy(&live["agent"].breadcrumbs)
+            .contains("Other SlopWorld agents are available"));
+        assert!(live["agent"].breadcrumbs_pending);
+        drop(live);
+
         let disabled = SessionCfg {
             instructions_breadcrumb: false,
             ..session.clone()

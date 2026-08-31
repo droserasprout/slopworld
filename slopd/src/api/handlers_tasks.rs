@@ -84,11 +84,19 @@ pub(crate) async fn create_task(
 pub(crate) async fn spawn_worker(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
+    headers: HeaderMap,
     Json(q): Json<SpawnWorkerReq>,
 ) -> ApiResult {
     guard_create(&cap)?;
+    let from = task_principal(&cap, &headers)?;
+    if !task_endpoint_known(&m, &from).await {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            format!("no such session: {from}"),
+        ));
+    }
     let worker = m
-        .spawn_worker(q.parent, q.body, q.durable)
+        .spawn_worker(from, q.parent, q.body, q.durable)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({
@@ -98,6 +106,20 @@ pub(crate) async fn spawn_worker(
             "session": worker.session,
         }
     })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::HeaderValue;
+
+    #[test]
+    fn root_worker_requests_use_the_explicit_session_caller() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-slop-session", HeaderValue::from_static("caller"));
+
+        assert_eq!(task_principal(&Cap::Root, &headers).unwrap(), "caller");
+    }
 }
 
 pub(crate) async fn list_tasks(
