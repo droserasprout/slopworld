@@ -32,7 +32,8 @@ identifies the software so the sandbox can mount its configuration paths.
 | `dns` | Optional override of the project's DNS servers. |
 | `limits` | Optional override of the project's resource limits. Agent values win. |
 | `mounts` | Additional project directories mounted under `/mnt/<project-name>`. Each entry names a project and an optional `mode` (`ro` or `rw`, default `rw`). |
-| `slopworld_md` | Mount generated `SLOPWORLD.md` read-only at the Instructions mount path, optionally add a first-prompt discovery breadcrumb, and exclude the source file through the repository's `.git/info/exclude`. |
+| `slopworld_md` | Mount generated `SLOPWORLD.md` read-only at the Instructions mount path and exclude the source file through the repository's `.git/info/exclude`. |
+| `instructions_breadcrumb` | Add the configured discovery breadcrumb when the manifest is mounted. Defaults to `true`; the agent editor's Breadcrumbs tab can turn it off. |
 | `persistent_tmp` | Keep a private `/tmp` for this agent across restarts. It lives in the agent's durable state and moves with reset/delete. |
 | `autostart` | Start this agent automatically when the daemon starts. |
 | `auto_resume` | When enabled, the daemon pastes `/resume` and submits after the agent settles on startup. |
@@ -65,9 +66,11 @@ breadcrumb_enabled = true
 ```
 
 The per-agent `slopworld_md` switch still controls whether the document is mounted at
-all. `breadcrumb_enabled` controls the additional discovery line globally; named
-breadcrumbs remain independent. Settings provides separate **Reset to default** actions for
-the body and breadcrumb; reset changes the pending form and **Save** applies it.
+all. `breadcrumb_enabled` controls the additional discovery line globally, while
+`instructions_breadcrumb` controls the per-agent opt-in; named breadcrumbs remain independent.
+The agent editor's **Breadcrumbs** tab shows the generated discovery entry and defaults it on
+when the manifest is mounted. Settings provides separate **Reset to default** actions for the
+body and breadcrumb; reset changes the pending form and **Save** applies it.
 
 ## Command presets
 

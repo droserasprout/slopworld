@@ -11,6 +11,7 @@ namespace SlopWorld.Tests
             yield return ("reads daemon defaults", ReadsDaemonDefaults);
             yield return ("round trips every patch field", RoundTripsEveryPatchField);
             yield return ("splits and joins line lists", SplitsAndJoinsLineLists);
+            yield return ("renders instructions breadcrumb variables", RendersInstructionsBreadcrumb);
         }
 
         static void ReadsDaemonDefaults()
@@ -128,6 +129,20 @@ namespace SlopWorld.Tests
             AssertEx.Sequence(lines, SlopConfig.Split(" first \n\nsecond\n third \n"),
                               "line split and trim");
             AssertEx.True(!SlopConfig.Split(null).Any(), "null line list");
+        }
+
+        static void RendersInstructionsBreadcrumb()
+        {
+            var config = new SlopConfig
+            {
+                InstructionsBreadcrumb =
+                    "Read {{ mount_path }} ({{project}}; {{ file }}) {{ unknown }}",
+                InstructionsMountPath = "docs/SLOPWORLD.md",
+            };
+
+            AssertEx.Equal("Read docs/SLOPWORLD.md (repo; SLOPWORLD.md) {{ unknown }}",
+                           config.RenderInstructionsBreadcrumb("repo"),
+                           "instructions breadcrumb variables");
         }
     }
 }

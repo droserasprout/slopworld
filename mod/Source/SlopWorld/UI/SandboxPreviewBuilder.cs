@@ -58,7 +58,7 @@ namespace SlopWorld
                 new List<string> { effectiveDns.Label }));
             if (agent != null)
                 data.Fields.Add(new SandboxPreviewField("Joined breadcrumbs",
-                    JoinedBreadcrumbs(project, agent, hub.Shortcuts)));
+                    JoinedBreadcrumbs(project, agent, hub.Shortcuts, hub.Config)));
             if (agent != null)
                 data.Fields.Add(new SandboxPreviewField("Resource limits",
                     LimitLines(agent.Limits)));
@@ -89,9 +89,10 @@ namespace SlopWorld
         }
 
         // The daemon resolves named project attachments before named agent attachments, keeping
-        // the first occurrence of a name. Show the resulting named breadcrumb text block.
+        // the first occurrence of a name. Show the resulting text block, including the generated
+        // instructions discovery entry when it is enabled for this agent.
         static List<string> JoinedBreadcrumbs(ProjectInfo project, SessionInfo agent,
-                                              List<ShortcutInfo> shortcuts)
+                                              List<ShortcutInfo> shortcuts, SlopConfig config)
         {
             var names = new List<string>();
             AddBreadcrumbNames(names, project?.Breadcrumbs);
@@ -103,6 +104,12 @@ namespace SlopWorld
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Select(value => value.Trim())
                 .ToList();
+            if (agent.SlopworldMd && agent.InstructionsBreadcrumb &&
+                config.InstructionsBreadcrumbEnabled)
+            {
+                string discovery = config.RenderInstructionsBreadcrumb(project?.Name);
+                if (!string.IsNullOrWhiteSpace(discovery)) text.Add(discovery.Trim());
+            }
             return text.Count == 0
                 ? new List<string>()
                 : new List<string> { string.Join("\n", text.ToArray()) };

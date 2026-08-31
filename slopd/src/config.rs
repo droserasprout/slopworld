@@ -579,9 +579,13 @@ pub struct SessionCfg {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub breadcrumbs: Vec<String>,
     /// Opt into the generated project-root runtime manifest; its mount path and discovery
-    /// breadcrumb are controlled by `daemon.instructions`.
+    /// text are controlled by `daemon.instructions`.
     #[serde(default, skip_serializing_if = "is_false")]
     pub slopworld_md: bool,
+    /// Add the configured discovery text when this agent also mounts the generated manifest.
+    /// Defaults on so enabling the manifest keeps the original discovery behavior.
+    #[serde(default = "yes", skip_serializing_if = "is_true")]
+    pub instructions_breadcrumb: bool,
     /// Give this agent a durable, private `/tmp` instead of the sandbox's per-run tmpfs.
     #[serde(default, skip_serializing_if = "is_false")]
     pub persistent_tmp: bool,
@@ -646,6 +650,7 @@ impl Default for SessionCfg {
             sandbox: Vec::new(),
             breadcrumbs: Vec::new(),
             slopworld_md: false,
+            instructions_breadcrumb: true,
             persistent_tmp: false,
             breadcrumb_yolo: true,
             network: None,
@@ -1576,6 +1581,23 @@ token = \"not-a-daemon-token\"
         let text = toml::to_string(&enabled).unwrap();
         assert!(text.contains("slopworld_md = true"));
         assert!(toml::from_str::<SessionCfg>(&text).unwrap().slopworld_md);
+    }
+
+    #[test]
+    fn instructions_breadcrumb_defaults_on_and_only_writes_the_opt_out() {
+        let old: SessionCfg = toml::from_str("name = 'Ada'").unwrap();
+        assert!(old.instructions_breadcrumb);
+        assert!(!toml::to_string(&old)
+            .unwrap()
+            .contains("instructions_breadcrumb"));
+
+        let opted_out = SessionCfg {
+            instructions_breadcrumb: false,
+            ..Default::default()
+        };
+        assert!(toml::to_string(&opted_out)
+            .unwrap()
+            .contains("instructions_breadcrumb = false"));
     }
 
     #[test]

@@ -21,9 +21,11 @@ namespace SlopWorld
         public string Cmd = "";
         // Sandbox presets it adds to its command's and its project's.
         public List<string> Sandbox = new List<string>();
-        // Opts into the generated runtime context; its mount path and optional first-prompt
-        // discovery breadcrumb are controlled by the daemon's Instructions settings.
+        // Opts into the generated runtime context; its mount path and global discovery text are
+        // controlled by the daemon's Instructions settings.
         public bool SlopworldMd;
+        // Defaults on when the manifest is enabled, but can be disabled for this agent.
+        public bool InstructionsBreadcrumb = true;
         // Replaces the sandbox's per-run /tmp tmpfs with a private copy kept in this agent's
         // durable state directory.
         public bool PersistentTmp;
@@ -118,6 +120,7 @@ namespace SlopWorld
             $"\"cmd\":{(string.IsNullOrEmpty((Cmd ?? "").Trim()) ? "null" : JVal.Q(Cmd))}," +
             $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]," +
             $"\"slopworld_md\":{JVal.B(SlopworldMd)}," +
+            $"\"instructions_breadcrumb\":{JVal.B(InstructionsBreadcrumb)}," +
             $"\"persistent_tmp\":{JVal.B(PersistentTmp)}," +
             $"\"breadcrumbs\":[{string.Join(",", Breadcrumbs.Select(JVal.Q).ToArray())}]," +
             $"\"label\":{(string.IsNullOrEmpty((Label ?? "").Trim()) ? "null" : JVal.Q(Label))}," +
