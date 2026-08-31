@@ -194,6 +194,9 @@ namespace SlopWorld
 
         static bool Playing() => Current.ProgramState == ProgramState.Playing;
 
+        static bool HasTaskRecipients() => SessionHub.Instance.Sessions.Any(s =>
+            s != null && !s.Ephemeral && !s.Host && !string.IsNullOrEmpty(s.Name));
+
         // --------------------------------------------------------------- sub-option builders
 
         static List<SubOption> AgentsSub(params AgentState[] states)
@@ -216,7 +219,7 @@ namespace SlopWorld
         static List<SubOption> AgentsSubAll()
         {
             var list = SessionHub.Instance.Sessions
-                .Where(s => !s.Ephemeral)
+                .Where(s => !s.Ephemeral && !s.Host)
                 .Select(s => new SubOption
                 {
                     Label = $"{s.Name}  ({s.State.ToString().ToLower()})  -  {s.Project}",
@@ -226,6 +229,22 @@ namespace SlopWorld
 
             if (list.Count == 0)
                 list.Add(new SubOption { Label = "(no agents)", Enabled = false });
+            return list;
+        }
+
+        static List<SubOption> AgentsSubEditable()
+        {
+            var list = SessionHub.Instance.Sessions
+                .Where(s => !s.Ephemeral && !s.Host && !s.Worker)
+                .Select(s => new SubOption
+                {
+                    Label = $"{s.Name}  ({s.State.ToString().ToLower()})  -  {s.Project}",
+                    Value = s.Name,
+                })
+                .ToList();
+
+            if (list.Count == 0)
+                list.Add(new SubOption { Label = "(no editable agents)", Enabled = false });
             return list;
         }
 
@@ -252,7 +271,7 @@ namespace SlopWorld
         static List<SubOption> AgentsSubWithProject()
         {
             var list = SessionHub.Instance.Sessions
-                .Where(s => !string.IsNullOrEmpty(s.Project))
+                .Where(s => !s.Host && !s.Worker && !string.IsNullOrEmpty(s.Project))
                 .Select(s => new SubOption
                 {
                     Label = $"{s.Name}  ({s.State.ToString().ToLower()})  -  {s.Project}",
