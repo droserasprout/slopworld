@@ -240,35 +240,60 @@ namespace SlopWorld
             string relative, List<LibraryItemInfo> actions)
         {
             return actions.Select(action => new FloatMenuOption(action.Name, () =>
+                RunFileAction(project, path, name, relative, action))).ToList();
+        }
+
+        static void RunFileAction(string project, string path, string name, string relative,
+            LibraryItemInfo action)
+        {
+            bool host = string.IsNullOrEmpty(project);
+            var command = FileActionCommand(action.Command, path, relative);
+            if (action.Mode == FileActionMode.ShowResult)
             {
-                bool host = string.IsNullOrEmpty(project);
-                var command = FileActionCommand(action.Command, path, relative);
-                TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
+                ShowFileActionResult(project, path, command, host, action.Name);
+                return;
+            }
+            if (action.Mode == FileActionMode.OpenTerminal)
+            {
+                OpenFileActionTerminal(project, path, name, command, host);
+                return;
+            }
+
+            TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Show result", () =>
+                    ShowFileActionResult(project, path, command, host, action.Name)),
+                new FloatMenuOption("Open terminal", () =>
+                    OpenFileActionTerminal(project, path, name, command, host)),
+            }));
+        }
+
+        static void ShowFileActionResult(string project, string path, string command, bool host,
+            string actionName)
+        {
+            SlopClient.Post("/api/file-action", "{" +
+                $"\"project\":{JVal.Q(project)}," +
+                $"\"path\":{JVal.Q(path)}," +
+                $"\"command\":{JVal.Q(command)}," +
+                $"\"host\":{JVal.B(host)}" +
+                "}", j =>
                 {
-                    new FloatMenuOption("Show result", () =>
-                    {
-                        SlopClient.Post("/api/file-action", "{" +
-                            $"\"project\":{JVal.Q(project)}," +
-                            $"\"path\":{JVal.Q(path)}," +
-                            $"\"command\":{JVal.Q(command)}," +
-                            $"\"host\":{JVal.B(host)}" +
-                            "}", j =>
-                            {
-                                string output = j["output"].AsString("(no output)");
-                                TerminalWindow.OpenOverPane(SlopAlertDialog.Create(
-                                    "File action: " + action.Name, output, "Close", null));
-                            }, msg =>
-                                TerminalWindow.OpenOverPane(SlopAlertDialog.Create(
-                                    "File action failed", msg, "Close", null,
-                                    primaryKind: SlopWidgets.Btn.Danger))
-                            );
-                    }),
-                    new FloatMenuOption("Open terminal", () =>
-                        SessionHub.Instance.Run(project, command, "fa-" + name,
-                            session => TerminalWindow.Open(session), SlopWidgets.Fail,
-                            host: host, temp: host, path: path, hold: true)),
-                }));
-            })).ToList();
+                    string output = j["output"].AsString("(no output)");
+                    TerminalWindow.OpenOverPane(SlopAlertDialog.Create(
+                        "File action: " + actionName, output, "Close", null));
+                }, msg =>
+                    TerminalWindow.OpenOverPane(SlopAlertDialog.Create(
+                        "File action failed", msg, "Close", null,
+                        primaryKind: SlopWidgets.Btn.Danger))
+                );
+        }
+
+        static void OpenFileActionTerminal(string project, string path, string name,
+            string command, bool host)
+        {
+            SessionHub.Instance.Run(project, command, "fa-" + name,
+                session => TerminalWindow.Open(session), SlopWidgets.Fail,
+                host: host, temp: host, path: path, hold: true);
         }
 
         // File actions are shell command lines. Substitute quoted values so paths remain one

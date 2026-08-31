@@ -24,6 +24,8 @@ namespace SlopWorld
         public string Text = "";
         // Blank means the daemon's own default.
         public string Command = "";
+        // How a file action presents its result. Ask preserves the original per-invocation menu.
+        public FileActionMode Mode = FileActionMode.Ask;
 
         // Shipped with the daemon rather than written in config.toml: it cannot be edited or
         // deleted, and the library table leaves it out. The breadcrumb lists still offer it,
@@ -40,6 +42,7 @@ namespace SlopWorld
             Project = j["project"].AsString(),
             Text = j["text"].AsString(),
             Command = j["command"].IsNull ? "" : j["command"].AsString(),
+            Mode = FileActionModeText.Parse(j["mode"].AsString("ask")),
             Builtin = j["builtin"].AsBool(false),
         };
 
@@ -69,7 +72,8 @@ namespace SlopWorld
             $"\"kind\":{JVal.Q(KindName(Kind))}," +
             $"\"link\":{JVal.Q(LinkName(Link))}," +
             $"\"project\":{JVal.Q(Project)},\"text\":{JVal.Q(Text)}," +
-            $"\"command\":{(string.IsNullOrEmpty((Command ?? "").Trim()) ? "null" : JVal.Q(Command))}}}";
+            $"\"command\":{(string.IsNullOrEmpty((Command ?? "").Trim()) ? "null" : JVal.Q(Command))}," +
+            $"\"mode\":{JVal.Q(FileActionModeText.Name(Mode))}}}";
 
         public LibraryItemInfo Copy() => new LibraryItemInfo
         {
@@ -79,6 +83,7 @@ namespace SlopWorld
             Project = Project,
             Text = Text,
             Command = Command,
+            Mode = Mode,
             Builtin = Builtin,
         };
     }

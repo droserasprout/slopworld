@@ -716,6 +716,17 @@ pub enum LibraryItemLink {
     Ask,
 }
 
+/// How the Files sidebar presents a file action after it is selected. `Ask` is the
+/// compatibility default for entries written before file actions had a saved mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FileActionMode {
+    #[default]
+    Ask,
+    ShowResult,
+    OpenTerminal,
+}
+
 /// A session template with a line of text attached. Spelled out rather than pointing at an
 /// existing session, which would stop working the day that session was deleted.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -737,6 +748,9 @@ pub struct LibraryItemCfg {
     /// Empty means `[defaults] agent` or `[defaults] shell`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
+    /// How a file action displays its result. `ask` keeps the old per-invocation menu.
+    #[serde(default, skip_serializing_if = "is_file_action_mode_default")]
+    pub mode: FileActionMode,
     /// Set on the entries the daemon ships. They are never in `config.toml` - the flag rides
     /// the wire so the GUI can keep them out of the library table and refuse to edit them,
     /// while the breadcrumb lists still offer them like any other. Skipped when false so an
@@ -764,6 +778,10 @@ pub fn builtin_library_items() -> &'static [LibraryItemCfg] {
 
 fn not_set(b: &bool) -> bool {
     !*b
+}
+
+fn is_file_action_mode_default(mode: &FileActionMode) -> bool {
+    *mode == FileActionMode::Ask
 }
 
 fn yes() -> bool {
