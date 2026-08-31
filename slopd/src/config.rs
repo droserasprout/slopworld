@@ -100,7 +100,9 @@ pub struct Daemon {
     /// restores it - see `redact_token_text` and `Manager::replace_config`.
     #[serde(default)]
     pub token: String,
-    /// The windows it reports move in minutes; floored at 10 in the poller.
+    /// The windows it reports move in minutes; ordinary providers are floored at 10 seconds,
+    /// while Anthropic is floored at five minutes because its OAuth usage endpoint is
+    /// account-rate-limited.
     #[serde(default = "default_usage_poll")]
     pub usage_poll_secs: u64,
     /// Per-window usage settings. An explicit `interval_secs` overrides only the global
@@ -225,7 +227,7 @@ pub struct UsageItem {
     #[serde(default = "yes")]
     pub poll: bool,
     /// Empty in the UI is represented by None (or zero from a patch), meaning
-    /// `daemon.usage_poll_secs`.
+    /// `daemon.usage_poll_secs`, subject to the provider's minimum poll interval.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub interval_secs: Option<u64>,
 }

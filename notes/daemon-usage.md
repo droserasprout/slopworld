@@ -17,8 +17,12 @@ individual windows. `SLOPD_USAGE_URL` overrides the endpoint.
 - A bind mount cannot be atomically renamed (`EBUSY`), so in-sandbox Claude uses an
   `O_TRUNC` write on the host inode. A poll can see a partial file; `read_creds` retries
   parse errors once after 50ms, but not IO errors.
-- Failures back off exponentially to 30 minutes; `Retry-After` wins. 429 is parsed
-  without becoming an HTTP error, and the wait is included in the mod-facing error.
+- Successful responses are cached for five minutes beside the daemon config and protected by a
+  lock file, so daemon restarts and duplicate daemon processes do not make duplicate account
+  requests. The cache contains only the JSON response, never credentials.
+- Failures back off exponentially to 30 minutes; 429s have a five-minute minimum even when the
+  endpoint sends `Retry-After: 0`, and both seconds and HTTP-date forms are accepted. The wait is
+  included in the mod-facing error.
 - Payload units: `utilization` is a percentage here (unlike Messages API fractions),
   `extra_usage`/`spend` utilization is money, `monthly_limit` is cents, and
   `resets_at` is RFC3339 with a numeric offset. Windows match `five_hour` and
@@ -57,7 +61,8 @@ figures. Rows are `openai_session` and `openai_week`; 401/403 says `codex login`
   for a source are present, the source is enabled when any of its rows is enabled.
 - A provider request can answer several windows at once. The daemon schedules that request at
   the fastest enabled row interval, while each window keeps its own due time and disabled rows
-  are removed from the merged snapshot immediately.
+  are removed from the merged snapshot immediately. Anthropic requests are never more frequent
+  than once every five minutes; absent optional windows cannot shorten that shared interval.
 - `merge` exposes one wire `windows` list and `failed_sources` names enabled sellers whose
   latest poll failed. `ok` requires every enabled source to be current; errors are joined.
   With no source enabled, the snapshot draws nothing. The mod uses `failed_sources` to dim only
