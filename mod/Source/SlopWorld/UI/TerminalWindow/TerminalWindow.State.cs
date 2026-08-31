@@ -17,7 +17,7 @@ namespace SlopWorld
 
         // A pane opened by tab navigation may intentionally point at a stopped agent. Keep
         // that pane visible until its Start gizmo is pressed; an agent that exits during
-        // normal terminal use still follows the live-session handoff below.
+        // normal terminal use is held here too.
         bool _showStopped;
 
         // What is in the body instead of the pane, or null for the pane itself. See
@@ -458,9 +458,9 @@ namespace SlopWorld
         {
             var info = hub.Get(_name);
             if (info != null && info.Alive) _showStopped = false;
-            // An agent that exits during normal terminal use takes its pane with it. A pane
-            // advances to the next live session; an intentionally selected stopped agent is
-            // held for its action gizmos; content views keep the window for their chrome.
+            // An agent that exits during normal terminal use stays in its pane. An
+            // intentionally selected stopped agent is held for its action gizmos; content
+            // views keep the window for their chrome.
             if (_name != null && (info == null || info.Gone))
             {
                 // A rename event removes the old name before the save response retargets this
@@ -470,13 +470,14 @@ namespace SlopWorld
 
                 if (_content == null)
                 {
-                    if (_showStopped && info != null) return true;
-                    // Ctrl+C/D can be the last input an agent receives. Keep the terminal
-                    // focused on the next live session instead of dropping back to the map;
-                    // ephemeral host shells take this path too, after they disappear from the
-                    // daemon's session list.
-                    string departed = _name;
-                    if (FocusNextSession(departed)) return true;
+                    // Keep a durable agent's pane in place after its process exits. Do not
+                    // update SessionSelectable.Current or open another session: the stopped
+                    // pane is still the user's focus and its Start gizmo remains available.
+                    if (info != null)
+                    {
+                        _showStopped = true;
+                        return true;
+                    }
                     Close();
                     return false;
                 }

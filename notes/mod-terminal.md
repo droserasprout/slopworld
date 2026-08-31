@@ -26,8 +26,9 @@ Buttons use the icon bake ([mod-icons](mod-icons.md)) and draw before
 `ColonistBarStrip.Draw`, so the strip reserves `TerminalWindow.CornerW` at both ends.
 `OpenMenu` is handled before key forwarding in every mode, allowing a menu from a
 full-screen TUI. The second line is `ScreenView.title` from OSC 0/2, only when non-empty.
-When the focused process exits (including Ctrl+C/Ctrl+D or a host shell's Ctrl+D), the pane
-advances to the next live session; it closes only when there is no live session left.
+When the focused agent exits (including Ctrl+C/Ctrl+D), its pane stays on the stopped agent
+without changing the selected session. Temporary sessions that disappear still close their
+pane; another session can be opened explicitly.
 
 The colonist strip is part of the title bar, so `HeaderH` is `ColonistBarStrip.BarH`.
 `OpenOverPane` puts a bar-opened window on the same Super layer as the pane. In sidebar

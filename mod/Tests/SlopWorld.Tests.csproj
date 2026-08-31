@@ -34,7 +34,6 @@
     <Compile Include="../Source/SlopWorld/Client/SessionHub/UsageWindow.cs" Link="Source/Client/SessionHub/UsageWindow.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/UsageInfo.cs" Link="Source/Client/SessionHub/UsageInfo.cs" />
     <Compile Include="../Source/SlopWorld/UI/Fuzzy.cs" Link="Source/UI/Fuzzy.cs" />
-    <Compile Include="../Source/SlopWorld/UI/SessionNavigation.cs" Link="Source/UI/SessionNavigation.cs" />
     <Compile Include="../Source/SlopWorld/UI/UrlScan.cs" Link="Source/UI/UrlScan.cs" />
     <Compile Include="../Source/SlopWorld/UI/PathScan.cs" Link="Source/UI/PathScan.cs" />
     <Compile Include="../Source/SlopWorld/UI/Sgr.cs" Link="Source/UI/Sgr.cs" />
