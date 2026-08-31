@@ -46,6 +46,31 @@ namespace SlopWorld
         }
 
         static Rect _visibilityRect;
+        static Rect _agentVisibilityRect;
+
+        static void OpenAgentVisibilityMenu()
+        {
+            var selected = StatusFilter;
+            var opts = new List<FloatMenuOption>
+            {
+                SlopWidgets.MenuToggle("All", selected == AgentStatusFilter.All,
+                    () => SetAgentStatusAndReopen(AgentStatusFilter.All)),
+                SlopWidgets.MenuToggle("Active", selected == AgentStatusFilter.Active,
+                    () => SetAgentStatusAndReopen(AgentStatusFilter.Active)),
+                SlopWidgets.MenuToggle("Idle", selected == AgentStatusFilter.Idle,
+                    () => SetAgentStatusAndReopen(AgentStatusFilter.Idle)),
+                SlopWidgets.MenuToggle("Down", selected == AgentStatusFilter.Down,
+                    () => SetAgentStatusAndReopen(AgentStatusFilter.Down)),
+            };
+            TerminalWindow.OpenOverPane(
+                new SlopMenu(opts, new Vector2(_agentVisibilityRect.x, _agentVisibilityRect.yMax)));
+        }
+
+        static void SetAgentStatusAndReopen(AgentStatusFilter filter)
+        {
+            SetStatusFilter(filter);
+            OpenAgentVisibilityMenu();
+        }
 
         static void OpenVisibilityMenu()
         {
@@ -115,7 +140,12 @@ namespace SlopWorld
             if (CurrentTab == SidebarTab.Agents)
             {
                 foreach (var row in Layout.Rows)
-                    if (row.Session != null && !row.Ghost) order.Add(row.Session);
+                {
+                    var info = row.Session == null ? null : SessionHub.Instance.Get(row.Session);
+                    if (row.Session != null && !row.Ghost && !row.Worker && info != null &&
+                        PassesStatus(info.State))
+                        order.Add(row.Session);
+                }
                 return order;
             }
 
@@ -123,7 +153,10 @@ namespace SlopWorld
             foreach (var key in Layout.Order)
                 foreach (int i in Layout.Buckets[key])
                     if (Layout.Named.TryGetValue(i, out var session) && session != null)
-                        order.Add(session);
+                    {
+                        var info = SessionHub.Instance.Get(session);
+                        if (info != null && PassesStatus(info.State)) order.Add(session);
+                    }
             return order;
         }
 
@@ -131,7 +164,11 @@ namespace SlopWorld
         {
             var order = new List<string>();
             foreach (var row in Layout.Rows)
-                if (row.Session != null) order.Add(row.Session);
+            {
+                var info = row.Session == null ? null : SessionHub.Instance.Get(row.Session);
+                if (row.Session != null && info != null && PassesStatus(info.State))
+                    order.Add(row.Session);
+            }
             return order;
         }
 
@@ -339,6 +376,11 @@ namespace SlopWorld
                     locs[i] = Parked;
                     continue;
                 }
+                if (!PassesStatus(info.State))
+                {
+                    locs[i] = Parked;
+                    continue;
+                }
                 if (IsRouted(info))
                 {
                     // Reconciliation may leave a routed permanent session's pawn for one tick.
@@ -372,7 +414,7 @@ namespace SlopWorld
             {
                 if (s.Worker)
                 {
-                    if (!Passes(s.Project)) continue;
+                    if (!Passes(s.Project) || !PassesStatus(s.State)) continue;
                     // A child is nested only when its explicit parent has a visible normal row.
                     // Missing parents are surfaced at the top instead of being silently lost.
                     var parent = SessionHub.Instance.Get(s.Parent);
@@ -388,7 +430,8 @@ namespace SlopWorld
                     children.Add(s);
                     continue;
                 }
-                if ((!s.Ephemeral && !s.Host) || IsRouted(s) || !Passes(s.Project)) continue;
+                if ((!s.Ephemeral && !s.Host) || IsRouted(s) || !Passes(s.Project) ||
+                    !PassesStatus(s.State)) continue;
                 if (string.IsNullOrEmpty(s.Project)) { Layout.TopGhosts.Add(s); continue; }
 
                 if (!Layout.Ghosts.TryGetValue(s.Project, out var list))
@@ -725,7 +768,16 @@ namespace SlopWorld
                 r.x -= TabIcon + 3f;
             }
 
-            if (CurrentTab == SidebarTab.Files || CurrentTab == SidebarTab.Search)
+            if (CurrentTab == SidebarTab.Agents)
+            {
+                _agentVisibilityRect = r;
+                Tab(r, Icons.Hidden, StatusFiltering,
+                    StatusFiltering
+                        ? $"Showing {StatusFilterLabel} agents. Click to change."
+                        : "All agents shown. Click to filter by status.",
+                    OpenAgentVisibilityMenu);
+            }
+            else if (CurrentTab == SidebarTab.Files || CurrentTab == SidebarTab.Search)
             {
                 bool active = Settings.SidebarShowHidden || Settings.SidebarShowGitignored;
                 _visibilityRect = r;

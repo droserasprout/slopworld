@@ -16,9 +16,9 @@ the release build. Suffixed targets are aliases. Both builds write
 `mod/Assemblies/SlopWorld.dll`, and `lint-mod` always rebuilds it in Release.
 
 The first release uses the canonical `v0.0.1` tag, which embeds `0.0.1` in the daemon and mod
-binaries. Eight-digit date tags such as `20260827` remain snapshot releases and embed
-`0.0.20260827`. Untagged Git checkouts use the current UTC date and short `HEAD` hash, for
-example `0.0.20260827-3eb9902`. Source trees without Git retain the `0.0.1` fallback version.
+binaries. Untagged Git checkouts use the package version plus the current UTC date and short
+`HEAD` hash, for example `0.0.1-20260831-3eb9902`. Source trees without Git retain the `0.0.1`
+fallback version.
 The release workflow publishes only `v`-prefixed SemVer tags because the mod assembly is
 game-bound and checked in as the release input; rebuild it with the target version against a
 local RimWorld install before tagging.

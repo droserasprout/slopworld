@@ -87,6 +87,8 @@ namespace SlopWorld
         public string sidebarTab = "agents";
         public bool sidebarShowHidden;
         public bool sidebarShowGitignored;
+        // Agent-row visibility: all, active (working or waiting), idle or down.
+        public string sidebarAgentStatus = "all";
         // The projects ticked in the column's filter, one name a line and blank for all of
         // them - the folds' own format, kept here for the folds' own reason. See
         // AgentSidebar for what an unticked name and the `[none]` line mean.
@@ -202,6 +204,7 @@ namespace SlopWorld
             String(text, "sidebarTab", sidebarTab);
             String(text, "sidebarShowHidden", sidebarShowHidden);
             String(text, "sidebarShowGitignored", sidebarShowGitignored);
+            String(text, "sidebarAgentStatus", sidebarAgentStatus);
             String(text, "sidebarFilter", sidebarFilter);
             String(text, "commandPaletteHistory", commandPaletteHistory);
             String(text, "usageIcons", usageIcons);
@@ -252,6 +255,7 @@ namespace SlopWorld
             sidebarTab = Text(values, "sidebarTab", sidebarTab);
             sidebarShowHidden = Bool(values, "sidebarShowHidden", sidebarShowHidden);
             sidebarShowGitignored = Bool(values, "sidebarShowGitignored", sidebarShowGitignored);
+            sidebarAgentStatus = Text(values, "sidebarAgentStatus", sidebarAgentStatus);
             sidebarFilter = Text(values, "sidebarFilter", sidebarFilter);
             commandPaletteHistory = Text(values, "commandPaletteHistory", commandPaletteHistory);
             usageIcons = Text(values, "usageIcons", usageIcons);
@@ -336,6 +340,7 @@ namespace SlopWorld
         public static string SidebarTab => S.sidebarTab ?? "";
         public static bool SidebarShowHidden => S.sidebarShowHidden;
         public static bool SidebarShowGitignored => S.sidebarShowGitignored;
+        public static string SidebarAgentStatus => S.sidebarAgentStatus ?? "all";
         public static string SidebarFilter => S.sidebarFilter ?? "";
         public static string CommandPaletteHistory => S.commandPaletteHistory ?? "";
         public static string UsageIcons => S.usageIcons ?? "";
