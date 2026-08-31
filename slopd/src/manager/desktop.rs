@@ -43,12 +43,11 @@ impl Manager {
 }
 
 async fn command_output(program: &str, args: &[&str]) -> Result<String> {
-    let output = tokio::time::timeout(
-        DESKTOP_COMMAND_TIMEOUT,
-        Command::new(program).args(args).output(),
-    )
-    .await
-    .context("desktop command timed out")??;
+    let mut command = Command::new(program);
+    command.args(args).kill_on_drop(true);
+    let output = tokio::time::timeout(DESKTOP_COMMAND_TIMEOUT, command.output())
+        .await
+        .context("desktop command timed out")??;
 
     if !output.status.success() {
         let detail = String::from_utf8_lossy(&output.stderr);
@@ -101,10 +100,9 @@ fn associated_apps(mime: &str, associations: &str) -> Vec<DesktopApp> {
         if !entry.supports(mime) || !seen.insert(entry.id.clone()) {
             continue;
         }
-        let id = entry.id;
         apps.push(DesktopApp {
-            desktop_file: desktop_file_path(&id).map(|path| path.to_string_lossy().into_owned()),
-            id,
+            desktop_file: Some(entry.desktop_file.to_string_lossy().into_owned()),
+            id: entry.id,
             name: entry.name,
         });
     }
@@ -135,6 +133,7 @@ fn desktop_name(id: &str) -> String {
 struct DesktopEntry {
     id: String,
     name: String,
+    desktop_file: PathBuf,
     mime_types: HashSet<String>,
 }
 
@@ -159,20 +158,35 @@ fn desktop_file_path_in(id: &str, roots: &[PathBuf]) -> Option<PathBuf> {
     {
         return None;
     }
-    roots
-        .iter()
-        .map(|root| root.join("applications").join(relative))
-        .find(|path| path.is_file())
+    for root in roots {
+        let applications = root.join("applications");
+        let direct = applications.join(relative);
+        if direct.is_file() {
+            return Some(direct);
+        }
+
+        let mut files = Vec::new();
+        collect_desktop_files(&applications, &mut files);
+        if let Some(path) = files.into_iter().find(|path| {
+            path.strip_prefix(&applications)
+                .ok()
+                .is_some_and(|relative| desktop_file_id(relative) == id)
+        }) {
+            return Some(path);
+        }
+    }
+    None
 }
 
 fn desktop_search_paths() -> Vec<PathBuf> {
     let mut paths = Vec::new();
-    if let Ok(home) = std::env::var("XDG_DATA_HOME") {
-        if !home.trim().is_empty() {
-            paths.push(PathBuf::from(home));
+    match std::env::var("XDG_DATA_HOME") {
+        Ok(home) if !home.trim().is_empty() => paths.push(PathBuf::from(home)),
+        _ => {
+            if let Some(home) = dirs::home_dir() {
+                paths.push(home.join(".local/share"));
+            }
         }
-    } else if let Some(home) = dirs::home_dir() {
-        paths.push(home.join(".local/share"));
     }
 
     let dirs = std::env::var("XDG_DATA_DIRS")
@@ -225,9 +239,7 @@ fn desktop_entries() -> Vec<DesktopEntry> {
             let Ok(relative) = path.strip_prefix(&applications) else {
                 continue;
             };
-            let id = relative
-                .to_string_lossy()
-                .replace(std::path::MAIN_SEPARATOR, "/");
+            let id = desktop_file_id(relative);
             if !seen.insert(id.clone()) {
                 continue;
             }
@@ -245,12 +257,26 @@ fn collect_desktop_files(dir: &Path, out: &mut Vec<PathBuf>) {
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_dir() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_type.is_dir() {
             collect_desktop_files(&path, out);
         } else if path.extension().is_some_and(|ext| ext == "desktop") {
             out.push(path);
         }
     }
+}
+
+fn desktop_file_id(relative: &Path) -> String {
+    relative
+        .components()
+        .filter_map(|component| match component {
+            Component::Normal(value) => Some(value.to_string_lossy()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("-")
 }
 
 fn parse_desktop_entry(id: &str, path: &Path) -> Option<DesktopEntry> {
@@ -308,6 +334,7 @@ fn parse_desktop_entry(id: &str, path: &Path) -> Option<DesktopEntry> {
     Some(DesktopEntry {
         id: id.to_string(),
         name,
+        desktop_file: path.to_path_buf(),
         mime_types,
     })
 }
@@ -344,9 +371,11 @@ fn unescape_desktop_value(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::{
-        associated_apps, content_type, desktop_apps, desktop_file_path_in, parse_desktop_entry,
-        unescape_desktop_value,
+        associated_apps, collect_desktop_files, content_type, desktop_apps, desktop_file_id,
+        desktop_file_path_in, parse_desktop_entry, unescape_desktop_value,
     };
 
     #[test]
@@ -412,10 +441,33 @@ mod tests {
         std::fs::write(&path, "[Desktop Entry]\nType=Application\nName=Editor\n").unwrap();
 
         assert_eq!(
-            desktop_file_path_in("nested/editor.desktop", std::slice::from_ref(&root)),
+            desktop_file_path_in("nested-editor.desktop", std::slice::from_ref(&root)),
             Some(path.clone())
         );
+        assert_eq!(
+            desktop_file_id(Path::new("nested/editor.desktop")),
+            "nested-editor.desktop"
+        );
         assert!(desktop_file_path_in("../editor.desktop", std::slice::from_ref(&root)).is_none());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn desktop_scan_does_not_follow_directory_symlinks() {
+        use std::os::unix::fs::symlink;
+
+        let root = tempfile_path("desktop-symlink-loop");
+        let applications = root.join("applications");
+        std::fs::create_dir_all(&applications).unwrap();
+        let desktop = applications.join("editor.desktop");
+        std::fs::write(&desktop, "[Desktop Entry]\nType=Application\nName=Editor\n").unwrap();
+        symlink(&applications, applications.join("loop")).unwrap();
+
+        let mut files = Vec::new();
+        collect_desktop_files(&applications, &mut files);
+        assert_eq!(files, vec![desktop]);
 
         let _ = std::fs::remove_dir_all(root);
     }
