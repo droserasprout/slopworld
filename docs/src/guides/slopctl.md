@@ -46,8 +46,9 @@ prints that final task. It is useful after delegating work when the caller needs
 continue only once the result is available.
 
 `spawn` creates the task and child session in one daemon operation. `PARENT` must be an existing
-agent session; the child clones its project, command, sandbox, prompts, network, limits, mounts,
-and lifecycle settings, then adds the worker API capability. The worker receives its exact task id
+agent session to clone; the caller named by `SLOPWORLD_SESSION` owns the task and sidebar child.
+The child clones the parent's project, command, sandbox, prompts, network, limits, mounts, and
+lifecycle settings, then adds the worker API capability. The worker receives its exact task id
 in `SLOPWORLD_TASK_ID`, so it should run `slopctl task ID`, accept it, and report progress with
 the normal lifecycle commands. Spawning is root-only. One-shot workers disappear on exit; durable
 workers remain as stopped, inspectable sessions. Exit, stop, removal, or startup failure marks an

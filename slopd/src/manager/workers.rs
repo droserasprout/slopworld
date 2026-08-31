@@ -7,6 +7,8 @@ use anyhow::anyhow;
 
 pub(crate) const WORKER_SANDBOX: &str = "slopworld-worker";
 pub(crate) const WORKER_BOOTSTRAP: &str = "You are a SlopWorld worker. Your assigned task is $SLOPWORLD_TASK_ID. Run slopctl task with that exact ID, accept it, then complete it. Do not duplicate the task body into the prompt and do not rely on an ambiguous inbox search.";
+pub(crate) const WORKER_DISCOVERY_BREADCRUMB: &str =
+    "Other SlopWorld agents are available for delegated work. Use `slopctl peers`, `slopctl delegate AGENT TASK...`, `slopctl inbox`, and `slopctl --help`. Finish assigned work with `slopctl finish`.";
 
 #[derive(Debug, Clone)]
 pub struct WorkerSpawn {
@@ -20,6 +22,7 @@ impl Manager {
     /// operator can diagnose it instead of losing a half-created child between two API calls.
     pub async fn spawn_worker(
         self: &Arc<Self>,
+        caller: String,
         parent: String,
         body: String,
         durable: bool,
@@ -27,6 +30,13 @@ impl Manager {
         let _spawn = self.worker_spawn.lock().await;
         self.reload_if_changed().await;
         let cfg = self.config().await;
+        let caller = caller.trim().to_string();
+        if caller.is_empty() {
+            bail!("a worker needs a caller identity");
+        }
+        if caller != crate::tasks::HOST && !self.session_known(&caller).await {
+            bail!("no such caller session: {caller}");
+        }
         let parent = parent.trim().to_string();
         if parent.is_empty() {
             bail!("a worker needs a parent session");
@@ -50,8 +60,8 @@ impl Manager {
 
         let mut session = clone_worker_session(
             parent_session,
-            self.fresh_worker_name(&parent).await,
-            &parent,
+            self.fresh_worker_name(&caller).await,
+            &caller,
         );
         // A worker must be able to reach the daemon and must carry the exact API-capability
         // preset. It is appended to the parent's sandbox rather than replacing its normal tool
@@ -67,10 +77,10 @@ impl Manager {
         }
 
         let task = self.tasks.lock().unwrap().create_worker(
-            parent.clone(),
+            caller.clone(),
             session.name.clone(),
             body,
-            parent.clone(),
+            caller,
             durable,
         )?;
         session.task_id = task.id.clone();
@@ -229,12 +239,12 @@ mod tests {
             task_id: String::new(),
             worker_token: None,
         };
-        let child = clone_worker_session(parent.clone(), "parent-worker".into(), "parent");
+        let child = clone_worker_session(parent.clone(), "caller-worker".into(), "caller");
 
-        assert_eq!(child.name, "parent-worker");
+        assert_eq!(child.name, "caller-worker");
         assert_ne!(child.state_id, parent.state_id);
         assert!(child.worker);
-        assert_eq!(child.parent, "parent");
+        assert_eq!(child.parent, "caller");
         assert!(child.task_id.is_empty());
         assert_eq!(child.label, parent.label);
         assert_eq!(child.project, parent.project);

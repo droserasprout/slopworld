@@ -6,6 +6,9 @@ Use a short shipped breadcrumb when the session has working task credentials:
 > `slopctl delegate AGENT TASK...`, `slopctl inbox`, and `slopctl --help`.
 > Finish assigned work with `slopctl finish`.
 
+The root caller can create a task-owned child with `slopctl spawn [--durable] PARENT TASK...`;
+the caller owns the child in the sidebar, while `PARENT` supplies the configuration to clone.
+
 Keep transport, grants, and policy out of the prompt. Project instruction files do not
 own this capability because it belongs to a live SlopWorld session.
 
