@@ -60,8 +60,8 @@ impl Manager {
 
         let mut session = clone_worker_session(
             parent_session,
-            self.fresh_worker_name(&caller).await,
-            &caller,
+            self.fresh_worker_name(&parent).await,
+            &parent,
         );
         // A worker must be able to reach the daemon and must carry the exact API-capability
         // preset. It is appended to the parent's sandbox rather than replacing its normal tool
@@ -80,7 +80,7 @@ impl Manager {
             caller.clone(),
             session.name.clone(),
             body,
-            caller,
+            parent.clone(),
             durable,
         )?;
         session.task_id = task.id.clone();
@@ -203,6 +203,35 @@ mod tests {
             Live::new(SessionCfg::default(), TitleCapture::default()),
         );
         assert_eq!(manager.fresh_worker_name("parent").await, "parent-worker-2");
+
+        // The caller is not part of the child identity. A host-authorized request still names
+        // its child from the explicitly selected parent session.
+        assert_eq!(
+            manager.fresh_worker_name("ducks-sl").await,
+            "ducks-sl-worker"
+        );
+    }
+
+    #[tokio::test]
+    async fn invalid_worker_parent_is_rejected_before_task_creation() {
+        let manager = crate::session::test_manager(Config::default());
+
+        let error = manager
+            .spawn_worker(
+                crate::tasks::HOST.into(),
+                "missing-parent".into(),
+                "inspect the build".into(),
+                false,
+            )
+            .await
+            .unwrap_err()
+            .to_string();
+
+        assert!(
+            error.contains("no such parent session: missing-parent"),
+            "{error}"
+        );
+        assert!(manager.all_tasks().is_empty());
     }
 
     #[test]
@@ -239,12 +268,12 @@ mod tests {
             task_id: String::new(),
             worker_token: None,
         };
-        let child = clone_worker_session(parent.clone(), "caller-worker".into(), "caller");
+        let child = clone_worker_session(parent.clone(), "ducks-sl-worker".into(), "ducks-sl");
 
-        assert_eq!(child.name, "caller-worker");
+        assert_eq!(child.name, "ducks-sl-worker");
         assert_ne!(child.state_id, parent.state_id);
         assert!(child.worker);
-        assert_eq!(child.parent, "caller");
+        assert_eq!(child.parent, "ducks-sl");
         assert!(child.task_id.is_empty());
         assert_eq!(child.label, parent.label);
         assert_eq!(child.project, parent.project);
@@ -265,6 +294,34 @@ mod tests {
         assert_eq!(child.mounts, parent.mounts);
         assert!(!child.autostart);
         assert!(!child.auto_resume);
+    }
+
+    #[test]
+    fn worker_task_keeps_host_sender_separate_from_parent_metadata() {
+        let dir = std::env::temp_dir().join(format!(
+            "slopd-worker-attribution-{}-{}",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let config = dir.join("config.toml");
+        let mut tasks = crate::tasks::Tasks::load(&config).unwrap();
+        let task = tasks
+            .create_worker(
+                crate::tasks::HOST.into(),
+                "ducks-sl-worker".into(),
+                "inspect the build".into(),
+                "ducks-sl".into(),
+                false,
+            )
+            .unwrap();
+
+        assert_eq!(task.from, crate::tasks::HOST);
+        assert_eq!(task.to, "ducks-sl-worker");
+        let worker = task.worker.unwrap();
+        assert_eq!(worker.parent, "ducks-sl");
+        assert!(!worker.durable);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

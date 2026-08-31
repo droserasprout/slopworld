@@ -108,20 +108,6 @@ pub(crate) async fn spawn_worker(
     })))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use axum::http::HeaderValue;
-
-    #[test]
-    fn root_worker_requests_use_the_explicit_session_caller() {
-        let mut headers = HeaderMap::new();
-        headers.insert("x-slop-session", HeaderValue::from_static("caller"));
-
-        assert_eq!(task_principal(&Cap::Root, &headers).unwrap(), "caller");
-    }
-}
-
 pub(crate) async fn list_tasks(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
@@ -199,4 +185,18 @@ pub(crate) async fn remove_task(
         .remove_task(&who, &id, cap.may_create())
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "task": task })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::HeaderValue;
+
+    #[test]
+    fn root_worker_requests_use_the_explicit_session_caller() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-slop-session", HeaderValue::from_static("caller"));
+
+        assert_eq!(task_principal(&Cap::Root, &headers).unwrap(), "caller");
+    }
 }
