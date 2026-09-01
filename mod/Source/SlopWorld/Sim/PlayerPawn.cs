@@ -33,6 +33,8 @@ namespace SlopWorld
         public static bool IsPlayer(Pawn p) =>
             p != null && Current?._pawn == p;
 
+        public Pawn Pawn => _pawn;
+
         public override void GameComponentUpdate()
         {
             if (Verse.Current.ProgramState != ProgramState.Playing) return;

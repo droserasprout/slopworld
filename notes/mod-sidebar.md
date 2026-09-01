@@ -60,5 +60,6 @@ covered in [sidebar views and chrome](mod-sidebar-navigation.md).
 - The Tasks list keeps the complete mailbox but virtualizes off-screen rows. Its scroll view
   deliberately avoids Linux XInput precision polling; Unity wheel events and thumb dragging are
   sufficient here and avoid a severe frame-time regression on some X11 systems.
-- Task rows cap their one-line preview before passing it to RimWorld's quadratic `Truncate`;
-  the detail dialog retains and displays the complete task body.
+- Task rows cap their one-line preview before passing it to RimWorld's quadratic `Truncate`; the
+  click-through detail window shows the complete message and latest note as sender-avatar cards.
+  It opens at the available screen height and scrolls only when the message content exceeds it.
