@@ -38,6 +38,8 @@ namespace SlopWorld.Tests
             AssertEx.Equal(SlopConfig.DefaultInstructionsBreadcrumb, config.InstructionsBreadcrumb,
                            "instructions breadcrumb text default");
             AssertEx.True(config.InstructionsBreadcrumbEnabled, "instructions breadcrumb default");
+            AssertEx.Equal(SlopConfig.DefaultWorkerPrompt, config.WorkerPrompt,
+                           "worker prompt default");
             AssertEx.Equal("claude", config.Agent, "agent command default");
             AssertEx.Equal("bash", config.Shell, "shell command default");
             AssertEx.Equal("less", config.Pager, "pager default");
@@ -76,6 +78,7 @@ namespace SlopWorld.Tests
                 InstructionsMountPath = "docs/SLOPWORLD.md",
                 InstructionsBreadcrumb = "Read {{ mount_path }} for {{ project }}",
                 InstructionsBreadcrumbEnabled = false,
+                WorkerPrompt = "Retrieve $SLOPWORLD_TASK_ID, accept it, and finish it.",
                 Agent = "codex --full-auto",
                 Shell = "bash -lc",
                 Pager = "less -R",
@@ -113,6 +116,8 @@ namespace SlopWorld.Tests
             AssertEx.Equal(expected.InstructionsBreadcrumbEnabled,
                            actual.InstructionsBreadcrumbEnabled,
                            "instructions breadcrumb round trip");
+            AssertEx.Equal(expected.WorkerPrompt, actual.WorkerPrompt,
+                           "worker prompt round trip");
             AssertEx.Equal(expected.Agent, actual.Agent, "agent round trip");
             AssertEx.Equal(expected.Shell, actual.Shell, "shell round trip");
             AssertEx.Equal(expected.Pager, actual.Pager, "pager round trip");

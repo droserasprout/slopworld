@@ -636,9 +636,30 @@ impl Manager {
             tracing::error!("sending library item text to {name}: {e:#}");
             return;
         }
-        tokio::time::sleep(Duration::from_millis(ENTER_GAP_MS)).await;
-        self.send_keys(name, vec!["Enter".into()], false, random_tips)
+        // Delivery owns the complete startup prompt sequence. Keep its Enter out of send_keys,
+        // whose interactive breadcrumb hook can otherwise splice the first prompt incorrectly.
+        if let Some(breadcrumbs) = self.consume_breadcrumbs(name, &random_tips).await {
+            if !breadcrumbs.is_empty() {
+                self.queue_paste(name, breadcrumbs).await;
+                self.queue_input(name, Input::Gap(Duration::from_millis(ENTER_GAP_MS)))
+                    .await;
+            }
+            let _ = self.events.send(Event::Sessions {
+                sessions: self.views().await,
+            });
+        }
+        let enter = vec!["Enter".into()];
+        self.capture_title_keys(name, &enter, false).await;
+        self.queue_input(name, Input::Gap(Duration::from_millis(ENTER_GAP_MS)))
             .await;
+        self.queue_input(
+            name,
+            Input::Keys {
+                keys: enter,
+                literal: false,
+            },
+        )
+        .await;
     }
 
     pub(super) fn queue_auto_resume(self: &Arc<Self>, name: &str, run_id: u64) {

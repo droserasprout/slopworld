@@ -135,11 +135,32 @@ namespace SlopWorld
             if (row.Session == TerminalWindow.CurrentName) Slab.Fill(row.Line, SlopWidgets.RowOn);
             else SlopWidgets.HoverRow(row.Line);
 
+            float d = Mathf.Min(GhostMarkW, row.Text.height);
+            Rect mark = new Rect(row.Text.x - TextGap - GhostMarkW,
+                row.Text.y + (row.Text.height - d) / 2f, d, d);
+            GUI.color = SlopWidgets.Off;
+            GUI.DrawTexture(mark, Icons.Agents);
+            TooltipHandler.TipRegion(mark, "Task worker session");
+
             Text.Font = GameFont.Tiny;
-            GUI.color = info == null
-                ? SlopWidgets.Dim
-                : TerminalWindow.StateColor(info.State);
-            SlopWidgets.RowLabel(row.Text, "↳ " + (info?.Name ?? row.Session));
+            AgentState state = info?.State ?? AgentState.Down;
+            Color tint = info == null ? SlopWidgets.Dim : TerminalWindow.StateColor(state);
+            string ago = state == AgentState.Down ? "" : SidebarRowRenderer.Ago(info);
+            float ageW = ago.Length == 0 ? 0f : SlopWidgets.Wide(ago);
+            float nameW = Mathf.Max(0f, row.Text.width -
+                (ageW > 0f ? ageW + SlopWidgets.GapXS : 0f));
+            var name = new Rect(row.Text.x, row.Text.y, nameW, row.Text.height);
+            GUI.color = tint;
+            SlopWidgets.RowLabel(name, info?.Name ?? row.Session);
+            if (ageW > 0f)
+            {
+                var time = new Rect(row.Text.xMax - ageW, row.Text.y, ageW, row.Text.height);
+                SlopWidgets.RowLabel(time, ago, TextAnchor.MiddleRight);
+                string stateName = state == AgentState.Waiting
+                    ? "waiting for input"
+                    : state.ToString().ToLowerInvariant();
+                TooltipHandler.TipRegion(time, $"{stateName} for {ago}");
+            }
             GUI.color = Color.white;
             if (info != null && !string.IsNullOrEmpty(info.TaskId))
                 TooltipHandler.TipRegion(row.Line,

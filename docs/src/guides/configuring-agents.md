@@ -63,7 +63,11 @@ template = "# SlopWorld agent context\n\n{{ runtime_context }}"
 mount_path = "SLOPWORLD.md"
 breadcrumb = "Read `{{ mount_path }}` for SlopWorld runtime context."
 breadcrumb_enabled = true
+worker_prompt = "You are a SlopWorld worker. Your assigned task is $SLOPWORLD_TASK_ID. Run slopctl task with that exact ID, accept it, then complete it. Do not duplicate the task body into the prompt and do not rely on an ambiguous inbox search."
 ```
+
+`worker_prompt` is submitted to each task worker spawned by `slopctl spawn`; `$SLOPWORLD_TASK_ID`
+is available in the text. Settings provides a reset action for this prompt as well.
 
 The per-agent `slopworld_md` switch still controls whether the document is mounted at
 all. `breadcrumb_enabled` controls the additional discovery line globally, while

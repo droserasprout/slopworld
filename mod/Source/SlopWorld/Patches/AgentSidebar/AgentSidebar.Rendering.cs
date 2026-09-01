@@ -519,7 +519,8 @@ namespace SlopWorld
                 Ghost = false,
                 Worker = true,
                 Line = new Rect(0f, y, width, WorkerH),
-                Text = new Rect(tx, y + 1f, width - tx - Pad, WorkerH - 1f),
+                Text = new Rect(tx + GhostMarkW + TextGap, y + 1f,
+                    width - tx - GhostMarkW - TextGap - Pad, WorkerH - 1f),
                 Face = Rect.zero,
             });
             return y + WorkerH;
