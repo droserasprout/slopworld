@@ -29,6 +29,14 @@ namespace SlopWorld.Tests
                            "file action mode is parsed");
             AssertEx.Equal(FileActionMode.OpenTerminal, item.Copy().Mode,
                            "file action mode is copied");
+
+            item.Mode = FileActionMode.Nothing;
+            wire = JVal.Parse(item.ToJson());
+            AssertEx.Equal("nothing", wire["mode"].AsString(),
+                           "nothing mode is serialized");
+            AssertEx.Equal(FileActionMode.Nothing,
+                           LibraryItemInfo.FromJson(wire).Mode,
+                           "nothing mode is parsed");
         }
 
         static void MissingModeKeepsInvocationMenu()

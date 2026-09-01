@@ -24,7 +24,7 @@ namespace SlopWorld
         public string Text = "";
         // Blank means the daemon's own default.
         public string Command = "";
-        // How a file action presents its result. Ask preserves the original per-invocation menu.
+        // What a file action does after selection. Ask preserves the original per-invocation menu.
         public FileActionMode Mode = FileActionMode.Ask;
 
         // Shipped with the daemon rather than written in config.toml: it cannot be edited or

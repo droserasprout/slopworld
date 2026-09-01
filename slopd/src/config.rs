@@ -636,6 +636,12 @@ token = \"not-a-daemon-token\"
             kind = "fa"
             command = "bash"
             mode = "open_terminal"
+
+            [[library]]
+            name = "quiet"
+            kind = "fa"
+            command = "touch"
+            mode = "nothing"
             "#,
         )
         .expect("file action modes should parse");
@@ -649,10 +655,15 @@ token = \"not-a-daemon-token\"
             cfg.library_item("shell").unwrap().mode,
             FileActionMode::OpenTerminal
         );
+        assert_eq!(
+            cfg.library_item("quiet").unwrap().mode,
+            FileActionMode::Nothing
+        );
 
         let text = toml::to_string_pretty(&cfg).unwrap();
         assert!(text.contains("mode = \"show_result\""));
         assert!(text.contains("mode = \"open_terminal\""));
+        assert!(text.contains("mode = \"nothing\""));
         assert!(!text.contains("name = \"old\"\nkind = \"fa\"\ncommand = \"du -sh\"\nmode"));
 
         let back = Config::parse(&text).unwrap();
@@ -663,6 +674,10 @@ token = \"not-a-daemon-token\"
         assert_eq!(
             back.library_item("shell").unwrap().mode,
             FileActionMode::OpenTerminal
+        );
+        assert_eq!(
+            back.library_item("quiet").unwrap().mode,
+            FileActionMode::Nothing
         );
     }
 
