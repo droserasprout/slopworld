@@ -492,10 +492,6 @@ namespace SlopWorld
             return true;
         }
 
-        // The negotiated shape, for the top bar to say in the layout where this window draws
-        // no header of its own. Blank until the first frame has been measured.
-        public string Shape => _cols > 0 ? $"{_cols}x{_rows}" : "";
-
         public static Color StateColor(AgentState s)
         {
             switch (s)
