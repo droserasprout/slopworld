@@ -76,6 +76,31 @@ namespace SlopWorld
         // Keep callers anchored to the drawn portrait rather than duplicating its geometry.
         public static Rect PortraitRect(Rect face) => face;
 
+        // Task messages use the same close-up as the sidebar, but are drawn outside the
+        // colonist-bar pass. Returning the cached portrait keeps sender avatars consistent
+        // with the faces the player already knows from the sidebar.
+        public static Texture PortraitFor(Pawn pawn)
+        {
+            if (!_ready || pawn == null) return null;
+            try
+            {
+                PawnHealthState? healthOverride = pawn.Dead || pawn.health == null
+                    ? (PawnHealthState?)null
+                    : pawn.health.State == PawnHealthState.Down
+                        ? PawnHealthState.Mobile
+                        : (PawnHealthState?)null;
+                return PortraitsCache.Get(pawn, TextureSize, Rot4.South,
+                    FaceOffset(pawn), FaceZoom, true, true, true, true, null, null,
+                    false, healthOverride);
+            }
+            catch (Exception)
+            {
+                // A pawn can be between generation and registration while a task window is
+                // open. The caller has a generic sender glyph to use in that case.
+                return null;
+            }
+        }
+
         // The sidebar lays its rows out from the font and asks this what the portrait may be,
         // so the square pawn portrait fills the row it is in.
         public static float FaceForHeight(float height) => height;
