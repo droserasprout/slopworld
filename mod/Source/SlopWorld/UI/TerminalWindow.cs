@@ -57,7 +57,7 @@ namespace SlopWorld
         {
             // All of this after the background fill: anywhere earlier in the frame it is
             // painted over. See ColonistBarStrip.cs.
-            TopBar.Draw(this, input);
+            TopBar.Draw(input);
             ColonistBarStrip.Draw(input);
 
             float top = TopBar.H;
