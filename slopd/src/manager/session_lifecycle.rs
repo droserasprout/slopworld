@@ -187,6 +187,16 @@ impl Manager {
             }
             return Err(error);
         }
+        if s.worker {
+            let durable = !self.is_ephemeral(name).await;
+            if let Err(error) = self
+                .tmux
+                .set_worker_metadata(name, &s.parent, &s.task_id, durable)
+                .await
+            {
+                tracing::warn!("could not persist worker metadata for {name}: {error:#}");
+            }
+        }
         if host {
             if let Err(error) = self.tmux.set_host_metadata(name, &s.project, &dir).await {
                 tracing::warn!("could not persist host metadata for {name}: {error:#}");

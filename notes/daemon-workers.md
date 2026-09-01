@@ -17,8 +17,10 @@ with a daemon note when it cannot start, exits, is stopped, or is removed. A com
 task is never overwritten by later cleanup. There is no automatic retry: inspect the task and
 start a durable child manually, or create a new worker task for a retry.
 
-Workers carry daemon-owned `worker`, `parent`, and `task_id` metadata. Ordinary session creation
-and editing cannot set it. The child receives a fresh private-state identity, the exact
+Workers carry daemon-owned `worker`, `parent`, and `task_id` metadata. Running workers also
+persist that identity in tmux, so a one-shot child that outlives a daemon redeploy can be
+re-adopted under its parent. Ordinary session creation and editing cannot set it. The child
+receives a fresh private-state identity, the exact
 `SLOPWORLD_TASK_ID`, and the configured `[daemon.instructions] worker_prompt`, then uses
 `slopctl task ID`, `accept`, `progress`, and `finish` against its own mailbox. The default prompt
 describes that exact-task workflow; Settings > Integrations > Instructions can edit or reset it.

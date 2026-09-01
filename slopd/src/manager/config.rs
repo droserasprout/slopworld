@@ -515,8 +515,15 @@ impl Manager {
     async fn adopt_orphans(self: &Arc<Self>, cfg: &Config) -> bool {
         let mut adopted = false;
         for name in self.tmux.list().await {
+            // One-shot workers are deliberately absent from config.toml. Recover their
+            // daemon-owned identity from the metadata carried by the surviving tmux session.
+            let worker = self.tmux.worker_metadata(&name).await;
+            let worker_session = worker
+                .as_ref()
+                .map(|metadata| recovered_worker_cfg(cfg, &name, metadata));
             let saved_host = cfg.host_terminals.iter().find(|tab| tab.name == name);
-            let host = self.tmux.is_host(&name).await || saved_host.is_some();
+            // Worker identity takes precedence over a stale host marker or host-terminal record.
+            let host = worker.is_none() && (self.tmux.is_host(&name).await || saved_host.is_some());
             let tmux_host = host.then(|| self.tmux.host_metadata(&name));
             let tmux_host = match tmux_host {
                 Some(future) => future.await,
@@ -547,7 +554,7 @@ impl Manager {
                     );
                     let now = now_ms();
                     let mut l = Live::new(
-                        SessionCfg {
+                        worker_session.clone().unwrap_or_else(|| SessionCfg {
                             name: name.clone(),
                             project: host_project.clone(),
                             command: if host {
@@ -556,10 +563,13 @@ impl Manager {
                                 String::new()
                             },
                             ..Default::default()
-                        },
+                        }),
                         TitleCapture::default(),
                     );
-                    l.ephemeral = true;
+                    l.ephemeral = worker
+                        .as_ref()
+                        .map(|metadata| !metadata.durable)
+                        .unwrap_or(true);
                     l.host = host;
                     l.host_path = host_path.clone();
                     l.state = State::Working;
@@ -568,6 +578,14 @@ impl Manager {
                     live.insert(name.clone(), l);
                     adopted = true;
                 } else if let Some(l) = live.get_mut(&name) {
+                    if let (Some(metadata), Some(session)) = (worker.as_ref(), worker_session) {
+                        // A stale in-memory host row can exist when a daemon reload adopts a
+                        // worker name that was also present in an old host-terminal catalog.
+                        l.cfg = session;
+                        l.ephemeral = !metadata.durable;
+                        l.host = false;
+                        l.host_path.clear();
+                    }
                     if host && l.host {
                         if !host_project.is_empty() {
                             l.cfg.project = host_project.clone();
@@ -819,6 +837,30 @@ impl Manager {
     }
 }
 
+fn recovered_worker_cfg(
+    cfg: &Config,
+    name: &str,
+    metadata: &crate::tmux::WorkerMetadata,
+) -> SessionCfg {
+    let mut session = cfg.session(&metadata.parent).cloned().unwrap_or_default();
+    session.name = name.to_string();
+    session.state_id = uuid::Uuid::new_v4().to_string();
+    session.worker = true;
+    session.parent = metadata.parent.clone();
+    session.task_id = metadata.task_id.clone();
+    session.autostart = false;
+    session.auto_resume = false;
+    session.worker_token = None;
+    if !session
+        .sandbox
+        .iter()
+        .any(|preset| preset == super::workers::WORKER_SANDBOX)
+    {
+        session.sandbox.push(super::workers::WORKER_SANDBOX.into());
+    }
+    session
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -930,5 +972,37 @@ mod tests {
         assert_eq!(live["shell"].host_path, crate::config::expand("~/repo"));
         assert!(!live.contains_key("bad name"));
         assert_eq!(live.len(), 2);
+    }
+
+    #[test]
+    fn recovered_worker_uses_parent_settings_and_task_identity() {
+        let cfg = Config {
+            sessions: vec![SessionCfg {
+                name: "parent".into(),
+                project: "repo".into(),
+                command: "codex".into(),
+                sandbox: vec!["gpu".into()],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let worker = recovered_worker_cfg(
+            &cfg,
+            "parent-worker",
+            &crate::tmux::WorkerMetadata {
+                parent: "parent".into(),
+                task_id: "task-7".into(),
+                durable: false,
+            },
+        );
+
+        assert!(worker.worker);
+        assert_eq!(worker.parent, "parent");
+        assert_eq!(worker.task_id, "task-7");
+        assert_eq!(worker.project, "repo");
+        assert_eq!(worker.command, "codex");
+        assert_eq!(worker.sandbox, ["gpu", "slopworld-worker"]);
+        assert!(!worker.autostart);
+        assert!(!worker.auto_resume);
     }
 }

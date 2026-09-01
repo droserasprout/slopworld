@@ -472,6 +472,9 @@ const BOOT_ROWS: u16 = 34;
 const READY_MS: u64 = 30_000;
 const SETTLE_MS: u64 = 750;
 const ENTER_GAP_MS: u64 = 150;
+// A bracketed paste changes the agent TUI's input state asynchronously. Give a cold or
+// backgrounded pane time to commit that state before the separate Enter reaches it.
+pub(crate) const DELIVERY_ENTER_GAP_MS: u64 = 1_000;
 
 async fn disk_mtime(path: &std::path::Path) -> Option<SystemTime> {
     tokio::fs::metadata(path).await.ok()?.modified().ok()
