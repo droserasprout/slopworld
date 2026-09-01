@@ -54,9 +54,9 @@ cannot restart, but watching, typing and killing still work.
 - `POST /api/library/NAME/run` returns the session name and delivers asynchronously;
   the mod's five-second HTTP timeout is shorter than agent startup.
 - `deliver` pastes text and sends Enter separately. For agents with breadcrumbs, the
-  daemon queues breadcrumb text, an `ENTER_GAP_MS` `Input::Gap`, then the first user
-  Enter, so the breadcrumb is submitted with the draft and later typing stays behind it.
-  A restart arms this again.
+  daemon queues breadcrumb text, a one-second `DELIVERY_ENTER_GAP_MS` `Input::Gap`, then
+  the first user Enter, so a cold/backgrounded TUI has time to consume bracketed paste before
+  the submit key arrives. Later typing stays behind it. A restart arms this again.
 - `breadcrumb_block` puts one-line entries in a shared bullet list and multiline entries
   in their own paragraph. `Live.breadcrumbs_pending` tells the window whether the next
   Enter carries breadcrumbs; `send_keys` clears it.

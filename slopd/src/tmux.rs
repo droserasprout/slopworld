@@ -9,11 +9,22 @@ const ACTIVITY_STATE: &str = "@slopworld_state";
 const ACTIVITY_SINCE: &str = "@slopworld_state_since";
 const HOST_PROJECT: &str = "@slopworld_host_project";
 const HOST_PATH: &str = "@slopworld_host_path";
+const WORKER: &str = "@slopworld_worker";
+const WORKER_PARENT: &str = "@slopworld_worker_parent";
+const WORKER_TASK: &str = "@slopworld_worker_task";
+const WORKER_DURABLE: &str = "@slopworld_worker_durable";
 
 /// Pinned to a private server socket, so it never collides with the user's tmux.
 #[derive(Clone)]
 pub struct Tmux {
     socket: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkerMetadata {
+    pub parent: String,
+    pub task_id: String,
+    pub durable: bool,
 }
 
 pub struct Screen {
@@ -227,6 +238,44 @@ impl Tmux {
         let project = self.option(name, HOST_PROJECT).await?;
         let path = self.option(name, HOST_PATH).await?;
         Some((project, path))
+    }
+
+    /// Task-owned worker identity survives a daemon redeploy with the tmux session.
+    pub async fn set_worker_metadata(
+        &self,
+        name: &str,
+        parent: &str,
+        task_id: &str,
+        durable: bool,
+    ) -> Result<()> {
+        self.run(&["set-option", "-t", name, WORKER, "1"]).await?;
+        self.run(&["set-option", "-t", name, WORKER_PARENT, parent])
+            .await?;
+        self.run(&["set-option", "-t", name, WORKER_TASK, task_id])
+            .await?;
+        self.run(&[
+            "set-option",
+            "-t",
+            name,
+            WORKER_DURABLE,
+            if durable { "1" } else { "0" },
+        ])
+        .await?;
+        Ok(())
+    }
+
+    pub async fn worker_metadata(&self, name: &str) -> Option<WorkerMetadata> {
+        if self.option(name, WORKER).await?.trim() != "1" {
+            return None;
+        }
+        Some(WorkerMetadata {
+            parent: self.option(name, WORKER_PARENT).await?,
+            task_id: self.option(name, WORKER_TASK).await?,
+            durable: self
+                .option(name, WORKER_DURABLE)
+                .await
+                .is_some_and(|value| value.trim() == "1"),
+        })
     }
 
     pub async fn current_path(&self, name: &str) -> Option<String> {

@@ -641,8 +641,11 @@ impl Manager {
         if let Some(breadcrumbs) = self.consume_breadcrumbs(name, &random_tips).await {
             if !breadcrumbs.is_empty() {
                 self.queue_paste(name, breadcrumbs).await;
-                self.queue_input(name, Input::Gap(Duration::from_millis(ENTER_GAP_MS)))
-                    .await;
+                self.queue_input(
+                    name,
+                    Input::Gap(Duration::from_millis(DELIVERY_ENTER_GAP_MS)),
+                )
+                .await;
             }
             let _ = self.events.send(Event::Sessions {
                 sessions: self.views().await,
@@ -650,8 +653,11 @@ impl Manager {
         }
         let enter = vec!["Enter".into()];
         self.capture_title_keys(name, &enter, false).await;
-        self.queue_input(name, Input::Gap(Duration::from_millis(ENTER_GAP_MS)))
-            .await;
+        self.queue_input(
+            name,
+            Input::Gap(Duration::from_millis(DELIVERY_ENTER_GAP_MS)),
+        )
+        .await;
         self.queue_input(
             name,
             Input::Keys {
