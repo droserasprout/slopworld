@@ -468,19 +468,16 @@ impl Manager {
         random_tips: Vec<String>,
     ) {
         self.capture_title_keys(name, &keys, literal).await;
-        let inject: Option<(Vec<u8>, usize)> = {
-            let mut live = self.live.write().await;
-            match live.get_mut(name) {
-                None => None,
-                Some(l) if !l.breadcrumbs_pending => None,
-                Some(l) if !literal => keys.iter().position(|k| k == "Enter").map(|pos| {
-                    l.breadcrumbs_pending = false;
-                    let text = String::from_utf8_lossy(&l.breadcrumbs);
-                    let text = render_template(&text, &random_tips);
-                    (text.into_bytes(), pos)
-                }),
-                Some(_) => None,
+        let inject: Option<(Vec<u8>, usize)> = if !literal {
+            if let Some(pos) = keys.iter().position(|k| k == "Enter") {
+                self.consume_breadcrumbs(name, &random_tips)
+                    .await
+                    .map(|text| (text, pos))
+            } else {
+                None
             }
+        } else {
+            None
         };
         if let Some((text, pos)) = inject {
             if !text.is_empty() {
@@ -543,10 +540,26 @@ impl Manager {
         Ok(())
     }
 
-    async fn queue_paste(&self, name: &str, bytes: Vec<u8>) {
+    pub(super) async fn queue_paste(&self, name: &str, bytes: Vec<u8>) {
         let bracketed = self.bracketed_paste_for(name).await;
         self.queue_input(name, Input::Paste { bytes, bracketed })
             .await;
+    }
+
+    pub(super) async fn consume_breadcrumbs(
+        &self,
+        name: &str,
+        random_tips: &[String],
+    ) -> Option<Vec<u8>> {
+        let mut live = self.live.write().await;
+        let session = live.get_mut(name)?;
+        if !session.breadcrumbs_pending {
+            return None;
+        }
+
+        session.breadcrumbs_pending = false;
+        let text = String::from_utf8_lossy(&session.breadcrumbs);
+        Some(render_template(&text, random_tips).into_bytes())
     }
 
     async fn bracketed_paste_for(&self, name: &str) -> bool {
@@ -1367,6 +1380,30 @@ mod tests {
 
         session.cmd = Some("claude".into());
         assert!(!command_uses_bracketed_paste(&cfg, &session));
+    }
+
+    #[tokio::test]
+    async fn breadcrumbs_are_consumed_once_for_a_delivered_prompt() {
+        let manager = crate::session::test_manager(Config::default());
+        let mut live = Live::new(
+            SessionCfg {
+                name: "agent".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        live.breadcrumbs = b"{{ random_tip }}".to_vec();
+        live.breadcrumbs_pending = true;
+        manager.live.write().await.insert("agent".into(), live);
+
+        assert_eq!(
+            manager
+                .consume_breadcrumbs("agent", &["tip".into()])
+                .await
+                .as_deref(),
+            Some(b"tip".as_slice())
+        );
+        assert!(manager.consume_breadcrumbs("agent", &[]).await.is_none());
     }
 
     #[tokio::test]

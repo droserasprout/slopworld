@@ -19,13 +19,16 @@ start a durable child manually, or create a new worker task for a retry.
 
 Workers carry daemon-owned `worker`, `parent`, and `task_id` metadata. Ordinary session creation
 and editing cannot set it. The child receives a fresh private-state identity, the exact
-`SLOPWORLD_TASK_ID`, and the fixed bootstrap prompt, then uses `slopctl task ID`, `accept`,
-`progress`, and `finish` against its own mailbox. The `slopworld-worker` sandbox preset supplies
+`SLOPWORLD_TASK_ID`, and the configured `[daemon.instructions] worker_prompt`, then uses
+`slopctl task ID`, `accept`, `progress`, and `finish` against its own mailbox. The default prompt
+describes that exact-task workflow; Settings > Integrations > Instructions can edit or reset it.
+The `slopworld-worker` sandbox preset supplies
 a run-scoped API credential through `SLOPD_URL` and `SLOPD_TOKEN`; it does not expose the daemon
 config or root endpoint token. A network-capable parent is required so this API path works;
 incompatible parents are rejected before launch.
 
 Removing a parent does not cascade to its workers. A child with a missing parent remains a valid
 session and is shown as a top-level row until it is removed or exits. The sidebar uses the
-explicit metadata to nest visible workers as compact rows without the normal agent icon; names
-are never parsed to infer ownership.
+explicit metadata to nest visible workers as compact rows with a small grey robot mark (the
+Agents tab icon) rather than the normal agent portrait; names are never parsed to infer
+ownership.

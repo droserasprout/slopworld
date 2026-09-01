@@ -53,7 +53,7 @@ namespace SlopWorld
         const float RowGap = SlopWidgets.GapXS;
 
         static float GhostH => NameH + 2f;
-        // Child workers get a single compact line and no portrait/icon column.
+        // Child workers get a single compact line and a small robot mark instead of a portrait.
         static float WorkerH => SlopWidgets.LineHOf(GameFont.Tiny) + 2f;
 
         static float NameH => SlopWidgets.LineHOf(GameFont.Small);

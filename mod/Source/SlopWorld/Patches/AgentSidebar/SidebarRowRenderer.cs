@@ -152,7 +152,7 @@ namespace SlopWorld
             return indicators;
         }
 
-        static string Ago(SessionInfo info)
+        internal static string Ago(SessionInfo info)
         {
             if (info == null || info.StateSince <= 0) return "";
             long seconds = (SessionInfo.NowMs - info.StateSince) / 1000L;

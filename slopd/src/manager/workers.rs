@@ -6,7 +6,6 @@ use super::super::*;
 use anyhow::anyhow;
 
 pub(crate) const WORKER_SANDBOX: &str = "slopworld-worker";
-pub(crate) const WORKER_BOOTSTRAP: &str = "You are a SlopWorld worker. Your assigned task is $SLOPWORLD_TASK_ID. Run slopctl task with that exact ID, accept it, then complete it. Do not duplicate the task body into the prompt and do not rely on an ambiguous inbox search.";
 pub(crate) const WORKER_DISCOVERY_BREADCRUMB: &str =
     "Other SlopWorld agents are available for delegated work. Use `slopctl peers`, `slopctl delegate AGENT TASK...`, `slopctl inbox`, and `slopctl --help`. Finish assigned work with `slopctl finish`.";
 
@@ -129,7 +128,8 @@ impl Manager {
         });
         let manager = self.clone();
         let name = session.name.clone();
-        tokio::spawn(async move { manager.deliver(&name, WORKER_BOOTSTRAP, Vec::new()).await });
+        let bootstrap = cfg.daemon.instructions.worker_prompt.clone();
+        tokio::spawn(async move { manager.deliver(&name, &bootstrap, Vec::new()).await });
         Ok(WorkerSpawn {
             task,
             session: session.name,

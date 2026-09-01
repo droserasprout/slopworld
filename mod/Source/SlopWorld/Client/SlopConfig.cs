@@ -19,6 +19,11 @@ namespace SlopWorld
         public const string DefaultInstructionsBreadcrumb =
             "Read `{{ mount_path }}` for SlopWorld runtime context. It is a generated snapshot, " +
             "not project instructions.";
+        public const string DefaultWorkerPrompt =
+            "You are a SlopWorld worker. Your assigned task is $SLOPWORLD_TASK_ID. " +
+            "Run slopctl task with that exact ID, accept it, then complete it. " +
+            "Do not duplicate the task body into the prompt and do not rely on an ambiguous " +
+            "inbox search.";
 
         public int UsagePollSecs = 60;
         // One entry per usage window. A zero interval means the global interval applies.
@@ -45,6 +50,7 @@ namespace SlopWorld
         public string InstructionsMountPath = "SLOPWORLD.md";
         public string InstructionsBreadcrumb = DefaultInstructionsBreadcrumb;
         public bool InstructionsBreadcrumbEnabled = true;
+        public string WorkerPrompt = DefaultWorkerPrompt;
 
         public string RenderInstructionsBreadcrumb(string project)
         {
@@ -118,6 +124,7 @@ namespace SlopWorld
                 InstructionsBreadcrumb =
                     i["breadcrumb"].AsString(DefaultInstructionsBreadcrumb),
                 InstructionsBreadcrumbEnabled = i["breadcrumb_enabled"].AsBool(true),
+                WorkerPrompt = i["worker_prompt"].AsString(DefaultWorkerPrompt),
 
                 Agent = f["agent"].AsString("claude"),
                 Shell = f["shell"].AsString("bash"),
@@ -166,7 +173,8 @@ namespace SlopWorld
             $"\"template\":{JVal.Q(InstructionsTemplate)}," +
                 $"\"mount_path\":{JVal.Q(InstructionsMountPath)}," +
                 $"\"breadcrumb\":{JVal.Q(InstructionsBreadcrumb)}," +
-                $"\"breadcrumb_enabled\":{JVal.B(InstructionsBreadcrumbEnabled)}" +
+                $"\"breadcrumb_enabled\":{JVal.B(InstructionsBreadcrumbEnabled)}," +
+                $"\"worker_prompt\":{JVal.Q(WorkerPrompt)}" +
             "}" +
             "}," +
             "\"defaults\":{" +

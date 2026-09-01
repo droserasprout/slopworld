@@ -256,7 +256,8 @@ mod tests {
         expand, redact_token_text, resolvers_from, temp_dir, Config, DnsConfig, FileActionMode,
         HostTerminalCfg, InstructionsCfg, LibraryItemCfg, LibraryItemKind, LibraryItemLink, Limits,
         NetworkMode, ProjectCfg, SessionCfg, TitlePolicy, DEFAULT_INSTRUCTIONS_BREADCRUMB,
-        DEFAULT_INSTRUCTIONS_MOUNT_PATH, DEFAULT_INSTRUCTIONS_TEMPLATE, TOKEN_REDACTED,
+        DEFAULT_INSTRUCTIONS_MOUNT_PATH, DEFAULT_INSTRUCTIONS_TEMPLATE, DEFAULT_WORKER_PROMPT,
+        TOKEN_REDACTED,
     };
 
     #[test]
@@ -401,6 +402,7 @@ mod tests {
         assert_eq!(instructions.mount_path, DEFAULT_INSTRUCTIONS_MOUNT_PATH);
         assert_eq!(instructions.breadcrumb, DEFAULT_INSTRUCTIONS_BREADCRUMB);
         assert!(instructions.breadcrumb_enabled);
+        assert_eq!(instructions.worker_prompt, DEFAULT_WORKER_PROMPT);
 
         for mount_path in [
             "",
