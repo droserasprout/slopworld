@@ -1,10 +1,11 @@
 //! Host-side git snapshot for the game, which cannot enter agent mount namespaces.
 //! Collects repository root, porcelain status, and path-limited numstat for the tree.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
+use futures::stream::{self, StreamExt};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::Command;
 
@@ -39,6 +40,28 @@ pub struct Status {
 /// Enough for any working tree a person is actually reading. Past it the tree is not a tree
 /// any more, and a `git status` that long is a build directory somebody forgot to ignore.
 const LIMIT: usize = 2000;
+const NO_INDEX_CONCURRENCY: usize = 16;
+
+/// Seed Git's persistent status caches before the client can ask for its first sidebar read.
+/// This moves the one unavoidable cold walk out of the interactive refresh path; subsequent
+/// status calls use the filesystem monitor and directory mtimes to inspect only affected paths.
+pub async fn warm_projects(dirs: Vec<PathBuf>) {
+    stream::iter(dirs)
+        .for_each_concurrent(4, |dir| async move {
+            if let Err(error) = warm(&dir).await {
+                tracing::debug!(path = %dir.display(), error = %error, "Git cache warmup skipped");
+            }
+        })
+        .await;
+}
+
+async fn warm(dir: &Path) -> std::io::Result<()> {
+    let Some(root) = toplevel(dir).await? else {
+        return Ok(());
+    };
+    let _ = status_rows(&root).await?;
+    Ok(())
+}
 
 /// Whether `dir` is inside a repository, and what has changed in it. `Ok(None)` is "not a
 /// repository" - a plain answer rather than an error, because half the projects on a machine
@@ -53,7 +76,7 @@ pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
     // to the root is the one form `git diff` will take back without a second guess about cwd.
     // Start with Git's one-row-per-directory untracked summary. It can skip ignored trees, which
     // matters for projects that contain build outputs or nested checkouts. Ordinary untracked
-    // directories are expanded one at a time below; a nested repository remains a boundary row
+    // directories are expanded in one batch below; a nested repository remains a boundary row
     // and its own working tree is never inspected as part of the parent.
     let (rows, truncated) = status_rows(&root).await?;
     let branch = branch(&root).await;
@@ -94,7 +117,7 @@ pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
 /// name of a rename/copy in a second NUL-delimited field, so consume that field before deciding
 /// whether the next row crossed the cap.
 async fn status_rows(root: &Path) -> std::io::Result<(Vec<(String, String)>, bool)> {
-    let (mut rows, truncated) = status_rows_command(root, None, "normal").await?;
+    let (mut rows, truncated) = status_rows_command(root, &[], "normal").await?;
     if truncated {
         return Ok((rows, true));
     }
@@ -103,20 +126,15 @@ async fn status_rows(root: &Path) -> std::io::Result<(Vec<(String, String)>, boo
     // small ordinary untracked directory. Ask Git to expand only those rows. Git itself reports
     // a nested repository as `?? nested/` even with `--untracked-files=all`, so this does not walk
     // into a child checkout.
-    let directories: Vec<String> = rows
+    let directories: HashSet<String> = rows
         .iter()
         .filter(|(path, status)| status == "??" && path.ends_with('/'))
         .map(|(path, _)| path.clone())
         .collect();
-    for directory in directories {
-        let (expanded, expanded_truncated) =
-            status_rows_command(root, Some(&directory), "all").await?;
-        if let Some(index) = rows
-            .iter()
-            .position(|(path, status)| path == &directory && status == "??")
-        {
-            rows.remove(index);
-        }
+    if !directories.is_empty() {
+        let paths: Vec<String> = directories.iter().cloned().collect();
+        let (expanded, expanded_truncated) = status_rows_command(root, &paths, "all").await?;
+        rows.retain(|(path, status)| !(status == "??" && directories.contains(path)));
         rows.extend(expanded);
         if rows.len() > LIMIT {
             rows.truncate(LIMIT);
@@ -129,27 +147,37 @@ async fn status_rows(root: &Path) -> std::io::Result<(Vec<(String, String)>, boo
     Ok((rows, false))
 }
 
-/// Read one bounded Git status stream. `path` is a repository-relative pathspec used when the
-/// fast summary found an ordinary untracked directory worth expanding.
+/// Read one bounded Git status stream. `paths` are repository-relative pathspecs used when the
+/// fast summary found ordinary untracked directories worth expanding.
 async fn status_rows_command(
     root: &Path,
-    path: Option<&str>,
+    paths: &[String],
     untracked_files: &str,
 ) -> std::io::Result<(Vec<(String, String)>, bool)> {
     let mut command = Command::new("git");
     command
-        .arg("-C")
+        // Keep Git's filesystem watcher and directory-mtime cache in the repository index. These
+        // are scoped to the status reader rather than changing the user's global configuration.
+        .args([
+            "-c",
+            "core.fsmonitor=true",
+            "-c",
+            "core.untrackedCache=true",
+            "-C",
+        ])
         .arg(root)
         .args(["status", "--porcelain=v1"])
         .arg(format!("--untracked-files={untracked_files}"))
         .args(["--ignore-submodules=all", "-z"]);
-    if let Some(path) = path {
-        command.args(["--", path]);
+    if !paths.is_empty() {
+        command.arg("--");
+        command.args(paths);
     }
     let mut child = command
         .env("GIT_PAGER", "cat")
-        // This bounded metadata pass may refresh Git's stat cache. The diff readers below stay
-        // read-only, but allowing status to cache its work keeps repeated sidebar reads quick.
+        // Let Git persist its untracked-directory cache in the index. The first scan of a large
+        // worktree can still be cold, but without this cache every daemon restart pays that
+        // directory walk again; later sidebar refreshes are then only metadata checks.
         .env("GIT_OPTIONAL_LOCKS", "1")
         .env("LC_ALL", "C")
         .stdout(Stdio::piped())
@@ -258,30 +286,70 @@ async fn numstat(
         return HashMap::new();
     }
 
-    let paths = rows.iter().map(|(path, _)| path.as_str());
-    let (out, has_head) = match run_paths(root, &["diff", "--numstat", "-z", "HEAD"], paths).await {
-        Ok(s) => (s, true),
-        Err(_) => {
-            let paths = rows.iter().map(|(path, _)| path.as_str());
-            (
-                run_paths(root, &["diff", "--numstat", "-z", "--cached"], paths)
-                    .await
-                    .unwrap_or_default(),
+    let tracked = rows
+        .iter()
+        .filter(|(_, status)| status != "??")
+        .map(|(path, _)| path.as_str())
+        .collect::<Vec<_>>();
+    let (out, has_head) = if tracked.is_empty() {
+        // An untracked-only answer has no index-side diff to read. Its paths are counted by the
+        // no-index pass below, and skipping this command matters when a directory expands to
+        // many files.
+        (String::new(), true)
+    } else {
+        match run_paths(
+            root,
+            &["diff", "--numstat", "-z", "HEAD"],
+            tracked.iter().copied(),
+        )
+        .await
+        {
+            Ok(s) => (s, true),
+            Err(_) => (
+                run_paths(
+                    root,
+                    &["diff", "--numstat", "-z", "--cached"],
+                    tracked.iter().copied(),
+                )
+                .await
+                .unwrap_or_default(),
                 false,
-            )
+            ),
         }
     };
     let mut counts = parse_numstat(&out);
 
-    for path in rows.iter().filter_map(|(path, status)| {
-        (status == "??" || (!has_head && status.contains('A'))).then_some(path)
-    }) {
-        if let Some(count) = no_index_numstat(root, path).await {
-            counts.insert(path.clone(), count);
+    let untracked = rows
+        .iter()
+        .filter_map(|(path, status)| {
+            (status == "??" || (!has_head && status.contains('A'))).then_some(path)
+        })
+        .filter(|path| !path.ends_with('/') && !is_directory(root, path))
+        .cloned()
+        .collect::<Vec<_>>();
+    let no_index = stream::iter(untracked.into_iter().map(|path| async move {
+        let count = no_index_numstat(root, &path).await;
+        (path, count)
+    }))
+    .buffer_unordered(NO_INDEX_CONCURRENCY)
+    .collect::<Vec<_>>()
+    .await;
+    for (path, count) in no_index {
+        if let Some(count) = count {
+            counts.insert(path, count);
         }
     }
 
     counts
+}
+
+/// Git uses a trailing slash for an untracked directory, but a gitlink added to the index is
+/// reported without one. Never hand either kind of directory to `diff --no-index`: it would
+/// walk a nested checkout that the status pass intentionally treats as one boundary row.
+fn is_directory(root: &Path, path: &str) -> bool {
+    std::fs::symlink_metadata(root.join(path))
+        .map(|metadata| metadata.file_type().is_dir())
+        .unwrap_or(false)
 }
 
 /// `git diff --no-index` exits one when the file differs from `/dev/null`, but its numstat is
