@@ -806,6 +806,8 @@ namespace SlopWorld
         {
             TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
             {
+                new FloatMenuOption(FileActionModeText.Label(FileActionMode.Nothing),
+                    () => _s.Mode = FileActionMode.Nothing),
                 new FloatMenuOption(FileActionModeText.Label(FileActionMode.Ask),
                     () => _s.Mode = FileActionMode.Ask),
                 new FloatMenuOption(FileActionModeText.Label(FileActionMode.ShowResult),

@@ -15,7 +15,7 @@ namespace SlopWorld
 
     public enum LibraryItemKind { Prompt, Shell, Breadcrumb, FileAction }
 
-    public enum FileActionMode { Ask, ShowResult, OpenTerminal }
+    public enum FileActionMode { Ask, ShowResult, OpenTerminal, Nothing }
 
     public static class FileActionModeText
     {
@@ -25,17 +25,20 @@ namespace SlopWorld
             {
                 case "show_result": return FileActionMode.ShowResult;
                 case "open_terminal": return FileActionMode.OpenTerminal;
+                case "nothing": return FileActionMode.Nothing;
                 default: return FileActionMode.Ask;
             }
         }
 
         public static string Name(FileActionMode mode) => mode == FileActionMode.ShowResult
             ? "show_result"
-            : mode == FileActionMode.OpenTerminal ? "open_terminal" : "ask";
+            : mode == FileActionMode.OpenTerminal ? "open_terminal"
+            : mode == FileActionMode.Nothing ? "nothing" : "ask";
 
         public static string Label(FileActionMode mode) => mode == FileActionMode.ShowResult
             ? "Show result"
-            : mode == FileActionMode.OpenTerminal ? "Open terminal" : "Ask every time";
+            : mode == FileActionMode.OpenTerminal ? "Open terminal"
+            : mode == FileActionMode.Nothing ? "Nothing" : "Ask every time";
     }
 
     // Temp is a fresh scratch directory per run; Ask is decided at the button.

@@ -248,6 +248,11 @@ namespace SlopWorld
         {
             bool host = string.IsNullOrEmpty(project);
             var command = FileActionCommand(action.Command, path, relative);
+            if (action.Mode == FileActionMode.Nothing)
+            {
+                RunFileActionSilently(project, path, command, host);
+                return;
+            }
             if (action.Mode == FileActionMode.ShowResult)
             {
                 ShowFileActionResult(project, path, command, host, action.Name);
@@ -278,19 +283,40 @@ namespace SlopWorld
                 $"\"host\":{JVal.B(host)}" +
                 "}", j =>
                 {
+                    Reload();
                     string output = j["output"].AsString("(no output)");
                     TerminalWindow.OpenOverPane(SlopAlertDialog.Create(
                         "File action: " + actionName, output, "Close", null));
                 }, msg =>
+                {
+                    Reload();
                     TerminalWindow.OpenOverPane(SlopAlertDialog.Create(
                         "File action failed", msg, "Close", null,
-                        primaryKind: SlopWidgets.Btn.Danger))
-                );
+                        primaryKind: SlopWidgets.Btn.Danger));
+                });
+        }
+
+        static void RunFileActionSilently(string project, string path, string command, bool host)
+        {
+            SlopClient.Post("/api/file-action", "{" +
+                $"\"project\":{JVal.Q(project)}," +
+                $"\"path\":{JVal.Q(path)}," +
+                $"\"command\":{JVal.Q(command)}," +
+                $"\"host\":{JVal.B(host)}" +
+                "}", _ => Reload(), msg =>
+                {
+                    Reload();
+                    SlopWidgets.Fail("File action: " + msg);
+                });
         }
 
         static void OpenFileActionTerminal(string project, string path, string name,
             string command, bool host)
         {
+            // A terminal action can keep running after this callback, so refresh as soon as
+            // its session is launched rather than waiting for a completion that does not
+            // exist for an interactive command.
+            Reload();
             SessionHub.Instance.Run(project, command, "fa-" + name,
                 session => TerminalWindow.Open(session), SlopWidgets.Fail,
                 host: host, temp: host, path: path, hold: true);
