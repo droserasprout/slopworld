@@ -75,7 +75,7 @@ namespace SlopWorld
         {
             var line = new Rect(text.x, text.y, text.width, nameH);
 
-            Text.Font = GameFont.Tiny;
+            Text.Font = GameFont.Small;
             string ago = state == AgentState.Down ? "" : Ago(info);
             float ageW = ago.Length == 0 ? 0f : SlopWidgets.Wide(ago);
 

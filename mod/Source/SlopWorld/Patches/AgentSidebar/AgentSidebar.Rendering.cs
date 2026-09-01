@@ -933,9 +933,10 @@ namespace SlopWorld
             string count = $"{head.Active}/{head.Total}";
             float countW = SlopWidgets.Wide(count);
             var countRect = new Rect(r.xMax - CellX - countW, r.y, countW, HeadH);
-            GUI.color = SlopWidgets.Dim;
+            GUI.color = SlopWidgets.Faint;
             SlopWidgets.RowLabel(countRect, count, TextAnchor.MiddleRight);
 
+            Text.Font = GameFont.Small;
             GUI.color = SlopWidgets.Faint;
             var label = new Rect(lx, r.y, Mathf.Max(0f, countRect.x - Pad - lx), HeadH);
             SlopWidgets.RowLabel(label, head.Label);
