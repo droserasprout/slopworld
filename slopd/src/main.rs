@@ -66,8 +66,19 @@ async fn main() -> Result<()> {
     );
     drop(jukebox);
 
+    let git_dirs = cfg
+        .projects
+        .iter()
+        .filter(|project| !project.dir.is_empty())
+        .map(|project| std::path::PathBuf::from(crate::config::expand(&project.dir)))
+        .collect();
     let bind = cfg.daemon.bind.clone();
     let m = Manager::new(cfg, cfg_path).await;
+
+    // The first tracked-file scan of a large project is unavoidable, but it should not happen
+    // while the player is waiting for the Git sidebar. Seed Git's filesystem and untracked
+    // caches before publishing the daemon endpoint; the next status request is incremental.
+    git::warm_projects(git_dirs).await;
 
     let poller = {
         let m: Arc<Manager> = m.clone();
