@@ -154,10 +154,10 @@ namespace SlopWorld
         {
             if (sessions.Count == 0 && !SessionHub.Instance.Online) return false;
 
-            // Reconcile colony-owned sessions only; ephemeral viewer/editor/host sessions are
-            // sidebar ghosts, not pawns, and are excluded from `live`.
+            // Reconcile colony-owned sessions only; ephemeral viewer/editor/host sessions and
+            // task workers are sidebar rows, not pawns, and are excluded from `live`.
             var live = new HashSet<string>(
-                sessions.Where(s => !s.Ephemeral).Select(s => s.Name));
+                sessions.Where(s => !s.Ephemeral && !s.Worker).Select(s => s.Name));
 
             foreach (var name in _pawns.Keys.ToList())
             {
@@ -209,7 +209,9 @@ namespace SlopWorld
             // rather than removed, staying a live pawn its process can wake later.
             foreach (var s in sessions)
             {
-                if (s.Ephemeral) continue;
+                // Workers already have a compact child row in AgentSidebar. They are task
+                // terminals, not colony agents, so never materialize them as pawns.
+                if (s.Ephemeral || s.Worker) continue;
                 if (_pawns.ContainsKey(s.Name)) continue;
                 // The session->pawn map is saved with reference values, which RimWorld resolves
                 // in a later load phase and drops when they do not round-trip - without this

@@ -156,6 +156,24 @@ namespace SlopWorld
             public override float DrawGroupBody(float width, float y, ContentTreeGroup group) =>
                 Body(width, y, (Repo)group.Value);
 
+            public override GroupAct GroupActions(ContentTreeGroup group)
+            {
+                var repo = (Repo)group.Value;
+                var acts = GroupAct.Refresh;
+                if (repo.IsRepo && repo.Error == null && repo.Changed > 0)
+                    acts |= GroupAct.Diff;
+                return acts;
+            }
+
+            public override void GroupAction(ContentTreeGroup group, GroupAct action)
+            {
+                switch (action)
+                {
+                    case GroupAct.Diff: DiffAll(group.Key); break;
+                    case GroupAct.Refresh: Fetch(group.Key); break;
+                }
+            }
+
             public override bool IsExpanded(IContentTreeNode node) =>
                 !((Node)node).Owner.Shut.Contains(((Node)node).Rel);
 

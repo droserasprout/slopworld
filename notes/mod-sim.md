@@ -5,8 +5,8 @@
 
 - **`AgentColony`** reconciles sessions to colonists each second, except during
   `Cutscene.AgentsHeld`; Down posture and idle-transition bells are its only posture
-  effects. Drop-pod arrivals are ticked from `_landing`; ephemeral sessions remain
-  sidebar-only.
+  effects. Drop-pod arrivals are ticked from `_landing`; ephemeral sessions and
+  task-owned workers remain sidebar-only.
 - **`TimeKeeper`** unpauses. **`RealClock`** makes Normal speed mean real seconds and
   rewrites `gameStartAbsTick` so calendar effects track one real day per game day.
   The epoch is scribed; tick units differ ([gotchas](gotchas.md)).
