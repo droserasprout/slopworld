@@ -24,7 +24,7 @@ can temporarily become the tree root.
 - Project headings also offer a host terminal. `fa` library items can show bounded output in the
   SlopWorld alert window (vanilla message toasts are hidden), open a temporary project terminal,
   run silently, or retain the per-invocation choice; the mode is set in the Library item editor.
-  Completed captured actions refresh the tree; terminal actions refresh when launched. Path
+  Completed captured actions refresh both sidebar trees; terminal actions refresh both when launched. Path
   markers are quoted and normalized by the daemon.
 
 ## Viewer

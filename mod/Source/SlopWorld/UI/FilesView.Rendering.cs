@@ -283,13 +283,13 @@ namespace SlopWorld
                 $"\"host\":{JVal.B(host)}" +
                 "}", j =>
                 {
-                    Reload();
+                    RefreshAfterFileAction();
                     string output = j["output"].AsString("(no output)");
                     TerminalWindow.OpenOverPane(SlopAlertDialog.Create(
                         "File action: " + actionName, output, "Close", null));
                 }, msg =>
                 {
-                    Reload();
+                    RefreshAfterFileAction();
                     TerminalWindow.OpenOverPane(SlopAlertDialog.Create(
                         "File action failed", msg, "Close", null,
                         primaryKind: SlopWidgets.Btn.Danger));
@@ -303,11 +303,20 @@ namespace SlopWorld
                 $"\"path\":{JVal.Q(path)}," +
                 $"\"command\":{JVal.Q(command)}," +
                 $"\"host\":{JVal.B(host)}" +
-                "}", _ => Reload(), msg =>
+                "}", _ => RefreshAfterFileAction(), msg =>
                 {
-                    Reload();
+                    RefreshAfterFileAction();
                     SlopWidgets.Fail("File action: " + msg);
                 });
+        }
+
+        // File actions are available in both trees and can change Git's working-tree result.
+        // Invalidate Files as well as Git so the action's source view and the other sidebar view
+        // agree on the next draw.
+        static void RefreshAfterFileAction()
+        {
+            Reload();
+            GitView.Refresh();
         }
 
         static void OpenFileActionTerminal(string project, string path, string name,
@@ -316,7 +325,7 @@ namespace SlopWorld
             // A terminal action can keep running after this callback, so refresh as soon as
             // its session is launched rather than waiting for a completion that does not
             // exist for an interactive command.
-            Reload();
+            RefreshAfterFileAction();
             SessionHub.Instance.Run(project, command, "fa-" + name,
                 session => TerminalWindow.Open(session), SlopWidgets.Fail,
                 host: host, temp: host, path: path, hold: true);
