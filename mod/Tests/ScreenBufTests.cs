@@ -10,7 +10,11 @@ namespace SlopWorld.Tests
             yield return ("hydrates a screen frame", HydratesScreenFrame);
             yield return ("uses wire defaults", UsesWireDefaults);
             yield return ("detects a live row shift", DetectsLiveRowShift);
+            yield return ("detects a live row shift with a repeated outgoing row",
+                DetectsRepeatedRowShift);
             yield return ("does not call a bottom edit a row shift", IgnoresBottomEdit);
+            yield return ("does not call an ambiguous repeated-content edit a row shift",
+                IgnoresAmbiguousRepeatedEdit);
             yield return ("does not shift across a changed viewport", IgnoresChangedViewport);
         }
 
@@ -80,6 +84,20 @@ namespace SlopWorld.Tests
             AssertEx.Equal(1, screen.LiveShift, "live row shift");
         }
 
+        static void DetectsRepeatedRowShift()
+        {
+            var screen = new ScreenBuf();
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":1,\"cols\":20,\"rows\":4,\"cy\":3," +
+                "\"off\":0,\"lines\":[\"same\",\"same\",\"line-2\",\"line-3\"]}"));
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3," +
+                "\"off\":0,\"lines\":[\"same\",\"line-2\",\"line-3\",\"line-4\"]}"));
+
+            AssertEx.Equal(1, screen.LiveShift,
+                "a scroll remains detectable when the outgoing top rows repeat");
+        }
+
         static void IgnoresBottomEdit()
         {
             var screen = new ScreenBuf();
@@ -91,6 +109,20 @@ namespace SlopWorld.Tests
                 "\"off\":0,\"lines\":[\"one\",\"two\",\"four\"]}"));
 
             AssertEx.Equal(0, screen.LiveShift, "bottom edit shift");
+        }
+
+        static void IgnoresAmbiguousRepeatedEdit()
+        {
+            var screen = new ScreenBuf();
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":1,\"cols\":20,\"rows\":4,\"cy\":3," +
+                "\"off\":0,\"lines\":[\"same\",\"same\",\"same\",\"same\"]}"));
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3," +
+                "\"off\":0,\"lines\":[\"same\",\"same\",\"same\",\"new\"]}"));
+
+            AssertEx.Equal(0, screen.LiveShift,
+                "a bottom edit among repeated rows remains ambiguous");
         }
 
         static void IgnoresChangedViewport()

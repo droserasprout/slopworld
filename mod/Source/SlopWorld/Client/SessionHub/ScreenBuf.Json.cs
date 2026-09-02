@@ -40,9 +40,19 @@ namespace SlopWorld
                 before.Length != after.Length || beforeCy < beforeRows - 1)
                 return 0;
 
-            // A real terminal scroll leaves the old tail at the new top. Require the rows
-            // entering at the bottom and leaving at the top to be visibly different too;
-            // otherwise an edit to a repeated line ("", for example) looks like a scroll.
+            // A real terminal scroll leaves the old tail at the new top. The incoming bottom
+            // must differ, and some row above it must move; otherwise an edit to a repeated
+            // line ("", for example) looks like a scroll.
+            bool changedBeforeBottom = false;
+            for (int row = 0; row < afterRows - 1; row++)
+            {
+                if (before[row] != after[row])
+                {
+                    changedBeforeBottom = true;
+                    break;
+                }
+            }
+
             int max = beforeRows - 1;
             for (int shift = 1; shift <= max; shift++)
             {
@@ -55,7 +65,12 @@ namespace SlopWorld
                         break;
                     }
                 }
-                if (!overlap || before[0] == after[0] ||
+                // An unchanged top row is not enough to reject a scroll: the row that
+                // leaves the viewport may be repeated, while the rows below it still prove
+                // that the screen moved. Keep the old ambiguity guard when the only change is
+                // the bottom row, where a normal in-place edit is indistinguishable from a
+                // scroll through identical content.
+                if (!overlap || !changedBeforeBottom ||
                     before[beforeRows - 1] == after[afterRows - 1])
                     continue;
                 return shift;

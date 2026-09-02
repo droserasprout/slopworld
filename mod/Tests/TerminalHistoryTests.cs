@@ -12,6 +12,8 @@ namespace SlopWorld.Tests
             yield return ("rejects a frame from an older live sequence", RejectsOldSequence);
             yield return ("retains history across an in-place live refresh", RetainsLiveRefresh);
             yield return ("translates history when live output scrolls", TranslatesLiveScroll);
+            yield return ("keeps history anchored when a repeated live row scrolls",
+                KeepsHistoryAnchoredWhenTopRowRepeats);
             yield return ("plans covered views without replacing the cache", CoversViews);
             yield return ("ignores empty frames and retains indexed history", IgnoresEmptyAndRetainsRows);
             yield return ("quantizes prefetch windows in both directions", QuantizesPrefetch);
@@ -110,6 +112,45 @@ namespace SlopWorld.Tests
             AssertEx.Sequence(
                 new[] { "old-1", "live-0", "live-1", "live-2" }, view.Lines,
                 "cached rows move with the live bottom");
+        }
+
+        static void KeepsHistoryAnchoredWhenTopRowRepeats()
+        {
+            var live = new ScreenBuf
+            {
+                Seq = 1,
+                Cols = 20,
+                Rows = 4,
+                Cy = 3,
+                Lines = new[] { "same", "same", "line-2", "line-3" },
+            };
+            var history = new TerminalHistory();
+            history.Reset(live);
+            history.Add(new ScreenBuf
+            {
+                Seq = 1,
+                Cols = 20,
+                Rows = 4,
+                Off = 2,
+                Lines = new[] { "old-2", "old-1", "same", "same" },
+            }, live, 2);
+
+            var next = new ScreenBuf();
+            next.FromJson(JVal.Parse(
+                "{\"seq\":1,\"cols\":20,\"rows\":4,\"cy\":3," +
+                "\"off\":0,\"lines\":[\"same\",\"same\",\"line-2\",\"line-3\"]}"));
+            next.FromJson(JVal.Parse(
+                "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3," +
+                "\"off\":0,\"lines\":[\"same\",\"line-2\",\"line-3\",\"line-4\"]}"));
+
+            AssertEx.Equal(1, next.LiveShift, "streaming frame reports its row scroll");
+            AssertEx.True(history.UpdateLive(next, next.LiveShift),
+                "the compatible stream keeps the history cache");
+            AssertEx.True(history.TryView(3, true, out var view),
+                "the translated history view remains complete");
+            AssertEx.Sequence(
+                new[] { "old-2", "old-1", "same", "same", "line-2" }, view.Lines,
+                "all visible rows stay anchored while the live pane advances");
         }
 
         static void CoversViews()
