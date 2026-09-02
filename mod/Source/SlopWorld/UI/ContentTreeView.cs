@@ -52,6 +52,8 @@ namespace SlopWorld
         public virtual void ToggleGroup(ContentTreeGroup group) { }
         public virtual string GroupTooltip(ContentTreeGroup group) => group.Path;
         public virtual float DrawGroupTail(Rect row, ContentTreeGroup group, float right) => right;
+        public virtual GroupAct GroupActions(ContentTreeGroup group) => GroupAct.None;
+        public virtual void GroupAction(ContentTreeGroup group, GroupAct action) { }
 
         public virtual float GroupBodyHeight(ContentTreeGroup group) => 0f;
         public virtual float DrawGroupBody(float width, float y, ContentTreeGroup group) => y;
@@ -196,14 +198,19 @@ namespace SlopWorld
             var row = new Rect(0f, y, width, RowH);
             bool collapsed = _source.IsGroupCollapsed(group);
 
-            SlopWidgets.HoverRow(row);
+            bool over = SlopWidgets.HoverRow(row);
             GUI.color = SlopWidgets.Faint;
             var arrow = new Rect(CellX, row.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW);
             GUI.DrawTexture(arrow, collapsed ? TexButton.Reveal : TexButton.Collapse);
 
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
-            float right = _source.DrawGroupTail(row, group, row.width - CellX);
+            GroupAct acts = over ? _source.GroupActions(group) : GroupAct.None;
+            float right = row.width - CellX;
+            if (acts != GroupAct.None)
+                right = GroupActions.Draw(row, right, acts) - 4f;
+            else
+                right = _source.DrawGroupTail(row, group, right);
             float left = arrow.xMax + 4f;
             var label = new Rect(left, row.y, Mathf.Max(0f, right - left), RowH);
             SlopWidgets.RowLabel(label, group.Label);
@@ -215,7 +222,9 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
 
             string tip = _source.GroupTooltip(group);
-            if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(row, tip + "\n\nClick to fold.");
+            if (!string.IsNullOrEmpty(tip) && GroupActions.Hit(row, row.width - CellX, acts)
+                == GroupAct.None)
+                TooltipHandler.TipRegion(row, tip + "\n\nClick to fold.");
             _lines.Add(new Line { Group = group, Rect = row });
             y += RowH;
 
@@ -339,7 +348,16 @@ namespace SlopWorld
 
                 if (line.Group != null)
                 {
-                    if (e.button == 0) _source.ToggleGroup(line.Group);
+                    if (e.button == 0)
+                    {
+                        var screen = Screen(line.Rect);
+                        var action = GroupActions.Hit(screen, screen.xMax - CellX,
+                            _source.GroupActions(line.Group));
+                        if (action != GroupAct.None)
+                            _source.GroupAction(line.Group, action);
+                        else
+                            _source.ToggleGroup(line.Group);
+                    }
                     else OpenMenu(_source.GroupMenu(line.Group));
                     ClearSelection();
                     releaseViewer?.Invoke();

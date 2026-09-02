@@ -16,6 +16,17 @@ namespace SlopWorld
         Diff = 4,
     }
 
+    // Actions for a foldable content-tree group. Kept separate from RowAct because these
+    // buttons belong to project headings rather than to files, and their refresh icon does
+    // not describe an ephemeral terminal session.
+    [System.Flags]
+    public enum GroupAct
+    {
+        None = 0,
+        Diff = 1,
+        Refresh = 2,
+    }
+
     // Hover actions shared by FilesView and GitView. They replace the row's right-hand
     // tail temporarily and are right-aligned so the column stays fixed. Drawing is manual:
     // both trees handle clicks in a second pass outside the scroll group, and answering in
@@ -153,6 +164,76 @@ namespace SlopWorld
                 case RowAct.Diff: return Icons.Diff;
                 default: return null;
             }
+        }
+    }
+
+    // Floating actions for project headings in content trees. Like RowActions, the strip
+    // replaces the heading's tail only while its row is hovered and is handled in the second
+    // pass so a button click cannot also fold the group.
+    public static class GroupActions
+    {
+        public const float IconW = 14f;
+        const float Gap = 4f;
+
+        public static int Count(GroupAct acts) =>
+            ((acts & GroupAct.Diff) != 0 ? 1 : 0) +
+            ((acts & GroupAct.Refresh) != 0 ? 1 : 0);
+
+        public static float Width(GroupAct acts)
+        {
+            int n = Count(acts);
+            return n == 0 ? 0f : n * IconW + (n - 1) * Gap;
+        }
+
+        public static float Left(float right, GroupAct acts) => right - Width(acts);
+
+        public static float Draw(Rect row, float right, GroupAct acts)
+        {
+            if (acts == GroupAct.None) return right;
+
+            float x = Left(right, acts);
+            float y = row.y + (row.height - IconW) / 2f;
+            Draw(ref x, y, acts, GroupAct.Diff, Icons.Diff,
+                "Show all changes in this project.");
+            Draw(ref x, y, acts, GroupAct.Refresh, Icons.Refresh,
+                "Read this working tree again.");
+
+            GUI.color = Color.white;
+            return Left(right, acts);
+        }
+
+        static void Draw(ref float x, float y, GroupAct acts, GroupAct which,
+                         Texture2D icon, string tip)
+        {
+            if ((acts & which) == 0) return;
+
+            var r = new Rect(x, y, IconW, IconW);
+            x += IconW + Gap;
+
+            bool on = SlopWidgets.HoverRow(r);
+            if (on) TooltipHandler.TipRegion(r, tip);
+
+            GUI.color = on ? Color.white : SlopWidgets.Dim;
+            GUI.DrawTexture(r, icon);
+        }
+
+        public static GroupAct Hit(Rect row, float right, GroupAct acts)
+        {
+            if (acts == GroupAct.None) return GroupAct.None;
+
+            float x = Left(right, acts);
+            float y = row.y + (row.height - IconW) / 2f;
+            if (Hit(ref x, y, acts, GroupAct.Diff)) return GroupAct.Diff;
+            if (Hit(ref x, y, acts, GroupAct.Refresh)) return GroupAct.Refresh;
+            return GroupAct.None;
+        }
+
+        static bool Hit(ref float x, float y, GroupAct acts, GroupAct which)
+        {
+            if ((acts & which) == 0) return false;
+            var r = new Rect(x, y, IconW, IconW);
+            x += IconW + Gap;
+            return ColonistBarStrip.MouseOver(r);
         }
     }
 }

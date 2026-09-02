@@ -13,12 +13,14 @@ namespaces isolate sessions from the game; `/api/browse` exists for the same bou
 - Nested repositories are treated as separate working trees. The outer project may show the
   repository boundary, but never includes that nested checkout's own dirty or untracked files.
 - There is no filesystem-change event, so focusing Git reads every project again; `Refresh`
-  is also available from the tab button, command palette and heading menu. `Entered` only
+  is also available from the tab button, command palette and heading menu. Hovering a project
+  heading adds per-project refresh and, when it has changes, full-diff buttons. `Entered` only
   primes projects when Files first needs the shared cache. The refresh button is the only
   button in the tab strip.
-- Hover replaces row figures with the view/edit/diff strip
-  ([mod-ui-rowactions](mod-ui-rowactions.md)); tooltips retain the state. The separate
-  `Changes` table serves Files' path lookup.
+- Hover replaces heading tails and row figures with their action strips. File rows use the
+  view/edit/diff strip ([mod-ui-rowactions](mod-ui-rowactions.md)); project headings use
+  diff/refresh. Tooltips retain the state. The separate `Changes` table serves Files' path
+  lookup.
 - Right-clicking a project heading or changed-path row opens its context menu, including the
   project-relative File actions available to the Files tree. Changed file and directory rows
   also share Files' host `Open in...` application picker.
