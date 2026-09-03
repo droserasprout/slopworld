@@ -34,6 +34,8 @@ namespace SlopWorld
             public Color Color;
             public string Link;
             public string LocalLink;
+            public bool IsTask;
+            public bool TaskChecked;
             public bool IsImage;
             public bool ImageFailed;
             public string ImagePath;

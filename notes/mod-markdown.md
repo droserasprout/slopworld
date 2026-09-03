@@ -12,7 +12,8 @@ handles a small native HTML subset: local `<img>` tags, `<br>`, semantic emphasi
 tags, `span` wrappers and links. Images honor left/right/center (including `middle`) and
 `style="float: ..."`. This is deliberately a tag scanner, not an HTML parser;
 CSS, scripts, forms, remote images and unknown tags are not interpreted. It supports headings,
-emphasis, links, lists, quotes, fenced code, tables and task markers, and uses the existing
+emphasis, links, lists, quotes, fenced code, tables and task markers (drawn as native
+read-only checkboxes), and uses the existing
 scheme, font and `SmoothScroll`. Fenced code is sent to the daemon's configured host syntax
 highlighter and its ANSI colors are rendered natively; unavailable highlighting stays plain.
 External links use terminal-style Ctrl+click and call

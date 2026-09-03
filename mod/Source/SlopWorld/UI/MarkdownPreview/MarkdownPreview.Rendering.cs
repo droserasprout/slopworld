@@ -253,6 +253,19 @@ namespace SlopWorld
                     at += piece.Width;
                     continue;
                 }
+                if (piece.Run.IsTask)
+                {
+                    float markerWidth = 0f;
+                    for (int i = 0; i < piece.Text.Length; i++)
+                        markerWidth += _styles.MeasureChar(piece.Style, piece.Text[i]);
+                    float scale = markerWidth <= 0f ? 0f : piece.Width / markerWidth;
+                    for (int i = 0; i < piece.Text.Length; i++)
+                    {
+                        at += _styles.MeasureChar(piece.Style, piece.Text[i]) * scale;
+                        line.Edges.Add(at);
+                    }
+                    continue;
+                }
                 for (int i = 0; i < piece.Text.Length; i++)
                 {
                     at += _styles.MeasureChar(piece.Style, piece.Text[i]);
@@ -318,6 +331,12 @@ namespace SlopWorld
                                 piece.Run.ImageFailed ? "image unavailable" : "image loading…");
                             GUI.color = Color.white;
                         }
+                        at += piece.Width;
+                        continue;
+                    }
+                    if (piece.Run.IsTask)
+                    {
+                        SlopWidgets.TickBox(rect, piece.Run.TaskChecked);
                         at += piece.Width;
                         continue;
                     }
