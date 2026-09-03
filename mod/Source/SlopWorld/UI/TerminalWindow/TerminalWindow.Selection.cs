@@ -76,6 +76,7 @@ namespace SlopWorld
             _selB.y += delta;
             _wordStart.y += delta;
             _wordEnd.y += delta;
+            if (_lineDragging) _lineStart += delta;
         }
 
         void ClearSelection()
@@ -86,7 +87,83 @@ namespace SlopWorld
             _multiClickSelection = false;
             _wordDragging = false;
             _lineDragging = false;
+            _selectionEdgeDirection = 0;
+            _selectionEdgeFrame = -1;
             ReleaseSelection();
+        }
+
+        const float SelectionEdgeBand = 32f;
+        const float SelectionEdgeRowsPerSecond = 13f;
+
+        // The history scroll position is local, so a held drag can advance it without waiting
+        // for a daemon reply. The next draw pass requests/assembles the corresponding rows.
+        // Keep this separate from ContinueSelection: Unity may stop delivering MouseDrag once
+        // the pointer leaves the window, while the held-button sample still remains reliable.
+        void UpdateSelectionEdgeScroll(Rect body, bool historyInput)
+        {
+            if (!_dragging || !_selectionMoved || !Input.GetMouseButton(0))
+            {
+                _selectionEdgeDirection = 0;
+                return;
+            }
+
+            var e = Event.current;
+            if (e != null && e.type == EventType.Repaint)
+                _selectionMouse = e.mousePosition;
+
+            float distance;
+            int direction;
+            if (_selectionMouse.y < body.y + SelectionEdgeBand)
+            {
+                direction = 1;
+                distance = body.y + SelectionEdgeBand - _selectionMouse.y;
+            }
+            else if (_selectionMouse.y > body.yMax - SelectionEdgeBand)
+            {
+                direction = -1;
+                distance = _selectionMouse.y - (body.yMax - SelectionEdgeBand);
+            }
+            else
+            {
+                _selectionEdgeDirection = 0;
+                return;
+            }
+
+            _selectionEdgeDirection = direction;
+            if (!historyInput || _selectionEdgeFrame == Time.frameCount) return;
+            _selectionEdgeFrame = Time.frameCount;
+
+            float cellH = TerminalFont.CellH;
+            if (!_historyScrollReady || cellH <= 0.01f) return;
+
+            float maxOffset = (_historyTopOff >= 0 ? _historyTopOff : MaxScrollLines) * cellH;
+            float current = HistoryOffsetPixels();
+            float strength = Mathf.Clamp01(distance / SelectionEdgeBand);
+            float amount = SelectionEdgeRowsPerSecond * cellH * strength *
+                Mathf.Clamp(Time.unscaledDeltaTime, 0f, 0.1f);
+            float target = Mathf.Clamp(current + direction * amount, 0f, maxOffset);
+            _historyScroll.JumpTo(new Vector2(0f, _historyMax - target));
+        }
+
+        // Scrolling the viewport normally translates both endpoints to keep the selected text
+        // fixed. During an edge drag the active endpoint is the exception: it must stay on the
+        // edge, where each newly revealed row extends the selection.
+        void ExtendSelectionToEdge(Rect body, ScreenBuf buf)
+        {
+            if (!_dragging || _selectionEdgeDirection == 0 || buf == null ||
+                buf.Runs == null || buf.Runs.Length == 0)
+                return;
+
+            var cell = CellAt(body, _selectionMouse);
+            cell.y = _selectionEdgeDirection > 0 ? 0 : buf.Runs.Length - 1;
+            _selectionMoved = true;
+            if (_lineDragging) SelectLineRange(_lineStart, cell.y);
+            else if (_wordDragging) UpdateWordSelection(cell);
+            else
+            {
+                _selB = cell;
+                _hasSel = true;
+            }
         }
 
         void CaptureSelection(Rect body)
