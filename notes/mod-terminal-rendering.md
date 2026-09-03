@@ -27,6 +27,8 @@ keys on font-atlas rebuilds.
 
 Selection keeps a separate drag latch: a MouseDown/MouseUp in one cell is still a click, but a
 real MouseDrag in that same cell selects and copies the single symbol.
+While a selection drag is held in the pane's top or bottom edge band, local scrollback advances
+and the active end stays on the newly exposed edge row, extending the selection.
 
 ## Links
 

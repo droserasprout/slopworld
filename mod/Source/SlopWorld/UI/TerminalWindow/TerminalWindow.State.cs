@@ -127,6 +127,12 @@ namespace SlopWorld
         // slice of the same terminal, so its rows move down as this offset increases.
         int _selectionOff;
         int _lastLiveSeq = -1;
+        // While a primary-button drag is held near a pane edge, history moves one frame at a
+        // time and the active end is re-anchored to the newly exposed edge row. Positive is
+        // upward into history; negative is downward toward live output.
+        Vector2 _selectionMouse;
+        int _selectionEdgeDirection;
+        int _selectionEdgeFrame = -1;
 
         // The cell its press landed on, where the click is closed if the gesture turns
         // out to be a drag the app never asked for.

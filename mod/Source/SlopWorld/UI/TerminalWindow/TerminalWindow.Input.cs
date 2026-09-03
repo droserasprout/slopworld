@@ -635,6 +635,9 @@ namespace SlopWorld
         {
             if (!body.Contains(e.mousePosition)) return;
             _selA = _selB = CellAt(body, e.mousePosition);
+            _selectionMouse = e.mousePosition;
+            _selectionEdgeDirection = 0;
+            _selectionEdgeFrame = -1;
             _dragging = true;
             _selectionMoved = false;
             _multiClickSelection = false;
@@ -648,8 +651,15 @@ namespace SlopWorld
         void ContinueSelection(Rect body, Event e)
         {
             if (!_dragging) return;
+            _selectionMouse = e.mousePosition;
             _selectionMoved = true;
             var cell = CellAt(body, e.mousePosition);
+            if (e.mousePosition.y < body.y || e.mousePosition.y >= body.yMax)
+            {
+                int rows = Mathf.Max(1, _rows > 0 ? _rows :
+                    SessionHub.Instance.Screen(_name)?.Rows ?? 1);
+                cell.y = Mathf.Clamp(cell.y, 0, rows - 1);
+            }
             if (_lineDragging) SelectLineRange(_lineStart, cell.y);
             else if (_wordDragging) UpdateWordSelection(cell);
             else
@@ -664,6 +674,12 @@ namespace SlopWorld
         {
             if (!_dragging) return;
             var cell = CellAt(body, e.mousePosition);
+            if (e.mousePosition.y < body.y || e.mousePosition.y >= body.yMax)
+            {
+                int rows = Mathf.Max(1, _rows > 0 ? _rows :
+                    SessionHub.Instance.Screen(_name)?.Rows ?? 1);
+                cell.y = Mathf.Clamp(cell.y, 0, rows - 1);
+            }
             // A double click selects a word and a triple click replaces it with a row. Do not
             // copy the intermediate word to CLIPBOARD; the completed triple-click line is
             // published to PRIMARY by TripleClickSelect, while Ctrl+C and the Copy menu use
@@ -701,6 +717,8 @@ namespace SlopWorld
             }
             _selectionMoved = false;
             _multiClickSelection = false;
+            _selectionEdgeDirection = 0;
+            _selectionEdgeFrame = -1;
             e.Use();
         }
 

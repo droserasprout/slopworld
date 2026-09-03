@@ -113,6 +113,8 @@ namespace SlopWorld
                 _historyScroll.EndInput();
             }
 
+            if (input) UpdateSelectionEdgeScroll(body, historyInput);
+
             UpdateHistoryTarget(cellH, live);
             var buf = DisplayedScreen();
             if (buf == null || buf.Lines == null || buf.Lines.Length == 0)
@@ -144,6 +146,7 @@ namespace SlopWorld
             float shift = HistoryShift(buf, cellH);
             _renderHistoryShift = shift;
             DrawScreen(body, buf, shift);
+            ExtendSelectionToEdge(body, buf);
             DrawSelection(body, buf, shift);
             DrawHistoryBar(body);
             return true;

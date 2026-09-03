@@ -41,6 +41,7 @@ namespace SlopWorld
                     if (btn != 0) { e.Use(); return true; }
                     _selA = _fwdCell;
                     _dragging = true;
+                    CaptureSelection(body);
                     return false;
 
                 case EventType.MouseUp:
