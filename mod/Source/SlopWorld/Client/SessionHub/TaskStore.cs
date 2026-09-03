@@ -13,6 +13,23 @@ namespace SlopWorld
         bool _loading;
         long _nextPoll;
         int _refreshSerial;
+        readonly Queue<RemovalBatch> _removals = new Queue<RemovalBatch>();
+        readonly HashSet<string> _removingIds = new HashSet<string>();
+        bool _removalInFlight;
+
+        sealed class RemovalBatch
+        {
+            public readonly List<string> Ids;
+            public readonly Action Ok;
+            public readonly Action<string> Fail;
+
+            public RemovalBatch(List<string> ids, Action ok, Action<string> fail)
+            {
+                Ids = ids;
+                Ok = ok;
+                Fail = fail;
+            }
+        }
 
         public int OpenTasks => Tasks.Count(t => !t.Terminal);
 
@@ -82,12 +99,60 @@ namespace SlopWorld
 
         public void Remove(string id, Action ok = null, Action<string> fail = null)
         {
-            InvalidateRefresh();
-            SlopClient.Delete($"/api/tasks/{HubWire.Esc(id)}", j =>
+            RemoveMany(new[] { id }, ok, fail);
+        }
+
+        public void RemoveMany(IEnumerable<string> ids, Action ok = null,
+                               Action<string> fail = null)
+        {
+            if (ids == null) return;
+
+            var batchIds = new List<string>();
+            foreach (string id in ids.Where(value => !string.IsNullOrEmpty(value)).Distinct())
             {
-                Tasks = Tasks.Where(t => t.Id != id).ToList();
-                ok?.Invoke();
-            }, fail, TaskInfo.Host);
+                // A second click while a batch is draining must not create a duplicate
+                // request that can only return "no such task" after the first one wins.
+                if (!_removingIds.Add(id)) continue;
+                batchIds.Add(id);
+            }
+
+            if (batchIds.Count == 0) return;
+            _removals.Enqueue(new RemovalBatch(batchIds, ok, fail));
+            InvalidateRefresh();
+            PumpRemovals();
+        }
+
+        void PumpRemovals()
+        {
+            if (_removalInFlight || _removals.Count == 0) return;
+
+            var pending = _removals.Dequeue();
+            _removalInFlight = true;
+            string body = "{\"ids\":[" +
+                string.Join(",", pending.Ids.Select(JVal.Q).ToArray()) + "]}";
+            SlopClient.Post("/api/tasks/remove", body, _ =>
+            {
+                _removalInFlight = false;
+                foreach (string id in pending.Ids) _removingIds.Remove(id);
+                var removed = new HashSet<string>(pending.Ids);
+                Tasks = Tasks.Where(t => !removed.Contains(t.Id)).ToList();
+                pending.Ok?.Invoke();
+                FinishRemoval();
+            }, error =>
+            {
+                _removalInFlight = false;
+                foreach (string id in pending.Ids) _removingIds.Remove(id);
+                pending.Fail?.Invoke(error);
+                FinishRemoval();
+            }, TaskInfo.Host);
+        }
+
+        void FinishRemoval()
+        {
+            // Reconcile with the daemon after the last response. This also repairs the local view
+            // if a request failed or another participant changed the board.
+            if (_removals.Count == 0) Refresh();
+            PumpRemovals();
         }
 
         public void Prune(Action ok = null, Action<string> fail = null)

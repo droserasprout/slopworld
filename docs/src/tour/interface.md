@@ -18,6 +18,10 @@ Six tabs share the panel:
 - **Git** — browse changes, stage and unstage files, commit staged changes, and view diffs.
 - **Library** — Prompt, Breadcrumb, Shell, and File Action entries; prompt and shell errands
   can be delivered to an agent or run in a temporary session.
+- **Tasks** — the durable task mailbox. Click a task to open its maximized dialogue reader, with
+  timestamped, selectable message text and a Copy all action; Ctrl+Click toggles task rows and
+  Shift+Click selects a range. Right-click for status actions, terminal access, or removal of
+  selected finished tasks.
 
 A project filter at the top of the tab strip limits every view to the selected projects.
 

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -231,6 +232,39 @@ impl Tasks {
         Ok(task)
     }
 
+    /// Drop several tasks as one durable mutation. Validate the complete request before changing
+    /// the store so a stale selection cannot remove only part of what the user confirmed.
+    pub fn remove_many(&mut self, who: &str, ids: &[String], force: bool) -> Result<usize> {
+        let wanted: HashSet<String> = ids
+            .iter()
+            .filter(|id| !id.trim().is_empty())
+            .cloned()
+            .collect();
+        if wanted.is_empty() {
+            return Ok(0);
+        }
+
+        for id in &wanted {
+            let task = self
+                .file
+                .tasks
+                .iter()
+                .find(|t| t.id == *id && (force || t.from == who || t.to == who))
+                .with_context(|| format!("no such task: {id}"))?;
+            if !force && !task.status.is_terminal() {
+                bail!("a task still in flight cannot be removed: {id}");
+            }
+        }
+
+        let before = self.file.tasks.len();
+        self.file.tasks.retain(|task| !wanted.contains(&task.id));
+        let removed = before - self.file.tasks.len();
+        if removed > 0 {
+            self.save()?;
+        }
+        Ok(removed)
+    }
+
     /// Drop every finished task the caller can see - `all` widens that to the whole store and is
     /// the root's. Without this the file is append-only and an inbox is a growing wall.
     pub fn prune(&mut self, who: &str, all: bool) -> Result<usize> {
@@ -310,6 +344,24 @@ mod tests {
         assert!(s.remove("alice", &live.id, false).is_err()); // still in flight
         assert!(s.remove("alice", &live.id, true).is_ok()); // the root reaches it
         assert!(s.remove("alice", &over.id, false).is_ok()); // finished, so either side may
+
+        let first = s
+            .create("alice".into(), "bob".into(), "first batch item".into())
+            .unwrap();
+        let second = s
+            .create("alice".into(), "bob".into(), "second batch item".into())
+            .unwrap();
+        s.update("bob", &first.id, Status::Done, None).unwrap();
+        s.update("bob", &second.id, Status::Failed, None).unwrap();
+        assert_eq!(
+            s.remove_many(
+                "alice",
+                &[first.id.clone(), second.id.clone(), first.id],
+                false
+            )
+            .unwrap(),
+            2
+        );
 
         let other = s
             .create("carol".into(), "dave".into(), "theirs".into())

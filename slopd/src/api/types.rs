@@ -38,6 +38,12 @@ pub(crate) struct PruneTasksQuery {
     pub(crate) all: bool,
 }
 
+#[derive(Deserialize)]
+pub(crate) struct RemoveTasksReq {
+    /// Removes the listed task ids in one store transaction. An empty list is a no-op.
+    pub(crate) ids: Vec<String>,
+}
+
 #[derive(Debug, Deserialize)]
 pub(crate) struct LabelReq {
     pub(crate) label: String,
