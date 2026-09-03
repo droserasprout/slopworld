@@ -74,7 +74,8 @@ namespace SlopWorld
             bool over = core != null;
 
             // LMB on the core opens the context menu. Only if no float menu is already up.
-            if (over && Event.current.type == EventType.MouseDown && Event.current.button == 0
+            if (over && !SessionGizmoInput.MouseOverActionGrid
+                && Event.current.type == EventType.MouseDown && Event.current.button == 0
                 && Find.WindowStack.FloatMenu == null)
             {
                 Event.current.Use();

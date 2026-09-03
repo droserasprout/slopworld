@@ -24,7 +24,21 @@ namespace SlopWorld
 
         protected override GizmoResult GizmoOnGUIInt(Rect butRect, GizmoRenderParms parms)
         {
-            return base.GizmoOnGUIInt(butRect, parms);
+            SessionGizmoInput.RememberActionRect(butRect);
+            var result = base.GizmoOnGUIInt(butRect, parms);
+
+            // The map's low-priority click pass runs after the window stack. Keep the
+            // command's own GUI.Button processing above, then consume mouse events here as
+            // a final guard for the map passes that run after the gizmo grid.
+            var e = Event.current;
+            if (e != null && (e.rawType == EventType.MouseDown
+                    || e.rawType == EventType.MouseUp
+                    || e.rawType == EventType.MouseDrag)
+                && (e.button == 0 || e.button == 1)
+                && butRect.Contains(e.mousePosition))
+                e.Use();
+
+            return result;
         }
 
         public override void DrawIcon(Rect rect, Material buttonMat, GizmoRenderParms parms)

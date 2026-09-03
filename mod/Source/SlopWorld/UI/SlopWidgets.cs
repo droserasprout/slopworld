@@ -221,35 +221,45 @@ namespace SlopWorld
             ButtonBackground(r, kind, on, over, held, Well);
         }
 
-        // Session gizmos sit over the map beside the sidebar. Give their resting face the
-        // same opaque panel surface so the action strip reads as part of the chrome too.
+        // Session gizmos sit over the map beside the sidebar. Layer the hover wash over an
+        // opaque well: using BtnHover as the whole face would make the map show through as
+        // soon as the pointer entered the action strip.
         public static void ActionButtonBackground(Rect r, Btn kind, bool on, bool over,
                                                   bool held)
         {
-            ButtonBackground(r, kind, on, over, held, Panel);
+            ButtonBackground(r, kind, on, over, held, Well, true);
         }
 
         static void ButtonBackground(Rect r, Btn kind, bool on, bool over, bool held,
-                                     Color defaultFace)
+                                     Color defaultFace, bool opaqueHover = false)
         {
             Color face;
-            switch (kind)
+            if (opaqueHover && kind == Btn.Default)
             {
-                case Btn.Primary:
-                    face = Step(PrimeFace, over, held);
-                    break;
-                case Btn.Danger:
-                    face = Step(DangerFace, over, held);
-                    break;
-                case Btn.Ghost:
-                    face = held ? BtnDown : over ? BtnHover : GhostFace;
-                    break;
-                default:
-                    face = held ? BtnDown : over ? BtnHover : defaultFace;
-                    break;
+                Slab.Fill(r, on ? defaultFace : Fade(defaultFace, 0.5f));
+                if (on && over) Slab.Fill(r, held ? BtnDown : BtnHover);
+                face = Clear;
             }
+            else
+            {
+                switch (kind)
+                {
+                    case Btn.Primary:
+                        face = Step(PrimeFace, over, held);
+                        break;
+                    case Btn.Danger:
+                        face = Step(DangerFace, over, held);
+                        break;
+                    case Btn.Ghost:
+                        face = held ? BtnDown : over ? BtnHover : GhostFace;
+                        break;
+                    default:
+                        face = held ? BtnDown : over ? BtnHover : defaultFace;
+                        break;
+                }
 
-            if (!on) face = Fade(face, 0.5f);
+                if (!on) face = Fade(face, 0.5f);
+            }
 
             bool solid = kind == Btn.Primary || kind == Btn.Danger;
             var edge = solid || (kind == Btn.Ghost && !over && !held)
