@@ -49,7 +49,9 @@ the background redraw request so every live tmux pane is ready before an inactiv
 
 The agent context menu offers Start/Stop, Terminal, Label, Delegate task, Edit, Duplicate, Shell,
 Storage, Remove, and New look. The Tasks tab lists the complete root task board, refreshes it through the
-daemon, filters by status/direction/agent, and opens task detail/status actions. Storage resolves the agent's active private-state entry through the
+daemon, filters by status/direction/agent, and opens task detail/status actions; plain clicks open
+task detail, Ctrl+Click toggles task rows, and Shift+Click selects a visible range. Remove applies
+to all selected finished tasks. Storage resolves the agent's active private-state entry through the
 same daemon inventory as Settings and opens it as the focused root of Files. Shell spawns an
 ephemeral shell errand that clones the agent's
 sandbox config (presets, network, dns, limits, mounts) via the `like` field on
@@ -61,5 +63,8 @@ covered in [sidebar views and chrome](mod-sidebar-navigation.md).
   deliberately avoids Linux XInput precision polling; Unity wheel events and thumb dragging are
   sufficient here and avoid a severe frame-time regression on some X11 systems.
 - Task rows cap their one-line preview before passing it to RimWorld's quadratic `Truncate`; the
-  click-through detail window shows the complete message and latest note as sender-avatar cards.
-  It opens at the available screen height and scrolls only when the message content exceeds it.
+  click-through reader uses the maximized content host and a centred bounded panel. It shows
+  the complete available dialogue (the original message and latest note) as timestamped
+  sender-avatar cards. Message text has its own selection surface, so it supports dragging,
+  Ctrl+C, a Copy context-menu action, and a Copy all footer action; long dialogue scrolls inside
+  the panel.

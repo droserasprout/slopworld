@@ -143,6 +143,10 @@ namespace SlopWorld
         public void RemoveTask(string id, Action ok = null, Action<string> fail = null) =>
             _tasks.Remove(id, ok, fail);
 
+        public void RemoveTasks(IEnumerable<string> ids, Action ok = null,
+                                Action<string> fail = null) =>
+            _tasks.RemoveMany(ids, ok, fail);
+
         public void PruneTasks(Action ok = null, Action<string> fail = null) =>
             _tasks.Prune(ok, fail);
 

@@ -187,6 +187,19 @@ pub(crate) async fn remove_task(
     Ok(Json(json!({ "task": task })))
 }
 
+pub(crate) async fn remove_tasks(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    headers: HeaderMap,
+    Json(q): Json<RemoveTasksReq>,
+) -> ApiResult {
+    let who = task_principal(&cap, &headers)?;
+    let removed = m
+        .remove_tasks(&who, &q.ids, cap.may_create())
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "removed": removed })))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

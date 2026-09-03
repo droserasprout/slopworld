@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using UnityEngine;
 using Verse;
@@ -7,7 +8,7 @@ using Verse;
 namespace SlopWorld
 {
     // The host's durable task board, kept in the sidebar beside the sessions and Library.
-    // Rows are deliberately compact: the full body and actions live in TaskDetailDialog.
+    // Rows are deliberately compact: the full body and actions live in TaskDetailView.
     public static class TasksView
     {
         const float Pad = SlopWidgets.GapS;
@@ -20,12 +21,14 @@ namespace SlopWorld
         static readonly SmoothScroll Scroll = new SmoothScroll();
         static readonly List<Line> Lines = new List<Line>();
         static readonly List<TaskInfo> VisibleTasks = new List<TaskInfo>();
+        static readonly HashSet<string> SelectedIds = new HashSet<string>();
         static readonly Dictionary<TaskInfo, string> FittedSummaries =
             new Dictionary<TaskInfo, string>();
         static float _summaryWidth = -1f;
         static Rect _body;
         static List<TaskInfo> _taskSnapshot;
         static bool _filtersDirty = true;
+        static string _selectionAnchorId;
 
         enum DirectionFilter
         {
@@ -58,6 +61,7 @@ namespace SlopWorld
 
             var hub = SessionHub.Instance;
             var allTasks = hub.Tasks;
+            PruneSelection(allTasks);
             var tasks = Filtered(allTasks);
             if (tasks.Count == 0)
             {
@@ -129,7 +133,8 @@ namespace SlopWorld
             int peer = tasks.Count(t => !t.Incoming && !t.Outgoing && !t.Terminal);
             string count = Filtering ? tasks.Count + " of " + total : total.ToString();
             string text = count + " tasks  ·  " + incoming + " incoming  ·  " +
-                sent + " sent" + (peer > 0 ? "  ·  " + peer + " agent-to-agent" : "");
+                sent + " sent" + (peer > 0 ? "  ·  " + peer + " agent-to-agent" : "") +
+                (SelectedIds.Count > 0 ? "  ·  " + SelectedIds.Count + " selected" : "");
 
             Text.Font = GameFont.Tiny;
             GUI.color = SlopWidgets.Faint;
@@ -142,6 +147,7 @@ namespace SlopWorld
 
         static void DrawTask(Rect r, TaskInfo task)
         {
+            if (IsSelected(task)) Slab.Fill(r, SlopWidgets.RowOn);
             SlopWidgets.HoverRow(r);
 
             Color status = StatusColor(task.Status);
@@ -387,10 +393,91 @@ namespace SlopWorld
             {
                 if (!ColonistBarStrip.MouseOver(line.Rect)) continue;
                 e.Use();
-                if (e.button == 1) TaskActions.OpenMenu(line.Task);
-                else TaskDetailDialog.Open(line.Task);
+                if (e.button == 1)
+                {
+                    if (!IsSelected(line.Task)) SelectOnly(line.Task);
+                    SetAnchor(line.Task);
+                    TaskActions.OpenMenu(line.Task);
+                }
+                else if (e.shift)
+                {
+                    SelectRange(line.Task, e.control);
+                }
+                else if (e.control)
+                {
+                    Toggle(line.Task);
+                    SetAnchor(line.Task);
+                }
+                else
+                {
+                    SelectOnly(line.Task);
+                    SetAnchor(line.Task);
+                    TaskDetailView.Open(line.Task);
+                }
                 return;
             }
+        }
+
+        static bool IsSelected(TaskInfo task) => task != null &&
+            !string.IsNullOrEmpty(task.Id) && SelectedIds.Contains(task.Id);
+
+        internal static List<TaskInfo> SelectionFor(TaskInfo fallback)
+        {
+            var selected = SessionHub.Instance.Tasks.Where(IsSelected).ToList();
+            if (fallback != null && selected.Any(task => task.Id == fallback.Id))
+                return selected;
+            return fallback == null ? new List<TaskInfo>() : new List<TaskInfo> { fallback };
+        }
+
+        static void SelectOnly(TaskInfo task)
+        {
+            SelectedIds.Clear();
+            if (task != null && !string.IsNullOrEmpty(task.Id)) SelectedIds.Add(task.Id);
+        }
+
+        static void SetAnchor(TaskInfo task)
+        {
+            _selectionAnchorId = task == null || string.IsNullOrEmpty(task.Id)
+                ? null : task.Id;
+        }
+
+        static void Toggle(TaskInfo task)
+        {
+            if (task == null || string.IsNullOrEmpty(task.Id)) return;
+            if (!SelectedIds.Add(task.Id)) SelectedIds.Remove(task.Id);
+        }
+
+        static void SelectRange(TaskInfo task, bool extend)
+        {
+            int anchor = VisibleTasks.FindIndex(candidate =>
+                candidate != null && candidate.Id == _selectionAnchorId);
+            int current = VisibleTasks.FindIndex(candidate =>
+                candidate != null && task != null && candidate.Id == task.Id);
+            if (anchor < 0 || current < 0)
+            {
+                SelectOnly(task);
+                SetAnchor(task);
+                return;
+            }
+
+            if (!extend) SelectedIds.Clear();
+            int first = Mathf.Min(anchor, current);
+            int last = Mathf.Max(anchor, current);
+            for (int i = first; i <= last; i++)
+            {
+                var candidate = VisibleTasks[i];
+                if (candidate != null && !string.IsNullOrEmpty(candidate.Id))
+                    SelectedIds.Add(candidate.Id);
+            }
+        }
+
+        static void PruneSelection(List<TaskInfo> tasks)
+        {
+            var live = new HashSet<string>(tasks.Where(task => task != null)
+                .Select(task => task.Id));
+            SelectedIds.RemoveWhere(id => !live.Contains(id));
+            if (_selectionAnchorId != null && !live.Contains(_selectionAnchorId))
+                _selectionAnchorId = null;
         }
     }
 
@@ -493,6 +580,10 @@ namespace SlopWorld
         {
             if (task == null) return;
 
+            var selected = TasksView.SelectionFor(task);
+            var removable = selected.Where(candidate => candidate != null && candidate.Terminal)
+                .ToList();
+
             var options = new List<FloatMenuOption>();
             if (task.Incoming && !task.Terminal)
             {
@@ -511,8 +602,13 @@ namespace SlopWorld
                 options.Add(terminal);
             }
 
-            if (task.Terminal)
-                options.Add(new FloatMenuOption("Remove", () => RemoveTask(task)));
+            if (removable.Count > 0)
+            {
+                string label = removable.Count == 1
+                    ? "Remove"
+                    : $"Remove {removable.Count} selected tasks";
+                options.Add(new FloatMenuOption(label, () => RemoveTasks(removable)));
+            }
 
             if (options.Count > 0)
                 TerminalWindow.OpenOverPane(new SlopMenu(options));
@@ -535,46 +631,92 @@ namespace SlopWorld
                 () => SessionHub.Instance.RemoveTask(task.Id, null, SlopWidgets.Fail),
                 destructive: true));
         }
+
+        static void RemoveTasks(List<TaskInfo> tasks)
+        {
+            if (tasks == null || tasks.Count == 0) return;
+
+            string prompt = tasks.Count == 1
+                ? $"Remove task '{tasks[0].Id}'? It will disappear for both participants."
+                : $"Remove {tasks.Count} selected tasks? They will disappear for both participants.";
+            TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(prompt, () =>
+            {
+                SessionHub.Instance.RemoveTasks(tasks.Select(task => task.Id), null,
+                    SlopWidgets.Fail);
+            }, destructive: true));
+        }
     }
 
-    public sealed class TaskDetailDialog : SlopWindow
+    public sealed class TaskDetailView : IContentView
     {
-        const float Width = 620f;
         const float AvatarSize = 38f;
         const float AvatarOverlap = 18f;
         const float MessageTextInset = AvatarSize - AvatarOverlap + SlopWidgets.GapS;
 
         TaskInfo _task;
         readonly SmoothScroll _scroll = new SmoothScroll();
+        readonly List<DialogueLine> _selectionLines = new List<DialogueLine>();
+        string _selectionSource = "";
+        int _selectionStart, _selectionEnd;
+        int _selectionControl;
+        bool _draggingSelection;
 
-        TaskDetailDialog(TaskInfo task) { _task = task; }
-
-        public static void Open(TaskInfo task) =>
-            TerminalWindow.OpenOverPane(new TaskDetailDialog(task));
-
-        // A task is a message reader, so give it all available vertical room. Long prompts
-        // still scroll inside the window, while ordinary messages no longer feel cramped.
-        public override Vector2 InitialSize => new Vector2(
-            Mathf.Min(Width, Mathf.Max(1f, UI.screenWidth - SlopWidgets.GapM * 2f)),
-            Mathf.Max(1f, UI.screenHeight - SlopWidgets.GapM * 2f));
-
-        protected override void SetInitialSizeAndPosition()
+        struct TextRange
         {
-            var size = InitialSize;
-            windowRect = new Rect(
-                Mathf.Max(0f, (UI.screenWidth - size.x) / 2f),
-                Mathf.Max(0f, (UI.screenHeight - size.y) / 2f),
-                size.x, size.y);
+            public int Start, End;
+
+            public TextRange(int start, int end)
+            {
+                Start = start;
+                End = end;
+            }
         }
 
-        protected override void DoBody(Rect rect)
+        struct DialogueLine
         {
-            SlopWidgets.Title(rect, "Task " + _task.Id);
+            public int Start, End;
+            public float X, Y, Width, Height;
+            public string Text;
+            public float[] Edges;
+        }
+
+        public TaskDetailView(TaskInfo task) { _task = task; }
+
+        public static void Open(TaskInfo task) =>
+            TerminalWindow.OpenContent(new TaskDetailView(task));
+
+        public string Title => "Task " + (_task?.Id ?? "");
+
+        public void Opened() { }
+
+        public void Closed()
+        {
+            _scroll.JumpTo(Vector2.zero);
+            ClearSelection();
+        }
+
+        public void Draw(Rect body)
+        {
+            // Use the same centred band as Settings. The fullscreen chrome provides the
+            // maximized reader, while the band keeps message lines from stretching across
+            // a wide monitor.
+            var panel = OptionsView.Band(body);
+            Slab.Box(panel, SlopWidgets.WindowBg, SlopWidgets.Edge);
+            var rect = panel.ContractedBy(SlopWidgets.GapM);
+            SlopWidgets.Title(rect, Title);
 
             float top = rect.y + SlopWidgets.HeaderH + SlopWidgets.GapS;
             float bottom = rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS;
             var outer = new Rect(rect.x, top, rect.width, Mathf.Max(0f, bottom - top));
             float width = Mathf.Max(1f, outer.width - SlopWidgets.ScrollbarW);
+            string source = SelectionSource();
+            if (!string.Equals(_selectionSource, source, StringComparison.Ordinal))
+            {
+                _selectionSource = source;
+                if (_selectionStart > source.Length || _selectionEnd > source.Length)
+                    ClearSelection();
+            }
+            _selectionLines.Clear();
             float bodyH = MessageCardHeight(_task.Body, width);
             float noteH = string.IsNullOrEmpty(_task.Note) ? 0f
                 : SlopWidgets.GapM + MessageCardHeight(_task.Note, width);
@@ -590,18 +732,21 @@ namespace SlopWorld
                 GUI.color = SlopWidgets.Dim;
                 SlopWidgets.RowLabel(new Rect(0f, y, width, SlopWidgets.TinyRowH),
                     _task.Direction + "  ·  " + TaskInfo.StatusText(_task.Status) +
-                    "  ·  " + _task.Age(true));
+                    "  ·  created " + Timestamp(_task.CreatedMs) +
+                    "  ·  updated " + Timestamp(_task.UpdatedMs));
                 GUI.color = Color.white;
                 y += SlopWidgets.TinyRowH + SlopWidgets.GapS;
 
-                DrawMessage(new Rect(0f, y, width, bodyH), _task.From, _task.Body);
+                DrawMessage(new Rect(0f, y, width, bodyH), _task.From, _task.Body,
+                    _task.CreatedMs);
                 y += bodyH;
                 if (!string.IsNullOrEmpty(_task.Note))
                 {
                     y += SlopWidgets.GapM;
                     DrawMessage(new Rect(0f, y, width, noteH - SlopWidgets.GapM),
-                        _task.To, _task.Note, true);
+                        _task.To, _task.Note, _task.UpdatedMs, true);
                 }
+                DrawSelectableText();
             }
             finally
             {
@@ -611,14 +756,20 @@ namespace SlopWorld
                 GUI.color = Color.white;
             }
 
+            HandleSelectionInput(outer);
+
             var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
+            if (foot.Left("Copy all", SlopWidgets.Btn.Ghost))
+                SlopClipboard.Copy(DialogueText());
+
             if (_task.Incoming && !_task.Terminal &&
                 foot.Left("Status", SlopWidgets.Btn.Default))
                 TaskActions.OpenMenu(_task, updated => _task = updated);
             else if (_task.Terminal && foot.Left("Remove", SlopWidgets.Btn.Danger))
                 TaskActions.RemoveTask(_task);
 
-            if (foot.Right("Close", SlopWidgets.Btn.Ghost)) Close();
+            if (foot.Right("Close", SlopWidgets.Btn.Ghost))
+                Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
         }
 
         static float MessageCardHeight(string text, float width)
@@ -629,10 +780,11 @@ namespace SlopWorld
             float headerH = SlopWidgets.LineHOf(GameFont.Tiny);
             return Mathf.Max(AvatarSize + SlopWidgets.GapS,
                 SlopWidgets.FieldPadY * 2f + headerH + SlopWidgets.GapXS +
-                MessageHeight(text, textWidth));
+                TextHeight(text, textWidth));
         }
 
-        static void DrawMessage(Rect r, string sender, string text, bool note = false)
+        void DrawMessage(Rect r, string sender, string text, long timestamp,
+                         bool note = false)
         {
             var card = new Rect(r.x + AvatarOverlap, r.y,
                 Mathf.Max(1f, r.width - AvatarOverlap), r.height);
@@ -655,14 +807,16 @@ namespace SlopWorld
                 GUI.color = SlopWidgets.Dim;
                 SlopWidgets.RowLabel(new Rect(card.x + MessageTextInset, y, textWidth,
                     SlopWidgets.LineHOf(GameFont.Tiny)), note
-                        ? "Latest note from " + SenderLabel(sender)
-                        : "Message from " + SenderLabel(sender));
+                        ? "Latest note from " + SenderLabel(sender) + "  ·  " +
+                            Timestamp(timestamp)
+                        : "Message from " + SenderLabel(sender) + "  ·  " +
+                            Timestamp(timestamp));
                 y += SlopWidgets.LineHOf(GameFont.Tiny) + SlopWidgets.GapXS;
 
                 Text.Font = GameFont.Small;
                 GUI.color = SlopWidgets.Lead;
-                Widgets.Label(new Rect(card.x + MessageTextInset, y, textWidth,
-                    MessageHeight(text, textWidth)), text ?? "");
+                CollectSelectableText(text, card.x + MessageTextInset, y, textWidth,
+                    note ? (_task.Body ?? "").Length + 2 : 0);
             }
             finally
             {
@@ -671,6 +825,328 @@ namespace SlopWorld
                 Text.Anchor = anchor;
                 Text.Font = font;
             }
+        }
+
+        static float TextHeight(string text, float width)
+        {
+            return WrappedRanges(text, width).Count * SlopWidgets.LineHOf(GameFont.Small);
+        }
+
+        static List<TextRange> WrappedRanges(string text, float width)
+        {
+            text = text ?? "";
+            var ranges = new List<TextRange>();
+            if (text.Length == 0)
+            {
+                ranges.Add(new TextRange(0, 0));
+                return ranges;
+            }
+
+            var wasFont = Text.Font;
+            var wasWrap = Text.WordWrap;
+            try
+            {
+                Text.Font = GameFont.Small;
+                Text.WordWrap = false;
+                int start = 0;
+                int lastBreak = -1;
+                for (int i = 0; i < text.Length; i++)
+                {
+                    if (text[i] == '\n')
+                    {
+                        ranges.Add(new TextRange(start, i));
+                        start = i + 1;
+                        lastBreak = -1;
+                        continue;
+                    }
+
+                    string candidate = text.Substring(start, i + 1 - start);
+                    if (Text.CalcSize(candidate).x <= width || i == start)
+                    {
+                        if (char.IsWhiteSpace(text[i])) lastBreak = i + 1;
+                        continue;
+                    }
+
+                    int split = lastBreak > start ? lastBreak : i;
+                    if (split <= start) split = Mathf.Min(start + 1, text.Length);
+                    ranges.Add(new TextRange(start, split));
+                    start = split;
+                    lastBreak = -1;
+                    i = start - 1;
+                }
+
+                if (start <= text.Length) ranges.Add(new TextRange(start, text.Length));
+                return ranges;
+            }
+            finally
+            {
+                Text.WordWrap = wasWrap;
+                Text.Font = wasFont;
+            }
+        }
+
+        void CollectSelectableText(string text, float x, float y, float width, int sourceOffset)
+        {
+            text = text ?? "";
+            var ranges = WrappedRanges(text, width);
+            float lineH = SlopWidgets.LineHOf(GameFont.Small);
+            var wasFont = Text.Font;
+            var wasWrap = Text.WordWrap;
+            try
+            {
+                Text.Font = GameFont.Small;
+                Text.WordWrap = false;
+                float lineY = y;
+                foreach (var range in ranges)
+                {
+                    string lineText = text.Substring(range.Start, range.End - range.Start);
+                    var edges = new float[lineText.Length + 1];
+                    for (int i = 1; i < edges.Length; i++)
+                        edges[i] = Text.CalcSize(lineText.Substring(0, i)).x;
+
+                    _selectionLines.Add(new DialogueLine
+                    {
+                        Start = sourceOffset + range.Start,
+                        End = sourceOffset + range.End,
+                        X = x,
+                        Y = lineY,
+                        Width = edges[edges.Length - 1],
+                        Height = lineH,
+                        Text = lineText,
+                        Edges = edges,
+                    });
+                    lineY += lineH;
+                }
+            }
+            finally
+            {
+                Text.WordWrap = wasWrap;
+                Text.Font = wasFont;
+            }
+        }
+
+        void DrawSelectableText()
+        {
+            var wasFont = Text.Font;
+            var wasWrap = Text.WordWrap;
+            var wasAnchor = Text.Anchor;
+            try
+            {
+                Text.Font = GameFont.Small;
+                Text.WordWrap = false;
+                Text.Anchor = TextAnchor.UpperLeft;
+                DrawSelectionHighlights();
+                GUI.color = SlopWidgets.Lead;
+                foreach (var line in _selectionLines)
+                    Widgets.Label(new Rect(line.X, line.Y, line.Width, line.Height), line.Text);
+            }
+            finally
+            {
+                GUI.color = Color.white;
+                Text.Anchor = wasAnchor;
+                Text.WordWrap = wasWrap;
+                Text.Font = wasFont;
+            }
+        }
+
+        void DrawSelectionHighlights()
+        {
+            if (_selectionStart == _selectionEnd) return;
+            int first = Mathf.Min(_selectionStart, _selectionEnd);
+            int last = Mathf.Max(_selectionStart, _selectionEnd);
+            foreach (var line in _selectionLines)
+            {
+                int start = Mathf.Max(first, line.Start);
+                int end = Mathf.Min(last, line.End);
+                if (end <= start) continue;
+
+                int from = Mathf.Clamp(start - line.Start, 0, line.Edges.Length - 1);
+                int to = Mathf.Clamp(end - line.Start, from, line.Edges.Length - 1);
+                Slab.Fill(new Rect(line.X + line.Edges[from], line.Y,
+                    Mathf.Max(1f, line.Edges[to] - line.Edges[from]), line.Height),
+                    SlopWidgets.Sel);
+            }
+        }
+
+        void HandleSelectionInput(Rect viewport)
+        {
+            var e = Event.current;
+            if (e == null) return;
+
+            if (e.type == EventType.KeyDown ||
+                (e.type == EventType.Used && e.rawType == EventType.KeyDown))
+            {
+                if (e.control && !e.alt)
+                {
+                    if (e.keyCode == KeyCode.C)
+                    {
+                        CopySelection();
+                        e.Use();
+                        return;
+                    }
+                    if (e.keyCode == KeyCode.A)
+                    {
+                        SelectAll();
+                        e.Use();
+                        return;
+                    }
+                }
+                return;
+            }
+
+            EventType type = e.type == EventType.Used ? e.rawType : e.type;
+            if (e.button == 1 && type == EventType.MouseDown &&
+                viewport.Contains(e.mousePosition))
+            {
+                OpenSelectionMenu();
+                e.Use();
+                return;
+            }
+
+            if (e.button != 0) return;
+            if (type == EventType.MouseDown && viewport.Contains(e.mousePosition))
+            {
+                int point = SelectionPointAt(viewport, e.mousePosition);
+                if (!e.shift) _selectionStart = point;
+                _selectionEnd = point;
+                _draggingSelection = true;
+                CaptureSelection(viewport);
+                e.Use();
+            }
+            else if (type == EventType.MouseDrag && _draggingSelection)
+            {
+                _selectionEnd = SelectionPointAt(viewport, e.mousePosition);
+                e.Use();
+            }
+            else if (type == EventType.MouseUp && _draggingSelection)
+            {
+                _selectionEnd = SelectionPointAt(viewport, e.mousePosition);
+                _draggingSelection = false;
+                ReleaseSelection();
+                e.Use();
+            }
+        }
+
+        int SelectionPointAt(Rect viewport, Vector2 mouse)
+        {
+            if (_selectionLines.Count == 0) return 0;
+
+            float y = mouse.y - viewport.y + _scroll.Position.y;
+            float x = mouse.x - viewport.x + _scroll.Position.x;
+            int lineIndex = 0;
+            float best = float.MaxValue;
+            for (int i = 0; i < _selectionLines.Count; i++)
+            {
+                var line = _selectionLines[i];
+                float vertical = y < line.Y ? line.Y - y :
+                    y > line.Y + line.Height ? y - (line.Y + line.Height) : 0f;
+                float left = line.X;
+                float right = line.X + line.Width;
+                float horizontal = x < left ? left - x : x > right ? x - right : 0f;
+                float distance = vertical * 10000f + horizontal;
+                if (distance < best)
+                {
+                    best = distance;
+                    lineIndex = i;
+                }
+            }
+
+            var selected = _selectionLines[lineIndex];
+            if (x <= selected.X) return selected.Start;
+            if (x >= selected.X + selected.Width) return selected.End;
+
+            for (int i = 0; i < selected.Text.Length; i++)
+            {
+                float left = selected.X + selected.Edges[i];
+                float right = selected.X + selected.Edges[i + 1];
+                if (x < (left + right) * 0.5f)
+                    return selected.Start + i;
+            }
+            return selected.End;
+        }
+
+        void CaptureSelection(Rect viewport)
+        {
+            if (_selectionControl != 0 && GUIUtility.hotControl == _selectionControl)
+                GUIUtility.hotControl = 0;
+            _selectionControl = GUIUtility.GetControlID(FocusType.Passive, viewport);
+            GUIUtility.hotControl = _selectionControl;
+        }
+
+        void ReleaseSelection()
+        {
+            if (_selectionControl != 0 && GUIUtility.hotControl == _selectionControl)
+                GUIUtility.hotControl = 0;
+            _selectionControl = 0;
+        }
+
+        void ClearSelection()
+        {
+            _selectionStart = 0;
+            _selectionEnd = 0;
+            _draggingSelection = false;
+            ReleaseSelection();
+        }
+
+        void SelectAll()
+        {
+            _selectionStart = 0;
+            _selectionEnd = _selectionSource.Length;
+            _draggingSelection = false;
+            ReleaseSelection();
+        }
+
+        bool HasSelection => _selectionStart != _selectionEnd;
+
+        void CopySelection()
+        {
+            if (!HasSelection) return;
+            int start = Mathf.Min(_selectionStart, _selectionEnd);
+            int end = Mathf.Max(_selectionStart, _selectionEnd);
+            if (start < 0 || end > _selectionSource.Length || end <= start) return;
+            SlopClipboard.Copy(_selectionSource.Substring(start, end - start));
+        }
+
+        void OpenSelectionMenu()
+        {
+            var options = new List<FloatMenuOption>();
+            var copy = new FloatMenuOption("Copy", CopySelection);
+            copy.Disabled = !HasSelection;
+            options.Add(copy);
+            options.Add(new FloatMenuOption("Select all", SelectAll));
+            TerminalWindow.OpenOverPane(new SlopMenu(options));
+        }
+
+        string SelectionSource()
+        {
+            string body = _task.Body ?? "";
+            if (string.IsNullOrEmpty(_task.Note)) return body;
+            return body + "\n\n" + _task.Note;
+        }
+
+        string DialogueText()
+        {
+            var messages = new List<string>
+            {
+                "Message from " + SenderLabel(_task.From) + "  ·  " +
+                    Timestamp(_task.CreatedMs),
+                _task.Body ?? ""
+            };
+            if (!string.IsNullOrEmpty(_task.Note))
+            {
+                messages.Add("Latest note from " + SenderLabel(_task.To) + "  ·  " +
+                    Timestamp(_task.UpdatedMs));
+                messages.Add(_task.Note);
+            }
+            return string.Join("\n\n", messages.ToArray());
+        }
+
+        static string Timestamp(long milliseconds)
+        {
+            if (milliseconds <= 0) return "unknown time";
+            var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            return epoch.AddMilliseconds(milliseconds).ToLocalTime()
+                .ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture);
         }
 
         static void DrawSenderIcon(Rect r, string sender)

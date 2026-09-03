@@ -289,6 +289,10 @@ impl Manager {
         self.tasks.lock().unwrap().remove(who, id, force)
     }
 
+    pub fn remove_tasks(&self, who: &str, ids: &[String], force: bool) -> Result<usize> {
+        self.tasks.lock().unwrap().remove_many(who, ids, force)
+    }
+
     pub fn prune_tasks(&self, who: &str, all: bool) -> Result<usize> {
         self.tasks.lock().unwrap().prune(who, all)
     }
