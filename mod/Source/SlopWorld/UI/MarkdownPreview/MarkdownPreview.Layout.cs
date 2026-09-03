@@ -458,6 +458,18 @@ namespace SlopWorld
 
                 string text = run.Text ?? "";
                 GUIStyle style = _styles.For(run, heading);
+                if (run.IsTask)
+                {
+                    float taskWidth = SlopWidgets.TickColW;
+                    if (line.Pieces.Count > 0 && line.Width + taskWidth > width)
+                    {
+                        layout.Lines.Add(line);
+                        line = NewLine(style);
+                    }
+                    AddPiece(line, run, text, style, taskWidth);
+                    continue;
+                }
+
                 int start = 0;
                 while (start <= text.Length)
                 {

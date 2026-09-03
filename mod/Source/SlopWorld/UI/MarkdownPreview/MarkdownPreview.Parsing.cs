@@ -259,7 +259,18 @@ namespace SlopWorld
                 }
                 else if (inline is TaskList task)
                 {
-                    AddRun(target, task.Checked ? "[x] " : "[ ] ", currentStyle);
+                    target.Add(new InlineRun
+                    {
+                        Text = task.Checked ? "[x] " : "[ ] ",
+                        Bold = currentStyle.Bold,
+                        Italic = currentStyle.Italic,
+                        Code = currentStyle.Code,
+                        Strike = currentStyle.Strike,
+                        IsTask = true,
+                        TaskChecked = task.Checked,
+                        Link = currentStyle.Link,
+                        LocalLink = currentStyle.LocalLink,
+                    });
                 }
                 else if (inline is LineBreakInline)
                 {
