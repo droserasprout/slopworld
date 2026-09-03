@@ -210,6 +210,11 @@ namespace SlopWorld
             }
         }
 
+        // Content views hide the active session from CurrentName, but F12 still needs to know
+        // whether leaving the view will reveal a pane or remove a content-only host.
+        internal static bool HasBackingPane =>
+            Find.WindowStack?.WindowOfType<TerminalWindow>()?._name != null;
+
         // A successful rename must not go through Open: that would reset the pane and can
         // briefly bind it to the old name while the sessions snapshot catches up. Keep the
         // existing window, scrollback and selection, changing only the session handle.

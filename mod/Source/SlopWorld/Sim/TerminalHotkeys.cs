@@ -4,7 +4,8 @@ using Verse;
 namespace SlopWorld
 {
     // GameComponentOnGUI opens F12's selected/last live agent and handles the no-window path.
-    // TerminalWindow owns closing because absorbing windows consume the key first.
+    // TerminalWindow delegates the same toggle here because absorbing windows consume the key
+    // before this component gets it.
     public class TerminalHotkeys : GameComponent
     {
         public TerminalHotkeys(Game game) { }
@@ -86,13 +87,25 @@ namespace SlopWorld
             CameraJumper.TryJumpAndSelect(pawn);
         }
 
-        static void Toggle()
+        internal static void Toggle()
         {
             var open = Find.WindowStack?.WindowOfType<TerminalWindow>();
             if (open != null)
             {
-                open.Close();
-                return;
+                // Content views share the terminal window as their chrome. F12 means get to
+                // the terminal: reveal a pane behind the view, or leave a view opened from
+                // the map and continue below to open the selected live session.
+                if (TerminalWindow.Showing != null)
+                {
+                    bool hasPane = TerminalWindow.HasBackingPane;
+                    open.Leave();
+                    if (hasPane) return;
+                }
+                else
+                {
+                    open.Close();
+                    return;
+                }
             }
 
             var session = SelectedLive() ?? LastLive() ?? AnyLive();
