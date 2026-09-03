@@ -63,12 +63,11 @@ namespace SlopWorld
             }
             if (Bound(SlopDefOf.SlopQuickTerminal, e))
             {
-                // Close if the window is open, open one if not (handles both map and
-                // pane contexts via the same check).
+                // Use the same toggle as the map-layer component. In particular, a settings
+                // view is content inside this window, so F12 must reveal/open its terminal
+                // rather than close the host and stop there.
                 SlopMenu.CloseAll();
-                var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
-                if (w != null) w.Close();
-                else AgentSidebar.FocusTerminal();
+                TerminalHotkeys.Toggle();
                 return true;
             }
             if (Bound(SlopDefOf.SlopToggleFullscreen, e))

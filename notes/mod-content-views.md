@@ -10,8 +10,9 @@ The current views are `OptionsView`, `SessionsView`, `ProjectsView` and
 
 - Opening a view over a pane keeps the session; `Leave` restores the pane or closes
   the window if there was none.
-- Escape leaves a view and is forwarded to a pane's agent; F12 closes from either
-  state. `ChromeKeys` owns both, so views do not leak input to agents.
+- Escape leaves a view and is forwarded to a pane's agent; F12 reveals the pane behind
+  a view or opens the selected live session when the view has no pane behind it.
+  `ChromeKeys` owns both, so views do not leak input to agents.
 - Dialogs opened while the fullscreen chrome is up must be on the `Super` layer.
   `OpenOverPane` handles dialogs opened by the mod, and `Patch_DialogsOverChrome`
   handles vanilla dialogs opened from pages. Main tabs remain under the pane.
