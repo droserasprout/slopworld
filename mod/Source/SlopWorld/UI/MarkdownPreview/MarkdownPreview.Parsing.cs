@@ -1,21 +1,96 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using Markdig;
 using Markdig.Extensions.Tables;
 using Markdig.Extensions.TaskLists;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 using UnityEngine;
-using Verse;
 
 namespace SlopWorld
 {
-    // Mechanical split: MarkdownPreview.Parsing methods.
-    public sealed partial class MarkdownPreview
+    sealed class MarkdownDocumentParser
     {
-        List<MarkdownBlock> Parse(string source)
+        readonly MarkdownPathResolver _paths;
+
+        public MarkdownDocumentParser(MarkdownPathResolver paths)
+        {
+            _paths = paths;
+        }
+
+        struct InlineStyle
+        {
+            public bool Bold;
+            public bool Italic;
+            public bool Code;
+            public bool Strike;
+            public string Link;
+            public string LocalLink;
+
+            public InlineStyle WithHtmlState(HtmlState state)
+            {
+                var result = this;
+                result.Bold = result.Bold || state.Bold > 0;
+                result.Italic = result.Italic || state.Italic > 0;
+                result.Code = result.Code || state.Code > 0;
+                result.Strike = result.Strike || state.Strike > 0;
+                result.Link = result.Link ?? state.Link;
+                result.LocalLink = result.LocalLink ?? state.LocalLink;
+                return result;
+            }
+
+            public InlineStyle WithEmphasis(bool strong)
+            {
+                var result = this;
+                result.Bold = result.Bold || strong;
+                result.Italic = result.Italic || !strong;
+                return result;
+            }
+
+            public InlineStyle WithCode()
+            {
+                var result = this;
+                result.Code = true;
+                return result;
+            }
+
+            public InlineStyle WithLink(string link, string localLink)
+            {
+                var result = this;
+                result.Link = link ?? result.Link;
+                result.LocalLink = localLink ?? result.LocalLink;
+                return result;
+            }
+        }
+
+        sealed class HtmlState
+        {
+            public int Bold;
+            public int Italic;
+            public int Code;
+            public int Strike;
+            public string Link;
+            public string LocalLink;
+        }
+
+        sealed class HtmlTagInfo
+        {
+            public string Name;
+            public string Attributes;
+            public bool Closing;
+            public bool SelfClosing;
+            public bool Comment;
+        }
+
+        static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
+            .UsePipeTables()
+            .UseGridTables()
+            .UseTaskLists()
+            .UseAutoLinks()
+            .Build();
+
+        public List<MarkdownBlock> Parse(string source)
         {
             var document = Markdown.Parse(source ?? "", Pipeline, null);
             var blocks = new List<MarkdownBlock>();
@@ -236,7 +311,7 @@ namespace SlopWorld
 
                 if (inline is LiteralInline literal)
                 {
-                    AddRun(target, HtmlDecode(literal.Content.ToString()), currentStyle);
+                    AddRun(target, MarkdownMarkup.Decode(literal.Content.ToString()), currentStyle);
                 }
                 else if (inline is CodeInline codeInline)
                 {
@@ -249,13 +324,13 @@ namespace SlopWorld
                 }
                 else if (inline is LinkInline linkInline)
                 {
-                    TryResolveLink(linkInline.Url, out var url, out var local);
+                    _paths.TryResolveLink(linkInline.Url, out var url, out var local);
                     AppendInlines(linkInline, target, currentStyle.WithLink(url, local), htmlState);
                 }
                 else if (inline is AutolinkInline auto)
                 {
-                    TryResolveLink(auto.Url, out var url, out var local);
-                    AddRun(target, HtmlDecode(auto.Url), currentStyle.WithLink(url, local));
+                    _paths.TryResolveLink(auto.Url, out var url, out var local);
+                    AddRun(target, MarkdownMarkup.Decode(auto.Url), currentStyle.WithLink(url, local));
                 }
                 else if (inline is TaskList task)
                 {
@@ -402,7 +477,7 @@ namespace SlopWorld
                 }
                 else
                 {
-                    TryResolveLink(HtmlAttribute(tag.Attributes, "href"),
+                    _paths.TryResolveLink(HtmlAttribute(tag.Attributes, "href"),
                         out state.Link, out state.LocalLink);
                 }
                 return true;
@@ -426,7 +501,7 @@ namespace SlopWorld
             return new InlineRun
             {
                 IsImage = true,
-                ImagePath = HtmlDecode(source),
+                ImagePath = MarkdownMarkup.Decode(source),
                 ImageWidth = HtmlDimension(HtmlAttribute(tag.Attributes, "width")),
                 ImageHeight = HtmlDimension(HtmlAttribute(tag.Attributes, "height")),
                 ImageAlign = ImageAlignment(tag.Attributes),
@@ -505,18 +580,6 @@ namespace SlopWorld
             return float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture,
                 out var result) && result > 0f ? result : 0f;
         }
-
-        static string HtmlDecode(string value) => (value ?? "")
-            .Replace("&quot;", "\"")
-            .Replace("&#34;", "\"")
-            .Replace("&amp;", "&")
-            .Replace("&#38;", "&")
-            .Replace("&lt;", "<")
-            .Replace("&#60;", "<")
-            .Replace("&gt;", ">")
-            .Replace("&#62;", ">")
-            .Replace("&#39;", "'")
-            .Replace("&apos;", "'");
 
         static void AddRun(List<InlineRun> target, string text, InlineStyle style,
                            bool faint = false)
