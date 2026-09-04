@@ -40,7 +40,7 @@ namespace SlopWorld
                             {
                                 drawn = DrawCached(
                                     new Rect(0f, shift, body.width, body.height + extra),
-                                    body, extra);
+                                    CacheSource(body), extra);
                             }
                             finally
                             {
@@ -238,7 +238,7 @@ namespace SlopWorld
         string _cacheName;
         int _cacheSeq = -1, _cacheOff = -1, _cacheRev = -1, _cacheFontRev = -1;
         Rect _cacheBody;
-        float _cacheCw, _cacheCh;
+        float _cacheCw, _cacheCh, _cacheLead;
         bool _noCache;
 
         // Cache the pane between screen frames: the daemon updates more slowly than the monitor.
@@ -285,6 +285,7 @@ namespace SlopWorld
                 || _cacheSeq != buf.Seq || _cacheOff != buf.Off
                 || _cacheBody != body
                 || _cacheCw != cw || _cacheCh != ch
+                || _cacheLead != CacheLead(body, ch)
                 || _cacheRev != TerminalTheme.Rev
                 || _cacheFontRev != TerminalFont.Rev)
             {
@@ -297,7 +298,9 @@ namespace SlopWorld
                 {
                     RenderTexture.active = _cache;
                     GL.Clear(false, true, SolidTerminalBackground);
-                    Paint(body, buf, cw, ch);
+                    _cacheLead = CacheLead(body, ch);
+                    Paint(new Rect(body.x, body.y - _cacheLead, body.width,
+                                   body.height + _cacheLead), buf, cw, ch);
                 }
                 finally
                 {
@@ -330,7 +333,7 @@ namespace SlopWorld
         bool BlitCached(Rect body)
         {
             SyncSnap();
-            return DrawCached(body, body, 0f);
+            return DrawCached(body, CacheSource(body), 0f);
         }
 
         bool DrawCached(Rect destination, Rect source, float sourceExtraBottom)
@@ -356,6 +359,11 @@ namespace SlopWorld
             float y0 = source.y * _snapSy + _snapOy;
             float w = source.width * _snapSx;
             float h = (source.height + sourceExtraBottom) * _snapSy;
+            // A screen-sized cache has no texels outside the screen. Sampling beyond its
+            // edge makes the GPU repeat or clamp its last scanline, which turns the bottom
+            // terminal row into barcode-like vertical streaks during fractional scrolling.
+            if (x0 < 0f || y0 < 0f || x0 + w > pw || y0 + h > ph)
+                return false;
             float u0 = x0 / pw, u1 = (x0 + w) / pw;
 
             // texCoords y counts from the destination's bottom either way; which end of
@@ -390,7 +398,21 @@ namespace SlopWorld
             _cache = null;
             _cacheSeq = _cacheOff = _cacheRev = _cacheFontRev = -1;
             _cacheName = null;
+            _cacheLead = 0f;
         }
+
+        // Fractional history needs one row below the normal viewport. Put the baked rows one
+        // cell above the pane so that this overscan row remains inside the screen-sized cache.
+        // The source rect is translated back when it is drawn into the pane.
+        static float CacheLead(Rect body, float ch)
+        {
+            if (ch <= 0.01f) return 0f;
+            float top = body.y + _snapOy / _snapSy;
+            return Mathf.Clamp(Mathf.Min(ch, top), 0f, ch);
+        }
+
+        Rect CacheSource(Rect body) =>
+            new Rect(body.x, body.y - _cacheLead, body.width, body.height);
 
         // The GUI-to-screen transform, sampled once a draw; see SnapX.
         static float _snapSx = 1f, _snapSy = 1f, _snapOx, _snapOy;
