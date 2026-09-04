@@ -21,8 +21,8 @@ key-bindings settings page. Hardcoded shortcuts are marked below and cannot be r
 | F5 | Sidebar: Git view | yes |
 | F6 | Sidebar: Tasks view | yes |
 | F7 | Sidebar: Library view | yes |
-| Comma | Previous session | yes |
-| Period | Next session | yes |
+| Alt+Z | Previous session | no |
+| Alt+X | Next session | no |
 
 Bare F-keys are the mod's; Shift+F-key passes the F-key through to the agent.
 
@@ -46,7 +46,6 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 | Shift+Escape | Close the terminal. |
 | Alt+1..9, Alt+0 | Select agent by sidebar position (0 is tenth). |
 | Alt+Z / Alt+X | Walk to previous/next session. |
-| Alt+Comma / Alt+Period | Walk to previous/next session (alternate binding). |
 | Shift+Enter | Send `\e[13;2u` (newline without submitting). |
 | Ctrl+C | Copy when text is selected; SIGINT otherwise. |
 | Ctrl+V | Paste from clipboard. Codex panes paste text normally and forward image data to Codex for attachments. |

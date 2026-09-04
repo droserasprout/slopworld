@@ -58,9 +58,8 @@ keeping the content being read anchored while fresh history is fetched. While sc
 right edge shows the current offset against the daemon-reported history extent without changing
 the negotiated terminal width.
 
-These combos are hardcoded rather than `KeyBindingDef`s, so `KeyBindingsPage` does not
-list them and they cannot be rebound: Alt+Z/Alt+X and Alt+comma/Alt+period walk the terminal
-tab list (including host and ephemeral tabs),
+These terminal-specific modifier behaviors are hardcoded: Alt+Z/Alt+X walk the terminal tab
+list, including host and ephemeral tabs,
 Shift+Enter sends `\e[13;2u` so an agent inserts a newline instead of submitting, Ctrl+C
 copies when text is selected and otherwise falls through as SIGINT, Ctrl+V pastes, triple-click
 publishes its line to the host's Wayland/X11 PRIMARY selection, and middle-click pastes that

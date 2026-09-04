@@ -14,9 +14,8 @@ namespace SlopWorld
     {
         static bool Prefix()
         {
-            // With a pane open, bare comma/dot belong to the agent, not to the walk.
-            // The event has already been Used by HandleEventsHighPriority, so
-            // KeyDownEvent would not even fire - but guard for safety.
+            // A pane owns all of its input, including comma and period; its chrome handles
+            // the hardcoded Alt+Z/Alt+X walk before forwarding other keys to the agent.
             if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null) return true;
 
             if (TerminalWindow.TryTabWalkDirection(Event.current, out var tabDir))
@@ -26,21 +25,8 @@ namespace SlopWorld
                 return false;
             }
 
-            // Read our own bindings. Not through KeyDownEvent - StripKeys.NotBound
-            // would return the right answer, but we want to check our own defs directly
-            // in the same style as the rest of the codebase.
-            if (SlopDefOf.SlopPrevSession != null && SlopDefOf.SlopPrevSession.KeyDownEvent)
-            {
-                Event.current.Use();
-                Walk(-1);
-                return false; // skip original
-            }
-            if (SlopDefOf.SlopNextSession != null && SlopDefOf.SlopNextSession.KeyDownEvent)
-            {
-                Event.current.Use();
-                Walk(1);
-                return false; // skip original
-            }
+            // Alt+Z/Alt+X are the mod's session walk. The old comma/period bindings are
+            // deliberately left to vanilla (and are stripped by StripKeys).
             return true; // fall through to vanilla for other keys (Accept/Cancel/camera)
         }
 
