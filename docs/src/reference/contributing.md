@@ -9,7 +9,7 @@ slopd/          Rust daemon and launcher
   presets/      builtin sandbox and command presets (TOML)
 mod/            C# RimWorld mod (Harmony, 1.6)
   Source/       mod source
-  Assemblies/   compiled DLL and Harmony
+  Assemblies/   local mod output plus Harmony and Markdig references
   Tests/        game-free C# tests
   Defs/         XML defs
   Textures/     baked icons and faceplates

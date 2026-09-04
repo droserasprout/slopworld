@@ -19,9 +19,9 @@ The first release uses the canonical `v0.0.1` tag, which embeds `0.0.1` in the d
 binaries. Untagged Git checkouts use the package version plus the current UTC date and short
 `HEAD` hash, for example `0.0.1-20260831-3eb9902`. Source trees without Git retain the `0.0.1`
 fallback version.
-The release workflow publishes only `v`-prefixed SemVer tags because the mod assembly is
-game-bound and checked in as the release input; rebuild it with the target version against a
-local RimWorld install before tagging.
+The release workflow publishes only `v`-prefixed SemVer tags and ships the daemon archive. The
+mod assembly is ignored build output: source-based installs and Arch packages rebuild it against
+the target RimWorld installation before staging it.
 
 | Target | Does |
 | --- | --- |

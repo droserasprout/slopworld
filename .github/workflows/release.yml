@@ -52,12 +52,6 @@ jobs:
           cp packaging/slopworld.desktop   "${daemon}/"
           tar czf "${daemon}.tar.gz" "${daemon}"
 
-          test -s mod/Assemblies/SlopWorld.dll
-          mod="SlopWorld-mod-${tag}"
-          mkdir -p "${mod}"
-          cp -r mod/About mod/Defs mod/Patches mod/Sounds mod/Textures mod/Assemblies "${mod}/"
-          cd "${mod}" && zip -r "../${mod}.zip" . && cd ..
-
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
@@ -65,4 +59,3 @@ jobs:
           generate_release_notes: true
           files: |
             slopworld-${{ github.ref_name }}-x86_64-linux.tar.gz
-            SlopWorld-mod-${{ github.ref_name }}.zip
