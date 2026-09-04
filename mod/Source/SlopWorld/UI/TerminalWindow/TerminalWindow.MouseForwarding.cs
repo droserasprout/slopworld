@@ -9,7 +9,7 @@ namespace SlopWorld
         // drag across its output was never its to receive - forwarded anyway, it left no way
         // to select text short of holding Shift. The press goes over as a press, and the
         // moment it turns into a drag that click is closed and the rest taken as a selection.
-        bool HandleMouseForward(Rect body, Event e)
+        internal bool HandleMouseForward(Rect body, Event e)
         {
             int btn = Mathf.Clamp(e.button, 0, 2);
             var cell = CellAt(body, e.mousePosition);

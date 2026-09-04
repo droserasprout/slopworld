@@ -1,15 +1,174 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using RimWorld;
 using UnityEngine;
 using Verse;
 
 namespace SlopWorld
 {
-    // Mechanical split: TerminalWindow.Input methods.
-    public partial class TerminalWindow
+    // Owns terminal key and mouse policy. The Window facade supplies pane geometry and the
+    // existing rendering/selection services, while this controller owns event ordering and
+    // terminal input policy.
+    sealed class TerminalInputController
     {
+        readonly TerminalWindow _window;
+        readonly Dictionary<KeyCode, System.Func<Event, bool>> _local;
+        readonly Dictionary<KeyCode, System.Func<Event, bool>> _terminal;
+        public TerminalInputController(TerminalWindow window)
+        {
+            _window = window;
+            _local = new Dictionary<KeyCode, System.Func<Event, bool>>
+            {
+                { KeyCode.Escape, HandleEscapeKey },
+                { KeyCode.Return, HandleReturnKey },
+                { KeyCode.PageUp, HandleHistoryKey },
+                { KeyCode.PageDown, HandleHistoryKey },
+            };
+            _terminal = new Dictionary<KeyCode, System.Func<Event, bool>>
+            {
+                { KeyCode.Escape, ForwardMappedKey },
+                { KeyCode.Return, ForwardMappedKey },
+                { KeyCode.KeypadEnter, ForwardMappedKey },
+                { KeyCode.Backspace, ForwardMappedKey },
+                { KeyCode.Tab, ForwardMappedKey },
+                { KeyCode.UpArrow, ForwardMappedKey },
+                { KeyCode.DownArrow, ForwardMappedKey },
+                { KeyCode.LeftArrow, ForwardMappedKey },
+                { KeyCode.RightArrow, ForwardMappedKey },
+                { KeyCode.Home, ForwardMappedKey },
+                { KeyCode.End, ForwardMappedKey },
+                { KeyCode.PageUp, ForwardMappedKey },
+                { KeyCode.PageDown, ForwardMappedKey },
+                { KeyCode.Delete, ForwardMappedKey },
+                { KeyCode.Insert, ForwardMappedKey },
+                { KeyCode.F1, ForwardMappedKey },
+                { KeyCode.F2, ForwardMappedKey },
+                { KeyCode.F3, ForwardMappedKey },
+                { KeyCode.F4, ForwardMappedKey },
+                { KeyCode.F5, ForwardMappedKey },
+                { KeyCode.F6, ForwardMappedKey },
+                { KeyCode.F7, ForwardMappedKey },
+                { KeyCode.F8, ForwardMappedKey },
+                { KeyCode.F9, ForwardMappedKey },
+                { KeyCode.F10, ForwardMappedKey },
+                { KeyCode.F11, ForwardMappedKey },
+                { KeyCode.F12, ForwardMappedKey },
+                { KeyCode.C, HandleControlC },
+                { KeyCode.V, HandleControlV },
+                { KeyCode.Semicolon, HandleSemicolonKey },
+                { KeyCode.Colon, HandleSemicolonKey },
+                { KeyCode.A, ForwardMappedKey },
+                { KeyCode.B, ForwardMappedKey },
+                { KeyCode.D, ForwardMappedKey },
+                { KeyCode.E, ForwardMappedKey },
+                { KeyCode.F, ForwardMappedKey },
+                { KeyCode.G, ForwardMappedKey },
+                { KeyCode.H, ForwardMappedKey },
+                { KeyCode.I, ForwardMappedKey },
+                { KeyCode.J, ForwardMappedKey },
+                { KeyCode.K, ForwardMappedKey },
+                { KeyCode.L, ForwardMappedKey },
+                { KeyCode.M, ForwardMappedKey },
+                { KeyCode.N, ForwardMappedKey },
+                { KeyCode.O, ForwardMappedKey },
+                { KeyCode.P, ForwardMappedKey },
+                { KeyCode.Q, ForwardMappedKey },
+                { KeyCode.R, ForwardMappedKey },
+                { KeyCode.S, ForwardMappedKey },
+                { KeyCode.T, ForwardMappedKey },
+                { KeyCode.U, ForwardMappedKey },
+                { KeyCode.W, ForwardMappedKey },
+                { KeyCode.X, ForwardMappedKey },
+                { KeyCode.Y, ForwardMappedKey },
+                { KeyCode.Z, ForwardMappedKey },
+            };
+        }
+
+        public void Handle(Rect body)
+        {
+            var e = Event.current;
+            // WindowStack may consume semicolon before the window body runs. Replay that one
+            // character only; other Used events must not be replayed.
+            if (e.type == EventType.Used && e.rawType == EventType.KeyDown &&
+                (e.character == ';' || IsSemicolonKey(e.keyCode)))
+            {
+                HandleKey(e);
+                return;
+            }
+
+            switch (e.type)
+            {
+                case EventType.ScrollWheel:
+                    HandleWheel(body, e);
+                    return;
+                case EventType.MouseDown:
+                case EventType.MouseDrag:
+                case EventType.MouseUp:
+                    HandleMouse(body, e);
+                    return;
+                case EventType.Used:
+                    if (e.rawType == EventType.MouseDown || e.rawType == EventType.MouseDrag ||
+                        e.rawType == EventType.MouseUp)
+                        HandleMouse(body, e);
+                    return;
+                case EventType.KeyDown:
+                    HandleKey(e);
+                    return;
+            }
+        }
+
+        public void HandleChrome(Event e)
+        {
+            if (e.type != EventType.KeyDown) return;
+
+            // A pending Keyboard-page binding owns the next key, including keys normally
+            // claimed by the sidebar or terminal chrome. Escape remains the chrome escape.
+            if (SlopOptions.KeyboardCaptureActive && e.keyCode != KeyCode.Escape) return;
+
+            if (HandleFunctionKey(e)) { e.Use(); return; }
+
+            if (e.keyCode == KeyCode.Escape)
+            {
+                _window.Leave();
+                e.Use();
+                return;
+            }
+
+            int slot = TerminalHotkeys.SlotKey(e);
+            if (slot >= 0 && e.alt)
+            {
+                SwitchToSlot(slot);
+                e.Use();
+                return;
+            }
+
+            if (TryTabWalkDirection(e, out var dir))
+            {
+                WalkSession(dir);
+                e.Use();
+                return;
+            }
+
+            if (e.alt && (e.keyCode == KeyCode.Comma || e.keyCode == KeyCode.Period))
+            {
+                WalkSession(e.keyCode == KeyCode.Period ? 1 : -1);
+                e.Use();
+            }
+        }
+
+        public void CaptureSemicolonInput()
+        {
+            CaptureSemicolonInputCore();
+        }
+
+        bool TryLocal(Event e) => Try(_local, e);
+        bool TryTerminal(Event e) => Try(_terminal, e);
+
+        static bool Try(Dictionary<KeyCode, System.Func<Event, bool>> handlers, Event e)
+        {
+            return handlers.TryGetValue(e.keyCode, out var handler) && handler(e);
+        }
+
         // Handle unshifted keys bound to the chrome. Read KeyBindingDefs so option-menu
         // rebindings apply; shifted/unbound keys pass to the agent. A chrome transition also
         // explicitly closes menus because it may replace focus before their body runs.
@@ -104,7 +263,7 @@ namespace SlopWorld
         {
             // Window actions run before the terminal's online check. A bare Escape or an
             // ordinary Return returns false from the same handler and is dispatched below.
-            if (_input.TryLocal(e)) return;
+            if (TryLocal(e)) return;
 
             // Not in TerminalHotkeys: a window absorbing input makes
             // WindowStack.HandleEventsHighPriority Use every KeyDown, and that runs earlier in
@@ -144,7 +303,7 @@ namespace SlopWorld
             {
                 if (e.keyCode != KeyCode.None || e.character != '\0')
                 {
-                    _droppedKeys++;
+                    _window.DroppedKeys++;
                     e.Use();
                 }
                 return;
@@ -153,7 +312,7 @@ namespace SlopWorld
             // Auto-resume is queued by the daemon after startup settles. Keep user input out
             // of the resume picker; chrome and navigation above remain available so the user
             // can leave this pane while it is being resumed.
-            if (AutoResumePending)
+            if (_window.AutoResumePending)
             {
                 if (e.keyCode != KeyCode.None || e.character != '\0') e.Use();
                 return;
@@ -169,14 +328,14 @@ namespace SlopWorld
                 return;
             }
 
-            if (_input.TryTerminal(e)) return;
+            if (TryTerminal(e)) return;
 
             // Unity delivers printable input as a second event carrying only the character.
             if (e.character != '\0' && e.character != '\n' &&
                 e.character != '\r' && e.character != '\t' && !e.control && !e.alt)
             {
-                JumpToLive();
-                _literal.Append(e.character);
+                _window.JumpToLive();
+                _window.Literal.Append(e.character);
                 e.Use();
                 return;
             }
@@ -189,7 +348,7 @@ namespace SlopWorld
         {
             // Shift+Escape is the way out; a bare Escape must reach the agent.
             if (!e.shift) return false;
-            Close();
+            _window.Close();
             e.Use();
             return true;
         }
@@ -200,9 +359,9 @@ namespace SlopWorld
             // (\e[13;2u) so apps like Claude Code can distinguish it from plain Enter
             // and insert a newline rather than submitting.
             if (!e.shift) return false;
-            JumpToLive();
-            Flush();
-            SessionHub.Instance.SendKeys(_name, new[] { "\u001b[13;2u" }, true);
+            _window.JumpToLive();
+            _window.Flush();
+            SessionHub.Instance.SendKeys(_window.SessionName, new[] { "\u001b[13;2u" }, true);
             e.Use();
             return true;
         }
@@ -213,19 +372,19 @@ namespace SlopWorld
                 (e.keyCode != KeyCode.PageUp && e.keyCode != KeyCode.PageDown))
                 return false;
 
-            var live = SessionHub.Instance.Screen(_name);
+            var live = SessionHub.Instance.Screen(_window.SessionName);
             // Alternate-screen applications own shifted page keys; the primary screen owns
             // them for terminal scrollback, just like a normal terminal emulator.
-            if (_scrollOff == 0 && live != null && live.AltScreen) return false;
+            if (_window.ScrollOffset == 0 && live != null && live.AltScreen) return false;
 
-            int page = _rows > 0 ? _rows : live != null ? live.Rows : 1;
+            int page = _window.Rows > 0 ? _window.Rows : live != null ? live.Rows : 1;
             page = Mathf.Max(1, page);
             bool up = e.keyCode == KeyCode.PageUp;
-            bool fromLive = _scrollOff <= 0;
-            if (up) _scrollOff += page;
-            else _scrollOff = Mathf.Max(0, _scrollOff - page);
-            JumpHistoryTo(_scrollOff);
-            QueueScroll(up, fromLive);
+            bool fromLive = _window.ScrollOffset <= 0;
+            if (up) _window.ScrollOffset += page;
+            else _window.ScrollOffset = Mathf.Max(0, _window.ScrollOffset - page);
+            _window.JumpHistoryTo(_window.ScrollOffset);
+            _window.QueueScroll(up, fromLive);
             e.Use();
             return true;
         }
@@ -236,9 +395,9 @@ namespace SlopWorld
             if (!e.control) return ForwardMappedKey(e);
             // Terminal convention: Ctrl+Shift+C is always copy, and Ctrl+C copies
             // when text is selected (otherwise it passes through as SIGINT).
-            if (_hasSel)
+            if (_window.HasSelection)
             {
-                CopySelection();
+                _window.CopySelection();
                 e.Use();
                 return true;
             }
@@ -255,8 +414,8 @@ namespace SlopWorld
         {
             // Not a Ctrl chord: still a key the mapper may forward (e.g. Alt+V -> M-v).
             if (!e.control) return ForwardMappedKey(e);
-            JumpToLive();
-            PasteClipboard();
+            _window.JumpToLive();
+            _window.PasteClipboard();
             e.Use();
             return true;
         }
@@ -268,8 +427,8 @@ namespace SlopWorld
             if (e.character != '\0') return false;
             if (e.shift)
             {
-                JumpToLive();
-                _literal.Append(':');
+                _window.JumpToLive();
+                _window.Literal.Append(':');
             }
             else AppendSemicolon();
             e.Use();
@@ -278,18 +437,18 @@ namespace SlopWorld
 
         internal bool ForwardMappedKey(Event e)
         {
-            var keyScreen = SessionHub.Instance.Screen(_name);
+            var keyScreen = SessionHub.Instance.Screen(_window.SessionName);
             string key = MapKey(e, keyScreen != null && keyScreen.AltScreen);
             if (key == null) return false;
 
-            JumpToLive();
-            Flush();
+            _window.JumpToLive();
+            _window.Flush();
             // Tips ride the Enter that is about to have breadcrumbs pasted in front of it, and
             // nothing else: `BreadcrumbsPending` is the daemon's answer to whether this is that
             // Enter.
-            var info = SessionHub.Instance.Get(_name);
+            var info = SessionHub.Instance.Get(_window.SessionName);
             bool crumbs = key == "Enter" && info != null && info.BreadcrumbsPending;
-            SessionHub.Instance.SendKeys(_name, new[] { key }, false,
+            SessionHub.Instance.SendKeys(_window.SessionName, new[] { key }, false,
                 crumbs ? Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch) : null);
             e.Use();
             return true;
@@ -299,9 +458,9 @@ namespace SlopWorld
         // Unity's text-input stream still carries it (which is why ordinary game fields work).
         // DoWindowContents runs more than once per frame, and a surviving KeyDown may follow,
         // so the frame marker makes the two roads one keystroke.
-        internal void CaptureSemicolonInput()
+        internal void CaptureSemicolonInputCore()
         {
-            if (AutoResumePending || _semicolonFrame == Time.frameCount ||
+            if (_window.AutoResumePending || _window.SemicolonFrame == Time.frameCount ||
                 !SessionHub.Instance.Online) return;
             bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
             string input = Input.inputString;
@@ -309,19 +468,19 @@ namespace SlopWorld
             bool physical = !shift && Input.GetKeyDown(KeyCode.Semicolon);
             if (count == 0 && !physical) return;
 
-            JumpToLive();
-            Flush();
-            SessionHub.Instance.Paste(_name, new string(';', count > 0 ? count : 1));
-            _semicolonFrame = Time.frameCount;
+            _window.JumpToLive();
+            _window.Flush();
+            SessionHub.Instance.Paste(_window.SessionName, new string(';', count > 0 ? count : 1));
+            _window.SemicolonFrame = Time.frameCount;
         }
 
         void AppendSemicolon()
         {
-            if (_semicolonFrame == Time.frameCount) return;
-            JumpToLive();
-            Flush();
-            SessionHub.Instance.Paste(_name, ";");
-            _semicolonFrame = Time.frameCount;
+            if (_window.SemicolonFrame == Time.frameCount) return;
+            _window.JumpToLive();
+            _window.Flush();
+            SessionHub.Instance.Paste(_window.SessionName, ";");
+            _window.SemicolonFrame = Time.frameCount;
         }
 
         internal static bool IsSemicolonKey(KeyCode key) =>
@@ -338,7 +497,7 @@ namespace SlopWorld
             string name = order[slot];
             // The same agent while a view has the body is still a request to see it: the
             // number points the window at a portrait, and the pane is what a portrait is.
-            if (name == _name && _content == null) return;
+            if (name == _window.SessionName && _window.Content == null) return;
 
             var info = SessionHub.Instance.Get(name);
             if (info == null) return;
@@ -347,7 +506,7 @@ namespace SlopWorld
             // agents view, which releases whatever the view being left was showing.
             AgentSidebar.FocusTerminal();
 
-            SwitchTo(name);
+            _window.SwitchTo(name);
         }
 
         // Walk the session list by dir (-1 or 1). Used from Alt+Z/Alt+X and
@@ -381,9 +540,9 @@ namespace SlopWorld
             // The same agent while a pane is open is already on screen. A different agent
             // switches the pane.
             var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
-            if (w != null && target == w._name) return;
+            if (w != null && target == w.SessionName) return;
 
-            Open(target);
+            TerminalWindow.Open(target);
         }
 
         // The visible sidebar rows give the useful project-grouped order. Add sessions the
@@ -409,7 +568,7 @@ namespace SlopWorld
         {
             if (!body.Contains(e.mousePosition)) return;
 
-            var live = SessionHub.Instance.Screen(_name);
+            var live = SessionHub.Instance.Screen(_window.SessionName);
             bool editor = IsEditorSession();
             int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
             bool up = e.delta.y < 0;
@@ -417,7 +576,7 @@ namespace SlopWorld
             // Already in scrollback: stay there, whatever the live app is doing.
             // The app mode check below would otherwise hijack the wheel and send it
             // into the live app while the user is reading historical output.
-            if (_scrollOff > 0)
+            if (_window.ScrollOffset > 0)
             {
                 // SmoothScroll owns the event after this handler returns. It advances the
                 // local pixel position immediately and requests the next integer snapshot
@@ -429,10 +588,10 @@ namespace SlopWorld
             // is one tmux write, not one tmux process per scrolled line.
             if (live != null && live.AppMouse)
             {
-                ClearSelection();
-                var cell = CellAt(body, e.mousePosition);
+                _window.ClearSelection();
+                var cell = _window.CellAt(body, e.mousePosition);
                 string act = up ? "wheelup" : "wheeldown";
-                SessionHub.Instance.SendMouse(_name, act, 0, cell.x, cell.y, step);
+                SessionHub.Instance.SendMouse(_window.SessionName, act, 0, cell.x, cell.y, step);
                 e.Use();
                 return;
             }
@@ -446,10 +605,10 @@ namespace SlopWorld
             // while the shell is handing control to it.
             if (editor || (live != null && live.AltScreen))
             {
-                ClearSelection();
+                _window.ClearSelection();
                 var keys = new string[step];
                 for (int k = 0; k < step; k++) keys[k] = up ? "Up" : "Down";
-                SessionHub.Instance.SendKeys(_name, keys, false);
+                SessionHub.Instance.SendKeys(_window.SessionName, keys, false);
                 e.Use();
                 return;
             }
@@ -462,34 +621,11 @@ namespace SlopWorld
 
         bool IsEditorSession()
         {
-            var info = SessionHub.Instance.Get(_name);
+            var info = SessionHub.Instance.Get(_window.SessionName);
             if (info == null) return false;
             if (Pager.IsEditorCommand(info.Cmd)) return true;
             return info.Ephemeral &&
                 (info.Name ?? "").StartsWith("edit-", System.StringComparison.Ordinal);
-        }
-
-        // Send the first event immediately, then throttle repeats; direction changes bypass
-        // the delay so reversals respond in one round trip. `fromLive` matters after a pane
-        // has been in app-owned scrolling or has switched sessions: neither path necessarily
-        // reset the old wheel direction, but the first event entering our history is still a
-        // new gesture.
-        bool _lastWheelUp;
-        bool _hasWheelDirection;
-
-        void QueueScroll(bool up, bool fromLive = false, int requestOff = -1)
-        {
-            float now = Time.realtimeSinceStartup;
-            ScrollDebugInput();
-            _wantedScrollOff = requestOff >= 0 ? requestOff : _scrollOff;
-            _scrollPending = true;
-            ScrollDebugQueued(_wantedScrollOff);
-            bool fresh = fromLive || !_hasWheelDirection || up != _lastWheelUp ||
-                now >= _nextScrollSend;
-            _lastWheelUp = up;
-            _hasWheelDirection = true;
-            if (fresh)
-                SendPendingScroll();
         }
 
         internal void HandleMouse(Rect body, Event e)
@@ -499,16 +635,16 @@ namespace SlopWorld
             {
                 if (IsMouseDownInside(body, e))
                 {
-                    string url = LinkUnder(body, e.mousePosition);
+                    string url = _window.LinkUnder(body, e.mousePosition);
                     int line = 0;
                     string menuPath = ControlHeld(e)
-                        ? PathUnder(body, e.mousePosition, out line) : null;
+                        ? _window.PathUnder(body, e.mousePosition, out line) : null;
                     if (url != null || !IsRelativePath(menuPath))
                     {
                         menuPath = null;
                         line = 0;
                     }
-                    OpenMenu(url, menuPath, line);
+                    _window.OpenMenu(url, menuPath, line);
                 }
                 e.Use();
                 return;
@@ -519,8 +655,8 @@ namespace SlopWorld
             // alternate-screen application has enabled mouse mode.
             if (IsPrimaryPasteEvent(body, e))
             {
-                JumpToLive();
-                PastePrimarySelection();
+                _window.JumpToLive();
+                _window.PastePrimarySelection();
                 e.Use();
                 return;
             }
@@ -529,14 +665,14 @@ namespace SlopWorld
             // not, so Ctrl+click takes precedence over app mouse reporting.
             if (IsLinkClick(body, e))
             {
-                OpenUrl(LinkUnder(body, e.mousePosition));
+                TerminalWindow.OpenUrl(_window.LinkUnder(body, e.mousePosition));
                 e.Use();
                 return;
             }
 
             if (IsPathClick(body, e, out string path))
             {
-                var session = SessionHub.Instance.Get(_name);
+                var session = SessionHub.Instance.Get(_window.SessionName);
                 if (session != null && FilesView.FocusPath(session.Project, path))
                 {
                     e.Use();
@@ -545,25 +681,17 @@ namespace SlopWorld
             }
 
             // Multi-click selection is the terminal's gesture even when the app reports clicks.
-            if (IsPrimaryClick(body, e))
+            if (_window.SelectionInput.TryHandleMultiClick(body, e))
             {
-                int clickCount = _clicks.Observe(e, Time.realtimeSinceStartup);
-                if (clickCount >= 2)
-                {
-                    CaptureSelection(body);
-                    SelectClickedWord(body, e, clickCount);
-                    if (clickCount >= 3) _clicks.Reset();
-                    e.Use();
-                    return;
-                }
+                return;
             }
 
-            var live = SessionHub.Instance.Screen(_name);
+            var live = SessionHub.Instance.Screen(_window.SessionName);
             // Shift forces our own selection, like a real terminal.
-            if (ShouldForwardMouse(live, e) && HandleMouseForward(body, e)) return;
+            if (ShouldForwardMouse(live, e) && _window.HandleMouseForward(body, e)) return;
             if (!IsPrimaryMouse(e)) return;
 
-            HandleSelectionMouse(body, e);
+            _window.SelectionInput.Handle(body, e);
         }
 
         static bool IsContextMenuEvent(Event e) => e.button == 1;
@@ -576,7 +704,7 @@ namespace SlopWorld
 
         bool IsLinkClick(Rect body, Event e) =>
             MouseType(e) == EventType.MouseDown && e.button == 0 && ControlHeld(e) &&
-            body.Contains(e.mousePosition) && LinkUnder(body, e.mousePosition) != null;
+            body.Contains(e.mousePosition) && _window.LinkUnder(body, e.mousePosition) != null;
 
         bool IsPathClick(Rect body, Event e, out string path)
         {
@@ -584,15 +712,11 @@ namespace SlopWorld
             if (MouseType(e) != EventType.MouseDown || e.button != 0 || !ControlHeld(e) ||
                 !body.Contains(e.mousePosition)) return false;
             int line;
-            path = PathUnder(body, e.mousePosition, out line);
+            path = _window.PathUnder(body, e.mousePosition, out line);
             return path != null;
         }
 
         static bool IsRelativePath(string path) => !string.IsNullOrEmpty(path) && path[0] != '/';
-
-        static bool IsPrimaryClick(Rect body, Event e) =>
-            MouseType(e) == EventType.MouseDown && e.button == 0 &&
-            body.Contains(e.mousePosition);
 
         static bool ShouldForwardMouse(ScreenBuf live, Event e) =>
             live != null && live.AppMouse && !e.shift;
@@ -602,147 +726,13 @@ namespace SlopWorld
         // A window can receive a mouse event after WindowStack has marked it Used. Keep the
         // original type for all terminal gesture dispatch; otherwise Ctrl+clicks (and ordinary
         // selection presses) disappear before the pane sees them.
-        static EventType MouseType(Event e) =>
+        internal static EventType MouseType(Event e) =>
             e.type == EventType.Used ? e.rawType : e.type;
 
         static bool ControlHeld(Event e) =>
             e.control || e.command || Input.GetKey(KeyCode.LeftControl) ||
             Input.GetKey(KeyCode.RightControl);
 
-        void SelectClickedWord(Rect body, Event e, int clickCount)
-        {
-            var cell = CellAt(body, e.mousePosition);
-            if (clickCount >= 3) TripleClickSelect(cell.y);
-            else DoubleClickSelect(cell);
-        }
-
-        void HandleSelectionMouse(Rect body, Event e)
-        {
-            switch (MouseType(e))
-            {
-                case EventType.MouseDown:
-                    BeginSelection(body, e);
-                    return;
-                case EventType.MouseDrag:
-                    ContinueSelection(body, e);
-                    return;
-                case EventType.MouseUp:
-                    FinishSelection(body, e);
-                    return;
-            }
-        }
-
-        void BeginSelection(Rect body, Event e)
-        {
-            if (!body.Contains(e.mousePosition)) return;
-            _selA = _selB = CellAt(body, e.mousePosition);
-            _selectionMouse = e.mousePosition;
-            _selectionEdgeDirection = 0;
-            _selectionEdgeFrame = -1;
-            _dragging = true;
-            _selectionMoved = false;
-            _multiClickSelection = false;
-            _wordDragging = false;
-            _lineDragging = false;
-            _hasSel = false;
-            CaptureSelection(body);
-            e.Use();
-        }
-
-        void ContinueSelection(Rect body, Event e)
-        {
-            if (!_dragging) return;
-            _selectionMouse = e.mousePosition;
-            _selectionMoved = true;
-            var cell = CellAt(body, e.mousePosition);
-            if (e.mousePosition.y < body.y || e.mousePosition.y >= body.yMax)
-            {
-                int rows = Mathf.Max(1, _rows > 0 ? _rows :
-                    SessionHub.Instance.Screen(_name)?.Rows ?? 1);
-                cell.y = Mathf.Clamp(cell.y, 0, rows - 1);
-            }
-            if (_lineDragging) SelectLineRange(_lineStart, cell.y);
-            else if (_wordDragging) UpdateWordSelection(cell);
-            else
-            {
-                _selB = cell;
-                _hasSel = true;
-            }
-            e.Use();
-        }
-
-        void FinishSelection(Rect body, Event e)
-        {
-            if (!_dragging) return;
-            var cell = CellAt(body, e.mousePosition);
-            if (e.mousePosition.y < body.y || e.mousePosition.y >= body.yMax)
-            {
-                int rows = Mathf.Max(1, _rows > 0 ? _rows :
-                    SessionHub.Instance.Screen(_name)?.Rows ?? 1);
-                cell.y = Mathf.Clamp(cell.y, 0, rows - 1);
-            }
-            // A double click selects a word and a triple click replaces it with a row. Do not
-            // copy the intermediate word to CLIPBOARD; the completed triple-click line is
-            // published to PRIMARY by TripleClickSelect, while Ctrl+C and the Copy menu use
-            // CLIPBOARD.
-            bool copy = !_multiClickSelection || _selectionMoved;
-            if (_lineDragging)
-            {
-                SelectLineRange(_lineStart, cell.y);
-                _lineDragging = false;
-                _dragging = false;
-                _selectionMoved = false;
-                ReleaseSelection();
-                if (copy) CopySelection();
-            }
-            else if (_wordDragging)
-            {
-                UpdateWordSelection(cell);
-                _wordDragging = false;
-                _dragging = false;
-                ReleaseSelection();
-                if (_hasSel && copy) CopySelection();
-            }
-            else
-            {
-                _dragging = false;
-                _selB = cell;
-                if (_selectionMoved || _selA != _selB)
-                {
-                    _hasSel = true;
-                    if (copy) CopySelection();
-                }
-                else _hasSel = false;
-                _selectionMoved = false;
-                ReleaseSelection();
-            }
-            _selectionMoved = false;
-            _multiClickSelection = false;
-            _selectionEdgeDirection = 0;
-            _selectionEdgeFrame = -1;
-            e.Use();
-        }
-
-        void JumpToLive()
-        {
-            _scrollOff = 0;
-            _wantedScrollOff = 0;
-            _scrollPending = false;
-            _nextScrollSend = 0f;
-            _hasWheelDirection = false;
-            JumpHistoryTo(0);
-            ResetCursorBlink();
-            ScrollDebugEnd();
-        }
-
-        void ResetCursorBlink() => _cursorBlinkAt = Time.realtimeSinceStartup;
-
-        void Flush()
-        {
-            if (_literal.Length == 0) return;
-            SessionHub.Instance.SendKeys(_name, new[] { _literal.ToString() }, true);
-            _literal.Length = 0;
-        }
 
         static string MapKey(Event e, bool altScreen)
         {

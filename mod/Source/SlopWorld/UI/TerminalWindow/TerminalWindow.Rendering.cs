@@ -580,7 +580,7 @@ namespace SlopWorld
         }
 
         // Runs made sure of first: a pane that arrived but was never drawn has none.
-        string LinkUnder(Rect body, Vector2 m)
+        internal string LinkUnder(Rect body, Vector2 m)
         {
             var buf = DisplayedBuf();
             if (buf == null || buf.Lines.Length == 0) return null;
@@ -588,7 +588,7 @@ namespace SlopWorld
             return LinkAt(body, buf, m);
         }
 
-        string PathUnder(Rect body, Vector2 m, out int line)
+        internal string PathUnder(Rect body, Vector2 m, out int line)
         {
             line = 0;
             var buf = DisplayedBuf();
@@ -627,7 +627,7 @@ namespace SlopWorld
             }
         }
 
-        static void OpenUrl(string url)
+        internal static void OpenUrl(string url)
         {
             if (!string.IsNullOrEmpty(url)) Application.OpenURL(url);
         }
