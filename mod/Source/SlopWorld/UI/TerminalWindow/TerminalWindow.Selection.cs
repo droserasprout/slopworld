@@ -7,6 +7,165 @@ using Verse;
 
 namespace SlopWorld
 {
+    // Owns mouse selection gesture state and routing. The terminal window still owns the
+    // selection model for now; keeping this event choreography here prevents input dispatch
+    // from also knowing how a drag, word selection, and line selection are completed.
+    sealed class TerminalSelectionInput
+    {
+        readonly TerminalWindow _window;
+        readonly MouseClickSequence _clicks = new MouseClickSequence();
+
+        public TerminalSelectionInput(TerminalWindow window)
+        {
+            _window = window;
+        }
+
+        public bool TryHandleMultiClick(Rect body, Event e)
+        {
+            if (TerminalWindow.MouseType(e) != EventType.MouseDown || e.button != 0 ||
+                !body.Contains(e.mousePosition)) return false;
+
+            int clickCount = _clicks.Observe(e, Time.realtimeSinceStartup);
+            if (clickCount < 2) return false;
+
+            _window.CaptureSelection(body);
+            var cell = _window.CellAt(body, e.mousePosition);
+            if (clickCount >= 3) _window.TripleClickSelect(cell.y);
+            else _window.DoubleClickSelect(cell);
+            if (clickCount >= 3) _clicks.Reset();
+            e.Use();
+            return true;
+        }
+
+        public void Handle(Rect body, Event e)
+        {
+            switch (TerminalWindow.MouseType(e))
+            {
+                case EventType.MouseDown:
+                    Begin(body, e);
+                    return;
+                case EventType.MouseDrag:
+                    Drag(body, e);
+                    return;
+                case EventType.MouseUp:
+                    End(body, e);
+                    return;
+            }
+        }
+
+        void Begin(Rect body, Event e)
+        {
+            if (!body.Contains(e.mousePosition)) return;
+            _window.SelectionA = _window.SelectionB = _window.CellAt(body, e.mousePosition);
+            _window.SelectionMouse = e.mousePosition;
+            _window.SelectionEdgeDirection = 0;
+            _window.SelectionEdgeFrame = -1;
+            _window.Dragging = true;
+            _window.SelectionMoved = false;
+            _window.MultiClickSelection = false;
+            _window.WordDragging = false;
+            _window.LineDragging = false;
+            _window.HasSelection = false;
+            _window.CaptureSelection(body);
+            e.Use();
+        }
+
+        void Drag(Rect body, Event e)
+        {
+            if (!_window.Dragging) return;
+            _window.SelectionMouse = e.mousePosition;
+            _window.SelectionMoved = true;
+            var cell = _window.CellAt(body, e.mousePosition);
+            if (e.mousePosition.y < body.y || e.mousePosition.y >= body.yMax)
+            {
+                int rows = Mathf.Max(1, _window.Rows > 0 ? _window.Rows :
+                    SessionHub.Instance.Screen(_window.SessionName)?.Rows ?? 1);
+                cell.y = Mathf.Clamp(cell.y, 0, rows - 1);
+            }
+            if (_window.LineDragging)
+                _window.SelectLineRange(_window.LineStart, cell.y);
+            else if (_window.WordDragging)
+                _window.UpdateWordSelection(cell);
+            else
+            {
+                _window.SelectionB = cell;
+                _window.HasSelection = true;
+            }
+            e.Use();
+        }
+
+        void End(Rect body, Event e)
+        {
+            if (!_window.Dragging) return;
+            var cell = _window.CellAt(body, e.mousePosition);
+            if (e.mousePosition.y < body.y || e.mousePosition.y >= body.yMax)
+            {
+                int rows = Mathf.Max(1, _window.Rows > 0 ? _window.Rows :
+                    SessionHub.Instance.Screen(_window.SessionName)?.Rows ?? 1);
+                cell.y = Mathf.Clamp(cell.y, 0, rows - 1);
+            }
+
+            // A double click selects a word and a triple click replaces it with a row. Do not
+            // copy the intermediate word to CLIPBOARD; the completed triple-click line is
+            // published to PRIMARY by TripleClickSelect.
+            bool copy = !_window.MultiClickSelection || _window.SelectionMoved;
+            if (_window.LineDragging)
+            {
+                _window.SelectLineRange(_window.LineStart, cell.y);
+                _window.LineDragging = false;
+                _window.Dragging = false;
+                _window.SelectionMoved = false;
+                _window.ReleaseSelection();
+                if (copy) _window.CopySelection();
+            }
+            else if (_window.WordDragging)
+            {
+                _window.UpdateWordSelection(cell);
+                _window.WordDragging = false;
+                _window.Dragging = false;
+                _window.ReleaseSelection();
+                if (_window.HasSelection && copy) _window.CopySelection();
+            }
+            else
+            {
+                _window.Dragging = false;
+                _window.SelectionB = cell;
+                if (_window.SelectionMoved || _window.SelectionA != _window.SelectionB)
+                {
+                    _window.HasSelection = true;
+                    if (copy) _window.CopySelection();
+                }
+                else _window.HasSelection = false;
+                _window.SelectionMoved = false;
+                _window.ReleaseSelection();
+            }
+            _window.SelectionMoved = false;
+            _window.MultiClickSelection = false;
+            _window.SelectionEdgeDirection = 0;
+            _window.SelectionEdgeFrame = -1;
+            e.Use();
+        }
+    }
+
+    // Selection state is kept separately from TerminalWindow's session and render state. The
+    // gesture controller and renderer access it through the small properties on the window.
+    sealed class TerminalSelectionState
+    {
+        public bool Dragging;
+        public bool SelectionMoved;
+        public bool MultiClickSelection;
+        public bool WordDragging;
+        public bool LineDragging;
+        public Vector2Int WordStart, WordEnd;
+        public int LineStart;
+        public int Control;
+        public bool HasSelection;
+        public Vector2Int A, B;
+        public Vector2 Mouse;
+        public int EdgeDirection;
+        public int EdgeFrame = -1;
+    }
+
     // TerminalWindow selection, clipboard, and context-menu helpers.
     public partial class TerminalWindow
     {
@@ -77,14 +236,22 @@ namespace SlopWorld
         void MoveSelectionRows(int delta)
         {
             if (delta == 0) return;
-            _selA.y += delta;
-            _selB.y += delta;
-            _wordStart.y += delta;
-            _wordEnd.y += delta;
+            var a = _selA;
+            var b = _selB;
+            var wordStart = _wordStart;
+            var wordEnd = _wordEnd;
+            a.y += delta;
+            b.y += delta;
+            wordStart.y += delta;
+            wordEnd.y += delta;
+            _selA = a;
+            _selB = b;
+            _wordStart = wordStart;
+            _wordEnd = wordEnd;
             if (_lineDragging) _lineStart += delta;
         }
 
-        void ClearSelection()
+        internal void ClearSelection()
         {
             _hasSel = false;
             _dragging = false;
@@ -171,7 +338,7 @@ namespace SlopWorld
             }
         }
 
-        void CaptureSelection(Rect body)
+        internal void CaptureSelection(Rect body)
         {
             if (_selectionControl != 0 && GUIUtility.hotControl == _selectionControl)
                 GUIUtility.hotControl = 0;
@@ -179,7 +346,7 @@ namespace SlopWorld
             GUIUtility.hotControl = _selectionControl;
         }
 
-        void ReleaseSelection()
+        internal void ReleaseSelection()
         {
             if (_selectionControl != 0 && GUIUtility.hotControl == _selectionControl)
                 GUIUtility.hotControl = 0;
@@ -201,7 +368,7 @@ namespace SlopWorld
         }
 
         // A word, or the run of identical characters a non-word cell sits in.
-        void DoubleClickSelect(Vector2Int cell)
+        internal void DoubleClickSelect(Vector2Int cell)
         {
             var buf = DisplayedBuf();
             if (buf == null) return;
@@ -229,7 +396,7 @@ namespace SlopWorld
             _lineDragging = false;
         }
 
-        void UpdateWordSelection(Vector2Int cell)
+        internal void UpdateWordSelection(Vector2Int cell)
         {
             var buf = DisplayedBuf();
             if (buf == null) return;
@@ -265,7 +432,7 @@ namespace SlopWorld
             a.y < b.y || (a.y == b.y && a.x < b.x);
 
         // The row, not the logical line: the daemon does not mark where one wrapped.
-        void TripleClickSelect(int row)
+        internal void TripleClickSelect(int row)
         {
             var buf = DisplayedBuf();
             if (buf == null) return;
@@ -278,7 +445,7 @@ namespace SlopWorld
             CopyPrimarySelection();
         }
 
-        void SelectLineRange(int anchor, int row)
+        internal void SelectLineRange(int anchor, int row)
         {
             var buf = DisplayedBuf();
             if (buf == null) return;
@@ -302,7 +469,7 @@ namespace SlopWorld
             (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
             (c >= '0' && c <= '9') || c == '_';
 
-        Vector2Int CellAt(Rect body, Vector2 m)
+        internal Vector2Int CellAt(Rect body, Vector2 m)
         {
             SyncSnap();
             float cw = DisplayCellW(), ch = TerminalFont.CellH;
@@ -315,13 +482,13 @@ namespace SlopWorld
 
         ScreenBuf DisplayedBuf() => DisplayedScreen();
 
-        void CopySelection()
+        internal void CopySelection()
         {
             var buf = DisplayedBuf();
             if (buf != null) CopyText(SelectionText(buf));
         }
 
-        void CopyPrimarySelection()
+        internal void CopyPrimarySelection()
         {
             var buf = DisplayedBuf();
             if (buf != null) CopyPrimaryText(SelectionText(buf));
@@ -368,7 +535,7 @@ namespace SlopWorld
         // The clipboard errands, which never had a button anywhere. Nothing that ends an agent
         // is here - a menu opened to copy a line is the wrong place to find it. A Ctrl+RMB on a
         // project-relative path adds the same file errands the sidebar offers.
-        void OpenMenu(string url, string path, int line)
+        internal void OpenMenu(string url, string path, int line)
         {
             var options = new List<FloatMenuOption>();
 
@@ -474,7 +641,7 @@ namespace SlopWorld
             SessionHub.Instance.SendKeys(name, new[] { "C-v" }, false);
         }
 
-        void PasteClipboard()
+        internal void PasteClipboard()
         {
             string name = _name;
             if (CodexImagePaste && SessionHub.Instance.Capabilities.Clipboard)
@@ -509,7 +676,7 @@ namespace SlopWorld
         // Middle-click reads Wayland/X11 PRIMARY, not the ordinary CLIPBOARD. There is no
         // useful game-local fallback: Unity exposes the latter, if anything, and substituting
         // it would make a missing primary selection paste the wrong text.
-        void PastePrimarySelection()
+        internal void PastePrimarySelection()
         {
             if (!SessionHub.Instance.Capabilities.Clipboard) return;
             string name = _name;

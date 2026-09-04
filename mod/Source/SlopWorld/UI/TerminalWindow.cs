@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -10,12 +11,17 @@ namespace SlopWorld
     {
         const float Pad = SlopWidgets.GapS;
         FieldLifetime _fieldLifetime = new FieldLifetime();
+        readonly TerminalInputController _input;
+        readonly TerminalSelectionInput _selectionInput;
+
+        internal TerminalSelectionInput SelectionInput => _selectionInput;
 
         TerminalWindow(string name)
         {
             _name = name;
             ResetCursorBlink();
-            _input = new TerminalInputHandler(this);
+            _input = new TerminalInputController(this);
+            _selectionInput = new TerminalSelectionInput(this);
             doWindowBackground = false;
             doCloseButton = false;
             doCloseX = false;
@@ -31,6 +37,24 @@ namespace SlopWorld
         }
 
         public override Vector2 InitialSize => new Vector2(UI.screenWidth, UI.screenHeight);
+
+        // These static entry points are used by map-layer patches as well as the window's
+        // input path. Keep the public facade on TerminalWindow while the event policy lives in
+        // TerminalInputController.
+        public static bool HandleFunctionKey(Event e) =>
+            TerminalInputController.HandleFunctionKey(e);
+
+        internal static bool TryTabWalkDirection(Event e, out int dir) =>
+            TerminalInputController.TryTabWalkDirection(e, out dir);
+
+        internal static bool IsSemicolonKey(KeyCode key) =>
+            TerminalInputController.IsSemicolonKey(key);
+
+        internal static void WalkSession(int dir) => TerminalInputController.WalkSession(dir);
+
+        internal static List<string> TabOrder() => TerminalInputController.TabOrder();
+
+        internal static EventType MouseType(Event e) => TerminalInputController.MouseType(e);
 
         // Window.InnerWindowOnGUI opens a GUI group on the contracted rect, translating
         // everything drawn here by the margin without moving GUI.matrix or mousePosition with

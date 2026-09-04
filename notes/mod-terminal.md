@@ -9,6 +9,12 @@ on screen pixels.
 The window uses `Margin` 0 so GUI-group and screen coordinates agree
 ([gotchas](gotchas.md)).
 
+`TerminalWindow` is the fullscreen host and lifecycle coordinator. `TerminalInputController`
+owns key/mouse event ordering and chrome navigation, while `TerminalWindowState` holds the
+session and input state that used to sit directly on the partial class. Selection gesture
+routing lives in `TerminalSelectionInput`; the selection model and terminal rendering remain
+window services until the next extraction pass.
+
 ## Size
 
 `NegotiateSize` divides the body by cell size and sends a debounced `resize` (0.2s).
