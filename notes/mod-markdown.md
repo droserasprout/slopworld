@@ -25,6 +25,12 @@ explicit `View in pager` source-pager action. Local images resolve beside the Ma
 are bounded through `/api/image`; remote, data-URI and otherwise unsupported images remain
 aligned unavailable stubs rather than disappearing from the document.
 
+`MarkdownPreview` coordinates focused collaborators: `MarkdownDocumentParser` builds the AST,
+`MarkdownResourceStore` owns image/highlight requests, `MarkdownLayoutEngine` and
+`MarkdownTextLayout` build placements, `MarkdownRenderer` draws them, `MarkdownScrollView`
+owns the scroll groups, and `MarkdownSelection` plus `MarkdownInputController` own selection
+geometry and gestures. Shared document and placement records live in `MarkdownPreview.Model.cs`.
+
 Layout is cached at the settled content width. A full-width scrollbar probe runs only when the
 document is invalidated or the viewport changes; ordinary repaints and wheel movement reuse the
 existing placements and selection geometry.

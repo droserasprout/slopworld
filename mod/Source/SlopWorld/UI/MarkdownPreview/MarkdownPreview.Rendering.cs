@@ -4,11 +4,47 @@ using Verse;
 
 namespace SlopWorld
 {
-    // MarkdownPreview rendering, selection collection, and hit testing.
-    public sealed partial class MarkdownPreview
+    sealed class MarkdownRenderer
     {
-        bool IsVisible(float y, float height) =>
-            y + height > _clipTop && y < _clipBottom;
+        readonly MarkdownResourceStore _resources;
+        readonly List<LinkHit> _links = new List<LinkHit>();
+        float _clipTop;
+        float _clipBottom;
+
+        public MarkdownRenderer(MarkdownResourceStore resources)
+        {
+            _resources = resources;
+        }
+
+        public List<LinkHit> Links => _links;
+
+        public void ClearLinks()
+        {
+            _links.Clear();
+        }
+
+        public void Draw(List<Placement> placements, MarkdownSelection selection,
+                         float clipTop, float clipBottom)
+        {
+            _links.Clear();
+            _clipTop = clipTop;
+            _clipBottom = clipBottom;
+            int first = FirstVisiblePlacement(placements, _clipTop);
+            for (int i = first; i < placements.Count; i++)
+            {
+                var placement = placements[i];
+                if (placement.Y >= _clipBottom) break;
+                DrawPlacementBackground(placement);
+            }
+            selection.DrawHighlights(_clipTop, _clipBottom);
+            for (int i = first; i < placements.Count; i++)
+            {
+                var placement = placements[i];
+                if (placement.Y >= _clipBottom) break;
+                DrawPlacementForeground(placement);
+            }
+            _clipTop = _clipBottom = 0f;
+        }
 
         static int FirstVisiblePlacement(List<Placement> placements, float top)
         {
@@ -162,142 +198,6 @@ namespace SlopWorld
             }
         }
 
-        void CollectSelection()
-        {
-            _selectionLines.Clear();
-            foreach (var placement in _placements)
-            {
-                switch (placement.Kind)
-                {
-                    case PlacementKind.Text:
-                    case PlacementKind.Bullet:
-                        CollectText(placement.Text, placement.X, placement.Y);
-                        break;
-
-                    case PlacementKind.Code:
-                        CollectText(placement.Text, placement.X + SlopWidgets.GapS,
-                            placement.Y + SlopWidgets.GapS +
-                            (string.IsNullOrWhiteSpace(placement.Label)
-                                ? 0f : SlopWidgets.TinyH + SlopWidgets.GapXS));
-                        break;
-
-                    case PlacementKind.Table:
-                        CollectTableSelection(placement);
-                        break;
-                }
-            }
-        }
-
-        void CollectText(TextLayout text, float x, float y)
-        {
-            if (text == null) return;
-
-            foreach (var line in text.Lines)
-                CollectTextLine(line, x, y);
-        }
-
-        void CollectTextLine(TextLine line, float x, float y)
-        {
-            var output = new SelectionLine
-            {
-                X = x,
-                Y = y + line.Offset,
-                Height = line.Height,
-                Width = line.Width,
-                Source = line,
-                Text = "",
-            };
-            var chars = new System.Text.StringBuilder();
-            foreach (var piece in line.Pieces)
-            {
-                if (piece.Run.IsImage) continue;
-                for (int i = 0; i < piece.Text.Length; i++)
-                    chars.Append(piece.Text[i]);
-            }
-            output.Text = chars.ToString();
-            _selectionLines.Add(output);
-        }
-
-        void CollectTableSelection(Placement placement)
-        {
-            foreach (var row in placement.Table.Rows)
-            {
-                int lines = 0;
-                foreach (var cell in row.Cells) lines = Mathf.Max(lines, cell.Lines.Count);
-                for (int lineIndex = 0; lineIndex < lines; lineIndex++)
-                {
-                    float x = placement.X;
-                    for (int i = 0; i < row.Cells.Count; i++)
-                    {
-                        var cell = row.Cells[i];
-                        if (lineIndex < cell.Lines.Count)
-                            CollectTextLine(cell.Lines[lineIndex], x + SlopWidgets.GapS,
-                                placement.Y + row.Offset + SlopWidgets.GapS);
-                        x += placement.Table.Widths[i];
-                    }
-                }
-            }
-        }
-
-        void EnsureEdges(SelectionLine line)
-        {
-            if (line == null || line.Edges.Count == line.Text.Length + 1) return;
-
-            line.Edges.Clear();
-            line.Edges.Add(0f);
-            float at = 0f;
-            foreach (var piece in line.Source.Pieces)
-            {
-                if (piece.Run.IsImage)
-                {
-                    at += piece.Width;
-                    continue;
-                }
-                if (piece.Run.IsTask)
-                {
-                    float markerWidth = 0f;
-                    for (int i = 0; i < piece.Text.Length; i++)
-                        markerWidth += _styles.MeasureChar(piece.Style, piece.Text[i]);
-                    float scale = markerWidth <= 0f ? 0f : piece.Width / markerWidth;
-                    for (int i = 0; i < piece.Text.Length; i++)
-                    {
-                        at += _styles.MeasureChar(piece.Style, piece.Text[i]) * scale;
-                        line.Edges.Add(at);
-                    }
-                    continue;
-                }
-                for (int i = 0; i < piece.Text.Length; i++)
-                {
-                    at += _styles.MeasureChar(piece.Style, piece.Text[i]);
-                    line.Edges.Add(at);
-                }
-            }
-        }
-
-        void DrawSelectionHighlights()
-        {
-            if (!_hasSel || _selectionLines.Count == 0) return;
-            OrderedSelection(out var a, out var b);
-
-            int first = Mathf.Clamp(a.y, 0, _selectionLines.Count - 1);
-            int last = Mathf.Clamp(b.y, 0, _selectionLines.Count - 1);
-            for (int i = first; i <= last; i++)
-            {
-                var line = _selectionLines[i];
-                if (!IsVisible(line.Y, line.Height)) continue;
-                EnsureEdges(line);
-                int start = i == a.y ? a.x : 0;
-                int end = i == b.y ? b.x : line.Text.Length;
-                start = Mathf.Clamp(start, 0, line.Text.Length);
-                end = Mathf.Clamp(end, start, line.Text.Length);
-                if (end <= start) continue;
-
-                float left = line.X + line.Edges[start];
-                float right = line.X + line.Edges[end];
-                Slab.Fill(new Rect(left, line.Y, right - left, line.Height), SlopWidgets.Sel);
-            }
-        }
-
         void DrawText(TextLayout text, float x, float y, bool heading)
         {
             int first = FirstVisibleLine(text, y, _clipTop);
@@ -313,7 +213,7 @@ namespace SlopWorld
                     var rect = new Rect(at, lineY, piece.Width, line.Height);
                     if (piece.Run.IsImage)
                     {
-                        var texture = ImageFor(piece.Run);
+                        var texture = _resources.ImageFor(piece.Run);
                         if (texture != null)
                         {
                             GUI.color = Color.white;
@@ -366,7 +266,7 @@ namespace SlopWorld
 
         void DrawImage(Placement placement)
         {
-            var texture = ImageFor(placement.Image);
+            var texture = _resources.ImageFor(placement.Image);
             var rect = new Rect(placement.X, placement.Y, placement.Width, placement.Height);
             if (texture != null)
             {
@@ -394,7 +294,8 @@ namespace SlopWorld
                 if (y >= _clipBottom) break;
 
                 float x = placement.X;
-                if (row.Header) Slab.Fill(new Rect(x, y, placement.Width, row.Height), SlopWidgets.RowBg);
+                if (row.Header) Slab.Fill(new Rect(x, y, placement.Width, row.Height),
+                    SlopWidgets.RowBg);
                 for (int cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
                 {
                     Slab.Hairline(new Rect(x, y, 1f, row.Height), SlopWidgets.Edge);
@@ -418,12 +319,10 @@ namespace SlopWorld
                 for (int cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
                 {
                     DrawText(row.Cells[cellIndex], x + SlopWidgets.GapS,
-                        y + SlopWidgets.GapS,
-                        row.Header);
+                        y + SlopWidgets.GapS, row.Header);
                     x += placement.Table.Widths[cellIndex];
                 }
             }
         }
-
     }
 }
