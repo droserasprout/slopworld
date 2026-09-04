@@ -30,9 +30,9 @@ Set `RIMWORLD` to the Linux game directory (the folder containing `RimWorldLinux
 The first release uses the canonical `v0.0.1` tag and embeds `0.0.1`. Untagged checkouts append
 the UTC build date and short hash to the package version: `0.0.1-20260831-3eb9902`. Trees
 without Git keep the `0.0.1` fallback.
-The release workflow packages the checked-in `mod/Assemblies/SlopWorld.dll`; because that
-assembly is compiled against a local RimWorld install, rebuild it with the target version before
-creating a release tag.
+The mod assembly is a local build output and is not checked into Git. The release workflow
+publishes the daemon archive; source-based installs and Arch packages build the mod against the
+target RimWorld installation before staging it.
 
 ## Formatting
 
