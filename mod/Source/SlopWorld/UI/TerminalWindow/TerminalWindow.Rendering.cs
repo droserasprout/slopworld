@@ -7,9 +7,27 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Mechanical split: TerminalWindow.Rendering methods.
+    // TerminalWindow pane rendering, cache, and pointer-overlays.
     public partial class TerminalWindow
     {
+        readonly TerminalRunCache _runCache = new TerminalRunCache();
+
+        // The link under the pointer and its row spans are retained for the draw. The same
+        // answer drives the highlight, tooltip, and Ctrl+click target.
+        string _hoverUrl;
+        struct HoverSpan
+        {
+            public int Row, C0, C1;
+
+            public HoverSpan(int row, int c0, int c1)
+            {
+                Row = row;
+                C0 = c0;
+                C1 = c1;
+            }
+        }
+        readonly List<HoverSpan> _hoverSpans = new List<HoverSpan>();
+
         void DrawScreen(Rect body, ScreenBuf buf, float shift)
         {
             EnsureRuns(buf);
