@@ -90,63 +90,64 @@ namespace SlopWorld
         {
             var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(_fieldsH, r.height));
-            _scroll.Begin(r, view);
+            using (_scroll.Scope(r, view))
+            {
 
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(new Rect(0f, 0f, view.width, 4000f));
+                var l = new Listing_Standard { maxOneColumn = true };
+                l.Begin(new Rect(0f, 0f, view.width, 4000f));
 
-            SlopWidgets.SectionHeading(l, "SLOPWORLD.md");
-            SlopWidgets.Note(l, "Generated runtime context is read-only in agent sandboxes. " +
-                "The template is rendered once for each project snapshot.");
-            l.Gap(SlopWidgets.GapS);
-            l.Label("Content template");
-            _cfg.InstructionsTemplate = SlopWidgets.Area(l.GetRect(320f), "instructions.template",
-                _cfg.InstructionsTemplate);
-            if (SlopWidgets.Button(l, "Reset to default", SlopWidgets.Btn.Ghost))
-                _cfg.InstructionsTemplate = SlopConfig.DefaultInstructionsTemplate;
-            SlopWidgets.Note(l, "Variables: {{ runtime_context }}, {{ project }}, " +
-                "{{ mount_path }}, and {{ file }}. Unknown variables are left unchanged.");
+                SlopWidgets.SectionHeading(l, "SLOPWORLD.md");
+                SlopWidgets.Note(l, "Generated runtime context is read-only in agent sandboxes. " +
+                    "The template is rendered once for each project snapshot.");
+                l.Gap(SlopWidgets.GapS);
+                l.Label("Content template");
+                _cfg.InstructionsTemplate = SlopWidgets.Area(l.GetRect(320f), "instructions.template",
+                    _cfg.InstructionsTemplate);
+                if (SlopWidgets.Button(l, "Reset to default", SlopWidgets.Btn.Ghost))
+                    _cfg.InstructionsTemplate = SlopConfig.DefaultInstructionsTemplate;
+                SlopWidgets.Note(l, "Variables: {{ runtime_context }}, {{ project }}, " +
+                    "{{ mount_path }}, and {{ file }}. Unknown variables are left unchanged.");
 
-            l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "Discovery breadcrumb");
-            SlopWidgets.Note(l, "This text is added to the agent's first prompt when the manifest " +
-                "is mounted. It is separate from the generated file body.");
-            l.Label("Breadcrumb template");
-            _cfg.InstructionsBreadcrumb = SlopWidgets.Area(l.GetRect(120f),
-                "instructions.breadcrumb", _cfg.InstructionsBreadcrumb);
-            if (SlopWidgets.Button(l, "Reset to default", SlopWidgets.Btn.Ghost))
-                _cfg.InstructionsBreadcrumb = SlopConfig.DefaultInstructionsBreadcrumb;
-            SlopWidgets.Note(l, "Variables: {{ project }}, {{ mount_path }}, and {{ file }}. " +
-                "Unknown variables are left unchanged.");
-            _cfg.InstructionsBreadcrumbEnabled = SlopWidgets.Checkbox(l,
-                "Add discovery breadcrumb", _cfg.InstructionsBreadcrumbEnabled,
-                "Adds the configured discovery text to opted-in agents.");
-            SlopWidgets.Note(l, "Reset changes the form only; press Save to apply it.");
+                l.Gap(SlopWidgets.GapL);
+                SlopWidgets.SectionHeading(l, "Discovery breadcrumb");
+                SlopWidgets.Note(l, "This text is added to the agent's first prompt when the manifest " +
+                    "is mounted. It is separate from the generated file body.");
+                l.Label("Breadcrumb template");
+                _cfg.InstructionsBreadcrumb = SlopWidgets.Area(l.GetRect(120f),
+                    "instructions.breadcrumb", _cfg.InstructionsBreadcrumb);
+                if (SlopWidgets.Button(l, "Reset to default", SlopWidgets.Btn.Ghost))
+                    _cfg.InstructionsBreadcrumb = SlopConfig.DefaultInstructionsBreadcrumb;
+                SlopWidgets.Note(l, "Variables: {{ project }}, {{ mount_path }}, and {{ file }}. " +
+                    "Unknown variables are left unchanged.");
+                _cfg.InstructionsBreadcrumbEnabled = SlopWidgets.Checkbox(l,
+                    "Add discovery breadcrumb", _cfg.InstructionsBreadcrumbEnabled,
+                    "Adds the configured discovery text to opted-in agents.");
+                SlopWidgets.Note(l, "Reset changes the form only; press Save to apply it.");
 
-            l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "Worker bootstrap");
-            SlopWidgets.Note(l, "This prompt is submitted to each worker spawned with slopctl spawn. " +
-                "Use $SLOPWORLD_TASK_ID to refer to its exact mailbox task.");
-            l.Label("Worker prompt");
-            _cfg.WorkerPrompt = SlopWidgets.Area(l.GetRect(180f), "instructions.worker_prompt",
-                _cfg.WorkerPrompt);
-            if (SlopWidgets.Button(l, "Reset to default", SlopWidgets.Btn.Ghost))
-                _cfg.WorkerPrompt = SlopConfig.DefaultWorkerPrompt;
-            SlopWidgets.Note(l, "The task body stays in the mailbox; this prompt tells the worker " +
-                "how to retrieve and finish it. Reset changes the form only; press Save to apply it.");
+                l.Gap(SlopWidgets.GapL);
+                SlopWidgets.SectionHeading(l, "Worker bootstrap");
+                SlopWidgets.Note(l, "This prompt is submitted to each worker spawned with slopctl spawn. " +
+                    "Use $SLOPWORLD_TASK_ID to refer to its exact mailbox task.");
+                l.Label("Worker prompt");
+                _cfg.WorkerPrompt = SlopWidgets.Area(l.GetRect(180f), "instructions.worker_prompt",
+                    _cfg.WorkerPrompt);
+                if (SlopWidgets.Button(l, "Reset to default", SlopWidgets.Btn.Ghost))
+                    _cfg.WorkerPrompt = SlopConfig.DefaultWorkerPrompt;
+                SlopWidgets.Note(l, "The task body stays in the mailbox; this prompt tells the worker " +
+                    "how to retrieve and finish it. Reset changes the form only; press Save to apply it.");
 
-            l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "Sandbox delivery");
-            l.Label("Mount path (relative to the project)");
-            _cfg.InstructionsMountPath = SlopWidgets.Field(l, "instructions.mount_path",
-                _cfg.InstructionsMountPath);
-            SlopWidgets.Note(l, "The generated source remains the project-root " +
-                "SLOPWORLD.md; this is where its read-only copy appears to the agent.");
-            SlopWidgets.Note(l, "Agents still opt in per session with Mount SLOPWORLD.md.");
+                l.Gap(SlopWidgets.GapL);
+                SlopWidgets.SectionHeading(l, "Sandbox delivery");
+                l.Label("Mount path (relative to the project)");
+                _cfg.InstructionsMountPath = SlopWidgets.Field(l, "instructions.mount_path",
+                    _cfg.InstructionsMountPath);
+                SlopWidgets.Note(l, "The generated source remains the project-root " +
+                    "SLOPWORLD.md; this is where its read-only copy appears to the agent.");
+                SlopWidgets.Note(l, "Agents still opt in per session with Mount SLOPWORLD.md.");
 
-            _fieldsH = l.CurHeight + SlopWidgets.GapS;
-            l.End();
-            _scroll.End();
+                _fieldsH = l.CurHeight + SlopWidgets.GapS;
+                l.End();
+            }
         }
 
         void DrawPreview(Rect r)

@@ -102,34 +102,24 @@ namespace SlopWorld
                        List<Choice> choices, bool custom, Action<string> set,
                        Action<bool> setCustom)
         {
-            Rect row = l.GetRect(SlopWidgets.RowH);
-            float leftW = Mathf.Min(220f, row.width * .42f);
-            float rightX = row.x + leftW + SlopWidgets.GapM;
-            float rightW = row.width - leftW - SlopWidgets.GapM;
             bool isCustom = custom || !choices.Any(c => c.Value == value);
-
-            GUI.color = SlopWidgets.Name;
-            SlopWidgets.RowLabel(new Rect(row.x, row.y, leftW, row.height), label);
-            GUI.color = Color.white;
-
             string shown = isCustom
                 ? "Custom"
                 : choices.First(c => c.Value == value).Label;
-            if (SlopWidgets.Button(new Rect(rightX, row.y, rightW, row.height), shown,
-                    SlopWidgets.Btn.Default))
-            {
-                var options = choices.Select(c => new FloatMenuOption(c.Label, () =>
+            var options = choices.Select(c => new SelectorOption(c.Label, () =>
                 {
                     setCustom(false);
                     set(c.Value);
                 })).ToList();
-                options.Add(new FloatMenuOption("Custom", () => setCustom(true)));
-                Find.WindowStack.Add(new SlopMenu(options));
-            }
+            options.Add(new SelectorOption("Custom", () => setCustom(true)));
+            SlopWidgets.Select(l, label, shown, options, out _);
 
             if (isCustom)
             {
                 Rect customRow = l.GetRect(SlopWidgets.FieldH);
+                float leftW = Mathf.Min(220f, customRow.width * .42f);
+                float rightX = customRow.x + leftW + SlopWidgets.GapM;
+                float rightW = customRow.width - leftW - SlopWidgets.GapM;
                 GUI.color = SlopWidgets.Dim;
                 SlopWidgets.RowLabel(new Rect(customRow.x, customRow.y, leftW,
                     customRow.height), "Custom template");

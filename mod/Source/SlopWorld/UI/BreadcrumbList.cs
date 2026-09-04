@@ -55,29 +55,30 @@ namespace SlopWorld
 
             var inner = new Rect(0f, 0f, pad.width - SlopWidgets.ScrollbarW,
                 all.Count * SlopWidgets.RowH);
-            scroll.Begin(pad, inner);
-            float y = 0f;
-            foreach (var b in all)
+            using (scroll.Scope(pad, inner))
             {
-                var cell = new Rect(SlopWidgets.GapS, y, inner.width - SlopWidgets.GapS,
-                    SlopWidgets.RowH);
-                y += SlopWidgets.RowH;
-                bool forced = !b.Instructions && implied != null && implied.Contains(b.Name);
-                bool was = b.Instructions ? b.On : forced || chosen.Contains(b.Name);
-                string tip = b.Instructions
-                    ? "Used when this agent mounts SLOPWORLD.md and discovery is enabled in " +
-                      "Settings > Integrations > Instructions."
-                    : (b.Text ?? "").Replace("\n", " ");
-                bool on = SlopWidgets.Checkbox(cell, b.Name, was, tip, forced);
-                if (on != was)
+                float y = 0f;
+                foreach (var b in all)
                 {
-                    if (b.Instructions)
-                        onInstructionsChanged?.Invoke(on);
-                    else if (on) chosen.Add(b.Name);
-                    else chosen.Remove(b.Name);
+                    var cell = new Rect(SlopWidgets.GapS, y, inner.width - SlopWidgets.GapS,
+                        SlopWidgets.RowH);
+                    y += SlopWidgets.RowH;
+                    bool forced = !b.Instructions && implied != null && implied.Contains(b.Name);
+                    bool was = b.Instructions ? b.On : forced || chosen.Contains(b.Name);
+                    string tip = b.Instructions
+                        ? "Used when this agent mounts SLOPWORLD.md and discovery is enabled in " +
+                          "Settings > Integrations > Instructions."
+                        : (b.Text ?? "").Replace("\n", " ");
+                    bool on = SlopWidgets.Checkbox(cell, b.Name, was, tip, forced);
+                    if (on != was)
+                    {
+                        if (b.Instructions)
+                            onInstructionsChanged?.Invoke(on);
+                        else if (on) chosen.Add(b.Name);
+                        else chosen.Remove(b.Name);
+                    }
                 }
             }
-            scroll.End();
         }
     }
 }

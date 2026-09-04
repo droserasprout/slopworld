@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using Verse;
 
@@ -8,6 +9,30 @@ namespace SlopWorld
     // stays out of the path either way.
     public sealed class SmoothScroll
     {
+        // Keeps the two GUI groups and input ownership exception-safe. Use in a using block;
+        // nested views remain well-formed even when a row renderer throws.
+        public IDisposable Scope(Rect outer, Rect view, bool showScrollbars = true,
+                                 bool preciseInput = true)
+        {
+            Begin(outer, view, showScrollbars, preciseInput);
+            return new ScrollScope(this);
+        }
+
+        sealed class ScrollScope : IDisposable
+        {
+            SmoothScroll _owner;
+
+            public ScrollScope(SmoothScroll owner) { _owner = owner; }
+
+            public void Dispose()
+            {
+                if (_owner == null) return;
+                var owner = _owner;
+                _owner = null;
+                owner.End();
+            }
+        }
+
         // Pixels per unit of wheel delta. Unity's own figure, and matching it is the point:
         // a notch is meant to travel the distance it has always travelled, just not all at
         // once.

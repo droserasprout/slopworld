@@ -4,6 +4,68 @@ using Verse;
 
 namespace SlopWorld
 {
+    // Geometry, drawing and hit testing for every right-aligned icon strip. Typed facades
+    // below retain their distinct action enums while sharing this implementation.
+    static class ActionStrip
+    {
+        public const float IconW = 14f;
+        const float Gap = 4f;
+
+        public static int Count(int mask, int[] order)
+        {
+            int count = 0;
+            foreach (int flag in order) if ((mask & flag) != 0) count++;
+            return count;
+        }
+
+        public static float Width(int mask, int[] order)
+        {
+            int n = Count(mask, order);
+            return n == 0 ? 0f : n * IconW + (n - 1) * Gap;
+        }
+
+        public static float Left(float right, int mask, int[] order) =>
+            right - Width(mask, order);
+
+        public static float Draw(Rect row, float right, int mask, int[] order,
+                                 System.Func<int, Texture2D> icon,
+                                 System.Func<int, string> tip)
+        {
+            float left = Left(right, mask, order);
+            float x = left;
+            float y = row.y + (row.height - IconW) / 2f;
+            using (WidgetState.Save())
+            {
+                foreach (int flag in order)
+                {
+                    if ((mask & flag) == 0) continue;
+                    var rect = new Rect(x, y, IconW, IconW);
+                    x += IconW + Gap;
+                    bool over = RowChrome.Hover(rect, false, true,
+                        RowHoverPolicy.OverlayAware);
+                    if (over) TooltipHandler.TipRegion(rect, tip(flag));
+                    GUI.color = over ? Color.white : SlopWidgets.Dim;
+                    GUI.DrawTexture(rect, icon(flag));
+                }
+            }
+            return left;
+        }
+
+        public static int Hit(Rect row, float right, int mask, int[] order)
+        {
+            float x = Left(right, mask, order);
+            float y = row.y + (row.height - IconW) / 2f;
+            foreach (int flag in order)
+            {
+                if ((mask & flag) == 0) continue;
+                var rect = new Rect(x, y, IconW, IconW);
+                x += IconW + Gap;
+                if (ColonistBarStrip.MouseOver(rect)) return flag;
+            }
+            return 0;
+        }
+    }
+
     // What a row of a tree can be asked to do to the file it names. An enum of bits rather
     // than a list, so a row states what it offers without allocating one a frame: the three
     // are drawn in this order, left to right, wherever they are drawn.
@@ -33,85 +95,39 @@ namespace SlopWorld
     // `Widgets.ButtonImage` would also pass the same MouseDown to the row.
     public static class RowActions
     {
-        public const float IconW = 14f;
-        const float Gap = 4f;
+        public const float IconW = ActionStrip.IconW;
+        static readonly int[] Order = { (int)RowAct.View, (int)RowAct.Edit, (int)RowAct.Diff };
 
-        public static int Count(RowAct acts) =>
-            ((acts & RowAct.View) != 0 ? 1 : 0) +
-            ((acts & RowAct.Edit) != 0 ? 1 : 0) +
-            ((acts & RowAct.Diff) != 0 ? 1 : 0);
+        public static int Count(RowAct acts) => ActionStrip.Count((int)acts, Order);
 
         public static float Width(RowAct acts)
         {
-            int n = Count(acts);
-            return n == 0 ? 0f : n * IconW + (n - 1) * Gap;
+            return ActionStrip.Width((int)acts, Order);
         }
 
         // Where the strip starts, which is where the label in front of it has to stop.
-        public static float Left(float right, RowAct acts) => right - Width(acts);
+        public static float Left(float right, RowAct acts) =>
+            ActionStrip.Left(right, (int)acts, Order);
 
         // The strip drawn, and its left edge given back. `right` is the row's own right edge
         // less whatever padding the tree uses; the row rect is here for the height alone,
         // every button being centred in it.
         public static float Draw(Rect row, float right, RowAct acts)
         {
-            if (acts == RowAct.None) return right;
-
-            float x = Left(right, acts);
-            float y = row.y + (row.height - IconW) / 2f;
-
-            Draw(ref x, y, acts, RowAct.View, Icons.View, "View this file.");
-            Draw(ref x, y, acts, RowAct.Edit, Icons.Edit, "Open this file in an editor.");
-            Draw(ref x, y, acts, RowAct.Diff, Icons.Diff,
-                "Show what this file has that the last commit does not.");
-
-            GUI.color = Color.white;
-            return Left(right, acts);
+            return ActionStrip.Draw(row, right, (int)acts, Order,
+                flag => Tex((RowAct)flag), Tip);
         }
 
-        static void Draw(ref float x, float y, RowAct acts, RowAct which, Texture2D icon,
-                         string tip)
-        {
-            if ((acts & which) == 0) return;
-
-            var r = new Rect(x, y, IconW, IconW);
-            x += IconW + Gap;
-
-            bool on = SlopWidgets.HoverRow(r);
-            if (on)
-            {
-                // The row carries a tooltip of its own in the git view; this one is registered
-                // where the button is and the row's is declined while it stands, so the two
-                // are never stacked over each other.
-                TooltipHandler.TipRegion(r, tip);
-            }
-
-            GUI.color = on ? Color.white : SlopWidgets.Dim;
-            GUI.DrawTexture(r, icon);
-        }
+        static string Tip(int flag) => (RowAct)flag == RowAct.View ? "View this file."
+            : (RowAct)flag == RowAct.Edit ? "Open this file in an editor."
+            : "Show what this file has that the last commit does not.";
 
         // Which button a press landed on, or None for a press anywhere else on the row. Read
         // from the click pass with the row's rect in *its* coordinates - the geometry is the
         // row's own, so the same call answers inside the scroll view's group and outside it.
         public static RowAct Hit(Rect row, float right, RowAct acts)
         {
-            if (acts == RowAct.None) return RowAct.None;
-
-            float x = Left(right, acts);
-            float y = row.y + (row.height - IconW) / 2f;
-
-            if (Hit(ref x, y, acts, RowAct.View)) return RowAct.View;
-            if (Hit(ref x, y, acts, RowAct.Edit)) return RowAct.Edit;
-            if (Hit(ref x, y, acts, RowAct.Diff)) return RowAct.Diff;
-            return RowAct.None;
-        }
-
-        static bool Hit(ref float x, float y, RowAct acts, RowAct which)
-        {
-            if ((acts & which) == 0) return false;
-            var r = new Rect(x, y, IconW, IconW);
-            x += IconW + Gap;
-            return ColonistBarStrip.MouseOver(r);
+            return (RowAct)ActionStrip.Hit(row, right, (int)acts, Order);
         }
 
         // Classify session actions from `Cmd`/`Agent`: ephemeral commands may be in `Cmd`,
@@ -172,68 +188,31 @@ namespace SlopWorld
     // pass so a button click cannot also fold the group.
     public static class GroupActions
     {
-        public const float IconW = 14f;
-        const float Gap = 4f;
+        public const float IconW = ActionStrip.IconW;
+        static readonly int[] Order = { (int)GroupAct.Diff, (int)GroupAct.Refresh };
 
-        public static int Count(GroupAct acts) =>
-            ((acts & GroupAct.Diff) != 0 ? 1 : 0) +
-            ((acts & GroupAct.Refresh) != 0 ? 1 : 0);
+        public static int Count(GroupAct acts) => ActionStrip.Count((int)acts, Order);
 
         public static float Width(GroupAct acts)
         {
-            int n = Count(acts);
-            return n == 0 ? 0f : n * IconW + (n - 1) * Gap;
+            return ActionStrip.Width((int)acts, Order);
         }
 
-        public static float Left(float right, GroupAct acts) => right - Width(acts);
+        public static float Left(float right, GroupAct acts) =>
+            ActionStrip.Left(right, (int)acts, Order);
 
         public static float Draw(Rect row, float right, GroupAct acts)
         {
-            if (acts == GroupAct.None) return right;
-
-            float x = Left(right, acts);
-            float y = row.y + (row.height - IconW) / 2f;
-            Draw(ref x, y, acts, GroupAct.Diff, Icons.Diff,
-                "Show all changes in this project.");
-            Draw(ref x, y, acts, GroupAct.Refresh, Icons.Refresh,
-                "Read this working tree again.");
-
-            GUI.color = Color.white;
-            return Left(right, acts);
-        }
-
-        static void Draw(ref float x, float y, GroupAct acts, GroupAct which,
-                         Texture2D icon, string tip)
-        {
-            if ((acts & which) == 0) return;
-
-            var r = new Rect(x, y, IconW, IconW);
-            x += IconW + Gap;
-
-            bool on = SlopWidgets.HoverRow(r);
-            if (on) TooltipHandler.TipRegion(r, tip);
-
-            GUI.color = on ? Color.white : SlopWidgets.Dim;
-            GUI.DrawTexture(r, icon);
+            return ActionStrip.Draw(row, right, (int)acts, Order,
+                flag => (GroupAct)flag == GroupAct.Diff ? Icons.Diff : Icons.Refresh,
+                flag => (GroupAct)flag == GroupAct.Diff
+                    ? "Show all changes in this project."
+                    : "Read this working tree again.");
         }
 
         public static GroupAct Hit(Rect row, float right, GroupAct acts)
         {
-            if (acts == GroupAct.None) return GroupAct.None;
-
-            float x = Left(right, acts);
-            float y = row.y + (row.height - IconW) / 2f;
-            if (Hit(ref x, y, acts, GroupAct.Diff)) return GroupAct.Diff;
-            if (Hit(ref x, y, acts, GroupAct.Refresh)) return GroupAct.Refresh;
-            return GroupAct.None;
-        }
-
-        static bool Hit(ref float x, float y, GroupAct acts, GroupAct which)
-        {
-            if ((acts & which) == 0) return false;
-            var r = new Rect(x, y, IconW, IconW);
-            x += IconW + Gap;
-            return ColonistBarStrip.MouseOver(r);
+            return (GroupAct)ActionStrip.Hit(row, right, (int)acts, Order);
         }
     }
 }

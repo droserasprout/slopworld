@@ -107,11 +107,11 @@ namespace SlopWorld
 
         public static float Wide(string text)
         {
-            bool wrap = Verse.Text.WordWrap;
-            Verse.Text.WordWrap = false;
-            float w = Verse.Text.CalcSize(text ?? "").x;
-            Verse.Text.WordWrap = wrap;
-            return w;
+            using (WidgetState.Save())
+            {
+                Verse.Text.WordWrap = false;
+                return Verse.Text.CalcSize(text ?? "").x;
+            }
         }
 
         public enum Btn
@@ -175,6 +175,11 @@ namespace SlopWorld
     public abstract class SlopButtons : SlopText
     {
         public static bool Button(Rect r, string label, Btn kind = Btn.Default, bool on = true)
+        {
+            using (WidgetState.Save()) return ButtonCore(r, label, kind, on);
+        }
+
+        static bool ButtonCore(Rect r, string label, Btn kind, bool on)
         {
             bool over = on && Mouse.IsOver(r);
             bool held = over && Input.GetMouseButton(0);
@@ -423,11 +428,13 @@ namespace SlopWorld
         sealed class PendingFieldEdit
         {
             public readonly string Name;
+            public readonly int ControlId;
             public readonly Action<TextEditor> Apply;
 
-            public PendingFieldEdit(string name, Action<TextEditor> apply)
+            public PendingFieldEdit(string name, int controlId, Action<TextEditor> apply)
             {
                 Name = name;
+                ControlId = controlId;
                 Apply = apply;
             }
         }
@@ -539,6 +546,10 @@ namespace SlopWorld
                     continue;
                 }
 
+                // The original field/window has gone. A control with the same string name
+                // must never inherit its delayed clipboard operation.
+                if (edit.ControlId != GUIUtility.keyboardControl) continue;
+
                 edit.Apply(editor);
                 GUI.changed = true;
             }
@@ -546,10 +557,10 @@ namespace SlopWorld
             while (keep.Count > 0) PendingEdits.Enqueue(keep.Dequeue());
         }
 
-        static void QueueEdit(string name, Action<TextEditor> apply)
+        static void QueueEdit(string name, int controlId, Action<TextEditor> apply)
         {
-            if (string.IsNullOrEmpty(name) || apply == null) return;
-            PendingEdits.Enqueue(new PendingFieldEdit(name, apply));
+            if (string.IsNullOrEmpty(name) || controlId == 0 || apply == null) return;
+            PendingEdits.Enqueue(new PendingFieldEdit(name, controlId, apply));
         }
 
         static string SingleLinePaste(string text, bool area)
@@ -558,37 +569,46 @@ namespace SlopWorld
             return text.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
         }
 
-        static void QueuePaste(string name, string text, bool area)
+        static void QueuePaste(string name, int controlId, string text, bool area)
         {
             if (string.IsNullOrEmpty(text)) return;
             string insert = SingleLinePaste(text, area);
-            QueueEdit(name, editor => editor.ReplaceSelection(insert));
+            QueueEdit(name, controlId, editor => editor.ReplaceSelection(insert));
         }
 
         static void RequestPaste(string name, bool area, bool primary)
         {
             if (string.IsNullOrEmpty(name)) return;
+            int controlId = GUIUtility.keyboardControl;
+            if (controlId == 0 || GUI.GetNameOfFocusedControl() != name) return;
+            RequestPaste(name, controlId, area, primary);
+        }
+
+        static void RequestPaste(string name, int controlId, bool area, bool primary)
+        {
 
             if (!SessionHub.Instance.Capabilities.Clipboard)
             {
                 // The daemon is unavailable in sidecar mode; Unity's local buffer is the only
                 // clipboard surface the game can access there.
-                QueuePaste(name, GUIUtility.systemCopyBuffer, area);
+                QueuePaste(name, controlId, GUIUtility.systemCopyBuffer, area);
                 return;
             }
 
             string path = primary ? "/api/clipboard/primary/text" : "/api/clipboard/text";
             SlopClient.Get(path,
-                j => QueuePaste(name, j["text"].AsString(), area),
+                j => QueuePaste(name, controlId, j["text"].AsString(), area),
                 _ =>
                 {
-                    if (!primary) QueuePaste(name, GUIUtility.systemCopyBuffer, area);
+                    if (!primary) QueuePaste(name, controlId, GUIUtility.systemCopyBuffer, area);
                 });
         }
 
         static void OpenContextMenu(string name, bool area, TextEditor editor)
         {
             if (string.IsNullOrEmpty(name)) return;
+            int controlId = GUIUtility.keyboardControl;
+            if (controlId == 0) return;
 
             string selected = editor?.SelectedText ?? "";
             var options = new List<FloatMenuOption>();
@@ -596,7 +616,7 @@ namespace SlopWorld
             var cut = new FloatMenuOption("Cut", () =>
             {
                 SlopClipboard.Copy(selected);
-                QueueEdit(name, e => e.DeleteSelection());
+                QueueEdit(name, controlId, e => e.DeleteSelection());
             });
             cut.Disabled = selected.Length == 0;
             options.Add(cut);
@@ -605,9 +625,10 @@ namespace SlopWorld
             copy.Disabled = selected.Length == 0;
             options.Add(copy);
 
-            options.Add(new FloatMenuOption("Paste", () => RequestPaste(name, area, false)));
+            options.Add(new FloatMenuOption("Paste", () =>
+                RequestPaste(name, controlId, area, false)));
             options.Add(new FloatMenuOption("Select all", () =>
-                QueueEdit(name, e => e.SelectAll())));
+                QueueEdit(name, controlId, e => e.SelectAll())));
 
             SlopMenu.Open(options);
         }
@@ -680,6 +701,11 @@ namespace SlopWorld
 
         public static Rect TickBox(Rect r, bool on, bool locked = false)
         {
+            using (WidgetState.Save()) return TickBoxCore(r, on, locked);
+        }
+
+        static Rect TickBoxCore(Rect r, bool on, bool locked)
+        {
             float size = Mathf.Min(TickW, r.height - 2f);
             var box = new Rect(r.x, r.y + (r.height - size) / 2f, size, size);
 
@@ -698,6 +724,13 @@ namespace SlopWorld
 
         public static bool Checkbox(Rect r, string label, bool on, string tip = null,
                                     bool locked = false, bool warn = false)
+        {
+            using (WidgetState.Save())
+                return CheckboxCore(r, label, on, tip, locked, warn);
+        }
+
+        static bool CheckboxCore(Rect r, string label, bool on, string tip,
+                                 bool locked, bool warn)
         {
             bool over = !locked && Mouse.IsOver(r);
             if (over) Slab.Fill(r, Hover);
@@ -749,6 +782,13 @@ namespace SlopWorld
         public static bool Select(Rect r, string caption, string value, out Rect box,
                                   string tip = null, bool on = true, bool open = false,
                                   float forcedWidth = 0f)
+        {
+            using (WidgetState.Save())
+                return SelectCore(r, caption, value, out box, tip, on, open, forcedWidth);
+        }
+
+        static bool SelectCore(Rect r, string caption, string value, out Rect box,
+                               string tip, bool on, bool open, float forcedWidth)
         {
             float labelH = LineH;
             var label = new Rect(r.x, r.y, r.width, labelH);
@@ -811,6 +851,13 @@ namespace SlopWorld
             Select(l.GetRect(LineH + GapXS + CompactH), caption, value, choices,
                 out box, tip, on);
 
+        public static bool Select(Listing_Standard l, string caption, string value,
+                                  IEnumerable<SelectorOption> choices, out Rect box,
+                                  string tip = null, bool on = true, bool open = false,
+                                  Action<SlopMenu> openMenu = null) =>
+            SlopSelector.Draw(l, caption, value, choices, out box, tip, on, open,
+                openMenu);
+
         // `r` is local to the active GUI group; SlopMenu's root position is in UI screen
         // coordinates. Convert while the group is still active, before the caller adds the
         // menu to the window stack.
@@ -841,6 +888,15 @@ namespace SlopWorld
         public static float Slider(Listing_Standard l, string label, float value,
                                    float min, float max, string readout, out bool held,
                                    out bool released, string tip = null)
+        {
+            using (WidgetState.Save())
+                return SliderCore(l, label, value, min, max, readout, out held,
+                    out released, tip);
+        }
+
+        static float SliderCore(Listing_Standard l, string label, float value,
+                                float min, float max, string readout, out bool held,
+                                out bool released, string tip)
         {
             var r = l.GetRect(RowH + GapS);
             if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
@@ -970,6 +1026,11 @@ namespace SlopWorld
         public static bool IconButton(Rect r, Texture2D icon, Color tint, float inset,
                                       bool on = true)
         {
+            using (WidgetState.Save()) return IconButtonCore(r, icon, tint, inset, on);
+        }
+
+        static bool IconButtonCore(Rect r, Texture2D icon, Color tint, float inset, bool on)
+        {
             bool over = on && Mouse.IsOver(r);
             bool held = over && Input.GetMouseButton(0);
 
@@ -994,9 +1055,11 @@ namespace SlopWorld
 
         public static void Note(Listing_Standard l, string text)
         {
-            GUI.color = Dim;
-            l.Label(text);
-            GUI.color = Color.white;
+            using (WidgetState.Save())
+            {
+                GUI.color = Dim;
+                l.Label(text);
+            }
         }
 
         public struct Bar
@@ -1035,11 +1098,11 @@ namespace SlopWorld
             // that does not match its own row.
             static float Wide(string label)
             {
-                var was = Verse.Text.Font;
-                Verse.Text.Font = GameFont.Small;
-                float w = SlopWidgets.BtnW(label, SlopWidgets.ButtonMinW);
-                Verse.Text.Font = was;
-                return w;
+                using (WidgetState.Save())
+                {
+                    Verse.Text.Font = GameFont.Small;
+                    return SlopWidgets.BtnW(label, SlopWidgets.ButtonMinW);
+                }
             }
         }
 
@@ -1106,8 +1169,11 @@ namespace SlopWorld
 
         public static void Header(Rect rect, string title, SessionHub hub)
         {
-            Title(rect, title);
-            Status(new Rect(rect.x, rect.y, rect.width, HeaderH), hub);
+            using (WidgetState.Save())
+            {
+                Title(rect, title);
+                Status(new Rect(rect.x, rect.y, rect.width, HeaderH), hub);
+            }
         }
 
         static void Status(Rect line, SessionHub hub)
@@ -1132,26 +1198,25 @@ namespace SlopWorld
 
         public static void SectionHeading(Rect r, string text)
         {
-            var was = Text.Font;
-            Text.Font = GameFont.Small;
-
-            float w = Wide(text);
-            GUI.color = Faint;
-            RowLabel(r, text);
-            GUI.color = Color.white;
-
-            Text.Font = was;
-
-            float x = r.x + w + GapS;
-            if (x < r.xMax)
-                Slab.Hairline(new Rect(x, r.y + r.height / 2f, r.xMax - x, 1f), Edge);
+            using (WidgetState.Save())
+            {
+                Text.Font = GameFont.Small;
+                float w = Wide(text);
+                GUI.color = Faint;
+                RowLabel(r, text);
+                float x = r.x + w + GapS;
+                if (x < r.xMax)
+                    Slab.Hairline(new Rect(x, r.y + r.height / 2f, r.xMax - x, 1f), Edge);
+            }
         }
 
         public static void PageCaption(Rect page, string text)
         {
-            GUI.color = Dim;
-            RowLabel(new Rect(page.x, page.y, page.width, RowH), text);
-            GUI.color = Color.white;
+            using (WidgetState.Save())
+            {
+                GUI.color = Dim;
+                RowLabel(new Rect(page.x, page.y, page.width, RowH), text);
+            }
         }
 
         // Settings pages leave room for their footer, but otherwise use the tab's whole
@@ -1164,28 +1229,25 @@ namespace SlopWorld
 
         public static void Title(Rect rect, string text)
         {
-            var line = new Rect(rect.x, rect.y, rect.width, HeaderH);
-
-            Text.Font = GameFont.Medium;
-            GUI.color = Lead;
-            RowLabel(line, text);
-            GUI.color = Color.white;
-            Text.Font = GameFont.Small;
-
-            Slab.Hairline(new Rect(rect.x, line.yMax, rect.width, 1f), Edge);
+            using (WidgetState.Save())
+            {
+                var line = new Rect(rect.x, rect.y, rect.width, HeaderH);
+                Text.Font = GameFont.Medium;
+                GUI.color = Lead;
+                RowLabel(line, text);
+                Slab.Hairline(new Rect(rect.x, line.yMax, rect.width, 1f), Edge);
+            }
         }
 
         public static void RowChrome(Rect r)
         {
-            Slab.Fill(r, RowBg);
-            if (Mouse.IsOver(r)) Slab.Fill(r, Hover);
+            global::SlopWorld.RowChrome.Draw(r, false, true, RowHoverPolicy.OverlayAware);
         }
 
         public static bool HoverRow(Rect r)
         {
-            bool on = ColonistBarStrip.SidebarHover(r);
-            if (on) Slab.Fill(r, Hover);
-            return on;
+            return global::SlopWorld.RowChrome.Hover(r, false, true,
+                RowHoverPolicy.OverlayAware);
         }
 
         public static string PathList(Rect r, string name, string label, string text)
@@ -1256,28 +1318,31 @@ namespace SlopWorld
             var view = new Rect(0f, 0f, rect.width - SlopWidgets.ScrollbarW,
                 items.Count * RowH + SlopWidgets.GapXS);
 
-            _scroll.Begin(rect, view);
-
-            if (items.Count == 0)
+            using (_scroll.Scope(rect, view))
             {
-                GUI.color = SlopWidgets.Dim;
-                string note = hub.Online ? EmptyNote : SlopWidgets.Unreachable;
-                Widgets.Label(
-                    new Rect(SlopWidgets.GapXS, SlopWidgets.GapS,
-                        view.width - SlopWidgets.GapS,
-                        Text.CalcHeight(note, view.width - SlopWidgets.GapS)),
-                    note);
-                GUI.color = Color.white;
-            }
+                if (items.Count == 0)
+                {
+                    var wasColor = GUI.color;
+                    try
+                    {
+                        GUI.color = SlopWidgets.Dim;
+                        string note = hub.Online ? EmptyNote : SlopWidgets.Unreachable;
+                        Widgets.Label(
+                            new Rect(SlopWidgets.GapXS, SlopWidgets.GapS,
+                                view.width - SlopWidgets.GapS,
+                                Text.CalcHeight(note, view.width - SlopWidgets.GapS)),
+                            note);
+                    }
+                    finally { GUI.color = wasColor; }
+                }
 
-            float y = 0f;
-            foreach (var item in items)
-            {
-                DrawRow(new Rect(0f, y, view.width, RowH - SlopWidgets.GapXS), item);
-                y += RowH;
+                float y = 0f;
+                foreach (var item in items)
+                {
+                    DrawRow(new Rect(0f, y, view.width, RowH - SlopWidgets.GapXS), item);
+                    y += RowH;
+                }
             }
-
-            _scroll.End();
         }
     }
 }

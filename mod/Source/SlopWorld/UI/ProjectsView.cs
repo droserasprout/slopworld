@@ -193,18 +193,16 @@ namespace SlopWorld
                 {
                     var view = new Rect(0f, 0f, body.width - SlopWidgets.ScrollbarW,
                         Mathf.Max(_generalH, body.height));
-                    _generalScroll.Begin(body, view);
-                    _generalH = DrawGeneral(view);
-                    _generalScroll.End();
+                    using (_generalScroll.Scope(body, view))
+                        _generalH = DrawGeneral(view);
                     break;
                 }
                 case Tab.Sandbox:
                 {
                     var view = new Rect(0f, 0f, body.width - SlopWidgets.ScrollbarW,
                         Mathf.Max(_sandboxH, body.height));
-                    _sandboxScroll.Begin(body, view);
-                    _sandboxH = DrawSandbox(view);
-                    _sandboxScroll.End();
+                    using (_sandboxScroll.Scope(body, view))
+                        _sandboxH = DrawSandbox(view);
                     break;
                 }
                 case Tab.Breadcrumbs:
@@ -277,13 +275,11 @@ namespace SlopWorld
 
             var networkChoices = new[]
             {
-                NetworkModeText.Label(NetworkMode.None),
-                NetworkModeText.Label(NetworkMode.Private),
-                NetworkModeText.Label(NetworkMode.Host),
+                NetworkMode.None, NetworkMode.Private, NetworkMode.Host,
             };
-            if (SlopWidgets.Select(l, "Network default", NetworkModeText.Label(_p.Network),
-                    networkChoices, out var networkBox))
-                PickNetwork(SlopWidgets.MenuAt(networkBox));
+            SlopWidgets.Select(l, "Network default", NetworkModeText.Label(_p.Network),
+                networkChoices.Select(mode => new SelectorOption(NetworkModeText.Label(mode),
+                    () => _p.Network = mode)), out _);
             GUI.color = SlopWidgets.Dim;
             l.Label(_p.Network == NetworkMode.Host
                 ? SessionHub.Instance.Capabilities.HostNetworkIsContainer
@@ -295,9 +291,14 @@ namespace SlopWorld
             GUI.color = Color.white;
 
             l.Gap(SlopWidgets.GapS);
-            l.Label("DNS");
-            if (SlopWidgets.Button(l, _p.Dns.Label))
-                PickDns();
+            SlopWidgets.Select(l, "DNS", _p.Dns.Label, new[]
+            {
+                new SelectorOption("System resolver", () => _p.Dns = DnsConfig.Resolved()),
+                new SelectorOption("Custom DNS servers", () =>
+                {
+                    if (_p.Dns.Mode != DnsMode.Servers) _p.Dns = DnsConfig.Custom();
+                }),
+            }, out _);
             if (_p.Dns.Mode == DnsMode.Servers)
             {
                 _dnsServers = SlopWidgets.Field(l, "project.dns", _dnsServers ?? "");
@@ -334,38 +335,6 @@ namespace SlopWorld
             y += SlopWidgets.RowH + SlopWidgets.GapXS;
             BreadcrumbList.Draw(new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y)),
                 _p.Breadcrumbs, _breadcrumbScroll);
-        }
-
-        void PickNetwork(Vector2 at)
-        {
-            var options = new List<FloatMenuOption>();
-            foreach (NetworkMode mode in new[]
-            {
-                NetworkMode.None, NetworkMode.Private, NetworkMode.Host,
-            })
-            {
-                var picked = mode;
-                options.Add(new FloatMenuOption(NetworkModeText.Label(picked),
-                    () => _p.Network = picked));
-            }
-
-            Find.WindowStack.Add(new SlopMenu(options, at));
-        }
-
-        void PickDns()
-        {
-            var options = new List<FloatMenuOption>
-            {
-                new FloatMenuOption("System resolver",
-                    () => _p.Dns = DnsConfig.Resolved()),
-                new FloatMenuOption("Custom DNS servers",
-                    () =>
-                    {
-                        if (_p.Dns.Mode != DnsMode.Servers)
-                            _p.Dns = DnsConfig.Custom();
-                    }),
-            };
-            Find.WindowStack.Add(new SlopMenu(options));
         }
 
         void Save()

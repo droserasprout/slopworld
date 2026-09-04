@@ -70,11 +70,8 @@ namespace SlopWorld
 
             var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(_fieldsH, r.height));
-            _scroll.Begin(r, view);
-
-            _fieldsH = DrawUsageFields(view);
-
-            _scroll.End();
+            using (_scroll.Scope(r, view))
+                _fieldsH = DrawUsageFields(view);
             return _fieldsH;
         }
 
@@ -185,14 +182,14 @@ namespace SlopWorld
             {
                 var item = EnsureItem(key);
                 var row = new Rect(rect.x, y, rect.width, rowH);
-                if (Mouse.IsOver(row)) Slab.Fill(row, SlopWidgets.Hover);
+                RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
 
                 SlopWidgets.RowLabel(new Rect(row.x + SlopWidgets.GapS, row.y,
                     nameW - SlopWidgets.GapS, row.height), UsageReadout.Long(key));
                 DrawIconButton(new Rect(iconX, row.y, iconW, row.height), key);
 
                 var poll = new Rect(pollX, row.y, pollW, row.height);
-                if (Mouse.IsOver(poll)) Slab.Fill(poll, SlopWidgets.Hover);
+                RowChrome.Hover(poll, false, true, RowHoverPolicy.OverlayAware);
                 SlopWidgets.TickBox(
                     new Rect(poll.center.x - SlopWidgets.TickW / 2f, poll.y,
                         SlopWidgets.TickW, poll.height), item.Poll);
@@ -234,7 +231,7 @@ namespace SlopWorld
             else
                 Slab.Fill(box.ContractedBy(SlopWidgets.GapS - 1f), SlopWidgets.Off);
 
-            if (Mouse.IsOver(box)) Slab.Fill(box, SlopWidgets.Hover);
+            RowChrome.Hover(box, false, true, RowHoverPolicy.Local);
             TooltipHandler.TipRegion(box, new TipSignal(
                 UsageReadout.Chosen(key) != null
                     ? "This row's icon, chosen. Click to change it."
@@ -308,59 +305,58 @@ namespace SlopWorld
             gridW2 = perLine * Cell;
 
             var view = new Rect(0f, 0f, gridW2, Mathf.Max(totalH, gridH));
-            _pickScroll.Begin(new Rect(r.x + (r.width - gridW2) / 2f, gridTop, gridW2, gridH), view);
-
-            // Read once for the whole grid rather than per cell: it parses the settings
-            // string, and every cell asks the same question of it.
-            var chosen = UsageReadout.Chosen(key);
-
-            for (int i = 0; i < count; i++)
+            using (_pickScroll.Scope(
+                new Rect(r.x + (r.width - gridW2) / 2f, gridTop, gridW2, gridH), view))
             {
-                // Null is the automatic cell, and is null all the way through - what it
-                // draws, what its tooltip says, and what the click writes.
-                var def = i == 0 ? null : Choices[i - 1];
-                int col = i % perLine;
-                int row = i / perLine;
-                var cell = new Rect(view.x + col * Cell, view.y + row * Cell, Cell, Cell);
 
-                if (def == chosen)
-                    Slab.Fill(cell, SlopWidgets.RowOn);
-                if (Mouse.IsOver(cell))
-                    Slab.Fill(cell, SlopWidgets.Hover);
+                // Read once for the whole grid rather than per cell: it parses the settings
+                // string, and every cell asks the same question of it.
+                var chosen = UsageReadout.Chosen(key);
 
-                var box = new Rect(cell.x + (Cell - IconSize) / 2f,
-                    cell.y + (Cell - IconSize) / 2f, IconSize, IconSize);
-
-                if (def != null)
+                for (int i = 0; i < count; i++)
                 {
-                    Widgets.ThingIcon(box, def);
-                }
-                else
-                {
-                    // Grey, and drawn a little smaller than a thing: it is the one cell
-                    // here that is not an item, and it should not read as the loudest.
-                    GUI.color = SlopWidgets.Dim;
-                    GUI.DrawTexture(box.ContractedBy(3f), Icons.Cross);
-                }
-                GUI.color = Color.white;
+                    // Null is the automatic cell, and is null all the way through - what it
+                    // draws, what its tooltip says, and what the click writes.
+                    var def = i == 0 ? null : Choices[i - 1];
+                    int col = i % perLine;
+                    int row = i / perLine;
+                    var cell = new Rect(view.x + col * Cell, view.y + row * Cell, Cell, Cell);
 
-                TooltipHandler.TipRegion(cell, new TipSignal(
-                    def != null
-                        ? def.LabelCap.ToString()
-                        : "Automatic - whichever icon this mod would have picked.",
-                    def != null
-                        ? 0x51_0F_0002 ^ (key.GetHashCode() * 31 + def.shortHash)
-                        : 0x51_0F_0004 ^ key.GetHashCode()));
+                    RowChrome.Hover(cell, def == chosen, true, RowHoverPolicy.Local);
 
-                if (Widgets.ButtonInvisible(cell))
-                {
-                    // Null on the automatic cell, which is exactly what clears the line.
-                    UsageReadout.Choose(key, def);
-                    _pickingKey = null;
+                    var box = new Rect(cell.x + (Cell - IconSize) / 2f,
+                        cell.y + (Cell - IconSize) / 2f, IconSize, IconSize);
+
+                    if (def != null)
+                    {
+                        Widgets.ThingIcon(box, def);
+                    }
+                    else
+                    {
+                        // Grey, and drawn a little smaller than a thing: it is the one cell
+                        // here that is not an item, and it should not read as the loudest.
+                        GUI.color = SlopWidgets.Dim;
+                        GUI.DrawTexture(box.ContractedBy(3f), Icons.Cross);
+                    }
+                    GUI.color = Color.white;
+
+                    TooltipHandler.TipRegion(cell, new TipSignal(
+                        def != null
+                            ? def.LabelCap.ToString()
+                            : "Automatic - whichever icon this mod would have picked.",
+                        def != null
+                            ? 0x51_0F_0002 ^ (key.GetHashCode() * 31 + def.shortHash)
+                            : 0x51_0F_0004 ^ key.GetHashCode()));
+
+                    if (Widgets.ButtonInvisible(cell))
+                    {
+                        // Null on the automatic cell, which is exactly what clears the line.
+                        UsageReadout.Choose(key, def);
+                        _pickingKey = null;
+                    }
                 }
+
             }
-
-            _pickScroll.End();
             return gridH;
         }
 
