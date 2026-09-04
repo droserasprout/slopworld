@@ -332,9 +332,8 @@ namespace SlopWorld
         static void Result(float width, ref float y, Match match)
         {
             var r = new Rect(0f, y, width, RowH);
-            bool over = SlopWidgets.HoverRow(r);
-            if (ReferenceEquals(match, _selected))
-                Slab.Fill(r, SlopWidgets.RowOn);
+            bool over = RowChrome.Hover(r, ReferenceEquals(match, _selected), true,
+                RowHoverPolicy.OverlayAware);
 
             string prefix = match.Line + ":" + match.Column;
             float prefixW = Mathf.Min(width * 0.55f, SlopWidgets.Wide(prefix) + 8f);

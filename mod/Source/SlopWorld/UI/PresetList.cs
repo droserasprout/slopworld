@@ -50,28 +50,29 @@ namespace SlopWorld
             float h = presets.Count * RowH;
             var inner = new Rect(0f, 0f, pad.width - SlopWidgets.ScrollbarW, h);
 
-            scroll.Begin(pad, inner);
-            float y = 0f;
-            var roots = new List<string>(chosen);
-            if (implied != null) roots.AddRange(implied);
-            var required = RequiredBy(roots, presets);
-            foreach (var pr in presets)
+            using (scroll.Scope(pad, inner))
             {
-                var cell = new Rect(SlopWidgets.GapS, y,
-                    inner.width - SlopWidgets.GapS, RowH);
-                y += RowH;
+                float y = 0f;
+                var roots = new List<string>(chosen);
+                if (implied != null) roots.AddRange(implied);
+                var required = RequiredBy(roots, presets);
+                foreach (var pr in presets)
+                {
+                    var cell = new Rect(SlopWidgets.GapS, y,
+                        inner.width - SlopWidgets.GapS, RowH);
+                    y += RowH;
 
-                bool forced = (implied != null && implied.Contains(pr.Name)) ||
-                              (required.Contains(pr.Name) && !chosen.Contains(pr.Name));
-                bool was = forced || chosen.Contains(pr.Name);
-                bool on = SlopWidgets.Checkbox(cell, pr.Name, was, Tip(pr, forced), forced,
-                                               pr.IsEscape);
+                    bool forced = (implied != null && implied.Contains(pr.Name)) ||
+                                  (required.Contains(pr.Name) && !chosen.Contains(pr.Name));
+                    bool was = forced || chosen.Contains(pr.Name);
+                    bool on = SlopWidgets.Checkbox(cell, pr.Name, was, Tip(pr, forced), forced,
+                                                   pr.IsEscape);
 
-                if (on == was) continue;
-                if (on) chosen.Add(pr.Name);
-                else chosen.Remove(pr.Name);
+                    if (on == was) continue;
+                    if (on) chosen.Add(pr.Name);
+                    else chosen.Remove(pr.Name);
+                }
             }
-            scroll.End();
         }
 
         static HashSet<string> RequiredBy(IEnumerable<string> chosen, List<PresetInfo> presets)

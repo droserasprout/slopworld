@@ -193,8 +193,7 @@ namespace SlopWorld
         void DrawRow(Rect r, JukeboxHistory.Entry e, Columns c)
         {
             bool selected = e == _selected;
-            if (selected) Slab.Fill(r, SlopWidgets.RowOn);
-            bool over = SlopWidgets.HoverRow(r);
+            bool over = RowChrome.Hover(r, selected, true, RowHoverPolicy.OverlayAware);
 
             float x = r.x;
             Cell(new Rect(x, r.y, c.At, r.height), DisplayAt(e.At), SlopWidgets.Dim); x += c.At;

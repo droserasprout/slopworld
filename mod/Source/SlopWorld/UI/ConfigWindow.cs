@@ -63,10 +63,9 @@ namespace SlopWorld
             // area inside it draws none of its own: a well as tall as the content would put
             // its border somewhere off the bottom of the window.
             Slab.Box(area, SlopWidgets.Well, SlopWidgets.Edge);
-            _scroll.Begin(area, view);
-            _text = SlopWidgets.Area(view.ContractedBy(6f, 4f), "config.toml", _text,
-                _loaded, frame: false);
-            _scroll.End();
+            using (_scroll.Scope(area, view))
+                _text = SlopWidgets.Area(view.ContractedBy(6f, 4f), "config.toml", _text,
+                    _loaded, frame: false);
 
             if (_error != null)
             {

@@ -62,23 +62,24 @@ namespace SlopWorld
             // Scroll view for the list area.
             var innerRect = new Rect(0f, 0f, inner.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(totalH, inner.height));
-            _scroll.Begin(inner, innerRect);
-
-            float y = 0f;
-
-            foreach (var cat in cats)
+            using (_scroll.Scope(inner, innerRect))
             {
-                List<KeyBindingDef> list;
-                if (!bindingsMap.TryGetValue(cat, out list) || list.Count == 0) continue;
-                y += DrawCategory(new Rect(0f, y, innerRect.width, innerRect.height - y),
-                    cat, list);
+
+                float y = 0f;
+
+                foreach (var cat in cats)
+                {
+                    List<KeyBindingDef> list;
+                    if (!bindingsMap.TryGetValue(cat, out list) || list.Count == 0) continue;
+                    y += DrawCategory(new Rect(0f, y, innerRect.width, innerRect.height - y),
+                        cat, list);
+                }
+
+                // "Restore defaults" at the bottom of the scroll content.
+                y += SlopWidgets.GapS;
+                DrawRestoreDefaults(new Rect(0f, y, innerRect.width, SlopWidgets.BtnH));
+
             }
-
-            // "Restore defaults" at the bottom of the scroll content.
-            y += SlopWidgets.GapS;
-            DrawRestoreDefaults(new Rect(0f, y, innerRect.width, SlopWidgets.BtnH));
-
-            _scroll.End();
 
             // Handle key capture while listening — this catches keys the buttons miss.
             if (_listening != null)

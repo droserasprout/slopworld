@@ -268,8 +268,8 @@ namespace SlopWorld
         float DrawRow(float width, float y, IContentTreeNode node)
         {
             var row = new Rect(0f, y, width, RowH);
-            bool over = SlopWidgets.HoverRow(row);
-            if (IsSelected(node)) Slab.Fill(row, SlopWidgets.Hover);
+            bool over = RowChrome.Hover(row, IsSelected(node), true,
+                RowHoverPolicy.OverlayAware, RowSelectionStyle.Hover);
 
             float x = CellX + node.Depth * Indent;
             if (node.IsDirectory && node.CanExpand)

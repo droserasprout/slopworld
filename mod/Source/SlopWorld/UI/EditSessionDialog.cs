@@ -137,9 +137,8 @@ namespace SlopWorld
                 {
                     var view = new Rect(0f, 0f, body.width - SlopWidgets.ScrollbarW,
                         Mathf.Max(_generalH, body.height));
-                    _generalScroll.Begin(body, view);
-                    _generalH = DrawGeneral(view);
-                    _generalScroll.End();
+                    using (_generalScroll.Scope(body, view))
+                        _generalH = DrawGeneral(view);
                     break;
                 }
                 case Tab.Mounts:
@@ -149,18 +148,16 @@ namespace SlopWorld
                 {
                     var view = new Rect(0f, 0f, body.width - SlopWidgets.ScrollbarW,
                         Mathf.Max(_sandboxH, body.height));
-                    _sandboxScroll.Begin(body, view);
-                    _sandboxH = DrawSandbox(view);
-                    _sandboxScroll.End();
+                    using (_sandboxScroll.Scope(body, view))
+                        _sandboxH = DrawSandbox(view);
                     break;
                 }
                 case Tab.ResourceLimits:
                 {
                     var view = new Rect(0f, 0f, body.width - SlopWidgets.ScrollbarW,
                         Mathf.Max(_limitsH, body.height));
-                    _limitsScroll.Begin(body, view);
-                    _limitsH = DrawLimits(view);
-                    _limitsScroll.End();
+                    using (_limitsScroll.Scope(body, view))
+                        _limitsH = DrawLimits(view);
                     break;
                 }
                 case Tab.Breadcrumbs:
@@ -206,10 +203,14 @@ namespace SlopWorld
             _s.Name = SlopWidgets.Field(l, "agent.name", _s.Name);
 
             l.Gap(SlopWidgets.GapS);
-            l.Label("Project (the directory and sandbox it works in)");
-            if (SlopWidgets.Button(l,
-                    string.IsNullOrEmpty(_s.Project) ? "Pick a project..." : _s.Project))
-                PickProject();
+            var projectOptions = SessionHub.Instance.Projects
+                .Select(p => new SelectorOption($"{p.Name}  -  {p.Dir}",
+                    () => _s.Project = p.Name)).ToList();
+            projectOptions.Add(new SelectorOption("New project...",
+                () => Find.WindowStack.Add(new EditProjectDialog(null))));
+            SlopWidgets.Select(l, "Project (the directory and sandbox it works in)",
+                string.IsNullOrEmpty(_s.Project) ? "Pick a project..." : _s.Project,
+                projectOptions, out _);
 
             var project = SessionHub.Instance.Project(_s.Project);
             GUI.color = SlopWidgets.Dim;
@@ -224,9 +225,7 @@ namespace SlopWorld
             var preset = SessionHub.Instance.Command(commandName);
 
             l.Gap(SlopWidgets.GapS);
-            l.Label("Command");
-            if (SlopWidgets.Button(l, CommandLabel(preset)))
-                PickCommand();
+            SlopWidgets.Select(l, "Command", CommandLabel(preset), CommandOptions(), out _);
 
             // Editable whichever it is: a preset says what an agent is, and this box says
             // what this one runs, which is the same field either way.
@@ -277,34 +276,33 @@ namespace SlopWorld
             var pad = listRect.ContractedBy(4f);
             var inner = new Rect(0f, 0f, pad.width - SlopWidgets.ScrollbarW, listH);
 
-            _mountsScroll.Begin(pad, inner);
-
-            float ry = 0f;
-            const float btnW = 100f;
-            foreach (var p in projects.OrderBy(pr => pr.Name, System.StringComparer.OrdinalIgnoreCase))
+            using (_mountsScroll.Scope(pad, inner))
             {
-                var row = new Rect(0f, ry, inner.width, rowH);
-                ry += rowH;
+                float ry = 0f;
+                const float btnW = 100f;
+                foreach (var p in projects.OrderBy(pr => pr.Name, System.StringComparer.OrdinalIgnoreCase))
+                {
+                    var row = new Rect(0f, ry, inner.width, rowH);
+                    ry += rowH;
 
-                bool isPrimary = p.Name == _s.Project;
-                var mount = _s.Mounts.FirstOrDefault(m => m.Project == p.Name);
-                MountMode mode = isPrimary
-                    ? (mount?.Mode ?? MountMode.Rw)
-                    : (mount?.Mode ?? MountMode.None);
+                    bool isPrimary = p.Name == _s.Project;
+                    var mount = _s.Mounts.FirstOrDefault(m => m.Project == p.Name);
+                    MountMode mode = isPrimary
+                        ? (mount?.Mode ?? MountMode.Rw)
+                        : (mount?.Mode ?? MountMode.None);
 
-                float labelW = row.width - btnW - SlopWidgets.GapS;
-                GUI.color = isPrimary ? SlopWidgets.Lead : SlopWidgets.Name;
-                SlopWidgets.RowLabel(new Rect(row.x + SlopWidgets.GapS, row.y, labelW, row.height),
-                    isPrimary ? p.Name + "  (primary)" : p.Name);
-                GUI.color = Color.white;
+                    float labelW = row.width - btnW - SlopWidgets.GapS;
+                    GUI.color = isPrimary ? SlopWidgets.Lead : SlopWidgets.Name;
+                    SlopWidgets.RowLabel(new Rect(row.x + SlopWidgets.GapS, row.y, labelW, row.height),
+                        isPrimary ? p.Name + "  (primary)" : p.Name);
+                    GUI.color = Color.white;
 
-                var btnRect = new Rect(row.xMax - btnW, row.y, btnW, row.height);
-                if (SlopWidgets.Button(btnRect, MountEntry.ModeLabel(mode),
-                        isPrimary ? SlopWidgets.Btn.Default : SlopWidgets.Btn.Ghost))
-                    PickMountMode(p.Name, isPrimary);
+                    var btnRect = new Rect(row.xMax - btnW, row.y, btnW, row.height);
+                    if (SlopWidgets.Button(btnRect, MountEntry.ModeLabel(mode),
+                            isPrimary ? SlopWidgets.Btn.Default : SlopWidgets.Btn.Ghost))
+                        PickMountMode(p.Name, isPrimary);
+                }
             }
-
-            _mountsScroll.End();
         }
 
         void PickMountMode(string project, bool isPrimary)
@@ -351,24 +349,39 @@ namespace SlopWorld
 
         void DrawNetworkFields(Listing_Standard l, ProjectInfo project)
         {
-            l.Label("Network");
             var projectNetwork = project?.Network ?? NetworkMode.Private;
             var inheritedDns = project?.Dns ?? _s.Dns;
             string networkLabel = _s.NetworkOverride.HasValue
                 ? NetworkModeText.Label(_s.NetworkOverride.Value)
                 : "Inherit project (" + NetworkModeText.ShortLabel(projectNetwork) + ")";
-            if (SlopWidgets.Button(l, networkLabel))
-                PickNetwork(projectNetwork);
+            var networkOptions = new List<SelectorOption>
+            {
+                new SelectorOption("Inherit project (" + NetworkModeText.ShortLabel(projectNetwork) + ")",
+                    () => _s.NetworkOverride = null),
+            };
+            networkOptions.AddRange(new[] { NetworkMode.None, NetworkMode.Private, NetworkMode.Host }
+                .Select(mode => new SelectorOption(NetworkModeText.Label(mode),
+                    () => _s.NetworkOverride = mode)));
+            SlopWidgets.Select(l, "Network", networkLabel, networkOptions, out _);
             GUI.color = SlopWidgets.Dim;
             l.Label("The project sets the default; this agent can use any network mode.");
             GUI.color = Color.white;
 
             l.Gap(SlopWidgets.GapS);
-            l.Label("DNS");
             string dnsLabel = _s.DnsOverride == null
                 ? "Inherit project (" + inheritedDns.Label + ")"
                 : _s.DnsOverride.Label;
-            if (SlopWidgets.Button(l, dnsLabel)) PickDns();
+            SlopWidgets.Select(l, "DNS", dnsLabel, new[]
+            {
+                new SelectorOption("Inherit project (" + inheritedDns.Label + ")",
+                    () => _s.DnsOverride = null),
+                new SelectorOption("System resolver", () => _s.DnsOverride = DnsConfig.Resolved()),
+                new SelectorOption("Custom DNS servers", () =>
+                {
+                    if (_s.DnsOverride?.Mode != DnsMode.Servers)
+                        _s.DnsOverride = DnsConfig.Custom();
+                }),
+            }, out _);
             if (_s.DnsOverride?.Mode == DnsMode.Servers)
             {
                 _dnsServers = SlopWidgets.Field(l, "agent.dns", _dnsServers ?? "");
@@ -464,63 +477,6 @@ namespace SlopWorld
                 onInstructionsChanged: on => _s.InstructionsBreadcrumb = on);
         }
 
-        void PickProject()
-        {
-            var hub = SessionHub.Instance;
-            var options = hub.Projects
-                .Select(p => new FloatMenuOption($"{p.Name}  -  {p.Dir}",
-                    () =>
-                    {
-                        _s.Project = p.Name;
-                    }))
-                .ToList();
-
-            options.Add(new FloatMenuOption("New project...",
-                () => Find.WindowStack.Add(new EditProjectDialog(null))));
-
-            Find.WindowStack.Add(new SlopMenu(options));
-        }
-
-        void PickNetwork(NetworkMode projectNetwork)
-        {
-            var options = new List<FloatMenuOption>
-            {
-                new FloatMenuOption("Inherit project (" + NetworkModeText.ShortLabel(projectNetwork) + ")",
-                    () => _s.NetworkOverride = null),
-            };
-
-            foreach (NetworkMode mode in new[]
-            {
-                NetworkMode.None, NetworkMode.Private, NetworkMode.Host,
-            })
-            {
-                var picked = mode;
-                options.Add(new FloatMenuOption(NetworkModeText.Label(picked),
-                    () => _s.NetworkOverride = picked));
-            }
-
-            Find.WindowStack.Add(new SlopMenu(options));
-        }
-
-        void PickDns()
-        {
-            var inheritedDns = SessionHub.Instance.Project(_s.Project)?.Dns ?? _s.Dns;
-            var options = new List<FloatMenuOption>
-            {
-                new FloatMenuOption("Inherit project (" + inheritedDns.Label + ")",
-                    () => _s.DnsOverride = null),
-                new FloatMenuOption("System resolver",
-                    () => _s.DnsOverride = DnsConfig.Resolved()),
-                new FloatMenuOption("Custom DNS servers",
-                    () =>
-                    {
-                        if (_s.DnsOverride?.Mode != DnsMode.Servers)
-                            _s.DnsOverride = DnsConfig.Custom();
-                    }),
-            };
-            Find.WindowStack.Add(new SlopMenu(options));
-        }
-
         // The three states this pair of fields can be in: a command preset, a command line
         // of its own, or neither, which is whatever the daemon's `[defaults] agent` names.
         string CommandLabel(CommandInfo preset)
@@ -546,11 +502,11 @@ namespace SlopWorld
                 : "Blank runs the daemon's default agent.";
         }
 
-        void PickCommand()
+        IEnumerable<SelectorOption> CommandOptions()
         {
-            var options = new List<FloatMenuOption>
+            var options = new List<SelectorOption>
             {
-                new FloatMenuOption("Default", () =>
+                new SelectorOption("Default", () =>
                 {
                     _s.Command = "";
                     _s.Cmd = "";
@@ -565,12 +521,12 @@ namespace SlopWorld
             foreach (var c in SessionHub.Instance.Commands)
             {
                 var pick = c;
-                options.Add(new FloatMenuOption($"{pick.Name}  -  {pick.Cmd}",
+                options.Add(new SelectorOption($"{pick.Name}  -  {pick.Cmd}",
                     () => _s.Command = pick.Name));
             }
 
-            options.Add(new FloatMenuOption("Command line...", () => _s.Command = ""));
-            Find.WindowStack.Add(new SlopMenu(options));
+            options.Add(new SelectorOption("Command line...", () => _s.Command = ""));
+            return options;
         }
 
         // Blank clears a cap; otherwise it must be a whole number of at least 1. A typo is
@@ -686,30 +642,30 @@ namespace SlopWorld
             int count = _dirs.Length + (_parent != null ? 1 : 0);
             var view = new Rect(0f, 0f, list.width - SlopWidgets.ScrollbarW, count * Pitch);
 
-            _scroll.Begin(list, view);
-            float y = 0f;
-
-            if (_parent != null)
+            using (_scroll.Scope(list, view))
             {
-                // Ghost the whole way down: forty directories in forty raised slabs is a wall
-                // of buttons, and what this is is a list that answers to a click.
-                if (SlopWidgets.Button(new Rect(0f, y, view.width, SlopWidgets.RowH), "..",
-                        SlopWidgets.Btn.Ghost))
-                    Load(_parent);
-                y += Pitch;
-            }
-
-            foreach (var d in _dirs)
-            {
-                if (SlopWidgets.Button(new Rect(0f, y, view.width, SlopWidgets.RowH), d,
-                        SlopWidgets.Btn.Ghost))
+                float y = 0f;
+                if (_parent != null)
                 {
-                    Load(System.IO.Path.Combine(_path ?? "", d).Replace('\\', '/'));
-                    break; // _dirs is about to be replaced under us
+                    // Ghost the whole way down: forty directories in forty raised slabs is a wall
+                    // of buttons, and what this is is a list that answers to a click.
+                    if (SlopWidgets.Button(new Rect(0f, y, view.width, SlopWidgets.RowH), "..",
+                            SlopWidgets.Btn.Ghost))
+                        Load(_parent);
+                    y += Pitch;
                 }
-                y += Pitch;
+
+                foreach (var d in _dirs)
+                {
+                    if (SlopWidgets.Button(new Rect(0f, y, view.width, SlopWidgets.RowH), d,
+                            SlopWidgets.Btn.Ghost))
+                    {
+                        Load(System.IO.Path.Combine(_path ?? "", d).Replace('\\', '/'));
+                        break; // _dirs is about to be replaced under us
+                    }
+                    y += Pitch;
+                }
             }
-            _scroll.End();
 
             if (SlopWidgets.Button(SlopWidgets.FooterBar(rect),
                     "Use this directory", SlopWidgets.Btn.Primary))

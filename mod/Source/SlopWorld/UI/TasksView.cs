@@ -147,8 +147,7 @@ namespace SlopWorld
 
         static void DrawTask(Rect r, TaskInfo task)
         {
-            if (IsSelected(task)) Slab.Fill(r, SlopWidgets.RowOn);
-            SlopWidgets.HoverRow(r);
+            RowChrome.Hover(r, IsSelected(task), true, RowHoverPolicy.OverlayAware);
 
             Color status = StatusColor(task.Status);
             float dot = Mathf.Min(8f, r.height - 4f);

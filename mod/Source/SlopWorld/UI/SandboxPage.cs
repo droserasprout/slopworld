@@ -158,13 +158,15 @@ namespace SlopWorld
             float h = (system.Count + user.Count + 3) * SlopWidgets.RowH;
             var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(h, r.height));
-            _listScroll.Begin(r, view);
-            float y = 0f;
-            y = DrawLibraryGroup(view, y, "System", system, p => p.Name,
-                p => { _preset = p; _newEntry = false; });
-            y = DrawLibraryGroup(view, y, "User", user, p => p.Name + (p.Source == "override" ? "  (override)" : ""),
-                p => { _preset = p; _newEntry = false; });
-            _listScroll.End();
+            using (_listScroll.Scope(r, view))
+            {
+                float y = 0f;
+                y = DrawLibraryGroup(view, y, "System", system, p => p.Name,
+                    p => { _preset = p; _newEntry = false; });
+                DrawLibraryGroup(view, y, "User", user,
+                    p => p.Name + (p.Source == "override" ? "  (override)" : ""),
+                    p => { _preset = p; _newEntry = false; });
+            }
         }
 
         float DrawLibraryGroup<T>(Rect view, float y, string heading, List<T> items,
@@ -180,7 +182,7 @@ namespace SlopWorld
                 string name = label(item);
                 bool selected = (item is PresetInfo p && p == _preset) ||
                                 (item is CommandInfo c && c == _command);
-                if (selected) Slab.Fill(cell, SlopWidgets.RowOn);
+                RowChrome.Hover(cell, selected, true, RowHoverPolicy.OverlayAware);
                 // A preset that hands the sandbox a road back out is dangerous even when it
                 // is selected: the yellow stays on the name so the warning is visible in the
                 // library, not only after opening its editor.
@@ -222,19 +224,21 @@ namespace SlopWorld
             float h = (system.Count + user.Count + 3) * SlopWidgets.RowH;
             var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(h, r.height));
-            _listScroll.Begin(r, view);
-            float y = 0f;
-            y = DrawLibraryGroup(view, y, "System", system, c => c.Name,
-                c => { _command = c; _newEntry = false; });
-            y = DrawLibraryGroup(view, y, "User", user, c => c.Name + (c.Source == "override" ? "  (override)" : ""),
-                c => { _command = c; _newEntry = false; });
-            if (SlopWidgets.Button(new Rect(0f, y + SlopWidgets.GapS, view.width, SlopWidgets.BtnH),
-                    "+ New command", SlopWidgets.Btn.Ghost))
+            using (_listScroll.Scope(r, view))
             {
-                _command = new CommandInfo { Name = "new-command", Source = "user" };
-                _newEntry = true;
+                float y = 0f;
+                y = DrawLibraryGroup(view, y, "System", system, c => c.Name,
+                    c => { _command = c; _newEntry = false; });
+                y = DrawLibraryGroup(view, y, "User", user,
+                    c => c.Name + (c.Source == "override" ? "  (override)" : ""),
+                    c => { _command = c; _newEntry = false; });
+                if (SlopWidgets.Button(new Rect(0f, y + SlopWidgets.GapS, view.width, SlopWidgets.BtnH),
+                        "+ New command", SlopWidgets.Btn.Ghost))
+                {
+                    _command = new CommandInfo { Name = "new-command", Source = "user" };
+                    _newEntry = true;
+                }
             }
-            _listScroll.End();
         }
 
         void DrawPresetEditor(Rect r)
@@ -248,13 +252,13 @@ namespace SlopWorld
             bool editable = _newEntry || p.Source != "system";
             var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(PresetEditorHeight(p, r.width - SlopWidgets.ScrollbarW), r.height));
-            _editorScroll.Begin(r, view);
-            float y = 0f;
-            y = DrawPresetFields(view, y, p, editable);
-            EditorButtons(view, y, editable, p.Source, "sandbox", p.Name,
-                () => SessionHub.Instance.SavePreset(p, () => { _newEntry = false; _error = null; }, msg => _error = msg),
-                () => Remove("sandbox", p.Name));
-            _editorScroll.End();
+            using (_editorScroll.Scope(r, view))
+            {
+                float y = DrawPresetFields(view, 0f, p, editable);
+                EditorButtons(view, y, editable, p.Source, "sandbox", p.Name,
+                    () => SessionHub.Instance.SavePreset(p, () => { _newEntry = false; _error = null; }, msg => _error = msg),
+                    () => Remove("sandbox", p.Name));
+            }
         }
 
         float DrawPresetFields(Rect view, float y, PresetInfo p, bool editable)
@@ -333,36 +337,37 @@ namespace SlopWorld
             bool editable = _newEntry || c.Source != "system";
             var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(CommandEditorHeight(c, r.width - SlopWidgets.ScrollbarW), r.height));
-            _editorScroll.Begin(r, view);
-            float y = 0f;
-            EditorTitle(view, ref y, c.Name, c.Source, editable, "command");
-            y = EditorField(view, y, "Name", "command.name", c.Name, _newEntry, v => c.Name = v);
-            y = EditorArea(view, y, "Description", "command.description", c.Description, editable, 44f, v => c.Description = v);
-            y = EditorArea(view, y, "Command line", "command.cmd", c.Cmd, editable, 52f, v => c.Cmd = v);
-            y += SlopWidgets.GapS;
-            SlopWidgets.SectionHeading(new Rect(0f, y, view.width, SlopWidgets.RowH), "Sandbox dependencies");
-            y += SlopWidgets.RowH;
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(new Rect(0f, y, view.width, SlopWidgets.LineH),
-                "These presets are added whenever this command runs.");
-            GUI.color = Color.white;
-            y += SlopWidgets.LineH + SlopWidgets.GapXS;
-            foreach (var p in SessionHub.Instance.Presets.Where(p => p.Name != "global"))
+            using (_editorScroll.Scope(r, view))
             {
-                bool on = c.Sandbox.Contains(p.Name);
-                bool was = on;
-                bool next = SlopWidgets.Checkbox(new Rect(0f, y, view.width, SlopWidgets.RowH), p.Name, on,
-                    p.Description, !editable, p.IsEscape);
-                if (editable && next != was)
-                {
-                    if (next) c.Sandbox.Add(p.Name); else c.Sandbox.Remove(p.Name);
-                }
+                float y = 0f;
+                EditorTitle(view, ref y, c.Name, c.Source, editable, "command");
+                y = EditorField(view, y, "Name", "command.name", c.Name, _newEntry, v => c.Name = v);
+                y = EditorArea(view, y, "Description", "command.description", c.Description, editable, 44f, v => c.Description = v);
+                y = EditorArea(view, y, "Command line", "command.cmd", c.Cmd, editable, 52f, v => c.Cmd = v);
+                y += SlopWidgets.GapS;
+                SlopWidgets.SectionHeading(new Rect(0f, y, view.width, SlopWidgets.RowH), "Sandbox dependencies");
                 y += SlopWidgets.RowH;
+                GUI.color = SlopWidgets.Dim;
+                SlopWidgets.RowLabel(new Rect(0f, y, view.width, SlopWidgets.LineH),
+                    "These presets are added whenever this command runs.");
+                GUI.color = Color.white;
+                y += SlopWidgets.LineH + SlopWidgets.GapXS;
+                foreach (var p in SessionHub.Instance.Presets.Where(p => p.Name != "global"))
+                {
+                    bool on = c.Sandbox.Contains(p.Name);
+                    bool was = on;
+                    bool next = SlopWidgets.Checkbox(new Rect(0f, y, view.width, SlopWidgets.RowH), p.Name, on,
+                        p.Description, !editable, p.IsEscape);
+                    if (editable && next != was)
+                    {
+                        if (next) c.Sandbox.Add(p.Name); else c.Sandbox.Remove(p.Name);
+                    }
+                    y += SlopWidgets.RowH;
+                }
+                EditorButtons(view, y + SlopWidgets.GapS, editable, c.Source, "command", c.Name,
+                    () => SessionHub.Instance.SaveCommand(c, () => { _newEntry = false; _error = null; }, msg => _error = msg),
+                    () => Remove("command", c.Name));
             }
-            EditorButtons(view, y + SlopWidgets.GapS, editable, c.Source, "command", c.Name,
-                () => SessionHub.Instance.SaveCommand(c, () => { _newEntry = false; _error = null; }, msg => _error = msg),
-                () => Remove("command", c.Name));
-            _editorScroll.End();
         }
 
         void EditorTitle(Rect view, ref float y, string name, string source, bool editable, string kind)

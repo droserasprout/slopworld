@@ -56,52 +56,51 @@ namespace SlopWorld
 
             var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW, totalH);
 
-            _scroll.Begin(r, view);
-
-            float y = 0f;
-            prev = null;
-            for (int i = 0; i < _matches.Count; i++)
+            using (_scroll.Scope(r, view))
             {
-                string group = Grouped ? GroupOf(i) : null;
-                if (group != null && group != prev)
+
+                float y = 0f;
+                prev = null;
+                for (int i = 0; i < _matches.Count; i++)
                 {
-                    var header = new Rect(0f, y, view.width, GroupH);
-                    GUI.color = SlopWidgets.Faint;
-                    Text.Font = GameFont.Tiny;
-                    SlopWidgets.RowLabel(header, group.ToUpperInvariant());
-                    Text.Font = GameFont.Small;
+                    string group = Grouped ? GroupOf(i) : null;
+                    if (group != null && group != prev)
+                    {
+                        var header = new Rect(0f, y, view.width, GroupH);
+                        GUI.color = SlopWidgets.Faint;
+                        Text.Font = GameFont.Tiny;
+                        SlopWidgets.RowLabel(header, group.ToUpperInvariant());
+                        Text.Font = GameFont.Small;
+                        GUI.color = Color.white;
+                        y += GroupH;
+                        prev = group;
+                    }
+
+                    var row = new Rect(0f, y, view.width, RowH);
+                    bool selected = i == _selectedIndex;
+
+                    RowChrome.Hover(row, selected, true, RowHoverPolicy.Local,
+                        RowSelectionStyle.Palette);
+
+                    if (Widgets.ButtonInvisible(row))
+                    {
+                        _selectedIndex = i;
+                        if (_matches[i].Command.SubAction != null) EnterSub(_matches[i].Command);
+                        else Execute(_matches[i].Command);
+                    }
+
+                    GUI.color = selected ? SlopWidgets.Lead : SlopWidgets.Name;
+                    SlopWidgets.RowLabel(
+                        new Rect(row.x + SlopWidgets.FieldPadX, row.y + SlopWidgets.FieldPadY,
+                            view.width - SlopWidgets.FieldPadX * 2f,
+                            RowH - SlopWidgets.FieldPadY * 2f),
+                        _matches[i].Label);
                     GUI.color = Color.white;
-                    y += GroupH;
-                    prev = group;
+
+                    y += RowH;
                 }
 
-                var row = new Rect(0f, y, view.width, RowH);
-                bool selected = i == _selectedIndex;
-
-                if (selected)
-                    Slab.Fill(row, SlopWidgets.Sel);
-                else
-                    if (Mouse.IsOver(row)) Slab.Fill(row, SlopWidgets.Hover);
-
-                if (Widgets.ButtonInvisible(row))
-                {
-                    _selectedIndex = i;
-                    if (_matches[i].Command.SubAction != null) EnterSub(_matches[i].Command);
-                    else Execute(_matches[i].Command);
-                }
-
-                GUI.color = selected ? SlopWidgets.Lead : SlopWidgets.Name;
-                SlopWidgets.RowLabel(
-                    new Rect(row.x + SlopWidgets.FieldPadX, row.y + SlopWidgets.FieldPadY,
-                        view.width - SlopWidgets.FieldPadX * 2f,
-                        RowH - SlopWidgets.FieldPadY * 2f),
-                    _matches[i].Label);
-                GUI.color = Color.white;
-
-                y += RowH;
             }
-
-            _scroll.End();
         }
 
         // A filtered list is ranked rather than grouped: the answer is the top row, and a
@@ -133,58 +132,57 @@ namespace SlopWorld
             float totalH = options.Count * RowH;
             var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW, totalH);
 
-            _scroll.Begin(r, view);
-
-            float y = 0f;
-            for (int i = 0; i < options.Count; i++)
+            using (_scroll.Scope(r, view))
             {
-                var row = new Rect(0f, y, view.width, RowH);
-                bool selected = i == _subIndex;
 
-                if (selected)
-                    Slab.Fill(row, SlopWidgets.Sel);
-                else
-                    if (Mouse.IsOver(row)) Slab.Fill(row, SlopWidgets.Hover);
-
-                if (Widgets.ButtonInvisible(row))
+                float y = 0f;
+                for (int i = 0; i < options.Count; i++)
                 {
-                    _subIndex = i;
-                    ExecuteSub();
+                    var row = new Rect(0f, y, view.width, RowH);
+                    bool selected = i == _subIndex;
+
+                    RowChrome.Hover(row, selected, true, RowHoverPolicy.Local,
+                        RowSelectionStyle.Palette);
+
+                    if (Widgets.ButtonInvisible(row))
+                    {
+                        _subIndex = i;
+                        ExecuteSub();
+                    }
+
+                    float left = row.x + SlopWidgets.FieldPadX;
+
+                    // The checkbox goes before the label, the way a settings page draws one,
+                    // and the label starts after it. Rows without one keep the whole line:
+                    // a list is all ticks or none, so nothing is left hanging.
+                    var box = options[i].O.Checked;
+                    if (box.HasValue)
+                    {
+                        SlopWidgets.TickBox(new Rect(left, row.y, SlopWidgets.TickW, RowH),
+                            box.Value);
+                        left += SlopWidgets.TickColW;
+                    }
+
+                    if (!options[i].O.Enabled)
+                    {
+                        GUI.color = SlopWidgets.Off;
+                    }
+                    else
+                    {
+                        GUI.color = selected ? SlopWidgets.Lead : SlopWidgets.Name;
+                    }
+
+                    SlopWidgets.RowLabel(
+                        new Rect(left, row.y + SlopWidgets.FieldPadY,
+                            row.xMax - SlopWidgets.FieldPadX - left,
+                            RowH - SlopWidgets.FieldPadY * 2f),
+                        options[i].Label);
+                    GUI.color = Color.white;
+
+                    y += RowH;
                 }
 
-                float left = row.x + SlopWidgets.FieldPadX;
-
-                // The checkbox goes before the label, the way a settings page draws one,
-                // and the label starts after it. Rows without one keep the whole line:
-                // a list is all ticks or none, so nothing is left hanging.
-                var box = options[i].O.Checked;
-                if (box.HasValue)
-                {
-                    SlopWidgets.TickBox(new Rect(left, row.y, SlopWidgets.TickW, RowH),
-                        box.Value);
-                    left += SlopWidgets.TickColW;
-                }
-
-                if (!options[i].O.Enabled)
-                {
-                    GUI.color = SlopWidgets.Off;
-                }
-                else
-                {
-                    GUI.color = selected ? SlopWidgets.Lead : SlopWidgets.Name;
-                }
-
-                SlopWidgets.RowLabel(
-                    new Rect(left, row.y + SlopWidgets.FieldPadY,
-                        row.xMax - SlopWidgets.FieldPadX - left,
-                        RowH - SlopWidgets.FieldPadY * 2f),
-                    options[i].Label);
-                GUI.color = Color.white;
-
-                y += RowH;
             }
-
-            _scroll.End();
         }
     }
 }

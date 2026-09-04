@@ -62,27 +62,28 @@ namespace SlopWorld
             var pad = outer.ContractedBy(SlopWidgets.GapS);
             var view = new Rect(0f, 0f, pad.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(Height(data, pad.width - SlopWidgets.ScrollbarW), pad.height));
-            scroll.Begin(pad, view);
-
-            float y = 0f;
-            y = TextBlock(view.width, y, data.Title, SlopWidgets.Lead);
-            y += SlopWidgets.GapXS;
-            if (!string.IsNullOrEmpty(data.Subtitle))
+            using (scroll.Scope(pad, view))
             {
-                y = TextBlock(view.width, y, data.Subtitle, SlopWidgets.Dim);
+
+                float y = 0f;
+                y = TextBlock(view.width, y, data.Title, SlopWidgets.Lead);
                 y += SlopWidgets.GapXS;
-            }
-            if (data.Notes.Count > 0)
-            {
-                y = TextBlock(view.width, y, string.Join("\n", data.Notes.ToArray()),
-                    SlopWidgets.Faint);
-                y += SlopWidgets.GapS;
-            }
+                if (!string.IsNullOrEmpty(data.Subtitle))
+                {
+                    y = TextBlock(view.width, y, data.Subtitle, SlopWidgets.Dim);
+                    y += SlopWidgets.GapXS;
+                }
+                if (data.Notes.Count > 0)
+                {
+                    y = TextBlock(view.width, y, string.Join("\n", data.Notes.ToArray()),
+                        SlopWidgets.Faint);
+                    y += SlopWidgets.GapS;
+                }
 
-            foreach (var field in data.Fields)
-                y = Field(view.width, y, field);
+                foreach (var field in data.Fields)
+                    y = Field(view.width, y, field);
 
-            scroll.End();
+            }
         }
 
         static float Height(SandboxPreviewData data, float width)

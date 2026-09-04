@@ -485,7 +485,6 @@ namespace SlopWorld
             public readonly Func<EditLibraryItemDialog, bool> ShowProject;
             public readonly Func<EditLibraryItemDialog, string> ProjectLabel;
             public readonly Func<EditLibraryItemDialog, string> ProjectValue;
-            public readonly Action<EditLibraryItemDialog> PickProject;
             public readonly Func<EditLibraryItemDialog, ProjectInfo, string> ExplainText;
             public readonly string CommandLabel;
             public readonly Func<EditLibraryItemDialog, string> CommandPlaceholder;
@@ -494,7 +493,6 @@ namespace SlopWorld
                 Func<EditLibraryItemDialog, bool> showProject,
                 Func<EditLibraryItemDialog, string> projectLabel,
                 Func<EditLibraryItemDialog, string> projectValue,
-                Action<EditLibraryItemDialog> pickProject,
                 Func<EditLibraryItemDialog, ProjectInfo, string> explainText,
                 string commandLabel, Func<EditLibraryItemDialog, string> commandPlaceholder)
             {
@@ -503,7 +501,6 @@ namespace SlopWorld
                 ShowProject = showProject;
                 ProjectLabel = projectLabel;
                 ProjectValue = projectValue;
-                PickProject = pickProject;
                 ExplainText = explainText;
                 CommandLabel = commandLabel;
                 CommandPlaceholder = commandPlaceholder;
@@ -524,7 +521,6 @@ namespace SlopWorld
                         dialog => string.IsNullOrEmpty(dialog._s.Project)
                             ? (dialog._s.Link == LibraryItemLink.Temp ? "None" : "Pick a project...")
                             : dialog._s.Project,
-                        dialog => dialog.PickProject(),
                         (dialog, project) => dialog.Explain(project),
                         "Agent (blank = the default)", dialog => dialog._agentDefault)
                 },
@@ -539,7 +535,6 @@ namespace SlopWorld
                         dialog => string.IsNullOrEmpty(dialog._s.Project)
                             ? (dialog._s.Link == LibraryItemLink.Temp ? "None" : "Pick a project...")
                             : dialog._s.Project,
-                        dialog => dialog.PickProject(),
                         (dialog, project) => dialog.Explain(project),
                         "Shell (blank = the default)", dialog => dialog._shellDefault)
                 },
@@ -550,7 +545,6 @@ namespace SlopWorld
                         dialog => true,
                         dialog => "Project (attach to every agent in this project)",
                         dialog => string.IsNullOrEmpty(dialog._s.Project) ? "None" : dialog._s.Project,
-                        dialog => dialog.PickBreadcrumbProject(),
                         (dialog, project) =>
                             "Attach this text to projects and agents; it is not runnable.",
                         null, null)
@@ -560,7 +554,7 @@ namespace SlopWorld
                     new LibraryItemKindDescriptor(
                         "File action - run on a Files row", false,
                         dialog => false,
-                        null, null, null,
+                        null, null,
                         (dialog, project) =>
                             "This command is offered by the Files sidebar; use {{ absolute_path }} or {{ relative_path }}.",
                         "Command (path is appended unless substituted)", dialog => dialog._agentDefault)
@@ -664,15 +658,13 @@ namespace SlopWorld
         void DrawKindAndLink(Listing_Standard l, LibraryItemKindDescriptor kind)
         {
             l.Gap(SlopWidgets.GapS);
-            l.Label("Kind");
-            if (SlopWidgets.Button(l, kind.ButtonLabel))
-                PickKind();
+            SlopWidgets.Select(l, "Kind", kind.ButtonLabel, KindOptions(), out _,
+                openMenu: TerminalWindow.OpenOverPane);
 
             if (!kind.ShowWhere) return;
             l.Gap(SlopWidgets.GapS);
-            l.Label("Where it runs");
-            if (SlopWidgets.Button(l, LinkLabel(_s.Link)))
-                PickLink();
+            SlopWidgets.Select(l, "Where it runs", LinkLabel(_s.Link), LinkOptions(), out _,
+                openMenu: TerminalWindow.OpenOverPane);
         }
 
         void DrawProject(Listing_Standard l, LibraryItemKindDescriptor kind)
@@ -681,18 +673,18 @@ namespace SlopWorld
             // it still answers which sandbox the scratch project is given.
             if (!kind.ShowProject(this)) return;
             l.Gap(SlopWidgets.GapS);
-            l.Label(kind.ProjectLabel(this));
-            if (SlopWidgets.Button(l, kind.ProjectValue(this)))
-                kind.PickProject(this);
+            SlopWidgets.Select(l, kind.ProjectLabel(this), kind.ProjectValue(this),
+                ProjectOptions(_s.Kind == LibraryItemKind.Breadcrumb), out _,
+                openMenu: TerminalWindow.OpenOverPane);
         }
 
         void DrawFileActionMode(Listing_Standard l)
         {
             if (_s.Kind != LibraryItemKind.FileAction) return;
             l.Gap(SlopWidgets.GapS);
-            l.Label("After choosing the file action");
-            if (SlopWidgets.Button(l, FileActionModeText.Label(_s.Mode)))
-                PickFileActionMode();
+            SlopWidgets.Select(l, "After choosing the file action",
+                FileActionModeText.Label(_s.Mode), FileActionModeOptions(), out _,
+                openMenu: TerminalWindow.OpenOverPane);
         }
 
         void DrawExplanation(Listing_Standard l, LibraryItemKindDescriptor kind)
@@ -789,77 +781,59 @@ namespace SlopWorld
             }
         }
 
-        void PickLink()
+        IEnumerable<SelectorOption> LinkOptions()
         {
-            TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
+            return new[]
             {
-                new FloatMenuOption(LinkLabel(LibraryItemLink.Project),
+                new SelectorOption(LinkLabel(LibraryItemLink.Project),
                     () => _s.Link = LibraryItemLink.Project),
-                new FloatMenuOption(LinkLabel(LibraryItemLink.Temp),
+                new SelectorOption(LinkLabel(LibraryItemLink.Temp),
                     () => _s.Link = LibraryItemLink.Temp),
-                new FloatMenuOption(LinkLabel(LibraryItemLink.Ask),
+                new SelectorOption(LinkLabel(LibraryItemLink.Ask),
                     () => _s.Link = LibraryItemLink.Ask),
-            }));
+            };
         }
 
-        void PickFileActionMode()
+        IEnumerable<SelectorOption> FileActionModeOptions()
         {
-            TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
+            return new[]
             {
-                new FloatMenuOption(FileActionModeText.Label(FileActionMode.Nothing),
+                new SelectorOption(FileActionModeText.Label(FileActionMode.Nothing),
                     () => _s.Mode = FileActionMode.Nothing),
-                new FloatMenuOption(FileActionModeText.Label(FileActionMode.Ask),
+                new SelectorOption(FileActionModeText.Label(FileActionMode.Ask),
                     () => _s.Mode = FileActionMode.Ask),
-                new FloatMenuOption(FileActionModeText.Label(FileActionMode.ShowResult),
+                new SelectorOption(FileActionModeText.Label(FileActionMode.ShowResult),
                     () => _s.Mode = FileActionMode.ShowResult),
-                new FloatMenuOption(FileActionModeText.Label(FileActionMode.OpenTerminal),
+                new SelectorOption(FileActionModeText.Label(FileActionMode.OpenTerminal),
                     () => _s.Mode = FileActionMode.OpenTerminal),
-            }));
+            };
         }
 
-        void PickKind()
+        IEnumerable<SelectorOption> KindOptions()
         {
-            TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
+            return new[]
             {
-                new FloatMenuOption("Prompt - say something to an agent",
+                new SelectorOption("Prompt - say something to an agent",
                     () => { _s.Kind = LibraryItemKind.Prompt; _s.Mode = FileActionMode.Ask; }),
-                new FloatMenuOption("Shell - run a command",
+                new SelectorOption("Shell - run a command",
                     () => { _s.Kind = LibraryItemKind.Shell; _s.Mode = FileActionMode.Ask; }),
-                new FloatMenuOption("Breadcrumb - append to the first prompt",
+                new SelectorOption("Breadcrumb - append to the first prompt",
                     () => { _s.Kind = LibraryItemKind.Breadcrumb; _s.Mode = FileActionMode.Ask; _s.Link = LibraryItemLink.Project; _s.Project = ""; }),
-                new FloatMenuOption("File action - run on a Files row",
+                new SelectorOption("File action - run on a Files row",
                     () => { _s.Kind = LibraryItemKind.FileAction; _s.Mode = FileActionMode.Ask; _s.Link = LibraryItemLink.Project; _s.Project = ""; _s.Text = ""; }),
-            }));
+            };
         }
 
-        void PickBreadcrumbProject()
+        IEnumerable<SelectorOption> ProjectOptions(bool breadcrumb)
         {
             var options = SessionHub.Instance.Projects
-                .Select(p => new FloatMenuOption($"{p.Name}  -  {p.Dir}",
-                    () => _s.Project = p.Name))
-                .ToList();
-            options.Insert(0, new FloatMenuOption("None", () => _s.Project = ""));
-            options.Add(new FloatMenuOption("New project...",
+                .Select(p => new SelectorOption($"{p.Name}  -  {p.Dir}",
+                    () => _s.Project = p.Name)).ToList();
+            if (breadcrumb || _s.Link == LibraryItemLink.Temp)
+                options.Insert(0, new SelectorOption("None", () => _s.Project = ""));
+            options.Add(new SelectorOption("New project...",
                 () => TerminalWindow.OpenOverPane(new EditProjectDialog(null))));
-            TerminalWindow.OpenOverPane(new SlopMenu(options));
-        }
-
-        void PickProject()
-        {
-            var options = SessionHub.Instance.Projects
-                .Select(p => new FloatMenuOption($"{p.Name}  -  {p.Dir}",
-                    () => _s.Project = p.Name))
-                .ToList();
-
-            // Only where it means something: in temp mode the project is the sandbox to copy,
-            // and copying nobody's is a real answer.
-            if (_s.Link == LibraryItemLink.Temp)
-                options.Insert(0, new FloatMenuOption("None", () => _s.Project = ""));
-
-            options.Add(new FloatMenuOption("New project...",
-                () => TerminalWindow.OpenOverPane(new EditProjectDialog(null))));
-
-            TerminalWindow.OpenOverPane(new SlopMenu(options));
+            return options;
         }
 
         void Save()

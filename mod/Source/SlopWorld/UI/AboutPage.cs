@@ -153,12 +153,13 @@ namespace SlopWorld
                 _contentHeight > 0f ? _contentHeight : FirstPassHeight);
             var view = new Rect(0f, 0f, viewWidth, viewHeight);
 
-            _scroll.Begin(inner, view);
-            var content = new Rect(ContentPaddingX, ContentPaddingY,
-                Mathf.Max(1f, view.width - ContentPaddingX * 2f),
-                Mathf.Max(1f, view.height - ContentPaddingY * 2f));
-            _contentHeight = DrawCredits(content) + ContentPaddingY;
-            _scroll.End();
+            using (_scroll.Scope(inner, view))
+            {
+                var content = new Rect(ContentPaddingX, ContentPaddingY,
+                    Mathf.Max(1f, view.width - ContentPaddingX * 2f),
+                    Mathf.Max(1f, view.height - ContentPaddingY * 2f));
+                _contentHeight = DrawCredits(content) + ContentPaddingY;
+            }
 
             AdvanceAutoScroll(inner, _contentHeight);
         }
@@ -187,21 +188,20 @@ namespace SlopWorld
                 _rimWorldContentHeight > 0f ? _rimWorldContentHeight : 1800f);
             var view = new Rect(0f, 0f, viewWidth, viewHeight);
 
-            _rimWorldScroll.Begin(inner, view);
-            var content = new Rect(ContentPaddingX, ContentPaddingY,
-                Mathf.Max(1f, view.width - ContentPaddingX * 2f),
-                Mathf.Max(1f, view.height - ContentPaddingY * 2f));
-
-            float y = DrawRimWorldHeader(content, content.y);
-            y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Graphics,
-                "DoVideoOptions");
-            y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Interface,
-                "DoUIOptions");
-            y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Controls,
-                "DoControlsOptions");
-
-            _rimWorldContentHeight = y + ContentPaddingY;
-            _rimWorldScroll.End();
+            using (_rimWorldScroll.Scope(inner, view))
+            {
+                var content = new Rect(ContentPaddingX, ContentPaddingY,
+                    Mathf.Max(1f, view.width - ContentPaddingX * 2f),
+                    Mathf.Max(1f, view.height - ContentPaddingY * 2f));
+                float y = DrawRimWorldHeader(content, content.y);
+                y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Graphics,
+                    "DoVideoOptions");
+                y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Interface,
+                    "DoUIOptions");
+                y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Controls,
+                    "DoControlsOptions");
+                _rimWorldContentHeight = y + ContentPaddingY;
+            }
         }
 
         float DrawRimWorldHeader(Rect rect, float y)

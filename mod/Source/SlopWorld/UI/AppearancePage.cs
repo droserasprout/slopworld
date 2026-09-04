@@ -41,11 +41,8 @@ namespace SlopWorld
                 caption.y - inner.y - SlopWidgets.GapS);
             var view = new Rect(0f, 0f, form.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(_fieldsH, form.height));
-            _scroll.Begin(form, view);
-
-            _fieldsH = DrawFields(view);
-
-            _scroll.End();
+            using (_scroll.Scope(form, view))
+                _fieldsH = DrawFields(view);
 
             // ---- preview
             SlopWidgets.SectionHeading(caption, "Preview");
@@ -316,7 +313,7 @@ namespace SlopWorld
                 GUI.color = Color.white;
             }
 
-            if (Mouse.IsOver(box)) Slab.Fill(box, SlopWidgets.Hover);
+            RowChrome.Hover(box, false, true, RowHoverPolicy.Local);
             TooltipHandler.TipRegion(box, new TipSignal(
                 DeadCursor.LabelFor(DeadCursor.CurrentKey) + ". Click to choose a cursor.",
                 0x51_0F_0100));
@@ -376,9 +373,8 @@ namespace SlopWorld
 
             var gridRect = new Rect(r.x + (r.width - gridW) / 2f, gridTop, gridW, gridH);
             var view = new Rect(0f, 0f, gridW, Mathf.Max(totalH, gridH));
-            _pickScroll.Begin(gridRect, view);
-            DrawCursorGrid(view, perLine, count, cell);
-            _pickScroll.End();
+            using (_pickScroll.Scope(gridRect, view))
+                DrawCursorGrid(view, perLine, count, cell);
         }
 
         void DrawCursorGrid(Rect view, int perLine, int count, float cell)
@@ -393,8 +389,8 @@ namespace SlopWorld
                 var choice = DeadCursor.Choices[i];
                 string key = choice.Key;
 
-                if (DeadCursor.CurrentKey == key) Slab.Fill(slot, SlopWidgets.RowOn);
-                if (Mouse.IsOver(slot)) Slab.Fill(slot, SlopWidgets.Hover);
+                RowChrome.Hover(slot, DeadCursor.CurrentKey == key, true,
+                    RowHoverPolicy.Local);
                 var tex = DeadCursor.Preview(choice);
                 if (tex != null)
                     GUI.DrawTexture(new Rect(slot.x + (cell - iconSize) / 2f,

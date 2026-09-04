@@ -43,11 +43,8 @@ namespace SlopWorld
                 caption.y - inner.y - SlopWidgets.GapS);
             var view = new Rect(0f, 0f, form.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(_fieldsH, form.height));
-            _scroll.Begin(form, view);
-
-            _fieldsH = DrawFields(view, s);
-
-            _scroll.End();
+            using (_scroll.Scope(form, view))
+                _fieldsH = DrawFields(view, s);
 
             // Re-taken: moving the slider invalidated the style a few lines up, so the one
             // from before it is a size out of date and the preview would sit a frame behind

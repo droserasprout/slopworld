@@ -145,16 +145,17 @@ namespace SlopWorld
         // padding, minimums or the screen's maximum readable width.
         public static float WidthFor(IEnumerable<string> labels)
         {
-            var was = Text.Font;
-            Text.Font = GameFont.Small;
-            float widest = 0f;
-            if (labels != null)
+            using (WidgetState.Save())
             {
-                foreach (var label in labels)
-                    widest = Mathf.Max(widest, SlopWidgets.Wide(label));
+                Text.Font = GameFont.Small;
+                float widest = 0f;
+                if (labels != null)
+                {
+                    foreach (var label in labels)
+                        widest = Mathf.Max(widest, SlopWidgets.Wide(label));
+                }
+                return Mathf.Clamp(widest + PadX * 2f, MinW, MaxW);
             }
-            Text.Font = was;
-            return Mathf.Clamp(widest + PadX * 2f, MinW, MaxW);
         }
 
         static float Height(FloatMenuOption option) =>
@@ -249,6 +250,11 @@ namespace SlopWorld
 
         public override void DoWindowContents(Rect rect)
         {
+            using (WidgetState.Save()) DrawContents(rect);
+        }
+
+        void DrawContents(Rect rect)
+        {
             // A submenu can be populated by an asynchronous host query after it opens. Its
             // list is shared with the caller, so measure it again and let the child follow its
             // parent row when the application entries arrive.
@@ -286,21 +292,25 @@ namespace SlopWorld
             // row that lights and for the row whose list opens.
             int hot = Hot(new Rect(inner.x, inner.y, view.width, inner.height));
 
-            Text.Font = GameFont.Small;
-            _scroll.Begin(inner, view);
-
-            // Stops at the row that was pressed. The press closes the menu and may open
-            // another one, and drawing the rest of a list that is already gone is at best
-            // wasted and at worst a second option answering the same click.
-            float y = 0f;
-            for (int i = 0; i < _options.Count; i++)
+            var wasFont = Text.Font;
+            try
             {
-                float h = Height(_options[i]);
-                if (Row(new Rect(0f, y, view.width, h), _options[i], i, hot == i)) break;
-                y += h;
+                Text.Font = GameFont.Small;
+                using (_scroll.Scope(inner, view))
+                {
+                    // Stops at the row that was pressed. The press closes the menu and may open
+                    // another one, and drawing the rest of a list that is already gone is at best
+                    // wasted and at worst a second option answering the same click.
+                    float y = 0f;
+                    for (int i = 0; i < _options.Count; i++)
+                    {
+                        float h = Height(_options[i]);
+                        if (Row(new Rect(0f, y, view.width, h), _options[i], i, hot == i)) break;
+                        y += h;
+                    }
+                }
             }
-
-            _scroll.End();
+            finally { Text.Font = wasFont; }
 
             if (Event.current.type == EventType.Repaint) Pointer(hot);
         }
@@ -393,7 +403,8 @@ namespace SlopWorld
             bool nest = o is SlopSubmenu;
             bool lit = over || _open == i || _selected == i;
 
-            if (lit) Slab.Fill(r, SlopWidgets.Hover);
+            RowChrome.Hover(r, _selected == i, on, lit, RowHoverPolicy.Local,
+                RowSelectionStyle.Hover);
             if (o.tooltip.HasValue) TooltipHandler.TipRegion(r, o.tooltip.Value);
 
             // The extra part is the checkbox [SlopWidgets.MenuToggle] draws, before the

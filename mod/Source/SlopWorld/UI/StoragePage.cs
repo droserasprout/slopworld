@@ -81,10 +81,9 @@ namespace SlopWorld
                 inner.width, inner.yMax - inner.y - SlopWidgets.LineH - SlopWidgets.GapS);
             var view = new Rect(0f, 0f, list.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(list.height, _entries.Count * Pitch));
-            _scroll.Begin(list, view);
-            for (int i = 0; i < _entries.Count; i++)
-                DrawRow(new Rect(0f, i * Pitch, view.width, Pitch - 4f), _entries[i]);
-            _scroll.End();
+            using (_scroll.Scope(list, view))
+                for (int i = 0; i < _entries.Count; i++)
+                    DrawRow(new Rect(0f, i * Pitch, view.width, Pitch - 4f), _entries[i]);
 
             if (_entries.Count == 0)
             {

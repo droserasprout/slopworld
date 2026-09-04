@@ -60,14 +60,17 @@ namespace SlopWorld
         {
             var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
                 Mathf.Max(_fieldsH, r.height));
-            _scroll.Begin(r, view);
-
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(new Rect(0f, 0f, view.width, 4000f));
-            DrawFields(l);
-            _fieldsH = l.CurHeight + SlopWidgets.GapS;
-            l.End();
-            _scroll.End();
+            using (_scroll.Scope(r, view))
+            {
+                var l = new Listing_Standard { maxOneColumn = true };
+                l.Begin(new Rect(0f, 0f, view.width, 4000f));
+                try
+                {
+                    DrawFields(l);
+                    _fieldsH = l.CurHeight + SlopWidgets.GapS;
+                }
+                finally { l.End(); }
+            }
         }
 
         void DoFooter(Rect bar)
