@@ -189,7 +189,7 @@ namespace SlopWorld
         static void OpenInApp(string path, string desktopFile)
         {
             if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(desktopFile)) return;
-            string command = FileActionCommand(
+            string command = PagerCommands.FileActionCommand(
                 "gio launch " + Pager.Quote(desktopFile) + " {{ absolute_path }}", path, null);
             HostFileAction(path, command);
         }
@@ -247,7 +247,7 @@ namespace SlopWorld
             LibraryItemInfo action)
         {
             bool host = string.IsNullOrEmpty(project);
-            var command = FileActionCommand(action.Command, path, relative);
+            var command = PagerCommands.FileActionCommand(action.Command, path, relative);
             if (action.Mode == FileActionMode.Nothing)
             {
                 RunFileActionSilently(project, path, command, host);
@@ -329,26 +329,6 @@ namespace SlopWorld
             SessionHub.Instance.Run(project, command, "fa-" + name,
                 session => TerminalWindow.Open(session), SlopWidgets.Fail,
                 host: host, temp: host, path: path, hold: true);
-        }
-
-        // File actions are shell command lines. Substitute quoted values so paths remain one
-        // argv even when they contain spaces or shell metacharacters. Without a placeholder the
-        // absolute path is appended as the final argument.
-        static string FileActionCommand(string template, string path, string relativePath)
-        {
-            string command = (template ?? "").Trim();
-            string absolute = Pager.Quote(path);
-            string relative = Pager.Quote(relativePath ?? ".");
-            bool substituted = false;
-            foreach (var marker in new[] { "{{ absolute_path }}", "{{ relative_path }}" })
-            {
-                if (command.Contains(marker))
-                {
-                    command = command.Replace(marker, relative);
-                    substituted = true;
-                }
-            }
-            return substituted ? command : command + " " + absolute;
         }
 
         static string ProjectRelative(string project, string path)

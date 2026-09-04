@@ -9,6 +9,7 @@ namespace SlopWorld.Tests
         {
             yield return ("quotes argv the way a shell would", QuotesArgv);
             yield return ("templates file and line into commands", TemplatesFileAndLine);
+            yield return ("templates file actions with the requested path", FileActionPaths);
             yield return ("builds pager and editor invocations", BuildsPagerAndEditor);
             yield return ("recognizes configured pager and editor commands", RecognizesCommands);
         }
@@ -28,6 +29,21 @@ namespace SlopWorld.Tests
                            "the fallback is used and no line is appended");
             AssertEx.Equal("code -g '/f':7", PagerCommands.FileCommand("code -g {file}:{line}", "less", "/f", 7),
                            "placeholders are filled instead of appended");
+        }
+
+        static void FileActionPaths()
+        {
+            AssertEx.Equal("rm -- '/repo/file name'",
+                PagerCommands.FileActionCommand("rm -- {{ absolute_path }}", "/repo/file name",
+                    "file name"),
+                "the absolute placeholder keeps the host path");
+            AssertEx.Equal("rm -- 'file name'",
+                PagerCommands.FileActionCommand("rm -- {{ relative_path }}", "/repo/file name",
+                    "file name"),
+                "the relative placeholder keeps the project-relative path");
+            AssertEx.Equal("rm '/repo/file name'",
+                PagerCommands.FileActionCommand("rm", "/repo/file name", "file name"),
+                "a placeholderless action appends the absolute path");
         }
 
         static void BuildsPagerAndEditor()

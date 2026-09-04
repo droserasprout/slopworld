@@ -14,6 +14,28 @@ namespace SlopWorld
         // lines out of paths they were handed, so the quoting lives here.
         public static string Quote(string s) => "'" + (s ?? "").Replace("'", "'\\''") + "'";
 
+        // File actions support both the path as it appears on the host and the path relative
+        // to the project root. Without either placeholder, preserve the historical behavior
+        // of appending the absolute path as the final argument.
+        public static string FileActionCommand(string template, string path, string relativePath)
+        {
+            string command = (template ?? "").Trim();
+            string absolute = Quote(path);
+            string relative = Quote(relativePath ?? ".");
+            bool substituted = false;
+            if (command.Contains("{{ absolute_path }}"))
+            {
+                command = command.Replace("{{ absolute_path }}", absolute);
+                substituted = true;
+            }
+            if (command.Contains("{{ relative_path }}"))
+            {
+                command = command.Replace("{{ relative_path }}", relative);
+                substituted = true;
+            }
+            return substituted ? command : command + " " + absolute;
+        }
+
         static string App(string value, string fallback) =>
             string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 
